@@ -138,7 +138,7 @@ export default async function AgentPageRoute({ params }: PageProps) {
               <SummaryRow label="Primary action" value={page.cta_label || 'Visit website'} />
               {page.last_booking && (
                 <SummaryRow 
-                  label="Last booking via Calendly" 
+                  label="Recent booking activity" 
                   value={`${page.last_booking.event_name} on ${new Date(page.last_booking.at).toLocaleDateString()}`} 
                 />
               )}

@@ -853,13 +853,66 @@ export default function EditAgentPage({ params }: PageProps) {
                     </div>
                   )}
                   {integrationStatus.shopify && (
-                    <div className="rounded border border-purple-300/30 bg-purple-400/5 px-2 py-1 text-purple-200">
+                    <div className="flex items-center gap-2 rounded border border-purple-300/30 bg-purple-400/5 px-2 py-1 text-purple-200">
                       Shopify ✓ <span className="text-[10px] text-zinc-400">({new Date(integrationStatus.shopify.lastImport).toLocaleDateString()})</span>
+                      <button
+                        type="button"
+                        disabled={!!integrationResyncing}
+                        onClick={async () => {
+                          setIntegrationResyncing('shopify')
+                          try {
+                            let shop = sessionStorage.getItem('nexez_last_shopify_shop') || ''
+                            let token = sessionStorage.getItem('nexez_last_shopify_token') || ''
+
+                            if (!shop) {
+                              shop = prompt('Shopify store domain (yourstore.myshopify.com):') || ''
+                              if (shop) sessionStorage.setItem('nexez_last_shopify_shop', shop)
+                            }
+                            if (!token) {
+                              token = prompt('Admin API token (optional for public catalogs, leave blank for public):') || ''
+                              if (token) sessionStorage.setItem('nexez_last_shopify_token', token)
+                            }
+                            if (!shop) {
+                              setIntegrationResyncing(null)
+                              return
+                            }
+
+                            const res = await fetch('/api/integrations/shopify/import', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ shop, accessToken: token }),
+                            })
+                            const data = await res.json()
+                            if (data.structuredOffers?.length) {
+                              const incoming = data.structuredOffers as OfferItem[]
+                              const newCount = incoming.filter(inc =>
+                                !servicesOffers.some(e => e.name.toLowerCase() === inc.name.toLowerCase())
+                              ).length
+                              const updateCount = incoming.length - newCount
+                              setPendingReanalysis({
+                                incomingServices: incoming,
+                                incomingProducts: [],
+                                summary: `Shopify re-sync: ${incoming.length} products (${newCount} new, ${updateCount} potentially updated). Smart merge protects your edits.`,
+                              })
+                              setMessage('Shopify catalog loaded into re-analysis preview.')
+                            } else {
+                              setMessage(data.error || 'No products returned from Shopify.')
+                            }
+                          } catch (e: any) {
+                            setMessage('Shopify re-sync failed: ' + e.message)
+                          } finally {
+                            setIntegrationResyncing(null)
+                          }
+                        }}
+                        className="ml-1 text-[10px] rounded border border-purple-300/50 px-1.5 py-0 text-purple-100 hover:bg-purple-400/10 disabled:opacity-50"
+                      >
+                        {integrationResyncing === 'shopify' ? '...' : 'Re-sync'}
+                      </button>
                     </div>
                   )}
                 </div>
                 <p className="mt-2 text-[10px] text-zinc-500">
-                  Use the Re-sync buttons above for quick updates, or go to <a href={`/dashboard/${id}/settings`} className="underline">Settings</a> / <a href="/dashboard/tools" className="underline">Tools</a> for full control.
+                  Re-sync keeps source metadata (via stripe, via shopify, etc.) and feeds the smart merge preview. Full control in <a href={`/dashboard/${id}/settings`} className="underline">Settings</a> or <a href="/dashboard/tools" className="underline">Tools</a>.
                 </p>
               </div>
             )}

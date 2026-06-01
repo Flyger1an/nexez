@@ -197,8 +197,11 @@ Phase 2 is locked and complete.
   - **Major new value**: `lib/checkout-events.ts` now automatically fires the page's `outbound_webhooks` on real Nexez-driven events (`provider_redirect`, `stripe_session_created`, `checkout_attempt`). Outbound is now valuable for bookings that agents complete through the Nexez checkout itself.
   - Stripe import produces richer OfferItem shape (recurring → duration + tiers, metadata for future price webhooks).
   - Editor "Connected Integrations" status is now actionable for both Calendly and Stripe: Re-sync buttons trigger rich import + pendingReanalysis/smart-merge preview directly in the editor (full parity for the two primary pro integrations).
-  - Dedicated /dashboard/integrations status dashboard strengthened with clear outbound webhooks callout (per-page config fires automatically on Nexez checkout events + Calendly bookings).
-  - Build + existing tests remain green.
+  - Editor Connected Integrations now fully actionable for Calendly, Stripe, and Shopify (complete re-sync trio with rich import + smart merge preview).
+  - Source badges in VisualOfferBuilder are now color-coded by provider (cyan/purple/violet).
+  - Public page "Recent booking activity" label generalized (starts moving toward broader availability hints).
+  - Dedicated integrations status dashboard highlights outbound power.
+  - Build + tests green.
 
 **Duration / Effort**: 8–10 days.
 
