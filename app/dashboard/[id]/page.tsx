@@ -924,6 +924,20 @@ export default function EditAgentPage({ params }: PageProps) {
               </div>
             )}
 
+            {/* Phase 3: Availability (Google Calendar track foundation) */}
+            <div className="mb-4 rounded-lg border border-white/10 bg-white/[0.02] p-4">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium text-zinc-300">Availability for agents</span>
+                <a href="#next-available" className="text-[10px] text-cyan-400 hover:text-cyan-300">Edit →</a>
+              </div>
+              <div className="text-sm text-emerald-200">
+                {nextAvailable ? nextAvailable : 'Not set — agents will see "Contact for current slots"'}
+              </div>
+              <p className="mt-1 text-[10px] text-zinc-500">
+                Shown in agent.json and public page. Will support Google Calendar sync in future.
+              </p>
+            </div>
+
             {/* Phase 1 A: Re-analysis preview / diff */}
             {pendingReanalysis && (
               <div className="rounded-xl border border-[#7C3AED]/30 bg-[#1A1625] p-5">
@@ -932,7 +946,10 @@ export default function EditAgentPage({ params }: PageProps) {
                     <p className="font-medium text-[#C4B5FD]">Re-analysis Preview</p>
                     <p className="text-sm text-zinc-400">{pendingReanalysis.summary}</p>
                     {pendingReanalysis.incomingServices?.some((o: any) => o.source) && (
-                      <p className="mt-1 text-[10px] text-blue-400">Includes offers from integrations (source preserved)</p>
+                      <p className="mt-1 text-[10px] text-blue-400">
+                        Includes offers from integrations (source preserved). 
+                        {pendingReanalysis.incomingServices.some((o: any) => o.source === 'stripe') && ' Stripe prices will be compared on apply.'}
+                      </p>
                     )}
                   </div>
                   <div className="flex gap-2">
