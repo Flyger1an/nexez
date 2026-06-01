@@ -1,8 +1,21 @@
+export type PricingTier = {
+  name: string
+  price: string
+  description?: string
+}
+
 export type OfferItem = {
   name: string
   description: string
   price: string
   url: string
+  tiers?: PricingTier[]   // New: supports the "pricing tiers" part of the vision
+
+  // Consumer / Local Service fields (for bookable services like plumbing, massage, cleaning, fitness, etc.)
+  duration?: string
+  serviceArea?: string
+  isMobile?: boolean
+  travelFee?: string
 }
 
 export type OfferKind = 'services' | 'products'
@@ -29,6 +42,8 @@ export type AgentPage = {
   audience: string | null
   location: string | null
   contact_email: string | null
+  industry?: string | null          // NEW: Helps with templates & AI copy for consumer vs professional services
+  prefer_original_site?: boolean    // NEW: When true, booking CTAs link to the original website instead of Nexez checkout
   products: OfferItem[] | null
   services: OfferItem[] | null
   faqs: FaqItem[] | null
@@ -54,11 +69,21 @@ export function splitLines(value: string): string[] {
 
 export function parseOfferLines(value: string): OfferItem[] {
   return splitLines(value).map((line) => {
-    const [name = '', price = '', description = '', url = ''] = line
-      .split('|')
-      .map((part) => part.trim())
+    const parts = line.split('|').map((part) => part.trim())
+    const [name = '', price = '', description = '', url = ''] = parts
 
-    return { name, price, description, url }
+    // Support extended consumer service fields if provided in text format
+    // Format: name | price | description | url | duration | serviceArea | travelFee | isMobile(0/1)
+    return {
+      name,
+      price,
+      description,
+      url,
+      duration: parts[4] || undefined,
+      serviceArea: parts[5] || undefined,
+      travelFee: parts[6] || undefined,
+      isMobile: parts[7] === '1' || parts[7]?.toLowerCase() === 'true' || undefined,
+    }
   })
 }
 
@@ -71,7 +96,14 @@ export function parseFaqLines(value: string): FaqItem[] {
 
 export function formatOfferLines(items: OfferItem[] | null | undefined) {
   return (items ?? [])
-    .map((item) => [item.name, item.price, item.description, item.url].join(' | '))
+    .map((item) => {
+      const base = [item.name, item.price, item.description, item.url]
+      // Append consumer fields if present
+      if (item.duration || item.serviceArea || item.travelFee || item.isMobile) {
+        base.push(item.duration || '', item.serviceArea || '', item.travelFee || '', item.isMobile ? '1' : '0')
+      }
+      return base.join(' | ')
+    })
     .join('\n')
 }
 
@@ -135,6 +167,7 @@ export function getReadinessScore(page: Partial<AgentPage>) {
     Boolean(page.website_url),
     Boolean(page.cta_url),
     Boolean(page.audience),
+    Boolean(page.industry),
     Boolean(page.location || page.contact_email),
     getOfferCount({
       products: page.products ?? null,

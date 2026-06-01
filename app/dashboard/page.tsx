@@ -153,6 +153,7 @@ export default function Dashboard() {
             <NavItem href="/dashboard/analytics" icon={<BarChart3 className="size-4" />} label="Analytics" />
             <NavItem href="/directory" icon={<Search className="size-4" />} label="Directory" />
             <NavItem href="/dashboard/integrations" icon={<Link2 className="size-4" />} label="Integrations" />
+            <NavItem href="/dashboard/tools" icon={<Bot className="size-4" />} label="Tools" />
             <NavItem href="/dashboard/billing" icon={<CreditCard className="size-4" />} label="Billing" />
             <NavItem href="/dashboard/settings" icon={<Settings className="size-4" />} label="Settings" />
           </nav>

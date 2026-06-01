@@ -133,16 +133,16 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                 {dailySeries.map((point) => (
                   <div key={point.dateKey} className="flex flex-1 flex-col items-center gap-2">
                     <div
-                      className="relative w-full rounded-t-lg bg-gradient-to-t from-cyan-300/20 to-cyan-300"
+                      className="relative w-full rounded-t-lg bg-gradient-to-t from-[#7C3AED]/20 to-[#7C3AED]"
                       style={{ height: point.total ? `${Math.max(8, (point.total / maxDailyEvents) * 100)}%` : '3%' }}
                     />
                     <span className="hidden text-xs text-zinc-600 sm:inline">{point.label}</span>
                   </div>
                 ))}
               </div>
-              <div className="absolute left-5 top-10 rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-sm shadow-xl">
+              <div className="absolute left-5 top-10 rounded-lg border border-white/10 bg-[#0F0D18] px-3 py-2 text-sm shadow-xl">
                 {filteredEvents.length ? `${filteredEvents.length} signals` : 'No signals yet'}
-                <span className="block text-cyan-200">{conversionCount} conversions</span>
+                <span className="block text-[#7C3AED]">{conversionCount} conversions</span>
               </div>
             </div>
           </Panel>

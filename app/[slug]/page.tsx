@@ -58,9 +58,10 @@ export default async function AgentPageRoute({ params }: PageProps) {
   const services = page.services ?? []
   const faqs = page.faqs ?? []
   const ctaUrl = page.cta_url || page.website_url || '#'
-  const firstCheckoutPath = services.length
+  const preferOriginal = !!page.prefer_original_site
+  const firstCheckoutPath = services.length && !preferOriginal
     ? getCheckoutPath(page.slug, 'services', 0)
-    : products.length
+    : products.length && !preferOriginal
       ? getCheckoutPath(page.slug, 'products', 0)
       : ''
   const jsonLd = buildJsonLd(page)
@@ -78,6 +79,12 @@ export default async function AgentPageRoute({ params }: PageProps) {
           Nexez
         </a>
 
+        {preferOriginal && (
+          <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#7C3AED]/10 px-4 py-1 text-sm text-[#C4B5FD]">
+            Bookings on this page link to the original website
+          </div>
+        )}
+
         <section className="grid gap-10 py-12 lg:grid-cols-[1.15fr_0.85fr] lg:py-16">
           <div>
             <p className="font-mono text-sm text-[#00F5FF]">/{page.slug}</p>
@@ -94,7 +101,7 @@ export default async function AgentPageRoute({ params }: PageProps) {
                   href={firstCheckoutPath}
                   className="btn-primary"
                 >
-                  Agent checkout
+                  Book Now
                   <LockKeyhole className="size-4" />
                 </a>
               ) : (
@@ -157,8 +164,8 @@ export default async function AgentPageRoute({ params }: PageProps) {
           ) : null}
         </section>
 
-        <OfferSection title="Products" items={products} kind="products" pageSlug={page.slug} />
-        <OfferSection title="Services" items={services} kind="services" pageSlug={page.slug} />
+        <OfferSection title="Products" items={products} kind="products" pageSlug={page.slug} preferOriginal={preferOriginal} />
+        <OfferSection title="Services" items={services} kind="services" pageSlug={page.slug} preferOriginal={preferOriginal} />
 
         {faqs.length ? (
           <section className="border-t border-white/10 py-12">
@@ -222,11 +229,13 @@ function OfferSection({
   items,
   kind,
   pageSlug,
+  preferOriginal = false,
 }: {
   title: string
   items: OfferItem[]
   kind: 'products' | 'services'
   pageSlug: string
+  preferOriginal?: boolean
 }) {
   if (!items.length) {
     return null
@@ -243,17 +252,27 @@ function OfferSection({
               {item.price ? <p className="shrink-0 text-sm text-cyan-200">{item.price}</p> : null}
             </div>
             {item.description ? <p className="mt-3 text-sm leading-6 text-zinc-400">{item.description}</p> : null}
+            {/* Consumer service metadata - Enhanced */}
+            {(item.duration || item.serviceArea || item.isMobile || item.travelFee) && (
+              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                {item.duration && <span className="rounded-full bg-white/5 px-2.5 py-0.5 border border-white/10 text-[#C4B5FD]">{item.duration}</span>}
+                {item.serviceArea && <span className="rounded-full bg-white/5 px-2.5 py-0.5 border border-white/10">{item.serviceArea}</span>}
+                {item.isMobile && <span className="rounded-full bg-emerald-400/10 px-2.5 py-0.5 border border-emerald-400/30 text-emerald-300">Mobile</span>}
+                {item.travelFee && <span className="rounded-full bg-white/5 px-2.5 py-0.5 border border-white/10">+ {item.travelFee} travel</span>}
+              </div>
+            )}
+
             <div className="mt-4 flex flex-wrap gap-3">
               <a
-                href={getCheckoutPath(pageSlug, kind, index)}
-                className="inline-flex items-center gap-2 rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-cyan-200"
+                href={preferOriginal && item.url ? item.url : getCheckoutPath(pageSlug, kind, index)}
+                className="inline-flex items-center gap-2 rounded-lg bg-[#7C3AED] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6D28D9]"
               >
-                Agent checkout
+                {preferOriginal ? 'Book on our site' : 'Book Now'}
                 <LockKeyhole className="size-4" />
               </a>
               {item.url ? (
-                <a href={item.url} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm text-cyan-200 hover:bg-white/10 hover:text-cyan-100">
-                  View offer
+                <a href={item.url} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm text-[#00F5FF] hover:bg-white/10">
+                  View details
                   <ArrowUpRight className="size-4" />
                 </a>
               ) : null}

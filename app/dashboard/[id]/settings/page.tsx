@@ -36,6 +36,7 @@ export default function PageSettings({ params }: PageProps) {
   const [contactEmail, setContactEmail] = useState('')
   const [isPublished, setIsPublished] = useState(false)
   const [customDomain, setCustomDomain] = useState('')
+  const [preferOriginalSite, setPreferOriginalSite] = useState(false)
   const [copied, setCopied] = useState('')
 
   useEffect(() => {
@@ -102,6 +103,7 @@ export default function PageSettings({ params }: PageProps) {
     setContactEmail(data.contact_email ?? '')
     setIsPublished(data.is_published)
     setCustomDomain(data.custom_domain ?? '')
+    setPreferOriginalSite(!!data.prefer_original_site)
     setLoading(false)
   }
 
@@ -124,6 +126,7 @@ export default function PageSettings({ params }: PageProps) {
         contact_email: contactEmail,
         is_published: isPublished,
         custom_domain: customDomain || null,
+        prefer_original_site: preferOriginalSite,
       })
       .eq('id', page.id)
 
@@ -287,6 +290,52 @@ export default function PageSettings({ params }: PageProps) {
                 </Field>
               </div>
 
+              {/* NEW: Embed & Original Site Linking (from vision) */}
+              <div className="rounded-lg border border-white/10 bg-white/[0.02] p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Code2 className="size-4 text-[#7C3AED]" />
+                  <span className="font-semibold">Embed & Link to Original Site</span>
+                </div>
+
+                <div className="space-y-4 text-sm">
+                  <div>
+                    <label className="flex items-center gap-2 text-zinc-300">
+                      <input
+                        type="checkbox"
+                        checked={preferOriginalSite}
+                        onChange={(e) => setPreferOriginalSite(e.target.checked)}
+                        className="accent-[#7C3AED]"
+                      />
+                      Prefer linking bookings to my original website
+                    </label>
+                    <p className="text-xs text-[#9CA3AF] mt-1">When enabled, agent checkout buttons will point to your main site instead of Nexez checkout.</p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-[#9CA3AF] mb-1.5">Embed this agent page on your website</p>
+                    <pre className="text-[10px] bg-black/40 p-3 rounded overflow-x-auto text-[#C4B5FD]">
+{`<iframe 
+  src="${publicUrl}" 
+  width="100%" 
+  height="900" 
+  style="border:1px solid #222; border-radius:12px;">
+</iframe>`}
+                    </pre>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const code = `<iframe src="${publicUrl}" width="100%" height="900" style="border:1px solid #222; border-radius:12px;"></iframe>`
+                        navigator.clipboard.writeText(code)
+                        alert('Embed code copied!')
+                      }}
+                      className="mt-2 text-xs text-[#00F5FF] hover:underline"
+                    >
+                      Copy embed code
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {message ? <p className="mt-5 rounded-lg border border-white/10 bg-black/30 p-3 text-sm text-zinc-300">{message}</p> : null}
 
               <button
@@ -296,6 +345,27 @@ export default function PageSettings({ params }: PageProps) {
               >
                 {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                 {saving ? 'Saving...' : 'Save settings'}
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!websiteUrl) { alert('No original website URL set.'); return; }
+                  const res = await fetch('/api/tools/import-site', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: websiteUrl })
+                  });
+                  const data = await res.json();
+                  if (data.suggestedPage) {
+                    alert('Data fetched from your site. Go to the Editor page to review and merge the updated offers.');
+                  } else {
+                    alert(data.error || 'Sync failed.');
+                  }
+                }}
+                className="mt-3 w-full rounded-lg border border-white/15 px-5 py-3 text-sm text-zinc-200 hover:bg-white/5"
+              >
+                Re-sync Offers from Original Website
               </button>
             </form>
 

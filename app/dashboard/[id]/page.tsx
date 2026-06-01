@@ -15,6 +15,12 @@ import { optimizeAllOffersForAgents, enhanceDescriptionForAgents } from '../../.
 import { VisualOfferBuilder } from '../../../components/VisualOfferBuilder'
 import { createClient } from '../../../utils/supabase/client'
 
+const industries = [
+  'Consulting & Strategy', 'Coaching & Training', 'Creative & Design', 'Legal & Professional Services', 'Marketing & Sales',
+  'Home Services (Plumbing, Electrical, Cleaning, etc.)', 'Wellness & Fitness (Massage, Personal Training, Yoga, etc.)',
+  'Beauty & Personal Care', 'Automotive Services', 'Pet Care & Services', 'Health & Medical', 'Events & Experiences', 'Other Local Services'
+]
+
 type PageProps = {
   params: Promise<{ id: string }>
 }
@@ -24,6 +30,7 @@ export default function EditAgentPage({ params }: PageProps) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [syncing, setSyncing] = useState(false)
   const [page, setPage] = useState<AgentPage | null>(null)
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
@@ -34,6 +41,8 @@ export default function EditAgentPage({ params }: PageProps) {
   const [audience, setAudience] = useState('')
   const [location, setLocation] = useState('')
   const [contactEmail, setContactEmail] = useState('')
+  const [industry, setIndustry] = useState('')
+  const [preferOriginalSite, setPreferOriginalSite] = useState(false)
   const [products, setProducts] = useState('')
   const [services, setServices] = useState('')
   const [faqs, setFaqs] = useState('')
@@ -63,6 +72,8 @@ export default function EditAgentPage({ params }: PageProps) {
         audience,
         location,
         contact_email: contactEmail,
+        industry,
+        prefer_original_site: preferOriginalSite,
         products: parseOfferLines(products),
         services: parseOfferLines(services),
         faqs: parseFaqLines(faqs),
@@ -105,6 +116,8 @@ export default function EditAgentPage({ params }: PageProps) {
     setAudience(data.audience ?? '')
     setLocation(data.location ?? '')
     setContactEmail(data.contact_email ?? '')
+    setIndustry(data.industry ?? '')
+    setPreferOriginalSite(!!data.prefer_original_site)
     setProducts(formatOfferLines(data.products))
     setServices(formatOfferLines(data.services))
     setFaqs(formatFaqLines(data.faqs))
@@ -132,6 +145,49 @@ export default function EditAgentPage({ params }: PageProps) {
     setMessage('Description enhanced for agent readability.')
   }
 
+  async function handleSyncFromWebsite() {
+    if (!websiteUrl) {
+      setMessage('No website URL set on this page.')
+      return
+    }
+
+    setSyncing(true)
+    setMessage('')
+
+    try {
+      const res = await fetch('/api/tools/import-site', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: websiteUrl }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok || !data.suggestedPage) {
+        setMessage(data.error || 'Failed to sync from website.')
+        return
+      }
+
+      // Merge data into current state
+      if (data.suggestedPage.description) {
+        setDescription(data.suggestedPage.description)
+      }
+
+      // Merge services (append new ones to avoid losing manual work)
+      if (data.suggestedPage.services) {
+        const newServices = data.suggestedPage.services
+        const currentServices = services.trim()
+        setServices(currentServices ? `${currentServices}\n${newServices}` : newServices)
+      }
+
+      setMessage('Synced successfully from your website. Review the new offers in the builder below.')
+    } catch (err) {
+      setMessage('Error syncing from website.')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     if (!page) return
@@ -152,6 +208,8 @@ export default function EditAgentPage({ params }: PageProps) {
         audience,
         location,
         contact_email: contactEmail,
+        industry,
+        prefer_original_site: preferOriginalSite,
         products: parseOfferLines(products),
         services: parseOfferLines(services),
         faqs: parseFaqLines(faqs),
@@ -196,6 +254,14 @@ export default function EditAgentPage({ params }: PageProps) {
             Dashboard
           </a>
           <div className="flex flex-wrap gap-3">
+            <button
+              onClick={handleSyncFromWebsite}
+              disabled={syncing || !websiteUrl}
+              className="inline-flex w-fit items-center gap-2 rounded-lg border border-[#7C3AED]/40 px-4 py-2 text-sm text-[#C4B5FD] hover:bg-[#7C3AED]/10 disabled:opacity-50"
+            >
+              {syncing ? <Loader2 className="size-4 animate-spin" /> : null}
+              {syncing ? 'Syncing...' : 'Re-sync from Website'}
+            </button>
             <a
               href={`/dashboard/${page.id}/test`}
               className="inline-flex w-fit items-center gap-2 rounded-lg border border-cyan-300/40 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-300/10"
@@ -274,9 +340,42 @@ export default function EditAgentPage({ params }: PageProps) {
               <Field label="Contact email">
                 <input type="email" value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} className={inputClass} />
               </Field>
+
+              <Field label="Industry / Category">
+                <select value={industry} onChange={(e) => setIndustry(e.target.value)} className={inputClass}>
+                  <option value="">Select industry...</option>
+                  {industries.map((ind) => (
+                    <option key={ind} value={ind}>{ind}</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+
+            <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
+              <label className="flex items-center gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={preferOriginalSite}
+                  onChange={(e) => setPreferOriginalSite(e.target.checked)}
+                  className="size-4 accent-[#7C3AED]"
+                />
+                <span>Prefer linking bookings to my original website</span>
+              </label>
+              <p className="mt-1.5 text-xs text-[#9CA3AF]">
+                When enabled, "Book Now" buttons will direct agents and customers to your main site instead of Nexez checkout.
+              </p>
             </div>
 
             {/* Visual Drag & Drop Builder - Core of the new Nexez vision */}
+            {industry && (industry.toLowerCase().includes('home') || industry.toLowerCase().includes('fitness') || industry.toLowerCase().includes('wellness') || industry.toLowerCase().includes('beauty') || industry.toLowerCase().includes('pet') || industry.toLowerCase().includes('automotive')) && (
+              <div className="rounded-xl border border-[#7C3AED]/20 bg-[#1A1625] p-4">
+                <div className="text-sm font-medium text-[#C4B5FD] mb-2">Consumer / Local Services</div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                  <div>Duration, Service Area, Mobile, Travel Fee fields are available in each offer card below.</div>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-zinc-200">Visual Builder (Drag & Drop + Templates)</p>

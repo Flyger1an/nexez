@@ -27,7 +27,23 @@ import {
 import { parseAgentCsv, sampleAgentCsv } from '../../lib/csv-import'
 import { createClient } from '../../utils/supabase/client'
 
-const serviceTargets = ['Consulting', 'Coaching', 'Bookings', 'Retainers', 'Memberships', 'Events', 'Products', 'Other']
+const industries = [
+  // Professional / Business Services
+  'Consulting & Strategy',
+  'Coaching & Training',
+  'Creative & Design',
+  'Legal & Professional Services',
+  'Marketing & Sales',
+  // Consumer / Local Bookable Services
+  'Home Services (Plumbing, Electrical, Cleaning, etc.)',
+  'Wellness & Fitness (Massage, Personal Training, Yoga, etc.)',
+  'Beauty & Personal Care',
+  'Automotive Services',
+  'Pet Care & Services',
+  'Health & Medical',
+  'Events & Experiences',
+  'Other Local Services',
+]
 
 export default function CreatePage() {
   const [step, setStep] = useState(1)
@@ -40,6 +56,7 @@ export default function CreatePage() {
   const [audience, setAudience] = useState('')
   const [location, setLocation] = useState('')
   const [contactEmail, setContactEmail] = useState('')
+  const [industry, setIndustry] = useState('')
   const [products, setProducts] = useState('')
   const [services, setServices] = useState('')
   const [faqs, setFaqs] = useState('')
@@ -50,6 +67,11 @@ export default function CreatePage() {
   const [stripeImportOpen, setStripeImportOpen] = useState(false)
   const [stripeInput, setStripeInput] = useState('')
   const [stripeImporting, setStripeImporting] = useState(false)
+
+  // Calendly integration state
+  const [calendlyImportOpen, setCalendlyImportOpen] = useState(false)
+  const [calendlyToken, setCalendlyToken] = useState('')
+  const [calendlyImporting, setCalendlyImporting] = useState(false)
 
   const previewSlug = useMemo(() => normalizeSlug(slug || name), [name, slug])
   const sampleCsvHref = useMemo(() => `data:text/csv;charset=utf-8,${encodeURIComponent(sampleAgentCsv)}`, [])
@@ -106,6 +128,7 @@ export default function CreatePage() {
       audience,
       location,
       contact_email: contactEmail,
+      industry,                    // NEW: Industry selection for better templates & copy
       products: parsedProducts,
       services: parsedServices,
       faqs: parsedFaqs,
@@ -124,25 +147,43 @@ export default function CreatePage() {
 
   function aiFill() {
     const businessName = name || 'This business'
-    const buyer = audience || 'buyers evaluating services'
+    const buyer = audience || 'customers'
     const actionUrl = ctaUrl || websiteUrl || 'https://example.com/book'
-    const offerCount = parseOfferLines(services).length + parseOfferLines(products).length
+    const selectedIndustry = industry || ''
 
-    // Use the new strong agent-optimized generators
     const smartDesc = enhanceDescriptionForAgents(description, businessName, buyer)
     setDescription(smartDesc)
 
     if (!slug && name) setSlug(normalizeSlug(name))
     if (!ctaUrl && websiteUrl) setCtaUrl(websiteUrl)
-    if (!ctaLabel || ctaLabel === 'Visit website') setCtaLabel('Book or request quote')
+    if (!ctaLabel || ctaLabel === 'Visit website') setCtaLabel('Book Now')
 
     if (!services && !products) {
-      setServices(
-        [
-          `Strategy Session | $450 | 60-minute advisory session. Clear scope, recommendations, and next-step plan. Best for ${buyer.toLowerCase()}. | ${actionUrl}`,
-          `Implementation Retainer | From $1,500/mo | Ongoing execution support after the initial session. Includes priority access and monthly reviews. | ${actionUrl}`,
-        ].join('\n'),
-      )
+      let defaultOffers = ''
+
+      const isConsumerService = 
+        selectedIndustry.toLowerCase().includes('home') ||
+        selectedIndustry.toLowerCase().includes('plumbing') ||
+        selectedIndustry.toLowerCase().includes('cleaning') ||
+        selectedIndustry.toLowerCase().includes('fitness') ||
+        selectedIndustry.toLowerCase().includes('wellness') ||
+        selectedIndustry.toLowerCase().includes('massage') ||
+        selectedIndustry.toLowerCase().includes('beauty') ||
+        selectedIndustry.toLowerCase().includes('pet')
+
+      if (isConsumerService) {
+        defaultOffers = [
+          `Standard Visit | $129 | 45-60 min. Diagnosis + service. Mobile. | ${actionUrl}`,
+          `Full Service | From $249 | Premium materials + follow up. | ${actionUrl}`,
+        ].join('\n')
+      } else {
+        defaultOffers = [
+          `Discovery Call | $0 | 15 min conversation. | ${actionUrl}`,
+          `Core Package | $450 | Full scope with clear deliverables. | ${actionUrl}`,
+        ].join('\n')
+      }
+
+      setServices(defaultOffers)
     }
 
     if (!faqs) {
@@ -150,7 +191,6 @@ export default function CreatePage() {
       setFaqs(strongFaqs.map((f) => `${f.question} | ${f.answer}`).join('\n'))
     }
 
-    // If we already have offers, rewrite them too
     if (services || products) {
       const { services: s2, products: p2 } = optimizeAllOffersForAgents(services, products, {
         businessName,
@@ -257,7 +297,6 @@ export default function CreatePage() {
         setImportMessage(`Imported ${data.count} offer(s) from Stripe. Review and adjust in Step 2.`)
         setStripeImportOpen(false)
         setStripeInput('')
-        // Jump to offerings step
         if (step < 2) setStep(2)
       } else {
         setImportMessage('No importable prices found for that ID.')
@@ -266,6 +305,43 @@ export default function CreatePage() {
       setImportMessage(e.message || 'Network error during Stripe import.')
     } finally {
       setStripeImporting(false)
+    }
+  }
+
+  async function importFromCalendly() {
+    if (!calendlyToken.trim()) {
+      setImportMessage('Please paste your Calendly Personal Access Token.')
+      return
+    }
+    setCalendlyImporting(true)
+    setImportMessage('')
+
+    try {
+      const res = await fetch('/api/integrations/calendly/import', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token: calendlyToken.trim() }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setImportMessage(data.error || 'Calendly import failed.')
+        return
+      }
+
+      if (data.lines?.length) {
+        setServices((current) => mergeLines(current, data.lines))
+        setImportMessage(`Imported ${data.count} Calendly event types as bookable offers.`)
+        setCalendlyImportOpen(false)
+        setCalendlyToken('')
+        if (step < 2) setStep(2)
+      } else {
+        setImportMessage(data.message || 'No active event types found.')
+      }
+    } catch (e: any) {
+      setImportMessage(e.message || 'Network error during Calendly import.')
+    } finally {
+      setCalendlyImporting(false)
     }
   }
 
@@ -319,6 +395,69 @@ export default function CreatePage() {
           </div>
         </div>
 
+        {/* Site Importer - Prominent first-class option */}
+        <div className="mt-8 rounded-3xl border border-[#7C3AED]/40 bg-[#1A1625] p-8">
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center justify-center size-12 rounded-2xl bg-[#7C3AED]/20 text-[#7C3AED] mb-4">
+              <Bot className="size-6" />
+            </div>
+            <h3 className="text-2xl font-semibold">Import from your existing website</h3>
+            <p className="text-[#9CA3AF] mt-2 max-w-md mx-auto">
+              Paste your current site and we’ll automatically extract your services and generate a ready-to-edit agent page.
+            </p>
+          </div>
+
+          <div className="max-w-lg mx-auto flex gap-3">
+            <input
+              type="url"
+              placeholder="https://yourwebsite.com"
+              className="flex-1 input"
+              id="site-importer-url"
+            />
+            <button
+              type="button"
+              onClick={async () => {
+                const input = document.getElementById('site-importer-url') as HTMLInputElement
+                if (!input?.value) return
+
+                const res = await fetch('/api/tools/import-site', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ url: input.value }),
+                })
+                const data = await res.json()
+
+                if (data.suggestedPage) {
+                  if (data.suggestedPage.name) setName(data.suggestedPage.name)
+                  if (data.suggestedPage.description) setDescription(data.suggestedPage.description)
+                  if (data.suggestedPage.website_url) setWebsiteUrl(data.suggestedPage.website_url)
+
+                  if (data.structuredOffers && data.structuredOffers.length > 0) {
+                    // Go deep: Convert rich structured data into enhanced pipe format the Visual Builder loves
+                    const lines = data.structuredOffers.map((o: any) => {
+                      let line = `${o.name} | ${o.price} | ${o.description || 'Book this service directly.'} | ${o.url || ''}`
+                      if (o.duration) line += ` | ${o.duration}`
+                      if (o.isMobile) line += ` | Mobile`
+                      return line
+                    }).join('\n')
+                    setServices(lines)
+                  } else if (data.suggestedPage.services) {
+                    setServices(data.suggestedPage.services)
+                  }
+
+                  setImportMessage(data.message || 'Website imported successfully!')
+                  if (step < 2) setStep(2)
+                } else {
+                  alert(data.error || 'Could not import that site.')
+                }
+              }}
+              className="btn-primary"
+            >
+              Import & Generate
+            </button>
+          </div>
+        </div>
+
         <section className="mx-auto mt-10 max-w-4xl text-center">
           <h1 className="text-5xl font-semibold tracking-tight">Build your Nexez Agent Page</h1>
           <p className="mt-4 text-zinc-400">Create a clean, AI-optimized page for your products and services — designed so agents can discover, understand, and buy.</p>
@@ -360,15 +499,20 @@ export default function CreatePage() {
                     <textarea value={description} onChange={(event) => setDescription(event.target.value)} className={textareaClass} placeholder="Tell us about your business" />
                   </Field>
                   <div>
-                    <p className="mb-3 text-sm font-medium text-zinc-200">Target Services</p>
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                      {serviceTargets.map((target, index) => (
-                        <label key={target} className="flex items-center gap-2 text-sm text-zinc-300">
-                          <input type="checkbox" defaultChecked={[0, 2, 6].includes(index)} className="size-4 accent-cyan-300" />
-                          {target}
-                        </label>
+                    <p className="mb-3 text-sm font-medium text-zinc-200">What industry are you in?</p>
+                    <select
+                      value={industry}
+                      onChange={(e) => setIndustry(e.target.value)}
+                      className={inputClass}
+                    >
+                      <option value="">Select your primary industry...</option>
+                      {industries.map((ind) => (
+                        <option key={ind} value={ind}>{ind}</option>
                       ))}
-                    </div>
+                    </select>
+                    <p className="mt-1.5 text-xs text-zinc-500">
+                      This helps us suggest better templates and phrasing for your agent page.
+                    </p>
                   </div>
                   <div className="grid gap-3 md:grid-cols-3">
                     <button
@@ -387,6 +531,13 @@ export default function CreatePage() {
                       onClick={() => setStripeImportOpen(!stripeImportOpen)}
                     >
                       Import Stripe
+                    </button>
+                    <button
+                      className={secondaryButton}
+                      type="button"
+                      onClick={() => setCalendlyImportOpen(!calendlyImportOpen)}
+                    >
+                      Import Calendly
                     </button>
                     <button className={secondaryButton} type="button" onClick={openCsvUpload}>Upload CSV</button>
                   </div>
@@ -414,6 +565,35 @@ export default function CreatePage() {
                         </button>
                       </div>
                       <p className="mt-2 text-[10px] text-zinc-500">Results appear in the Services field. You can edit pricing and descriptions after import.</p>
+                    </div>
+                  )}
+
+                  {calendlyImportOpen && (
+                    <div className="rounded-lg border border-violet-300/30 bg-black/30 p-4">
+                      <p className="text-sm font-medium text-violet-200">Calendly Bookings Import</p>
+                      <p className="mt-1 text-xs text-zinc-400">
+                        Paste a Calendly Personal Access Token. We&apos;ll import your active event types as bookable services.
+                      </p>
+                      <div className="mt-3 flex gap-2">
+                        <input
+                          value={calendlyToken}
+                          onChange={(e) => setCalendlyToken(e.target.value)}
+                          placeholder="Calendly Personal Access Token (starts with ghp_...)"
+                          className="flex-1 rounded-lg border border-white/10 bg-white/[0.06] px-3 py-2 text-sm text-white placeholder:text-zinc-600"
+                          type="password"
+                        />
+                        <button
+                          type="button"
+                          onClick={importFromCalendly}
+                          disabled={calendlyImporting || !calendlyToken.trim()}
+                          className="rounded-lg bg-violet-300 px-4 py-2 text-sm font-medium text-zinc-950 disabled:opacity-50"
+                        >
+                          {calendlyImporting ? 'Importing...' : 'Import'}
+                        </button>
+                      </div>
+                      <p className="mt-2 text-[10px] text-zinc-500">
+                        Get your token at <a href="https://calendly.com/integrations/api_webhooks" target="_blank" className="underline">Calendly Integrations</a>. Imported offers will appear in Services.
+                      </p>
                     </div>
                   )}
                   <div className="rounded-lg border border-white/10 bg-black/20 p-4 text-sm text-zinc-400">

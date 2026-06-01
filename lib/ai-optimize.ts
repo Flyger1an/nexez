@@ -26,16 +26,27 @@ export function rewriteOfferForAgents(offer: OfferItem, context?: { businessName
   let description = originalDesc
 
   if (!description || description.length < 20) {
-    description = `${name} with clear scope, deliverables, and direct next-step action for qualified buyers.`
+    description = `${name} with clear scope and direct next-step action.`
   }
 
-  // Enhance with structure if it looks like a raw sentence
+  // Consumer service friendly enhancements
+  if (offer.duration || offer.serviceArea || offer.isMobile) {
+    const details = []
+    if (offer.duration) details.push(offer.duration)
+    if (offer.serviceArea) details.push(`serves ${offer.serviceArea}`)
+    if (offer.isMobile) details.push('mobile / on-site')
+
+    if (details.length) {
+      description = `${description} ${details.join(' • ')}.`
+    }
+  }
+
   if (!description.includes('for') && !description.includes('who') && context?.audience) {
     description = `${description} Best for ${context.audience.toLowerCase()}.`
   }
 
-  if (!description.toLowerCase().includes('next') && !description.toLowerCase().includes('book') && !description.toLowerCase().includes('schedule')) {
-    description = `${description} Direct booking or quote request via the link on this page.`
+  if (!description.toLowerCase().includes('book') && !description.toLowerCase().includes('schedule')) {
+    description = `${description} Book directly via the link on this page.`
   }
 
   return {
@@ -43,6 +54,10 @@ export function rewriteOfferForAgents(offer: OfferItem, context?: { businessName
     price,
     description: description.length > 180 ? description.slice(0, 177) + '...' : description,
     url,
+    duration: offer.duration,
+    serviceArea: offer.serviceArea,
+    isMobile: offer.isMobile,
+    travelFee: offer.travelFee,
   }
 }
 
