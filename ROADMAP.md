@@ -194,9 +194,10 @@ Phase 2 is locked and complete.
 - Shopify integration foundation: Enhanced general Site Importer with special `/products.json` parsing + rich offer extraction for Shopify-hosted sites. Added dedicated Shopify Catalog Import section in Tools with rich preview + create handoff. Updated integrations page. Directly addresses user request for importing Shopify websites.
 - **Continued acceleration on Phase 3 (latest batch)**:
   - Added `outbound_webhooks` JSONB column (migration). Settings now has first-class UI to save per-page outbound endpoints. Calendly receiver automatically fires `booking.received` to the page's stored endpoints (plus header fallback for demo). Real "set once on the page → fires on actual bookings" path.
-  - Stripe import produces richer OfferItem shape (recurring → duration + tiers, metadata for future price webhooks). Re-sync flow already benefits from smart merge/preview.
-  - Editor now shows live "Connected Integrations" status pills (Calendly / Stripe / Shopify) with last sync times + direct links to re-sync in Settings/Tools — the editor is becoming the true command center.
-  - Build + existing tests remain green after all three slices.
+  - **Major new value**: `lib/checkout-events.ts` now automatically fires the page's `outbound_webhooks` on real Nexez-driven events (`provider_redirect`, `stripe_session_created`, `checkout_attempt`). Outbound is now valuable for bookings that agents complete through the Nexez checkout itself.
+  - Stripe import produces richer OfferItem shape (recurring → duration + tiers, metadata for future price webhooks).
+  - Editor "Connected Integrations" status is now actionable: Calendly Re-sync button directly triggers rich import + pendingReanalysis/smart-merge preview while staying in the editor.
+  - Build + existing tests remain green.
 
 **Duration / Effort**: 8–10 days.
 

@@ -32,6 +32,7 @@ export default function EditAgentPage({ params }: PageProps) {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [syncing, setSyncing] = useState(false)
+  const [integrationResyncing, setIntegrationResyncing] = useState<string | null>(null)
   const [page, setPage] = useState<AgentPage | null>(null)
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
@@ -747,8 +748,56 @@ export default function EditAgentPage({ params }: PageProps) {
                 </div>
                 <div className="flex flex-wrap gap-2 text-xs">
                   {integrationStatus.calendly && (
-                    <div className="rounded border border-violet-300/30 bg-violet-400/5 px-2 py-1 text-violet-200">
+                    <div className="flex items-center gap-2 rounded border border-violet-300/30 bg-violet-400/5 px-2 py-1 text-violet-200">
                       Calendly ✓ <span className="text-[10px] text-zinc-400">({new Date(integrationStatus.calendly.lastSync).toLocaleDateString()})</span>
+                      <button
+                        type="button"
+                        disabled={!!integrationResyncing}
+                        onClick={async () => {
+                          setIntegrationResyncing('calendly')
+                          try {
+                            // Use last token from this session if available (set by Tools/Settings re-sync), else prompt (safe pattern)
+                            let token = sessionStorage.getItem('nexez_last_calendly_token') || ''
+                            if (!token) {
+                              token = prompt('Paste Calendly PAT for re-sync (not stored long-term):') || ''
+                              if (token) sessionStorage.setItem('nexez_last_calendly_token', token)
+                            }
+                            if (!token) {
+                              setIntegrationResyncing(null)
+                              return
+                            }
+
+                            const res = await fetch('/api/integrations/calendly/import', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ token }),
+                            })
+                            const data = await res.json()
+                            if (data.structuredOffers?.length) {
+                              const incoming = data.structuredOffers as OfferItem[]
+                              const newCount = incoming.filter(inc =>
+                                !servicesOffers.some(e => e.name.toLowerCase() === inc.name.toLowerCase())
+                              ).length
+                              const updateCount = incoming.length - newCount
+                              setPendingReanalysis({
+                                incomingServices: incoming,
+                                incomingProducts: [],
+                                summary: `Calendly re-sync: ${incoming.length} offers (${newCount} new, ${updateCount} potentially updated). Smart merge will protect your edited descriptions and tiers.`,
+                              })
+                              setMessage('Calendly offers loaded into re-analysis preview.')
+                            } else {
+                              setMessage(data.error || 'No offers returned from Calendly.')
+                            }
+                          } catch (e: any) {
+                            setMessage('Calendly re-sync failed: ' + e.message)
+                          } finally {
+                            setIntegrationResyncing(null)
+                          }
+                        }}
+                        className="ml-1 text-[10px] rounded border border-violet-300/50 px-1.5 py-0 text-violet-100 hover:bg-violet-400/10 disabled:opacity-50"
+                      >
+                        {integrationResyncing === 'calendly' ? '...' : 'Re-sync'}
+                      </button>
                     </div>
                   )}
                   {integrationStatus.stripe && (
@@ -763,7 +812,7 @@ export default function EditAgentPage({ params }: PageProps) {
                   )}
                 </div>
                 <p className="mt-2 text-[10px] text-zinc-500">
-                  Re-sync from <a href={`/dashboard/${id}/settings`} className="underline">Settings</a> or <a href="/dashboard/tools" className="underline">Tools</a> to refresh offers with latest prices / event types.
+                  Use the Re-sync buttons above for quick updates, or go to <a href={`/dashboard/${id}/settings`} className="underline">Settings</a> / <a href="/dashboard/tools" className="underline">Tools</a> for full control.
                 </p>
               </div>
             )}

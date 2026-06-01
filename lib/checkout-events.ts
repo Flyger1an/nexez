@@ -1,5 +1,6 @@
 import { AgentPage, CheckoutOffer, getCheckoutOfferKey } from './agent-page'
 import { supabase } from './supabase'
+import { fireOutboundWebhook, OutboundWebhookPayload } from './webhooks'
 
 export type CheckoutEventType =
   | 'checkout_view'
@@ -70,6 +71,53 @@ export async function logCheckoutEvent({
       stripe_session_id: stripeSessionId || null,
       metadata: metadata ?? {},
     })
+
+    // Phase 3: Automatically fire per-page outbound webhooks on high-value Nexez-driven events.
+    // This makes the outbound_webhooks saved in Settings fire for agent bookings that go through checkout.
+    if (!error) {
+      const valuableEvents: CheckoutEventType[] = ['provider_redirect', 'stripe_session_created', 'checkout_attempt']
+      if (valuableEvents.includes(eventType)) {
+        try {
+          // Fetch the latest outbound_webhooks for this page (column added in recent migration)
+          const { data: pageWithOutbounds } = await supabase
+            .from('pages')
+            .select('outbound_webhooks, name, slug, id')
+            .eq('id', page.id)
+            .single()
+
+          const outbounds = (pageWithOutbounds as any)?.outbound_webhooks
+          let endpoints: string[] = []
+          if (Array.isArray(outbounds)) {
+            endpoints = outbounds.map((o: any) => o?.url || o).filter(Boolean)
+          }
+
+          if (endpoints.length > 0) {
+            const obPayload: OutboundWebhookPayload = {
+              event: eventType === 'provider_redirect' ? 'booking.provider_redirect' : 'booking.checkout_initiated',
+              timestamp: new Date().toISOString(),
+              page: {
+                id: page.id,
+                slug: page.slug,
+                name: page.name || (pageWithOutbounds as any)?.name || page.slug,
+              },
+              data: {
+                event_type: eventType,
+                offer_name: offer.name,
+                offer_key: getCheckoutOfferKey(offer.kind, offer.index),
+                amount: metadata?.amount_cents || null,
+                source: 'nexez_checkout',
+              },
+            }
+            for (const ep of endpoints) {
+              const res = await fireOutboundWebhook(ep, null, obPayload)
+              console.log(`[Checkout Events] Fired outbound ${obPayload.event} to ${ep}:`, res)
+            }
+          }
+        } catch (e) {
+          console.warn('[Checkout Events] Outbound firing error (non-blocking):', e)
+        }
+      }
+    }
 
     return { ok: !error, error }
   } catch (error) {
