@@ -186,6 +186,10 @@ export default function IntegrationsPage() {
               <div className="mt-3 pt-2 border-t border-cyan-300/30 text-cyan-300 text-[10px]">
                 → Full management and re-sync in Tools. Webhooks fire automatically on real bookings.
               </div>
+              {/* Phase 3: Outbound visibility */}
+              <div className="mt-2 pt-2 border-t border-cyan-300/30 text-[10px] text-emerald-300">
+                Outbound webhooks (per-page in Settings) now fire on Nexez checkout events + Calendly bookings.
+              </div>
             </div>
           </aside>
 

@@ -801,8 +801,55 @@ export default function EditAgentPage({ params }: PageProps) {
                     </div>
                   )}
                   {integrationStatus.stripe && (
-                    <div className="rounded border border-cyan-300/30 bg-cyan-400/5 px-2 py-1 text-cyan-200">
+                    <div className="flex items-center gap-2 rounded border border-cyan-300/30 bg-cyan-400/5 px-2 py-1 text-cyan-200">
                       Stripe ✓ <span className="text-[10px] text-zinc-400">({new Date(integrationStatus.stripe.lastImport).toLocaleDateString()})</span>
+                      <button
+                        type="button"
+                        disabled={!!integrationResyncing}
+                        onClick={async () => {
+                          setIntegrationResyncing('stripe')
+                          try {
+                            let secret = sessionStorage.getItem('nexez_last_stripe_secret') || ''
+                            if (!secret) {
+                              secret = prompt('Paste Stripe Secret Key (sk_live_... or sk_test_...) for re-sync:') || ''
+                              if (secret) sessionStorage.setItem('nexez_last_stripe_secret', secret)
+                            }
+                            if (!secret) {
+                              setIntegrationResyncing(null)
+                              return
+                            }
+
+                            const res = await fetch('/api/integrations/stripe/import', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ stripeSecretKey: secret }),
+                            })
+                            const data = await res.json()
+                            if (data.structuredOffers?.length) {
+                              const incoming = data.structuredOffers as OfferItem[]
+                              const newCount = incoming.filter(inc =>
+                                !servicesOffers.some(e => e.name.toLowerCase() === inc.name.toLowerCase())
+                              ).length
+                              const updateCount = incoming.length - newCount
+                              setPendingReanalysis({
+                                incomingServices: incoming,
+                                incomingProducts: [],
+                                summary: `Stripe re-sync: ${incoming.length} products/prices (${newCount} new, ${updateCount} potentially updated). Smart merge protects your edits.`,
+                              })
+                              setMessage('Stripe offers loaded into re-analysis preview.')
+                            } else {
+                              setMessage(data.error || 'No products returned from Stripe.')
+                            }
+                          } catch (e: any) {
+                            setMessage('Stripe re-sync failed: ' + e.message)
+                          } finally {
+                            setIntegrationResyncing(null)
+                          }
+                        }}
+                        className="ml-1 text-[10px] rounded border border-cyan-300/50 px-1.5 py-0 text-cyan-100 hover:bg-cyan-400/10 disabled:opacity-50"
+                      >
+                        {integrationResyncing === 'stripe' ? '...' : 'Re-sync'}
+                      </button>
                     </div>
                   )}
                   {integrationStatus.shopify && (
