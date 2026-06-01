@@ -44,6 +44,11 @@ export default function PageSettings({ params }: PageProps) {
   const [reSyncInput, setReSyncInput] = useState('')
   const [reSyncInput2, setReSyncInput2] = useState('') // for shopify domain + token
 
+  // Phase 3: Per-page outbound webhooks (auto-fired by receiver on booking events)
+  const [outboundEndpoints, setOutboundEndpoints] = useState<string[]>([])
+  const [newOutboundUrl, setNewOutboundUrl] = useState('')
+  const [outboundSaving, setOutboundSaving] = useState(false)
+
   useEffect(() => {
     params.then(({ id }) => setId(id))
   }, [params])
@@ -110,6 +115,16 @@ export default function PageSettings({ params }: PageProps) {
     setCustomDomain(data.custom_domain ?? '')
     setPreferOriginalSite(!!data.prefer_original_site)
     setIndustry(data.industry ?? '')
+
+    // Phase 3: Load per-page outbound webhooks
+    const ob = (data as any)?.outbound_webhooks
+    if (ob) {
+      const arr = Array.isArray(ob) ? ob.map((o: any) => o?.url || o).filter(Boolean) : []
+      setOutboundEndpoints(arr)
+    } else {
+      setOutboundEndpoints([])
+    }
+
     setLoading(false)
   }
 
@@ -570,6 +585,77 @@ export default function PageSettings({ params }: PageProps) {
               <p className="mt-1 text-[10px] text-zinc-500">
                 Pulls your Shopify products as rich offers. Leave token empty to use public catalog.
               </p>
+
+              {/* Phase 3: Per-page outbound webhooks — automatically fired by the Calendly (and future) receivers on booking events */}
+              <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4">
+                <div className="text-sm font-medium text-cyan-200 mb-2">Outbound webhooks on booking events</div>
+                <p className="text-[10px] text-zinc-400 mb-3">These endpoints will receive `booking.received` payloads automatically when a Calendly booking arrives via webhook (no extra setup in Tools required). Useful for Zapier, Make, internal systems, etc.</p>
+
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="url"
+                    value={newOutboundUrl}
+                    onChange={(e) => setNewOutboundUrl(e.target.value)}
+                    placeholder="https://hooks.zapier.com/... or https://yourapp.com/webhook"
+                    className="flex-1 rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newOutboundUrl.trim()) {
+                        setOutboundEndpoints(prev => Array.from(new Set([...prev, newOutboundUrl.trim()])))
+                        setNewOutboundUrl('')
+                      }
+                    }}
+                    className="rounded border border-white/20 px-3 text-sm hover:bg-white/5"
+                  >
+                    Add
+                  </button>
+                </div>
+
+                {outboundEndpoints.length > 0 && (
+                  <div className="text-xs mb-2">
+                    {outboundEndpoints.map((url, i) => (
+                      <div key={i} className="flex items-center justify-between font-mono text-emerald-300/90 py-0.5">
+                        <span className="truncate">{url}</span>
+                        <button
+                          type="button"
+                          onClick={() => setOutboundEndpoints(prev => prev.filter((_, idx) => idx !== i))}
+                          className="text-[10px] text-zinc-400 hover:text-red-400"
+                        >
+                          remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  disabled={outboundSaving}
+                  onClick={async () => {
+                    if (!page) return
+                    setOutboundSaving(true)
+                    setMessage('')
+                    try {
+                      const supabase = createClient()
+                      const { error } = await supabase
+                        .from('pages')
+                        .update({ outbound_webhooks: outboundEndpoints.map(u => ({ url: u })) })
+                        .eq('id', page.id)
+                      setMessage(error ? error.message : 'Outbound webhooks saved for this page.')
+                    } catch (e: any) {
+                      setMessage('Failed to save: ' + e.message)
+                    } finally {
+                      setOutboundSaving(false)
+                    }
+                  }}
+                  className="mt-1 w-full rounded-lg border border-cyan-300/40 px-4 py-1.5 text-sm text-cyan-200 hover:bg-cyan-400/10 disabled:opacity-60"
+                >
+                  {outboundSaving ? 'Saving...' : 'Save Outbound Endpoints for this Page'}
+                </button>
+                <p className="mt-1 text-[10px] text-zinc-500">Endpoints are stored on the page and used automatically by the webhook receiver.</p>
+              </div>
             </form>
 
             <section className="rounded-lg border border-white/10 bg-white/[0.04]">

@@ -149,14 +149,31 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          // Phase 3: Actually fire outbound webhooks on booking events (using demo endpoints from Tools)
-          // Endpoints passed via header from the test UI for full end-to-end demo.
+          // Phase 3: Fire outbound webhooks — prefer per-page stored config (outbound_webhooks column),
+          // fall back to header (demo / Tools test flows) for backward compat.
           try {
-            const outboundEndpointsHeader = request.headers.get('x-nexez-outbound-endpoints')
             let endpoints: string[] = []
-            if (outboundEndpointsHeader) {
-              try { endpoints = JSON.parse(outboundEndpointsHeader) } catch {}
+
+            // 1. Per-page persisted endpoints (the real "set once" path)
+            const pageOutbounds = (page as any)?.outbound_webhooks
+            if (Array.isArray(pageOutbounds)) {
+              endpoints = pageOutbounds
+                .map((o: any) => o?.url || o)
+                .filter(Boolean)
             }
+
+            // 2. Header override / demo (Tools "Send Test" still works)
+            const outboundEndpointsHeader = request.headers.get('x-nexez-outbound-endpoints')
+            if (outboundEndpointsHeader) {
+              try {
+                const headerList = JSON.parse(outboundEndpointsHeader)
+                if (Array.isArray(headerList)) endpoints = [...endpoints, ...headerList]
+              } catch {}
+            }
+
+            // Dedupe
+            endpoints = Array.from(new Set(endpoints.filter(Boolean)))
+
             if (endpoints.length > 0) {
               const obPayload: OutboundWebhookPayload = {
                 event: 'booking.received',
@@ -175,7 +192,7 @@ export async function POST(request: NextRequest) {
                 console.log(`[Calendly Webhook] Fired outbound booking.received to ${ep}:`, res)
               }
             } else {
-              console.log('[Calendly Webhook] No outbound endpoints configured for this test event.')
+              console.log('[Calendly Webhook] No outbound endpoints configured (neither page nor header).')
             }
           } catch (e) {
             console.warn('[Calendly Webhook] Outbound firing error:', e)

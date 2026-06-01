@@ -192,13 +192,11 @@ Phase 2 is locked and complete.
 - Added "Re-sync from Stripe (paste Secret Key)" button in page Settings (symmetric to Calendly). Re-uses the rich import endpoint and merge flow so prices stay fresh directly from the editor.
 - Polished Stripe in Tools: route now supports "recent products" fetch + attaches `source: 'stripe'` metadata on offers; UI shows connection status + last import time (advances full sync quality + source metadata + status dashboard).
 - Shopify integration foundation: Enhanced general Site Importer with special `/products.json` parsing + rich offer extraction for Shopify-hosted sites. Added dedicated Shopify Catalog Import section in Tools with rich preview + create handoff. Updated integrations page. Directly addresses user request for importing Shopify websites.
-- **Continued acceleration on Phase 3 (this session)**:
-  - Added `last_booking` JSONB column (migration + PostgREST reload + ANALYZE). Webhook receiver now durably persists booking summaries; editor + public page render real data that survives refresh.
-  - Real outbound webhook firing implemented: Calendly receiver now calls fireOutboundWebhook for any demo endpoints passed via header on booking events. Tools "Send Test" + "Test Booking Event" fully exercise receiver → DB (checkout_events + last_booking) → outbound delivery.
-  - Editor self-contained demo: "Send test booking" button in the Recent Calendly Bookings card triggers the full durable + outbound path directly from the page editor.
-  - Re-sync parity across Calendly/Stripe/Shopify in Settings (rich structuredOffers + ?reanalyzed handoff). Editor has live webhook value + quick actions.
-  - All changes build clean (`npm run build`), existing fidelity tests pass, no regressions.
-  - Uncommitted Phase 2/3 work (analytics, directory, importer v2, rich builder, all integrations depth) committed as part of this batch.
+- **Continued acceleration on Phase 3 (latest batch)**:
+  - Added `outbound_webhooks` JSONB column (migration). Settings now has first-class UI to save per-page outbound endpoints. Calendly receiver automatically fires `booking.received` to the page's stored endpoints (plus header fallback for demo). Real "set once on the page → fires on actual bookings" path.
+  - Stripe import produces richer OfferItem shape (recurring → duration + tiers, metadata for future price webhooks). Re-sync flow already benefits from smart merge/preview.
+  - Editor now shows live "Connected Integrations" status pills (Calendly / Stripe / Shopify) with last sync times + direct links to re-sync in Settings/Tools — the editor is becoming the true command center.
+  - Build + existing tests remain green after all three slices.
 
 **Duration / Effort**: 8–10 days.
 

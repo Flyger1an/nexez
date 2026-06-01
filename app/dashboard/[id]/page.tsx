@@ -64,6 +64,13 @@ export default function EditAgentPage({ params }: PageProps) {
   const [recentCalendlyBookings, setRecentCalendlyBookings] = useState<any[]>([])
   const [lastBooking, setLastBooking] = useState<any>(null)
 
+  // Phase 3: Live integration connection status (read from the same localStorage as Tools)
+  const [integrationStatus, setIntegrationStatus] = useState<{
+    calendly?: { lastSync: string; maskedToken: string }
+    stripe?: { lastImport: string }
+    shopify?: { lastImport: string }
+  }>({})
+
   // Visual builder state (derived from rich arrays; text kept for legacy/raw + CSV)
   const parsedServices = React.useMemo(() => servicesOffers.length ? servicesOffers : parseOfferLines(services), [servicesOffers, services])
   const parsedProducts = React.useMemo(() => productsOffers.length ? productsOffers : parseOfferLines(products), [productsOffers, products])
@@ -77,6 +84,23 @@ export default function EditAgentPage({ params }: PageProps) {
     if (!id) return
     loadPage(id)
   }, [id])
+
+  // Phase 3: Load integration connection status (same keys as Tools + Integrations dashboard)
+  useEffect(() => {
+    try {
+      const status: any = {}
+      const cal = localStorage.getItem('nexez_calendly_connection')
+      if (cal) status.calendly = JSON.parse(cal)
+
+      const str = localStorage.getItem('nexez_stripe_connection')
+      if (str) status.stripe = JSON.parse(str)
+
+      const sh = localStorage.getItem('nexez_shopify_connection')
+      if (sh) status.shopify = JSON.parse(sh)
+
+      setIntegrationStatus(status)
+    } catch {}
+  }, [])
 
   // Phase 1 final polish: Auto-trigger reanalysis preview when coming from Settings "Re-sync"
   useEffect(() => {
@@ -711,6 +735,36 @@ export default function EditAgentPage({ params }: PageProps) {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Phase 3: Connected Integrations quick status (command center feel in the editor) */}
+            {(integrationStatus.calendly || integrationStatus.stripe || integrationStatus.shopify) && (
+              <div className="mb-4 rounded-lg border border-white/10 bg-white/[0.02] p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-zinc-300">Connected Integrations</span>
+                  <a href="/dashboard/integrations" className="text-[10px] text-cyan-400 hover:text-cyan-300">Manage →</a>
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {integrationStatus.calendly && (
+                    <div className="rounded border border-violet-300/30 bg-violet-400/5 px-2 py-1 text-violet-200">
+                      Calendly ✓ <span className="text-[10px] text-zinc-400">({new Date(integrationStatus.calendly.lastSync).toLocaleDateString()})</span>
+                    </div>
+                  )}
+                  {integrationStatus.stripe && (
+                    <div className="rounded border border-cyan-300/30 bg-cyan-400/5 px-2 py-1 text-cyan-200">
+                      Stripe ✓ <span className="text-[10px] text-zinc-400">({new Date(integrationStatus.stripe.lastImport).toLocaleDateString()})</span>
+                    </div>
+                  )}
+                  {integrationStatus.shopify && (
+                    <div className="rounded border border-purple-300/30 bg-purple-400/5 px-2 py-1 text-purple-200">
+                      Shopify ✓ <span className="text-[10px] text-zinc-400">({new Date(integrationStatus.shopify.lastImport).toLocaleDateString()})</span>
+                    </div>
+                  )}
+                </div>
+                <p className="mt-2 text-[10px] text-zinc-500">
+                  Re-sync from <a href={`/dashboard/${id}/settings`} className="underline">Settings</a> or <a href="/dashboard/tools" className="underline">Tools</a> to refresh offers with latest prices / event types.
+                </p>
               </div>
             )}
 

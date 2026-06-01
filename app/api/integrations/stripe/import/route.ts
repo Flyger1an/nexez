@@ -88,16 +88,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Provide productId, priceIds, or leave empty for recent products' }, { status: 400 })
     }
 
-    // Phase 3: Also return rich structuredOffers (symmetric to Calendly work)
-    const structuredOffers = lines.map((line) => {
+    // Phase 3: Richer structuredOffers for Stripe (recurring awareness + metadata for future price webhooks)
+    const structuredOffers = lines.map((line, idx) => {
       const parts = line.split(' | ').map(p => p.trim())
+      const priceStr = parts[1] || 'Custom'
+      const isRecurring = /\/ (month|year|week|day)/i.test(priceStr)
+
+      // Simple recurring → duration hint for consumer services
+      let duration: string | undefined
+      if (isRecurring) {
+        if (/month/i.test(priceStr)) duration = 'monthly'
+        else if (/year/i.test(priceStr)) duration = 'yearly'
+        else if (/week/i.test(priceStr)) duration = 'weekly'
+      }
+
       return {
         name: parts[0] || 'Stripe item',
         description: parts[2] || 'Imported from Stripe',
-        price: parts[1] || 'Custom',
+        price: priceStr,
         url: parts[3] || '',
-        source: 'stripe',           // Roadmap: source integration metadata
-        confidence: 0.9,
+        duration,
+        source: 'stripe',
+        confidence: 0.92,
+        metadata: {
+          stripe_mode: meta.mode || 'specific',
+          imported_at: new Date().toISOString(),
+          // Future: store product/price ids here when we have them in the loop
+        },
+        // For simple recurring products we can surface as a single tier
+        tiers: isRecurring ? [{ name: 'Standard', price: priceStr, description: 'Recurring via Stripe' }] : undefined,
       }
     })
 
