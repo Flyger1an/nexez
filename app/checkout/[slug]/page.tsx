@@ -153,6 +153,16 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
                 </p>
               ) : null}
 
+              {/* Phase 1 A: Show consumer service details on checkout for bookable services */}
+              {(offer.duration || offer.serviceArea || offer.isMobile || offer.travelFee) && (
+                <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                  {offer.duration && <span className="rounded bg-white/5 px-2 py-0.5 border border-white/10">{offer.duration}</span>}
+                  {offer.serviceArea && <span className="rounded bg-white/5 px-2 py-0.5 border border-white/10">{offer.serviceArea}</span>}
+                  {offer.isMobile && <span className="rounded bg-emerald-400/10 px-2 py-0.5 border border-emerald-400/30 text-emerald-300">Mobile / on-site</span>}
+                  {offer.travelFee && <span className="rounded bg-white/5 px-2 py-0.5 border border-white/10">+ {offer.travelFee} travel</span>}
+                </div>
+              )}
+
               <div className="mt-7 space-y-3 border-t border-white/10 pt-6 text-sm">
                 <DetailRow label="Subtotal" value={displayPrice} />
                 <DetailRow

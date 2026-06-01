@@ -1,5 +1,11 @@
 import { ArrowLeft, ArrowUpRight, Bot, Download, Filter, Search } from 'lucide-react'
-import { AgentPage, getOfferCount } from '../../../lib/agent-page'
+import { TrafficChart } from './TrafficChart'
+import { TopOffersChart } from './TopOffersChart'
+import { ConversionFunnel } from './ConversionFunnel'
+import { ActionBreakdown } from './ActionBreakdown'
+import { AgentBreakdown } from './AgentBreakdown'
+import { TopPagesChart } from './TopPagesChart'
+import { AgentPage, getOfferCount, getReadinessScore } from '../../../lib/agent-page'
 import {
   filterAnalyticsEvents,
   formatEventDate,
@@ -19,7 +25,7 @@ import { createClient } from '../../../utils/supabase/server'
 import { cookies } from 'next/headers'
 
 type AnalyticsPageProps = {
-  searchParams: Promise<{ q?: string; page?: string; action?: string }>
+  searchParams: Promise<{ q?: string; page?: string; action?: string; range?: string }>
 }
 
 const actionOptions = [
@@ -34,6 +40,8 @@ const actionOptions = [
 
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   const filters = await searchParams
+  const range = filters.range || '30d'
+
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
   const {
@@ -56,12 +64,23 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     .eq('owner_id', user.id)
     .returns<AgentPage[]>()
 
+  // Calculate date cutoff based on range
+  const now = new Date()
+  let cutoff = new Date(0) // all time
+
+  if (range === '7d') {
+    cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+  } else if (range === '30d') {
+    cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  }
+
   const { data: checkoutEvents } = await supabase
     .from('checkout_events')
     .select('*')
     .eq('owner_id', user.id)
+    .gte('created_at', cutoff.toISOString())
     .order('created_at', { ascending: false })
-    .limit(250)
+    .limit(500)
     .returns<CheckoutEvent[]>()
 
   const events = checkoutEvents ?? []
@@ -87,11 +106,72 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const topOffers = getTopOfferStats(filteredEvents).slice(0, 5)
   const maxDailyEvents = Math.max(...dailySeries.map((point) => point.total), 1)
   const maxOfferEvents = Math.max(...topOffers.map((offer) => offer.total), 1)
+
+  // Top Pages by Agent Activity (Phase 2)
+  const pageActivityMap: Record<string, { slug: string; name: string; total: number }> = {}
+  filteredEvents.forEach(event => {
+    const slug = event.slug
+    if (!pageActivityMap[slug]) {
+      const pageInfo = ownedPages.find(p => p.slug === slug)
+      pageActivityMap[slug] = {
+        slug,
+        name: pageInfo?.name || slug,
+        total: 0
+      }
+    }
+    pageActivityMap[slug].total += 1
+  })
+  const topPages = Object.values(pageActivityMap)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 6)
+  const maxPageEvents = Math.max(...topPages.map(p => p.total), 1)
+
+  // Conversion Rate Leaders (Phase 2)
+  const conversionLeaders = getTopOfferStats(filteredEvents)
+    .map(o => ({
+      ...o,
+      conversionRate: o.attempts > 0 ? Math.round((o.conversions / o.attempts) * 100) : 0
+    }))
+    .filter(o => o.attempts >= 2) // only meaningful data
+    .sort((a, b) => b.conversionRate - a.conversionRate)
+    .slice(0, 5)
+
+  // Agent-Engaged Pages Quality Insight (Phase 2)
+  const pagesWithActivity = new Set(filteredEvents.map(e => e.slug));
+  const activePages = ownedPages.filter(p => pagesWithActivity.has(p.slug));
+
+  const computeReadiness = (p: any) => getReadinessScore({
+    name: p.name,
+    slug: p.slug,
+    description: p.description,
+    website_url: p.website_url,
+    cta_url: p.cta_url,
+    audience: p.audience,
+    location: p.location,
+    contact_email: p.contact_email,
+    industry: p.industry,
+    products: p.products ?? [],
+    services: p.services ?? [],
+    faqs: p.faqs ?? [],
+    is_published: p.is_published,
+  });
+
+  const allReadinessScores = ownedPages.map(computeReadiness);
+  const activeReadinessScores = activePages.map(computeReadiness);
+
+  const avgAllReadiness = allReadinessScores.length > 0 
+    ? Math.round(allReadinessScores.reduce((a, b) => a + b, 0) / allReadinessScores.length) 
+    : 0;
+
+  const avgActiveReadiness = activeReadinessScores.length > 0 
+    ? Math.round(activeReadinessScores.reduce((a, b) => a + b, 0) / activeReadinessScores.length) 
+    : 0;
   const exportParams = new URLSearchParams()
 
   if (filters.q) exportParams.set('q', filters.q)
   if (filters.page) exportParams.set('page', filters.page)
   if (selectedAction && selectedAction !== 'all') exportParams.set('action', selectedAction)
+  if (range && range !== 'all') exportParams.set('range', range)
 
   const exportHref = `/api/analytics/export${exportParams.toString() ? `?${exportParams}` : ''}`
 
@@ -104,6 +184,23 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             Dashboard
           </a>
           <div className="flex items-center gap-3">
+            {/* Time range selector - Phase 2 */}
+            <div className="flex rounded-lg border border-white/10 bg-white/[0.04] p-1 text-sm">
+              {[
+                { label: '7d', value: '7d' },
+                { label: '30d', value: '30d' },
+                { label: 'All', value: 'all' },
+              ].map((r) => (
+                <a
+                  key={r.value}
+                  href={`/dashboard/analytics?range=${r.value}${filters.q ? `&q=${filters.q}` : ''}${filters.page ? `&page=${filters.page}` : ''}${filters.action ? `&action=${filters.action}` : ''}`}
+                  className={`rounded-md px-3 py-1 transition ${range === r.value ? 'bg-white text-black' : 'text-zinc-300 hover:bg-white/10'}`}
+                >
+                  {r.label}
+                </a>
+              ))}
+            </div>
+
             <a href={exportHref} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm text-zinc-200 hover:bg-white/10">
               <Download className="size-4" />
               Export CSV
@@ -124,56 +221,71 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         </section>
 
         <section className="mt-5 grid gap-5 xl:grid-cols-[1.2fr_0.85fr_0.48fr]">
-          <Panel title="Agent Traffic Over Time">
-            <div className="relative h-64">
-              <div className="absolute inset-x-0 top-6 border-t border-dashed border-white/10" />
-              <div className="absolute inset-x-0 top-24 border-t border-dashed border-white/10" />
-              <div className="absolute inset-x-0 top-44 border-t border-dashed border-white/10" />
-              <div className="absolute inset-x-0 bottom-0 flex h-52 items-end gap-2">
-                {dailySeries.map((point) => (
-                  <div key={point.dateKey} className="flex flex-1 flex-col items-center gap-2">
-                    <div
-                      className="relative w-full rounded-t-lg bg-gradient-to-t from-[#7C3AED]/20 to-[#7C3AED]"
-                      style={{ height: point.total ? `${Math.max(8, (point.total / maxDailyEvents) * 100)}%` : '3%' }}
-                    />
-                    <span className="hidden text-xs text-zinc-600 sm:inline">{point.label}</span>
-                  </div>
-                ))}
+          <Panel title={`Agent Traffic Over Time (${range === '7d' ? 'Last 7 Days' : range === '30d' ? 'Last 30 Days' : 'All Time'})`}>
+            <TrafficChart data={dailySeries} />
+            <div className="mt-2 flex gap-4 text-xs text-zinc-400">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-[#7C3AED]" /> Total Signals
               </div>
-              <div className="absolute left-5 top-10 rounded-lg border border-white/10 bg-[#0F0D18] px-3 py-2 text-sm shadow-xl">
-                {filteredEvents.length ? `${filteredEvents.length} signals` : 'No signals yet'}
-                <span className="block text-[#7C3AED]">{conversionCount} conversions</span>
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-[#00F5FF]" /> Conversions
               </div>
             </div>
           </Panel>
 
           <Panel title="Top Offers">
             {topOffers.length ? (
-              <div className="space-y-4">
-                {topOffers.map((offer) => (
-                  <div key={`${offer.pageSlug}-${offer.name}`}>
-                    <div className="flex items-center justify-between gap-3 text-sm">
-                      <div>
-                        <p className="font-medium text-white">{offer.name}</p>
-                        <p className="font-mono text-xs text-zinc-500">/{offer.pageSlug}</p>
+              <TopOffersChart offers={topOffers} max={maxOfferEvents} />
+            ) : (
+              <EmptyPanel message="No offer signals yet. Run a simulator dry-run or open a checkout page." />
+            )}
+          </Panel>
+
+          <Panel title="Top Pages by Agent Activity">
+            {topPages.length ? (
+              <TopPagesChart pages={topPages} max={maxPageEvents} />
+            ) : (
+              <EmptyPanel message="No page activity yet." />
+            )}
+          </Panel>
+
+          <Panel title="Conversion Rate Leaders">
+            {conversionLeaders.length ? (
+              <div className="space-y-4 pt-1">
+                {conversionLeaders.map((offer, index) => (
+                  <div key={index}>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <div className="font-medium text-white truncate pr-2">
+                        {offer.name}
+                        <span className="ml-2 text-[10px] text-zinc-500 font-normal">/{offer.pageSlug}</span>
                       </div>
-                      <p className="text-cyan-200">{offer.total}</p>
+                      <div className="font-semibold text-emerald-300 shrink-0">{offer.conversionRate}%</div>
                     </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
-                      <div
-                        className="h-full rounded-full bg-cyan-300"
-                        style={{ width: `${Math.max(7, (offer.total / maxOfferEvents) * 100)}%` }}
+                    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-emerald-300 rounded-full transition-all" 
+                        style={{ width: `${Math.min(100, offer.conversionRate)}%` }}
                       />
                     </div>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      {offer.attempts} attempts, {offer.conversions} conversions
-                    </p>
+                    <div className="text-[10px] text-zinc-500 mt-0.5">
+                      {offer.conversions} / {offer.attempts} conversions
+                    </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <EmptyPanel message="No offer signals yet. Run a simulator dry-run or open a checkout page." />
+              <div className="text-sm text-zinc-500 pt-2">Not enough conversion data yet.</div>
             )}
+          </Panel>
+
+
+
+          <Panel title="Conversion Funnel">
+            <ConversionFunnel 
+              views={filteredEvents.length} 
+              attempts={attemptCount} 
+              conversions={conversionCount} 
+            />
           </Panel>
 
           <form action="/dashboard/analytics" className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
@@ -218,23 +330,37 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           </form>
         </section>
 
-        <section className="mt-5 grid gap-5 lg:grid-cols-3">
-          <Insight
-            title="Selected page"
-            value={selectedPage?.label || 'All pages'}
-            detail={selectedPage ? `/${selectedPage.slug}` : `${ownedPages.length} pages included`}
-          />
-          <Insight
-            title="Intent actions"
-            value={String(attemptCount)}
-            detail="Checkout starts and simulator dry-runs"
-          />
-          <Insight
-            title="Agent-readable surface"
-            value={`${ownedPages.filter((page) => page.is_published).length}/${ownedPages.length}`}
-            detail="Published pages in discovery feeds"
-          />
-        </section>
+        {/* Phase 2: Key Insights */}
+        <div className="mt-6">
+          <h3 className="text-lg font-semibold mb-3 text-zinc-200">Key Insights</h3>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+              <div className="text-sm text-zinc-400">Quality of Agent-Engaged Pages</div>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-4xl font-semibold text-white">{avgActiveReadiness}</span>
+                <span className="text-sm text-zinc-400">avg readiness</span>
+              </div>
+              <div className="mt-1 text-xs text-zinc-500">
+                Pages with real agent traffic vs your overall average ({avgAllReadiness}%)
+              </div>
+              {avgActiveReadiness > avgAllReadiness && (
+                <div className="mt-2 text-xs text-emerald-300">↑ Higher quality pages tend to attract more agents</div>
+              )}
+            </div>
+
+            <Insight
+              title="Agent-engaged pages"
+              value={`${activePages.length} / ${ownedPages.length}`}
+              detail="Pages that received real agent traffic in the selected period"
+            />
+
+            <Insight
+              title="Agent-readable surface"
+              value={`${ownedPages.filter((page) => page.is_published).length}/${ownedPages.length}`}
+              detail="Published pages in discovery feeds"
+            />
+          </div>
+        </div>
 
         <section className="mt-5 rounded-lg border border-white/10 bg-white/[0.04]">
           <div className="flex flex-col justify-between gap-3 border-b border-white/10 p-5 md:flex-row md:items-center">

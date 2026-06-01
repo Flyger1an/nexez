@@ -63,23 +63,42 @@ export async function POST(request: Request) {
     }
 
     const lines: string[] = []
+    const structuredOffers: Array<{
+      name: string
+      description: string
+      price: string
+      url: string
+      duration: string
+      confidence: number
+    }> = []
 
     for (const event of eventsData.collection as CalendlyEventType[]) {
       const name = event.attributes.name
-      const duration = event.attributes.duration
+      const durationMinutes = event.attributes.duration
       const kind = event.attributes.kind === 'solo' ? '1:1' : 'Group'
       const url = event.relationships.scheduling_url?.href || ''
 
-      const price = 'Custom' // Calendly doesn't expose price via basic API
-      const description = `${kind} call lasting ${duration} minutes. Book directly via Calendly.`
+      const price = 'Custom'
+      const description = `${kind} call lasting ${durationMinutes} minutes. Book directly via Calendly.`
 
       lines.push(`${name} | ${price} | ${description} | ${url}`)
+
+      // Rich OfferItem for Phase 1/3 fidelity (duration + url populated)
+      structuredOffers.push({
+        name,
+        description,
+        price,
+        url,
+        duration: `${durationMinutes} min`,
+        confidence: 0.92, // High confidence for direct Calendly source
+      })
     }
 
     return NextResponse.json({
       ok: true,
       count: lines.length,
-      lines,
+      lines, // legacy compat
+      structuredOffers, // rich path for VisualOfferBuilder (Phase 3 improvement)
       message: `Imported ${lines.length} Calendly event types as bookable offers.`,
     })
 

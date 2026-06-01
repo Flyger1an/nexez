@@ -1,0 +1,51 @@
+'use client'
+
+interface FunnelProps {
+  views: number
+  attempts: number
+  conversions: number
+}
+
+export function ConversionFunnel({ views, attempts, conversions }: FunnelProps) {
+  const max = Math.max(views, attempts, conversions, 1)
+
+  const stages = [
+    { label: 'Agent Events', value: views, color: '#7C3AED' },
+    { label: 'Intent Actions', value: attempts, color: '#C4B5FD' },
+    { label: 'Conversions', value: conversions, color: '#00F5FF' },
+  ]
+
+  return (
+    <div className="space-y-3 pt-2">
+      {stages.map((stage, index) => {
+        const width = Math.max(12, Math.round((stage.value / max) * 100))
+        const rate = index > 0 ? ((stage.value / stages[index - 1].value) * 100).toFixed(1) : '100'
+
+        return (
+          <div key={index} className="flex items-center gap-3 text-sm">
+            <div className="w-28 shrink-0 text-right text-zinc-400">{stage.label}</div>
+            <div className="flex-1">
+              <div className="h-6 rounded-full bg-white/10 overflow-hidden">
+                <div 
+                  className="h-full rounded-full transition-all flex items-center justify-end pr-2 text-xs font-medium text-white"
+                  style={{ 
+                    width: `${width}%`, 
+                    backgroundColor: stage.color,
+                    opacity: index === 0 ? 0.9 : 0.75 
+                  }}
+                >
+                  {stage.value.toLocaleString()}
+                </div>
+              </div>
+            </div>
+            {index > 0 && (
+              <div className="w-14 text-right text-xs text-zinc-500">
+                {rate}%
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}

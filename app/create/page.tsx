@@ -14,8 +14,10 @@ import {
 import {
   getReadinessScore,
   normalizeSlug,
+  OfferItem,
   parseFaqLines,
   parseOfferLines,
+  formatOfferLines,
 } from '../../lib/agent-page'
 import {
   enhanceDescriptionForAgents,
@@ -26,6 +28,7 @@ import {
 } from '../../lib/ai-optimize'
 import { parseAgentCsv, sampleAgentCsv } from '../../lib/csv-import'
 import { createClient } from '../../utils/supabase/client'
+import { VisualOfferBuilder } from '../../components/VisualOfferBuilder'
 
 const industries = [
   // Professional / Business Services
@@ -45,6 +48,44 @@ const industries = [
   'Other Local Services',
 ]
 
+// Light industry-aware suggestions (Phase 1 A)
+function getIndustrySuggestions(industry: string): OfferItem[] {
+  const ind = industry.toLowerCase()
+  const base = { url: '' }
+  if (ind.includes('plumb') || ind.includes('home') || ind.includes('electrical')) {
+    return [
+      { ...base, name: 'Standard Service Call', price: 'From $129', description: 'Diagnosis + minor repair. Includes basic parts.', duration: '60 min', isMobile: true, serviceArea: 'Local metro' },
+      { ...base, name: 'Emergency Visit', price: '$189', description: 'Same-day response for urgent issues.', duration: '60-90 min', isMobile: true },
+    ]
+  }
+  if (ind.includes('massage') || ind.includes('wellness') || ind.includes('fitness')) {
+    return [
+      { ...base, name: '60-Minute Deep Tissue', price: '$110', description: 'Therapeutic massage with hot stones.', duration: '60 min', isMobile: true, travelFee: '$25' },
+      { ...base, name: '90-Minute Signature Session', price: '$165', description: 'Full body therapeutic treatment.', duration: '90 min', isMobile: true },
+    ]
+  }
+  if (ind.includes('clean')) {
+    return [
+      { ...base, name: 'Deep House Cleaning', price: '$189', description: 'Full top-to-bottom clean for 1-2 bedroom homes.', duration: '2-3 hours', isMobile: true },
+    ]
+  }
+  if (ind.includes('groom') || ind.includes('pet')) {
+    return [
+      { ...base, name: 'Full Grooming Package', price: '$85', description: 'Bath, haircut, nail trim, ear cleaning.', duration: '90-120 min', isMobile: true },
+    ]
+  }
+  if (ind.includes('detailing') || ind.includes('auto')) {
+    return [
+      { ...base, name: 'Mobile Car Detailing', price: 'From $149', description: 'Interior + exterior hand wash and detail.', duration: '2-3 hours', isMobile: true },
+    ]
+  }
+  // Professional default
+  return [
+    { ...base, name: 'Discovery Session', price: '$150', description: '60-minute focused call with clear next steps.', duration: '60 min' },
+    { ...base, name: 'Core Engagement', price: 'From $1,800', description: 'Full delivery with priority support.', duration: 'Ongoing' },
+  ]
+}
+
 export default function CreatePage() {
   const [step, setStep] = useState(1)
   const [name, setName] = useState('')
@@ -60,6 +101,11 @@ export default function CreatePage() {
   const [products, setProducts] = useState('')
   const [services, setServices] = useState('')
   const [faqs, setFaqs] = useState('')
+
+  // Phase 1 A: Primary rich OfferItem[] state (mirrors editor). Direct structuredOffers from importer populates cards.
+  const [servicesOffers, setServicesOffers] = useState<OfferItem[]>([])
+  const [productsOffers, setProductsOffers] = useState<OfferItem[]>([])
+
   const [loading, setLoading] = useState(false)
   const [publishedSlug, setPublishedSlug] = useState('')
   const [importMessage, setImportMessage] = useState('')
@@ -75,8 +121,9 @@ export default function CreatePage() {
 
   const previewSlug = useMemo(() => normalizeSlug(slug || name), [name, slug])
   const sampleCsvHref = useMemo(() => `data:text/csv;charset=utf-8,${encodeURIComponent(sampleAgentCsv)}`, [])
-  const parsedProducts = useMemo(() => parseOfferLines(products), [products])
-  const parsedServices = useMemo(() => parseOfferLines(services), [services])
+  // Prefer rich arrays (Phase 1 A) for builder + submit; fall back to text for compat
+  const parsedProducts = useMemo(() => (productsOffers.length ? productsOffers : parseOfferLines(products)), [productsOffers, products])
+  const parsedServices = useMemo(() => (servicesOffers.length ? servicesOffers : parseOfferLines(services)), [servicesOffers, services])
   const parsedFaqs = useMemo(() => parseFaqLines(faqs), [faqs])
   const score = getReadinessScore({
     name,
@@ -99,6 +146,38 @@ export default function CreatePage() {
     if (params.get('import') === 'csv') {
       setStep(2)
       setImportMessage('Upload a CSV to import services, products, FAQs, and page context.')
+    }
+
+    // Handle import from Tools page
+    if (params.get('imported') === 'true') {
+      const saved = sessionStorage.getItem('nexez_imported_page')
+      const structured = sessionStorage.getItem('nexez_imported_structured')
+
+      if (saved) {
+        try {
+          const imported = JSON.parse(saved)
+          if (imported.name) setName(imported.name)
+          if (imported.description) setDescription(imported.description)
+          if (imported.website_url) setWebsiteUrl(imported.website_url)
+          if (imported.services) setServices(imported.services)
+
+          if (structured) {
+            const offers: OfferItem[] = JSON.parse(structured)
+            // Phase 1 A: Direct rich population from importer (no text roundtrip loss for cards)
+            setServicesOffers(offers)
+            // Keep text layer in sync for advanced view + any legacy paths
+            setServices(formatOfferLines(offers))
+          }
+
+          setImportMessage('Page data loaded from website import. Review and customize below.')
+          setStep(1)
+          // Clean up storage
+          sessionStorage.removeItem('nexez_imported_page')
+          sessionStorage.removeItem('nexez_imported_structured')
+        } catch (e) {
+          console.error('Failed to load imported data')
+        }
+      }
     }
   }, [])
 
@@ -210,22 +289,34 @@ export default function CreatePage() {
       audience: buyer,
     })
 
-    if (optS) setServices(optS)
-    if (optP) setProducts(optP)
+    if (optS) {
+      setServices(optS)
+      setServicesOffers(parseOfferLines(optS))
+    }
+    if (optP) {
+      setProducts(optP)
+      setProductsOffers(parseOfferLines(optP))
+    }
   }
 
   function rewriteServicesForAgents() {
     const businessName = name || 'This business'
     const buyer = audience || 'qualified buyers'
     const { services: optS } = optimizeAllOffersForAgents(services, '', { businessName, audience: buyer })
-    if (optS) setServices(optS)
+    if (optS) {
+      setServices(optS)
+      setServicesOffers(parseOfferLines(optS))
+    }
   }
 
   function rewriteProductsForAgents() {
     const businessName = name || 'This business'
     const buyer = audience || 'qualified buyers'
     const { products: optP } = optimizeAllOffersForAgents('', products, { businessName, audience: buyer })
-    if (optP) setProducts(optP)
+    if (optP) {
+      setProducts(optP)
+      setProductsOffers(parseOfferLines(optP))
+    }
   }
 
   async function handleCsvFile(event: React.ChangeEvent<HTMLInputElement>) {
@@ -253,6 +344,11 @@ export default function CreatePage() {
       setServices((current) => mergeLines(current, imported.services))
       setProducts((current) => mergeLines(current, imported.products))
       setFaqs((current) => mergeLines(current, imported.faqs))
+
+      // Phase 1 A: Keep rich state in sync after CSV import
+      if (imported.services?.length) setServicesOffers(parseOfferLines(mergeLines(services, imported.services)))
+      if (imported.products?.length) setProductsOffers(parseOfferLines(mergeLines(products, imported.products)))
+
       setImportMessage(
         `Imported ${imported.services.length} services, ${imported.products.length} products, and ${imported.faqs.length} FAQs from ${file.name}.`,
       )
@@ -329,7 +425,15 @@ export default function CreatePage() {
         return
       }
 
-      if (data.lines?.length) {
+      if (data.structuredOffers?.length) {
+        // Phase 3: Prefer rich OfferItem[] directly into the VisualOfferBuilder (high fidelity)
+        setServicesOffers((current) => [...current, ...data.structuredOffers])
+        setImportMessage(`Imported ${data.count} Calendly event types as editable offers.`)
+        setCalendlyImportOpen(false)
+        setCalendlyToken('')
+        if (step < 2) setStep(2)
+      } else if (data.lines?.length) {
+        // Legacy fallback
         setServices((current) => mergeLines(current, data.lines))
         setImportMessage(`Imported ${data.count} Calendly event types as bookable offers.`)
         setCalendlyImportOpen(false)
@@ -416,16 +520,22 @@ export default function CreatePage() {
             />
             <button
               type="button"
+              disabled={loading}
               onClick={async () => {
                 const input = document.getElementById('site-importer-url') as HTMLInputElement
                 if (!input?.value) return
 
+                // Phase 1 A: loading state while importing
+                setLoading(true)
+
                 const res = await fetch('/api/tools/import-site', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ url: input.value }),
+                  body: JSON.stringify({ url: input.value, industry }),
                 })
                 const data = await res.json()
+
+                setLoading(false)
 
                 if (data.suggestedPage) {
                   if (data.suggestedPage.name) setName(data.suggestedPage.name)
@@ -433,22 +543,30 @@ export default function CreatePage() {
                   if (data.suggestedPage.website_url) setWebsiteUrl(data.suggestedPage.website_url)
 
                   if (data.structuredOffers && data.structuredOffers.length > 0) {
-                    // Go deep: Convert rich structured data into enhanced pipe format the Visual Builder loves
-                    const lines = data.structuredOffers.map((o: any) => {
-                      let line = `${o.name} | ${o.price} | ${o.description || 'Book this service directly.'} | ${o.url || ''}`
-                      if (o.duration) line += ` | ${o.duration}`
-                      if (o.isMobile) line += ` | Mobile`
-                      return line
-                    }).join('\n')
-                    setServices(lines)
+                    // Phase 1 A: Direct rich OfferItem[] to Visual Builder cards (primary path)
+                    const rich: OfferItem[] = data.structuredOffers
+                    setServicesOffers(rich)
+                    setServices(formatOfferLines(rich))
                   } else if (data.suggestedPage.services) {
                     setServices(data.suggestedPage.services)
                   }
 
-                  setImportMessage(data.message || 'Website imported successfully!')
                   if (step < 2) setStep(2)
+
+                  // Phase 1 A: richer success message with quality signals
+                  if (data.structuredOffers?.length) {
+                    const count = data.structuredOffers.length
+                    const avgConf = data.structuredOffers.reduce((s: number, o: any) => s + (o.confidence || 0.7), 0) / count
+                    const confPct = Math.round(avgConf * 100)
+                    setImportMessage(
+                      `Imported ${count} offers (${confPct}% avg confidence). Ready in the Visual Builder below.`
+                    )
+                  } else {
+                    setImportMessage(data.message || 'Website imported successfully!')
+                  }
                 } else {
-                  alert(data.error || 'Could not import that site.')
+                  setImportMessage(data.error || 'Could not analyze that site. Try a different URL or enter offers manually.')
+                  setLoading(false)
                 }
               }}
               className="btn-primary"
@@ -572,7 +690,7 @@ export default function CreatePage() {
                     <div className="rounded-lg border border-violet-300/30 bg-black/30 p-4">
                       <p className="text-sm font-medium text-violet-200">Calendly Bookings Import</p>
                       <p className="mt-1 text-xs text-zinc-400">
-                        Paste a Calendly Personal Access Token. We&apos;ll import your active event types as bookable services.
+                        Paste a Calendly Personal Access Token. We&apos;ll import your active event types as rich editable offers (duration + direct booking URL included).
                       </p>
                       <div className="mt-3 flex gap-2">
                         <input
@@ -622,29 +740,78 @@ export default function CreatePage() {
 
               {step === 2 ? (
                 <div className="space-y-5">
-                  <div className="grid grid-cols-2 rounded-lg bg-white/10 p-1">
-                    <button className="rounded-md bg-cyan-300 px-4 py-2 font-medium text-zinc-950" type="button">Services</button>
-                    <button className="rounded-md px-4 py-2 font-medium text-zinc-300" type="button">Products</button>
+                  {/* Phase 1 A: Visual Builder is now primary in create (matches editor + roadmap) */}
+                  <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-xs uppercase tracking-widest text-cyan-300">Services</p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const bn = name || 'This business'
+                            const aud = audience || 'qualified buyers'
+                            const enhanced = servicesOffers.map(o => ({
+                              ...o,
+                              description: enhanceDescriptionForAgents(o.description || '', bn, aud)
+                            }))
+                            setServicesOffers(enhanced)
+                            setServices(formatOfferLines(enhanced))
+                          }}
+                          className="text-[10px] rounded border border-cyan-300/40 px-2 py-0.5 text-cyan-300 hover:bg-cyan-300/10"
+                        >
+                          Enhance All
+                        </button>
+                        {industry && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // Light industry-aware suggestions (Phase 1 A)
+                              const suggestions = getIndustrySuggestions(industry)
+                              const combined = [...servicesOffers, ...suggestions.filter(s => 
+                                !servicesOffers.some(e => e.name.toLowerCase() === s.name.toLowerCase())
+                              )]
+                              setServicesOffers(combined)
+                              setServices(formatOfferLines(combined))
+                            }}
+                            className="text-[10px] rounded border border-[#7C3AED]/40 px-2 py-0.5 text-[#C4B5FD] hover:bg-[#7C3AED]/10"
+                          >
+                            Suggest for {industry.split(' ')[0]}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <VisualOfferBuilder
+                      offers={parsedServices}
+                      kind="services"
+                      businessName={name}
+                      audience={audience}
+                      onChange={(newOffers) => {
+                        setServicesOffers(newOffers)
+                        setServices(formatOfferLines(newOffers))
+                      }}
+                    />
                   </div>
-                  <Field label="Services, one per line: name | price | description | URL">
-                    <textarea value={services} onChange={(event) => setServices(event.target.value)} className={textareaClass} placeholder="Strategy Session | $450 | 60-minute advisory session | https://example.com/book" />
-                  </Field>
-                  <div className="flex flex-wrap gap-3">
-                    <button type="button" onClick={openCsvUpload} className={secondaryButton}>
-                      Import CSV
-                    </button>
-                    <a href={sampleCsvHref} download="nexez-agent-page-sample.csv" className={secondaryButton}>
-                      Sample CSV
-                    </a>
+
+                  <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
+                    <p className="mb-3 text-xs uppercase tracking-widest text-cyan-300">Products</p>
+                    <VisualOfferBuilder
+                      offers={parsedProducts}
+                      kind="products"
+                      businessName={name}
+                      audience={audience}
+                      onChange={(newOffers) => {
+                        setProductsOffers(newOffers)
+                        setProducts(formatOfferLines(newOffers))
+                      }}
+                    />
                   </div>
+
                   {importMessage ? (
                     <p className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-3 text-sm text-cyan-100">
                       {importMessage}
                     </p>
                   ) : null}
-                  <Field label="Products, one per line: name | price | description | URL">
-                    <textarea value={products} onChange={(event) => setProducts(event.target.value)} className={textareaClass} placeholder="Template Pack | $99 | AI-ready service templates | https://example.com/templates" />
-                  </Field>
+
                   <div className="grid gap-5 md:grid-cols-2">
                     <Field label="Main website">
                       <input type="url" value={websiteUrl} onChange={(event) => setWebsiteUrl(event.target.value)} className={inputClass} placeholder="https://example.com" />
@@ -653,18 +820,29 @@ export default function CreatePage() {
                       <input type="url" value={ctaUrl} onChange={(event) => setCtaUrl(event.target.value)} className={inputClass} placeholder="https://example.com/book" />
                     </Field>
                   </div>
-                  <button type="button" onClick={() => setServices(`${services}${services ? '\n' : ''}New Service | From $199 | Describe what buyers get | https://example.com`)} className="rounded-lg bg-cyan-300 px-5 py-3 font-semibold text-zinc-950 hover:bg-cyan-200">
-                    Add Another Service
-                  </button>
-                  <button type="button" onClick={optimizeOfferCopy} className={secondaryButton}>
-                    Optimize All Offers for Agents
-                  </button>
-                  <button type="button" onClick={rewriteServicesForAgents} className={secondaryButton}>
-                    Rewrite Services for AI
-                  </button>
-                  <button type="button" onClick={rewriteProductsForAgents} className={secondaryButton}>
-                    Rewrite Products for AI
-                  </button>
+
+                  {/* Legacy raw text kept for CSV / power users (advanced) */}
+                  <details className="group">
+                    <summary className="cursor-pointer text-xs text-zinc-400 hover:text-zinc-200">Advanced: raw text format (CSV import, power users)</summary>
+                    <div className="mt-3 space-y-4">
+                      <Field label="Services (raw text)">
+                        <textarea value={services} onChange={(event) => { setServices(event.target.value); setServicesOffers(parseOfferLines(event.target.value)) }} className={textareaClass} />
+                      </Field>
+                      <Field label="Products (raw text)">
+                        <textarea value={products} onChange={(event) => { setProducts(event.target.value); setProductsOffers(parseOfferLines(event.target.value)) }} className={textareaClass} />
+                      </Field>
+                      <div className="flex flex-wrap gap-3">
+                        <button type="button" onClick={openCsvUpload} className={secondaryButton}>Import CSV</button>
+                        <a href={sampleCsvHref} download="nexez-agent-page-sample.csv" className={secondaryButton}>Sample CSV</a>
+                      </div>
+                    </div>
+                  </details>
+
+                  <div className="flex flex-wrap gap-3">
+                    <button type="button" onClick={optimizeOfferCopy} className={secondaryButton}>Optimize All Offers for Agents</button>
+                    <button type="button" onClick={rewriteServicesForAgents} className={secondaryButton}>Rewrite Services for AI</button>
+                    <button type="button" onClick={rewriteProductsForAgents} className={secondaryButton}>Rewrite Products for AI</button>
+                  </div>
                 </div>
               ) : null}
 

@@ -17,6 +17,7 @@ import {
 import { AgentPage, getBaseUrl, normalizeSlug } from '../../../../lib/agent-page'
 import { buildAgentPagePayload, getAgentJsonPath } from '../../../../lib/agent-manifest'
 import { createClient } from '../../../../utils/supabase/client'
+import { fireOutboundWebhook } from '../../../../lib/webhooks'
 
 type PageProps = {
   params: Promise<{ id: string }>
@@ -37,7 +38,11 @@ export default function PageSettings({ params }: PageProps) {
   const [isPublished, setIsPublished] = useState(false)
   const [customDomain, setCustomDomain] = useState('')
   const [preferOriginalSite, setPreferOriginalSite] = useState(false)
+  const [industry, setIndustry] = useState('')
   const [copied, setCopied] = useState('')
+  const [activeReSync, setActiveReSync] = useState<'calendly' | 'stripe' | 'shopify' | null>(null)
+  const [reSyncInput, setReSyncInput] = useState('')
+  const [reSyncInput2, setReSyncInput2] = useState('') // for shopify domain + token
 
   useEffect(() => {
     params.then(({ id }) => setId(id))
@@ -104,6 +109,7 @@ export default function PageSettings({ params }: PageProps) {
     setIsPublished(data.is_published)
     setCustomDomain(data.custom_domain ?? '')
     setPreferOriginalSite(!!data.prefer_original_site)
+    setIndustry(data.industry ?? '')
     setLoading(false)
   }
 
@@ -350,23 +356,220 @@ export default function PageSettings({ params }: PageProps) {
               <button
                 type="button"
                 onClick={async () => {
-                  if (!websiteUrl) { alert('No original website URL set.'); return; }
+                  if (!websiteUrl) { 
+                    setMessage('No original website URL set.');
+                    return; 
+                  }
                   const res = await fetch('/api/tools/import-site', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: websiteUrl })
+                    body: JSON.stringify({ url: websiteUrl, industry })
                   });
                   const data = await res.json();
-                  if (data.suggestedPage) {
-                    alert('Data fetched from your site. Go to the Editor page to review and merge the updated offers.');
+                  if (data.suggestedPage && data.structuredOffers) {
+                    // Phase 1 polish: store for the editor's re-analysis preview flow
+                    sessionStorage.setItem('nexez_imported_page', JSON.stringify(data.suggestedPage));
+                    sessionStorage.setItem('nexez_imported_structured', JSON.stringify(data.structuredOffers));
+                    window.location.href = `/dashboard/${id}?reanalyzed=true`;
                   } else {
-                    alert(data.error || 'Sync failed.');
+                    setMessage(data.error || 'Sync failed. Please try again.');
                   }
                 }}
                 className="mt-3 w-full rounded-lg border border-white/15 px-5 py-3 text-sm text-zinc-200 hover:bg-white/5"
               >
-                Re-sync Offers from Original Website
+                Re-sync Offers from Original Website (Preview in Editor)
               </button>
+
+              {/* Phase 3: Calendly re-sync (per ROADMAP) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveReSync(activeReSync === 'calendly' ? null : 'calendly');
+                  setReSyncInput('');
+                }}
+                className="mt-3 w-full rounded-lg border border-violet-300/30 px-5 py-3 text-sm text-violet-200 hover:bg-violet-300/10"
+              >
+                Re-sync from Calendly (paste PAT)
+              </button>
+              {activeReSync === 'calendly' && (
+                <div className="mt-2 space-y-2">
+                  <input
+                    type="password"
+                    value={reSyncInput}
+                    onChange={(e) => setReSyncInput(e.target.value)}
+                    placeholder="Calendly Personal Access Token"
+                    className="w-full rounded border border-white/15 bg-black/30 px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!reSyncInput.trim()) return;
+                      setMessage('Re-syncing from Calendly...');
+                      try {
+                        const res = await fetch('/api/integrations/calendly/import', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ token: reSyncInput.trim() }),
+                        });
+                        const data = await res.json();
+                        if (data.structuredOffers?.length) {
+                          sessionStorage.setItem('nexez_imported_structured', JSON.stringify(data.structuredOffers));
+                          sessionStorage.setItem('nexez_imported_page', JSON.stringify({ name: page?.name, slug: page?.slug }));
+                          window.location.href = `/dashboard/${id}?reanalyzed=true&source=calendly`;
+
+                      // Fire outbound webhook if configured (Phase 3 foundation)
+                      const webhookEndpoint = localStorage.getItem('nexez_outbound_webhook_url')
+                      if (webhookEndpoint) {
+                        fireOutboundWebhook(webhookEndpoint, null, {
+                          event: 'integration.re_sync_completed',
+                          timestamp: new Date().toISOString(),
+                          page: { id: page?.id || '', slug: page?.slug || '', name: page?.name || '' },
+                          data: { integration: 'calendly', offer_count: data.structuredOffers?.length || 0 }
+                        })
+                      }
+                        } else {
+                          setMessage(data.error || data.message || 'No events found or import failed.');
+                        }
+                      } catch (e: any) {
+                        setMessage('Calendly re-sync failed: ' + e.message);
+                      } finally {
+                        setActiveReSync(null);
+                        setReSyncInput('');
+                      }
+                    }}
+                    className="w-full rounded-lg bg-violet-300 px-5 py-2 text-sm font-semibold text-zinc-950 hover:bg-violet-200"
+                  >
+                    Confirm Re-sync from Calendly
+                  </button>
+                </div>
+              )}
+              <p className="mt-1 text-[10px] text-zinc-500">
+                Pulls your latest Calendly event types as rich offers and merges them (preserves your edits).
+              </p>
+
+              {/* Phase 3: Stripe re-sync (per ROADMAP) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveReSync(activeReSync === 'stripe' ? null : 'stripe');
+                  setReSyncInput('');
+                }}
+                className="mt-3 w-full rounded-lg border border-cyan-300/30 px-5 py-3 text-sm text-cyan-200 hover:bg-cyan-300/10"
+              >
+                Re-sync from Stripe (paste Secret Key)
+              </button>
+              {activeReSync === 'stripe' && (
+                <div className="mt-2 space-y-2">
+                  <input
+                    type="password"
+                    value={reSyncInput}
+                    onChange={(e) => setReSyncInput(e.target.value)}
+                    placeholder="Stripe Secret Key (sk_live_...)"
+                    className="w-full rounded border border-white/15 bg-black/30 px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!reSyncInput.trim()) return;
+                      setMessage('Re-syncing from Stripe...');
+                      try {
+                        const res = await fetch('/api/integrations/stripe/import', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ stripeSecretKey: reSyncInput.trim() }),
+                        });
+                        const data = await res.json();
+                        if (data.structuredOffers?.length) {
+                          sessionStorage.setItem('nexez_imported_structured', JSON.stringify(data.structuredOffers));
+                          sessionStorage.setItem('nexez_imported_page', JSON.stringify({ name: page?.name, slug: page?.slug }));
+                          window.location.href = `/dashboard/${id}?reanalyzed=true&source=stripe`;
+                        } else {
+                          setMessage(data.error || data.message || 'No products found or import failed.');
+                        }
+                      } catch (e: any) {
+                        setMessage('Stripe re-sync failed: ' + e.message);
+                      } finally {
+                        setActiveReSync(null);
+                        setReSyncInput('');
+                      }
+                    }}
+                    className="w-full rounded-lg bg-cyan-300 px-5 py-2 text-sm font-semibold text-zinc-950 hover:bg-cyan-200"
+                  >
+                    Confirm Re-sync from Stripe
+                  </button>
+                </div>
+              )}
+              <p className="mt-1 text-[10px] text-zinc-500">
+                Pulls latest products & prices as rich offers and merges them (preserves your edits).
+              </p>
+
+              {/* Phase 3: Shopify re-sync */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveReSync(activeReSync === 'shopify' ? null : 'shopify');
+                  setReSyncInput('');
+                  setReSyncInput2('');
+                }}
+                className="mt-3 w-full rounded-lg border border-purple-300/30 px-5 py-3 text-sm text-purple-200 hover:bg-purple-300/10"
+              >
+                Re-sync from Shopify (domain + optional token)
+              </button>
+              {activeReSync === 'shopify' && (
+                <div className="mt-2 space-y-2">
+                  <input
+                    type="text"
+                    value={reSyncInput}
+                    onChange={(e) => setReSyncInput(e.target.value)}
+                    placeholder="Shopify store domain (yourstore.myshopify.com)"
+                    className="w-full rounded border border-white/15 bg-black/30 px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="password"
+                    value={reSyncInput2}
+                    onChange={(e) => setReSyncInput2(e.target.value)}
+                    placeholder="Admin API token (optional for public catalogs)"
+                    className="w-full rounded border border-white/15 bg-black/30 px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!reSyncInput.trim()) return;
+                      setMessage('Re-syncing from Shopify...');
+                      try {
+                        const res = await fetch('/api/integrations/shopify/import', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ 
+                            shop: reSyncInput.trim(), 
+                            accessToken: reSyncInput2.trim() 
+                          }),
+                        });
+                        const data = await res.json();
+                        if (data.structuredOffers?.length) {
+                          sessionStorage.setItem('nexez_imported_structured', JSON.stringify(data.structuredOffers));
+                          sessionStorage.setItem('nexez_imported_page', JSON.stringify({ name: page?.name, slug: page?.slug }));
+                          window.location.href = `/dashboard/${id}?reanalyzed=true&source=shopify`;
+                        } else {
+                          setMessage(data.error || data.message || 'No products found or import failed.');
+                        }
+                      } catch (e: any) {
+                        setMessage('Shopify re-sync failed: ' + e.message);
+                      } finally {
+                        setActiveReSync(null);
+                        setReSyncInput('');
+                        setReSyncInput2('');
+                      }
+                    }}
+                    className="w-full rounded-lg bg-purple-300 px-5 py-2 text-sm font-semibold text-zinc-950 hover:bg-purple-200"
+                  >
+                    Confirm Re-sync from Shopify
+                  </button>
+                </div>
+              )}
+              <p className="mt-1 text-[10px] text-zinc-500">
+                Pulls your Shopify products as rich offers. Leave token empty to use public catalog.
+              </p>
             </form>
 
             <section className="rounded-lg border border-white/10 bg-white/[0.04]">

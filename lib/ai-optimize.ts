@@ -58,6 +58,7 @@ export function rewriteOfferForAgents(offer: OfferItem, context?: { businessName
     serviceArea: offer.serviceArea,
     isMobile: offer.isMobile,
     travelFee: offer.travelFee,
+    tiers: offer.tiers, // Phase 1 A fidelity - preserve tiers
   }
 }
 
@@ -107,15 +108,40 @@ export function optimizeAllOffersForAgents(
   products: string,
   context: { businessName?: string; audience?: string }
 ): { services: string; products: string } {
+  // Phase 1 A: Parse richer lines (consumer + tiers) and preserve them after rewrite
   const parse = (text: string) =>
     text
       .split('\n')
       .map((l) => l.trim())
       .filter(Boolean)
       .map((line) => {
-        const [name = '', price = '', desc = '', url = ''] = line.split('|').map((p) => p.trim())
-        const rewritten = rewriteOfferForAgents({ name, price, description: desc, url }, context)
-        return [rewritten.name, rewritten.price, rewritten.description, rewritten.url].join(' | ')
+        const parts = line.split('|').map((p) => p.trim())
+        const [name = '', price = '', desc = '', url = ''] = parts
+
+        // Reconstruct full OfferItem for rewrite (preserves consumer fields + tiers)
+        const fullOffer: OfferItem = {
+          name,
+          price,
+          description: desc,
+          url,
+          duration: parts[4] || undefined,
+          serviceArea: parts[5] || undefined,
+          travelFee: parts[6] || undefined,
+          isMobile: parts[7] === '1' || parts[7]?.toLowerCase() === 'true' || parts[7]?.toLowerCase() === 'mobile' || undefined,
+          tiers: undefined, // tiers are harder to parse from text; rely on rich array path in editor/create
+        }
+
+        const rewritten = rewriteOfferForAgents(fullOffer, context)
+
+        // Rebuild line preserving consumer fields + tiers marker if they existed
+        let newLine = [rewritten.name, rewritten.price, rewritten.description, rewritten.url].join(' | ')
+
+        const hadConsumer = !!fullOffer.duration || !!fullOffer.serviceArea || !!fullOffer.travelFee || !!fullOffer.isMobile
+        if (hadConsumer) {
+          newLine += ` | ${rewritten.duration || ''} | ${rewritten.serviceArea || ''} | ${rewritten.travelFee || ''} | ${rewritten.isMobile ? '1' : '0'}`
+        }
+
+        return newLine
       })
       .join('\n')
 

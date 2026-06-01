@@ -1,11 +1,11 @@
 import type { Metadata } from 'next'
 import { ArrowLeft, ArrowRight, Bot, Code2, ExternalLink, Search, Sparkles } from 'lucide-react'
-import { AgentPage, getBaseUrl, getOfferCount } from '../../lib/agent-page'
+import { AgentPage, getBaseUrl, getOfferCount, getReadinessScore } from '../../lib/agent-page'
 import { AgentSearchResult, searchAgentPages } from '../../lib/agent-search'
 import { supabase } from '../../lib/supabase'
 
 type DirectoryProps = {
-  searchParams: Promise<{ q?: string; type?: string }>
+  searchParams: Promise<{ q?: string; type?: string; category?: string; min_readiness?: string }>
 }
 
 const quickFilters = ['consulting', 'strategy session', 'bookings', 'products', 'retainers']
@@ -16,8 +16,10 @@ export const metadata: Metadata = {
 }
 
 export default async function DirectoryPage({ searchParams }: DirectoryProps) {
-  const { q = '', type = 'all' } = await searchParams
+  const { q = '', type = 'all', category: rawCategory = 'all', min_readiness: rawMin = '0' } = await searchParams
   const cleanQuery = q.trim()
+  const categoryFilter = (rawCategory === 'professional' || rawCategory === 'consumer') ? rawCategory : 'all'
+  const minReadiness = Math.max(0, parseInt(rawMin, 10) || 0)
   const baseUrl = getBaseUrl()
   const { data: pages } = await supabase
     .from('pages')
@@ -26,7 +28,31 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
     .order('created_at', { ascending: false })
     .returns<AgentPage[]>()
 
-  const allResults = searchAgentPages(pages ?? [], cleanQuery, 50)
+  let filteredPages = pages ?? []
+  if (categoryFilter !== 'all') {
+    filteredPages = filteredPages.filter(p => {
+      const ind = (p.industry || '').toLowerCase()
+      const isConsumer = ['home', 'plumbing', 'cleaning', 'massage', 'fitness', 'wellness', 'pet', 'grooming', 'auto', 'detailing', 'beauty', 'medical', 'health', 'events'].some(k => ind.includes(k))
+      return categoryFilter === 'consumer' ? isConsumer : !isConsumer
+    })
+  }
+
+  // Apply minimum readiness filter
+  if (minReadiness > 0) {
+    filteredPages = filteredPages.filter(p => {
+      const score = getReadinessScore({
+        ...p,
+        products: p.products ?? [],
+        services: p.services ?? [],
+        faqs: p.faqs ?? [],
+        is_published: true,
+      })
+      return score >= minReadiness
+    })
+  }
+
+  const allResults = searchAgentPages(filteredPages, cleanQuery, 50)
+
   const results = allResults.filter((result) => {
     if (type === 'all') return true
     return result.offer?.type === type
@@ -79,6 +105,8 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                 />
               </label>
               <input type="hidden" name="type" value={type} />
+              <input type="hidden" name="category" value={categoryFilter} />
+              {minReadiness > 0 && <input type="hidden" name="min_readiness" value={String(minReadiness)} />}
               <div className="mt-3 flex flex-wrap gap-2">
                 <button className="rounded-lg bg-cyan-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-cyan-600">
                   Search
@@ -111,9 +139,18 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
           <div className="rounded-lg border border-zinc-200 bg-white p-5">
             <p className="text-sm font-semibold text-zinc-500">Offer type</p>
             <div className="mt-4 grid gap-2">
-              <FilterLink label="All" value="all" active={type === 'all'} query={cleanQuery} />
-              <FilterLink label="Services" value="service" active={type === 'service'} query={cleanQuery} />
-              <FilterLink label="Products" value="product" active={type === 'product'} query={cleanQuery} />
+              <FilterLink label="All" value="all" active={type === 'all'} query={cleanQuery} currentOther={categoryFilter} />
+              <FilterLink label="Services" value="service" active={type === 'service'} query={cleanQuery} currentOther={categoryFilter} />
+              <FilterLink label="Products" value="product" active={type === 'product'} query={cleanQuery} currentOther={categoryFilter} />
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-zinc-200 bg-white p-5">
+            <p className="text-sm font-semibold text-zinc-500">Category</p>
+            <div className="mt-4 grid gap-2">
+              <FilterLink label="All" value="all" active={type === 'all'} query={cleanQuery} param="category" currentOther={type} />
+              <FilterLink label="Professional" value="professional" active={type === 'professional'} query={cleanQuery} param="category" currentOther={type} />
+              <FilterLink label="Consumer / Local" value="consumer" active={type === 'consumer'} query={cleanQuery} param="category" currentOther={type} />
             </div>
           </div>
 
@@ -122,24 +159,97 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
               <Sparkles className="size-4" />
               <p className="text-sm font-semibold">Agent API</p>
             </div>
-            <code className="mt-4 block break-all rounded-lg bg-white p-3 text-xs leading-5 text-zinc-700">
-              {`${baseUrl}/api/agent-search?q=${encodeURIComponent(cleanQuery || 'consulting')}`}
-            </code>
+            <div className="mt-4 space-y-3 text-xs">
+              <div>
+                <div className="flex items-center justify-between text-zinc-500 mb-1">
+                  <span>Agent search</span>
+                  <button 
+                    onClick={() => navigator.clipboard.writeText(`${baseUrl}/api/agent-search?q=${encodeURIComponent(cleanQuery || 'consulting')}`)}
+                    className="text-[10px] text-cyan-600 hover:text-cyan-800"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <code className="block break-all rounded bg-white p-2 text-zinc-700 font-mono text-[10px]">
+                  {`${baseUrl}/api/agent-search?q=${encodeURIComponent(cleanQuery || 'consulting')}`}
+                </code>
+              </div>
+              <div>
+                <div className="flex items-center justify-between text-zinc-500 mb-1">
+                  <span>Directory API</span>
+                  <button 
+                    onClick={() => navigator.clipboard.writeText(`${baseUrl}/api/directory?category=consumer`)}
+                    className="text-[10px] text-cyan-600 hover:text-cyan-800"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <code className="block break-all rounded bg-white p-2 text-zinc-700 font-mono text-[10px]">
+                  {`${baseUrl}/api/directory?category=consumer`}
+                </code>
+              </div>
+            </div>
           </div>
         </aside>
 
         <div>
-          <div className="mb-4 flex flex-col justify-between gap-3 md:flex-row md:items-center">
-            <div>
-              <p className="text-sm text-zinc-500">{results.length} matching offers</p>
-              <h2 className="text-2xl font-semibold tracking-tight">
-                {cleanQuery ? `Results for "${cleanQuery}"` : 'All agent-ready offers'}
-              </h2>
+          <div className="mb-4">
+            <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+              <div>
+                <p className="text-sm text-zinc-500">{results.length} matching offers</p>
+                <h2 className="text-2xl font-semibold tracking-tight">
+                  {cleanQuery 
+                    ? `Results for "${cleanQuery}"` 
+                    : categoryFilter === 'professional' 
+                      ? 'Professional Services' 
+                      : categoryFilter === 'consumer' 
+                        ? 'Consumer & Local Services' 
+                        : 'All agent-ready offers'}
+                </h2>
+              </div>
+              <a href="/openapi.json" className="inline-flex items-center gap-2 text-sm font-medium text-cyan-700 hover:text-cyan-900">
+                OpenAPI
+                <ExternalLink className="size-4" />
+              </a>
             </div>
-            <a href="/openapi.json" className="inline-flex items-center gap-2 text-sm font-medium text-cyan-700 hover:text-cyan-900">
-              OpenAPI
-              <ExternalLink className="size-4" />
-            </a>
+
+            {/* Phase 2 Directory polish: Category tabs + Quality filter */}
+            <div className="mt-4 flex flex-wrap gap-2">
+              {[
+                { label: 'All', value: 'all' },
+                { label: 'Professional', value: 'professional' },
+                { label: 'Consumer / Local', value: 'consumer' },
+              ].map((tab) => {
+                const isActive = categoryFilter === tab.value
+                return (
+                  <a
+                    key={tab.value}
+                    href={`/directory?q=${encodeURIComponent(cleanQuery)}&type=${type}&category=${tab.value}`}
+                    className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                      isActive
+                        ? 'bg-zinc-950 text-white'
+                        : 'border border-zinc-200 bg-white text-zinc-600 hover:border-zinc-400'
+                    }`}
+                  >
+                    {tab.label}
+                  </a>
+                )
+              })}
+
+              {/* Quick high-quality filter (Phase 2) */}
+              <a
+                href={`/directory?q=${encodeURIComponent(cleanQuery)}&type=${type}&category=${categoryFilter}&min_readiness=80`}
+                className="rounded-full border border-emerald-300 bg-emerald-50 px-4 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
+              >
+                High Quality (80%+)
+              </a>
+              <a
+                href={`/directory?q=${encodeURIComponent(cleanQuery)}&type=${type}&category=${categoryFilter}&min_readiness=90`}
+                className="rounded-full border border-emerald-300 bg-emerald-50 px-4 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
+              >
+                Elite (90%+)
+              </a>
+            </div>
           </div>
 
           <div className="grid gap-4 xl:grid-cols-2">
@@ -147,6 +257,65 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
               <DirectoryCard key={`${result.page.slug}-${result.offer?.key ?? 'page'}`} result={result} />
             ))}
           </div>
+
+          {/* Phase 2: Agents also viewed / similar pages */}
+          {results.length > 0 && (
+            <div className="mt-10">
+              <h3 className="text-lg font-semibold tracking-tight mb-4">Agents also viewed</h3>
+              <div className="grid gap-4 xl:grid-cols-2">
+                {(pages ?? [])
+                  .filter(p => p.is_published && ((p.services?.length ?? 0) + (p.products?.length ?? 0) > 0))
+                  .filter(p => {
+                    const inCurrentResults = results.some(r => r.page.slug === p.slug)
+                    if (inCurrentResults) return false
+
+                    // Same broad category
+                    const ind = (p.industry || '').toLowerCase()
+                    const isConsumer = ['home', 'plumbing', 'cleaning', 'massage', 'fitness', 'wellness', 'pet', 'grooming', 'auto', 'detailing', 'beauty', 'medical', 'health', 'events'].some(k => ind.includes(k))
+                    const wantConsumer = categoryFilter === 'consumer'
+                    const wantProfessional = categoryFilter === 'professional'
+
+                    if (wantConsumer) return isConsumer
+                    if (wantProfessional) return !isConsumer
+                    return true
+                  })
+                  .sort((a, b) => {
+                    const scoreA = getReadinessScore({ ...a, products: a.products ?? [], services: a.services ?? [], faqs: a.faqs ?? [], is_published: true })
+                    const scoreB = getReadinessScore({ ...b, products: b.products ?? [], services: b.services ?? [], faqs: b.faqs ?? [], is_published: true })
+                    return scoreB - scoreA
+                  })
+                  .slice(0, 4)
+                  .map((p) => {
+                    const readiness = getReadinessScore({
+                      ...p,
+                      products: p.products ?? [],
+                      services: p.services ?? [],
+                      faqs: p.faqs ?? [],
+                      is_published: true,
+                    });
+                    return (
+                      <div key={p.slug} className="rounded-lg border border-zinc-200 bg-white p-4 text-sm">
+                        <div className="flex items-start justify-between">
+                          <a href={`/${p.slug}`} className="font-medium text-zinc-900 hover:text-cyan-700">
+                            {p.name}
+                          </a>
+                          <span className="text-[10px] rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-700 font-medium">
+                            {readiness}%
+                          </span>
+                        </div>
+                        <div className="text-xs text-zinc-500 mt-1">/{p.slug}</div>
+                      </div>
+                    );
+                  })}
+              </div>
+              <a 
+                href={`/directory?category=${categoryFilter}&type=${type}&min_readiness=80`}
+                className="mt-3 inline-block text-sm text-cyan-600 hover:text-cyan-800"
+              >
+                View all high readiness pages in this category →
+              </a>
+            </div>
+          )}
 
           {!results.length ? (
             <div className="rounded-lg border border-dashed border-zinc-300 bg-white p-12 text-center">
@@ -165,6 +334,23 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
 
 function DirectoryCard({ result }: { result: AgentSearchResult }) {
   const offer = result.offer
+  const page = result.page as any
+
+  const readiness = getReadinessScore({
+    name: page.name,
+    slug: page.slug,
+    description: page.description,
+    website_url: page.website_url,
+    cta_url: page.cta_url,
+    audience: page.audience,
+    location: page.location,
+    contact_email: page.contact_email,
+    industry: page.industry,
+    products: page.products,
+    services: page.services,
+    faqs: page.faqs,
+    is_published: true,
+  })
 
   return (
     <article className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-cyan-300">
@@ -178,8 +364,13 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
             /{result.page.slug}
           </a>
         </div>
-        <div className="rounded-lg bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600">
-          {result.score}
+        <div className="flex flex-col items-end gap-1">
+          <div className="rounded-lg bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600">
+            {result.score}
+          </div>
+          <div className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${readiness >= 75 ? 'bg-emerald-100 text-emerald-700' : readiness >= 55 ? 'bg-amber-100 text-amber-700' : 'bg-zinc-100 text-zinc-600'}`}>
+            {readiness}% ready
+          </div>
         </div>
       </div>
 
@@ -218,15 +409,22 @@ function FilterLink({
   value,
   active,
   query,
+  param = 'type',
+  currentOther,
 }: {
   label: string
   value: string
   active: boolean
   query: string
+  param?: string
+  currentOther?: string
 }) {
+  const otherParam = param === 'type' ? 'category' : 'type'
+  const otherValue = currentOther || 'all'
+
   return (
     <a
-      href={`/directory?q=${encodeURIComponent(query)}&type=${value}`}
+      href={`/directory?q=${encodeURIComponent(query)}&${param}=${value}&${otherParam}=${otherValue}`}
       className={`rounded-lg px-3 py-2 text-sm font-medium ${
         active ? 'bg-zinc-950 text-white' : 'border border-zinc-200 text-zinc-600 hover:bg-zinc-50'
       }`}

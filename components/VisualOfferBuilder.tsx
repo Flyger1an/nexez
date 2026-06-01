@@ -11,7 +11,7 @@
  * Future: extend with pricingTiers array per the vision.
  */
 
-import React from 'react'
+import React, { useState } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -31,6 +31,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, Plus, Trash2, Sparkles } from 'lucide-react'
 import type { OfferItem, PricingTier } from '../lib/agent-page'
+import { enhanceDescriptionForAgents } from '../lib/ai-optimize'
 
 export type OfferKind = 'services' | 'products'
 
@@ -39,6 +40,9 @@ interface VisualOfferBuilderProps {
   kind: OfferKind
   onChange: (offers: OfferItem[]) => void
   onAddFromTemplate?: (template: OfferItem) => void
+  // Phase 1 A: context for smarter per-card AI enhancement
+  businessName?: string
+  audience?: string
 }
 
 const SERVICE_TEMPLATES: OfferItem[] = [
@@ -141,12 +145,16 @@ const PRODUCT_TEMPLATES: OfferItem[] = [
   },
 ]
 
-export function VisualOfferBuilder({ offers, kind, onChange }: VisualOfferBuilderProps) {
+export function VisualOfferBuilder({ offers, kind, onChange, businessName, audience }: VisualOfferBuilderProps) {
   // Normalize offers to ensure tiers is always an array
   const normalizedOffers = offers.map(o => ({
     ...o,
     tiers: o.tiers || []
   }))
+
+  // Source filter state (Phase 3)
+  const [sourceFilter, setSourceFilter] = useState<string>('all')
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -222,32 +230,62 @@ export function VisualOfferBuilder({ offers, kind, onChange }: VisualOfferBuilde
         </div>
       </div>
 
-      {/* Draggable List */}
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext
-          items={offers.map((o, i) => getOfferId(o, i))}
-          strategy={verticalListSortingStrategy}
-        >
-          <div className="space-y-3">
-            {offers.length === 0 && (
-              <div className="rounded-lg border border-dashed border-white/15 p-8 text-center text-sm text-zinc-500">
-                No offers yet. Add from templates above or create a blank one.
-              </div>
-            )}
-            {offers.map((offer, index) => (
-              <SortableOfferCard
-                key={getOfferId(offer, index)}
-                id={getOfferId(offer, index)}
-                offer={offer}
-                index={index}
-                onUpdate={updateOffer}
-                onRemove={removeOffer}
-                onUpdateFull={updateFullOffer}
-              />
+      {/* Source Filter (Phase 3) */}
+      {offers.some(o => o.source) && (
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-zinc-400">Filter by source:</span>
+          <select
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value)}
+            className="rounded border border-white/15 bg-black/30 px-2 py-1 text-xs text-white"
+          >
+            <option value="all">All</option>
+            {Array.from(new Set(offers.map(o => o.source).filter(Boolean))).map(src => (
+              <option key={src} value={src}>{src}</option>
             ))}
-          </div>
-        </SortableContext>
-      </DndContext>
+          </select>
+        </div>
+      )}
+
+      {/* Draggable List with optional source filter */}
+      {(() => {
+        const filteredOffers = sourceFilter === 'all' 
+          ? offers 
+          : offers.filter(o => o.source === sourceFilter)
+
+        return (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext
+              items={filteredOffers.map((o, i) => getOfferId(o, i))}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-3">
+                {filteredOffers.length === 0 && (
+                  <div className="rounded-lg border border-dashed border-white/15 p-8 text-center text-sm text-zinc-500">
+                    No offers match the current filter.
+                  </div>
+                )}
+                {filteredOffers.map((offer, index) => {
+                  const originalIndex = offers.findIndex((o, i) => getOfferId(o, i) === getOfferId(offer, index))
+                  return (
+                    <SortableOfferCard
+                      key={getOfferId(offer, index)}
+                      id={getOfferId(offer, index)}
+                      offer={offer}
+                      index={originalIndex}
+                      onUpdate={updateOffer}
+                      onRemove={removeOffer}
+                      onUpdateFull={updateFullOffer}
+                      businessName={businessName}
+                      audience={audience}
+                    />
+                  )
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
+        )
+      })()}
 
       <p className="text-[10px] text-zinc-500">
         Drag cards to reorder. Changes sync to the structured data agents read.
@@ -267,6 +305,8 @@ function SortableOfferCard({
   onUpdate,
   onRemove,
   onUpdateFull,
+  businessName,
+  audience,
 }: {
   id: string
   offer: OfferItem
@@ -274,6 +314,8 @@ function SortableOfferCard({
   onUpdate: (index: number, field: keyof OfferItem, value: string) => void
   onRemove: (index: number) => void
   onUpdateFull?: (index: number, updated: Partial<OfferItem>) => void
+  businessName?: string
+  audience?: string
 }) {
   const {
     attributes,
@@ -326,7 +368,17 @@ function SortableOfferCard({
 
         <div className="flex-1 space-y-3">
           {/* Basic Info */}
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="relative grid grid-cols-1 gap-3 md:grid-cols-2">
+            {typeof offer.confidence === 'number' && (
+              <span className="absolute -top-1.5 right-0 rounded bg-emerald-400/10 px-1.5 py-px text-[9px] font-medium text-emerald-300">
+                {Math.round(offer.confidence * 100)}% match
+              </span>
+            )}
+            {offer.source && (
+              <span className="absolute -top-1.5 right-20 rounded bg-blue-400/10 px-1.5 py-px text-[9px] font-medium text-blue-300">
+                via {offer.source}
+              </span>
+            )}
             <input
               value={offer.name}
               onChange={(e) => onUpdate(index, 'name', e.target.value)}
@@ -341,12 +393,31 @@ function SortableOfferCard({
             />
           </div>
 
-          <textarea
-            value={offer.description}
-            onChange={(e) => onUpdate(index, 'description', e.target.value)}
-            placeholder="Description optimized for agents and customers"
-            className="min-h-[72px] w-full rounded border border-white/10 bg-black/30 px-3 py-2 text-sm text-white"
-          />
+          <div className="relative">
+            <textarea
+              value={offer.description}
+              onChange={(e) => onUpdate(index, 'description', e.target.value)}
+              placeholder="Description optimized for agents and customers"
+              className="min-h-[72px] w-full rounded border border-white/10 bg-black/30 px-3 py-2 text-sm text-white pr-16"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const bn = businessName || 'This business'
+                const aud = audience || 'qualified buyers'
+                const enhanced = enhanceDescriptionForAgents(offer.description || '', bn, aud)
+                if (onUpdateFull) {
+                  onUpdateFull(index, { description: enhanced })
+                } else {
+                  onUpdate(index, 'description', enhanced)
+                }
+              }}
+              className="absolute top-2 right-2 text-[10px] flex items-center gap-1 rounded border border-cyan-300/40 bg-black/50 px-1.5 py-0.5 text-cyan-300 hover:bg-cyan-300/10"
+              title="Enhance this offer description for AI agents"
+            >
+              <Sparkles className="size-3" /> Enhance
+            </button>
+          </div>
 
           {/* Pricing Tiers */}
           <div className="border border-white/10 rounded-lg p-3 bg-black/20">

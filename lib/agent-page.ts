@@ -16,6 +16,12 @@ export type OfferItem = {
   serviceArea?: string
   isMobile?: boolean
   travelFee?: string
+
+  // Optional quality signal (primarily from Site Importer)
+  confidence?: number
+
+  // Integration source (Calendly, Stripe, Shopify, etc.)
+  source?: string
 }
 
 export type OfferKind = 'services' | 'products'
@@ -50,6 +56,7 @@ export type AgentPage = {
   is_published: boolean
   custom_domain?: string | null
   created_at?: string
+  last_booking?: any   // Phase 3: lightweight last booking from webhooks (Calendly etc.)
 }
 
 export function normalizeSlug(value: string) {
@@ -72,17 +79,37 @@ export function parseOfferLines(value: string): OfferItem[] {
     const parts = line.split('|').map((part) => part.trim())
     const [name = '', price = '', description = '', url = ''] = parts
 
-    // Support extended consumer service fields if provided in text format
-    // Format: name | price | description | url | duration | serviceArea | travelFee | isMobile(0/1)
+    // Support extended consumer service fields + tiers (Phase 1 A fidelity)
+    // Robust extraction: find ||TIERS|| anywhere after base fields
+    let tiers: PricingTier[] | undefined
+    const tiersPart = parts.find(p => p.startsWith('||TIERS||'))
+    if (tiersPart) {
+      try {
+        tiers = JSON.parse(tiersPart.replace('||TIERS||', ''))
+      } catch (e) {
+        // ignore bad json
+      }
+    }
+
+    // Consumer block is the 4 slots immediately after the first 4 base fields,
+    // but stop before any tiers suffix if present
+    const tiersIdx = parts.findIndex(p => p.startsWith('||TIERS||'))
+    const consumerEnd = tiersIdx !== -1 ? tiersIdx : parts.length
+    const consumerParts = parts.slice(4, consumerEnd)
+
+    const isMobileRaw = consumerParts[3] || ''
+    const isMobile = ['1', 'true', 'mobile', 'yes'].includes(isMobileRaw.toLowerCase())
+
     return {
       name,
       price,
       description,
       url,
-      duration: parts[4] || undefined,
-      serviceArea: parts[5] || undefined,
-      travelFee: parts[6] || undefined,
-      isMobile: parts[7] === '1' || parts[7]?.toLowerCase() === 'true' || undefined,
+      duration: consumerParts[0] || undefined,
+      serviceArea: consumerParts[1] || undefined,
+      travelFee: consumerParts[2] || undefined,
+      isMobile: isMobile || undefined,
+      tiers,
     }
   })
 }
@@ -98,9 +125,13 @@ export function formatOfferLines(items: OfferItem[] | null | undefined) {
   return (items ?? [])
     .map((item) => {
       const base = [item.name, item.price, item.description, item.url]
-      // Append consumer fields if present
+      // Append consumer fields if present (Phase 1 A)
       if (item.duration || item.serviceArea || item.travelFee || item.isMobile) {
         base.push(item.duration || '', item.serviceArea || '', item.travelFee || '', item.isMobile ? '1' : '0')
+      }
+      // Append tiers (JSON suffix) for full roundtrip fidelity
+      if (item.tiers && item.tiers.length > 0) {
+        base.push(`||TIERS||${JSON.stringify(item.tiers)}`)
       }
       return base.join(' | ')
     })

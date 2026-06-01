@@ -17,27 +17,47 @@ type ImportRequest = {
 }
 
 export async function POST(request: Request) {
-  if (!process.env.STRIPE_SECRET_KEY) {
-    return NextResponse.json(
-      { error: 'Stripe is not configured on this Nexez instance. Add STRIPE_SECRET_KEY to enable imports.' },
-      { status: 412 }
-    )
-  }
-
-  let body: ImportRequest
+  let body: ImportRequest & { stripeSecretKey?: string }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' as any })
+  const secret = body.stripeSecretKey || process.env.STRIPE_SECRET_KEY
+
+  if (!secret) {
+    return NextResponse.json(
+      { error: 'No Stripe secret key provided. Add STRIPE_SECRET_KEY on the server or pass stripeSecretKey in the request.' },
+      { status: 412 }
+    )
+  }
+
+  const stripe = new Stripe(secret, { apiVersion: '2024-06-20' as any })
 
   const lines: string[] = []
   const meta: any = { importedAt: new Date().toISOString() }
 
   try {
-    if (body.productId) {
+    // Support "recent products" when no specific IDs are given (common import flow)
+    if (!body.productId && !body.priceIds) {
+      const products = await stripe.products.list({ active: true, limit: 10, expand: ['data.default_price'] })
+
+      for (const product of products.data) {
+        const prices = await stripe.prices.list({ product: product.id, active: true, limit: 3 })
+
+        for (const price of prices.data) {
+          const amount = price.unit_amount ? (price.unit_amount / 100).toFixed(0) : null
+          let priceStr = amount ? `$${amount}` : 'Custom'
+          if (price.recurring?.interval) {
+            priceStr += ` / ${price.recurring.interval}`
+          }
+          const name = product.name + (price.nickname ? ` (${price.nickname})` : '')
+          lines.push(`${name} | ${priceStr} | ${product.description || 'Stripe product'} | ${product.url || ''}`)
+        }
+      }
+      meta.mode = 'recent_products'
+    } else if (body.productId) {
       const product = await stripe.products.retrieve(body.productId)
       const prices = await stripe.prices.list({ product: body.productId, active: true, limit: 5 })
 
@@ -65,15 +85,29 @@ export async function POST(request: Request) {
         }
       }
     } else {
-      return NextResponse.json({ error: 'Provide productId or priceIds' }, { status: 400 })
+      return NextResponse.json({ error: 'Provide productId, priceIds, or leave empty for recent products' }, { status: 400 })
     }
+
+    // Phase 3: Also return rich structuredOffers (symmetric to Calendly work)
+    const structuredOffers = lines.map((line) => {
+      const parts = line.split(' | ').map(p => p.trim())
+      return {
+        name: parts[0] || 'Stripe item',
+        description: parts[2] || 'Imported from Stripe',
+        price: parts[1] || 'Custom',
+        url: parts[3] || '',
+        source: 'stripe',           // Roadmap: source integration metadata
+        confidence: 0.9,
+      }
+    })
 
     return NextResponse.json({
       ok: true,
       lines,
+      structuredOffers,
       count: lines.length,
       meta,
-      message: 'Copy these lines into the Services or Products field in the builder.',
+      message: 'Stripe data ready. Rich cards will be used when possible.',
     })
   } catch (error: any) {
     return NextResponse.json(

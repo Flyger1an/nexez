@@ -1,3 +1,6 @@
+'use client'
+
+import { useEffect, useState } from 'react'
 import {
   ArrowLeft,
   Calendar,
@@ -14,10 +17,10 @@ import {
 const integrations = [
   {
     name: 'Calendly',
-    description: 'Sync bookings and availability directly into agent pages.',
+    description: 'Import event types as offers. Use PAT in Tools → Site Importer for structured pull into editable cards.',
     status: 'Available',
-    action: 'Import',
-    href: '/create?source=calendly',
+    action: 'Import via Tools',
+    href: '/dashboard/tools',
     icon: Calendar,
     accent: 'violet',
   },
@@ -50,10 +53,10 @@ const integrations = [
   },
   {
     name: 'Shopify / Woo',
-    description: 'Sync product catalog, pricing, inventory, and product URLs.',
+    description: 'Import product catalog from Shopify stores (public feed + enhanced extraction).',
     status: 'Available',
-    action: 'Connect',
-    href: '/create',
+    action: 'Import in Tools',
+    href: '/dashboard/tools',
     icon: ShoppingCart,
     accent: 'purple',
   },
@@ -69,6 +72,72 @@ const integrations = [
 ]
 
 export default function IntegrationsPage() {
+  const [calendlyConnection, setCalendlyConnection] = useState<{ lastSync: string; maskedToken: string } | null>(null)
+  const [calendlyWebhook, setCalendlyWebhook] = useState<{ lastSaved: string } | null>(null)
+  const [stripeConnection, setStripeConnection] = useState<{ lastImport: string } | null>(null)
+  const [shopifyConnection, setShopifyConnection] = useState<{ lastImport: string } | null>(null)
+
+  useEffect(() => {
+    try {
+      const pat = localStorage.getItem('nexez_calendly_connection')
+      if (pat) setCalendlyConnection(JSON.parse(pat))
+
+      const webhook = localStorage.getItem('nexez_calendly_webhook')
+      if (webhook) setCalendlyWebhook(JSON.parse(webhook))
+
+      const stripe = localStorage.getItem('nexez_stripe_connection')
+      if (stripe) setStripeConnection(JSON.parse(stripe))
+
+      const shopify = localStorage.getItem('nexez_shopify_connection')
+      if (shopify) setShopifyConnection(JSON.parse(shopify))
+    } catch {}
+  }, [])
+
+  // Dynamic status for integrations (Phase 3 status dashboard)
+  const dynamicIntegrations = integrations.map((int) => {
+    if (int.name === 'Calendly') {
+      const hasPat = !!calendlyConnection
+      const hasWebhook = !!calendlyWebhook
+
+      if (hasPat || hasWebhook) {
+        const parts = []
+        if (hasPat) parts.push(`PAT • ${new Date(calendlyConnection!.lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`)
+        if (hasWebhook) parts.push(`Webhook • ${new Date(calendlyWebhook!.lastSaved).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`)
+
+        return {
+          ...int,
+          status: 'Connected',
+          description: parts.join(' • '),
+          action: 'Manage in Tools',
+        }
+      }
+    }
+
+    if (int.name === 'Stripe') {
+      if (stripeConnection) {
+        return {
+          ...int,
+          status: 'Connected',
+          description: `Connected • Last import ${new Date(stripeConnection.lastImport).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+          action: 'Manage in Tools',
+        }
+      }
+    }
+
+    if (int.name === 'Shopify / Woo') {
+      if (shopifyConnection) {
+        return {
+          ...int,
+          status: 'Connected',
+          description: `Connected • Last import ${new Date(shopifyConnection.lastImport).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+          action: 'Manage in Tools',
+        }
+      }
+    }
+
+    return int
+  })
+
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
@@ -98,17 +167,31 @@ export default function IntegrationsPage() {
                 offers, route bookings, and avoid stale pricing.
               </p>
             </div>
-            <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-4">
-              <p className="text-sm font-medium text-cyan-100">Next milestone</p>
-              <p className="mt-2 text-xs leading-5 text-zinc-400">
-                Stripe first: import products and payment links into a draft page.
-              </p>
+            <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-4 text-xs">
+              <p className="font-medium text-cyan-100 mb-2">Integrations Health</p>
+              <div className="space-y-2 text-zinc-400">
+                <div className="flex justify-between">
+                  <span>Calendly</span>
+                  <span className="text-emerald-400">Deep + Webhooks</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Stripe</span>
+                  <span className="text-emerald-400">Import + Re-sync</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Shopify</span>
+                  <span className="text-emerald-400">Catalog Import</span>
+                </div>
+              </div>
+              <div className="mt-3 pt-2 border-t border-cyan-300/30 text-cyan-300 text-[10px]">
+                → Full management and re-sync in Tools. Webhooks fire automatically on real bookings.
+              </div>
             </div>
           </aside>
 
           <section>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {integrations.map((integration) => (
+              {dynamicIntegrations.map((integration) => (
                 <IntegrationCard key={integration.name} {...integration} />
               ))}
             </div>

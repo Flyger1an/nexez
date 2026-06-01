@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, ExternalLink, Loader2, Play, Save } from 'lucide-react'
 import {
   AgentPage,
+  OfferItem,
   formatFaqLines,
   formatOfferLines,
   getReadinessScore,
@@ -47,9 +48,25 @@ export default function EditAgentPage({ params }: PageProps) {
   const [services, setServices] = useState('')
   const [faqs, setFaqs] = useState('')
 
-  // Visual builder state (synced with text fields)
-  const parsedServices = React.useMemo(() => parseOfferLines(services), [services])
-  const parsedProducts = React.useMemo(() => parseOfferLines(products), [products])
+  // Phase 1 A: Primary rich OfferItem[] state (source of truth for Visual Builder + direct structured import)
+  // This eliminates text roundtrip loss for consumer fields + enables tiers + direct structuredOffers population
+  const [servicesOffers, setServicesOffers] = useState<OfferItem[]>([])
+  const [productsOffers, setProductsOffers] = useState<OfferItem[]>([])
+
+  // Phase 1 A: Pending re-analysis for preview/diff before applying
+  const [pendingReanalysis, setPendingReanalysis] = useState<{
+    incomingServices: OfferItem[]
+    incomingProducts: OfferItem[]
+    summary: string
+  } | null>(null)
+
+  // Phase 3: Recent activity from Calendly webhooks (makes webhooks feel valuable)
+  const [recentCalendlyBookings, setRecentCalendlyBookings] = useState<any[]>([])
+  const [lastBooking, setLastBooking] = useState<any>(null)
+
+  // Visual builder state (derived from rich arrays; text kept for legacy/raw + CSV)
+  const parsedServices = React.useMemo(() => servicesOffers.length ? servicesOffers : parseOfferLines(services), [servicesOffers, services])
+  const parsedProducts = React.useMemo(() => productsOffers.length ? productsOffers : parseOfferLines(products), [productsOffers, products])
   const [isPublished, setIsPublished] = useState(true)
 
   useEffect(() => {
@@ -60,6 +77,39 @@ export default function EditAgentPage({ params }: PageProps) {
     if (!id) return
     loadPage(id)
   }, [id])
+
+  // Phase 1 final polish: Auto-trigger reanalysis preview when coming from Settings "Re-sync"
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('reanalyzed') === 'true') {
+      const structured = sessionStorage.getItem('nexez_imported_structured')
+      const importedPage = sessionStorage.getItem('nexez_imported_page')
+
+      if (structured) {
+        try {
+          const incoming = JSON.parse(structured) as OfferItem[]
+          const newCount = incoming.filter(inc => 
+            !servicesOffers.some(e => e.name.toLowerCase() === inc.name.toLowerCase())
+          ).length
+          const updateCount = incoming.length - newCount
+
+          setPendingReanalysis({
+            incomingServices: incoming,
+            incomingProducts: [],
+            summary: `${newCount} new offers, ${updateCount} potential updates from your website.`
+          })
+          setMessage('Review the imported changes from your site below.')
+        } catch {}
+      }
+
+      // Clean up
+      sessionStorage.removeItem('nexez_imported_structured')
+      sessionStorage.removeItem('nexez_imported_page')
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [id, servicesOffers.length]) // run after load
 
   const score = useMemo(
     () =>
@@ -74,12 +124,12 @@ export default function EditAgentPage({ params }: PageProps) {
         contact_email: contactEmail,
         industry,
         prefer_original_site: preferOriginalSite,
-        products: parseOfferLines(products),
-        services: parseOfferLines(services),
+        products: productsOffers.length ? productsOffers : parseOfferLines(products),
+        services: servicesOffers.length ? servicesOffers : parseOfferLines(services),
         faqs: parseFaqLines(faqs),
         is_published: isPublished,
       }),
-    [audience, contactEmail, ctaUrl, description, faqs, isPublished, location, name, products, services, slug, websiteUrl],
+    [audience, contactEmail, ctaUrl, description, faqs, isPublished, location, name, products, productsOffers, services, servicesOffers, slug, websiteUrl],
   )
 
   async function loadPage(pageId: string) {
@@ -121,8 +171,29 @@ export default function EditAgentPage({ params }: PageProps) {
     setProducts(formatOfferLines(data.products))
     setServices(formatOfferLines(data.services))
     setFaqs(formatFaqLines(data.faqs))
+    // Seed rich primary state directly from DB arrays (Phase 1 A)
+    setServicesOffers((data.services ?? []) as OfferItem[])
+    setProductsOffers((data.products ?? []) as OfferItem[])
     setIsPublished(data.is_published)
+
+    // Phase 3: Load persisted last booking from the page (durable across refreshes)
+    if (data.last_booking) {
+      setLastBooking(data.last_booking)
+    }
+
     setLoading(false)
+
+    // Also fetch recent events for richer history
+    try {
+      const { data: events } = await supabase
+        .from('checkout_events')
+        .select('*')
+        .eq('slug', data.slug)
+        .contains('metadata', { source: 'calendly_webhook' })
+        .order('created_at', { ascending: false })
+        .limit(3)
+      if (events) setRecentCalendlyBookings(events)
+    } catch {}
   }
 
   function optimizeOffersWithAI() {
@@ -132,8 +203,14 @@ export default function EditAgentPage({ params }: PageProps) {
       businessName,
       audience: buyer,
     })
-    if (optS) setServices(optS)
-    if (optP) setProducts(optP)
+    if (optS) {
+      setServices(optS)
+      setServicesOffers(parseOfferLines(optS))
+    }
+    if (optP) {
+      setProducts(optP)
+      setProductsOffers(parseOfferLines(optP))
+    }
     setMessage('Offers rewritten for AI agents (local high-quality rules).')
   }
 
@@ -158,7 +235,7 @@ export default function EditAgentPage({ params }: PageProps) {
       const res = await fetch('/api/tools/import-site', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: websiteUrl }),
+        body: JSON.stringify({ url: websiteUrl, industry }),
       })
 
       const data = await res.json()
@@ -173,19 +250,139 @@ export default function EditAgentPage({ params }: PageProps) {
         setDescription(data.suggestedPage.description)
       }
 
-      // Merge services (append new ones to avoid losing manual work)
-      if (data.suggestedPage.services) {
+      // Phase 1 A: Direct structuredOffers → rich primary arrays (smart merge, preserve user work)
+      if (data.structuredOffers && data.structuredOffers.length > 0) {
+        const incoming = data.structuredOffers as OfferItem[]
+        const merged = [...servicesOffers]
+
+        incoming.forEach((inc) => {
+          const idx = merged.findIndex(m => m.name.toLowerCase() === inc.name.toLowerCase())
+          if (idx >= 0) {
+            const existing = merged[idx]
+            // Smart merge: take fresher price/desc/url from site, but protect user-edited tiers and long descriptions
+            merged[idx] = {
+              ...existing,
+              price: inc.price || existing.price,
+              url: inc.url || existing.url,
+              duration: inc.duration || existing.duration,
+              serviceArea: inc.serviceArea || existing.serviceArea,
+              isMobile: inc.isMobile ?? existing.isMobile,
+              travelFee: inc.travelFee || existing.travelFee,
+              // Protect substantial manual description work and tiers
+              description: (existing.description?.length || 0) > 80 ? existing.description : (inc.description || existing.description),
+              tiers: existing.tiers?.length ? existing.tiers : (inc.tiers || []),
+            }
+          } else {
+            merged.push(inc)
+          }
+        })
+
+        setServicesOffers(merged)
+        setServices(formatOfferLines(merged))
+      } else if (data.suggestedPage.services) {
         const newServices = data.suggestedPage.services
         const currentServices = services.trim()
         setServices(currentServices ? `${currentServices}\n${newServices}` : newServices)
       }
 
-      setMessage('Synced successfully from your website. Review the new offers in the builder below.')
+      setMessage('Synced successfully from your website (rich fields where detected). Review in the Visual Builder.')
     } catch (err) {
       setMessage('Error syncing from website.')
     } finally {
       setSyncing(false)
     }
+  }
+
+  // Phase 1 A: Re-analyze with preview (recommended path)
+  async function startReanalysis() {
+    if (!websiteUrl) {
+      setMessage('No website URL set on this page.')
+      return
+    }
+
+    setSyncing(true)
+    setMessage('')
+    setPendingReanalysis(null)
+
+    try {
+      const res = await fetch('/api/tools/import-site', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: websiteUrl, industry }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok || !data.structuredOffers) {
+        setMessage(data.error || 'Failed to re-analyze the website.')
+        return
+      }
+
+      const incomingServices = (data.structuredOffers as OfferItem[]).filter((o: any) => !o.kind || o.kind === 'services')
+      const incomingProducts = (data.structuredOffers as OfferItem[]).filter((o: any) => o.kind === 'products')
+
+      const newCount = incomingServices.filter(inc => 
+        !servicesOffers.some(e => e.name.toLowerCase() === inc.name.toLowerCase())
+      ).length
+
+      const updateCount = incomingServices.filter(inc => 
+        servicesOffers.some(e => e.name.toLowerCase() === inc.name.toLowerCase())
+      ).length
+
+      setPendingReanalysis({
+        incomingServices,
+        incomingProducts,
+        summary: `${newCount} new offers, ${updateCount} potential updates detected.`
+      })
+
+      setMessage('Review the proposed changes below before applying.')
+    } catch (err) {
+      setMessage('Error re-analyzing the website.')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  function applyPendingReanalysis(mode: 'all' | 'new' = 'all') {
+    if (!pendingReanalysis) return
+
+    const { incomingServices } = pendingReanalysis
+    let merged = [...servicesOffers]
+
+    incomingServices.forEach((inc) => {
+      const idx = merged.findIndex(m => m.name.toLowerCase() === inc.name.toLowerCase())
+      const isNew = idx === -1
+
+      if (mode === 'new' && !isNew) return
+
+      if (idx >= 0) {
+        const existing = merged[idx]
+        merged[idx] = {
+          ...existing,
+          price: inc.price || existing.price,
+          url: inc.url || existing.url,
+          duration: inc.duration || existing.duration,
+          serviceArea: inc.serviceArea || existing.serviceArea,
+          isMobile: inc.isMobile ?? existing.isMobile,
+          travelFee: inc.travelFee || existing.travelFee,
+          description: (existing.description?.length || 0) > 80 ? existing.description : (inc.description || existing.description),
+          tiers: existing.tiers?.length ? existing.tiers : (inc.tiers || []),
+          source: inc.source || existing.source,   // preserve source metadata
+        }
+      } else {
+        merged.push(inc)  // new offers carry their source (e.g. 'stripe', 'shopify')
+      }
+    })
+
+    setServicesOffers(merged)
+    setServices(formatOfferLines(merged))
+    setPendingReanalysis(null)
+    setMessage('Changes applied successfully. Review in the Visual Builder.')
+  }
+
+  function cancelPendingReanalysis() {
+    setPendingReanalysis(null)
+    setMessage('Re-analysis discarded.')
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -210,8 +407,9 @@ export default function EditAgentPage({ params }: PageProps) {
         contact_email: contactEmail,
         industry,
         prefer_original_site: preferOriginalSite,
-        products: parseOfferLines(products),
-        services: parseOfferLines(services),
+        // Phase 1 A: Prefer rich primary arrays (direct JSONB with full consumer/tiers fidelity, no text roundtrip)
+        products: productsOffers.length ? productsOffers : parseOfferLines(products),
+        services: servicesOffers.length ? servicesOffers : parseOfferLines(services),
         faqs: parseFaqLines(faqs),
         is_published: isPublished,
       })
@@ -255,12 +453,12 @@ export default function EditAgentPage({ params }: PageProps) {
           </a>
           <div className="flex flex-wrap gap-3">
             <button
-              onClick={handleSyncFromWebsite}
+              onClick={startReanalysis}
               disabled={syncing || !websiteUrl}
               className="inline-flex w-fit items-center gap-2 rounded-lg border border-[#7C3AED]/40 px-4 py-2 text-sm text-[#C4B5FD] hover:bg-[#7C3AED]/10 disabled:opacity-50"
             >
               {syncing ? <Loader2 className="size-4 animate-spin" /> : null}
-              {syncing ? 'Syncing...' : 'Re-sync from Website'}
+              {syncing ? 'Analyzing...' : 'Re-analyze from Website (Preview)'}
             </button>
             <a
               href={`/dashboard/${page.id}/test`}
@@ -379,13 +577,38 @@ export default function EditAgentPage({ params }: PageProps) {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-zinc-200">Visual Builder (Drag & Drop + Templates)</p>
-                <button
-                  type="button"
-                  onClick={optimizeOffersWithAI}
-                  className="rounded-lg border border-cyan-300/40 px-3 py-1 text-xs text-cyan-200 hover:bg-cyan-300/10"
-                >
-                  AI Optimize All
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={optimizeOffersWithAI}
+                    className="rounded-lg border border-cyan-300/40 px-3 py-1 text-xs text-cyan-200 hover:bg-cyan-300/10"
+                  >
+                    AI Optimize All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const bn = name || 'This business'
+                      const aud = audience || 'qualified buyers'
+                      const enhancedServices = servicesOffers.map(o => ({
+                        ...o,
+                        description: enhanceDescriptionForAgents(o.description || '', bn, aud)
+                      }))
+                      const enhancedProducts = productsOffers.map(o => ({
+                        ...o,
+                        description: enhanceDescriptionForAgents(o.description || '', bn, aud)
+                      }))
+                      setServicesOffers(enhancedServices)
+                      setProductsOffers(enhancedProducts)
+                      setServices(formatOfferLines(enhancedServices))
+                      setProducts(formatOfferLines(enhancedProducts))
+                      setMessage('All offer descriptions enhanced for AI agents.')
+                    }}
+                    className="rounded-lg border border-cyan-300/40 px-3 py-1 text-xs text-cyan-200 hover:bg-cyan-300/10"
+                  >
+                    Enhance All
+                  </button>
+                </div>
               </div>
 
               <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
@@ -393,9 +616,13 @@ export default function EditAgentPage({ params }: PageProps) {
                 <VisualOfferBuilder
                   offers={parsedServices}
                   kind="services"
+                  businessName={name}
+                  audience={audience}
                   onChange={(newOffers) => {
-                    const lines = newOffers.map(o => [o.name, o.price, o.description, o.url].join(' | ')).join('\n')
-                    setServices(lines)
+                    // Phase 1 A: Primary rich state (direct, no lossy text bridge for main path)
+                    setServicesOffers(newOffers)
+                    // Keep text in sync for raw textarea + CSV compat (uses full format)
+                    setServices(formatOfferLines(newOffers))
                   }}
                 />
               </div>
@@ -405,13 +632,128 @@ export default function EditAgentPage({ params }: PageProps) {
                 <VisualOfferBuilder
                   offers={parsedProducts}
                   kind="products"
+                  businessName={name}
+                  audience={audience}
                   onChange={(newOffers) => {
-                    const lines = newOffers.map(o => [o.name, o.price, o.description, o.url].join(' | ')).join('\n')
-                    setProducts(lines)
+                    // Phase 1 A: Primary rich state (direct, no lossy text bridge for main path)
+                    setProductsOffers(newOffers)
+                    setProducts(formatOfferLines(newOffers))
                   }}
                 />
               </div>
             </div>
+
+            {/* Phase 3: Recent Calendly bookings from webhooks (visible value + durable) */}
+            {(lastBooking || recentCalendlyBookings.length > 0) && (
+              <div className="rounded-lg border border-emerald-300/20 bg-emerald-400/5 p-4 mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-emerald-300">Recent Calendly Bookings (via webhook)</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-emerald-400/70">Live from webhooks</span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const demoSecret = 'demo-webhook-secret-for-testing'
+                          const res = await fetch('/api/webhooks/calendly', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'x-nexez-test-secret': demoSecret,
+                              'x-nexez-test-page-slug': slug || page?.slug || '',
+                            },
+                            body: JSON.stringify({
+                              event: 'invitee.created',
+                              payload: {
+                                invitee: { name: 'Test Booker (editor demo)', email: 'demo@nexez.test' },
+                                event: { name: 'Demo Consultation', start_time: new Date().toISOString() },
+                              },
+                            }),
+                          })
+                          if (res.ok) {
+                            // Reload last booking + recent events from DB (now durable)
+                            const sb = createClient()
+                            const { data: freshPage } = await sb.from('pages').select('last_booking').eq('id', id).single()
+                            if (freshPage?.last_booking) setLastBooking(freshPage.last_booking)
+                            const { data: events } = await sb
+                              .from('checkout_events')
+                              .select('*')
+                              .eq('slug', slug || page?.slug || '')
+                              .contains('metadata', { source: 'calendly_webhook' })
+                              .order('created_at', { ascending: false })
+                              .limit(3)
+                            if (events) setRecentCalendlyBookings(events)
+                            setMessage('Test booking recorded via webhook (durable + outbound if configured).')
+                          }
+                        } catch (e) {
+                          setMessage('Test webhook failed (check console).')
+                        }
+                      }}
+                      className="text-[10px] rounded border border-emerald-300/40 px-2 py-0.5 text-emerald-200 hover:bg-emerald-400/10"
+                    >
+                      Send test booking
+                    </button>
+                  </div>
+                </div>
+                {lastBooking && (
+                  <div className="mb-2 text-sm">
+                    <span className="font-medium text-emerald-200">Last:</span> {lastBooking.event_name} with {lastBooking.invitee_name}
+                    <span className="ml-2 text-xs text-zinc-500">({new Date(lastBooking.at).toLocaleString()})</span>
+                  </div>
+                )}
+                {recentCalendlyBookings.length > 0 && (
+                  <div className="space-y-1 text-xs">
+                    {recentCalendlyBookings.slice(0, lastBooking ? 2 : 3).map((evt, idx) => (
+                      <div key={idx} className="flex justify-between text-zinc-300">
+                        <span>{evt.offer_name} — {evt.metadata?.invitee_name || 'Guest'}</span>
+                        <span className="text-zinc-500">{new Date(evt.created_at).toLocaleDateString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Phase 1 A: Re-analysis preview / diff */}
+            {pendingReanalysis && (
+              <div className="rounded-xl border border-[#7C3AED]/30 bg-[#1A1625] p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-[#C4B5FD]">Re-analysis Preview</p>
+                    <p className="text-sm text-zinc-400">{pendingReanalysis.summary}</p>
+                    {pendingReanalysis.incomingServices?.some((o: any) => o.source) && (
+                      <p className="mt-1 text-[10px] text-blue-400">Includes offers from integrations (source preserved)</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => applyPendingReanalysis('all')}
+                      className="rounded-lg bg-white px-4 py-1.5 text-sm font-medium text-zinc-950 hover:bg-zinc-200"
+                    >
+                      Apply All Changes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyPendingReanalysis('new')}
+                      className="rounded-lg border border-white/20 px-4 py-1.5 text-sm text-white hover:bg-white/10"
+                    >
+                      Add New Only
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelPendingReanalysis}
+                      className="rounded-lg border border-white/10 px-4 py-1.5 text-sm text-zinc-300 hover:bg-white/5"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+                <p className="mt-3 text-xs text-zinc-500">
+                  Smart merge will protect your edited descriptions and tiers. New fields (duration, mobile, etc.) from your site will be incorporated.
+                </p>
+              </div>
+            )}
 
             {/* Legacy text view (kept for power users / CSV import compatibility) */}
             <details className="group">

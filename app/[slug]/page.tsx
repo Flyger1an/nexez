@@ -109,7 +109,7 @@ export default async function AgentPageRoute({ params }: PageProps) {
                   href={ctaUrl}
                   className="btn-primary"
                 >
-                  {page.cta_label || 'Visit website'}
+                  {page.cta_label || (preferOriginal ? 'Visit our website to book' : 'Visit website')}
                   <ArrowUpRight className="size-4" />
                 </a>
               )}
@@ -136,6 +136,12 @@ export default async function AgentPageRoute({ params }: PageProps) {
               <SummaryRow label="Offer count" value={`${getOfferCount(page)} products or services`} />
               <SummaryRow label="Location" value={page.location || 'Available online or by request'} />
               <SummaryRow label="Primary action" value={page.cta_label || 'Visit website'} />
+              {page.last_booking && (
+                <SummaryRow 
+                  label="Last booking via Calendly" 
+                  value={`${page.last_booking.event_name} on ${new Date(page.last_booking.at).toLocaleDateString()}`} 
+                />
+              )}
             </dl>
             <div className="mt-6 rounded-lg bg-zinc-950/60 p-4 text-sm leading-6 text-zinc-200">
               {page.name} is a published Nexez agent page. Use this page to understand the offer,
@@ -250,6 +256,11 @@ function OfferSection({
             <div className="flex items-start justify-between gap-4">
               <h3 className="text-lg font-medium text-white">{item.name}</h3>
               {item.price ? <p className="shrink-0 text-sm text-cyan-200">{item.price}</p> : null}
+              {item.source && (
+                <span className="ml-2 text-[10px] rounded bg-blue-400/10 px-1.5 py-0.5 text-blue-300">
+                  via {item.source}
+                </span>
+              )}
             </div>
             {item.description ? <p className="mt-3 text-sm leading-6 text-zinc-400">{item.description}</p> : null}
             {/* Consumer service metadata - Enhanced */}
@@ -259,6 +270,21 @@ function OfferSection({
                 {item.serviceArea && <span className="rounded-full bg-white/5 px-2.5 py-0.5 border border-white/10">{item.serviceArea}</span>}
                 {item.isMobile && <span className="rounded-full bg-emerald-400/10 px-2.5 py-0.5 border border-emerald-400/30 text-emerald-300">Mobile</span>}
                 {item.travelFee && <span className="rounded-full bg-white/5 px-2.5 py-0.5 border border-white/10">+ {item.travelFee} travel</span>}
+              </div>
+            )}
+
+            {/* Pricing Tiers (Phase 1 A fidelity) */}
+            {item.tiers && item.tiers.length > 0 && (
+              <div className="mt-3 text-xs">
+                <div className="uppercase tracking-widest text-[10px] text-[#C4B5FD] mb-1">Tiers</div>
+                <ul className="space-y-1">
+                  {item.tiers.map((t, ti) => (
+                    <li key={ti} className="flex justify-between rounded bg-white/5 px-2 py-1">
+                      <span>{t.name}</span>
+                      <span className="text-cyan-200">{t.price}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 
