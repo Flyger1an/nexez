@@ -1,0 +1,357 @@
+import type { Metadata } from 'next'
+import { notFound } from 'next/navigation'
+import { headers } from 'next/headers'
+import {
+  ArrowLeft,
+  ArrowRight,
+  BadgeCheck,
+  Bot,
+  CheckCircle2,
+  CreditCard,
+  LockKeyhole,
+  Mail,
+  ShieldCheck,
+  Sparkles,
+} from 'lucide-react'
+import {
+  AgentPage,
+  CheckoutOffer,
+  getBaseUrl,
+  getCheckoutOffer,
+  getCheckoutOfferKey,
+  getOfferDestination,
+} from '../../../lib/agent-page'
+import { formatUsdCents, parseMoneyCents } from '../../../lib/checkout'
+import { logCheckoutEvent } from '../../../lib/checkout-events'
+import { supabase } from '../../../lib/supabase'
+
+type PageProps = {
+  params: Promise<{ slug: string }>
+  searchParams: Promise<{ offer?: string | string[]; missing_checkout?: string | string[] }>
+}
+
+async function getPage(slug: string) {
+  const { data } = await supabase
+    .from('pages')
+    .select('*')
+    .eq('slug', slug)
+    .eq('is_published', true)
+    .single<AgentPage>()
+
+  return data
+}
+
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
+  const [{ slug }, search] = await Promise.all([params, searchParams])
+  const page = await getPage(slug)
+
+  if (!page) {
+    return {}
+  }
+
+  const offer = getCheckoutOffer(page, search.offer)
+
+  return {
+    title: `${offer?.name ?? page.name} checkout | Nexez`,
+    description: `Agent-friendly checkout context for ${offer?.name ?? page.name}.`,
+    robots: {
+      index: true,
+      follow: true,
+    },
+  }
+}
+
+export default async function CheckoutPage({ params, searchParams }: PageProps) {
+  const [{ slug }, search] = await Promise.all([params, searchParams])
+  const page = await getPage(slug)
+
+  if (!page) {
+    notFound()
+  }
+
+  const offer = getCheckoutOffer(page, search.offer)
+
+  if (!offer) {
+    notFound()
+  }
+
+  const destination = getOfferDestination(page, offer)
+  const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
+  const checkoutUrl = `${getBaseUrl()}/checkout/${page.slug}?offer=${offerKey}`
+  const publicUrl = `${getBaseUrl()}/${page.slug}`
+  const priceCents = parseMoneyCents(offer.price)
+  const displayPrice = priceCents ? formatUsdCents(priceCents) : offer.price || 'Custom quote'
+  const jsonLd = buildCheckoutJsonLd(page, offer, checkoutUrl, destination, priceCents)
+  const requestHeaders = await headers()
+  const canContinue = Boolean(priceCents || destination)
+  const missingCheckout = Boolean(search.missing_checkout)
+
+  await logCheckoutEvent({
+    page,
+    offer,
+    eventType: 'checkout_view',
+    userAgent: requestHeaders.get('user-agent'),
+    referrer: requestHeaders.get('referer'),
+    query: null,
+    checkoutUrl,
+    providerUrl: destination || null,
+    metadata: {
+      amount_cents: priceCents,
+      source: 'checkout_page_render',
+    },
+  })
+
+  return (
+    <main className="min-h-screen bg-[#090b10] text-white">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
+      <div className="mx-auto max-w-6xl px-6 py-8">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+          <a href={`/${page.slug}`} className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
+            <ArrowLeft className="size-4" />
+            Back to agent page
+          </a>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-300">
+            <StatusPill icon={<ShieldCheck className="size-3.5" />} label="Agent context attached" />
+            <StatusPill icon={<LockKeyhole className="size-3.5" />} label="Stripe-ready" />
+          </div>
+        </div>
+
+        <section className="mt-8 overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br from-[#141720] via-[#0f141c] to-[#10201f]">
+          <div className="border-b border-white/10 px-6 py-8 text-center md:px-10">
+            <p className="text-sm font-medium text-cyan-200">Powered by Nexez + payment provider</p>
+            <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-5xl">
+              Secure Checkout - AI Agent Friendly
+            </h1>
+          </div>
+
+          <div className="grid gap-0 lg:grid-cols-[0.95fr_1.05fr]">
+            <section className="border-b border-white/10 p-6 md:p-8 lg:border-b-0 lg:border-r">
+              <div className="flex items-start justify-between gap-5">
+                <div>
+                  <p className="text-sm text-zinc-400">Order Summary</p>
+                  <h2 className="mt-2 text-2xl font-semibold">{offer.name}</h2>
+                </div>
+                <div className="rounded-full border border-amber-200/30 bg-amber-200/10 px-3 py-2 text-xs font-semibold text-amber-100">
+                  SSL
+                </div>
+              </div>
+
+              <div className="mt-7 space-y-4 text-sm">
+                <DetailRow label="Provider" value={page.name} />
+                <DetailRow label="Offer type" value={offer.kind === 'services' ? 'Service' : 'Product'} />
+                <DetailRow label="Buyer fit" value={page.audience || 'Qualified buyer or authorized agent'} />
+                <DetailRow label="Service area" value={page.location || 'Online or by request'} />
+              </div>
+
+              {offer.description ? (
+                <p className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4 text-sm leading-6 text-zinc-300">
+                  {offer.description}
+                </p>
+              ) : null}
+
+              <div className="mt-7 space-y-3 border-t border-white/10 pt-6 text-sm">
+                <DetailRow label="Subtotal" value={displayPrice} />
+                <DetailRow
+                  label="Processing"
+                  value={priceCents ? 'Stripe Checkout when configured' : destination ? 'Handled by provider' : 'Needs price or checkout URL'}
+                />
+                <DetailRow label="Total" value={displayPrice} strong />
+              </div>
+
+              <label className="mt-7 flex items-center gap-3 text-sm text-zinc-300">
+                <input type="checkbox" defaultChecked className="size-5 accent-cyan-300" />
+                Request human review for high-value or custom purchases
+              </label>
+            </section>
+
+            <section className="p-6 md:p-8">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm text-zinc-400">Payment Step</p>
+                  <h2 className="mt-2 text-2xl font-semibold">Provider checkout</h2>
+                </div>
+                <StatusPill icon={<BadgeCheck className="size-3.5" />} label="Agent-authenticated" />
+              </div>
+
+              <div className="mt-7 grid gap-4 md:grid-cols-2">
+                <CheckoutInput label="Card number" value="4242 4242 4242 4242" />
+                <CheckoutInput label="Expiry" value="MM / YY" />
+                <CheckoutInput label="CVC" value="CVC" />
+                <CheckoutInput label="Billing email/name" value={page.contact_email || 'buyer@example.com'} />
+              </div>
+
+              <div className="mt-6 rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-4">
+                <div className="flex items-start gap-3">
+                  <Bot className="mt-1 size-5 text-cyan-200" />
+                  <p className="text-sm leading-6 text-zinc-200">
+                    Buyer intent, selected offer, provider URL, and page context are packaged for the payment handoff.
+                  </p>
+                </div>
+              </div>
+
+              {missingCheckout ? (
+                <div className="mt-4 rounded-lg border border-amber-200/20 bg-amber-200/10 p-3 text-sm text-amber-100">
+                  Stripe is not configured yet and this offer has no provider URL, so checkout needs a payment destination.
+                </div>
+              ) : null}
+
+              {canContinue ? (
+                <form action="/api/checkout" method="post" className="mt-6">
+                  <input type="hidden" name="slug" value={page.slug} />
+                  <input type="hidden" name="offer" value={offerKey} />
+                  <input type="hidden" name="query" value="agent_checkout_confirm" />
+                  <button
+                    type="submit"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-300 px-5 py-4 text-sm font-semibold text-zinc-950 hover:bg-cyan-200"
+                  >
+                    Confirm & Continue
+                    <ArrowRight className="size-4" />
+                  </button>
+                </form>
+              ) : (
+                <button
+                  disabled
+                  className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-700 px-5 py-4 text-sm font-semibold text-zinc-300"
+                >
+                  Add checkout URL to continue
+                </button>
+              )}
+
+              <div className="mt-6 grid gap-3 text-sm md:grid-cols-3">
+                <Signal icon={<CheckCircle2 className="size-4" />} label="Offer parsed" />
+                <Signal icon={<CreditCard className="size-4" />} label="Tokenized handoff" />
+                <Signal icon={<Mail className="size-4" />} label="Review optional" />
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section className="mt-6 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
+          <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+            <div className="flex items-center gap-2 text-cyan-100">
+              <Sparkles className="size-5" />
+              <h2 className="font-semibold">Agent Handoff</h2>
+            </div>
+            <p className="mt-4 text-sm leading-6 text-zinc-400">
+              This route gives AI buyers one stable URL for the selected offer, the public source page, and the
+              provider action URL.
+            </p>
+            <div className="mt-5 space-y-3 text-sm">
+              <DetailRow label="Checkout URL" value={checkoutUrl} />
+              <DetailRow label="Source page" value={publicUrl} />
+              <DetailRow label="Action URL" value={destination || 'Not configured'} />
+            </div>
+          </div>
+
+          <pre className="overflow-x-auto rounded-lg border border-white/10 bg-black p-5 text-xs leading-6 text-cyan-100">
+{JSON.stringify(
+  {
+    checkoutUrl,
+    sourcePage: publicUrl,
+    seller: page.name,
+    offer: {
+      name: offer.name,
+      type: offer.kind === 'services' ? 'service' : 'product',
+      price: offer.price || null,
+      description: offer.description || null,
+    },
+    buyerFit: page.audience || null,
+    contactEmail: page.contact_email || null,
+    actionUrl: destination || null,
+  },
+  null,
+  2,
+)}
+          </pre>
+        </section>
+      </div>
+    </main>
+  )
+}
+
+function StatusPill({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/10 px-3 py-1.5">
+      <span className="text-cyan-200">{icon}</span>
+      {label}
+    </span>
+  )
+}
+
+function DetailRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <span className="text-zinc-500">{label}</span>
+      <span className={`max-w-[68%] text-right ${strong ? 'text-xl font-semibold text-white' : 'text-zinc-200'}`}>
+        {value}
+      </span>
+    </div>
+  )
+}
+
+function CheckoutInput({ label, value }: { label: string; value: string }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm text-zinc-400">{label}</span>
+      <input
+        readOnly
+        value={value}
+        className="h-12 w-full rounded-lg border border-white/10 bg-black/25 px-4 text-sm text-zinc-300 outline-none"
+      />
+    </label>
+  )
+}
+
+function Signal({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 text-zinc-300">
+      <span className="text-cyan-200">{icon}</span>
+      {label}
+    </div>
+  )
+}
+
+function buildCheckoutJsonLd(
+  page: AgentPage,
+  offer: CheckoutOffer,
+  checkoutUrl: string,
+  destination: string,
+  priceCents: number | null,
+) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    name: `${offer.name} checkout`,
+    url: checkoutUrl,
+    isPartOf: {
+      '@type': 'WebPage',
+      name: page.name,
+      url: `${getBaseUrl()}/${page.slug}`,
+    },
+    mainEntity: {
+      '@type': 'Offer',
+      name: offer.name,
+      description: offer.description || undefined,
+      price: priceCents ? priceCents / 100 : undefined,
+      priceCurrency: priceCents ? 'USD' : undefined,
+      url: checkoutUrl,
+      seller: {
+        '@type': 'Organization',
+        name: page.name,
+        url: page.website_url || `${getBaseUrl()}/${page.slug}`,
+        email: page.contact_email || undefined,
+      },
+    },
+    potentialAction: destination
+      ? {
+          '@type': 'BuyAction',
+          target: destination,
+          object: offer.name,
+        }
+      : undefined,
+  }
+}

@@ -1,4 +1,24 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is a [Next.js](https://nextjs.org) project for Nexez — AI-optimized agent pages for services & products.
+
+**Tech (lean MVP):** Next.js 16 (App Router), React 19, Supabase (auth + Postgres with RLS), Stripe (checkout + billing), Tailwind, Recharts, react-hook-form + zod patterns, dnd-kit (future), Lucide icons.
+
+**Data model:** Simple flat `public.pages` table (Supabase) + `checkout_events`. JSONB for offers/services/faqs. No Prisma (deprecated & removed — see prior schema in git history if needed for future normalized refactor).
+
+See the full MVP vision in conversation history for the 12-screen breakdown. The implementation is already very advanced.
+
+## Current MVP Status (post 1-7 autonomous build session)
+All 12 core screens are functional and polished. Major autonomous work completed:
+- Real Stripe catalog import (price/product IDs → offer lines)
+- Strong local AI optimization helpers for agent copy (no LLM key required)
+- Stripe Billing Portal + usage vs plan hints
+- Custom domain field + DNS guidance + embed snippet (data path + migration ready)
+- Prisma fully removed (dead weight cleaned)
+- Simulator, analytics, directory, public pages, builder/editor all deepened
+- Build clean, new API routes added, many small agent-friendly improvements
+
+Next natural user-driven steps: real Calendly OAuth, LLM-powered rewrites, production custom domain verification, plan enforcement middleware, tests.
+
+Run `npm run dev` and create your first agent page.
 
 ## Getting Started
 

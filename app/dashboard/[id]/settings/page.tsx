@@ -1,0 +1,387 @@
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
+import {
+  ArrowLeft,
+  Bot,
+  Check,
+  Code2,
+  Copy,
+  ExternalLink,
+  Globe2,
+  Loader2,
+  Save,
+  Settings,
+  ShieldCheck,
+} from 'lucide-react'
+import { AgentPage, getBaseUrl, normalizeSlug } from '../../../../lib/agent-page'
+import { buildAgentPagePayload, getAgentJsonPath } from '../../../../lib/agent-manifest'
+import { createClient } from '../../../../utils/supabase/client'
+
+type PageProps = {
+  params: Promise<{ id: string }>
+}
+
+export default function PageSettings({ params }: PageProps) {
+  const [id, setId] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+  const [page, setPage] = useState<AgentPage | null>(null)
+  const [name, setName] = useState('')
+  const [slug, setSlug] = useState('')
+  const [websiteUrl, setWebsiteUrl] = useState('')
+  const [ctaUrl, setCtaUrl] = useState('')
+  const [ctaLabel, setCtaLabel] = useState('')
+  const [contactEmail, setContactEmail] = useState('')
+  const [isPublished, setIsPublished] = useState(false)
+  const [customDomain, setCustomDomain] = useState('')
+  const [copied, setCopied] = useState('')
+
+  useEffect(() => {
+    params.then(({ id }) => setId(id))
+  }, [params])
+
+  useEffect(() => {
+    if (!id) return
+    loadPage(id)
+  }, [id])
+
+  const cleanSlug = normalizeSlug(slug || name)
+  const publicUrl = `${getBaseUrl()}/${cleanSlug || page?.slug || ''}`
+  const agentJsonUrl = `${getBaseUrl()}${getAgentJsonPath(cleanSlug || page?.slug || '')}`
+  const searchUrl = `${getBaseUrl()}/api/agent-search?q=${encodeURIComponent(name || page?.name || 'service')}`
+  const manifestPreview = useMemo(() => {
+    if (!page) return '{}'
+    return JSON.stringify(
+      buildAgentPagePayload({
+        ...page,
+        name,
+        slug: cleanSlug || page.slug,
+        website_url: websiteUrl || null,
+        cta_url: ctaUrl || websiteUrl || null,
+        cta_label: ctaLabel || 'Visit website',
+        contact_email: contactEmail || null,
+        is_published: isPublished,
+      }),
+      null,
+      2,
+    )
+  }, [cleanSlug, contactEmail, ctaLabel, ctaUrl, isPublished, name, page, websiteUrl])
+
+  async function loadPage(pageId: string) {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      window.location.href = `/login?next=/dashboard/${pageId}/settings`
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('pages')
+      .select('*')
+      .eq('id', pageId)
+      .eq('owner_id', user.id)
+      .single<AgentPage>()
+
+    if (error || !data) {
+      setMessage('Page not found, or you do not have access to its settings.')
+      setLoading(false)
+      return
+    }
+
+    setPage(data)
+    setName(data.name)
+    setSlug(data.slug)
+    setWebsiteUrl(data.website_url ?? '')
+    setCtaUrl(data.cta_url ?? '')
+    setCtaLabel(data.cta_label ?? 'Visit website')
+    setContactEmail(data.contact_email ?? '')
+    setIsPublished(data.is_published)
+    setCustomDomain(data.custom_domain ?? '')
+    setLoading(false)
+  }
+
+  async function saveSettings(event: React.FormEvent) {
+    event.preventDefault()
+    if (!page) return
+
+    setSaving(true)
+    setMessage('')
+
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('pages')
+      .update({
+        name,
+        slug: cleanSlug,
+        website_url: websiteUrl,
+        cta_url: ctaUrl || websiteUrl,
+        cta_label: ctaLabel || 'Visit website',
+        contact_email: contactEmail,
+        is_published: isPublished,
+        custom_domain: customDomain || null,
+      })
+      .eq('id', page.id)
+
+    setSaving(false)
+    setMessage(error ? error.message : 'Settings saved.')
+
+    if (!error) {
+      setPage({
+        ...page,
+        name,
+        slug: cleanSlug,
+        website_url: websiteUrl,
+        cta_url: ctaUrl || websiteUrl,
+        cta_label: ctaLabel || 'Visit website',
+        contact_email: contactEmail,
+        is_published: isPublished,
+      })
+    }
+  }
+
+  async function copy(label: string, value: string) {
+    await navigator.clipboard.writeText(value)
+    setCopied(label)
+    window.setTimeout(() => setCopied(''), 1200)
+  }
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#090b10] text-white">
+        Loading settings...
+      </main>
+    )
+  }
+
+  if (!page) {
+    return (
+      <main className="min-h-screen bg-[#090b10] px-6 py-12 text-white">
+        <div className="mx-auto max-w-2xl">
+          <a href="/dashboard" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
+            <ArrowLeft className="size-4" />
+            Dashboard
+          </a>
+          <p className="mt-10 rounded-lg border border-white/10 bg-white/[0.04] p-6 text-zinc-300">
+            {message || 'Page not found.'}
+          </p>
+        </div>
+      </main>
+    )
+  }
+
+  return (
+    <main className="min-h-screen bg-[#090b10] text-white">
+      <div className="mx-auto max-w-6xl px-6 py-8">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+          <a href="/dashboard" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
+            <ArrowLeft className="size-4" />
+            Dashboard
+          </a>
+          <div className="flex flex-wrap gap-3">
+            <a href={`/dashboard/${page.id}`} className={topButtonClass}>
+              Edit Page
+            </a>
+            <a href={`/${page.slug}`} className={topButtonClass}>
+              <ExternalLink className="size-4" />
+              Public Page
+            </a>
+          </div>
+        </div>
+
+        <section className="mt-8 grid gap-6 lg:grid-cols-[0.82fr_1.18fr]">
+          <aside className="space-y-5">
+            <div>
+              <p className="flex items-center gap-2 text-sm text-cyan-200">
+                <Settings className="size-4" />
+                Page Settings
+              </p>
+              <h1 className="mt-3 text-4xl font-semibold tracking-tight">{page.name}</h1>
+            </div>
+
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">Visibility</p>
+                  <p className="mt-1 text-sm text-zinc-500">{isPublished ? 'Published' : 'Draft'}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsPublished((value) => !value)}
+                  className={`relative h-7 w-12 rounded-full transition ${isPublished ? 'bg-cyan-300' : 'bg-zinc-700'}`}
+                  aria-label="Toggle published status"
+                >
+                  <span
+                    className={`absolute top-1 size-5 rounded-full bg-white transition ${
+                      isPublished ? 'left-6' : 'left-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
+            <LinkPanel title="Agent links" links={[
+              ['Public page', publicUrl],
+              ['Agent JSON', agentJsonUrl],
+              ['Search API', searchUrl],
+              ['OpenAPI', `${getBaseUrl()}/openapi.json`],
+            ]} copied={copied} onCopy={copy} />
+
+            <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-5">
+              <div className="flex items-center gap-2 text-cyan-100">
+                <ShieldCheck className="size-5" />
+                <h2 className="font-semibold">Advanced</h2>
+              </div>
+              <div className="mt-4 space-y-3 text-sm">
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-zinc-400">Custom domain</p>
+                  <input
+                    value={customDomain}
+                    onChange={(e) => setCustomDomain(e.target.value)}
+                    placeholder="agents.yourcompany.com"
+                    className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
+                  />
+                  <p className="mt-1 text-[10px] text-zinc-500">CNAME your subdomain to the deployment host. Full verification in next iteration.</p>
+                </div>
+                <DisabledRow icon={<Bot className="size-4" />} label="API key" value="Public endpoints (no key required)" />
+              </div>
+
+              <div className="mt-4 border-t border-white/10 pt-4">
+                <p className="text-xs uppercase tracking-widest text-zinc-400">Quick embed (iframe)</p>
+                <pre className="mt-1 overflow-x-auto rounded bg-black/40 p-2 text-[10px] text-zinc-400">{`<iframe src="${publicUrl}" width="100%" height="800" style="border:1px solid #222;"></iframe>`}</pre>
+                <p className="mt-1 text-[10px] text-zinc-500">Embed the clean agent view on your main site. Agents still see the canonical Nexez URL.</p>
+              </div>
+            </div>
+          </aside>
+
+          <div className="space-y-5">
+            <form onSubmit={saveSettings} className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+              <div className="grid gap-5 md:grid-cols-2">
+                <Field label="Page name">
+                  <input value={name} onChange={(event) => setName(event.target.value)} className={inputClass} required />
+                </Field>
+                <Field label="Slug">
+                  <input value={slug} onChange={(event) => setSlug(normalizeSlug(event.target.value))} className={inputClass} required />
+                </Field>
+              </div>
+
+              <div className="mt-5 grid gap-5 md:grid-cols-2">
+                <Field label="Main website">
+                  <input type="url" value={websiteUrl} onChange={(event) => setWebsiteUrl(event.target.value)} className={inputClass} />
+                </Field>
+                <Field label="Action URL">
+                  <input type="url" value={ctaUrl} onChange={(event) => setCtaUrl(event.target.value)} className={inputClass} />
+                </Field>
+              </div>
+
+              <div className="mt-5 grid gap-5 md:grid-cols-2">
+                <Field label="Action label">
+                  <input value={ctaLabel} onChange={(event) => setCtaLabel(event.target.value)} className={inputClass} />
+                </Field>
+                <Field label="Contact email">
+                  <input type="email" value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} className={inputClass} />
+                </Field>
+              </div>
+
+              {message ? <p className="mt-5 rounded-lg border border-white/10 bg-black/30 p-3 text-sm text-zinc-300">{message}</p> : null}
+
+              <button
+                type="submit"
+                disabled={saving}
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-300 px-5 py-3 font-semibold text-zinc-950 hover:bg-cyan-200 disabled:opacity-60"
+              >
+                {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                {saving ? 'Saving...' : 'Save settings'}
+              </button>
+            </form>
+
+            <section className="rounded-lg border border-white/10 bg-white/[0.04]">
+              <div className="flex items-center justify-between border-b border-white/10 p-5">
+                <div className="flex items-center gap-2">
+                  <Code2 className="size-5 text-cyan-200" />
+                  <h2 className="font-semibold">Agent Manifest Preview</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => copy('Manifest', manifestPreview)}
+                  className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-zinc-300 hover:bg-white/10"
+                >
+                  {copied === 'Manifest' ? <Check className="size-4 text-emerald-300" /> : <Copy className="size-4" />}
+                  Copy
+                </button>
+              </div>
+              <pre className="max-h-[560px] overflow-auto p-5 text-xs leading-6 text-cyan-100">
+                {manifestPreview}
+              </pre>
+            </section>
+          </div>
+        </section>
+      </div>
+    </main>
+  )
+}
+
+function LinkPanel({
+  title,
+  links,
+  copied,
+  onCopy,
+}: {
+  title: string
+  links: [string, string][]
+  copied: string
+  onCopy: (label: string, value: string) => void
+}) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+      <h2 className="font-semibold">{title}</h2>
+      <div className="mt-4 space-y-2">
+        {links.map(([label, value]) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => onCopy(label, value)}
+            className="flex w-full items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/20 px-3 py-3 text-left text-sm text-zinc-300 hover:bg-white/10"
+          >
+            <span className="min-w-0">
+              <span className="block text-zinc-100">{label}</span>
+              <span className="block truncate font-mono text-xs text-zinc-500">{value}</span>
+            </span>
+            {copied === label ? <Check className="size-4 shrink-0 text-emerald-300" /> : <Copy className="size-4 shrink-0" />}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function DisabledRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-cyan-300/10 bg-black/20 px-3 py-3">
+      <span className="flex items-center gap-2 text-zinc-300">
+        <span className="text-cyan-200">{icon}</span>
+        {label}
+      </span>
+      <span className="text-zinc-500">{value}</span>
+    </div>
+  )
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-medium text-zinc-200">{label}</span>
+      {children}
+    </label>
+  )
+}
+
+const topButtonClass =
+  'inline-flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm text-white hover:bg-white/10'
+
+const inputClass =
+  'w-full rounded-lg border border-white/10 bg-white/[0.06] px-4 py-3 text-white placeholder:text-zinc-600 outline-none transition focus:border-cyan-300/60'

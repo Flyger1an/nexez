@@ -1,26 +1,389 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
+/* =====================================================
+   NEXEZ DESIGN SYSTEM v1.0
+   Philosophy: “Human-first management, Agent-first consumption.”
+   ===================================================== */
+
+/* Font Variables (per design system) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Space Grotesk', 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* =====================================================
+   COLOR PALETTE — Exact from Design System v1.0
+   ===================================================== */
+:root {
+  /* Primary Palette */
+  --color-deep-void: #0A0A0F;
+  --color-midnight-purple: #1A1625;
+  --color-electric-purple: #7C3AED;
+  --color-neon-teal: #00F5FF;
+  --color-soft-lavender: #C4B5FD;
+  --color-pure-white: #FFFFFF;
+  --color-muted-gray: #9CA3AF;
+  --color-success-green: #10B981;
+  --color-warning-amber: #F59E0B;
+  --color-error-red: #EF4444;
+
+  /* Gradients */
+  --gradient-hero: linear-gradient(135deg, #0A0A0F 0%, #1A1625 50%, #0F0A1F 100%);
+  --gradient-cta: linear-gradient(90deg, #7C3AED, #00F5FF);
+  --gradient-card: linear-gradient(145deg, #1A1625 0%, #12101B 100%);
+
+  /* Semantic tokens for Tailwind */
+  --background: var(--color-deep-void);
+  --foreground: var(--color-pure-white);
+  --card: var(--color-midnight-purple);
+  --card-foreground: var(--color-pure-white);
+  --primary: var(--color-electric-purple);
+  --primary-foreground: #FFFFFF;
+  --secondary: #2A2638;
+  --secondary-foreground: var(--color-pure-white);
+  --muted: #2A2638;
+  --muted-foreground: var(--color-muted-gray);
+  --accent: var(--color-neon-teal);
+  --accent-foreground: var(--color-deep-void);
+  --destructive: var(--color-error-red);
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.06);
+  --ring: var(--color-electric-purple);
+  --radius: 16px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* =====================================================
+   TYPOGRAPHY SCALE (per Design System)
+   ===================================================== */
+@layer base {
+  h1, .text-hero {
+    font-family: var(--font-display);
+    font-size: 72px;
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+
+  h2, .text-section {
+    font-family: var(--font-display);
+    font-size: 48px;
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+  }
+
+  h3, .text-page-title {
+    font-family: var(--font-display);
+    font-size: 36px;
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+  }
+
+  .text-card-title {
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.005em;
+  }
+
+  body, p, .text-body {
+    font-family: var(--font-sans);
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .text-small {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+
+  .text-label {
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0.005em;
+  }
+
+  .font-mono, code, .slug, .url {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.4;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* =====================================================
+   BASE STYLES
+   ===================================================== */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    font-family: var(--font-sans);
+  }
+
+  body {
+    background-color: var(--color-deep-void);
+    color: var(--color-pure-white);
+    font-feature-settings: "rlig" 1, "kern" 1;
+  }
+
+  /* High contrast for agent-facing content */
+  .agent-page, .public-agent-page {
+    background: var(--color-deep-void);
+    color: var(--color-pure-white);
+  }
+}
+
+/* =====================================================
+   COMPONENT LIBRARY — Exact from Design System v1.0
+   ===================================================== */
+
+/* --- Buttons --- */
+.btn-primary {
+  background: var(--gradient-cta);
+  color: white;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 14px 28px;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.35);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(124, 58, 237, 0.45);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: white;
+  padding: 14px 28px;
+  border-radius: 16px;
+  font-weight: 500;
+  font-size: 15px;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.btn-ghost {
+  color: var(--color-muted-gray);
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+}
+
+/* --- Cards --- */
+.card {
+  background: var(--gradient-card);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 32px;
+  transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+.card:hover {
+  border-color: rgba(124, 58, 237, 0.3);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+/* --- Inputs --- */
+.input {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 16px 20px;
+  color: white;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.input:focus {
+  border-color: var(--color-electric-purple);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--color-muted-gray);
+}
+
+/* Textarea variant */
+.textarea {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 16px 20px;
+  color: white;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  resize: vertical;
+  min-height: 120px;
+}
+
+.textarea:focus {
+  border-color: var(--color-electric-purple);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+  outline: none;
+}
+
+/* =====================================================
+   DASHBOARD & APP-SPECIFIC OVERRIDES
+   ===================================================== */
+.dashboard-sidebar {
+  background: #0F0D18;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.nav-item {
+  color: var(--color-muted-gray);
+  transition: all 0.2s ease;
+}
+
+.nav-item:hover {
+  color: white;
+  background: rgba(124, 58, 237, 0.1);
+}
+
+.nav-item.active {
+  color: white;
+  background: rgba(124, 58, 237, 0.15);
+  border-left: 3px solid var(--color-electric-purple);
+}
+
+/* KPI Cards */
+.kpi-card {
+  background: var(--gradient-card);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 24px;
+  transition: transform 0.2s ease;
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+}
+
+/* Readiness Score */
+.readiness-score {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 42px;
+  line-height: 1;
+}
+
+/* Agent-facing public pages — minimal decoration */
+.public-agent-page .card {
+  background: rgba(26, 22, 37, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.public-agent-page .btn-primary {
+  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+}
+
+/* =====================================================
+   MICRO-INTERACTIONS (per spec)
+   ===================================================== */
+.btn-primary, .btn-secondary {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), 
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card {
+  transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1),
+              border-color 0.3s ease,
+              box-shadow 0.3s ease;
+}
+
+/* Focus states for accessibility */
+button:focus-visible,
+a:focus-visible,
+.input:focus-visible,
+.textarea:focus-visible {
+  outline: 2px solid var(--color-electric-purple);
+  outline-offset: 2px;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary:hover,
+  .card:hover {
+    transform: none;
+  }
+}
+
+/* =====================================================
+   UTILITY CLASSES
+   ===================================================== */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.gradient-text {
+  background: var(--gradient-cta);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Status badges */
+.badge-published {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--color-success-green);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-draft {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--color-warning-amber);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Agent Simulator specific */
+.agent-tab {
+  transition: all 0.2s ease;
+}
+
+.agent-tab.active {
+  background: var(--color-electric-purple);
+  color: white;
+  border-color: var(--color-electric-purple);
 }

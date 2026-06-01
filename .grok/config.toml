@@ -1,0 +1,3 @@
+[mcp_servers.supabase]
+url = "https://mcp.supabase.com/mcp"
+enabled = true
