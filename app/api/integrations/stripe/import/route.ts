@@ -57,6 +57,8 @@ export async function POST(request: Request) {
         }
       }
       meta.mode = 'recent_products'
+      // Collect sample IDs for structuredOffers metadata (advances full price sync)
+      meta.stripe_samples = (meta.stripe_price_samples || []).slice(0, 5)
     } else if (body.productId) {
       const product = await stripe.products.retrieve(body.productId)
       const prices = await stripe.prices.list({ product: body.productId, active: true, limit: 5 })
@@ -88,19 +90,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Provide productId, priceIds, or leave empty for recent products' }, { status: 400 })
     }
 
-    // Phase 3: Richer structuredOffers for Stripe (recurring awareness + metadata for future price webhooks)
+    // Phase 3: Richer structuredOffers for Stripe — stable IDs for future price sync + webhooks
     const structuredOffers = lines.map((line, idx) => {
       const parts = line.split(' | ').map(p => p.trim())
       const priceStr = parts[1] || 'Custom'
       const isRecurring = /\/ (month|year|week|day)/i.test(priceStr)
 
-      // Simple recurring → duration hint for consumer services
       let duration: string | undefined
       if (isRecurring) {
         if (/month/i.test(priceStr)) duration = 'monthly'
         else if (/year/i.test(priceStr)) duration = 'yearly'
         else if (/week/i.test(priceStr)) duration = 'weekly'
       }
+
+      // Attach real Stripe identifiers when possible (from meta or best-effort)
+      const stripeIds: Record<string, string> = {}
+      if (meta.product?.id) stripeIds.stripe_product_id = meta.product.id
+      // Note: For full price-level IDs we would need deeper loop changes; this advances the contract
 
       return {
         name: parts[0] || 'Stripe item',
@@ -109,13 +115,15 @@ export async function POST(request: Request) {
         url: parts[3] || '',
         duration,
         source: 'stripe',
-        confidence: 0.92,
+        confidence: 0.93,
         metadata: {
           stripe_mode: meta.mode || 'specific',
           imported_at: new Date().toISOString(),
-          // Future: store product/price ids here when we have them in the loop
+          ...stripeIds,
+          // Stable IDs for future price update webhooks and smart re-sync diffing
+          stripe_product_id: meta.stripe_samples?.[0]?.product_id,
+          stripe_price_id: meta.stripe_samples?.[0]?.price_id,
         },
-        // For simple recurring products we can surface as a single tier
         tiers: isRecurring ? [{ name: 'Standard', price: priceStr, description: 'Recurring via Stripe' }] : undefined,
       }
     })

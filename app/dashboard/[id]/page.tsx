@@ -45,6 +45,7 @@ export default function EditAgentPage({ params }: PageProps) {
   const [contactEmail, setContactEmail] = useState('')
   const [industry, setIndustry] = useState('')
   const [preferOriginalSite, setPreferOriginalSite] = useState(false)
+  const [nextAvailable, setNextAvailable] = useState('')  // Phase 3: First step toward Google Calendar / availability hints
   const [products, setProducts] = useState('')
   const [services, setServices] = useState('')
   const [faqs, setFaqs] = useState('')
@@ -193,6 +194,7 @@ export default function EditAgentPage({ params }: PageProps) {
     setContactEmail(data.contact_email ?? '')
     setIndustry(data.industry ?? '')
     setPreferOriginalSite(!!data.prefer_original_site)
+    setNextAvailable((data as any)?.next_available ?? '')
     setProducts(formatOfferLines(data.products))
     setServices(formatOfferLines(data.services))
     setFaqs(formatFaqLines(data.faqs))
@@ -432,6 +434,7 @@ export default function EditAgentPage({ params }: PageProps) {
         contact_email: contactEmail,
         industry,
         prefer_original_site: preferOriginalSite,
+        next_available: nextAvailable || null,
         // Phase 1 A: Prefer rich primary arrays (direct JSONB with full consumer/tiers fidelity, no text roundtrip)
         products: productsOffers.length ? productsOffers : parseOfferLines(products),
         services: servicesOffers.length ? servicesOffers : parseOfferLines(services),
@@ -562,6 +565,10 @@ export default function EditAgentPage({ params }: PageProps) {
               </Field>
               <Field label="Contact email">
                 <input type="email" value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} className={inputClass} />
+              </Field>
+
+              <Field label="Next available (for AI agents)">
+                <input value={nextAvailable} onChange={(event) => setNextAvailable(event.target.value)} className={inputClass} placeholder="e.g. This week, or specific date" />
               </Field>
 
               <Field label="Industry / Category">
