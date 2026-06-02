@@ -395,8 +395,10 @@ export default function EditAgentPage({ params }: PageProps) {
 
       if (idx >= 0) {
         const existing = merged[idx]
-        // Full throttle: smarter merge for Stripe - prefer fresh price from integration for stripe-sourced offers
-        const newPrice = (inc.source === 'stripe' && inc.price) ? inc.price : (inc.price || existing.price)
+        // Full throttle: advanced Stripe price handling - always take fresh price for stripe-sourced offers on re-sync
+        // while protecting user-edited descriptions/tiers
+        const isStripe = inc.source === 'stripe'
+        const newPrice = isStripe && inc.price ? inc.price : (inc.price || existing.price)
         merged[idx] = {
           ...existing,
           price: newPrice,
@@ -418,7 +420,7 @@ export default function EditAgentPage({ params }: PageProps) {
     setServices(formatOfferLines(merged))
     setPendingReanalysis(null)
 
-    // Full throttle: better Stripe price change reporting on apply
+    // Full throttle: clearer Stripe price change reporting on apply
     const stripePriceChanges = incomingServices.filter(inc => 
       inc.source === 'stripe' && 
       merged.some(m => m.name.toLowerCase() === inc.name.toLowerCase() && m.price !== inc.price)
