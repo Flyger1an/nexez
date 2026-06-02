@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
+    "target": "ES2018", // Bumped for modern RegExp flags (e.g. /s dotAll) used in importer + future-proofing. Vercel + Node 18+ fully support this.
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
