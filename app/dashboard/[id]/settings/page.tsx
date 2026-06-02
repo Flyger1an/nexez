@@ -49,6 +49,11 @@ export default function PageSettings({ params }: PageProps) {
   const [newOutboundUrl, setNewOutboundUrl] = useState('')
   const [outboundSaving, setOutboundSaving] = useState(false)
 
+  // Phase 3: Google Calendar availability (import foundation)
+  const [googleCalendarId, setGoogleCalendarId] = useState('')
+  const [availabilityNote, setAvailabilityNote] = useState('')
+  const [availabilitySaving, setAvailabilitySaving] = useState(false)
+
   useEffect(() => {
     params.then(({ id }) => setId(id))
   }, [params])
@@ -124,6 +129,10 @@ export default function PageSettings({ params }: PageProps) {
     } else {
       setOutboundEndpoints([])
     }
+
+    // Phase 3: Load Google Calendar availability
+    setGoogleCalendarId((data as any)?.google_calendar_id || '')
+    setAvailabilityNote((data as any)?.next_available || '')
 
     setLoading(false)
   }
@@ -655,6 +664,61 @@ export default function PageSettings({ params }: PageProps) {
                   {outboundSaving ? 'Saving...' : 'Save Outbound Endpoints for this Page'}
                 </button>
                 <p className="mt-1 text-[10px] text-zinc-500">Endpoints are stored on the page and used automatically by the webhook receiver.</p>
+              </div>
+
+              {/* Phase 3: Google Calendar Availability (import foundation) */}
+              <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4">
+                <div className="text-sm font-medium text-emerald-200 mb-2">Google Calendar Availability</div>
+                <p className="text-[10px] text-zinc-400 mb-3">Enter your Google Calendar ID for future automated sync, or set manual availability notes that appear in agent.json and the public page.</p>
+
+                <div className="space-y-2 mb-3">
+                  <input
+                    type="text"
+                    value={googleCalendarId}
+                    onChange={(e) => setGoogleCalendarId(e.target.value)}
+                    placeholder="Calendar ID (e.g. yourname@gmail.com or abc123@group.calendar.google.com)"
+                    className="w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm"
+                  />
+                  <input
+                    type="text"
+                    value={availabilityNote}
+                    onChange={(e) => setAvailabilityNote(e.target.value)}
+                    placeholder="Next available: This week, or specific dates/slots"
+                    className="w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  disabled={availabilitySaving}
+                  onClick={async () => {
+                    if (!page) return
+                    setAvailabilitySaving(true)
+                    setMessage('')
+                    try {
+                      const supabase = createClient()
+                      const payload: any = {
+                        next_available: availabilityNote || null,
+                      }
+                      if (googleCalendarId.trim()) {
+                        payload.google_calendar_id = googleCalendarId.trim()
+                      }
+                      const { error } = await supabase
+                        .from('pages')
+                        .update(payload)
+                        .eq('id', page.id)
+                      setMessage(error ? error.message : 'Availability saved. Visible in agent.json and public page.')
+                    } catch (e: any) {
+                      setMessage('Failed to save availability: ' + e.message)
+                    } finally {
+                      setAvailabilitySaving(false)
+                    }
+                  }}
+                  className="mt-1 w-full rounded-lg border border-emerald-300/40 px-4 py-1.5 text-sm text-emerald-200 hover:bg-emerald-400/10 disabled:opacity-60"
+                >
+                  {availabilitySaving ? 'Saving...' : 'Save Google Calendar / Availability'}
+                </button>
+                <p className="mt-1 text-[10px] text-zinc-500">Calendar ID stored for future automated import. Availability appears for agents immediately.</p>
               </div>
             </form>
 

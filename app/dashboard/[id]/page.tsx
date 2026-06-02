@@ -944,7 +944,7 @@ export default function EditAgentPage({ params }: PageProps) {
               </div>
               <p className="mt-1 text-[10px] text-zinc-500">
                 Shown in agent.json and public page. Will support Google Calendar sync in future.
-                Outbound webhooks (configured in Settings) fire automatically on bookings.
+                Outbound webhooks fire automatically on bookings (configure in Settings).
               </p>
             </div>
 
