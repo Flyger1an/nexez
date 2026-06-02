@@ -1093,6 +1093,9 @@ export default function EditAgentPage({ params }: PageProps) {
                   : 'No outbound webhooks yet — configure in Settings'}
               </div>
               <div className="mt-1 text-[9px] text-zinc-500">Secrets supported • Test from Settings • Fires on real Nexez + Calendly events</div>
+              {typeof window !== 'undefined' && localStorage.getItem('nexez_last_outbound_fired') && (
+                <div className="mt-1 text-[9px] text-emerald-300">Last outbound fire: {new Date(localStorage.getItem('nexez_last_outbound_fired')!).toLocaleString()}</div>
+              )}
             </div>
 
             {/* Phase 1 A: Re-analysis preview / diff */}
@@ -1108,7 +1111,7 @@ export default function EditAgentPage({ params }: PageProps) {
                         {pendingReanalysis.incomingServices.some((o: any) => o.source === 'stripe') && ' Stripe prices compared below.'}
                       </p>
                     )}
-                    {/* Full throttle: polished Stripe price diff list with deltas */}
+                    {/* Full throttle: advanced Stripe price diff list with deltas */}
                     {pendingReanalysis.incomingServices?.some((o: any) => o.source === 'stripe') && (() => {
                       const current = servicesOffers.filter(o => o.source === 'stripe')
                       const changes = pendingReanalysis.incomingServices
@@ -1127,7 +1130,7 @@ export default function EditAgentPage({ params }: PageProps) {
                           {changes.map((c: any, idx: number) => (
                             <div key={idx}>• {c.name}: {c.old} → {c.new}</div>
                           ))}
-                          <div className="mt-1 text-[9px] text-amber-200/80">These will update on Apply (protected merge).</div>
+                          <div className="mt-1 text-[9px] text-amber-200/80">Fresh prices from Stripe will be applied on merge (user edits to other fields protected).</div>
                         </div>
                       )
                     })()}

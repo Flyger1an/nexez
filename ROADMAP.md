@@ -200,6 +200,9 @@ Phase 2 is locked and complete.
   - Stripe import now attaches stable stripe_product_id / price_id in metadata (concrete step toward full price sync + future webhook price updates).
 - Google Calendar: Public page shows clean "Availability (Google Calendar)" label when imported. agent.json availability block enriched with source/calendar_id + helpful note. Editor shows calendar ID explicitly.
 - **Full throttle execution (user: "keep building. full throttle")**:
+  - Stripe re-sync preview and apply logic further advanced with clearer price change lists, deltas, and smarter fresh-price preference for Stripe offers.
+  - Editor health section now prominently displays last outbound fire timestamp alongside other status.
+  - Multiple builds green. Continued deep Phase 3 progress on integrations, consumer tools, and automation surfaces.
   - Stripe re-sync apply logic further advanced to always prefer fresh prices for Stripe offers while protecting user edits, with clearer change reporting.
   - Editor health surfaces improved with better outbound last-fired visibility and consistent consumer tool status.
   - Consumer (Square/Acuity) offer badges made fully consistent and colored across public pages.
