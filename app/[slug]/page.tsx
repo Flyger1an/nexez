@@ -277,7 +277,13 @@ function OfferSection({
               <h3 className="text-lg font-medium text-white">{item.name}</h3>
               {item.price ? <p className="shrink-0 text-sm text-cyan-200">{item.price}</p> : null}
               {item.source && (
-                <span className="ml-2 text-[10px] rounded bg-blue-400/10 px-1.5 py-0.5 text-blue-300">
+                <span className={`ml-2 text-[10px] rounded px-1.5 py-0.5 ${
+                  item.source === 'stripe' ? 'bg-cyan-400/10 text-cyan-300' :
+                  item.source === 'shopify' ? 'bg-purple-400/10 text-purple-300' :
+                  item.source === 'square' ? 'bg-pink-400/10 text-pink-300' :
+                  item.source === 'acuity' ? 'bg-orange-400/10 text-orange-300' :
+                  'bg-blue-400/10 text-blue-300'
+                }`}>
                   via {item.source}
                 </span>
               )}

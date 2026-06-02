@@ -779,6 +779,9 @@ export default function EditAgentPage({ params }: PageProps) {
               <div className="mt-1 text-[10px] text-cyan-300/80">
                 Configure per-page in Settings → full history appears in Analytics.
               </div>
+              {typeof window !== 'undefined' && localStorage.getItem('nexez_last_outbound_fired') && (
+                <div className="mt-2 text-[9px] text-cyan-300">Last fire: {new Date(localStorage.getItem('nexez_last_outbound_fired')!).toLocaleString()}</div>
+              )}
             </div>
 
             {/* Phase 3: Connected Integrations quick status (command center feel in the editor) */}
@@ -1099,7 +1102,7 @@ export default function EditAgentPage({ params }: PageProps) {
                         {pendingReanalysis.incomingServices.some((o: any) => o.source === 'stripe') && ' Stripe prices compared below.'}
                       </p>
                     )}
-                    {/* Full throttle: clean Stripe price diff list with deltas */}
+                    {/* Full throttle: polished Stripe price diff list with deltas */}
                     {pendingReanalysis.incomingServices?.some((o: any) => o.source === 'stripe') && (() => {
                       const current = servicesOffers.filter(o => o.source === 'stripe')
                       const changes = pendingReanalysis.incomingServices
@@ -1113,11 +1116,12 @@ export default function EditAgentPage({ params }: PageProps) {
                         }).filter(Boolean)
                       if (changes.length === 0) return null
                       return (
-                        <div className="mt-2 text-[10px] text-amber-300">
+                        <div className="mt-2 rounded border border-amber-300/20 bg-amber-400/5 p-2 text-[10px] text-amber-300">
                           <div className="font-medium mb-1">Stripe price changes detected:</div>
                           {changes.map((c: any, idx: number) => (
                             <div key={idx}>• {c.name}: {c.old} → {c.new}</div>
                           ))}
+                          <div className="mt-1 text-[9px] text-amber-200/80">These will update on Apply (protected merge).</div>
                         </div>
                       )
                     })()}
