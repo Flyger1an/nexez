@@ -1163,7 +1163,7 @@ export default function EditAgentPage({ params }: PageProps) {
                   </div>
                 </div>
                 <p className="mt-3 text-xs text-zinc-500">
-                  Smart merge will protect your edited descriptions and tiers. New fields (duration, mobile, etc.) from your site will be incorporated.
+                  Smart merge protects edited descriptions, tiers, and per-offer "Book on original site" preferences. New consumer fields, prices, and sources from integrations are incorporated (Stripe prices always fresh on apply).
                 </p>
               </div>
             )}

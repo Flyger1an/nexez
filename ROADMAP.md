@@ -284,6 +284,17 @@ Phase 2 is locked and complete.
   - Multiple full builds + test runs green during the burst. No regressions.
 - Build + tests green.
 
+**Latest full-throttle burst (per-offer Phase 4 completion + fidelity + agent consumption + embed starter)**:
+  - **Per-offer "prefer_original_for_this" fidelity closed**: Added pipe-safe `[[PREFER_ORIGINAL]]` marker (and legacy support) to parseOfferLines + formatOfferLines in lib/agent-page.ts. Full CSV/text/legacy/re-sync roundtrip now preserves the flag (zero new DB column, consistent with ||TIERS||/||WINDOWS||). Updated + expanded Vitest suite with 2 new dedicated roundtrip tests (basic + mixed consumer+tiers) — all 6 tests green.
+  - **AI optimization now preserves per-offer controls**: rewriteOfferForAgents uses object spread to passthrough prefer_original_for_this + source/metadata/confidence/etc. Refactored optimizeAllOffersForAgents (text path) to delegate to real parse + rewrite + format for automatic full fidelity (including the new flag). "Enhance with AI" / bulk optimize no longer drops per-offer toggles.
+  - **Public agent page CTA logic hardened + visible**: "Book on original site" label (was "our site"), subtle "Original site priority for this offer" indicator rendered under actions when page-level or per-offer prefer is active. Robust mixed (page default + granular override) handling. Consumer services (mobile/travel) benefit automatically.
+  - **Agent consumption supremacy (JSON-LD)**: buildJsonLd now computes per-offer effectiveUrl (respecting prefer_original_for_this || page prefer + url) and points both Offer.url and BuyAction.target to the actual preferred destination. Agents parsing schema.org get the correct actionable link per the human's granular choice.
+  - **Editor surfaces audited + polished**: Reanalysis smart-merge already preserved the flag (prior); preview help text updated to explicitly call out protection of per-offer original preferences + consumer fields. VisualOfferBuilder remains the authoritative editing surface. Minor manifest visibility already complete (flag emitted in agent.json offers).
+  - **Embed generator (Phase 4 starter) significantly enhanced in Settings**: Richer documented iframe (with loading=lazy) + new "Lightweight JS widget (floating button)" copyable snippet. Clear callout that per-offer builder toggles override the page-level prefer_original_site. "Copy" now uses non-blocking setMessage feedback. Foundation for future widget.js host-it-yourself.
+  - **Consumer/Local consistency pass**: Confirmed Square (pink) / Acuity (orange) source badges + full consumer field rendering (duration, mobile, travelFee, tiers, serviceArea) consistent and correct across: VisualOfferBuilder, public [slug] pages, editor Connected Integrations pills/status, /dashboard/integrations dedicated Consumer section, Tools import flows. No drift found.
+  - All changes: full `npm run build` clean (typecheck + compile + static generation), targeted fidelity tests green, no regressions. Multiple surfaces now deliver on the "granular original-site control" audit gap.
+- Build + tests green. Full throttle execution continues.
+
 **Duration / Effort**: 8–10 days.
 
 **Key Work**:

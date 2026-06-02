@@ -85,23 +85,30 @@ export function parseOfferLines(value: string): OfferItem[] {
     const parts = line.split('|').map((part) => part.trim())
     const [name = '', price = '', description = '', url = ''] = parts
 
-    // Support extended consumer service fields + tiers (Phase 1 A fidelity)
-    // Robust extraction: find ||TIERS|| anywhere after base fields
+    // Support extended consumer service fields + tiers + per-offer original preference (Phase 1 A + Phase 4 fidelity)
+    // Markers use [[ ]] (safe, no collision with | field delimiter) or legacy ||TIERS||
     let tiers: PricingTier[] | undefined
-    const tiersPart = parts.find(p => p.startsWith('||TIERS||'))
+    const tiersPart = parts.find(p => p.includes('TIERS'))
     if (tiersPart) {
       try {
-        tiers = JSON.parse(tiersPart.replace('||TIERS||', ''))
+        tiers = JSON.parse(tiersPart.replace('||TIERS||', '').replace('[[TIERS]]', ''))
       } catch (e) {
         // ignore bad json
       }
     }
 
-    // Consumer block is the 4 slots immediately after the first 4 base fields,
-    // but stop before any tiers suffix if present
-    const tiersIdx = parts.findIndex(p => p.startsWith('||TIERS||'))
-    const consumerEnd = tiersIdx !== -1 ? tiersIdx : parts.length
-    const consumerParts = parts.slice(4, consumerEnd)
+    let preferOriginalForThis: boolean | undefined
+    const preferPart = parts.find(p => p.includes('PREFER_ORIGINAL'))
+    if (preferPart) {
+      preferOriginalForThis = true
+    }
+
+    // Consumer block stops before any marker (robust to [[ or || forms)
+    const tiersIdx = parts.findIndex(p => p.includes('TIERS'))
+    const preferIdx = parts.findIndex(p => p.includes('PREFER_ORIGINAL'))
+    const markerEnd = [tiersIdx, preferIdx].filter(i => i !== -1).reduce((min, i) => (min === -1 ? i : Math.min(min, i)), -1 as number)
+    const consumerEnd = markerEnd !== -1 ? markerEnd : parts.length
+    const consumerParts = parts.slice(4, consumerEnd).filter(p => !p.includes('TIERS') && !p.includes('PREFER_ORIGINAL') && !p.startsWith('||'))
 
     const isMobileRaw = consumerParts[3] || ''
     const isMobile = ['1', 'true', 'mobile', 'yes'].includes(isMobileRaw.toLowerCase())
@@ -116,6 +123,7 @@ export function parseOfferLines(value: string): OfferItem[] {
       travelFee: consumerParts[2] || undefined,
       isMobile: isMobile || undefined,
       tiers,
+      prefer_original_for_this: preferOriginalForThis,
     }
   })
 }
@@ -138,6 +146,11 @@ export function formatOfferLines(items: OfferItem[] | null | undefined) {
       // Append tiers (JSON suffix) for full roundtrip fidelity
       if (item.tiers && item.tiers.length > 0) {
         base.push(`||TIERS||${JSON.stringify(item.tiers)}`)
+      }
+      // Append per-offer original site preference marker (Phase 4 fidelity, zero new column)
+      // Use [[ ]] wrapper (pipe-safe, no delimiter collision unlike || form)
+      if (item.prefer_original_for_this) {
+        base.push('[[PREFER_ORIGINAL]]')
       }
       return base.join(' | ')
     })

@@ -326,7 +326,7 @@ export default function PageSettings({ params }: PageProps) {
                 </Field>
               </div>
 
-              {/* NEW: Embed & Original Site Linking (from vision) */}
+              {/* Phase 4: Enhanced Embed & Per-Offer Original Site Linking */}
               <div className="rounded-lg border border-white/10 bg-white/[0.02] p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <Code2 className="size-4 text-[#7C3AED]" />
@@ -342,32 +342,48 @@ export default function PageSettings({ params }: PageProps) {
                         onChange={(e) => setPreferOriginalSite(e.target.checked)}
                         className="accent-[#7C3AED]"
                       />
-                      Prefer linking bookings to my original website
+                      Prefer linking bookings to my original website (page default)
                     </label>
-                    <p className="text-xs text-[#9CA3AF] mt-1">When enabled, agent checkout buttons will point to your main site instead of Nexez checkout.</p>
+                    <p className="text-xs text-[#9CA3AF] mt-1">Page-level default. Granular per-offer overrides live in the Visual Offer Builder (higher precedence for agents & visitors).</p>
                   </div>
 
                   <div>
-                    <p className="text-xs text-[#9CA3AF] mb-1.5">Embed this agent page on your website</p>
-                    <pre className="text-[10px] bg-black/40 p-3 rounded overflow-x-auto text-[#C4B5FD]">
-{`<iframe 
-  src="${publicUrl}" 
-  width="100%" 
-  height="900" 
-  style="border:1px solid #222; border-radius:12px;">
-</iframe>`}
-                    </pre>
+                    <p className="text-xs uppercase tracking-widest text-zinc-400 mb-1.5">Iframe embed (recommended)</p>
+                    <pre className="text-[10px] bg-black/40 p-3 rounded overflow-x-auto text-[#C4B5FD] whitespace-pre-wrap">{`<iframe src="${publicUrl}" width="100%" height="900" style="border:1px solid #222; border-radius:12px;" loading="lazy"></iframe>`}</pre>
                     <button
                       type="button"
                       onClick={() => {
-                        const code = `<iframe src="${publicUrl}" width="100%" height="900" style="border:1px solid #222; border-radius:12px;"></iframe>`
+                        const code = `<iframe src="${publicUrl}" width="100%" height="900" style="border:1px solid #222; border-radius:12px;" loading="lazy"></iframe>`
                         navigator.clipboard.writeText(code)
-                        alert('Embed code copied!')
+                        setMessage('Iframe embed code copied.')
                       }}
-                      className="mt-2 text-xs text-[#00F5FF] hover:underline"
+                      className="mt-1.5 text-xs text-[#00F5FF] hover:underline"
                     >
-                      Copy embed code
+                      Copy iframe code
                     </button>
+                  </div>
+
+                  <div>
+                    <p className="text-xs uppercase tracking-widest text-zinc-400 mb-1.5">Lightweight JS widget (floating action button)</p>
+                    <pre className="text-[10px] bg-black/40 p-3 rounded overflow-x-auto text-[#C4B5FD] whitespace-pre-wrap">{`<script>
+  (function(){var s=document.createElement('script');s.src='${getBaseUrl()}/widget.js';s.onload=function(){Nexez.init({slug:'${slug}',theme:'light'})};document.head.appendChild(s);})();
+</script>`}</pre>
+                    <p className="text-[10px] text-zinc-500 mt-1">Renders a floating "Book with agent-optimized flow" button. Respects your per-offer + page prefer-original settings. (Widget foundation; full host-it-yourself coming in Phase 5+.)</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const js = `(function(){var s=document.createElement('script');s.src='${getBaseUrl()}/widget.js';s.onload=function(){Nexez.init({slug:'${slug}',theme:'light'})};document.head.appendChild(s);})();`
+                        navigator.clipboard.writeText(js)
+                        setMessage('JS widget snippet copied.')
+                      }}
+                      className="mt-1.5 text-xs text-[#00F5FF] hover:underline"
+                    >
+                      Copy JS widget snippet
+                    </button>
+                  </div>
+
+                  <div className="pt-2 border-t border-white/10 text-[11px] text-emerald-300/80">
+                    Per-offer "Book on original site" toggles (set in the builder) override this page default for individual offers. Agents see the effective preference in /agent.json and JSON-LD.
                   </div>
                 </div>
               </div>

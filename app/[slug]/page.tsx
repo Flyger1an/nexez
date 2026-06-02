@@ -322,7 +322,7 @@ function OfferSection({
                     href={useOriginal && item.url ? item.url : getCheckoutPath(pageSlug, kind, index)}
                     className="inline-flex items-center gap-2 rounded-lg bg-[#7C3AED] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6D28D9]"
                   >
-                    {useOriginal ? 'Book on our site' : 'Book Now'}
+                    {useOriginal ? 'Book on original site' : 'Book Now'}
                     <LockKeyhole className="size-4" />
                   </a>
                 );
@@ -334,6 +334,9 @@ function OfferSection({
                 </a>
               ) : null}
             </div>
+            {(item.prefer_original_for_this || (preferOriginal && item.url)) && (
+              <div className="mt-2 text-[10px] text-emerald-300/80">Original site priority for this offer</div>
+            )}
           </article>
         ))}
       </div>
@@ -343,25 +346,31 @@ function OfferSection({
 
 function buildJsonLd(page: AgentPage) {
   const url = `${getBaseUrl()}/${page.slug}`
+  const pagePrefer = !!page.prefer_original_site
   const offers = [
     ...(page.services ?? []).map((item, index) => ({ item, kind: 'services' as const, index })),
     ...(page.products ?? []).map((item, index) => ({ item, kind: 'products' as const, index })),
-  ].map(({ item, kind, index }) => ({
-    '@type': 'Offer',
-    name: item.name,
-    description: item.description || undefined,
-    price: item.price || undefined,
-    url: `${getBaseUrl()}${getCheckoutPath(page.slug, kind, index)}`,
-    potentialAction: {
-      '@type': 'BuyAction',
-      target: `${getBaseUrl()}${getCheckoutPath(page.slug, kind, index)}`,
-    },
-    itemOffered: {
-      '@type': 'Service',
+  ].map(({ item, kind, index }) => {
+    const perOfferPrefer = !!item.prefer_original_for_this
+    const useOriginal = perOfferPrefer || (pagePrefer && !!item.url)
+    const effectiveUrl = useOriginal && item.url ? item.url : `${getBaseUrl()}${getCheckoutPath(page.slug, kind, index)}`
+    return {
+      '@type': 'Offer',
       name: item.name,
       description: item.description || undefined,
-    },
-  }))
+      price: item.price || undefined,
+      url: effectiveUrl,
+      potentialAction: {
+        '@type': 'BuyAction',
+        target: effectiveUrl,
+      },
+      itemOffered: {
+        '@type': 'Service',
+        name: item.name,
+        description: item.description || undefined,
+      },
+    }
+  })
 
   return {
     '@context': 'https://schema.org',
