@@ -37,6 +37,8 @@ export function buildAgentPagePayload(page: AgentPage) {
       availability: {
         next_available: (page as any).next_available || null,
         last_booking: page.last_booking || null,
+        source: (page as any).google_calendar_id ? 'google_calendar' : null,
+        calendar_id: (page as any).google_calendar_id || null,
         note: (page as any).next_available 
           ? null 
           : 'Contact for current availability. Recent booking activity may indicate current slots.',

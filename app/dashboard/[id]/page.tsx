@@ -951,6 +951,9 @@ export default function EditAgentPage({ params }: PageProps) {
                 Shown in agent.json and public page. Will support Google Calendar sync in future.
                 Outbound webhooks fire automatically on bookings (configure in Settings).
               </p>
+              {nextAvailable && (
+                <div className="mt-1 text-[10px] text-emerald-300">Availability data live for agents</div>
+              )}
             </div>
 
             {/* Phase 1 A: Re-analysis preview / diff */}

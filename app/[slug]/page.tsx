@@ -135,9 +135,12 @@ export default async function AgentPageRoute({ params }: PageProps) {
               <SummaryRow label="Best for" value={page.audience || 'Buyers evaluating this offer'} />
               <SummaryRow label="Offer count" value={`${getOfferCount(page)} products or services`} />
               <SummaryRow label="Location" value={page.location || 'Available online or by request'} />
-              <SummaryRow label="Next available" value={(page as any).next_available || 'Contact for current slots'} />
-              {page.last_booking && ! (page as any).next_available && (
-                <SummaryRow label="Recent activity" value={`Last booking ${new Date(page.last_booking.at).toLocaleDateString()} — slots may be open`} />
+              <SummaryRow 
+                label="Next available" 
+                value={(page as any).next_available || 'Contact for current slots'} 
+              />
+              {(page as any).google_calendar_id && (
+                <SummaryRow label="Synced from" value="Google Calendar" />
               )}
               <SummaryRow label="Primary action" value={page.cta_label || 'Visit website'} />
               {page.last_booking && (

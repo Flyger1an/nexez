@@ -30,9 +30,16 @@ export async function POST(request: NextRequest) {
     })
 
     // Phase 3: Structured logging + preparation for auto price sync
-    // In a future iteration this would query pages where offers have
-    // metadata.stripe_price_id === price.id and trigger updates.
-    console.log('[Stripe Webhook] Price change ready for offer sync (using stored stable IDs)')
+    // The stable stripe_price_id / product_id stored on offers during import
+    // allows us to intelligently find and update affected pages/offers.
+    console.log('[Stripe Webhook] Price change ready for offer sync', {
+      price_id: price.id,
+      product_id: price.product,
+      new_amount: price.unit_amount,
+    })
+
+    // Future real action: Query pages with offers containing this stripe_price_id
+    // in metadata and trigger a targeted re-sync or direct price update.
   }
 
   // Always acknowledge quickly
