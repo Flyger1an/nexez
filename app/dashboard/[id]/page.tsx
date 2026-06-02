@@ -875,6 +875,10 @@ export default function EditAgentPage({ params }: PageProps) {
                                 summary: `Stripe re-sync: ${incoming.length} products/prices (${newCount} new, ${updateCount} potentially updated). Smart merge protects your edits.`,
                               })
                               setMessage('Stripe offers loaded into re-analysis preview.')
+                              // Full throttle: price diff hint for stripe-sourced offers
+                              if (incoming.some((o: any) => o.source === 'stripe')) {
+                                setMessage('Stripe offers + price metadata loaded. Price diffs will be highlighted on apply.')
+                              }
                             } else {
                               setMessage(data.error || 'No products returned from Stripe.')
                             }

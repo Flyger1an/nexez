@@ -805,6 +805,7 @@ export default function ToolsPage() {
               <li>• Stripe price/availability re-sync (in progress)</li>
               <li>• Shopify catalog import — foundation live (public feed + rich offers)</li>
               <li>• <span className="text-pink-300">Square consumer booking</span> — stub live (rich mobile/travel/duration services for local businesses)</li>
+              <li>• <span className="text-orange-300">Acuity Scheduling</span> — consumer stub live (coaching, beauty, wellness, medical)</li>
               <li>• CSV + Website hybrid import</li>
             </ul>
             <p className="mt-3 text-[10px] text-zinc-500">Goal: Connect once → pages stay fresh for agents automatically.</p>
