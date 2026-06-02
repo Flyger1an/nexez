@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Bot, Code2, ExternalLink, Search, Sparkles } fro
 import { AgentPage, getBaseUrl, getOfferCount, getReadinessScore } from '../../lib/agent-page'
 import { AgentSearchResult, searchAgentPages } from '../../lib/agent-search'
 import { supabase } from '../../lib/supabase'
+import { CopyButton } from './CopyButton'
 
 type DirectoryProps = {
   searchParams: Promise<{ q?: string; type?: string; category?: string; min_readiness?: string }>
@@ -163,12 +164,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
               <div>
                 <div className="flex items-center justify-between text-zinc-500 mb-1">
                   <span>Agent search</span>
-                  <button 
-                    onClick={() => navigator.clipboard.writeText(`${baseUrl}/api/agent-search?q=${encodeURIComponent(cleanQuery || 'consulting')}`)}
-                    className="text-[10px] text-cyan-600 hover:text-cyan-800"
-                  >
-                    Copy
-                  </button>
+                  <CopyButton text={`${baseUrl}/api/agent-search?q=${encodeURIComponent(cleanQuery || 'consulting')}`} />
                 </div>
                 <code className="block break-all rounded bg-white p-2 text-zinc-700 font-mono text-[10px]">
                   {`${baseUrl}/api/agent-search?q=${encodeURIComponent(cleanQuery || 'consulting')}`}
@@ -177,12 +173,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
               <div>
                 <div className="flex items-center justify-between text-zinc-500 mb-1">
                   <span>Directory API</span>
-                  <button 
-                    onClick={() => navigator.clipboard.writeText(`${baseUrl}/api/directory?category=consumer`)}
-                    className="text-[10px] text-cyan-600 hover:text-cyan-800"
-                  >
-                    Copy
-                  </button>
+                  <CopyButton text={`${baseUrl}/api/directory?category=consumer`} />
                 </div>
                 <code className="block break-all rounded bg-white p-2 text-zinc-700 font-mono text-[10px]">
                   {`${baseUrl}/api/directory?category=consumer`}

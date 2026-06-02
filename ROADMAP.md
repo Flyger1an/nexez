@@ -201,9 +201,11 @@ Phase 2 is locked and complete.
 - Google Calendar: Public page shows clean "Availability (Google Calendar)" label when imported. agent.json availability block enriched with source/calendar_id + helpful note. Editor shows calendar ID explicitly.
 - **This batch (executing user directive "keep executing towards the roadmap")**:
   - Google Calendar availability — real (stub) import delivered: New route `/api/integrations/google-calendar/availability` generates deterministic, realistic upcoming windows (Mon-Fri blocks + variety by calendarId hash). Settings "Import Availability from Google Calendar" button now performs an actual fetch + persists concrete "Next open slots: ..." text (plus google_calendar_id). The value flows immediately into agent.json (enhanced availability block + plain_text) and the public agent page SummaryRow. No new DB column required; future real Google API path is documented in the route file.
+  - **Follow-on (structured windows for agents)**: The stub now emits real `windows[]`. Persisted via `||WINDOWS||` compact marker (zero-schema fidelity, same as tiers). New `parseAvailabilityWindows` helper. agent.json now contains a machine-readable `windows` array. Public page renders clean "Upcoming: ..." slots for both humans and agents.
   - Stripe price webhook activated: The `/api/webhooks/stripe` price.updated handler is no longer a log stub. It queries pages, locates offers via the exact stable `metadata.stripe_price_id` / `stripe_product_id` written during import, computes formatted price delta, performs protected JSONB mutation (only source==='stripe' offers), and records `stripe_price_sync` events in checkout_events (visible in analytics). Prices now update live across agent pages when Stripe sends the event. Editor status text updated to reflect the live capability.
   - Type safety fix: OfferItem extended with `metadata?: Record<string, any>` so importers + webhook share the same contract without casts everywhere.
-  - Verification: `npm run build` clean (new route listed), all Vitest fidelity tests pass. No regressions in builder, public pages, or existing integrations.
+  - **Production hardening**: Fixed runtime error in /directory (Server Component had raw `onClick` + `navigator.clipboard` on "Copy API URL" buttons). Extracted minimal `CopyButton` 'use client' leaf. Build clean.
+  - Verification: `npm run build` clean, all tests pass.
 - Build + tests green.
 
 **Duration / Effort**: 8–10 days.

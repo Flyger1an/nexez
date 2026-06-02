@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, LockKeyhole, Mail, MapPin } from 'lucide-react'
-import { AgentPage, FaqItem, OfferItem, getBaseUrl, getCheckoutPath, getOfferCount } from '../../lib/agent-page'
+import { AgentPage, FaqItem, OfferItem, getBaseUrl, getCheckoutPath, getOfferCount, parseAvailabilityWindows } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { supabase } from '../../lib/supabase'
 
@@ -138,9 +138,18 @@ export default async function AgentPageRoute({ params }: PageProps) {
               {(page as any).next_available && (
                 <SummaryRow 
                   label={(page as any).google_calendar_id ? "Availability (Google Calendar)" : "Next available"} 
-                  value={(page as any).next_available} 
+                  value={(page as any).next_available.split(' ||WINDOWS||')[0]} 
                 />
               )}
+              {(() => {
+                const windows = parseAvailabilityWindows((page as any).next_available)
+                if (!windows || windows.length === 0) return null
+                return (
+                  <div className="mt-1 text-[10px] text-cyan-300/90">
+                    Upcoming: {windows.slice(0, 3).map((w: any, i: number) => w.label || `${w.date} ${w.start}`).join(' • ')}
+                  </div>
+                )
+              })()}
               <SummaryRow label="Primary action" value={page.cta_label || 'Visit website'} />
               {page.last_booking && (
                 <SummaryRow 

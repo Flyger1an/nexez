@@ -6,6 +6,7 @@ import {
   getCheckoutOffers,
   getCheckoutPath,
   getOfferDestination,
+  parseAvailabilityWindows,
 } from './agent-page'
 
 export function getAgentJsonPath(slug: string) {
@@ -42,11 +43,9 @@ export function buildAgentPagePayload(page: AgentPage) {
         note: (page as any).next_available 
           ? 'Availability imported or set manually. Agents can use this for scheduling.'
           : 'Contact for current availability. Recent booking activity may indicate current slots.',
-        // Phase 3: When imported via the Google Calendar stub, the next_available string itself contains concrete upcoming slots.
-        // Real Google Calendar integration will populate a structured windows array here.
-        windows_hint: (page as any).google_calendar_id && (page as any).next_available 
-          ? 'See next_available for current open windows (stub generated on import).'
-          : null,
+        // Phase 3: Structured windows from Google Calendar stub import (or future real sync).
+        // Agents get a machine-readable list of upcoming slots in addition to the human note.
+        windows: parseAvailabilityWindows((page as any).next_available),
       },
       llms_url: `${baseUrl}/llms.txt`,
     },

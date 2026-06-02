@@ -710,6 +710,12 @@ export default function PageSettings({ params }: PageProps) {
                         if (!res.ok) throw new Error(data?.error || 'Import failed')
                         importedAvailability = data.availability
                         finalNote = data.next_available || data.availability?.summary_note || finalNote
+
+                        // Persist structured windows for agents using a compact marker (same pattern as ||TIERS|| for zero-schema fidelity)
+                        if (importedAvailability?.windows?.length) {
+                          const compact = JSON.stringify(importedAvailability.windows)
+                          finalNote = `${finalNote} ||WINDOWS||${compact}`
+                        }
                       }
 
                       const payload: any = {

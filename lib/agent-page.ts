@@ -217,3 +217,21 @@ export function getReadinessScore(page: Partial<AgentPage>) {
 export function getBaseUrl() {
   return process.env.NEXT_PUBLIC_SITE_URL || 'https://nexez.vercel.app'
 }
+
+/**
+ * Phase 3: Parse the compact ||WINDOWS|| marker we append during Google Calendar stub import.
+ * Allows structured upcoming slots to roundtrip into agent.json and public page
+ * without requiring a new DB column (consistent with the ||TIERS|| fidelity pattern).
+ */
+export function parseAvailabilityWindows(note: string | null | undefined): Array<{ date: string; start: string; end: string; label?: string }> | null {
+  if (!note) return null
+  const marker = note.split('||WINDOWS||')[1]
+  if (!marker) return null
+  try {
+    const parsed = JSON.parse(marker)
+    if (Array.isArray(parsed)) return parsed
+  } catch {
+    // bad json — ignore
+  }
+  return null
+}
