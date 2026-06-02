@@ -9,7 +9,7 @@ import {
   getOfferDestination,
 } from '../../../lib/agent-page'
 import { parseMoneyCents, toStripeDescription } from '../../../lib/checkout'
-import { logCheckoutEvent } from '../../../lib/checkout-events'
+import { logCheckoutEvent } from '../../../lib/server/log-checkout-event'
 import { supabase } from '../../../lib/supabase'
 
 type CheckoutInput = {

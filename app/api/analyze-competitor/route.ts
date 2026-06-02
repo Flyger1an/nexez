@@ -24,15 +24,16 @@ export async function POST(request: Request) {
       try {
         const cookieStore = await cookies()
         const supabase = createClient(cookieStore)
-        const { data: page } = await supabase
+        const { data: pageData, error: fetchError } = await supabase
           .from('pages')
           .select(PUBLIC_PAGE_SELECT)
           .eq('slug', userPageSlug.replace(/^\//, ''))
           .eq('is_published', true)
           .single()
 
-        if (page) {
+        if (pageData && !fetchError) {
           // compute live scores (events not fetched here for speed; caller can enhance)
+          const page = pageData as any
           const readiness = getReadinessScore(page)
           const trust = getTrustScore(page)
           const offerCount = getOfferCount(page)

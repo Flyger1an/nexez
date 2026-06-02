@@ -23,7 +23,7 @@ import {
   getOfferDestination,
 } from '../../../lib/agent-page'
 import { formatUsdCents, parseMoneyCents } from '../../../lib/checkout'
-import { logCheckoutEvent } from '../../../lib/checkout-events'
+import { logCheckoutEvent } from '../../../lib/server/log-checkout-event'
 import { safeJsonScript } from '../../../lib/safe-json'
 import { supabase } from '../../../lib/supabase'
 

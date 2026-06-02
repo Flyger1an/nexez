@@ -56,7 +56,7 @@ export default function GlobalAgentSimulator() {
       }
       setIsLoggedIn(true)
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('pages')
         .select(OWNER_PAGE_SELECT)
         .eq('owner_id', user.id)
@@ -64,8 +64,8 @@ export default function GlobalAgentSimulator() {
         .order('created_at', { ascending: false })
         .limit(20)
 
-      if (data) {
-        setMyPages(data as AgentPage[])
+      if (data && !error) {
+        setMyPages(data as unknown as AgentPage[])
       }
     } catch (e) {
       console.warn('Could not load my pages for simulator (anon ok)')
