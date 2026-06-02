@@ -25,6 +25,9 @@ export type OfferItem = {
 
   // Integration metadata (stable IDs for webhooks/re-sync, consumer hints, etc.)
   metadata?: Record<string, any>
+
+  // Phase 4: Per-offer "Book on original site" preference (for granular linking/embedding)
+  prefer_original_for_this?: boolean
 }
 
 export type OfferKind = 'services' | 'products'

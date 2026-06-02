@@ -315,13 +315,18 @@ function OfferSection({
             )}
 
             <div className="mt-4 flex flex-wrap gap-3">
-              <a
-                href={preferOriginal && item.url ? item.url : getCheckoutPath(pageSlug, kind, index)}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#7C3AED] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6D28D9]"
-              >
-                {preferOriginal ? 'Book on our site' : 'Book Now'}
-                <LockKeyhole className="size-4" />
-              </a>
+              {(() => {
+                const useOriginal = (item.prefer_original_for_this ?? false) || (preferOriginal && !!item.url);
+                return (
+                  <a
+                    href={useOriginal && item.url ? item.url : getCheckoutPath(pageSlug, kind, index)}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#7C3AED] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6D28D9]"
+                  >
+                    {useOriginal ? 'Book on our site' : 'Book Now'}
+                    <LockKeyhole className="size-4" />
+                  </a>
+                );
+              })()}
               {item.url ? (
                 <a href={item.url} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm text-[#00F5FF] hover:bg-white/10">
                   View details

@@ -457,23 +457,29 @@ function SortableOfferCard({
             )}
           </div>
 
-          <div>
+          {/* Per-offer "Book on original site" control (Phase 4 alignment) */}
+          <div className="border border-white/10 rounded-lg p-2 bg-black/20">
+            <label className="flex items-center gap-2 text-xs text-zinc-300 mb-1.5">
+              <input
+                type="checkbox"
+                checked={!!offer.prefer_original_for_this}
+                onChange={(e) => {
+                  if (onUpdateFull) {
+                    onUpdateFull(index, { prefer_original_for_this: e.target.checked });
+                  } else {
+                    onUpdate(index, 'prefer_original_for_this' as any, String(e.target.checked));
+                  }
+                }}
+                className="size-3 accent-[#7C3AED]"
+              />
+              Book on original site for this offer
+            </label>
             <input
               value={offer.url}
               onChange={(e) => onUpdate(index, 'url', e.target.value)}
-              placeholder="Booking URL (leave blank to use page default)"
-              className="w-full rounded border border-white/10 bg-black/30 px-3 py-2 text-sm text-white"
+              placeholder="Override URL (optional — used when this toggle or page-level 'Prefer original' is active)"
+              className="w-full rounded border border-white/10 bg-black/30 px-3 py-1.5 text-sm text-white"
             />
-            <div className="flex items-center gap-2 mt-1.5">
-              <input 
-                type="checkbox" 
-                checked={!!offer.url} 
-                onChange={() => {}} 
-                disabled 
-                className="size-3" 
-              />
-              <span className="text-[10px] text-[#9CA3AF]">Use this URL when "Prefer original site" is enabled</span>
-            </div>
           </div>
 
           {/* Consumer / Local Service Fields */}
