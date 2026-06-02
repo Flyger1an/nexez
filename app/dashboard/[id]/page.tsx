@@ -395,9 +395,11 @@ export default function EditAgentPage({ params }: PageProps) {
 
       if (idx >= 0) {
         const existing = merged[idx]
+        // Full throttle: smarter merge for Stripe - prefer fresh price from integration for stripe-sourced offers
+        const newPrice = (inc.source === 'stripe' && inc.price) ? inc.price : (inc.price || existing.price)
         merged[idx] = {
           ...existing,
-          price: inc.price || existing.price,
+          price: newPrice,
           url: inc.url || existing.url,
           duration: inc.duration || existing.duration,
           serviceArea: inc.serviceArea || existing.serviceArea,
@@ -405,10 +407,10 @@ export default function EditAgentPage({ params }: PageProps) {
           travelFee: inc.travelFee || existing.travelFee,
           description: (existing.description?.length || 0) > 80 ? existing.description : (inc.description || existing.description),
           tiers: existing.tiers?.length ? existing.tiers : (inc.tiers || []),
-          source: inc.source || existing.source,   // preserve source metadata
+          source: inc.source || existing.source,
         }
       } else {
-        merged.push(inc)  // new offers carry their source (e.g. 'stripe', 'shopify')
+        merged.push(inc)
       }
     })
 
@@ -782,6 +784,7 @@ export default function EditAgentPage({ params }: PageProps) {
               {typeof window !== 'undefined' && localStorage.getItem('nexez_last_outbound_fired') && (
                 <div className="mt-2 text-[9px] text-cyan-300">Last fire: {new Date(localStorage.getItem('nexez_last_outbound_fired')!).toLocaleString()}</div>
               )}
+              <div className="mt-1 text-[9px] text-cyan-200/70">Real booking events (Nexez checkout + Calendly) now trigger your endpoints with optional signing.</div>
             </div>
 
             {/* Phase 3: Connected Integrations quick status (command center feel in the editor) */}
