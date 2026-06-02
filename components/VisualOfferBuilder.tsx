@@ -459,28 +459,33 @@ function SortableOfferCard({
 
           {/* Per-offer "Book on original site" control (Phase 4) */}
           <div className="border border-white/10 rounded-lg p-2 bg-black/20">
-            <label className="flex items-center gap-2 text-xs text-zinc-300 mb-1.5">
-              <input
-                type="checkbox"
-                checked={!!offer.prefer_original_for_this}
-                onChange={(e) => {
-                  if (onUpdateFull) {
-                    onUpdateFull(index, { prefer_original_for_this: e.target.checked });
-                  } else {
-                    onUpdate(index, 'prefer_original_for_this' as any, String(e.target.checked));
-                  }
-                }}
-                className="size-3 accent-[#7C3AED]"
-              />
-              Book on original site for this offer
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="flex items-center gap-2 text-xs text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={!!offer.prefer_original_for_this}
+                  onChange={(e) => {
+                    if (onUpdateFull) {
+                      onUpdateFull(index, { prefer_original_for_this: e.target.checked });
+                    } else {
+                      onUpdate(index, 'prefer_original_for_this' as any, String(e.target.checked));
+                    }
+                  }}
+                  className="size-3 accent-[#7C3AED]"
+                />
+                Book on original site for this offer
+              </label>
+              {offer.prefer_original_for_this && (
+                <span className="text-[9px] text-emerald-300">Original site priority</span>
+              )}
+            </div>
             <input
               value={offer.url}
               onChange={(e) => onUpdate(index, 'url', e.target.value)}
-              placeholder="Override booking URL (used when this toggle or page-level Prefer original is active)"
+              placeholder="Override booking URL (optional — used when this toggle or page-level 'Prefer original' is active)"
               className="w-full rounded border border-white/10 bg-black/30 px-3 py-1.5 text-sm text-white"
             />
-            <div className="text-[9px] text-zinc-500 mt-1">When checked, agents and humans will be directed to the original site for this specific offer.</div>
+            <div className="text-[9px] text-zinc-500 mt-1">When enabled, this offer directs to the original site (overrides page default).</div>
           </div>
 
           {/* Consumer / Local Service Fields */}

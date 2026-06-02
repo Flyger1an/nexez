@@ -1097,6 +1097,7 @@ export default function EditAgentPage({ params }: PageProps) {
               {typeof window !== 'undefined' && localStorage.getItem('nexez_last_outbound_fired') && (
                 <div className="mt-1 text-[9px] text-emerald-300">Last outbound fire: {new Date(localStorage.getItem('nexez_last_outbound_fired')!).toLocaleString()}</div>
               )}
+              <div className="mt-1 text-[9px] text-cyan-300/70">Per-page endpoints configured in Settings now fire automatically on booking events.</div>
             </div>
 
             {/* Phase 1 A: Re-analysis preview / diff */}
