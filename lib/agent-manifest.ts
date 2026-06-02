@@ -36,7 +36,10 @@ export function buildAgentPagePayload(page: AgentPage) {
       contact_email: page.contact_email,
       availability: {
         next_available: (page as any).next_available || null,
-        note: (page as any).next_available ? null : 'Contact for current availability',
+        last_booking: page.last_booking || null,
+        note: (page as any).next_available 
+          ? null 
+          : 'Contact for current availability. Recent booking activity may indicate current slots.',
       },
       llms_url: `${baseUrl}/llms.txt`,
     },

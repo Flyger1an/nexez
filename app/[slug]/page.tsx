@@ -136,6 +136,9 @@ export default async function AgentPageRoute({ params }: PageProps) {
               <SummaryRow label="Offer count" value={`${getOfferCount(page)} products or services`} />
               <SummaryRow label="Location" value={page.location || 'Available online or by request'} />
               <SummaryRow label="Next available" value={(page as any).next_available || 'Contact for current slots'} />
+              {page.last_booking && ! (page as any).next_available && (
+                <SummaryRow label="Recent activity" value={`Last booking ${new Date(page.last_booking.at).toLocaleDateString()} — slots may be open`} />
+              )}
               <SummaryRow label="Primary action" value={page.cta_label || 'Visit website'} />
               {page.last_booking && (
                 <SummaryRow 

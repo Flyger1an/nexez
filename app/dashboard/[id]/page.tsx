@@ -404,7 +404,16 @@ export default function EditAgentPage({ params }: PageProps) {
     setServicesOffers(merged)
     setServices(formatOfferLines(merged))
     setPendingReanalysis(null)
-    setMessage('Changes applied successfully. Review in the Visual Builder.')
+
+    const stripePriceChanges = incomingServices.filter(inc => 
+      inc.source === 'stripe' && 
+      merged.some(m => m.name.toLowerCase() === inc.name.toLowerCase() && m.price !== inc.price)
+    ).length
+
+    const baseMsg = 'Changes applied successfully. Review in the Visual Builder.'
+    setMessage(stripePriceChanges > 0 
+      ? `${baseMsg} (${stripePriceChanges} Stripe price change(s) detected.)` 
+      : baseMsg)
   }
 
   function cancelPendingReanalysis() {
@@ -935,6 +944,7 @@ export default function EditAgentPage({ params }: PageProps) {
               </div>
               <p className="mt-1 text-[10px] text-zinc-500">
                 Shown in agent.json and public page. Will support Google Calendar sync in future.
+                Outbound webhooks (configured in Settings) fire automatically on bookings.
               </p>
             </div>
 
