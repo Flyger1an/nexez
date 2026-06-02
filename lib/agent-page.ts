@@ -22,6 +22,9 @@ export type OfferItem = {
 
   // Integration source (Calendly, Stripe, Shopify, etc.)
   source?: string
+
+  // Integration metadata (stable IDs for webhooks/re-sync, consumer hints, etc.)
+  metadata?: Record<string, any>
 }
 
 export type OfferKind = 'services' | 'products'

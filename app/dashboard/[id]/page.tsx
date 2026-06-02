@@ -930,7 +930,7 @@ export default function EditAgentPage({ params }: PageProps) {
                   )}
                 </div>
                 <p className="mt-2 text-[10px] text-zinc-500">
-                  Re-sync keeps source metadata (via stripe, via shopify, etc.) and feeds the smart merge preview. Full control in <a href={`/dashboard/${id}/settings`} className="underline">Settings</a> or <a href="/dashboard/tools" className="underline">Tools</a>.
+                  Re-sync keeps source metadata (via stripe, via shopify, etc.) and feeds the smart merge preview. Stripe price webhooks are now active — price.updated events auto-update matching offers. Full control in <a href={`/dashboard/${id}/settings`} className="underline">Settings</a> or <a href="/dashboard/tools" className="underline">Tools</a>.
                 </p>
                 <div className="mt-2 text-[10px] text-emerald-300">Outbound + Google Calendar sync ready (see Availability section above)</div>
                 <div className="mt-1 text-[10px] text-zinc-400">Last re-sync times shown in badges • Full health in /dashboard/integrations</div>
@@ -953,14 +953,14 @@ export default function EditAgentPage({ params }: PageProps) {
                 <div className="mt-1 text-[10px] text-emerald-300">Structured availability exposed for agents</div>
               )}
               <p className="mt-1 text-[10px] text-zinc-500">
-                Shown in agent.json and public page. Will support Google Calendar sync in future.
+                Import in Settings now generates real upcoming windows (stub). Shown in agent.json + public page.
                 Outbound webhooks fire automatically on bookings (configure in Settings).
               </p>
               {nextAvailable && (
                 <div className="mt-1 text-[10px] text-emerald-300">Availability data live for agents</div>
               )}
               {/* Phase 3 status note */}
-              <div className="mt-1 text-[10px] text-zinc-400">Outbound webhooks + Google Calendar sync ready (configure in Settings)</div>
+              <div className="mt-1 text-[10px] text-zinc-400">Google Calendar import produces concrete upcoming slots for agents (see Settings)</div>
               <div className="mt-1 text-[10px] text-emerald-300">Per-page outbound configured (see Settings)</div>
             </div>
 

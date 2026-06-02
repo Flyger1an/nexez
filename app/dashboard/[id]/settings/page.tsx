@@ -696,14 +696,20 @@ export default function PageSettings({ params }: PageProps) {
                     setAvailabilitySaving(true)
                     setMessage('')
                     try {
-                      const supabase = createClient()
-
                       let finalNote = availabilityNote || ''
+                      let importedAvailability: any = null
+
                       if (googleCalendarId.trim()) {
-                        const prefix = `Synced from Google Calendar (${googleCalendarId.trim()})`
-                        // Simulate imported availability windows
-                        const windows = availabilityNote ? availabilityNote : 'Mon-Fri 9am-5pm, Sat 10am-2pm'
-                        finalNote = `${prefix} — Windows: ${windows}`
+                        // Real stub fetch (Phase 3 roadmap) — generates deterministic upcoming windows
+                        const res = await fetch('/api/integrations/google-calendar/availability', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ calendarId: googleCalendarId.trim() }),
+                        })
+                        const data = await res.json()
+                        if (!res.ok) throw new Error(data?.error || 'Import failed')
+                        importedAvailability = data.availability
+                        finalNote = data.next_available || data.availability?.summary_note || finalNote
                       }
 
                       const payload: any = {
@@ -712,14 +718,17 @@ export default function PageSettings({ params }: PageProps) {
                       if (googleCalendarId.trim()) {
                         payload.google_calendar_id = googleCalendarId.trim()
                       }
+                      // If richer structure returned, we can also persist a compact version for agents
+                      // (stored alongside next_available using existing columns — future column `availability` jsonb can hold full object)
 
+                      const supabase = createClient()
                       const { error } = await supabase
                         .from('pages')
                         .update(payload)
                         .eq('id', page.id)
 
                       const successMsg = googleCalendarId.trim()
-                        ? 'Availability imported from Google Calendar. Now live in agent.json and public page.'
+                        ? 'Availability imported from Google Calendar (stub windows generated). Now live in agent.json and public page.'
                         : 'Availability saved. Visible in agent.json and public page.'
 
                       setMessage(error ? error.message : successMsg)

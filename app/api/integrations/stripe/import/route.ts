@@ -90,7 +90,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Provide productId, priceIds, or leave empty for recent products' }, { status: 400 })
     }
 
-    // Phase 3: Richer structuredOffers for Stripe — stable IDs for future price sync + webhooks
+    // Phase 3: Richer structuredOffers for Stripe — stable IDs for the now-active price webhook sync (price.updated mutates offers) + manual re-sync
     const structuredOffers = lines.map((line, idx) => {
       const parts = line.split(' | ').map(p => p.trim())
       const priceStr = parts[1] || 'Custom'

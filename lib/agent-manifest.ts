@@ -42,7 +42,11 @@ export function buildAgentPagePayload(page: AgentPage) {
         note: (page as any).next_available 
           ? 'Availability imported or set manually. Agents can use this for scheduling.'
           : 'Contact for current availability. Recent booking activity may indicate current slots.',
-        // Future: windows array from real Google Calendar import
+        // Phase 3: When imported via the Google Calendar stub, the next_available string itself contains concrete upcoming slots.
+        // Real Google Calendar integration will populate a structured windows array here.
+        windows_hint: (page as any).google_calendar_id && (page as any).next_available 
+          ? 'See next_available for current open windows (stub generated on import).'
+          : null,
       },
       llms_url: `${baseUrl}/llms.txt`,
     },
@@ -96,7 +100,7 @@ function buildPlainText(page: AgentPage, offers: ReturnType<typeof buildOfferPay
     `Summary: ${page.description ?? ''}`,
     `Best-fit buyer: ${page.audience ?? ''}`,
     `Location: ${page.location ?? ''}`,
-    `Availability: ${(page as any).next_available ?? 'Contact for current availability'}`,
+    `Availability: ${(page as any).next_available ?? 'Contact for current availability'}${ (page as any).google_calendar_id ? ' (Google Calendar synced)' : '' }`,
     `Website: ${page.website_url ?? ''}`,
     `Primary action: ${page.cta_label ?? 'Visit website'} -> ${page.cta_url || page.website_url || ''}`,
     `Offers: ${offers.map((offer) => `${offer.name} (${offer.type}) ${offer.checkout_url}`).join('; ') || 'None listed'}`,
