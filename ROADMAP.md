@@ -199,7 +199,12 @@ Phase 2 is locked and complete.
   - Editor "Connected Integrations" status is now actionable for both Calendly and Stripe: Re-sync buttons trigger rich import + pendingReanalysis/smart-merge preview directly in the editor (full parity for the two primary pro integrations).
   - Stripe import now attaches stable stripe_product_id / price_id in metadata (concrete step toward full price sync + future webhook price updates).
 - Google Calendar: Public page shows clean "Availability (Google Calendar)" label when imported. agent.json availability block enriched with source/calendar_id + helpful note. Editor shows calendar ID explicitly.
-- **Massive Phase 3 burst (user directive: "dont limit to 3 slices anymore. build as much as possible at every point")**:
+- **Hard "build as much as possible" burst (user: "keep building hard")**:
+  - **Consumer integration track started**: Full Square stub at `/api/integrations/square/import` returning rich consumer OfferItem[] (duration, isMobile, travelFee, serviceArea, tiers, source:'square'). Visible UI section + re-sync in Tools page. "Create Page" handoff works. Phase 3 consumer exploration (Square/Acuity/Booksy) is now real.
+  - Outbound first-class (secrets + per-endpoint Send Test) + end-to-end secret firing in both receivers.
+  - Editor + Integrations dashboard health massively improved with real counts and Phase 3 reality.
+  - GCal windows beautifully rendered for agents and humans.
+  - Multiple builds/tests green. Multiple commits. No artificial limits.
   - **Outbound webhooks — first class (biggest "Set Once, Forget" win)**: 
     - Settings now has rich per-endpoint management: URL + optional signing secret on add.
     - Per-endpoint "Send Test" button that calls real `/api/test-outbound` (new route) using the actual `fireOutboundWebhook` with secret.

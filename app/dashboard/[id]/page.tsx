@@ -976,6 +976,7 @@ export default function EditAgentPage({ params }: PageProps) {
                   ? `${(page as any).outbound_webhooks.length} outbound endpoint${(page as any).outbound_webhooks.length === 1 ? '' : 's'} configured (fires on bookings)`
                   : 'No outbound webhooks yet — configure in Settings'}
               </div>
+              <div className="mt-1 text-[9px] text-zinc-500">Secrets supported • Test from Settings • Fires on real Nexez + Calendly events</div>
             </div>
 
             {/* Phase 1 A: Re-analysis preview / diff */}

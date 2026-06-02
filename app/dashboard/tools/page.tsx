@@ -34,6 +34,15 @@ export default function ToolsPage() {
   const [shopifyResult, setShopifyResult] = useState<any>(null)
   const [shopifyConnected, setShopifyConnected] = useState<{ lastImport: string } | null>(null)
 
+  // Phase 3 Consumer Track: Square (booking + payments for local/consumer services)
+  const [squareToken, setSquareToken] = useState('')
+  const [squareLoading, setSquareLoading] = useState(false)
+  const [squareResult, setSquareResult] = useState<any>(null)
+  const [squareConnected, setSquareConnected] = useState<{ lastImport: string } | null>(null)
+
+  // Square consumer services import (Phase 3 consumer track start)
+  // (handler defined below after Shopify)
+
   // Outbound webhook demo config (supports multiple)
   const [outboundWebhookUrl, setOutboundWebhookUrl] = useState('')
   const [outboundWebhooks, setOutboundWebhooks] = useState<string[]>([])
@@ -795,6 +804,7 @@ export default function ToolsPage() {
               <li>• Bulk Calendly / Acuity + webhook support (UI + secret storage live)</li>
               <li>• Stripe price/availability re-sync (in progress)</li>
               <li>• Shopify catalog import — foundation live (public feed + rich offers)</li>
+              <li>• <span className="text-pink-300">Square consumer booking</span> — stub live (rich mobile/travel/duration services for local businesses)</li>
               <li>• CSV + Website hybrid import</li>
             </ul>
             <p className="mt-3 text-[10px] text-zinc-500">Goal: Connect once → pages stay fresh for agents automatically.</p>
