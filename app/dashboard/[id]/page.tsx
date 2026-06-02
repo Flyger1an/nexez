@@ -762,6 +762,21 @@ export default function EditAgentPage({ params }: PageProps) {
               </div>
             )}
 
+            {/* Phase 3: Recent Outbound Activity (full throttle - mirrors Calendly value) */}
+            <div className="rounded-lg border border-cyan-300/20 bg-cyan-400/5 p-4 mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-cyan-300">Recent Outbound Webhook Activity</span>
+                <span className="text-[10px] text-cyan-400/70">Auto-fired on bookings</span>
+              </div>
+              <div className="text-[11px] text-cyan-200">
+                Outbound endpoints now fire with optional signing on both Nexez checkout events and Calendly webhooks.
+                Use "Send Test" in Settings for any page to verify instantly.
+              </div>
+              <div className="mt-1 text-[10px] text-cyan-300/80">
+                Configure per-page in Settings → full history appears in Analytics.
+              </div>
+            </div>
+
             {/* Phase 3: Connected Integrations quick status (command center feel in the editor) */}
             {(integrationStatus.calendly || integrationStatus.stripe || integrationStatus.shopify) && (
               <div className="mb-4 rounded-lg border border-white/10 bg-white/[0.02] p-4">
