@@ -410,6 +410,7 @@ export default function EditAgentPage({ params }: PageProps) {
           description: (existing.description?.length || 0) > 80 ? existing.description : (inc.description || existing.description),
           tiers: existing.tiers?.length ? existing.tiers : (inc.tiers || []),
           source: inc.source || existing.source,
+          prefer_original_for_this: inc.prefer_original_for_this ?? existing.prefer_original_for_this,
         }
       } else {
         merged.push(inc)

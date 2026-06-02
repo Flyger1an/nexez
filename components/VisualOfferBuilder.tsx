@@ -457,7 +457,7 @@ function SortableOfferCard({
             )}
           </div>
 
-          {/* Per-offer "Book on original site" control (Phase 4 alignment) */}
+          {/* Per-offer "Book on original site" control (Phase 4) */}
           <div className="border border-white/10 rounded-lg p-2 bg-black/20">
             <label className="flex items-center gap-2 text-xs text-zinc-300 mb-1.5">
               <input
@@ -477,9 +477,10 @@ function SortableOfferCard({
             <input
               value={offer.url}
               onChange={(e) => onUpdate(index, 'url', e.target.value)}
-              placeholder="Override URL (optional — used when this toggle or page-level 'Prefer original' is active)"
+              placeholder="Override booking URL (used when this toggle or page-level Prefer original is active)"
               className="w-full rounded border border-white/10 bg-black/30 px-3 py-1.5 text-sm text-white"
             />
+            <div className="text-[9px] text-zinc-500 mt-1">When checked, agents and humans will be directed to the original site for this specific offer.</div>
           </div>
 
           {/* Consumer / Local Service Fields */}

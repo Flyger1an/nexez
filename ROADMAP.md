@@ -200,6 +200,9 @@ Phase 2 is locked and complete.
   - Stripe import now attaches stable stripe_product_id / price_id in metadata (concrete step toward full price sync + future webhook price updates).
 - Google Calendar: Public page shows clean "Availability (Google Calendar)" label when imported. agent.json availability block enriched with source/calendar_id + helpful note. Editor shows calendar ID explicitly.
 - **Full throttle execution (user: "keep building. full throttle")**:
+  - Per-offer "Book on original site" toggle completed in VisualOfferBuilder (clear checkbox + override URL with helpful note). Preserved through reanalysis merge. Public CTAs respect per-offer + page-level preference. Major Phase 4 item delivered.
+  - Continued aggressive Phase 3 + early Phase 4 progress on integrations, consumer tools, outbound, and per-offer controls.
+  - Multiple builds green. No artificial limits.
   - Per-offer "Book on original site" toggle implemented in VisualOfferBuilder (checkbox + override URL per offer card). Public page CTAs now respect per-offer + page-level preferences. Field added to OfferItem type. Major Phase 4 gap addressed.
   - Stripe re-sync apply logic and preview diffs further refined for clearer price handling.
   - Editor health improved with last outbound fire timestamps.
