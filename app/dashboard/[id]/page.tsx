@@ -11,6 +11,7 @@ import {
   normalizeSlug,
   parseFaqLines,
   parseOfferLines,
+  parseAvailabilityWindows,
 } from '../../../lib/agent-page'
 import { optimizeAllOffersForAgents, enhanceDescriptionForAgents } from '../../../lib/ai-optimize'
 import { VisualOfferBuilder } from '../../../components/VisualOfferBuilder'
@@ -944,7 +945,7 @@ export default function EditAgentPage({ params }: PageProps) {
                 <a href="#next-available" className="text-[10px] text-cyan-400 hover:text-cyan-300">Edit →</a>
               </div>
               <div className="text-sm text-emerald-200">
-                {nextAvailable ? nextAvailable : 'Not set — agents will see "Contact for current slots"'}
+                {nextAvailable ? nextAvailable.split(' ||WINDOWS||')[0] : 'Not set — agents will see "Contact for current slots"'}
               </div>
               {googleCalendarId && (
                 <div className="mt-1 text-[10px] text-emerald-300">Google Calendar connected • ID: {googleCalendarId}</div>
@@ -952,6 +953,15 @@ export default function EditAgentPage({ params }: PageProps) {
               {(page as any).availability && (
                 <div className="mt-1 text-[10px] text-emerald-300">Structured availability exposed for agents</div>
               )}
+              {(() => {
+                const wins = parseAvailabilityWindows(nextAvailable)
+                if (!wins || wins.length === 0) return null
+                return (
+                  <div className="mt-2 text-[10px] text-emerald-300">
+                    Upcoming preview: {wins.slice(0, 3).map((w: any) => w.label || `${w.start}`).join(' • ')}
+                  </div>
+                )
+              })()}
               <p className="mt-1 text-[10px] text-zinc-500">
                 Import in Settings now generates real upcoming windows (stub). Shown in agent.json + public page.
                 Outbound webhooks fire automatically on bookings (configure in Settings).
