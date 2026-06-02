@@ -1,4 +1,5 @@
 import { ArrowLeft, ArrowUpRight, Bot, Download, Filter, Search } from 'lucide-react'
+import { ErrorBoundary } from '../../../components/ErrorBoundary'
 import { TrafficChart } from './TrafficChart'
 import { TopOffersChart } from './TopOffersChart'
 import { ConversionFunnel } from './ConversionFunnel'
@@ -16,6 +17,7 @@ import {
   getPageOptions,
   getPipelineCents,
   getRevenueCents,
+  getAgentDrivenRevenueCents,
   getSignalLabel,
   getTopOfferStats,
 } from '../../../lib/analytics'
@@ -101,6 +103,9 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     : '0.0'
   const revenueCents = getRevenueCents(filteredEvents)
   const pipelineCents = getPipelineCents(filteredEvents)
+  const agentRevenueCents = getAgentDrivenRevenueCents ? getAgentDrivenRevenueCents(filteredEvents) : 0 // fallback if not yet
+  const agentSharePct = 15 // configurable stub, future per plan
+  const agentShareCents = Math.round(agentRevenueCents * (agentSharePct / 100))
   const popularService = getTopOfferStats(filteredEvents)[0]?.name || 'No offer activity yet'
   const dailySeries = getDailyEventSeries(filteredEvents, 10)
   const topOffers = getTopOfferStats(filteredEvents).slice(0, 5)
@@ -177,6 +182,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
 
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
+      <ErrorBoundary>
       <div className="mx-auto max-w-7xl px-6 py-8">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <a href="/dashboard" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
@@ -218,6 +224,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           <Kpi title="Conversion Rate" value={`${conversionRate}%`} note={`${conversionCount} conversion actions`} />
           <Kpi title="Most Active Offer" value={popularService} note={`${offerCount || 0} offers listed`} />
           <Kpi title="Tracked Revenue" value={formatUsdCents(revenueCents)} note={`${formatUsdCents(pipelineCents)} pipeline`} tone="strong" />
+          <Kpi title="Agent-Driven Revenue" value={formatUsdCents(agentRevenueCents)} note={`${agentSharePct}% share est. = ${formatUsdCents(agentShareCents)} (Tier 3 monetization)`} />
         </section>
 
         <section className="mt-5 grid gap-5 xl:grid-cols-[1.2fr_0.85fr_0.48fr]">
@@ -407,6 +414,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           </div>
         </section>
       </div>
+      </ErrorBoundary>
     </main>
   )
 }

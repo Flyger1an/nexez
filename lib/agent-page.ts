@@ -61,8 +61,41 @@ export type AgentPage = {
   faqs: FaqItem[] | null
   is_published: boolean
   custom_domain?: string | null
+  custom_domain_verified?: boolean | string | null  // Phase 5: timestamp or true when DNS verified
   created_at?: string
+  // Phase 7 (de-duped 2026 spec): Simulation history for global /simulator (reuses existing simulator engine)
+  simulations?: Array<{
+    id: string
+    timestamp: string
+    agent: string // e.g. 'ChatGPT', 'Claude', 'Grok'
+    query: string
+    result: any // snapshot of parsed schema + recommendations + readiness
+    readiness: number
+  }>
+  mcp_enabled?: boolean // Phase 7: MCP structured data toggle
+  // Phase 7 Tier 2: Trust score + verification (composite from readiness, verified flags, event completion rates)
+  trust_score?: number
+  verification_details?: {
+    email_verified?: boolean | string
+    domain_verified?: boolean | string
+    docs_provided?: string[]
+    completion_rate?: number // from events
+    last_updated?: string
+  }
+  // Phase 7 Tier 3 stubs
+  agent_memory?: any // context for agents (future)
+  team_collaboration?: { approvals?: any[] } // workflows stub
   last_booking?: any   // Phase 3: lightweight last booking from webhooks (Calendly etc.)
+  versions?: Array<{
+    timestamp: string
+    name: string
+    description?: string | null
+    services: OfferItem[] | null
+    products: OfferItem[] | null
+    faqs: FaqItem[] | null
+    industry?: string | null
+    prefer_original_site?: boolean
+  }>  // Phase 4 MVP: simple versioning stub
 }
 
 export function normalizeSlug(value: string) {
@@ -251,3 +284,37 @@ export function parseAvailabilityWindows(note: string | null | undefined): Array
   }
   return null
 }
+
+/**
+ * Phase 7 Tier 2: Compute composite Trust Score (0-100).
+ * Base: readiness score.
+ * + Verified signals (custom_domain_verified, verification_details.email/domain).
+ * + Stub for completion_rate (from verification_details or future events aggregation).
+ * Simple weighted formula for now; can be refined with analytics events.
+ * Used in public pages, directory, editor, settings.
+ */
+export function getTrustScore(page: Partial<AgentPage>, events?: any[]): number {
+  const readiness = getReadinessScore(page)
+  let score = readiness * 0.6 // base 60% weight
+
+  const v = (page as any).verification_details || {}
+  const hasDomain = !!(page.custom_domain_verified || v.domain_verified)
+  const hasEmail = !!v.email_verified
+  const hasDocs = Array.isArray(v.docs_provided) && v.docs_provided.length > 0
+
+  let completion = v.completion_rate || 0
+  if (events && events.length > 0) {
+    // Real computation: completion rate from checkout_events (attempts vs conversions/success)
+    const attempts = events.filter(e => e.event_type === 'checkout_attempt' || e.event_type === 'view').length
+    const successes = events.filter(e => e.event_type === 'stripe_session_created' || e.event_type === 'provider_redirect').length
+    if (attempts > 0) completion = Math.round((successes / attempts) * 100)
+  }
+
+  if (hasDomain) score += 15
+  if (hasEmail) score += 10
+  if (hasDocs) score += 10
+  score += Math.min(5, (completion / 100) * 5) // up to +5 from completion
+
+  return Math.max(0, Math.min(100, Math.round(score)))
+}
+

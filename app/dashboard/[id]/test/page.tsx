@@ -13,6 +13,7 @@ import {
   Play,
   Wrench,
 } from 'lucide-react'
+import { ErrorBoundary } from '../../../../components/ErrorBoundary'
 import {
   AgentPage,
   getBaseUrl,
@@ -21,6 +22,7 @@ import {
   getOfferCount,
   getReadinessScore,
 } from '../../../../lib/agent-page'
+import { buildParsedSchema, getRecommendations } from '../../../../lib/agent-simulator'
 import { createClient } from '../../../../utils/supabase/client'
 
 type PageProps = {
@@ -50,6 +52,9 @@ export default function AgentSimulatorPage({ params }: PageProps) {
   const [query, setQuery] = useState('Book a strategy session next week')
   const [message, setMessage] = useState('')
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null)
+
+  // Phase 4: Embed preview simulation state
+  const [simulatePreferOriginal, setSimulatePreferOriginal] = useState(false)
 
   useEffect(() => {
     params.then(({ id }) => setId(id))
@@ -161,6 +166,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
 
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
+      <ErrorBoundary>
       <div className="mx-auto max-w-7xl px-6 py-8">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <a href="/dashboard" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
@@ -188,6 +194,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
           <div className="flex gap-3">
             <a href={`/dashboard/${page?.id}`} className="btn-secondary">Edit Page</a>
             <a href={`/${page?.slug}`} className="btn-secondary">View Live</a>
+            <a href="/simulator" className="btn-secondary">Global /simulator</a>
           </div>
         </div>
 
@@ -333,68 +340,102 @@ export default function AgentSimulatorPage({ params }: PageProps) {
             )}
           </div>
         </div>
+
+        {/* Phase 4: Embed Preview + Original Site Simulation (enhanced) */}
+        <div className="mt-8 card">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-xs uppercase tracking-[2px] text-[#9CA3AF]">Embed & Linking Test</p>
+              <h3 className="text-xl font-semibold tracking-tight">Embed Preview + Prefer Original Simulation</h3>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => window.open(`/${page.slug}`, '_blank')}
+                className="inline-flex items-center gap-1 rounded border border-white/20 px-3 py-1 text-xs hover:bg-white/5"
+              >
+                Open in new tab <ExternalLink className="size-3" />
+              </button>
+              <a href={`/dashboard/${id}/settings`} className="text-xs text-[#00F5FF] hover:underline">Configure per-offer prefs →</a>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 mb-3">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={simulatePreferOriginal}
+                onChange={(e) => setSimulatePreferOriginal(e.target.checked)}
+                className="accent-[#7C3AED]"
+              />
+              Simulate "Prefer original site" (page-level)
+            </label>
+            <span className="text-[10px] text-zinc-500">When on, primary CTAs would link to original site (per-offer toggles override in real pages)</span>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 overflow-hidden bg-[#0A0A0F]">
+            <iframe
+              src={`/${page.slug}`}
+              className="w-full h-[520px]"
+              title="Live embed preview"
+              sandbox="allow-scripts allow-same-origin"
+            />
+          </div>
+
+          <div className="mt-3 grid gap-2 text-[10px] text-zinc-400 md:grid-cols-2">
+            <div>
+              • Iframe is responsive by default (width 100%).
+              <br />• Per-offer "Book on original site" from builder takes precedence over page-level toggle.
+            </div>
+            <div>
+              • Real embeds inherit the page's <code>prefer_original_site</code> + individual offer flags.
+              <br />• Test with agents using the simulator above.
+            </div>
+          </div>
+
+          <p className="mt-2 text-[10px] text-emerald-300/80">
+            {simulatePreferOriginal
+              ? "Simulation active: In a real embed, booking CTAs would route to the original website for offers without per-offer override."
+              : "Default behavior: Nexez checkout is preferred unless per-offer or page-level original preference is set."}
+          </p>
+
+          {/* Interactive simulation panel: shows exactly what the effective targets would be under the toggle */}
+          <div className="mt-4 rounded border border-white/10 bg-black/30 p-3">
+            <div className="text-[10px] uppercase tracking-widest text-zinc-400 mb-2">Effective booking targets (under current simulation)</div>
+            <div className="space-y-1 text-xs">
+              {getCheckoutOffers(page).length > 0 ? (
+                getCheckoutOffers(page).map((offer, flatIdx) => {
+                  const perOfferPrefer = !!offer.prefer_original_for_this
+                  const pagePreferSim = simulatePreferOriginal
+                  const useOriginal = perOfferPrefer || (pagePreferSim && !!offer.url)
+                  // offer is enriched by getCheckoutOffers with .kind and .index (per-kind)
+                  const kind = (offer as any).kind as 'services' | 'products'
+                  const oIndex = (offer as any).index as number
+                  const effective = useOriginal && offer.url
+                    ? offer.url
+                    : `${getBaseUrl()}/checkout/${page.slug}?offer=${getCheckoutOfferKey(kind, oIndex)}`
+                  return (
+                    <div key={flatIdx} className="flex items-center justify-between gap-2 rounded bg-white/5 px-2 py-1">
+                      <span className="truncate text-zinc-200">{offer.name}</span>
+                      <span className={`font-mono text-[10px] ${useOriginal ? 'text-amber-300' : 'text-cyan-300'}`}>
+                        {useOriginal ? '→ original site' : '→ Nexez checkout'} {effective.length > 48 ? '…' + effective.slice(-40) : effective}
+                      </span>
+                    </div>
+                  )
+                })
+              ) : (
+                <div className="text-zinc-500">Add offers in the editor to see simulated targets.</div>
+              )}
+            </div>
+            <div className="mt-2 text-[9px] text-zinc-500">Per-offer toggles (set in VisualOfferBuilder) always win. This panel uses the page-level simulation checkbox above for demo purposes.</div>
+          </div>
+        </div>
       </div>
+      </ErrorBoundary>
     </main>
   )
 }
 
-function buildParsedSchema(page: AgentPage, query: string, agent: string) {
-  const offers = getCheckoutOffers(page).map((offer) => ({
-    key: getCheckoutOfferKey(offer.kind, offer.index),
-    type: offer.kind === 'services' ? 'service' : 'product',
-    name: offer.name,
-    price: offer.price || null,
-    description: offer.description || null,
-    url: offer.url || page.cta_url || page.website_url,
-    checkoutUrl: `${getBaseUrl()}/checkout/${page.slug}?offer=${getCheckoutOfferKey(offer.kind, offer.index)}`,
-    action: {
-      method: 'POST',
-      endpoint: `${getBaseUrl()}/api/checkout`,
-      body: {
-        slug: page.slug,
-        offer: getCheckoutOfferKey(offer.kind, offer.index),
-      },
-    },
-  }))
-
-  return {
-    agent,
-    query,
-    schemaVersion: 'nexez.agent-page.v1',
-    page: {
-      name: page.name,
-      slug: page.slug,
-      url: `${getBaseUrl()}/${page.slug}`,
-      agentJsonUrl: `${getBaseUrl()}/${page.slug}/agent.json`,
-      summary: page.description,
-      audience: page.audience,
-      location: page.location,
-      contactEmail: page.contact_email,
-      offers,
-      faqs: page.faqs ?? [],
-    },
-    suggestedActions: [
-      page.cta_url || page.website_url ? `Open ${page.cta_label || 'primary action'}` : 'Ask business for booking URL',
-      page.contact_email ? 'Send buyer context to contact email' : 'Ask for contact email',
-      'Summarize offer for buyer',
-    ],
-  }
-}
-
-function getRecommendations(page: AgentPage) {
-  const recommendations: string[] = []
-
-  if (!page.description) recommendations.push('Add a natural-language summary for agents.')
-  if (!page.cta_url && !page.website_url) recommendations.push('Add a direct booking, purchase, or website URL.')
-  if (!getOfferCount(page)) recommendations.push('Add at least one product or service.')
-  if (!page.audience) recommendations.push('Describe the best-fit buyer.')
-  if (!page.faqs?.length) recommendations.push('Add FAQs so agents can answer buyer objections.')
-  if (!page.location && !page.contact_email) recommendations.push('Add service area or contact email.')
-  if (getOfferCount(page) > 0 && !page.faqs?.length) recommendations.push('Add 2-3 FAQs — agents love being able to answer "Can I book this directly?"')
-  if (page.services?.some((s) => !s.url && !page.cta_url)) recommendations.push('Attach per-offer URLs or a global CTA URL so agents have a concrete next action.')
-
-  return recommendations
-}
+// buildParsedSchema and getRecommendations now imported from lib/agent-simulator.ts for reuse (global /simulator + history)
 
 function getSimulationActions(result: SimulationResult | null) {
   if (!result) return []

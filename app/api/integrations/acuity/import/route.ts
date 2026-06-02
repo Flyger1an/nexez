@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { formatOfferLines, type OfferItem } from '../../../../../lib/agent-page'
 
 /**
  * Acuity Scheduling Integration Stub (Phase 3 Consumer Track)
@@ -85,10 +86,8 @@ export async function POST(request: Request) {
     success: true,
     source: 'acuity',
     structuredOffers,
-    lines: structuredOffers.map(o =>
-      `${o.name} | ${o.price} | ${o.description} | | ${o.duration || ''} | ${o.serviceArea || ''} | ${o.isMobile ? 'mobile' : ''} | ${o.travelFee || ''}`
-    ),
-    note: 'Acuity Scheduling consumer stub. Excellent for appointment-heavy consumer services.',
+    lines: formatOfferLines(structuredOffers as any),
+    note: 'Acuity Scheduling consumer stub. Excellent for appointment-heavy consumer services. Uses full formatOfferLines for fidelity.',
   })
 }
 

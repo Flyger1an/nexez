@@ -62,6 +62,16 @@ export function getRevenueCents(events: CheckoutEvent[]) {
   }, 0)
 }
 
+// Tier 3: Real agent-driven revenue for share calculations (data flywheel + monetization)
+export function getAgentDrivenRevenueCents(events: CheckoutEvent[]) {
+  return events.reduce((sum, event) => {
+    if (event.event_type !== 'stripe_session_created') return sum
+    const isAgentSourced = !!event.agent_user_agent || !!event.query || (event.referrer && /agent|gpt|claude|perplexity|grok/i.test(event.referrer))
+    if (!isAgentSourced) return sum
+    return sum + getAmountCents(event)
+  }, 0)
+}
+
 export function getPipelineCents(events: CheckoutEvent[]) {
   return events.reduce((sum, event) => {
     if (!['checkout_attempt', 'provider_redirect', 'stripe_session_created'].includes(event.event_type)) return sum

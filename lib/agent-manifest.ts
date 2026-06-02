@@ -57,6 +57,8 @@ export function buildAgentPagePayload(page: AgentPage) {
       'Quote the source page URL when summarizing this offer for a buyer.',
     ],
     plain_text: buildPlainText(page, offers),
+    // Tier 3: Agent memory/context stub (if present on page)
+    memory_context: (page as any).agent_memory || null,
   }
 }
 
@@ -75,6 +77,13 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer) {
     provider_url: providerUrl,
     checkout_url: checkoutUrl,
     prefer_original_for_this: (offer as any).prefer_original_for_this || false,
+    // Consumer / local service context for agents
+    consumer: {
+      duration: (offer as any).duration || null,
+      serviceArea: (offer as any).serviceArea || null,
+      isMobile: !!(offer as any).isMobile,
+      travelFee: (offer as any).travelFee || null,
+    },
     action: {
       method: 'POST',
       endpoint: `${baseUrl}/api/checkout`,
@@ -93,6 +102,10 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer) {
 }
 
 function buildPlainText(page: AgentPage, offers: ReturnType<typeof buildOfferPayload>[]) {
+  const consumerNotes = offers.some((o: any) => o.duration || o.isMobile || o.serviceArea)
+    ? ' | Consumer/local services supported (duration, mobile, travelFee, serviceArea)'
+    : ''
+
   return [
     `Name: ${page.name}`,
     `URL: ${getBaseUrl()}/${page.slug}`,
@@ -106,6 +119,9 @@ function buildPlainText(page: AgentPage, offers: ReturnType<typeof buildOfferPay
       : []),
     `Website: ${page.website_url ?? ''}`,
     `Primary action: ${page.cta_label ?? 'Visit website'} -> ${page.cta_url || page.website_url || ''}`,
-    `Offers: ${offers.map((offer) => `${offer.name} (${offer.type}) ${offer.checkout_url}`).join('; ') || 'None listed'}`,
+    `Offers: ${offers.map((offer: any) => {
+      const pref = offer.prefer_original_for_this ? ' [prefers original site]' : ''
+      return `${offer.name} (${offer.type})${pref} ${offer.checkout_url}`
+    }).join('; ') || 'None listed'}${consumerNotes}`,
   ].join('\n')
 }

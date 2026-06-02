@@ -9,6 +9,7 @@ import {
   Copy,
   ExternalLink,
   Globe2,
+  History,
   Loader2,
   Save,
   Settings,
@@ -53,10 +54,30 @@ export default function PageSettings({ params }: PageProps) {
   const [testingEndpoint, setTestingEndpoint] = useState<number | null>(null)
   const [testResults, setTestResults] = useState<Record<number, string>>({})
 
+  // Real recent fires (from checkout_events) for visibility of outbound value
+  const [recentOutboundFires, setRecentOutboundFires] = useState<any[]>([])
+
   // Phase 3: Google Calendar availability (import foundation)
   const [googleCalendarId, setGoogleCalendarId] = useState('')
   const [availabilityNote, setAvailabilityNote] = useState('')
   const [availabilitySaving, setAvailabilitySaving] = useState(false)
+
+  // Phase 5: Real custom domain verification state (persisted on page)
+  const [domainVerificationToken, setDomainVerificationToken] = useState('')
+  const [domainVerified, setDomainVerified] = useState(false)
+  const [verifyingDomain, setVerifyingDomain] = useState(false)
+
+  // Deeper Calendly: per-page webhook secret for real signature verification (beyond demo headers)
+  const [calendlyWebhookSecret, setCalendlyWebhookSecret] = useState('')
+
+  // Phase 7 Tier 2: Verification details for trust score
+  const [verificationDetails, setVerificationDetails] = useState<any>({})
+
+  // Tier 3: Dedicated clean state for Agent Memory (fix audit hacky reuse of verificationDetails)
+  const [memoryNotes, setMemoryNotes] = useState('')
+
+  // Tier 3: LLM opt-in flag state (clean, for UI refresh after toggle)
+  const [llmOptIn, setLlmOptIn] = useState(false)
 
   useEffect(() => {
     params.then(({ id }) => setId(id))
@@ -140,7 +161,99 @@ export default function PageSettings({ params }: PageProps) {
     setGoogleCalendarId((data as any)?.google_calendar_id || '')
     setAvailabilityNote((data as any)?.next_available || '')
 
+    // Phase 5 custom domain verification status + pending token
+    setDomainVerificationToken((data as any)?.domain_verification_token || '')
+    setDomainVerified(!!(data as any)?.custom_domain_verified)
+
+    setCalendlyWebhookSecret((data as any)?.calendly_webhook_secret || '')
+
+    setVerificationDetails((data as any)?.verification_details || {})
+    setMemoryNotes((data as any)?.agent_memory?.notes || '')
+    setLlmOptIn(!!(data as any)?.llm_opt_in)
+
+    // Load real recent events that trigger outbound (for history surface)
+    try {
+      const { data: events } = await supabase
+        .from('checkout_events')
+        .select('id, event_type, offer_name, created_at, metadata')
+        .eq('slug', data.slug)
+        .in('event_type', ['provider_redirect', 'stripe_session_created', 'checkout_attempt'])
+        .order('created_at', { ascending: false })
+        .limit(5)
+      if (events) setRecentOutboundFires(events)
+    } catch {}
+
     setLoading(false)
+  }
+
+  // Phase 5: Real custom domain verification helpers
+  async function generateDomainVerificationToken() {
+    if (!customDomain.trim()) {
+      setMessage('Enter your custom domain first (e.g. agents.yourcompany.com).')
+      return
+    }
+    const token = 'nexez-verify-' + Math.random().toString(36).slice(2, 14)
+    setDomainVerificationToken(token)
+    setMessage('Token generated. Add the DNS TXT record below, then click Verify.')
+
+    // Persist the pending token on the page so it survives refresh
+    try {
+      const supabase = createClient()
+      await supabase
+        .from('pages')
+        .update({ domain_verification_token: token })
+        .eq('id', id)
+    } catch (e: any) {
+      console.warn('Failed to persist verification token', e)
+    }
+  }
+
+  async function verifyCustomDomain() {
+    if (!customDomain.trim() || !domainVerificationToken) {
+      setMessage('Generate a verification token first.')
+      return
+    }
+    setVerifyingDomain(true)
+    setMessage('Checking DNS TXT record... (propagation can take 30s–few minutes)')
+
+    try {
+      const res = await fetch('/api/verify-custom-domain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customDomain: customDomain.trim(),
+          token: domainVerificationToken,
+          pageId: id,
+        }),
+      })
+      const data = await res.json()
+
+      if (data.verified) {
+        // Success: persist verified status + clear token
+        const supabase = createClient()
+        const { error } = await supabase
+          .from('pages')
+          .update({
+            custom_domain_verified: new Date().toISOString(),
+            domain_verification_token: null,
+          })
+          .eq('id', id)
+
+        if (!error) {
+          setDomainVerified(true)
+          setDomainVerificationToken('')
+          setMessage(`✓ Verified! ${customDomain.trim()} now shows as verified. Real DNS ownership proven.`)
+        } else {
+          setMessage('DNS check passed but failed to save verified status: ' + error.message)
+        }
+      } else {
+        setMessage(data.message || data.error || 'Verification failed. Check the exact TXT value and try again after propagation.')
+      }
+    } catch (e: any) {
+      setMessage('Verification request failed: ' + (e.message || 'network error'))
+    } finally {
+      setVerifyingDomain(false)
+    }
   }
 
   async function saveSettings(event: React.FormEvent) {
@@ -163,6 +276,9 @@ export default function PageSettings({ params }: PageProps) {
         is_published: isPublished,
         custom_domain: customDomain || null,
         prefer_original_site: preferOriginalSite,
+        // Persist per-page Calendly webhook secret (used by receiver for real HMAC verification)
+        calendly_webhook_secret: calendlyWebhookSecret || null,
+        verification_details: verificationDetails || null,
       })
       .eq('id', page.id)
 
@@ -263,12 +379,15 @@ export default function PageSettings({ params }: PageProps) {
               </div>
             </div>
 
-            <LinkPanel title="Agent links" links={[
-              ['Public page', publicUrl],
-              ['Agent JSON', agentJsonUrl],
-              ['Search API', searchUrl],
-              ['OpenAPI', `${getBaseUrl()}/openapi.json`],
-            ]} copied={copied} onCopy={copy} />
+            <LinkPanel title="Agent links" links={
+              ([
+                ['Public page', publicUrl],
+                ['Agent JSON', agentJsonUrl],
+                ['Search API', searchUrl],
+                ['OpenAPI', `${getBaseUrl()}/openapi.json`],
+                ...((page as any)?.mcp_enabled ? [['MCP Manifest', `${getBaseUrl()}/${cleanSlug || page?.slug || ''}/mcp.json`]] : []),
+              ] as [string, string][])
+            } copied={copied} onCopy={copy} />
 
             <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-5">
               <div className="flex items-center gap-2 text-cyan-100">
@@ -278,13 +397,73 @@ export default function PageSettings({ params }: PageProps) {
               <div className="mt-4 space-y-3 text-sm">
                 <div>
                   <p className="text-xs uppercase tracking-widest text-zinc-400">Custom domain</p>
-                  <input
-                    value={customDomain}
-                    onChange={(e) => setCustomDomain(e.target.value)}
-                    placeholder="agents.yourcompany.com"
-                    className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
-                  />
-                  <p className="mt-1 text-[10px] text-zinc-500">CNAME your subdomain to the deployment host. Full verification in next iteration.</p>
+                  <div className="flex gap-2">
+                    <input
+                      value={customDomain}
+                      onChange={(e) => setCustomDomain(e.target.value)}
+                      placeholder="agents.yourcompany.com"
+                      className="mt-1 flex-1 rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={generateDomainVerificationToken}
+                      className="mt-1 rounded border border-white/20 px-3 py-1 text-xs text-zinc-200 hover:bg-white/5"
+                    >
+                      Generate token
+                    </button>
+                    <button
+                      type="button"
+                      disabled={verifyingDomain || !domainVerificationToken}
+                      onClick={verifyCustomDomain}
+                      className="mt-1 rounded border border-emerald-300/40 px-3 py-1 text-xs text-emerald-200 hover:bg-emerald-400/10 disabled:opacity-50"
+                    >
+                      {verifyingDomain ? 'Checking DNS...' : 'Verify now'}
+                    </button>
+                  </div>
+                  <p className="mt-1 text-[10px] text-zinc-500">
+                    CNAME your subdomain to your Nexez deployment host. Full ownership proof via DNS TXT.
+                  </p>
+
+                  {domainVerificationToken && (
+                    <div className="mt-2 rounded border border-amber-300/30 bg-amber-400/5 p-2 text-[11px] text-amber-200">
+                      <div className="font-medium mb-1">Add this DNS TXT record:</div>
+                      <code className="block bg-black/40 p-1 rounded text-emerald-300 break-all">
+                        _nexez-verify.{(customDomain || '').replace(/^https?:\/\//, '').split('/')[0].split(':')[0]} &nbsp; TXT &nbsp; "{domainVerificationToken}"
+                      </code>
+                      <div className="mt-1 text-[10px] text-amber-300/80">Use low TTL (300). Wait for propagation, then Verify.</div>
+                    </div>
+                  )}
+
+                  <div className="mt-1 flex items-center gap-2 text-[10px]">
+                    {customDomain && domainVerified ? (
+                      <span className="text-emerald-300">✓ Verified — custom domain ownership confirmed.</span>
+                    ) : customDomain ? (
+                      <span className="text-zinc-400">Status: {domainVerificationToken ? 'Token ready — awaiting DNS verify' : 'Pending verification'}</span>
+                    ) : null}
+                  </div>
+                </div>
+
+                {/* Phase 7 MCP toggle (minimal) */}
+                <div className="mt-4 border-t border-white/10 pt-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={!!(page as any)?.mcp_enabled || false}
+                      onChange={async (e) => {
+                        const val = e.target.checked
+                        try {
+                          const sb = createClient()
+                          await sb.from('pages').update({ mcp_enabled: val }).eq('id', id)
+                          setMessage(val ? 'MCP support enabled. Agents that understand MCP can discover richer context.' : 'MCP disabled.')
+                          // reload to reflect
+                          window.location.reload()
+                        } catch {}
+                      }}
+                      className="accent-[#7C3AED]"
+                    />
+                    <span>Enable MCP Support (Model Context Protocol structured data)</span>
+                  </label>
+                  <p className="text-[10px] text-zinc-500 mt-1">When on, this page exposes MCP-compatible offer resources alongside JSON-LD / agent.json / llms.txt. See public page for agent note.</p>
                 </div>
                 <DisabledRow icon={<Bot className="size-4" />} label="API key" value="Public endpoints (no key required)" />
               </div>
@@ -368,7 +547,7 @@ export default function PageSettings({ params }: PageProps) {
                     <pre className="text-[10px] bg-black/40 p-3 rounded overflow-x-auto text-[#C4B5FD] whitespace-pre-wrap">{`<script>
   (function(){var s=document.createElement('script');s.src='${getBaseUrl()}/widget.js';s.onload=function(){Nexez.init({slug:'${slug}',theme:'light'})};document.head.appendChild(s);})();
 </script>`}</pre>
-                    <p className="text-[10px] text-zinc-500 mt-1">Renders a floating "Book with agent-optimized flow" button. Respects your per-offer + page prefer-original settings. (Widget foundation; full host-it-yourself coming in Phase 5+.)</p>
+                    <p className="text-[10px] text-zinc-500 mt-1">Renders a floating "Book with agent-optimized flow" button. Respects your per-offer + page prefer-original settings. Example usage: paste the script on your site; it will read the page slug and render a floating CTA that matches your Nexez settings.</p>
                     <button
                       type="button"
                       onClick={() => {
@@ -385,6 +564,29 @@ export default function PageSettings({ params }: PageProps) {
                   <div className="pt-2 border-t border-white/10 text-[11px] text-emerald-300/80">
                     Per-offer "Book on original site" toggles (set in the builder) override this page default for individual offers. Agents see the effective preference in /agent.json and JSON-LD.
                   </div>
+
+                  {/* Live Embed Preview (further enhanced) */}
+                  <div className="mt-4 border-t border-white/10 pt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs uppercase tracking-widest text-zinc-400">Live Preview (respects current settings)</p>
+                      <a href={publicUrl} target="_blank" className="text-[10px] text-[#00F5FF] hover:underline">Open full page →</a>
+                    </div>
+                    <div className="rounded border border-white/10 overflow-hidden bg-[#0A0A0F]">
+                      <iframe
+                        src={publicUrl}
+                        className="w-full h-[420px]"
+                        title="Live embed preview"
+                        sandbox="allow-scripts allow-same-origin allow-forms"
+                      />
+                    </div>
+                    <div className="mt-1 text-[10px] text-zinc-500">
+                      Responsive by default (100% width). Per-offer original-site toggles take precedence. 
+                      {preferOriginalSite ? " Page-level original site mode is active." : " Nexez checkout is default unless overridden per offer."}
+                    </div>
+                    <div className="mt-1 text-[9px] text-emerald-300/80">
+                      Tip: Use the Visual Offer Builder to set per-offer "Book on original site" for granular control.
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -398,6 +600,39 @@ export default function PageSettings({ params }: PageProps) {
                 {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                 {saving ? 'Saving...' : 'Save settings'}
               </button>
+
+              {/* Phase 4 MVP: Versioning stub UI */}
+              {(page as any)?.versions?.length > 0 && (
+                <div className="mt-8 rounded-lg border border-white/10 bg-white/[0.02] p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <History className="size-4 text-[#7C3AED]" />
+                    <span className="font-semibold">Page Version History (MVP)</span>
+                    <span className="text-[10px] text-zinc-500">Last 10 saves</span>
+                  </div>
+                  <div className="space-y-2 max-h-64 overflow-auto text-sm">
+                    {(page as any).versions.map((v: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between rounded border border-white/10 bg-black/20 p-2">
+                        <div>
+                          <div className="text-zinc-200">{v.name}</div>
+                          <div className="text-[10px] text-zinc-500">{new Date(v.timestamp).toLocaleString()}</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // MVP restore: put snapshot into session + redirect to editor with flag
+                            sessionStorage.setItem('nexez_restore_version', JSON.stringify(v))
+                            window.location.href = `/dashboard/${id}?restore=true`
+                          }}
+                          className="text-xs rounded border border-white/20 px-3 py-1 hover:bg-white/10"
+                        >
+                          Restore
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-[10px] text-zinc-500">Restoring loads the old offers + metadata into the editor for review and re-save.</p>
+                </div>
+              )}
 
               <button
                 type="button"
@@ -620,7 +855,7 @@ export default function PageSettings({ params }: PageProps) {
               {/* Phase 3: Per-page outbound webhooks — FIRST CLASS (url + optional secret, real test button, auto-fired) */}
               <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4">
                 <div className="text-sm font-medium text-cyan-200 mb-2">Outbound webhooks on booking events</div>
-                <p className="text-[10px] text-zinc-400 mb-3">These endpoints receive real `booking.received` payloads automatically (Nexez checkout + Calendly webhooks). Add signing secrets for production use (Zapier, Make, internal systems).</p>
+                <p className="text-[10px] text-zinc-400 mb-3">These endpoints receive real `booking.received` payloads automatically (Nexez checkout + Calendly webhooks). Works great with Zapier, Make, n8n, or any generic webhook receiver. Add signing secrets for production.</p>
 
                 {/* Add new endpoint with optional secret */}
                 <div className="space-y-2 mb-3">
@@ -745,8 +980,44 @@ export default function PageSettings({ params }: PageProps) {
                   {outboundSaving ? 'Saving...' : `Save ${outboundEndpoints.length} Outbound Endpoint${outboundEndpoints.length === 1 ? '' : 's'}`}
                 </button>
                 <p className="mt-1 text-[10px] text-zinc-500">Endpoints + secrets are stored on the page. They are called automatically by the Calendly receiver and on Nexez checkout events. Use "Send Test" above to verify instantly.</p>
+
+                {/* Example payloads for Zapier / Make / generic webhooks */}
+                <details className="mt-3 text-[10px] text-zinc-400">
+                  <summary className="cursor-pointer hover:text-zinc-200">Example payloads (click to expand)</summary>
+                  <pre className="mt-2 overflow-auto rounded bg-black/40 p-2 text-[9px] text-emerald-300/90">
+{`// booking.received (fired on real events)
+{
+  "event": "booking.received",
+  "timestamp": "2026-...",
+  "page": { "id": "...", "slug": "...", "name": "..." },
+  "data": {
+    "event_type": "provider_redirect" | "stripe_session_created",
+    "offer_name": "...",
+    "offer_key": "services-0",
+    "amount": 45000,   // cents if available
+    "source": "nexez_checkout" | "calendly_webhook"
+  }
+}`}</pre>
+                  <p className="mt-1 text-[9px]">Works with any JSON webhook receiver. Add your secret for HMAC if required.</p>
+                </details>
                 {typeof window !== 'undefined' && localStorage.getItem('nexez_last_outbound_fired') && (
                   <p className="mt-1 text-[9px] text-emerald-300">Last test fire: {new Date(localStorage.getItem('nexez_last_outbound_fired')!).toLocaleTimeString()}</p>
+                )}
+
+                {/* Real recent fires from DB (what actually triggered / would trigger your endpoints) */}
+                {recentOutboundFires.length > 0 && (
+                  <div className="mt-4 border-t border-white/10 pt-3">
+                    <div className="text-[10px] uppercase tracking-widest text-cyan-400 mb-1.5">Recent real booking events (auto-fired to endpoints)</div>
+                    <div className="space-y-1 text-[11px]">
+                      {recentOutboundFires.map((evt, i) => (
+                        <div key={i} className="flex justify-between text-cyan-200/90">
+                          <span>{evt.event_type?.replace(/_/g, ' ')} — {evt.offer_name}</span>
+                          <span className="text-cyan-400/60">{new Date(evt.created_at).toLocaleTimeString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-1 text-[9px] text-zinc-500">These events caused (or would cause) your saved outbound webhooks to be called with full payload + secret signature when configured.</div>
+                  </div>
                 )}
               </div>
 
@@ -833,6 +1104,219 @@ export default function PageSettings({ params }: PageProps) {
                   {availabilitySaving ? 'Importing...' : 'Import Availability from Google Calendar'}
                 </button>
                 <p className="mt-1 text-[10px] text-zinc-500">Calendar ID stored for future automated import. Availability appears for agents immediately.</p>
+              </div>
+
+              {/* Phase 7 Tier 2: Get Verified flow for Trust Score (polished) */}
+              <div className="mt-6 rounded-lg border border-amber-300/30 bg-amber-400/5 p-4">
+                <div className="text-sm font-medium text-amber-200 mb-2 flex items-center gap-2">
+                  Get Verified (boosts Trust Score)
+                  <span className="text-[10px] text-amber-300">+ up to +25 from signals</span>
+                </div>
+                <p className="text-[10px] text-zinc-400 mb-3">Provide signals for higher trust (shown on public pages + directory + analyzer comparisons). Manual for MVP; real events drive completion rate.</p>
+
+                {/* Live preview impact */}
+                <div className="mb-3 text-xs bg-black/30 p-2 rounded border border-white/10">
+                  Current signals impact: Email {verificationDetails.email_verified ? '+10' : '0'} • Domain { (verificationDetails.domain_verified || domainVerified) ? '+15' : '0' } • Docs {(verificationDetails.docs_provided || []).length > 0 ? '+10' : '0'} • (readiness base 60% + events)
+                </div>
+
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 text-xs">
+                    <input type="checkbox" checked={!!verificationDetails.email_verified} onChange={(e) => setVerificationDetails({...verificationDetails, email_verified: e.target.checked})} />
+                    Email verified
+                  </label>
+                  <label className="flex items-center gap-2 text-xs">
+                    <input type="checkbox" checked={!!verificationDetails.domain_verified} onChange={(e) => setVerificationDetails({...verificationDetails, domain_verified: e.target.checked})} />
+                    Domain verified (see custom domain above)
+                  </label>
+
+                  {/* Docs as chips (better UX than raw comma) */}
+                  <div>
+                    <div className="text-xs mb-1">Credentials / licenses / attestations (add names)</div>
+                    <div className="flex flex-wrap gap-1 mb-1">
+                      {(verificationDetails.docs_provided || []).map((d: string, i: number) => (
+                        <span key={i} className="inline-flex items-center gap-1 text-xs bg-amber-400/10 px-2 py-0.5 rounded">
+                          {d}
+                          <button type="button" onClick={() => {
+                            const next = [...(verificationDetails.docs_provided || [])]; next.splice(i,1);
+                            setVerificationDetails({...verificationDetails, docs_provided: next});
+                          }} className="text-amber-300 hover:text-red-400">×</button>
+                        </span>
+                      ))}
+                      {(verificationDetails.docs_provided || []).length === 0 && <span className="text-[10px] text-zinc-500">None attached yet</span>}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="e.g. plumbing-license.pdf"
+                        className="flex-1 rounded border border-white/15 bg-black/30 px-3 py-1 text-sm"
+                        id="new-doc-input"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const inp = (e.target as HTMLInputElement);
+                            const val = inp.value.trim();
+                            if (val) {
+                              const current = verificationDetails.docs_provided || [];
+                              if (!current.includes(val)) setVerificationDetails({...verificationDetails, docs_provided: [...current, val]});
+                              inp.value = '';
+                            }
+                          }
+                        }}
+                      />
+                      <button type="button" onClick={() => {
+                        const inp = document.getElementById('new-doc-input') as HTMLInputElement | null;
+                        const val = inp?.value.trim();
+                        if (val) {
+                          const current = verificationDetails.docs_provided || [];
+                          if (!current.includes(val)) setVerificationDetails({...verificationDetails, docs_provided: [...current, val]});
+                          if (inp) inp.value = '';
+                        }
+                      }} className="text-xs rounded border border-white/20 px-3">Add</button>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 mt-1">Names only for MVP (no file upload). Shown as 📜 Credentials attached on your public page.</p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!page) return
+                    const supabase = createClient()
+                    const updated = {...verificationDetails, last_updated: new Date().toISOString()}
+                    const { error } = await supabase.from('pages').update({ verification_details: updated }).eq('id', page.id)
+                    if (!error) {
+                      setVerificationDetails(updated)
+                      setMessage('Verification details saved. Trust score updated (visible on public + directory).')
+                    } else {
+                      setMessage('Save failed: ' + error.message)
+                    }
+                  }}
+                  className="mt-3 w-full rounded border border-amber-300/40 px-3 py-1.5 text-xs text-amber-200 hover:bg-amber-400/10"
+                >
+                  Save Verification Signals (updates Trust immediately)
+                </button>
+                <p className="mt-1 text-[10px] text-center text-zinc-500">Also improves your position vs competitors in Analyzer results.</p>
+              </div>
+
+              {/* Tier 3: Agent Memory & Context System (fleshed) */}
+              <div className="mt-6 rounded-lg border border-zinc-300/30 bg-zinc-400/5 p-4">
+                <div className="font-medium text-zinc-200 mb-1 flex items-center gap-2">Agent Memory & Context <span className="text-[10px] text-zinc-500">(Tier 3 — agents remember key facts across sessions)</span></div>
+                <p className="text-[10px] text-zinc-400 mb-2">Notes, buyer preferences, restrictions, common objections, or "always mention X". Included in agent.json, mcp.json, public page, and simulator context. Modular (advanced memory for higher tiers).</p>
+                <textarea
+                  className="w-full h-20 rounded border border-white/15 bg-black/30 p-2 text-sm font-mono"
+                  placeholder="e.g. Prefers async over live calls for first meetings. Common question: turnaround time. Restrictions: no weekends."
+                  value={memoryNotes}
+                  onChange={(e) => setMemoryNotes(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!page) return
+                    const supabase = createClient()
+                    const mem = { notes: memoryNotes, updated: new Date().toISOString() }
+                    const { error } = await supabase.from('pages').update({ agent_memory: mem }).eq('id', page.id)
+                    if (!error) {
+                      setMessage('Agent memory saved. Visible to agents via manifests + public context.')
+                    } else {
+                      setMessage('Save failed: ' + error.message)
+                    }
+                  }}
+                  className="mt-2 text-xs rounded border border-white/20 px-3 py-1 hover:bg-white/5"
+                >
+                  Save Memory Context
+                </button>
+                <p className="mt-1 text-[10px] text-zinc-500">Also appears in public "Agent Memory" block and /agent.json for persistent context.</p>
+              </div>
+
+              {/* Tier 3: LLM opt-in stub for Co-Pilot / Analyzer (future real xAI calls) */}
+              <div className="mt-2 text-xs p-2 border border-white/10 rounded">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={llmOptIn} onChange={async (e) => {
+                    if (!page) return
+                    const checked = e.target.checked
+                    const supabase = createClient()
+                    await supabase.from('pages').update({ llm_opt_in: checked }).eq('id', page.id)
+                    setLlmOptIn(checked)
+                    setMessage('LLM opt-in ' + (checked ? 'enabled (future advanced AI)' : 'disabled (deterministic only)'))
+                  }} />
+                  Enable advanced AI / LLM assist (opt-in for Co-Pilot, Analyzer, Voice — Tier 3 metered)
+                </label>
+                <span className="text-[10px] text-zinc-500">Currently uses deterministic engine; flag stored for future real calls + usage tracking.</span>
+              </div>
+
+              {/* Tier 3: Advanced Team Collaboration & Approval Workflows (MVP) */}
+              <div className="mt-6 rounded-lg border border-zinc-300/30 bg-zinc-400/5 p-4">
+                <div className="font-medium text-zinc-200 mb-1">Team Approvals & Collaboration (Tier 3)</div>
+                <p className="text-[10px] text-zinc-400 mb-2">Request approval for changes (e.g. offer updates). Approvals stored in team_collaboration JSONB. Modular for multi-user in Business tier. (Current: single-user simulation.)</p>
+
+                <div className="text-xs mb-2">Pending / History Approvals:</div>
+                <div className="max-h-24 overflow-auto text-xs bg-black/30 p-2 rounded mb-2 border border-white/10">
+                  {(page as any)?.team_collaboration?.approvals?.length ? (
+                    (page as any).team_collaboration.approvals.map((a: any, i: number) => (
+                      <div key={i} className="flex justify-between py-0.5 border-b border-white/5 last:border-0">
+                        <span>{a.note || 'Change request'} — {a.status || 'pending'}</span>
+                        <span className="text-zinc-500">{new Date(a.ts).toLocaleDateString()}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <span className="text-zinc-500">No approvals yet. Use "Request Approval" in editor.</span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!page) return
+                    const supabase = createClient()
+                    const current = (page as any).team_collaboration || { approvals: [] }
+                    const newApproval = {
+                      id: Date.now().toString(),
+                      approver: 'self (demo)',
+                      status: 'pending',
+                      note: 'Offer pricing/structure update',
+                      ts: new Date().toISOString(),
+                    }
+                    const updated = { ...current, approvals: [...(current.approvals || []), newApproval] }
+                    const { error } = await supabase.from('pages').update({ team_collaboration: updated }).eq('id', page.id)
+                    if (!error) {
+                      setMessage('Approval request added (demo). In real team: notify members.')
+                      // refresh would show, but for demo re-load or mutate local
+                    } else {
+                      setMessage('Failed: ' + error.message)
+                    }
+                  }}
+                  className="text-xs rounded border border-white/20 px-3 py-1 mr-2 hover:bg-white/5"
+                >
+                  Request Approval (demo)
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!page) return
+                    const supabase = createClient()
+                    const current = (page as any).team_collaboration || { approvals: [] }
+                    const updatedApprovals = (current.approvals || []).map((a: any) => a.status === 'pending' ? { ...a, status: 'approved' } : a)
+                    const updated = { ...current, approvals: updatedApprovals }
+                    await supabase.from('pages').update({ team_collaboration: updated }).eq('id', page.id)
+                    setMessage('All pending marked approved (demo).')
+                  }}
+                  className="text-xs rounded border border-white/20 px-3 py-1 hover:bg-white/5"
+                >
+                  Approve All Pending (demo)
+                </button>
+              </div>
+
+              {/* Deeper Calendly: per-page secret for real webhook signature verification */}
+              <div className="mt-6 rounded-lg border border-violet-300/30 bg-violet-400/5 p-4">
+                <div className="text-sm font-medium text-violet-200 mb-2">Calendly Webhook Secret (real incoming)</div>
+                <p className="text-[10px] text-zinc-400 mb-2">Paste the signing secret you configured when creating the webhook in Calendly. Stored on this page. The receiver will use it for HMAC verification on real events (in addition to test headers).</p>
+                <input
+                  type="password"
+                  value={calendlyWebhookSecret}
+                  onChange={(e) => setCalendlyWebhookSecret(e.target.value)}
+                  placeholder="whsec_xxxxxxxxxxxxxxxxxxxxxxxx"
+                  className="w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm font-mono"
+                />
+                <p className="mt-1 text-[10px] text-zinc-500">Save Settings to persist. Use with your Calendly webhook URL (add ?slug=your-slug or send x-nexez-test-page-slug header for association).</p>
               </div>
             </form>
 

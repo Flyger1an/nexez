@@ -26,9 +26,11 @@ import {
   optimizeAllOffersForAgents,
   rewriteOfferForAgents,
 } from '../../lib/ai-optimize'
+import { AICoPilot } from '../../components/AICoPilot'
 import { parseAgentCsv, sampleAgentCsv } from '../../lib/csv-import'
 import { createClient } from '../../utils/supabase/client'
 import { VisualOfferBuilder } from '../../components/VisualOfferBuilder'
+import { ErrorBoundary } from '../../components/ErrorBoundary'
 
 const industries = [
   // Professional / Business Services
@@ -475,6 +477,7 @@ export default function CreatePage() {
   }
 
   return (
+    <ErrorBoundary>
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="mx-auto max-w-6xl px-6 py-8">
         <input
@@ -804,6 +807,19 @@ export default function CreatePage() {
                         setProducts(formatOfferLines(newOffers))
                       }}
                     />
+
+                    {/* Co-Pilot integration in create wizard (Tier 1) */}
+                    <div className="mt-3">
+                      <AICoPilot
+                        businessName={name}
+                        audience={audience}
+                        servicesOffers={servicesOffers}
+                        productsOffers={productsOffers}
+                        onApplyServices={(text, offers) => { setServicesOffers(offers); setServices(text) }}
+                        onApplyProducts={(text, offers) => { setProductsOffers(offers); setProducts(text) }}
+                        onTrackUse={() => {}}
+                      />
+                    </div>
                   </div>
 
                   {importMessage ? (
@@ -939,6 +955,7 @@ Action: ${ctaLabel || 'Visit website'}`}
         </div>
       </div>
     </main>
+    </ErrorBoundary>
   )
 }
 

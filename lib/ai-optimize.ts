@@ -31,11 +31,12 @@ export function rewriteOfferForAgents(offer: OfferItem, context?: { businessName
   }
 
   // Consumer service friendly enhancements
-  if (offer.duration || offer.serviceArea || offer.isMobile) {
+  if (offer.duration || offer.serviceArea || offer.isMobile || offer.travelFee) {
     const details = []
     if (offer.duration) details.push(offer.duration)
     if (offer.serviceArea) details.push(`serves ${offer.serviceArea}`)
     if (offer.isMobile) details.push('mobile / on-site')
+    if (offer.travelFee) details.push(`+ ${offer.travelFee} travel`)
 
     if (details.length) {
       description = `${description} ${details.join(' • ')}.`
@@ -98,6 +99,68 @@ export function generateStrongFaqs(businessName: string, audience: string, hasPr
   }
 
   return faqs
+}
+
+// Tier 3: Voice Agent Optimization - make descriptions more phonetic, short, spoken-friendly (numbers as words, remove fluff, clear pauses)
+export function rewriteForVoice(offer: OfferItem, businessName: string): OfferItem {
+  let desc = (offer.description || '').trim()
+  // Shorten for speech
+  if (desc.length > 140) desc = desc.substring(0, 137) + '...'
+  // Split camelCase and acronyms for voice
+  desc = desc.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+  // Common spoken numbers / symbols
+  desc = desc.replace(/\b(\d+)\s*(min|minute|minutes|hr|hour|hours)\b/gi, '$1 $2')
+    .replace(/\$(\d+)/g, '$1 dollars')
+    .replace(/&/g, ' and ')
+    .replace(/%/g, ' percent ')
+    .replace(/\//g, ' or ')
+  // Remove parentheticals that are visual only
+  desc = desc.replace(/\s*\([^)]*\)/g, '')
+  return {
+    ...offer,
+    description: `${desc}. To book the ${offer.name}, say it for ${businessName}.`,
+  }
+}
+
+// Phase 7 Co-Pilot extensions (deterministic, reuse existing rewrite engine)
+
+export function suggestPricingTiers(offers: OfferItem[]): { suggestion: string; exampleTiers: any[] } {
+  if (!offers.length) return { suggestion: 'Add at least one offer to generate tier suggestions.', exampleTiers: [] }
+
+  const basePrice = offers[0].price || '$100'
+  const name = offers[0].name
+
+  return {
+    suggestion: `Consider tiered pricing for "${name}" to give agents clear options and increase conversion. Example below preserves your base while adding upsells.`,
+    exampleTiers: [
+      { name: 'Essential', price: basePrice, description: 'Core delivery' },
+      { name: 'Pro', price: '2x ' + basePrice, description: 'Core + priority + extras' },
+      { name: 'Enterprise', price: 'Custom', description: 'Full scope with dedicated support' },
+    ],
+  }
+}
+
+export function suggestSchemaImprovements(page: any): string[] {
+  const tips: string[] = []
+  if (!page.description || page.description.length < 40) tips.push('Add a rich natural-language summary (used in JSON-LD and agent.json).')
+  if ((page.services || []).some((s: any) => !s.duration)) tips.push('Add duration to services — agents use it for scheduling and availability.')
+  if (!page.faqs || page.faqs.length < 2) tips.push('Add 2-3 FAQs (generateStrongFaqs already available).')
+  if (!page.location && !page.contact_email) tips.push('Add location or email for agent context and trust.')
+  tips.push('Ensure every offer has a direct url or global cta_url so agents have an actionable next step.')
+  return tips
+}
+
+export function suggestEnhancedFAQs(businessName: string, audience: string, offers: OfferItem[]): any[] {
+  // Leverage existing generator + per-offer flavor
+  const base = generateStrongFaqs(businessName, audience, offers.some(o => !!o.price))
+  // Add one offer-specific
+  if (offers[0]) {
+    base.push({
+      question: `Can I (or my agent) book the "${offers[0].name}" directly?`,
+      answer: `Yes — use the direct checkout link on this page or the agent.json for structured automation.`,
+    })
+  }
+  return base
 }
 
 export function optimizeAllOffersForAgents(

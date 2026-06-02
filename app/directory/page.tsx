@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { ArrowLeft, ArrowRight, Bot, Code2, ExternalLink, Search, Sparkles } from 'lucide-react'
-import { AgentPage, getBaseUrl, getOfferCount, getReadinessScore } from '../../lib/agent-page'
+import { AgentPage, getBaseUrl, getOfferCount, getReadinessScore, getTrustScore } from '../../lib/agent-page'
 import { AgentSearchResult, searchAgentPages } from '../../lib/agent-search'
 import { supabase } from '../../lib/supabase'
 import { CopyButton } from './CopyButton'
@@ -12,8 +12,8 @@ type DirectoryProps = {
 const quickFilters = ['consulting', 'strategy session', 'bookings', 'products', 'retainers']
 
 export const metadata: Metadata = {
-  title: 'Agent Directory | Nexez',
-  description: 'Search published AI-readable products and services on Nexez.',
+  title: 'Agent Marketplace + Directory | Nexez',
+  description: 'Discover and favorite agent-optimized offers. Marketplace for agents + humans.',
 }
 
 export default async function DirectoryPage({ searchParams }: DirectoryProps) {
@@ -290,8 +290,18 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                           <a href={`/${p.slug}`} className="font-medium text-zinc-900 hover:text-cyan-700">
                             {p.name}
                           </a>
+                          <button onClick={() => {
+                            const key = 'nexez_favorites'
+                            const cur = JSON.parse(localStorage.getItem(key) || '[]')
+                            if (!cur.includes(p.slug)) {
+                              localStorage.setItem(key, JSON.stringify([...cur, p.slug]))
+                              alert('Favorited ' + p.slug + ' (localStorage)')
+                            }
+                          }} className="ml-1 text-amber-500">★</button>
                           <span className="text-[10px] rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-700 font-medium">
-                            {readiness}%
+                            {readiness}% ready • Trust {getTrustScore(p)}/100
+                            {(p as any).verification_details?.domain_verified || (p as any).custom_domain_verified ? ' ✓' : ''}
+                            {Array.isArray((p as any).verification_details?.docs_provided) && (p as any).verification_details.docs_provided.length > 0 ? ' 📜' : ''}
                           </span>
                         </div>
                         <div className="text-xs text-zinc-500 mt-1">/{p.slug}</div>
@@ -317,6 +327,15 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
               </a>
             </div>
           ) : null}
+
+          {/* Phase 7 Tier 2 Marketplace basics (favorites localStorage, trending stub) */}
+          <div className="mt-8 text-xs text-zinc-500">
+            Marketplace mode: Click "★ Favorite" on cards (saved in browser). Trending based on recent agent activity (stub). Full /marketplace route coming.
+            <button onClick={() => {
+              const favs = JSON.parse(localStorage.getItem('nexez_favorites') || '[]')
+              alert('Your favorites: ' + (favs.length ? favs.join(', ') : 'none'))
+            }} className="ml-2 underline">View my favorites</button>
+          </div>
         </div>
       </section>
     </main>
@@ -373,6 +392,11 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
         {offer?.price ? <span className="rounded-md bg-cyan-50 px-2 py-1 text-cyan-800">{offer.price}</span> : null}
         {result.page.location ? <span className="rounded-md bg-zinc-100 px-2 py-1">{result.page.location}</span> : null}
         {result.page.audience ? <span className="rounded-md bg-zinc-100 px-2 py-1">{result.page.audience}</span> : null}
+        {/* Phase 5 signals */}
+        {((result.page as any).services?.length || 0) + ((result.page as any).products?.length || 0) > 0 && (
+          <span className="rounded-md bg-zinc-100 px-2 py-1">{((result.page as any).services?.length || 0) + ((result.page as any).products?.length || 0)} offers</span>
+        )}
+        {(result.page as any).last_booking && <span className="rounded-md bg-emerald-100 px-2 py-1 text-emerald-700">recent activity</span>}
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">

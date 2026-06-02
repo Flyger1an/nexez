@@ -150,7 +150,10 @@ export default function Dashboard() {
             <NavItem active href="/dashboard" icon={<Grid2X2 className="size-4" />} label="My Agent Pages" />
             <NavItem href="/create" icon={<Bot className="size-4" />} label="Builder" />
             <NavItem href="/dashboard/analytics" icon={<BarChart3 className="size-4" />} label="Analytics" />
+            <NavItem href="/marketplace" icon={<Search className="size-4" />} label="Marketplace" />
             <NavItem href="/directory" icon={<Search className="size-4" />} label="Directory" />
+            <NavItem href="/dashboard/competitors" icon={<BarChart3 className="size-4" />} label="Competitor Intel" />
+            <NavItem href="/simulator" icon={<Bot className="size-4" />} label="Simulator" />
             <NavItem href="/dashboard/integrations" icon={<Link2 className="size-4" />} label="Integrations" />
             <NavItem href="/dashboard/tools" icon={<Bot className="size-4" />} label="Tools" />
             <NavItem href="/dashboard/billing" icon={<CreditCard className="size-4" />} label="Billing" />

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { ArrowLeft, Bot, Loader2, ExternalLink } from 'lucide-react'
+import { ErrorBoundary } from '../../../components/ErrorBoundary'
 
 export default function ToolsPage() {
   const [url, setUrl] = useState('')
@@ -45,6 +46,10 @@ export default function ToolsPage() {
   const [acuityLoading, setAcuityLoading] = useState(false)
   const [acuityResult, setAcuityResult] = useState<any>(null)
   const [acuityConnected, setAcuityConnected] = useState<{ lastImport: string } | null>(null)
+
+  // Tier 3: Developer Platform stub
+  const [apiKey, setApiKey] = useState('demo-key-xxx')
+  const [revenueShare, setRevenueShare] = useState(15) // stub % for agent tx
 
   // Square consumer services import (Phase 3 consumer track start)
   // (handler defined below after Shopify)
@@ -314,6 +319,23 @@ export default function ToolsPage() {
       localStorage.setItem('nexez_shopify_connection', JSON.stringify(conn))
     }
   }
+
+  // Tier 3 Developer Platform + API + Revenue Share (enhanced starter)
+  const devPlatformSection = (
+    <div className="mt-10 rounded-2xl border border-white/10 bg-white/[0.02] p-8">
+      <h2 className="text-2xl font-semibold">Developer Platform + API + Revenue Share</h2>
+      <p className="mt-2 text-[#9CA3AF]">Build on Nexez. Real public endpoints for agents + humans. Revenue share on agent-driven bookings (tracked via checkout_events).</p>
+      <div className="mt-4 text-sm space-y-1">
+        <div>Demo API Key: <code className="bg-black/50 px-1">{apiKey}</code> <button onClick={() => setApiKey('demo-' + Date.now().toString(36))} className="text-xs underline">regen</button></div>
+        <div>Revenue Share: {revenueShare}% on qualifying agent tx (see analytics for agent-sourced events; configure in future billing).</div>
+        <a href="/openapi.json" className="text-[#00F5FF] hover:underline block">OpenAPI spec (full endpoints) →</a>
+        <a href="/agent-pages.json" className="text-[#00F5FF] hover:underline">Public agent index →</a>
+        <a href="/api/directory" className="text-[#00F5FF] hover:underline">/api/directory (with min_readiness, trust signals) →</a>
+        <a href="/api/public-simulate" className="text-[#00F5FF] hover:underline">/api/public-simulate (POST for agent previews) →</a>
+        <div className="text-xs text-zinc-500 mt-2">Webhooks (outbound on booking.received) + inbound (Calendly/Stripe) already production. Use simulator + analyzer for testing. Full keys + payouts in Tier 3 billing.</div>
+      </div>
+    </div>
+  )
 
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
@@ -1027,6 +1049,8 @@ export default function ToolsPage() {
             )}
           </div>
         </div>
+
+        {devPlatformSection}
       </div>
     </main>
   )

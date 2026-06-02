@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, LockKeyhole, Mail, MapPin } from 'lucide-react'
-import { AgentPage, FaqItem, OfferItem, getBaseUrl, getCheckoutPath, getOfferCount, parseAvailabilityWindows } from '../../lib/agent-page'
+import { AgentPage, FaqItem, OfferItem, getBaseUrl, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { supabase } from '../../lib/supabase'
 
@@ -54,6 +54,18 @@ export default async function AgentPageRoute({ params }: PageProps) {
     notFound()
   }
 
+  // Live events for accurate Trust Score completion rate (attempts vs real bookings)
+  let trustEvents: any[] = []
+  try {
+    const { data: ev } = await supabase
+      .from('checkout_events')
+      .select('event_type, created_at')
+      .eq('slug', slug)
+      .order('created_at', { ascending: false })
+      .limit(15)
+    trustEvents = ev || []
+  } catch {}
+
   const products = page.products ?? []
   const services = page.services ?? []
   const faqs = page.faqs ?? []
@@ -83,6 +95,22 @@ export default async function AgentPageRoute({ params }: PageProps) {
           <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#7C3AED]/10 px-4 py-1 text-sm text-[#C4B5FD]">
             Bookings on this page link to the original website
           </div>
+        )}
+
+        {(page as any).mcp_enabled && (
+          <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-emerald-400/10 px-3 py-0.5 text-xs text-emerald-300">
+            MCP Ready — structured context for Model Context Protocol agents
+            <a href={`/${slug}/mcp.json`} className="underline">mcp.json</a>
+          </div>
+        )}
+
+        <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-amber-400/10 px-3 py-0.5 text-xs text-amber-300">
+          Trust Score: {getTrustScore(page, trustEvents)}/100
+          {(page as any).verification_details?.domain_verified && ' ✓ Verified'}
+          {(page as any).verification_details?.docs_provided?.length > 0 && ' 📜 Credentials attached'}
+        </div>
+        {(page as any).verification_details?.docs_provided?.length > 0 && (
+          <div className="mt-1 text-[10px] text-amber-400/80">Credentials: {((page as any).verification_details.docs_provided as string[]).join(' • ')}</div>
         )}
 
         <section className="grid gap-10 py-12 lg:grid-cols-[1.15fr_0.85fr] lg:py-16">
@@ -207,6 +235,18 @@ export default async function AgentPageRoute({ params }: PageProps) {
           </section>
         ) : null}
 
+        {(page as any).agent_memory && (
+          <section className="border-t border-white/10 py-8">
+            <h2 className="text-xl font-semibold">Agent Memory & Context</h2>
+            <div className="mt-3 text-sm text-zinc-300 whitespace-pre-wrap rounded-lg border border-white/10 bg-black p-4">
+              {(page as any).agent_memory.notes || JSON.stringify((page as any).agent_memory)}
+            </div>
+            <p className="text-[10px] text-zinc-500 mt-1">This context is included for agents in manifests, mcp.json and simulator. Update in page Settings.</p>
+          </section>
+        )}
+
+        <div className="text-[10px] text-zinc-500 mt-2">Voice agents: descriptions can be rewritten phonetic/short via AI Co-Pilot (Tier 3). See builder for "Voice (Tier 3)" option.</div>
+
         <section className="border-t border-white/10 py-12">
           <h2 className="text-2xl font-semibold">Plain-text agent context</h2>
           <pre className="mt-5 overflow-x-auto rounded-lg border border-white/10 bg-black p-5 text-sm leading-7 text-zinc-300">
@@ -322,7 +362,9 @@ function OfferSection({
                     href={useOriginal && item.url ? item.url : getCheckoutPath(pageSlug, kind, index)}
                     className="inline-flex items-center gap-2 rounded-lg bg-[#7C3AED] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6D28D9]"
                   >
-                    {useOriginal ? 'Book on original site' : 'Book Now'}
+                    {useOriginal 
+                      ? (item.isMobile ? 'Book mobile visit on original site' : 'Book on original site') 
+                      : 'Book Now'}
                     <LockKeyhole className="size-4" />
                   </a>
                 );
@@ -388,3 +430,9 @@ function buildJsonLd(page: AgentPage) {
     },
   }
 }
+
+/* Phase 7 Tier 1 stub: Negotiation + Escrow entry. See plan for full impl (form + Stripe manual capture + JSONB status on page). */
+
+/* Tier 3 stubs: Voice-optimized & agent memory/context notes for future (will extend manifests). */
+
+

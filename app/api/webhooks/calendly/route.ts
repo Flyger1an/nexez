@@ -25,13 +25,33 @@ import { fireOutboundWebhook, OutboundWebhookPayload } from '../../../../lib/web
  */
 
 export async function POST(request: NextRequest) {
-  const secret = request.headers.get('x-nexez-test-secret') || request.headers.get('x-calendly-webhook-secret')
-
-  // Read raw body for signature verification (critical)
+  // Read raw body for signature verification (critical) — do early
   const rawBody = await request.text()
 
   // Calendly signature header (they use this format)
   const signature = request.headers.get('x-calendly-webhook-signature')
+
+  // Phase 5 deeper: support per-page stored secret (from Settings) + query/header slug for page lookup
+  let page = null
+  const testPageSlug = request.headers.get('x-nexez-test-page-slug') || new URL(request.url).searchParams.get('slug') || ''
+  if (testPageSlug) {
+    try {
+      const { data: pages } = await supabase
+        .from('pages')
+        .select('*')
+        .eq('slug', testPageSlug)
+        .limit(1)
+        .returns<AgentPage[]>()
+      page = pages?.[0] || null
+    } catch (e) {
+      console.warn('[Calendly Webhook] Page lookup failed:', e)
+    }
+  }
+
+  // Resolve secret: prefer per-page stored (real user webhook), fall back to explicit test/demo headers
+  const perPageSecret = (page as any)?.calendly_webhook_secret || null
+  const headerSecret = request.headers.get('x-nexez-test-secret') || request.headers.get('x-calendly-webhook-secret')
+  const secret = perPageSecret || headerSecret
 
   if (signature && secret) {
     const expectedSignature = crypto
@@ -41,8 +61,11 @@ export async function POST(request: NextRequest) {
 
     // Calendly sends the signature as a hex string
     if (expectedSignature !== signature) {
-      console.warn('[Calendly Webhook] Signature verification failed')
+      console.warn('[Calendly Webhook] Signature verification failed (using per-page or header secret)')
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+    }
+    if (perPageSecret) {
+      console.log('[Calendly Webhook] Verified using page-stored secret for slug', page?.slug)
     }
   } else if (signature) {
     // Signature present but no secret provided for verification in this demo
@@ -73,26 +96,7 @@ export async function POST(request: NextRequest) {
         start_time: payload.event?.start_time,
       })
 
-      // Phase 3: Create real analytics events for Calendly bookings
-      // For production, pages can store their Calendly scheduling URL or event type ID for auto-association.
-      // For now, support the test header + always log a structured event.
-      const testPageSlug = request.headers.get('x-nexez-test-page-slug')
-
-      let page = null
-      if (testPageSlug) {
-        try {
-          const { data: pages } = await supabase
-            .from('pages')
-            .select('*')
-            .eq('slug', testPageSlug)
-            .limit(1)
-            .returns<AgentPage[]>()
-          page = pages?.[0]
-        } catch (e) {
-          console.warn('[Calendly Webhook] Page lookup failed:', e)
-        }
-      }
-
+      // Reuse page looked up at top of handler (supports ?slug= query, header, and per-page secret)
       const eventName = payload.event?.name || 'Calendly Booking'
       const inviteeName = payload.invitee?.name || 'Unknown Guest'
 

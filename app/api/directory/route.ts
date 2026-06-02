@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { AgentPage, getBaseUrl, getReadinessScore } from '../../../lib/agent-page'
+import { AgentPage, getBaseUrl, getReadinessScore, getTrustScore } from '../../../lib/agent-page'
 import { supabase } from '../../../lib/supabase'
 
 export async function GET(request: Request) {
@@ -46,21 +46,40 @@ export async function GET(request: Request) {
 
   const ready = minReadiness > 0 ? withReadiness.filter(r => r.readiness >= minReadiness) : withReadiness
 
-  const results = ready.map(({ p, readiness }) => ({
-    name: p.name,
-    slug: p.slug,
-    description: p.description,
-    url: `${getBaseUrl()}/${p.slug}`,
-    agent_json_url: `${getBaseUrl()}/${p.slug}/agent.json`,
-    readiness,
-    industry: p.industry || null,
-    location: p.location,
-    audience: p.audience,
-  }))
+  const base = getBaseUrl()
+  const results = ready.map(({ p, readiness }) => {
+    const offerCount = (p.services?.length || 0) + (p.products?.length || 0)
+    const hasLastBooking = !!p.last_booking
+    const verifiedCustom = !!(p as any).custom_domain_verified && !!(p as any).custom_domain
+
+    return {
+      name: p.name,
+      slug: p.slug,
+      description: p.description,
+      url: `${base}/${p.slug}`,
+      agent_json_url: `${base}/${p.slug}/agent.json`,
+      readiness,
+      industry: p.industry || null,
+      location: p.location,
+      audience: p.audience,
+      offer_count: offerCount,
+      last_booking_at: (p.last_booking as any)?.at || null,
+      has_recent_activity: hasLastBooking,
+      custom_domain: verifiedCustom ? (p as any).custom_domain : null,
+      // Agent-first extra signals
+      agent_optimized: readiness >= 75,
+      prefer_original_default: !!p.prefer_original_site,
+      trust_score: getTrustScore(p),
+      verified: !!( (p as any).verification_details?.domain_verified || (p as any).custom_domain_verified ),
+      has_credentials: Array.isArray((p as any).verification_details?.docs_provided) && (p as any).verification_details.docs_provided.length > 0,
+    }
+  })
 
   return NextResponse.json({
     count: results.length,
     filters: { category, q: q || null, min_readiness: minReadiness || null },
     results,
+    // Helpful for agents consuming the directory
+    note: 'All results are published agent-optimized pages. Use /<slug>/agent.json or /<slug> for full context.',
   })
 }

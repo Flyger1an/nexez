@@ -26,6 +26,59 @@ export type ImportResult = {
 
 const COMMON_PATHS = ['/services', '/pricing', '/book', '/appointments', '/rates', '/packages', '/contact', '/']
 
+// Simple in-memory short-TTL cache (Phase 5 robustness). Avoids hammering the same site repeatedly.
+const IMPORT_CACHE = new Map<string, { ts: number; result: ImportResult }>()
+const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+
+function getCached(url: string): ImportResult | null {
+  const key = normalizeUrl(url, '/')
+  const hit = IMPORT_CACHE.get(key)
+  if (hit && Date.now() - hit.ts < CACHE_TTL_MS) return hit.result
+  return null
+}
+function setCached(url: string, result: ImportResult) {
+  const key = normalizeUrl(url, '/')
+  IMPORT_CACHE.set(key, { ts: Date.now(), result })
+  // crude size limit
+  if (IMPORT_CACHE.size > 50) {
+    const first = IMPORT_CACHE.keys().next().value
+    if (first) IMPORT_CACHE.delete(first)
+  }
+}
+
+// Basic robots.txt respect (Phase 5). We only check Disallow for our paths.
+// We never crawl aggressively; this is a best-effort filter.
+export async function isPathAllowed(base: string, path: string): Promise<boolean> {
+  try {
+    const robotsUrl = normalizeUrl(base, '/robots.txt')
+    const controller = new AbortController()
+    const t = setTimeout(() => controller.abort(), 4000)
+    const res = await fetch(robotsUrl, {
+      headers: { 'User-Agent': 'Nexez Site Importer Bot/1.0' },
+      signal: controller.signal,
+    })
+    clearTimeout(t)
+    if (!res.ok) return true // no robots or unreadable → allow (we're polite anyway)
+    const txt = await res.text()
+    // Very simple parser: look for User-agent: * or our bot, then Disallow lines
+    const lines = txt.split('\n').map(l => l.trim().toLowerCase())
+    let inRelevant = false
+    for (const line of lines) {
+      if (line.startsWith('user-agent:')) {
+        const ua = line.split(':')[1].trim()
+        inRelevant = ua === '*' || ua.includes('nexez') || ua.includes('bot')
+      }
+      if (inRelevant && line.startsWith('disallow:')) {
+        const rule = line.split(':')[1].trim()
+        if (rule && (path === rule || path.startsWith(rule))) return false
+      }
+    }
+    return true
+  } catch {
+    return true
+  }
+}
+
 // Shopify-specific extraction (high value for user request)
 async function tryExtractShopifyProducts(baseUrl: string): Promise<OfferItem[]> {
   const offers: OfferItem[] = []
@@ -118,7 +171,7 @@ function cleanName(text: string): string {
   return text.replace(/^(book|schedule|reserve|get|buy|purchase)\s+/i, '').replace(/\s*(now|today|online|here)\s*$/i, '').trim().substring(0, 80)
 }
 
-async function fetchHtmlSafe(url: string, timeoutMs = 6500): Promise<string | null> {
+export async function fetchHtmlSafe(url: string, timeoutMs = 6500): Promise<string | null> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
@@ -294,9 +347,30 @@ function getIndustryBoostKeywords(industry?: string | null): string[] {
 export async function analyzeSite(url: string, industry?: string | null): Promise<ImportResult> {
   if (!url) throw new Error('URL required')
 
-  const candidates = [url, ...COMMON_PATHS.map(p => normalizeUrl(url, p))]
+  // Short-TTL cache hit (robustness + speed)
+  const cached = getCached(url)
+  if (cached) return cached
+
+  // Build candidates then filter by robots.txt (best effort)
+  let candidates = [url, ...COMMON_PATHS.map(p => normalizeUrl(url, p))]
     .filter((v, i, arr) => arr.indexOf(v) === i)
-    .slice(0, 6)
+    .slice(0, 8)
+
+  // robots filter (parallel, non-blocking on failure)
+  const allowedChecks = await Promise.all(
+    candidates.map(async (c) => {
+      try {
+        const p = new URL(c).pathname
+        const ok = await isPathAllowed(url, p || '/')
+        return ok ? c : null
+      } catch {
+        return c
+      }
+    })
+  )
+  candidates = candidates.filter((c, i) => allowedChecks[i])
+
+  if (candidates.length === 0) candidates = [url]
 
   const results = await Promise.allSettled(candidates.map(u => fetchHtmlSafe(u)))
   const htmls: { html: string; u: string }[] = []
@@ -305,7 +379,7 @@ export async function analyzeSite(url: string, industry?: string | null): Promis
   })
 
   if (htmls.length === 0) {
-    throw new Error('Could not fetch site or common subpages')
+    throw new Error('Could not fetch site or common subpages (robots or network)')
   }
 
   const primary = htmls[0]
@@ -383,7 +457,7 @@ export async function analyzeSite(url: string, industry?: string | null): Promis
     }
   })
 
-  return {
+  const result: ImportResult = {
     title,
     description: description || `Professional services from ${title}.`,
     website_url: url,
@@ -392,4 +466,7 @@ export async function analyzeSite(url: string, industry?: string | null): Promis
     industry: industry || null,
     pagesAnalyzed: htmls.length,
   }
+
+  setCached(url, result)
+  return result
 }

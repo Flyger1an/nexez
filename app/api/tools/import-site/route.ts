@@ -10,8 +10,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Website URL is required' }, { status: 400 })
   }
 
+  // Phase 5 robustness: overall timeout guard so importer never hangs the request (per-fetch already timeout'd)
+  const OVERALL_TIMEOUT_MS = 14000
+  const timeout = new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Analysis timed out. Partial results may be available on retry or try a simpler URL.')), OVERALL_TIMEOUT_MS))
+
   try {
-    const result = await analyzeSite(url, industry || null)
+    const result = await Promise.race([analyzeSite(url, industry || null), timeout])
 
     return NextResponse.json({
       ok: true,
