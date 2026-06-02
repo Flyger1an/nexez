@@ -74,6 +74,7 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer) {
     price: offer.price || null,
     provider_url: providerUrl,
     checkout_url: checkoutUrl,
+    prefer_original_for_this: (offer as any).prefer_original_for_this || false,
     action: {
       method: 'POST',
       endpoint: `${baseUrl}/api/checkout`,
