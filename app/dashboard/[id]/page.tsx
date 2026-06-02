@@ -73,6 +73,7 @@ export default function EditAgentPage({ params }: PageProps) {
     calendly?: { lastSync: string; maskedToken: string }
     stripe?: { lastImport: string }
     shopify?: { lastImport: string }
+    square?: { lastImport: string }
   }>({})
 
   // Visual builder state (derived from rich arrays; text kept for legacy/raw + CSV)
@@ -101,6 +102,9 @@ export default function EditAgentPage({ params }: PageProps) {
 
       const sh = localStorage.getItem('nexez_shopify_connection')
       if (sh) status.shopify = JSON.parse(sh)
+
+      const sq = localStorage.getItem('nexez_square_connection')
+      if (sq) status.square = JSON.parse(sq)
 
       setIntegrationStatus(status)
     } catch {}
@@ -926,6 +930,42 @@ export default function EditAgentPage({ params }: PageProps) {
                         className="ml-1 text-[10px] rounded border border-purple-300/50 px-1.5 py-0 text-purple-100 hover:bg-purple-400/10 disabled:opacity-50"
                       >
                         {integrationResyncing === 'shopify' ? '...' : 'Re-sync'}
+                      </button>
+                    </div>
+                  )}
+                  {integrationStatus.square && (
+                    <div className="flex items-center gap-2 rounded border border-pink-300/30 bg-pink-400/5 px-2 py-1 text-pink-200">
+                      Square ✓ <span className="text-[10px] text-zinc-400">({new Date(integrationStatus.square.lastImport).toLocaleDateString()})</span>
+                      <button
+                        type="button"
+                        disabled={!!integrationResyncing}
+                        onClick={async () => {
+                          setIntegrationResyncing('square')
+                          try {
+                            const res = await fetch('/api/integrations/square/import', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({}),
+                            })
+                            const data = await res.json()
+                            if (data.structuredOffers?.length) {
+                              const incoming = data.structuredOffers as OfferItem[]
+                              setPendingReanalysis({
+                                incomingServices: incoming,
+                                incomingProducts: [],
+                                summary: `Square consumer services re-sync: ${incoming.length} offers. Rich mobile + travel fields included.`,
+                              })
+                              setMessage('Square services loaded into re-analysis preview.')
+                            }
+                          } catch (e: any) {
+                            setMessage('Square re-sync failed: ' + e.message)
+                          } finally {
+                            setIntegrationResyncing(null)
+                          }
+                        }}
+                        className="ml-1 text-[10px] rounded border border-pink-300/50 px-1.5 py-0 text-pink-100 hover:bg-pink-400/10 disabled:opacity-50"
+                      >
+                        {integrationResyncing === 'square' ? '...' : 'Re-sync'}
                       </button>
                     </div>
                   )}
