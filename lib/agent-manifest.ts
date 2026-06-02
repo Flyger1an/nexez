@@ -100,6 +100,9 @@ function buildPlainText(page: AgentPage, offers: ReturnType<typeof buildOfferPay
     `Best-fit buyer: ${page.audience ?? ''}`,
     `Location: ${page.location ?? ''}`,
     `Availability: ${(page as any).next_available ?? 'Contact for current availability'}${ (page as any).google_calendar_id ? ' (Google Calendar synced)' : '' }`,
+    ...(parseAvailabilityWindows((page as any).next_available)?.length
+      ? [`Upcoming windows (for agents): ${parseAvailabilityWindows((page as any).next_available)!.slice(0,3).map((w:any)=>w.label||w.start).join(', ')}`]
+      : []),
     `Website: ${page.website_url ?? ''}`,
     `Primary action: ${page.cta_label ?? 'Visit website'} -> ${page.cta_url || page.website_url || ''}`,
     `Offers: ${offers.map((offer) => `${offer.name} (${offer.type}) ${offer.checkout_url}`).join('; ') || 'None listed'}`,

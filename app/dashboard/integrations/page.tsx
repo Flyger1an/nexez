@@ -168,27 +168,16 @@ export default function IntegrationsPage() {
               </p>
             </div>
             <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-4 text-xs">
-              <p className="font-medium text-cyan-100 mb-2">Integrations Health</p>
-              <div className="space-y-2 text-zinc-400">
-                <div className="flex justify-between">
-                  <span>Calendly</span>
-                  <span className="text-emerald-400">Deep + Webhooks</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Stripe</span>
-                  <span className="text-emerald-400">Import + Re-sync</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Shopify</span>
-                  <span className="text-emerald-400">Catalog Import</span>
-                </div>
+              <p className="font-medium text-cyan-100 mb-2">Integrations Health — Phase 3 (aggressive)</p>
+              <div className="space-y-1 text-zinc-300 text-[11px]">
+                <div className="flex justify-between"><span>Calendly</span><span className="text-emerald-400">Import + Webhooks + Secrets</span></div>
+                <div className="flex justify-between"><span>Stripe</span><span className="text-emerald-400">Import + Active price webhooks</span></div>
+                <div className="flex justify-between"><span>Shopify</span><span className="text-emerald-400">Catalog + Re-sync</span></div>
+                <div className="flex justify-between"><span>Google Calendar</span><span className="text-emerald-400">Stub + Structured windows</span></div>
+                <div className="flex justify-between"><span>Outbound (Zapier etc.)</span><span className="text-emerald-400">Per-page • Secrets • Testable</span></div>
               </div>
               <div className="mt-3 pt-2 border-t border-cyan-300/30 text-cyan-300 text-[10px]">
-                → Full management and re-sync in Tools. Webhooks fire automatically on real bookings.
-              </div>
-              {/* Phase 3: Outbound visibility */}
-              <div className="mt-2 pt-2 border-t border-cyan-300/30 text-[10px] text-emerald-300">
-                Outbound webhooks (per-page in Settings) now fire on Nexez checkout events + Calendly bookings.
+                Per-page outbound endpoints (configured in any page Settings) now fire automatically on both Nexez checkout events and Calendly webhooks, with optional signing secrets.
               </div>
             </div>
           </aside>

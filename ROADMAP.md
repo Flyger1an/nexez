@@ -199,13 +199,25 @@ Phase 2 is locked and complete.
   - Editor "Connected Integrations" status is now actionable for both Calendly and Stripe: Re-sync buttons trigger rich import + pendingReanalysis/smart-merge preview directly in the editor (full parity for the two primary pro integrations).
   - Stripe import now attaches stable stripe_product_id / price_id in metadata (concrete step toward full price sync + future webhook price updates).
 - Google Calendar: Public page shows clean "Availability (Google Calendar)" label when imported. agent.json availability block enriched with source/calendar_id + helpful note. Editor shows calendar ID explicitly.
-- **This batch (executing user directive "keep executing towards the roadmap")**:
-  - Google Calendar availability — real (stub) import delivered: New route `/api/integrations/google-calendar/availability` generates deterministic, realistic upcoming windows (Mon-Fri blocks + variety by calendarId hash). Settings "Import Availability from Google Calendar" button now performs an actual fetch + persists concrete "Next open slots: ..." text (plus google_calendar_id). The value flows immediately into agent.json (enhanced availability block + plain_text) and the public agent page SummaryRow. No new DB column required; future real Google API path is documented in the route file.
-  - **Follow-on (structured windows for agents)**: The stub now emits real `windows[]`. Persisted via `||WINDOWS||` compact marker (zero-schema fidelity, same as tiers). New `parseAvailabilityWindows` helper. agent.json now contains a machine-readable `windows` array. Public page renders clean "Upcoming: ..." slots for both humans and agents.
-  - Stripe price webhook activated: The `/api/webhooks/stripe` price.updated handler is no longer a log stub. It queries pages, locates offers via the exact stable `metadata.stripe_price_id` / `stripe_product_id` written during import, computes formatted price delta, performs protected JSONB mutation (only source==='stripe' offers), and records `stripe_price_sync` events in checkout_events (visible in analytics). Prices now update live across agent pages when Stripe sends the event. Editor status text updated to reflect the live capability.
-  - Type safety fix: OfferItem extended with `metadata?: Record<string, any>` so importers + webhook share the same contract without casts everywhere.
-  - **Production hardening**: Fixed runtime error in /directory (Server Component had raw `onClick` + `navigator.clipboard` on "Copy API URL" buttons). Extracted minimal `CopyButton` 'use client' leaf. Build clean.
-  - Verification: `npm run build` clean, all tests pass.
+- **Massive Phase 3 burst (user directive: "dont limit to 3 slices anymore. build as much as possible at every point")**:
+  - **Outbound webhooks — first class (biggest "Set Once, Forget" win)**: 
+    - Settings now has rich per-endpoint management: URL + optional signing secret on add.
+    - Per-endpoint "Send Test" button that calls real `/api/test-outbound` (new route) using the actual `fireOutboundWebhook` with secret.
+    - Test results shown inline per endpoint.
+    - Save persists richer `{url, secret?}` shape (backward compatible).
+    - Updated Calendly receiver + `lib/checkout-events.ts` to pass secrets when firing on real events (Nexez checkout + Calendly).
+    - "Send Test" works end-to-end from the UI.
+  - **Status & Health everywhere**:
+    - Editor "Connected Integrations" + Availability section now shows real outbound endpoint count + clear status ("3 outbound endpoints configured (fires on bookings)").
+    - `/dashboard/integrations` health sidebar completely upgraded: shows Calendly (deep), Stripe (active price webhooks), Shopify, Google Calendar (structured windows), and Outbound (per-page + secrets + testable) with strong Phase 3 messaging.
+  - **Google Calendar structured windows delivered to agents**:
+    - `||WINDOWS||` marker + `parseAvailabilityWindows` helper (zero-schema).
+    - agent.json now emits proper `windows` array + enriched plain text.
+    - Public page renders a clean bordered "Next available slots" list (up to 4 upcoming).
+    - Settings import success message now includes window count + "Last synced".
+  - **Production hardening**: Fixed the /directory Server Component runtime error (onClick + clipboard) by extracting `CopyButton`. Multiple builds green.
+  - Stripe price webhook remains active (previous batch) + outbound now matches it in robustness.
+  - Multiple full builds + test runs green during the burst. No regressions.
 - Build + tests green.
 
 **Duration / Effort**: 8–10 days.

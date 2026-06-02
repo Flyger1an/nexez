@@ -145,8 +145,13 @@ export default async function AgentPageRoute({ params }: PageProps) {
                 const windows = parseAvailabilityWindows((page as any).next_available)
                 if (!windows || windows.length === 0) return null
                 return (
-                  <div className="mt-1 text-[10px] text-cyan-300/90">
-                    Upcoming: {windows.slice(0, 3).map((w: any, i: number) => w.label || `${w.date} ${w.start}`).join(' • ')}
+                  <div className="mt-2 rounded border border-[#7C3AED]/20 bg-[#1A1625] p-2 text-[11px]">
+                    <div className="mb-1 text-cyan-400 text-[10px] font-medium">Next available slots (Google Calendar)</div>
+                    <div className="grid grid-cols-1 gap-y-0.5 text-zinc-300">
+                      {windows.slice(0, 4).map((w: any, idx: number) => (
+                        <div key={idx}>{w.label || `${w.date} ${w.start}–${w.end}`}</div>
+                      ))}
+                    </div>
                   </div>
                 )
               })()}

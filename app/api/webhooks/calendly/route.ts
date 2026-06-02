@@ -187,9 +187,15 @@ export async function POST(request: NextRequest) {
                   calendly_event_type: eventType,
                 },
               }
+              // Support richer stored shape: { url, secret? }
+              const pageOutboundsFull = (page as any)?.outbound_webhooks || []
               for (const ep of endpoints) {
-                const res = await fireOutboundWebhook(ep, null, obPayload)
-                console.log(`[Calendly Webhook] Fired outbound booking.received to ${ep}:`, res)
+                const stored = Array.isArray(pageOutboundsFull)
+                  ? pageOutboundsFull.find((o: any) => (o?.url || o) === ep)
+                  : null
+                const secret = stored?.secret || null
+                const res = await fireOutboundWebhook(ep, secret, obPayload)
+                console.log(`[Calendly Webhook] Fired outbound booking.received to ${ep} (secret: ${!!secret}):`, res)
               }
             } else {
               console.log('[Calendly Webhook] No outbound endpoints configured (neither page nor header).')

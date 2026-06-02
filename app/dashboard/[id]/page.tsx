@@ -932,7 +932,7 @@ export default function EditAgentPage({ params }: PageProps) {
                 <p className="mt-2 text-[10px] text-zinc-500">
                   Re-sync keeps source metadata (via stripe, via shopify, etc.) and feeds the smart merge preview. Stripe price webhooks are now active — price.updated events auto-update matching offers. Full control in <a href={`/dashboard/${id}/settings`} className="underline">Settings</a> or <a href="/dashboard/tools" className="underline">Tools</a>.
                 </p>
-                <div className="mt-2 text-[10px] text-emerald-300">Outbound + Google Calendar sync ready (see Availability section above)</div>
+                <div className="mt-2 text-[10px] text-emerald-300">Outbound webhooks + Google Calendar availability — full management in Settings</div>
                 <div className="mt-1 text-[10px] text-zinc-400">Last re-sync times shown in badges • Full health in /dashboard/integrations</div>
               </div>
             )}
@@ -961,7 +961,11 @@ export default function EditAgentPage({ params }: PageProps) {
               )}
               {/* Phase 3 status note */}
               <div className="mt-1 text-[10px] text-zinc-400">Google Calendar import produces concrete upcoming slots for agents (see Settings)</div>
-              <div className="mt-1 text-[10px] text-emerald-300">Per-page outbound configured (see Settings)</div>
+              <div className="mt-1 text-[10px] text-emerald-300">
+                {(page as any).outbound_webhooks?.length 
+                  ? `${(page as any).outbound_webhooks.length} outbound endpoint${(page as any).outbound_webhooks.length === 1 ? '' : 's'} configured (fires on bookings)`
+                  : 'No outbound webhooks yet — configure in Settings'}
+              </div>
             </div>
 
             {/* Phase 1 A: Re-analysis preview / diff */}

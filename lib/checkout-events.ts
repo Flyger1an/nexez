@@ -108,9 +108,13 @@ export async function logCheckoutEvent({
                 source: 'nexez_checkout',
               },
             }
+            // Support richer shape {url, secret?} for signing (same as Calendly receiver)
+            const outboundsFull = (pageWithOutbounds as any)?.outbound_webhooks || []
             for (const ep of endpoints) {
-              const res = await fireOutboundWebhook(ep, null, obPayload)
-              console.log(`[Checkout Events] Fired outbound ${obPayload.event} to ${ep}:`, res)
+              const stored = Array.isArray(outboundsFull) ? outboundsFull.find((o: any) => (o?.url || o) === ep) : null
+              const secret = stored?.secret || null
+              const res = await fireOutboundWebhook(ep, secret, obPayload)
+              console.log(`[Checkout Events] Fired outbound ${obPayload.event} to ${ep} (secret: ${!!secret}):`, res)
             }
           }
         } catch (e) {

@@ -44,10 +44,14 @@ export default function PageSettings({ params }: PageProps) {
   const [reSyncInput, setReSyncInput] = useState('')
   const [reSyncInput2, setReSyncInput2] = useState('') // for shopify domain + token
 
-  // Phase 3: Per-page outbound webhooks (auto-fired by receiver on booking events)
-  const [outboundEndpoints, setOutboundEndpoints] = useState<string[]>([])
+  // Phase 3: Per-page outbound webhooks — now first-class (url + optional secret per endpoint)
+  type OutboundEndpoint = { url: string; secret?: string }
+  const [outboundEndpoints, setOutboundEndpoints] = useState<OutboundEndpoint[]>([])
   const [newOutboundUrl, setNewOutboundUrl] = useState('')
+  const [newOutboundSecret, setNewOutboundSecret] = useState('')
   const [outboundSaving, setOutboundSaving] = useState(false)
+  const [testingEndpoint, setTestingEndpoint] = useState<number | null>(null)
+  const [testResults, setTestResults] = useState<Record<number, string>>({})
 
   // Phase 3: Google Calendar availability (import foundation)
   const [googleCalendarId, setGoogleCalendarId] = useState('')
@@ -121,10 +125,12 @@ export default function PageSettings({ params }: PageProps) {
     setPreferOriginalSite(!!data.prefer_original_site)
     setIndustry(data.industry ?? '')
 
-    // Phase 3: Load per-page outbound webhooks
+    // Phase 3: Load per-page outbound webhooks (support richer shape with optional secrets)
     const ob = (data as any)?.outbound_webhooks
     if (ob) {
-      const arr = Array.isArray(ob) ? ob.map((o: any) => o?.url || o).filter(Boolean) : []
+      const arr: OutboundEndpoint[] = Array.isArray(ob)
+        ? ob.map((o: any) => (typeof o === 'string' ? { url: o } : { url: o?.url, secret: o?.secret })).filter((o) => o.url)
+        : []
       setOutboundEndpoints(arr)
     } else {
       setOutboundEndpoints([])
@@ -595,45 +601,100 @@ export default function PageSettings({ params }: PageProps) {
                 Pulls your Shopify products as rich offers. Leave token empty to use public catalog.
               </p>
 
-              {/* Phase 3: Per-page outbound webhooks — automatically fired by the Calendly (and future) receivers on booking events */}
+              {/* Phase 3: Per-page outbound webhooks — FIRST CLASS (url + optional secret, real test button, auto-fired) */}
               <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4">
                 <div className="text-sm font-medium text-cyan-200 mb-2">Outbound webhooks on booking events</div>
-                <p className="text-[10px] text-zinc-400 mb-3">These endpoints will receive `booking.received` payloads automatically when a Calendly booking arrives via webhook (no extra setup in Tools required). Useful for Zapier, Make, internal systems, etc.</p>
+                <p className="text-[10px] text-zinc-400 mb-3">These endpoints receive real `booking.received` payloads automatically (Nexez checkout + Calendly webhooks). Add signing secrets for production use (Zapier, Make, internal systems).</p>
 
-                <div className="flex gap-2 mb-2">
+                {/* Add new endpoint with optional secret */}
+                <div className="space-y-2 mb-3">
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      value={newOutboundUrl}
+                      onChange={(e) => setNewOutboundUrl(e.target.value)}
+                      placeholder="https://hooks.zapier.com/... or https://yourapp.com/webhook"
+                      className="flex-1 rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (newOutboundUrl.trim()) {
+                          const newEp: OutboundEndpoint = { url: newOutboundUrl.trim() }
+                          if (newOutboundSecret.trim()) newEp.secret = newOutboundSecret.trim()
+                          setOutboundEndpoints(prev => {
+                            const exists = prev.some(e => e.url === newEp.url)
+                            return exists ? prev : [...prev, newEp]
+                          })
+                          setNewOutboundUrl('')
+                          setNewOutboundSecret('')
+                        }
+                      }}
+                      className="rounded border border-white/20 px-3 text-sm hover:bg-white/5"
+                    >
+                      Add
+                    </button>
+                  </div>
                   <input
-                    type="url"
-                    value={newOutboundUrl}
-                    onChange={(e) => setNewOutboundUrl(e.target.value)}
-                    placeholder="https://hooks.zapier.com/... or https://yourapp.com/webhook"
-                    className="flex-1 rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm"
+                    type="password"
+                    value={newOutboundSecret}
+                    onChange={(e) => setNewOutboundSecret(e.target.value)}
+                    placeholder="Optional signing secret (recommended for production)"
+                    className="w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm font-mono"
                   />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (newOutboundUrl.trim()) {
-                        setOutboundEndpoints(prev => Array.from(new Set([...prev, newOutboundUrl.trim()])))
-                        setNewOutboundUrl('')
-                      }
-                    }}
-                    className="rounded border border-white/20 px-3 text-sm hover:bg-white/5"
-                  >
-                    Add
-                  </button>
                 </div>
 
+                {/* List with remove + Send Test per endpoint */}
                 {outboundEndpoints.length > 0 && (
-                  <div className="text-xs mb-2">
-                    {outboundEndpoints.map((url, i) => (
-                      <div key={i} className="flex items-center justify-between font-mono text-emerald-300/90 py-0.5">
-                        <span className="truncate">{url}</span>
-                        <button
-                          type="button"
-                          onClick={() => setOutboundEndpoints(prev => prev.filter((_, idx) => idx !== i))}
-                          className="text-[10px] text-zinc-400 hover:text-red-400"
-                        >
-                          remove
-                        </button>
+                  <div className="text-xs mb-3 space-y-1.5">
+                    {outboundEndpoints.map((ep, i) => (
+                      <div key={i} className="rounded border border-white/10 bg-black/30 p-2">
+                        <div className="flex items-center justify-between font-mono text-emerald-300/90">
+                          <span className="truncate text-[11px]">{ep.url}</span>
+                          <div className="flex items-center gap-2">
+                            {ep.secret && <span className="text-[9px] text-amber-400">secret</span>}
+                            <button
+                              type="button"
+                              disabled={testingEndpoint === i}
+                              onClick={async () => {
+                                setTestingEndpoint(i)
+                                setTestResults(prev => ({ ...prev, [i]: 'Testing...' }))
+                                try {
+                                  const res = await fetch('/api/test-outbound', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      endpoint: ep.url,
+                                      secret: ep.secret || null,
+                                      eventType: 'booking.received',
+                                      data: { test_source: 'settings_ui' },
+                                    }),
+                                  })
+                                  const data = await res.json()
+                                  const msg = data.success ? `✓ Sent (HTTP ${data.status})` : `✗ Failed: ${data.error || data.status}`
+                                  setTestResults(prev => ({ ...prev, [i]: msg }))
+                                } catch (e: any) {
+                                  setTestResults(prev => ({ ...prev, [i]: '✗ Network error' }))
+                                } finally {
+                                  setTestingEndpoint(null)
+                                }
+                              }}
+                              className="text-[10px] rounded border border-emerald-300/40 px-1.5 py-0 text-emerald-300 hover:bg-emerald-400/10 disabled:opacity-60"
+                            >
+                              {testingEndpoint === i ? '...' : 'Send Test'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setOutboundEndpoints(prev => prev.filter((_, idx) => idx !== i))}
+                              className="text-[10px] text-zinc-400 hover:text-red-400"
+                            >
+                              remove
+                            </button>
+                          </div>
+                        </div>
+                        {testResults[i] && (
+                          <div className="mt-1 text-[10px] text-emerald-300 font-mono">{testResults[i]}</div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -648,11 +709,12 @@ export default function PageSettings({ params }: PageProps) {
                     setMessage('')
                     try {
                       const supabase = createClient()
+                      // Persist richer shape (url + optional secret) — backward compatible
                       const { error } = await supabase
                         .from('pages')
-                        .update({ outbound_webhooks: outboundEndpoints.map(u => ({ url: u })) })
+                        .update({ outbound_webhooks: outboundEndpoints })
                         .eq('id', page.id)
-                      setMessage(error ? error.message : 'Outbound webhooks saved for this page.')
+                      setMessage(error ? error.message : `Saved ${outboundEndpoints.length} outbound endpoint(s). They fire automatically on real bookings.`)
                     } catch (e: any) {
                       setMessage('Failed to save: ' + e.message)
                     } finally {
@@ -661,9 +723,9 @@ export default function PageSettings({ params }: PageProps) {
                   }}
                   className="mt-1 w-full rounded-lg border border-cyan-300/40 px-4 py-1.5 text-sm text-cyan-200 hover:bg-cyan-400/10 disabled:opacity-60"
                 >
-                  {outboundSaving ? 'Saving...' : 'Save Outbound Endpoints for this Page'}
+                  {outboundSaving ? 'Saving...' : `Save ${outboundEndpoints.length} Outbound Endpoint${outboundEndpoints.length === 1 ? '' : 's'}`}
                 </button>
-                <p className="mt-1 text-[10px] text-zinc-500">Endpoints are stored on the page and used automatically by the webhook receiver.</p>
+                <p className="mt-1 text-[10px] text-zinc-500">Endpoints + secrets are stored on the page. They are called automatically by the Calendly receiver and on Nexez checkout events. Use "Send Test" above to verify instantly.</p>
               </div>
 
               {/* Phase 3: Google Calendar Availability (import foundation) */}
@@ -734,7 +796,7 @@ export default function PageSettings({ params }: PageProps) {
                         .eq('id', page.id)
 
                       const successMsg = googleCalendarId.trim()
-                        ? 'Availability imported from Google Calendar (stub windows generated). Now live in agent.json and public page.'
+                        ? `Availability imported from Google Calendar • ${importedAvailability?.windows?.length || 0} windows • Last synced just now. Live for agents.`
                         : 'Availability saved. Visible in agent.json and public page.'
 
                       setMessage(error ? error.message : successMsg)
