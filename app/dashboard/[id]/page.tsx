@@ -954,6 +954,8 @@ export default function EditAgentPage({ params }: PageProps) {
               {nextAvailable && (
                 <div className="mt-1 text-[10px] text-emerald-300">Availability data live for agents</div>
               )}
+              {/* Phase 3 status note */}
+              <div className="mt-1 text-[10px] text-zinc-400">Outbound webhooks + Google Calendar sync ready (configure in Settings)</div>
             </div>
 
             {/* Phase 1 A: Re-analysis preview / diff */}

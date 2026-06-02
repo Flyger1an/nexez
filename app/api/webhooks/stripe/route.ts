@@ -36,10 +36,13 @@ export async function POST(request: NextRequest) {
       price_id: price.id,
       product_id: price.product,
       new_amount: price.unit_amount,
+      currency: price.currency,
     })
 
     // Future real action: Query pages with offers containing this stripe_price_id
-    // in metadata and trigger a targeted re-sync or direct price update.
+    // in metadata and trigger a targeted re-sync or direct price update on the page.
+    // For now we log a structured event that downstream systems (or future code)
+    // can use to keep prices fresh.
   }
 
   // Always acknowledge quickly
