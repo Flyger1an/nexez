@@ -418,6 +418,7 @@ export default function EditAgentPage({ params }: PageProps) {
     setServices(formatOfferLines(merged))
     setPendingReanalysis(null)
 
+    // Full throttle: better Stripe price change reporting on apply
     const stripePriceChanges = incomingServices.filter(inc => 
       inc.source === 'stripe' && 
       merged.some(m => m.name.toLowerCase() === inc.name.toLowerCase() && m.price !== inc.price)
@@ -425,7 +426,7 @@ export default function EditAgentPage({ params }: PageProps) {
 
     const baseMsg = 'Changes applied successfully. Review in the Visual Builder.'
     setMessage(stripePriceChanges > 0 
-      ? `${baseMsg} (${stripePriceChanges} Stripe price change(s) detected.)` 
+      ? `${baseMsg} (${stripePriceChanges} Stripe price change(s) applied from integration.)` 
       : baseMsg)
   }
 
