@@ -231,7 +231,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-[#12101B] p-5">
+            <div className="card !p-5">
               <h2 className="text-2xl font-semibold tracking-tight">{page?.name}</h2>
               <p className="mt-2 text-[#9CA3AF] leading-relaxed">{page?.description}</p>
 
@@ -295,7 +295,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
             </div>
 
             {/* Simulated Agent Output */}
-            <div className="min-h-[320px] rounded-2xl bg-[#12101B] border border-white/10 p-5 text-sm">
+            <div className="min-h-[320px] card !p-5 text-sm">
               {responseTab === 'Parsed Schema' && schema && (
                 <pre className="font-mono text-xs text-[#C4B5FD] whitespace-pre-wrap">{JSON.stringify(schema, null, 2)}</pre>
               )}
@@ -332,7 +332,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
             <Lightbulb className="size-4 text-[#F59E0B]" />
             Recommendations to improve agent performance
           </h3>
-          <div className="grid md:grid-cols-2 gap-x-8 gap-y-2 text-sm text-[#9CA3AF]">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm text-[#9CA3AF]">
             {recommendations.length ? (
               recommendations.map((rec, i) => <div key={i}>• {rec}</div>)
             ) : (
@@ -381,7 +381,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
             />
           </div>
 
-          <div className="mt-3 grid gap-2 text-[10px] text-zinc-400 md:grid-cols-2">
+          <div className="mt-3 grid grid-cols-1 gap-2 text-[10px] text-zinc-400 md:grid-cols-2">
             <div>
               • Iframe is responsive by default (width 100%).
               <br />• Per-offer "Book on original site" from builder takes precedence over page-level toggle.

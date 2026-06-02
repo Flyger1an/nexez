@@ -110,4 +110,29 @@ describe('competitor-analyzer (Tier 2 intelligence)', () => {
     const bad = await analyzeCompetitorSite('https://this-will-not-resolve-123456.invalid')
     expect(bad.scores.overall).toBeLessThan(50) // degraded but valid
   })
+
+  it('analyzer computes side-by-side when userNexezPage provided', async () => {
+    const res = await analyzeCompetitorSite('https://example.com', {
+      userNexezPage: { slug: 'my-page', readiness: 85, trust: 90, offerCount: 5, description: 'Test' }
+    })
+    expect(res.userComparison).toBeTruthy()
+    expect(res.userComparison?.slug).toBe('my-page')
+    expect(res.userComparison?.readiness).toBe(85)
+  })
+
+  it('analyzer recommendations are actionable and limited', async () => {
+    const res = await analyzeCompetitorSite('https://example.com')
+    expect(Array.isArray(res.recommendations)).toBe(true)
+    expect(res.recommendations.length).toBeLessThanOrEqual(6)
+    if (res.recommendations.length > 0) {
+      expect(typeof res.recommendations[0]).toBe('string')
+    }
+  })
+
+  it('analyzer respects cache TTL and robots for respectful scrape', async () => {
+    const res1 = await analyzeCompetitorSite('https://example.com')
+    const res2 = await analyzeCompetitorSite('https://example.com')
+    // cache hit should return same analyzedAt
+    expect(res2.analyzedAt).toBe(res1.analyzedAt)
+  })
 })

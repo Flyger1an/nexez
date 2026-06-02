@@ -169,7 +169,7 @@ export default function Dashboard() {
         </aside>
 
         <section className="min-w-0 flex-1">
-          <header className="flex items-center justify-between border-b border-white/10 bg-[#0F0D18] px-5 py-4 md:px-8">
+          <header className="flex flex-col gap-3 border-b border-white/10 bg-[#0F0D18] px-5 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
             <div className="min-w-0">
               <p className="text-sm text-[#9CA3AF]">Nexez • Dashboard</p>
               <h1 className="truncate text-2xl font-semibold tracking-tight">My Agent Pages</h1>
@@ -370,7 +370,7 @@ function PageCard({
           {eventCount} agent signals
         </div>
 
-        <div className="mt-4 grid grid-cols-6 gap-2">
+        <div className="mt-4 grid grid-cols-3 sm:grid-cols-6 gap-2">
           <a href={`/dashboard/${page.id}`} className={actionClass} aria-label="Edit page">
             <Pencil className="size-4" />
           </a>

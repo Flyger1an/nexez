@@ -16,7 +16,7 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
           Back to agent page
         </a>
 
-        <section className="mt-8 rounded-lg border border-white/10 bg-white/[0.04] p-8 text-center">
+        <section className="mt-8 card !p-8 text-center">
           <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-emerald-400 text-zinc-950">
             <CheckCircle2 className="size-9" />
           </div>
@@ -27,7 +27,7 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
             the session from Stripe metadata.
           </p>
 
-          <div className="mt-7 grid gap-3 text-left text-sm md:grid-cols-2">
+          <div className="mt-7 grid grid-cols-1 gap-3 text-left text-sm md:grid-cols-2">
             <Detail label="Offer key" value={search.offer || 'Not provided'} />
             <Detail label="Stripe session" value={search.session_id || 'Pending provider callback'} />
           </div>
@@ -50,7 +50,7 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
 
 function Detail({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-black/20 p-4">
+    <div className="card !p-4">
       <p className="text-xs uppercase tracking-wide text-zinc-500">{label}</p>
       <p className="mt-2 break-all text-zinc-200">{value}</p>
     </div>

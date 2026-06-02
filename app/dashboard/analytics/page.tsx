@@ -369,7 +369,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           </div>
         </div>
 
-        <section className="mt-5 rounded-lg border border-white/10 bg-white/[0.04]">
+        <section className="mt-5 card !p-0">
           <div className="flex flex-col justify-between gap-3 border-b border-white/10 p-5 md:flex-row md:items-center">
             <h2 className="text-xl font-semibold">Recent Agent Interactions</h2>
             <p className="text-sm text-zinc-500">{filteredEvents.length} matching signals</p>

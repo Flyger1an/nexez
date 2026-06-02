@@ -171,7 +171,7 @@ export default function CompetitorIntelligence() {
                 <div className="text-sm mb-3">Analysis for <a href={extAnalysis.url} target="_blank" className="underline inline-flex items-center gap-1">{extAnalysis.url} <ExternalLink className="size-3" /></a> • {new Date(extAnalysis.analyzedAt).toLocaleString()}</div>
 
                 {/* Visual scores per spec */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-5">
                   {[
                     { label: 'Overall Agent Trust', val: extAnalysis.scores?.overall, color: 'emerald' },
                     { label: 'Parseability', val: extAnalysis.scores?.parseability, color: 'cyan' },

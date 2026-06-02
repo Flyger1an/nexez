@@ -42,7 +42,7 @@ export default function DesignSystemShowcase() {
         {/* Cards */}
         <section className="mt-16">
           <h2 className="text-2xl font-semibold mb-6 tracking-tight">Cards</h2>
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="card">
               <div className="text-[#00F5FF] mb-2">Premium</div>
               <h3 className="text-2xl font-semibold">Standard Card</h3>

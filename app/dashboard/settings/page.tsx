@@ -93,7 +93,7 @@ export default async function AccountSettingsPage() {
           </aside>
 
           <div className="space-y-5">
-            <section className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+            <section className="card !p-5">
               <div className="flex items-center gap-2">
                 <Search className="size-5 text-cyan-200" />
                 <h2 className="text-xl font-semibold">Discovery Endpoints</h2>
@@ -108,8 +108,8 @@ export default async function AccountSettingsPage() {
               </div>
             </section>
 
-            <section className="grid gap-5 xl:grid-cols-2">
-              <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+            <section className="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-2">
+              <div className="card !p-5">
                 <div className="flex items-center gap-2">
                   <Globe2 className="size-5 text-cyan-200" />
                   <h2 className="text-xl font-semibold">Custom Domain Readiness</h2>
@@ -121,7 +121,7 @@ export default async function AccountSettingsPage() {
                 </div>
               </div>
 
-              <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+              <div className="card !p-5">
                 <div className="flex items-center gap-2">
                   <KeyRound className="size-5 text-cyan-200" />
                   <h2 className="text-xl font-semibold">API Access</h2>
@@ -134,7 +134,7 @@ export default async function AccountSettingsPage() {
               </div>
             </section>
 
-            <section className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+            <section className="card !p-5">
               <div className="flex items-center gap-2">
                 <Code2 className="size-5 text-cyan-200" />
                 <h2 className="text-xl font-semibold">Schema Controls</h2>
@@ -152,7 +152,7 @@ export default async function AccountSettingsPage() {
               </div>
             </section>
 
-            <section className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+            <section className="card !p-5">
               <div className="flex items-center gap-2">
                 <Link2 className="size-5 text-cyan-200" />
                 <h2 className="text-xl font-semibold">Page Surface Status</h2>
@@ -221,7 +221,7 @@ function ConfigRow({ label, value }: { label: string; value: string }) {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+    <div className="card !p-5">
       <p className="text-sm text-zinc-500">{label}</p>
       <p className="mt-2 text-4xl font-semibold tracking-tight">{value}</p>
     </div>

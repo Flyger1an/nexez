@@ -21,6 +21,7 @@ type CoPilotProps = {
   onApplyServices: (newText: string, newOffers: OfferItem[]) => void
   onApplyProducts: (newText: string, newOffers: OfferItem[]) => void
   onTrackUse: () => void
+  llmOptIn?: boolean  // Tier 3: from page llm_opt_in flag for hook
 }
 
 export function AICoPilot({
@@ -31,6 +32,7 @@ export function AICoPilot({
   onApplyServices,
   onApplyProducts,
   onTrackUse,
+  llmOptIn = false,
 }: CoPilotProps) {
   const [activeTab, setActiveTab] = useState<'desc' | 'pricing' | 'faq' | 'schema' | 'voice'>('desc')
   const [applied, setApplied] = useState<Record<string, boolean>>({})
@@ -120,7 +122,7 @@ export function AICoPilot({
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="size-4 text-[#C4B5FD]" />
         <span className="font-semibold text-[#C4B5FD]">AI Co-Pilot — Deterministic Agent Optimization</span>
-        <span className="ml-auto text-[10px] text-zinc-500">Before/After + one-click apply • Uses: {usageCount} (modular: Pro removes limits)</span>
+        <span className="ml-auto text-[10px] text-zinc-500">Before/After + one-click apply • Uses: {usageCount} (modular: Pro removes limits) {llmOptIn ? '• LLM opt-in enabled (hook)' : ''}</span>
       </div>
 
       {showMsg && <div className="mb-2 text-xs text-emerald-300">{showMsg}</div>}

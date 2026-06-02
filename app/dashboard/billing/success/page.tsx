@@ -17,7 +17,7 @@ export default async function BillingSuccessPage({ searchParams }: SuccessProps)
           Billing
         </a>
 
-        <section className="mt-8 rounded-lg border border-white/10 bg-white/[0.04] p-8 text-center">
+        <section className="mt-8 card !p-8 text-center">
           <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-emerald-400 text-zinc-950">
             <CheckCircle2 className="size-9" />
           </div>
@@ -29,7 +29,7 @@ export default async function BillingSuccessPage({ searchParams }: SuccessProps)
             Stripe created a subscription checkout session for this Nexez workspace.
           </p>
 
-          <div className="mt-7 rounded-lg border border-white/10 bg-black/20 p-4 text-left text-sm">
+          <div className="mt-7 card !p-4 text-left text-sm">
             <p className="text-xs uppercase tracking-wide text-zinc-500">Stripe session</p>
             <p className="mt-2 break-all font-mono text-zinc-200">{sessionId || 'No session id provided'}</p>
           </div>

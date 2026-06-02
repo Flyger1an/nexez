@@ -503,7 +503,7 @@ export default function CreatePage() {
         </div>
 
         {/* Site Importer - Prominent first-class option */}
-        <div className="mt-8 rounded-3xl border border-[#7C3AED]/40 bg-[#1A1625] p-8">
+        <div className="card !p-8 mt-8 border border-[#7C3AED]/40">
           <div className="text-center mb-6">
             <div className="inline-flex items-center justify-center size-12 rounded-2xl bg-[#7C3AED]/20 text-[#7C3AED] mb-4">
               <Bot className="size-6" />
@@ -580,11 +580,11 @@ export default function CreatePage() {
         </div>
 
         <section className="mx-auto mt-10 max-w-4xl text-center">
-          <h1 className="text-5xl font-semibold tracking-tight">Build your Nexez Agent Page</h1>
+          <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight">Build your Nexez Agent Page</h1>
           <p className="mt-4 text-zinc-400">Create a clean, AI-optimized page for your products and services — designed so agents can discover, understand, and buy.</p>
         </section>
 
-        <div className="mx-auto mt-10 max-w-5xl overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
+        <div className="card mt-10 max-w-5xl overflow-hidden">
           <div className="border-b border-white/10 p-6">
             <Progress step={step} />
             <div className="mt-5 flex items-center justify-between">
@@ -664,7 +664,7 @@ export default function CreatePage() {
                   </div>
 
                   {stripeImportOpen && (
-                    <div className="rounded-lg border border-cyan-300/30 bg-black/30 p-4">
+                    <div className="card !p-4 border border-cyan-300/30">
                       <p className="text-sm font-medium text-cyan-200">Stripe Product or Price Import</p>
                       <p className="mt-1 text-xs text-zinc-400">
                         Paste a <code>prod_</code> ID or one or more <code>price_</code> IDs (comma separated). Requires STRIPE_SECRET_KEY on the server.
@@ -690,7 +690,7 @@ export default function CreatePage() {
                   )}
 
                   {calendlyImportOpen && (
-                    <div className="rounded-lg border border-violet-300/30 bg-black/30 p-4">
+                    <div className="card !p-4 border border-violet-300/30">
                       <p className="text-sm font-medium text-violet-200">Calendly Bookings Import</p>
                       <p className="mt-1 text-xs text-zinc-400">
                         Paste a Calendly Personal Access Token. We&apos;ll import your active event types as rich editable offers (duration + direct booking URL included).
@@ -818,6 +818,7 @@ export default function CreatePage() {
                         onApplyServices={(text, offers) => { setServicesOffers(offers); setServices(text) }}
                         onApplyProducts={(text, offers) => { setProductsOffers(offers); setProducts(text) }}
                         onTrackUse={() => {}}
+                        llmOptIn={false}
                       />
                     </div>
                   </div>
@@ -961,7 +962,7 @@ Action: ${ctaLabel || 'Visit website'}`}
 
 function Progress({ step }: { step: number }) {
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
       {[1, 2, 3].map((item) => (
         <div key={item} className="flex items-center gap-3">
           <div className={`flex size-7 items-center justify-center rounded-full text-xs font-semibold ${item <= step ? 'bg-cyan-300 text-zinc-950' : 'bg-zinc-700 text-zinc-300'}`}>

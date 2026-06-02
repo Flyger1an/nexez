@@ -53,7 +53,7 @@ export default async function NexezHome() {
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       {/* Navigation - Transparent to solid on scroll (per spec) */}
       <nav className="sticky top-0 z-50 border-b border-white/10 bg-[#0A0A0F]/95 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-0 sm:py-5">
           <a href="/" className="flex items-center gap-3">
             <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#7C3AED] to-[#00F5FF]">
               <span className="text-lg font-bold text-[#0A0A0F]">N</span>
@@ -61,7 +61,7 @@ export default async function NexezHome() {
             <span className="text-2xl font-semibold tracking-tight">Nexez</span>
           </a>
 
-          <div className="flex items-center gap-8 text-sm">
+          <div className="flex flex-wrap items-center gap-3 text-sm sm:gap-4 md:gap-8">
             {/* Only show Directory for logged-in users or as secondary discovery.
                 Dashboard is never shown to non-authenticated visitors in primary nav. */}
             {user && (
@@ -69,12 +69,12 @@ export default async function NexezHome() {
             )}
             
             {user ? (
-              <a href="/dashboard" className="btn-secondary">Dashboard</a>
+              <a href="/dashboard" className="btn-secondary px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm">Dashboard</a>
             ) : (
-              <a href="/login" className="btn-secondary">Sign in</a>
+              <a href="/login" className="btn-secondary px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm">Sign in</a>
             )}
             
-            <a href="/create" className="btn-primary">
+            <a href="/create" className="btn-primary px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm">
               Create Free Page
               <ArrowRight className="size-4" />
             </a>
@@ -90,7 +90,7 @@ export default async function NexezHome() {
             <span className="text-[#C4B5FD]">Human-first management. Agent-first consumption.</span>
           </div>
 
-          <h1 className="mx-auto max-w-5xl text-balance text-6xl font-semibold tracking-tighter md:text-7xl lg:text-[80px]">
+          <h1 className="mx-auto max-w-5xl text-balance text-5xl font-semibold tracking-tighter sm:text-6xl md:text-7xl lg:text-[80px]">
             Make your services<br />legible to AI.
           </h1>
 
@@ -151,7 +151,7 @@ export default async function NexezHome() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               { title: "Agent Events Tracked", desc: "See every time an AI system lands on your page, attempts checkout, or redirects to your site — with source (ChatGPT, Claude, etc.)." },
               { title: "Conversion Actions", desc: "Real outcomes: provider redirects, Stripe sessions created, and completed bookings attributed to agent discovery." },
@@ -188,7 +188,7 @@ export default async function NexezHome() {
             {/* Mock KPI Row */}
             <div className="card bg-white/[0.03]">
               <div className="text-sm text-[#9CA3AF] mb-3">This month</div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <div className="text-3xl font-semibold tracking-tighter">1,284</div>
                   <div className="text-xs text-[#9CA3AF]">Agent events</div>

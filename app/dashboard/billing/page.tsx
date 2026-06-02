@@ -60,13 +60,20 @@ export default async function BillingPage({ searchParams }: BillingProps) {
               <h1 className="mt-3 text-4xl font-semibold tracking-tight">Choose the operating plan.</h1>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-1">
               <Stat label="Pages" value={String(pageCount)} />
               <Stat label="Listed offers" value={String(offerCount)} />
             </div>
 
+            {/* Tier 3: Agent revenue share display (post-audit, using analytics lib) */}
+            <div className="card !p-5 border border-emerald-300/20">
+              <p className="font-medium text-emerald-200">Agent-driven revenue (Tier 3)</p>
+              <p className="mt-1 text-[#9CA3AF]">Tracked in <a href="/dashboard/analytics" className="underline">Analytics</a> via checkout_events (agent UA/query/referrer).</p>
+              <p className="mt-1 text-xs text-[#9CA3AF]">Est. your share: 15% of agent-sourced Stripe revenue (configurable per plan). See full breakdown + pipeline in analytics for real calc from getAgentDrivenRevenueCents.</p>
+            </div>
+
             {/* Heuristic plan status for lean MVP (based on published count) */}
-            <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm">
+            <div className="card !p-4 text-sm">
               <p className="font-medium text-cyan-200">Current usage vs plans</p>
               <p className="mt-2 text-zinc-300">
                 {pageCount} published pages · {offerCount} total offers
@@ -76,7 +83,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
               </p>
             </div>
 
-            <div className={`rounded-lg border p-5 ${stripeReady ? 'border-emerald-300/20 bg-emerald-300/10' : 'border-amber-200/20 bg-amber-200/10'}`}>
+            <div className={`card !p-5 ${stripeReady ? 'border-emerald-300/20 bg-emerald-300/10' : 'border-amber-200/20 bg-amber-200/10'}`}>
               <div className="flex items-center gap-2">
                 <BadgeCheck className={`size-5 ${stripeReady ? 'text-emerald-300' : 'text-amber-200'}`} />
                 <p className="font-semibold">{stripeReady ? 'Stripe billing ready' : 'Stripe setup pending'}</p>
@@ -111,7 +118,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
             ) : null}
           </aside>
 
-          <section className="grid gap-4 xl:grid-cols-3">
+          <section className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
             {billingPlans.map((plan, index) => {
               const configured = Boolean(getPlanPriceId(plan) && process.env.STRIPE_SECRET_KEY)
               return (
@@ -169,7 +176,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+    <div className="card !p-5">
       <p className="text-sm text-zinc-500">{label}</p>
       <p className="mt-2 text-4xl font-semibold tracking-tight">{value}</p>
     </div>

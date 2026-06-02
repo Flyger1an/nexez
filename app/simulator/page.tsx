@@ -234,19 +234,19 @@ export default function GlobalAgentSimulator() {
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <ErrorBoundary>
         <div className="mx-auto max-w-7xl px-6 py-8">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col gap-4 mb-8 md:flex-row md:items-end md:justify-between">
             <div>
               <a href="/dashboard" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
                 <ArrowLeft className="size-4" />
                 Dashboard
               </a>
               <p className="mt-2 text-sm text-[#9CA3AF]">Global Agent Simulator</p>
-              <h1 className="text-4xl font-semibold tracking-tighter">See how any AI agent parses a Nexez page</h1>
+              <h1 className="text-3xl md:text-4xl font-semibold tracking-tighter">See how any AI agent parses a Nexez page</h1>
             </div>
-            <div className="flex gap-3">
-              <a href="/directory" className="btn-secondary">Browse Directory</a>
+            <div className="flex flex-wrap gap-3">
+              <a href="/directory" className="btn-secondary text-sm">Browse Directory</a>
               {selectedPage && (
-                <a href={`/dashboard/${(selectedPage as any).id || ''}/test`} className="btn-secondary">
+                <a href={`/dashboard/${(selectedPage as any).id || ''}/test`} className="btn-secondary text-sm">
                   Deep per-page simulator →
                 </a>
               )}
@@ -317,12 +317,12 @@ export default function GlobalAgentSimulator() {
           {/* Results */}
           {selectedPage && simulationResults.length > 0 && (
             <>
-              <div className="flex border-b border-white/10 mb-6">
+              <div className="flex border-b border-white/10 mb-6 overflow-x-auto">
                 {agentTabs.map((tab) => (
                   <button
                     key={tab}
                     onClick={() => switchAgent(tab)}
-                    className={`agent-tab px-6 py-3 text-sm font-medium border-b-2 transition-all ${
+                    className={`agent-tab px-6 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
                       currentAgent === tab 
                         ? 'border-[#7C3AED] text-white bg-[#1A1625]' 
                         : 'border-transparent text-[#9CA3AF] hover:text-white'

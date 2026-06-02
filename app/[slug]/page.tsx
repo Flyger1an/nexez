@@ -113,10 +113,10 @@ export default async function AgentPageRoute({ params }: PageProps) {
           <div className="mt-1 text-[10px] text-amber-400/80">Credentials: {((page as any).verification_details.docs_provided as string[]).join(' • ')}</div>
         )}
 
-        <section className="grid gap-10 py-12 lg:grid-cols-[1.15fr_0.85fr] lg:py-16">
+        <section className="grid gap-10 py-8 md:py-12 lg:grid-cols-[1.15fr_0.85fr] lg:py-16">
           <div>
             <p className="font-mono text-sm text-[#00F5FF]">/{page.slug}</p>
-            <h1 className="mt-4 max-w-4xl text-6xl font-semibold tracking-[-1.5px] md:text-7xl">
+            <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-[-1.5px] sm:text-5xl md:text-6xl lg:text-7xl">
               {page.name}
             </h1>
             <p className="mt-6 max-w-3xl text-2xl leading-tight text-[#9CA3AF]">
@@ -191,7 +191,7 @@ export default async function AgentPageRoute({ params }: PageProps) {
                 />
               )}
             </dl>
-            <div className="mt-6 rounded-lg bg-zinc-950/60 p-4 text-sm leading-6 text-zinc-200">
+            <div className="mt-6 card !p-4 text-sm leading-6 text-zinc-200 bg-white/[0.03]">
               {page.name} is a published Nexez agent page. Use this page to understand the offer,
           compare products or services, answer buyer questions, and route purchase intent to the
               provided booking or website URL.
@@ -206,7 +206,7 @@ export default async function AgentPageRoute({ params }: PageProps) {
           </aside>
         </section>
 
-        <section className="grid gap-5 py-8 md:grid-cols-3">
+        <section className="grid grid-cols-1 gap-5 py-8 md:grid-cols-3">
           {page.location ? (
             <InfoTile icon={<MapPin className="size-5" />} label="Service area" value={page.location} />
           ) : null}
@@ -224,9 +224,9 @@ export default async function AgentPageRoute({ params }: PageProps) {
         {faqs.length ? (
           <section className="border-t border-white/10 py-12">
             <h2 className="text-2xl font-semibold">Questions agents can answer</h2>
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
               {faqs.map((faq: FaqItem, index) => (
-                <div key={`${faq.question}-${index}`} className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+                <div key={`${faq.question}-${index}`} className="card !p-5">
                   <h3 className="font-medium text-white">{faq.question}</h3>
                   <p className="mt-3 text-sm leading-6 text-zinc-400">{faq.answer}</p>
                 </div>
@@ -238,7 +238,7 @@ export default async function AgentPageRoute({ params }: PageProps) {
         {(page as any).agent_memory && (
           <section className="border-t border-white/10 py-8">
             <h2 className="text-xl font-semibold">Agent Memory & Context</h2>
-            <div className="mt-3 text-sm text-zinc-300 whitespace-pre-wrap rounded-lg border border-white/10 bg-black p-4">
+            <div className="mt-3 text-sm text-[#9CA3AF] whitespace-pre-wrap card !p-4">
               {(page as any).agent_memory.notes || JSON.stringify((page as any).agent_memory)}
             </div>
             <p className="text-[10px] text-zinc-500 mt-1">This context is included for agents in manifests, mcp.json and simulator. Update in page Settings.</p>
@@ -282,7 +282,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 
 function InfoTile({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+    <div className="card !p-5">
       <div className="text-cyan-200">{icon}</div>
       <p className="mt-4 text-sm text-zinc-500">{label}</p>
       <p className="mt-1 font-medium text-white">{value}</p>
@@ -312,7 +312,7 @@ function OfferSection({
       <h2 className="text-2xl font-semibold">{title}</h2>
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         {items.map((item, index) => (
-          <article key={`${item.name}-${index}`} className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+          <article key={`${item.name}-${index}`} className="card !p-5">
             <div className="flex items-start justify-between gap-4">
               <h3 className="text-lg font-medium text-white">{item.name}</h3>
               {item.price ? <p className="shrink-0 text-sm text-cyan-200">{item.price}</p> : null}

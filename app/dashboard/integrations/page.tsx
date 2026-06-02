@@ -167,7 +167,7 @@ export default function IntegrationsPage() {
                 offers, route bookings, and avoid stale pricing.
               </p>
             </div>
-            <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-4 text-xs">
+            <div className="card !p-4 text-xs border-cyan-300/20 bg-cyan-300/10">
               <p className="font-medium text-cyan-100 mb-2">Integrations Health — Phase 3 (aggressive)</p>
               <div className="space-y-1 text-zinc-300 text-[11px]">
                 <div className="flex justify-between"><span>Calendly</span><span className="text-emerald-400">Import + Webhooks + Secrets</span></div>
@@ -189,7 +189,7 @@ export default function IntegrationsPage() {
               ))}
             </div>
 
-            <div className="mt-5 flex flex-col justify-between gap-4 rounded-lg border border-white/10 bg-white/[0.04] p-5 md:flex-row md:items-center">
+            <div className="mt-5 flex flex-col justify-between gap-4 card !p-5 md:flex-row md:items-center">
               <div>
                 <h2 className="text-xl font-semibold">No integration yet?</h2>
                 <p className="mt-2 text-sm text-zinc-400">
@@ -206,7 +206,7 @@ export default function IntegrationsPage() {
             </div>
 
             {/* Full throttle: Dedicated Consumer Integrations section - polished */}
-            <div className="mt-6 rounded-lg border border-pink-300/20 bg-pink-300/5 p-5">
+            <div className="mt-6 card !p-5 border-pink-300/20 bg-pink-300/5">
               <div className="font-semibold text-pink-300 mb-2">Consumer & Local Services Integrations</div>
               <div className="grid gap-4 md:grid-cols-2 text-sm">
                 <div>
@@ -255,7 +255,7 @@ function IntegrationCard({
   const connected = status === 'Connected'
 
   return (
-    <article className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+    <article className="card !p-5">
       <div className="flex items-start justify-between">
         <div
           className={`flex size-11 items-center justify-center rounded-lg ${
@@ -272,7 +272,7 @@ function IntegrationCard({
         >
           <Icon className="size-5" />
         </div>
-        <button className="rounded-md p-1 text-zinc-500 hover:bg-white/10 hover:text-white" aria-label={`${name} options`}>
+        <button className="min-h-[44px] min-w-[44px] rounded-md p-2 text-zinc-500 hover:bg-white/10 hover:text-white active:bg-white/10 md:p-1" aria-label={`${name} options`}>
           <MoreHorizontal className="size-5" />
         </button>
       </div>
@@ -280,16 +280,16 @@ function IntegrationCard({
       <h3 className="mt-6 text-xl font-semibold">{name}</h3>
       <p className="mt-2 min-h-12 text-sm leading-6 text-zinc-400">{description}</p>
 
-      <div className="mt-6 flex gap-2">
+      <div className="mt-6 flex flex-col gap-2 sm:flex-row">
         <span
-          className={`inline-flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium ${
+          className={`inline-flex items-center justify-center gap-1 rounded-md px-3 py-2 text-sm font-medium ${
             connected ? 'bg-emerald-400/20 text-emerald-100' : 'bg-white/10 text-zinc-300'
           }`}
         >
           {connected ? <CheckCircle2 className="size-4" /> : <Settings className="size-4" />}
           {status}
         </span>
-        <a href={href} className="flex-1 rounded-md bg-white/15 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-white/20">
+        <a href={href} className="flex-1 rounded-md bg-white/15 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-white/20 active:bg-white/20">
           {action}
         </a>
       </div>

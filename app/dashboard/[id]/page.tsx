@@ -539,37 +539,63 @@ export default function EditAgentPage({ params }: PageProps) {
     const existingVersions = (page as any).versions || []
     const newVersions = [currentSnapshot, ...existingVersions].slice(0, 10) // keep last 10
 
+    // Deeper Team: if pending approvals, queue this edit as approval request (do not block save for MVP, but record)
+    let updatePayload: any = {
+      name,
+      slug: normalizeSlug(slug || name),
+      description,
+      website_url: websiteUrl,
+      cta_url: ctaUrl || websiteUrl,
+      cta_label: ctaLabel || 'Visit website',
+      audience,
+      location,
+      contact_email: contactEmail,
+      industry,
+      prefer_original_site: preferOriginalSite,
+      next_available: nextAvailable || null,
+      // Phase 1 A: Prefer rich primary arrays
+      products: productsOffers.length ? productsOffers : parseOfferLines(products),
+      services: servicesOffers.length ? servicesOffers : parseOfferLines(services),
+      faqs: parseFaqLines(faqs),
+      is_published: isPublished,
+      versions: newVersions,  // Phase 4: simple versioning
+    }
+    const teamCollab = (page as any).team_collaboration || {}
+    if (teamCollab.approvals?.some((a: any) => a.status === 'pending')) {
+      const newApproval = {
+        id: Date.now().toString(36),
+        approver: 'self',
+        status: 'pending',
+        note: `Edit to ${name} (offers/desc update)`,
+        ts: new Date().toISOString(),
+        snapshot: currentSnapshot,
+      }
+      const updatedApprovals = [...(teamCollab.approvals || []), newApproval]
+      updatePayload.team_collaboration = { ...teamCollab, approvals: updatedApprovals }
+      setMessage('Pending team approvals detected — this edit queued as new approval request.')
+    }
+
     const { error } = await supabase
       .from('pages')
-      .update({
-        name,
-        slug: normalizeSlug(slug || name),
-        description,
-        website_url: websiteUrl,
-        cta_url: ctaUrl || websiteUrl,
-        cta_label: ctaLabel || 'Visit website',
-        audience,
-        location,
-        contact_email: contactEmail,
-        industry,
-        prefer_original_site: preferOriginalSite,
-        next_available: nextAvailable || null,
-        // Phase 1 A: Prefer rich primary arrays
-        products: productsOffers.length ? productsOffers : parseOfferLines(products),
-        services: servicesOffers.length ? servicesOffers : parseOfferLines(services),
-        faqs: parseFaqLines(faqs),
-        is_published: isPublished,
-        versions: newVersions,  // Phase 4: simple versioning
-      })
+      .update(updatePayload)
       .eq('id', page.id)
 
     // Update local page state with new versions for immediate UI
     if (!error) {
       setPage({ ...(page as any), versions: newVersions } as any)
+      if (updatePayload.team_collaboration) {
+        setPage({ ...(page as any), team_collaboration: updatePayload.team_collaboration } as any)
+      }
     }
 
     setSaving(false)
-    setMessage(error ? error.message : 'Saved. Version snapshot created.')
+    if (error) {
+      setMessage(error.message)
+    } else if (updatePayload.team_collaboration) {
+      setMessage('Saved. Edit queued as team approval request (see Settings). Version snapshot created.')
+    } else {
+      setMessage('Saved. Version snapshot created.')
+    }
   }
 
   if (loading) {
@@ -769,7 +795,7 @@ export default function EditAgentPage({ params }: PageProps) {
             {industry && (industry.toLowerCase().includes('home') || industry.toLowerCase().includes('fitness') || industry.toLowerCase().includes('wellness') || industry.toLowerCase().includes('beauty') || industry.toLowerCase().includes('pet') || industry.toLowerCase().includes('automotive')) && (
               <div className="rounded-xl border border-[#7C3AED]/20 bg-[#1A1625] p-4">
                 <div className="text-sm font-medium text-[#C4B5FD] mb-2">Consumer / Local Services</div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                   <div>Duration, Service Area, Mobile, Travel Fee fields are available in each offer card below.</div>
                 </div>
               </div>
@@ -832,6 +858,7 @@ export default function EditAgentPage({ params }: PageProps) {
                   // Simple usage tracking (persisted on next save via versions or could be dedicated counter)
                   setMessage((m) => (m || '') + ' (AI Co-Pilot use tracked)')
                 }}
+                llmOptIn={(page as any)?.llm_opt_in || false}
               />
 
               <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
@@ -993,15 +1020,19 @@ export default function EditAgentPage({ params }: PageProps) {
                 <button
                   type="button"
                   onClick={async () => {
-                    // Demo: request approval for current state (saves pending to team_collaboration)
+                    // Deeper team: actually persist pending approval using page id (post-audit)
                     try {
                       const supabase = (await import('../../../utils/supabase/client')).createClient()
                       const current = (page as any)?.team_collaboration || { approvals: [] }
                       const newA = { id: Date.now().toString(36), approver: 'self', status: 'pending', note: 'Current edits (offers/desc etc)', ts: new Date().toISOString() }
                       const updated = { ...current, approvals: [...(current.approvals || []), newA] }
-                      // Note: this would need the id; for demo we just message (real save in settings)
-                      alert('Approval request simulated. Go to Settings > Team Approvals to manage (or save page first).')
-                    } catch {}
+                      if ((page as any)?.id) {
+                        await supabase.from('pages').update({ team_collaboration: updated }).eq('id', (page as any).id)
+                        alert('Approval request saved to team_collaboration. Manage in Settings.')
+                      } else {
+                        alert('Page id not available; save page first then request.')
+                      }
+                    } catch (e) { alert('Failed to request: ' + (e as any).message) }
                   }}
                   className="text-[10px] mt-1 text-cyan-400 hover:underline"
                 >
@@ -1411,6 +1442,12 @@ export default function EditAgentPage({ params }: PageProps) {
             </label>
 
             {message ? <p className="rounded-lg border border-white/10 bg-black/30 p-3 text-sm text-zinc-300">{message}</p> : null}
+
+            {(page as any)?.team_collaboration?.approvals?.some((a: any) => a.status === 'pending') && (
+              <div className="rounded-lg border border-amber-300/30 bg-amber-400/5 p-3 text-xs text-amber-200">
+                Team approvals pending. Saving will queue these edits as a new approval request (see Settings). The live published version updates only after approval.
+              </div>
+            )}
 
             <button
               type="submit"

@@ -156,7 +156,10 @@ export function VisualOfferBuilder({ offers, kind, onChange, businessName, audie
   const [sourceFilter, setSourceFilter] = useState<string>('all')
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      // Better mobile / touch support: require small move to activate drag so taps on inputs/buttons still work
+      activationConstraint: { distance: 8 },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -215,7 +218,7 @@ export function VisualOfferBuilder({ offers, kind, onChange, businessName, audie
               key={idx}
               type="button"
               onClick={() => addTemplate(tpl)}
-              className="rounded-lg border border-white/15 bg-white/[0.03] px-3 py-1.5 text-left text-xs text-cyan-200 hover:bg-white/10"
+              className="rounded-lg border border-white/15 bg-white/[0.03] px-3 py-2 text-left text-xs text-cyan-200 hover:bg-white/10 active:bg-white/10 md:py-1.5"
             >
               + {tpl.name}
             </button>
@@ -223,7 +226,7 @@ export function VisualOfferBuilder({ offers, kind, onChange, businessName, audie
           <button
             type="button"
             onClick={addBlank}
-            className="rounded-lg border border-white/15 bg-white/[0.03] px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/10"
+            className="rounded-lg border border-white/15 bg-white/[0.03] px-3 py-2 text-xs text-zinc-300 hover:bg-white/10 active:bg-white/10 md:py-1.5"
           >
             <Plus className="mr-1 inline size-3" /> Blank offer
           </button>
@@ -361,9 +364,10 @@ function SortableOfferCard({
           type="button"
           {...attributes}
           {...listeners}
-          className="mt-2 cursor-grab text-zinc-500 active:cursor-grabbing"
+          className="mt-1 min-h-[44px] min-w-[44px] cursor-grab touch-manipulation rounded p-2 text-zinc-400 active:cursor-grabbing active:bg-white/5 hover:text-white md:mt-2"
+          aria-label="Drag to reorder offer"
         >
-          <GripVertical className="size-4" />
+          <GripVertical className="size-5 md:size-4" />
         </button>
 
         <div className="flex-1 space-y-3">
@@ -434,23 +438,23 @@ function SortableOfferCard({
             {tiers.length > 0 && (
               <div className="space-y-2">
                 {tiers.map((tier, tIndex) => (
-                  <div key={tIndex} className="grid grid-cols-12 gap-2 items-center text-xs">
-                    <input value={tier.name} placeholder="Tier" className="col-span-3 rounded border border-white/10 bg-black/30 px-2 py-1" onChange={(e) => {
+                  <div key={tIndex} className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-12 sm:items-center">
+                    <input value={tier.name} placeholder="Tier" className="rounded border border-white/10 bg-black/30 px-2 py-1.5 sm:col-span-3 sm:py-1" onChange={(e) => {
                       const newTiers = [...tiers]; newTiers[tIndex].name = e.target.value;
                       onUpdateFull ? onUpdateFull(index, { tiers: newTiers }) : onUpdate(index, 'description', JSON.stringify({ __tiers: newTiers }));
                     }} />
-                    <input value={tier.price} placeholder="Price" className="col-span-3 rounded border border-white/10 bg-black/30 px-2 py-1" onChange={(e) => {
+                    <input value={tier.price} placeholder="Price" className="rounded border border-white/10 bg-black/30 px-2 py-1.5 sm:col-span-3 sm:py-1" onChange={(e) => {
                       const newTiers = [...tiers]; newTiers[tIndex].price = e.target.value;
                       onUpdateFull ? onUpdateFull(index, { tiers: newTiers }) : onUpdate(index, 'description', JSON.stringify({ __tiers: newTiers }));
                     }} />
-                    <input value={tier.description || ''} placeholder="What's included" className="col-span-5 rounded border border-white/10 bg-black/30 px-2 py-1" onChange={(e) => {
+                    <input value={tier.description || ''} placeholder="What's included" className="rounded border border-white/10 bg-black/30 px-2 py-1.5 sm:col-span-5 sm:py-1" onChange={(e) => {
                       const newTiers = [...tiers]; newTiers[tIndex].description = e.target.value;
                       onUpdateFull ? onUpdateFull(index, { tiers: newTiers }) : onUpdate(index, 'description', JSON.stringify({ __tiers: newTiers }));
                     }} />
                     <button onClick={() => {
                       const newTiers = tiers.filter((_, i) => i !== tIndex);
                       onUpdateFull ? onUpdateFull(index, { tiers: newTiers }) : onUpdate(index, 'description', JSON.stringify({ __tiers: newTiers }));
-                    }} className="col-span-1 text-red-400">×</button>
+                    }} className="text-red-400 py-1 sm:col-span-1">×</button>
                   </div>
                 ))}
               </div>
@@ -523,9 +527,10 @@ function SortableOfferCard({
         <button
           type="button"
           onClick={() => onRemove(index)}
-          className="mt-1 rounded p-1 text-red-400 hover:bg-red-500/10"
+          className="mt-1 min-h-[44px] min-w-[44px] rounded p-2 text-red-400 hover:bg-red-500/10 active:bg-red-500/20 md:mt-1 md:p-1"
+          aria-label="Remove offer"
         >
-          <Trash2 className="size-4" />
+          <Trash2 className="size-5 md:size-4" />
         </button>
       </div>
     </div>

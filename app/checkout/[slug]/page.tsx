@@ -120,7 +120,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
           </div>
         </div>
 
-        <section className="mt-8 overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br from-[#141720] via-[#0f141c] to-[#10201f]">
+        <section className="mt-8 overflow-hidden card !p-0 border border-white/10 bg-gradient-to-br from-[#141720] via-[#0f141c] to-[#10201f]">
           <div className="border-b border-white/10 px-6 py-8 text-center md:px-10">
             <p className="text-sm font-medium text-cyan-200">Powered by Nexez + payment provider</p>
             <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-5xl">
@@ -241,7 +241,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
         </section>
 
         <section className="mt-6 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
-          <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+          <div className="card !p-5">
             <div className="flex items-center gap-2 text-cyan-100">
               <Sparkles className="size-5" />
               <h2 className="font-semibold">Agent Handoff</h2>
@@ -318,7 +318,7 @@ function CheckoutInput({ label, value }: { label: string; value: string }) {
 
 function Signal({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 text-zinc-300">
+    <div className="flex items-center gap-2 card !p-3 text-zinc-300">
       <span className="text-cyan-200">{icon}</span>
       {label}
     </div>

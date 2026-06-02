@@ -52,7 +52,7 @@ export default function LoginPage() {
           Home
         </a>
 
-        <div className="rounded-lg border border-white/10 bg-white/[0.04] p-6">
+        <div className="card !p-6">
           <div className="mb-6 flex size-11 items-center justify-center rounded-lg bg-cyan-300/10 text-cyan-200">
             <LockKeyhole className="size-5" />
           </div>
