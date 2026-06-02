@@ -933,6 +933,7 @@ export default function EditAgentPage({ params }: PageProps) {
                   Re-sync keeps source metadata (via stripe, via shopify, etc.) and feeds the smart merge preview. Full control in <a href={`/dashboard/${id}/settings`} className="underline">Settings</a> or <a href="/dashboard/tools" className="underline">Tools</a>.
                 </p>
                 <div className="mt-2 text-[10px] text-emerald-300">Outbound + Google Calendar sync ready (see Availability section above)</div>
+                <div className="mt-1 text-[10px] text-zinc-400">Last re-sync times shown in badges • Full health in /dashboard/integrations</div>
               </div>
             )}
 
@@ -973,7 +974,7 @@ export default function EditAgentPage({ params }: PageProps) {
                     {pendingReanalysis.incomingServices?.some((o: any) => o.source) && (
                       <p className="mt-1 text-[10px] text-blue-400">
                         Includes offers from integrations (source preserved). 
-                        {pendingReanalysis.incomingServices.some((o: any) => o.source === 'stripe') && ' Stripe prices will be compared on apply.'}
+                        {pendingReanalysis.incomingServices.some((o: any) => o.source === 'stripe') && ' Stripe prices will be compared on apply (diffs shown in summary).'}
                       </p>
                     )}
                   </div>

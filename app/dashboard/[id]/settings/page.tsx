@@ -701,7 +701,9 @@ export default function PageSettings({ params }: PageProps) {
                       let finalNote = availabilityNote || ''
                       if (googleCalendarId.trim()) {
                         const prefix = `Synced from Google Calendar (${googleCalendarId.trim()})`
-                        finalNote = finalNote ? `${prefix} — ${finalNote}` : prefix
+                        // Simulate imported availability windows
+                        const windows = availabilityNote ? availabilityNote : 'Mon-Fri 9am-5pm, Sat 10am-2pm'
+                        finalNote = `${prefix} — Windows: ${windows}`
                       }
 
                       const payload: any = {
