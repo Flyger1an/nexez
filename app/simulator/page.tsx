@@ -13,6 +13,8 @@ import {
 import { ErrorBoundary } from '../../components/ErrorBoundary'
 import {
   AgentPage,
+  OWNER_PAGE_SELECT,
+  PUBLIC_PAGE_SELECT,
   getBaseUrl,
   getOfferCount,
   getReadinessScore,
@@ -56,7 +58,7 @@ export default function GlobalAgentSimulator() {
 
       const { data } = await supabase
         .from('pages')
-        .select('*')
+        .select(OWNER_PAGE_SELECT)
         .eq('owner_id', user.id)
         .eq('is_published', true)
         .order('created_at', { ascending: false })
@@ -74,7 +76,7 @@ export default function GlobalAgentSimulator() {
     // Public fetch (published pages)
     const { data } = await supabase
       .from('pages')
-      .select('*')
+      .select(PUBLIC_PAGE_SELECT)
       .eq('slug', slug)
       .eq('is_published', true)
       .single<AgentPage>()

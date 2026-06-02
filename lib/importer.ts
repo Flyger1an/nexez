@@ -25,6 +25,19 @@ export type ImportResult = {
 }
 
 const COMMON_PATHS = ['/services', '/pricing', '/book', '/appointments', '/rates', '/packages', '/contact', '/']
+const PRIVATE_HOST_PATTERNS = [
+  /^localhost$/i,
+  /^0(?:\.0){0,3}$/,
+  /^127\./,
+  /^10\./,
+  /^192\.168\./,
+  /^169\.254\./,
+  /^172\.(1[6-9]|2\d|3[0-1])\./,
+  /^\[?::1\]?$/i,
+  /^\[?fc[0-9a-f]{2}:/i,
+  /^\[?fd[0-9a-f]{2}:/i,
+  /^\[?fe80:/i,
+]
 
 // Simple in-memory short-TTL cache (Phase 5 robustness). Avoids hammering the same site repeatedly.
 const IMPORT_CACHE = new Map<string, { ts: number; result: ImportResult }>()
@@ -44,6 +57,31 @@ function setCached(url: string, result: ImportResult) {
     const first = IMPORT_CACHE.keys().next().value
     if (first) IMPORT_CACHE.delete(first)
   }
+}
+
+export function getImportUrlError(value: string): string | null {
+  let url: URL
+
+  try {
+    url = new URL(value)
+  } catch {
+    return 'Enter a valid website URL, including https://.'
+  }
+
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    return 'Website URL must use HTTP or HTTPS.'
+  }
+
+  const hostname = url.hostname.toLowerCase()
+  if (PRIVATE_HOST_PATTERNS.some((pattern) => pattern.test(hostname))) {
+    return 'Website URL cannot target localhost, private networks, or link-local addresses.'
+  }
+
+  if (!hostname.includes('.')) {
+    return 'Website URL must use a public hostname.'
+  }
+
+  return null
 }
 
 // Basic robots.txt respect (Phase 5). We only check Disallow for our paths.
@@ -172,6 +210,8 @@ function cleanName(text: string): string {
 }
 
 export async function fetchHtmlSafe(url: string, timeoutMs = 6500): Promise<string | null> {
+  if (getImportUrlError(url)) return null
+
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
@@ -346,6 +386,8 @@ function getIndustryBoostKeywords(industry?: string | null): string[] {
 
 export async function analyzeSite(url: string, industry?: string | null): Promise<ImportResult> {
   if (!url) throw new Error('URL required')
+  const urlError = getImportUrlError(url)
+  if (urlError) throw new Error(urlError)
 
   // Short-TTL cache hit (robustness + speed)
   const cached = getCached(url)

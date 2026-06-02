@@ -223,10 +223,11 @@ export default function ToolsPage() {
     }
 
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'x-nexez-test-secret': webhookSecret.trim(),
-      }
+	        const headers: Record<string, string> = {
+	          'Content-Type': 'application/json',
+	          'x-nexez-test-secret': webhookSecret.trim(),
+	          'x-nexez-test-mode': 'true',
+	        }
 
       if (webhookTestPageSlug.trim()) {
         headers['x-nexez-test-page-slug'] = webhookTestPageSlug.trim()
@@ -994,11 +995,12 @@ export default function ToolsPage() {
                       // This exercises the full durable + outbound chain for demo purposes.
                       try {
                         const demoSecret = 'demo-webhook-secret-for-testing'
-                        const recHeaders: Record<string, string> = {
-                          'Content-Type': 'application/json',
-                          'x-nexez-test-secret': demoSecret,
-                          'x-nexez-test-page-slug': 'demo',
-                        }
+	                        const recHeaders: Record<string, string> = {
+	                          'Content-Type': 'application/json',
+	                          'x-nexez-test-secret': demoSecret,
+	                          'x-nexez-test-page-slug': 'demo',
+	                          'x-nexez-test-mode': 'true',
+	                        }
                         if (outboundWebhooks.length > 0) {
                           recHeaders['x-nexez-outbound-endpoints'] = JSON.stringify(outboundWebhooks)
                         }

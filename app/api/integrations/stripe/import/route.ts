@@ -24,11 +24,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const secret = body.stripeSecretKey || process.env.STRIPE_SECRET_KEY
+  const requestSecret = body.stripeSecretKey?.trim()
+  const secret = process.env.STRIPE_SECRET_KEY || (process.env.NODE_ENV !== 'production' ? requestSecret : '')
 
   if (!secret) {
     return NextResponse.json(
-      { error: 'No Stripe secret key provided. Add STRIPE_SECRET_KEY on the server or pass stripeSecretKey in the request.' },
+      { error: 'No Stripe secret key configured. Add STRIPE_SECRET_KEY on the server before importing Stripe data.' },
       { status: 412 }
     )
   }
@@ -36,7 +37,12 @@ export async function POST(request: Request) {
   const stripe = new Stripe(secret, { apiVersion: '2024-06-20' as any })
 
   const lines: string[] = []
-  const meta: any = { importedAt: new Date().toISOString() }
+  const meta: {
+    importedAt: string
+    mode?: string
+    product?: { id: string; name: string }
+    stripe_samples: Array<{ product_id: string; price_id: string }>
+  } = { importedAt: new Date().toISOString(), stripe_samples: [] }
 
   try {
     // Support "recent products" when no specific IDs are given (common import flow)
@@ -46,32 +52,32 @@ export async function POST(request: Request) {
       for (const product of products.data) {
         const prices = await stripe.prices.list({ product: product.id, active: true, limit: 3 })
 
-        for (const price of prices.data) {
-          const amount = price.unit_amount ? (price.unit_amount / 100).toFixed(0) : null
-          let priceStr = amount ? `$${amount}` : 'Custom'
+	        for (const price of prices.data) {
+	          const amount = price.unit_amount ? (price.unit_amount / 100).toFixed(0) : null
+	          let priceStr = amount ? `$${amount}` : 'Custom'
           if (price.recurring?.interval) {
             priceStr += ` / ${price.recurring.interval}`
-          }
-          const name = product.name + (price.nickname ? ` (${price.nickname})` : '')
-          lines.push(`${name} | ${priceStr} | ${product.description || 'Stripe product'} | ${product.url || ''}`)
-        }
-      }
-      meta.mode = 'recent_products'
-      // Collect sample IDs for structuredOffers metadata (advances full price sync)
-      meta.stripe_samples = (meta.stripe_price_samples || []).slice(0, 5)
-    } else if (body.productId) {
-      const product = await stripe.products.retrieve(body.productId)
-      const prices = await stripe.prices.list({ product: body.productId, active: true, limit: 5 })
+	          }
+	          const name = product.name + (price.nickname ? ` (${price.nickname})` : '')
+	          lines.push(`${name} | ${priceStr} | ${product.description || 'Stripe product'} | ${product.url || ''}`)
+	          meta.stripe_samples.push({ product_id: product.id, price_id: price.id })
+	        }
+	      }
+	      meta.mode = 'recent_products'
+	    } else if (body.productId) {
+	      const product = await stripe.products.retrieve(body.productId)
+	      const prices = await stripe.prices.list({ product: body.productId, active: true, limit: 5 })
 
       for (const price of prices.data) {
         const priceStr = price.unit_amount ? `$${(price.unit_amount / 100).toFixed(0)}` : 'Custom'
         const interval = price.recurring?.interval ? ` / ${price.recurring.interval}` : ''
-        lines.push(
-          `${product.name} ${price.nickname ? `(${price.nickname})` : ''} | ${priceStr}${interval} | ${product.description || 'Imported Stripe product'} | ${product.url || ''}`
-        )
-      }
-      meta.product = { id: product.id, name: product.name }
-    } else if (body.priceIds) {
+	        lines.push(
+	          `${product.name} ${price.nickname ? `(${price.nickname})` : ''} | ${priceStr}${interval} | ${product.description || 'Imported Stripe product'} | ${product.url || ''}`
+	        )
+	        meta.stripe_samples.push({ product_id: product.id, price_id: price.id })
+	      }
+	      meta.product = { id: product.id, name: product.name }
+	    } else if (body.priceIds) {
       const ids = Array.isArray(body.priceIds) ? body.priceIds : String(body.priceIds).split(',').map((s) => s.trim()).filter(Boolean)
 
       for (const pid of ids) {
@@ -79,12 +85,13 @@ export async function POST(request: Request) {
           const price = await stripe.prices.retrieve(pid, { expand: ['product'] })
           const prod = price.product as Stripe.Product
           const priceStr = price.unit_amount ? `$${(price.unit_amount / 100).toFixed(0)}` : 'Custom'
-          const interval = price.recurring?.interval ? ` / ${price.recurring.interval}` : ''
-          const name = prod.name || 'Stripe item'
-          lines.push(`${name} | ${priceStr}${interval} | ${prod.description || 'Payment link / service from Stripe'} | ${prod.url || `https://buy.stripe.com/${pid}`}`)
-        } catch (e: any) {
-          lines.push(`Unknown Stripe price ${pid} | Custom | Could not retrieve details (check ID) | `)
-        }
+	          const interval = price.recurring?.interval ? ` / ${price.recurring.interval}` : ''
+	          const name = prod.name || 'Stripe item'
+	          lines.push(`${name} | ${priceStr}${interval} | ${prod.description || 'Payment link / service from Stripe'} | ${prod.url || `https://buy.stripe.com/${pid}`}`)
+	          meta.stripe_samples.push({ product_id: prod.id, price_id: price.id })
+	        } catch (e: any) {
+	          lines.push(`Unknown Stripe price ${pid} | Custom | Could not retrieve details (check ID) | `)
+	        }
       }
     } else {
       return NextResponse.json({ error: 'Provide productId, priceIds, or leave empty for recent products' }, { status: 400 })
@@ -96,7 +103,7 @@ export async function POST(request: Request) {
       const priceStr = parts[1] || 'Custom'
       const isRecurring = /\/ (month|year|week|day)/i.test(priceStr)
 
-      let duration: string | undefined
+	      let duration: string | undefined
       if (isRecurring) {
         if (/month/i.test(priceStr)) duration = 'monthly'
         else if (/year/i.test(priceStr)) duration = 'yearly'
@@ -104,11 +111,13 @@ export async function POST(request: Request) {
       }
 
       // Attach real Stripe identifiers when possible (from meta or best-effort)
-      const stripeIds: Record<string, string> = {}
-      if (meta.product?.id) stripeIds.stripe_product_id = meta.product.id
-      // Note: For full price-level IDs we would need deeper loop changes; this advances the contract
+	      const stripeIds: Record<string, string> = {}
+	      const sample = meta.stripe_samples[idx]
+	      if (meta.product?.id) stripeIds.stripe_product_id = meta.product.id
+	      if (sample?.product_id) stripeIds.stripe_product_id = sample.product_id
+	      if (sample?.price_id) stripeIds.stripe_price_id = sample.price_id
 
-      return {
+	      return {
         name: parts[0] || 'Stripe item',
         description: parts[2] || 'Imported from Stripe',
         price: priceStr,
@@ -118,12 +127,9 @@ export async function POST(request: Request) {
         confidence: 0.93,
         metadata: {
           stripe_mode: meta.mode || 'specific',
-          imported_at: new Date().toISOString(),
-          ...stripeIds,
-          // Stable IDs for future price update webhooks and smart re-sync diffing
-          stripe_product_id: meta.stripe_samples?.[0]?.product_id,
-          stripe_price_id: meta.stripe_samples?.[0]?.price_id,
-        },
+	          imported_at: new Date().toISOString(),
+	          ...stripeIds,
+	        },
         tiers: isRecurring ? [{ name: 'Standard', price: priceStr, description: 'Recurring via Stripe' }] : undefined,
       }
     })

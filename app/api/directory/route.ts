@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { AgentPage, getBaseUrl, getReadinessScore, getTrustScore } from '../../../lib/agent-page'
+import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getReadinessScore, getTrustScore } from '../../../lib/agent-page'
 import { supabase } from '../../../lib/supabase'
 
 export async function GET(request: Request) {
@@ -10,7 +10,7 @@ export async function GET(request: Request) {
 
   const { data: pages } = await supabase
     .from('pages')
-    .select('*')
+    .select(PUBLIC_PAGE_SELECT)
     .eq('is_published', true)
     .order('created_at', { ascending: false })
     .returns<AgentPage[]>()

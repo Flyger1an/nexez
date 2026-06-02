@@ -1,4 +1,4 @@
-import { AgentPage, getBaseUrl } from '../../../lib/agent-page'
+import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl } from '../../../lib/agent-page'
 import { searchAgentPages } from '../../../lib/agent-search'
 import { supabase } from '../../../lib/supabase'
 
@@ -9,7 +9,7 @@ export async function GET(request: Request) {
 
   const { data: pages, error } = await supabase
     .from('pages')
-    .select('*')
+    .select(PUBLIC_PAGE_SELECT)
     .eq('is_published', true)
     .order('created_at', { ascending: false })
     .limit(100)

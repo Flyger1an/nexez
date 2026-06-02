@@ -4,6 +4,43 @@ export type PricingTier = {
   description?: string
 }
 
+export const PUBLIC_PAGE_SELECT = [
+  'id',
+  'owner_id',
+  'name',
+  'slug',
+  'description',
+  'website_url',
+  'cta_url',
+  'cta_label',
+  'audience',
+  'location',
+  'contact_email',
+  'industry',
+  'prefer_original_site',
+  'products',
+  'services',
+  'faqs',
+  'is_published',
+  'custom_domain',
+  'custom_domain_verified',
+  'created_at',
+  'mcp_enabled',
+  'verification_details',
+  'agent_memory',
+  'google_calendar_id',
+  'next_available',
+  'last_booking',
+  'llm_opt_in',
+].join(', ')
+
+export const OWNER_PAGE_SELECT = [
+  PUBLIC_PAGE_SELECT,
+  'simulations',
+  'team_collaboration',
+  'versions',
+].join(', ')
+
 export type OfferItem = {
   name: string
   description: string
@@ -62,6 +99,12 @@ export type AgentPage = {
   is_published: boolean
   custom_domain?: string | null
   custom_domain_verified?: boolean | string | null  // Phase 5: timestamp or true when DNS verified
+  domain_verification_token?: string | null
+  calendly_webhook_secret?: string | null
+  outbound_webhooks?: Array<string | { url: string; secret?: string | null }> | null
+  google_calendar_id?: string | null
+  next_available?: string | null
+  llm_opt_in?: boolean
   created_at?: string
   // Phase 7 (de-duped 2026 spec): Simulation history for global /simulator (reuses existing simulator engine)
   simulations?: Array<{
@@ -305,7 +348,7 @@ export function getTrustScore(page: Partial<AgentPage>, events?: any[]): number 
   let completion = v.completion_rate || 0
   if (events && events.length > 0) {
     // Real computation: completion rate from checkout_events (attempts vs conversions/success)
-    const attempts = events.filter(e => e.event_type === 'checkout_attempt' || e.event_type === 'view').length
+    const attempts = events.filter(e => e.event_type === 'checkout_attempt' || e.event_type === 'checkout_view').length
     const successes = events.filter(e => e.event_type === 'stripe_session_created' || e.event_type === 'provider_redirect').length
     if (attempts > 0) completion = Math.round((successes / attempts) * 100)
   }
@@ -317,4 +360,3 @@ export function getTrustScore(page: Partial<AgentPage>, events?: any[]): number 
 
   return Math.max(0, Math.min(100, Math.round(score)))
 }
-

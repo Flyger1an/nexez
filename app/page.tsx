@@ -1,7 +1,7 @@
 import { ArrowRight, Bot, Gauge, Globe2, Search } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { cookies } from 'next/headers'
-import { AgentPage, getOfferCount, getReadinessScore } from '../lib/agent-page'
+import { AgentPage, PUBLIC_PAGE_SELECT, getOfferCount, getReadinessScore } from '../lib/agent-page'
 import { supabase } from '../lib/supabase'
 import { createClient } from '../utils/supabase/server'
 import { SimulatorTeaser } from '../components/SimulatorTeaser'
@@ -44,7 +44,7 @@ export default async function NexezHome() {
 
   const { data: pages } = await supabase
     .from('pages')
-    .select('*')
+    .select(PUBLIC_PAGE_SELECT)
     .eq('is_published', true)
     .order('created_at', { ascending: false })
     .returns<AgentPage[]>()

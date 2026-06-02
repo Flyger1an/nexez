@@ -5,6 +5,7 @@ import { ArrowLeft, ExternalLink, Loader2, Play, Save } from 'lucide-react'
 import { ErrorBoundary } from '../../../components/ErrorBoundary'
 import {
   AgentPage,
+  OWNER_PAGE_SELECT,
   OfferItem,
   formatFaqLines,
   formatOfferLines,
@@ -235,42 +236,53 @@ export default function EditAgentPage({ params }: PageProps) {
 
     const { data, error } = await supabase
       .from('pages')
-      .select('*')
+      .select(OWNER_PAGE_SELECT)
       .eq('id', pageId)
       .eq('owner_id', user.id)
       .single<AgentPage>()
 
-    if (error || !data) {
-      setMessage('Page not found, or you do not have access to edit it.')
-      setLoading(false)
-      return
-    }
+	    if (error || !data) {
+	      setMessage('Page not found, or you do not have access to edit it.')
+	      setLoading(false)
+	      return
+	    }
 
-    setPage(data)
-    setName(data.name)
-    setSlug(data.slug)
-    setDescription(data.description ?? '')
-    setWebsiteUrl(data.website_url ?? '')
-    setCtaUrl(data.cta_url ?? '')
-    setCtaLabel(data.cta_label ?? 'Visit website')
-    setAudience(data.audience ?? '')
-    setLocation(data.location ?? '')
-    setContactEmail(data.contact_email ?? '')
-    setIndustry(data.industry ?? '')
-    setPreferOriginalSite(!!data.prefer_original_site)
-    setNextAvailable((data as any)?.next_available ?? '')
-    setGoogleCalendarId((data as any)?.google_calendar_id ?? '')
-    setProducts(formatOfferLines(data.products))
-    setServices(formatOfferLines(data.services))
-    setFaqs(formatFaqLines(data.faqs))
-    // Seed rich primary state directly from DB arrays (Phase 1 A)
-    setServicesOffers((data.services ?? []) as OfferItem[])
-    setProductsOffers((data.products ?? []) as OfferItem[])
-    setIsPublished(data.is_published)
+	    const { data: secrets } = await supabase
+	      .from('page_secrets')
+	      .select('outbound_webhooks')
+	      .eq('page_id', pageId)
+	      .maybeSingle()
+
+	    const activePage = {
+	      ...data,
+	      outbound_webhooks: secrets?.outbound_webhooks ?? null,
+	    } as AgentPage
+
+	    setPage(activePage)
+	    setName(activePage.name)
+	    setSlug(activePage.slug)
+	    setDescription(activePage.description ?? '')
+	    setWebsiteUrl(activePage.website_url ?? '')
+	    setCtaUrl(activePage.cta_url ?? '')
+	    setCtaLabel(activePage.cta_label ?? 'Visit website')
+	    setAudience(activePage.audience ?? '')
+	    setLocation(activePage.location ?? '')
+	    setContactEmail(activePage.contact_email ?? '')
+	    setIndustry(activePage.industry ?? '')
+	    setPreferOriginalSite(!!activePage.prefer_original_site)
+	    setNextAvailable(activePage.next_available ?? '')
+	    setGoogleCalendarId(activePage.google_calendar_id ?? '')
+	    setProducts(formatOfferLines(activePage.products))
+	    setServices(formatOfferLines(activePage.services))
+	    setFaqs(formatFaqLines(activePage.faqs))
+	    // Seed rich primary state directly from DB arrays (Phase 1 A)
+	    setServicesOffers((activePage.services ?? []) as OfferItem[])
+	    setProductsOffers((activePage.products ?? []) as OfferItem[])
+	    setIsPublished(activePage.is_published)
 
     // Phase 3: Load persisted last booking from the page (durable across refreshes)
-    if (data.last_booking) {
-      setLastBooking(data.last_booking)
+	    if (activePage.last_booking) {
+	      setLastBooking(activePage.last_booking)
     }
 
     setLoading(false)
@@ -280,7 +292,7 @@ export default function EditAgentPage({ params }: PageProps) {
       const { data: events } = await supabase
         .from('checkout_events')
         .select('*')
-        .eq('slug', data.slug)
+	        .eq('slug', activePage.slug)
         .contains('metadata', { source: 'calendly_webhook' })
         .order('created_at', { ascending: false })
         .limit(3)
@@ -292,7 +304,7 @@ export default function EditAgentPage({ params }: PageProps) {
       const { data: outboundEvents } = await supabase
         .from('checkout_events')
         .select('id, event_type, offer_name, created_at')
-        .eq('slug', data.slug)
+	        .eq('slug', activePage.slug)
         .in('event_type', ['provider_redirect', 'stripe_session_created', 'checkout_attempt'])
         .order('created_at', { ascending: false })
         .limit(5)
@@ -304,7 +316,7 @@ export default function EditAgentPage({ params }: PageProps) {
       const { data: te } = await supabase
         .from('checkout_events')
         .select('*')
-        .eq('slug', data.slug)
+	        .eq('slug', activePage.slug)
         .order('created_at', { ascending: false })
         .limit(20)
       if (te) setTrustEvents(te)
@@ -908,10 +920,11 @@ export default function EditAgentPage({ params }: PageProps) {
                           const res = await fetch('/api/webhooks/calendly', {
                             method: 'POST',
                             headers: {
-                              'Content-Type': 'application/json',
-                              'x-nexez-test-secret': demoSecret,
-                              'x-nexez-test-page-slug': slug || page?.slug || '',
-                            },
+	                              'Content-Type': 'application/json',
+	                              'x-nexez-test-secret': demoSecret,
+	                              'x-nexez-test-page-slug': slug || page?.slug || '',
+	                              'x-nexez-test-mode': 'true',
+	                            },
                             body: JSON.stringify({
                               event: 'invitee.created',
                               payload: {

@@ -1,6 +1,6 @@
 import { ArrowLeft, BadgeCheck, CreditCard, ExternalLink, Sparkles } from 'lucide-react'
 import { cookies } from 'next/headers'
-import { AgentPage, getOfferCount } from '../../../lib/agent-page'
+import { AgentPage, OWNER_PAGE_SELECT, getOfferCount } from '../../../lib/agent-page'
 import { billingPlans, getPlanPriceId, isStripeBillingConfigured } from '../../../lib/billing'
 import { createClient } from '../../../utils/supabase/server'
 
@@ -28,7 +28,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
 
   const { data: pages } = await supabase
     .from('pages')
-    .select('*')
+    .select(OWNER_PAGE_SELECT)
     .eq('owner_id', user.id)
     .returns<AgentPage[]>()
 

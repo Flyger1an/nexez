@@ -24,7 +24,7 @@ describe('ai-optimize (Phase 5 coverage + fidelity)', () => {
       metadata: { stable_id: 'sq-123', foo: 'bar' },
     }
 
-    const rewritten = rewriteOfferForAgents(rich, 'Pawfect Grooming', 'pet owners')
+    const rewritten = rewriteOfferForAgents(rich, { businessName: 'Pawfect Grooming', audience: 'pet owners' })
 
     // Core identity
     expect(rewritten.name).toBe(rich.name)
@@ -75,7 +75,7 @@ describe('ai-optimize (Phase 5 coverage + fidelity)', () => {
       travelFee: '$35',
       isMobile: true,
     }
-    const rewritten = rewriteOfferForAgents(offer, 'Detail Pros', 'car owners')
+    const rewritten = rewriteOfferForAgents(offer, { businessName: 'Detail Pros', audience: 'car owners' })
     const d = (rewritten.description || '').toLowerCase()
     expect(d).toContain('travel') // from the consumer details injection in rewrite
     expect(d.length).toBeGreaterThan(20)

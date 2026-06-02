@@ -1,6 +1,7 @@
 import { AgentPage, CheckoutOffer, getCheckoutOfferKey } from './agent-page'
 import { supabase } from './supabase'
 import { fireOutboundWebhook, OutboundWebhookPayload } from './webhooks'
+import { createAdminClient, hasSupabaseAdminEnv } from '../utils/supabase/admin'
 
 export type CheckoutEventType =
   | 'checkout_view'
@@ -9,6 +10,7 @@ export type CheckoutEventType =
   | 'stripe_session_created'
   | 'stripe_missing_config'
   | 'stripe_error'
+  | 'stripe_price_sync'
 
 export type CheckoutEvent = {
   id: string
@@ -74,32 +76,33 @@ export async function logCheckoutEvent({
 
     // Phase 3: Automatically fire per-page outbound webhooks on high-value Nexez-driven events.
     // This makes the outbound_webhooks saved in Settings fire for agent bookings that go through checkout.
-    if (!error) {
-      const valuableEvents: CheckoutEventType[] = ['provider_redirect', 'stripe_session_created', 'checkout_attempt']
-      if (valuableEvents.includes(eventType)) {
-        try {
-          // Fetch the latest outbound_webhooks for this page (column added in recent migration)
-          const { data: pageWithOutbounds } = await supabase
-            .from('pages')
-            .select('outbound_webhooks, name, slug, id')
-            .eq('id', page.id)
-            .single()
+	    if (!error && metadata?.dry_run !== true) {
+	      const valuableEvents: CheckoutEventType[] = ['provider_redirect', 'stripe_session_created', 'checkout_attempt']
+	      if (valuableEvents.includes(eventType)) {
+	        try {
+	          if (!hasSupabaseAdminEnv()) return { ok: !error, error }
+	          const admin = createAdminClient()
+	          const { data: pageSecrets } = await admin
+	            .from('page_secrets')
+	            .select('outbound_webhooks')
+	            .eq('page_id', page.id)
+	            .maybeSingle()
 
-          const outbounds = (pageWithOutbounds as any)?.outbound_webhooks
-          let endpoints: string[] = []
-          if (Array.isArray(outbounds)) {
-            endpoints = outbounds.map((o: any) => o?.url || o).filter(Boolean)
-          }
+	          const outbounds = (pageSecrets as any)?.outbound_webhooks
+	          let endpoints: string[] = []
+	          if (Array.isArray(outbounds)) {
+	            endpoints = outbounds.map((o: any) => o?.url || o).filter(Boolean)
+	          }
 
           if (endpoints.length > 0) {
             const obPayload: OutboundWebhookPayload = {
               event: eventType === 'provider_redirect' ? 'booking.provider_redirect' : 'booking.checkout_initiated',
               timestamp: new Date().toISOString(),
-              page: {
-                id: page.id,
-                slug: page.slug,
-                name: page.name || (pageWithOutbounds as any)?.name || page.slug,
-              },
+	              page: {
+	                id: page.id,
+	                slug: page.slug,
+	                name: page.name || page.slug,
+	              },
               data: {
                 event_type: eventType,
                 offer_name: offer.name,
@@ -109,14 +112,12 @@ export async function logCheckoutEvent({
               },
             }
             // Support richer shape {url, secret?} for signing (same as Calendly receiver)
-            const outboundsFull = (pageWithOutbounds as any)?.outbound_webhooks || []
+	            const outboundsFull = (pageSecrets as any)?.outbound_webhooks || []
             for (const ep of endpoints) {
               const stored = Array.isArray(outboundsFull) ? outboundsFull.find((o: any) => (o?.url || o) === ep) : null
               const secret = stored?.secret || null
               const res = await fireOutboundWebhook(ep, secret, obPayload)
               console.log(`[Checkout Events] Fired outbound ${obPayload.event} to ${ep} (secret: ${!!secret}):`, res)
-              // Full throttle: record last outbound fire for demo tracking
-              try { if (typeof window !== 'undefined') localStorage.setItem('nexez_last_outbound_fired', new Date().toISOString()) } catch {}
             }
           }
         } catch (e) {
@@ -145,5 +146,7 @@ export function getEventActionLabel(eventType: CheckoutEventType) {
       return 'Needs Stripe config'
     case 'stripe_error':
       return 'Stripe error'
+    case 'stripe_price_sync':
+      return 'Stripe price sync'
   }
 }

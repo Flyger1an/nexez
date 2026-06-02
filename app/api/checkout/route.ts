@@ -2,6 +2,7 @@ import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 import {
   AgentPage,
+  PUBLIC_PAGE_SELECT,
   getBaseUrl,
   getCheckoutOffer,
   getCheckoutOfferKey,
@@ -21,7 +22,7 @@ type CheckoutInput = {
 async function getPublishedPage(slug: string) {
   const { data } = await supabase
     .from('pages')
-    .select('*')
+    .select(PUBLIC_PAGE_SELECT)
     .eq('slug', slug)
     .eq('is_published', true)
     .single<AgentPage>()

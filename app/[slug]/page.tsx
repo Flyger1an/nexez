@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, LockKeyhole, Mail, MapPin } from 'lucide-react'
-import { AgentPage, FaqItem, OfferItem, getBaseUrl, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows } from '../../lib/agent-page'
+import { AgentPage, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, getBaseUrl, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
+import { safeJsonScript } from '../../lib/safe-json'
 import { supabase } from '../../lib/supabase'
 
 type PageProps = {
@@ -11,8 +12,8 @@ type PageProps = {
 
 async function getPage(slug: string) {
   const { data } = await supabase
-    .from('pages')
-    .select('*')
+	    .from('pages')
+	    .select(PUBLIC_PAGE_SELECT)
     .eq('slug', slug)
     .eq('is_published', true)
     .single<AgentPage>()
@@ -80,10 +81,10 @@ export default async function AgentPageRoute({ params }: PageProps) {
 
   return (
     <main className="public-agent-page min-h-screen bg-[#0A0A0F] text-white">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+	      <script
+	        type="application/ld+json"
+	        dangerouslySetInnerHTML={{ __html: safeJsonScript(jsonLd) }}
+	      />
 
       <div className="mx-auto max-w-5xl px-6 py-10">
         <a href="/" className="inline-flex items-center gap-2 text-sm text-[#9CA3AF] hover:text-white">
@@ -434,5 +435,3 @@ function buildJsonLd(page: AgentPage) {
 /* Phase 7 Tier 1 stub: Negotiation + Escrow entry. See plan for full impl (form + Stripe manual capture + JSONB status on page). */
 
 /* Tier 3 stubs: Voice-optimized & agent memory/context notes for future (will extend manifests). */
-
-

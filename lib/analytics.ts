@@ -48,16 +48,16 @@ export function filterAnalyticsEvents(events: CheckoutEvent[], filters: Analytic
 }
 
 export function getConversionCount(events: CheckoutEvent[]) {
-  return events.filter((event) => conversionEventTypes.includes(event.event_type)).length
+  return events.filter((event) => !isDryRunEvent(event) && conversionEventTypes.includes(event.event_type)).length
 }
 
 export function getCheckoutAttemptCount(events: CheckoutEvent[]) {
-  return events.filter((event) => event.event_type === 'checkout_attempt').length
+  return events.filter((event) => !isDryRunEvent(event) && event.event_type === 'checkout_attempt').length
 }
 
 export function getRevenueCents(events: CheckoutEvent[]) {
   return events.reduce((sum, event) => {
-    if (event.event_type !== 'stripe_session_created') return sum
+    if (isDryRunEvent(event) || event.event_type !== 'stripe_session_created') return sum
     return sum + getAmountCents(event)
   }, 0)
 }
@@ -65,7 +65,7 @@ export function getRevenueCents(events: CheckoutEvent[]) {
 // Tier 3: Real agent-driven revenue for share calculations (data flywheel + monetization)
 export function getAgentDrivenRevenueCents(events: CheckoutEvent[]) {
   return events.reduce((sum, event) => {
-    if (event.event_type !== 'stripe_session_created') return sum
+    if (isDryRunEvent(event) || event.event_type !== 'stripe_session_created') return sum
     const isAgentSourced = !!event.agent_user_agent || !!event.query || (event.referrer && /agent|gpt|claude|perplexity|grok/i.test(event.referrer))
     if (!isAgentSourced) return sum
     return sum + getAmountCents(event)
@@ -74,7 +74,7 @@ export function getAgentDrivenRevenueCents(events: CheckoutEvent[]) {
 
 export function getPipelineCents(events: CheckoutEvent[]) {
   return events.reduce((sum, event) => {
-    if (!['checkout_attempt', 'provider_redirect', 'stripe_session_created'].includes(event.event_type)) return sum
+    if (isDryRunEvent(event) || !['checkout_attempt', 'provider_redirect', 'stripe_session_created'].includes(event.event_type)) return sum
     return sum + getAmountCents(event)
   }, 0)
 }
@@ -105,7 +105,7 @@ export function getDailyEventSeries(events: CheckoutEvent[], days = 10): DailyEv
     if (!point) continue
 
     point.total += 1
-    if (conversionEventTypes.includes(event.event_type)) {
+    if (!isDryRunEvent(event) && conversionEventTypes.includes(event.event_type)) {
       point.conversions += 1
     }
   }
@@ -130,11 +130,11 @@ export function getTopOfferStats(events: CheckoutEvent[]) {
 
     current.total += 1
 
-    if (event.event_type === 'checkout_attempt') {
+    if (!isDryRunEvent(event) && event.event_type === 'checkout_attempt') {
       current.attempts += 1
     }
 
-    if (conversionEventTypes.includes(event.event_type)) {
+    if (!isDryRunEvent(event) && conversionEventTypes.includes(event.event_type)) {
       current.conversions += 1
     }
 
@@ -167,10 +167,12 @@ export function getAgentName(userAgent: string | null) {
 }
 
 export function getSignalLabel(event: CheckoutEvent) {
+  if (isDryRunEvent(event)) return 'Simulation'
   if (conversionEventTypes.includes(event.event_type)) return 'Conversion'
   if (event.event_type === 'checkout_attempt') return 'Intent'
   if (event.event_type === 'checkout_view') return 'Visit'
   if (event.event_type === 'stripe_error') return 'Payment issue'
+  if (event.event_type === 'stripe_price_sync') return 'Price sync'
   return 'Config'
 }
 
@@ -197,6 +199,10 @@ export function getAmountCents(event: CheckoutEvent) {
   }
 
   return 0
+}
+
+export function isDryRunEvent(event: CheckoutEvent) {
+  return event.metadata?.dry_run === true
 }
 
 export function buildAnalyticsCsv(events: CheckoutEvent[]) {

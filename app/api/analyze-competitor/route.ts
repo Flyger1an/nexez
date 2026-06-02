@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { analyzeCompetitorSite, analysisToMarkdown, analysisToJSON } from '@/lib/competitor-analyzer'
 import { createClient } from '@/utils/supabase/server'
-import { getReadinessScore, getTrustScore, getOfferCount } from '@/lib/agent-page'
+import { PUBLIC_PAGE_SELECT, getReadinessScore, getTrustScore, getOfferCount } from '@/lib/agent-page'
 
 /**
  * POST /api/analyze-competitor
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
         const supabase = createClient(cookieStore)
         const { data: page } = await supabase
           .from('pages')
-          .select('*')
+          .select(PUBLIC_PAGE_SELECT)
           .eq('slug', userPageSlug.replace(/^\//, ''))
           .eq('is_published', true)
           .single()

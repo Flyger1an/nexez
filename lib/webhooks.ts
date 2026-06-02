@@ -1,8 +1,8 @@
 /**
  * Basic Outbound Webhook Support (Phase 3 foundation)
- * 
- * For now this is a lightweight utility. In production this would be
- * stored per-page or per-organization with proper secrets, retries, etc.
+ *
+ * Server routes use this to fire user-configured webhooks. Keep validation
+ * here so tests, checkout events, and provider webhooks share the same guardrails.
  */
 
 export type OutboundWebhookPayload = {
@@ -13,41 +13,94 @@ export type OutboundWebhookPayload = {
     slug: string
     name: string
   }
-  data: Record<string, any>
+  data: Record<string, unknown>
+}
+
+const WEBHOOK_TIMEOUT_MS = 5000
+const PRIVATE_HOST_PATTERNS = [
+  /^localhost$/i,
+  /^0(?:\.0){0,3}$/,
+  /^127\./,
+  /^10\./,
+  /^192\.168\./,
+  /^169\.254\./,
+  /^172\.(1[6-9]|2\d|3[0-1])\./,
+  /^\[?::1\]?$/i,
+  /^\[?fc[0-9a-f]{2}:/i,
+  /^\[?fd[0-9a-f]{2}:/i,
+  /^\[?fe80:/i,
+]
+
+export function getWebhookEndpointError(endpoint: string): string | null {
+  let url: URL
+
+  try {
+    url = new URL(endpoint)
+  } catch {
+    return 'Webhook endpoint must be a valid URL.'
+  }
+
+  if (url.protocol !== 'https:') {
+    return 'Webhook endpoint must use HTTPS.'
+  }
+
+  const hostname = url.hostname.toLowerCase()
+  if (PRIVATE_HOST_PATTERNS.some((pattern) => pattern.test(hostname))) {
+    return 'Webhook endpoint cannot target localhost, private networks, or link-local addresses.'
+  }
+
+  if (!hostname.includes('.') && !hostname.endsWith('webhook.site')) {
+    return 'Webhook endpoint must use a public hostname.'
+  }
+
+  return null
 }
 
 export async function fireOutboundWebhook(endpoint: string, secret: string | null, payload: OutboundWebhookPayload) {
   try {
+    const endpointError = getWebhookEndpointError(endpoint)
+    if (endpointError) return { ok: false, error: endpointError }
+
     const body = JSON.stringify(payload)
+    const timestamp = Math.floor(Date.now() / 1000).toString()
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'User-Agent': 'Nexez Webhooks/1.0',
+      'X-Nexez-Timestamp': timestamp,
     }
 
     if (secret) {
-      // Simple HMAC-style signature for now (can be improved)
-      headers['X-Nexez-Signature'] = await generateSimpleSignature(body, secret)
+      headers['X-Nexez-Signature'] = await generateHmacSignature(body, secret, timestamp)
     }
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS)
 
     const res = await fetch(endpoint, {
       method: 'POST',
       headers,
       body,
-    })
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout))
 
     return { ok: res.ok, status: res.status }
-  } catch (error: any) {
-    console.error('[Outbound Webhook] Failed to fire:', error.message)
-    return { ok: false, error: error.message }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Outbound webhook failed.'
+    console.error('[Outbound Webhook] Failed to fire:', message)
+    return { ok: false, error: message }
   }
 }
 
-async function generateSimpleSignature(body: string, secret: string): Promise<string> {
-  // In a real app we'd use Web Crypto or a library.
-  // For now, a very basic hash (not production secure, but demonstrates the idea).
+async function generateHmacSignature(body: string, secret: string, timestamp: string): Promise<string> {
   const encoder = new TextEncoder()
-  const data = encoder.encode(body + secret)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(`${timestamp}.${body}`))
+  const hex = Array.from(new Uint8Array(signature)).map((byte) => byte.toString(16).padStart(2, '0')).join('')
+  return `t=${timestamp},v1=${hex}`
 }

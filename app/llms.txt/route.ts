@@ -1,4 +1,4 @@
-import { AgentPage, getBaseUrl, getCheckoutOffers, getCheckoutPath, getOfferCount } from '../../lib/agent-page'
+import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getCheckoutOffers, getCheckoutPath, getOfferCount } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { supabase } from '../../lib/supabase'
 
@@ -6,7 +6,7 @@ export async function GET() {
   const baseUrl = getBaseUrl()
   const { data: pages } = await supabase
     .from('pages')
-    .select('*')
+    .select(PUBLIC_PAGE_SELECT)
     .eq('is_published', true)
     .order('created_at', { ascending: false })
     .returns<AgentPage[]>()

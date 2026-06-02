@@ -6,7 +6,7 @@ import { ConversionFunnel } from './ConversionFunnel'
 import { ActionBreakdown } from './ActionBreakdown'
 import { AgentBreakdown } from './AgentBreakdown'
 import { TopPagesChart } from './TopPagesChart'
-import { AgentPage, getOfferCount, getReadinessScore } from '../../../lib/agent-page'
+import { AgentPage, OWNER_PAGE_SELECT, getOfferCount, getReadinessScore } from '../../../lib/agent-page'
 import {
   filterAnalyticsEvents,
   formatEventDate,
@@ -38,6 +38,7 @@ const actionOptions = [
   ['stripe_session_created', 'Stripe sessions'],
   ['stripe_missing_config', 'Config issues'],
   ['stripe_error', 'Stripe errors'],
+  ['stripe_price_sync', 'Stripe price syncs'],
 ]
 
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
@@ -62,7 +63,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
 
   const { data: pages } = await supabase
     .from('pages')
-    .select('*')
+    .select(OWNER_PAGE_SELECT)
     .eq('owner_id', user.id)
     .returns<AgentPage[]>()
 

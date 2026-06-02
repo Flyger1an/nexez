@@ -1,7 +1,19 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { analyzeSite } from '../../../../lib/importer'
+import { createClient } from '../../../../utils/supabase/server'
 
 export async function POST(request: Request) {
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return NextResponse.json({ error: 'Sign in to import a website.' }, { status: 401 })
+  }
+
   // Phase 1 A: Thin production wrapper (full logic now in lib/importer.ts with multi-path, industry awareness, rich OfferItem output)
   const body = await request.json().catch(() => ({} as any))
   const { url, industry } = body as { url?: string; industry?: string }

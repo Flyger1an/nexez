@@ -1,137 +1,147 @@
+import Stripe from 'stripe'
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '../../../../lib/supabase'
 import type { OfferItem } from '../../../../lib/agent-page'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 
-/**
- * Phase 3: Stripe webhook listener — now ACTIVE for price updates.
- * Uses the stable stripe_price_id / stripe_product_id stored in offer metadata during import
- * to find and update affected offers across pages without duplicates.
- *
- * On price.updated / price.created:
- *  - Format new price string consistently with the Stripe import route.
- *  - Scan pages' services/products JSONB for matching metadata IDs (source-aware).
- *  - Protected update: only touch offers that still have source 'stripe' and a different price.
- *  - Log a durable 'stripe_price_sync' event (visible in analytics).
- *  - The editor Re-sync and public pages immediately see the fresh prices.
- *
- * This delivers the "Prices update on ... webhook" roadmap item.
- */
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'placeholder')
 
 export async function POST(request: NextRequest) {
-  const sig = request.headers.get('stripe-signature')
-  let body: any
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+  const signature = request.headers.get('stripe-signature')
+
+  if (!webhookSecret) {
+    return NextResponse.json({ error: 'STRIPE_WEBHOOK_SECRET is not configured.' }, { status: 412 })
+  }
+
+  if (!signature) {
+    return NextResponse.json({ error: 'Missing Stripe signature.' }, { status: 400 })
+  }
+
+  let event: Stripe.Event
+  const rawBody = await request.text()
 
   try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid Stripe webhook signature.'
+    console.warn('[Stripe Webhook] Signature verification failed:', message)
+    return NextResponse.json({ error: 'Invalid Stripe signature.' }, { status: 401 })
   }
 
-  const eventType = body.type || 'unknown'
+  if (event.type !== 'price.updated' && event.type !== 'price.created') {
+    return NextResponse.json({ received: true, type: event.type }, { status: 200 })
+  }
 
-  // Active price sync logic (Phase 3)
-  if (eventType === 'price.updated' || eventType === 'price.created') {
-    const priceObj = body.data?.object || {}
-    const priceId = priceObj.id
-    const productId = priceObj.product
-    const unitAmount = priceObj.unit_amount
-    const currency = (priceObj.currency || 'usd').toUpperCase()
-    const interval = priceObj.recurring?.interval ? ` / ${priceObj.recurring.interval}` : ''
+  if (!hasSupabaseAdminEnv()) {
+    return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY is required for Stripe webhook sync.' }, { status: 412 })
+  }
 
-    const formattedPrice = unitAmount
-      ? `$${(unitAmount / 100).toFixed(0)}${interval}`
-      : 'Custom'
+  const priceObj = event.data.object as Stripe.Price
+  const priceId = priceObj.id
+  const productId = typeof priceObj.product === 'string' ? priceObj.product : priceObj.product?.id
+  const formattedPrice = formatStripePrice(priceObj)
+  const supabase = createAdminClient()
 
-    console.log('[Stripe Webhook] Price event received (active sync path):', {
-      type: eventType,
-      price_id: priceId,
-      product_id: productId,
-      new_price: formattedPrice,
-    })
+  const { data: pages, error: pageError } = await supabase
+    .from('pages')
+    .select('id, slug, services, products, owner_id')
 
-    // Scan pages for offers carrying the matching stable IDs (import stores them in metadata).
-    // Broad but safe scan — pages table is small and webhooks are infrequent.
-    const { data: pages } = await supabase
-      .from('pages')
-      .select('id, slug, services, products, owner_id')
+  if (pageError) {
+    console.warn('[Stripe Webhook] Page scan failed:', pageError.message)
+    return NextResponse.json({ error: 'Could not scan pages for Stripe price sync.' }, { status: 500 })
+  }
 
-    let updates = 0
-    const changedOffers: Array<{ slug: string; name: string; old: string; new: string }> = []
+  let updates = 0
+  const changedOffers: Array<{ slug: string; name: string; old: string; new: string }> = []
 
-    if (pages) {
-      for (const pg of pages) {
-        let services = (pg.services || []) as OfferItem[]
-        let products = (pg.products || []) as OfferItem[]
-        let pageChanged = false
+  for (const pg of pages || []) {
+    let services = (pg.services || []) as OfferItem[]
+    let products = (pg.products || []) as OfferItem[]
+    let pageChanged = false
 
-        const matcher = (o: OfferItem) =>
-          o?.metadata &&
-          ((o.metadata as any).stripe_price_id === priceId ||
-            (o.metadata as any).stripe_product_id === productId ||
-            (o.metadata as any).stripe_price_id === priceObj.id)
-
-        const applyPrice = (arr: OfferItem[]) =>
-          arr.map((o) => {
-            if (matcher(o) && o.source === 'stripe' && o.price !== formattedPrice) {
-              changedOffers.push({ slug: pg.slug, name: o.name, old: o.price || '', new: formattedPrice })
-              pageChanged = true
-              updates++
-              return { ...o, price: formattedPrice, metadata: { ...(o.metadata || {}), last_stripe_sync: new Date().toISOString() } }
-            }
-            return o
-          })
-
-        services = applyPrice(services)
-        products = applyPrice(products)
-
-        if (pageChanged) {
-          try {
-            await supabase
-              .from('pages')
-              .update({ services, products })
-              .eq('id', pg.id)
-
-            // Durable audit event (appears in analytics + can drive further automation)
-            await supabase.from('checkout_events').insert({
-              page_id: pg.id,
-              owner_id: pg.owner_id || null,
-              slug: pg.slug,
-              offer_key: 'stripe:price-sync',
-              offer_name: `Stripe price sync (${changedOffers.filter(c => c.slug === pg.slug).map(c => c.name).join(', ')})`,
-              offer_kind: 'product',
-              event_type: 'stripe_price_sync',
-              agent_user_agent: 'Stripe-Webhook',
-              metadata: {
-                source: 'stripe_webhook',
-                price_id: priceId,
-                product_id: productId,
-                new_price: formattedPrice,
-                changes: changedOffers.filter(c => c.slug === pg.slug),
-              },
-              created_at: new Date().toISOString(),
-            })
-          } catch (e: any) {
-            console.warn('[Stripe Webhook] Failed to persist price sync for page', pg.slug, e?.message)
-          }
-        }
-      }
+    const matcher = (offer: OfferItem) => {
+      const metadata = offer.metadata || {}
+      return metadata.stripe_price_id === priceId || (productId && metadata.stripe_product_id === productId)
     }
 
-    console.log('[Stripe Webhook] Active price sync complete', {
-      price_id: priceId,
-      pages_scanned: pages?.length || 0,
-      offers_updated: updates,
-      examples: changedOffers.slice(0, 3),
+    const applyPrice = (offers: OfferItem[]) =>
+      offers.map((offer) => {
+        if (matcher(offer) && offer.source === 'stripe' && offer.price !== formattedPrice) {
+          changedOffers.push({ slug: pg.slug, name: offer.name, old: offer.price || '', new: formattedPrice })
+          pageChanged = true
+          updates += 1
+          return {
+            ...offer,
+            price: formattedPrice,
+            metadata: {
+              ...(offer.metadata || {}),
+              last_stripe_sync: new Date().toISOString(),
+            },
+          }
+        }
+
+        return offer
+      })
+
+    services = applyPrice(services)
+    products = applyPrice(products)
+
+    if (!pageChanged) continue
+
+    const { error: updateError } = await supabase
+      .from('pages')
+      .update({ services, products })
+      .eq('id', pg.id)
+
+    if (updateError) {
+      console.warn('[Stripe Webhook] Failed to update page', pg.slug, updateError.message)
+      continue
+    }
+
+    const pageChanges = changedOffers.filter((change) => change.slug === pg.slug)
+    const { error: eventError } = await supabase.from('checkout_events').insert({
+      page_id: pg.id,
+      owner_id: pg.owner_id || null,
+      slug: pg.slug,
+      offer_key: 'stripe:price-sync',
+      offer_name: `Stripe price sync (${pageChanges.map((change) => change.name).join(', ')})`,
+      offer_kind: 'products',
+      event_type: 'stripe_price_sync',
+      agent_user_agent: 'Stripe-Webhook',
+      metadata: {
+        source: 'stripe_webhook',
+        price_id: priceId,
+        product_id: productId,
+        new_price: formattedPrice,
+        changes: pageChanges,
+      },
     })
+
+    if (eventError) {
+      console.warn('[Stripe Webhook] Failed to log price sync for page', pg.slug, eventError.message)
+    }
   }
 
-  // Always acknowledge quickly
-  return NextResponse.json({ received: true, type: eventType }, { status: 200 })
+  return NextResponse.json({
+    received: true,
+    type: event.type,
+    price_id: priceId,
+    pages_scanned: pages?.length || 0,
+    offers_updated: updates,
+  })
 }
 
 export async function GET() {
   return NextResponse.json({
     status: 'ok',
-    message: 'Stripe webhook receiver (price updates stub). POST events here.',
+    message: 'Stripe webhook receiver is live. POST signed Stripe events here.',
+    configured: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
   })
+}
+
+function formatStripePrice(price: Stripe.Price) {
+  const interval = price.recurring?.interval ? ` / ${price.recurring.interval}` : ''
+  return typeof price.unit_amount === 'number'
+    ? `$${(price.unit_amount / 100).toFixed(0)}${interval}`
+    : 'Custom'
 }

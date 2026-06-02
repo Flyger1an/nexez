@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { ArrowLeft, ArrowRight, Bot, Code2, ExternalLink, Search, Sparkles } from 'lucide-react'
-import { AgentPage, getBaseUrl, getOfferCount, getReadinessScore, getTrustScore } from '../../lib/agent-page'
+import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getOfferCount, getReadinessScore, getTrustScore } from '../../lib/agent-page'
 import { AgentSearchResult, searchAgentPages } from '../../lib/agent-search'
 import { supabase } from '../../lib/supabase'
 import { CopyButton } from './CopyButton'
@@ -25,7 +25,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
   const baseUrl = getBaseUrl()
   const { data: pages } = await supabase
     .from('pages')
-    .select('*')
+    .select(PUBLIC_PAGE_SELECT)
     .eq('is_published', true)
     .order('created_at', { ascending: false })
     .returns<AgentPage[]>()

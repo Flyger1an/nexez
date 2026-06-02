@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { fireOutboundWebhook, OutboundWebhookPayload } from '../../../lib/webhooks'
+import { createClient } from '../../../utils/supabase/server'
 
 /**
  * Test Outbound Webhook (Phase 3)
@@ -11,7 +13,25 @@ import { fireOutboundWebhook, OutboundWebhookPayload } from '../../../lib/webhoo
  * ("Send Test" buttons next to each configured webhook).
  */
 export async function POST(request: NextRequest) {
-  let body: any
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return NextResponse.json({ error: 'Sign in to test outbound webhooks.' }, { status: 401 })
+  }
+
+  let body: {
+    endpoint?: string
+    secret?: string | null
+    eventType?: string
+    data?: Record<string, unknown>
+    pageId?: string
+    page?: { id?: string; slug?: string; name?: string }
+  }
+
   try {
     body = await request.json()
   } catch {
@@ -21,15 +41,32 @@ export async function POST(request: NextRequest) {
   const endpoint = (body?.endpoint || '').trim()
   const secret = body?.secret || null
   const eventType = body?.eventType || 'booking.received'
+  const pageId = body?.pageId || body?.page?.id || ''
 
   if (!endpoint) {
     return NextResponse.json({ error: 'endpoint is required' }, { status: 400 })
   }
 
+  let page = body?.page
+  if (pageId) {
+    const { data, error } = await supabase
+      .from('pages')
+      .select('id, slug, name')
+      .eq('id', pageId)
+      .eq('owner_id', user.id)
+      .single()
+
+    if (error || !data) {
+      return NextResponse.json({ error: 'Page not found, or you do not own it.' }, { status: 403 })
+    }
+
+    page = data
+  }
+
   const payload: OutboundWebhookPayload = {
     event: eventType,
     timestamp: new Date().toISOString(),
-    page: body?.page || undefined,
+    page: page?.id && page.slug && page.name ? { id: page.id, slug: page.slug, name: page.name } : undefined,
     data: {
       test: true,
       source: 'manual_test',

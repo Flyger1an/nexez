@@ -16,6 +16,7 @@ import {
 import {
   AgentPage,
   CheckoutOffer,
+  PUBLIC_PAGE_SELECT,
   getBaseUrl,
   getCheckoutOffer,
   getCheckoutOfferKey,
@@ -23,6 +24,7 @@ import {
 } from '../../../lib/agent-page'
 import { formatUsdCents, parseMoneyCents } from '../../../lib/checkout'
 import { logCheckoutEvent } from '../../../lib/checkout-events'
+import { safeJsonScript } from '../../../lib/safe-json'
 import { supabase } from '../../../lib/supabase'
 
 type PageProps = {
@@ -33,7 +35,7 @@ type PageProps = {
 async function getPage(slug: string) {
   const { data } = await supabase
     .from('pages')
-    .select('*')
+    .select(PUBLIC_PAGE_SELECT)
     .eq('slug', slug)
     .eq('is_published', true)
     .single<AgentPage>()
@@ -103,10 +105,10 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
 
   return (
     <main className="min-h-screen bg-[#090b10] text-white">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+	      <script
+	        type="application/ld+json"
+	        dangerouslySetInnerHTML={{ __html: safeJsonScript(jsonLd) }}
+	      />
 
       <div className="mx-auto max-w-6xl px-6 py-8">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">

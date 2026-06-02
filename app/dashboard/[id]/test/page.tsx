@@ -16,6 +16,7 @@ import {
 import { ErrorBoundary } from '../../../../components/ErrorBoundary'
 import {
   AgentPage,
+  OWNER_PAGE_SELECT,
   getBaseUrl,
   getCheckoutOfferKey,
   getCheckoutOffers,
@@ -82,7 +83,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
 
     const { data, error } = await supabase
       .from('pages')
-      .select('*')
+      .select(OWNER_PAGE_SELECT)
       .eq('id', pageId)
       .eq('owner_id', user.id)
       .single<AgentPage>()

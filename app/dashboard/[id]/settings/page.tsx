@@ -15,10 +15,9 @@ import {
   Settings,
   ShieldCheck,
 } from 'lucide-react'
-import { AgentPage, getBaseUrl, normalizeSlug } from '../../../../lib/agent-page'
+import { AgentPage, OWNER_PAGE_SELECT, getBaseUrl, normalizeSlug } from '../../../../lib/agent-page'
 import { buildAgentPagePayload, getAgentJsonPath } from '../../../../lib/agent-manifest'
 import { createClient } from '../../../../utils/supabase/client'
-import { fireOutboundWebhook } from '../../../../lib/webhooks'
 
 type PageProps = {
   params: Promise<{ id: string }>
@@ -123,31 +122,44 @@ export default function PageSettings({ params }: PageProps) {
 
     const { data, error } = await supabase
       .from('pages')
-      .select('*')
+      .select(OWNER_PAGE_SELECT)
       .eq('id', pageId)
       .eq('owner_id', user.id)
       .single<AgentPage>()
 
-    if (error || !data) {
-      setMessage('Page not found, or you do not have access to its settings.')
-      setLoading(false)
-      return
-    }
+	    if (error || !data) {
+	      setMessage('Page not found, or you do not have access to its settings.')
+	      setLoading(false)
+	      return
+	    }
 
-    setPage(data)
-    setName(data.name)
-    setSlug(data.slug)
-    setWebsiteUrl(data.website_url ?? '')
-    setCtaUrl(data.cta_url ?? '')
-    setCtaLabel(data.cta_label ?? 'Visit website')
-    setContactEmail(data.contact_email ?? '')
-    setIsPublished(data.is_published)
-    setCustomDomain(data.custom_domain ?? '')
-    setPreferOriginalSite(!!data.prefer_original_site)
-    setIndustry(data.industry ?? '')
+	    const { data: secrets } = await supabase
+	      .from('page_secrets')
+	      .select('calendly_webhook_secret, outbound_webhooks, domain_verification_token')
+	      .eq('page_id', pageId)
+	      .maybeSingle()
 
-    // Phase 3: Load per-page outbound webhooks (support richer shape with optional secrets)
-    const ob = (data as any)?.outbound_webhooks
+	    const activePage = {
+	      ...data,
+	      calendly_webhook_secret: secrets?.calendly_webhook_secret ?? null,
+	      outbound_webhooks: secrets?.outbound_webhooks ?? null,
+	      domain_verification_token: secrets?.domain_verification_token ?? null,
+	    } as AgentPage
+
+	    setPage(activePage)
+	    setName(activePage.name)
+	    setSlug(activePage.slug)
+	    setWebsiteUrl(activePage.website_url ?? '')
+	    setCtaUrl(activePage.cta_url ?? '')
+	    setCtaLabel(activePage.cta_label ?? 'Visit website')
+	    setContactEmail(activePage.contact_email ?? '')
+	    setIsPublished(activePage.is_published)
+	    setCustomDomain(activePage.custom_domain ?? '')
+	    setPreferOriginalSite(!!activePage.prefer_original_site)
+	    setIndustry(activePage.industry ?? '')
+
+	    // Phase 3: Load per-page outbound webhooks (support richer shape with optional secrets)
+	    const ob = activePage.outbound_webhooks
     if (ob) {
       const arr: OutboundEndpoint[] = Array.isArray(ob)
         ? ob.map((o: any) => (typeof o === 'string' ? { url: o } : { url: o?.url, secret: o?.secret })).filter((o) => o.url)
@@ -158,25 +170,25 @@ export default function PageSettings({ params }: PageProps) {
     }
 
     // Phase 3: Load Google Calendar availability
-    setGoogleCalendarId((data as any)?.google_calendar_id || '')
-    setAvailabilityNote((data as any)?.next_available || '')
+	    setGoogleCalendarId(activePage.google_calendar_id || '')
+	    setAvailabilityNote(activePage.next_available || '')
 
-    // Phase 5 custom domain verification status + pending token
-    setDomainVerificationToken((data as any)?.domain_verification_token || '')
-    setDomainVerified(!!(data as any)?.custom_domain_verified)
+	    // Phase 5 custom domain verification status + pending token
+	    setDomainVerificationToken(activePage.domain_verification_token || '')
+	    setDomainVerified(!!activePage.custom_domain_verified)
 
-    setCalendlyWebhookSecret((data as any)?.calendly_webhook_secret || '')
+	    setCalendlyWebhookSecret(activePage.calendly_webhook_secret || '')
 
-    setVerificationDetails((data as any)?.verification_details || {})
-    setMemoryNotes((data as any)?.agent_memory?.notes || '')
-    setLlmOptIn(!!(data as any)?.llm_opt_in)
+	    setVerificationDetails(activePage.verification_details || {})
+	    setMemoryNotes((activePage as any)?.agent_memory?.notes || '')
+	    setLlmOptIn(!!activePage.llm_opt_in)
 
     // Load real recent events that trigger outbound (for history surface)
     try {
       const { data: events } = await supabase
         .from('checkout_events')
         .select('id, event_type, offer_name, created_at, metadata')
-        .eq('slug', data.slug)
+	        .eq('slug', activePage.slug)
         .in('event_type', ['provider_redirect', 'stripe_session_created', 'checkout_attempt'])
         .order('created_at', { ascending: false })
         .limit(5)
@@ -196,16 +208,12 @@ export default function PageSettings({ params }: PageProps) {
     setDomainVerificationToken(token)
     setMessage('Token generated. Add the DNS TXT record below, then click Verify.')
 
-    // Persist the pending token on the page so it survives refresh
-    try {
-      const supabase = createClient()
-      await supabase
-        .from('pages')
-        .update({ domain_verification_token: token })
-        .eq('id', id)
-    } catch (e: any) {
-      console.warn('Failed to persist verification token', e)
-    }
+	    // Persist the pending token in owner-only page_secrets so it never appears on public page reads.
+	    try {
+	      await upsertPageSecrets({ domain_verification_token: token })
+	    } catch (e: any) {
+	      console.warn('Failed to persist verification token', e)
+	    }
   }
 
   async function verifyCustomDomain() {
@@ -231,21 +239,21 @@ export default function PageSettings({ params }: PageProps) {
       if (data.verified) {
         // Success: persist verified status + clear token
         const supabase = createClient()
-        const { error } = await supabase
-          .from('pages')
-          .update({
-            custom_domain_verified: new Date().toISOString(),
-            domain_verification_token: null,
-          })
-          .eq('id', id)
+	        const { error } = await supabase
+	          .from('pages')
+	          .update({
+	            custom_domain_verified: new Date().toISOString(),
+	          })
+	          .eq('id', id)
+	        const { error: secretError } = await upsertPageSecrets({ domain_verification_token: null })
 
-        if (!error) {
-          setDomainVerified(true)
-          setDomainVerificationToken('')
-          setMessage(`✓ Verified! ${customDomain.trim()} now shows as verified. Real DNS ownership proven.`)
-        } else {
-          setMessage('DNS check passed but failed to save verified status: ' + error.message)
-        }
+	        if (!error && !secretError) {
+	          setDomainVerified(true)
+	          setDomainVerificationToken('')
+	          setMessage(`✓ Verified! ${customDomain.trim()} now shows as verified. Real DNS ownership proven.`)
+	        } else {
+	          setMessage('DNS check passed but failed to save verified status: ' + (error?.message || secretError?.message))
+	        }
       } else {
         setMessage(data.message || data.error || 'Verification failed. Check the exact TXT value and try again after propagation.')
       }
@@ -275,37 +283,58 @@ export default function PageSettings({ params }: PageProps) {
         contact_email: contactEmail,
         is_published: isPublished,
         custom_domain: customDomain || null,
-        prefer_original_site: preferOriginalSite,
-        // Persist per-page Calendly webhook secret (used by receiver for real HMAC verification)
-        calendly_webhook_secret: calendlyWebhookSecret || null,
-        verification_details: verificationDetails || null,
-      })
-      .eq('id', page.id)
+	        prefer_original_site: preferOriginalSite,
+	        verification_details: verificationDetails || null,
+	      })
+	      .eq('id', page.id)
+	    const { error: secretError } = error
+	      ? { error: null }
+	      : await upsertPageSecrets({ calendly_webhook_secret: calendlyWebhookSecret || null })
 
-    setSaving(false)
-    setMessage(error ? error.message : 'Settings saved.')
+	    setSaving(false)
+	    setMessage(error ? error.message : secretError ? secretError.message : 'Settings saved.')
 
-    if (!error) {
-      setPage({
-        ...page,
+	    if (!error && !secretError) {
+	      setPage({
+	        ...page,
         name,
         slug: cleanSlug,
         website_url: websiteUrl,
         cta_url: ctaUrl || websiteUrl,
         cta_label: ctaLabel || 'Visit website',
-        contact_email: contactEmail,
-        is_published: isPublished,
-      })
-    }
+	        contact_email: contactEmail,
+	        is_published: isPublished,
+	        calendly_webhook_secret: calendlyWebhookSecret || null,
+	      })
+	    }
   }
 
-  async function copy(label: string, value: string) {
-    await navigator.clipboard.writeText(value)
-    setCopied(label)
-    window.setTimeout(() => setCopied(''), 1200)
-  }
+	  async function copy(label: string, value: string) {
+	    await navigator.clipboard.writeText(value)
+	    setCopied(label)
+	    window.setTimeout(() => setCopied(''), 1200)
+	  }
 
-  if (loading) {
+	  async function upsertPageSecrets(values: Record<string, unknown>) {
+	    if (!page?.owner_id) {
+	      return { error: { message: 'Page owner is missing; cannot save private settings.' } }
+	    }
+
+	    const supabase = createClient()
+	    return supabase
+	      .from('page_secrets')
+	      .upsert(
+	        {
+	          page_id: page.id,
+	          owner_id: page.owner_id,
+	          ...values,
+	          updated_at: new Date().toISOString(),
+	        },
+	        { onConflict: 'page_id' },
+	      )
+	  }
+
+	  if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#090b10] text-white">
         Loading settings...
@@ -698,16 +727,19 @@ export default function PageSettings({ params }: PageProps) {
                           sessionStorage.setItem('nexez_imported_page', JSON.stringify({ name: page?.name, slug: page?.slug }));
                           window.location.href = `/dashboard/${id}?reanalyzed=true&source=calendly`;
 
-                      // Fire outbound webhook if configured (Phase 3 foundation)
-                      const webhookEndpoint = localStorage.getItem('nexez_outbound_webhook_url')
-                      if (webhookEndpoint) {
-                        fireOutboundWebhook(webhookEndpoint, null, {
-                          event: 'integration.re_sync_completed',
-                          timestamp: new Date().toISOString(),
-                          page: { id: page?.id || '', slug: page?.slug || '', name: page?.name || '' },
-                          data: { integration: 'calendly', offer_count: data.structuredOffers?.length || 0 }
-                        })
-                      }
+                          const webhookEndpoint = localStorage.getItem('nexez_outbound_webhook_url')
+                          if (webhookEndpoint && page?.id) {
+                            await fetch('/api/test-outbound', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                endpoint: webhookEndpoint,
+                                eventType: 'integration.re_sync_completed',
+                                pageId: page.id,
+                                data: { integration: 'calendly', offer_count: data.structuredOffers?.length || 0 },
+                              }),
+                            }).catch(() => {})
+                          }
                         } else {
                           setMessage(data.error || data.message || 'No events found or import failed.');
                         }
@@ -915,11 +947,12 @@ export default function PageSettings({ params }: PageProps) {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                      endpoint: ep.url,
-                                      secret: ep.secret || null,
-                                      eventType: 'booking.received',
-                                      data: { test_source: 'settings_ui' },
-                                    }),
+	                                      endpoint: ep.url,
+	                                      secret: ep.secret || null,
+	                                      eventType: 'booking.received',
+	                                      pageId: page?.id,
+	                                      data: { test_source: 'settings_ui' },
+	                                    }),
                                   })
                                   const data = await res.json()
                                   const msg = data.success ? `✓ Sent (HTTP ${data.status})` : `✗ Failed: ${data.error || data.status}`
@@ -962,13 +995,9 @@ export default function PageSettings({ params }: PageProps) {
                     setOutboundSaving(true)
                     setMessage('')
                     try {
-                      const supabase = createClient()
-                      // Persist richer shape (url + optional secret) — backward compatible
-                      const { error } = await supabase
-                        .from('pages')
-                        .update({ outbound_webhooks: outboundEndpoints })
-                        .eq('id', page.id)
-                      setMessage(error ? error.message : `Saved ${outboundEndpoints.length} outbound endpoint(s). They fire automatically on real bookings.`)
+	                      const { error } = await upsertPageSecrets({ outbound_webhooks: outboundEndpoints })
+	                      setMessage(error ? error.message : `Saved ${outboundEndpoints.length} outbound endpoint(s). They fire automatically on real bookings.`)
+	                      if (!error) setPage({ ...page, outbound_webhooks: outboundEndpoints })
                     } catch (e: any) {
                       setMessage('Failed to save: ' + e.message)
                     } finally {
@@ -1313,7 +1342,7 @@ export default function PageSettings({ params }: PageProps) {
                   type="password"
                   value={calendlyWebhookSecret}
                   onChange={(e) => setCalendlyWebhookSecret(e.target.value)}
-                  placeholder="whsec_xxxxxxxxxxxxxxxxxxxxxxxx"
+	                  placeholder="Paste Calendly signing secret"
                   className="w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm font-mono"
                 />
                 <p className="mt-1 text-[10px] text-zinc-500">Save Settings to persist. Use with your Calendly webhook URL (add ?slug=your-slug or send x-nexez-test-page-slug header for association).</p>

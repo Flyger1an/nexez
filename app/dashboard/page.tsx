@@ -21,7 +21,7 @@ import {
   Sparkles,
   Trash2,
 } from 'lucide-react'
-import { AgentPage, getBaseUrl, getOfferCount, getReadinessScore } from '../../lib/agent-page'
+import { AgentPage, OWNER_PAGE_SELECT, getBaseUrl, getOfferCount, getReadinessScore } from '../../lib/agent-page'
 import { CheckoutEvent, getEventActionLabel } from '../../lib/checkout-events'
 import { createClient } from '../../utils/supabase/client'
 
@@ -79,7 +79,7 @@ export default function Dashboard() {
     const [pageResult, eventResult] = await Promise.all([
       supabase
         .from('pages')
-        .select('*')
+        .select(OWNER_PAGE_SELECT)
         .eq('owner_id', user.id)
         .order('created_at', { ascending: false })
         .returns<AgentPage[]>(),

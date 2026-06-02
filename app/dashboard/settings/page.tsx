@@ -10,7 +10,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { cookies } from 'next/headers'
-import { AgentPage, getBaseUrl, getOfferCount, getReadinessScore } from '../../../lib/agent-page'
+import { AgentPage, OWNER_PAGE_SELECT, getBaseUrl, getOfferCount, getReadinessScore } from '../../../lib/agent-page'
 import { createClient } from '../../../utils/supabase/server'
 
 const schemaSignals = [
@@ -39,7 +39,7 @@ export default async function AccountSettingsPage() {
 
   const { data: pages } = await supabase
     .from('pages')
-    .select('*')
+    .select(OWNER_PAGE_SELECT)
     .eq('owner_id', user.id)
     .order('created_at', { ascending: false })
     .returns<AgentPage[]>()

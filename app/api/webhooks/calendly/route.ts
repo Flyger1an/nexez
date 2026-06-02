@@ -1,78 +1,89 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import crypto from 'crypto'
-import { supabase } from '../../../../lib/supabase'
-import { AgentPage } from '../../../../lib/agent-page'
-import { fireOutboundWebhook, OutboundWebhookPayload } from '../../../../lib/webhooks'
+import type { AgentPage } from '../../../../lib/agent-page'
+import { fireOutboundWebhook, type OutboundWebhookPayload } from '../../../../lib/webhooks'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
+import { createClient as createServerClient } from '../../../../utils/supabase/server'
 
-/**
- * Calendly Webhook Receiver
- * Phase 3 per ROADMAP: "Expand import to support webhooks"
- *
- * This endpoint receives real-time events from Calendly when a user has configured
- * a webhook with their signing secret.
- *
- * Current state (MVP robust):
- * - Correct HMAC-SHA256 signature verification (using Calendly's standard)
- * - Handles the main events: invitee.created, invitee.canceled, invitee_no_show.created
- * - Returns 200 quickly (important for webhooks)
- * - For now logs events. Future: will trigger availability hints, analytics events,
- *   and optional push into linked Nexez pages.
- *
- * Security:
- * - Never trusts the body without signature match.
- * - In production the secret should be stored server-side per user/page.
- *   For current demo we accept the secret via a test header for manual testing.
- */
+type CalendlyPayload = {
+  event?: string
+  payload?: {
+    invitee?: {
+      name?: string
+      email?: string
+    }
+    event?: {
+      name?: string
+      start_time?: string
+      uri?: string
+      location?: {
+        type?: string
+      }
+    }
+  }
+}
+
+type WebhookPage = Pick<AgentPage, 'id' | 'owner_id' | 'slug' | 'name'>
 
 export async function POST(request: NextRequest) {
-  // Read raw body for signature verification (critical) — do early
+  if (!hasSupabaseAdminEnv()) {
+    return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY is required for Calendly webhooks.' }, { status: 412 })
+  }
+
   const rawBody = await request.text()
-
-  // Calendly signature header (they use this format)
   const signature = request.headers.get('x-calendly-webhook-signature')
-
-  // Phase 5 deeper: support per-page stored secret (from Settings) + query/header slug for page lookup
-  let page = null
   const testPageSlug = request.headers.get('x-nexez-test-page-slug') || new URL(request.url).searchParams.get('slug') || ''
-  if (testPageSlug) {
-    try {
-      const { data: pages } = await supabase
-        .from('pages')
-        .select('*')
-        .eq('slug', testPageSlug)
-        .limit(1)
-        .returns<AgentPage[]>()
-      page = pages?.[0] || null
-    } catch (e) {
-      console.warn('[Calendly Webhook] Page lookup failed:', e)
-    }
-  }
-
-  // Resolve secret: prefer per-page stored (real user webhook), fall back to explicit test/demo headers
-  const perPageSecret = (page as any)?.calendly_webhook_secret || null
   const headerSecret = request.headers.get('x-nexez-test-secret') || request.headers.get('x-calendly-webhook-secret')
-  const secret = perPageSecret || headerSecret
+  const isTestMode = request.headers.get('x-nexez-test-mode') === 'true'
+  const allowDevHeaderSecret = process.env.NODE_ENV !== 'production' && Boolean(headerSecret)
+  const supabase = createAdminClient()
 
-  if (signature && secret) {
-    const expectedSignature = crypto
-      .createHmac('sha256', secret)
-      .update(rawBody, 'utf8')
-      .digest('hex')
-
-    // Calendly sends the signature as a hex string
-    if (expectedSignature !== signature) {
-      console.warn('[Calendly Webhook] Signature verification failed (using per-page or header secret)')
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
-    }
-    if (perPageSecret) {
-      console.log('[Calendly Webhook] Verified using page-stored secret for slug', page?.slug)
-    }
-  } else if (signature) {
-    // Signature present but no secret provided for verification in this demo
-    console.log('[Calendly Webhook] Received signed webhook (secret not provided for verification in this session)')
+  if (!testPageSlug) {
+    return NextResponse.json({ error: 'A page slug is required. Add ?slug=your-page-slug to the webhook URL.' }, { status: 400 })
   }
 
-  let body: any
+  const { data: pages, error: pageError } = await supabase
+    .from('pages')
+    .select('id, owner_id, slug, name')
+    .eq('slug', testPageSlug)
+    .limit(1)
+    .returns<WebhookPage[]>()
+
+  if (pageError) {
+    return NextResponse.json({ error: pageError.message }, { status: 500 })
+  }
+
+  const page = pages?.[0] || null
+  if (!page) {
+    return NextResponse.json({ error: 'Page not found for Calendly webhook slug.' }, { status: 404 })
+  }
+
+  const { data: pageSecrets } = await supabase
+    .from('page_secrets')
+    .select('calendly_webhook_secret, outbound_webhooks')
+    .eq('page_id', page.id)
+    .maybeSingle()
+
+  const perPageSecret = pageSecrets?.calendly_webhook_secret || null
+  const ownerCanTest = isTestMode && headerSecret ? await isAuthenticatedPageOwner(page.owner_id) : false
+  const canUseHeaderSecret = allowDevHeaderSecret || ownerCanTest
+  const secret = perPageSecret || (canUseHeaderSecret ? headerSecret : null)
+
+  if (!secret) {
+    return NextResponse.json({ error: 'Calendly webhook secret is not configured for this page.' }, { status: 401 })
+  }
+
+  if (!signature && !canUseHeaderSecret) {
+    return NextResponse.json({ error: 'Missing Calendly webhook signature.' }, { status: 401 })
+  }
+
+  if (signature && !verifyCalendlySignature(rawBody, secret, signature)) {
+    console.warn('[Calendly Webhook] Signature verification failed for slug', page.slug)
+    return NextResponse.json({ error: 'Invalid Calendly signature.' }, { status: 401 })
+  }
+
+  let body: CalendlyPayload
   try {
     body = JSON.parse(rawBody)
   } catch {
@@ -82,157 +93,146 @@ export async function POST(request: NextRequest) {
   const eventType = body.event || 'unknown'
   const payload = body.payload || {}
 
-  console.log(`[Calendly Webhook] Received event: ${eventType}`)
-
-  // Handle key events
-  switch (eventType) {
-    case 'invitee.created':
-    case 'invitee.canceled': {
-      const isCreated = eventType === 'invitee.created'
-      console.log(`[Calendly Webhook] Booking ${isCreated ? 'created' : 'canceled'}:`, {
-        name: payload.invitee?.name,
-        email: payload.invitee?.email,
-        event: payload.event?.name,
-        start_time: payload.event?.start_time,
-      })
-
-      // Reuse page looked up at top of handler (supports ?slug= query, header, and per-page secret)
-      const eventName = payload.event?.name || 'Calendly Booking'
-      const inviteeName = payload.invitee?.name || 'Unknown Guest'
-
-      try {
-        const { error: insertError } = await supabase.from('checkout_events').insert({
-          page_id: page?.id || null,
-          owner_id: page?.owner_id || null,
-          slug: page?.slug || (testPageSlug || 'unknown'),
-          offer_key: 'calendly:webhook',
-          offer_name: eventName,
-          offer_kind: 'service',
-          event_type: 'provider_redirect',
-          agent_user_agent: 'Calendly-Webhook',
-          referrer: null,
-          query: null,
-          checkout_url: null,
-          provider_url: payload.event?.uri || null,
-          stripe_session_id: null,
-          metadata: {
-            source: 'calendly_webhook',
-            calendly_event_type: eventType,
-            invitee_name: inviteeName,
-            invitee_email: payload.invitee?.email,
-            start_time: payload.event?.start_time,
-            calendly_payload_summary: {
-              event_name: payload.event?.name,
-              location: payload.event?.location?.type,
-            },
-          },
-          created_at: new Date().toISOString(),
-        })
-
-        if (insertError) {
-          console.warn('[Calendly Webhook] Failed to insert event:', insertError.message)
-        } else {
-          console.log(`[Calendly Webhook] Recorded booking for ${page?.slug || 'unknown page'}`)
-
-          // Phase 3: Persist lightweight last booking on the page for durability and visibility
-          if (page?.id) {
-            try {
-              await supabase
-                .from('pages')
-                .update({
-                  last_booking: {
-                    at: new Date().toISOString(),
-                    event_name: eventName,
-                    invitee_name: inviteeName,
-                    source: 'calendly',
-                  }
-                })
-                .eq('id', page.id)
-            } catch (e) {
-              console.warn('[Calendly Webhook] Failed to update page last_booking:', e)
-            }
-          }
-
-          // Phase 3: Fire outbound webhooks — prefer per-page stored config (outbound_webhooks column),
-          // fall back to header (demo / Tools test flows) for backward compat.
-          try {
-            let endpoints: string[] = []
-
-            // 1. Per-page persisted endpoints (the real "set once" path)
-            const pageOutbounds = (page as any)?.outbound_webhooks
-            if (Array.isArray(pageOutbounds)) {
-              endpoints = pageOutbounds
-                .map((o: any) => o?.url || o)
-                .filter(Boolean)
-            }
-
-            // 2. Header override / demo (Tools "Send Test" still works)
-            const outboundEndpointsHeader = request.headers.get('x-nexez-outbound-endpoints')
-            if (outboundEndpointsHeader) {
-              try {
-                const headerList = JSON.parse(outboundEndpointsHeader)
-                if (Array.isArray(headerList)) endpoints = [...endpoints, ...headerList]
-              } catch {}
-            }
-
-            // Dedupe
-            endpoints = Array.from(new Set(endpoints.filter(Boolean)))
-
-            if (endpoints.length > 0) {
-              const obPayload: OutboundWebhookPayload = {
-                event: 'booking.received',
-                timestamp: new Date().toISOString(),
-                page: page ? { id: page.id, slug: page.slug, name: (page as any).name || page.slug } : undefined,
-                data: {
-                  source: 'calendly',
-                  event_name: eventName,
-                  invitee_name: inviteeName,
-                  start_time: payload.event?.start_time,
-                  calendly_event_type: eventType,
-                },
-              }
-              // Support richer stored shape: { url, secret? }
-              const pageOutboundsFull = (page as any)?.outbound_webhooks || []
-              for (const ep of endpoints) {
-                const stored = Array.isArray(pageOutboundsFull)
-                  ? pageOutboundsFull.find((o: any) => (o?.url || o) === ep)
-                  : null
-                const secret = stored?.secret || null
-                const res = await fireOutboundWebhook(ep, secret, obPayload)
-                console.log(`[Calendly Webhook] Fired outbound booking.received to ${ep} (secret: ${!!secret}):`, res)
-                // Full throttle: record last outbound fire for demo tracking
-                try { if (typeof window !== 'undefined') localStorage.setItem('nexez_last_outbound_fired', new Date().toISOString()) } catch {}
-              }
-            } else {
-              console.log('[Calendly Webhook] No outbound endpoints configured (neither page nor header).')
-            }
-          } catch (e) {
-            console.warn('[Calendly Webhook] Outbound firing error:', e)
-          }
-        }
-      } catch (e) {
-        console.warn('[Calendly Webhook] Insert error:', e)
-      }
-      break
-    }
-
-    case 'invitee_no_show.created':
-      console.log('[Calendly Webhook] No-show recorded')
-      break
-
-    default:
-      console.log('[Calendly Webhook] Unhandled event type:', eventType)
+  if (eventType !== 'invitee.created' && eventType !== 'invitee.canceled') {
+    return NextResponse.json({ received: true, event: eventType, handled: false }, { status: 200 })
   }
 
-  // Always acknowledge quickly
-  return NextResponse.json({ received: true, event: eventType }, { status: 200 })
+  const eventName = payload.event?.name || 'Calendly Booking'
+  const inviteeName = payload.invitee?.name || 'Unknown Guest'
+  const startedAt = payload.event?.start_time || null
+
+  const { error: insertError } = await supabase.from('checkout_events').insert({
+    page_id: page.id,
+    owner_id: page.owner_id || null,
+    slug: page.slug,
+    offer_key: 'calendly:webhook',
+    offer_name: eventName,
+    offer_kind: 'services',
+    event_type: 'provider_redirect',
+    agent_user_agent: 'Calendly-Webhook',
+    referrer: null,
+    query: null,
+    checkout_url: null,
+    provider_url: payload.event?.uri || null,
+    stripe_session_id: null,
+    metadata: {
+      source: 'calendly_webhook',
+      test_mode: isTestMode,
+      calendly_event_type: eventType,
+      invitee_name: inviteeName,
+      invitee_email: payload.invitee?.email,
+      start_time: startedAt,
+      calendly_payload_summary: {
+        event_name: payload.event?.name,
+        location: payload.event?.location?.type,
+      },
+    },
+  })
+
+  if (insertError) {
+    console.warn('[Calendly Webhook] Failed to insert event:', insertError.message)
+    return NextResponse.json({ error: insertError.message }, { status: 500 })
+  }
+
+  const { error: updateError } = await supabase
+    .from('pages')
+    .update({
+      last_booking: {
+        at: new Date().toISOString(),
+        event_name: eventName,
+        invitee_name: inviteeName,
+        source: 'calendly',
+      },
+    })
+    .eq('id', page.id)
+
+  if (updateError) {
+    console.warn('[Calendly Webhook] Failed to update page last_booking:', updateError.message)
+  }
+
+  const outboundResults = await firePageOutbounds(page, pageSecrets?.outbound_webhooks, eventType, eventName, inviteeName, startedAt)
+
+  return NextResponse.json({
+    received: true,
+    event: eventType,
+    page: page.slug,
+    outbound: outboundResults,
+  })
 }
 
-// Simple health / test endpoint
+async function isAuthenticatedPageOwner(ownerId: string | null) {
+  if (!ownerId) return false
+
+  try {
+    const cookieStore = await cookies()
+    const supabase = createServerClient(cookieStore)
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    return user?.id === ownerId
+  } catch {
+    return false
+  }
+}
+
 export async function GET() {
   return NextResponse.json({
     status: 'ok',
-    message: 'Calendly webhook receiver is live. POST real Calendly webhooks here.',
-    note: 'Use x-nexez-test-secret header with your signing secret for local verification testing.',
+    message: 'Calendly webhook receiver is live. POST signed Calendly webhooks here.',
+    usage: '/api/webhooks/calendly?slug=your-page-slug',
   })
+}
+
+async function firePageOutbounds(
+  page: WebhookPage,
+  outbounds: AgentPage['outbound_webhooks'],
+  eventType: string,
+  eventName: string,
+  inviteeName: string,
+  startedAt: string | null,
+) {
+  const pageOutbounds = outbounds
+  if (!Array.isArray(pageOutbounds) || pageOutbounds.length === 0) return []
+
+  const payload: OutboundWebhookPayload = {
+    event: 'booking.received',
+    timestamp: new Date().toISOString(),
+    page: { id: page.id, slug: page.slug, name: page.name || page.slug },
+    data: {
+      source: 'calendly',
+      event_name: eventName,
+      invitee_name: inviteeName,
+      start_time: startedAt,
+      calendly_event_type: eventType,
+    },
+  }
+
+  const results = []
+  for (const stored of pageOutbounds) {
+    const endpoint = typeof stored === 'string' ? stored : stored?.url
+    const secret = typeof stored === 'string' ? null : stored?.secret || null
+    if (!endpoint) continue
+    const result = await fireOutboundWebhook(endpoint, secret, payload)
+    results.push({ endpoint, ...result })
+  }
+
+  return results
+}
+
+function verifyCalendlySignature(rawBody: string, secret: string, signature: string) {
+  const expected = crypto.createHmac('sha256', secret).update(rawBody, 'utf8').digest('hex')
+  const provided = parseCalendlySignature(signature)
+  if (!provided) return false
+
+  const expectedBuffer = Buffer.from(expected, 'hex')
+  const providedBuffer = Buffer.from(provided, 'hex')
+  if (expectedBuffer.length !== providedBuffer.length) return false
+
+  return crypto.timingSafeEqual(expectedBuffer, providedBuffer)
+}
+
+function parseCalendlySignature(signature: string) {
+  const trimmed = signature.trim()
+  const v1 = trimmed.match(/(?:^|,)v1=([a-f0-9]+)/i)?.[1]
+  return v1 || (/^[a-f0-9]+$/i.test(trimmed) ? trimmed : null)
 }
