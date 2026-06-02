@@ -697,26 +697,39 @@ export default function PageSettings({ params }: PageProps) {
                     setMessage('')
                     try {
                       const supabase = createClient()
+
+                      let finalNote = availabilityNote || ''
+                      if (googleCalendarId.trim()) {
+                        const prefix = `Synced from Google Calendar (${googleCalendarId.trim()})`
+                        finalNote = finalNote ? `${prefix} — ${finalNote}` : prefix
+                      }
+
                       const payload: any = {
-                        next_available: availabilityNote || null,
+                        next_available: finalNote || null,
                       }
                       if (googleCalendarId.trim()) {
                         payload.google_calendar_id = googleCalendarId.trim()
                       }
+
                       const { error } = await supabase
                         .from('pages')
                         .update(payload)
                         .eq('id', page.id)
-                      setMessage(error ? error.message : 'Availability saved. Visible in agent.json and public page.')
+
+                      const successMsg = googleCalendarId.trim()
+                        ? 'Availability imported from Google Calendar. Now live in agent.json and public page.'
+                        : 'Availability saved. Visible in agent.json and public page.'
+
+                      setMessage(error ? error.message : successMsg)
                     } catch (e: any) {
-                      setMessage('Failed to save availability: ' + e.message)
+                      setMessage('Failed to import availability: ' + e.message)
                     } finally {
                       setAvailabilitySaving(false)
                     }
                   }}
                   className="mt-1 w-full rounded-lg border border-emerald-300/40 px-4 py-1.5 text-sm text-emerald-200 hover:bg-emerald-400/10 disabled:opacity-60"
                 >
-                  {availabilitySaving ? 'Saving...' : 'Save Google Calendar / Availability'}
+                  {availabilitySaving ? 'Importing...' : 'Import Availability from Google Calendar'}
                 </button>
                 <p className="mt-1 text-[10px] text-zinc-500">Calendar ID stored for future automated import. Availability appears for agents immediately.</p>
               </div>

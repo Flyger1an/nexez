@@ -46,6 +46,7 @@ export default function EditAgentPage({ params }: PageProps) {
   const [industry, setIndustry] = useState('')
   const [preferOriginalSite, setPreferOriginalSite] = useState(false)
   const [nextAvailable, setNextAvailable] = useState('')  // Phase 3: First step toward Google Calendar / availability hints
+  const [googleCalendarId, setGoogleCalendarId] = useState('')  // Phase 3: From Settings import UI
   const [products, setProducts] = useState('')
   const [services, setServices] = useState('')
   const [faqs, setFaqs] = useState('')
@@ -195,6 +196,7 @@ export default function EditAgentPage({ params }: PageProps) {
     setIndustry(data.industry ?? '')
     setPreferOriginalSite(!!data.prefer_original_site)
     setNextAvailable((data as any)?.next_available ?? '')
+    setGoogleCalendarId((data as any)?.google_calendar_id ?? '')
     setProducts(formatOfferLines(data.products))
     setServices(formatOfferLines(data.services))
     setFaqs(formatFaqLines(data.faqs))
@@ -942,6 +944,9 @@ export default function EditAgentPage({ params }: PageProps) {
               <div className="text-sm text-emerald-200">
                 {nextAvailable ? nextAvailable : 'Not set — agents will see "Contact for current slots"'}
               </div>
+              {googleCalendarId && (
+                <div className="mt-1 text-[10px] text-emerald-300">Google Calendar connected (ID stored)</div>
+              )}
               <p className="mt-1 text-[10px] text-zinc-500">
                 Shown in agent.json and public page. Will support Google Calendar sync in future.
                 Outbound webhooks fire automatically on bookings (configure in Settings).

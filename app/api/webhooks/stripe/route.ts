@@ -20,15 +20,19 @@ export async function POST(request: NextRequest) {
 
   // Basic logging for now (production would verify signature with webhook secret)
   if (eventType === 'price.updated' || eventType === 'price.created') {
+    const price = body.data?.object || {}
     console.log('[Stripe Webhook] Price event received:', {
       type: eventType,
-      price_id: body.data?.object?.id,
-      product_id: body.data?.object?.product,
-      unit_amount: body.data?.object?.unit_amount,
+      price_id: price.id,
+      product_id: price.product,
+      unit_amount: price.unit_amount,
+      currency: price.currency,
     })
 
-    // Future: Look up pages/offers that reference this stripe_price_id
-    // and trigger smart re-sync or direct price update.
+    // Phase 3: Structured logging + preparation for auto price sync
+    // In a future iteration this would query pages where offers have
+    // metadata.stripe_price_id === price.id and trigger updates.
+    console.log('[Stripe Webhook] Price change ready for offer sync (using stored stable IDs)')
   }
 
   // Always acknowledge quickly
