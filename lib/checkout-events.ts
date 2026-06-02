@@ -115,6 +115,8 @@ export async function logCheckoutEvent({
               const secret = stored?.secret || null
               const res = await fireOutboundWebhook(ep, secret, obPayload)
               console.log(`[Checkout Events] Fired outbound ${obPayload.event} to ${ep} (secret: ${!!secret}):`, res)
+              // Full throttle: record last outbound fire for demo tracking
+              try { if (typeof window !== 'undefined') localStorage.setItem('nexez_last_outbound_fired', new Date().toISOString()) } catch {}
             }
           }
         } catch (e) {

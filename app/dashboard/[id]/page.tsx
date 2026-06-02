@@ -1099,22 +1099,28 @@ export default function EditAgentPage({ params }: PageProps) {
                         {pendingReanalysis.incomingServices.some((o: any) => o.source === 'stripe') && ' Stripe prices compared below.'}
                       </p>
                     )}
-                    {/* Full throttle: actual Stripe price diffs */}
-                    {pendingReanalysis.incomingServices?.some((o: any) => o.source === 'stripe') && (
-                      <div className="mt-2 text-[10px] text-amber-300">
-                        {(() => {
-                          const current = servicesOffers.filter(o => o.source === 'stripe')
-                          const changes = pendingReanalysis.incomingServices.filter((inc: any) => inc.source === 'stripe').map((inc: any) => {
-                            const match = current.find(c => c.name.toLowerCase() === inc.name.toLowerCase())
-                            if (match && match.price !== inc.price) {
-                              return `${inc.name}: ${match.price} → ${inc.price}`
-                            }
-                            return null
-                          }).filter(Boolean)
-                          return changes.length > 0 ? `Price changes: ${changes.join(', ')}` : 'No price changes detected in this sync.'
-                        })()}
-                      </div>
-                    )}
+                    {/* Full throttle: clean Stripe price diff list with deltas */}
+                    {pendingReanalysis.incomingServices?.some((o: any) => o.source === 'stripe') && (() => {
+                      const current = servicesOffers.filter(o => o.source === 'stripe')
+                      const changes = pendingReanalysis.incomingServices
+                        .filter((inc: any) => inc.source === 'stripe')
+                        .map((inc: any) => {
+                          const match = current.find(c => c.name.toLowerCase() === inc.name.toLowerCase())
+                          if (match && match.price !== inc.price) {
+                            return { name: inc.name, old: match.price, new: inc.price }
+                          }
+                          return null
+                        }).filter(Boolean)
+                      if (changes.length === 0) return null
+                      return (
+                        <div className="mt-2 text-[10px] text-amber-300">
+                          <div className="font-medium mb-1">Stripe price changes detected:</div>
+                          {changes.map((c: any, idx: number) => (
+                            <div key={idx}>• {c.name}: {c.old} → {c.new}</div>
+                          ))}
+                        </div>
+                      )
+                    })()}
                   </div>
                   <div className="flex gap-2">
                     <button

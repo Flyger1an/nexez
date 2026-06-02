@@ -196,6 +196,8 @@ export async function POST(request: NextRequest) {
                 const secret = stored?.secret || null
                 const res = await fireOutboundWebhook(ep, secret, obPayload)
                 console.log(`[Calendly Webhook] Fired outbound booking.received to ${ep} (secret: ${!!secret}):`, res)
+                // Full throttle: record last outbound fire for demo tracking
+                try { if (typeof window !== 'undefined') localStorage.setItem('nexez_last_outbound_fired', new Date().toISOString()) } catch {}
               }
             } else {
               console.log('[Calendly Webhook] No outbound endpoints configured (neither page nor header).')
