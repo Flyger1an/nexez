@@ -42,6 +42,7 @@ export function buildAgentPagePayload(page: AgentPage) {
         note: (page as any).next_available 
           ? 'Availability imported or set manually. Agents can use this for scheduling.'
           : 'Contact for current availability. Recent booking activity may indicate current slots.',
+        // Future: windows array from real Google Calendar import
       },
       llms_url: `${baseUrl}/llms.txt`,
     },

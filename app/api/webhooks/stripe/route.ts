@@ -51,6 +51,9 @@ export async function POST(request: NextRequest) {
       currency: price.currency,
       timestamp: new Date().toISOString(),
     })
+
+    // Phase 3: Log as a potential re-sync trigger (can be consumed by future automation)
+    console.log('[Stripe Webhook] Price change event logged for potential offer sync (stable IDs available)')
   }
 
   // Always acknowledge quickly

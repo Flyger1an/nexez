@@ -948,6 +948,9 @@ export default function EditAgentPage({ params }: PageProps) {
               {googleCalendarId && (
                 <div className="mt-1 text-[10px] text-emerald-300">Google Calendar connected • ID: {googleCalendarId}</div>
               )}
+              {(page as any).availability && (
+                <div className="mt-1 text-[10px] text-emerald-300">Structured availability exposed for agents</div>
+              )}
               <p className="mt-1 text-[10px] text-zinc-500">
                 Shown in agent.json and public page. Will support Google Calendar sync in future.
                 Outbound webhooks fire automatically on bookings (configure in Settings).
@@ -957,6 +960,7 @@ export default function EditAgentPage({ params }: PageProps) {
               )}
               {/* Phase 3 status note */}
               <div className="mt-1 text-[10px] text-zinc-400">Outbound webhooks + Google Calendar sync ready (configure in Settings)</div>
+              <div className="mt-1 text-[10px] text-emerald-300">Per-page outbound configured (see Settings)</div>
             </div>
 
             {/* Phase 1 A: Re-analysis preview / diff */}
