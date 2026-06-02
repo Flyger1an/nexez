@@ -673,6 +673,9 @@ export default function PageSettings({ params }: PageProps) {
                                   const data = await res.json()
                                   const msg = data.success ? `✓ Sent (HTTP ${data.status})` : `✗ Failed: ${data.error || data.status}`
                                   setTestResults(prev => ({ ...prev, [i]: msg }))
+                                  if (data.success) {
+                                    try { localStorage.setItem('nexez_last_outbound_fired', new Date().toISOString()) } catch {}
+                                  }
                                 } catch (e: any) {
                                   setTestResults(prev => ({ ...prev, [i]: '✗ Network error' }))
                                 } finally {
@@ -726,6 +729,9 @@ export default function PageSettings({ params }: PageProps) {
                   {outboundSaving ? 'Saving...' : `Save ${outboundEndpoints.length} Outbound Endpoint${outboundEndpoints.length === 1 ? '' : 's'}`}
                 </button>
                 <p className="mt-1 text-[10px] text-zinc-500">Endpoints + secrets are stored on the page. They are called automatically by the Calendly receiver and on Nexez checkout events. Use "Send Test" above to verify instantly.</p>
+                {typeof window !== 'undefined' && localStorage.getItem('nexez_last_outbound_fired') && (
+                  <p className="mt-1 text-[9px] text-emerald-300">Last test fire: {new Date(localStorage.getItem('nexez_last_outbound_fired')!).toLocaleTimeString()}</p>
+                )}
               </div>
 
               {/* Phase 3: Google Calendar Availability (import foundation) */}
