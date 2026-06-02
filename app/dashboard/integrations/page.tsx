@@ -204,6 +204,24 @@ export default function IntegrationsPage() {
                 <ExternalLink className="size-4" />
               </a>
             </div>
+
+            {/* Full throttle: Dedicated Consumer Integrations section */}
+            <div className="mt-6 rounded-lg border border-pink-300/20 bg-pink-300/5 p-5">
+              <div className="font-semibold text-pink-300 mb-2">Consumer & Local Services Integrations</div>
+              <div className="grid gap-4 md:grid-cols-2 text-sm">
+                <div>
+                  <div className="font-medium">Square</div>
+                  <p className="text-xs text-zinc-400 mt-1">Payments + bookings for mobile services, wellness, home services. Rich consumer fields (isMobile, travelFee, serviceArea).</p>
+                  <a href="/dashboard/tools" className="text-[10px] text-pink-300 hover:underline">Import in Tools →</a>
+                </div>
+                <div>
+                  <div className="font-medium">Acuity Scheduling</div>
+                  <p className="text-xs text-zinc-400 mt-1">Appointment types for coaching, beauty, medical, fitness. Strong time-based consumer offerings.</p>
+                  <a href="/dashboard/tools" className="text-[10px] text-orange-300 hover:underline">Import in Tools →</a>
+                </div>
+              </div>
+              <p className="mt-3 text-[10px] text-pink-300/80">Both now support full import → editor re-sync → rich VisualOfferBuilder experience.</p>
+            </div>
           </section>
         </div>
       </div>

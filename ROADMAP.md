@@ -200,6 +200,12 @@ Phase 2 is locked and complete.
   - Stripe import now attaches stable stripe_product_id / price_id in metadata (concrete step toward full price sync + future webhook price updates).
 - Google Calendar: Public page shows clean "Availability (Google Calendar)" label when imported. agent.json availability block enriched with source/calendar_id + helpful note. Editor shows calendar ID explicitly.
 - **Full throttle execution (user: "keep building. full throttle")**:
+  - Stripe reanalysis preview now computes and displays real price diffs (old → new) for Stripe offers.
+  - VisualOfferBuilder source badges extended for 'square' (pink) and 'acuity' (orange).
+  - Dedicated Consumer & Local Services section added to /dashboard/integrations with Square + Acuity status and links.
+  - Acuity full UI + editor parity complete (Tools import, re-sync, builder support).
+  - All consumer offers now have proper source handling end-to-end.
+  - Multiple builds green. Aggressive progress across integrations depth.
   - **Acuity Scheduling** now has complete first-class UI in Tools (import, preview, Create Page, Re-sync) + full re-sync button + status pill in the main editor (exact parity with Square).
   - Both Square and Acuity consumer integrations are now end-to-end from import → editor → builder → public/agent consumption.
   - Stripe re-sync preview now performs basic price diff detection and surfaces the number of price changes.

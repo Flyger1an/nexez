@@ -1096,8 +1096,24 @@ export default function EditAgentPage({ params }: PageProps) {
                     {pendingReanalysis.incomingServices?.some((o: any) => o.source) && (
                       <p className="mt-1 text-[10px] text-blue-400">
                         Includes offers from integrations (source preserved). 
-                        {pendingReanalysis.incomingServices.some((o: any) => o.source === 'stripe') && ' Stripe prices will be compared on apply (diffs shown in summary).'}
+                        {pendingReanalysis.incomingServices.some((o: any) => o.source === 'stripe') && ' Stripe prices compared below.'}
                       </p>
+                    )}
+                    {/* Full throttle: actual Stripe price diffs */}
+                    {pendingReanalysis.incomingServices?.some((o: any) => o.source === 'stripe') && (
+                      <div className="mt-2 text-[10px] text-amber-300">
+                        {(() => {
+                          const current = servicesOffers.filter(o => o.source === 'stripe')
+                          const changes = pendingReanalysis.incomingServices.filter((inc: any) => inc.source === 'stripe').map((inc: any) => {
+                            const match = current.find(c => c.name.toLowerCase() === inc.name.toLowerCase())
+                            if (match && match.price !== inc.price) {
+                              return `${inc.name}: ${match.price} → ${inc.price}`
+                            }
+                            return null
+                          }).filter(Boolean)
+                          return changes.length > 0 ? `Price changes: ${changes.join(', ')}` : 'No price changes detected in this sync.'
+                        })()}
+                      </div>
                     )}
                   </div>
                   <div className="flex gap-2">

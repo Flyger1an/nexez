@@ -375,7 +375,13 @@ function SortableOfferCard({
               </span>
             )}
             {offer.source && (
-              <span className={`absolute -top-1.5 right-20 rounded px-1.5 py-px text-[9px] font-medium ${offer.source === 'stripe' ? 'bg-cyan-400/10 text-cyan-300' : offer.source === 'shopify' ? 'bg-purple-400/10 text-purple-300' : 'bg-violet-400/10 text-violet-300'}`}>
+              <span className={`absolute -top-1.5 right-20 rounded px-1.5 py-px text-[9px] font-medium ${
+                offer.source === 'stripe' ? 'bg-cyan-400/10 text-cyan-300' : 
+                offer.source === 'shopify' ? 'bg-purple-400/10 text-purple-300' : 
+                offer.source === 'square' ? 'bg-pink-400/10 text-pink-300' :
+                offer.source === 'acuity' ? 'bg-orange-400/10 text-orange-300' :
+                'bg-violet-400/10 text-violet-300'
+              }`}>
                 via {offer.source}
               </span>
             )}
