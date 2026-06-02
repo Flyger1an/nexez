@@ -198,9 +198,9 @@ Phase 2 is locked and complete.
   - Stripe import produces richer OfferItem shape (recurring → duration + tiers, metadata for future price webhooks).
   - Editor "Connected Integrations" status is now actionable for both Calendly and Stripe: Re-sync buttons trigger rich import + pendingReanalysis/smart-merge preview directly in the editor (full parity for the two primary pro integrations).
   - Stripe import now attaches stable stripe_product_id / price_id in metadata (concrete step toward full price sync + future webhook price updates).
-- Google Calendar: Cleaner public page rendering for imported availability (shows "Availability (Google Calendar)" when source is set). Structured availability in agent.json improved with source/calendar_id.
-- Stripe webhook: price.updated logging now explicitly calls out the stable ID path for future offer price sync.
-- Status: Editor Availability section now includes helpful outbound + Google Calendar readiness note.
+- Google Calendar: Public page now shows clean "Availability (Google Calendar)" label when imported. agent.json availability block enriched with source/calendar_id + helpful note.
+- Stripe webhook: price.updated logging now explicitly documents the stable ID mechanism for future offer price updates.
+- Status: Editor Connected Integrations + Availability sections include clearer outbound + Google Calendar readiness notes.
 - Build + tests green.
 
 **Duration / Effort**: 8–10 days.

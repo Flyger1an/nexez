@@ -43,6 +43,14 @@ export async function POST(request: NextRequest) {
     // in metadata and trigger a targeted re-sync or direct price update on the page.
     // For now we log a structured event that downstream systems (or future code)
     // can use to keep prices fresh.
+    console.log('[Stripe Webhook] Structured price event ready for sync pipeline', {
+      event: 'price.updated',
+      price_id: price.id,
+      product_id: price.product,
+      unit_amount: price.unit_amount,
+      currency: price.currency,
+      timestamp: new Date().toISOString(),
+    })
   }
 
   // Always acknowledge quickly

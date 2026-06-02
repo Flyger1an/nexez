@@ -37,10 +37,10 @@ export function buildAgentPagePayload(page: AgentPage) {
       availability: {
         next_available: (page as any).next_available || null,
         last_booking: page.last_booking || null,
-        source: (page as any).google_calendar_id ? 'google_calendar' : null,
+        source: (page as any).google_calendar_id ? 'google_calendar' : (page as any).next_available ? 'manual' : null,
         calendar_id: (page as any).google_calendar_id || null,
         note: (page as any).next_available 
-          ? null 
+          ? 'Availability imported or set manually. Agents can use this for scheduling.'
           : 'Contact for current availability. Recent booking activity may indicate current slots.',
       },
       llms_url: `${baseUrl}/llms.txt`,

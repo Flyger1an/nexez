@@ -932,6 +932,7 @@ export default function EditAgentPage({ params }: PageProps) {
                 <p className="mt-2 text-[10px] text-zinc-500">
                   Re-sync keeps source metadata (via stripe, via shopify, etc.) and feeds the smart merge preview. Full control in <a href={`/dashboard/${id}/settings`} className="underline">Settings</a> or <a href="/dashboard/tools" className="underline">Tools</a>.
                 </p>
+                <div className="mt-2 text-[10px] text-emerald-300">Outbound + Google Calendar sync ready (see Availability section above)</div>
               </div>
             )}
 
@@ -945,7 +946,7 @@ export default function EditAgentPage({ params }: PageProps) {
                 {nextAvailable ? nextAvailable : 'Not set — agents will see "Contact for current slots"'}
               </div>
               {googleCalendarId && (
-                <div className="mt-1 text-[10px] text-emerald-300">Google Calendar connected (ID stored)</div>
+                <div className="mt-1 text-[10px] text-emerald-300">Google Calendar connected • ID: {googleCalendarId}</div>
               )}
               <p className="mt-1 text-[10px] text-zinc-500">
                 Shown in agent.json and public page. Will support Google Calendar sync in future.
