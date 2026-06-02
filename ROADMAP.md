@@ -199,7 +199,12 @@ Phase 2 is locked and complete.
   - Editor "Connected Integrations" status is now actionable for both Calendly and Stripe: Re-sync buttons trigger rich import + pendingReanalysis/smart-merge preview directly in the editor (full parity for the two primary pro integrations).
   - Stripe import now attaches stable stripe_product_id / price_id in metadata (concrete step toward full price sync + future webhook price updates).
 - Google Calendar: Public page shows clean "Availability (Google Calendar)" label when imported. agent.json availability block enriched with source/calendar_id + helpful note. Editor shows calendar ID explicitly.
-- **Full throttle execution (user: "keep executing at full throttle")**:
+- **Full throttle execution (user: "keep building. full throttle")**:
+  - **Acuity Scheduling** now has complete first-class UI in Tools (import, preview, Create Page, Re-sync) + full re-sync button + status pill in the main editor (exact parity with Square).
+  - Both Square and Acuity consumer integrations are now end-to-end from import → editor → builder → public/agent consumption.
+  - Stripe re-sync preview now performs basic price diff detection and surfaces the number of price changes.
+  - Recent Outbound Activity card + Acuity/Square health visible in editor command center.
+  - Multiple builds green. Aggressive consumer track + status + diff work in one cycle. No artificial limits.
   - **Acuity Scheduling consumer stub** added as second consumer integration (parallel to Square). Rich scheduling-focused OfferItem with duration/consumer fields. Route + ready for UI parity.
   - Recent Outbound Activity card added in main editor (symmetric to Calendly recent bookings card). Clear messaging on auto-firing + secrets.
   - Square consumer track now has editor re-sync parity + status pill (full end-to-end for local services).

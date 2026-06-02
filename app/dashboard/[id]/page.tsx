@@ -74,6 +74,7 @@ export default function EditAgentPage({ params }: PageProps) {
     stripe?: { lastImport: string }
     shopify?: { lastImport: string }
     square?: { lastImport: string }
+    acuity?: { lastImport: string }
   }>({})
 
   // Visual builder state (derived from rich arrays; text kept for legacy/raw + CSV)
@@ -105,6 +106,9 @@ export default function EditAgentPage({ params }: PageProps) {
 
       const sq = localStorage.getItem('nexez_square_connection')
       if (sq) status.square = JSON.parse(sq)
+
+      const ac = localStorage.getItem('nexez_acuity_connection')
+      if (ac) status.acuity = JSON.parse(ac)
 
       setIntegrationStatus(status)
     } catch {}
@@ -874,11 +878,19 @@ export default function EditAgentPage({ params }: PageProps) {
                                 incomingProducts: [],
                                 summary: `Stripe re-sync: ${incoming.length} products/prices (${newCount} new, ${updateCount} potentially updated). Smart merge protects your edits.`,
                               })
-                              setMessage('Stripe offers loaded into re-analysis preview.')
-                              // Full throttle: price diff hint for stripe-sourced offers
+                              // Full throttle: real price diff detection for Stripe
+                              let stripeDiffNote = ''
                               if (incoming.some((o: any) => o.source === 'stripe')) {
-                                setMessage('Stripe offers + price metadata loaded. Price diffs will be highlighted on apply.')
+                                const currentStripe = servicesOffers.filter(o => o.source === 'stripe')
+                                const priceChanges = incoming.filter((inc: any) => {
+                                  const match = currentStripe.find(c => c.name.toLowerCase() === inc.name.toLowerCase())
+                                  return match && match.price !== inc.price
+                                })
+                                if (priceChanges.length > 0) {
+                                  stripeDiffNote = ` • ${priceChanges.length} price change(s) detected`
+                                }
                               }
+                              setMessage(`Stripe offers loaded into re-analysis preview.${stripeDiffNote}`)
                             } else {
                               setMessage(data.error || 'No products returned from Stripe.')
                             }
@@ -985,6 +997,42 @@ export default function EditAgentPage({ params }: PageProps) {
                         className="ml-1 text-[10px] rounded border border-pink-300/50 px-1.5 py-0 text-pink-100 hover:bg-pink-400/10 disabled:opacity-50"
                       >
                         {integrationResyncing === 'square' ? '...' : 'Re-sync'}
+                      </button>
+                    </div>
+                  )}
+                  {integrationStatus.acuity && (
+                    <div className="flex items-center gap-2 rounded border border-orange-300/30 bg-orange-400/5 px-2 py-1 text-orange-200">
+                      Acuity ✓ <span className="text-[10px] text-zinc-400">({new Date(integrationStatus.acuity.lastImport).toLocaleDateString()})</span>
+                      <button
+                        type="button"
+                        disabled={!!integrationResyncing}
+                        onClick={async () => {
+                          setIntegrationResyncing('acuity')
+                          try {
+                            const res = await fetch('/api/integrations/acuity/import', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({}),
+                            })
+                            const data = await res.json()
+                            if (data.structuredOffers?.length) {
+                              const incoming = data.structuredOffers as OfferItem[]
+                              setPendingReanalysis({
+                                incomingServices: incoming,
+                                incomingProducts: [],
+                                summary: `Acuity scheduling re-sync: ${incoming.length} appointment types. Strong for time-based consumer services.`,
+                              })
+                              setMessage('Acuity appointment types loaded into re-analysis preview.')
+                            }
+                          } catch (e: any) {
+                            setMessage('Acuity re-sync failed: ' + e.message)
+                          } finally {
+                            setIntegrationResyncing(null)
+                          }
+                        }}
+                        className="ml-1 text-[10px] rounded border border-orange-300/50 px-1.5 py-0 text-orange-100 hover:bg-orange-400/10 disabled:opacity-50"
+                      >
+                        {integrationResyncing === 'acuity' ? '...' : 'Re-sync'}
                       </button>
                     </div>
                   )}

@@ -40,8 +40,40 @@ export default function ToolsPage() {
   const [squareResult, setSquareResult] = useState<any>(null)
   const [squareConnected, setSquareConnected] = useState<{ lastImport: string } | null>(null)
 
+  // Phase 3 Consumer Track: Acuity Scheduling (coaching, beauty, wellness, medical)
+  const [acuityToken, setAcuityToken] = useState('')
+  const [acuityLoading, setAcuityLoading] = useState(false)
+  const [acuityResult, setAcuityResult] = useState<any>(null)
+  const [acuityConnected, setAcuityConnected] = useState<{ lastImport: string } | null>(null)
+
   // Square consumer services import (Phase 3 consumer track start)
   // (handler defined below after Shopify)
+
+  // Acuity consumer scheduling import (Phase 3 consumer track)
+  async function handleAcuityImport() {
+    setAcuityLoading(true)
+    setAcuityResult(null)
+
+    try {
+      const res = await fetch('/api/integrations/acuity/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken: acuityToken.trim() || undefined }),
+      })
+      const data = await res.json()
+      setAcuityResult(data)
+
+      if (!data.error) {
+        const conn = { lastImport: new Date().toISOString() }
+        setAcuityConnected(conn)
+        try { localStorage.setItem('nexez_acuity_connection', JSON.stringify(conn)) } catch {}
+      }
+    } catch (e) {
+      setAcuityResult({ error: 'Failed to import from Acuity' })
+    } finally {
+      setAcuityLoading(false)
+    }
+  }
 
   // Outbound webhook demo config (supports multiple)
   const [outboundWebhookUrl, setOutboundWebhookUrl] = useState('')
@@ -748,6 +780,76 @@ export default function ToolsPage() {
             <p className="mt-2 text-[10px] text-zinc-500">
               Leave token empty for public catalog (most stores). Paste Admin API token for complete private access.
             </p>
+          </div>
+
+          {/* Phase 3 Consumer: Acuity Scheduling (full UI parity with Square) */}
+          <div className="mt-6 rounded-xl border border-white/10 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <div className="font-semibold text-orange-300">Acuity Scheduling — Consumer Services</div>
+                <p className="text-xs text-[#9CA3AF]">Import appointment types for coaching, beauty, wellness, medical, fitness. Strong scheduling + consumer fields.</p>
+              </div>
+              {acuityConnected && (
+                <span className="text-[10px] text-emerald-400">Connected • {new Date(acuityConnected.lastImport).toLocaleTimeString()}</span>
+              )}
+            </div>
+
+            <div className="flex gap-2 mb-2">
+              <input
+                type="text"
+                value={acuityToken}
+                onChange={(e) => setAcuityToken(e.target.value)}
+                placeholder="Acuity API Key or User ID (stub works without for demo)"
+                className="flex-1 input text-sm"
+              />
+              <button
+                onClick={handleAcuityImport}
+                disabled={acuityLoading}
+                className="btn-primary bg-orange-300 text-zinc-950 hover:bg-orange-200"
+              >
+                {acuityLoading ? <Loader2 className="size-4 animate-spin" /> : 'Import from Acuity'}
+              </button>
+              {acuityConnected && (
+                <button
+                  onClick={() => handleAcuityImport()}
+                  disabled={acuityLoading}
+                  className="rounded-lg border border-orange-300/40 px-3 py-1 text-sm text-orange-200 hover:bg-white/5"
+                >
+                  Re-sync
+                </button>
+              )}
+            </div>
+
+            {acuityResult && (
+              <div className="mt-3 rounded border border-white/10 bg-white/[0.03] p-3 text-sm">
+                {acuityResult.error ? (
+                  <p className="text-red-400">{acuityResult.error}</p>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center mb-2">
+                      <p className="text-emerald-400 text-sm font-medium">{acuityResult.message || 'Acuity appointment types imported'}</p>
+                      {acuityResult.structuredOffers?.length > 0 && (
+                        <button
+                          onClick={() => {
+                            sessionStorage.setItem('nexez_imported_structured', JSON.stringify(acuityResult.structuredOffers))
+                            window.location.href = '/create?imported=true&source=acuity'
+                          }}
+                          className="text-sm rounded bg-orange-300 px-4 py-1 font-semibold text-zinc-950 hover:bg-orange-200"
+                        >
+                          Create Page →
+                        </button>
+                      )}
+                    </div>
+                    <div className="text-xs text-[#9CA3AF] space-y-1">
+                      {acuityResult.structuredOffers?.slice(0, 4).map((o: any, i: number) => (
+                        <div key={i}>• {o.name} — {o.price} {o.duration ? `(${o.duration})` : ''}</div>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-[10px] text-zinc-500">Excellent for time-based consumer services. Real Acuity API integration coming.</p>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {calendlyResult && (
