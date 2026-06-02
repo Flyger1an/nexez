@@ -93,14 +93,14 @@ export default function Dashboard() {
     ])
 
     if (pageResult.error) {
-      console.error(pageResult.error)
+      console.error('Failed to load pages:', pageResult.error)
       setPages([])
     } else {
       setPages(pageResult.data || [])
     }
 
     if (eventResult.error) {
-      console.error(eventResult.error)
+      console.error('Failed to load events:', eventResult.error)
       setEvents([])
     } else {
       setEvents(eventResult.data || [])
@@ -147,8 +147,7 @@ export default function Dashboard() {
           </a>
 
           <nav className="mt-10 space-y-1">
-            <NavItem active href="/dashboard" icon={<LayoutDashboard className="size-4" />} label="Dashboard" />
-            <NavItem href="/dashboard" icon={<Grid2X2 className="size-4" />} label="My Agent Pages" />
+            <NavItem active href="/dashboard" icon={<Grid2X2 className="size-4" />} label="My Agent Pages" />
             <NavItem href="/create" icon={<Bot className="size-4" />} label="Builder" />
             <NavItem href="/dashboard/analytics" icon={<BarChart3 className="size-4" />} label="Analytics" />
             <NavItem href="/directory" icon={<Search className="size-4" />} label="Directory" />
@@ -170,7 +169,7 @@ export default function Dashboard() {
           <header className="flex items-center justify-between border-b border-white/10 bg-[#0F0D18] px-5 py-4 md:px-8">
             <div className="min-w-0">
               <p className="text-sm text-[#9CA3AF]">Nexez • Dashboard</p>
-              <h1 className="truncate text-2xl font-semibold tracking-tight">Welcome back</h1>
+              <h1 className="truncate text-2xl font-semibold tracking-tight">My Agent Pages</h1>
             </div>
             <div className="flex items-center gap-3">
               <a href="/create" className="btn-primary text-sm">
@@ -249,7 +248,7 @@ export default function Dashboard() {
             </section>
 
             <div className="mt-5 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-cyan-200">Featured in Agent Directory</h2>
+              <h2 className="text-lg font-semibold text-cyan-200">My Agent Pages</h2>
               <a href="/llms.txt" className="font-mono text-xs text-zinc-500 hover:text-cyan-200">
                 /llms.txt
               </a>
