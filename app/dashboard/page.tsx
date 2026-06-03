@@ -242,24 +242,28 @@ export default function Dashboard() {
 
           <div className="px-5 py-6 md:px-8">
             <OnboardingChecklist pages={pages} />
-            <section className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
-              <div className="relative p-6 md:p-8">
-                <div className="absolute right-8 top-8 hidden size-32 rounded-full bg-cyan-300/25 blur-3xl md:block" />
-                <p className="text-sm text-cyan-200">Your Nexez agent pages received</p>
-                <h2 className="mt-2 text-3xl font-semibold tracking-tight">
-                  {agentPageVisits} AI agent visits, {trafficSplit.human} human visits, {discoveryClicks} discovery clicks, and {conversionActions} conversion actions
-                </h2>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
-                  {totalTrackedSignals} total tracked signals across {publishedCount} published pages and {totalOffers} listed offers.
-                  Agent detection, directory discovery, and marketplace clicks now roll into this ROI view.
-                </p>
-                {topOffer ? (
-                  <p className="mt-4 inline-flex rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-sm text-cyan-100">
-                    Top signal: {topOffer}
+            {pages.length === 0 ? (
+              <NewUserHero name={displayName} />
+            ) : (
+              <section className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
+                <div className="relative p-6 md:p-8">
+                  <div className="absolute right-8 top-8 hidden size-32 rounded-full bg-cyan-300/25 blur-3xl md:block" />
+                  <p className="text-sm text-cyan-200">Your Nexez agent pages received</p>
+                  <h2 className="mt-2 text-3xl font-semibold tracking-tight">
+                    {agentPageVisits} AI agent visits, {trafficSplit.human} human visits, {discoveryClicks} discovery clicks, and {conversionActions} conversion actions
+                  </h2>
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
+                    {totalTrackedSignals} total tracked signals across {publishedCount} published pages and {totalOffers} listed offers.
+                    Agent detection, directory discovery, and marketplace clicks now roll into this ROI view.
                   </p>
-                ) : null}
-              </div>
-            </section>
+                  {topOffer ? (
+                    <p className="mt-4 inline-flex rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-sm text-cyan-100">
+                      Top signal: {topOffer}
+                    </p>
+                  ) : null}
+                </div>
+              </section>
+            )}
 
             {openNegotiations > 0 && (
               <a
@@ -280,6 +284,8 @@ export default function Dashboard() {
               </a>
             )}
 
+            {pages.length > 0 && (
+            <>
             <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
               <div className="kpi-card">
                 <p className="text-sm text-[#9CA3AF]">Tracked signals</p>
@@ -310,6 +316,8 @@ export default function Dashboard() {
             <AgentDetectionSummary trafficSplit={trafficSplit} breakdown={agentTypeBreakdown} topPages={topAgentPages} />
 
             <RecentActivity events={events} pages={pages} />
+            </>
+            )}
 
             <section className="mt-6 flex flex-col gap-3 md:flex-row">
               <label className="relative flex-1">
@@ -429,6 +437,46 @@ function NavItem({
         </span>
       ) : null}
     </a>
+  )
+}
+
+function NewUserHero({ name }: { name: string }) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-[#7C3AED]/30 bg-gradient-to-br from-[#7C3AED]/15 to-[#00F5FF]/5 p-7 md:p-10">
+      <p className="text-sm text-[#C4B5FD]">{name ? `Welcome, ${name}` : 'Welcome to Nexez'}</p>
+      <h2 className="mt-2 max-w-2xl text-3xl font-semibold leading-tight tracking-tight">
+        Publish your first page built for AI agents to discover, understand, and buy from.
+      </h2>
+      <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">
+        Paste your existing website and we’ll turn it into a structured, agent-readable page in seconds — or start
+        from an industry template. Then publish it and (optionally) host it on your own custom domain.
+      </p>
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <a
+          href="/create"
+          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#7C3AED] to-[#00F5FF] px-6 font-medium text-[#0A0A0F] transition hover:opacity-90"
+        >
+          <Plus className="size-4" /> Import your site
+        </a>
+        <a
+          href="/create"
+          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-white/15 px-6 text-sm font-medium text-white transition hover:bg-white/5"
+        >
+          Start from a template
+        </a>
+        <a
+          href="/simulator"
+          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-white/10 px-6 text-sm text-zinc-300 transition hover:bg-white/5"
+        >
+          See how agents read pages
+        </a>
+      </div>
+      <div className="mt-6 grid grid-cols-1 gap-3 text-sm text-zinc-400 sm:grid-cols-3">
+        <span>✓ JSON-LD, llms.txt, agent.json & MCP generated automatically</span>
+        <span>✓ Crawlable by GPTBot, ClaudeBot, Perplexity & more</span>
+        <span>✓ Deploy to your own white-labeled custom domain</span>
+      </div>
+    </section>
   )
 }
 

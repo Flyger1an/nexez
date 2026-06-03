@@ -1676,3 +1676,17 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 **Mini-audit**: ✅ step logic tested (+5) incl. hrefs + completion; ✅ component fed by live `pages` state; ✅ hides on complete/dismiss; ✅ build/lint/tsc clean.
 
 **Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **118/118** (+5), `npm run build` clean.
+
+---
+
+## 2026-06-03 New-User Empty State (activation, pairs with onboarding)
+
+**Why**: a brand-new user previously saw an all-zeros analytics dashboard — a weak first impression. Now zero-page users get a focused activation hero instead.
+
+**IMPLEMENTED** (`app/dashboard/page.tsx`):
+- `NewUserHero` (shown when `pages.length === 0`): welcoming, name-personalized hero with primary CTAs — **Import your site**, **Start from a template**, **See how agents read pages** (→ simulator) — plus value bullets (auto-generated agent artifacts, crawlable by GPTBot/ClaudeBot/Perplexity, custom-domain hosting).
+- The zeros analytics hero, KPI grid, agent-detection summary, and recent-activity are **hidden until the user has at least one page** (no more noise), while the onboarding checklist + page list remain.
+
+**Mini-audit**: ✅ hero only renders at 0 pages; ✅ analytics blocks gated behind `pages.length > 0`; ✅ existing dashboard unchanged for active users; ✅ build/lint/tsc clean, 118/118 tests.
+
+**Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm run build` clean.
