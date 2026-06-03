@@ -5,7 +5,7 @@ import { headers } from 'next/headers'
 import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, LockKeyhole, Mail, MapPin } from 'lucide-react'
 import { AgentPage, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, getBaseUrl, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
-import { agentArtifactHref, getEffectiveBaseUrl, isCustomHost } from '../../lib/custom-domain'
+import { agentArtifactHref, getEffectiveBaseUrl, isCustomHost, normalizeDomainPath } from '../../lib/custom-domain'
 import { safeJsonScript } from '../../lib/safe-json'
 import { logAgentPageView } from '../../lib/server/log-agent-page-view'
 import { supabase } from '../../lib/supabase'
@@ -38,8 +38,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const host = (await headers()).get('host')
   const base = getEffectiveBaseUrl(host, getBaseUrl(), process.env.NEXT_PUBLIC_SITE_URL)
   const onCustomHost = isCustomHost(host, process.env.NEXT_PUBLIC_SITE_URL)
-  const canonical = onCustomHost ? `${base}/` : `${base}/${page.slug}`
-  const agentJson = `${base}${agentArtifactHref('agent.json', page.slug, onCustomHost)}`
+  const domainPath = normalizeDomainPath(page.domain_path)
+  const canonical = onCustomHost ? `${base}${domainPath}` : `${base}/${page.slug}`
+  const agentJson = `${base}${agentArtifactHref('agent.json', page.slug, onCustomHost, domainPath)}`
 
   return {
     title: `${page.name} | Nexez`,
@@ -77,9 +78,11 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
   const incomingHost = requestHeaders.get('host')
   const effectiveBase = getEffectiveBaseUrl(incomingHost, getBaseUrl(), process.env.NEXT_PUBLIC_SITE_URL)
   const onCustomHost = isCustomHost(incomingHost, process.env.NEXT_PUBLIC_SITE_URL)
-  const agentJsonHref = agentArtifactHref('agent.json', page.slug, onCustomHost)
-  const mcpJsonHref = agentArtifactHref('mcp.json', page.slug, onCustomHost)
-  const visitUrl = `${effectiveBase}/${page.slug}`
+  const domainPath = normalizeDomainPath(page.domain_path)
+  const agentJsonHref = agentArtifactHref('agent.json', page.slug, onCustomHost, domainPath)
+  const mcpJsonHref = agentArtifactHref('mcp.json', page.slug, onCustomHost, domainPath)
+  const selfUrl = onCustomHost ? `${effectiveBase}${domainPath}` : `${effectiveBase}/${page.slug}`
+  const visitUrl = selfUrl
   after(() => logAgentPageView({ page, requestHeaders, url: visitUrl }))
 
   // Live events for accurate Trust Score completion rate (attempts vs real bookings)
@@ -367,7 +370,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
           <h2 className="text-2xl font-semibold">Plain-text agent context</h2>
           <pre className="mt-5 overflow-x-auto rounded-lg border border-white/10 bg-black p-5 text-sm leading-7 text-zinc-300">
 {`Name: ${page.name}
-URL: ${onCustomHost ? `${effectiveBase}/` : `${effectiveBase}/${page.slug}`}
+URL: ${selfUrl}
 Agent JSON: ${effectiveBase}${agentJsonHref}
 Summary: ${page.description ?? ''}
 Best-fit buyer: ${page.audience ?? ''}

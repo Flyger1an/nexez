@@ -48,18 +48,79 @@ export function hostLookupCandidates(host: string | null | undefined): string[] 
 }
 
 /**
- * Map an incoming path on a custom domain to the internal per-slug path.
+ * Map an incoming path on a custom domain to the internal per-slug path
+ * (single-page domains). Kept for back-compat / simple cases.
  * - `/` → the page itself
  * - `/agent.json`, `/mcp.json` → the page's agent artifacts (served at domain root)
  * - anything else passes through unchanged (assets, checkout, global routes)
- *
- * Returns the (possibly unchanged) pathname.
  */
 export function mapCustomDomainPath(slug: string, pathname: string): string {
   if (pathname === '/' || pathname === '') return `/${slug}`
   if (pathname === '/agent.json') return `/${slug}/agent.json`
   if (pathname === '/mcp.json') return `/${slug}/mcp.json`
   return pathname
+}
+
+/**
+ * Decompose an incoming custom-domain pathname into the `domain_path` it
+ * targets plus an optional agent artifact. Supports root + one level of
+ * subpath (e.g. `/pricing`). Returns null for paths we don't own (assets,
+ * checkout, nested paths) so the request passes through unchanged.
+ *
+ * Examples:
+ *  `/`                    → { basePath: '/',        artifact: null }
+ *  `/agent.json`          → { basePath: '/',        artifact: 'agent.json' }
+ *  `/pricing`             → { basePath: '/pricing', artifact: null }
+ *  `/pricing/mcp.json`    → { basePath: '/pricing', artifact: 'mcp.json' }
+ *  `/checkout/x`          → null
+ */
+export function resolveDomainPath(
+  pathname: string,
+): { basePath: string; artifact: 'agent.json' | 'mcp.json' | null } | null {
+  const clean = (pathname || '/').replace(/\/+$/, '') || '/'
+
+  if (clean === '/') return { basePath: '/', artifact: null }
+  if (clean === '/agent.json') return { basePath: '/', artifact: 'agent.json' }
+  if (clean === '/mcp.json') return { basePath: '/', artifact: 'mcp.json' }
+
+  const segments = clean.split('/').filter(Boolean)
+
+  // /<seg>
+  if (segments.length === 1) {
+    return { basePath: `/${segments[0]}`, artifact: null }
+  }
+  // /<seg>/agent.json | /<seg>/mcp.json
+  if (segments.length === 2 && (segments[1] === 'agent.json' || segments[1] === 'mcp.json')) {
+    return { basePath: `/${segments[0]}`, artifact: segments[1] as 'agent.json' | 'mcp.json' }
+  }
+
+  return null
+}
+
+/**
+ * Given a domain's path→slug map and an incoming pathname, return the internal
+ * rewrite target (or null to pass through). Powers multi-page custom domains.
+ */
+export function buildCustomDomainRewrite(
+  pathToSlug: Map<string, string> | Record<string, string>,
+  pathname: string,
+): string | null {
+  const resolved = resolveDomainPath(pathname)
+  if (!resolved) return null
+
+  const slug =
+    pathToSlug instanceof Map ? pathToSlug.get(resolved.basePath) : pathToSlug[resolved.basePath]
+  if (!slug) return null
+
+  return resolved.artifact ? `/${slug}/${resolved.artifact}` : `/${slug}`
+}
+
+/** Normalize a user-entered domain path: leading slash, no trailing slash, lowercased. */
+export function normalizeDomainPath(input: string | null | undefined): string {
+  let p = (input || '/').trim().toLowerCase()
+  if (!p.startsWith('/')) p = `/${p}`
+  p = p.replace(/\/+$/, '')
+  return p || '/'
 }
 
 /** True when the request arrives on a customer's custom domain (not a platform host). */
@@ -92,6 +153,9 @@ export function agentArtifactHref(
   artifact: 'agent.json' | 'mcp.json',
   slug: string,
   onCustomHost: boolean,
+  domainPath: string = '/',
 ): string {
-  return onCustomHost ? `/${artifact}` : `/${slug}/${artifact}`
+  if (!onCustomHost) return `/${slug}/${artifact}`
+  const base = normalizeDomainPath(domainPath)
+  return base === '/' ? `/${artifact}` : `${base}/${artifact}`
 }

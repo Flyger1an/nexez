@@ -1459,3 +1459,27 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 **Follow-up**: `/llms.txt` + `/openapi.json` remain global (not yet per-domain scoped); fine for now since the per-page artifacts (agent.json/mcp.json) resolve at the brand root. Per-domain scoped llms.txt is a candidate for the C-tier (multi-page) work.
 
 **Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **71/71** (+13 across B5+B6), `npm run build` clean (`/api/crawlability` + `Proxy (Middleware)` present).
+
+---
+
+## 2026-06-03 Burst 4 — C9: Multiple Pages Under One Custom Domain (mini agent-site)
+
+**IMPLEMENTED — a custom domain can now host several pages at distinct paths**:
+- **Migration** `20260603160000_add_domain_path_multipage.sql` (applied to prod + verified): adds `pages.domain_path` (default `/`), drops the single-domain unique index, adds composite unique `(custom_domain, domain_path)` so a domain can host many pages, each at a unique path.
+- **`lib/custom-domain.ts`**: `resolveDomainPath` (root + one-level subpath + their `agent.json`/`mcp.json`, null for unowned paths), `buildCustomDomainRewrite` (path→slug map → internal rewrite), `normalizeDomainPath` (leading slash, no trailing, lowercased). `agentArtifactHref` now domain-path-aware.
+- **`proxy.ts`**: resolves a host to its full `{ domain_path → slug }` map (cached 60s) and rewrites via `buildCustomDomainRewrite` — `acme.com/` and `acme.com/pricing` serve different pages; artifacts resolve under each path.
+- **`app/[slug]/page.tsx`** (B5 extended): canonical, og:url, agent.json/mcp.json hrefs, JSON-LD url, and plain-text URL all use the page's `domain_path` on a custom host.
+- **`/api/custom-domain`**: ownership lookup tolerates multiple pages per domain (`limit(1)` instead of `maybeSingle`).
+- **Settings**: "Path on domain" input (normalized on blur, persisted) alongside the custom-domain field.
+- **`domain_path`** added to `PUBLIC_PAGE_SELECT` + `AgentPage` type.
+
+**Mini-audit (properly plugged in?)**:
+1. ✅ Migration applied to prod (column + composite unique index verified; old unique index dropped).
+2. ✅ Middleware resolves the path→slug map and rewrites via the tested pure helper; platform hosts still short-circuit.
+3. ✅ `domain_path` flows through select → type → page rendering → settings save (normalized).
+4. ✅ Route no longer errors on multi-page domains.
+5. ✅ Pure logic tested — `resolveDomainPath`, `buildCustomDomainRewrite`, `normalizeDomainPath`, domain-path-aware `agentArtifactHref` (+8 tests).
+
+**Guardrail**: the composite unique index means two pages can't claim the same `(domain, path)` — a duplicate save surfaces the DB unique violation through existing error handling (correct behavior).
+
+**Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **79/79** (+8), `npm run build` clean (`Proxy (Middleware)` present).

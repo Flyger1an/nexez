@@ -16,6 +16,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { AgentPage, OWNER_PAGE_SELECT, getBaseUrl, normalizeSlug } from '../../../../lib/agent-page'
+import { normalizeDomainPath } from '../../../../lib/custom-domain'
 import { buildAgentPagePayload, getAgentJsonPath } from '../../../../lib/agent-manifest'
 import { createClient } from '../../../../utils/supabase/client'
 
@@ -37,6 +38,7 @@ export default function PageSettings({ params }: PageProps) {
   const [contactEmail, setContactEmail] = useState('')
   const [isPublished, setIsPublished] = useState(false)
   const [customDomain, setCustomDomain] = useState('')
+  const [domainPath, setDomainPath] = useState('/')
   const [domainProvisioning, setDomainProvisioning] = useState(false)
   const [domainStatus, setDomainStatus] = useState<
     | null
@@ -170,6 +172,7 @@ export default function PageSettings({ params }: PageProps) {
 	    setContactEmail(activePage.contact_email ?? '')
 	    setIsPublished(activePage.is_published)
 	    setCustomDomain(activePage.custom_domain ?? '')
+	    setDomainPath(activePage.domain_path ?? '/')
 	    setPreferOriginalSite(!!activePage.prefer_original_site)
 	    setIndustry(activePage.industry ?? '')
 
@@ -358,6 +361,7 @@ export default function PageSettings({ params }: PageProps) {
         contact_email: contactEmail,
         is_published: isPublished,
         custom_domain: customDomain || null,
+	        domain_path: normalizeDomainPath(domainPath),
 	        prefer_original_site: preferOriginalSite,
 	        verification_details: verificationDetails || null,
 	      })
@@ -530,6 +534,20 @@ export default function PageSettings({ params }: PageProps) {
                   <p className="mt-1 text-[10px] text-zinc-500">
                     CNAME your subdomain to your Nexez deployment host. Full ownership proof via DNS TXT.
                   </p>
+
+                  <div className="mt-2 flex items-center gap-2">
+                    <label className="text-[10px] uppercase tracking-widest text-zinc-400">Path on domain</label>
+                    <input
+                      value={domainPath}
+                      onChange={(e) => setDomainPath(e.target.value)}
+                      onBlur={() => setDomainPath(normalizeDomainPath(domainPath))}
+                      placeholder="/"
+                      className="w-40 rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
+                    />
+                    <span className="text-[10px] text-zinc-500">
+                      e.g. “/” or “/pricing” — host several pages on one domain.
+                    </span>
+                  </div>
 
                   {domainVerificationToken && (
                     <div className="mt-2 rounded border border-amber-300/30 bg-amber-400/5 p-2 text-[11px] text-amber-200">

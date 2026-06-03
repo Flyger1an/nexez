@@ -53,14 +53,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  // Authorize: the user must own a page that has this exact custom_domain.
-  const { data: page } = await supabase
+  // Authorize: the user must own at least one page that uses this domain.
+  // (A domain may host several pages, so take the first match.)
+  const { data: pages } = await supabase
     .from('pages')
     .select('id, custom_domain, custom_domain_verified')
     .eq('owner_id', user.id)
     .eq('custom_domain', domain)
-    .maybeSingle<{ id: string; custom_domain: string; custom_domain_verified: string | null }>()
+    .limit(1)
+    .returns<Array<{ id: string; custom_domain: string; custom_domain_verified: string | null }>>()
 
+  const page = pages?.[0]
   if (!page) {
     return NextResponse.json(
       { error: 'No page you own uses this domain. Save the custom domain on the page first.' },

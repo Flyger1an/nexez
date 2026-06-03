@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
   agentArtifactHref,
+  buildCustomDomainRewrite,
   getEffectiveBaseUrl,
   hostLookupCandidates,
   isCustomHost,
   isPlatformHost,
   mapCustomDomainPath,
+  normalizeDomainPath,
   normalizeHost,
+  resolveDomainPath,
 } from '../custom-domain'
 
 describe('normalizeHost', () => {
@@ -91,12 +94,59 @@ describe('getEffectiveBaseUrl', () => {
 })
 
 describe('agentArtifactHref', () => {
-  it('serves at domain root on a custom host', () => {
+  it('serves at domain root on a custom host (root page)', () => {
     expect(agentArtifactHref('agent.json', 'acme-plumbing', true)).toBe('/agent.json')
     expect(agentArtifactHref('mcp.json', 'acme-plumbing', true)).toBe('/mcp.json')
   })
+  it('serves under the domain_path on a custom host (subpage)', () => {
+    expect(agentArtifactHref('agent.json', 'acme-pricing', true, '/pricing')).toBe('/pricing/agent.json')
+    expect(agentArtifactHref('mcp.json', 'acme-pricing', true, '/pricing')).toBe('/pricing/mcp.json')
+  })
   it('serves under the slug on the platform', () => {
     expect(agentArtifactHref('agent.json', 'acme-plumbing', false)).toBe('/acme-plumbing/agent.json')
-    expect(agentArtifactHref('mcp.json', 'acme-plumbing', false)).toBe('/acme-plumbing/mcp.json')
+    expect(agentArtifactHref('mcp.json', 'acme-plumbing', false, '/pricing')).toBe('/acme-plumbing/mcp.json')
+  })
+})
+
+describe('normalizeDomainPath', () => {
+  it('forces leading slash, strips trailing, lowercases', () => {
+    expect(normalizeDomainPath('pricing')).toBe('/pricing')
+    expect(normalizeDomainPath('/Pricing/')).toBe('/pricing')
+    expect(normalizeDomainPath('')).toBe('/')
+    expect(normalizeDomainPath(null)).toBe('/')
+    expect(normalizeDomainPath('/')).toBe('/')
+  })
+})
+
+describe('resolveDomainPath', () => {
+  it('maps root + root artifacts', () => {
+    expect(resolveDomainPath('/')).toEqual({ basePath: '/', artifact: null })
+    expect(resolveDomainPath('/agent.json')).toEqual({ basePath: '/', artifact: 'agent.json' })
+    expect(resolveDomainPath('/mcp.json')).toEqual({ basePath: '/', artifact: 'mcp.json' })
+  })
+  it('maps subpaths + their artifacts', () => {
+    expect(resolveDomainPath('/pricing')).toEqual({ basePath: '/pricing', artifact: null })
+    expect(resolveDomainPath('/pricing/')).toEqual({ basePath: '/pricing', artifact: null })
+    expect(resolveDomainPath('/pricing/agent.json')).toEqual({ basePath: '/pricing', artifact: 'agent.json' })
+  })
+  it('returns null for unowned paths', () => {
+    expect(resolveDomainPath('/checkout/x')).toBeNull()
+    expect(resolveDomainPath('/a/b/c')).toBeNull()
+  })
+})
+
+describe('buildCustomDomainRewrite', () => {
+  const map = { '/': 'home-slug', '/pricing': 'pricing-slug' }
+  it('rewrites root + subpaths to their slugs', () => {
+    expect(buildCustomDomainRewrite(map, '/')).toBe('/home-slug')
+    expect(buildCustomDomainRewrite(map, '/pricing')).toBe('/pricing-slug')
+  })
+  it('rewrites artifacts to per-slug artifact paths', () => {
+    expect(buildCustomDomainRewrite(map, '/agent.json')).toBe('/home-slug/agent.json')
+    expect(buildCustomDomainRewrite(map, '/pricing/mcp.json')).toBe('/pricing-slug/mcp.json')
+  })
+  it('returns null when path not mapped or unowned', () => {
+    expect(buildCustomDomainRewrite(map, '/unknown')).toBeNull()
+    expect(buildCustomDomainRewrite(map, '/checkout/x')).toBeNull()
   })
 })

@@ -24,6 +24,7 @@ export const PUBLIC_PAGE_SELECT = [
   'is_published',
   'custom_domain',
   'custom_domain_verified',
+  'domain_path',
   'created_at',
   'mcp_enabled',
   'verification_details',
@@ -118,6 +119,7 @@ export type AgentPage = {
   is_published: boolean
   custom_domain?: string | null
   custom_domain_verified?: boolean | string | null  // Phase 5: timestamp or true when DNS verified
+  domain_path?: string | null  // C9: path this page serves at on its custom_domain ("/" or "/pricing")
   domain_verification_token?: string | null
   calendly_webhook_secret?: string | null
   outbound_webhooks?: Array<string | { url: string; secret?: string | null }> | null
