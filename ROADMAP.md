@@ -1729,3 +1729,14 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 **Approach (non-redundant)**: Analytics already ships "Conversion Rate Leaders" per offer, so the missing piece was the ability to spin up a variant. Added a one-click **Duplicate** action per offer in `VisualOfferBuilder` (inserts `… (Variant B)` right after the original). Owners then compare A vs B in Analytics by conversion rate — no new analytics surface, no schema change, no public-serving changes.
 
 **Verification**: eslint/tsc clean, `npm test` 118/118, build clean.
+
+---
+
+# High-Leverage Tools Batch (2026-06-03) — "build on all suggested features"
+
+Sequential verified bursts; roadmap updated per feature.
+
+## #1 — Demand Insights ("What agents asked") ✅
+- `lib/demand-insights.ts` (pure, tested): `getTopQueries` (case/space-insensitive dedupe, freq-sorted) + `getTopReferrers` (host extraction). Pure leverage on data already collected (`checkout_events.query`, `agent_visits.query/referrer`).
+- Analytics: "Demand Insights — what agents asked" panel (top agent queries + top referrers) with empty state. No new storage.
+- Verified: lint/tsc clean, `npm test` 121/121 (+3), build clean.

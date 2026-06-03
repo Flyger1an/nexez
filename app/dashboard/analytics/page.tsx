@@ -39,6 +39,7 @@ import {
 } from '../../../lib/analytics'
 import { formatUsdCents } from '../../../lib/checkout'
 import { AgentNegotiation, summarizeNegotiations } from '../../../lib/negotiations'
+import { getTopQueries, getTopReferrers } from '../../../lib/demand-insights'
 import { CheckoutEvent, getEventActionLabel } from '../../../lib/checkout-events'
 import { createClient } from '../../../utils/supabase/server'
 import { cookies } from 'next/headers'
@@ -159,6 +160,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const recentAgentVisitLogs = filteredAgentVisits.filter((visit) => visit.is_ai_agent).slice(0, 10)
   const offerCount = ownedPages.reduce((sum, page) => sum + getOfferCount(page), 0)
   const agentPageVisits = trafficSplit.ai
+  const topQueries = getTopQueries(filteredEvents, filteredAgentVisits)
+  const topReferrers = getTopReferrers(filteredAgentVisits)
   const discoveryClicks = getDiscoveryClickCount(filteredEvents)
   const attemptCount = getCheckoutAttemptCount(filteredEvents)
   const conversionCount = getConversionCount(filteredEvents)
@@ -388,6 +391,44 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
               </div>
             ) : (
               <EmptyPanel message="No directory or marketplace clickthroughs yet. Publish pages and share the marketplace to start tracking discovery." />
+            )}
+          </Panel>
+
+          <Panel title="Demand Insights — what agents asked">
+            {topQueries.length || topReferrers.length ? (
+              <div className="space-y-4 text-sm">
+                {topQueries.length > 0 && (
+                  <div>
+                    <div className="text-xs uppercase tracking-[0.18em] text-cyan-200">Top agent queries</div>
+                    <ul className="mt-2 space-y-1">
+                      {topQueries.map((q) => (
+                        <li key={q.query} className="flex items-center justify-between gap-3 rounded border border-white/10 bg-black/20 px-3 py-1.5">
+                          <span className="truncate text-zinc-200">{q.query}</span>
+                          <span className="shrink-0 rounded-full bg-cyan-300/10 px-2 py-0.5 text-xs text-cyan-100">{q.count}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-2 text-[11px] text-zinc-500">
+                      What buyers/agents searched for when reaching your pages — a signal for offers to add or rename.
+                    </p>
+                  </div>
+                )}
+                {topReferrers.length > 0 && (
+                  <div>
+                    <div className="text-xs uppercase tracking-[0.18em] text-cyan-200">Top referrers</div>
+                    <ul className="mt-2 space-y-1">
+                      {topReferrers.map((r) => (
+                        <li key={r.query} className="flex items-center justify-between gap-3 text-zinc-300">
+                          <span className="truncate font-mono text-xs">{r.query}</span>
+                          <span className="shrink-0 text-xs text-zinc-500">{r.count}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <EmptyPanel message="No agent queries captured yet. As agents discover your pages with a search intent, their queries appear here." />
             )}
           </Panel>
 
