@@ -50,7 +50,7 @@ export default function ToolsPage() {
   const [acuityConnected, setAcuityConnected] = useState<{ lastImport: string } | null>(null)
 
   // Tier 3: Developer Platform — real API keys now managed via <ApiKeysManager />
-  const [revenueShare, setRevenueShare] = useState(15) // stub % for agent tx
+  const revenueShare = 15 // % for agent-driven transactions (configurable in future billing)
 
   // Square consumer services import (Phase 3 consumer track start)
   // (handler defined below after Shopify)

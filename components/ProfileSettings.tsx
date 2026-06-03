@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Loader2, UserCircle } from 'lucide-react'
 import { createClient } from '../utils/supabase/client'
+import { INDUSTRIES } from '../lib/industries'
 
 type Props = {
   email: string
@@ -10,21 +11,6 @@ type Props = {
   initialCompany: string
   initialIndustry: string
 }
-
-const INDUSTRIES = [
-  'Professional Services',
-  'Consulting',
-  'Software / SaaS',
-  'Marketing & Creative',
-  'Home & Trade Services',
-  'Health & Wellness',
-  'Fitness & Coaching',
-  'Beauty & Personal Care',
-  'Hospitality & Events',
-  'Retail & E-commerce',
-  'Real Estate',
-  'Other',
-]
 
 export function ProfileSettings({ email, initialFullName, initialCompany, initialIndustry }: Props) {
   const [fullName, setFullName] = useState(initialFullName)

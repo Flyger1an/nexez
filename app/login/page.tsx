@@ -15,23 +15,9 @@ import {
   User,
 } from 'lucide-react'
 import { createClient } from '../../utils/supabase/client'
+import { INDUSTRIES } from '../../lib/industries'
 
 type Mode = 'signin' | 'signup' | 'reset'
-
-const INDUSTRIES = [
-  'Professional Services',
-  'Consulting',
-  'Software / SaaS',
-  'Marketing & Creative',
-  'Home & Trade Services',
-  'Health & Wellness',
-  'Fitness & Coaching',
-  'Beauty & Personal Care',
-  'Hospitality & Events',
-  'Retail & E-commerce',
-  'Real Estate',
-  'Other',
-]
 
 // Lightweight password strength scoring (0-4) — display only, server enforces length.
 function scorePassword(pw: string): { score: number; label: string; color: string } {

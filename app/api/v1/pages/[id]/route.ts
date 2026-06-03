@@ -2,33 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '../../../../../utils/supabase/admin'
 import { authenticateApiKey } from '../../../../../lib/server/api-auth'
 import { PUBLIC_PAGE_SELECT, getBaseUrl, normalizeSlug } from '../../../../../lib/agent-page'
-
-const WRITABLE = [
-  'name',
-  'description',
-  'website_url',
-  'cta_url',
-  'cta_label',
-  'audience',
-  'location',
-  'contact_email',
-  'industry',
-  'prefer_original_site',
-  'products',
-  'services',
-  'faqs',
-  'is_published',
-  'custom_domain',
-  'domain_path',
-] as const
-
-function pickWritable(body: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {}
-  for (const key of WRITABLE) {
-    if (body[key] !== undefined) out[key] = body[key]
-  }
-  return out
-}
+import { pickWritablePageFields } from '../../../../../lib/api-pages'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authenticateApiKey(request)
@@ -60,7 +34,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 })
   }
 
-  const update = pickWritable(body)
+  const update = pickWritablePageFields(body)
   if (typeof update.slug === 'string') update.slug = normalizeSlug(update.slug as string)
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: 'No writable fields provided.' }, { status: 400 })

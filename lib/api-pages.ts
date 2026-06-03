@@ -1,0 +1,29 @@
+// Shared field whitelist for the programmatic page API (single source for both
+// the collection and item routes).
+export const WRITABLE_PAGE_FIELDS = [
+  'name',
+  'description',
+  'website_url',
+  'cta_url',
+  'cta_label',
+  'audience',
+  'location',
+  'contact_email',
+  'industry',
+  'prefer_original_site',
+  'products',
+  'services',
+  'faqs',
+  'is_published',
+  'custom_domain',
+  'domain_path',
+] as const
+
+/** Pick only client-writable fields from an arbitrary request body. */
+export function pickWritablePageFields(body: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const key of WRITABLE_PAGE_FIELDS) {
+    if (body[key] !== undefined) out[key] = body[key]
+  }
+  return out
+}

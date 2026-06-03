@@ -2,34 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '../../../../utils/supabase/admin'
 import { authenticateApiKey } from '../../../../lib/server/api-auth'
 import { PUBLIC_PAGE_SELECT, getBaseUrl, normalizeSlug } from '../../../../lib/agent-page'
-
-// Fields a client may set via the API (everything else is ignored).
-const WRITABLE = [
-  'name',
-  'description',
-  'website_url',
-  'cta_url',
-  'cta_label',
-  'audience',
-  'location',
-  'contact_email',
-  'industry',
-  'prefer_original_site',
-  'products',
-  'services',
-  'faqs',
-  'is_published',
-  'custom_domain',
-  'domain_path',
-] as const
-
-function pickWritable(body: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {}
-  for (const key of WRITABLE) {
-    if (body[key] !== undefined) out[key] = body[key]
-  }
-  return out
-}
+import { pickWritablePageFields } from '../../../../lib/api-pages'
 
 async function uniqueSlug(admin: ReturnType<typeof createAdminClient>, base: string): Promise<string> {
   const root = normalizeSlug(base) || 'page'
@@ -75,7 +48,7 @@ export async function POST(request: Request) {
   const slug = await uniqueSlug(admin, typeof body.slug === 'string' && body.slug ? (body.slug as string) : name)
 
   const insert = {
-    ...pickWritable(body),
+    ...pickWritablePageFields(body),
     name,
     slug,
     owner_id: auth.ownerId,

@@ -492,14 +492,6 @@ export default function CreatePage() {
             <ArrowLeft className="size-4" />
             Dashboard
           </a>
-          <div className="flex gap-3">
-            <button className="rounded-lg border border-cyan-300/40 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-300/10">
-              Import from Squarespace
-            </button>
-            <button className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white hover:bg-white/10">
-              Import from Wix
-            </button>
-          </div>
         </div>
 
         {/* Site Importer - Prominent first-class option */}
@@ -511,6 +503,7 @@ export default function CreatePage() {
             <h3 className="text-2xl font-semibold">Import from your existing website</h3>
             <p className="text-[#9CA3AF] mt-2 max-w-md mx-auto">
               Paste your current site and we’ll automatically extract your services and generate a ready-to-edit agent page.
+              Works with Squarespace, Wix, WordPress, Webflow, Shopify, and custom sites.
             </p>
           </div>
 
