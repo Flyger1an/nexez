@@ -250,8 +250,100 @@ export function buildOpenApiSpec() {
           },
         },
       },
+      '/api/v1/pages': {
+        get: {
+          summary: 'List your pages (programmatic API)',
+          operationId: 'listOwnerPages',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            '200': {
+              description: 'Pages owned by the authenticated API key.',
+              content: { 'application/json': { schema: { type: 'object', properties: { pages: { type: 'array', items: { type: 'object' } } } } } },
+            },
+            '401': { description: 'Missing, invalid, or revoked API key.' },
+            '503': { description: 'Programmatic API not configured on this deployment.' },
+          },
+        },
+        post: {
+          summary: 'Create a page (programmatic API)',
+          operationId: 'createOwnerPage',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['name'],
+                  properties: {
+                    name: { type: 'string' },
+                    slug: { type: 'string', description: 'Optional; auto-generated + de-duplicated if omitted.' },
+                    description: { type: 'string' },
+                    website_url: { type: 'string' },
+                    industry: { type: 'string' },
+                    services: { type: 'array', items: { type: 'object' } },
+                    products: { type: 'array', items: { type: 'object' } },
+                    faqs: { type: 'array', items: { type: 'object' } },
+                    is_published: { type: 'boolean', default: false, description: 'Defaults to draft.' },
+                    custom_domain: { type: 'string' },
+                    domain_path: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '201': {
+              description: 'Created page + public URL.',
+              content: { 'application/json': { schema: { type: 'object', properties: { page: { type: 'object' }, url: { type: 'string' } } } } },
+            },
+            '400': { description: 'Missing name or invalid body.' },
+            '401': { description: 'Missing, invalid, or revoked API key.' },
+            '503': { description: 'Programmatic API not configured on this deployment.' },
+          },
+        },
+      },
+      '/api/v1/pages/{id}': {
+        get: {
+          summary: 'Get one of your pages (programmatic API)',
+          operationId: 'getOwnerPage',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': { description: 'The page.', content: { 'application/json': { schema: { type: 'object', properties: { page: { type: 'object' } } } } } },
+            '401': { description: 'Missing, invalid, or revoked API key.' },
+            '404': { description: 'Page not found for this owner.' },
+            '503': { description: 'Programmatic API not configured on this deployment.' },
+          },
+        },
+        patch: {
+          summary: 'Update one of your pages (programmatic API)',
+          operationId: 'updateOwnerPage',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { type: 'object', description: 'Any writable page fields (name, description, services, products, faqs, is_published, custom_domain, domain_path, ...).' } } },
+          },
+          responses: {
+            '200': { description: 'Updated page + public URL.', content: { 'application/json': { schema: { type: 'object', properties: { page: { type: 'object' }, url: { type: 'string' } } } } } },
+            '400': { description: 'No writable fields or invalid body.' },
+            '401': { description: 'Missing, invalid, or revoked API key.' },
+            '404': { description: 'Page not found for this owner.' },
+            '503': { description: 'Programmatic API not configured on this deployment.' },
+          },
+        },
+      },
     },
     components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'nxz_live_…',
+          description: 'Nexez API key. Create one in Dashboard → Tools → Developer Platform. Send as: Authorization: Bearer nxz_live_…',
+        },
+      },
       schemas: {
         AgentSearchResponse: {
           type: 'object',

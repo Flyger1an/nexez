@@ -1615,3 +1615,18 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 **Note**: the `/api/v1/*` endpoints require `SUPABASE_SERVICE_ROLE_KEY` on the deployment to function (auth returns 503 until then). Key management UI works without it (create/list/revoke via the user session).
 
 **Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **110/110** (+8), `npm run build` clean (`/api/v1/pages`, `/api/v1/pages/[id]`, `/api/dashboard/api-keys` present).
+
+> **Deployed**: `41af36f..da60779` pushed to `origin/main`.
+
+---
+
+## 2026-06-03 Burst 11 — OpenAPI coverage for the programmatic API (G21 discoverability)
+
+**IMPLEMENTED** (`lib/agent-capabilities.ts` → `/openapi.json`):
+- Documented `/api/v1/pages` (GET list, POST create) and `/api/v1/pages/{id}` (GET, PATCH) with operationIds, request/response schemas, and the full status set (200/201/400/401/404/503).
+- Added a `bearerAuth` HTTP security scheme (`Authorization: Bearer nxz_live_…`) and applied it to every v1 endpoint, so agents/developers discover both the routes and how to authenticate from the spec already linked in `llms.txt`, the capabilities manifest, and Tools.
+- Added `lib/__tests__/openapi.test.ts` locking in v1 path presence, the security scheme, and continuity of the existing public endpoints.
+
+**Mini-audit**: ✅ v1 paths + operationIds documented (tested); ✅ bearerAuth declared + required on v1 (tested); ✅ existing endpoints preserved (tested); ✅ served at `/openapi.json` (route builds).
+
+**Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **113/113** (+3), `npm run build` clean.
