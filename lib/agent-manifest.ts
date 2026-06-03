@@ -78,6 +78,7 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer) {
     provider_url: providerUrl,
     checkout_url: checkoutUrl,
     prefer_original_for_this: (offer as any).prefer_original_for_this || false,
+    availability: (offer as any).availability || 'available',
     // Consumer / local service context for agents
     consumer: {
       duration: (offer as any).duration || null,

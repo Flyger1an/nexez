@@ -6,7 +6,7 @@ import { headers, cookies } from 'next/headers'
 import { createClient as createServerClient } from '../../utils/supabase/server'
 import { applyDraftOverlay } from '../../lib/draft'
 import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, LockKeyhole, Mail, MapPin } from 'lucide-react'
-import { AgentPage, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, getBaseUrl, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows } from '../../lib/agent-page'
+import { AgentPage, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, availabilityLabel, getBaseUrl, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows, schemaAvailability } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { agentArtifactHref, getEffectiveBaseUrl, isCustomHost, normalizeDomainPath } from '../../lib/custom-domain'
 import { hasBranding, normalizeBranding } from '../../lib/branding'
@@ -534,6 +534,17 @@ function OfferSection({
                 </span>
               )}
             </div>
+            {availabilityLabel(item.availability) && (
+              <span
+                className={`mt-2 inline-block rounded-full border px-2.5 py-0.5 text-[11px] ${
+                  item.availability === 'sold_out'
+                    ? 'border-red-400/30 bg-red-400/10 text-red-300'
+                    : 'border-amber-400/30 bg-amber-400/10 text-amber-300'
+                }`}
+              >
+                {availabilityLabel(item.availability)}
+              </span>
+            )}
             {item.description ? <p className="mt-3 text-sm leading-6 text-zinc-400">{item.description}</p> : null}
             {/* Consumer service metadata - Enhanced */}
             {(item.duration || item.serviceArea || item.isMobile || item.travelFee) && (
@@ -607,6 +618,7 @@ function buildJsonLd(page: AgentPage, baseUrl: string = getBaseUrl()) {
       name: item.name,
       description: item.description || undefined,
       price: item.price || undefined,
+      availability: schemaAvailability(item.availability),
       url: effectiveUrl,
       potentialAction: {
         '@type': 'BuyAction',

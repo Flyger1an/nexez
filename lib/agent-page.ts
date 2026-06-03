@@ -88,6 +88,23 @@ export type OfferItem = {
 
   // Phase 4: Per-offer "Book on original site" preference (for granular linking/embedding)
   prefer_original_for_this?: boolean
+
+  // Live availability / inventory signal so agents avoid dead ends.
+  availability?: 'available' | 'limited' | 'sold_out'
+}
+
+/** Map our availability to a schema.org ItemAvailability URL (for JSON-LD). */
+export function schemaAvailability(status: OfferItem['availability']): string {
+  if (status === 'sold_out') return 'https://schema.org/SoldOut'
+  if (status === 'limited') return 'https://schema.org/LimitedAvailability'
+  return 'https://schema.org/InStock'
+}
+
+/** Human label for an availability status (null when default available). */
+export function availabilityLabel(status: OfferItem['availability']): string | null {
+  if (status === 'sold_out') return 'Sold out'
+  if (status === 'limited') return 'Limited availability'
+  return null
 }
 
 export type OfferKind = 'services' | 'products'

@@ -525,6 +525,18 @@ function SortableOfferCard({
               className="text-xs rounded border border-white/10 bg-black/30 px-2 py-1"
             />
             <label className="flex items-center gap-2 text-xs text-zinc-400">
+              Availability
+              <select
+                value={offer.availability || 'available'}
+                onChange={(e) => updateConsumerField('availability', e.target.value)}
+                className="flex-1 rounded border border-white/10 bg-black/30 px-2 py-1 text-xs text-white"
+              >
+                <option value="available">Available</option>
+                <option value="limited">Limited</option>
+                <option value="sold_out">Sold out</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-xs text-zinc-400">
               <input
                 type="checkbox"
                 checked={!!offer.isMobile}

@@ -1740,3 +1740,8 @@ Sequential verified bursts; roadmap updated per feature.
 - `lib/demand-insights.ts` (pure, tested): `getTopQueries` (case/space-insensitive dedupe, freq-sorted) + `getTopReferrers` (host extraction). Pure leverage on data already collected (`checkout_events.query`, `agent_visits.query/referrer`).
 - Analytics: "Demand Insights — what agents asked" panel (top agent queries + top referrers) with empty state. No new storage.
 - Verified: lint/tsc clean, `npm test` 121/121 (+3), build clean.
+
+## #2 — Live Availability / Inventory Signals ✅
+- `OfferItem.availability` (`available`|`limited`|`sold_out`) + helpers `schemaAvailability` (schema.org ItemAvailability URL) and `availabilityLabel`.
+- Builder: per-offer Availability select. Public page: amber "Limited"/red "Sold out" badge. JSON-LD `Offer.availability` + agent.json `availability` so agents avoid dead ends.
+- Verified: lint/tsc clean, `npm test` 123/123 (+2), build clean.
