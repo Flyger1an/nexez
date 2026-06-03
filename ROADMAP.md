@@ -1830,3 +1830,14 @@ Sequential verified bursts; roadmap updated per feature.
 - Verified: lint/tsc clean, `npm test` 149/149, build clean (`/api/ai/enhance`).
 
 **Gap-closing pass complete: A2, B7, A3, A5, A7, B2, B4, B8 all shipped. Tests 145 → 149.** (Deploy verified per push; full end-to-end reverify pending on restart.)
+
+---
+
+# Autonomous Optimization Sweep (2026-06-03)
+
+## DB advisors resolved
+- Dropped vestigial `public.page`; pinned `set_pages_updated_at` search_path; optimized 2 collaborator RLS policies with `(select auth.jwt())`. Security advisors clear except the Auth "leaked password protection" dashboard toggle (config). Unused-index lints are just no-traffic-yet (kept).
+
+## LLM-assist wired end-to-end (closes B4 UI gap)
+- VisualOfferBuilder "Enhance" now calls `/api/ai/enhance` (passing `pageId`): real LLM when `LLM_API_KEY` is set **and** the page opted in, else deterministic; graceful local fallback + loading state. Editor passes `pageId` to both builders.
+- Verified: lint/tsc clean, `npm test` 149/149, build clean.

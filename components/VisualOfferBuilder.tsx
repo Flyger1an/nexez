@@ -43,6 +43,7 @@ interface VisualOfferBuilderProps {
   // Phase 1 A: context for smarter per-card AI enhancement
   businessName?: string
   audience?: string
+  pageId?: string // enables real LLM-assist via /api/ai/enhance when the page opted in
 }
 
 const SERVICE_TEMPLATES: OfferItem[] = [
@@ -145,7 +146,7 @@ const PRODUCT_TEMPLATES: OfferItem[] = [
   },
 ]
 
-export function VisualOfferBuilder({ offers, kind, onChange, businessName, audience }: VisualOfferBuilderProps) {
+export function VisualOfferBuilder({ offers, kind, onChange, businessName, audience, pageId }: VisualOfferBuilderProps) {
   // Normalize offers to ensure tiers is always an array
   const normalizedOffers = offers.map(o => ({
     ...o,
@@ -291,6 +292,7 @@ export function VisualOfferBuilder({ offers, kind, onChange, businessName, audie
                       onUpdateFull={updateFullOffer}
                       businessName={businessName}
                       audience={audience}
+                      pageId={pageId}
                     />
                   )
                 })}
@@ -321,6 +323,7 @@ function SortableOfferCard({
   onUpdateFull,
   businessName,
   audience,
+  pageId,
 }: {
   id: string
   offer: OfferItem
@@ -331,7 +334,9 @@ function SortableOfferCard({
   onUpdateFull?: (index: number, updated: Partial<OfferItem>) => void
   businessName?: string
   audience?: string
+  pageId?: string
 }) {
+  const [enhancing, setEnhancing] = useState(false)
   const {
     attributes,
     listeners,
@@ -424,20 +429,37 @@ function SortableOfferCard({
             />
             <button
               type="button"
-              onClick={() => {
+              disabled={enhancing}
+              onClick={async () => {
                 const bn = businessName || 'This business'
                 const aud = audience || 'qualified buyers'
-                const enhanced = enhanceDescriptionForAgents(offer.description || '', bn, aud)
-                if (onUpdateFull) {
-                  onUpdateFull(index, { description: enhanced })
-                } else {
-                  onUpdate(index, 'description', enhanced)
+                const apply = (text: string) =>
+                  onUpdateFull ? onUpdateFull(index, { description: text }) : onUpdate(index, 'description', text)
+                setEnhancing(true)
+                try {
+                  // Uses the LLM when the deployment is configured + the page opted in;
+                  // otherwise the route returns the deterministic rewrite.
+                  const res = await fetch('/api/ai/enhance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ description: offer.description || '', businessName: bn, audience: aud, pageId }),
+                  })
+                  if (res.ok) {
+                    const data = await res.json()
+                    apply(data.enhanced || enhanceDescriptionForAgents(offer.description || '', bn, aud))
+                  } else {
+                    apply(enhanceDescriptionForAgents(offer.description || '', bn, aud))
+                  }
+                } catch {
+                  apply(enhanceDescriptionForAgents(offer.description || '', bn, aud))
+                } finally {
+                  setEnhancing(false)
                 }
               }}
-              className="absolute top-2 right-2 text-[10px] flex items-center gap-1 rounded border border-cyan-300/40 bg-black/50 px-1.5 py-0.5 text-cyan-300 hover:bg-cyan-300/10"
+              className="absolute top-2 right-2 text-[10px] flex items-center gap-1 rounded border border-cyan-300/40 bg-black/50 px-1.5 py-0.5 text-cyan-300 hover:bg-cyan-300/10 disabled:opacity-50"
               title="Enhance this offer description for AI agents"
             >
-              <Sparkles className="size-3" /> Enhance
+              <Sparkles className="size-3" /> {enhancing ? 'Enhancing…' : 'Enhance'}
             </button>
           </div>
 

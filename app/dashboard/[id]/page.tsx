@@ -967,6 +967,7 @@ export default function EditAgentPage({ params }: PageProps) {
                 <VisualOfferBuilder
                   offers={parsedServices}
                   kind="services"
+                  pageId={id}
                   businessName={name}
                   audience={audience}
                   onChange={(newOffers) => {
@@ -983,6 +984,7 @@ export default function EditAgentPage({ params }: PageProps) {
                 <VisualOfferBuilder
                   offers={parsedProducts}
                   kind="products"
+                  pageId={id}
                   businessName={name}
                   audience={audience}
                   onChange={(newOffers) => {
