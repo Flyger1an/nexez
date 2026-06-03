@@ -58,8 +58,13 @@ export function mapCustomDomainPath(slug: string, pathname: string): string {
   if (pathname === '/' || pathname === '') return `/${slug}`
   if (pathname === '/agent.json') return `/${slug}/agent.json`
   if (pathname === '/mcp.json') return `/${slug}/mcp.json`
+  if (pathname === '/llms.txt') return `/${slug}/llms.txt`
   return pathname
 }
+
+// Agent artifacts served at a page's root on a custom domain.
+export const DOMAIN_ARTIFACTS = ['agent.json', 'mcp.json', 'llms.txt'] as const
+export type DomainArtifact = (typeof DOMAIN_ARTIFACTS)[number]
 
 /**
  * Decompose an incoming custom-domain pathname into the `domain_path` it
@@ -76,22 +81,26 @@ export function mapCustomDomainPath(slug: string, pathname: string): string {
  */
 export function resolveDomainPath(
   pathname: string,
-): { basePath: string; artifact: 'agent.json' | 'mcp.json' | null } | null {
+): { basePath: string; artifact: DomainArtifact | null } | null {
   const clean = (pathname || '/').replace(/\/+$/, '') || '/'
 
   if (clean === '/') return { basePath: '/', artifact: null }
-  if (clean === '/agent.json') return { basePath: '/', artifact: 'agent.json' }
-  if (clean === '/mcp.json') return { basePath: '/', artifact: 'mcp.json' }
 
   const segments = clean.split('/').filter(Boolean)
+  const isArtifact = (s: string): s is DomainArtifact =>
+    (DOMAIN_ARTIFACTS as readonly string[]).includes(s)
 
+  // /<artifact> at the domain root
+  if (segments.length === 1 && isArtifact(segments[0]!)) {
+    return { basePath: '/', artifact: segments[0] as DomainArtifact }
+  }
   // /<seg>
   if (segments.length === 1) {
     return { basePath: `/${segments[0]}`, artifact: null }
   }
-  // /<seg>/agent.json | /<seg>/mcp.json
-  if (segments.length === 2 && (segments[1] === 'agent.json' || segments[1] === 'mcp.json')) {
-    return { basePath: `/${segments[0]}`, artifact: segments[1] as 'agent.json' | 'mcp.json' }
+  // /<seg>/<artifact>
+  if (segments.length === 2 && isArtifact(segments[1]!)) {
+    return { basePath: `/${segments[0]}`, artifact: segments[1] as DomainArtifact }
   }
 
   return null
@@ -150,7 +159,7 @@ export function getEffectiveBaseUrl(
  * or under the slug on the platform.
  */
 export function agentArtifactHref(
-  artifact: 'agent.json' | 'mcp.json',
+  artifact: DomainArtifact,
   slug: string,
   onCustomHost: boolean,
   domainPath: string = '/',

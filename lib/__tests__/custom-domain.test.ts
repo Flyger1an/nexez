@@ -64,9 +64,9 @@ describe('mapCustomDomainPath', () => {
     expect(mapCustomDomainPath('acme-plumbing', '/agent.json')).toBe('/acme-plumbing/agent.json')
     expect(mapCustomDomainPath('acme-plumbing', '/mcp.json')).toBe('/acme-plumbing/mcp.json')
   })
-  it('passes other paths through unchanged', () => {
+  it('passes non-artifact paths through unchanged', () => {
     expect(mapCustomDomainPath('acme-plumbing', '/checkout/acme-plumbing')).toBe('/checkout/acme-plumbing')
-    expect(mapCustomDomainPath('acme-plumbing', '/llms.txt')).toBe('/llms.txt')
+    expect(mapCustomDomainPath('acme-plumbing', '/openapi.json')).toBe('/openapi.json')
   })
 })
 
@@ -129,9 +129,27 @@ describe('resolveDomainPath', () => {
     expect(resolveDomainPath('/pricing/')).toEqual({ basePath: '/pricing', artifact: null })
     expect(resolveDomainPath('/pricing/agent.json')).toEqual({ basePath: '/pricing', artifact: 'agent.json' })
   })
+  it('maps llms.txt at root and subpath', () => {
+    expect(resolveDomainPath('/llms.txt')).toEqual({ basePath: '/', artifact: 'llms.txt' })
+    expect(resolveDomainPath('/pricing/llms.txt')).toEqual({ basePath: '/pricing', artifact: 'llms.txt' })
+  })
   it('returns null for unowned paths', () => {
     expect(resolveDomainPath('/checkout/x')).toBeNull()
     expect(resolveDomainPath('/a/b/c')).toBeNull()
+  })
+})
+
+describe('buildCustomDomainRewrite — llms.txt', () => {
+  const map = { '/': 'home-slug', '/pricing': 'pricing-slug' }
+  it('rewrites root + subpath llms.txt to per-slug llms.txt', () => {
+    expect(buildCustomDomainRewrite(map, '/llms.txt')).toBe('/home-slug/llms.txt')
+    expect(buildCustomDomainRewrite(map, '/pricing/llms.txt')).toBe('/pricing-slug/llms.txt')
+  })
+})
+
+describe('mapCustomDomainPath — llms.txt', () => {
+  it('maps /llms.txt to the per-slug route', () => {
+    expect(mapCustomDomainPath('acme', '/llms.txt')).toBe('/acme/llms.txt')
   })
 })
 

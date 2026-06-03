@@ -1548,3 +1548,23 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 **Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **99/99** (+5), `npm run build` clean (`Proxy (Middleware)` present).
 
 **Custom-domain objective: A1–A3 ✅ · B5–B6 ✅ · C9–C10 ✅ · D12–D13 ✅ — the full approved sequence is delivered.**
+
+---
+
+## 2026-06-03 Burst 8 — Per-Domain Scoped `llms.txt` (B5 follow-up)
+
+**Finding**: `/llms.txt` was global — so a customer's brand domain (`acme.com/llms.txt`) served the *entire* Nexez index (every published page), a leak/correctness bug for a white-label agent surface.
+
+**IMPLEMENTED**:
+- **`app/[slug]/llms.txt/route.ts`**: a per-page, brand-scoped `llms.txt` (page summary, identity URLs, offers→checkout, agent.json/mcp links, negotiate/checkout endpoints). Identity URLs are brand-domain aware (via `getEffectiveBaseUrl`); transactional URLs stay on the platform (consistent with B5).
+- **`lib/custom-domain.ts`**: introduced `DOMAIN_ARTIFACTS` (`agent.json`, `mcp.json`, `llms.txt`); `resolveDomainPath` + `buildCustomDomainRewrite` + `mapCustomDomainPath` now map `/llms.txt` (root and `/<seg>/llms.txt`) → `/<slug>/llms.txt`. `agentArtifactHref` generalized to the artifact type.
+- Result: `acme.com/llms.txt` now serves only that brand's page(s), not the global index.
+
+**Mini-audit (properly plugged in?)**:
+1. ✅ `/[slug]/llms.txt` registered in the build; global `/llms.txt` retained for the platform.
+2. ✅ Middleware maps `/llms.txt` + `/<seg>/llms.txt` to the per-slug route (tested).
+3. ✅ Scoped content — single page, no global-index leak on brand domains.
+4. ✅ Identity URLs brand-aware; transactional URLs on platform.
+5. ✅ Tests updated for the new artifact (+ stale `/llms.txt` pass-through assertion corrected).
+
+**Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **102/102** (+3 net), `npm run build` clean (`/[slug]/llms.txt` + `Proxy (Middleware)` present).
