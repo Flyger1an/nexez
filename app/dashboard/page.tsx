@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Activity,
   BarChart3,
+  Bell,
   Bot,
   Copy,
   CreditCard,
@@ -32,6 +33,7 @@ import { AgentVisit, getAgentTypeBreakdown, getTopPagesByAgentVisits, getTraffic
 import { CheckoutEvent, getEventActionLabel } from '../../lib/checkout-events'
 import { createClient } from '../../utils/supabase/client'
 import { OnboardingChecklist } from '../../components/OnboardingChecklist'
+import { buildNotifications } from '../../lib/notifications'
 
 export default function Dashboard() {
   const [pages, setPages] = useState<AgentPage[]>([])
@@ -295,24 +297,31 @@ export default function Dashboard() {
               </section>
             )}
 
-            {openNegotiations > 0 && (
-              <a
-                href="/dashboard/negotiations"
-                className="mt-6 flex items-center justify-between gap-3 rounded-lg border border-[#7C3AED]/40 bg-[#7C3AED]/10 px-5 py-4 transition hover:bg-[#7C3AED]/20"
-              >
-                <span className="flex items-center gap-3 text-sm">
-                  <Handshake className="size-5 text-[#A78BFA]" />
-                  <span>
-                    <span className="font-semibold text-white">
-                      {openNegotiations} negotiation{openNegotiations === 1 ? '' : 's'} need
-                      {openNegotiations === 1 ? 's' : ''} your attention
-                    </span>
-                    <span className="ml-2 text-zinc-300">Review agent proposals and respond.</span>
-                  </span>
-                </span>
-                <span className="shrink-0 text-sm font-medium text-[#A78BFA]">Open inbox →</span>
-              </a>
-            )}
+            {(() => {
+              const notifications = buildNotifications({ pages, openNegotiations })
+              if (!notifications.length) return null
+              return (
+                <div className="mt-6 space-y-2">
+                  {notifications.map((n) => (
+                    <a
+                      key={n.id}
+                      href={n.href}
+                      className={`flex items-center justify-between gap-3 rounded-lg border px-5 py-3 text-sm transition ${
+                        n.severity === 'action'
+                          ? 'border-[#7C3AED]/40 bg-[#7C3AED]/10 hover:bg-[#7C3AED]/20'
+                          : 'border-white/10 bg-white/[0.03] hover:bg-white/5'
+                      }`}
+                    >
+                      <span className="flex items-center gap-3">
+                        <Bell className={`size-4 ${n.severity === 'action' ? 'text-[#A78BFA]' : 'text-zinc-400'}`} />
+                        <span className="text-white">{n.message}</span>
+                      </span>
+                      <span className="shrink-0 text-sm font-medium text-[#A78BFA]">{n.cta} →</span>
+                    </a>
+                  ))}
+                </div>
+              )
+            })()}
 
             {pages.length > 0 && (
             <>

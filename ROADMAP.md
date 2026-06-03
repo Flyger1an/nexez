@@ -1773,3 +1773,9 @@ Sequential verified bursts; roadmap updated per feature.
 - Editor staleness banner: when a published page with a source site hasn't been updated in 90d+, shows "re-sync to keep agent data accurate" → Settings re-sync.
 - `GET /api/cron/freshness` (admin-gated + `CRON_SECRET`-protected) scans published pages, returns a stale report; `vercel.json` daily cron (08:00). Read-only telemetry today; hook for notifications next.
 - Verified: lint/tsc clean, build clean (`/api/cron/freshness`), 130/130 (+4).
+
+## #8 — Notifications (in-app) ✅
+- `lib/notifications.ts` (pure, tested): `buildNotifications` derives action/info notices from state — open negotiations, stale published pages, draft pages with offers.
+- Dashboard: unified notifications panel (Bell). **Consolidated** the standalone negotiation banner into it (tidier, less redundant).
+- Outbound webhooks already fire on real booking events; email delivery remains gated on a provider.
+- Verified: lint/tsc clean, build clean, 134/134 (+4).
