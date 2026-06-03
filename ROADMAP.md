@@ -1822,3 +1822,11 @@ Sequential verified bursts; roadmap updated per feature.
 - Editor `loadPage` relaxed to load by id (RLS-governed) + explicit editor-collaborator check (viewers are redirected to the public page).
 - Dashboard "Shared with me" section lists pages a teammate invited you to (Open editor / Public).
 - Team seats are now functional end-to-end (invite → shared access → role-based edit). Verified: lint/tsc clean, build clean, 145/145.
+
+## B4 + B8 (LLM-assist + observability, gated) ✅
+- `lib/llm.ts` (tested gating): OpenAI-compatible `llmComplete` behind `LLM_API_KEY` (works with OpenAI/xAI/etc. via `LLM_BASE_URL`); dormant + null-safe until configured.
+- `POST /api/ai/enhance` (authed, rate-limited): uses the LLM when configured **and** the page has `llm_opt_in`, else falls back to the deterministic rewriter; returns `source` so the UI can label it.
+- `lib/observability.ts` (tested gating): `captureError` POSTs to `OBSERVABILITY_WEBHOOK_URL` when set (else console), fire-and-forget, never throws. Wired into the ai-enhance + import-site error paths.
+- Verified: lint/tsc clean, `npm test` 149/149, build clean (`/api/ai/enhance`).
+
+**Gap-closing pass complete: A2, B7, A3, A5, A7, B2, B4, B8 all shipped. Tests 145 → 149.** (Deploy verified per push; full end-to-end reverify pending on restart.)

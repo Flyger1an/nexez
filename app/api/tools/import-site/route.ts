@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { analyzeSite } from '../../../../lib/importer'
+import { captureError } from '../../../../lib/observability'
 import { createClient } from '../../../../utils/supabase/server'
 
 export async function POST(request: Request) {
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
       message: `Website analyzed across ${result.pagesAnalyzed} page(s). Rich structured offers ready for the Visual Builder.`,
     })
   } catch (error: any) {
-    console.error('Site import error:', error)
+    captureError(error, { route: 'import-site' })
     return NextResponse.json({
       error: error.message || 'Failed to analyze the website. Please try again or create the page manually.'
     }, { status: 500 })
