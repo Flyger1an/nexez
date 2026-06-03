@@ -10,6 +10,7 @@ import {
 } from '../../../lib/agent-page'
 import { parseMoneyCents, toStripeDescription } from '../../../lib/checkout'
 import { logCheckoutEvent } from '../../../lib/server/log-checkout-event'
+import { enforceRateLimit } from '../../../lib/rate-limit'
 import { supabase } from '../../../lib/supabase'
 
 type CheckoutInput = {
@@ -31,6 +32,9 @@ async function getPublishedPage(slug: string) {
 }
 
 export async function POST(request: Request) {
+  const limited = enforceRateLimit(request, 'checkout', 30, 60_000)
+  if (limited) return limited
+
   const contentType = request.headers.get('content-type') || ''
   const wantsJson = contentType.includes('application/json') || request.headers.get('accept')?.includes('application/json')
   const input = await readCheckoutInput(request)

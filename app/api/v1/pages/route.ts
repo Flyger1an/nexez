@@ -3,6 +3,7 @@ import { createAdminClient } from '../../../../utils/supabase/admin'
 import { authenticateApiKey } from '../../../../lib/server/api-auth'
 import { PUBLIC_PAGE_SELECT, getBaseUrl, normalizeSlug } from '../../../../lib/agent-page'
 import { pickWritablePageFields } from '../../../../lib/api-pages'
+import { enforceRateLimit } from '../../../../lib/rate-limit'
 
 async function uniqueSlug(admin: ReturnType<typeof createAdminClient>, base: string): Promise<string> {
   const root = normalizeSlug(base) || 'page'
@@ -15,6 +16,8 @@ async function uniqueSlug(admin: ReturnType<typeof createAdminClient>, base: str
 }
 
 export async function GET(request: Request) {
+  const limited = enforceRateLimit(request, 'v1-pages', 60, 60_000)
+  if (limited) return limited
   const auth = await authenticateApiKey(request)
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
@@ -31,6 +34,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const limited = enforceRateLimit(request, 'v1-pages-write', 30, 60_000)
+  if (limited) return limited
   const auth = await authenticateApiKey(request)
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 

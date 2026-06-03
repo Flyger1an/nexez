@@ -1793,3 +1793,14 @@ Sequential verified bursts; roadmap updated per feature.
 - Verified: lint/tsc clean, build clean, 141/141 (+2).
 
 **Batch complete: 10/10 high-leverage tools shipped. Tests 118 → 141. All deployed.**
+
+---
+
+# Gap-closing Pass (2026-06-03) — completing partial + not-done items
+
+## A2 (gap analysis) ✅
+- `getUnservedQueries` (pure, tested): agent queries with no word-overlap with any offer → "searched but not offered." Surfaced in the analytics Demand Insights panel (scoped to the filtered page or all owned pages).
+
+## B7 (rate limiting) ✅
+- `lib/rate-limit.ts` (pure, tested): fixed-window limiter + `enforceRateLimit` (429 + Retry-After). Applied: `/api/checkout` (30/min), `/api/negotiations` (20/min), `/api/crawlability` (10/min), `/api/v1/pages` (60/min GET, 30/min POST). Per-instance in-memory (note: back with Redis for strict global limits).
+- Verified: lint/tsc clean, `npm test` 145/145, build clean.

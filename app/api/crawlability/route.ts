@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { fetchHtmlSafe, getImportUrlError } from '../../../lib/importer'
+import { enforceRateLimit } from '../../../lib/rate-limit'
 import {
   AGENT_BOTS,
   evaluateCrawlability,
@@ -54,6 +55,9 @@ async function probeJson(url: string): Promise<boolean> {
 }
 
 export async function POST(request: Request) {
+  const limited = enforceRateLimit(request, 'crawlability', 10, 60_000)
+  if (limited) return limited
+
   let body: { url?: string }
   try {
     body = await request.json()

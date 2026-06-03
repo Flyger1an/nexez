@@ -39,7 +39,7 @@ import {
 } from '../../../lib/analytics'
 import { formatUsdCents } from '../../../lib/checkout'
 import { AgentNegotiation, summarizeNegotiations } from '../../../lib/negotiations'
-import { getTopQueries, getTopReferrers } from '../../../lib/demand-insights'
+import { getTopQueries, getTopReferrers, getUnservedQueries } from '../../../lib/demand-insights'
 import { CheckoutEvent, getEventActionLabel } from '../../../lib/checkout-events'
 import { createClient } from '../../../utils/supabase/server'
 import { cookies } from 'next/headers'
@@ -162,6 +162,12 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const agentPageVisits = trafficSplit.ai
   const topQueries = getTopQueries(filteredEvents, filteredAgentVisits)
   const topReferrers = getTopReferrers(filteredAgentVisits)
+  // Offers to compare queries against: the filtered page if one is selected, else all owned pages.
+  const offerScopePages = filters.page ? ownedPages.filter((p) => p.id === filters.page) : ownedPages
+  const offerTexts = offerScopePages.flatMap((p) =>
+    [...(p.services ?? []), ...(p.products ?? [])].map((o) => `${o.name} ${o.description ?? ''}`),
+  )
+  const unservedQueries = getUnservedQueries(topQueries, offerTexts)
   const discoveryClicks = getDiscoveryClickCount(filteredEvents)
   const attemptCount = getCheckoutAttemptCount(filteredEvents)
   const conversionCount = getConversionCount(filteredEvents)
@@ -410,6 +416,21 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                     </ul>
                     <p className="mt-2 text-[11px] text-zinc-500">
                       What buyers/agents searched for when reaching your pages — a signal for offers to add or rename.
+                    </p>
+                  </div>
+                )}
+                {unservedQueries.length > 0 && (
+                  <div className="rounded-lg border border-amber-300/20 bg-amber-400/5 p-3">
+                    <div className="text-xs uppercase tracking-[0.18em] text-amber-200">Gaps — searched but not offered</div>
+                    <ul className="mt-2 flex flex-wrap gap-1.5">
+                      {unservedQueries.map((q) => (
+                        <li key={q.query} className="rounded-full border border-amber-300/30 bg-amber-400/10 px-2.5 py-0.5 text-xs text-amber-200">
+                          {q.query} <span className="text-amber-300/70">×{q.count}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-2 text-[11px] text-zinc-500">
+                      Agents asked for these but none of your offers match — consider adding or renaming an offer.
                     </p>
                   </div>
                 )}

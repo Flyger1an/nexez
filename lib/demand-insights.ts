@@ -3,6 +3,21 @@
 
 export type QueryStat = { query: string; count: number }
 
+/**
+ * Queries agents searched for that this business doesn't appear to serve —
+ * no meaningful word overlap with any offer name/description. Product gold:
+ * "agents searched for X you don't offer."
+ */
+export function getUnservedQueries(queries: QueryStat[], offerTexts: string[]): QueryStat[] {
+  const haystack = offerTexts.join(' ').toLowerCase()
+  if (!haystack.trim()) return [] // no offers to compare against → don't guess
+  return queries.filter((q) => {
+    const words = q.query.split(/\s+/).filter((w) => w.length >= 4)
+    if (words.length === 0) return !haystack.includes(q.query)
+    return !words.some((w) => haystack.includes(w))
+  })
+}
+
 function normalizeQuery(q: string | null | undefined): string {
   return (q || '').trim().replace(/\s+/g, ' ').toLowerCase()
 }

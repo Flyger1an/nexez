@@ -8,6 +8,7 @@ import {
   getCheckoutOfferKey,
 } from '../../../lib/agent-page'
 import { parseMoneyCents } from '../../../lib/checkout'
+import { enforceRateLimit } from '../../../lib/rate-limit'
 import { supabase } from '../../../lib/supabase'
 
 type NegotiationInput = {
@@ -43,6 +44,9 @@ async function getPublishedPage(slug: string) {
 }
 
 export async function POST(request: Request) {
+  const limited = enforceRateLimit(request, 'negotiations', 20, 60_000)
+  if (limited) return limited
+
   const wantsJson = request.headers.get('accept')?.includes('application/json')
   const input = await readNegotiationInput(request)
 

@@ -29,3 +29,18 @@ describe('getTopReferrers', () => {
     expect(out.find((r) => r.query === 'perplexity.ai')?.count).toBe(1)
   })
 })
+
+import { getUnservedQueries } from '../demand-insights'
+describe('getUnservedQueries', () => {
+  const q = (query: string, count = 1) => ({ query, count })
+  it('flags queries with no word overlap with offers', () => {
+    const offers = ['Emergency plumbing repair', 'Drain cleaning service']
+    const unserved = getUnservedQueries([q('plumbing'), q('electrician rewiring'), q('boiler install')], offers)
+    expect(unserved.map((u) => u.query)).toContain('electrician rewiring')
+    expect(unserved.map((u) => u.query)).toContain('boiler install')
+    expect(unserved.map((u) => u.query)).not.toContain('plumbing')
+  })
+  it('returns nothing when there are no offers to compare', () => {
+    expect(getUnservedQueries([q('anything')], [])).toEqual([])
+  })
+})
