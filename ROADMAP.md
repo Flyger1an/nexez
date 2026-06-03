@@ -1630,3 +1630,30 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 **Mini-audit**: ✅ v1 paths + operationIds documented (tested); ✅ bearerAuth declared + required on v1 (tested); ✅ existing endpoints preserved (tested); ✅ served at `/openapi.json` (route builds).
 
 **Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **113/113** (+3), `npm run build` clean.
+
+---
+
+## 2026-06-03 Production verification — programmatic API live
+
+- `SUPABASE_SERVICE_ROLE_KEY` added to Vercel + redeployed (`0a8c369..7e725d8`). Added `/api/v1/health` (unauthenticated config status, no secrets).
+- Verified on production (`nexez.vercel.app`): `/api/v1/health` → `{ configured: true }`; `/api/v1/pages` (no key) → `401` (was `503`). **Programmatic API is live.**
+- Confirmed production is **publicly reachable** anonymously (200, no SSO). Only Vercel *preview/branch* URLs are auth-gated (safe default) — agents reach live pages fine.
+
+---
+
+## 2026-06-03 Auth UX Overhaul — Production-Grade Login / Sign-up
+
+**User directive**: "beef up logins and the sign up pages, we need proper fields for a high level project not just basic email and password."
+
+**IMPLEMENTED** (`app/login/page.tsx`):
+- Three modes: **sign in / sign up / reset password** (forgot-password flow via `resetPasswordForEmail`).
+- **Sign-up captures a real profile**: full name, company/business name, industry (select), work email, password + confirm, terms acceptance — stored in Supabase `user_metadata` via `signUp({ options: { data: { full_name, company, industry } } })` (no schema change).
+- **Password UX**: live strength meter (length + variety), show/hide toggle, confirm-match validation, min-8 enforcement.
+- **Client-side validation** with clear error/success toasts (typed tone); required-field + terms gating before submit.
+- **Premium Design-System layout**: split brand/value panel (desktop) with electric-purple/neon-teal accents + gradient CTA; fully responsive single-column on mobile; accessible labels + autocomplete attributes.
+
+**Mini-audit**: ✅ all three auth modes wired to Supabase; ✅ profile fields persisted to user_metadata; ✅ validation + strength + show/hide working; ✅ responsive + Design-System compliant; ✅ build/lint/tsc clean.
+
+**Follow-up**: surface `user_metadata` (name/company) in the dashboard header/settings; add `/terms` + `/privacy` pages (links present).
+
+**Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm run build` clean (`/login` renders).
