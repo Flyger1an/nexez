@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { AgentPage, OWNER_PAGE_SELECT, getBaseUrl, normalizeSlug } from '../../../../lib/agent-page'
 import { normalizeDomainPath } from '../../../../lib/custom-domain'
+import { normalizeBranding } from '../../../../lib/branding'
 import { buildAgentPagePayload, getAgentJsonPath } from '../../../../lib/agent-manifest'
 import { createClient } from '../../../../utils/supabase/client'
 
@@ -39,6 +40,10 @@ export default function PageSettings({ params }: PageProps) {
   const [isPublished, setIsPublished] = useState(false)
   const [customDomain, setCustomDomain] = useState('')
   const [domainPath, setDomainPath] = useState('/')
+  const [brandName, setBrandName] = useState('')
+  const [accentColor, setAccentColor] = useState('')
+  const [logoUrl, setLogoUrl] = useState('')
+  const [hideNexezBadge, setHideNexezBadge] = useState(false)
   const [domainProvisioning, setDomainProvisioning] = useState(false)
   const [domainStatus, setDomainStatus] = useState<
     | null
@@ -173,6 +178,13 @@ export default function PageSettings({ params }: PageProps) {
 	    setIsPublished(activePage.is_published)
 	    setCustomDomain(activePage.custom_domain ?? '')
 	    setDomainPath(activePage.domain_path ?? '/')
+	    {
+	      const b = (activePage.branding ?? {}) as Record<string, unknown>
+	      setBrandName(typeof b.brand_name === 'string' ? b.brand_name : '')
+	      setAccentColor(typeof b.accent_color === 'string' ? b.accent_color : '')
+	      setLogoUrl(typeof b.logo_url === 'string' ? b.logo_url : '')
+	      setHideNexezBadge(b.hide_nexez_badge === true)
+	    }
 	    setPreferOriginalSite(!!activePage.prefer_original_site)
 	    setIndustry(activePage.industry ?? '')
 
@@ -362,6 +374,12 @@ export default function PageSettings({ params }: PageProps) {
         is_published: isPublished,
         custom_domain: customDomain || null,
 	        domain_path: normalizeDomainPath(domainPath),
+	        branding: normalizeBranding({
+	          brand_name: brandName,
+	          accent_color: accentColor,
+	          logo_url: logoUrl,
+	          hide_nexez_badge: hideNexezBadge,
+	        }),
 	        prefer_original_site: preferOriginalSite,
 	        verification_details: verificationDetails || null,
 	      })
@@ -547,6 +565,54 @@ export default function PageSettings({ params }: PageProps) {
                     <span className="text-[10px] text-zinc-500">
                       e.g. “/” or “/pricing” — host several pages on one domain.
                     </span>
+                  </div>
+
+                  {/* C10: white-label branding */}
+                  <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <p className="text-[11px] font-medium text-zinc-200">Branding / White-label</p>
+                    <p className="mt-0.5 text-[10px] text-zinc-500">
+                      Applied to the public page (especially on your custom domain).
+                    </p>
+                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <label className="block text-[11px]">
+                        <span className="text-zinc-400">Brand name</span>
+                        <input
+                          value={brandName}
+                          onChange={(e) => setBrandName(e.target.value)}
+                          placeholder="Acme Plumbing"
+                          className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
+                        />
+                      </label>
+                      <label className="block text-[11px]">
+                        <span className="text-zinc-400">Accent color (hex)</span>
+                        <input
+                          value={accentColor}
+                          onChange={(e) => setAccentColor(e.target.value)}
+                          placeholder="#7C3AED"
+                          className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
+                        />
+                      </label>
+                      <label className="block text-[11px] sm:col-span-2">
+                        <span className="text-zinc-400">Logo URL (https)</span>
+                        <input
+                          value={logoUrl}
+                          onChange={(e) => setLogoUrl(e.target.value)}
+                          placeholder="https://acme.com/logo.svg"
+                          className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
+                        />
+                      </label>
+                    </div>
+                    <label className="mt-2 flex items-center gap-2 text-[11px] text-zinc-300">
+                      <input
+                        type="checkbox"
+                        checked={hideNexezBadge}
+                        onChange={(e) => setHideNexezBadge(e.target.checked)}
+                      />
+                      Hide the “Nexez” header link (full white-label)
+                    </label>
+                    <p className="mt-1 text-[10px] text-zinc-500">
+                      Invalid colors/URLs are ignored on render (hex + http(s) only). Save to apply.
+                    </p>
                   </div>
 
                   {domainVerificationToken && (

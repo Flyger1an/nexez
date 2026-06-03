@@ -25,6 +25,7 @@ export const PUBLIC_PAGE_SELECT = [
   'custom_domain',
   'custom_domain_verified',
   'domain_path',
+  'branding',
   'created_at',
   'mcp_enabled',
   'verification_details',
@@ -120,6 +121,7 @@ export type AgentPage = {
   custom_domain?: string | null
   custom_domain_verified?: boolean | string | null  // Phase 5: timestamp or true when DNS verified
   domain_path?: string | null  // C9: path this page serves at on its custom_domain ("/" or "/pricing")
+  branding?: Record<string, unknown> | null  // C10: white-label branding (accent_color, logo_url, brand_name, hide_nexez_badge)
   domain_verification_token?: string | null
   calendly_webhook_secret?: string | null
   outbound_webhooks?: Array<string | { url: string; secret?: string | null }> | null

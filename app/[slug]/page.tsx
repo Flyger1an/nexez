@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import type { CSSProperties } from 'react'
 import { after } from 'next/server'
 import { notFound } from 'next/navigation'
 import { headers } from 'next/headers'
@@ -6,6 +7,7 @@ import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, LockKeyhole,
 import { AgentPage, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, getBaseUrl, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { agentArtifactHref, getEffectiveBaseUrl, isCustomHost, normalizeDomainPath } from '../../lib/custom-domain'
+import { normalizeBranding } from '../../lib/branding'
 import { safeJsonScript } from '../../lib/safe-json'
 import { logAgentPageView } from '../../lib/server/log-agent-page-view'
 import { supabase } from '../../lib/supabase'
@@ -110,19 +112,42 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
       ? getCheckoutPath(page.slug, 'products', 0)
       : ''
   const jsonLd = buildJsonLd(page, effectiveBase)
+  const branding = normalizeBranding(page.branding)
+  const accentStyle = branding.accent_color
+    ? ({ '--brand-accent': branding.accent_color } as CSSProperties)
+    : undefined
+  const showBrand = Boolean(branding.logo_url || branding.brand_name)
 
   return (
-    <main className="public-agent-page min-h-screen bg-[#0A0A0F] text-white">
+    <main className="public-agent-page min-h-screen bg-[#0A0A0F] text-white" style={accentStyle}>
 	      <script
 	        type="application/ld+json"
 	        dangerouslySetInnerHTML={{ __html: safeJsonScript(jsonLd) }}
 	      />
 
       <div className="mx-auto max-w-5xl px-6 py-10">
-        <a href="/" className="inline-flex items-center gap-2 text-sm text-[#9CA3AF] hover:text-white">
-          <ArrowLeft className="size-4" />
-          Nexez
-        </a>
+        {showBrand ? (
+          // White-label header: show the brand instead of the Nexez back-link.
+          <div className="inline-flex items-center gap-2">
+            {branding.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={branding.logo_url} alt={branding.brand_name || 'Logo'} className="h-7 w-auto" />
+            ) : null}
+            {branding.brand_name ? (
+              <span
+                className="text-base font-semibold"
+                style={branding.accent_color ? { color: 'var(--brand-accent)' } : undefined}
+              >
+                {branding.brand_name}
+              </span>
+            ) : null}
+          </div>
+        ) : branding.hide_nexez_badge ? null : (
+          <a href="/" className="inline-flex items-center gap-2 text-sm text-[#9CA3AF] hover:text-white">
+            <ArrowLeft className="size-4" />
+            Nexez
+          </a>
+        )}
 
         {preferOriginal && (
           <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#7C3AED]/10 px-4 py-1 text-sm text-[#C4B5FD]">

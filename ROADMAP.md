@@ -1483,3 +1483,24 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 **Guardrail**: the composite unique index means two pages can't claim the same `(domain, path)` — a duplicate save surfaces the DB unique violation through existing error handling (correct behavior).
 
 **Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **79/79** (+8), `npm run build` clean (`Proxy (Middleware)` present).
+
+> **Deployed**: `main` fast-forwarded `fc3a95a..d74e279` and pushed (Vercel auto-deploy). All Phase 8 migrations through `domain_path` were already applied to the live DB. (Security: two GitHub PATs surfaced during deploy — the pasted one and a pre-existing token embedded in `.git/config` `branch.main.remote`, now removed; both flagged for rotation.)
+
+---
+
+## 2026-06-03 Burst 5 — C10: Domain-Level Branding / White-Label
+
+**IMPLEMENTED — public pages can be branded (esp. on custom domains)**:
+- **Migration** `20260603170000_add_page_branding.sql` (applied to prod + verified): `pages.branding jsonb` (`{ accent_color, logo_url, brand_name, hide_nexez_badge }`).
+- **`lib/branding.ts`** (security-first, pure, tested): `sanitizeAccentColor` (strict hex only — can't break out of inline style), `sanitizeLogoUrl` (absolute http(s) only — blocks `javascript:`/`data:`), `normalizeBranding`, `hasBranding`. Nothing user-supplied reaches a style/`src` without these guards.
+- **`app/[slug]/page.tsx`**: applies branding — brand logo/name in the header instead of the Nexez link, accent color via a `--brand-accent` CSS var, and the Nexez header link hidden when `hide_nexez_badge` (full white-label).
+- **Settings**: Branding / White-label section (brand name, accent hex, logo URL, hide-Nexez checkbox); loads from + saves to `branding` (normalized).
+- **`branding`** added to `PUBLIC_PAGE_SELECT` + `AgentPage` type.
+
+**Mini-audit**: ✅ migration applied + verified; ✅ branding flows select→type→render+settings; ✅ injection-safe (hex/http(s) validated, brand name React-escaped — tested against `red`, `#fff; background:url()`, `javascript:`, `data:`); ✅ white-label flag hides the Nexez link; ✅ +8 tests.
+
+**Follow-up**: branding is per-page; domain-level inheritance (root page cascading to all pages on a domain) is a candidate enhancement.
+
+**Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **87/87** (+8), `npm run build` clean.
+
+> Note: C10 (with the `branding` migration, already applied to the live DB) is committed locally below but the deploy above covered through C9; C10 code is not yet pushed.
