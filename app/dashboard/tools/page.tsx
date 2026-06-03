@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { ArrowLeft, Bot, Loader2, ExternalLink } from 'lucide-react'
 import { ErrorBoundary } from '../../../components/ErrorBoundary'
+import { ApiKeysManager } from '../../../components/ApiKeysManager'
 
 export default function ToolsPage() {
   const [url, setUrl] = useState('')
@@ -48,8 +49,7 @@ export default function ToolsPage() {
   const [acuityResult, setAcuityResult] = useState<any>(null)
   const [acuityConnected, setAcuityConnected] = useState<{ lastImport: string } | null>(null)
 
-  // Tier 3: Developer Platform stub
-  const [apiKey, setApiKey] = useState('demo-key-xxx')
+  // Tier 3: Developer Platform — real API keys now managed via <ApiKeysManager />
   const [revenueShare, setRevenueShare] = useState(15) // stub % for agent tx
 
   // Square consumer services import (Phase 3 consumer track start)
@@ -329,8 +329,10 @@ export default function ToolsPage() {
     <div className="mt-10 rounded-2xl border border-white/10 bg-white/[0.02] p-8">
       <h2 className="text-2xl font-semibold">Developer Platform + API + Revenue Share</h2>
       <p className="mt-2 text-[#9CA3AF]">Build on Nexez. Real public endpoints for agents + humans. Revenue share on agent-driven bookings (tracked via checkout_events).</p>
+      <div className="mt-4">
+        <ApiKeysManager />
+      </div>
       <div className="mt-4 text-sm space-y-1">
-        <div>Demo API Key: <code className="bg-black/50 px-1">{apiKey}</code> <button onClick={() => setApiKey('demo-' + Date.now().toString(36))} className="text-xs underline">regen</button></div>
         <div>Revenue Share: {revenueShare}% on qualifying agent tx (see analytics for agent-sourced events; configure in future billing).</div>
         <a href="/openapi.json" className="text-[#00F5FF] hover:underline block">OpenAPI spec (full endpoints) →</a>
         <a href="/agent-pages.json" className="text-[#00F5FF] hover:underline">Public agent index →</a>

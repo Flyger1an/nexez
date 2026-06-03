@@ -1588,3 +1588,30 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 4. ✅ build/lint/tsc/tests green.
 
 **Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **102/102**, `npm run build` clean.
+
+> **Deployed**: `dc76112..41af36f` pushed to `origin/main`.
+
+---
+
+## 2026-06-03 Burst 10 — G21: Programmatic API + API Keys (developer/agency channel)
+
+**New capability**: manage pages headlessly over a REST API — the foundation for agencies running many client pages and for external integrations.
+
+**IMPLEMENTED**:
+- **Migration** `20260603190000_add_api_keys.sql` (applied to prod): `api_keys` table (owner_id, name, **key_hash**, prefix, last_used_at, revoked_at) + RLS (owners manage their own; anon **not** granted select on hashes).
+- **`lib/api-keys.ts`** (pure, tested): `generateApiKey` (returns raw once + prefix + sha256 hash), `hashApiKey`, `parseBearer`, `isValidApiKeyFormat`. **Only the hash is stored; the raw key is shown once.**
+- **`lib/server/api-auth.ts`**: `authenticateApiKey(request)` — resolves the Bearer key → owner via the gated service-role client, checks revocation, records `last_used_at`. Returns 503 when the API isn't configured, 401 for missing/invalid/revoked keys.
+- **REST routes** (owner-scoped — admin client bypasses RLS but every query filters `owner_id`): `GET/POST /api/v1/pages`, `GET/PATCH /api/v1/pages/{id}`. Create writes only whitelisted fields, auto-generates a unique slug, defaults to draft (`is_published` opt-in).
+- **`POST /api/dashboard/api-keys`**: authenticated mint endpoint (raw returned once).
+- **`components/ApiKeysManager.tsx`** in the Tools → Developer Platform section: generate (raw shown once + copy), list (prefix, created, last-used, revoked badge), revoke — replacing the old demo-key stub.
+
+**Mini-audit (properly plugged in?)**:
+1. ✅ Keys stored as SHA-256 hash only; raw shown once; format validated — tested (+8).
+2. ✅ API auth gated (503 if no service-role key), 401 on invalid/revoked.
+3. ✅ **Tenancy enforced** — every `/api/v1` query filters by the key's `owner_id`; create sets it; no cross-tenant access.
+4. ✅ `api_keys` RLS owner-only; anon cannot read hashes; mint route is authenticated.
+5. ✅ UI wired (create via route, list/revoke via RLS browser client); build registers all 3 routes.
+
+**Note**: the `/api/v1/*` endpoints require `SUPABASE_SERVICE_ROLE_KEY` on the deployment to function (auth returns 503 until then). Key management UI works without it (create/list/revoke via the user session).
+
+**Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **110/110** (+8), `npm run build` clean (`/api/v1/pages`, `/api/v1/pages/[id]`, `/api/dashboard/api-keys` present).
