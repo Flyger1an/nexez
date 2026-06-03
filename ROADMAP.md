@@ -1654,6 +1654,10 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 
 **Mini-audit**: ✅ all three auth modes wired to Supabase; ✅ profile fields persisted to user_metadata; ✅ validation + strength + show/hide working; ✅ responsive + Design-System compliant; ✅ build/lint/tsc clean.
 
-**Follow-up**: surface `user_metadata` (name/company) in the dashboard header/settings; add `/terms` + `/privacy` pages (links present).
-
 **Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm run build` clean (`/login` renders).
+
+**Follow-ups — DONE (next burst):**
+- Added `/terms` and `/privacy` (Design-System static pages with template disclaimer; cross-linked + referenced from sign-up).
+- `components/ProfileSettings.tsx`: editable Profile card on `/dashboard/settings` (full name, company, industry; email read-only) persisting to `user_metadata` via `auth.updateUser`.
+- Dashboard header now greets the user by name ("Welcome back, …") from `user_metadata`.
+- Verified: lint/tsc clean, `npm test` 113/113, build clean (`/terms`, `/privacy` static).

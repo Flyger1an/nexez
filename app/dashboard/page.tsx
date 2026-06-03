@@ -39,6 +39,7 @@ export default function Dashboard() {
   const [openNegotiations, setOpenNegotiations] = useState(0)
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
+  const [displayName, setDisplayName] = useState('')
 
   useEffect(() => {
     loadPages()
@@ -90,6 +91,11 @@ export default function Dashboard() {
     const {
       data: { user },
     } = await supabase.auth.getUser()
+
+    if (user) {
+      const meta = (user.user_metadata ?? {}) as { full_name?: string; company?: string }
+      setDisplayName(meta.full_name || meta.company || user.email || '')
+    }
 
     if (!user) {
       window.location.href = '/login?next=/dashboard'
@@ -213,7 +219,7 @@ export default function Dashboard() {
         <section className="min-w-0 flex-1">
           <header className="flex flex-col gap-3 border-b border-white/10 bg-[#0F0D18] px-5 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
             <div className="min-w-0">
-              <p className="text-sm text-[#9CA3AF]">Nexez • Dashboard</p>
+              <p className="text-sm text-[#9CA3AF]">{displayName ? `Welcome back, ${displayName}` : 'Nexez • Dashboard'}</p>
               <h1 className="truncate text-2xl font-semibold tracking-tight">My Agent Pages</h1>
             </div>
             <div className="flex items-center gap-3">
