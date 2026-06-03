@@ -1845,3 +1845,8 @@ Sequential verified bursts; roadmap updated per feature.
 ## Importer LLM fallback (Phase 6 item, now feasible)
 - `llmExtractOffers` (tested gating): when deterministic extraction yields <2 offers AND `LLM_API_KEY` is set, the importer strips the page to text and asks the model for offers (strict JSON), merging results with `source: 'llm'`. Dormant + best-effort otherwise. Directly improves the flagship importer on ambiguous/JS-heavy pages.
 - Verified: lint/tsc clean, `npm test` 151/151, build clean.
+
+## Dashboard load perf + nav discoverability
+- `loadPages` folds the team-invites + open-negotiations queries into the main parallel wave (5 queries in one round-trip instead of 3 + 2 sequential); only the shared-pages lookup remains a dependent follow-up. ~2 fewer latency waves on the dashboard.
+- Added Leaderboard to the dashboard nav (was only linked from the Directory).
+- Verified: lint/tsc clean, `npm test` 151/151, build clean.

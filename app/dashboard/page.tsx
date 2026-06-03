@@ -107,7 +107,8 @@ export default function Dashboard() {
       return
     }
 
-    const [pageResult, eventResult, visitResult] = await Promise.all([
+    // Fetch everything independent of each other in one parallel wave.
+    const [pageResult, eventResult, visitResult, invitesResult, negotiationResult] = await Promise.all([
       fetchOwnedPages(supabase, user.id),
       supabase
         .from('checkout_events')
@@ -117,6 +118,12 @@ export default function Dashboard() {
         .limit(100)
         .returns<CheckoutEvent[]>(),
       fetchAgentVisits(supabase, user.id),
+      supabase.from('team_invites').select('owner_id').ilike('email', user.email ?? '').neq('status', 'revoked'),
+      supabase
+        .from('agent_negotiations')
+        .select('id', { count: 'exact', head: true })
+        .eq('owner_id', user.id)
+        .in('status', ['negotiation', 'agreement_proposed', 'held']),
     ])
 
     if (pageResult.error) {
@@ -142,14 +149,17 @@ export default function Dashboard() {
       setAgentVisits(visitResult.data || [])
     }
 
-    // Pages shared with me (team collaborator, by email match on a non-revoked invite).
+    // Open negotiations (graceful if table missing).
+    if (negotiationResult.error && !isMissingRelationError(negotiationResult.error)) {
+      console.warn('Failed to count negotiations:', negotiationResult.error)
+    }
+    setOpenNegotiations(negotiationResult.error ? 0 : negotiationResult.count ?? 0)
+
+    // Pages shared with me — one follow-up query keyed off the invites we already loaded.
     try {
-      const { data: invites } = await supabase
-        .from('team_invites')
-        .select('owner_id')
-        .ilike('email', user.email ?? '')
-        .neq('status', 'revoked')
-      const ownerIds = [...new Set((invites ?? []).map((i) => i.owner_id as string))].filter((oid) => oid !== user.id)
+      const ownerIds = [...new Set((invitesResult.data ?? []).map((i) => i.owner_id as string))].filter(
+        (oid) => oid !== user.id,
+      )
       if (ownerIds.length) {
         const { data: shared } = await supabase
           .from('pages')
@@ -163,22 +173,6 @@ export default function Dashboard() {
       }
     } catch {
       setSharedPages([])
-    }
-
-    // Count proposals that still need owner attention (graceful if table missing).
-    const { count, error: negotiationError } = await supabase
-      .from('agent_negotiations')
-      .select('id', { count: 'exact', head: true })
-      .eq('owner_id', user.id)
-      .in('status', ['negotiation', 'agreement_proposed', 'held'])
-
-    if (negotiationError) {
-      if (!isMissingRelationError(negotiationError)) {
-        console.warn('Failed to count negotiations:', negotiationError)
-      }
-      setOpenNegotiations(0)
-    } else {
-      setOpenNegotiations(count ?? 0)
     }
 
     setLoading(false)
@@ -256,6 +250,7 @@ export default function Dashboard() {
             <NavItem href="/dashboard/analytics" icon={<BarChart3 className="size-4" />} label="Analytics" />
             <NavItem href="/marketplace" icon={<Search className="size-4" />} label="Marketplace" />
             <NavItem href="/directory" icon={<Search className="size-4" />} label="Directory" />
+            <NavItem href="/leaderboard" icon={<Gauge className="size-4" />} label="Leaderboard" />
             <NavItem href="/dashboard/competitors" icon={<BarChart3 className="size-4" />} label="Competitor Intel" />
             <NavItem href="/dashboard/negotiations" icon={<Handshake className="size-4" />} label="Negotiations" badge={openNegotiations} />
             <NavItem href="/simulator" icon={<Bot className="size-4" />} label="Simulator" />
