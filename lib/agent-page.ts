@@ -27,6 +27,7 @@ export const PUBLIC_PAGE_SELECT = [
   'domain_path',
   'branding',
   'created_at',
+  'updated_at',
   'mcp_enabled',
   'verification_details',
   'agent_memory',
@@ -150,6 +151,7 @@ export type AgentPage = {
   next_available?: string | null
   llm_opt_in?: boolean
   created_at?: string
+  updated_at?: string
   // Phase 7 (de-duped 2026 spec): Simulation history for global /simulator (reuses existing simulator engine)
   simulations?: Array<{
     id: string

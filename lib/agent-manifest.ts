@@ -24,6 +24,7 @@ export function buildAgentPagePayload(page: AgentPage) {
   return {
     schema_version: 'nexez.agent-page.v1',
     generated_at: new Date().toISOString(),
+    last_updated: (page as { updated_at?: string | null }).updated_at || (page as { created_at?: string | null }).created_at || null,
     page: {
       name: page.name,
       slug: page.slug,

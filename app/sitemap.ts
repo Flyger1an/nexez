@@ -7,9 +7,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = getBaseUrl()
   const { data: pages } = await supabase
     .from('pages')
-    .select('slug, created_at, products, services')
+    .select('slug, created_at, updated_at, products, services')
     .eq('is_published', true)
-    .returns<Pick<AgentPage, 'slug' | 'created_at' | 'products' | 'services'>[]>()
+    .returns<Pick<AgentPage, 'slug' | 'created_at' | 'updated_at' | 'products' | 'services'>[]>()
+
+  const lastMod = (page: { updated_at?: string | null; created_at?: string | null }) =>
+    page.updated_at ? new Date(page.updated_at) : page.created_at ? new Date(page.created_at) : new Date()
 
   return [
     {
@@ -50,20 +53,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     ...(pages ?? []).map((page) => ({
       url: `${baseUrl}/${page.slug}`,
-      lastModified: page.created_at ? new Date(page.created_at) : new Date(),
+      lastModified: lastMod(page),
       changeFrequency: 'weekly' as const,
       priority: 0.8,
     })),
     ...(pages ?? []).map((page) => ({
       url: `${baseUrl}${getAgentJsonPath(page.slug)}`,
-      lastModified: page.created_at ? new Date(page.created_at) : new Date(),
+      lastModified: lastMod(page),
       changeFrequency: 'weekly' as const,
       priority: 0.6,
     })),
     ...(pages ?? []).flatMap((page) =>
       getCheckoutOffers(page).map((offer) => ({
         url: `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
-        lastModified: page.created_at ? new Date(page.created_at) : new Date(),
+        lastModified: lastMod(page),
         changeFrequency: 'weekly' as const,
         priority: 0.5,
       })),
