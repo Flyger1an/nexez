@@ -1854,3 +1854,6 @@ Sequential verified bursts; roadmap updated per feature.
 ## Reliability: route maxDuration for fetch-heavy endpoints
 - Added `export const maxDuration` to external-fetch routes so they aren't killed mid-run: cron/freshness (60s, drift re-fetch), import-site (45s, multi-crawl + optional LLM), crawlability (30s), analyze-competitor (30s).
 - Verified: lint/tsc clean, build clean.
+
+## robots.txt — welcome the full modern AI-crawler set
+- Expanded the explicit allow-list from 5 to ~19 agents (added Google-Extended, Claude-Web, anthropic-ai, Applebot/-Extended, Amazonbot, Meta-ExternalAgent, cohere-ai, Bytespider, YouBot, DuckAssistBot, Bingbot, Googlebot, Perplexity-User). Directly serves the "agents crawl you" mission.
