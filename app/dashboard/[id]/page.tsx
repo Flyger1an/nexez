@@ -17,6 +17,7 @@ import {
   parseAvailabilityWindows,
 } from '../../../lib/agent-page'
 import { draftToLiveUpdate, hasPendingDraft } from '../../../lib/draft'
+import { freshnessLabel, isStale } from '../../../lib/freshness'
 import { optimizeAllOffersForAgents, enhanceDescriptionForAgents } from '../../../lib/ai-optimize'
 import { AICoPilot } from '../../../components/AICoPilot'
 import { VisualOfferBuilder } from '../../../components/VisualOfferBuilder'
@@ -766,6 +767,17 @@ export default function EditAgentPage({ params }: PageProps) {
           </aside>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {page && isStale(page as any) && (page as any).website_url && (
+              <div className="rounded-lg border border-amber-300/30 bg-amber-400/5 p-3 text-sm">
+                <span className="text-amber-200">
+                  Freshness: {freshnessLabel(page as any)}. Your live business may have changed — re-sync from your
+                  website to keep agent data accurate.
+                </span>{' '}
+                <a href={`/dashboard/${id}/settings`} className="text-cyan-300 hover:underline">
+                  Re-sync in Settings →
+                </a>
+              </div>
+            )}
             {restoredVersion && (
               <div className="rounded-lg border border-amber-300/40 bg-amber-400/10 p-3 text-sm">
                 <div className="flex items-center justify-between">
