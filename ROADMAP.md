@@ -1751,3 +1751,9 @@ Sequential verified bursts; roadmap updated per feature.
 - `sitemap.xml` `lastModified` now uses `updated_at` (fallback created_at) for page, agent.json, and checkout URLs. agent.json emits top-level `last_updated`. `updated_at` added to PUBLIC_PAGE_SELECT + AgentPage type.
 - Crawlers now see real last-modified per page → better recrawl/ranking signals.
 - Verified: lint/tsc clean, `npm test` 123/123, build clean.
+
+## #4 — Embeddable Agent-Ready Badge ✅
+- `lib/badge.ts` (pure, tested): `buildAgentReadyBadgeSvg(score, verified)` — branded two-segment SVG, color-coded by readiness, clamps + escapes.
+- Route `GET /<slug>/badge.svg` reflects live readiness + verified status (CDN-cached).
+- Page Settings: live badge preview + copyable `<a><img></a>` snippet for the customer's human site (free marketing + backlinks + trust).
+- Verified: lint/tsc clean, `npm test` 126/126 (+3), build clean.

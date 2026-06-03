@@ -809,6 +809,14 @@ export default function PageSettings({ params }: PageProps) {
                 <pre className="mt-1 overflow-x-auto rounded bg-black/40 p-2 text-[10px] text-zinc-400">{`<iframe src="${publicUrl}" width="100%" height="800" style="border:1px solid #222;"></iframe>`}</pre>
                 <p className="mt-1 text-[10px] text-zinc-500">Embed the clean agent view on your main site. Agents still see the canonical Nexez URL.</p>
               </div>
+
+              <div className="mt-4 border-t border-white/10 pt-4">
+                <p className="text-xs uppercase tracking-widest text-zinc-400">Agent-Ready badge</p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`${publicUrl}/badge.svg`} alt="Agent-Ready badge" className="mt-2 h-7" />
+                <pre className="mt-2 overflow-x-auto rounded bg-black/40 p-2 text-[10px] text-zinc-400">{`<a href="${publicUrl}"><img src="${publicUrl}/badge.svg" alt="Agent-Ready" height="28"></a>`}</pre>
+                <p className="mt-1 text-[10px] text-zinc-500">Put this on your human website to show you’re agent-ready and link buyers’ agents to this page.</p>
+              </div>
             </div>
           </aside>
 
