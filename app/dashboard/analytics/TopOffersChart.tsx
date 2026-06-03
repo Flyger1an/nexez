@@ -1,6 +1,7 @@
 'use client'
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
+import { MeasuredChartFrame } from './MeasuredChartFrame'
 
 interface OfferStat {
   name: string
@@ -20,9 +21,11 @@ export function TopOffersChart({ offers, max }: { offers: OfferStat[]; max: numb
   }))
 
   return (
-    <div className="h-64">
-      <ResponsiveContainer width="100%" height="100%">
+    <MeasuredChartFrame className="h-64">
+      {({ width, height }) => (
         <BarChart 
+          width={width}
+          height={height}
           data={chartData} 
           layout="vertical"
           margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
@@ -43,7 +46,7 @@ export function TopOffersChart({ offers, max }: { offers: OfferStat[]; max: numb
           <Bar dataKey="total" fill="#7C3AED" radius={2} name="Total Events" />
           <Bar dataKey="conversions" fill="#00F5FF" radius={2} name="Conversions" />
         </BarChart>
-      </ResponsiveContainer>
-    </div>
+      )}
+    </MeasuredChartFrame>
   )
 }

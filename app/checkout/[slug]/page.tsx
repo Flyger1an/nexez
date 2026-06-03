@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { after } from 'next/server'
 import { notFound } from 'next/navigation'
 import { headers } from 'next/headers'
 import {
@@ -88,20 +89,26 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
   const canContinue = Boolean(priceCents || destination)
   const missingCheckout = Boolean(search.missing_checkout)
 
-  await logCheckoutEvent({
-    page,
-    offer,
-    eventType: 'checkout_view',
-    userAgent: requestHeaders.get('user-agent'),
-    referrer: requestHeaders.get('referer'),
-    query: null,
-    checkoutUrl,
-    providerUrl: destination || null,
-    metadata: {
-      amount_cents: priceCents,
-      source: 'checkout_page_render',
-    },
-  })
+  // Non-blocking: record the checkout_view after the response is sent so it
+  // never adds latency to the page render.
+  const checkoutUserAgent = requestHeaders.get('user-agent')
+  const checkoutReferrer = requestHeaders.get('referer')
+  after(() =>
+    logCheckoutEvent({
+      page,
+      offer,
+      eventType: 'checkout_view',
+      userAgent: checkoutUserAgent,
+      referrer: checkoutReferrer,
+      query: null,
+      checkoutUrl,
+      providerUrl: destination || null,
+      metadata: {
+        amount_cents: priceCents,
+        source: 'checkout_page_render',
+      },
+    }),
+  )
 
   return (
     <main className="min-h-screen bg-[#090b10] text-white">

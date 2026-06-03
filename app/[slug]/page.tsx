@@ -1,13 +1,17 @@
 import type { Metadata } from 'next'
+import { after } from 'next/server'
 import { notFound } from 'next/navigation'
+import { headers } from 'next/headers'
 import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, LockKeyhole, Mail, MapPin } from 'lucide-react'
-import { AgentPage, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, getBaseUrl, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows } from '../../lib/agent-page'
+import { AgentPage, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, getBaseUrl, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { safeJsonScript } from '../../lib/safe-json'
+import { logAgentPageView } from '../../lib/server/log-agent-page-view'
 import { supabase } from '../../lib/supabase'
 
 type PageProps = {
   params: Promise<{ slug: string }>
+  searchParams?: Promise<{ negotiation?: string }>
 }
 
 async function getPage(slug: string) {
@@ -47,13 +51,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-export default async function AgentPageRoute({ params }: PageProps) {
+export default async function AgentPageRoute({ params, searchParams }: PageProps) {
   const { slug } = await params
+  const negotiationParam = (await searchParams)?.negotiation
   const page = await getPage(slug)
 
   if (!page) {
     notFound()
   }
+
+  // Log the visit (agent detection + analytics) AFTER the response is sent so
+  // it never adds latency to the public agent page (<200ms quality bar). The
+  // request headers are captured now; `after` runs the inserts post-render.
+  const requestHeaders = await headers()
+  const visitUrl = `${getBaseUrl()}/${page.slug}`
+  after(() => logAgentPageView({ page, requestHeaders, url: visitUrl }))
 
   // Live events for accurate Trust Score completion rate (attempts vs real bookings)
   let trustEvents: any[] = []
@@ -70,6 +82,8 @@ export default async function AgentPageRoute({ params }: PageProps) {
   const products = page.products ?? []
   const services = page.services ?? []
   const faqs = page.faqs ?? []
+  const negotiationOffers = getCheckoutOffers(page)
+  const negotiationCreated = negotiationParam === 'created'
   const ctaUrl = page.cta_url || page.website_url || '#'
   const preferOriginal = !!page.prefer_original_site
   const firstCheckoutPath = services.length && !preferOriginal
@@ -236,6 +250,92 @@ export default async function AgentPageRoute({ params }: PageProps) {
           </section>
         ) : null}
 
+        {negotiationOffers.length ? (
+          <section id="negotiate" className="border-t border-white/10 py-12">
+            <h2 className="text-2xl font-semibold">Request a custom quote</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
+              Buying agents and humans can propose scope, budget, and timeline. The owner reviews each
+              proposal and responds. AI agents can also negotiate programmatically via{' '}
+              <code className="text-zinc-300">POST /api/negotiations</code>.
+            </p>
+
+            {negotiationCreated ? (
+              <p className="mt-4 rounded-lg border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-200">
+                Proposal sent — the owner has received your request and will review the terms.
+              </p>
+            ) : null}
+
+            <form method="post" action="/api/negotiations" className="card mt-6 grid gap-4 !p-6 sm:grid-cols-2">
+              <input type="hidden" name="slug" value={page.slug} />
+
+              <label className="block text-sm sm:col-span-2">
+                <span className="text-zinc-300">Offer</span>
+                <select
+                  name="offer"
+                  defaultValue={getCheckoutOfferKey(negotiationOffers[0].kind, negotiationOffers[0].index)}
+                  className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-white"
+                >
+                  {negotiationOffers.map((offer) => {
+                    const key = getCheckoutOfferKey(offer.kind, offer.index)
+                    return (
+                      <option key={key} value={key}>
+                        {offer.name} {offer.price ? `— ${offer.price}` : ''}
+                      </option>
+                    )
+                  })}
+                </select>
+              </label>
+
+              <label className="block text-sm sm:col-span-2">
+                <span className="text-zinc-300">What do you need? (scope / request)</span>
+                <textarea
+                  name="query"
+                  rows={3}
+                  placeholder="Describe the work, quantity, or constraints…"
+                  className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-white placeholder:text-zinc-500"
+                />
+              </label>
+
+              <label className="block text-sm">
+                <span className="text-zinc-300">Budget (optional)</span>
+                <input
+                  name="budget"
+                  type="text"
+                  placeholder="e.g. $500–$800"
+                  className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-white placeholder:text-zinc-500"
+                />
+              </label>
+
+              <label className="block text-sm">
+                <span className="text-zinc-300">Timeline (optional)</span>
+                <input
+                  name="timeline"
+                  type="text"
+                  placeholder="e.g. within 2 weeks"
+                  className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-white placeholder:text-zinc-500"
+                />
+              </label>
+
+              <label className="block text-sm sm:col-span-2">
+                <span className="text-zinc-300">Your contact (email or agent ID)</span>
+                <input
+                  name="contact"
+                  type="text"
+                  placeholder="you@example.com"
+                  className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-white placeholder:text-zinc-500"
+                />
+              </label>
+
+              <button
+                type="submit"
+                className="btn-primary inline-flex min-h-[44px] items-center justify-center sm:col-span-2"
+              >
+                Send proposal
+              </button>
+            </form>
+          </section>
+        ) : null}
+
         {(page as any).agent_memory && (
           <section className="border-t border-white/10 py-8">
             <h2 className="text-xl font-semibold">Agent Memory & Context</h2>
@@ -264,7 +364,8 @@ Services: ${services.map((item) => item.name).join(', ') || 'None listed'}
 Checkout URLs: ${[
   ...services.map((item, index) => `${item.name}: ${getBaseUrl()}${getCheckoutPath(page.slug, 'services', index)}`),
   ...products.map((item, index) => `${item.name}: ${getBaseUrl()}${getCheckoutPath(page.slug, 'products', index)}`),
-].join('; ') || 'None listed'}`}
+].join('; ') || 'None listed'}
+Negotiation API: POST ${getBaseUrl()}/api/negotiations with slug="${page.slug}", offer="services-0" or "products-0", query, requestedTerms, budget, timeline, and dryRun=true to validate.`}
           </pre>
         </section>
       </div>
@@ -431,7 +532,4 @@ function buildJsonLd(page: AgentPage) {
     },
   }
 }
-
-/* Phase 7 Tier 1 stub: Negotiation + Escrow entry. See plan for full impl (form + Stripe manual capture + JSONB status on page). */
-
 /* Tier 3 stubs: Voice-optimized & agent memory/context notes for future (will extend manifests). */

@@ -1,12 +1,13 @@
 'use client'
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
+import { MeasuredChartFrame } from './MeasuredChartFrame'
 
 export function TrafficChart({ data }: { data: any[] }) {
   return (
-    <div className="h-64">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data}>
+    <MeasuredChartFrame className="h-64">
+      {({ width, height }) => (
+        <LineChart width={width} height={height} data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
           <XAxis dataKey="label" stroke="#666" />
           <YAxis stroke="#666" />
@@ -21,6 +22,22 @@ export function TrafficChart({ data }: { data: any[] }) {
             dot={{ fill: '#7C3AED', strokeWidth: 2 }} 
             name="Total Events"
           />
+          <Line
+            type="monotone"
+            dataKey="agentVisits"
+            stroke="#10B981"
+            strokeWidth={2}
+            dot={false}
+            name="Agent Page Visits"
+          />
+          <Line
+            type="monotone"
+            dataKey="discovery"
+            stroke="#F59E0B"
+            strokeWidth={2}
+            dot={false}
+            name="Discovery"
+          />
           <Line 
             type="monotone" 
             dataKey="conversions" 
@@ -31,7 +48,7 @@ export function TrafficChart({ data }: { data: any[] }) {
             name="Conversions"
           />
         </LineChart>
-      </ResponsiveContainer>
-    </div>
+      )}
+    </MeasuredChartFrame>
   )
 }

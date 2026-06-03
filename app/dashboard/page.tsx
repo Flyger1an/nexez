@@ -10,24 +10,33 @@ import {
   ExternalLink,
   Gauge,
   Grid2X2,
+  Handshake,
   Link2,
-  LayoutDashboard,
   LogOut,
   Pencil,
   Play,
   Plus,
   Search,
   Settings,
-  Sparkles,
   Trash2,
 } from 'lucide-react'
-import { AgentPage, OWNER_PAGE_SELECT, getBaseUrl, getOfferCount, getReadinessScore } from '../../lib/agent-page'
+import {
+  AgentPage,
+  BASIC_OWNER_PAGE_SELECT,
+  OWNER_PAGE_SELECT,
+  getBaseUrl,
+  getOfferCount,
+  getReadinessScore,
+} from '../../lib/agent-page'
+import { AgentVisit, getAgentTypeBreakdown, getTopPagesByAgentVisits, getTrafficSplit } from '../../lib/agent-visits'
 import { CheckoutEvent, getEventActionLabel } from '../../lib/checkout-events'
 import { createClient } from '../../utils/supabase/client'
 
 export default function Dashboard() {
   const [pages, setPages] = useState<AgentPage[]>([])
   const [events, setEvents] = useState<CheckoutEvent[]>([])
+  const [agentVisits, setAgentVisits] = useState<AgentVisit[]>([])
+  const [openNegotiations, setOpenNegotiations] = useState(0)
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
 
@@ -40,20 +49,31 @@ export default function Dashboard() {
     ? Math.round(pages.reduce((sum, page) => sum + getReadinessScore(page), 0) / pages.length)
     : 0
   const totalOffers = pages.reduce((sum, page) => sum + getOfferCount(page), 0)
+  const trafficSplit = useMemo(() => getTrafficSplit(agentVisits), [agentVisits])
+  const agentTypeBreakdown = useMemo(() => getAgentTypeBreakdown(agentVisits).slice(0, 4), [agentVisits])
+  const topAgentPages = useMemo(() => getTopPagesByAgentVisits(agentVisits, pages).slice(0, 4), [agentVisits, pages])
+  const totalTrackedSignals = events.length + agentVisits.length
+  const agentPageVisits = trafficSplit.ai
+  const discoveryClicks = events.filter((event) => event.event_type === 'directory_click').length
   const checkoutAttempts = events.filter((event) => event.event_type === 'checkout_attempt').length
   const conversionActions = events.filter((event) =>
     ['provider_redirect', 'stripe_session_created'].includes(event.event_type),
   ).length
   const topOffer = getTopOffer(events)
-  const eventsByPageId = useMemo(() => {
+  const signalsByPageId = useMemo(() => {
     const counts = new Map<string, number>()
 
     for (const event of events) {
       counts.set(event.page_id, (counts.get(event.page_id) ?? 0) + 1)
     }
 
+    for (const visit of agentVisits) {
+      if (!visit.is_ai_agent) continue
+      counts.set(visit.page_id, (counts.get(visit.page_id) ?? 0) + 1)
+    }
+
     return counts
-  }, [events])
+  }, [agentVisits, events])
   const filteredPages = useMemo(() => {
     const needle = query.trim().toLowerCase()
     if (!needle) return pages
@@ -76,13 +96,8 @@ export default function Dashboard() {
       return
     }
 
-    const [pageResult, eventResult] = await Promise.all([
-      supabase
-        .from('pages')
-        .select(OWNER_PAGE_SELECT)
-        .eq('owner_id', user.id)
-        .order('created_at', { ascending: false })
-        .returns<AgentPage[]>(),
+    const [pageResult, eventResult, visitResult] = await Promise.all([
+      fetchOwnedPages(supabase, user.id),
       supabase
         .from('checkout_events')
         .select('*')
@@ -90,6 +105,7 @@ export default function Dashboard() {
         .order('created_at', { ascending: false })
         .limit(100)
         .returns<CheckoutEvent[]>(),
+      fetchAgentVisits(supabase, user.id),
     ])
 
     if (pageResult.error) {
@@ -104,6 +120,31 @@ export default function Dashboard() {
       setEvents([])
     } else {
       setEvents(eventResult.data || [])
+    }
+
+    if (visitResult.error) {
+      if (!isMissingRelationError(visitResult.error)) {
+        console.warn('Failed to load agent visits:', visitResult.error)
+      }
+      setAgentVisits([])
+    } else {
+      setAgentVisits(visitResult.data || [])
+    }
+
+    // Count proposals that still need owner attention (graceful if table missing).
+    const { count, error: negotiationError } = await supabase
+      .from('agent_negotiations')
+      .select('id', { count: 'exact', head: true })
+      .eq('owner_id', user.id)
+      .in('status', ['negotiation', 'agreement_proposed', 'held'])
+
+    if (negotiationError) {
+      if (!isMissingRelationError(negotiationError)) {
+        console.warn('Failed to count negotiations:', negotiationError)
+      }
+      setOpenNegotiations(0)
+    } else {
+      setOpenNegotiations(count ?? 0)
     }
 
     setLoading(false)
@@ -153,6 +194,7 @@ export default function Dashboard() {
             <NavItem href="/marketplace" icon={<Search className="size-4" />} label="Marketplace" />
             <NavItem href="/directory" icon={<Search className="size-4" />} label="Directory" />
             <NavItem href="/dashboard/competitors" icon={<BarChart3 className="size-4" />} label="Competitor Intel" />
+            <NavItem href="/dashboard/negotiations" icon={<Handshake className="size-4" />} label="Negotiations" badge={openNegotiations} />
             <NavItem href="/simulator" icon={<Bot className="size-4" />} label="Simulator" />
             <NavItem href="/dashboard/integrations" icon={<Link2 className="size-4" />} label="Integrations" />
             <NavItem href="/dashboard/tools" icon={<Bot className="size-4" />} label="Tools" />
@@ -197,11 +239,11 @@ export default function Dashboard() {
                 <div className="absolute right-8 top-8 hidden size-32 rounded-full bg-cyan-300/25 blur-3xl md:block" />
                 <p className="text-sm text-cyan-200">Your Nexez agent pages received</p>
                 <h2 className="mt-2 text-3xl font-semibold tracking-tight">
-                  {events.length} tracked agent events with {conversionActions} conversion actions
+                  {agentPageVisits} AI agent visits, {trafficSplit.human} human visits, {discoveryClicks} discovery clicks, and {conversionActions} conversion actions
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
-                  {publishedCount} published pages and {totalOffers} listed offers are ready for AI systems to parse,
-                  compare, and route buying intent.
+                  {totalTrackedSignals} total tracked signals across {publishedCount} published pages and {totalOffers} listed offers.
+                  Agent detection, directory discovery, and marketplace clicks now roll into this ROI view.
                 </p>
                 {topOffer ? (
                   <p className="mt-4 inline-flex rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-sm text-cyan-100">
@@ -211,10 +253,37 @@ export default function Dashboard() {
               </div>
             </section>
 
-            <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {openNegotiations > 0 && (
+              <a
+                href="/dashboard/negotiations"
+                className="mt-6 flex items-center justify-between gap-3 rounded-lg border border-[#7C3AED]/40 bg-[#7C3AED]/10 px-5 py-4 transition hover:bg-[#7C3AED]/20"
+              >
+                <span className="flex items-center gap-3 text-sm">
+                  <Handshake className="size-5 text-[#A78BFA]" />
+                  <span>
+                    <span className="font-semibold text-white">
+                      {openNegotiations} negotiation{openNegotiations === 1 ? '' : 's'} need
+                      {openNegotiations === 1 ? 's' : ''} your attention
+                    </span>
+                    <span className="ml-2 text-zinc-300">Review agent proposals and respond.</span>
+                  </span>
+                </span>
+                <span className="shrink-0 text-sm font-medium text-[#A78BFA]">Open inbox →</span>
+              </a>
+            )}
+
+            <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
               <div className="kpi-card">
-                <p className="text-sm text-[#9CA3AF]">Agent events</p>
-                <p className="mt-2 text-4xl font-semibold tracking-tighter">{events.length}</p>
+                <p className="text-sm text-[#9CA3AF]">Tracked signals</p>
+                <p className="mt-2 text-4xl font-semibold tracking-tighter">{totalTrackedSignals}</p>
+              </div>
+              <div className="kpi-card">
+                <p className="text-sm text-[#9CA3AF]">AI agent visits</p>
+                <p className="mt-2 text-4xl font-semibold tracking-tighter text-emerald-300">{agentPageVisits}</p>
+              </div>
+              <div className="kpi-card">
+                <p className="text-sm text-[#9CA3AF]">Discovery clicks</p>
+                <p className="mt-2 text-4xl font-semibold tracking-tighter text-amber-300">{discoveryClicks}</p>
               </div>
               <div className="kpi-card">
                 <p className="text-sm text-[#9CA3AF]">Checkout attempts</p>
@@ -229,6 +298,8 @@ export default function Dashboard() {
                 <p className="mt-2 text-4xl font-semibold tracking-tighter">{averageReadiness}%</p>
               </div>
             </section>
+
+            <AgentDetectionSummary trafficSplit={trafficSplit} breakdown={agentTypeBreakdown} topPages={topAgentPages} />
 
             <RecentActivity events={events} pages={pages} />
 
@@ -262,7 +333,7 @@ export default function Dashboard() {
                 <PageCard
                   key={page.id}
                   page={page}
-                  eventCount={eventsByPageId.get(page.id) ?? 0}
+                  eventCount={signalsByPageId.get(page.id) ?? 0}
                   onCopy={() => copyUrl(page.slug)}
                   onDelete={() => deletePage(page.id)}
                   onToggle={() => togglePublished(page.id, page.is_published)}
@@ -284,16 +355,56 @@ export default function Dashboard() {
   )
 }
 
+async function fetchOwnedPages(supabase: ReturnType<typeof createClient>, ownerId: string) {
+  const result = await supabase
+    .from('pages')
+    .select(OWNER_PAGE_SELECT)
+    .eq('owner_id', ownerId)
+    .order('created_at', { ascending: false })
+    .returns<AgentPage[]>()
+
+  if (!result.error || !isMissingColumnError(result.error)) {
+    return result
+  }
+
+  return supabase
+    .from('pages')
+    .select(BASIC_OWNER_PAGE_SELECT)
+    .eq('owner_id', ownerId)
+    .order('created_at', { ascending: false })
+    .returns<AgentPage[]>()
+}
+
+function fetchAgentVisits(supabase: ReturnType<typeof createClient>, ownerId: string) {
+  return supabase
+    .from('agent_visits')
+    .select('*')
+    .eq('owner_id', ownerId)
+    .order('created_at', { ascending: false })
+    .limit(250)
+    .returns<AgentVisit[]>()
+}
+
+function isMissingColumnError(error: { code?: string; message?: string }) {
+  return error.code === '42703' || /column .* does not exist/i.test(error.message ?? '')
+}
+
+function isMissingRelationError(error: { code?: string; message?: string }) {
+  return error.code === 'PGRST205' || /could not find the table|relation .* does not exist/i.test(error.message ?? '')
+}
+
 function NavItem({
   active,
   href,
   icon,
   label,
+  badge,
 }: {
   active?: boolean
   href: string
   icon: React.ReactNode
   label: string
+  badge?: number
 }) {
   return (
     <a
@@ -303,18 +414,98 @@ function NavItem({
       }`}
     >
       {icon}
-      {label}
+      <span className="flex-1">{label}</span>
+      {badge && badge > 0 ? (
+        <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-[#7C3AED] px-1.5 text-[11px] font-semibold text-white">
+          {badge}
+        </span>
+      ) : null}
     </a>
   )
 }
 
-// Legacy Stat component kept for compatibility but new KPI cards are preferred
-function Stat({ label, value, accent }: { label: string; value: string; accent: 'cyan' | 'green' }) {
+function AgentDetectionSummary({
+  trafficSplit,
+  breakdown,
+  topPages,
+}: {
+  trafficSplit: ReturnType<typeof getTrafficSplit>
+  breakdown: ReturnType<typeof getAgentTypeBreakdown>
+  topPages: ReturnType<typeof getTopPagesByAgentVisits>
+}) {
+  const aiShare = trafficSplit.total ? Math.round((trafficSplit.ai / trafficSplit.total) * 100) : 0
+  const humanShare = trafficSplit.total ? Math.round((trafficSplit.human / trafficSplit.total) * 100) : 0
+
   return (
-    <div className="kpi-card">
-      <p className="text-sm text-[#9CA3AF]">{label}</p>
-      <p className="mt-2 text-4xl font-semibold tracking-tighter">{value}</p>
-    </div>
+    <section className="mt-6 grid gap-4 xl:grid-cols-[0.8fr_1fr_1fr]">
+      <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-5">
+        <p className="text-xs uppercase tracking-[0.18em] text-cyan-100">AI detection</p>
+        <h2 className="mt-2 text-xl font-semibold">Traffic split</h2>
+        <div className="mt-5 overflow-hidden rounded-full border border-white/10 bg-black/30">
+          <div className="h-3 bg-gradient-to-r from-[#00F5FF] to-[#7C3AED]" style={{ width: `${aiShare}%` }} />
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <p className="text-zinc-500">AI agents</p>
+            <p className="mt-1 text-2xl font-semibold text-cyan-100">{trafficSplit.ai}</p>
+            <p className="mt-1 text-xs text-zinc-500">{aiShare}% of visits</p>
+          </div>
+          <div>
+            <p className="text-zinc-500">Human/unknown</p>
+            <p className="mt-1 text-2xl font-semibold text-white">{trafficSplit.human}</p>
+            <p className="mt-1 text-xs text-zinc-500">{humanShare}% of visits</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+        <p className="text-xs uppercase tracking-[0.18em] text-[#C4B5FD]">Agent types</p>
+        <h2 className="mt-2 text-xl font-semibold">Who is parsing you</h2>
+        <div className="mt-4 space-y-3">
+          {breakdown.length ? (
+            breakdown.map((row) => (
+              <div key={row.agentType} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="truncate text-zinc-200">{row.agentType}</span>
+                  <span className="font-mono text-cyan-200">{row.total}</span>
+                </div>
+                <p className="mt-1 text-xs text-zinc-500">{Math.round(row.avgConfidence)}% avg confidence</p>
+              </div>
+            ))
+          ) : (
+            <p className="rounded-lg border border-dashed border-white/10 p-4 text-sm text-zinc-500">
+              No AI agent visits classified yet.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+        <p className="text-xs uppercase tracking-[0.18em] text-emerald-200">Top pages</p>
+        <h2 className="mt-2 text-xl font-semibold">Most agent-readable</h2>
+        <div className="mt-4 space-y-3">
+          {topPages.length ? (
+            topPages.map((page) => (
+              <a
+                key={page.pageId}
+                href={`/${page.slug}`}
+                className="block rounded-lg border border-white/10 bg-black/20 px-3 py-2 hover:border-cyan-300/40"
+              >
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="line-clamp-1 text-zinc-200">{page.name}</span>
+                  <span className="font-mono text-emerald-200">{page.total}</span>
+                </div>
+                <p className="mt-1 font-mono text-xs text-cyan-200">/{page.slug}</p>
+              </a>
+            ))
+          ) : (
+            <p className="rounded-lg border border-dashed border-white/10 p-4 text-sm text-zinc-500">
+              Publish and visit a page with an agent crawler user-agent to populate this list.
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -406,7 +597,7 @@ function RecentActivity({ events, pages }: { events: CheckoutEvent[]; pages: Age
       <div className="flex flex-col justify-between gap-3 border-b border-white/10 p-5 md:flex-row md:items-center">
         <div>
           <p className="text-xs uppercase tracking-[0.18em] text-cyan-200">Agent activity</p>
-          <h2 className="mt-1 text-xl font-semibold">Recent signals from checkout paths</h2>
+          <h2 className="mt-1 text-xl font-semibold">Recent discovery + checkout signals</h2>
         </div>
         <a href="/dashboard/analytics" className="text-sm text-zinc-400 hover:text-cyan-200">
           View analytics
@@ -435,8 +626,8 @@ function RecentActivity({ events, pages }: { events: CheckoutEvent[]; pages: Age
       ) : (
         <div className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
           <p className="max-w-2xl text-sm leading-6 text-zinc-400">
-            No checkout activity yet. Run the agent tester or open a public checkout path to start collecting useful
-            intent signals.
+            No discovery or checkout activity yet. Share the marketplace, run the agent tester, or open a public
+            checkout path to start collecting useful intent signals.
           </p>
           <a
             href={firstPage ? `/dashboard/${firstPage.id}/test` : '/create'}

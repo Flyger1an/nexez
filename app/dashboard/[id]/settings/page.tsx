@@ -414,7 +414,10 @@ export default function PageSettings({ params }: PageProps) {
                 ['Agent JSON', agentJsonUrl],
                 ['Search API', searchUrl],
                 ['OpenAPI', `${getBaseUrl()}/openapi.json`],
-                ...((page as any)?.mcp_enabled ? [['MCP Manifest', `${getBaseUrl()}/${cleanSlug || page?.slug || ''}/mcp.json`]] : []),
+                ...((page as any)?.mcp_enabled ? [
+                  ['MCP Manifest', `${getBaseUrl()}/${cleanSlug || page?.slug || ''}/mcp.json`],
+                  ['MCP Discovery', `${getBaseUrl()}/.well-known/mcp.json`],
+                ] : []),
               ] as [string, string][])
             } copied={copied} onCopy={copy} />
 
@@ -493,6 +496,11 @@ export default function PageSettings({ params }: PageProps) {
                     <span>Enable MCP Support (Model Context Protocol structured data)</span>
                   </label>
                   <p className="text-[10px] text-zinc-500 mt-1">When on, this page exposes MCP-compatible offer resources alongside JSON-LD / agent.json / llms.txt. See public page for agent note.</p>
+                  {!!(page as any)?.mcp_enabled && (
+                    <p className="text-[10px] text-cyan-200 mt-1">
+                      Global discovery: <a href="/.well-known/mcp.json" className="underline">/.well-known/mcp.json</a>
+                    </p>
+                  )}
                 </div>
                 <DisabledRow icon={<Bot className="size-4" />} label="API key" value="Public endpoints (no key required)" />
               </div>
@@ -777,7 +785,7 @@ export default function PageSettings({ params }: PageProps) {
                     type="password"
                     value={reSyncInput}
                     onChange={(e) => setReSyncInput(e.target.value)}
-                    placeholder="Stripe Secret Key (sk_live_...)"
+                    placeholder="Stripe secret key"
                     className="w-full rounded border border-white/15 bg-black/30 px-3 py-2 text-sm"
                   />
                   <button

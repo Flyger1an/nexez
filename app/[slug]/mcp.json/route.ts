@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl } from '../../../lib/agent-page'
 import { buildAgentPagePayload } from '../../../lib/agent-manifest'
+import { logAgentPageView } from '../../../lib/server/log-agent-page-view'
 import { supabase } from '../../../lib/supabase'
 
 /**
@@ -38,6 +39,9 @@ export async function GET(
       { status: 404 }
     )
   }
+
+  // Log the MCP manifest fetch as agent traffic (non-blocking).
+  after(() => logAgentPageView({ page, requestHeaders: request.headers, url: request.url }))
 
   const base = getBaseUrl()
   const payload = buildAgentPagePayload(page)
@@ -91,6 +95,24 @@ export async function GET(
             slug: { type: 'string' },
             offer: { type: 'string', description: 'e.g. services-0 or products-1' },
             query: { type: 'string', description: 'Optional buyer context or agent query' },
+          },
+          required: ['slug', 'offer'],
+        },
+      },
+      {
+        name: 'negotiate_offer',
+        description: 'Submit proposed scope, budget, timeline, or buyer constraints for seller review before checkout or escrow.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            slug: { type: 'string' },
+            offer: { type: 'string', description: 'e.g. services-0 or products-1' },
+            buyerAgent: { type: 'string' },
+            query: { type: 'string' },
+            requestedTerms: { type: 'object' },
+            budget: { type: 'string' },
+            timeline: { type: 'string' },
+            contact: { type: 'string' },
           },
           required: ['slug', 'offer'],
         },

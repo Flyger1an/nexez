@@ -5,6 +5,7 @@ import { AgentSearchResult, searchAgentPages } from '../../lib/agent-search'
 import { supabase } from '../../lib/supabase'
 import { CopyButton } from './CopyButton'
 import { FavoriteButton } from '../../components/FavoriteButton'
+import { TrackedDirectoryLink } from '../../components/TrackedDirectoryLink'
 
 type DirectoryProps = {
   searchParams: Promise<{ q?: string; type?: string; category?: string; min_readiness?: string }>
@@ -288,9 +289,14 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                     return (
                       <div key={p.slug} className="card !p-4 text-sm">
                         <div className="flex items-start justify-between">
-                          <a href={`/${p.slug}`} className="font-medium text-white hover:text-[#7C3AED]">
+                          <TrackedDirectoryLink
+                            href={`/${p.slug}`}
+                            slug={p.slug}
+                            action="similar_page"
+                            className="font-medium text-white hover:text-[#7C3AED]"
+                          >
                             {p.name}
-                          </a>
+                          </TrackedDirectoryLink>
                           <FavoriteButton slug={p.slug} />
                           <span className="text-[10px] rounded bg-emerald-500/10 px-1.5 py-0.5 text-emerald-400 font-medium">
                             {readiness}% ready • Trust {getTrustScore(p)}/100
@@ -391,19 +397,43 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
-        <a href={result.page.url} className="btn-secondary inline-flex items-center gap-2 text-sm">
+        <TrackedDirectoryLink
+          href={result.page.url}
+          slug={result.page.slug}
+          action="public_page"
+          offerKey={offer?.key}
+          offerName={offer?.name || result.page.name}
+          offerKind={offer?.type === 'product' ? 'products' : 'services'}
+          className="btn-secondary inline-flex items-center gap-2 text-sm"
+        >
           Public page
           <ExternalLink className="size-4" />
-        </a>
-        <a href={result.page.agent_json_url} className="btn-secondary inline-flex items-center gap-2 text-sm">
+        </TrackedDirectoryLink>
+        <TrackedDirectoryLink
+          href={result.page.agent_json_url}
+          slug={result.page.slug}
+          action="agent_json"
+          offerKey={offer?.key}
+          offerName={offer?.name || result.page.name}
+          offerKind={offer?.type === 'product' ? 'products' : 'services'}
+          className="btn-secondary inline-flex items-center gap-2 text-sm"
+        >
           Agent JSON
           <Code2 className="size-4" />
-        </a>
+        </TrackedDirectoryLink>
         {offer ? (
-          <a href={offer.checkout_url} className="btn-primary inline-flex items-center gap-2 text-sm">
+          <TrackedDirectoryLink
+            href={offer.checkout_url}
+            slug={result.page.slug}
+            action="checkout"
+            offerKey={offer.key}
+            offerName={offer.name}
+            offerKind={offer.type === 'product' ? 'products' : 'services'}
+            className="btn-primary inline-flex items-center gap-2 text-sm"
+          >
             Checkout
             <ArrowRight className="size-4" />
-          </a>
+          </TrackedDirectoryLink>
         ) : null}
       </div>
     </article>

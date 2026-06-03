@@ -20,7 +20,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.17.0",
-    "next": "16.2.6",
+    "next": "16.2.7",
     "radix-ui": "^1.4.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -38,13 +38,16 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.6",
+    "eslint-config-next": "16.2.7",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^1.6.0"
+    "vitest": "^4.1.8"
   },
   "allowScripts": {
     "sharp@0.34.5": true,
     "unrs-resolver@1.12.2": true
+  },
+  "overrides": {
+    "postcss": "8.5.15"
   }
 }

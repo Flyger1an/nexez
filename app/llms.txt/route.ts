@@ -20,6 +20,7 @@ export async function GET() {
     `Agent search API: ${baseUrl}/api/agent-search?q={query}`,
     `OpenAPI spec: ${baseUrl}/openapi.json`,
     `Capabilities manifest: ${baseUrl}/.well-known/nexez.json`,
+    `MCP discovery catalog: ${baseUrl}/.well-known/mcp.json`,
     '',
     '## Published Agent Pages',
     '',
@@ -27,6 +28,7 @@ export async function GET() {
       [
         `- [${page.name}](${baseUrl}/${page.slug})`,
         `  - Agent JSON: ${baseUrl}${getAgentJsonPath(page.slug)}`,
+        ...((page as any).mcp_enabled ? [`  - MCP manifest: ${baseUrl}/${page.slug}/mcp.json`] : []),
         `  - Summary: ${page.description || 'No summary provided.'}`,
         `  - Location: ${page.location || 'Not specified'}`,
         `  - Offers: ${getOfferCount(page)}`,

@@ -1,0 +1,179 @@
+import { AgentPage, CheckoutOffer, getBaseUrl, getCheckoutOfferKey } from './agent-page'
+
+// Lifecycle for agent-to-agent negotiations. Kept in one place so the owner
+// inbox UI, the public/agent manifests, and tests all share the same truth.
+export const NEGOTIATION_STATUSES = [
+  'negotiation',
+  'agreement_proposed',
+  'held',
+  'complete',
+  'declined',
+  'expired',
+] as const
+
+export type NegotiationStatus = (typeof NEGOTIATION_STATUSES)[number]
+
+export type NegotiationEscrowMode =
+  | 'not_configured'
+  | 'manual_capture_ready'
+  | 'manual_capture_created'
+
+export type AgentNegotiation = {
+  id: string
+  page_id: string
+  owner_id: string | null
+  slug: string
+  offer_key: string
+  offer_name: string
+  offer_kind: 'services' | 'products'
+  buyer_agent: string | null
+  buyer_query: string | null
+  requested_terms: Record<string, unknown> | null
+  budget_text: string | null
+  timeline_text: string | null
+  contact: string | null
+  status: NegotiationStatus
+  escrow_mode: NegotiationEscrowMode
+  amount_cents: number | null
+  currency: string
+  stripe_payment_intent_id: string | null
+  metadata: Record<string, unknown> | null
+  created_at: string
+  updated_at: string
+}
+
+const STATUS_LABELS: Record<NegotiationStatus, string> = {
+  negotiation: 'New proposal',
+  agreement_proposed: 'Agreement proposed',
+  held: 'Funds held (escrow)',
+  complete: 'Complete',
+  declined: 'Declined',
+  expired: 'Expired',
+}
+
+const TERMINAL_STATUSES: NegotiationStatus[] = ['complete', 'declined', 'expired']
+
+export function getNegotiationStatusLabel(status: NegotiationStatus): string {
+  return STATUS_LABELS[status] ?? status
+}
+
+// Tone keys map to badge styling in the UI; kept abstract so styling stays
+// in the component layer.
+export function getNegotiationStatusTone(
+  status: NegotiationStatus,
+): 'open' | 'progress' | 'success' | 'muted' {
+  if (status === 'negotiation') return 'open'
+  if (status === 'agreement_proposed' || status === 'held') return 'progress'
+  if (status === 'complete') return 'success'
+  return 'muted'
+}
+
+export function isTerminalNegotiationStatus(status: NegotiationStatus): boolean {
+  return TERMINAL_STATUSES.includes(status)
+}
+
+// What the seller can move a negotiation to next. `held` requires a working
+// escrow (Stripe configured) so we never offer it as a no-op.
+export function getAllowedNegotiationTransitions(
+  status: NegotiationStatus,
+  opts: { escrowAvailable?: boolean } = {},
+): NegotiationStatus[] {
+  const escrowAvailable = Boolean(opts.escrowAvailable)
+
+  switch (status) {
+    case 'negotiation':
+      return ['agreement_proposed', 'declined']
+    case 'agreement_proposed':
+      return [...(escrowAvailable ? (['held'] as NegotiationStatus[]) : []), 'complete', 'declined']
+    case 'held':
+      return ['complete', 'declined']
+    default:
+      // complete / declined / expired are terminal
+      return []
+  }
+}
+
+export function canTransitionNegotiation(
+  from: NegotiationStatus,
+  to: NegotiationStatus,
+  opts: { escrowAvailable?: boolean } = {},
+): boolean {
+  return getAllowedNegotiationTransitions(from, opts).includes(to)
+}
+
+export type NegotiationSummary = {
+  total: number
+  open: number
+  proposed: number
+  held: number
+  complete: number
+  declined: number
+}
+
+export function summarizeNegotiations(list: Pick<AgentNegotiation, 'status'>[]): NegotiationSummary {
+  const summary: NegotiationSummary = {
+    total: list.length,
+    open: 0,
+    proposed: 0,
+    held: 0,
+    complete: 0,
+    declined: 0,
+  }
+
+  for (const item of list) {
+    if (item.status === 'negotiation') summary.open += 1
+    else if (item.status === 'agreement_proposed') summary.proposed += 1
+    else if (item.status === 'held') summary.held += 1
+    else if (item.status === 'complete') summary.complete += 1
+    else if (item.status === 'declined' || item.status === 'expired') summary.declined += 1
+  }
+
+  return summary
+}
+
+export function formatNegotiationAmount(
+  amountCents: number | null | undefined,
+  currency = 'usd',
+): string {
+  if (amountCents == null || Number.isNaN(amountCents)) return 'Open / to be agreed'
+
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+      maximumFractionDigits: 2,
+    }).format(amountCents / 100)
+  } catch {
+    return `${(amountCents / 100).toFixed(2)} ${currency.toUpperCase()}`
+  }
+}
+
+export function buildNegotiationAction(page: AgentPage, offer: CheckoutOffer) {
+  const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
+
+  return {
+    method: 'POST',
+    endpoint: `${getBaseUrl()}/api/negotiations`,
+    content_type: 'application/json',
+    body: {
+      slug: page.slug,
+      offer: offerKey,
+      buyerAgent: '{agent_name}',
+      query: '{buyer_request}',
+      requestedTerms: {
+        scope: '{desired_scope}',
+        constraints: '{constraints_or_requirements}',
+      },
+      budget: '{budget_or_range}',
+      timeline: '{desired_timeline}',
+      contact: '{buyer_or_agent_contact}',
+    },
+    dry_run_body: {
+      slug: page.slug,
+      offer: offerKey,
+      dryRun: true,
+    },
+    states: ['negotiation', 'agreement_proposed', 'held', 'complete'],
+    escrow_note: 'Escrow is manual-capture Stripe-ready when STRIPE_SECRET_KEY is configured; otherwise proposals are stored for seller review.',
+  }
+}

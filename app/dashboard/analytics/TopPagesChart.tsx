@@ -1,6 +1,7 @@
 'use client'
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
+import { MeasuredChartFrame } from './MeasuredChartFrame'
 
 interface PageActivity {
   slug: string
@@ -16,9 +17,11 @@ export function TopPagesChart({ pages, max }: { pages: PageActivity[]; max: numb
   }))
 
   return (
-    <div className="h-64">
-      <ResponsiveContainer width="100%" height="100%">
+    <MeasuredChartFrame className="h-64">
+      {({ width, height }) => (
         <BarChart 
+          width={width}
+          height={height}
           data={chartData} 
           layout="vertical"
           margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
@@ -36,7 +39,7 @@ export function TopPagesChart({ pages, max }: { pages: PageActivity[]; max: numb
           />
           <Bar dataKey="total" fill="#C4B5FD" radius={2} />
         </BarChart>
-      </ResponsiveContainer>
-    </div>
+      )}
+    </MeasuredChartFrame>
   )
 }

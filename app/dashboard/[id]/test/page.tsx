@@ -61,11 +61,6 @@ export default function AgentSimulatorPage({ params }: PageProps) {
     params.then(({ id }) => setId(id))
   }, [params])
 
-  useEffect(() => {
-    if (!id) return
-    loadPage(id)
-  }, [id])
-
   const readiness = page ? getReadinessScore(page) : 0
   const recommendations = useMemo(() => (page ? getRecommendations(page) : []), [page])
   const schema = useMemo(() => (page ? buildParsedSchema(page, query, agent) : null), [page, query, agent])
@@ -97,6 +92,11 @@ export default function AgentSimulatorPage({ params }: PageProps) {
     setPage(data)
     setLoading(false)
   }
+
+  useEffect(() => {
+    if (!id) return
+    loadPage(id)
+  }, [id])
 
   async function runSimulation() {
     setRunning(true)

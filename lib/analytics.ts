@@ -1,4 +1,5 @@
 import { AgentPage } from './agent-page'
+import { isLikelyAgentUserAgent as detectLikelyAgentUserAgent } from './agent-detection'
 import { CheckoutEvent, CheckoutEventType } from './checkout-events'
 
 export const conversionEventTypes: CheckoutEventType[] = ['provider_redirect', 'stripe_session_created']
@@ -13,6 +14,8 @@ export type DailyEventPoint = {
   label: string
   dateKey: string
   total: number
+  agentVisits: number
+  discovery: number
   conversions: number
 }
 
@@ -55,6 +58,47 @@ export function getCheckoutAttemptCount(events: CheckoutEvent[]) {
   return events.filter((event) => !isDryRunEvent(event) && event.event_type === 'checkout_attempt').length
 }
 
+export function getDiscoveryClickCount(events: CheckoutEvent[]) {
+  return events.filter((event) => !isDryRunEvent(event) && event.event_type === 'directory_click').length
+}
+
+export function getAgentPageVisitCount(events: CheckoutEvent[]) {
+  return events.filter((event) => !isDryRunEvent(event) && event.event_type === 'agent_page_view').length
+}
+
+export function isLikelyAgentUserAgent(userAgent: string | null | undefined) {
+  return detectLikelyAgentUserAgent(userAgent)
+}
+
+export function getDiscoveryActionStats(events: CheckoutEvent[]) {
+  const stats = new Map<string, number>()
+
+  for (const event of events) {
+    if (isDryRunEvent(event) || event.event_type !== 'directory_click') continue
+    const action = typeof event.metadata?.action === 'string' ? event.metadata.action : 'unknown'
+    const label = action.replace(/_/g, ' ')
+    stats.set(label, (stats.get(label) ?? 0) + 1)
+  }
+
+  return [...stats.entries()]
+    .map(([label, total]) => ({ label, total }))
+    .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label))
+}
+
+export function getDiscoverySurfaceStats(events: CheckoutEvent[]) {
+  const stats = new Map<string, number>()
+
+  for (const event of events) {
+    if (isDryRunEvent(event) || event.event_type !== 'directory_click') continue
+    const surface = typeof event.metadata?.surface === 'string' ? event.metadata.surface : 'directory'
+    stats.set(surface, (stats.get(surface) ?? 0) + 1)
+  }
+
+  return [...stats.entries()]
+    .map(([label, total]) => ({ label, total }))
+    .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label))
+}
+
 export function getRevenueCents(events: CheckoutEvent[]) {
   return events.reduce((sum, event) => {
     if (isDryRunEvent(event) || event.event_type !== 'stripe_session_created') return sum
@@ -90,8 +134,10 @@ export function getDailyEventSeries(events: CheckoutEvent[], days = 10): DailyEv
 
     points.push({
       label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      dateKey: date.toISOString().slice(0, 10),
+      dateKey: formatLocalDateKey(date),
       total: 0,
+      agentVisits: 0,
+      discovery: 0,
       conversions: 0,
     })
   }
@@ -99,12 +145,18 @@ export function getDailyEventSeries(events: CheckoutEvent[], days = 10): DailyEv
   const pointsByDate = new Map(points.map((point) => [point.dateKey, point]))
 
   for (const event of events) {
-    const dateKey = new Date(event.created_at).toISOString().slice(0, 10)
+    const dateKey = formatLocalDateKey(new Date(event.created_at))
     const point = pointsByDate.get(dateKey)
 
     if (!point) continue
 
     point.total += 1
+    if (!isDryRunEvent(event) && event.event_type === 'agent_page_view') {
+      point.agentVisits += 1
+    }
+    if (!isDryRunEvent(event) && event.event_type === 'directory_click') {
+      point.discovery += 1
+    }
     if (!isDryRunEvent(event) && conversionEventTypes.includes(event.event_type)) {
       point.conversions += 1
     }
@@ -113,10 +165,26 @@ export function getDailyEventSeries(events: CheckoutEvent[], days = 10): DailyEv
   return points
 }
 
+function formatLocalDateKey(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export function getTopOfferStats(events: CheckoutEvent[]) {
   const stats = new Map<string, OfferStat>()
+  const offerActivityTypes: CheckoutEventType[] = [
+    'checkout_view',
+    'checkout_attempt',
+    'provider_redirect',
+    'stripe_session_created',
+    'stripe_missing_config',
+    'stripe_error',
+  ]
 
   for (const event of events) {
+    if (!offerActivityTypes.includes(event.event_type) || event.offer_key === 'page') continue
     const key = `${event.slug}:${event.offer_key}`
     const current =
       stats.get(key) ??
@@ -171,8 +239,10 @@ export function getSignalLabel(event: CheckoutEvent) {
   if (conversionEventTypes.includes(event.event_type)) return 'Conversion'
   if (event.event_type === 'checkout_attempt') return 'Intent'
   if (event.event_type === 'checkout_view') return 'Visit'
+  if (event.event_type === 'agent_page_view') return 'Agent visit'
   if (event.event_type === 'stripe_error') return 'Payment issue'
   if (event.event_type === 'stripe_price_sync') return 'Price sync'
+  if (event.event_type === 'directory_click') return 'Discovery'
   return 'Config'
 }
 

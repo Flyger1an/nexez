@@ -779,6 +779,18 @@ Next edit after this commit: Begin the architectural overhaul of the Site Import
 
 **Next**: Tier 3 items (Agent Memory & Context full, Voice Optimization, Developer Platform + API Revenue Share, Advanced Team/Approvals) + any remaining polish (e.g. persist favorites server-side, real LLM hooks for analyzer/Co-Pilot, more tests on analyzer). Update roadmap + keep building full throttle. Or user can redirect.
 
+**2026-06-03 MCP Discovery Catalog Burst**:
+- Added global `/.well-known/mcp.json` discovery catalog for published pages with MCP enabled.
+- Added reusable `lib/mcp-discovery.ts` builder and tests so agent discovery stays deterministic and protocol notes stay honest: per-page manifests are MCP-compatible JSON resources, not a streaming MCP transport yet.
+- Wired MCP discovery into `/.well-known/nexez.json`, OpenAPI, `llms.txt`, and page Settings link panels.
+- Roadmap placement: Tier 1 "MCP + Emerging Standards Support" hardening. This strengthens agent discovery before deeper agent-to-agent negotiation/escrow and developer platform work.
+
+**2026-06-03 Agent-to-Agent Negotiation Foundation Burst**:
+- Added migration-generated `public.agent_negotiations` table with RLS, owner-only reads/updates, public inserts only for published pages, and statuses `Negotiation -> Agreement Proposed -> Held -> Complete`.
+- Added `POST /api/negotiations` with JSON/form support, dry-run validation, offer lookup, amount parsing, and Stripe escrow readiness flag.
+- Added reusable `buildNegotiationAction` and exposed negotiation actions in `agent.json`, `mcp.json`, OpenAPI, capabilities, and public plain-text context.
+- Stripe manual-capture hold remains intentionally gated until real `STRIPE_SECRET_KEY` exists. Reminder before production: add real `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`.
+
 (End of this wave. "keep building towards roadmap. full throttle" executed.)
 
 ---
@@ -1037,3 +1049,298 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 **Status**: Beautify / Mobile full burst complete. "beautify now before continuing on roadmap" executed. All surfaces audited for the criteria. Build + tests green. Full throttle preserved.
 
 (Resume next roadmap item with plan-first as per established process when directed. "keep working" acknowledged — this completes the explicit mobile+card+beautify request.)
+
+---
+
+## Discovery Analytics Burst — Directory / Marketplace Click Tracking
+
+**User directive**: "lets keep building towards the roadmap"
+
+**Why this slice**: Phase 2 had deferred "directory click tracking as events." This closes that ROI gap: discovery is no longer just a public surface, it becomes measurable in Analytics and CSV exports. It supports the core Nexez promise that agent pages produce visible value.
+
+**Short Technical Plan**:
+- Add `directory_click` to `checkout_events.event_type` via migration.
+- Add a public, lightweight `/api/directory/click` route that records published-page discovery clicks using the existing `checkout_events` table and RLS-safe page ownership fields.
+- Add a tiny client `TrackedDirectoryLink` component that sends a non-blocking `sendBeacon`/`keepalive` event while still rendering a normal crawlable `<a>`.
+- Wire tracking into Directory + Marketplace links: public page, Agent JSON, checkout, similar page, trending card, and analyzer link.
+- Teach Analytics labels/filters/CSV helpers to treat these as "Discovery" signals, not conversions.
+- Add regression tests for the new analytics label/filter behavior.
+
+**IMPLEMENTED**:
+- New migration: `supabase/migrations/20260613002000_add_discovery_click_events.sql` extends the event constraint with `directory_click`.
+- New route: `/api/directory/click` inserts public discovery events with metadata `{ surface, action, href, source }`.
+- New component: `components/TrackedDirectoryLink.tsx` uses `navigator.sendBeacon` with fetch keepalive fallback, preserving instant navigation + crawlable anchors.
+- Directory wired for tracked public page, agent JSON, checkout, and "Agents also viewed" clicks.
+- Marketplace wired for tracked listing, trending, Agent JSON, View, and Analyze clicks.
+- Analytics updated with `Discovery clicks` action filter and `Discovery` signal labels.
+- Test coverage expanded: `lib/__tests__/analytics.test.ts`; suite now 16/16 passing.
+- Verification: `npm run lint -- --quiet`, `npx tsc --noEmit --incremental false`, `npm test`, and `npm run build` all clean. Build now includes `/api/directory/click` (47 app routes).
+
+**Production note**: Apply the new Supabase migration before relying on this in production; otherwise the DB check constraint will reject `directory_click` inserts.
+
+---
+
+## Discovery ROI Analytics Burst — Surfacing Click Value
+
+**User directive**: "lets keep building full throttle"
+
+**Why this slice**: The previous burst started recording discovery clicks. This wave makes those events visible in the product so users can understand whether the directory/marketplace is driving value.
+
+**IMPLEMENTED**:
+- Analytics now has first-class Discovery Clicks KPI.
+- Traffic chart now plots a third line for Discovery alongside Total Signals and Conversions.
+- Analytics includes a new "Discovery ROI" panel:
+  - click-to-intent percentage,
+  - top clicked actions (`public page`, `agent json`, `checkout`, etc.),
+  - source surface breakdown (`directory` vs `marketplace`).
+- Dashboard homepage now separates:
+  - total tracked signals,
+  - discovery clicks,
+  - checkout attempts,
+  - conversion actions,
+  - average readiness.
+- Recent Activity copy now reflects both discovery and checkout paths.
+- Added analytics helpers:
+  - `getDiscoveryClickCount`,
+  - `getDiscoveryActionStats`,
+  - `getDiscoverySurfaceStats`.
+- Fixed a real analytics bug: daily event buckets previously mixed local-day chart keys with UTC event keys, causing late-evening local activity to disappear from charts. `getDailyEventSeries` now uses consistent local date keys.
+- Expanded analytics tests; suite now 17/17 passing.
+
+**Verification**:
+- `npm run lint -- --quiet` clean.
+- `npx tsc --noEmit --incremental false` clean.
+- `npm test` 17/17 passing.
+- `npm run build` clean (47 app routes).
+- `npm audit --audit-level=moderate` → 0 vulnerabilities.
+
+**Production note remains**: Apply `20260613002000_add_discovery_click_events.sql` before relying on discovery ROI in production.
+
+---
+
+## Real Agent Visit Tracking Burst — Public Page Crawls Become Analytics
+
+**User directive**: "keep working towards the roadmap"
+
+**Why this slice**: The MVP vision promises "agent visits" and proof that clean pages are being crawled. Until now, analytics mostly counted discovery clicks and checkout actions. This wave adds true public page visit tracking for likely AI agents/crawlers.
+
+**IMPLEMENTED**:
+- Added `agent_page_view` as a first-class event type in the existing analytics migration.
+- Added `lib/server/log-agent-page-view.ts`:
+  - logs page-level visits to `checkout_events`,
+  - uses pseudo-offer key `page`,
+  - skips ordinary human browser user agents,
+  - records source metadata as `public_agent_page`.
+- Public `[slug]` pages now log likely AI/bot/crawler visits server-side so agents that do not run JS still count.
+- Analytics now includes:
+  - AI Agent Page Visits KPI,
+  - Agent Page Visits line on traffic chart,
+  - action filter for `AI agent page visits`,
+  - key insight for crawler reads of public pages.
+- Dashboard home now separates:
+  - agent page visits,
+  - discovery clicks,
+  - checkout attempts,
+  - conversion actions.
+- Fixed `getTopOfferStats` so page-level events (`agent_page_view`, `directory_click`) no longer pollute the "Top Offers" chart.
+- Added helper coverage for:
+  - `isLikelyAgentUserAgent`,
+  - `getAgentPageVisitCount`,
+  - daily series `agentVisits`,
+  - top-offer exclusion of page-level events.
+
+**Verification**:
+- `npm run lint -- --quiet` clean.
+- `npx tsc --noEmit --incremental false` clean.
+- `npm test` 18/18 passing.
+- `npm run build` clean (47 app routes).
+- `npm audit --audit-level=moderate` → 0 vulnerabilities.
+
+**Production note**: The migration `20260613002000_add_discovery_click_events.sql` now includes both `directory_click` and `agent_page_view`; apply it before depending on either event in production.
+
+---
+
+## AI Agent Detection & Analytics System Foundation — Technical Plan
+
+**User directive**: "build this feature into existing roadmap... first, give me the technical plan... insert it, then build full throttle"
+
+**Roadmap placement**:
+- **Primary home**: Phase 5 Production Hardening / Observability + Phase 7 Data Flywheel.
+- **UI surface**: Phase 2 Enhanced Analytics Dashboard.
+- **Why here**: This is foundational telemetry. It upgrades the recent `agent_page_view` event stream into a dedicated detection table that can power agent-vs-human analytics, future pricing-tier gates, marketplace quality signals, and intelligence features.
+
+**Technical Plan**:
+- **Data model**: Add `public.agent_visits` with `page_id`, `owner_id`, `slug`, `path`, `referrer`, `query`, `user_agent`, privacy-safe `ip_hash`, `is_ai_agent`, `agent_type`, `confidence_score`, `detection_signals`, `created_at`.
+- **RLS/security**: Enable RLS. Allow public inserts only when the target page is published and ownership fields match. Allow owners to select their own visits. Store no raw IPs.
+- **Detection engine**: Add modular detector with:
+  - known AI/bot User-Agent patterns for ChatGPT/OpenAI, Claude/Anthropic, Grok/xAI, Perplexity, Google, and generic crawlers,
+  - referrer/search-query extraction,
+  - privacy-safe IP hash signal slot,
+  - confidence score and machine-readable signal reasons.
+- **Public logging**: Public `[slug]` page logs every visit into `agent_visits`, classifying AI vs human. It keeps the public page clean and server-rendered. It also keeps `checkout_events.agent_page_view` for AI visits so existing analytics continuity remains.
+- **Dashboard analytics**:
+  - AI vs human traffic split,
+  - agent type breakdown,
+  - top pages by AI agent visits,
+  - agent query/referrer logs,
+  - "Show only AI Agent visits" filter,
+  - readiness trend summary from existing page version snapshots.
+- **Modularity**: Detection table and helpers are tier-ready. Advanced history, IP range enrichment, exports, and retention can be enabled/disabled per pricing tier later.
+- **Verification**: Unit tests for detector/helpers, lint, typecheck, build, audit. Production migration required before relying on inserts.
+
+**Build starts now.**
+
+**Implemented in this sprint**:
+- Added `public.agent_visits` migration with RLS, public insert for published pages, owner-only select, explicit grants for Supabase Data API exposure, and privacy-safe IP hashes only.
+- Added a reusable detection engine in `lib/agent-detection.ts` for User-Agent/referrer classification, query extraction, confidence scoring, and machine-readable detection reasons.
+- Upgraded public `[slug]` visit logging so every public page visit is classified into `agent_visits`; AI visits also continue to write `checkout_events.agent_page_view` for analytics continuity.
+- Added visit analytics helpers in `lib/agent-visits.ts` for traffic filtering, AI vs human split, agent type breakdown, top pages by agent visits, and readiness trend summaries.
+- Updated Dashboard / My Agent Pages with AI-vs-human traffic split, top agent types, and top pages by AI visits.
+- Updated Analytics Dashboard with a `Traffic` filter including “Show only AI Agent visits,” AI-vs-human split, agent type breakdown, top pages by agent visits, query logs, and readiness trend insight.
+- Added unit coverage for agent detection and visit aggregation helpers.
+
+**Production note**: Apply `20260603030020_add_agent_visits_detection.sql` before relying on agent-vs-human analytics in production. Keep `AGENT_VISIT_HASH_SALT` as a server-only env var when production telemetry starts.
+
+**Follow-up hardening after browser smoke**:
+- Dashboard and Analytics now fall back to `BASIC_OWNER_PAGE_SELECT` when the connected Supabase project is missing newer optional page columns, keeping the MVP usable while migrations are pending.
+- Missing `agent_visits` is treated as empty classified traffic instead of a client-console error until `20260603030020_add_agent_visits_detection.sql` is applied.
+- Analytics Recharts panels now render with measured positive dimensions, removing responsive-container console warnings in the in-app browser.
+- Tools page Calendly webhook endpoint no longer causes a hydration mismatch; it renders a stable relative URL first and upgrades to the full origin after mount.
+
+---
+
+## Phase 7 Simulator History Intelligence Burst
+
+**User directive**: "Let’s keep building towards the next phase on the roadmap plan"
+
+**Why this slice**: Phase 7 Tier 1 calls for the global multi-agent simulator to become a durable trust-building surface, not just a one-off demo. The simulator already existed; this wave makes saved history useful, exportable, and more resilient against partially migrated Supabase schemas.
+
+**IMPLEMENTED**:
+- Added `lib/simulation-history.ts`:
+  - robust slug/URL normalization for pasted simulator targets,
+  - replayable multi-agent history entry builder,
+  - history search/filter helpers,
+  - readiness trend/stat helpers,
+  - full history JSON export payload builder.
+- Upgraded `/simulator`:
+  - pasted URLs now normalize correctly from slugs, relative paths, or full URLs,
+  - owner page loading falls back to `BASIC_OWNER_PAGE_SELECT` when newer optional page columns are not migrated yet,
+  - public slug loading also has the same fallback,
+  - history saves gracefully report when the `simulations` column migration is pending,
+  - saved runs now show KPI cards: saved runs, latest readiness, average readiness, readiness trend,
+  - history list now has search, latest-query reuse, load/replay, and full JSON export.
+- Improved current-analysis exports to use stable ISO-based filenames.
+- Added `lib/__tests__/simulation-history.test.ts` for target normalization, entry shape, filtering, stats, and export payload.
+
+**Verification**:
+- `npm run lint -- --quiet` clean.
+- `npx tsc --noEmit --incremental false` clean.
+- `npm test` → 26/26 passing.
+- `npm run build` clean (47 app routes).
+- In-app browser smoke: `/simulator` loads with the global simulator controls and no dev-server runtime errors.
+
+**Production note**: Persisted history still depends on the existing `pages.simulations` migration from `20260613000000_harden_mvp_schema_and_events.sql`. Until applied, analysis still runs but history save reports the migration requirement.
+
+---
+
+## 2026-06-03 Production Schema Reconciliation (Audit-Driven)
+
+**User directive**: "run an audit of the roadmap and give me a status update" → then "execute against production".
+
+**Finding**: Local verification (28 tests, tsc, lint, build) was green, but the live Supabase project (`pvsotrzgnjpqrsndhgmu`) was ~10 migrations behind the code. Every column added since June 1 was missing, three tables (`agent_visits`, `agent_negotiations`, `page_secrets`) did not exist, and the live `checkout_events.event_type` CHECK constraint still rejected `directory_click` and `agent_page_view` — meaning the Discovery Analytics + Agent-Visit-Tracking bursts were silent no-ops in production (kept alive only by `BASIC_OWNER_PAGE_SELECT` fallbacks).
+
+**APPLIED (in dependency order, via Supabase MCP `apply_migration`)**:
+1. `add_custom_domain` — `pages.custom_domain` + unique index.
+2. `harden_mvp_schema_and_events` — 13 page columns (mcp_enabled, simulations, verification_details, agent_memory, team_collaboration, versions, google_calendar_id, next_available, domain_verification_token, custom_domain_verified, calendly_webhook_secret, llm_opt_in) + grants + constraint→7 values.
+3. `add_discovery_click_events` — constraint→9 values (`+directory_click`, `+agent_page_view`); must follow #2 or it gets overwritten.
+4. `move_page_secrets_private` — `page_secrets` table + RLS; revokes public SELECT on secret columns (0 rows to migrate).
+5. `add_agent_visits_detection` — `agent_visits` table + RLS + indexes.
+6. `add_negotiations_foundation` — `agent_negotiations` table + RLS + indexes.
+
+**Validated post-apply**: 13/13 pages columns present; constraint lists all 9 event types; all 3 new tables exist with RLS enabled; a live insert of `agent_page_view` succeeded (previously rejected) and was cleaned up. Build + tests still green.
+
+**Open items**: migration-tracking versions recorded under apply-time timestamps (do NOT `supabase db push` from repo — it would re-detect local files); runtime env still needs `AGENT_VISIT_HASH_SALT` (IP hashing) and `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` (negotiation escrow) for full production behavior.
+
+---
+
+## 2026-06-03 Owner Negotiation Inbox (Phase 7 Tier 1 — seller-side completion)
+
+**User directive**: "run a high level code analysis and continue building towards the roadmap."
+
+**Finding (code analysis)**: `POST /api/negotiations` already persists incoming agent proposals to the now-live `agent_negotiations` table, and the negotiation action is advertised in `agent.json` / `mcp.json` / OpenAPI / capabilities. But the **seller side was missing entirely** — owners had no way to see or respond to proposals. The prior roadmap had this as an "alert stub / dashboard visibility stub." With the schema now applied, this was the highest-leverage gap to close.
+
+**IMPLEMENTED**:
+- **`lib/negotiations.ts`** extended with the shared lifecycle: `NEGOTIATION_STATUSES`, `AgentNegotiation` type, status labels/tones, `getAllowedNegotiationTransitions` (escrow-gated `held`), `canTransitionNegotiation`, `summarizeNegotiations`, `formatNegotiationAmount`. Pure + fully unit-tested.
+- **`app/dashboard/negotiations/page.tsx`** — new owner inbox (client, RLS-scoped via `agent_negotiations` owner select). KPI summary (total/new/proposed/complete/declined), per-proposal cards (offer, slug link, buyer agent, query, budget, timeline, requested terms JSON, amount), and one-click status transitions (Propose agreement → Hold funds [escrow-gated] → Complete, or Decline). Graceful empty/migration-pending state. ErrorBoundary + Design System glass `.card` + mobile-responsive + 44px touch targets.
+- **Dashboard nav** gains a "Negotiations" entry (Handshake icon).
+- Status flow Negotiation → Agreement Proposed → Held → Complete (+ Declined/Expired) now exists end-to-end for the seller, completing the Tier 1 "Agent-to-Agent Negotiation" item beyond a stub. `held` stays correctly gated until Stripe escrow is configured.
+
+**Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **40/40** (+12 new negotiation tests), `npm run build` clean (50 app routes incl. `/dashboard/negotiations`).
+
+---
+
+## 2026-06-03 Public Page Latency Fix — Non-Blocking Visit Logging (Phase 5 Hardening / Quality Bar)
+
+**User directive**: "keep auto-selecting the highest-value item. we dont have stripe secrets yet."
+
+**Finding (code analysis, highest-leverage non-Stripe item)**: The public agent page (`app/[slug]/page.tsx`) — the platform's most latency-sensitive surface, with a stated **<200ms quality bar** — was `await`ing `logAgentPageView` (two sequential Supabase inserts: `agent_visits` + conditional `checkout_events`) *before* rendering HTML. Every crawler and human visit paid that round-trip cost on the hot path. The checkout page (`app/checkout/[slug]/page.tsx`) had the same blocking `await logCheckoutEvent` on its `checkout_view` render.
+
+**IMPLEMENTED**:
+- Adopted Next.js 16 `after()` from `next/server` (verified available + read the official API doc per AGENTS.md — it's stable here, doesn't force the route dynamic, and runs even if the response errors).
+- `app/[slug]/page.tsx`: visit logging now runs via `after(() => logAgentPageView(...))` — request headers captured pre-render, inserts execute after the response is sent. Zero added latency to the agent-facing HTML.
+- `app/checkout/[slug]/page.tsx`: `checkout_view` logging likewise moved into `after(...)`.
+- No behavior change to what gets logged — only *when* (post-response), so analytics/agent-detection data is unchanged while the core surface gets faster.
+
+**Why this was highest-value**: it's on the single hottest path in the product (every public page view), directly serves a named quality bar, is Stripe-independent, and uses the framework-correct primitive rather than a fragile fire-and-forget.
+
+**Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` 40/40, `npm run build` clean (50 routes).
+
+---
+
+## 2026-06-03 Agent Traffic Capture on Structured Endpoints (Phase 2 Analytics / Data Flywheel)
+
+**User directive**: "keep auto-selecting the highest-value item."
+
+**Finding (code analysis)**: Visit logging only fired on the human-facing HTML page (`app/[slug]/page.tsx`). But AI agents predominantly fetch the **structured** endpoints directly — `/[slug]/agent.json` and `/[slug]/mcp.json` — often never loading the HTML. Those route handlers logged **nothing**, so the platform was undercounting exactly the agent traffic it exists to prove. This weakened both the core "agents are consuming your page" value prop and the data flywheel.
+
+**IMPLEMENTED**:
+- `app/[slug]/agent.json/route.ts` and `app/[slug]/mcp.json/route.ts` now log each fetch via `after(() => logAgentPageView({ page, requestHeaders, url }))` — non-blocking, reusing the existing detection + `agent_visits` + `agent_page_view` pipeline. No new code paths; the `path` field (e.g. `/slug/agent.json`) records which surface the agent hit.
+- Consistent with the latency fix: logging never blocks the cached JSON response.
+- Net effect: agent traffic that arrives via structured manifests now shows up in the Dashboard AI-vs-human split, agent-type breakdown, and analytics — a materially more accurate picture of agent consumption.
+
+**Note**: these endpoints are CDN-cached (`s-maxage`), so logging fires on origin cache misses; still a large net gain over zero, without overcounting CDN-served hits or changing cache behavior.
+
+**Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` 40/40, `npm run build` clean (50 routes; `/[slug]/agent.json` + `/[slug]/mcp.json` present).
+
+---
+
+## 2026-06-03 Negotiation Notifications (Phase 7 Tier 1 — closing the seller loop)
+
+**User directive**: "lets continue building full throttle."
+
+**Finding**: The Owner Negotiation Inbox shipped earlier this session was only reachable via a plain nav link with no signal that proposals had arrived — owners would never know to check it, so the feature couldn't deliver value. Notification was the binding constraint.
+
+**IMPLEMENTED** (`app/dashboard/page.tsx`):
+- Dashboard load now counts proposals needing attention (`status in negotiation/agreement_proposed/held`) for the owner, with a graceful fallback to 0 if the table is missing.
+- A prominent purple callout banner appears on the dashboard home when there are open negotiations ("N negotiations need your attention → Open inbox").
+- The "Negotiations" nav item now carries a count badge.
+- Stripe-independent; uses a `count: 'exact', head: true` query so it adds negligible load.
+
+**Verification**: lint clean, `tsc` clean, `npm test` 40/40, `npm run build` clean.
+
+---
+
+## 2026-06-03 Public "Request a Custom Quote" — Human Negotiation Entry (Phase 7 Tier 1, loop complete)
+
+**User directive**: "lets continue building full throttle."
+
+**Finding**: The negotiation loop was complete for *agents* (POST `/api/negotiations` → inbox → owner notification) but had **no human entry point**. A buyer visiting the published page couldn't propose a custom quote — they could only book a fixed offer. Many real buyers are humans who want to negotiate scope/budget.
+
+**IMPLEMENTED** (`app/[slug]/page.tsx`):
+- New "Request a custom quote" section: a **plain server-rendered HTML `<form method="post" action="/api/negotiations">`** — works with zero client JS (true to the agent-clean / human-usable dual philosophy). Offer `<select>` (from `getCheckoutOffers`), scope/request, budget, timeline, and contact fields; hidden slug.
+- Reuses the existing form-data branch of the negotiations route, which inserts the proposal (RLS: public insert allowed for published pages) and 303-redirects to `?negotiation=created`.
+- Success banner shown on `?negotiation=created`; `searchParams` wired into the page props.
+- Section only renders when the page has offers. Agents still get the programmatic `POST /api/negotiations` documented in plain-text context + manifests.
+- Net: the agent-to-agent negotiation feature is now **end-to-end for both humans and agents** — public entry → DB → owner inbox → notification → status flow.
+
+**Verification**: lint clean, `tsc` clean, `npm test` 40/40, `npm run build` clean (50 routes).

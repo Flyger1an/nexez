@@ -21,6 +21,7 @@ export default function ToolsPage() {
   const [webhookTesting, setWebhookTesting] = useState(false)
   const [webhookTestPageSlug, setWebhookTestPageSlug] = useState('')
   const [lastWebhookEvent, setLastWebhookEvent] = useState<any>(null)
+  const [calendlyWebhookEndpoint, setCalendlyWebhookEndpoint] = useState('/api/webhooks/calendly')
 
   // Phase 3: Stripe import (starting depth)
   const [stripeKey, setStripeKey] = useState('')
@@ -190,6 +191,8 @@ export default function ToolsPage() {
 
   // Phase 3 Webhook helpers
   useEffect(() => {
+    setCalendlyWebhookEndpoint(`${window.location.origin}/api/webhooks/calendly`)
+
     try {
       const saved = localStorage.getItem('nexez_calendly_webhook')
       if (saved) setWebhookConnected(JSON.parse(saved))
@@ -542,7 +545,7 @@ export default function ToolsPage() {
             </p>
 
             <div className="rounded bg-black/30 p-3 text-xs font-mono mb-3 break-all">
-              POST {typeof window !== 'undefined' ? `${window.location.origin}/api/webhooks/calendly` : '/api/webhooks/calendly'}
+              POST {calendlyWebhookEndpoint}
             </div>
 
             <div className="flex gap-3">
@@ -613,7 +616,7 @@ export default function ToolsPage() {
                   </button>
                 </div>
                 <div className="text-xs text-zinc-500 mb-1">
-                  {new Date(lastWebhookEvent.receivedAt || Date.now()).toLocaleString()}
+                  {lastWebhookEvent.receivedAt ? new Date(lastWebhookEvent.receivedAt).toLocaleString() : 'Just now'}
                 </div>
                 <div>
                   <span className="font-medium">{lastWebhookEvent.data?.payload?.event?.name || 'Consultation'}</span>
@@ -661,7 +664,7 @@ export default function ToolsPage() {
                 type="password"
                 value={stripeKey}
                 onChange={(e) => setStripeKey(e.target.value)}
-                placeholder="sk_live_... or sk_test_..."
+                placeholder="Stripe secret key"
                 className="flex-1 input"
               />
               <button
@@ -994,13 +997,13 @@ export default function ToolsPage() {
                       // Phase 3: Route through the real Calendly receiver so it records checkout_event + last_booking (if page) + fires outbounds.
                       // This exercises the full durable + outbound chain for demo purposes.
                       try {
-                        const demoSecret = 'demo-webhook-secret-for-testing'
-	                        const recHeaders: Record<string, string> = {
-	                          'Content-Type': 'application/json',
-	                          'x-nexez-test-secret': demoSecret,
-	                          'x-nexez-test-page-slug': 'demo',
-	                          'x-nexez-test-mode': 'true',
-	                        }
+                        const demoSecret = `nexez-test-${Date.now()}`
+                        const recHeaders: Record<string, string> = {
+                          'Content-Type': 'application/json',
+                          'x-nexez-test-secret': demoSecret,
+                          'x-nexez-test-page-slug': 'demo',
+                          'x-nexez-test-mode': 'true',
+                        }
                         if (outboundWebhooks.length > 0) {
                           recHeaders['x-nexez-outbound-endpoints'] = JSON.stringify(outboundWebhooks)
                         }

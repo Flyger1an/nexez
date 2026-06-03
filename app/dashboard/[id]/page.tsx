@@ -99,11 +99,6 @@ export default function EditAgentPage({ params }: PageProps) {
     params.then(({ id }) => setId(id))
   }, [params])
 
-  useEffect(() => {
-    if (!id) return
-    loadPage(id)
-  }, [id])
-
   // Phase 3: Load integration connection status (same keys as Tools + Integrations dashboard)
   useEffect(() => {
     try {
@@ -322,6 +317,11 @@ export default function EditAgentPage({ params }: PageProps) {
       if (te) setTrustEvents(te)
     } catch {}
   }
+
+  useEffect(() => {
+    if (!id) return
+    loadPage(id)
+  }, [id])
 
   function optimizeOffersWithAI() {
     const businessName = name || 'This business'
@@ -916,15 +916,15 @@ export default function EditAgentPage({ params }: PageProps) {
                       type="button"
                       onClick={async () => {
                         try {
-                          const demoSecret = 'demo-webhook-secret-for-testing'
+                          const demoSecret = `nexez-test-${Date.now()}`
                           const res = await fetch('/api/webhooks/calendly', {
                             method: 'POST',
                             headers: {
-	                              'Content-Type': 'application/json',
-	                              'x-nexez-test-secret': demoSecret,
-	                              'x-nexez-test-page-slug': slug || page?.slug || '',
-	                              'x-nexez-test-mode': 'true',
-	                            },
+                              'Content-Type': 'application/json',
+                              'x-nexez-test-secret': demoSecret,
+                              'x-nexez-test-page-slug': slug || page?.slug || '',
+                              'x-nexez-test-mode': 'true',
+                            },
                             body: JSON.stringify({
                               event: 'invitee.created',
                               payload: {
@@ -1116,7 +1116,7 @@ export default function EditAgentPage({ params }: PageProps) {
                           try {
                             let secret = sessionStorage.getItem('nexez_last_stripe_secret') || ''
                             if (!secret) {
-                              secret = prompt('Paste Stripe Secret Key (sk_live_... or sk_test_...) for re-sync:') || ''
+                              secret = prompt('Paste Stripe Secret Key for re-sync:') || ''
                               if (secret) sessionStorage.setItem('nexez_last_stripe_secret', secret)
                             }
                             if (!secret) {

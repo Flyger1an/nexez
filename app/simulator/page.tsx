@@ -13,6 +13,7 @@ import {
 import { ErrorBoundary } from '../../components/ErrorBoundary'
 import {
   AgentPage,
+  BASIC_OWNER_PAGE_SELECT,
   OWNER_PAGE_SELECT,
   PUBLIC_PAGE_SELECT,
   getBaseUrl,
@@ -20,10 +21,17 @@ import {
   getReadinessScore,
 } from '../../lib/agent-page'
 import {
-  buildParsedSchema,
   getRecommendations,
   runMultiAgentSimulation,
 } from '../../lib/agent-simulator'
+import {
+  SimulationHistoryEntry,
+  buildSimulationHistoryEntry,
+  exportSimulationHistory,
+  filterSimulationHistory,
+  getSimulationHistoryStats,
+  normalizeSimulatorTarget,
+} from '../../lib/simulation-history'
 import { createClient } from '../../utils/supabase/client'
 
 const agentTabs = ['ChatGPT', 'Claude', 'Grok', 'Perplexity', 'Generic Agent']
@@ -37,15 +45,42 @@ export default function GlobalAgentSimulator() {
   const [currentAgent, setCurrentAgent] = useState(agentTabs[0])
   const [simulationResults, setSimulationResults] = useState<any[]>([])
   const [recommendations, setRecommendations] = useState<string[]>([])
-  const [history, setHistory] = useState<any[]>([])
+  const [history, setHistory] = useState<SimulationHistoryEntry[]>([])
+  const [historyQuery, setHistoryQuery] = useState('')
   const [message, setMessage] = useState('')
   const [isLoggedIn, setIsLoggedIn] = useState(false)
 
   const supabase = createClient()
+  const filteredHistory = filterSimulationHistory(history, historyQuery)
+  const historyStats = getSimulationHistoryStats(history)
 
-  useEffect(() => {
-    loadMyPages()
-  }, [])
+  function isMissingColumnError(error: { code?: string; message?: string }) {
+    return error.code === '42703' || /column .* does not exist/i.test(error.message ?? '')
+  }
+
+  async function fetchOwnedPublishedPages(ownerId: string) {
+    const result = await supabase
+      .from('pages')
+      .select(OWNER_PAGE_SELECT)
+      .eq('owner_id', ownerId)
+      .eq('is_published', true)
+      .order('created_at', { ascending: false })
+      .limit(20)
+      .returns<AgentPage[]>()
+
+    if (!result.error || !isMissingColumnError(result.error)) {
+      return result
+    }
+
+    return supabase
+      .from('pages')
+      .select(BASIC_OWNER_PAGE_SELECT)
+      .eq('owner_id', ownerId)
+      .eq('is_published', true)
+      .order('created_at', { ascending: false })
+      .limit(20)
+      .returns<AgentPage[]>()
+  }
 
   async function loadMyPages() {
     try {
@@ -56,13 +91,7 @@ export default function GlobalAgentSimulator() {
       }
       setIsLoggedIn(true)
 
-      const { data, error } = await supabase
-        .from('pages')
-        .select(OWNER_PAGE_SELECT)
-        .eq('owner_id', user.id)
-        .eq('is_published', true)
-        .order('created_at', { ascending: false })
-        .limit(20)
+      const { data, error } = await fetchOwnedPublishedPages(user.id)
 
       if (data && !error) {
         setMyPages(data as unknown as AgentPage[])
@@ -72,15 +101,30 @@ export default function GlobalAgentSimulator() {
     }
   }
 
+  useEffect(() => {
+    loadMyPages()
+  }, [])
+
   async function loadPageBySlug(slug: string): Promise<AgentPage | null> {
-    // Public fetch (published pages)
-    const { data } = await supabase
+    const result = await supabase
       .from('pages')
       .select(PUBLIC_PAGE_SELECT)
       .eq('slug', slug)
       .eq('is_published', true)
       .single<AgentPage>()
-    return data || null
+
+    if (!result.error || !isMissingColumnError(result.error)) {
+      return result.data || null
+    }
+
+    const fallback = await supabase
+      .from('pages')
+      .select(BASIC_OWNER_PAGE_SELECT)
+      .eq('slug', slug)
+      .eq('is_published', true)
+      .single<AgentPage>()
+
+    return fallback.data || null
   }
 
   async function runSimulationForPage(page: AgentPage) {
@@ -98,32 +142,25 @@ export default function GlobalAgentSimulator() {
       if (isLoggedIn) {
         const { data: { user } } = await supabase.auth.getUser()
         if (user && (page as any).owner_id === user.id) {
-          // Data flywheel: store FULL multi-agent result snapshot (parsed schemas + recs + per-agent readiness)
-          // for future model improvement + replay. Modular: history depth can be tiered (Free limited, Pro full).
-          const fullSnapshot = {
-            query,
-            results: multi.results,
-            overallReadiness: getReadinessScore(page),
-          }
-          const newSim = {
-            id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
-            timestamp: new Date().toISOString(),
-            agent: currentAgent,
-            query,
-            result: fullSnapshot, // full for replay + flywheel
-            readiness: getReadinessScore(page),
-          }
+          const newSim = buildSimulationHistoryEntry(page, query)
 
-          const existing = (page as any).simulations || []
+          const existing = Array.isArray((page as any).simulations) ? (page as any).simulations : history
           const updated = [newSim, ...existing].slice(0, 20)
 
-          await supabase
+          const { error } = await supabase
             .from('pages')
             .update({ simulations: updated })
             .eq('id', page.id)
 
-          setHistory(updated)
-          setMessage('Analysis saved to page history (full multi-agent snapshot for intelligence flywheel).')
+          if (error && isMissingColumnError(error)) {
+            setMessage('Analysis complete. Apply the simulations migration to persist history for this page.')
+          } else if (error) {
+            setMessage(`Analysis complete, but history could not be saved: ${error.message}`)
+          } else {
+            setHistory(updated as SimulationHistoryEntry[])
+            setSelectedPage({ ...page, simulations: updated } as AgentPage)
+            setMessage('Analysis saved to page history (full multi-agent snapshot for intelligence flywheel).')
+          }
         }
       }
 
@@ -140,7 +177,8 @@ export default function GlobalAgentSimulator() {
   async function handleSelectMyPage(page: AgentPage) {
     setSelectedPage(page)
     setPasteSlug('')
-    setHistory((page as any).simulations || [])
+    setHistory(Array.isArray((page as any).simulations) ? (page as any).simulations : [])
+    setHistoryQuery('')
     await runSimulationForPage(page)
   }
 
@@ -150,14 +188,16 @@ export default function GlobalAgentSimulator() {
     setMessage('')
 
     try {
-      const page = await loadPageBySlug(pasteSlug.trim().replace(/^\//, ''))
+      const slug = normalizeSimulatorTarget(pasteSlug)
+      const page = await loadPageBySlug(slug)
       if (!page) {
         setMessage('Page not found or not published. Try a public Nexez slug.')
         setLoading(false)
         return
       }
       setSelectedPage(page)
-      setHistory((page as any).simulations || [])
+      setHistory(Array.isArray((page as any).simulations) ? (page as any).simulations : [])
+      setHistoryQuery('')
       await runSimulationForPage(page)
     } catch (e: any) {
       setMessage('Failed to load page: ' + e.message)
@@ -206,16 +246,36 @@ export default function GlobalAgentSimulator() {
       content += `\n---\nExported from Nexez Global Simulator. Use to brief agents or improve your page.`
     }
 
-    const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/markdown' })
+    downloadTextFile(
+      content,
+      `nexez-sim-${pageInfo.slug}-${getExportTimestamp()}.${format}`,
+      format === 'json' ? 'application/json' : 'text/markdown',
+    )
+    setMessage(`Exported ${format.toUpperCase()} analysis (shareable).`)
+  }
+
+  function exportHistory() {
+    if (!selectedPage || !history.length) return
+
+    const content = JSON.stringify(exportSimulationHistory(history, selectedPage), null, 2)
+    downloadTextFile(content, `nexez-sim-history-${selectedPage.slug}-${getExportTimestamp()}.json`, 'application/json')
+    setMessage('Exported full simulation history JSON.')
+  }
+
+  function getExportTimestamp() {
+    return new Date().toISOString().replace(/[:.]/g, '-')
+  }
+
+  function downloadTextFile(content: string, filename: string, type: string) {
+    const blob = new Blob([content], { type })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `nexez-sim-${pageInfo.slug}-${Date.now()}.${format}`
+    a.download = filename
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-    setMessage(`Exported ${format.toUpperCase()} analysis (shareable).`)
   }
 
   function loadFromHistory(h: any) {
@@ -371,6 +431,17 @@ export default function GlobalAgentSimulator() {
                 </div>
               </div>
 
+              <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+                <HistoryStat label="Saved runs" value={String(historyStats.totalRuns)} />
+                <HistoryStat label="Latest readiness" value={`${historyStats.latestReadiness || getReadinessScore(selectedPage)}%`} />
+                <HistoryStat label="Avg readiness" value={`${historyStats.averageReadiness || getReadinessScore(selectedPage)}%`} />
+                <HistoryStat
+                  label="Readiness trend"
+                  value={historyStats.readinessDelta > 0 ? `+${historyStats.readinessDelta}` : String(historyStats.readinessDelta)}
+                  tone={historyStats.readinessDelta >= 0 ? 'good' : 'warn'}
+                />
+              </div>
+
               {/* Recommendations + History + Export (data flywheel + shareable) */}
               <div className="mt-8 grid md:grid-cols-2 gap-6">
                 <div className="card">
@@ -390,26 +461,55 @@ export default function GlobalAgentSimulator() {
                 </div>
 
                 <div className="card">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold flex items-center gap-2">
-                      <History className="size-4 text-[#7C3AED]" /> Simulation History (saved to page)
-                    </h3>
-                    <span className="text-xs text-zinc-500">{history.length} runs</span>
+                  <div className="flex flex-col gap-3 mb-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <h3 className="font-semibold flex items-center gap-2">
+                        <History className="size-4 text-[#7C3AED]" /> Simulation History
+                      </h3>
+                      <p className="mt-1 text-xs text-zinc-500">{history.length} saved runs for this page</p>
+                    </div>
+                    <button
+                      onClick={exportHistory}
+                      disabled={!history.length}
+                      className="rounded border border-white/20 px-3 py-1.5 text-xs text-zinc-200 hover:bg-white/5 disabled:opacity-40"
+                    >
+                      Export History JSON
+                    </button>
                   </div>
                   {history.length > 0 ? (
-                    <div className="space-y-2 text-sm max-h-52 overflow-auto">
-                      {history.map((h, idx) => (
-                        <div key={idx} className="rounded border border-white/10 p-2 text-xs flex items-center justify-between gap-2">
+                    <input
+                      value={historyQuery}
+                      onChange={(event) => setHistoryQuery(event.target.value)}
+                      className="input mb-3 h-10 text-xs"
+                      placeholder="Search history by query, readiness, or agent..."
+                    />
+                  ) : null}
+                  {historyStats.latestQuery ? (
+                    <button
+                      onClick={() => setQuery(historyStats.latestQuery)}
+                      className="mb-3 w-full rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-left text-xs text-cyan-100 hover:bg-cyan-300/15"
+                    >
+                      Use latest query: {historyStats.latestQuery.slice(0, 90)}
+                    </button>
+                  ) : null}
+                  {filteredHistory.length > 0 ? (
+                    <div className="space-y-2 text-sm max-h-64 overflow-auto">
+                      {filteredHistory.map((h, idx) => (
+                        <div key={h.id || idx} className="rounded border border-white/10 p-2 text-xs flex items-center justify-between gap-2">
                           <div className="min-w-0">
-                            <span className="font-mono text-[#C4B5FD]">{h.agent || 'multi'}</span> — { (h.query || '').slice(0, 32) }...
+                            <span className="font-mono text-[#C4B5FD]">{h.agent || 'multi'}</span> — { (h.query || '').slice(0, 52) }{(h.query || '').length > 52 ? '...' : ''}
                             <div className="text-[10px] text-zinc-500">{new Date(h.timestamp).toLocaleString()}</div>
                           </div>
                           <div className="flex gap-1 shrink-0">
-                            <button onClick={() => loadFromHistory(h)} className="text-[10px] rounded bg-[#7C3AED]/20 px-2 py-0.5 hover:bg-[#7C3AED]/40">Load</button>
+                            <button onClick={() => loadFromHistory(h)} className="text-[10px] rounded bg-[#7C3AED]/20 px-2 py-1 hover:bg-[#7C3AED]/40">Load</button>
                             <span className="text-emerald-400/80 text-[10px] self-center">{h.readiness || '?'}%</span>
                           </div>
                         </div>
                       ))}
+                    </div>
+                  ) : history.length > 0 ? (
+                    <div className="rounded border border-dashed border-white/10 p-4 text-sm text-zinc-500">
+                      No history runs match that search.
                     </div>
                   ) : (
                     <div className="text-sm text-zinc-500">Run analyses while viewing one of your pages to save history (full snapshots for replay + future model training).</div>
@@ -432,5 +532,16 @@ export default function GlobalAgentSimulator() {
         </div>
       </ErrorBoundary>
     </main>
+  )
+}
+
+function HistoryStat({ label, value, tone }: { label: string; value: string; tone?: 'good' | 'warn' }) {
+  return (
+    <div className="card !p-4">
+      <p className="text-xs text-zinc-500">{label}</p>
+      <p className={`mt-1 text-2xl font-semibold ${tone === 'good' ? 'text-emerald-300' : tone === 'warn' ? 'text-amber-300' : 'text-white'}`}>
+        {value}
+      </p>
+    </div>
   )
 }

@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import { ArrowLeft, Star, TrendingUp } from 'lucide-react'
-import { FavoriteButton } from '../../components/FavoriteButton'
 import { getBaseUrl } from '../../lib/agent-page'
 import { MarketplaceResults } from '../../components/MarketplaceResults'
+import { TrackedDirectoryLink } from '../../components/TrackedDirectoryLink'
 
 export const metadata: Metadata = {
   title: 'Nexez Agent Marketplace',
@@ -64,10 +64,17 @@ export default async function MarketplacePage() {
             </div>
             <div className="grid gap-3 md:grid-cols-3 text-sm">
               {trending.map((item: any) => (
-                <a key={item.slug} href={`/${item.slug}`} className="block card !p-3 text-sm hover:border-[#7C3AED]/30">
+                <TrackedDirectoryLink
+                  key={item.slug}
+                  href={`/${item.slug}`}
+                  slug={item.slug}
+                  action="public_page"
+                  surface="marketplace"
+                  className="block card !p-3 text-sm hover:border-[#7C3AED]/30"
+                >
                   {item.name} <span className="text-xs text-emerald-400">Trust {item.trust_score}</span>
                   {item.verified && ' ✓'}
-                </a>
+                </TrackedDirectoryLink>
               ))}
             </div>
           </div>

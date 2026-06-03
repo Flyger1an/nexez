@@ -8,6 +8,8 @@ export type CheckoutEventType =
   | 'stripe_missing_config'
   | 'stripe_error'
   | 'stripe_price_sync'
+  | 'directory_click'
+  | 'agent_page_view'
 
 export type CheckoutEvent = {
   id: string
@@ -44,5 +46,9 @@ export function getEventActionLabel(eventType: CheckoutEventType) {
       return 'Stripe error'
     case 'stripe_price_sync':
       return 'Stripe price sync'
+    case 'directory_click':
+      return 'Directory discovery click'
+    case 'agent_page_view':
+      return 'AI agent page visit'
   }
 }

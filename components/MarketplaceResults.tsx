@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { FavoriteButton } from './FavoriteButton'
+import { TrackedDirectoryLink } from './TrackedDirectoryLink'
 
 export function MarketplaceResults({ initialResults }: { initialResults: any[] }) {
   const [showOnlyFavs, setShowOnlyFavs] = useState(false)
@@ -44,9 +45,9 @@ export function MarketplaceResults({ initialResults }: { initialResults: any[] }
               {item.has_credentials && <span className="bg-violet-500/10 text-violet-400 px-1.5 py-0.5 rounded">📜 Creds</span>}
             </div>
             <div className="mt-3 flex gap-2 text-xs">
-              <a href={item.agent_json_url} className="text-[#7C3AED] hover:underline">Agent JSON</a>
-              <a href={`/${item.slug}`} className="text-[#9CA3AF] hover:underline">View</a>
-              <a href={`/dashboard/competitors?slug=${item.slug}`} className="text-[#7C3AED] hover:underline">Analyze</a>
+              <TrackedDirectoryLink href={item.agent_json_url} slug={item.slug} action="agent_json" surface="marketplace" className="text-[#7C3AED] hover:underline">Agent JSON</TrackedDirectoryLink>
+              <TrackedDirectoryLink href={`/${item.slug}`} slug={item.slug} action="public_page" surface="marketplace" className="text-[#9CA3AF] hover:underline">View</TrackedDirectoryLink>
+              <TrackedDirectoryLink href={`/dashboard/competitors?slug=${item.slug}`} slug={item.slug} action="analyze" surface="marketplace" className="text-[#7C3AED] hover:underline">Analyze</TrackedDirectoryLink>
               <FavoriteButton slug={item.slug} />
             </div>
           </div>

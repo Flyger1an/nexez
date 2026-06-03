@@ -11,6 +11,7 @@ export function buildNexezCapabilities() {
     llms_url: `${baseUrl}/llms.txt`,
     openapi_url: `${baseUrl}/openapi.json`,
     agent_index_url: `${baseUrl}/agent-pages.json`,
+    mcp_discovery_url: `${baseUrl}/.well-known/mcp.json`,
     search_url_template: `${baseUrl}/api/agent-search?q={query}`,
     endpoints: [
       {
@@ -19,6 +20,13 @@ export function buildNexezCapabilities() {
         url_template: `${baseUrl}/api/agent-search?q={query}`,
         authentication: 'none',
         purpose: 'Find published pages and offer-level checkout actions from a buyer request.',
+      },
+      {
+        name: 'MCP discovery catalog',
+        method: 'GET',
+        url_template: `${baseUrl}/.well-known/mcp.json`,
+        authentication: 'none',
+        purpose: 'List published pages that expose MCP-compatible resources and offer tools.',
       },
       {
         name: 'Agent page manifest',
@@ -33,6 +41,14 @@ export function buildNexezCapabilities() {
         url_template: `${baseUrl}/api/checkout`,
         authentication: 'none',
         purpose: 'Create a Stripe Checkout Session when configured, redirect/log a provider checkout handoff, or dry-run the handoff for testing.',
+        supports_dry_run: true,
+      },
+      {
+        name: 'Agent negotiation',
+        method: 'POST',
+        url_template: `${baseUrl}/api/negotiations`,
+        authentication: 'none',
+        purpose: 'Submit buyer-agent proposal terms for seller review before checkout or future escrow hold.',
         supports_dry_run: true,
       },
     ],
@@ -97,6 +113,22 @@ export function buildOpenApiSpec() {
               content: {
                 'application/json': {
                   schema: { $ref: '#/components/schemas/AgentPageIndex' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/.well-known/mcp.json': {
+        get: {
+          summary: 'List MCP-enabled agent pages',
+          operationId: 'listMcpEnabledAgentPages',
+          responses: {
+            '200': {
+              description: 'Discovery catalog for pages exposing MCP-compatible resources.',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/McpDiscoveryCatalog' },
                 },
               },
             },
@@ -179,6 +211,45 @@ export function buildOpenApiSpec() {
           },
         },
       },
+      '/api/negotiations': {
+        post: {
+          summary: 'Create an agent-to-agent proposal',
+          operationId: 'createAgentNegotiation',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['slug', 'offer'],
+                  properties: {
+                    slug: { type: 'string' },
+                    offer: { type: 'string' },
+                    buyerAgent: { type: 'string' },
+                    query: { type: 'string' },
+                    requestedTerms: { type: 'object', additionalProperties: true },
+                    budget: { type: 'string' },
+                    timeline: { type: 'string' },
+                    contact: { type: 'string' },
+                    dryRun: { type: 'boolean', default: false },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Negotiation created or validated.',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/AgentNegotiationResponse' },
+                },
+              },
+            },
+            '412': { description: 'Negotiation table migration has not been applied.' },
+          },
+        },
+      },
     },
     components: {
       schemas: {
@@ -211,6 +282,20 @@ export function buildOpenApiSpec() {
             pages: { type: 'array', items: { type: 'object' } },
           },
         },
+        McpDiscoveryCatalog: {
+          type: 'object',
+          properties: {
+            schema_version: { type: 'string' },
+            generated_at: { type: 'string' },
+            protocol_note: { type: 'string' },
+            homepage_url: { type: 'string' },
+            llms_url: { type: 'string' },
+            capabilities_url: { type: 'string' },
+            agent_index_url: { type: 'string' },
+            page_count: { type: 'integer' },
+            pages: { type: 'array', items: { type: 'object' } },
+          },
+        },
         AgentPageManifest: {
           type: 'object',
           properties: {
@@ -219,6 +304,18 @@ export function buildOpenApiSpec() {
             offers: { type: 'array', items: { type: 'object' } },
             faqs: { type: 'array', items: { type: 'object' } },
             plain_text: { type: 'string' },
+          },
+        },
+        AgentNegotiationResponse: {
+          type: 'object',
+          properties: {
+            ok: { type: 'boolean' },
+            id: { type: 'string' },
+            status: { type: 'string' },
+            escrowMode: { type: 'string' },
+            stripeConfigured: { type: 'boolean' },
+            next: { type: 'string' },
+            publicPageUrl: { type: 'string' },
           },
         },
       },

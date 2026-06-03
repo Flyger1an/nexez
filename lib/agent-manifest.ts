@@ -8,6 +8,7 @@ import {
   getOfferDestination,
   parseAvailabilityWindows,
 } from './agent-page'
+import { buildNegotiationAction } from './negotiations'
 
 export function getAgentJsonPath(slug: string) {
   return `/${slug}/agent.json`
@@ -98,6 +99,7 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer) {
         dryRun: true,
       },
     },
+    negotiation_action: buildNegotiationAction(page, offer),
   }
 }
 

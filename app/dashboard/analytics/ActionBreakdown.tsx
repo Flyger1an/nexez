@@ -1,6 +1,7 @@
 'use client'
 
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
+import { PieChart, Pie, Cell, Tooltip } from 'recharts'
+import { MeasuredChartFrame } from './MeasuredChartFrame'
 
 const COLORS = ['#7C3AED', '#00F5FF', '#C4B5FD', '#F59E0B', '#10B981']
 
@@ -20,9 +21,9 @@ export function ActionBreakdown({ events }: { events: any[] }) {
   if (data.length === 0) return null
 
   return (
-    <div className="h-48">
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
+    <MeasuredChartFrame className="h-48">
+      {({ width, height }) => (
+        <PieChart width={width} height={height}>
           <Pie
             data={data}
             cx="50%"
@@ -38,7 +39,7 @@ export function ActionBreakdown({ events }: { events: any[] }) {
           </Pie>
           <Tooltip />
         </PieChart>
-      </ResponsiveContainer>
-    </div>
+      )}
+    </MeasuredChartFrame>
   )
 }

@@ -41,6 +41,25 @@ export const OWNER_PAGE_SELECT = [
   'versions',
 ].join(', ')
 
+export const BASIC_OWNER_PAGE_SELECT = [
+  'id',
+  'owner_id',
+  'name',
+  'slug',
+  'description',
+  'website_url',
+  'cta_url',
+  'cta_label',
+  'audience',
+  'location',
+  'contact_email',
+  'products',
+  'services',
+  'faqs',
+  'is_published',
+  'created_at',
+].join(', ')
+
 export type OfferItem = {
   name: string
   description: string
