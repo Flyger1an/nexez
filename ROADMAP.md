@@ -1850,3 +1850,7 @@ Sequential verified bursts; roadmap updated per feature.
 - `loadPages` folds the team-invites + open-negotiations queries into the main parallel wave (5 queries in one round-trip instead of 3 + 2 sequential); only the shared-pages lookup remains a dependent follow-up. ~2 fewer latency waves on the dashboard.
 - Added Leaderboard to the dashboard nav (was only linked from the Directory).
 - Verified: lint/tsc clean, `npm test` 151/151, build clean.
+
+## Reliability: route maxDuration for fetch-heavy endpoints
+- Added `export const maxDuration` to external-fetch routes so they aren't killed mid-run: cron/freshness (60s, drift re-fetch), import-site (45s, multi-crawl + optional LLM), crawlability (30s), analyze-competitor (30s).
+- Verified: lint/tsc clean, build clean.

@@ -8,6 +8,9 @@ import { analyzeSite } from '../../../../lib/importer'
 // (bounded to keep the cron fast and polite — no blind overwrites).
 const DRIFT_CHECK_LIMIT = 5
 
+// This job re-fetches external sites; give it room so it isn't killed mid-run.
+export const maxDuration = 60
+
 /**
  * Scheduled freshness monitor (Vercel cron — see vercel.json).
  * Scans published pages and reports those that may have drifted from their

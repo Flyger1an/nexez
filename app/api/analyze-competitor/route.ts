@@ -4,6 +4,9 @@ import { analyzeCompetitorSite, analysisToMarkdown, analysisToJSON } from '@/lib
 import { createClient } from '@/utils/supabase/server'
 import { PUBLIC_PAGE_SELECT, getReadinessScore, getTrustScore, getOfferCount } from '@/lib/agent-page'
 
+// Scrapes an external site; allow headroom.
+export const maxDuration = 30
+
 /**
  * POST /api/analyze-competitor
  * Body: { url: string, userPageSlug?: string }

@@ -4,6 +4,9 @@ import { analyzeSite } from '../../../../lib/importer'
 import { captureError } from '../../../../lib/observability'
 import { createClient } from '../../../../utils/supabase/server'
 
+// Multi-page crawl (+ optional LLM extraction); allow headroom.
+export const maxDuration = 45
+
 export async function POST(request: Request) {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)

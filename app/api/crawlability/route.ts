@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { fetchHtmlSafe, getImportUrlError } from '../../../lib/importer'
 import { enforceRateLimit } from '../../../lib/rate-limit'
+
+// Multiple external fetches (page + agent.json + llms.txt + robots).
+export const maxDuration = 30
 import {
   AGENT_BOTS,
   evaluateCrawlability,
