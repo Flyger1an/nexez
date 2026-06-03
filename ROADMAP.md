@@ -1779,3 +1779,9 @@ Sequential verified bursts; roadmap updated per feature.
 - Dashboard: unified notifications panel (Bell). **Consolidated** the standalone negotiation banner into it (tidier, less redundant).
 - Outbound webhooks already fire on real booking events; email delivery remains gated on a provider.
 - Verified: lint/tsc clean, build clean, 134/134 (+4).
+
+## #9 — Real MCP Server Transport ✅
+- `lib/mcp-server.ts` (pure, tested): `handleMcpRequest(page, baseUrl, req)` — JSON-RPC 2.0 handling for `initialize`, `ping`, `tools/list`, `tools/call` (book_offer → resolved target respecting prefer-original; negotiate_offer → endpoint), `resources/list`, `resources/read`. Proper JSON-RPC error codes.
+- Route `POST /<slug>/mcp` (Streamable-HTTP style, stateless, batch-aware), gated on `mcp_enabled`; `GET` returns a transport hint. Live endpoint referenced from `mcp.json` (`mcp_endpoint`).
+- Upgrades MCP from static JSON to a genuine MCP-native endpoint.
+- Verified: lint/tsc clean, build clean (`/[slug]/mcp`), 139/139 (+5).

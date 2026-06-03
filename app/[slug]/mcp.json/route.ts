@@ -124,6 +124,8 @@ export async function GET(
       nexez_payload: payload,
       public_url: `${base}/${slug}`,
       mcp_enabled: true,
+      // Live JSON-RPC 2.0 MCP endpoint (initialize / tools/* / resources/*).
+      mcp_endpoint: `${base}/${slug}/mcp`,
     },
   }
 
