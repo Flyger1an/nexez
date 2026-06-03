@@ -1757,3 +1757,8 @@ Sequential verified bursts; roadmap updated per feature.
 - Route `GET /<slug>/badge.svg` reflects live readiness + verified status (CDN-cached).
 - Page Settings: live badge preview + copyable `<a><img></a>` snippet for the customer's human site (free marketing + backlinks + trust).
 - Verified: lint/tsc clean, `npm test` 126/126 (+3), build clean.
+
+## #5 — Bulk Page Operations ✅
+- Dashboard page cards now have selection checkboxes; a bulk action bar appears when ≥1 selected: **Publish / Unpublish / Export JSON / Clear**.
+- Bulk publish/unpublish via RLS-scoped client updates; export builds a JSON of the selected pages client-side.
+- Verified: lint/tsc clean, build clean, 126/126 tests.

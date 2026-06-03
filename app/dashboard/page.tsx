@@ -41,6 +41,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [displayName, setDisplayName] = useState('')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     loadPages()
@@ -173,6 +174,35 @@ export default function Dashboard() {
 
   async function copyUrl(slug: string) {
     await navigator.clipboard.writeText(`${getBaseUrl()}/${slug}`)
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  async function bulkSetPublished(published: boolean) {
+    const supabase = createClient()
+    await Promise.all(
+      [...selectedIds].map((id) => supabase.from('pages').update({ is_published: published }).eq('id', id)),
+    )
+    setSelectedIds(new Set())
+    loadPages()
+  }
+
+  function bulkExport() {
+    const chosen = pages.filter((p) => selectedIds.has(p.id))
+    const blob = new Blob([JSON.stringify(chosen, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `nexez-pages-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   if (loading) {
@@ -337,6 +367,16 @@ export default function Dashboard() {
               </a>
             </section>
 
+            {selectedIds.size > 0 && (
+              <div className="mt-5 flex flex-wrap items-center gap-3 rounded-lg border border-[#7C3AED]/40 bg-[#7C3AED]/10 px-4 py-3 text-sm">
+                <span className="font-medium text-white">{selectedIds.size} selected</span>
+                <button onClick={() => bulkSetPublished(true)} className="rounded border border-emerald-300/40 px-3 py-1 text-xs text-emerald-200 hover:bg-emerald-300/10">Publish</button>
+                <button onClick={() => bulkSetPublished(false)} className="rounded border border-white/20 px-3 py-1 text-xs text-zinc-200 hover:bg-white/10">Unpublish</button>
+                <button onClick={bulkExport} className="rounded border border-cyan-300/40 px-3 py-1 text-xs text-cyan-100 hover:bg-cyan-300/10">Export JSON</button>
+                <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-xs text-zinc-400 hover:text-white">Clear</button>
+              </div>
+            )}
+
             <div className="mt-5 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-cyan-200">My Agent Pages</h2>
               <a href="/llms.txt" className="font-mono text-xs text-zinc-500 hover:text-cyan-200">
@@ -353,6 +393,8 @@ export default function Dashboard() {
                   onCopy={() => copyUrl(page.slug)}
                   onDelete={() => deletePage(page.id)}
                   onToggle={() => togglePublished(page.id, page.is_published)}
+                  selected={selectedIds.has(page.id)}
+                  onSelectToggle={() => toggleSelect(page.id)}
                 />
               ))}
             </section>
@@ -571,20 +613,35 @@ function PageCard({
   onCopy,
   onDelete,
   onToggle,
+  selected,
+  onSelectToggle,
 }: {
   page: AgentPage
   eventCount: number
   onCopy: () => void
   onDelete: () => void
   onToggle: () => void
+  selected?: boolean
+  onSelectToggle?: () => void
 }) {
   const score = getReadinessScore(page)
 
   return (
-    <article className="card overflow-hidden p-0">
+    <article className={`card overflow-hidden p-0 ${selected ? 'ring-2 ring-[#7C3AED]/60' : ''}`}>
       <div className="flex items-start justify-between border-b border-white/10 p-5">
-        <div className="flex size-10 items-center justify-center rounded-2xl bg-white/5">
-          <Bot className="size-5 text-[#C4B5FD]" />
+        <div className="flex items-center gap-2">
+          {onSelectToggle && (
+            <input
+              type="checkbox"
+              checked={!!selected}
+              onChange={onSelectToggle}
+              className="size-4 accent-[#7C3AED]"
+              aria-label="Select page for bulk actions"
+            />
+          )}
+          <div className="flex size-10 items-center justify-center rounded-2xl bg-white/5">
+            <Bot className="size-5 text-[#C4B5FD]" />
+          </div>
         </div>
         <button
           onClick={onToggle}
