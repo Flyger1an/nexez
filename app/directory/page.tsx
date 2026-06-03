@@ -95,6 +95,12 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
               <p className="mt-5 max-w-2xl text-base leading-7 text-[#9CA3AF]">
                 Search published Nexez agent pages by buyer intent, then open the public page, agent manifest, or checkout handoff.
               </p>
+              <a
+                href="/leaderboard"
+                className="mt-4 inline-flex items-center gap-2 rounded-lg border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-sm text-amber-200 hover:bg-amber-400/20"
+              >
+                🏆 Agent-Ready Leaderboard
+              </a>
             </div>
 
             <form action="/directory" className="rounded-lg border border-white/10 bg-[#1A1625] p-3">

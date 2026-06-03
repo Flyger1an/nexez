@@ -1762,3 +1762,8 @@ Sequential verified bursts; roadmap updated per feature.
 - Dashboard page cards now have selection checkboxes; a bulk action bar appears when ≥1 selected: **Publish / Unpublish / Export JSON / Clear**.
 - Bulk publish/unpublish via RLS-scoped client updates; export builds a JSON of the selected pages client-side.
 - Verified: lint/tsc clean, build clean, 126/126 tests.
+
+## #6 — Agent-Readiness Leaderboard ✅
+- New public `/leaderboard` (server component): ranks published pages by readiness then trust, medal styling for top 3, per-row industry/offers/verified, industry filter chips (derived from data). Linked from the Directory hero.
+- Marketing + competitive-improvement lever; reuses existing readiness/trust scoring.
+- Verified: lint/tsc clean, build clean (`/leaderboard`), 126/126.
