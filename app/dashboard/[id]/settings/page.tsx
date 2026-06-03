@@ -37,6 +37,21 @@ export default function PageSettings({ params }: PageProps) {
   const [contactEmail, setContactEmail] = useState('')
   const [isPublished, setIsPublished] = useState(false)
   const [customDomain, setCustomDomain] = useState('')
+  const [domainProvisioning, setDomainProvisioning] = useState(false)
+  const [domainStatus, setDomainStatus] = useState<
+    | null
+    | {
+        state: string
+        label: string
+        detail: string
+        providerConfigured: boolean
+        requiredRecords: Array<{ type: string; name?: string; value?: string }>
+      }
+  >(null)
+  const [crawlLoading, setCrawlLoading] = useState(false)
+  const [crawlReport, setCrawlReport] = useState<
+    null | { score: number; url: string; checks: Array<{ id: string; label: string; status: string; detail: string }> }
+  >(null)
   const [preferOriginalSite, setPreferOriginalSite] = useState(false)
   const [industry, setIndustry] = useState('')
   const [copied, setCopied] = useState('')
@@ -214,6 +229,66 @@ export default function PageSettings({ params }: PageProps) {
 	    } catch (e: any) {
 	      console.warn('Failed to persist verification token', e)
 	    }
+  }
+
+  // A2/A3: provider provisioning + live status (Vercel-backed when configured).
+  async function callDomainAction(action: 'attach' | 'status') {
+    if (!customDomain.trim()) {
+      setMessage('Enter and save your custom domain first.')
+      return
+    }
+    setDomainProvisioning(true)
+    try {
+      const res = await fetch('/api/custom-domain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, domain: customDomain.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setMessage(data.error || 'Domain action failed.')
+        return
+      }
+      setDomainStatus({
+        state: data.state,
+        label: data.label,
+        detail: data.detail,
+        providerConfigured: data.providerConfigured,
+        requiredRecords: data.requiredRecords || [],
+      })
+      setMessage(`${data.label}: ${data.detail}`)
+    } catch (e: any) {
+      setMessage('Domain action failed: ' + (e.message || 'network error'))
+    } finally {
+      setDomainProvisioning(false)
+    }
+  }
+
+  // B6: agent crawlability test (targets the custom domain when set, else the platform page).
+  async function runCrawlabilityTest() {
+    const target = customDomain.trim()
+      ? `https://${customDomain.trim().replace(/^https?:\/\//, '')}`
+      : publicUrl
+    setCrawlLoading(true)
+    setCrawlReport(null)
+    try {
+      const res = await fetch('/api/crawlability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: target }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setMessage(data.error || 'Crawlability test failed.')
+        return
+      }
+      setCrawlReport({ score: data.score, url: data.url, checks: data.checks || [] })
+      setMessage(`Agent crawlability score: ${data.score}/100`)
+    } catch (e: any) {
+      setMessage('Crawlability test failed: ' + (e.message || 'network error'))
+    } finally {
+      setCrawlLoading(false)
+    }
   }
 
   async function verifyCustomDomain() {
@@ -473,6 +548,145 @@ export default function PageSettings({ params }: PageProps) {
                       <span className="text-zinc-400">Status: {domainVerificationToken ? 'Token ready — awaiting DNS verify' : 'Pending verification'}</span>
                     ) : null}
                   </div>
+
+                  {/* A3: connection wizard — provider attach + SSL state machine */}
+                  {customDomain ? (
+                    <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-medium text-zinc-200">Connection & SSL</p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            disabled={domainProvisioning}
+                            onClick={() => callDomainAction('attach')}
+                            className="rounded border border-[#7C3AED]/40 px-2.5 py-1 text-[11px] text-[#C4B5FD] hover:bg-[#7C3AED]/10 disabled:opacity-50"
+                          >
+                            {domainProvisioning ? 'Working…' : 'Attach & provision SSL'}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={domainProvisioning}
+                            onClick={() => callDomainAction('status')}
+                            className="rounded border border-white/20 px-2.5 py-1 text-[11px] text-zinc-200 hover:bg-white/5 disabled:opacity-50"
+                          >
+                            Check status
+                          </button>
+                        </div>
+                      </div>
+
+                      {(() => {
+                        const currentState =
+                          domainStatus?.state ?? (domainVerified ? 'verifying' : 'pending_dns')
+                        const steps = [
+                          { key: 'pending_dns', label: 'Pending DNS' },
+                          { key: 'verifying', label: 'Verifying' },
+                          { key: 'live', label: 'Live' },
+                        ]
+                        const order: Record<string, number> = { pending_dns: 0, verifying: 1, ssl_issuing: 1, live: 2 }
+                        const activeIdx = order[currentState] ?? 0
+                        const isError = currentState === 'error'
+                        return (
+                          <div className="mt-3 flex items-center gap-1">
+                            {steps.map((step, i) => (
+                              <div key={step.key} className="flex flex-1 items-center gap-1">
+                                <div
+                                  className={`h-1.5 flex-1 rounded-full ${
+                                    isError
+                                      ? 'bg-red-400/60'
+                                      : i <= activeIdx
+                                        ? 'bg-gradient-to-r from-[#7C3AED] to-[#00F5FF]'
+                                        : 'bg-white/10'
+                                  }`}
+                                />
+                                <span
+                                  className={`whitespace-nowrap text-[10px] ${
+                                    i <= activeIdx && !isError ? 'text-zinc-200' : 'text-zinc-500'
+                                  }`}
+                                >
+                                  {step.label}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      })()}
+
+                      {domainStatus ? (
+                        <p className="mt-2 text-[11px] text-zinc-400">{domainStatus.detail}</p>
+                      ) : (
+                        <p className="mt-2 text-[11px] text-zinc-500">
+                          Click “Attach & provision SSL” to add this domain to the hosting provider and start TLS.
+                        </p>
+                      )}
+
+                      {domainStatus && !domainStatus.providerConfigured ? (
+                        <p className="mt-1 text-[10px] text-amber-300/80">
+                          Provider auto-provisioning isn’t configured on this deployment — ownership is verified via DNS TXT; point your domain at your host for SSL.
+                        </p>
+                      ) : null}
+
+                      {domainStatus?.requiredRecords?.length ? (
+                        <div className="mt-2 space-y-1">
+                          <div className="text-[10px] font-medium text-zinc-300">Add these DNS records:</div>
+                          {domainStatus.requiredRecords.map((r, i) => (
+                            <code key={i} className="block break-all rounded bg-black/40 p-1 text-[10px] text-emerald-300">
+                              {r.type} {r.name ?? ''} {r.value ?? ''}
+                            </code>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      {/* B6: agent crawlability test */}
+                      <div className="mt-3 border-t border-white/10 pt-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[11px] text-zinc-300">Agent crawlability</p>
+                          <button
+                            type="button"
+                            disabled={crawlLoading}
+                            onClick={runCrawlabilityTest}
+                            className="rounded border border-cyan-300/40 px-2.5 py-1 text-[11px] text-cyan-100 hover:bg-cyan-300/10 disabled:opacity-50"
+                          >
+                            {crawlLoading ? 'Testing…' : 'Test agent crawlability'}
+                          </button>
+                        </div>
+                        {crawlReport ? (
+                          <div className="mt-2">
+                            <div className="text-[11px] text-zinc-300">
+                              Score:{' '}
+                              <span
+                                className={
+                                  crawlReport.score >= 80
+                                    ? 'text-emerald-300'
+                                    : crawlReport.score >= 50
+                                      ? 'text-amber-300'
+                                      : 'text-red-300'
+                                }
+                              >
+                                {crawlReport.score}/100
+                              </span>{' '}
+                              <span className="text-zinc-500">({crawlReport.url})</span>
+                            </div>
+                            <ul className="mt-1 space-y-0.5">
+                              {crawlReport.checks.map((c) => (
+                                <li key={c.id} className="flex items-start gap-1.5 text-[10px]">
+                                  <span>
+                                    {c.status === 'pass' ? '✅' : c.status === 'warn' ? '🟡' : '❌'}
+                                  </span>
+                                  <span className="text-zinc-300">{c.label}</span>
+                                  <span className="text-zinc-500">— {c.detail}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : (
+                          <p className="mt-1 text-[10px] text-zinc-500">
+                            Checks reachability, JSON-LD, agent.json at root, llms.txt, and whether
+                            GPTBot/ClaudeBot/PerplexityBot are allowed by robots.txt.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Phase 7 MCP toggle (minimal) */}

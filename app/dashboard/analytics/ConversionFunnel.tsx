@@ -10,8 +10,8 @@ export function ConversionFunnel({ views, attempts, conversions }: FunnelProps) 
   const max = Math.max(views, attempts, conversions, 1)
 
   const stages = [
-    { label: 'Agent Events', value: views, color: '#7C3AED' },
-    { label: 'Intent Actions', value: attempts, color: '#C4B5FD' },
+    { label: 'Agent Page Views', value: views, color: '#7C3AED' },
+    { label: 'Checkout Intent', value: attempts, color: '#C4B5FD' },
     { label: 'Conversions', value: conversions, color: '#00F5FF' },
   ]
 
@@ -19,7 +19,8 @@ export function ConversionFunnel({ views, attempts, conversions }: FunnelProps) 
     <div className="space-y-3 pt-2">
       {stages.map((stage, index) => {
         const width = Math.max(12, Math.round((stage.value / max) * 100))
-        const rate = index > 0 ? ((stage.value / stages[index - 1].value) * 100).toFixed(1) : '100'
+        const prev = index > 0 ? stages[index - 1].value : 0
+        const rate = index > 0 ? (prev > 0 ? ((stage.value / prev) * 100).toFixed(1) : '0') : '100'
 
         return (
           <div key={index} className="flex items-center gap-3 text-sm">

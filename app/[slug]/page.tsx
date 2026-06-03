@@ -5,6 +5,7 @@ import { headers } from 'next/headers'
 import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, LockKeyhole, Mail, MapPin } from 'lucide-react'
 import { AgentPage, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, getBaseUrl, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
+import { agentArtifactHref, getEffectiveBaseUrl, isCustomHost } from '../../lib/custom-domain'
 import { safeJsonScript } from '../../lib/safe-json'
 import { logAgentPageView } from '../../lib/server/log-agent-page-view'
 import { supabase } from '../../lib/supabase'
@@ -33,19 +34,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return {}
   }
 
+  // Advertise the brand domain when the page is served on a verified custom domain.
+  const host = (await headers()).get('host')
+  const base = getEffectiveBaseUrl(host, getBaseUrl(), process.env.NEXT_PUBLIC_SITE_URL)
+  const onCustomHost = isCustomHost(host, process.env.NEXT_PUBLIC_SITE_URL)
+  const canonical = onCustomHost ? `${base}/` : `${base}/${page.slug}`
+  const agentJson = `${base}${agentArtifactHref('agent.json', page.slug, onCustomHost)}`
+
   return {
     title: `${page.name} | Nexez`,
     description: page.description ?? `${page.name} is available through an AI-readable Nexez page.`,
     alternates: {
-      canonical: `${getBaseUrl()}/${page.slug}`,
+      canonical,
       types: {
-        'application/json': `${getBaseUrl()}${getAgentJsonPath(page.slug)}`,
+        'application/json': agentJson,
       },
     },
     openGraph: {
       title: page.name,
       description: page.description ?? undefined,
-      url: `${getBaseUrl()}/${page.slug}`,
+      url: canonical,
       type: 'website',
     },
   }
@@ -64,7 +72,14 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
   // it never adds latency to the public agent page (<200ms quality bar). The
   // request headers are captured now; `after` runs the inserts post-render.
   const requestHeaders = await headers()
-  const visitUrl = `${getBaseUrl()}/${page.slug}`
+  // Brand-domain awareness: when served on a verified custom domain, advertise
+  // that domain as the page's own base + serve agent artifacts at its root.
+  const incomingHost = requestHeaders.get('host')
+  const effectiveBase = getEffectiveBaseUrl(incomingHost, getBaseUrl(), process.env.NEXT_PUBLIC_SITE_URL)
+  const onCustomHost = isCustomHost(incomingHost, process.env.NEXT_PUBLIC_SITE_URL)
+  const agentJsonHref = agentArtifactHref('agent.json', page.slug, onCustomHost)
+  const mcpJsonHref = agentArtifactHref('mcp.json', page.slug, onCustomHost)
+  const visitUrl = `${effectiveBase}/${page.slug}`
   after(() => logAgentPageView({ page, requestHeaders, url: visitUrl }))
 
   // Live events for accurate Trust Score completion rate (attempts vs real bookings)
@@ -91,7 +106,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
     : products.length && !preferOriginal
       ? getCheckoutPath(page.slug, 'products', 0)
       : ''
-  const jsonLd = buildJsonLd(page)
+  const jsonLd = buildJsonLd(page, effectiveBase)
 
   return (
     <main className="public-agent-page min-h-screen bg-[#0A0A0F] text-white">
@@ -115,7 +130,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
         {(page as any).mcp_enabled && (
           <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-emerald-400/10 px-3 py-0.5 text-xs text-emerald-300">
             MCP Ready — structured context for Model Context Protocol agents
-            <a href={`/${slug}/mcp.json`} className="underline">mcp.json</a>
+            <a href={mcpJsonHref} className="underline">mcp.json</a>
           </div>
         )}
 
@@ -212,7 +227,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
               provided booking or website URL.
             </div>
             <a
-              href={getAgentJsonPath(page.slug)}
+              href={agentJsonHref}
               className="mt-4 inline-flex items-center gap-2 rounded-lg border border-cyan-300/30 px-4 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-300/10"
             >
               Agent JSON
@@ -352,8 +367,8 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
           <h2 className="text-2xl font-semibold">Plain-text agent context</h2>
           <pre className="mt-5 overflow-x-auto rounded-lg border border-white/10 bg-black p-5 text-sm leading-7 text-zinc-300">
 {`Name: ${page.name}
-URL: ${getBaseUrl()}/${page.slug}
-Agent JSON: ${getBaseUrl()}${getAgentJsonPath(page.slug)}
+URL: ${onCustomHost ? `${effectiveBase}/` : `${effectiveBase}/${page.slug}`}
+Agent JSON: ${effectiveBase}${agentJsonHref}
 Summary: ${page.description ?? ''}
 Best-fit buyer: ${page.audience ?? ''}
 Location: ${page.location ?? ''}
@@ -488,8 +503,8 @@ function OfferSection({
   )
 }
 
-function buildJsonLd(page: AgentPage) {
-  const url = `${getBaseUrl()}/${page.slug}`
+function buildJsonLd(page: AgentPage, baseUrl: string = getBaseUrl()) {
+  const url = `${baseUrl}/${page.slug}`
   const pagePrefer = !!page.prefer_original_site
   const offers = [
     ...(page.services ?? []).map((item, index) => ({ item, kind: 'services' as const, index })),

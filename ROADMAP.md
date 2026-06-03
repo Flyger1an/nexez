@@ -1344,3 +1344,118 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 - Net: the agent-to-agent negotiation feature is now **end-to-end for both humans and agents** — public entry → DB → owner inbox → notification → status flow.
 
 **Verification**: lint clean, `tsc` clean, `npm test` 40/40, `npm run build` clean (50 routes).
+
+---
+
+## 2026-06-03 Negotiations as an Analytics Signal (Phase 2 — Analytics as ROI Proof)
+
+**User directive**: "lets commit first, then continue building." (Committed on branch `feat/negotiations-agent-analytics-schema-sync`, then resumed.)
+
+**Finding**: The Negotiation Inbox showed individual proposals, but the **Analytics ROI view didn't reflect negotiations at all** — owners had no aggregate sense of this new conversion path (proposals received vs agreements reached).
+
+**IMPLEMENTED** (`app/dashboard/analytics/page.tsx`):
+- Server-side fetch of the owner's `agent_negotiations` (status + created_at) within the active time range, graceful if the table is missing.
+- Reuses `summarizeNegotiations` (lib) for the buckets.
+- New "Negotiations" KPI: total proposals, with note `N open · M agreed`; highlighted (`tone: strong`) when there are new proposals awaiting response.
+- KPI grid rebalanced from `xl:grid-cols-7` to `xl:grid-cols-4` so the now-8 cards lay out evenly (2×4).
+- Respects the existing time-range filter, so negotiations roll into the same ROI window as visits/discovery/revenue.
+
+**Verification**: lint clean, `tsc` clean, `npm test` 40/40, `npm run build` clean (50 routes).
+
+---
+
+## 2026-06-03 Conversion Funnel Accuracy Fix (Phase 2 — ROI Proof correctness)
+
+**Finding**: The Conversion Funnel's top stage was `views = filteredEvents.length` — the count of *all* checkout_events (agent page views, discovery clicks, checkout views, attempts, conversions mixed together), labeled vaguely as "Agent Events." It told no clean story and the stage-to-stage rate could divide by zero when a prior stage was empty.
+
+**IMPLEMENTED**:
+- Top stage now uses `agentPageVisits` (real AI agent page views) — the honest agent-driven journey: **Agent Page Views → Checkout Intent → Conversions**. Labels updated to match.
+- Guarded the stage-conversion-rate calc against divide-by-zero (prior stage 0 → `0` instead of `NaN`/`Infinity`).
+
+**Verification**: lint clean, `tsc` clean, `npm test` 40/40, `npm run build` clean.
+
+---
+
+# Phase 8: Custom Domain Agent Hosting (Core Objective)
+
+**Strategic context (user)**: A primary objective of Nexez is to let users **deploy agent-optimized pages to their own custom domain**, purpose-built for AI agents. Users manage the backend on the Nexez platform; their pages are served both at `nexez/<slug>` and at their custom domain.
+
+**Audit finding (pre-build)**: Custom-domain hosting was a **stub** — users could set + DNS-verify a domain (`/api/verify-custom-domain`, `custom_domain*` columns, Settings UI) but visiting the domain did **not** serve the page. Active middleware (`proxy.ts`) only refreshed the Supabase session; `app/middleware.ts` held placeholder host-mapping logic that was never executed.
+
+**Approved build sequence** (build full-throttle, mini-audit after each burst):
+- **A1 — Host → page serving (keystone)**: edge middleware maps a verified custom domain's `Host` to the owner's published page and rewrites; cached domain→slug lookup. Agent artifacts (`/agent.json`, `/mcp.json`) resolve at the domain root.
+- **A2 — SSL + domain provisioning**: integration with the hosting provider (Vercel Domains API) to attach domains + issue TLS; gated/graceful when no token (like Stripe).
+- **A3 — Domain connection wizard**: guided DNS records, propagation polling, state machine (Pending DNS → Verifying → SSL Issuing → Live), troubleshooting.
+- **B5 — Agent artifacts on the custom domain root** (full set incl. `.well-known`, scoped `llms.txt`/`openapi`).
+- **B6 — Crawlability test**: one-click "can GPTBot/ClaudeBot/PerplexityBot reach + parse this domain?" report.
+- Then **C9–C10** (multi-page per domain, domain-level branding/white-label) and **D12–D13** (staging→live publish, per-domain deployments + rollback).
+
+**Cleanup ticket**: reconcile/remove the dead `app/middleware.ts` once A1 lands (single source of truth in `proxy.ts`).
+
+---
+
+## 2026-06-03 Burst 1 — A1: Custom Domain Host → Page Serving (KEYSTONE)
+
+**IMPLEMENTED**:
+- **`lib/custom-domain.ts`** (pure, tested): `normalizeHost`, `isPlatformHost` (localhost / `*.vercel.app` / configured site host + www variants), `hostLookupCandidates` (apex↔www), `mapCustomDomainPath` (`/`→`/{slug}`, `/agent.json`→`/{slug}/agent.json`, `/mcp.json`→`/{slug}/mcp.json`, else pass-through).
+- **`proxy.ts`** (the live middleware): for any non-platform Host, looks up the verified+published page (`custom_domain in [apex,www] AND is_published AND custom_domain_verified IS NOT NULL`) via the anon Supabase client, with a 60s per-instance cache, and **rewrites** to the page. Platform hosts fall straight through to `updateSession`. Agent artifacts now resolve at the brand-domain root.
+- **Removed dead `app/middleware.ts`** (the cleanup ticket) — it carried a misleading `matcher` config but was never executed by Next (only root `proxy.ts` runs). Single source of truth now.
+- **`lib/__tests__/custom-domain.test.ts`** — 10 tests covering host normalization, platform detection, apex/www candidates, and path mapping.
+
+**Mini-audit (properly plugged in?)**:
+1. ✅ `proxy.ts` is the only active middleware (build: `ƒ Proxy (Middleware)`); `app/middleware.ts` removed; nothing imported it.
+2. ✅ `lib/custom-domain` helpers imported by `proxy.ts`; build clean.
+3. ✅ `custom_domain` / `custom_domain_verified` remain anon-selectable (only secret columns were revoked in the page_secrets migration), so the edge lookup works under RLS.
+4. ✅ Live query shape validated against the production schema (runs, returns empty — no domains configured yet).
+5. ✅ Platform routing unaffected (localhost/vercel/site host short-circuit before any DB lookup).
+
+**Known follow-ups (next bursts, not regressions)**:
+- Page internal links still use `getBaseUrl()` (platform host) → canonical/action URLs point to `nexez` not the custom domain. Address in B5/A5 (per-domain canonical).
+- A2 (Vercel domain attach + SSL) still required for real production traffic to reach the app over the custom domain with TLS.
+
+**Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **50/50** (+10), `npm run build` clean (`Proxy (Middleware)` active).
+
+---
+
+## 2026-06-03 Burst 2 — A2 (SSL + provisioning) + A3 (connection wizard)
+
+**IMPLEMENTED**:
+- **`lib/vercel-domains.ts`** (A2, gated like Stripe): `isVercelDomainConfigured()` (env: `VERCEL_API_TOKEN`/`VERCEL_PROJECT_ID`/`VERCEL_TEAM_ID`), `addDomainToProject`, `getDomainStatus` (project domain + `/config` misconfigured flag + required DNS records), `removeDomainFromProject`. Plus pure **`deriveDomainState`** state machine (Pending DNS → Verifying → Live, + unconfigured/error) — provider status authoritative when configured, honest "manual mode" otherwise (proves ownership, doesn't claim TLS).
+- **`app/api/custom-domain/route.ts`** (owner-authed): `POST { action: attach|status|remove, domain }`. Verifies the caller owns a page with that `custom_domain`, calls the provider, returns the derived wizard state + required records. Graceful 401/403; graceful when provider not configured.
+- **A3 connection wizard** in page Settings: a state-machine progress strip (Pending DNS → Verifying → Live) + "Attach & provision SSL" / "Check status" buttons wired to the route, required-DNS-records display, and an honest note when provider auto-provisioning isn't configured. Sits alongside the existing TXT ownership flow.
+- **`lib/__tests__/vercel-domains.test.ts`** — 8 tests over the state machine (provider-configured + manual paths, error/unconfigured).
+
+**Mini-audit (properly plugged in?)**:
+1. ✅ Route is owner-authed — 401 without a user, 403 unless the caller owns a page whose `custom_domain` matches.
+2. ✅ Gated/graceful — `isVercelDomainConfigured()` false ⇒ manual mode, no provider calls, honest status.
+3. ✅ Settings UI calls `/api/custom-domain` (attach + status) and renders state + DNS records.
+4. ✅ Secrets are env-driven; nothing hardcoded.
+5. ✅ Ownership query columns (`custom_domain`, `custom_domain_verified`) exist on live schema (migrated in Burst 0 reconciliation).
+
+**Note**: A2 only physically attaches domains + issues TLS in production once `VERCEL_API_TOKEN` + `VERCEL_PROJECT_ID` are set on the deployment. Until then the wizard runs in manual mode (DNS ownership proof) — by design.
+
+**Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **58/58** (+8), `npm run build` clean (`/api/custom-domain` + `Proxy (Middleware)` present).
+
+---
+
+## 2026-06-03 Burst 3 — B5 (per-domain canonical + brand-root artifacts) + B6 (crawlability test)
+
+**B5 IMPLEMENTED — the brand domain is now a first-class agent surface**:
+- Added pure helpers to `lib/custom-domain.ts`: `isCustomHost`, `getEffectiveBaseUrl` (returns `https://<brand-domain>` when served there, else platform base), `agentArtifactHref` (artifacts at domain root on a custom host, under the slug on platform).
+- `app/[slug]/page.tsx` is now host-aware: `generateMetadata` emits a **domain-correct canonical**, `og:url`, and `application/json` agent.json alternate; the page body uses the effective base for JSON-LD page `url` (`buildJsonLd(page, base)`), the visible agent.json/mcp.json links (root on custom host), and the plain-text "URL"/"Agent JSON" context. Checkout + negotiation URLs intentionally stay on the platform base (platform-hosted flows).
+- Platform rendering is unchanged (helpers return platform values for platform hosts — covered by tests).
+
+**B6 IMPLEMENTED — agent crawlability test**:
+- `lib/crawlability.ts` (pure, tested): `parseRobotsForAgentBots` (GPTBot/OAI/ChatGPT-User/ClaudeBot/Claude-Web/PerplexityBot/Google-Extended, group + wildcard, empty-Disallow = allow) and weighted `evaluateCrawlability` (reachable, speed, JSON-LD, semantics, agent.json-at-root, llms.txt, robots → 0–100).
+- `app/api/crawlability/route.ts`: `POST { url }` fetches the page + same-origin `/agent.json`, `/llms.txt`, `/robots.txt`, builds signals, returns the report. **SSRF-guarded** via the importer's `getImportUrlError` (blocks localhost/private/link-local, requires public http(s) host); only issues GETs with short timeouts + polite UA.
+- Settings wizard: "Test agent crawlability" button (targets the custom domain when set, else the platform page) with a ✅/🟡/❌ per-check report + score.
+
+**Mini-audit (properly plugged in?)**:
+1. ✅ B5 helpers imported + used in both `generateMetadata` and the page body; `buildJsonLd` receives the effective base.
+2. ✅ Platform behavior unchanged (helpers tested to return platform values off custom hosts).
+3. ✅ B6 route SSRF-guarded with `getImportUrlError`; settings UI wired to `/api/crawlability`.
+4. ✅ Pure logic tested — `custom-domain` (+5) and `crawlability` (+8) suites.
+
+**Follow-up**: `/llms.txt` + `/openapi.json` remain global (not yet per-domain scoped); fine for now since the per-page artifacts (agent.json/mcp.json) resolve at the brand root. Per-domain scoped llms.txt is a candidate for the C-tier (multi-page) work.
+
+**Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **71/71** (+13 across B5+B6), `npm run build` clean (`/api/crawlability` + `Proxy (Middleware)` present).

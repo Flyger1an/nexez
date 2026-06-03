@@ -38,6 +38,7 @@ import {
   getTopOfferStats,
 } from '../../../lib/analytics'
 import { formatUsdCents } from '../../../lib/checkout'
+import { AgentNegotiation, summarizeNegotiations } from '../../../lib/negotiations'
 import { CheckoutEvent, getEventActionLabel } from '../../../lib/checkout-events'
 import { createClient } from '../../../utils/supabase/server'
 import { cookies } from 'next/headers'
@@ -126,8 +127,18 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     .limit(1000)
     .returns<AgentVisit[]>()
 
+  const { data: negotiationRows, error: negotiationError } = await supabase
+    .from('agent_negotiations')
+    .select('status, created_at')
+    .eq('owner_id', user.id)
+    .gte('created_at', cutoff.toISOString())
+    .returns<Pick<AgentNegotiation, 'status'>[]>()
+
   const events = checkoutEvents ?? []
   const agentVisits = agentVisitError && isMissingRelationError(agentVisitError) ? [] : (agentVisitRows ?? [])
+  const negotiations =
+    negotiationError && isMissingRelationError(negotiationError) ? [] : negotiationRows ?? []
+  const negotiationSummary = summarizeNegotiations(negotiations)
   const ownedPages = pages ?? []
   const pageOptions = getPageOptions(ownedPages)
   const selectedAction = actionOptions.some(([value]) => value === filters.action) ? filters.action : 'all'
@@ -264,7 +275,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           Track real agent-facing intent: classified AI visits, human traffic, directory discovery, provider handoffs, and Stripe checkout sessions.
         </p>
 
-        <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-7">
+        <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Kpi title="Tracked Signals" value={(filteredEvents.length + filteredAgentVisits.length).toLocaleString()} note={`${events.length + agentVisits.length} total stored`} tone="strong" />
           <Kpi title="AI Agent Visits" value={agentPageVisits.toLocaleString()} note={`${trafficSplit.human} human/unknown visits`} />
           <Kpi title="Discovery Clicks" value={discoveryClicks.toLocaleString()} note="Directory + Marketplace clickthroughs" />
@@ -272,6 +283,12 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           <Kpi title="Most Active Offer" value={popularService} note={`${offerCount || 0} offers listed`} />
           <Kpi title="Tracked Revenue" value={formatUsdCents(revenueCents)} note={`${formatUsdCents(pipelineCents)} pipeline`} tone="strong" />
           <Kpi title="Agent-Driven Revenue" value={formatUsdCents(agentRevenueCents)} note={`${agentSharePct}% share est. = ${formatUsdCents(agentShareCents)} (Tier 3 monetization)`} />
+          <Kpi
+            title="Negotiations"
+            value={negotiationSummary.total.toLocaleString()}
+            note={`${negotiationSummary.open + negotiationSummary.proposed + negotiationSummary.held} open · ${negotiationSummary.complete} agreed`}
+            tone={negotiationSummary.open > 0 ? 'strong' : undefined}
+          />
         </section>
 
         <section className="mt-5 grid gap-5 xl:grid-cols-[1.2fr_0.85fr_0.48fr]">
@@ -349,10 +366,10 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
 
 
           <Panel title="Conversion Funnel">
-            <ConversionFunnel 
-              views={filteredEvents.length} 
-              attempts={attemptCount} 
-              conversions={conversionCount} 
+            <ConversionFunnel
+              views={agentPageVisits}
+              attempts={attemptCount}
+              conversions={conversionCount}
             />
           </Panel>
 
