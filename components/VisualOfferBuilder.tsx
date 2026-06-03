@@ -29,7 +29,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, Plus, Trash2, Sparkles } from 'lucide-react'
+import { Copy, GripVertical, Plus, Trash2, Sparkles } from 'lucide-react'
 import type { OfferItem, PricingTier } from '../lib/agent-page'
 import { enhanceDescriptionForAgents } from '../lib/ai-optimize'
 
@@ -204,6 +204,15 @@ export function VisualOfferBuilder({ offers, kind, onChange, businessName, audie
     onChange(offers.filter((_, i) => i !== index))
   }
 
+  // A/B testing: duplicate an offer as a variant inserted right after it.
+  // Per-offer conversions are tracked in Analytics → Conversion Rate Leaders.
+  function duplicateOffer(index: number) {
+    const original = offers[index]
+    if (!original) return
+    const variant: OfferItem = { ...original, name: `${original.name || 'Offer'} (Variant B)` }
+    onChange([...offers.slice(0, index + 1), variant, ...offers.slice(index + 1)])
+  }
+
   return (
     <div className="space-y-4">
       {/* Templates */}
@@ -278,6 +287,7 @@ export function VisualOfferBuilder({ offers, kind, onChange, businessName, audie
                       index={originalIndex}
                       onUpdate={updateOffer}
                       onRemove={removeOffer}
+                      onDuplicate={duplicateOffer}
                       onUpdateFull={updateFullOffer}
                       businessName={businessName}
                       audience={audience}
@@ -307,6 +317,7 @@ function SortableOfferCard({
   index,
   onUpdate,
   onRemove,
+  onDuplicate,
   onUpdateFull,
   businessName,
   audience,
@@ -316,6 +327,7 @@ function SortableOfferCard({
   index: number
   onUpdate: (index: number, field: keyof OfferItem, value: string) => void
   onRemove: (index: number) => void
+  onDuplicate?: (index: number) => void
   onUpdateFull?: (index: number, updated: Partial<OfferItem>) => void
   businessName?: string
   audience?: string
@@ -524,14 +536,27 @@ function SortableOfferCard({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => onRemove(index)}
-          className="mt-1 min-h-[44px] min-w-[44px] rounded p-2 text-red-400 hover:bg-red-500/10 active:bg-red-500/20 md:mt-1 md:p-1"
-          aria-label="Remove offer"
-        >
-          <Trash2 className="size-5 md:size-4" />
-        </button>
+        <div className="mt-1 flex flex-col gap-1">
+          {onDuplicate && (
+            <button
+              type="button"
+              onClick={() => onDuplicate(index)}
+              className="min-h-[44px] min-w-[44px] rounded p-2 text-cyan-300 hover:bg-cyan-300/10 active:bg-cyan-300/20 md:p-1"
+              aria-label="Duplicate offer as A/B variant"
+              title="Duplicate as A/B variant (compare in Analytics → Conversion Rate Leaders)"
+            >
+              <Copy className="size-5 md:size-4" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => onRemove(index)}
+            className="min-h-[44px] min-w-[44px] rounded p-2 text-red-400 hover:bg-red-500/10 active:bg-red-500/20 md:p-1"
+            aria-label="Remove offer"
+          >
+            <Trash2 className="size-5 md:size-4" />
+          </button>
+        </div>
       </div>
     </div>
   )

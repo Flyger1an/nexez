@@ -1690,3 +1690,27 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 **Mini-audit**: ✅ hero only renders at 0 pages; ✅ analytics blocks gated behind `pages.length > 0`; ✅ existing dashboard unchanged for active users; ✅ build/lint/tsc clean, 118/118 tests.
 
 **Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm run build` clean.
+
+---
+
+## 2026-06-03 Platform Tidy-Up (dead-code + redundancy audit)
+
+**User directive**: "run through the entire platform and figure out redundant code and functions that haven't been hooked up yet (i.e. Squarespace/Wix import), then fix them and itemize."
+
+**Removed / fixed**:
+- **Dead Squarespace/Wix import buttons** (`/create`) — no handlers; the generic Site Importer already handles those (they're just URLs). Removed; importer copy now lists supported platforms (Squarespace, Wix, WordPress, Webflow, Shopify, custom).
+- **Unused shadcn scaffold** — `components/ui/button.tsx`, `lib/utils.ts`, `components.json` (imported nowhere). Deps `clsx`/`tailwind-merge`/`class-variance-authority` now unused — flagged for a dependency pass.
+- **DRY duplications I had introduced**: `lib/industries.ts` (was duplicated in login + ProfileSettings) and `lib/api-pages.ts` `WRITABLE_PAGE_FIELDS`/`pickWritablePageFields` (was duplicated across both `/api/v1/pages` routes).
+- **`tools` `revenueShare`** unused setter → `const`.
+
+**Audit clean**: no dead *exported lib functions* found (every export referenced ≥1×); no dead `#` CTAs on landing.
+
+**Verification**: eslint/tsc clean, `npm test` 118/118, build clean.
+
+---
+
+## 2026-06-03 A/B Offer Testing — Duplicate-as-Variant (Phase 6)
+
+**Approach (non-redundant)**: Analytics already ships "Conversion Rate Leaders" per offer, so the missing piece was the ability to spin up a variant. Added a one-click **Duplicate** action per offer in `VisualOfferBuilder` (inserts `… (Variant B)` right after the original). Owners then compare A vs B in Analytics by conversion rate — no new analytics surface, no schema change, no public-serving changes.
+
+**Verification**: eslint/tsc clean, `npm test` 118/118, build clean.
