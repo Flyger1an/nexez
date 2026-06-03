@@ -1785,3 +1785,11 @@ Sequential verified bursts; roadmap updated per feature.
 - Route `POST /<slug>/mcp` (Streamable-HTTP style, stateless, batch-aware), gated on `mcp_enabled`; `GET` returns a transport hint. Live endpoint referenced from `mcp.json` (`mcp_endpoint`).
 - Upgrades MCP from static JSON to a genuine MCP-native endpoint.
 - Verified: lint/tsc clean, build clean (`/[slug]/mcp`), 139/139 (+5).
+
+## #10 — Team Seats / Collaborators (invite foundation) ✅
+- Migration `add_team_invites`: `team_invites` (owner_id, email, role editor/viewer, status) + RLS (owners manage **their own** invites only — no cross-tenant access granted).
+- `lib/team.ts` (pure, tested): email validation + role labels. `components/TeamInvites.tsx` in Settings: invite by email+role, list, revoke.
+- **Safety note**: this is the invite *foundation*. Cross-tenant page-editing access is a deliberate, separate RLS/security step (intentionally NOT enabled here to avoid a half-built access-control hole).
+- Verified: lint/tsc clean, build clean, 141/141 (+2).
+
+**Batch complete: 10/10 high-leverage tools shipped. Tests 118 → 141. All deployed.**
