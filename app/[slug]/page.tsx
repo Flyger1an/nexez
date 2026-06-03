@@ -9,7 +9,7 @@ import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, LockKeyhole,
 import { AgentPage, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, getBaseUrl, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { agentArtifactHref, getEffectiveBaseUrl, isCustomHost, normalizeDomainPath } from '../../lib/custom-domain'
-import { normalizeBranding } from '../../lib/branding'
+import { hasBranding, normalizeBranding } from '../../lib/branding'
 import { safeJsonScript } from '../../lib/safe-json'
 import { logAgentPageView } from '../../lib/server/log-agent-page-view'
 import { supabase } from '../../lib/supabase'
@@ -28,6 +28,29 @@ async function getPage(slug: string) {
     .single<AgentPage>()
 
   return data
+}
+
+// C9+C10: a sub-page on a custom domain inherits the domain root page's
+// white-label branding when it hasn't set its own. The extra lookup only fires
+// in that narrow case (custom host + sub-path + no own branding).
+async function resolveBranding(page: AgentPage, onCustomHost: boolean, domainPath: string) {
+  const own = normalizeBranding(page.branding)
+  if (hasBranding(own) || !onCustomHost || domainPath === '/' || !page.custom_domain) {
+    return own
+  }
+  try {
+    const { data: root } = await supabase
+      .from('pages')
+      .select('branding')
+      .eq('custom_domain', page.custom_domain)
+      .eq('domain_path', '/')
+      .eq('is_published', true)
+      .maybeSingle<{ branding?: Record<string, unknown> | null }>()
+    if (root?.branding) return normalizeBranding(root.branding)
+  } catch {
+    // fall back to own (empty) branding on any error
+  }
+  return own
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -145,7 +168,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
       ? getCheckoutPath(page.slug, 'products', 0)
       : ''
   const jsonLd = buildJsonLd(page, effectiveBase)
-  const branding = normalizeBranding(page.branding)
+  const branding = await resolveBranding(page, onCustomHost, domainPath)
   const accentStyle = branding.accent_color
     ? ({ '--brand-accent': branding.accent_color } as CSSProperties)
     : undefined

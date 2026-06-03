@@ -1568,3 +1568,23 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 5. ✅ Tests updated for the new artifact (+ stale `/llms.txt` pass-through assertion corrected).
 
 **Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **102/102** (+3 net), `npm run build` clean (`/[slug]/llms.txt` + `Proxy (Middleware)` present).
+
+> **Deployed**: `f31ed31..dc76112` pushed to `origin/main`.
+
+---
+
+## 2026-06-03 Burst 9 — Domain-Level Branding Inheritance (C9+C10 synergy)
+
+**Finding**: branding (C10) was per-page. On a multi-page brand domain (C9), every sub-page needed its own branding set or it fell back to the Nexez default — inconsistent white-label.
+
+**IMPLEMENTED** (`app/[slug]/page.tsx`):
+- `resolveBranding(page, onCustomHost, domainPath)`: a sub-page on a custom domain with **no branding of its own** inherits the domain **root page's** (`domain_path='/'`) branding. Reuses the tested `normalizeBranding`/`hasBranding` pure helpers.
+- **Narrowly guarded**: the extra lookup fires only when `onCustomHost && domainPath !== '/' && !hasBranding(own) && page.custom_domain` — so platform pages, root pages, and already-branded pages pay nothing. Graceful fallback on error.
+
+**Mini-audit**:
+1. ✅ Query only in the narrow inheritance case (guards verified); no perf impact elsewhere.
+2. ✅ Reuses tested pure branding helpers.
+3. ✅ Graceful fallback to own (empty) branding on any error.
+4. ✅ build/lint/tsc/tests green.
+
+**Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **102/102**, `npm run build` clean.
