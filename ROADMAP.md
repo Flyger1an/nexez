@@ -1808,3 +1808,7 @@ Sequential verified bursts; roadmap updated per feature.
 ## A3 (receipts) ✅
 - Owner-authed receipt page `/dashboard/negotiations/[id]/receipt` rendering a clean, printable agreement record (offer, amount, buyer, terms, reference, status). "Receipt" link in the inbox for proposed/held/complete negotiations. Owner-scoped (RLS).
 - Verified: lint/tsc clean, build clean (`/dashboard/negotiations/[id]/receipt`).
+
+## A5 (badge verification) ✅
+- `/<slug>/badge.json` — machine-readable verification record (issuer: nexez, live readiness/trust, domain_verified, badge/page URLs). Referenced from the Settings badge snippet so third parties can confirm authenticity + current status.
+- Verified: lint/tsc clean, build clean (`/[slug]/badge.json`).

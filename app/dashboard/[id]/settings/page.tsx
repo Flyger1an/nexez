@@ -816,6 +816,9 @@ export default function PageSettings({ params }: PageProps) {
                 <img src={`${publicUrl}/badge.svg`} alt="Agent-Ready badge" className="mt-2 h-7" />
                 <pre className="mt-2 overflow-x-auto rounded bg-black/40 p-2 text-[10px] text-zinc-400">{`<a href="${publicUrl}"><img src="${publicUrl}/badge.svg" alt="Agent-Ready" height="28"></a>`}</pre>
                 <p className="mt-1 text-[10px] text-zinc-500">Put this on your human website to show you’re agent-ready and link buyers’ agents to this page.</p>
+                <p className="mt-1 text-[10px] text-zinc-500">
+                  Verify authenticity: <a href={`${publicUrl}/badge.json`} className="text-cyan-300 hover:underline">{`${publicUrl}/badge.json`}</a> (issuer, live readiness, verified status).
+                </p>
               </div>
             </div>
           </aside>
