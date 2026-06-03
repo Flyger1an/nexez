@@ -1812,3 +1812,7 @@ Sequential verified bursts; roadmap updated per feature.
 ## A5 (badge verification) ✅
 - `/<slug>/badge.json` — machine-readable verification record (issuer: nexez, live readiness/trust, domain_verified, badge/page URLs). Referenced from the Settings badge snippet so third parties can confirm authenticity + current status.
 - Verified: lint/tsc clean, build clean (`/[slug]/badge.json`).
+
+## A7 (drift detection) ✅
+- Freshness cron now re-fetches the stalest pages' source sites (bounded to 5/run via `analyzeSite`) and reports `drift_detected` when the source's offer count differs from the live page — **read-only, no blind overwrite**. Output feeds future notifications.
+- Verified: lint/tsc clean, build clean.
