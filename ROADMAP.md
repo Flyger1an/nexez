@@ -1661,3 +1661,18 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 - `components/ProfileSettings.tsx`: editable Profile card on `/dashboard/settings` (full name, company, industry; email read-only) persisting to `user_metadata` via `auth.updateUser`.
 - Dashboard header now greets the user by name ("Welcome back, …") from `user_metadata`.
 - Verified: lint/tsc clean, `npm test` 113/113, build clean (`/terms`, `/privacy` static).
+
+---
+
+## 2026-06-03 Activation — Onboarding Checklist (Phase 6 / time-to-value)
+
+**Why**: time-to-first-published-page is the key activation lever; this ties the whole platform (create → offers → publish → custom domain) into a guided getting-started flow and leverages the richer sign-up profile.
+
+**IMPLEMENTED**:
+- **`lib/onboarding.ts`** (pure, tested): `getOnboardingSteps(pages)` derives 4 steps (create page → add offers → publish → connect custom domain) with `done` flags + smart hrefs (first page editor/settings), and `onboardingProgress` (done/total/percent/complete).
+- **`components/OnboardingChecklist.tsx`**: progress bar + checklist on the dashboard, computed from the user's real pages; per-step CTA links; auto-hides when complete; dismissible (localStorage); Design-System gradient card.
+- Wired into `app/dashboard` above the hero.
+
+**Mini-audit**: ✅ step logic tested (+5) incl. hrefs + completion; ✅ component fed by live `pages` state; ✅ hides on complete/dismiss; ✅ build/lint/tsc clean.
+
+**Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **118/118** (+5), `npm run build` clean.

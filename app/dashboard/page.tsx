@@ -31,6 +31,7 @@ import {
 import { AgentVisit, getAgentTypeBreakdown, getTopPagesByAgentVisits, getTrafficSplit } from '../../lib/agent-visits'
 import { CheckoutEvent, getEventActionLabel } from '../../lib/checkout-events'
 import { createClient } from '../../utils/supabase/client'
+import { OnboardingChecklist } from '../../components/OnboardingChecklist'
 
 export default function Dashboard() {
   const [pages, setPages] = useState<AgentPage[]>([])
@@ -240,6 +241,7 @@ export default function Dashboard() {
           </header>
 
           <div className="px-5 py-6 md:px-8">
+            <OnboardingChecklist pages={pages} />
             <section className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
               <div className="relative p-6 md:p-8">
                 <div className="absolute right-8 top-8 hidden size-32 rounded-full bg-cyan-300/25 blur-3xl md:block" />
