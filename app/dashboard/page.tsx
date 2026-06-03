@@ -44,6 +44,7 @@ export default function Dashboard() {
   const [query, setQuery] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [sharedPages, setSharedPages] = useState<AgentPage[]>([])
 
   useEffect(() => {
     loadPages()
@@ -139,6 +140,29 @@ export default function Dashboard() {
       setAgentVisits([])
     } else {
       setAgentVisits(visitResult.data || [])
+    }
+
+    // Pages shared with me (team collaborator, by email match on a non-revoked invite).
+    try {
+      const { data: invites } = await supabase
+        .from('team_invites')
+        .select('owner_id')
+        .ilike('email', user.email ?? '')
+        .neq('status', 'revoked')
+      const ownerIds = [...new Set((invites ?? []).map((i) => i.owner_id as string))].filter((oid) => oid !== user.id)
+      if (ownerIds.length) {
+        const { data: shared } = await supabase
+          .from('pages')
+          .select(BASIC_OWNER_PAGE_SELECT)
+          .in('owner_id', ownerIds)
+          .order('created_at', { ascending: false })
+          .returns<AgentPage[]>()
+        setSharedPages(shared ?? [])
+      } else {
+        setSharedPages([])
+      }
+    } catch {
+      setSharedPages([])
     }
 
     // Count proposals that still need owner attention (graceful if table missing).
@@ -415,6 +439,30 @@ export default function Dashboard() {
                 </p>
               </div>
             ) : null}
+
+            {sharedPages.length > 0 && (
+              <div className="mt-10">
+                <h2 className="text-lg font-semibold text-cyan-200">Shared with me</h2>
+                <p className="mt-1 text-xs text-zinc-500">Pages a teammate invited you to. Editors can edit; viewers can open the public page.</p>
+                <section className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {sharedPages.map((sp) => (
+                    <div key={sp.id} className="card !p-5">
+                      <div className="flex items-center justify-between">
+                        <span className="truncate font-medium text-white">{sp.name}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-xs ${sp.is_published ? 'badge-published' : 'badge-draft'}`}>
+                          {sp.is_published ? 'Published' : 'Draft'}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-zinc-500">{getOfferCount(sp)} offers · readiness {getReadinessScore(sp)}</p>
+                      <div className="mt-3 flex gap-2 text-xs">
+                        <a href={`/dashboard/${sp.id}`} className="rounded border border-[#7C3AED]/40 px-3 py-1 text-[#C4B5FD] hover:bg-[#7C3AED]/10">Open</a>
+                        <a href={`/${sp.slug}`} target="_blank" rel="noreferrer" className="rounded border border-white/15 px-3 py-1 text-zinc-200 hover:bg-white/10">Public ↗</a>
+                      </div>
+                    </div>
+                  ))}
+                </section>
+              </div>
+            )}
           </div>
         </section>
       </div>

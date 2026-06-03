@@ -1816,3 +1816,9 @@ Sequential verified bursts; roadmap updated per feature.
 ## A7 (drift detection) ✅
 - Freshness cron now re-fetches the stalest pages' source sites (bounded to 5/run via `analyzeSite`) and reports `drift_detected` when the source's offer count differs from the live page — **read-only, no blind overwrite**. Output feeds future notifications.
 - Verified: lint/tsc clean, build clean.
+
+## B2 (team access enforcement) ✅
+- Migration `team_collaborator_page_access`: **additive** RLS (verified: 5 original + 2 new policies; owner access unchanged) — collaborators (email match on a non-revoked invite) can SELECT owner pages; `editor`-role collaborators can UPDATE.
+- Editor `loadPage` relaxed to load by id (RLS-governed) + explicit editor-collaborator check (viewers are redirected to the public page).
+- Dashboard "Shared with me" section lists pages a teammate invited you to (Open editor / Public).
+- Team seats are now functional end-to-end (invite → shared access → role-based edit). Verified: lint/tsc clean, build clean, 145/145.

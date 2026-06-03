@@ -231,17 +231,35 @@ export default function EditAgentPage({ params }: PageProps) {
       return
     }
 
+    // Load by id; RLS allows owner + collaborators (+ public for published).
     const { data, error } = await supabase
       .from('pages')
       .select(OWNER_PAGE_SELECT)
       .eq('id', pageId)
-      .eq('owner_id', user.id)
-      .single<AgentPage>()
+      .maybeSingle<AgentPage>()
 
 	    if (error || !data) {
 	      setMessage('Page not found, or you do not have access to edit it.')
 	      setLoading(false)
 	      return
+	    }
+
+	    // Editing requires ownership OR an editor-role team invite (RLS enforces
+	    // saves too; this gives a clear message + avoids loading the editor for
+	    // someone who only reached a published page via public read).
+	    if (data.owner_id !== user.id) {
+	      const { data: invites } = await supabase
+	        .from('team_invites')
+	        .select('role')
+	        .eq('owner_id', data.owner_id as string)
+	        .ilike('email', user.email ?? '')
+	        .neq('status', 'revoked')
+	        .limit(1)
+	      if (invites?.[0]?.role !== 'editor') {
+	        setMessage('You have view-only access to this page. Opening the public view instead…')
+	        window.location.href = `/${data.slug}`
+	        return
+	      }
 	    }
 
 	    const { data: secrets } = await supabase
