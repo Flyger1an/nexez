@@ -1804,3 +1804,7 @@ Sequential verified bursts; roadmap updated per feature.
 ## B7 (rate limiting) ✅
 - `lib/rate-limit.ts` (pure, tested): fixed-window limiter + `enforceRateLimit` (429 + Retry-After). Applied: `/api/checkout` (30/min), `/api/negotiations` (20/min), `/api/crawlability` (10/min), `/api/v1/pages` (60/min GET, 30/min POST). Per-instance in-memory (note: back with Redis for strict global limits).
 - Verified: lint/tsc clean, `npm test` 145/145, build clean.
+
+## A3 (receipts) ✅
+- Owner-authed receipt page `/dashboard/negotiations/[id]/receipt` rendering a clean, printable agreement record (offer, amount, buyer, terms, reference, status). "Receipt" link in the inbox for proposed/held/complete negotiations. Owner-scoped (RLS).
+- Verified: lint/tsc clean, build clean (`/dashboard/negotiations/[id]/receipt`).

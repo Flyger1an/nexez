@@ -304,6 +304,14 @@ function NegotiationCard({
             </button>
           ))
         )}
+        {(item.status === 'agreement_proposed' || item.status === 'held' || item.status === 'complete') && (
+          <a
+            href={`/dashboard/negotiations/${item.id}/receipt`}
+            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-white/15 px-3 text-xs font-medium text-zinc-200 transition hover:bg-white/10"
+          >
+            Receipt
+          </a>
+        )}
       </div>
     </div>
   )
