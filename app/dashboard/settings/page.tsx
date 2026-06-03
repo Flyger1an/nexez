@@ -13,6 +13,7 @@ import { cookies } from 'next/headers'
 import { AgentPage, OWNER_PAGE_SELECT, getBaseUrl, getOfferCount, getReadinessScore } from '../../../lib/agent-page'
 import { createClient } from '../../../utils/supabase/server'
 import { ProfileSettings } from '../../../components/ProfileSettings'
+import { AccountDataControls } from '../../../components/AccountDataControls'
 
 const schemaSignals = [
   ['WebPage', 'Public page identity and canonical URL'],
@@ -100,6 +101,7 @@ export default async function AccountSettingsPage() {
               initialCompany={(user.user_metadata?.company as string) ?? ''}
               initialIndustry={(user.user_metadata?.industry as string) ?? ''}
             />
+            <AccountDataControls email={user.email ?? ''} />
             <section className="card !p-5">
               <div className="flex items-center gap-2">
                 <Search className="size-5 text-cyan-200" />

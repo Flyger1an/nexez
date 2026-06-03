@@ -1709,6 +1709,21 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 
 ---
 
+## 2026-06-03 Account Deletion + Data Export (privacy compliance)
+
+**Why**: backs the rights stated in the Privacy Policy we just published (access/export + delete).
+
+**IMPLEMENTED**:
+- **`GET /api/account/export`** (authed, RLS-scoped): downloads a JSON of the user's account profile, pages, checkout_events, agent_visits, negotiations, and API-key metadata. **Secrets excluded** (no key_hash, no webhook secrets).
+- **`POST /api/account/delete`** (authed + admin-gated): target is **always the session user** (never from the body); performs explicit owner-scoped deletes across all tenant tables, then `auth.admin.deleteUser`. Returns 503 if the service role key isn't configured.
+- **`components/AccountDataControls.tsx`** on `/dashboard/settings`: "Export my data (JSON)" + a Danger Zone delete requiring the user to **type their email** to confirm; signs out + redirects home on success.
+
+**Mini-audit**: ✅ export owner-scoped + secret-free; ✅ delete only ever targets the session user (no body-supplied id) + admin-gated; ✅ UI type-to-confirm; ✅ build/lint/tsc clean, 118/118.
+
+**Verification**: eslint/tsc clean, `npm test` 118/118, build clean (`/api/account/export`, `/api/account/delete`).
+
+---
+
 ## 2026-06-03 A/B Offer Testing — Duplicate-as-Variant (Phase 6)
 
 **Approach (non-redundant)**: Analytics already ships "Conversion Rate Leaders" per offer, so the missing piece was the ability to spin up a variant. Added a one-click **Duplicate** action per offer in `VisualOfferBuilder` (inserts `… (Variant B)` right after the original). Owners then compare A vs B in Analytics by conversion rate — no new analytics surface, no schema change, no public-serving changes.
