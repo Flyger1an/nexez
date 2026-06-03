@@ -13,6 +13,48 @@
  */
 
 import type { OfferItem } from './agent-page'
+import { isLlmConfigured, llmComplete } from './llm'
+
+/**
+ * Phase 6: optional LLM fallback for ambiguous pages. Strips the page to text
+ * and asks the model to extract offers as JSON. Dormant unless LLM_API_KEY is
+ * set; always best-effort (returns [] on any failure).
+ */
+export async function llmExtractOffers(html: string, industry?: string | null): Promise<OfferItem[]> {
+  if (!isLlmConfigured()) return []
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 6000)
+  if (text.length < 80) return []
+
+  const out = await llmComplete(
+    `Extract the products or services this business offers from the page text below. Return ONLY a JSON array of objects with keys: name, price (string, "" if unknown), description (one sentence). Max 8 items. Do not invent offerings.\n\nPage text:\n${text}`,
+    { system: 'You extract structured offer data from web pages for AI agents. Output strictly valid JSON, nothing else.', maxTokens: 700, temperature: 0.2 },
+  )
+  if (!out) return []
+  try {
+    const json = out.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim()
+    const parsed = JSON.parse(json)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((o) => o && typeof o.name === 'string' && o.name.trim())
+      .slice(0, 8)
+      .map((o) => ({
+        name: String(o.name).trim().slice(0, 120),
+        price: typeof o.price === 'string' ? o.price.slice(0, 40) : '',
+        description: typeof o.description === 'string' ? o.description.slice(0, 300) : '',
+        url: '',
+        source: 'llm',
+        confidence: 0.7,
+      }))
+  } catch {
+    return []
+  }
+}
 
 export type ImportResult = {
   title: string
@@ -447,6 +489,16 @@ export async function analyzeSite(url: string, industry?: string | null): Promis
     const pageLinks = extractBookingLinks(html, u)
     pageLinks.forEach((v, k) => links.set(k, v))
     rich = mergeOffers(rich, [...ld, ...heur])
+  }
+
+  // Phase 6: LLM fallback when deterministic extraction is weak (gated on LLM_API_KEY).
+  if (rich.length < 2 && isLlmConfigured()) {
+    try {
+      const llmOffers = await llmExtractOffers(primary.html, industry)
+      if (llmOffers.length) rich = mergeOffers(rich, llmOffers)
+    } catch {
+      // best-effort — deterministic result stands
+    }
   }
 
   // Attach booking links

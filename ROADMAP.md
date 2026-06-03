@@ -1841,3 +1841,7 @@ Sequential verified bursts; roadmap updated per feature.
 ## LLM-assist wired end-to-end (closes B4 UI gap)
 - VisualOfferBuilder "Enhance" now calls `/api/ai/enhance` (passing `pageId`): real LLM when `LLM_API_KEY` is set **and** the page opted in, else deterministic; graceful local fallback + loading state. Editor passes `pageId` to both builders.
 - Verified: lint/tsc clean, `npm test` 149/149, build clean.
+
+## Importer LLM fallback (Phase 6 item, now feasible)
+- `llmExtractOffers` (tested gating): when deterministic extraction yields <2 offers AND `LLM_API_KEY` is set, the importer strips the page to text and asks the model for offers (strict JSON), merging results with `source: 'llm'`. Dormant + best-effort otherwise. Directly improves the flagship importer on ambiguous/JS-heavy pages.
+- Verified: lint/tsc clean, `npm test` 151/151, build clean.
