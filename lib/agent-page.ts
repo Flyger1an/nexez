@@ -41,6 +41,8 @@ export const OWNER_PAGE_SELECT = [
   'simulations',
   'team_collaboration',
   'versions',
+  'draft',
+  'draft_updated_at',
 ].join(', ')
 
 export const BASIC_OWNER_PAGE_SELECT = [
@@ -122,6 +124,8 @@ export type AgentPage = {
   custom_domain_verified?: boolean | string | null  // Phase 5: timestamp or true when DNS verified
   domain_path?: string | null  // C9: path this page serves at on its custom_domain ("/" or "/pricing")
   branding?: Record<string, unknown> | null  // C10: white-label branding (accent_color, logo_url, brand_name, hide_nexez_badge)
+  draft?: Record<string, unknown> | null  // D12: staged content (owner-only); promoted to live on publish
+  draft_updated_at?: string | null
   domain_verification_token?: string | null
   calendly_webhook_secret?: string | null
   outbound_webhooks?: Array<string | { url: string; secret?: string | null }> | null

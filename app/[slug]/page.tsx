@@ -2,7 +2,9 @@ import type { Metadata } from 'next'
 import type { CSSProperties } from 'react'
 import { after } from 'next/server'
 import { notFound } from 'next/navigation'
-import { headers } from 'next/headers'
+import { headers, cookies } from 'next/headers'
+import { createClient as createServerClient } from '../../utils/supabase/server'
+import { applyDraftOverlay } from '../../lib/draft'
 import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, LockKeyhole, Mail, MapPin } from 'lucide-react'
 import { AgentPage, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, getBaseUrl, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
@@ -14,7 +16,7 @@ import { supabase } from '../../lib/supabase'
 
 type PageProps = {
   params: Promise<{ slug: string }>
-  searchParams?: Promise<{ negotiation?: string }>
+  searchParams?: Promise<{ negotiation?: string; preview?: string }>
 }
 
 async function getPage(slug: string) {
@@ -64,8 +66,36 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function AgentPageRoute({ params, searchParams }: PageProps) {
   const { slug } = await params
-  const negotiationParam = (await searchParams)?.negotiation
-  const page = await getPage(slug)
+  const sp = await searchParams
+  const negotiationParam = sp?.negotiation
+  let page = await getPage(slug)
+  let previewing = false
+
+  // D12 staging: owner-only draft preview. Renders the staged draft overlaid on
+  // the page (works even if unpublished). Never exposed to anonymous visitors.
+  if (sp?.preview === '1') {
+    try {
+      const cookieStore = await cookies()
+      const authed = createServerClient(cookieStore)
+      const {
+        data: { user },
+      } = await authed.auth.getUser()
+      if (user) {
+        const { data: ownerPage } = await authed
+          .from('pages')
+          .select(`${PUBLIC_PAGE_SELECT}, draft`)
+          .eq('slug', slug)
+          .eq('owner_id', user.id)
+          .maybeSingle<AgentPage & { draft?: Record<string, unknown> | null }>()
+        if (ownerPage) {
+          page = applyDraftOverlay(ownerPage as Record<string, unknown>, ownerPage.draft) as unknown as AgentPage
+          previewing = true
+        }
+      }
+    } catch {
+      // fall back to the public/live page on any auth/db error
+    }
+  }
 
   if (!page) {
     notFound()
@@ -85,7 +115,10 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
   const mcpJsonHref = agentArtifactHref('mcp.json', page.slug, onCustomHost, domainPath)
   const selfUrl = onCustomHost ? `${effectiveBase}${domainPath}` : `${effectiveBase}/${page.slug}`
   const visitUrl = selfUrl
-  after(() => logAgentPageView({ page, requestHeaders, url: visitUrl }))
+  // Don't log owner draft-previews as real agent traffic.
+  if (!previewing) {
+    after(() => logAgentPageView({ page, requestHeaders, url: visitUrl }))
+  }
 
   // Live events for accurate Trust Score completion rate (attempts vs real bookings)
   let trustEvents: any[] = []
@@ -126,6 +159,11 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
 	      />
 
       <div className="mx-auto max-w-5xl px-6 py-10">
+        {previewing && (
+          <div className="mb-4 rounded-lg border border-amber-300/40 bg-amber-400/10 px-4 py-2 text-sm text-amber-200">
+            Draft preview — this is staged content, not the live page. Publish from the editor to go live.
+          </div>
+        )}
         {showBrand ? (
           // White-label header: show the brand instead of the Nexez back-link.
           <div className="inline-flex items-center gap-2">

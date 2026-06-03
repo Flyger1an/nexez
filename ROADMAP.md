@@ -1524,3 +1524,27 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 **Honest scope note**: this delivers **D13 (deployment timeline + rollback)** plus the "what's live now" clarity. Full **D12 (staging → live: preview a draft before it goes live)** still needs draft/live content separation (a draft column + publish-promotes-draft flow) — a larger change deferred as the next D-tier step. Today, editing a published page is immediately live; rollback is the safety net.
 
 **Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **94/94** (+7), `npm run build` clean.
+
+> **Deployed**: C9 + C10 + D-tier pushed to `origin/main` (`0344a1e`); Vercel auto-deploy triggered.
+
+---
+
+## 2026-06-03 Burst 7 — D12: Staging (Draft → Preview → Publish)
+
+**IMPLEMENTED — the remaining D-tier piece; finishes draft/live separation**:
+- **Migration** `20260603180000_add_page_draft_staging.sql` (applied to prod): `pages.draft jsonb` + `draft_updated_at`.
+- **`lib/draft.ts`** (pure, tested): `hasPendingDraft`, `applyDraftOverlay` (overlays only provided draft fields onto a live page for preview), `draftToLiveUpdate` (maps a draft to the live-column update on publish).
+- **Editor** (additive — existing live "Save" untouched): "Save as draft" (stages current edits into `draft` without touching live), a "Draft staged — not live yet" indicator with **Preview draft ↗** (`/<slug>?preview=1`) and **Publish draft → live** (promotes draft to live columns + clears draft).
+- **Public page** `?preview=1`: owner-only draft preview — authenticates via the server client, verifies `owner_id`, overlays the draft (works even if unpublished), shows a "Draft preview — not live" banner, and **skips analytics logging**. Anonymous/non-owner requests ignore the flag and get the live page.
+- **`draft`/`draft_updated_at`** added to `OWNER_PAGE_SELECT` + `AgentPage` type — **deliberately NOT in `PUBLIC_PAGE_SELECT`**, so drafts are never in anonymous reads.
+
+**Mini-audit (properly plugged in?)**:
+1. ✅ `draft` excluded from `PUBLIC_PAGE_SELECT` (verified) — drafts owner-only; preview query is `owner_id`-scoped under RLS.
+2. ✅ Preview requires `?preview=1` + authenticated owner; others fall through to live.
+3. ✅ Editor staging handlers + buttons wired; existing live Save path unchanged (additive).
+4. ✅ Preview skips visit logging (not counted as agent traffic).
+5. ✅ Pure helpers tested (+5).
+
+**Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **99/99** (+5), `npm run build` clean (`Proxy (Middleware)` present).
+
+**Custom-domain objective: A1–A3 ✅ · B5–B6 ✅ · C9–C10 ✅ · D12–D13 ✅ — the full approved sequence is delivered.**

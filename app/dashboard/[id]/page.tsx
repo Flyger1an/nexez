@@ -16,6 +16,7 @@ import {
   parseOfferLines,
   parseAvailabilityWindows,
 } from '../../../lib/agent-page'
+import { draftToLiveUpdate, hasPendingDraft } from '../../../lib/draft'
 import { optimizeAllOffersForAgents, enhanceDescriptionForAgents } from '../../../lib/ai-optimize'
 import { AICoPilot } from '../../../components/AICoPilot'
 import { VisualOfferBuilder } from '../../../components/VisualOfferBuilder'
@@ -607,6 +608,64 @@ export default function EditAgentPage({ params }: PageProps) {
       setMessage('Saved. Edit queued as team approval request (see Settings). Version snapshot created.')
     } else {
       setMessage('Saved. Version snapshot created.')
+    }
+  }
+
+  // D12 staging: build the current editor content as a draft object.
+  function currentDraftContent() {
+    return {
+      name,
+      description,
+      services: servicesOffers.length ? servicesOffers : parseOfferLines(services),
+      products: productsOffers.length ? productsOffers : parseOfferLines(products),
+      faqs: parseFaqLines(faqs),
+      industry,
+      prefer_original_site: preferOriginalSite,
+    }
+  }
+
+  // Save current edits as a draft (staged) WITHOUT touching the live page.
+  async function handleSaveDraft() {
+    if (!page) return
+    setSaving(true)
+    setMessage('')
+    const supabase = createClient()
+    const draft = currentDraftContent()
+    const draftUpdatedAt = new Date().toISOString()
+    const { error } = await supabase
+      .from('pages')
+      .update({ draft, draft_updated_at: draftUpdatedAt })
+      .eq('id', page.id)
+    setSaving(false)
+    if (error) {
+      setMessage(error.message)
+    } else {
+      setPage({ ...(page as any), draft, draft_updated_at: draftUpdatedAt } as any)
+      setMessage('Draft saved (staged). Preview it on your page, then Publish to go live.')
+    }
+  }
+
+  // Promote the stored draft to the live page columns and clear the draft.
+  async function handlePublishDraft() {
+    if (!page) return
+    const draft = (page as any).draft
+    if (!draft) {
+      setMessage('No draft to publish.')
+      return
+    }
+    setSaving(true)
+    setMessage('')
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('pages')
+      .update({ ...draftToLiveUpdate(draft), draft: null, draft_updated_at: null })
+      .eq('id', page.id)
+    setSaving(false)
+    if (error) {
+      setMessage(error.message)
+    } else {
+      setPage({ ...(page as any), ...draftToLiveUpdate(draft), draft: null, draft_updated_at: null } as any)
+      setMessage('Draft published to live. Your custom domain now serves the new content.')
     }
   }
 
@@ -1470,6 +1529,48 @@ export default function EditAgentPage({ params }: PageProps) {
               {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
               {saving ? 'Saving...' : 'Save changes'}
             </button>
+
+            {/* D12 staging: draft → preview → publish (live save above stays unchanged) */}
+            <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.02] p-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-zinc-300">
+                  Staging: save a draft, preview it on your page, then publish to live.
+                </p>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={handleSaveDraft}
+                  className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-zinc-200 hover:bg-white/10 disabled:opacity-50"
+                >
+                  Save as draft
+                </button>
+              </div>
+              {hasPendingDraft(page) && (
+                <div className="mt-2 flex flex-col gap-2 rounded border border-amber-300/30 bg-amber-400/5 p-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-[11px] text-amber-200">
+                    Draft staged{(page as any)?.draft_updated_at ? ` ${new Date((page as any).draft_updated_at).toLocaleString()}` : ''} — not live yet.
+                  </span>
+                  <span className="flex gap-2">
+                    <a
+                      href={`/${slug}?preview=1`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded border border-cyan-300/40 px-3 py-1 text-[11px] text-cyan-100 hover:bg-cyan-300/10"
+                    >
+                      Preview draft ↗
+                    </a>
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={handlePublishDraft}
+                      className="rounded border border-emerald-300/40 px-3 py-1 text-[11px] text-emerald-100 hover:bg-emerald-300/10 disabled:opacity-50"
+                    >
+                      Publish draft → live
+                    </button>
+                  </span>
+                </div>
+              )}
+            </div>
           </form>
         </div>
       </div>
