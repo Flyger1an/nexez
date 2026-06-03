@@ -1503,4 +1503,24 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 
 **Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **87/87** (+8), `npm run build` clean.
 
-> Note: C10 (with the `branding` migration, already applied to the live DB) is committed locally below but the deploy above covered through C9; C10 code is not yet pushed.
+> Note: C10 committed locally (`5430b75`); the `branding` migration is applied to the live DB. Push pending a fresh GitHub credential (old tokens were deleted/rotated).
+
+---
+
+## 2026-06-03 Burst 6 — D-tier: Deployments Timeline + Rollback (D12/D13)
+
+**Approach**: built on the existing `versions` snapshot mechanism (snapshot-on-save, newest-first, last 10) — no new storage, no migration, no duplication of the editor save path.
+
+**IMPLEMENTED**:
+- **`lib/deployments.ts`** (pure, tested): `countVersionOffers`, `summarizeDeployments` (marks index 0 as the live/current deployment), `describeDeploymentChange` (diff vs the previous deployment — offers/FAQs/name/prefer-original/description), `deploymentChangeAt`.
+- **Settings "Deployments" panel** (replaces the old raw "Version History" list): each save shown as a deployment with timestamp, offer count, a human-readable change summary, a **"Live now"** badge on the current one, and **"Roll back"** on older ones (reuses the existing restore→editor→Save flow, which re-publishes live incl. on the custom domain).
+
+**Mini-audit (properly plugged in?)**:
+1. ✅ Pure helpers tested (+7) — current marker, offer counts, change diffs, initial-deployment label.
+2. ✅ Settings panel renders via `summarizeDeployments` + `deploymentChangeAt`; "Live now" marks index 0; rollback wired to the existing, working restore mechanism.
+3. ✅ No new storage/migration; no duplication of the complex save logic (rollback reuses restore).
+4. ✅ Build/lint/tsc clean.
+
+**Honest scope note**: this delivers **D13 (deployment timeline + rollback)** plus the "what's live now" clarity. Full **D12 (staging → live: preview a draft before it goes live)** still needs draft/live content separation (a draft column + publish-promotes-draft flow) — a larger change deferred as the next D-tier step. Today, editing a published page is immediately live; rollback is the safety net.
+
+**Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **94/94** (+7), `npm run build` clean.

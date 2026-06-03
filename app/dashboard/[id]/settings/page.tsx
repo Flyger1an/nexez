@@ -18,6 +18,7 @@ import {
 import { AgentPage, OWNER_PAGE_SELECT, getBaseUrl, normalizeSlug } from '../../../../lib/agent-page'
 import { normalizeDomainPath } from '../../../../lib/custom-domain'
 import { normalizeBranding } from '../../../../lib/branding'
+import { deploymentChangeAt, summarizeDeployments } from '../../../../lib/deployments'
 import { buildAgentPagePayload, getAgentJsonPath } from '../../../../lib/agent-manifest'
 import { createClient } from '../../../../utils/supabase/client'
 
@@ -936,36 +937,60 @@ export default function PageSettings({ params }: PageProps) {
                 {saving ? 'Saving...' : 'Save settings'}
               </button>
 
-              {/* Phase 4 MVP: Versioning stub UI */}
+              {/* D-tier: Deployments timeline + rollback (built on version snapshots) */}
               {(page as any)?.versions?.length > 0 && (
                 <div className="mt-8 rounded-lg border border-white/10 bg-white/[0.02] p-5">
                   <div className="flex items-center gap-2 mb-3">
                     <History className="size-4 text-[#7C3AED]" />
-                    <span className="font-semibold">Page Version History (MVP)</span>
-                    <span className="text-[10px] text-zinc-500">Last 10 saves</span>
+                    <span className="font-semibold">Deployments</span>
+                    <span className="text-[10px] text-zinc-500">Last 10 saves · newest first</span>
                   </div>
-                  <div className="space-y-2 max-h-64 overflow-auto text-sm">
-                    {(page as any).versions.map((v: any, idx: number) => (
-                      <div key={idx} className="flex items-center justify-between rounded border border-white/10 bg-black/20 p-2">
-                        <div>
-                          <div className="text-zinc-200">{v.name}</div>
-                          <div className="text-[10px] text-zinc-500">{new Date(v.timestamp).toLocaleString()}</div>
+                  <div className="space-y-2 max-h-72 overflow-auto text-sm">
+                    {summarizeDeployments((page as any).versions).map((d) => (
+                      <div
+                        key={d.index}
+                        className={`flex items-center justify-between rounded border p-2 ${
+                          d.isCurrent ? 'border-emerald-300/30 bg-emerald-300/5' : 'border-white/10 bg-black/20'
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate text-zinc-200">{d.name}</span>
+                            {d.isCurrent ? (
+                              <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[9px] text-emerald-200">
+                                Live now
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="text-[10px] text-zinc-500">
+                            {new Date(d.timestamp).toLocaleString()} · {d.offerCount} offer
+                            {d.offerCount === 1 ? '' : 's'} · {deploymentChangeAt((page as any).versions, d.index)}
+                          </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            // MVP restore: put snapshot into session + redirect to editor with flag
-                            sessionStorage.setItem('nexez_restore_version', JSON.stringify(v))
-                            window.location.href = `/dashboard/${id}?restore=true`
-                          }}
-                          className="text-xs rounded border border-white/20 px-3 py-1 hover:bg-white/10"
-                        >
-                          Restore
-                        </button>
+                        {d.isCurrent ? (
+                          <span className="text-[10px] text-zinc-500">current</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              sessionStorage.setItem(
+                                'nexez_restore_version',
+                                JSON.stringify((page as any).versions[d.index]),
+                              )
+                              window.location.href = `/dashboard/${id}?restore=true`
+                            }}
+                            className="shrink-0 text-xs rounded border border-white/20 px-3 py-1 hover:bg-white/10"
+                          >
+                            Roll back
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
-                  <p className="mt-2 text-[10px] text-zinc-500">Restoring loads the old offers + metadata into the editor for review and re-save.</p>
+                  <p className="mt-2 text-[10px] text-zinc-500">
+                    Each save is a deployment snapshot. “Roll back” loads that deployment’s offers + metadata
+                    into the editor to review, then Save re-publishes it live (incl. on your custom domain).
+                  </p>
                 </div>
               )}
 
