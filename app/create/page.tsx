@@ -109,6 +109,7 @@ export default function CreatePage() {
 
   const [loading, setLoading] = useState(false)
   const [publishedSlug, setPublishedSlug] = useState('')
+  const [needsAuth, setNeedsAuth] = useState(false)
   const [importMessage, setImportMessage] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [stripeImportOpen, setStripeImportOpen] = useState(false)
@@ -180,6 +181,33 @@ export default function CreatePage() {
         }
       }
     }
+
+    // Restore an in-progress page saved before a sign-in prompt (so a visitor's
+    // work survives the round-trip to /login and back).
+    const pending = sessionStorage.getItem('nexez_pending_page')
+    if (pending) {
+      try {
+        const d = JSON.parse(pending)
+        if (d.name) setName(d.name)
+        if (d.slug) setSlug(d.slug)
+        if (d.description) setDescription(d.description)
+        if (d.websiteUrl) setWebsiteUrl(d.websiteUrl)
+        if (d.ctaUrl) setCtaUrl(d.ctaUrl)
+        if (d.ctaLabel) setCtaLabel(d.ctaLabel)
+        if (d.audience) setAudience(d.audience)
+        if (d.location) setLocation(d.location)
+        if (d.contactEmail) setContactEmail(d.contactEmail)
+        if (d.industry) setIndustry(d.industry)
+        if (d.services) setServices(d.services)
+        if (d.products) setProducts(d.products)
+        if (d.faqs) setFaqs(d.faqs)
+        if (Array.isArray(d.servicesOffers)) setServicesOffers(d.servicesOffers)
+        if (Array.isArray(d.productsOffers)) setProductsOffers(d.productsOffers)
+      } catch {
+        // ignore malformed draft
+      }
+      sessionStorage.removeItem('nexez_pending_page')
+    }
   }, [])
 
   const handleSubmit = async () => {
@@ -192,7 +220,21 @@ export default function CreatePage() {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      window.location.href = '/login?next=/create'
+      // Visitor built a page but isn't signed in — preserve their work and
+      // prompt them to create an account / sign in before it goes live.
+      try {
+        sessionStorage.setItem(
+          'nexez_pending_page',
+          JSON.stringify({
+            name, slug, description, websiteUrl, ctaUrl, ctaLabel, audience, location, contactEmail, industry,
+            services, products, faqs, servicesOffers, productsOffers,
+          }),
+        )
+      } catch {
+        // sessionStorage unavailable — proceed to prompt anyway
+      }
+      setNeedsAuth(true)
+      setLoading(false)
       return
     }
 
@@ -478,6 +520,28 @@ export default function CreatePage() {
   return (
     <ErrorBoundary>
     <main className="min-h-screen bg-[#0A0A0F] text-white">
+      {needsAuth && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="card w-full max-w-md !p-7 text-center">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#7C3AED] to-[#00F5FF] text-lg font-bold text-[#0A0A0F]">N</div>
+            <h2 className="mt-4 text-2xl font-semibold">Create a free account to publish</h2>
+            <p className="mt-2 text-sm leading-6 text-zinc-400">
+              Your page is saved. Sign in or create an account to publish it and unlock your dashboard, analytics, and custom domains.
+            </p>
+            <div className="mt-6 flex flex-col gap-2">
+              <a href="/login?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-gradient-to-r from-[#7C3AED] to-[#00F5FF] px-5 font-medium text-[#0A0A0F] hover:opacity-90">
+                Create account
+              </a>
+              <a href="/login?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-white/15 px-5 text-sm font-medium text-white hover:bg-white/5">
+                I already have an account — sign in
+              </a>
+              <button type="button" onClick={() => setNeedsAuth(false)} className="mt-1 text-xs text-zinc-500 hover:text-zinc-300">
+                Keep editing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="mx-auto max-w-6xl px-6 py-8">
         <input
           ref={fileInputRef}

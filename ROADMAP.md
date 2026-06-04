@@ -1886,3 +1886,15 @@ Sequential verified bursts; roadmap updated per feature.
 
 ## Instant loading skeletons (perceived perf)
 - Added `app/dashboard/loading.tsx` (covers the whole authed section) and `app/directory/loading.tsx` — App Router Suspense shows them instantly on navigation, so heavy client/server routes feel responsive while data loads.
+
+---
+
+# Auth-gating flow (2026-06-03)
+
+**Problem**: visitors could reach the dashboard menu/routes without an account (features silently failed via RLS).
+
+**IMPLEMENTED**:
+- **Server-side gate (middleware)**: `updateSession` now redirects unauthenticated requests to `/dashboard` and all sub-routes → `/login?next=…`. No flash, no access. Public surfaces (`/`, `/create`, `/marketplace`, `/directory`, `/leaderboard`, `/simulator`, `/support`, public pages) stay open.
+- **Auth-aware shell**: `PlatformShell` hides dashboard nav items from anonymous users (shows only public items until auth resolves — no menu flash) and swaps the owner search + sign-out for a Sign-in CTA.
+- **Create flow**: visitors can build a page; on Publish, if not signed in, their work is saved to sessionStorage and a "Create a free account to publish" modal appears (Create account / Sign in / Keep editing). On return to `/create`, the draft is restored and they can publish.
+- Verified: lint/tsc clean, `npm test` 173/173, build clean.

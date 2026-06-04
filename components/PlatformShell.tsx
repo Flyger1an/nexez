@@ -53,11 +53,32 @@ const navItems = [
 export default function PlatformShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const [authed, setAuthed] = useState<boolean | null>(null)
 
   useEffect(() => {
     const stored = window.localStorage.getItem('nexez-sidebar-collapsed')
     if (stored) setCollapsed(stored === 'true')
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    createClient()
+      .auth.getUser()
+      .then(({ data }) => {
+        if (!cancelled) setAuthed(Boolean(data.user))
+      })
+      .catch(() => {
+        if (!cancelled) setAuthed(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Dashboard items (href under /dashboard) only appear for signed-in users.
+  // Public items (Create, Marketplace, Directory, Leaderboard, Simulator, Support)
+  // always show. Until auth resolves, show only public items (no flash of the menu).
+  const visibleNav = navItems.filter((item) => !item.href.startsWith('/dashboard') || authed === true)
 
   function toggleCollapsed() {
     setCollapsed((current) => {
@@ -93,7 +114,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
           </div>
 
           <nav className="grid grid-cols-5 gap-1 px-2 py-2 lg:block lg:space-y-1 lg:p-3">
-            {navItems.map((item) => (
+            {visibleNav.map((item) => (
               <ShellNavItem key={item.href} {...item} collapsed={collapsed} pathname={pathname} />
             ))}
           </nav>
@@ -124,21 +145,30 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
                   New
                 </a>
               </div>
-              <QuickPageSearch />
+              {authed ? <QuickPageSearch /> : <div className="flex-1" />}
               <div className="hidden items-center gap-2 xl:flex">
                 <a href="/create" className="inline-flex h-9 items-center gap-2 rounded-md bg-white px-3 text-sm font-medium text-black hover:bg-zinc-200">
                   <Plus className="size-4" />
                   New Page
                 </a>
-                <form action="/auth/signout" method="post">
-                  <button
-                    type="submit"
-                    aria-label="Sign out"
-                    className="inline-flex size-9 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-white/5 hover:text-white"
+                {authed ? (
+                  <form action="/auth/signout" method="post">
+                    <button
+                      type="submit"
+                      aria-label="Sign out"
+                      className="inline-flex size-9 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-white/5 hover:text-white"
+                    >
+                      <LogOut className="size-4" />
+                    </button>
+                  </form>
+                ) : (
+                  <a
+                    href="/login"
+                    className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm font-medium text-white hover:bg-white/5"
                   >
-                    <LogOut className="size-4" />
-                  </button>
-                </form>
+                    Sign in
+                  </a>
+                )}
               </div>
             </div>
           </header>
