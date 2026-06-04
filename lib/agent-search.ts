@@ -6,6 +6,7 @@ import {
   getCheckoutOffers,
   getCheckoutPath,
   getOfferDestination,
+  getReadinessScore,
 } from './agent-page'
 import { getAgentJsonPath } from './agent-manifest'
 
@@ -48,10 +49,13 @@ export type AgentSearchResult = {
 
 export function searchAgentPages(pages: AgentPage[], query: string, limit = 10) {
   const tokens = tokenize(query)
-  const results: AgentSearchResult[] = []
+  // Track readiness alongside each result so ties break toward higher-quality
+  // pages (quality-aware discovery) without distorting the relevance score.
+  const scored: { result: AgentSearchResult; readiness: number }[] = []
 
   for (const page of pages) {
     const offers = getCheckoutOffers(page)
+    const readiness = getReadinessScore(page)
     const pageScore = scoreText(
       tokens,
       [page.name, page.slug, page.description, page.audience, page.location, page.contact_email].join(' '),
@@ -59,7 +63,7 @@ export function searchAgentPages(pages: AgentPage[], query: string, limit = 10) 
 
     if (!offers.length) {
       if (pageScore > 0 || !tokens.length) {
-        results.push(buildResult(page, null, pageScore || 1))
+        scored.push({ result: buildResult(page, null, pageScore || 1), readiness })
       }
       continue
     }
@@ -68,14 +72,20 @@ export function searchAgentPages(pages: AgentPage[], query: string, limit = 10) 
       const offerScore = scoreOffer(tokens, page, offer)
 
       if (offerScore > 0 || !tokens.length) {
-        results.push(buildResult(page, offer, offerScore || pageScore || 1))
+        scored.push({ result: buildResult(page, offer, offerScore || pageScore || 1), readiness })
       }
     }
   }
 
-  return results
-    .sort((a, b) => b.score - a.score || a.page.name.localeCompare(b.page.name))
+  return scored
+    .sort(
+      (a, b) =>
+        b.result.score - a.result.score ||
+        b.readiness - a.readiness ||
+        a.result.page.name.localeCompare(b.result.page.name),
+    )
     .slice(0, Math.max(1, Math.min(limit, 50)))
+    .map((s) => s.result)
 }
 
 function buildResult(page: AgentPage, offer: CheckoutOffer | null, score: number): AgentSearchResult {
