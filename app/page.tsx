@@ -1,4 +1,15 @@
-import { ArrowRight, Bot, Gauge, Globe2, Search, TrendingUp, ShieldCheck, Sparkles } from 'lucide-react'
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Bot,
+  Globe2,
+  TrendingUp,
+  ShieldCheck,
+  Sparkles,
+  Code2,
+  CheckCircle2,
+  Layers,
+} from 'lucide-react'
 import type { ComponentType } from 'react'
 import { cookies } from 'next/headers'
 import { AgentPage, PUBLIC_PAGE_SELECT, getOfferCount, getReadinessScore } from '../lib/agent-page'
@@ -11,29 +22,6 @@ type Feature = {
   copy: string
   Icon: ComponentType<{ className?: string }>
 }
-
-const features: Feature[] = [
-  {
-    title: 'Structured offers',
-    copy: 'Services, products, pricing, FAQs, and action links formatted for agents instead of buried in a busy site.',
-    Icon: Search,
-  },
-  {
-    title: 'Agent summary',
-    copy: 'A concise buyer context block that says who you help, what you sell, and what the next step is.',
-    Icon: Bot,
-  },
-  {
-    title: 'Schema-ready',
-    copy: 'JSON-LD, llms.txt, agent.json, MCP, and clean HTML generated from the same page data.',
-    Icon: Globe2,
-  },
-  {
-    title: 'Readiness score',
-    copy: 'A practical score for missing CTAs, weak descriptions, unclear pricing, and agent parsing gaps.',
-    Icon: Gauge,
-  },
-]
 
 const workflow = [
   { step: '01', title: 'Import', copy: 'Start from your website, Calendly, Stripe, Square, Shopify, or CSV.' },
@@ -59,6 +47,15 @@ const valueSignals: Feature[] = [
     Icon: Sparkles,
   },
 ]
+
+const stats = [
+  { value: '<200ms', label: 'Agent page load' },
+  { value: '19+', label: 'AI crawlers welcomed' },
+  { value: '5', label: 'Agent formats per page' },
+  { value: '6', label: 'One-click integrations' },
+]
+
+const agents = ['ChatGPT', 'Claude', 'Perplexity', 'Gemini', 'Grok', 'Copilot']
 
 // Illustrative figures for the homepage analytics preview (clearly a sample).
 const agentMix = [
@@ -91,7 +88,7 @@ export default async function NexezHome() {
 
   return (
     <main className="min-h-screen bg-background text-white">
-      <nav className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-xl">
+      <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4">
           <a href="/" className="flex items-center gap-3">
             <div className="flex size-8 items-center justify-center rounded-md border border-border bg-white text-sm font-semibold text-black">
@@ -114,16 +111,17 @@ export default async function NexezHome() {
         </div>
       </nav>
 
+      {/* HERO */}
       <section className="relative overflow-hidden border-b border-border">
         <HeroBackdrop />
-        <div className="relative z-10 mx-auto grid max-w-7xl gap-12 px-5 py-20 lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,0.8fr)] lg:items-center lg:py-28">
+        <div className="relative z-10 mx-auto grid max-w-7xl gap-12 px-5 py-20 lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,0.85fr)] lg:items-center lg:py-28">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white/[0.04] px-3 py-1 text-xs text-muted-foreground">
+            <div className="nx-shimmer inline-flex items-center gap-2 rounded-full border border-border bg-white/[0.04] px-3 py-1 text-xs text-muted-foreground">
               <Bot className="size-3.5 text-cyan-300" />
               AI-readable business pages
             </div>
             <h1 className="mt-6 max-w-4xl text-balance text-5xl font-semibold tracking-[-0.065em] sm:text-6xl lg:text-7xl">
-              The page AI agents can actually use.
+              The page AI agents <span className="nx-accent-text">can actually use.</span>
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
               Nexez creates a clean agent page next to your main website: structured offers, schema, booking links,
@@ -136,10 +134,14 @@ export default async function NexezHome() {
               </a>
               <a href="/simulator" className="btn-secondary h-11 px-5">Test agent parsing</a>
             </div>
-            <div className="mt-8 grid max-w-xl grid-cols-3 gap-3 text-xs text-muted-foreground">
-              <span>JSON-LD</span>
-              <span>llms.txt</span>
-              <span>agent.json</span>
+
+            <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4">
+              {stats.slice(0, 3).map((s) => (
+                <div key={s.label}>
+                  <p className="font-mono text-2xl font-semibold tracking-tight text-white">{s.value}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{s.label}</p>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -147,16 +149,54 @@ export default async function NexezHome() {
         </div>
       </section>
 
+      {/* AGENT LOGO STRIP */}
+      <section className="border-b border-border bg-white/[0.015]">
+        <div className="mx-auto flex max-w-7xl flex-col items-center gap-6 px-5 py-10 md:flex-row md:justify-between md:gap-10">
+          <p className="shrink-0 text-xs uppercase tracking-[0.22em] text-muted-foreground">
+            Built to be read by every major agent
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 md:justify-end">
+            {agents.map((a) => (
+              <span key={a} className="nx-logo inline-flex items-center gap-2 text-base font-medium tracking-tight">
+                <span className="size-1.5 rounded-full bg-current opacity-60" />
+                {a}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* BENTO — what agents receive */}
+      <section className="border-b border-border">
+        <div className="mx-auto max-w-7xl px-5 py-20">
+          <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">What Nexez creates</p>
+              <h2 className="mt-2 max-w-2xl text-3xl font-semibold tracking-[-0.045em] md:text-5xl">
+                Everything an agent needs, <span className="nx-accent-text">structured.</span>
+              </h2>
+            </div>
+            <p className="max-w-md text-sm leading-6 text-muted-foreground">
+              Your human website stays intact. The agent page becomes the lightweight, machine-readable layer built for
+              parsing and action.
+            </p>
+          </div>
+
+          <BentoGrid />
+        </div>
+      </section>
+
+      {/* ANALYTICS COMMAND CENTER */}
       <section className="relative overflow-hidden border-b border-border">
         <div className="pointer-events-none absolute inset-0 z-0">
-          <div className="nx-orb nx-orb--purple !opacity-25" style={{ top: '-18rem', left: 'auto', right: '-10rem' }} />
+          <div className="nx-orb nx-orb--purple !opacity-20" style={{ top: '-18rem', left: 'auto', right: '-10rem' }} />
         </div>
         <div className="relative z-10 mx-auto max-w-7xl px-5 py-20">
           <div className="mb-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Analytics, not vanity metrics</p>
               <h2 className="mt-2 max-w-2xl text-3xl font-semibold tracking-[-0.045em] md:text-5xl">
-                See exactly how agents discover and buy.
+                See exactly how agents <span className="nx-accent-text">discover and buy.</span>
               </h2>
             </div>
             <p className="max-w-md text-sm leading-6 text-muted-foreground">
@@ -183,57 +223,26 @@ export default async function NexezHome() {
         </div>
       </section>
 
-      <section className="border-b border-border py-18">
-        <div className="mx-auto max-w-7xl px-5 py-16">
-          <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">What Nexez creates</p>
-              <h2 className="mt-2 max-w-2xl text-3xl font-semibold tracking-[-0.045em] md:text-5xl">
-                A low-friction surface for agentic discovery.
-              </h2>
-            </div>
-            <p className="max-w-md text-sm leading-6 text-muted-foreground">
-              Human website stays intact. Agent page becomes the lightweight, structured layer built for parsing and action.
-            </p>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {features.map(({ title, copy, Icon }) => (
-              <div key={title} className="card">
-                <div className="mb-5 flex size-9 items-center justify-center rounded-md border border-border bg-black">
-                  <Icon className="size-4 text-cyan-300" />
-                </div>
-                <h3 className="text-lg font-medium tracking-tight">{title}</h3>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground">{copy}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
+      {/* DUAL PHILOSOPHY — human vs agent */}
       <section className="border-b border-border">
-        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-16 lg:grid-cols-[0.7fr_1fr] lg:items-start">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Workflow</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">From website to agent-ready.</h2>
-            <p className="mt-4 text-sm leading-6 text-muted-foreground">
-              The product is intentionally boring where it should be: import, edit, publish, measure. The magic is in the structure agents receive.
+        <div className="mx-auto max-w-7xl px-5 py-20">
+          <div className="mx-auto mb-12 max-w-2xl text-center">
+            <p className="text-sm font-medium text-muted-foreground">One source, two audiences</p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">
+              Beautiful for humans. <span className="nx-accent-text">Brutally clean for agents.</span>
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-muted-foreground">
+              Agents shouldn’t have to scrape a busy marketing site. Nexez derives a precise, structured surface from the
+              same page data you edit once.
             </p>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2">
-            {workflow.map((item) => (
-              <div key={item.step} className="rounded-lg border border-border bg-white/[0.03] p-5">
-                <p className="font-mono text-xs text-muted-foreground">{item.step}</p>
-                <h3 className="mt-3 text-xl font-medium">{item.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.copy}</p>
-              </div>
-            ))}
-          </div>
+          <DualPhilosophy />
         </div>
       </section>
 
-      <section id="simulator" className="border-b border-border bg-white/[0.02] py-16">
+      {/* SIMULATOR */}
+      <section id="simulator" className="border-b border-border bg-white/[0.02] py-20">
         <div className="mx-auto max-w-4xl px-5 text-center">
           <p className="text-sm font-medium text-muted-foreground">Agent simulator</p>
           <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">
@@ -248,7 +257,34 @@ export default async function NexezHome() {
         </div>
       </section>
 
-      <section className="border-b border-border py-16">
+      {/* WORKFLOW */}
+      <section className="border-b border-border">
+        <div className="mx-auto max-w-7xl px-5 py-20">
+          <div className="mb-10 max-w-2xl">
+            <p className="text-sm font-medium text-muted-foreground">Workflow</p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">From website to agent-ready.</h2>
+            <p className="mt-4 text-sm leading-6 text-muted-foreground">
+              Intentionally boring where it should be: import, edit, publish, measure. The magic is in the structure
+              agents receive.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {workflow.map((item, i) => (
+              <div key={item.step} className="nx-tile p-5">
+                <div className="flex items-center justify-between">
+                  <p className="font-mono text-xs text-muted-foreground">{item.step}</p>
+                  {i < workflow.length - 1 ? <ArrowRight className="size-4 text-white/20" /> : <CheckCircle2 className="size-4 text-emerald-300/60" />}
+                </div>
+                <h3 className="mt-4 text-xl font-medium">{item.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.copy}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* PUBLIC EXAMPLES */}
+      <section className="border-b border-border py-20">
         <div className="mx-auto max-w-7xl px-5">
           <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
@@ -263,7 +299,7 @@ export default async function NexezHome() {
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {pages?.slice(0, 6).map((page) => (
-              <a key={page.id} href={`/${page.slug}`} className="card group block">
+              <a key={page.id} href={`/${page.slug}`} className="nx-tile group block p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <h3 className="line-clamp-1 text-lg font-medium group-hover:text-white">{page.name}</h3>
@@ -293,26 +329,245 @@ export default async function NexezHome() {
         </div>
       </section>
 
-      <section className="py-18">
-        <div className="mx-auto max-w-3xl px-5 py-16 text-center">
-          <h2 className="text-4xl font-semibold tracking-[-0.055em] md:text-6xl">Stop guessing what AI sees.</h2>
+      {/* FINAL CTA */}
+      <section className="relative overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 z-0">
+          <div className="nx-orb nx-orb--purple !opacity-25" style={{ top: 'auto', bottom: '-22rem', left: '50%', transform: 'translateX(-50%)' }} />
+        </div>
+        <div className="relative z-10 mx-auto max-w-3xl px-5 py-24 text-center">
+          <h2 className="text-4xl font-semibold tracking-[-0.055em] md:text-6xl">
+            Stop guessing what AI sees.
+          </h2>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
             Create a crawlable, structured agent page in minutes and start measuring real discovery signals.
           </p>
-          <a href="/create" className="btn-primary mt-8 h-11 px-5">
-            Create your agent page
-            <ArrowRight className="size-4" />
-          </a>
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <a href="/create" className="btn-primary h-11 px-5">
+              Create your agent page
+              <ArrowRight className="size-4" />
+            </a>
+            <a href="/directory" className="btn-secondary h-11 px-5">See live examples</a>
+          </div>
         </div>
       </section>
+
+      <SiteFooter />
     </main>
+  )
+}
+
+function HeroBackdrop() {
+  return (
+    <div className="nx-backdrop" aria-hidden="true">
+      <div className="nx-grid" />
+      <div className="nx-orb nx-orb--purple" />
+      <div className="nx-orb nx-orb--teal" />
+      <div className="nx-orb nx-orb--lavender" />
+    </div>
+  )
+}
+
+// Modern bento of the structured artifacts Nexez emits — the product in one glance.
+function BentoGrid() {
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-4 md:auto-rows-[170px]">
+      {/* Agent-readable payload — the centerpiece */}
+      <div className="nx-tile flex flex-col p-5 md:col-span-2 md:row-span-2">
+        <div className="flex items-center gap-2">
+          <Code2 className="size-4 text-cyan-300" />
+          <p className="text-sm font-medium text-white/90">What agents read</p>
+          <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-emerald-300/25 bg-emerald-300/10 px-2 py-0.5 text-[10px] text-emerald-200">
+            <span className="nx-live-dot" /> agent-ready
+          </span>
+        </div>
+        <pre className="mt-4 flex-1 overflow-hidden rounded-lg border border-border bg-black/40 p-4 font-mono text-[11px] leading-5 text-zinc-300">
+{`{
+  "business": "Acme Strategy Studio",
+  "best_fit": "B2B founders",
+  "offers": [
+    { "name": "Strategy Session", "price": "$450", "book": true },
+    { "name": "Retainer", "price": "from $3,000/mo" },
+    { "name": "SEO Audit", "price": "fixed scope" }
+  ],
+  "actions": ["book", "buy", "contact", "negotiate"],
+  "schema": ["Service", "Offer", "FAQPage"],
+  "readiness": 92
+}`}
+        </pre>
+        <p className="mt-3 text-xs leading-5 text-muted-foreground">
+          One payload powers JSON-LD, llms.txt, <span className="text-zinc-300">agent.json</span>, an MCP endpoint, and
+          clean semantic HTML.
+        </p>
+      </div>
+
+      {/* Readiness gauge */}
+      <div className="nx-tile flex flex-col items-center justify-center p-5">
+        <ReadinessGauge value={92} />
+        <p className="mt-2 text-xs text-muted-foreground">Readiness score</p>
+      </div>
+
+      {/* Schema formats */}
+      <div className="nx-tile flex flex-col p-5">
+        <div className="flex items-center gap-2">
+          <Layers className="size-4 text-[#A78BFA]" />
+          <p className="text-sm font-medium text-white/90">Every format</p>
+        </div>
+        <div className="mt-auto flex flex-wrap gap-1.5">
+          {['JSON-LD', 'llms.txt', 'agent.json', 'MCP', 'OpenAPI', 'schema.org'].map((f) => (
+            <span key={f} className="nx-chip">{f}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* Mini traffic trend */}
+      <div className="nx-tile flex flex-col p-5 md:col-span-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="size-4 text-emerald-300" />
+            <p className="text-sm font-medium text-white/90">Agent visits</p>
+          </div>
+          <p className="font-mono text-xs text-emerald-300">+18.4%</p>
+        </div>
+        <MiniSparkline />
+      </div>
+    </div>
+  )
+}
+
+function ReadinessGauge({ value }: { value: number }) {
+  const circumference = 264
+  const offset = Math.round(circumference * (1 - value / 100))
+  return (
+    <div className="relative size-28">
+      <svg viewBox="0 0 100 100" className="size-full -rotate-90">
+        <defs>
+          <linearGradient id="nx-gauge-grad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#00D4FF" />
+            <stop offset="100%" stopColor="#7C3AED" />
+          </linearGradient>
+        </defs>
+        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="7" />
+        <circle
+          cx="50"
+          cy="50"
+          r="42"
+          fill="none"
+          stroke="url(#nx-gauge-grad)"
+          strokeWidth="7"
+          strokeLinecap="round"
+          className="nx-gauge-ring"
+          style={{ ['--nx-gauge-off' as string]: String(offset) }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="font-mono text-2xl font-semibold text-white">{value}</span>
+      </div>
+    </div>
+  )
+}
+
+function MiniSparkline() {
+  const line = 'M0,52 L30,46 L60,49 L90,38 L120,42 L150,30 L180,34 L210,22 L240,27 L270,14 L300,18'
+  const area = `${line} L300,64 L0,64 Z`
+  return (
+    <svg viewBox="0 0 300 64" preserveAspectRatio="none" className="mt-auto h-16 w-full" role="img" aria-label="Sample agent visit trend">
+      <defs>
+        <linearGradient id="nx-mini-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#00D4FF" stopOpacity="0.25" />
+          <stop offset="100%" stopColor="#00D4FF" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id="nx-mini-stroke" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#00D4FF" />
+          <stop offset="100%" stopColor="#7C3AED" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill="url(#nx-mini-fill)" />
+      <path d={line} fill="none" stroke="url(#nx-mini-stroke)" strokeWidth="2" strokeLinecap="round" className="nx-spark" />
+    </svg>
+  )
+}
+
+// The signature split: a cluttered human site vs the precise agent surface.
+function DualPhilosophy() {
+  return (
+    <div className="grid items-stretch gap-4 lg:grid-cols-[1fr_auto_1fr]">
+      {/* Human site */}
+      <div className="nx-tile p-4">
+        <p className="mb-3 px-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">What humans see</p>
+        <div className="overflow-hidden rounded-lg border border-border bg-black/40 opacity-80">
+          <div className="flex items-center gap-1.5 border-b border-border px-3 py-2">
+            <span className="size-2 rounded-full bg-white/20" />
+            <span className="size-2 rounded-full bg-white/20" />
+            <span className="size-2 rounded-full bg-white/20" />
+            <span className="ml-2 h-2 w-24 rounded-full bg-white/10" />
+          </div>
+          <div className="space-y-3 p-4">
+            <div className="flex gap-2">
+              {[...Array(5)].map((_, i) => <span key={i} className="h-2 w-10 rounded-full bg-white/10" />)}
+            </div>
+            <div className="h-20 rounded-md bg-gradient-to-br from-white/10 to-white/[0.03]" />
+            <div className="grid grid-cols-3 gap-2">
+              {[...Array(6)].map((_, i) => <div key={i} className="h-10 rounded bg-white/[0.05]" />)}
+            </div>
+            <div className="space-y-1.5">
+              <span className="block h-2 w-full rounded-full bg-white/[0.07]" />
+              <span className="block h-2 w-4/5 rounded-full bg-white/[0.07]" />
+              <span className="block h-2 w-2/3 rounded-full bg-white/[0.07]" />
+            </div>
+          </div>
+        </div>
+        <p className="mt-3 px-1 text-xs leading-5 text-muted-foreground">
+          Carousels, scripts, and layout an agent has to fight through.
+        </p>
+      </div>
+
+      {/* Arrow / label */}
+      <div className="flex items-center justify-center lg:flex-col lg:gap-3">
+        <div className="flex items-center gap-2 rounded-full border border-border bg-white/[0.04] px-3 py-1.5 text-[11px] text-muted-foreground">
+          <Sparkles className="size-3.5 text-cyan-300" />
+          Nexez derives
+        </div>
+        <ArrowRight className="size-5 rotate-90 text-white/30 lg:rotate-0" />
+      </div>
+
+      {/* Agent surface */}
+      <div className="nx-tile p-4">
+        <p className="mb-3 px-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">What agents get</p>
+        <div className="rounded-lg border border-cyan-400/15 bg-cyan-400/[0.03] p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-white">Acme Strategy Studio</span>
+            <span className="nx-chip">readiness 92</span>
+          </div>
+          <div className="mt-3 space-y-1.5">
+            {[
+              ['Strategy Session', '$450'],
+              ['Retainer', 'from $3,000/mo'],
+              ['SEO Audit', 'fixed scope'],
+            ].map(([n, p]) => (
+              <div key={n} className="flex items-center justify-between rounded-md border border-border bg-black/30 px-3 py-2 text-xs">
+                <span className="text-zinc-200">{n}</span>
+                <span className="font-mono text-cyan-200">{p}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {['book', 'buy', 'contact', 'negotiate'].map((a) => (
+              <span key={a} className="rounded-full border border-emerald-300/25 bg-emerald-300/10 px-2 py-0.5 text-[10px] text-emerald-200">{a}</span>
+            ))}
+          </div>
+        </div>
+        <p className="mt-3 px-1 text-xs leading-5 text-muted-foreground">
+          Offers, pricing, actions, and schema — zero ambiguity.
+        </p>
+      </div>
+    </div>
   )
 }
 
 function ProductPreview() {
   return (
     <div className="rounded-xl border border-border bg-white/[0.03] p-2 shadow-2xl shadow-black">
-      <div className="rounded-lg border border-border bg-black">
+      <div className="nx-scan overflow-hidden rounded-lg border border-border bg-black">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
             <span className="size-2 rounded-full bg-red-400" />
@@ -356,17 +611,6 @@ function ProductPreview() {
           </div>
         </div>
       </div>
-    </div>
-  )
-}
-
-function HeroBackdrop() {
-  return (
-    <div className="nx-backdrop" aria-hidden="true">
-      <div className="nx-grid" />
-      <div className="nx-orb nx-orb--purple" />
-      <div className="nx-orb nx-orb--teal" />
-      <div className="nx-orb nx-orb--lavender" />
     </div>
   )
 }
@@ -519,5 +763,88 @@ function TrafficSparkline() {
         <animate attributeName="opacity" values="0.4;0;0.4" dur="2.4s" repeatCount="indefinite" />
       </circle>
     </svg>
+  )
+}
+
+function SiteFooter() {
+  const cols: { title: string; links: { label: string; href: string }[] }[] = [
+    {
+      title: 'Product',
+      links: [
+        { label: 'Create a page', href: '/create' },
+        { label: 'Directory', href: '/directory' },
+        { label: 'Marketplace', href: '/marketplace' },
+        { label: 'Leaderboard', href: '/leaderboard' },
+      ],
+    },
+    {
+      title: 'Agents',
+      links: [
+        { label: 'Agent simulator', href: '/simulator' },
+        { label: 'OpenAPI', href: '/openapi.json' },
+        { label: 'robots.txt', href: '/robots.txt' },
+        { label: 'sitemap.xml', href: '/sitemap.xml' },
+      ],
+    },
+    {
+      title: 'Company',
+      links: [
+        { label: 'Support', href: '/support' },
+        { label: 'Privacy', href: '/privacy' },
+        { label: 'Terms', href: '/terms' },
+        { label: 'Sign in', href: '/login' },
+      ],
+    },
+  ]
+
+  return (
+    <footer className="border-t border-border bg-white/[0.015]">
+      <div className="mx-auto max-w-7xl px-5 py-14">
+        <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+          <div>
+            <a href="/" className="flex items-center gap-3">
+              <div className="flex size-8 items-center justify-center rounded-md border border-border bg-white text-sm font-semibold text-black">
+                N
+              </div>
+              <span className="text-sm font-medium tracking-tight">Nexez</span>
+            </a>
+            <p className="mt-4 max-w-xs text-sm leading-6 text-muted-foreground">
+              The agent-readable layer for your business — structured, crawlable, and built to convert AI traffic.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-1.5">
+              {['JSON-LD', 'llms.txt', 'agent.json', 'MCP'].map((f) => (
+                <span key={f} className="nx-chip">{f}</span>
+              ))}
+            </div>
+          </div>
+
+          {cols.map((col) => (
+            <div key={col.title}>
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">{col.title}</p>
+              <ul className="mt-4 space-y-2.5">
+                {col.links.map((l) => (
+                  <li key={l.label}>
+                    <a href={l.href} className="inline-flex items-center gap-1 text-sm text-zinc-400 transition-colors hover:text-white">
+                      {l.label}
+                      <ArrowUpRight className="size-3 opacity-0 transition-opacity group-hover:opacity-100" />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <div className="nx-hairline my-10" />
+
+        <div className="flex flex-col items-center justify-between gap-3 text-xs text-muted-foreground sm:flex-row">
+          <p>© {new Date().getFullYear()} Nexez. Built for the agentic web.</p>
+          <p className="inline-flex items-center gap-2">
+            <Globe2 className="size-3.5 text-cyan-300" />
+            Human-first management · Agent-first consumption
+          </p>
+        </div>
+      </div>
+    </footer>
   )
 }
