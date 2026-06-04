@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Bot, Loader2, ExternalLink } from 'lucide-react'
 import { ErrorBoundary } from '../../../components/ErrorBoundary'
 import { ApiKeysManager } from '../../../components/ApiKeysManager'
+import { ImportResult } from '../../../components/tools/ImportResult'
 
 export default function ToolsPage() {
   const [url, setUrl] = useState('')
@@ -37,23 +38,14 @@ export default function ToolsPage() {
   const [shopifyResult, setShopifyResult] = useState<any>(null)
   const [shopifyConnected, setShopifyConnected] = useState<{ lastImport: string } | null>(null)
 
-  // Phase 3 Consumer Track: Square (booking + payments for local/consumer services)
-  const [squareToken, setSquareToken] = useState('')
-  const [squareLoading, setSquareLoading] = useState(false)
-  const [squareResult, setSquareResult] = useState<any>(null)
-  const [squareConnected, setSquareConnected] = useState<{ lastImport: string } | null>(null)
-
-  // Phase 3 Consumer Track: Acuity Scheduling (coaching, beauty, wellness, medical)
+  // Acuity Scheduling (coaching, beauty, wellness, medical)
   const [acuityToken, setAcuityToken] = useState('')
   const [acuityLoading, setAcuityLoading] = useState(false)
   const [acuityResult, setAcuityResult] = useState<any>(null)
   const [acuityConnected, setAcuityConnected] = useState<{ lastImport: string } | null>(null)
 
-  // Tier 3: Developer Platform — real API keys now managed via <ApiKeysManager />
-  const revenueShare = 15 // % for agent-driven transactions (configurable in future billing)
-
-  // Square consumer services import (Phase 3 consumer track start)
-  // (handler defined below after Shopify)
+  // Developer platform — API keys are managed via <ApiKeysManager />
+  const revenueShare = 15 // % on agent-driven transactions
 
   // Acuity consumer scheduling import (Phase 3 consumer track)
   async function handleAcuityImport() {
@@ -289,38 +281,29 @@ export default function ToolsPage() {
     setShopifyResult(null)
 
     try {
-      if (shopifyToken.trim()) {
-        // Authenticated import (full private catalog)
-        const res = await fetch('/api/integrations/shopify/import', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            shop: shopifyUrl.trim(), 
-            accessToken: shopifyToken.trim() 
-          }),
-        })
-        const data = await res.json()
-        setShopifyResult(data)
-      } else {
-        // Public catalog via enhanced general importer
-        const res = await fetch('/api/tools/import-site', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: shopifyUrl.trim(), industry: 'retail shopify' }),
-        })
-        const data = await res.json()
-        setShopifyResult(data)
+      // Authenticated import pulls the full private catalog; otherwise fall back
+      // to the public catalog via the general site importer.
+      const request = shopifyToken.trim()
+        ? { url: '/api/integrations/shopify/import', body: { shop: shopifyUrl.trim(), accessToken: shopifyToken.trim() } }
+        : { url: '/api/tools/import-site', body: { url: shopifyUrl.trim(), industry: 'retail shopify' } }
+
+      const res = await fetch(request.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request.body),
+      })
+      const data = await res.json()
+      setShopifyResult(data)
+
+      if (!data.error) {
+        const conn = { lastImport: new Date().toISOString() }
+        setShopifyConnected(conn)
+        try { localStorage.setItem('nexez_shopify_connection', JSON.stringify(conn)) } catch {}
       }
     } catch (e) {
       setShopifyResult({ error: 'Failed to import Shopify catalog' })
     } finally {
       setShopifyLoading(false)
-    }
-
-    // Save connection status on success
-    if (shopifyResult && !shopifyResult.error) {
-      const conn = { lastImport: new Date().toISOString() }
-      localStorage.setItem('nexez_shopify_connection', JSON.stringify(conn))
     }
   }
 
@@ -778,35 +761,19 @@ export default function ToolsPage() {
               />
             </div>
 
-            {shopifyResult && (
-              <div className="mt-4 rounded-xl border border-white/10 bg-black/30 p-5">
-                {shopifyResult.error ? (
-                  <p className="text-red-400 text-sm">{shopifyResult.error}</p>
-                ) : (
-                  <>
-                    <div className="flex justify-between items-center mb-3">
-                      <p className="text-emerald-400 text-sm font-medium">{shopifyResult.message || 'Shopify catalog imported'}</p>
-                      {shopifyResult.structuredOffers?.length > 0 && (
-                        <button
-                          onClick={() => {
-                            sessionStorage.setItem('nexez_imported_structured', JSON.stringify(shopifyResult.structuredOffers))
-                            window.location.href = '/create?imported=true&source=shopify'
-                          }}
-                          className="text-sm rounded bg-purple-300 px-4 py-1.5 font-semibold text-zinc-950 hover:bg-purple-200"
-                        >
-                          Create Page →
-                        </button>
-                      )}
-                    </div>
-                    <div className="text-xs text-[#9CA3AF] space-y-1">
-                      {shopifyResult.structuredOffers?.slice(0, 5).map((o: any, i: number) => (
-                        <div key={i}>• {o.name} — {o.price}</div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
+            <ImportResult
+              result={shopifyResult}
+              wrapperClass="mt-4 rounded-xl border border-white/10 bg-black/30 p-5"
+              defaultMessage="Shopify catalog imported"
+              createClass="bg-purple-300 px-4 py-1.5 hover:bg-purple-200"
+              onCreate={() => {
+                sessionStorage.setItem('nexez_imported_structured', JSON.stringify(shopifyResult.structuredOffers))
+                window.location.href = '/create?imported=true&source=shopify'
+              }}
+              renderOffer={(o: any, i: number) => (
+                <div key={i}>• {o.name} — {o.price}</div>
+              )}
+            />
             <p className="mt-2 text-[10px] text-zinc-500">
               Leave token empty for public catalog (most stores). Paste Admin API token for complete private access.
             </p>
@@ -850,36 +817,20 @@ export default function ToolsPage() {
               )}
             </div>
 
-            {acuityResult && (
-              <div className="mt-3 rounded border border-white/10 bg-white/[0.03] p-3 text-sm">
-                {acuityResult.error ? (
-                  <p className="text-red-400">{acuityResult.error}</p>
-                ) : (
-                  <>
-                    <div className="flex justify-between items-center mb-2">
-                      <p className="text-emerald-400 text-sm font-medium">{acuityResult.message || 'Acuity appointment types imported'}</p>
-                      {acuityResult.structuredOffers?.length > 0 && (
-                        <button
-                          onClick={() => {
-                            sessionStorage.setItem('nexez_imported_structured', JSON.stringify(acuityResult.structuredOffers))
-                            window.location.href = '/create?imported=true&source=acuity'
-                          }}
-                          className="text-sm rounded bg-orange-300 px-4 py-1 font-semibold text-zinc-950 hover:bg-orange-200"
-                        >
-                          Create Page →
-                        </button>
-                      )}
-                    </div>
-                    <div className="text-xs text-[#9CA3AF] space-y-1">
-                      {acuityResult.structuredOffers?.slice(0, 4).map((o: any, i: number) => (
-                        <div key={i}>• {o.name} — {o.price} {o.duration ? `(${o.duration})` : ''}</div>
-                      ))}
-                    </div>
-                    <p className="mt-2 text-[10px] text-zinc-500">Great for time-based consumer services with durations and tiers.</p>
-                  </>
-                )}
-              </div>
-            )}
+            <ImportResult
+              result={acuityResult}
+              defaultMessage="Acuity appointment types imported"
+              createClass="bg-orange-300 px-4 py-1 hover:bg-orange-200"
+              maxOffers={4}
+              onCreate={() => {
+                sessionStorage.setItem('nexez_imported_structured', JSON.stringify(acuityResult.structuredOffers))
+                window.location.href = '/create?imported=true&source=acuity'
+              }}
+              renderOffer={(o: any, i: number) => (
+                <div key={i}>• {o.name} — {o.price} {o.duration ? `(${o.duration})` : ''}</div>
+              )}
+              footer={<p className="mt-2 text-[10px] text-zinc-500">Great for time-based consumer services with durations and tiers.</p>}
+            />
           </div>
 
           {calendlyResult && (

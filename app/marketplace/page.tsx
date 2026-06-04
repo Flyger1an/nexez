@@ -41,7 +41,7 @@ export default async function MarketplacePage() {
             <h1 className="text-3xl md:text-4xl font-semibold tracking-tight flex items-center gap-2">
               <Star className="size-8 text-[#7C3AED]" /> Agent Marketplace
             </h1>
-            <p className="mt-2 text-base md:text-lg text-[#9CA3AF]">High-trust, agent-ready offers. ({count} listings)</p>
+            <p className="mt-2 text-base md:text-lg text-[#9CA3AF]">High-trust, agent-ready offers from businesses across Nexez. ({count} listings)</p>
           </div>
           <a href="/directory" className="btn-secondary inline-flex items-center gap-2 self-start md:self-auto">
             Full Directory + Filters <TrendingUp className="size-4" />
@@ -78,15 +78,15 @@ export default async function MarketplacePage() {
         {/* Favorites now fully client-filterable via the toggle in MarketplaceResults (★ My Favorites Only). Persists local + server metadata sync on auth. */}
 
         <div className="card p-6 text-sm">
-          <h3 className="font-semibold">Marketplace Tips for Agents</h3>
-          <ul className="mt-2 list-disc pl-5 text-[#9CA3AF] space-y-1">
-            <li>Use min_readiness=80 for elite.</li>
-            <li>Favorites save locally.</li>
-            <li>Trust + activity rank.</li>
-            <li>Check /&lt;slug&gt;/agent.json , /llms.txt or mcp.json for structured data</li>
-            <li>Use Analyzer + Co-Pilot.</li>
+          <h3 className="font-semibold">How the marketplace works</h3>
+          <ul className="mt-3 list-disc pl-5 text-[#9CA3AF] space-y-1.5 leading-6">
+            <li>Listings rank by trust score and recent agent activity, so the most reliable businesses surface first.</li>
+            <li>Add <code className="text-cyan-200">?min_readiness=80</code> on the directory API to filter down to elite, fully agent-ready pages.</li>
+            <li>Every listing exposes structured data at <code className="text-cyan-200">/&lt;slug&gt;/agent.json</code>, <code className="text-cyan-200">/llms.txt</code>, and <code className="text-cyan-200">mcp.json</code>.</li>
+            <li>Favorites are saved to this browser and sync to your account once you sign in.</li>
+            <li>Run any page through the Competitor Analyzer and AI Co-Pilot for a deeper read.</li>
           </ul>
-          <p className="mt-3 text-xs text-[#9CA3AF]">Analyzer supports any URL.</p>
+          <p className="mt-3 text-xs text-[#9CA3AF]">The analyzer works on any public URL — not just Nexez pages.</p>
         </div>
 
         <div className="mt-6 text-center">

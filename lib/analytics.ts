@@ -1,4 +1,4 @@
-import { AgentPage } from './agent-page'
+import { AgentPage, getReadinessScore } from './agent-page'
 import { isLikelyAgentUserAgent as detectLikelyAgentUserAgent } from './agent-detection'
 import { CheckoutEvent, CheckoutEventType } from './checkout-events'
 
@@ -312,4 +312,45 @@ export function buildAnalyticsCsv(events: CheckoutEvent[]) {
 function escapeCsvValue(value: string) {
   if (!/[",\n\r]/.test(value)) return value
   return `"${value.replace(/"/g, '""')}"`
+}
+
+/**
+ * Readiness "ROI proof" insight: average readiness across all owned pages vs.
+ * the subset that agents are actually engaging with (events or AI visits).
+ * A positive lift is a strong signal that better-built pages get more traffic.
+ */
+export function getReadinessInsight(
+  pages: AgentPage[],
+  events: Array<{ slug: string }>,
+  visits: Array<{ slug: string; is_ai_agent: boolean }>,
+): { avgAll: number; avgActive: number; activeCount: number; lift: number } {
+  const activeSlugs = new Set([
+    ...events.map((e) => e.slug),
+    ...visits.filter((v) => v.is_ai_agent).map((v) => v.slug),
+  ])
+  const activePages = pages.filter((p) => activeSlugs.has(p.slug))
+
+  const score = (p: AgentPage) =>
+    getReadinessScore({
+      name: p.name,
+      slug: p.slug,
+      description: p.description,
+      website_url: p.website_url,
+      cta_url: p.cta_url,
+      audience: p.audience,
+      location: p.location,
+      contact_email: p.contact_email,
+      industry: p.industry,
+      products: p.products ?? [],
+      services: p.services ?? [],
+      faqs: p.faqs ?? [],
+      is_published: p.is_published,
+    })
+
+  const avg = (list: AgentPage[]) =>
+    list.length ? Math.round(list.reduce((sum, p) => sum + score(p), 0) / list.length) : 0
+
+  const avgAll = avg(pages)
+  const avgActive = avg(activePages)
+  return { avgAll, avgActive, activeCount: activePages.length, lift: avgActive - avgAll }
 }

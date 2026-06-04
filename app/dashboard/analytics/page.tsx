@@ -9,7 +9,6 @@ import {
   BASIC_OWNER_PAGE_SELECT,
   OWNER_PAGE_SELECT,
   getOfferCount,
-  getReadinessScore,
 } from '../../../lib/agent-page'
 import {
   AgentVisit,
@@ -32,6 +31,7 @@ import {
   getDiscoverySurfaceStats,
   getPageOptions,
   getPipelineCents,
+  getReadinessInsight,
   getRevenueCents,
   getAgentDrivenRevenueCents,
   getSignalLabel,
@@ -177,8 +177,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     : '0.0'
   const revenueCents = getRevenueCents(filteredEvents)
   const pipelineCents = getPipelineCents(filteredEvents)
-  const agentRevenueCents = getAgentDrivenRevenueCents ? getAgentDrivenRevenueCents(filteredEvents) : 0 // fallback if not yet
-  const agentSharePct = 15 // configurable stub, future per plan
+  const agentRevenueCents = getAgentDrivenRevenueCents(filteredEvents)
+  const agentSharePct = 15 // platform share on agent-driven transactions
   const agentShareCents = Math.round(agentRevenueCents * (agentSharePct / 100))
   const popularService = getTopOfferStats(filteredEvents)[0]?.name || 'No offer activity yet'
   const dailySeries = mergeVisitCountsIntoDailySeries(getDailyEventSeries(filteredEvents, 10), filteredAgentVisits)
@@ -210,39 +210,13 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     filterAnalyticsEvents(events, { query: filters.q, pageId: filters.page }),
   )
 
-  // Agent-Engaged Pages Quality Insight (Phase 2)
-  const pagesWithActivity = new Set([
-    ...filteredEvents.map(e => e.slug),
-    ...filteredAgentVisits.filter((visit) => visit.is_ai_agent).map((visit) => visit.slug),
-  ]);
-  const activePages = ownedPages.filter(p => pagesWithActivity.has(p.slug));
+  // Readiness ROI insight: all pages vs. the agent-engaged subset.
+  const {
+    avgAll: avgAllReadiness,
+    avgActive: avgActiveReadiness,
+    activeCount: agentEngagedPageCount,
+  } = getReadinessInsight(ownedPages, filteredEvents, filteredAgentVisits)
 
-  const computeReadiness = (p: any) => getReadinessScore({
-    name: p.name,
-    slug: p.slug,
-    description: p.description,
-    website_url: p.website_url,
-    cta_url: p.cta_url,
-    audience: p.audience,
-    location: p.location,
-    contact_email: p.contact_email,
-    industry: p.industry,
-    products: p.products ?? [],
-    services: p.services ?? [],
-    faqs: p.faqs ?? [],
-    is_published: p.is_published,
-  });
-
-  const allReadinessScores = ownedPages.map(computeReadiness);
-  const activeReadinessScores = activePages.map(computeReadiness);
-
-  const avgAllReadiness = allReadinessScores.length > 0 
-    ? Math.round(allReadinessScores.reduce((a, b) => a + b, 0) / allReadinessScores.length) 
-    : 0;
-
-  const avgActiveReadiness = activeReadinessScores.length > 0 
-    ? Math.round(activeReadinessScores.reduce((a, b) => a + b, 0) / activeReadinessScores.length) 
-    : 0;
   const exportParams = new URLSearchParams()
 
   if (filters.q) exportParams.set('q', filters.q)
@@ -581,7 +555,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
 
             <Insight
               title="Agent-engaged pages"
-              value={`${activePages.length} / ${ownedPages.length}`}
+              value={`${agentEngagedPageCount} / ${ownedPages.length}`}
               detail="Pages with agent traffic"
             />
 

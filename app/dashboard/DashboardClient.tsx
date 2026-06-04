@@ -273,8 +273,8 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                     {agentPageVisits} AI agent visits, {trafficSplit.human} human visits, {discoveryClicks} discovery clicks, and {conversionActions} conversion actions
                   </h2>
                   <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
-                    {totalTrackedSignals} tracked signals across {publishedCount} published pages and {totalOffers} listed offers.
-                    Agent discovery + ROI.
+                    {totalTrackedSignals} tracked signals across {publishedCount} published pages and {totalOffers} listed offers —
+                    a live view of how AI agents are discovering and acting on your business.
                   </p>
                   {topOffer ? (
                     <p className="mt-4 inline-flex rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-sm text-cyan-100">
@@ -378,14 +378,14 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
 
             {!pages.length ? (
               <div className="mt-5 rounded-lg border border-dashed border-white/15 p-12 text-center">
-                <p className="text-zinc-400">No pages yet. Create an agent page.</p>
+                <p className="text-zinc-400">No pages yet — create your first agent page to start showing up for AI agents.</p>
               </div>
             ) : null}
 
             {sharedPages.length > 0 && (
               <div className="mt-10">
                 <h2 className="text-lg font-semibold text-cyan-200">Shared with me</h2>
-                <p className="mt-1 text-xs text-zinc-500">Team-shared pages.</p>
+                <p className="mt-1 text-xs text-zinc-500">Pages your teammates have shared with you.</p>
                 <section className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {sharedPages.map((sp) => (
                     <div key={sp.id} className="card !p-5">

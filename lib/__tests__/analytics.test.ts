@@ -5,11 +5,13 @@ import {
   getDailyEventSeries,
   getDiscoveryActionStats,
   getDiscoveryClickCount,
+  getReadinessInsight,
   getSignalLabel,
   getTopOfferStats,
   isLikelyAgentUserAgent,
 } from '../analytics'
 import { CheckoutEvent, getEventActionLabel } from '../checkout-events'
+import type { AgentPage } from '../agent-page'
 
 const discoveryEvent: CheckoutEvent = {
   id: 'evt-1',
@@ -81,5 +83,43 @@ describe('analytics discovery events', () => {
     expect(getAgentPageVisitCount([pageView])).toBe(1)
     expect(getDailyEventSeries([pageView], 3).reduce((sum, point) => sum + point.agentVisits, 0)).toBe(1)
     expect(getTopOfferStats([pageView])).toHaveLength(0)
+  })
+})
+
+describe('getReadinessInsight', () => {
+  const makePage = (slug: string, complete: boolean): AgentPage =>
+    ({
+      id: slug,
+      owner_id: 'o1',
+      name: complete ? `${slug} business` : slug,
+      slug,
+      description: complete ? 'A clear, complete description of what we offer.' : null,
+      website_url: complete ? 'https://example.com' : null,
+      cta_url: complete ? 'https://example.com/book' : null,
+      audience: complete ? 'B2B founders' : null,
+      location: complete ? 'Austin' : null,
+      contact_email: complete ? 'hi@example.com' : null,
+      industry: complete ? 'consulting' : null,
+      products: null,
+      services: complete
+        ? [{ name: 'Strategy Session', description: 'A focused session', price: '$450', url: 'https://example.com/book' }]
+        : [],
+      faqs: complete ? [{ question: 'How long?', answer: '60 minutes' }] : null,
+      is_published: true,
+    }) as AgentPage
+
+  it('scores the agent-engaged subset higher when those pages are better built', () => {
+    const pages = [makePage('alpha', true), makePage('beta', false)]
+    const visits = [{ slug: 'alpha', is_ai_agent: true }]
+    const insight = getReadinessInsight(pages, [], visits)
+
+    expect(insight.activeCount).toBe(1)
+    expect(insight.avgActive).toBeGreaterThan(insight.avgAll)
+    expect(insight.lift).toBe(insight.avgActive - insight.avgAll)
+  })
+
+  it('returns zeroes when there is no activity', () => {
+    const insight = getReadinessInsight([makePage('alpha', true)], [], [])
+    expect(insight).toEqual({ avgAll: expect.any(Number), avgActive: 0, activeCount: 0, lift: expect.any(Number) })
   })
 })
