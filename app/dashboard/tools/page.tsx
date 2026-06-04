@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Bot, Loader2, ExternalLink } from 'lucide-react'
 import { ErrorBoundary } from '../../../components/ErrorBoundary'
 import { ApiKeysManager } from '../../../components/ApiKeysManager'
-import { ImportResult } from '../../../components/tools/ImportResult'
+import { StripeImporter, ShopifyImporter, AcuityImporter } from '../../../components/tools/Importers'
 
 export default function ToolsPage() {
   const [url, setUrl] = useState('')
@@ -25,55 +25,10 @@ export default function ToolsPage() {
   const [lastWebhookEvent, setLastWebhookEvent] = useState<any>(null)
   const [calendlyWebhookEndpoint, setCalendlyWebhookEndpoint] = useState('/api/webhooks/calendly')
 
-  // Phase 3: Stripe import (starting depth)
-  const [stripeKey, setStripeKey] = useState('')
-  const [stripeLoading, setStripeLoading] = useState(false)
-  const [stripeResult, setStripeResult] = useState<any>(null)
-  const [stripeConnected, setStripeConnected] = useState<{ lastImport: string } | null>(null)
-
-  // Phase 3: Shopify (user request)
-  const [shopifyUrl, setShopifyUrl] = useState('')
-  const [shopifyToken, setShopifyToken] = useState('')
-  const [shopifyLoading, setShopifyLoading] = useState(false)
-  const [shopifyResult, setShopifyResult] = useState<any>(null)
-  const [shopifyConnected, setShopifyConnected] = useState<{ lastImport: string } | null>(null)
-
-  // Acuity Scheduling (coaching, beauty, wellness, medical)
-  const [acuityToken, setAcuityToken] = useState('')
-  const [acuityLoading, setAcuityLoading] = useState(false)
-  const [acuityResult, setAcuityResult] = useState<any>(null)
-  const [acuityConnected, setAcuityConnected] = useState<{ lastImport: string } | null>(null)
-
   // Developer platform — API keys are managed via <ApiKeysManager />
   const revenueShare = 15 // % on agent-driven transactions
 
-  // Acuity consumer scheduling import (Phase 3 consumer track)
-  async function handleAcuityImport() {
-    setAcuityLoading(true)
-    setAcuityResult(null)
-
-    try {
-      const res = await fetch('/api/integrations/acuity/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken: acuityToken.trim() || undefined }),
-      })
-      const data = await res.json()
-      setAcuityResult(data)
-
-      if (!data.error) {
-        const conn = { lastImport: new Date().toISOString() }
-        setAcuityConnected(conn)
-        try { localStorage.setItem('nexez_acuity_connection', JSON.stringify(conn)) } catch {}
-      }
-    } catch (e) {
-      setAcuityResult({ error: 'Failed to import from Acuity' })
-    } finally {
-      setAcuityLoading(false)
-    }
-  }
-
-  // Outbound webhook demo config (supports multiple)
+  // Outbound webhook config (supports multiple)
   const [outboundWebhookUrl, setOutboundWebhookUrl] = useState('')
   const [outboundWebhooks, setOutboundWebhooks] = useState<string[]>([])
 
@@ -141,11 +96,6 @@ export default function ToolsPage() {
         setCalendlyConnected(JSON.parse(saved))
       }
 
-      const stripe = localStorage.getItem('nexez_stripe_connection')
-      if (stripe) {
-        setStripeConnected(JSON.parse(stripe))
-      }
-
       const lastWebhook = localStorage.getItem('nexez_last_calendly_webhook')
       if (lastWebhook) {
         setLastWebhookEvent(JSON.parse(lastWebhook))
@@ -154,11 +104,6 @@ export default function ToolsPage() {
       const savedList = localStorage.getItem('nexez_outbound_webhooks')
       if (savedList) {
         setOutboundWebhooks(JSON.parse(savedList))
-      }
-
-      const shopify = localStorage.getItem('nexez_shopify_connection')
-      if (shopify) {
-        setShopifyConnected(JSON.parse(shopify))
       }
     } catch {}
   }, [])
@@ -249,63 +194,6 @@ export default function ToolsPage() {
     }
   }
 
-  async function handleStripeImport() {
-    if (!stripeKey.trim()) return
-    setStripeLoading(true)
-    setStripeResult(null)
-
-    try {
-      const res = await fetch('/api/integrations/stripe/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stripeSecretKey: stripeKey.trim() }),
-      })
-      const data = await res.json()
-      setStripeResult(data)
-
-      if (!data.error) {
-        const conn = { lastImport: new Date().toISOString() }
-        localStorage.setItem('nexez_stripe_connection', JSON.stringify(conn))
-        setStripeConnected(conn)
-      }
-    } catch (e) {
-      setStripeResult({ error: 'Failed to connect to Stripe' })
-    } finally {
-      setStripeLoading(false)
-    }
-  }
-
-  async function handleShopifyImport() {
-    if (!shopifyUrl.trim()) return
-    setShopifyLoading(true)
-    setShopifyResult(null)
-
-    try {
-      // Authenticated import pulls the full private catalog; otherwise fall back
-      // to the public catalog via the general site importer.
-      const request = shopifyToken.trim()
-        ? { url: '/api/integrations/shopify/import', body: { shop: shopifyUrl.trim(), accessToken: shopifyToken.trim() } }
-        : { url: '/api/tools/import-site', body: { url: shopifyUrl.trim(), industry: 'retail shopify' } }
-
-      const res = await fetch(request.url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request.body),
-      })
-      const data = await res.json()
-      setShopifyResult(data)
-
-      if (!data.error) {
-        const conn = { lastImport: new Date().toISOString() }
-        setShopifyConnected(conn)
-        try { localStorage.setItem('nexez_shopify_connection', JSON.stringify(conn)) } catch {}
-      }
-    } catch (e) {
-      setShopifyResult({ error: 'Failed to import Shopify catalog' })
-    } finally {
-      setShopifyLoading(false)
-    }
-  }
 
   // Tier 3 Developer Platform + API + Revenue Share (enhanced starter)
   const devPlatformSection = (
@@ -626,212 +514,10 @@ export default function ToolsPage() {
             </p>
           </div>
 
-          {/* Phase 3: Start of Stripe depth (per ROADMAP) */}
-          <div className="mt-8 border-t border-white/10 pt-6">
-            <div className="mb-4 flex items-start justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-cyan-200">Stripe Product & Price Import</h3>
-                <p className="text-xs text-[#9CA3AF] mt-1">Paste a Stripe Secret Key (starts with sk_). Pull products/prices as rich editable offers.</p>
-              </div>
-              {stripeConnected && (
-                <div className="text-right text-xs">
-                  <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-3 py-1 text-emerald-300">
-                    <div className="size-1.5 rounded-full bg-emerald-400" />
-                    Connected
-                  </div>
-                  <div className="mt-1 text-[10px] text-zinc-500">
-                    Last import {new Date(stripeConnected.lastImport).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-3">
-              <input
-                type="password"
-                value={stripeKey}
-                onChange={(e) => setStripeKey(e.target.value)}
-                placeholder="Stripe secret key"
-                className="flex-1 input"
-              />
-              <button
-                onClick={handleStripeImport}
-                disabled={stripeLoading || !stripeKey.trim()}
-                className="btn-primary bg-cyan-300 text-zinc-950 hover:bg-cyan-200"
-              >
-                {stripeLoading ? <Loader2 className="size-4 animate-spin" /> : 'Import Products'}
-              </button>
-              {stripeConnected && (
-                <button
-                  onClick={() => {
-                    const secret = prompt('Paste your Stripe Secret Key to re-sync:');
-                    if (secret) {
-                      // Reuse the import handler with the provided key
-                      setStripeKey(secret);
-                      // Trigger import after state update (simple approach)
-                      setTimeout(() => handleStripeImport(), 50);
-                    }
-                  }}
-                  disabled={stripeLoading}
-                  className="rounded-lg border border-cyan-300/40 px-4 py-2 text-sm text-cyan-200 hover:bg-white/5"
-                >
-                  Re-sync
-                </button>
-              )}
-            </div>
-
-            {stripeResult && (
-              <div className="mt-4 rounded-xl border border-white/10 bg-black/30 p-5">
-                {stripeResult.error ? (
-                  <p className="text-red-400 text-sm">{stripeResult.error}</p>
-                ) : (
-                  <>
-                    <div className="flex justify-between items-center mb-3">
-                      <p className="text-emerald-400 text-sm font-medium">{stripeResult.message}</p>
-                      {stripeResult.structuredOffers?.length > 0 && (
-                        <button
-                          onClick={() => {
-                            sessionStorage.setItem('nexez_imported_structured', JSON.stringify(stripeResult.structuredOffers))
-                            window.location.href = '/create?imported=true&source=stripe'
-                          }}
-                          className="text-sm rounded bg-cyan-300 px-4 py-1.5 font-semibold text-zinc-950 hover:bg-cyan-200"
-                        >
-                          Create Page →
-                        </button>
-                      )}
-                    </div>
-                    <div className="text-xs text-[#9CA3AF]">
-                      <div className="mb-1">{stripeResult.structuredOffers?.length || 0} products imported</div>
-                      {stripeResult.structuredOffers?.slice(0, 3).map((o: any, i: number) => (
-                        <div key={i}>• {o.name} — {o.price} {o.tiers ? '(recurring options)' : ''}</div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Phase 3: Shopify integration foundation (per user request + ROADMAP) */}
-          <div className="mt-8 border-t border-white/10 pt-6">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-purple-200">Shopify Catalog Import</h3>
-              <p className="text-xs text-[#9CA3AF] mt-1">Enter your Shopify store URL. We automatically try the public products feed + enhanced crawling.</p>
-            </div>
-
-            <div className="flex gap-3">
-              <input
-                type="url"
-                value={shopifyUrl}
-                onChange={(e) => setShopifyUrl(e.target.value)}
-                placeholder="https://yourstore.myshopify.com"
-                className="flex-1 input"
-              />
-              <button
-                onClick={handleShopifyImport}
-                disabled={shopifyLoading || !shopifyUrl.trim()}
-                className="btn-primary bg-purple-300 text-zinc-950 hover:bg-purple-200"
-              >
-                {shopifyLoading ? <Loader2 className="size-4 animate-spin" /> : 'Import Catalog'}
-              </button>
-              {shopifyConnected && (
-                <button
-                  onClick={() => {
-                    const token = prompt('Paste Shopify Admin token for re-sync (or leave empty for public):');
-                    if (shopifyUrl) {
-                      // Simple re-trigger with current URL
-                      setTimeout(() => handleShopifyImport(), 50);
-                    }
-                  }}
-                  disabled={shopifyLoading}
-                  className="rounded-lg border border-purple-300/40 px-4 py-2 text-sm text-purple-200 hover:bg-white/5"
-                >
-                  Re-sync
-                </button>
-              )}
-            </div>
-
-            <div className="mt-2">
-              <input
-                type="password"
-                value={shopifyToken}
-                onChange={(e) => setShopifyToken(e.target.value)}
-                placeholder="Optional: Admin API token (shpat_...) for full private catalog"
-                className="w-full input text-sm"
-              />
-            </div>
-
-            <ImportResult
-              result={shopifyResult}
-              wrapperClass="mt-4 rounded-xl border border-white/10 bg-black/30 p-5"
-              defaultMessage="Shopify catalog imported"
-              createClass="bg-purple-300 px-4 py-1.5 hover:bg-purple-200"
-              onCreate={() => {
-                sessionStorage.setItem('nexez_imported_structured', JSON.stringify(shopifyResult.structuredOffers))
-                window.location.href = '/create?imported=true&source=shopify'
-              }}
-              renderOffer={(o: any, i: number) => (
-                <div key={i}>• {o.name} — {o.price}</div>
-              )}
-            />
-            <p className="mt-2 text-[10px] text-zinc-500">
-              Leave token empty for public catalog (most stores). Paste Admin API token for complete private access.
-            </p>
-          </div>
-
-          {/* Phase 3 Consumer: Acuity Scheduling (full UI parity with Square) */}
-          <div className="mt-6 rounded-xl border border-white/10 p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <div className="font-semibold text-orange-300">Acuity Scheduling — Consumer Services</div>
-                <p className="text-xs text-[#9CA3AF]">Import appointment types for coaching, beauty, wellness, medical, fitness. Strong scheduling + consumer fields.</p>
-              </div>
-              {acuityConnected && (
-                <span className="text-[10px] text-emerald-400">Connected • {new Date(acuityConnected.lastImport).toLocaleTimeString()}</span>
-              )}
-            </div>
-
-            <div className="flex gap-2 mb-2">
-              <input
-                type="text"
-                value={acuityToken}
-                onChange={(e) => setAcuityToken(e.target.value)}
-                placeholder="Acuity API Key or User ID"
-                className="flex-1 input text-sm"
-              />
-              <button
-                onClick={handleAcuityImport}
-                disabled={acuityLoading}
-                className="btn-primary bg-orange-300 text-zinc-950 hover:bg-orange-200"
-              >
-                {acuityLoading ? <Loader2 className="size-4 animate-spin" /> : 'Import from Acuity'}
-              </button>
-              {acuityConnected && (
-                <button
-                  onClick={() => handleAcuityImport()}
-                  disabled={acuityLoading}
-                  className="rounded-lg border border-orange-300/40 px-3 py-1 text-sm text-orange-200 hover:bg-white/5"
-                >
-                  Re-sync
-                </button>
-              )}
-            </div>
-
-            <ImportResult
-              result={acuityResult}
-              defaultMessage="Acuity appointment types imported"
-              createClass="bg-orange-300 px-4 py-1 hover:bg-orange-200"
-              maxOffers={4}
-              onCreate={() => {
-                sessionStorage.setItem('nexez_imported_structured', JSON.stringify(acuityResult.structuredOffers))
-                window.location.href = '/create?imported=true&source=acuity'
-              }}
-              renderOffer={(o: any, i: number) => (
-                <div key={i}>• {o.name} — {o.price} {o.duration ? `(${o.duration})` : ''}</div>
-              )}
-              footer={<p className="mt-2 text-[10px] text-zinc-500">Great for time-based consumer services with durations and tiers.</p>}
-            />
-          </div>
+          {/* Integration importers (self-contained components) */}
+          <StripeImporter />
+          <ShopifyImporter />
+          <AcuityImporter />
 
           {calendlyResult && (
             <div className="mt-6 rounded-xl border border-white/10 bg-black/30 p-6">
