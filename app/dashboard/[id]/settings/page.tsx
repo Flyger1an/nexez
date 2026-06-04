@@ -571,7 +571,7 @@ export default function PageSettings({ params }: PageProps) {
                         <input
                           value={brandName}
                           onChange={(e) => setBrandName(e.target.value)}
-                          placeholder="Acme Plumbing"
+                          placeholder="Axle Plumbing Co."
                           className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
                         />
                       </label>
@@ -589,7 +589,7 @@ export default function PageSettings({ params }: PageProps) {
                         <input
                           value={logoUrl}
                           onChange={(e) => setLogoUrl(e.target.value)}
-                          placeholder="https://acme.com/logo.svg"
+                          placeholder="https://axlestrategy.com/logo.svg"
                           className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
                         />
                       </label>

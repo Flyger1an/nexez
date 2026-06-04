@@ -214,7 +214,7 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
                         value={company}
                         onChange={(e) => setCompany(e.target.value)}
                         className={inputClass}
-                        placeholder="Acme Plumbing Co."
+                        placeholder="Axle Plumbing Co."
                         autoComplete="organization"
                       />
                     </Field>

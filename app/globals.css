@@ -651,6 +651,22 @@ a:focus-visible,
   .nx-marquee-track { animation: none; }
 }
 
+/* Typewriter caret. */
+.nx-caret {
+  display: inline-block;
+  width: 0.55em;
+  height: 1.05em;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  background: #00D4FF;
+  opacity: 0.85;
+  animation: nx-blink 1s steps(1) infinite;
+}
+@keyframes nx-blink {
+  0%, 50% { opacity: 0.85; }
+  50.01%, 100% { opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .nx-accent-text { animation: none; }
   .nx-shimmer::after,

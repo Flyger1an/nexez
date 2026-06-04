@@ -19,6 +19,9 @@ import { SimulatorTeaser } from '../components/SimulatorTeaser'
 import { HomeGauge } from '../components/HomeGauge'
 import { PhilosophySplit } from '../components/PhilosophySplit'
 import { CodeCopyButton } from '../components/CodeCopyButton'
+import { CountUp } from '../components/CountUp'
+import { HeroBackdrop } from '../components/HeroBackdrop'
+import { TypewriterCode } from '../components/TypewriterCode'
 
 type Feature = {
   title: string
@@ -365,21 +368,10 @@ export default async function NexezHome() {
   )
 }
 
-function HeroBackdrop() {
-  return (
-    <div className="nx-backdrop" aria-hidden="true">
-      <div className="nx-grid" />
-      <div className="nx-orb nx-orb--purple" />
-      <div className="nx-orb nx-orb--teal" />
-      <div className="nx-orb nx-orb--lavender" />
-    </div>
-  )
-}
-
 // Modern bento of the structured artifacts Nexez emits — the product in one glance.
 function BentoGrid() {
   const agentPayload = `{
-  "business": "Acme Strategy Studio",
+  "business": "Axle Strategy",
   "best_fit": "B2B founders",
   "offers": [
     { "name": "Strategy Session", "price": "$450", "book": true },
@@ -406,9 +398,10 @@ function BentoGrid() {
           <div className="absolute right-2 top-2 z-10 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
             <CodeCopyButton text={agentPayload} label="Copy agent.json" />
           </div>
-          <pre className="h-full overflow-hidden rounded-lg border border-border bg-black/40 p-4 font-mono text-[11px] leading-5 text-zinc-300">
-{agentPayload}
-          </pre>
+          <TypewriterCode
+            text={agentPayload}
+            className="h-full overflow-hidden whitespace-pre-wrap rounded-lg border border-border bg-black/40 p-4 font-mono text-[11px] leading-5 text-zinc-300"
+          />
         </div>
         <p className="mt-3 text-xs leading-5 text-muted-foreground">
           One payload powers JSON-LD, llms.txt, <span className="text-zinc-300">agent.json</span>, an MCP endpoint, and
@@ -481,13 +474,13 @@ function ProductPreview() {
             <span className="size-2 rounded-full bg-amber-400" />
             <span className="size-2 rounded-full bg-emerald-400" />
           </div>
-          <span className="font-mono text-xs text-muted-foreground">nexez.app/acme</span>
+          <span className="font-mono text-xs text-muted-foreground">nexez.app/axle</span>
         </div>
 
         <div className="grid gap-0 md:grid-cols-[0.9fr_1fr]">
           <div className="border-b border-border p-5 md:border-b-0 md:border-r">
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Agent page</p>
-            <h3 className="mt-4 text-2xl font-semibold tracking-tight">Acme Strategy Studio</h3>
+            <h3 className="mt-4 text-2xl font-semibold tracking-tight">Axle Strategy</h3>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
               Executive strategy sessions, retainers, and audits for B2B founders.
             </p>
@@ -525,11 +518,20 @@ function ProductPreview() {
 // Decorative, illustrative analytics preview — a glass "command center" that
 // signals the depth of measurement Nexez ships. All static SVG/CSS, no client JS.
 function AnalyticsSnapshot() {
-  const kpis = [
-    { label: 'Agent visits', value: '2,847', delta: '+18.4%', up: true },
-    { label: 'Conversions', value: '312', delta: '+9.1%', up: true },
-    { label: 'Avg. readiness', value: '92', delta: '+6 pts', up: true },
-    { label: 'Pipeline', value: '$48.2k', delta: '+$7.3k', up: true },
+  const kpis: {
+    label: string
+    value: number
+    delta: string
+    up: boolean
+    prefix?: string
+    suffix?: string
+    decimals?: number
+    separator?: boolean
+  }[] = [
+    { label: 'Agent visits', value: 2847, separator: true, delta: '+18.4%', up: true },
+    { label: 'Conversions', value: 312, delta: '+9.1%', up: true },
+    { label: 'Avg. readiness', value: 92, delta: '+6 pts', up: true },
+    { label: 'Pipeline', value: 48.2, prefix: '$', suffix: 'k', decimals: 1, delta: '+$7.3k', up: true },
   ]
   const maxMix = Math.max(...agentMix.map((m) => m.pct))
 
@@ -555,7 +557,14 @@ function AnalyticsSnapshot() {
           {kpis.map((k) => (
             <div key={k.label} className="rounded-lg border border-border bg-white/[0.03] p-3">
               <p className="text-[11px] text-muted-foreground">{k.label}</p>
-              <p className="mt-1.5 font-mono text-xl tracking-tight text-white sm:text-2xl">{k.value}</p>
+              <CountUp
+                value={k.value}
+                prefix={k.prefix}
+                suffix={k.suffix}
+                decimals={k.decimals}
+                separator={k.separator}
+                className="mt-1.5 block font-mono text-xl tracking-tight text-white sm:text-2xl"
+              />
               <p className={`mt-1 inline-flex items-center gap-1 text-[10px] ${k.up ? 'text-emerald-300' : 'text-red-300'}`}>
                 <TrendingUp className="size-3" />
                 {k.delta}
