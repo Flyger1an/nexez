@@ -23,6 +23,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import { createClient } from '../utils/supabase/client'
+import { ThemeToggle } from './ThemeToggle'
 
 type PageHit = {
   id: string
@@ -133,20 +134,24 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
         </aside>
 
         <div className="min-w-0 pb-16 lg:pb-0">
-          <header className="sticky top-0 z-40 border-b border-border bg-background/85 px-4 py-3 backdrop-blur-xl lg:px-6">
+          <header className="nx-nav sticky top-0 z-40 border-b border-border px-4 py-3 backdrop-blur-xl lg:px-6">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex items-center justify-between gap-3 xl:hidden">
                 <a href="/" className="flex items-center gap-2">
                   <div className="flex size-7 items-center justify-center rounded-md border border-border bg-white text-xs font-semibold text-black">N</div>
                   <span className="text-sm font-medium">Nexez</span>
                 </a>
-                <a href="/create" className="inline-flex h-8 items-center gap-2 rounded-md bg-white px-3 text-xs font-medium text-black">
-                  <Plus className="size-3.5" />
-                  New
-                </a>
+                <div className="flex items-center gap-2">
+                  <ThemeToggle />
+                  <a href="/create" className="inline-flex h-8 items-center gap-2 rounded-md bg-white px-3 text-xs font-medium text-black">
+                    <Plus className="size-3.5" />
+                    New
+                  </a>
+                </div>
               </div>
               {authed ? <QuickPageSearch /> : <div className="flex-1" />}
               <div className="hidden items-center gap-2 xl:flex">
+                <ThemeToggle />
                 <a href="/create" className="inline-flex h-9 items-center gap-2 rounded-md bg-white px-3 text-sm font-medium text-black hover:bg-zinc-200">
                   <Plus className="size-4" />
                   New Page

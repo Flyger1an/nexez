@@ -22,6 +22,14 @@ import { CodeCopyButton } from '../components/CodeCopyButton'
 import { CountUp } from '../components/CountUp'
 import { HeroBackdrop } from '../components/HeroBackdrop'
 import { TypewriterCode } from '../components/TypewriterCode'
+import { ThemeToggle } from '../components/ThemeToggle'
+
+const navLinks = [
+  { label: 'Directory', href: '/directory' },
+  { label: 'Marketplace', href: '/marketplace' },
+  { label: 'Simulator', href: '/simulator' },
+  { label: 'Leaderboard', href: '/leaderboard' },
+]
 
 type Feature = {
   title: string
@@ -94,16 +102,29 @@ export default async function NexezHome() {
 
   return (
     <main className="min-h-screen bg-background text-white">
-      <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4">
-          <a href="/" className="flex items-center gap-3">
+      <nav className="nx-nav sticky top-0 z-50 border-b border-border backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-3.5">
+          <a href="/" className="flex items-center gap-2.5">
             <div className="flex size-8 items-center justify-center rounded-md border border-border bg-white text-sm font-semibold text-black">
               N
             </div>
             <span className="text-sm font-medium tracking-tight">Nexez</span>
           </a>
 
+          <div className="hidden items-center gap-0.5 lg:flex">
+            {navLinks.map((l) => (
+              <a
+                key={l.href}
+                href={l.href}
+                className="rounded-md px-3 py-1.5 text-sm text-zinc-400 transition-colors hover:bg-white/5 hover:text-white"
+              >
+                {l.label}
+              </a>
+            ))}
+          </div>
+
           <div className="flex items-center gap-2 text-sm">
+            <ThemeToggle className="hidden sm:inline-flex" />
             {user ? (
               <a href="/dashboard" className="btn-secondary hidden h-9 px-3 sm:inline-flex">Overview</a>
             ) : (
@@ -140,6 +161,9 @@ export default async function NexezHome() {
               </a>
               <a href="/simulator" className="btn-secondary h-11 px-5">Test agent parsing</a>
             </div>
+            <p className="mt-4 text-sm text-zinc-500">
+              Deploy your first AI agent–optimized page in seconds. No code, free to start.
+            </p>
 
             <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4">
               {stats.slice(0, 3).map((s) => (

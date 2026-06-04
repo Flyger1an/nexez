@@ -673,3 +673,233 @@ a:focus-visible,
   .nx-scan::after { animation: none; }
   .nx-gauge-ring { stroke-dashoffset: var(--nx-gauge-off, 70); animation: none; }
 }
+
+/* =====================================================
+   THEME SYSTEM — light / dark / system (dark is default)
+   The app was authored dark-first with hardcoded neutral
+   utilities (text-white, bg-black, text-zinc-*, bg-white/x,
+   border-white/x). We remap that finite set of neutrals to
+   theme tokens that flip by mode; brand accents (purple/teal/
+   emerald/etc.) are untouched. Public agent pages stay dark.
+   These rules are intentionally UNLAYERED so they win over
+   Tailwind's @layer utilities without !important.
+   ===================================================== */
+
+:root {
+  color-scheme: dark;
+  --bg: #000000;
+  --bg-2: #0a0a0f;
+  --panel: #1a1625;
+  --fg: #fafafa;
+  --fg-2: #e4e4e7;
+  --fg-soft: #d4d4d8;
+  --fg-muted: #a1a1aa;
+  --fg-muted-2: #8b8b93;
+  --inverse-bg: #ffffff;
+  --inverse-fg: #0a0a0a;
+  --ov-015: rgba(255, 255, 255, 0.015);
+  --ov-02: rgba(255, 255, 255, 0.02);
+  --ov-03: rgba(255, 255, 255, 0.03);
+  --ov-04: rgba(255, 255, 255, 0.04);
+  --ov-05: rgba(255, 255, 255, 0.05);
+  --ov-06: rgba(255, 255, 255, 0.06);
+  --ov-10: rgba(255, 255, 255, 0.10);
+  --ov-15: rgba(255, 255, 255, 0.15);
+  --ov-20: rgba(255, 255, 255, 0.20);
+  --ov-25: rgba(255, 255, 255, 0.25);
+  --ov-90: rgba(255, 255, 255, 0.90);
+  --bd-05: rgba(255, 255, 255, 0.05);
+  --bd-10: rgba(255, 255, 255, 0.10);
+  --bd-15: rgba(255, 255, 255, 0.15);
+  --bd-20: rgba(255, 255, 255, 0.20);
+  /* recessed/inset surfaces (bg-black/x): dark-on-dark here, subtle in light */
+  --inset-20: rgba(0, 0, 0, 0.20);
+  --inset-25: rgba(0, 0, 0, 0.25);
+  --inset-30: rgba(0, 0, 0, 0.30);
+  --inset-40: rgba(0, 0, 0, 0.40);
+  --inset-50: rgba(0, 0, 0, 0.50);
+  --inset-70: rgba(0, 0, 0, 0.70);
+  --inverse-hover: #e4e4e7;
+  /* keep design-system tokens flipping too */
+  --border: var(--bd-10);
+  --input: var(--ov-04);
+}
+
+html.light {
+  color-scheme: light;
+  --bg: #fafafa;
+  --bg-2: #ffffff;
+  --panel: #ffffff;
+  --fg: #0a0a0a;
+  --fg-2: #18181b;
+  --fg-soft: #3f3f46;
+  --fg-muted: #52525b;
+  --fg-muted-2: #71717a;
+  --inverse-bg: #18181b;
+  --inverse-fg: #fafafa;
+  --ov-015: rgba(0, 0, 0, 0.02);
+  --ov-02: rgba(0, 0, 0, 0.025);
+  --ov-03: rgba(0, 0, 0, 0.03);
+  --ov-04: rgba(0, 0, 0, 0.04);
+  --ov-05: rgba(0, 0, 0, 0.05);
+  --ov-06: rgba(0, 0, 0, 0.06);
+  --ov-10: rgba(0, 0, 0, 0.07);
+  --ov-15: rgba(0, 0, 0, 0.10);
+  --ov-20: rgba(0, 0, 0, 0.14);
+  --ov-25: rgba(0, 0, 0, 0.18);
+  --ov-90: rgba(0, 0, 0, 0.88);
+  --bd-05: rgba(0, 0, 0, 0.06);
+  --bd-10: rgba(0, 0, 0, 0.12);
+  --bd-15: rgba(0, 0, 0, 0.16);
+  --bd-20: rgba(0, 0, 0, 0.22);
+  --inset-20: rgba(0, 0, 0, 0.025);
+  --inset-25: rgba(0, 0, 0, 0.03);
+  --inset-30: rgba(0, 0, 0, 0.035);
+  --inset-40: rgba(0, 0, 0, 0.05);
+  --inset-50: rgba(0, 0, 0, 0.06);
+  --inset-70: rgba(0, 0, 0, 0.08);
+  --inverse-hover: #27272a;
+  --gradient-card: linear-gradient(180deg, rgba(0, 0, 0, 0.035), rgba(0, 0, 0, 0.015));
+  --gradient-cta: linear-gradient(90deg, #18181b, #3f3f46);
+  --secondary: #f4f4f5;
+  --muted: #f4f4f5;
+}
+
+/* Page surface follows the theme. */
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+}
+
+/* When a public agent page is rendered, keep the whole document dark (no light
+   sliver around the agent-first surface, regardless of platform theme). */
+html:has(.public-agent-page) body {
+  background-color: #0a0a0f;
+}
+
+/* Public agent pages are agent-first and stay dark in any platform theme. */
+.public-agent-page {
+  color-scheme: dark;
+  --bg: #000;
+  --bg-2: #0a0a0f;
+  --panel: #1a1625;
+  --fg: #fafafa;
+  --fg-2: #e4e4e7;
+  --fg-soft: #d4d4d8;
+  --fg-muted: #a1a1aa;
+  --fg-muted-2: #8b8b93;
+  --inverse-bg: #ffffff;
+  --inverse-fg: #0a0a0a;
+  --ov-015: rgba(255, 255, 255, 0.015);
+  --ov-02: rgba(255, 255, 255, 0.02);
+  --ov-03: rgba(255, 255, 255, 0.03);
+  --ov-04: rgba(255, 255, 255, 0.04);
+  --ov-05: rgba(255, 255, 255, 0.05);
+  --ov-06: rgba(255, 255, 255, 0.06);
+  --ov-10: rgba(255, 255, 255, 0.10);
+  --ov-15: rgba(255, 255, 255, 0.15);
+  --ov-20: rgba(255, 255, 255, 0.20);
+  --ov-25: rgba(255, 255, 255, 0.25);
+  --ov-90: rgba(255, 255, 255, 0.90);
+  --bd-05: rgba(255, 255, 255, 0.05);
+  --bd-10: rgba(255, 255, 255, 0.10);
+  --bd-15: rgba(255, 255, 255, 0.15);
+  --bd-20: rgba(255, 255, 255, 0.20);
+  --inset-20: rgba(0, 0, 0, 0.20);
+  --inset-25: rgba(0, 0, 0, 0.25);
+  --inset-30: rgba(0, 0, 0, 0.30);
+  --inset-40: rgba(0, 0, 0, 0.40);
+  --inset-50: rgba(0, 0, 0, 0.50);
+  --inset-70: rgba(0, 0, 0, 0.70);
+  --inverse-hover: #e4e4e7;
+  --border: rgba(255, 255, 255, 0.10);
+  background-color: #0a0a0f;
+  color: #fafafa;
+}
+
+/* ---- Neutral utility remap (UNLAYERED → wins the cascade) ---- */
+.text-white { color: var(--fg); }
+.text-zinc-100, .text-zinc-200 { color: var(--fg-2); }
+.text-zinc-300 { color: var(--fg-soft); }
+.text-zinc-400 { color: var(--fg-muted); }
+.text-zinc-500, .text-zinc-600 { color: var(--fg-muted-2); }
+.text-black, .text-zinc-950 { color: var(--inverse-fg); }
+.text-\[\#9CA3AF\] { color: var(--fg-muted); }
+.text-\[\#0A0A0F\] { color: var(--inverse-fg); }
+
+.bg-black { background-color: var(--bg); }
+.bg-white { background-color: var(--inverse-bg); }
+.bg-\[\#0A0A0F\],
+.bg-\[\#090b10\],
+.bg-\[\#0F0D18\],
+.bg-\[\#0c0c12\],
+.bg-\[\#111\],
+.bg-\[\#111620\] { background-color: var(--bg-2); }
+.bg-\[\#1A1625\],
+.bg-\[\#12101B\] { background-color: var(--panel); }
+
+.bg-white\/\[0\.015\] { background-color: var(--ov-015); }
+.bg-white\/\[0\.02\] { background-color: var(--ov-02); }
+.bg-white\/\[0\.03\] { background-color: var(--ov-03); }
+.bg-white\/\[0\.04\] { background-color: var(--ov-04); }
+.bg-white\/\[0\.05\] { background-color: var(--ov-05); }
+.bg-white\/\[0\.06\] { background-color: var(--ov-06); }
+.bg-white\/5 { background-color: var(--ov-05); }
+.bg-white\/10 { background-color: var(--ov-10); }
+.bg-white\/15 { background-color: var(--ov-15); }
+.bg-white\/20 { background-color: var(--ov-20); }
+.bg-white\/25 { background-color: var(--ov-25); }
+.bg-white\/90 { background-color: var(--ov-90); }
+
+.bg-black\/20 { background-color: var(--inset-20); }
+.bg-black\/25 { background-color: var(--inset-25); }
+.bg-black\/30 { background-color: var(--inset-30); }
+.bg-black\/40 { background-color: var(--inset-40); }
+.bg-black\/50 { background-color: var(--inset-50); }
+.bg-black\/70 { background-color: var(--inset-70); }
+
+.bg-zinc-200 { background-color: var(--inverse-hover); }
+.bg-zinc-700 { background-color: var(--panel); }
+.bg-zinc-950 { background-color: var(--bg); }
+
+.border-white\/5 { border-color: var(--bd-05); }
+.border-white\/10 { border-color: var(--bd-10); }
+.border-white\/15 { border-color: var(--bd-15); }
+.border-white\/20,
+.border-white\/25 { border-color: var(--bd-20); }
+
+/* Component-class nudges for light. */
+html.light .btn-primary { color: #fff; }
+html.light .btn-secondary { color: var(--fg); }
+html.light .dashboard-sidebar { background: #ffffff; }
+html.light .nav-item { color: var(--fg-muted); }
+html.light .nav-item:hover { color: var(--fg); background: rgba(0, 0, 0, 0.05); }
+html.light .nav-item.active { color: var(--fg); background: rgba(0, 0, 0, 0.06); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08); }
+html.light .nx-grid {
+  background-image:
+    linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+}
+html.light .nx-orb { opacity: 0.32; }
+
+/* Glass + tile surfaces use the theme overlay tokens so they flip. */
+.glass { background: var(--ov-04); }
+.nx-tile { background: linear-gradient(180deg, var(--ov-05), var(--ov-02)); }
+.nx-glass-panel { background: linear-gradient(180deg, var(--ov-06), var(--ov-02)); }
+
+/* Theme-aware translucent nav/header background (legible blur in both modes). */
+.nx-nav { background-color: color-mix(in srgb, var(--bg) 82%, transparent); }
+
+/* Accent text tints (100–300) are tuned for dark surfaces. On light *platform*
+   surfaces (not the dark-locked public agent pages) darken them for contrast. */
+html.light:not(:has(.public-agent-page)) :is(.text-cyan-100, .text-cyan-200, .text-cyan-300) { color: #0e7490; }
+html.light:not(:has(.public-agent-page)) :is(.text-emerald-100, .text-emerald-200, .text-emerald-300) { color: #047857; }
+html.light:not(:has(.public-agent-page)) :is(.text-amber-100, .text-amber-200, .text-amber-300) { color: #b45309; }
+html.light:not(:has(.public-agent-page)) :is(.text-violet-100, .text-violet-200, .text-violet-300, .text-purple-100, .text-purple-200, .text-purple-300) { color: #6d28d9; }
+html.light:not(:has(.public-agent-page)) :is(.text-fuchsia-200, .text-fuchsia-300, .text-pink-100, .text-pink-200, .text-pink-300) { color: #be185d; }
+html.light:not(:has(.public-agent-page)) :is(.text-orange-100, .text-orange-200, .text-orange-300) { color: #c2410c; }
+html.light:not(:has(.public-agent-page)) :is(.text-red-100, .text-red-200, .text-red-300) { color: #b91c1c; }
+html.light:not(:has(.public-agent-page)) :is(.text-blue-200, .text-blue-300) { color: #1d4ed8; }
+html.light:not(:has(.public-agent-page)) :is(.text-\[\#00F5FF\], .text-\[\#7DE3FF\]) { color: #0e7490; }
+html.light:not(:has(.public-agent-page)) :is(.text-\[\#C4B5FD\], .text-\[\#A78BFA\]) { color: #6d28d9; }
+html.light:not(:has(.public-agent-page)) .nx-chip { color: #0e7490; }
