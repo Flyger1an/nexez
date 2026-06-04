@@ -1,4 +1,4 @@
-import { ArrowRight, Bot, Gauge, Globe2, Search } from 'lucide-react'
+import { ArrowRight, Bot, Gauge, Globe2, Search, TrendingUp, ShieldCheck, Sparkles } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { cookies } from 'next/headers'
 import { AgentPage, PUBLIC_PAGE_SELECT, getOfferCount, getReadinessScore } from '../lib/agent-page'
@@ -42,6 +42,39 @@ const workflow = [
   { step: '04', title: 'Measure', copy: 'Track agent visits, queries, conversion actions, and readiness over time.' },
 ]
 
+const valueSignals: Feature[] = [
+  {
+    title: 'A/B test what agents convert on',
+    copy: 'Split traffic across offer variants and let the data pick the winner — automatically attributed per agent.',
+    Icon: TrendingUp,
+  },
+  {
+    title: 'Trust score & verification',
+    copy: 'A composite signal from readiness, domain proof, and real completion rates that agents can rely on.',
+    Icon: ShieldCheck,
+  },
+  {
+    title: 'AI Co-Pilot suggestions',
+    copy: 'One click to sharpen pricing, descriptions, FAQs, and schema for the way agents actually parse.',
+    Icon: Sparkles,
+  },
+]
+
+// Illustrative figures for the homepage analytics preview (clearly a sample).
+const agentMix = [
+  { name: 'ChatGPT', pct: 41, color: '#10B981' },
+  { name: 'Claude', pct: 27, color: '#A78BFA' },
+  { name: 'Perplexity', pct: 18, color: '#00D4FF' },
+  { name: 'Grok', pct: 9, color: '#F59E0B' },
+  { name: 'Other', pct: 5, color: '#71717A' },
+]
+
+const sampleQueries = [
+  { q: 'mobile massage near me this weekend', n: 38 },
+  { q: 'B2B strategy retainer pricing', n: 24 },
+  { q: 'emergency plumber that takes card', n: 19 },
+]
+
 export default async function NexezHome() {
   const cookieStore = await cookies()
   const auth = createClient(cookieStore)
@@ -81,8 +114,9 @@ export default async function NexezHome() {
         </div>
       </nav>
 
-      <section className="border-b border-border">
-        <div className="mx-auto grid max-w-7xl gap-12 px-5 py-20 lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,0.8fr)] lg:items-center lg:py-28">
+      <section className="relative overflow-hidden border-b border-border">
+        <HeroBackdrop />
+        <div className="relative z-10 mx-auto grid max-w-7xl gap-12 px-5 py-20 lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,0.8fr)] lg:items-center lg:py-28">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white/[0.04] px-3 py-1 text-xs text-muted-foreground">
               <Bot className="size-3.5 text-cyan-300" />
@@ -110,6 +144,42 @@ export default async function NexezHome() {
           </div>
 
           <ProductPreview />
+        </div>
+      </section>
+
+      <section className="relative overflow-hidden border-b border-border">
+        <div className="pointer-events-none absolute inset-0 z-0">
+          <div className="nx-orb nx-orb--purple !opacity-25" style={{ top: '-18rem', left: 'auto', right: '-10rem' }} />
+        </div>
+        <div className="relative z-10 mx-auto max-w-7xl px-5 py-20">
+          <div className="mb-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Analytics, not vanity metrics</p>
+              <h2 className="mt-2 max-w-2xl text-3xl font-semibold tracking-[-0.045em] md:text-5xl">
+                See exactly how agents discover and buy.
+              </h2>
+            </div>
+            <p className="max-w-md text-sm leading-6 text-muted-foreground">
+              Every visit, query, and conversion is attributed by agent — ChatGPT, Claude, Perplexity, Grok — so you can
+              prove ROI in minutes, not quarters.
+            </p>
+          </div>
+
+          <AnalyticsSnapshot />
+
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            {valueSignals.map(({ title, copy, Icon }) => (
+              <div key={title} className="card flex items-start gap-3">
+                <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-black">
+                  <Icon className="size-4 text-[#A78BFA]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium tracking-tight">{title}</h3>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{copy}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -287,5 +357,167 @@ function ProductPreview() {
         </div>
       </div>
     </div>
+  )
+}
+
+function HeroBackdrop() {
+  return (
+    <div className="nx-backdrop" aria-hidden="true">
+      <div className="nx-grid" />
+      <div className="nx-orb nx-orb--purple" />
+      <div className="nx-orb nx-orb--teal" />
+      <div className="nx-orb nx-orb--lavender" />
+    </div>
+  )
+}
+
+// Decorative, illustrative analytics preview — a glass "command center" that
+// signals the depth of measurement Nexez ships. All static SVG/CSS, no client JS.
+function AnalyticsSnapshot() {
+  const kpis = [
+    { label: 'Agent visits', value: '2,847', delta: '+18.4%', up: true },
+    { label: 'Conversions', value: '312', delta: '+9.1%', up: true },
+    { label: 'Avg. readiness', value: '92', delta: '+6 pts', up: true },
+    { label: 'Pipeline', value: '$48.2k', delta: '+$7.3k', up: true },
+  ]
+  const maxMix = Math.max(...agentMix.map((m) => m.pct))
+
+  return (
+    <div className="nx-glass-panel overflow-hidden">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
+        <div className="flex items-center gap-2.5">
+          <span className="nx-live-dot" />
+          <span className="text-xs font-medium text-white/90">Analytics</span>
+          <span className="hidden text-xs text-muted-foreground sm:inline">· Live preview</span>
+        </div>
+        <div className="flex items-center gap-1 rounded-md border border-border bg-white/[0.03] p-0.5 text-[11px]">
+          <span className="rounded px-2 py-1 text-muted-foreground">7d</span>
+          <span className="rounded bg-white/10 px-2 py-1 text-white">30d</span>
+          <span className="rounded px-2 py-1 text-muted-foreground">All</span>
+        </div>
+      </div>
+
+      <div className="p-4 sm:p-5">
+        {/* KPI row */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {kpis.map((k) => (
+            <div key={k.label} className="rounded-lg border border-border bg-white/[0.03] p-3">
+              <p className="text-[11px] text-muted-foreground">{k.label}</p>
+              <p className="mt-1.5 font-mono text-xl tracking-tight text-white sm:text-2xl">{k.value}</p>
+              <p className={`mt-1 inline-flex items-center gap-1 text-[10px] ${k.up ? 'text-emerald-300' : 'text-red-300'}`}>
+                <TrendingUp className="size-3" />
+                {k.delta}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Chart + agent mix */}
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1.7fr_1fr]">
+          <div className="min-w-0 rounded-lg border border-border bg-white/[0.02] p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-xs font-medium text-white/90">Agent traffic & conversions</p>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">30 days</p>
+            </div>
+            <TrafficSparkline />
+            <div className="mt-3 flex flex-wrap items-center gap-4 text-[10px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-[#00D4FF]" /> Agent visits</span>
+              <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-[#A78BFA]" /> Conversions</span>
+            </div>
+          </div>
+
+          <div className="min-w-0 rounded-lg border border-border bg-white/[0.02] p-4">
+            <p className="mb-3 text-xs font-medium text-white/90">Agents by model</p>
+            <div className="space-y-2.5">
+              {agentMix.map((m) => (
+                <div key={m.name}>
+                  <div className="mb-1 flex items-center justify-between text-[11px]">
+                    <span className="text-zinc-300">{m.name}</span>
+                    <span className="font-mono text-muted-foreground">{m.pct}%</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="nx-bar h-full rounded-full"
+                      style={{ width: `${(m.pct / maxMix) * 100}%`, background: m.color }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Demand + funnel */}
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1.7fr_1fr]">
+          <div className="min-w-0 rounded-lg border border-border bg-white/[0.02] p-4">
+            <p className="mb-3 text-xs font-medium text-white/90">What agents asked</p>
+            <div className="space-y-2">
+              {sampleQueries.map((s) => (
+                <div key={s.q} className="flex items-center justify-between gap-3 rounded-md border border-border bg-white/[0.02] px-3 py-2">
+                  <span className="truncate text-[12px] text-zinc-300">“{s.q}”</span>
+                  <span className="shrink-0 rounded-full bg-[#00D4FF]/10 px-2 py-0.5 font-mono text-[10px] text-[#7DE3FF]">{s.n}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="min-w-0 rounded-lg border border-border bg-white/[0.02] p-4">
+            <p className="mb-3 text-xs font-medium text-white/90">Conversion funnel</p>
+            <div className="space-y-2">
+              {[
+                { label: 'Discovered', w: 100, v: '2,847', c: 'rgba(0,212,255,0.5)' },
+                { label: 'Intent', w: 46, v: '1,309', c: 'rgba(167,139,250,0.55)' },
+                { label: 'Converted', w: 18, v: '312', c: 'rgba(16,185,129,0.6)' },
+              ].map((f) => (
+                <div key={f.label}>
+                  <div className="mb-1 flex items-center justify-between text-[11px]">
+                    <span className="text-zinc-300">{f.label}</span>
+                    <span className="font-mono text-muted-foreground">{f.v}</span>
+                  </div>
+                  <div className="h-5 overflow-hidden rounded bg-white/[0.04]">
+                    <div className="nx-bar h-full rounded" style={{ width: `${f.w}%`, background: f.c }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TrafficSparkline() {
+  // Two illustrative series over 30 days. viewBox space is 0..600 x 0..160.
+  const visits = 'M0,118 L50,104 L100,110 L150,86 L200,92 L250,66 L300,74 L350,50 L400,58 L450,36 L500,44 L550,22 L600,28'
+  const conv = 'M0,140 L50,134 L100,136 L150,124 L200,128 L250,116 L300,120 L350,108 L400,112 L450,98 L500,104 L550,88 L600,92'
+  const visitsArea = `${visits} L600,160 L0,160 Z`
+
+  return (
+    <svg viewBox="0 0 600 160" preserveAspectRatio="none" className="h-32 w-full sm:h-40" role="img" aria-label="Sample agent traffic trend">
+      <defs>
+        <linearGradient id="nx-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#00D4FF" stopOpacity="0.28" />
+          <stop offset="100%" stopColor="#00D4FF" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id="nx-stroke" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#00D4FF" />
+          <stop offset="100%" stopColor="#7C3AED" />
+        </linearGradient>
+      </defs>
+      {/* baseline grid */}
+      {[40, 80, 120].map((y) => (
+        <line key={y} x1="0" y1={y} x2="600" y2={y} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+      ))}
+      <path d={visitsArea} fill="url(#nx-fill)" />
+      <path d={conv} fill="none" stroke="#A78BFA" strokeOpacity="0.85" strokeWidth="2" strokeLinecap="round" className="nx-spark" />
+      <path d={visits} fill="none" stroke="url(#nx-stroke)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="nx-spark" />
+      <circle cx="600" cy="28" r="4" fill="#00D4FF" />
+      <circle cx="600" cy="28" r="4" fill="#00D4FF" opacity="0.4">
+        <animate attributeName="r" values="4;9;4" dur="2.4s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0.4;0;0.4" dur="2.4s" repeatCount="indefinite" />
+      </circle>
+    </svg>
   )
 }
