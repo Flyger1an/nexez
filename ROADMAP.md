@@ -1874,3 +1874,12 @@ Sequential verified bursts; roadmap updated per feature.
 
 ## robots.txt — welcome the full modern AI-crawler set
 - Expanded the explicit allow-list from 5 to ~19 agents (added Google-Extended, Claude-Web, anthropic-ai, Applebot/-Extended, Amazonbot, Meta-ExternalAgent, cohere-ai, Bytespider, YouBot, DuckAssistBot, Bingbot, Googlebot, Perplexity-User). Directly serves the "agents crawl you" mission.
+
+---
+
+# Platform-wide UI/UX performance pass (2026-06-03)
+
+## PlatformFrame code-split (biggest win — affects every public/agent page)
+- `PlatformFrame` was a `'use client'` component in the **root layout**, so its nav + ~18 lucide icons + Supabase client were bundled into **every** route — including public agent pages, landing, auth, and legal pages that render no chrome.
+- Split into a **thin gate** (`PlatformFrame`: just `usePathname` + a `next/dynamic` import) and the heavy **`PlatformShell`** (nav/search/supabase) loaded only on platform routes. Public/agent/landing/auth/legal pages now ship only the tiny gate — leaner bundles + faster TTI on the agent-facing surface (the <200ms quality bar).
+- Verified: lint/tsc clean, `npm test` 173/173, build clean.
