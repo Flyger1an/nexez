@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2, CreditCard } from 'lucide-react'
+import { CheckCircle2, CreditCard } from 'lucide-react'
 import { getBillingPlan } from '../../../../lib/billing'
 
 type SuccessProps = {
@@ -12,12 +12,7 @@ export default async function BillingSuccessPage({ searchParams }: SuccessProps)
   return (
     <main className="min-h-screen bg-[#090b10] text-white">
       <div className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-12">
-        <a href="/dashboard/billing" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
-          <ArrowLeft className="size-4" />
-          Billing
-        </a>
-
-        <section className="mt-8 card !p-8 text-center">
+        <section className="card !p-8 text-center">
           <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-emerald-400 text-zinc-950">
             <CheckCircle2 className="size-9" />
           </div>

@@ -1,4 +1,4 @@
-import { ArrowLeft, BadgeCheck, CreditCard, ExternalLink, Sparkles } from 'lucide-react'
+import { BadgeCheck, CreditCard, ExternalLink, Sparkles } from 'lucide-react'
 import { cookies } from 'next/headers'
 import { AgentPage, OWNER_PAGE_SELECT, getOfferCount } from '../../../lib/agent-page'
 import { billingPlans, getPlanPriceId, isStripeBillingConfigured } from '../../../lib/billing'
@@ -39,11 +39,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
   return (
     <main className="min-h-screen bg-[#090b10] text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-          <a href="/dashboard" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
-            <ArrowLeft className="size-4" />
-            Dashboard
-          </a>
+        <div className="flex justify-end">
           <a href="/dashboard/integrations" className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm text-zinc-300 hover:bg-white/10">
             Integrations
             <ExternalLink className="size-4" />

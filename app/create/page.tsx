@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowLeft,
   ArrowRight,
   Bot,
   Check,
@@ -487,15 +486,9 @@ export default function CreatePage() {
           onChange={handleCsvFile}
           className="hidden"
         />
-        <div className="flex items-center justify-between">
-          <a href="/dashboard" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
-            <ArrowLeft className="size-4" />
-            Dashboard
-          </a>
-        </div>
 
         {/* Site Importer - Prominent first-class option */}
-        <div className="card !p-8 mt-8 border border-[#7C3AED]/40">
+        <div className="card !p-8 border border-[#7C3AED]/40">
           <div className="text-center mb-6">
             <div className="inline-flex items-center justify-center size-12 rounded-2xl bg-[#7C3AED]/20 text-[#7C3AED] mb-4">
               <Bot className="size-6" />

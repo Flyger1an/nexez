@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { ArrowLeft, Star, TrendingUp } from 'lucide-react'
+import { Star, TrendingUp } from 'lucide-react'
 import { getBaseUrl } from '../../lib/agent-page'
 import { MarketplaceResults } from '../../components/MarketplaceResults'
 import { TrackedDirectoryLink } from '../../components/TrackedDirectoryLink'
@@ -36,12 +36,7 @@ export default async function MarketplacePage() {
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <a href="/" className="inline-flex items-center gap-2 text-sm text-[#9CA3AF] hover:text-white">
-          <ArrowLeft className="size-4" />
-          Nexez
-        </a>
-
-        <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-3xl md:text-4xl font-semibold tracking-tight flex items-center gap-2">
               <Star className="size-8 text-[#7C3AED]" /> Agent Marketplace

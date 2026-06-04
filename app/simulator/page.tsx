@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react'
 import {
-  ArrowLeft,
   Bot,
   ExternalLink,
   History,
@@ -298,11 +297,7 @@ export default function GlobalAgentSimulator() {
         <div className="mx-auto max-w-7xl px-6 py-8">
           <div className="flex flex-col gap-4 mb-8 md:flex-row md:items-end md:justify-between">
             <div>
-              <a href="/dashboard" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
-                <ArrowLeft className="size-4" />
-                Dashboard
-              </a>
-              <p className="mt-2 text-sm text-[#9CA3AF]">Global Agent Simulator</p>
+              <p className="text-sm text-[#9CA3AF]">Global Agent Simulator</p>
               <h1 className="text-3xl md:text-4xl font-semibold tracking-tighter">Test agent parsing</h1>
             </div>
             <div className="flex flex-wrap gap-3">

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import {
-  ArrowLeft,
   CheckCircle2,
   Clock,
   ExternalLink,
@@ -125,14 +124,7 @@ export default function NegotiationsInbox() {
     <ErrorBoundary>
       <main className="min-h-screen bg-[#0A0A0F] text-white">
         <div className="mx-auto max-w-5xl px-4 py-8 md:px-8">
-          <a
-            href="/dashboard"
-            className="inline-flex items-center gap-2 text-sm text-zinc-400 transition hover:text-white"
-          >
-            <ArrowLeft className="size-4" /> Back to dashboard
-          </a>
-
-          <header className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h1 className="flex items-center gap-2 text-2xl font-semibold">
                 <Handshake className="size-6 text-[#7C3AED]" /> Negotiation Inbox

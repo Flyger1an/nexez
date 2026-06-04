@@ -15,24 +15,31 @@ type Feature = {
 const features: Feature[] = [
   {
     title: 'Structured offers',
-    copy: 'Turn services, products, pricing, FAQs, and action links into a clean format agents can parse.',
+    copy: 'Services, products, pricing, FAQs, and action links formatted for agents instead of buried in a busy site.',
     Icon: Search,
   },
   {
     title: 'Agent summary',
-    copy: 'Give AI buyers the quick context they need: who you help, what you sell, and how to act.',
+    copy: 'A concise buyer context block that says who you help, what you sell, and what the next step is.',
     Icon: Bot,
   },
   {
     title: 'Schema-ready',
-    copy: 'Generate JSON-LD, llms.txt, and agent.json from the same offer data you manage in Nexez.',
+    copy: 'JSON-LD, llms.txt, agent.json, MCP, and clean HTML generated from the same page data.',
     Icon: Globe2,
   },
   {
     title: 'Readiness score',
-    copy: 'Spot missing details before agents do, from weak CTAs to unclear pricing or booking steps.',
+    copy: 'A practical score for missing CTAs, weak descriptions, unclear pricing, and agent parsing gaps.',
     Icon: Gauge,
   },
+]
+
+const workflow = [
+  { step: '01', title: 'Import', copy: 'Start from your website, Calendly, Stripe, Square, Shopify, or CSV.' },
+  { step: '02', title: 'Edit', copy: 'Polish offers, tiers, buyer fit, booking rules, and FAQs in the builder.' },
+  { step: '03', title: 'Publish', copy: 'Launch a lightweight page built for crawlers, agents, and direct action.' },
+  { step: '04', title: 'Measure', copy: 'Track agent visits, queries, conversion actions, and readiness over time.' },
 ]
 
 export default async function NexezHome() {
@@ -50,340 +57,235 @@ export default async function NexezHome() {
     .returns<AgentPage[]>()
 
   return (
-    <main className="min-h-screen bg-[#0A0A0F] text-white">
-      {/* Navigation - Transparent to solid on scroll (per spec) */}
-      <nav className="sticky top-0 z-50 border-b border-white/10 bg-[#0A0A0F]/95 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-0 sm:py-5">
+    <main className="min-h-screen bg-background text-white">
+      <nav className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4">
           <a href="/" className="flex items-center gap-3">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#7C3AED] to-[#00F5FF]">
-              <span className="text-lg font-bold text-[#0A0A0F]">N</span>
+            <div className="flex size-8 items-center justify-center rounded-md border border-border bg-white text-sm font-semibold text-black">
+              N
             </div>
-            <span className="text-2xl font-semibold tracking-tight">Nexez</span>
+            <span className="text-sm font-medium tracking-tight">Nexez</span>
           </a>
 
-          <div className="flex flex-wrap items-center gap-3 text-sm sm:gap-4 md:gap-8">
-            {/* Only show Directory for logged-in users or as secondary discovery.
-                Dashboard is never shown to non-authenticated visitors in primary nav. */}
-            {user && (
-              <a href="/directory" className="text-[#9CA3AF] hover:text-white transition-colors">Directory</a>
-            )}
-            
+          <div className="flex items-center gap-2 text-sm">
             {user ? (
-              <a href="/dashboard" className="btn-secondary px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm">Dashboard</a>
+              <a href="/dashboard" className="btn-secondary hidden h-9 px-3 sm:inline-flex">Overview</a>
             ) : (
-              <a href="/login" className="btn-secondary px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm">Sign in</a>
+              <a href="/login" className="btn-secondary hidden h-9 px-3 sm:inline-flex">Sign in</a>
             )}
-            
-            <a href="/create" className="btn-primary px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm">
-              Create Free Page
+            <a href="/create" className="btn-primary h-9 px-3">
+              Create page
               <ArrowRight className="size-4" />
             </a>
           </div>
         </div>
       </nav>
 
-      {/* HERO — Full-bleed gradient + glassmorphism (per Design System) */}
-      <section className="relative overflow-hidden bg-[linear-gradient(135deg,#0A0A0F_0%,#1A1625_50%,#0F0A1F_100%)] py-24 lg:py-32">
-        <div className="mx-auto max-w-5xl px-6 text-center">
-          <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1 text-sm backdrop-blur-md">
-            <Bot className="size-4 text-[#00F5FF]" />
-            <span className="text-[#C4B5FD]">Human-first management. Agent-first consumption.</span>
+      <section className="border-b border-border">
+        <div className="mx-auto grid max-w-7xl gap-12 px-5 py-20 lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,0.8fr)] lg:items-center lg:py-28">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white/[0.04] px-3 py-1 text-xs text-muted-foreground">
+              <Bot className="size-3.5 text-cyan-300" />
+              AI-readable business pages
+            </div>
+            <h1 className="mt-6 max-w-4xl text-balance text-5xl font-semibold tracking-[-0.065em] sm:text-6xl lg:text-7xl">
+              The page AI agents can actually use.
+            </h1>
+            <p className="mt-6 max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
+              Nexez creates a clean agent page next to your main website: structured offers, schema, booking links,
+              and analytics for how AI systems discover and act on your business.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <a href="/create" className="btn-primary h-11 px-5">
+                Create your first page
+                <ArrowRight className="size-4" />
+              </a>
+              <a href="/simulator" className="btn-secondary h-11 px-5">Test agent parsing</a>
+            </div>
+            <div className="mt-8 grid max-w-xl grid-cols-3 gap-3 text-xs text-muted-foreground">
+              <span>JSON-LD</span>
+              <span>llms.txt</span>
+              <span>agent.json</span>
+            </div>
           </div>
 
-          <h1 className="mx-auto max-w-5xl text-balance text-5xl font-semibold tracking-tighter sm:text-6xl md:text-7xl lg:text-[80px]">
-            Make your services<br />legible to AI.
-          </h1>
-
-          <p className="mx-auto mt-6 max-w-xl text-xl text-[#9CA3AF]">
-            Create premium, structured pages that AI agents can instantly understand, 
-            trust, and take action on. Then watch real signals, conversions, and ROI in your dashboard.
-          </p>
-
-          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <a href="/create" className="btn-primary text-lg px-10 py-4">
-              Create your first agent page
-              <ArrowRight className="size-5" />
-            </a>
-            <a href="/directory" className="btn-secondary text-lg px-8">
-              Browse public examples
-            </a>
-          </div>
-
-          {/* Trust Bar */}
-          <div className="mt-12 text-sm text-[#9CA3AF]">
-            Trusted by <span className="font-medium text-white">2,847 businesses</span> • 
-            <span className="mx-2">18,392 agent pages created</span> • 
-            <span className="text-[#00F5FF]">4.2s</span> average agent conversion time
-          </div>
+          <ProductPreview />
         </div>
       </section>
 
-      {/* FEATURE GRID — 3-column premium cards */}
-      <section className="border-b border-white/10 bg-[#0F0D18] py-20">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="text-center mb-12">
-            <div className="text-[#7C3AED] text-sm font-medium tracking-[3px] mb-3">WHY NEXEZ</div>
-            <h2 className="text-5xl font-semibold tracking-tighter">Built for both humans and agents</h2>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-3">
-            {features.map(({ title, copy, Icon }, index) => (
-              <div key={index} className="card group">
-                <div className="mb-6 inline-flex size-12 items-center justify-center rounded-2xl bg-white/5 group-hover:bg-[#7C3AED]/10 transition-colors">
-                  <Icon className="size-6 text-[#00F5FF]" />
-                </div>
-                <h3 className="text-2xl font-semibold mb-3 tracking-tight">{title}</h3>
-                <p className="text-[#9CA3AF] text-[15px] leading-relaxed">{copy}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* VALUE SHOWCASE — What your personal dashboard gives you (for potential customers) */}
-      <section className="border-b border-white/10 bg-[#0F0D18] py-20">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="text-center mb-12">
-            <div className="text-[#7C3AED] text-sm font-medium tracking-[3px] mb-3">YOUR COMMAND CENTER</div>
-            <h2 className="text-5xl font-semibold tracking-tighter">See exactly how agents engage with your business</h2>
-            <p className="mt-4 max-w-2xl mx-auto text-xl text-[#9CA3AF]">
-              Your private dashboard turns every published page into a live instrument. Track real agent behavior, not guesses.
+      <section className="border-b border-border py-18">
+        <div className="mx-auto max-w-7xl px-5 py-16">
+          <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">What Nexez creates</p>
+              <h2 className="mt-2 max-w-2xl text-3xl font-semibold tracking-[-0.045em] md:text-5xl">
+                A low-friction surface for agentic discovery.
+              </h2>
+            </div>
+            <p className="max-w-md text-sm leading-6 text-muted-foreground">
+              Human website stays intact. Agent page becomes the lightweight, structured layer built for parsing and action.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              { title: "Agent Events", desc: "See visits, checkout starts, and redirects from ChatGPT, Claude, Perplexity, and other crawlers." },
-              { title: "Conversion Actions", desc: "Track bookings, checkout sessions, and purchase intent back to the agent page that drove them." },
-              { title: "Readiness & Health", desc: "Score each page for parseability, missing details, schema coverage, and action clarity." },
-              { title: "Connected Integrations", desc: "Sync offers from Calendly, Stripe, Square, Shopify, or CSV without rebuilding everything by hand." },
-              { title: "Webhooks & Versions", desc: "Send booking events to your tools and keep a version trail when offers change." },
-              { title: "Insights & Signals", desc: "Find which offers agents ask for, where they drop off, and what to improve next." },
-            ].map((item, i) => (
-              <div key={i} className="card">
-                <h3 className="text-xl font-semibold mb-3 tracking-tight">{item.title}</h3>
-                <p className="text-[#9CA3AF] leading-relaxed">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-10 text-center">
-            <a href="/create" className="btn-primary text-lg px-10 py-4">
-              Create your first page to unlock your dashboard
-            </a>
-            <p className="mt-3 text-sm text-[#9CA3AF]">Free to start • No credit card required</p>
-          </div>
-        </div>
-      </section>
-
-      {/* DASHBOARD PREVIEW TEASER — Visual taste of what logged-in users see */}
-      <section className="border-b border-white/10 py-20">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="text-center mb-10">
-            <div className="text-[#7C3AED] text-sm font-medium tracking-[3px] mb-2">WHAT YOUR DASHBOARD LOOKS LIKE</div>
-            <h3 className="text-4xl font-semibold tracking-tighter">A live instrument for your business</h3>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {/* Mock KPI Row */}
-            <div className="card bg-white/[0.03]">
-              <div className="text-sm text-[#9CA3AF] mb-3">This month</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <div className="text-3xl font-semibold tracking-tighter">1,284</div>
-                  <div className="text-xs text-[#9CA3AF]">Agent events</div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {features.map(({ title, copy, Icon }) => (
+              <div key={title} className="card">
+                <div className="mb-5 flex size-9 items-center justify-center rounded-md border border-border bg-black">
+                  <Icon className="size-4 text-cyan-300" />
                 </div>
-                <div>
-                  <div className="text-3xl font-semibold tracking-tighter text-[#10B981]">187</div>
-                  <div className="text-xs text-[#9CA3AF]">Conversion actions</div>
-                </div>
-              </div>
-              <div className="mt-4 text-[10px] text-emerald-300">+34% from last month • Top source: Claude</div>
-            </div>
-
-            {/* Mock Integrations Health */}
-            <div className="card bg-white/[0.03]">
-              <div className="text-sm text-[#9CA3AF] mb-3">Connected Integrations</div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span>Calendly</span> <span className="text-emerald-400">Synced 4h ago</span></div>
-                <div className="flex justify-between"><span>Stripe</span> <span className="text-emerald-400">Synced yesterday</span></div>
-                <div className="flex justify-between"><span>Square</span> <span className="text-emerald-400">Synced 2d ago</span></div>
-              </div>
-              <div className="mt-3 text-[10px] text-[#00F5FF]">3 re-syncs performed this week • All edits protected</div>
-            </div>
-
-            {/* Mock Recent Activity */}
-            <div className="card bg-white/[0.03]">
-              <div className="text-sm text-[#9CA3AF] mb-3">Recent Agent Activity</div>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between"><span>Claude</span> <span className="text-emerald-300">Booked Strategy Session</span></div>
-                <div className="flex justify-between"><span>ChatGPT</span> <span className="text-emerald-300">Viewed 3 offers</span></div>
-                <div className="flex justify-between"><span>Grok</span> <span className="text-emerald-300">Redirected to site</span></div>
-              </div>
-              <div className="mt-3 text-[10px] text-[#00F5FF]">All tracked automatically. Full history in your dashboard.</div>
-            </div>
-          </div>
-
-          <p className="text-center mt-8 text-sm text-[#9CA3AF]">
-            From the first publish, Nexez starts turning agent traffic into readable business signals.
-          </p>
-        </div>
-      </section>
-
-      {/* HOW IT WORKS — Simple, clear flow for visitors */}
-      <section className="border-b border-white/10 py-20">
-        <div className="mx-auto max-w-5xl px-6 text-center">
-          <div className="text-[#7C3AED] text-sm font-medium tracking-[3px] mb-3">HOW IT WORKS</div>
-          <h2 className="text-5xl font-semibold tracking-tighter mb-12">From website to agent-ready in minutes</h2>
-
-          <div className="grid md:grid-cols-4 gap-8 text-left">
-            {[
-              { step: "01", title: "Connect or import", desc: "Pull offers from your site, Calendly, Stripe, Square, Shopify, or CSV." },
-              { step: "02", title: "Polish in the builder", desc: "Edit offers, tiers, CTAs, FAQs, buyer fit, and booking rules in one place." },
-              { step: "03", title: "Publish", desc: "Launch a fast public page with schema, llms.txt, agent.json, and clean HTML." },
-              { step: "04", title: "Watch agents engage", desc: "Track agent visits, queries, conversions, and ROI from the dashboard." },
-            ].map((item, i) => (
-              <div key={i} className="card">
-                <div className="text-[#7C3AED] font-mono text-sm mb-2">{item.step}</div>
-                <h3 className="text-xl font-semibold mb-3 tracking-tight">{item.title}</h3>
-                <p className="text-[#9CA3AF] text-[15px] leading-relaxed">{item.desc}</p>
+                <h3 className="text-lg font-medium tracking-tight">{title}</h3>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">{copy}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* SIMULATOR TEASER — Let visitors experience the power without logging in */}
-      <section id="simulator" className="border-b border-white/10 py-20 bg-[#0F0D18]">
-        <div className="mx-auto max-w-4xl px-6 text-center">
-          <div className="text-[#7C3AED] text-sm font-medium tracking-[3px] mb-3">EXPERIENCE IT</div>
-          <h2 className="text-5xl font-semibold tracking-tighter mb-4">See what an agent understands about a real page</h2>
-          <p className="max-w-xl mx-auto text-xl text-[#9CA3AF] mb-8">
-            Test a buyer-style query and see how a structured page turns offers, CTAs, and schema into an agent-readable answer.
-          </p>
+      <section className="border-b border-border">
+        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-16 lg:grid-cols-[0.7fr_1fr] lg:items-start">
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">Workflow</p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">From website to agent-ready.</h2>
+            <p className="mt-4 text-sm leading-6 text-muted-foreground">
+              The product is intentionally boring where it should be: import, edit, publish, measure. The magic is in the structure agents receive.
+            </p>
+          </div>
 
-          <SimulatorTeaser />
-        </div>
-        <div className="mt-6 text-center">
-          <p className="text-sm text-[#9CA3AF] mb-3">Turn your own services into an agent-readable page.</p>
-          <a href="/create" className="btn-primary text-sm px-8 py-2">Create your page now →</a>
+          <div className="grid gap-3 md:grid-cols-2">
+            {workflow.map((item) => (
+              <div key={item.step} className="rounded-lg border border-border bg-white/[0.03] p-5">
+                <p className="font-mono text-xs text-muted-foreground">{item.step}</p>
+                <h3 className="mt-3 text-xl font-medium">{item.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.copy}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* LIVE AGENT PAGES — Clean directory preview */}
-      <section className="py-20">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="flex items-end justify-between mb-10">
+      <section id="simulator" className="border-b border-border bg-white/[0.02] py-16">
+        <div className="mx-auto max-w-4xl px-5 text-center">
+          <p className="text-sm font-medium text-muted-foreground">Agent simulator</p>
+          <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">
+            Preview what an agent understands.
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
+            Test a buyer-style query and see how a structured page turns offers, CTAs, and schema into an answer.
+          </p>
+          <div className="mt-8">
+            <SimulatorTeaser />
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-border py-16">
+        <div className="mx-auto max-w-7xl px-5">
+          <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <div className="text-[#7C3AED] text-sm font-medium tracking-[3px] mb-2">REAL EXAMPLES</div>
-              <h2 className="text-5xl font-semibold tracking-tighter">See what agents discover right now</h2>
+              <p className="text-sm font-medium text-muted-foreground">Public examples</p>
+              <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">Pages agents can discover now.</h2>
             </div>
-            <a href="/directory" className="btn-ghost flex items-center gap-2 text-base">
-              Browse full directory <ArrowRight className="size-4" />
+            <a href="/directory" className="btn-secondary h-10 px-4">
+              Browse directory
+              <ArrowRight className="size-4" />
             </a>
           </div>
 
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {pages?.slice(0, 6).map((page) => (
-              <a
-                key={page.id}
-                href={`/${page.slug}`}
-                className="card group block"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="text-xl font-semibold tracking-tight group-hover:text-[#C4B5FD] transition-colors">{page.name}</h3>
-                    <p className="font-mono text-sm text-[#00F5FF] mt-1">/{page.slug}</p>
+              <a key={page.id} href={`/${page.slug}`} className="card group block">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <h3 className="line-clamp-1 text-lg font-medium group-hover:text-white">{page.name}</h3>
+                    <p className="mt-1 font-mono text-xs text-muted-foreground">/{page.slug}</p>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs text-[#9CA3AF]">READINESS</div>
-                    <div className="text-2xl font-semibold text-[#10B981]">{getReadinessScore(page)}%</div>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Ready</p>
+                    <p className="mt-1 font-mono text-lg text-emerald-300">{getReadinessScore(page)}%</p>
                   </div>
                 </div>
-
-                <p className="mt-5 line-clamp-3 text-[15px] leading-relaxed text-[#9CA3AF]">
+                <p className="mt-4 line-clamp-3 text-sm leading-6 text-muted-foreground">
                   {page.description || 'A structured, AI-optimized offer page.'}
                 </p>
-
-                <div className="mt-6 flex items-center gap-3 text-xs">
-                  <span className="rounded-full bg-white/5 px-3 py-1 border border-white/10">
-                    {getOfferCount(page)} offers
-                  </span>
-                  {page.location && (
-                    <span className="rounded-full bg-white/5 px-3 py-1 border border-white/10">
-                      {page.location}
-                    </span>
-                  )}
-                  <span className="rounded-full bg-emerald-400/10 px-2 py-0.5 text-emerald-300 text-[10px]">
-                    Agent-ready
-                  </span>
-                </div>
-
-                <div className="mt-3 text-[10px] text-[#7C3AED] group-hover:underline flex items-center gap-1">
-                  View agent-optimized page <span className="transition-transform group-hover:translate-x-0.5">→</span>
+                <div className="mt-5 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  <span className="rounded-full border border-border px-2 py-1">{getOfferCount(page)} offers</span>
+                  {page.location ? <span className="rounded-full border border-border px-2 py-1">{page.location}</span> : null}
                 </div>
               </a>
             ))}
           </div>
 
-          {!pages?.length && (
-            <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-16 text-center">
-              <p className="text-[#9CA3AF]">No published pages yet. Be the first.</p>
+          {!pages?.length ? (
+            <div className="rounded-lg border border-dashed border-border p-12 text-center">
+              <p className="text-sm text-muted-foreground">No published pages yet. Be the first.</p>
             </div>
-          )}
+          ) : null}
         </div>
       </section>
 
-      {/* SOCIAL PROOF — Agent-driven results (lightweight but credible) */}
-      <section className="border-b border-white/10 py-16 bg-[#0F0D18]">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="text-center mb-10">
-            <div className="text-[#7C3AED] text-sm font-medium tracking-[3px] mb-2">REAL RESULTS</div>
-            <h3 className="text-4xl font-semibold tracking-tighter">Businesses using Nexez are getting found by AI</h3>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6 text-center">
-            <div className="card">
-              <div className="text-5xl font-semibold tracking-tighter text-[#10B981]">3.8×</div>
-              <div className="mt-2 text-lg">increase in qualified inbound from AI referrals</div>
-              <div className="mt-4 text-sm text-[#9CA3AF]">— Average across users with 3+ published pages</div>
-            </div>
-            <div className="card">
-              <div className="text-5xl font-semibold tracking-tighter text-[#10B981]">47%</div>
-              <div className="mt-2 text-lg">of new bookings now originate from agent discovery</div>
-              <div className="mt-4 text-sm text-[#9CA3AF]">— For businesses in coaching, services, and local trades</div>
-            </div>
-            <div className="card">
-              <div className="text-5xl font-semibold tracking-tighter text-[#10B981]">92%</div>
-              <div className="mt-2 text-lg">of users say their Nexez page is more effective than their main site for AI traffic</div>
-              <div className="mt-4 text-sm text-[#9CA3AF]">— Internal survey, n=312</div>
-              <div className="mt-3 text-[10px] italic text-zinc-400">"The dashboard showed me exactly which offers agents were clicking on. I doubled down and got my first 3 AI-driven clients in a week."</div>
-              <div className="text-[10px] text-[#9CA3AF] mt-1">— Founder, strategy consultancy</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FINAL CTA BANNER */}
-      <section className="border-t border-white/10 py-20 bg-[#0F0D18]">
-        <div className="mx-auto max-w-3xl px-6 text-center">
-          <h2 className="text-6xl font-semibold tracking-tighter">Stop guessing what AI sees.</h2>
-          <p className="mt-4 text-xl text-[#9CA3AF]">
-            Create a structured, premium agent page in minutes and start seeing real discovery signals in your dashboard.
+      <section className="py-18">
+        <div className="mx-auto max-w-3xl px-5 py-16 text-center">
+          <h2 className="text-4xl font-semibold tracking-[-0.055em] md:text-6xl">Stop guessing what AI sees.</h2>
+          <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
+            Create a crawlable, structured agent page in minutes and start measuring real discovery signals.
           </p>
-          
-          <a href="/create" className="btn-primary mt-10 inline-flex text-xl px-14 py-5">
-            Create Your Agent Page — Free
+          <a href="/create" className="btn-primary mt-8 h-11 px-5">
+            Create your agent page
+            <ArrowRight className="size-4" />
           </a>
-          <p className="mt-4 text-sm text-[#9CA3AF]">No credit card • Instant dashboard access</p>
         </div>
       </section>
-
-      {/* Self-referential proof: This homepage is itself a Nexez-style agent page */}
-      <div className="py-8 text-center text-xs text-[#9CA3AF] border-t border-white/10">
-        This homepage is built with the same principles we sell: structured offers, clear audience fit, schema-ready content, and high agent readability.
-        <span className="ml-2 text-[#00F5FF]">→ You’re already experiencing the product.</span>
-      </div>
     </main>
+  )
+}
+
+function ProductPreview() {
+  return (
+    <div className="rounded-xl border border-border bg-white/[0.03] p-2 shadow-2xl shadow-black">
+      <div className="rounded-lg border border-border bg-black">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="size-2 rounded-full bg-red-400" />
+            <span className="size-2 rounded-full bg-amber-400" />
+            <span className="size-2 rounded-full bg-emerald-400" />
+          </div>
+          <span className="font-mono text-xs text-muted-foreground">nexez.app/acme</span>
+        </div>
+
+        <div className="grid gap-0 md:grid-cols-[0.9fr_1fr]">
+          <div className="border-b border-border p-5 md:border-b-0 md:border-r">
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Agent page</p>
+            <h3 className="mt-4 text-2xl font-semibold tracking-tight">Acme Strategy Studio</h3>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Executive strategy sessions, retainers, and audits for B2B founders.
+            </p>
+            <div className="mt-5 space-y-2">
+              {['Strategy Session - $450', 'Retainer - from $3,000/mo', 'SEO Audit - fixed scope'].map((item) => (
+                <div key={item} className="rounded-md border border-border bg-white/[0.03] px-3 py-2 text-sm">
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="p-5">
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">What agents read</p>
+            <pre className="mt-4 overflow-hidden rounded-lg border border-border bg-white/[0.03] p-4 font-mono text-[11px] leading-5 text-zinc-300">
+{`{
+  "offers": 3,
+  "best_fit": "B2B founders",
+  "actions": ["book", "buy", "contact"],
+  "schema": ["Service", "Offer"],
+  "readiness": 92
+}`}
+            </pre>
+            <div className="mt-4 rounded-lg border border-emerald-300/25 bg-emerald-300/10 p-3">
+              <p className="text-sm font-medium text-emerald-100">Agent-ready</p>
+              <p className="mt-1 text-xs leading-5 text-emerald-100/80">Clear pricing, buyer fit, schema, and booking action.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

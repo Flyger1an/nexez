@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Bot, Loader2, ExternalLink } from 'lucide-react'
+import { Bot, Loader2, ExternalLink } from 'lucide-react'
 import { ErrorBoundary } from '../../../components/ErrorBoundary'
 import { ApiKeysManager } from '../../../components/ApiKeysManager'
 
@@ -346,10 +346,6 @@ export default function ToolsPage() {
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="mx-auto max-w-4xl px-6 py-12">
-        <a href="/dashboard" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white mb-8">
-          <ArrowLeft className="size-4" /> Back to Dashboard
-        </a>
-
         <div className="flex items-center gap-3 mb-4">
           <Bot className="size-8 text-[#7C3AED]" />
           <h1 className="text-4xl font-semibold tracking-tight">Tools</h1>

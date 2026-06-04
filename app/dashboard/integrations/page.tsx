@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import {
-  ArrowLeft,
   Calendar,
   CheckCircle2,
   CreditCard,
@@ -141,12 +140,7 @@ export default function IntegrationsPage() {
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <a href="/dashboard" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
-          <ArrowLeft className="size-4" />
-          Dashboard
-        </a>
-
-        <div className="mt-8 border-b border-white/10 pb-6">
+        <div className="border-b border-white/10 pb-6">
           <p className="text-sm text-cyan-200">Integrations & Imports</p>
           <h1 className="mt-2 text-4xl font-semibold tracking-tight">Connect tools. Import offers.</h1>
           <p className="mt-4 max-w-3xl text-zinc-400">

@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowUpRight, Bot, Download, Filter, Search } from 'lucide-react'
+import { ArrowUpRight, Bot, Download, Filter, Search } from 'lucide-react'
 import { ErrorBoundary } from '../../../components/ErrorBoundary'
 import { TrafficChart } from './TrafficChart'
 import { TopOffersChart } from './TopOffersChart'
@@ -249,11 +249,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <ErrorBoundary>
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-          <a href="/dashboard" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
-            <ArrowLeft className="size-4" />
-            Dashboard
-          </a>
+        <div className="flex justify-end">
           <div className="flex items-center gap-3">
             {/* Time range selector - Phase 2 */}
             <div className="flex rounded-lg border border-white/10 bg-white/[0.04] p-1 text-sm">

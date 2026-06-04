@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { ArrowLeft, BarChart3, Download, ExternalLink, Loader2, Target } from 'lucide-react'
+import { BarChart3, Download, ExternalLink, Loader2, Target } from 'lucide-react'
 import { ErrorBoundary } from '../../../components/ErrorBoundary'
 import { AgentPage, getReadinessScore, getTrustScore } from '../../../lib/agent-page'
 import { optimizeAllOffersForAgents } from '../../../lib/ai-optimize'
@@ -125,10 +125,7 @@ export default function CompetitorIntelligence() {
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <ErrorBoundary>
         <div className="mx-auto max-w-5xl px-6 py-8">
-          <a href="/dashboard" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
-            <ArrowLeft className="size-4" /> Dashboard
-          </a>
-          <h1 className="mt-4 text-4xl font-semibold tracking-tight flex items-center gap-2">
+          <h1 className="text-4xl font-semibold tracking-tight flex items-center gap-2">
             <BarChart3 className="size-8 text-[#7C3AED]" /> AI Competitor Intelligence
           </h1>
           <p className="mt-2 text-[#9CA3AF]">Competitive agent intel. Any URL supported.</p>

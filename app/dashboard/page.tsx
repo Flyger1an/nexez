@@ -3,21 +3,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Activity,
-  BarChart3,
   Bell,
   Bot,
   Copy,
-  CreditCard,
   ExternalLink,
   Gauge,
-  Grid2X2,
-  Handshake,
-  Link2,
-  LogOut,
   Pencil,
   Play,
   Plus,
-  Search,
   Settings,
   Trash2,
 } from 'lucide-react'
@@ -41,7 +34,6 @@ export default function Dashboard() {
   const [agentVisits, setAgentVisits] = useState<AgentVisit[]>([])
   const [openNegotiations, setOpenNegotiations] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [query, setQuery] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [sharedPages, setSharedPages] = useState<AgentPage[]>([])
@@ -80,17 +72,6 @@ export default function Dashboard() {
 
     return counts
   }, [agentVisits, events])
-  const filteredPages = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    if (!needle) return pages
-
-    return pages.filter((page) =>
-      [page.name, page.slug, page.description, page.location]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(needle)),
-    )
-  }, [pages, query])
-
   async function loadPages() {
     const supabase = createClient()
     const {
@@ -227,72 +208,50 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#090b10] text-white">
-        Loading dashboard...
+      <main className="min-h-[calc(100vh-65px)] bg-background px-5 py-6 text-white md:px-8">
+        <div className="mx-auto max-w-7xl rounded-lg border border-border bg-white/[0.03] p-6">
+          <p className="text-sm text-muted-foreground">Nexez dashboard</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] md:text-4xl">Overview</h1>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            Loading your pages and agent signals. If this does not finish, sign in again to refresh your session.
+          </p>
+          <a href="/login?next=/dashboard" className="btn-secondary mt-5 h-10 px-4">Sign in</a>
+        </div>
       </main>
     )
   }
 
   return (
-    <main className="min-h-screen bg-[#0A0A0F] text-white">
-      <div className="mx-auto flex min-h-screen max-w-7xl border-x border-white/10">
-        <aside className="hidden w-64 shrink-0 border-r border-white/10 bg-[#0F0D18] p-5 lg:block dashboard-sidebar">
-          <a href="/" className="flex items-center gap-3">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#7C3AED] to-[#00F5FF]">
-              <span className="text-lg font-bold text-[#0A0A0F]">N</span>
+    <main className="min-h-screen bg-background text-white">
+      <div className="mx-auto max-w-7xl px-5 py-6 md:px-8">
+        <section className="rounded-lg border border-border bg-white/[0.03] p-5 md:p-6">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+            <div className="max-w-2xl">
+              <p className="text-sm text-muted-foreground">{displayName ? `Welcome back, ${displayName}` : 'Nexez dashboard'}</p>
+              <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] md:text-4xl">Overview</h1>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                Monitor your agent pages, traffic signals, readiness, and conversion actions from one place.
+              </p>
             </div>
-            <span className="text-xl font-semibold tracking-tight">Nexez</span>
-          </a>
-
-          <nav className="mt-10 space-y-1">
-            <NavItem active href="/dashboard" icon={<Grid2X2 className="size-4" />} label="My Agent Pages" />
-            <NavItem href="/create" icon={<Bot className="size-4" />} label="Builder" />
-            <NavItem href="/dashboard/analytics" icon={<BarChart3 className="size-4" />} label="Analytics" />
-            <NavItem href="/marketplace" icon={<Search className="size-4" />} label="Marketplace" />
-            <NavItem href="/directory" icon={<Search className="size-4" />} label="Directory" />
-            <NavItem href="/leaderboard" icon={<Gauge className="size-4" />} label="Leaderboard" />
-            <NavItem href="/dashboard/competitors" icon={<BarChart3 className="size-4" />} label="Competitor Intel" />
-            <NavItem href="/dashboard/negotiations" icon={<Handshake className="size-4" />} label="Negotiations" badge={openNegotiations} />
-            <NavItem href="/simulator" icon={<Bot className="size-4" />} label="Simulator" />
-            <NavItem href="/dashboard/integrations" icon={<Link2 className="size-4" />} label="Integrations" />
-            <NavItem href="/dashboard/tools" icon={<Bot className="size-4" />} label="Tools" />
-            <NavItem href="/dashboard/billing" icon={<CreditCard className="size-4" />} label="Billing" />
-            <NavItem href="/dashboard/settings" icon={<Settings className="size-4" />} label="Settings" />
-          </nav>
-
-          <div className="mt-10 rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-4">
-            <p className="text-sm font-medium text-cyan-100">Agent visibility</p>
-            <p className="mt-2 text-xs leading-5 text-zinc-400">
-              Sitemap + llms.txt included.
-            </p>
+            <a href="/create" className="btn-primary h-10 px-4 text-sm">
+              <Plus className="size-4" />
+              New Agent Page
+            </a>
           </div>
-        </aside>
 
-        <section className="min-w-0 flex-1">
-          <header className="flex flex-col gap-3 border-b border-white/10 bg-[#0F0D18] px-5 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
-            <div className="min-w-0">
-              <p className="text-sm text-[#9CA3AF]">{displayName ? `Welcome back, ${displayName}` : 'Nexez • Dashboard'}</p>
-              <h1 className="truncate text-2xl font-semibold tracking-tight">My Agent Pages</h1>
-            </div>
-            <div className="flex items-center gap-3">
-              <a href="/create" className="btn-primary text-sm">
-                <Plus className="size-4" />
-                New Agent Page
-              </a>
-              <form action="/auth/signout" method="post">
-                <button
-                  type="submit"
-                  aria-label="Sign out"
-                  className="rounded-lg border border-white/10 p-2 text-zinc-300 hover:bg-white/10 hover:text-white"
-                >
-                  <LogOut className="size-4" />
-                </button>
-              </form>
-            </div>
-          </header>
-
-          <div className="px-5 py-6 md:px-8">
-            <OnboardingChecklist pages={pages} />
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            <OverviewPill label="Published" value={publishedCount.toLocaleString()} />
+            <OverviewPill label="Offers" value={totalOffers.toLocaleString()} />
+            <OverviewPill label="Readiness" value={`${averageReadiness}%`} />
+            <a
+              href="/llms.txt"
+              className="inline-flex h-9 items-center justify-center rounded-md border border-border px-3 font-mono text-xs text-muted-foreground hover:bg-white/[0.06] hover:text-white"
+            >
+              /llms.txt
+            </a>
+          </div>
+        </section>
+        <OnboardingChecklist pages={pages} />
             {pages.length === 0 ? (
               <NewUserHero name={displayName} />
             ) : (
@@ -377,24 +336,6 @@ export default function Dashboard() {
             </>
             )}
 
-            <section className="mt-6 flex flex-col gap-3 md:flex-row">
-              <label className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  className="h-12 w-full rounded-lg border border-cyan-300/30 bg-black/20 pl-11 pr-4 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-cyan-300/70"
-                  placeholder="Search pages..."
-                />
-              </label>
-              <a
-                href="/create"
-                className="inline-flex h-12 items-center justify-center rounded-lg bg-cyan-300 px-8 text-sm font-semibold text-zinc-950 hover:bg-cyan-200"
-              >
-                Build page
-              </a>
-            </section>
-
             {selectedIds.size > 0 && (
               <div className="mt-5 flex flex-wrap items-center gap-3 rounded-lg border border-[#7C3AED]/40 bg-[#7C3AED]/10 px-4 py-3 text-sm">
                 <span className="font-medium text-white">{selectedIds.size} selected</span>
@@ -406,14 +347,12 @@ export default function Dashboard() {
             )}
 
             <div className="mt-5 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-cyan-200">My Agent Pages</h2>
-              <a href="/llms.txt" className="font-mono text-xs text-zinc-500 hover:text-cyan-200">
-                /llms.txt
-              </a>
+              <h2 className="text-lg font-semibold text-white">Pages</h2>
+              <span className="text-xs text-muted-foreground">{pages.length} total</span>
             </div>
 
             <section className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {filteredPages.map((page) => (
+              {pages.map((page) => (
                 <PageCard
                   key={page.id}
                   page={page}
@@ -427,11 +366,9 @@ export default function Dashboard() {
               ))}
             </section>
 
-            {!filteredPages.length ? (
+            {!pages.length ? (
               <div className="mt-5 rounded-lg border border-dashed border-white/15 p-12 text-center">
-                <p className="text-zinc-400">
-                  {pages.length ? 'No pages match your search.' : 'No pages yet. Create an agent page.'}
-                </p>
+                <p className="text-zinc-400">No pages yet. Create an agent page.</p>
               </div>
             ) : null}
 
@@ -458,8 +395,6 @@ export default function Dashboard() {
                 </section>
               </div>
             )}
-          </div>
-        </section>
       </div>
     </main>
   )
@@ -503,34 +438,12 @@ function isMissingRelationError(error: { code?: string; message?: string }) {
   return error.code === 'PGRST205' || /could not find the table|relation .* does not exist/i.test(error.message ?? '')
 }
 
-function NavItem({
-  active,
-  href,
-  icon,
-  label,
-  badge,
-}: {
-  active?: boolean
-  href: string
-  icon: React.ReactNode
-  label: string
-  badge?: number
-}) {
+function OverviewPill({ label, value }: { label: string; value: string }) {
   return (
-    <a
-      href={href}
-      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm ${
-        active ? 'bg-white/10 text-white' : 'text-zinc-400 hover:bg-white/5 hover:text-white'
-      }`}
-    >
-      {icon}
-      <span className="flex-1">{label}</span>
-      {badge && badge > 0 ? (
-        <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-[#7C3AED] px-1.5 text-[11px] font-semibold text-white">
-          {badge}
-        </span>
-      ) : null}
-    </a>
+    <div className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-black/25 px-3">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="font-mono text-xs text-white">{value}</span>
+    </div>
   )
 }
 

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import {
-  ArrowLeft,
   Bot,
   Check,
   Code2,
@@ -153,11 +152,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
     return (
       <main className="min-h-screen bg-[#090b10] px-6 py-12 text-white">
         <div className="mx-auto max-w-2xl">
-          <a href="/dashboard" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
-            <ArrowLeft className="size-4" />
-            Dashboard
-          </a>
-          <p className="mt-10 rounded-lg border border-white/10 bg-white/[0.04] p-6 text-zinc-300">
+          <p className="rounded-lg border border-white/10 bg-white/[0.04] p-6 text-zinc-300">
             {message || 'Page not found.'}
           </p>
         </div>
@@ -169,11 +164,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <ErrorBoundary>
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-          <a href="/dashboard" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
-            <ArrowLeft className="size-4" />
-            Dashboard
-          </a>
+        <div className="flex justify-end">
           <div className="flex flex-wrap gap-3">
             <a href={`/dashboard/${page.id}`} className={topButtonClass}>
               <Wrench className="size-4" />

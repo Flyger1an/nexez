@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { ArrowLeft, Trophy } from 'lucide-react'
+import { Trophy } from 'lucide-react'
 import { AgentPage, PUBLIC_PAGE_SELECT, getOfferCount, getReadinessScore, getTrustScore } from '../../lib/agent-page'
 import { supabase } from '../../lib/supabase'
 
@@ -37,11 +37,7 @@ export default async function LeaderboardPage({ searchParams }: Props) {
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="mx-auto max-w-4xl px-6 py-10">
-        <a href="/directory" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
-          <ArrowLeft className="size-4" /> Directory
-        </a>
-
-        <header className="mt-6 flex items-center gap-3">
+        <header className="flex items-center gap-3">
           <Trophy className="size-7 text-amber-300" />
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">Agent-Ready Leaderboard</h1>

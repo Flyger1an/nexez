@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   BadgeCheck,
   Bot,
   Code2,
@@ -58,11 +57,7 @@ export default async function AccountSettingsPage() {
   return (
     <main className="min-h-screen bg-[#090b10] text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-          <a href="/dashboard" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
-            <ArrowLeft className="size-4" />
-            Dashboard
-          </a>
+        <div className="flex justify-end">
           <div className="flex flex-wrap gap-3">
             <a href="/openapi.json" className={topButtonClass}>
               <Code2 className="size-4" />

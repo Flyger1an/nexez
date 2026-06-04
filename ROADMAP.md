@@ -1,7 +1,7 @@
 # Nexez Production Roadmap
 **"Build and ship the actual product, not an MVP. As robust as possible before introduction to the market. Make this the best on the market."**
 
-**Status**: Post-audit deep-dive complete (2026). User directive: **B first (this roadmap), then start on A immediately after**.
+**Status**: Platform shell, auth, support, homepage, and canonical local host cleanup complete (2026-06-04). Current directive: keep roadmap accurate, ship inspected work, and continue toward the MVP launch plan.
 
 This document is the single source of truth for turning Nexez into the category-defining platform for **agent-optimized pages** (lightweight, crawlable, bookable "business cards" for services/products that AI agents discover, understand, and transact with — while remaining beautiful and linkable/embeddable back to the human website).
 
@@ -47,6 +47,23 @@ If a phase does not move us meaningfully toward these bars, it is deprioritized.
 11. **Other Lower-Leverage (from Robust Feature List)**: Bulk actions, A/B, advanced embeds, team seats, marketing site depth, etc.
 
 **Philosophy Reminder**: We ship only what serves the dual experience. No bloat that complicates the clean agent HTML or the premium human creation flow.
+
+## 2026-06-04 Current Release State — Platform Shell + Auth + Support
+
+**Completed in the latest inspected build**:
+- Global premium shell added across management screens: collapsible sidebar, account page search, consistent top actions, and responsive mobile navigation.
+- Dashboard language shifted to **Overview** and redundant local search/back links removed from platform pages.
+- Homepage rebuilt around the core Nexez promise: a clean, agent-readable business surface next to the human website, with enough context cards to explain the product without bloating the page.
+- Auth route hardened: `/login`, `/login?mode=signup`, and `/login?mode=reset` now render directly from URL state and work before client interaction attaches.
+- Signup, signin, and reset screens now share the updated visual system while remaining shell-free and focused.
+- Support surface added: users select the project/page, get AI-assisted guidance, and can escalate to a stored support ticket.
+- Local development canonical host standardized: `localhost:3000` redirects to `127.0.0.1:3000` so cookies, zoom, storage, and mobile/desktop previews do not drift between origins.
+- Production checks passed repeatedly: lint, TypeScript, whitespace diff check, and optimized build.
+
+**Open next priorities**:
+- Apply the support ticket migration in the live database if not already applied.
+- Continue Phase 3 automation polish and Phase 5 hardening.
+- Keep the public agent pages minimal and structured while preserving the new premium management UI.
 
 ## Phased Execution Plan
 
@@ -430,7 +447,7 @@ Phase 2 is locked and complete.
 - DX: Strict TypeScript on OfferItem everywhere, shared validation.
 - Update CLAUDE.md / AGENTS.md if patterns change.
 
-**Success Criteria**: `npm test` (new) passes with ≥70% coverage on lib + key routes. Importer never hangs. Custom domain verification completes end-to-end in docs + UI. No P0 security findings. Build succeeds on Vercel with zero warnings.
+**Success Criteria**: `npm test` (new) passes with ≥70% coverage on lib + key routes. Importer never hangs. Custom domain verification completes end-to-end in docs + UI. No P0 security findings. Build succeeds on the production hosting platform with zero warnings.
 
 ---
 
@@ -463,7 +480,7 @@ Phase 2 is locked and complete.
 - **Measure what matters**: Importer success rate, builder edit time, agent-driven conversion rate, directory CTR, integration activation rate.
 - **Update this doc**: After every phase, append "Completed [date]" + key metrics + learnings. Re-prioritize remaining work.
 - **User input gates**: Major UX shifts (new builder paradigm, directory redesign) should have quick validation (even internal dogfood or 2–3 friendly users).
-- **Deployment**: All work on main → Vercel. Use feature flags or gradual rollout for risky importer changes.
+- **Deployment**: All work on main → production hosting. Use feature flags or gradual rollout for risky importer changes.
 - **Supabase**: Prefer small additive migrations. Use MCP tools for schema reviews when touching DB.
 
 ## Timeline & Milestones (Aggressive but Realistic for 1 Primary Dev)
@@ -1384,7 +1401,7 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 
 **Approved build sequence** (build full-throttle, mini-audit after each burst):
 - **A1 — Host → page serving (keystone)**: edge middleware maps a verified custom domain's `Host` to the owner's published page and rewrites; cached domain→slug lookup. Agent artifacts (`/agent.json`, `/mcp.json`) resolve at the domain root.
-- **A2 — SSL + domain provisioning**: integration with the hosting provider (Vercel Domains API) to attach domains + issue TLS; gated/graceful when no token (like Stripe).
+- **A2 — SSL + domain provisioning**: integration with the hosting provider domain API to attach domains + issue TLS; gated/graceful when no token (like Stripe).
 - **A3 — Domain connection wizard**: guided DNS records, propagation polling, state machine (Pending DNS → Verifying → SSL Issuing → Live), troubleshooting.
 - **B5 — Agent artifacts on the custom domain root** (full set incl. `.well-known`, scoped `llms.txt`/`openapi`).
 - **B6 — Crawlability test**: one-click "can GPTBot/ClaudeBot/PerplexityBot reach + parse this domain?" report.
@@ -1397,7 +1414,7 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 ## 2026-06-03 Burst 1 — A1: Custom Domain Host → Page Serving (KEYSTONE)
 
 **IMPLEMENTED**:
-- **`lib/custom-domain.ts`** (pure, tested): `normalizeHost`, `isPlatformHost` (localhost / `*.vercel.app` / configured site host + www variants), `hostLookupCandidates` (apex↔www), `mapCustomDomainPath` (`/`→`/{slug}`, `/agent.json`→`/{slug}/agent.json`, `/mcp.json`→`/{slug}/mcp.json`, else pass-through).
+- **`lib/custom-domain.ts`** (pure, tested): `normalizeHost`, `isPlatformHost` (localhost / managed preview hosts / configured site host + www variants), `hostLookupCandidates` (apex↔www), `mapCustomDomainPath` (`/`→`/{slug}`, `/agent.json`→`/{slug}/agent.json`, `/mcp.json`→`/{slug}/mcp.json`, else pass-through).
 - **`proxy.ts`** (the live middleware): for any non-platform Host, looks up the verified+published page (`custom_domain in [apex,www] AND is_published AND custom_domain_verified IS NOT NULL`) via the anon Supabase client, with a 60s per-instance cache, and **rewrites** to the page. Platform hosts fall straight through to `updateSession`. Agent artifacts now resolve at the brand-domain root.
 - **Removed dead `app/middleware.ts`** (the cleanup ticket) — it carried a misleading `matcher` config but was never executed by Next (only root `proxy.ts` runs). Single source of truth now.
 - **`lib/__tests__/custom-domain.test.ts`** — 10 tests covering host normalization, platform detection, apex/www candidates, and path mapping.
@@ -1407,11 +1424,11 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 2. ✅ `lib/custom-domain` helpers imported by `proxy.ts`; build clean.
 3. ✅ `custom_domain` / `custom_domain_verified` remain anon-selectable (only secret columns were revoked in the page_secrets migration), so the edge lookup works under RLS.
 4. ✅ Live query shape validated against the production schema (runs, returns empty — no domains configured yet).
-5. ✅ Platform routing unaffected (localhost/vercel/site host short-circuit before any DB lookup).
+5. ✅ Platform routing unaffected (localhost / managed host / site host short-circuit before any DB lookup).
 
 **Known follow-ups (next bursts, not regressions)**:
 - Page internal links still use `getBaseUrl()` (platform host) → canonical/action URLs point to `nexez` not the custom domain. Address in B5/A5 (per-domain canonical).
-- A2 (Vercel domain attach + SSL) still required for real production traffic to reach the app over the custom domain with TLS.
+- A2 (domain attach + SSL) still required for real production traffic to reach the app over the custom domain with TLS.
 
 **Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **50/50** (+10), `npm run build` clean (`Proxy (Middleware)` active).
 
@@ -1420,19 +1437,19 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 ## 2026-06-03 Burst 2 — A2 (SSL + provisioning) + A3 (connection wizard)
 
 **IMPLEMENTED**:
-- **`lib/vercel-domains.ts`** (A2, gated like Stripe): `isVercelDomainConfigured()` (env: `VERCEL_API_TOKEN`/`VERCEL_PROJECT_ID`/`VERCEL_TEAM_ID`), `addDomainToProject`, `getDomainStatus` (project domain + `/config` misconfigured flag + required DNS records), `removeDomainFromProject`. Plus pure **`deriveDomainState`** state machine (Pending DNS → Verifying → Live, + unconfigured/error) — provider status authoritative when configured, honest "manual mode" otherwise (proves ownership, doesn't claim TLS).
+- **Provider domain helper** (A2, gated like Stripe): domain-provider config detection, `addDomainToProject`, `getDomainStatus` (project domain + `/config` misconfigured flag + required DNS records), `removeDomainFromProject`. Plus pure **`deriveDomainState`** state machine (Pending DNS → Verifying → Live, + unconfigured/error) — provider status authoritative when configured, honest "manual mode" otherwise (proves ownership, doesn't claim TLS).
 - **`app/api/custom-domain/route.ts`** (owner-authed): `POST { action: attach|status|remove, domain }`. Verifies the caller owns a page with that `custom_domain`, calls the provider, returns the derived wizard state + required records. Graceful 401/403; graceful when provider not configured.
 - **A3 connection wizard** in page Settings: a state-machine progress strip (Pending DNS → Verifying → Live) + "Attach & provision SSL" / "Check status" buttons wired to the route, required-DNS-records display, and an honest note when provider auto-provisioning isn't configured. Sits alongside the existing TXT ownership flow.
-- **`lib/__tests__/vercel-domains.test.ts`** — 8 tests over the state machine (provider-configured + manual paths, error/unconfigured).
+- **Provider-domain tests** — 8 tests over the state machine (provider-configured + manual paths, error/unconfigured).
 
 **Mini-audit (properly plugged in?)**:
 1. ✅ Route is owner-authed — 401 without a user, 403 unless the caller owns a page whose `custom_domain` matches.
-2. ✅ Gated/graceful — `isVercelDomainConfigured()` false ⇒ manual mode, no provider calls, honest status.
+2. ✅ Gated/graceful — provider config missing ⇒ manual mode, no provider calls, honest status.
 3. ✅ Settings UI calls `/api/custom-domain` (attach + status) and renders state + DNS records.
 4. ✅ Secrets are env-driven; nothing hardcoded.
 5. ✅ Ownership query columns (`custom_domain`, `custom_domain_verified`) exist on live schema (migrated in Burst 0 reconciliation).
 
-**Note**: A2 only physically attaches domains + issues TLS in production once `VERCEL_API_TOKEN` + `VERCEL_PROJECT_ID` are set on the deployment. Until then the wizard runs in manual mode (DNS ownership proof) — by design.
+**Note**: A2 only physically attaches domains + issues TLS in production once the hosting provider token + project id are set on the deployment. Until then the wizard runs in manual mode (DNS ownership proof) — by design.
 
 **Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **58/58** (+8), `npm run build` clean (`/api/custom-domain` + `Proxy (Middleware)` present).
 
@@ -1484,7 +1501,7 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 
 **Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **79/79** (+8), `npm run build` clean (`Proxy (Middleware)` present).
 
-> **Deployed**: `main` fast-forwarded `fc3a95a..d74e279` and pushed (Vercel auto-deploy). All Phase 8 migrations through `domain_path` were already applied to the live DB. (Security: two GitHub PATs surfaced during deploy — the pasted one and a pre-existing token embedded in `.git/config` `branch.main.remote`, now removed; both flagged for rotation.)
+> **Deployed**: `main` fast-forwarded `fc3a95a..d74e279` and pushed. All Phase 8 migrations through `domain_path` were already applied to the live DB. (Security: two GitHub PATs surfaced during deploy — the pasted one and a pre-existing token embedded in `.git/config` `branch.main.remote`, now removed; both flagged for rotation.)
 
 ---
 
@@ -1525,7 +1542,7 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 
 **Verification**: `npm run lint --quiet` clean, `npx tsc --noEmit` clean, `npm test` **94/94** (+7), `npm run build` clean.
 
-> **Deployed**: C9 + C10 + D-tier pushed to `origin/main` (`0344a1e`); Vercel auto-deploy triggered.
+> **Deployed**: C9 + C10 + D-tier pushed to `origin/main` (`0344a1e`); production build triggered.
 
 ---
 
@@ -1635,9 +1652,9 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 
 ## 2026-06-03 Production verification — programmatic API live
 
-- `SUPABASE_SERVICE_ROLE_KEY` added to Vercel + redeployed (`0a8c369..7e725d8`). Added `/api/v1/health` (unauthenticated config status, no secrets).
-- Verified on production (`nexez.vercel.app`): `/api/v1/health` → `{ configured: true }`; `/api/v1/pages` (no key) → `401` (was `503`). **Programmatic API is live.**
-- Confirmed production is **publicly reachable** anonymously (200, no SSO). Only Vercel *preview/branch* URLs are auth-gated (safe default) — agents reach live pages fine.
+- `SUPABASE_SERVICE_ROLE_KEY` added to production hosting + redeployed (`0a8c369..7e725d8`). Added `/api/v1/health` (unauthenticated config status, no secrets).
+- Verified on production: `/api/v1/health` → `{ configured: true }`; `/api/v1/pages` (no key) → `401` (was `503`). **Programmatic API is live.**
+- Confirmed production is **publicly reachable** anonymously (200, no SSO). Only preview/branch URLs are auth-gated (safe default) — agents reach live pages fine.
 
 ---
 
@@ -1771,7 +1788,7 @@ Sequential verified bursts; roadmap updated per feature.
 ## #7 — Scheduled Re-sync + Freshness Monitor ✅
 - `lib/freshness.ts` (pure, tested): `daysSince`, `isStale` (published + has website_url + past threshold), `freshnessLabel`.
 - Editor staleness banner: when a published page with a source site hasn't been updated in 90d+, shows "re-sync to keep agent data accurate" → Settings re-sync.
-- `GET /api/cron/freshness` (admin-gated + `CRON_SECRET`-protected) scans published pages, returns a stale report; `vercel.json` daily cron (08:00). Read-only telemetry today; hook for notifications next.
+- `GET /api/cron/freshness` (admin-gated + `CRON_SECRET`-protected) scans published pages, returns a stale report; deployment cron config runs daily (08:00). Read-only telemetry today; hook for notifications next.
 - Verified: lint/tsc clean, build clean (`/api/cron/freshness`), 130/130 (+4).
 
 ## #8 — Notifications (in-app) ✅

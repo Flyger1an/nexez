@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { ArrowLeft, ArrowRight, Bot, Code2, ExternalLink, Search, Sparkles } from 'lucide-react'
+import { ArrowRight, Bot, Code2, ExternalLink, Search, Sparkles } from 'lucide-react'
 import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getOfferCount, getReadinessScore, getTrustScore } from '../../lib/agent-page'
 import { AgentSearchResult, searchAgentPages } from '../../lib/agent-search'
 import { supabase } from '../../lib/supabase'
@@ -67,11 +67,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <section className="border-b border-white/10 bg-[#0F0D18]">
         <div className="mx-auto max-w-7xl px-6 py-6">
-          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-            <a href="/" className="inline-flex items-center gap-2 text-sm text-[#9CA3AF] hover:text-white">
-              <ArrowLeft className="size-4" />
-              Nexez
-            </a>
+          <div className="flex justify-end">
             <div className="flex flex-wrap items-center gap-3 text-sm">
               <a href="/agent-pages.json" className="btn-secondary inline-flex items-center gap-2">
                 <Code2 className="size-4" />

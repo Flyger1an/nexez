@@ -1,5 +1,4 @@
 import { cookies } from 'next/headers'
-import { ArrowLeft } from 'lucide-react'
 import { createClient } from '../../../../../utils/supabase/server'
 import {
   AgentNegotiation,
@@ -46,11 +45,7 @@ export default async function NegotiationReceiptPage({ params }: { params: Promi
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="mx-auto max-w-2xl px-6 py-10">
-        <a href="/dashboard/negotiations" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white print:hidden">
-          <ArrowLeft className="size-4" /> Negotiation inbox
-        </a>
-
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-8">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8">
           <div className="flex items-center justify-between border-b border-white/10 pb-4">
             <div className="flex items-center gap-2">
               <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#7C3AED] to-[#00F5FF]">
