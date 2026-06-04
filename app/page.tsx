@@ -16,6 +16,8 @@ import { AgentPage, PUBLIC_PAGE_SELECT, getOfferCount, getReadinessScore } from 
 import { supabase } from '../lib/supabase'
 import { createClient } from '../utils/supabase/server'
 import { SimulatorTeaser } from '../components/SimulatorTeaser'
+import { HomeGauge } from '../components/HomeGauge'
+import { PhilosophySplit } from '../components/PhilosophySplit'
 
 type Feature = {
   title: string
@@ -149,19 +151,25 @@ export default async function NexezHome() {
         </div>
       </section>
 
-      {/* AGENT LOGO STRIP */}
+      {/* AGENT LOGO MARQUEE */}
       <section className="border-b border-border bg-white/[0.015]">
-        <div className="mx-auto flex max-w-7xl flex-col items-center gap-6 px-5 py-10 md:flex-row md:justify-between md:gap-10">
-          <p className="shrink-0 text-xs uppercase tracking-[0.22em] text-muted-foreground">
+        <div className="mx-auto max-w-7xl px-5 py-10">
+          <p className="mb-6 text-center text-xs uppercase tracking-[0.22em] text-muted-foreground">
             Built to be read by every major agent
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 md:justify-end">
-            {agents.map((a) => (
-              <span key={a} className="nx-logo inline-flex items-center gap-2 text-base font-medium tracking-tight">
-                <span className="size-1.5 rounded-full bg-current opacity-60" />
-                {a}
-              </span>
-            ))}
+          <div className="nx-marquee">
+            <div className="nx-marquee-track gap-x-12">
+              {[...agents, ...agents].map((a, i) => (
+                <span
+                  key={`${a}-${i}`}
+                  aria-hidden={i >= agents.length}
+                  className="nx-logo inline-flex shrink-0 items-center gap-2 text-base font-medium tracking-tight"
+                >
+                  <span className="size-1.5 rounded-full bg-current opacity-60" />
+                  {a}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -237,7 +245,7 @@ export default async function NexezHome() {
             </p>
           </div>
 
-          <DualPhilosophy />
+          <PhilosophySplit />
         </div>
       </section>
 
@@ -402,8 +410,7 @@ function BentoGrid() {
 
       {/* Readiness gauge */}
       <div className="nx-tile flex flex-col items-center justify-center p-5">
-        <ReadinessGauge value={92} />
-        <p className="mt-2 text-xs text-muted-foreground">Readiness score</p>
+        <HomeGauge value={92} />
       </div>
 
       {/* Schema formats */}
@@ -434,38 +441,6 @@ function BentoGrid() {
   )
 }
 
-function ReadinessGauge({ value }: { value: number }) {
-  const circumference = 264
-  const offset = Math.round(circumference * (1 - value / 100))
-  return (
-    <div className="relative size-28">
-      <svg viewBox="0 0 100 100" className="size-full -rotate-90">
-        <defs>
-          <linearGradient id="nx-gauge-grad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#00D4FF" />
-            <stop offset="100%" stopColor="#7C3AED" />
-          </linearGradient>
-        </defs>
-        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="7" />
-        <circle
-          cx="50"
-          cy="50"
-          r="42"
-          fill="none"
-          stroke="url(#nx-gauge-grad)"
-          strokeWidth="7"
-          strokeLinecap="round"
-          className="nx-gauge-ring"
-          style={{ ['--nx-gauge-off' as string]: String(offset) }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="font-mono text-2xl font-semibold text-white">{value}</span>
-      </div>
-    </div>
-  )
-}
-
 function MiniSparkline() {
   const line = 'M0,52 L30,46 L60,49 L90,38 L120,42 L150,30 L180,34 L210,22 L240,27 L270,14 L300,18'
   const area = `${line} L300,64 L0,64 Z`
@@ -488,82 +463,6 @@ function MiniSparkline() {
 }
 
 // The signature split: a cluttered human site vs the precise agent surface.
-function DualPhilosophy() {
-  return (
-    <div className="grid items-stretch gap-4 lg:grid-cols-[1fr_auto_1fr]">
-      {/* Human site */}
-      <div className="nx-tile p-4">
-        <p className="mb-3 px-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">What humans see</p>
-        <div className="overflow-hidden rounded-lg border border-border bg-black/40 opacity-80">
-          <div className="flex items-center gap-1.5 border-b border-border px-3 py-2">
-            <span className="size-2 rounded-full bg-white/20" />
-            <span className="size-2 rounded-full bg-white/20" />
-            <span className="size-2 rounded-full bg-white/20" />
-            <span className="ml-2 h-2 w-24 rounded-full bg-white/10" />
-          </div>
-          <div className="space-y-3 p-4">
-            <div className="flex gap-2">
-              {[...Array(5)].map((_, i) => <span key={i} className="h-2 w-10 rounded-full bg-white/10" />)}
-            </div>
-            <div className="h-20 rounded-md bg-gradient-to-br from-white/10 to-white/[0.03]" />
-            <div className="grid grid-cols-3 gap-2">
-              {[...Array(6)].map((_, i) => <div key={i} className="h-10 rounded bg-white/[0.05]" />)}
-            </div>
-            <div className="space-y-1.5">
-              <span className="block h-2 w-full rounded-full bg-white/[0.07]" />
-              <span className="block h-2 w-4/5 rounded-full bg-white/[0.07]" />
-              <span className="block h-2 w-2/3 rounded-full bg-white/[0.07]" />
-            </div>
-          </div>
-        </div>
-        <p className="mt-3 px-1 text-xs leading-5 text-muted-foreground">
-          Carousels, scripts, and layout an agent has to fight through.
-        </p>
-      </div>
-
-      {/* Arrow / label */}
-      <div className="flex items-center justify-center lg:flex-col lg:gap-3">
-        <div className="flex items-center gap-2 rounded-full border border-border bg-white/[0.04] px-3 py-1.5 text-[11px] text-muted-foreground">
-          <Sparkles className="size-3.5 text-cyan-300" />
-          Nexez derives
-        </div>
-        <ArrowRight className="size-5 rotate-90 text-white/30 lg:rotate-0" />
-      </div>
-
-      {/* Agent surface */}
-      <div className="nx-tile p-4">
-        <p className="mb-3 px-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">What agents get</p>
-        <div className="rounded-lg border border-cyan-400/15 bg-cyan-400/[0.03] p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-white">Acme Strategy Studio</span>
-            <span className="nx-chip">readiness 92</span>
-          </div>
-          <div className="mt-3 space-y-1.5">
-            {[
-              ['Strategy Session', '$450'],
-              ['Retainer', 'from $3,000/mo'],
-              ['SEO Audit', 'fixed scope'],
-            ].map(([n, p]) => (
-              <div key={n} className="flex items-center justify-between rounded-md border border-border bg-black/30 px-3 py-2 text-xs">
-                <span className="text-zinc-200">{n}</span>
-                <span className="font-mono text-cyan-200">{p}</span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {['book', 'buy', 'contact', 'negotiate'].map((a) => (
-              <span key={a} className="rounded-full border border-emerald-300/25 bg-emerald-300/10 px-2 py-0.5 text-[10px] text-emerald-200">{a}</span>
-            ))}
-          </div>
-        </div>
-        <p className="mt-3 px-1 text-xs leading-5 text-muted-foreground">
-          Offers, pricing, actions, and schema — zero ambiguity.
-        </p>
-      </div>
-    </div>
-  )
-}
-
 function ProductPreview() {
   return (
     <div className="rounded-xl border border-border bg-white/[0.03] p-2 shadow-2xl shadow-black">

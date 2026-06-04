@@ -628,6 +628,29 @@ a:focus-visible,
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
 }
 
+/* Continuous logo marquee (edges faded, pauses on hover). */
+.nx-marquee {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+}
+.nx-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: nx-marquee 30s linear infinite;
+}
+.nx-marquee:hover .nx-marquee-track {
+  animation-play-state: paused;
+}
+@keyframes nx-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nx-marquee-track { animation: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .nx-accent-text { animation: none; }
   .nx-shimmer::after,

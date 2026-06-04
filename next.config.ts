@@ -2,6 +2,10 @@ import path from "node:path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // The project canonicalizes local dev on 127.0.0.1 (see redirects below), so
+  // allow it as a dev origin — otherwise Next blocks HMR/client dev resources
+  // and client components never hydrate locally. Dev-only; no production impact.
+  allowedDevOrigins: ["127.0.0.1"],
   turbopack: {
     root: path.resolve("."),
   },
