@@ -137,10 +137,7 @@ export default function NegotiationsInbox() {
               <h1 className="flex items-center gap-2 text-2xl font-semibold">
                 <Handshake className="size-6 text-[#7C3AED]" /> Negotiation Inbox
               </h1>
-              <p className="mt-1 max-w-2xl text-sm text-zinc-400">
-                Incoming agent-to-agent proposals on your published offers. Review terms, propose an
-                agreement, and (when Stripe escrow is configured) hold funds through completion.
-              </p>
+              <p className="mt-1 max-w-2xl text-sm text-zinc-400">Agent proposals + escrow status.</p>
             </div>
             <button
               onClick={() => void load()}
@@ -175,8 +172,8 @@ export default function NegotiationsInbox() {
               <p className="mt-3 text-sm font-medium text-zinc-200">No negotiations yet</p>
               <p className="mx-auto mt-2 max-w-md text-sm text-zinc-400">
                 {migrationPending
-                  ? 'The negotiations table is not available on this project yet. Apply the agent_negotiations migration to start receiving agent proposals.'
-                  : 'When an AI agent submits a proposal via the negotiation endpoint on one of your published pages, it shows up here for review.'}
+                  ? 'Apply agent_negotiations migration.'
+                  : 'Agent proposals appear here.'}
               </p>
               <a
                 href="/dashboard"
@@ -286,11 +283,11 @@ function NegotiationCard({
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
         {!escrowAvailable && (
           <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
-            <Lock className="size-3" /> Escrow hold unlocks once Stripe is configured
+            <Lock className="size-3" /> Escrow needs Stripe
           </span>
         )}
         {transitions.length === 0 ? (
-          <span className="text-xs text-zinc-500">No further action — this negotiation is closed.</span>
+          <span className="text-xs text-zinc-500">Negotiation closed.</span>
         ) : (
           transitions.map((to) => (
             <button

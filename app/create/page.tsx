@@ -147,7 +147,7 @@ export default function CreatePage() {
 
     if (params.get('import') === 'csv') {
       setStep(2)
-      setImportMessage('Upload a CSV to import services, products, FAQs, and page context.')
+      setImportMessage('Upload CSV import.')
     }
 
     // Handle import from Tools page
@@ -171,7 +171,7 @@ export default function CreatePage() {
             setServices(formatOfferLines(offers))
           }
 
-          setImportMessage('Page data loaded from website import. Review and customize below.')
+          setImportMessage('Import loaded. Review below.')
           setStep(1)
           // Clean up storage
           sessionStorage.removeItem('nexez_imported_page')
@@ -771,7 +771,7 @@ export default function CreatePage() {
                             }}
                             className="text-[10px] rounded border border-[#7C3AED]/40 px-2 py-0.5 text-[#C4B5FD] hover:bg-[#7C3AED]/10"
                           >
-                            Suggest for {industry.split(' ')[0]}
+                            Suggest {industry.split(' ')[0]}
                           </button>
                         )}
                       </div>
@@ -833,7 +833,7 @@ export default function CreatePage() {
 
                   {/* Legacy raw text kept for CSV / power users (advanced) */}
                   <details className="group">
-                    <summary className="cursor-pointer text-xs text-zinc-400 hover:text-zinc-200">Advanced: raw text format (CSV import, power users)</summary>
+                    <summary className="cursor-pointer text-xs text-zinc-400 hover:text-zinc-200">Advanced: raw format</summary>
                     <div className="mt-3 space-y-4">
                       <Field label="Services (raw text)">
                         <textarea value={services} onChange={(event) => { setServices(event.target.value); setServicesOffers(parseOfferLines(event.target.value)) }} className={textareaClass} />
@@ -849,9 +849,9 @@ export default function CreatePage() {
                   </details>
 
                   <div className="flex flex-wrap gap-3">
-                    <button type="button" onClick={optimizeOfferCopy} className={secondaryButton}>Optimize All Offers for Agents</button>
-                    <button type="button" onClick={rewriteServicesForAgents} className={secondaryButton}>Rewrite Services for AI</button>
-                    <button type="button" onClick={rewriteProductsForAgents} className={secondaryButton}>Rewrite Products for AI</button>
+                    <button type="button" onClick={optimizeOfferCopy} className={secondaryButton}>Optimize Offers</button>
+                    <button type="button" onClick={rewriteServicesForAgents} className={secondaryButton}>Rewrite Services</button>
+                    <button type="button" onClick={rewriteProductsForAgents} className={secondaryButton}>Rewrite Products</button>
                   </div>
                 </div>
               ) : null}
@@ -863,7 +863,7 @@ export default function CreatePage() {
                       <CheckCircle2 className="size-8 text-emerald-300" />
                       <div>
                         <h3 className="text-xl font-semibold">Agent parse check</h3>
-                        <p className="text-sm text-zinc-400">Your page is {score}% ready for crawlers and AI buyers.</p>
+                        <p className="text-sm text-zinc-400">{score}% crawler-ready.</p>
                       </div>
                     </div>
                   </div>
@@ -890,7 +890,7 @@ export default function CreatePage() {
                     <textarea value={faqs} onChange={(event) => setFaqs(event.target.value)} className={textareaClass} placeholder="Can agents book directly? | Yes, use the booking URL on this page." />
                   </Field>
                   <button type="button" onClick={aiFill} className="w-full rounded-lg bg-cyan-300 px-5 py-3 font-semibold text-zinc-950 hover:bg-cyan-200">
-                    Fill Missing Agent Context
+                    Fill Agent Context
                   </button>
                 </div>
               ) : null}
@@ -903,7 +903,7 @@ export default function CreatePage() {
                   <Bot className="size-5" />
                 </div>
                 <h4 className="text-2xl font-semibold">{name || 'Strategy Session'}</h4>
-                <p className="mt-3 text-sm leading-6 text-zinc-400">{description || 'A clear AI-readable summary will appear here.'}</p>
+                <p className="mt-3 text-sm leading-6 text-zinc-400">{description || 'Agent summary preview.'}</p>
                 <div className="mt-5 space-y-2 text-sm text-zinc-300">
                   {[...parsedServices, ...parsedProducts].slice(0, 3).map((offer, index) => (
                     <div key={`${offer.name}-${index}`} className="flex justify-between rounded-md bg-white/5 px-3 py-2">

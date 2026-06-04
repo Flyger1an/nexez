@@ -15,22 +15,22 @@ type Feature = {
 const features: Feature[] = [
   {
     title: 'Structured offers',
-    copy: 'Products, services, prices, URLs, and FAQs in a parseable format.',
+    copy: 'Turn services, products, pricing, FAQs, and action links into a clean format agents can parse.',
     Icon: Search,
   },
   {
     title: 'Agent summary',
-    copy: 'A concise answer block that tells AI systems exactly what the page sells.',
+    copy: 'Give AI buyers the quick context they need: who you help, what you sell, and how to act.',
     Icon: Bot,
   },
   {
     title: 'Schema-ready',
-    copy: 'Product, Service, and Offer metadata generated from the same source.',
+    copy: 'Generate JSON-LD, llms.txt, and agent.json from the same offer data you manage in Nexez.',
     Icon: Globe2,
   },
   {
     title: 'Readiness score',
-    copy: 'A dashboard score that points out missing conversion details.',
+    copy: 'Spot missing details before agents do, from weak CTAs to unclear pricing or booking steps.',
     Icon: Gauge,
   },
 ]
@@ -153,12 +153,12 @@ export default async function NexezHome() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { title: "Agent Events Tracked", desc: "See every time an AI system lands on your page, attempts checkout, or redirects to your site — with source (ChatGPT, Claude, etc.)." },
-              { title: "Conversion Actions", desc: "Real outcomes: provider redirects, Stripe sessions created, and completed bookings attributed to agent discovery." },
-              { title: "Readiness & Health", desc: "Live average readiness across your pages + per-page breakdowns. Know precisely what to improve." },
-              { title: "Connected Integrations", desc: "Live status, last sync times, and one-click re-sync for Calendly, Stripe, Square, Acuity, and more — edits protected." },
-              { title: "Outbound Webhooks & Version History", desc: "Fire booking events to your systems the moment they happen. Every change to your offers is versioned and restorable." },
-              { title: "Insights & Top Signals", desc: "Which of your offers converts best with agents? What’s driving the most intent? Clear, actionable data." },
+              { title: "Agent Events", desc: "See visits, checkout starts, and redirects from ChatGPT, Claude, Perplexity, and other crawlers." },
+              { title: "Conversion Actions", desc: "Track bookings, checkout sessions, and purchase intent back to the agent page that drove them." },
+              { title: "Readiness & Health", desc: "Score each page for parseability, missing details, schema coverage, and action clarity." },
+              { title: "Connected Integrations", desc: "Sync offers from Calendly, Stripe, Square, Shopify, or CSV without rebuilding everything by hand." },
+              { title: "Webhooks & Versions", desc: "Send booking events to your tools and keep a version trail when offers change." },
+              { title: "Insights & Signals", desc: "Find which offers agents ask for, where they drop off, and what to improve next." },
             ].map((item, i) => (
               <div key={i} className="card">
                 <h3 className="text-xl font-semibold mb-3 tracking-tight">{item.title}</h3>
@@ -224,7 +224,9 @@ export default async function NexezHome() {
             </div>
           </div>
 
-          <p className="text-center mt-8 text-sm text-[#9CA3AF]">This is the level of visibility and control you get the moment your first page is published.</p>
+          <p className="text-center mt-8 text-sm text-[#9CA3AF]">
+            From the first publish, Nexez starts turning agent traffic into readable business signals.
+          </p>
         </div>
       </section>
 
@@ -236,10 +238,10 @@ export default async function NexezHome() {
 
           <div className="grid md:grid-cols-4 gap-8 text-left">
             {[
-              { step: "01", title: "Connect or import", desc: "Link Calendly, Stripe, Square, or paste your site. We pull structured offers automatically." },
-              { step: "02", title: "Polish in the builder", desc: "Drag, edit, add tiers, consumer details, and per-offer 'book on original site' preferences." },
-              { step: "03", title: "Publish", desc: "Your page becomes instantly legible to AI with schema, llms.txt, agent.json, and clean human design." },
-              { step: "04", title: "Watch agents engage", desc: "Real activity, conversions, and signals appear in your dashboard. Fire webhooks on every booking." },
+              { step: "01", title: "Connect or import", desc: "Pull offers from your site, Calendly, Stripe, Square, Shopify, or CSV." },
+              { step: "02", title: "Polish in the builder", desc: "Edit offers, tiers, CTAs, FAQs, buyer fit, and booking rules in one place." },
+              { step: "03", title: "Publish", desc: "Launch a fast public page with schema, llms.txt, agent.json, and clean HTML." },
+              { step: "04", title: "Watch agents engage", desc: "Track agent visits, queries, conversions, and ROI from the dashboard." },
             ].map((item, i) => (
               <div key={i} className="card">
                 <div className="text-[#7C3AED] font-mono text-sm mb-2">{item.step}</div>
@@ -257,13 +259,13 @@ export default async function NexezHome() {
           <div className="text-[#7C3AED] text-sm font-medium tracking-[3px] mb-3">EXPERIENCE IT</div>
           <h2 className="text-5xl font-semibold tracking-tighter mb-4">See what an agent understands about a real page</h2>
           <p className="max-w-xl mx-auto text-xl text-[#9CA3AF] mb-8">
-            Type a question an AI buyer might ask. We'll show you exactly how a structured Nexez page would be interpreted.
+            Test a buyer-style query and see how a structured page turns offers, CTAs, and schema into an agent-readable answer.
           </p>
 
           <SimulatorTeaser />
         </div>
         <div className="mt-6 text-center">
-          <p className="text-sm text-[#9CA3AF] mb-3">Loved what the agent saw? Turn your own offers into something this clear.</p>
+          <p className="text-sm text-[#9CA3AF] mb-3">Turn your own services into an agent-readable page.</p>
           <a href="/create" className="btn-primary text-sm px-8 py-2">Create your page now →</a>
         </div>
       </section>
@@ -274,7 +276,7 @@ export default async function NexezHome() {
           <div className="flex items-end justify-between mb-10">
             <div>
               <div className="text-[#7C3AED] text-sm font-medium tracking-[3px] mb-2">REAL EXAMPLES</div>
-              <h2 className="text-5xl font-semibold tracking-tighter">See what agents actually discover right now</h2>
+              <h2 className="text-5xl font-semibold tracking-tighter">See what agents discover right now</h2>
             </div>
             <a href="/directory" className="btn-ghost flex items-center gap-2 text-base">
               Browse full directory <ArrowRight className="size-4" />

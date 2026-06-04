@@ -263,7 +263,7 @@ export default function Dashboard() {
           <div className="mt-10 rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-4">
             <p className="text-sm font-medium text-cyan-100">Agent visibility</p>
             <p className="mt-2 text-xs leading-5 text-zinc-400">
-              Published pages are included in your sitemap and llms.txt feed.
+              Sitemap + llms.txt included.
             </p>
           </div>
         </aside>
@@ -304,8 +304,8 @@ export default function Dashboard() {
                     {agentPageVisits} AI agent visits, {trafficSplit.human} human visits, {discoveryClicks} discovery clicks, and {conversionActions} conversion actions
                   </h2>
                   <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
-                    {totalTrackedSignals} total tracked signals across {publishedCount} published pages and {totalOffers} listed offers.
-                    Agent detection, directory discovery, and marketplace clicks now roll into this ROI view.
+                    {totalTrackedSignals} tracked signals across {publishedCount} published pages and {totalOffers} listed offers.
+                    Agent discovery + ROI.
                   </p>
                   {topOffer ? (
                     <p className="mt-4 inline-flex rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-sm text-cyan-100">
@@ -362,11 +362,11 @@ export default function Dashboard() {
                 <p className="mt-2 text-4xl font-semibold tracking-tighter">{checkoutAttempts}</p>
               </div>
               <div className="kpi-card">
-                <p className="text-sm text-[#9CA3AF]">Conversion actions</p>
+                <p className="text-sm text-[#9CA3AF]">Conversions</p>
                 <p className="mt-2 text-4xl font-semibold tracking-tighter text-[#10B981]">{conversionActions}</p>
               </div>
               <div className="kpi-card">
-                <p className="text-sm text-[#9CA3AF]">Avg Readiness</p>
+                <p className="text-sm text-[#9CA3AF]">Avg readiness</p>
                 <p className="mt-2 text-4xl font-semibold tracking-tighter">{averageReadiness}%</p>
               </div>
             </section>
@@ -430,7 +430,7 @@ export default function Dashboard() {
             {!filteredPages.length ? (
               <div className="mt-5 rounded-lg border border-dashed border-white/15 p-12 text-center">
                 <p className="text-zinc-400">
-                  {pages.length ? 'No pages match your search.' : 'No pages yet. Create the first AI-readable offer.'}
+                  {pages.length ? 'No pages match your search.' : 'No pages yet. Create an agent page.'}
                 </p>
               </div>
             ) : null}
@@ -438,7 +438,7 @@ export default function Dashboard() {
             {sharedPages.length > 0 && (
               <div className="mt-10">
                 <h2 className="text-lg font-semibold text-cyan-200">Shared with me</h2>
-                <p className="mt-1 text-xs text-zinc-500">Pages a teammate invited you to. Editors can edit; viewers can open the public page.</p>
+                <p className="mt-1 text-xs text-zinc-500">Team-shared pages.</p>
                 <section className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {sharedPages.map((sp) => (
                     <div key={sp.id} className="card !p-5">
@@ -539,10 +539,10 @@ function NewUserHero({ name }: { name: string }) {
     <section className="overflow-hidden rounded-2xl border border-[#7C3AED]/30 bg-gradient-to-br from-[#7C3AED]/15 to-[#00F5FF]/5 p-7 md:p-10">
       <p className="text-sm text-[#C4B5FD]">{name ? `Welcome, ${name}` : 'Welcome to Nexez'}</p>
       <h2 className="mt-2 max-w-2xl text-3xl font-semibold leading-tight tracking-tight">
-        Publish your first page built for AI agents to discover, understand, and buy from.
+        Publish your first agent-readable page.
       </h2>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">
-        Paste your existing website and we’ll turn it into a structured, agent-readable page in seconds — or start
+        Paste your existing website and we’ll turn it into an agent-readable page in seconds — or start
         from an industry template. Then publish it and (optionally) host it on your own custom domain.
       </p>
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">
@@ -562,13 +562,13 @@ function NewUserHero({ name }: { name: string }) {
           href="/simulator"
           className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-white/10 px-6 text-sm text-zinc-300 transition hover:bg-white/5"
         >
-          See how agents read pages
+          Test agent parsing
         </a>
       </div>
       <div className="mt-6 grid grid-cols-1 gap-3 text-sm text-zinc-400 sm:grid-cols-3">
-        <span>✓ JSON-LD, llms.txt, agent.json & MCP generated automatically</span>
-        <span>✓ Crawlable by GPTBot, ClaudeBot, Perplexity & more</span>
-        <span>✓ Deploy to your own white-labeled custom domain</span>
+        <span>✓ JSON-LD, llms.txt, agent.json & MCP</span>
+        <span>✓ Crawlable by AI bots</span>
+        <span>✓ Custom domain ready</span>
       </div>
     </section>
   )
@@ -650,7 +650,7 @@ function AgentDetectionSummary({
             ))
           ) : (
             <p className="rounded-lg border border-dashed border-white/10 p-4 text-sm text-zinc-500">
-              Publish and visit a page with an agent crawler user-agent to populate this list.
+              Publish a page; crawlers populate this.
             </p>
           )}
         </div>

@@ -328,17 +328,17 @@ export default function ToolsPage() {
   const devPlatformSection = (
     <div className="mt-10 rounded-2xl border border-white/10 bg-white/[0.02] p-8">
       <h2 className="text-2xl font-semibold">Developer Platform + API + Revenue Share</h2>
-      <p className="mt-2 text-[#9CA3AF]">Build on Nexez. Real public endpoints for agents + humans. Revenue share on agent-driven bookings (tracked via checkout_events).</p>
+      <p className="mt-2 text-[#9CA3AF]">Public endpoints + revenue share.</p>
       <div className="mt-4">
         <ApiKeysManager />
       </div>
       <div className="mt-4 text-sm space-y-1">
-        <div>Revenue Share: {revenueShare}% on qualifying agent tx (see analytics for agent-sourced events; configure in future billing).</div>
+        <div>Revenue Share: {revenueShare}% agent tx.</div>
         <a href="/openapi.json" className="text-[#00F5FF] hover:underline block">OpenAPI spec (full endpoints) →</a>
         <a href="/agent-pages.json" className="text-[#00F5FF] hover:underline">Public agent index →</a>
         <a href="/api/directory" className="text-[#00F5FF] hover:underline">/api/directory (with min_readiness, trust signals) →</a>
         <a href="/api/public-simulate" className="text-[#00F5FF] hover:underline">/api/public-simulate (POST for agent previews) →</a>
-        <div className="text-xs text-zinc-500 mt-2">Webhooks (outbound on booking.received) + inbound (Calendly/Stripe) already production. Use simulator + analyzer for testing. Full keys + payouts in Tier 3 billing.</div>
+        <div className="text-xs text-zinc-500 mt-2">Webhooks live. Keys/payouts later.</div>
       </div>
     </div>
   )
@@ -360,7 +360,7 @@ export default function ToolsPage() {
         <div className="mt-10 rounded-2xl border border-white/10 bg-white/[0.02] p-8">
           <div className="mb-6">
             <h2 className="text-2xl font-semibold">Site Importer</h2>
-            <p className="text-[#9CA3AF] mt-1">Paste any website URL and we’ll automatically extract services and generate a draft Nexez agent page.</p>
+            <p className="text-[#9CA3AF] mt-1">URL in. Draft out.</p>
           </div>
 
           <div className="flex gap-4">
@@ -412,7 +412,7 @@ export default function ToolsPage() {
                       }}
                       className="btn-primary"
                     >
-                      Create Page from this Import
+                      Create from Import
                     </button>
                     <a 
                       href={result.suggestedPage?.website_url} 
@@ -480,7 +480,7 @@ export default function ToolsPage() {
           <div className="mb-6 flex items-start justify-between">
             <div>
               <h2 className="text-2xl font-semibold text-violet-200">Calendly Booking Import</h2>
-              <p className="text-[#9CA3AF] mt-1">Paste your Calendly Personal Access Token. Import active event types as rich, editable offers with duration and direct booking links.</p>
+              <p className="text-[#9CA3AF] mt-1">Calendly token → offers.</p>
             </div>
             {calendlyConnected && (
               <div className="text-right text-xs">
@@ -500,7 +500,7 @@ export default function ToolsPage() {
               type="password"
               value={calendlyToken}
               onChange={(e) => setCalendlyToken(e.target.value)}
-              placeholder="Calendly Personal Access Token (starts with ghp_...)"
+              placeholder="Calendly token"
               className="flex-1 input"
             />
             <button
@@ -508,7 +508,7 @@ export default function ToolsPage() {
               disabled={calendlyLoading || !calendlyToken.trim()}
               className="btn-primary bg-violet-300 text-zinc-950 hover:bg-violet-200"
             >
-              {calendlyLoading ? <Loader2 className="size-4 animate-spin" /> : 'Import Event Types'}
+              {calendlyLoading ? <Loader2 className="size-4 animate-spin" /> : 'Import Events'}
             </button>
             {calendlyConnected && (
               <button

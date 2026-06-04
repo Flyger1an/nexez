@@ -46,7 +46,7 @@ export default async function MarketplacePage() {
             <h1 className="text-3xl md:text-4xl font-semibold tracking-tight flex items-center gap-2">
               <Star className="size-8 text-[#7C3AED]" /> Agent Marketplace
             </h1>
-            <p className="mt-2 text-base md:text-lg text-[#9CA3AF]">Discover high-trust, agent-ready offers. Favorite for your prompts. Trending based on real agent activity. ({count} high-quality listings)</p>
+            <p className="mt-2 text-base md:text-lg text-[#9CA3AF]">High-trust, agent-ready offers. ({count} listings)</p>
           </div>
           <a href="/directory" className="btn-secondary inline-flex items-center gap-2 self-start md:self-auto">
             Full Directory + Filters <TrendingUp className="size-4" />
@@ -85,13 +85,13 @@ export default async function MarketplacePage() {
         <div className="card p-6 text-sm">
           <h3 className="font-semibold">Marketplace Tips for Agents</h3>
           <ul className="mt-2 list-disc pl-5 text-[#9CA3AF] space-y-1">
-            <li>Use min_readiness=80 in /api/directory for elite listings; high Trust + Verified = stronger signals</li>
-            <li>Favorites saved locally (★) — copy slugs to your prompts. Sign in for future cloud sync.</li>
-            <li>High trust + recent activity = reliable for booking (trending sorted by trust+events)</li>
+            <li>Use min_readiness=80 for elite.</li>
+            <li>Favorites save locally.</li>
+            <li>Trust + activity rank.</li>
             <li>Check /&lt;slug&gt;/agent.json , /llms.txt or mcp.json for structured data</li>
-            <li>From dashboard: use Competitor Website Analyzer + AI Co-Pilot to beat the competition</li>
+            <li>Use Analyzer + Co-Pilot.</li>
           </ul>
-          <p className="mt-3 text-xs text-[#9CA3AF]">Use /dashboard/competitors to run deep analysis (any URL) or benchmark Nexez pages. Data from analyses + trust events improves recommendations over time.</p>
+          <p className="mt-3 text-xs text-[#9CA3AF]">Analyzer supports any URL.</p>
         </div>
 
         <div className="mt-6 text-center">

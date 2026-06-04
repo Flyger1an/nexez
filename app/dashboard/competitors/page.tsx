@@ -131,7 +131,7 @@ export default function CompetitorIntelligence() {
           <h1 className="mt-4 text-4xl font-semibold tracking-tight flex items-center gap-2">
             <BarChart3 className="size-8 text-[#7C3AED]" /> AI Competitor Intelligence
           </h1>
-          <p className="mt-2 text-[#9CA3AF]">Strategic intel on how AI agents perceive competitors — and how you stack up. <span className="text-[#10B981]">New: Analyze any website (not just Nexez pages) — high priority intelligence layer.</span> Use below for deep Nexez-page benchmarking (readiness/trust/gaps via simulator + optimizer).</p>
+          <p className="mt-2 text-[#9CA3AF]">Competitive agent intel. Any URL supported.</p>
 
           {/* NEW: Competitor Website Analyzer (High Priority — any external URL, per Tier 2 spec) */}
           <div className="mt-8 card border-[#7C3AED]/40">
@@ -140,7 +140,7 @@ export default function CompetitorIntelligence() {
               <span className="font-semibold text-lg">Competitor Website Analyzer</span>
               <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300">NEW — High Value</span>
             </div>
-            <p className="text-sm text-[#9CA3AF] mb-4">Paste any competitor website URL. Get Overall Agent Trust Score (0–100), Parseability, Structured Data Quality (JSON-LD/llms.txt/schema), Clarity & Intent, Missing Info, Strengths/Weaknesses, and Actionable Recommendations. Optional side-by-side with your Nexez page. 48h cache. Exportable.</p>
+            <p className="text-sm text-[#9CA3AF] mb-4">Trust, parseability, schema, gaps.</p>
 
             <div className="grid gap-3 md:grid-cols-5">
               <div className="md:col-span-3">
@@ -216,7 +216,7 @@ export default function CompetitorIntelligence() {
                   </div>
                 )}
 
-                <div className="mt-3 text-[10px] text-zinc-500">Data captured here improves Nexez scoring models (flywheel). Results cached ~48h. Export MD/JSON above for prompts, reports, or sharing.</div>
+                <div className="mt-3 text-[10px] text-zinc-500">48h cache. Exportable.</div>
               </div>
             )}
           </div>

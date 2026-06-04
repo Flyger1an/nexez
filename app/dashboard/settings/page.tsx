@@ -82,9 +82,9 @@ export default async function AccountSettingsPage() {
                 <ShieldCheck className="size-4" />
                 Advanced Config
               </p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight">Your AI-facing surface.</h1>
+              <h1 className="mt-3 text-4xl font-semibold tracking-tight">Your agent surface.</h1>
               <p className="mt-4 text-sm leading-6 text-zinc-400">
-                Nexez keeps your human website separate from the clean, structured agent surface that bots can parse and act on.
+                Separate human site. Structured agent layer.
               </p>
             </div>
 
@@ -123,7 +123,7 @@ export default async function AccountSettingsPage() {
               <div className="card !p-5">
                 <div className="flex items-center gap-2">
                   <Globe2 className="size-5 text-cyan-200" />
-                  <h2 className="text-xl font-semibold">Custom Domain Readiness</h2>
+                  <h2 className="text-xl font-semibold">Custom Domains</h2>
                 </div>
                 <div className="mt-5 space-y-3 text-sm">
                   <ConfigRow label="Suggested CNAME" value="agent.yourdomain.com -> cname.vercel-dns.com" />
@@ -166,7 +166,7 @@ export default async function AccountSettingsPage() {
             <section className="card !p-5">
               <div className="flex items-center gap-2">
                 <Link2 className="size-5 text-cyan-200" />
-                <h2 className="text-xl font-semibold">Page Surface Status</h2>
+                <h2 className="text-xl font-semibold">Agent Surface Status</h2>
               </div>
               <div className="mt-5 overflow-x-auto">
                 <table className="w-full min-w-[720px] text-left text-sm">
@@ -200,7 +200,7 @@ export default async function AccountSettingsPage() {
                 </table>
                 {!ownedPages.length ? (
                   <div className="rounded-lg border border-dashed border-white/10 p-8 text-center text-sm text-zinc-500">
-                    Create a page to see its agent surface status.
+                    Create a page first.
                   </div>
                 ) : null}
               </div>

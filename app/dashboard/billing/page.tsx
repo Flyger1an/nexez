@@ -68,8 +68,8 @@ export default async function BillingPage({ searchParams }: BillingProps) {
             {/* Tier 3: Agent revenue share display (post-audit, using analytics lib) */}
             <div className="card !p-5 border border-emerald-300/20">
               <p className="font-medium text-emerald-200">Agent-driven revenue (Tier 3)</p>
-              <p className="mt-1 text-[#9CA3AF]">Tracked in <a href="/dashboard/analytics" className="underline">Analytics</a> via checkout_events (agent UA/query/referrer).</p>
-              <p className="mt-1 text-xs text-[#9CA3AF]">Est. your share: 15% of agent-sourced Stripe revenue (configurable per plan). See full breakdown + pipeline in analytics for real calc from getAgentDrivenRevenueCents.</p>
+              <p className="mt-1 text-[#9CA3AF]">Tracked in <a href="/dashboard/analytics" className="underline">Analytics</a>.</p>
+              <p className="mt-1 text-xs text-[#9CA3AF]">15% agent-sourced Stripe revenue.</p>
             </div>
 
             {/* Heuristic plan status for lean MVP (based on published count) */}
@@ -90,7 +90,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
               </div>
               <p className="mt-3 text-sm leading-6 text-zinc-300">
                 {stripeReady
-                  ? 'Subscription checkout is configured for at least one plan.'
+                  ? 'Subscription checkout active.'
                   : 'Add STRIPE_SECRET_KEY and plan Price IDs to activate subscription checkout.'}
               </p>
             </div>
@@ -104,11 +104,11 @@ export default async function BillingPage({ searchParams }: BillingProps) {
                 <ExternalLink className="size-4" />
               </button>
             </form>
-            <p className="text-[10px] text-zinc-500">Update payment method, change plan, or cancel anytime via Stripe.</p>
+            <p className="text-[10px] text-zinc-500">Stripe-hosted billing.</p>
 
             {search.setup === 'stripe' ? (
               <div className="rounded-lg border border-amber-200/20 bg-amber-200/10 p-4 text-sm text-amber-100">
-                Billing checkout needs Stripe env vars before it can start.
+                Stripe env vars needed.
               </div>
             ) : null}
             {search.canceled ? (

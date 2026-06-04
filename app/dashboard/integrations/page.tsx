@@ -17,7 +17,7 @@ import {
 const integrations = [
   {
     name: 'Calendly',
-    description: 'Import event types as offers. Use PAT in Tools → Site Importer for structured pull into editable cards.',
+    description: 'Import booking offers. Use Calendly token.',
     status: 'Available',
     action: 'Import via Tools',
     href: '/dashboard/tools',
@@ -35,7 +35,7 @@ const integrations = [
   },
   {
     name: 'Google Calendar',
-    description: 'Expose availability windows agents can reason about.',
+    description: 'Expose availability windows.',
     status: 'Available',
     action: 'Connect',
     href: '/create',
@@ -44,7 +44,7 @@ const integrations = [
   },
   {
     name: 'Zapier / Make',
-    description: 'Automate updates from CRMs, forms, sheets, and internal tools.',
+    description: 'Automate CRM updates.',
     status: 'Available',
     action: 'Connect',
     href: '/dashboard/settings',
@@ -53,7 +53,7 @@ const integrations = [
   },
   {
     name: 'Shopify / Woo',
-    description: 'Import product catalog from Shopify stores (public feed + enhanced extraction).',
+    description: 'Import product catalogs.',
     status: 'Available',
     action: 'Import in Tools',
     href: '/dashboard/tools',
@@ -148,13 +148,9 @@ export default function IntegrationsPage() {
 
         <div className="mt-8 border-b border-white/10 pb-6">
           <p className="text-sm text-cyan-200">Integrations & Imports</p>
-          <h1 className="mt-2 text-4xl font-semibold tracking-tight">
-            Connect your tools. Auto-import services and availability.
-          </h1>
+          <h1 className="mt-2 text-4xl font-semibold tracking-tight">Connect tools. Import offers.</h1>
           <p className="mt-4 max-w-3xl text-zinc-400">
-            Nexez should become the structured layer between your existing tools and AI agents.
-            Start by connecting the systems that already know your products, pricing, bookings,
-            and purchase paths.
+            Structured sync for pricing, bookings, and purchase paths.
           </p>
         </div>
 
@@ -163,12 +159,11 @@ export default function IntegrationsPage() {
             <div>
               <h2 className="font-semibold">Why connect?</h2>
               <p className="mt-3 text-sm leading-6 text-zinc-400">
-                Real-time data makes your Nexez agent pages more trustworthy. Agents can parse current
-                offers, route bookings, and avoid stale pricing.
+                Current data builds agent trust.
               </p>
             </div>
             <div className="card !p-4 text-xs border-cyan-300/20 bg-cyan-300/10">
-              <p className="font-medium text-cyan-100 mb-2">Integrations Health — Phase 3 (aggressive)</p>
+              <p className="font-medium text-cyan-100 mb-2">Integration Health</p>
               <div className="space-y-1 text-zinc-300 text-[11px]">
                 <div className="flex justify-between"><span>Calendly</span><span className="text-emerald-400">Import + Webhooks + Secrets</span></div>
                 <div className="flex justify-between"><span>Stripe</span><span className="text-emerald-400">Import + Active price webhooks</span></div>
@@ -177,7 +172,7 @@ export default function IntegrationsPage() {
                 <div className="flex justify-between"><span>Outbound (Zapier etc.)</span><span className="text-emerald-400">Per-page • Secrets • Testable</span></div>
               </div>
               <div className="mt-3 pt-2 border-t border-cyan-300/30 text-cyan-300 text-[10px]">
-                Per-page outbound endpoints (configured in any page Settings) now fire automatically on both Nexez checkout events and Calendly webhooks, with optional signing secrets.
+                Outbound webhooks fire on bookings.
               </div>
             </div>
           </aside>
@@ -193,7 +188,7 @@ export default function IntegrationsPage() {
               <div>
                 <h2 className="text-xl font-semibold">No integration yet?</h2>
                 <p className="mt-2 text-sm text-zinc-400">
-                  Manual entry remains the fastest way to create an agent-readable page.
+                  Manual entry is fastest.
                 </p>
               </div>
               <a
@@ -226,7 +221,7 @@ export default function IntegrationsPage() {
                   <a href="/dashboard/tools" className="text-[10px] text-orange-300 hover:underline">Import in Tools →</a>
                 </div>
               </div>
-              <p className="mt-3 text-[10px] text-pink-300/80">Both support full import → editor re-sync → rich VisualOfferBuilder with consumer fields. Configure per-page outbound in Settings for real booking events.</p>
+              <p className="mt-3 text-[10px] text-pink-300/80">Import → edit → re-sync.</p>
             </div>
           </section>
         </div>

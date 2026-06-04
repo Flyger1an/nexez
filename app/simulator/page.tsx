@@ -303,13 +303,13 @@ export default function GlobalAgentSimulator() {
                 Dashboard
               </a>
               <p className="mt-2 text-sm text-[#9CA3AF]">Global Agent Simulator</p>
-              <h1 className="text-3xl md:text-4xl font-semibold tracking-tighter">See how any AI agent parses a Nexez page</h1>
+              <h1 className="text-3xl md:text-4xl font-semibold tracking-tighter">Test agent parsing</h1>
             </div>
             <div className="flex flex-wrap gap-3">
               <a href="/directory" className="btn-secondary text-sm">Browse Directory</a>
               {selectedPage && (
                 <a href={`/dashboard/${(selectedPage as any).id || ''}/test`} className="btn-secondary text-sm">
-                  Deep per-page simulator →
+                  Per-page simulator →
                 </a>
               )}
             </div>
@@ -321,7 +321,7 @@ export default function GlobalAgentSimulator() {
             <div className="card">
               <div className="flex items-center gap-2 mb-3">
                 <Bot className="size-4 text-[#7C3AED]" />
-                <span className="font-medium">Analyze one of my pages</span>
+                <span className="font-medium">Analyze my page</span>
               </div>
               {isLoggedIn && myPages.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
@@ -336,7 +336,7 @@ export default function GlobalAgentSimulator() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-zinc-400">Sign in to see your published pages. Or paste a public slug below.</p>
+                <p className="text-sm text-zinc-400">Sign in, or paste slug.</p>
               )}
             </div>
 
@@ -354,7 +354,7 @@ export default function GlobalAgentSimulator() {
                   {loading ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />} Analyze
                 </button>
               </div>
-              <p className="text-[10px] text-zinc-500 mt-1">Must be a published Nexez page for full structured fidelity.</p>
+              <p className="text-[10px] text-zinc-500 mt-1">Published pages only.</p>
             </div>
           </div>
 
@@ -365,10 +365,10 @@ export default function GlobalAgentSimulator() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="input flex-1"
-                placeholder="What would an agent ask?"
+                placeholder="Agent query"
               />
               <button onClick={regenerate} disabled={loading} className="btn-ghost">
-                <RefreshCw className="size-4" /> Regenerate Analysis
+                <RefreshCw className="size-4" /> Rerun
               </button>
               <a href={`/${selectedPage.slug}`} target="_blank" className="btn-secondary inline-flex items-center gap-1">
                 View public page <ExternalLink className="size-3" />
@@ -416,7 +416,7 @@ export default function GlobalAgentSimulator() {
                 <div className="card">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <p className="text-xs uppercase tracking-[2px] text-[#9CA3AF]">Agent Understanding</p>
+                      <p className="text-xs uppercase tracking-[2px] text-[#9CA3AF]">Agent Parse</p>
                       <h3 className="text-xl font-semibold">{currentAgent}'s view</h3>
                     </div>
                   </div>
@@ -457,7 +457,7 @@ export default function GlobalAgentSimulator() {
                   <div className="text-sm text-[#9CA3AF] space-y-1">
                     {recommendations.length ? recommendations.map((r, i) => <div key={i}>• {r}</div>) : 'Page is well optimized.'}
                   </div>
-                  <p className="mt-3 text-[10px] text-zinc-500">Exports are clean & shareable (paste into agent prompts or reports). Captured data improves Nexez scoring models over time (flywheel).</p>
+                  <p className="mt-3 text-[10px] text-zinc-500">Shareable agent report.</p>
                 </div>
 
                 <div className="card">
@@ -512,9 +512,9 @@ export default function GlobalAgentSimulator() {
                       No history runs match that search.
                     </div>
                   ) : (
-                    <div className="text-sm text-zinc-500">Run analyses while viewing one of your pages to save history (full snapshots for replay + future model training).</div>
+                    <div className="text-sm text-zinc-500">Run analyses to save history.</div>
                   )}
-                  <p className="mt-2 text-[10px] text-zinc-500">Click Load to replay prior full multi-agent view. (Modular: future tiers can unlock deeper history/export analytics.)</p>
+                  <p className="mt-2 text-[10px] text-zinc-500">Load replays prior parse.</p>
                 </div>
               </div>
             </>
@@ -523,8 +523,8 @@ export default function GlobalAgentSimulator() {
           {!selectedPage && (
             <div className="card text-center py-12">
               <Bot className="mx-auto size-8 text-[#7C3AED] mb-4" />
-              <p className="text-xl font-medium">Select or paste a page above to begin multi-agent simulation.</p>
-              <p className="mt-2 text-[#9CA3AF]">Results show exactly how ChatGPT, Claude, Grok, Perplexity and generic agents would parse and act on the structured offers, CTAs, and prefer-original rules.</p>
+              <p className="text-xl font-medium">Start multi-agent simulation.</p>
+              <p className="mt-2 text-[#9CA3AF]">ChatGPT, Claude, Grok, Perplexity.</p>
             </div>
           )}
 

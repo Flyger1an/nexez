@@ -114,15 +114,15 @@ export function AICoPilot({
   const showMsg = localMessage || ''
 
   if (!hasContent) {
-    return <div className="text-sm text-zinc-500">Add offers in the Visual Builder to unlock AI Co-Pilot suggestions.</div>
+    return <div className="text-sm text-zinc-500">Add offers for Co-Pilot.</div>
   }
 
   return (
     <div className="rounded-xl border border-[#7C3AED]/30 bg-[#1A1625] p-4">
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="size-4 text-[#C4B5FD]" />
-        <span className="font-semibold text-[#C4B5FD]">AI Co-Pilot — Deterministic Agent Optimization</span>
-        <span className="ml-auto text-[10px] text-zinc-500">Before/After + one-click apply • Uses: {usageCount} (modular: Pro removes limits) {llmOptIn ? '• LLM opt-in enabled (hook)' : ''}</span>
+        <span className="font-semibold text-[#C4B5FD]">AI Co-Pilot</span>
+        <span className="ml-auto text-[10px] text-zinc-500">Before/after • Uses: {usageCount} {llmOptIn ? '• LLM enabled' : ''}</span>
       </div>
 
       {showMsg && <div className="mb-2 text-xs text-emerald-300">{showMsg}</div>}
@@ -130,7 +130,7 @@ export function AICoPilot({
       <div className="flex gap-2 mb-4 text-xs flex-wrap">
         {(['desc', 'pricing', 'faq', 'schema', 'voice'] as const).map(t => (
           <button key={t} onClick={() => setActiveTab(t)} className={`px-3 py-1 rounded ${activeTab === t ? 'bg-[#7C3AED] text-white' : 'border border-white/20'}`}>
-            {t === 'desc' ? 'Descriptions' : t === 'pricing' ? 'Pricing Tiers' : t === 'faq' ? 'FAQs' : t === 'schema' ? 'Schema' : 'Voice (Tier 3)'}
+            {t === 'desc' ? 'Descriptions' : t === 'pricing' ? 'Pricing Tiers' : t === 'faq' ? 'FAQs' : t === 'schema' ? 'Schema' : 'Voice'}
           </button>
         ))}
       </div>
@@ -145,11 +145,11 @@ export function AICoPilot({
             </div>
           </div>
           <div>
-            <div className="uppercase tracking-widest text-xs text-emerald-300 mb-1">AI Enhanced (preserves tiers/consumer/per-offer)</div>
-            <div className="text-xs text-zinc-400">Adds fit, consumer details, CTA clarity. Full OfferItem fidelity.</div>
+            <div className="uppercase tracking-widest text-xs text-emerald-300 mb-1">AI Enhanced</div>
+            <div className="text-xs text-zinc-400">Adds fit + CTA clarity.</div>
             <div className="mt-2 flex gap-2">
-              <button onClick={() => applyDescriptionEnhance('services')} className="text-xs rounded border border-emerald-300/40 px-2 py-1 hover:bg-emerald-400/10">Apply to Services</button>
-              <button onClick={() => applyDescriptionEnhance('products')} className="text-xs rounded border border-emerald-300/40 px-2 py-1 hover:bg-emerald-400/10">Apply to Products</button>
+              <button onClick={() => applyDescriptionEnhance('services')} className="text-xs rounded border border-emerald-300/40 px-2 py-1 hover:bg-emerald-400/10">Apply Services</button>
+              <button onClick={() => applyDescriptionEnhance('products')} className="text-xs rounded border border-emerald-300/40 px-2 py-1 hover:bg-emerald-400/10">Apply Products</button>
             </div>
           </div>
         </div>
@@ -159,18 +159,18 @@ export function AICoPilot({
         <div>
           <div className="text-sm">{pricingSuggestion.suggestion}</div>
           <pre className="mt-2 bg-black/40 p-2 text-xs overflow-auto">{JSON.stringify(pricingSuggestion.exampleTiers, null, 2)}</pre>
-          <button onClick={applyPricingTiers} className="mt-2 text-xs rounded bg-emerald-300 px-3 py-1 text-zinc-950">Apply example tiers (to first service/product)</button>
-          <div className="mt-1 text-[10px] text-zinc-500">Edits your rich offers directly (tiers preserved on save). Edit further in Visual Builder.</div>
+          <button onClick={applyPricingTiers} className="mt-2 text-xs rounded bg-emerald-300 px-3 py-1 text-zinc-950">Apply tiers</button>
+          <div className="mt-1 text-[10px] text-zinc-500">Edit further in builder.</div>
         </div>
       )}
 
       {activeTab === 'faq' && (
         <div>
-          <div className="text-xs text-zinc-400 mb-1">Suggested strong FAQs (copy into FAQ editor or CSV import):</div>
+          <div className="text-xs text-zinc-400 mb-1">Suggested FAQs:</div>
           <ul className="text-xs space-y-1">
             {enhancedFaqs.slice(0, 4).map((f, i) => <li key={i}>• {f.question} — {f.answer}</li>)}
           </ul>
-          <button onClick={applyFaqs} className="mt-2 text-xs rounded border border-white/20 px-3 py-1">Copy all suggestions (clipboard)</button>
+          <button onClick={applyFaqs} className="mt-2 text-xs rounded border border-white/20 px-3 py-1">Copy FAQs</button>
           {applied.faq && <span className="ml-2 text-[10px] text-emerald-300">Copied ✓</span>}
         </div>
       )}
@@ -180,14 +180,14 @@ export function AICoPilot({
           <ul className="text-xs space-y-1">
             {schemaTips.map((t, i) => <li key={i}>• {t}</li>)}
           </ul>
-          <button onClick={applySchemaTip} className="mt-2 text-xs rounded border border-white/20 px-3 py-1">Copy schema tips (clipboard)</button>
+          <button onClick={applySchemaTip} className="mt-2 text-xs rounded border border-white/20 px-3 py-1">Copy schema tips</button>
           {applied.schema && <span className="ml-2 text-[10px] text-emerald-300">Copied ✓</span>}
         </div>
       )}
 
       {activeTab === 'voice' && (
         <div>
-          <div className="text-xs text-zinc-400 mb-2">Rewrite first offer description for voice agents (phonetic, concise, numbers spoken, clear CTA). Apply via Co-Pilot or builder.</div>
+          <div className="text-xs text-zinc-400 mb-2">Voice-agent rewrite.</div>
           <div className="text-sm bg-black/30 p-2 rounded mb-2">
             Before: {(allOffers[0]?.description || '—').slice(0, 80)}
           </div>
@@ -203,13 +203,13 @@ export function AICoPilot({
             onTrackUse()
             setUsageCount(c => c + 1)
             setApplied(prev => ({ ...prev, voice: true }))
-          }} className="text-xs rounded bg-emerald-300 px-3 py-1 text-zinc-950">Apply Voice Rewrite to first offer</button>
+          }} className="text-xs rounded bg-emerald-300 px-3 py-1 text-zinc-950">Apply Voice Rewrite</button>
           {applied.voice && <span className="ml-2 text-xs text-emerald-300">Applied ✓ (edit further in builder)</span>}
-          <div className="mt-2 text-[10px] text-zinc-500">Also shown as note on public pages. Use in Co-Pilot or per-offer enhance.</div>
+          <div className="mt-2 text-[10px] text-zinc-500">Voice-safe copy.</div>
         </div>
       )}
 
-      <div className="mt-3 text-[10px] text-zinc-500">All suggestions use the same deterministic engine that powers "Enhance with AI". Full fidelity for tiers/consumer/per-offer controls guaranteed. (Modular: usage tracking + limits ready for Free/Pro/Business tiering.)</div>
+      <div className="mt-3 text-[10px] text-zinc-500">Deterministic engine. Tier-ready usage.</div>
     </div>
   )
 }

@@ -279,7 +279,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           </div>
         </div>
 
-        <h1 className="mt-8 text-4xl font-semibold tracking-tight">Analytics Dashboard</h1>
+        <h1 className="mt-8 text-4xl font-semibold tracking-tight">Analytics</h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-400">
           Track real agent-facing intent: classified AI visits, human traffic, directory discovery, provider handoffs, and Stripe checkout sessions.
         </p>
@@ -288,7 +288,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           <Kpi title="Tracked Signals" value={(filteredEvents.length + filteredAgentVisits.length).toLocaleString()} note={`${events.length + agentVisits.length} total stored`} tone="strong" />
           <Kpi title="AI Agent Visits" value={agentPageVisits.toLocaleString()} note={`${trafficSplit.human} human/unknown visits`} />
           <Kpi title="Discovery Clicks" value={discoveryClicks.toLocaleString()} note="Directory + Marketplace clickthroughs" />
-          <Kpi title="Conversion Rate" value={`${conversionRate}%`} note={`${conversionCount} conversion actions`} />
+          <Kpi title="Conversion Rate" value={`${conversionRate}%`} note={`${conversionCount} conversions`} />
           <Kpi title="Most Active Offer" value={popularService} note={`${offerCount || 0} offers listed`} />
           <Kpi title="Tracked Revenue" value={formatUsdCents(revenueCents)} note={`${formatUsdCents(pipelineCents)} pipeline`} tone="strong" />
           <Kpi title="Agent-Driven Revenue" value={formatUsdCents(agentRevenueCents)} note={`${agentSharePct}% share est. = ${formatUsdCents(agentShareCents)} (Tier 3 monetization)`} />
@@ -331,7 +331,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             {topOffers.length ? (
               <TopOffersChart offers={topOffers} max={maxOfferEvents} />
             ) : (
-              <EmptyPanel message="No offer signals yet. Run a simulator dry-run or open a checkout page." />
+              <EmptyPanel message="No offer signals yet." />
             )}
           </Panel>
 
@@ -396,7 +396,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                 <DiscoveryList title="Surfaces" rows={discoverySurfaces} />
               </div>
             ) : (
-              <EmptyPanel message="No directory or marketplace clickthroughs yet. Publish pages and share the marketplace to start tracking discovery." />
+              <EmptyPanel message="No discovery clicks yet." />
             )}
           </Panel>
 
@@ -415,7 +415,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                       ))}
                     </ul>
                     <p className="mt-2 text-[11px] text-zinc-500">
-                      What buyers/agents searched for when reaching your pages — a signal for offers to add or rename.
+                      Search intent for offers.
                     </p>
                   </div>
                 )}
@@ -430,7 +430,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                       ))}
                     </ul>
                     <p className="mt-2 text-[11px] text-zinc-500">
-                      Agents asked for these but none of your offers match — consider adding or renaming an offer.
+                      Add or rename offers.
                     </p>
                   </div>
                 )}
@@ -449,7 +449,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                 )}
               </div>
             ) : (
-              <EmptyPanel message="No agent queries captured yet. As agents discover your pages with a search intent, their queries appear here." />
+              <EmptyPanel message="No agent queries yet." />
             )}
           </Panel>
 
@@ -508,29 +508,29 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           <h3 className="text-lg font-semibold mb-3 text-zinc-200">Key Insights</h3>
           <div className="grid gap-4 md:grid-cols-3">
             <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
-              <div className="text-sm text-zinc-400">Quality of Agent-Engaged Pages</div>
+              <div className="text-sm text-zinc-400">Agent-Engaged Quality</div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-4xl font-semibold text-white">{avgActiveReadiness}</span>
                 <span className="text-sm text-zinc-400">avg readiness</span>
               </div>
               <div className="mt-1 text-xs text-zinc-500">
-                Pages with real agent traffic vs your overall average ({avgAllReadiness}%)
+                Agent traffic vs average ({avgAllReadiness}%)
               </div>
               {avgActiveReadiness > avgAllReadiness && (
-                <div className="mt-2 text-xs text-emerald-300">↑ Higher quality pages tend to attract more agents</div>
+                <div className="mt-2 text-xs text-emerald-300">↑ Quality attracts agents</div>
               )}
             </div>
 
             <Insight
               title="Agent-engaged pages"
               value={`${activePages.length} / ${ownedPages.length}`}
-              detail="Pages that received real agent traffic in the selected period"
+              detail="Pages with agent traffic"
             />
 
             <Insight
               title="AI agent page visits"
               value={String(agentPageVisits)}
-              detail="Classified AI reads of your clean public pages"
+              detail="Classified AI reads"
             />
 
             <Insight
@@ -542,13 +542,13 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             <Insight
               title="Discovery clickthroughs"
               value={String(discoveryClicks)}
-              detail="Tracked public directory + marketplace clicks for this period"
+              detail="Directory + marketplace"
             />
 
             <Insight
               title="Agent-readable surface"
               value={`${ownedPages.filter((page) => page.is_published).length}/${ownedPages.length}`}
-              detail="Published pages in discovery feeds"
+              detail="Published discovery feeds"
             />
           </div>
         </div>
@@ -589,7 +589,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             </table>
             {!recentAgentVisitLogs.length ? (
               <div className="p-10 text-center text-sm text-zinc-500">
-                No agent query logs yet. Referrer query parameters are captured when agents send them.
+                No agent query logs yet.
               </div>
             ) : null}
           </div>
