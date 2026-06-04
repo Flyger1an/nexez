@@ -1883,3 +1883,6 @@ Sequential verified bursts; roadmap updated per feature.
 - `PlatformFrame` was a `'use client'` component in the **root layout**, so its nav + ~18 lucide icons + Supabase client were bundled into **every** route — including public agent pages, landing, auth, and legal pages that render no chrome.
 - Split into a **thin gate** (`PlatformFrame`: just `usePathname` + a `next/dynamic` import) and the heavy **`PlatformShell`** (nav/search/supabase) loaded only on platform routes. Public/agent/landing/auth/legal pages now ship only the tiny gate — leaner bundles + faster TTI on the agent-facing surface (the <200ms quality bar).
 - Verified: lint/tsc clean, `npm test` 173/173, build clean.
+
+## Instant loading skeletons (perceived perf)
+- Added `app/dashboard/loading.tsx` (covers the whole authed section) and `app/directory/loading.tsx` — App Router Suspense shows them instantly on navigation, so heavy client/server routes feel responsive while data loads.
