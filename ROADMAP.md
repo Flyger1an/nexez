@@ -1747,6 +1747,26 @@ Continue full throttle: more on benchmarks, real LLM, team save block, etc. Read
 
 **Verification**: eslint/tsc clean, `npm test` 118/118, build clean.
 
+**Superseded 2026-06-04 by real A/B Variant Serving (see entry below).**
+
+---
+
+## 2026-06-04 A/B Variant Serving — Real Split + Attribution (Phase 6, upgrade)
+
+**Why**: The earlier "duplicate-as-variant" only *created* a second offer — both rendered together, so it wasn't a real test (no isolation, biased comparison). This closes the loop: each visitor is served **one** variant (sticky) and conversions attribute to the served variant, with a true conversion-rate readout.
+
+**What shipped**:
+- **Data model**: `OfferItem.ab_test` + `ab_label` (JSONB-first; roundtrip-safe `[[ABTEST]]<id>~<label>` marker added to `parse/formatOfferLines`, consistent with `||TIERS||`/`[[PREFER_ORIGINAL]]`).
+- **Sticky assignment**: `nx_ab` bucket cookie set in `proxy.ts` middleware (RSCs can't set cookies — confirmed in `node_modules/next/dist/docs`). Forwarded onto the request so the same render reads it.
+- **Pure engine** `lib/ab-testing.ts`: `getActiveTests`, `servedIndexForTest` (deterministic `bucket % members`), `hiddenVariantIndices`, `canonicalHiddenIndices`, `servedVariants`, `rollupAbResults` (impressions/conversions/rate/winner). Fully unit-tested.
+- **Serving** (`app/[slug]/page.tsx`): non-served variants hidden from the visual cards, embedded JSON-LD, plain-text agent block, and the negotiation dropdown — **real array indices preserved** so checkout paths stay correct. Pages with no test are byte-for-byte unchanged.
+- **Attribution**: `logCheckoutEvent` auto-stamps the offer's `ab_test`/`ab_label` into metadata (covers checkout route + Calendly/Stripe webhooks with one change). New `ab_impression` event logged per served variant via `after()` (non-blocking, no outbound-webhook spam).
+- **Analytics**: new "A/B Tests" panel (per-variant impressions/conversions/rate bars + winning-variant highlight), rolled up ignoring the action facet so the impression denominator can't be hidden.
+- **Builder**: `duplicateOffer` now tags original + copy into one `ab_test` (labels A/B/C…); variant badge on each card; updated tooltip.
+- **Migration** `20260613003000_add_ab_impression_event.sql`: adds `ab_impression` to the `checkout_events_event_type_check` constraint (idempotent; applied to prod + verified).
+
+**Verification**: eslint/tsc clean, `npm test` **187/187** (new `ab-testing.test.ts` + `ab_test` roundtrip cases), `npm run build` clean. **Runtime-verified** on a throwaway fixture page: bucket 0 → only Variant A (clean JSON-LD), bucket 1 → only Variant B, standalone offers always shown; first visit sets `nx_ab`; `ab_impression` rows written + attributed (2/2 A/B). Fixture + events deleted after.
+
 ---
 
 # High-Leverage Tools Batch (2026-06-03) — "build on all suggested features"

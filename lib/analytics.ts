@@ -243,6 +243,7 @@ export function getSignalLabel(event: CheckoutEvent) {
   if (event.event_type === 'stripe_error') return 'Payment issue'
   if (event.event_type === 'stripe_price_sync') return 'Price sync'
   if (event.event_type === 'directory_click') return 'Discovery'
+  if (event.event_type === 'ab_impression') return 'A/B impression'
   return 'Config'
 }
 

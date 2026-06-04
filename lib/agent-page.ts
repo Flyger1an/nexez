@@ -92,6 +92,12 @@ export type OfferItem = {
 
   // Live availability / inventory signal so agents avoid dead ends.
   availability?: 'available' | 'limited' | 'sold_out'
+
+  // Phase 6: A/B variant serving. Offers sharing an `ab_test` id are variants of
+  // one experiment; `ab_label` distinguishes them ('A', 'B', ...). The public page
+  // serves a single variant per visitor (sticky) and attributes conversions per label.
+  ab_test?: string
+  ab_label?: string
 }
 
 /** Map our availability to a schema.org ItemAvailability URL (for JSON-LD). */
@@ -225,12 +231,24 @@ export function parseOfferLines(value: string): OfferItem[] {
       preferOriginalForThis = true
     }
 
+    // A/B variant grouping marker: [[ABTEST]]<testId>~<label> (pipe-safe, ids/labels never contain |)
+    let abTest: string | undefined
+    let abLabel: string | undefined
+    const abPart = parts.find(p => p.includes('ABTEST'))
+    if (abPart) {
+      const raw = abPart.replace('[[ABTEST]]', '').replace('||ABTEST||', '')
+      const [test, label] = raw.split('~')
+      if (test) abTest = test
+      if (label) abLabel = label
+    }
+
     // Consumer block stops before any marker (robust to [[ or || forms)
     const tiersIdx = parts.findIndex(p => p.includes('TIERS'))
     const preferIdx = parts.findIndex(p => p.includes('PREFER_ORIGINAL'))
-    const markerEnd = [tiersIdx, preferIdx].filter(i => i !== -1).reduce((min, i) => (min === -1 ? i : Math.min(min, i)), -1 as number)
+    const abIdx = parts.findIndex(p => p.includes('ABTEST'))
+    const markerEnd = [tiersIdx, preferIdx, abIdx].filter(i => i !== -1).reduce((min, i) => (min === -1 ? i : Math.min(min, i)), -1 as number)
     const consumerEnd = markerEnd !== -1 ? markerEnd : parts.length
-    const consumerParts = parts.slice(4, consumerEnd).filter(p => !p.includes('TIERS') && !p.includes('PREFER_ORIGINAL') && !p.startsWith('||'))
+    const consumerParts = parts.slice(4, consumerEnd).filter(p => !p.includes('TIERS') && !p.includes('PREFER_ORIGINAL') && !p.includes('ABTEST') && !p.startsWith('||'))
 
     const isMobileRaw = consumerParts[3] || ''
     const isMobile = ['1', 'true', 'mobile', 'yes'].includes(isMobileRaw.toLowerCase())
@@ -246,6 +264,8 @@ export function parseOfferLines(value: string): OfferItem[] {
       isMobile: isMobile || undefined,
       tiers,
       prefer_original_for_this: preferOriginalForThis,
+      ab_test: abTest,
+      ab_label: abLabel,
     }
   })
 }
@@ -273,6 +293,10 @@ export function formatOfferLines(items: OfferItem[] | null | undefined) {
       // Use [[ ]] wrapper (pipe-safe, no delimiter collision unlike || form)
       if (item.prefer_original_for_this) {
         base.push('[[PREFER_ORIGINAL]]')
+      }
+      // Append A/B variant grouping marker (Phase 6, pipe-safe)
+      if (item.ab_test) {
+        base.push(`[[ABTEST]]${item.ab_test}~${item.ab_label || ''}`)
       }
       return base.join(' | ')
     })

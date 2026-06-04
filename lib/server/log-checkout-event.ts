@@ -28,6 +28,12 @@ export async function logCheckoutEvent({
   stripeSessionId,
   metadata,
 }: LogCheckoutEventInput) {
+  // Phase 6 A/B: auto-attribute the event to the offer's variant so every
+  // conversion (checkout route, Calendly/Stripe webhooks) rolls up per variant
+  // without touching each call site. Explicit metadata still wins.
+  const abMeta = offer.ab_test ? { ab_test: offer.ab_test, ab_label: offer.ab_label || '' } : {}
+  const mergedMetadata = { ...abMeta, ...(metadata ?? {}) }
+
   try {
     const { error } = await supabase.from('checkout_events').insert({
       page_id: page.id,
@@ -43,7 +49,7 @@ export async function logCheckoutEvent({
       checkout_url: checkoutUrl || null,
       provider_url: providerUrl || null,
       stripe_session_id: stripeSessionId || null,
-      metadata: metadata ?? {},
+      metadata: mergedMetadata,
     })
 
     // Phase 3: Automatically fire per-page outbound webhooks on high-value Nexez-driven events.

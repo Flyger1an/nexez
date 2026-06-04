@@ -38,6 +38,7 @@ import {
   getTopOfferStats,
 } from '../../../lib/analytics'
 import { formatUsdCents } from '../../../lib/checkout'
+import { rollupAbResults } from '../../../lib/ab-testing'
 import { AgentNegotiation, summarizeNegotiations } from '../../../lib/negotiations'
 import { getTopQueries, getTopReferrers, getUnservedQueries } from '../../../lib/demand-insights'
 import { CheckoutEvent, getEventActionLabel } from '../../../lib/checkout-events'
@@ -201,6 +202,13 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     .filter(o => o.attempts >= 2) // only meaningful data
     .sort((a, b) => b.conversionRate - a.conversionRate)
     .slice(0, 5)
+
+  // A/B Tests (Phase 6): impressions + conversions attributed per served variant.
+  // Ignore the action facet here so a "conversions only" view can't hide the
+  // impression denominator — but still respect page/search/time scope.
+  const abTests = rollupAbResults(
+    filterAnalyticsEvents(events, { query: filters.q, pageId: filters.page }),
+  )
 
   // Agent-Engaged Pages Quality Insight (Phase 2)
   const pagesWithActivity = new Set([
@@ -368,7 +376,61 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             )}
           </Panel>
 
-
+          <Panel title="A/B Tests">
+            {abTests.length ? (
+              <div className="space-y-5 pt-1">
+                {abTests.map((test) => {
+                  const maxRate = Math.max(...test.variants.map((v) => v.rate), 0.0001)
+                  return (
+                    <div key={test.test}>
+                      <div className="mb-2 flex items-center justify-between text-xs">
+                        <span className="uppercase tracking-[0.18em] text-fuchsia-200">
+                          {test.variants[0]?.offerName?.replace(/\s*\(Variant [A-Z]\)$/, '') || 'Experiment'}
+                        </span>
+                        {test.slug ? <span className="text-[10px] text-zinc-500">/{test.slug}</span> : null}
+                      </div>
+                      <div className="space-y-3">
+                        {test.variants.map((v) => {
+                          const isWinner = test.winnerLabel === v.label
+                          return (
+                            <div key={v.label}>
+                              <div className="flex items-center justify-between text-sm mb-1">
+                                <div className="truncate pr-2 text-white">
+                                  <span className={`mr-2 rounded px-1.5 py-px text-[10px] font-semibold ${isWinner ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/10 text-zinc-300'}`}>
+                                    {v.label}{isWinner ? ' · winning' : ''}
+                                  </span>
+                                  <span className="text-zinc-400">{v.offerName}</span>
+                                </div>
+                                <div className={`shrink-0 font-semibold ${isWinner ? 'text-emerald-300' : 'text-zinc-200'}`}>
+                                  {(v.rate * 100).toFixed(1)}%
+                                </div>
+                              </div>
+                              <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                                <div
+                                  className={`h-full rounded-full transition-all ${isWinner ? 'bg-emerald-300' : 'bg-fuchsia-300'}`}
+                                  style={{ width: `${Math.min(100, (v.rate / maxRate) * 100)}%` }}
+                                />
+                              </div>
+                              <div className="mt-0.5 text-[10px] text-zinc-500">
+                                {v.conversions} conversions / {v.impressions} impressions
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+                <p className="text-[11px] text-zinc-500">
+                  Conversion rate = conversions ÷ impressions for each served variant. Duplicate an offer in the builder to start a test.
+                </p>
+              </div>
+            ) : (
+              <div className="text-sm text-zinc-500 pt-2">
+                No A/B tests running. In the builder, duplicate an offer to split traffic across variants and compare here.
+              </div>
+            )}
+          </Panel>
 
           <Panel title="Conversion Funnel">
             <ConversionFunnel

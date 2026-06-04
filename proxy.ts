@@ -9,8 +9,34 @@ import {
   normalizeDomainPath,
   normalizeHost,
 } from './lib/custom-domain'
+import { AB_BUCKET_COOKIE, randomBucket } from './lib/ab-testing'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL
+const AB_BUCKET_MAX_AGE = 60 * 60 * 24 * 365 // 1 year
+
+// Sticky A/B bucket: assigned once per browser so every visitor consistently
+// sees the same variant of any A/B test (and their later checkout attributes to
+// it). Set on the *request* too so this same render reads it (RSCs can't set
+// cookies). Returns the bucket value to persist on the response, or null if the
+// visitor already has one.
+function ensureAbBucket(request: NextRequest): string | null {
+  if (request.cookies.get(AB_BUCKET_COOKIE)) return null
+  const value = String(randomBucket())
+  request.cookies.set(AB_BUCKET_COOKIE, value)
+  return value
+}
+
+function persistAbBucket(response: NextResponse, value: string | null): NextResponse {
+  if (value !== null) {
+    response.cookies.set(AB_BUCKET_COOKIE, value, {
+      maxAge: AB_BUCKET_MAX_AGE,
+      sameSite: 'lax',
+      httpOnly: true,
+      path: '/',
+    })
+  }
+  return response
+}
 
 // Small per-instance cache so we don't hit Supabase on every custom-domain
 // request. Edge instances are ephemeral, but this still collapses bursts.
@@ -55,6 +81,7 @@ async function resolvePathMapForHost(host: string): Promise<Record<string, strin
 
 export async function proxy(request: NextRequest) {
   const host = request.headers.get('host') || ''
+  const abBucket = ensureAbBucket(request)
 
   // A custom (non-platform) host that maps to a verified, published page gets
   // rewritten to that page so the brand domain serves the agent-optimized page.
@@ -65,13 +92,13 @@ export async function proxy(request: NextRequest) {
       if (mapped && mapped !== request.nextUrl.pathname) {
         const url = request.nextUrl.clone()
         url.pathname = mapped
-        return NextResponse.rewrite(url)
+        return persistAbBucket(NextResponse.rewrite(url), abBucket)
       }
     }
     // Unknown/unverified custom domain → fall through to normal handling.
   }
 
-  return updateSession(request)
+  return persistAbBucket(await updateSession(request), abBucket)
 }
 
 export const config = {

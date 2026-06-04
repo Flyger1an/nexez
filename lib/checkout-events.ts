@@ -10,6 +10,7 @@ export type CheckoutEventType =
   | 'stripe_price_sync'
   | 'directory_click'
   | 'agent_page_view'
+  | 'ab_impression'
 
 export type CheckoutEvent = {
   id: string
@@ -50,5 +51,7 @@ export function getEventActionLabel(eventType: CheckoutEventType) {
       return 'Directory discovery click'
     case 'agent_page_view':
       return 'AI agent page visit'
+    case 'ab_impression':
+      return 'A/B variant shown'
   }
 }

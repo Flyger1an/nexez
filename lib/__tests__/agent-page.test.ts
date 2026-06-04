@@ -87,4 +87,41 @@ describe('agent-page offer parse/format roundtrip (Phase 1 A fidelity)', () => {
     // rich array path in editor is the primary fidelity guarantee. PREFER flag roundtrips cleanly.
     expect(parsed[0].tiers?.length ?? 0).toBeGreaterThanOrEqual(0)
   })
+
+  it('roundtrips ab_test / ab_label variant grouping (Phase 6 A/B serving fidelity)', () => {
+    const offer: OfferItem = {
+      name: 'Growth Plan (Variant B)',
+      price: '$49',
+      description: 'Monthly plan',
+      url: 'https://example.com/plan',
+      ab_test: 'ab_x7k2',
+      ab_label: 'B',
+    }
+    const formatted = formatOfferLines([offer])
+    expect(formatted).toContain('[[ABTEST]]ab_x7k2~B')
+
+    const parsed = parseOfferLines(formatted)
+    expect(parsed[0].ab_test).toBe('ab_x7k2')
+    expect(parsed[0].ab_label).toBe('B')
+    expect(parsed[0].name).toBe('Growth Plan (Variant B)')
+    expect(parsed[0].url).toBe('https://example.com/plan')
+  })
+
+  it('keeps ab marker separate from consumer fields', () => {
+    const offer: OfferItem = {
+      name: 'Mobile Massage',
+      price: 'From $120',
+      description: 'On-site',
+      url: '',
+      duration: '60 min',
+      isMobile: true,
+      ab_test: 'ab_zz',
+      ab_label: 'A',
+    }
+    const parsed = parseOfferLines(formatOfferLines([offer]))
+    expect(parsed[0].duration).toBe('60 min')
+    expect(parsed[0].isMobile).toBe(true)
+    expect(parsed[0].ab_test).toBe('ab_zz')
+    expect(parsed[0].ab_label).toBe('A')
+  })
 })

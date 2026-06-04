@@ -12,6 +12,8 @@ import { agentArtifactHref, getEffectiveBaseUrl, isCustomHost, normalizeDomainPa
 import { hasBranding, normalizeBranding } from '../../lib/branding'
 import { safeJsonScript } from '../../lib/safe-json'
 import { logAgentPageView } from '../../lib/server/log-agent-page-view'
+import { logAbImpressions } from '../../lib/server/log-ab-impressions'
+import { AB_BUCKET_COOKIE, parseBucket, hiddenVariantIndices } from '../../lib/ab-testing'
 import { supabase } from '../../lib/supabase'
 
 type PageProps = {
@@ -138,9 +140,13 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
   const mcpJsonHref = agentArtifactHref('mcp.json', page.slug, onCustomHost, domainPath)
   const selfUrl = onCustomHost ? `${effectiveBase}${domainPath}` : `${effectiveBase}/${page.slug}`
   const visitUrl = selfUrl
+  // Sticky A/B bucket (assigned by middleware). Drives which variant each visitor
+  // sees and which variant their impression/conversion attributes to.
+  const abBucket = parseBucket((await cookies()).get(AB_BUCKET_COOKIE)?.value)
   // Don't log owner draft-previews as real agent traffic.
   if (!previewing) {
     after(() => logAgentPageView({ page, requestHeaders, url: visitUrl }))
+    after(() => logAbImpressions({ page: page as AgentPage, bucket: abBucket }))
   }
 
   // Live events for accurate Trust Score completion rate (attempts vs real bookings)
@@ -158,7 +164,14 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
   const products = page.products ?? []
   const services = page.services ?? []
   const faqs = page.faqs ?? []
-  const negotiationOffers = getCheckoutOffers(page)
+  // A/B serving: hide non-served variants from this visitor (real array indices
+  // preserved so checkout paths stay correct). Applied consistently to the
+  // visual cards, embedded JSON-LD, and the plain-text agent block below.
+  const hiddenServices = hiddenVariantIndices(services, abBucket)
+  const hiddenProducts = hiddenVariantIndices(products, abBucket)
+  const negotiationOffers = getCheckoutOffers(page).filter(
+    (o) => !(o.kind === 'services' ? hiddenServices : hiddenProducts).has(o.index),
+  )
   const negotiationCreated = negotiationParam === 'created'
   const ctaUrl = page.cta_url || page.website_url || '#'
   const preferOriginal = !!page.prefer_original_site
@@ -167,7 +180,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
     : products.length && !preferOriginal
       ? getCheckoutPath(page.slug, 'products', 0)
       : ''
-  const jsonLd = buildJsonLd(page, effectiveBase)
+  const jsonLd = buildJsonLd(page, effectiveBase, { services: hiddenServices, products: hiddenProducts })
   const branding = await resolveBranding(page, onCustomHost, domainPath)
   const accentStyle = branding.accent_color
     ? ({ '--brand-accent': branding.accent_color } as CSSProperties)
@@ -337,8 +350,8 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
           ) : null}
         </section>
 
-        <OfferSection title="Products" items={products} kind="products" pageSlug={page.slug} preferOriginal={preferOriginal} />
-        <OfferSection title="Services" items={services} kind="services" pageSlug={page.slug} preferOriginal={preferOriginal} />
+        <OfferSection title="Products" items={products} kind="products" pageSlug={page.slug} preferOriginal={preferOriginal} hiddenIndices={hiddenProducts} />
+        <OfferSection title="Services" items={services} kind="services" pageSlug={page.slug} preferOriginal={preferOriginal} hiddenIndices={hiddenServices} />
 
         {faqs.length ? (
           <section className="border-t border-white/10 py-12">
@@ -463,11 +476,11 @@ Best-fit buyer: ${page.audience ?? ''}
 Location: ${page.location ?? ''}
 Website: ${page.website_url ?? ''}
 Primary action: ${page.cta_label ?? 'Visit website'} -> ${ctaUrl}
-Products: ${products.map((item) => item.name).join(', ') || 'None listed'}
-Services: ${services.map((item) => item.name).join(', ') || 'None listed'}
+Products: ${products.filter((_, i) => !hiddenProducts.has(i)).map((item) => item.name).join(', ') || 'None listed'}
+Services: ${services.filter((_, i) => !hiddenServices.has(i)).map((item) => item.name).join(', ') || 'None listed'}
 Checkout URLs: ${[
-  ...services.map((item, index) => `${item.name}: ${getBaseUrl()}${getCheckoutPath(page.slug, 'services', index)}`),
-  ...products.map((item, index) => `${item.name}: ${getBaseUrl()}${getCheckoutPath(page.slug, 'products', index)}`),
+  ...services.map((item, index) => ({ item, index })).filter(({ index }) => !hiddenServices.has(index)).map(({ item, index }) => `${item.name}: ${getBaseUrl()}${getCheckoutPath(page.slug, 'services', index)}`),
+  ...products.map((item, index) => ({ item, index })).filter(({ index }) => !hiddenProducts.has(index)).map(({ item, index }) => `${item.name}: ${getBaseUrl()}${getCheckoutPath(page.slug, 'products', index)}`),
 ].join('; ') || 'None listed'}
 Negotiation API: POST ${getBaseUrl()}/api/negotiations with slug="${page.slug}", offer="services-0" or "products-0", query, requestedTerms, budget, timeline, and dryRun=true to validate.`}
           </pre>
@@ -502,14 +515,19 @@ function OfferSection({
   kind,
   pageSlug,
   preferOriginal = false,
+  hiddenIndices,
 }: {
   title: string
   items: OfferItem[]
   kind: 'products' | 'services'
   pageSlug: string
   preferOriginal?: boolean
+  hiddenIndices?: Set<number>
 }) {
-  if (!items.length) {
+  // A/B serving hides non-served variants while keeping each remaining item's
+  // real array index (checkout paths derive from it).
+  const visibleCount = items.filter((_, index) => !hiddenIndices?.has(index)).length
+  if (!visibleCount) {
     return null
   }
 
@@ -518,6 +536,7 @@ function OfferSection({
       <h2 className="text-2xl font-semibold">{title}</h2>
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         {items.map((item, index) => (
+          hiddenIndices?.has(index) ? null :
           <article key={`${item.name}-${index}`} className="card !p-5">
             <div className="flex items-start justify-between gap-4">
               <h3 className="text-lg font-medium text-white">{item.name}</h3>
@@ -603,13 +622,17 @@ function OfferSection({
   )
 }
 
-function buildJsonLd(page: AgentPage, baseUrl: string = getBaseUrl()) {
+function buildJsonLd(
+  page: AgentPage,
+  baseUrl: string = getBaseUrl(),
+  hidden?: { services: Set<number>; products: Set<number> },
+) {
   const url = `${baseUrl}/${page.slug}`
   const pagePrefer = !!page.prefer_original_site
   const offers = [
     ...(page.services ?? []).map((item, index) => ({ item, kind: 'services' as const, index })),
     ...(page.products ?? []).map((item, index) => ({ item, kind: 'products' as const, index })),
-  ].map(({ item, kind, index }) => {
+  ].filter(({ kind, index }) => !hidden?.[kind]?.has(index)).map(({ item, kind, index }) => {
     const perOfferPrefer = !!item.prefer_original_for_this
     const useOriginal = perOfferPrefer || (pagePrefer && !!item.url)
     const effectiveUrl = useOriginal && item.url ? item.url : `${getBaseUrl()}${getCheckoutPath(page.slug, kind, index)}`

@@ -205,13 +205,31 @@ export function VisualOfferBuilder({ offers, kind, onChange, businessName, audie
     onChange(offers.filter((_, i) => i !== index))
   }
 
-  // A/B testing: duplicate an offer as a variant inserted right after it.
-  // Per-offer conversions are tracked in Analytics → Conversion Rate Leaders.
+  // A/B testing: duplicate an offer as a variant inserted right after it. The
+  // original and copy share an `ab_test` id so the public page serves ONE variant
+  // per visitor (sticky) and attributes conversions per label in Analytics → A/B.
   function duplicateOffer(index: number) {
     const original = offers[index]
     if (!original) return
-    const variant: OfferItem = { ...original, name: `${original.name || 'Offer'} (Variant B)` }
-    onChange([...offers.slice(0, index + 1), variant, ...offers.slice(index + 1)])
+    // Reuse the original's test if it's already in one; otherwise start a new test
+    // and label the original 'A'. The copy gets the next free label.
+    const test = original.ab_test || `ab_${Math.random().toString(36).slice(2, 10)}`
+    const usedLabels = new Set(
+      offers.filter((o) => o.ab_test === test).map((o) => o.ab_label).filter(Boolean) as string[],
+    )
+    if (!original.ab_test) usedLabels.add('A')
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    const nextLabel = [...alphabet].find((l) => !usedLabels.has(l)) || 'B'
+    const tagged = offers.map((o, i) =>
+      i === index && !original.ab_test ? { ...o, ab_test: test, ab_label: 'A' } : o,
+    )
+    const variant: OfferItem = {
+      ...original,
+      name: `${(original.name || 'Offer').replace(/\s*\(Variant [A-Z]\)$/, '')} (Variant ${nextLabel})`,
+      ab_test: test,
+      ab_label: nextLabel,
+    }
+    onChange([...tagged.slice(0, index + 1), variant, ...tagged.slice(index + 1)])
   }
 
   return (
@@ -397,13 +415,21 @@ function SortableOfferCard({
             )}
             {offer.source && (
               <span className={`absolute -top-1.5 right-20 rounded px-1.5 py-px text-[9px] font-medium ${
-                offer.source === 'stripe' ? 'bg-cyan-400/10 text-cyan-300' : 
-                offer.source === 'shopify' ? 'bg-purple-400/10 text-purple-300' : 
+                offer.source === 'stripe' ? 'bg-cyan-400/10 text-cyan-300' :
+                offer.source === 'shopify' ? 'bg-purple-400/10 text-purple-300' :
                 offer.source === 'square' ? 'bg-pink-400/10 text-pink-300' :
                 offer.source === 'acuity' ? 'bg-orange-400/10 text-orange-300' :
                 'bg-violet-400/10 text-violet-300'
               }`}>
                 via {offer.source}
+              </span>
+            )}
+            {offer.ab_test && (
+              <span
+                className="absolute -top-1.5 left-0 rounded bg-fuchsia-400/10 px-1.5 py-px text-[9px] font-medium text-fuchsia-300"
+                title="A/B test variant — visitors are split across variants; compare in Analytics → A/B Tests"
+              >
+                A/B · Variant {offer.ab_label || '?'}
               </span>
             )}
             <input
@@ -577,7 +603,7 @@ function SortableOfferCard({
               onClick={() => onDuplicate(index)}
               className="min-h-[44px] min-w-[44px] rounded p-2 text-cyan-300 hover:bg-cyan-300/10 active:bg-cyan-300/20 md:p-1"
               aria-label="Duplicate offer as A/B variant"
-              title="Duplicate as A/B variant (compare in Analytics → Conversion Rate Leaders)"
+              title="Duplicate as A/B variant — visitors are split 50/50 and served one variant each; compare in Analytics → A/B Tests"
             >
               <Copy className="size-5 md:size-4" />
             </button>
