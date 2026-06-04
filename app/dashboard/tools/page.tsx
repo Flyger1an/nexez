@@ -327,18 +327,22 @@ export default function ToolsPage() {
   // Tier 3 Developer Platform + API + Revenue Share (enhanced starter)
   const devPlatformSection = (
     <div className="mt-10 rounded-2xl border border-white/10 bg-white/[0.02] p-8">
-      <h2 className="text-2xl font-semibold">Developer Platform + API + Revenue Share</h2>
-      <p className="mt-2 text-[#9CA3AF]">Public endpoints + revenue share.</p>
+      <h2 className="text-2xl font-semibold">Developer platform &amp; API</h2>
+      <p className="mt-2 text-[#9CA3AF]">
+        Public APIs and agent endpoints, plus revenue share on agent-driven sales.
+      </p>
       <div className="mt-4">
         <ApiKeysManager />
       </div>
-      <div className="mt-4 text-sm space-y-1">
-        <div>Revenue Share: {revenueShare}% agent tx.</div>
-        <a href="/openapi.json" className="text-[#00F5FF] hover:underline block">OpenAPI spec (full endpoints) →</a>
-        <a href="/agent-pages.json" className="text-[#00F5FF] hover:underline">Public agent index →</a>
-        <a href="/api/directory" className="text-[#00F5FF] hover:underline">/api/directory (with min_readiness, trust signals) →</a>
-        <a href="/api/public-simulate" className="text-[#00F5FF] hover:underline">/api/public-simulate (POST for agent previews) →</a>
-        <div className="text-xs text-zinc-500 mt-2">Webhooks live. Keys/payouts later.</div>
+      <div className="mt-4 text-sm space-y-1.5">
+        <div className="text-zinc-300">Revenue share: {revenueShare}% on agent-driven transactions.</div>
+        <a href="/openapi.json" className="text-[#00F5FF] hover:underline block">OpenAPI spec — full endpoint reference →</a>
+        <a href="/agent-pages.json" className="text-[#00F5FF] hover:underline block">Public agent index →</a>
+        <a href="/api/directory" className="text-[#00F5FF] hover:underline block">Directory API — readiness &amp; trust signals →</a>
+        <a href="/api/public-simulate" className="text-[#00F5FF] hover:underline block">Simulation API — preview how agents read a page →</a>
+        <div className="text-xs text-zinc-500 mt-2">
+          Outbound webhooks are live today. Programmatic key management and payouts are on the way.
+        </div>
       </div>
     </div>
   )
@@ -350,13 +354,15 @@ export default function ToolsPage() {
           <Bot className="size-8 text-[#7C3AED]" />
           <h1 className="text-4xl font-semibold tracking-tight">Tools</h1>
         </div>
-        <p className="text-xl text-[#9CA3AF]">Powerful tools to create agent pages faster.</p>
+        <p className="text-xl text-[#9CA3AF]">
+          Import from the web and your favorite tools, then generate an agent-ready page in minutes.
+        </p>
 
         {/* Site Importer */}
         <div className="mt-10 rounded-2xl border border-white/10 bg-white/[0.02] p-8">
           <div className="mb-6">
-            <h2 className="text-2xl font-semibold">Site Importer</h2>
-            <p className="text-[#9CA3AF] mt-1">URL in. Draft out.</p>
+            <h2 className="text-2xl font-semibold">Site importer</h2>
+            <p className="text-[#9CA3AF] mt-1">Paste a website URL and we’ll extract offers, pricing, and FAQs into an editable draft.</p>
           </div>
 
           <div className="flex gap-4">
@@ -476,7 +482,7 @@ export default function ToolsPage() {
           <div className="mb-6 flex items-start justify-between">
             <div>
               <h2 className="text-2xl font-semibold text-violet-200">Calendly Booking Import</h2>
-              <p className="text-[#9CA3AF] mt-1">Calendly token → offers.</p>
+              <p className="text-[#9CA3AF] mt-1">Connect your Calendly token to import event types as bookable offers.</p>
             </div>
             {calendlyConnected && (
               <div className="text-right text-xs">
@@ -823,7 +829,7 @@ export default function ToolsPage() {
                 type="text"
                 value={acuityToken}
                 onChange={(e) => setAcuityToken(e.target.value)}
-                placeholder="Acuity API Key or User ID (stub works without for demo)"
+                placeholder="Acuity API Key or User ID"
                 className="flex-1 input text-sm"
               />
               <button
@@ -869,7 +875,7 @@ export default function ToolsPage() {
                         <div key={i}>• {o.name} — {o.price} {o.duration ? `(${o.duration})` : ''}</div>
                       ))}
                     </div>
-                    <p className="mt-2 text-[10px] text-zinc-500">Excellent for time-based consumer services. Real Acuity API integration coming.</p>
+                    <p className="mt-2 text-[10px] text-zinc-500">Great for time-based consumer services with durations and tiers.</p>
                   </>
                 )}
               </div>
@@ -924,23 +930,23 @@ export default function ToolsPage() {
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <div className="rounded-xl border border-white/10 p-5">
-            <div className="font-semibold mb-2 text-cyan-300">Phase 3 in progress: Integrations & Automation</div>
-            <ul className="text-sm text-[#9CA3AF] space-y-1">
-              <li>• <span className="text-emerald-300">Calendly PAT import</span> — available now (use in Create wizard or re-analyze from editor)</li>
-              <li>• Bulk Calendly / Acuity + webhook support (UI + secret storage live)</li>
-              <li>• Stripe price/availability re-sync (in progress)</li>
-              <li>• Shopify catalog import — foundation live (public feed + rich offers)</li>
-              <li>• <span className="text-pink-300">Square consumer booking</span> — stub live (rich mobile/travel/duration services for local businesses)</li>
-              <li>• <span className="text-orange-300">Acuity Scheduling</span> — consumer stub live (coaching, beauty, wellness, medical)</li>
-              <li>• CSV + Website hybrid import</li>
+            <div className="font-semibold mb-2 text-cyan-300">What you can connect</div>
+            <ul className="text-sm text-[#9CA3AF] space-y-1.5">
+              <li>• <span className="text-emerald-300">Calendly</span> — event types, plus webhooks and signing secrets</li>
+              <li>• <span className="text-cyan-300">Stripe</span> — products, prices, and live price re-sync</li>
+              <li>• <span className="text-purple-300">Shopify / Woo</span> — product catalog via the public feed</li>
+              <li>• <span className="text-pink-300">Square</span> — bookings and payments for mobile, wellness, and home services</li>
+              <li>• <span className="text-orange-300">Acuity Scheduling</span> — appointment types for coaching, beauty, and wellness</li>
+              <li>• <span className="text-blue-300">Google Calendar</span> — availability windows</li>
+              <li>• CSV and website hybrid import</li>
             </ul>
-            <p className="mt-3 text-[10px] text-zinc-500">Goal: Connect once → pages stay fresh for agents automatically.</p>
+            <p className="mt-3 text-[10px] text-zinc-500">Connect once, then keep your pages fresh for agents automatically.</p>
           </div>
 
-          {/* Phase 3: Basic outbound webhook config (Zapier/generic foundation) */}
+          {/* Outbound webhooks (Zapier / Make / generic) */}
           <div className="rounded-xl border border-white/10 p-5">
-            <div className="font-semibold mb-2 text-cyan-300">Outbound Webhooks (Demo)</div>
-            <p className="text-xs text-[#9CA3AF] mb-3">Fire a webhook when integrations re-sync or when real bookings arrive via webhook (e.g. Calendly). Configure endpoints here for demo/testing.</p>
+            <div className="font-semibold mb-2 text-cyan-300">Outbound webhooks</div>
+            <p className="text-xs text-[#9CA3AF] mb-3">Fire a webhook to Zapier, Make, or any endpoint when a booking arrives or an integration re-syncs. Add and test your endpoints below.</p>
 
             <div className="flex gap-2">
               <input

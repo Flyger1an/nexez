@@ -868,6 +868,23 @@ html:has(.public-agent-page) body {
 .border-white\/20,
 .border-white\/25 { border-color: var(--bd-20); }
 
+/* Variant states (hover/active/group-hover) compile to compound selectors, so
+   they need their own remap or they wouldn't flip in light mode. */
+.hover\:text-white:hover { color: var(--fg); }
+.hover\:text-zinc-200:hover,
+.hover\:text-zinc-300:hover { color: var(--fg-2); }
+.group:hover .group-hover\:text-white { color: var(--fg); }
+.hover\:bg-white\/5:hover { background-color: var(--ov-05); }
+.hover\:bg-white\/10:hover { background-color: var(--ov-10); }
+.hover\:bg-white\/20:hover { background-color: var(--ov-20); }
+.hover\:bg-white\/\[0\.06\]:hover { background-color: var(--ov-06); }
+.active\:bg-white\/5:active { background-color: var(--ov-05); }
+.active\:bg-white\/10:active { background-color: var(--ov-10); }
+.active\:bg-white\/20:active { background-color: var(--ov-20); }
+.hover\:bg-zinc-200:hover { background-color: var(--inverse-hover); }
+.hover\:border-white\/25:hover { border-color: var(--bd-20); }
+.divide-white\/10 > * { border-color: var(--bd-10); }
+
 /* Component-class nudges for light. */
 html.light .btn-primary { color: #fff; }
 html.light .btn-secondary { color: var(--fg); }

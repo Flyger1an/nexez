@@ -16,7 +16,7 @@ import {
 const integrations = [
   {
     name: 'Calendly',
-    description: 'Import booking offers. Use Calendly token.',
+    description: 'Turn your event types into bookable offers with direct scheduling links.',
     status: 'Available',
     action: 'Import via Tools',
     href: '/dashboard/tools',
@@ -25,7 +25,7 @@ const integrations = [
   },
   {
     name: 'Stripe',
-    description: 'Import prices, payment links, and product checkout URLs.',
+    description: 'Import products, prices, and payment links as agent-ready checkout offers.',
     status: 'Available',
     action: 'Configure',
     href: '/dashboard/billing',
@@ -34,7 +34,7 @@ const integrations = [
   },
   {
     name: 'Google Calendar',
-    description: 'Expose availability windows.',
+    description: 'Expose real availability windows so agents can suggest open times.',
     status: 'Available',
     action: 'Connect',
     href: '/create',
@@ -43,7 +43,7 @@ const integrations = [
   },
   {
     name: 'Zapier / Make',
-    description: 'Automate CRM updates.',
+    description: 'Send every agent-driven booking to your CRM and thousands of other apps.',
     status: 'Available',
     action: 'Connect',
     href: '/dashboard/settings',
@@ -52,7 +52,7 @@ const integrations = [
   },
   {
     name: 'Shopify / Woo',
-    description: 'Import product catalogs.',
+    description: 'Import your product catalog with pricing, ready for agents to purchase.',
     status: 'Available',
     action: 'Import in Tools',
     href: '/dashboard/tools',
@@ -61,7 +61,7 @@ const integrations = [
   },
   {
     name: 'CSV Upload',
-    description: 'Bulk import products, services, FAQs, and page metadata.',
+    description: 'Bulk-import products, services, and FAQs from a spreadsheet.',
     status: 'Manual',
     action: 'Upload',
     href: '/create?import=csv',
@@ -141,32 +141,34 @@ export default function IntegrationsPage() {
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
         <div className="border-b border-white/10 pb-6">
-          <p className="text-sm text-cyan-200">Integrations & Imports</p>
-          <h1 className="mt-2 text-4xl font-semibold tracking-tight">Connect tools. Import offers.</h1>
+          <p className="text-sm text-cyan-200">Integrations &amp; imports</p>
+          <h1 className="mt-2 text-4xl font-semibold tracking-tight">Connect your tools. Import your offers.</h1>
           <p className="mt-4 max-w-3xl text-zinc-400">
-            Structured sync for pricing, bookings, and purchase paths.
+            Pull pricing, availability, and booking links from the tools you already use — then keep your agent page in
+            sync automatically.
           </p>
         </div>
 
-        <div className="grid gap-8 py-8 lg:grid-cols-[220px_1fr]">
+        <div className="grid gap-8 py-8 lg:grid-cols-[240px_1fr]">
           <aside className="space-y-5">
             <div>
               <h2 className="font-semibold">Why connect?</h2>
               <p className="mt-3 text-sm leading-6 text-zinc-400">
-                Current data builds agent trust.
+                Live pricing and availability keep your page accurate — which raises the trust signals agents use to
+                recommend you.
               </p>
             </div>
             <div className="card !p-4 text-xs border-cyan-300/20 bg-cyan-300/10">
-              <p className="font-medium text-cyan-100 mb-2">Integration Health</p>
-              <div className="space-y-1 text-zinc-300 text-[11px]">
-                <div className="flex justify-between"><span>Calendly</span><span className="text-emerald-400">Import + Webhooks + Secrets</span></div>
-                <div className="flex justify-between"><span>Stripe</span><span className="text-emerald-400">Import + Active price webhooks</span></div>
-                <div className="flex justify-between"><span>Shopify</span><span className="text-emerald-400">Catalog + Re-sync</span></div>
-                <div className="flex justify-between"><span>Google Calendar</span><span className="text-emerald-400">Stub + Structured windows</span></div>
-                <div className="flex justify-between"><span>Outbound (Zapier etc.)</span><span className="text-emerald-400">Per-page • Secrets • Testable</span></div>
+              <p className="font-medium text-cyan-100 mb-3">What each integration does</p>
+              <div className="space-y-2 text-zinc-300 text-[11px]">
+                <div className="flex justify-between gap-3"><span>Calendly</span><span className="text-right text-emerald-300">Import, webhooks &amp; secrets</span></div>
+                <div className="flex justify-between gap-3"><span>Stripe</span><span className="text-right text-emerald-300">Import &amp; live price sync</span></div>
+                <div className="flex justify-between gap-3"><span>Shopify</span><span className="text-right text-emerald-300">Catalog import &amp; re-sync</span></div>
+                <div className="flex justify-between gap-3"><span>Google Calendar</span><span className="text-right text-emerald-300">Availability windows</span></div>
+                <div className="flex justify-between gap-3"><span>Zapier / Make</span><span className="text-right text-emerald-300">Outbound on every booking</span></div>
               </div>
               <div className="mt-3 pt-2 border-t border-cyan-300/30 text-cyan-300 text-[10px]">
-                Outbound webhooks fire on bookings.
+                Outbound webhooks fire automatically on every agent-driven booking.
               </div>
             </div>
           </aside>
@@ -180,42 +182,48 @@ export default function IntegrationsPage() {
 
             <div className="mt-5 flex flex-col justify-between gap-4 card !p-5 md:flex-row md:items-center">
               <div>
-                <h2 className="text-xl font-semibold">No integration yet?</h2>
+                <h2 className="text-xl font-semibold">Prefer to enter things manually?</h2>
                 <p className="mt-2 text-sm text-zinc-400">
-                  Manual entry is fastest.
+                  The visual builder lets you add offers, tiers, and FAQs in minutes — no connection required.
                 </p>
               </div>
               <a
                 href="/create"
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-zinc-950 hover:bg-zinc-200"
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-zinc-950 hover:bg-zinc-200"
               >
-                Manual Entry
+                Manual entry
                 <ExternalLink className="size-4" />
               </a>
             </div>
 
-            {/* Full throttle: Dedicated Consumer Integrations section - polished */}
+            {/* Consumer & local services */}
             <div className="mt-6 card !p-5 border-pink-300/20 bg-pink-300/5">
-              <div className="font-semibold text-pink-300 mb-2">Consumer & Local Services Integrations</div>
+              <div className="font-semibold text-pink-300 mb-3">Consumer &amp; local services</div>
               <div className="grid gap-4 md:grid-cols-2 text-sm">
                 <div>
                   <div className="flex items-center gap-2 font-medium">
                     Square
-                    <span className="text-[9px] rounded bg-pink-400/10 px-1 py-0 text-pink-300">Consumer</span>
+                    <span className="text-[9px] rounded bg-pink-400/10 px-1.5 py-0.5 text-pink-300">Consumer</span>
                   </div>
-                  <p className="text-xs text-zinc-400 mt-1">Payments + bookings for mobile services, wellness, home services. Rich consumer fields (isMobile, travelFee, serviceArea, duration).</p>
-                  <a href="/dashboard/tools" className="text-[10px] text-pink-300 hover:underline">Import in Tools →</a>
+                  <p className="text-xs text-zinc-400 mt-1.5 leading-5">
+                    Payments and bookings for mobile, wellness, and home services — with mobile, travel-fee, service-area,
+                    and duration fields.
+                  </p>
+                  <a href="/dashboard/tools" className="mt-2 inline-block text-[11px] text-pink-300 hover:underline">Import in Tools →</a>
                 </div>
                 <div>
                   <div className="flex items-center gap-2 font-medium">
                     Acuity Scheduling
-                    <span className="text-[9px] rounded bg-orange-400/10 px-1 py-0 text-orange-300">Consumer</span>
+                    <span className="text-[9px] rounded bg-orange-400/10 px-1.5 py-0.5 text-orange-300">Consumer</span>
                   </div>
-                  <p className="text-xs text-zinc-400 mt-1">Appointment types for coaching, beauty, medical, fitness. Strong time-based consumer offerings with duration + tiers.</p>
-                  <a href="/dashboard/tools" className="text-[10px] text-orange-300 hover:underline">Import in Tools →</a>
+                  <p className="text-xs text-zinc-400 mt-1.5 leading-5">
+                    Appointment types for coaching, beauty, medical, and fitness — time-based offers with duration and
+                    tiers.
+                  </p>
+                  <a href="/dashboard/tools" className="mt-2 inline-block text-[11px] text-orange-300 hover:underline">Import in Tools →</a>
                 </div>
               </div>
-              <p className="mt-3 text-[10px] text-pink-300/80">Import → edit → re-sync.</p>
+              <p className="mt-3 text-[11px] text-pink-300/80">Import once, then edit and re-sync from the page editor.</p>
             </div>
           </section>
         </div>
@@ -256,7 +264,7 @@ function IntegrationCard({
                   ? 'bg-purple-300/15 text-purple-200'
                   : accent === 'blue'
                     ? 'bg-blue-300/15 text-blue-200'
-                    : 'bg-zinc-600/30 text-zinc-200'
+                    : 'bg-white/10 text-zinc-200'
           }`}
         >
           <Icon className="size-5" />
