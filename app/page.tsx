@@ -18,6 +18,7 @@ import { createClient } from '../utils/supabase/server'
 import { SimulatorTeaser } from '../components/SimulatorTeaser'
 import { HomeGauge } from '../components/HomeGauge'
 import { PhilosophySplit } from '../components/PhilosophySplit'
+import { CodeCopyButton } from '../components/CodeCopyButton'
 
 type Feature = {
   title: string
@@ -377,19 +378,7 @@ function HeroBackdrop() {
 
 // Modern bento of the structured artifacts Nexez emits — the product in one glance.
 function BentoGrid() {
-  return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-4 md:auto-rows-[170px]">
-      {/* Agent-readable payload — the centerpiece */}
-      <div className="nx-tile flex flex-col p-5 md:col-span-2 md:row-span-2">
-        <div className="flex items-center gap-2">
-          <Code2 className="size-4 text-cyan-300" />
-          <p className="text-sm font-medium text-white/90">What agents read</p>
-          <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-emerald-300/25 bg-emerald-300/10 px-2 py-0.5 text-[10px] text-emerald-200">
-            <span className="nx-live-dot" /> agent-ready
-          </span>
-        </div>
-        <pre className="mt-4 flex-1 overflow-hidden rounded-lg border border-border bg-black/40 p-4 font-mono text-[11px] leading-5 text-zinc-300">
-{`{
+  const agentPayload = `{
   "business": "Acme Strategy Studio",
   "best_fit": "B2B founders",
   "offers": [
@@ -400,8 +389,27 @@ function BentoGrid() {
   "actions": ["book", "buy", "contact", "negotiate"],
   "schema": ["Service", "Offer", "FAQPage"],
   "readiness": 92
-}`}
-        </pre>
+}`
+
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-4 md:auto-rows-[170px]">
+      {/* Agent-readable payload — the centerpiece */}
+      <div className="nx-tile group flex flex-col p-5 md:col-span-2 md:row-span-2">
+        <div className="flex items-center gap-2">
+          <Code2 className="size-4 text-cyan-300" />
+          <p className="text-sm font-medium text-white/90">What agents read</p>
+          <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-emerald-300/25 bg-emerald-300/10 px-2 py-0.5 text-[10px] text-emerald-200">
+            <span className="nx-live-dot" /> agent-ready
+          </span>
+        </div>
+        <div className="relative mt-4 flex-1">
+          <div className="absolute right-2 top-2 z-10 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
+            <CodeCopyButton text={agentPayload} label="Copy agent.json" />
+          </div>
+          <pre className="h-full overflow-hidden rounded-lg border border-border bg-black/40 p-4 font-mono text-[11px] leading-5 text-zinc-300">
+{agentPayload}
+          </pre>
+        </div>
         <p className="mt-3 text-xs leading-5 text-muted-foreground">
           One payload powers JSON-LD, llms.txt, <span className="text-zinc-300">agent.json</span>, an MCP endpoint, and
           clean semantic HTML.

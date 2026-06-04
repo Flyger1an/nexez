@@ -53,52 +53,63 @@ export function PhilosophySplit() {
         {/* Human site */}
         <div className={`nx-tile p-4 transition-all duration-300 ${humanCls}`}>
           <p className="mb-3 px-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">What humans see</p>
-          <div className="overflow-hidden rounded-lg border border-border bg-[#0c0c12]">
+          <div className="overflow-hidden rounded-lg border border-border bg-[#0c0c12] text-left">
             {/* browser chrome */}
             <div className="flex items-center gap-1.5 border-b border-border bg-white/[0.04] px-3 py-2">
-              <span className="size-2 rounded-full bg-white/30" />
-              <span className="size-2 rounded-full bg-white/30" />
-              <span className="size-2 rounded-full bg-white/30" />
-              <span className="ml-2 h-2.5 w-28 rounded-full bg-white/[0.12]" />
+              <span className="size-2 rounded-full bg-white/25" />
+              <span className="size-2 rounded-full bg-white/25" />
+              <span className="size-2 rounded-full bg-white/25" />
+              <span className="ml-2 truncate rounded bg-white/[0.06] px-2 py-0.5 font-mono text-[10px] text-zinc-500">
+                acmestrategy.com/services
+              </span>
             </div>
-            <div className="space-y-3.5 p-4">
+            <div className="p-4 text-[11px] leading-relaxed">
               {/* nav */}
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-12 rounded bg-white/25" />
-                <span className="ml-auto h-2 w-9 rounded-full bg-white/15" />
-                <span className="h-2 w-9 rounded-full bg-white/15" />
-                <span className="h-2 w-9 rounded-full bg-white/15" />
-                <span className="h-5 w-12 rounded bg-white/20" />
+              <div className="flex items-center gap-3 border-b border-white/5 pb-2.5">
+                <span className="text-[13px] font-semibold text-white">Acme</span>
+                <span className="text-zinc-500">Home</span>
+                <span className="text-zinc-400">Services</span>
+                <span className="hidden text-zinc-500 sm:inline">About</span>
+                <span className="hidden text-zinc-500 sm:inline">Blog</span>
+                <span className="ml-auto rounded bg-white/10 px-2 py-1 text-[10px] text-zinc-200">Book a call</span>
               </div>
-              {/* hero */}
-              <div className="rounded-md bg-gradient-to-br from-violet-500/30 via-white/[0.06] to-cyan-500/20 p-4">
-                <span className="block h-3 w-2/3 rounded-full bg-white/35" />
-                <span className="mt-2 block h-2 w-1/2 rounded-full bg-white/20" />
-                <div className="mt-3 flex gap-2">
-                  <span className="h-6 w-20 rounded bg-white/30" />
-                  <span className="h-6 w-16 rounded border border-white/20 bg-white/5" />
+
+              {/* hero — marketing, not structured */}
+              <div className="mt-3 rounded-md bg-gradient-to-br from-violet-500/25 via-white/[0.05] to-cyan-500/15 p-3.5">
+                <p className="text-[15px] font-semibold tracking-tight text-white">Strategy that scales your B2B.</p>
+                <p className="mt-1 text-[11px] text-zinc-400">Trusted by 200+ founders to find their next growth lever.</p>
+                <div className="mt-2.5 flex gap-2">
+                  <span className="rounded bg-white/90 px-2.5 py-1 text-[10px] font-medium text-black">Get started</span>
+                  <span className="rounded border border-white/15 px-2.5 py-1 text-[10px] text-zinc-300">Watch demo</span>
                 </div>
               </div>
-              {/* content cards */}
-              <div className="grid grid-cols-3 gap-2">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="rounded border border-white/10 bg-white/[0.05] p-2">
-                    <span className="block h-8 rounded bg-white/10" />
-                    <span className="mt-1.5 block h-1.5 w-full rounded-full bg-white/15" />
-                    <span className="mt-1 block h-1.5 w-2/3 rounded-full bg-white/10" />
-                  </div>
-                ))}
+
+              {/* cookie clutter */}
+              <div className="mt-2.5 flex items-center gap-2 rounded border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[10px] text-zinc-500">
+                <span>🍪 We use cookies to improve your experience.</span>
+                <span className="ml-auto rounded bg-white/10 px-1.5 py-0.5 text-zinc-300">Accept</span>
               </div>
-              {/* paragraph */}
-              <div className="space-y-1.5">
-                <span className="block h-2 w-full rounded-full bg-white/[0.1]" />
-                <span className="block h-2 w-11/12 rounded-full bg-white/[0.1]" />
-                <span className="block h-2 w-3/4 rounded-full bg-white/[0.08]" />
+
+              {/* the actual offers — buried in prose */}
+              <p className="mt-3 text-[9px] uppercase tracking-[0.18em] text-zinc-500">Our services</p>
+              <ul className="mt-1.5 space-y-1 text-zinc-400">
+                <li>• <span className="text-zinc-200">Strategy Session</span> — a focused 60-min deep dive. <span className="text-zinc-300">From $450.</span></li>
+                <li>• <span className="text-zinc-200">Retainer</span> — ongoing partnership, <span className="text-zinc-300">starting $3,000/mo.</span></li>
+                <li>• <span className="text-zinc-200">SEO Audit</span> — comprehensive, fixed-scope review.</li>
+              </ul>
+
+              {/* testimonial + newsletter clutter */}
+              <div className="mt-3 rounded border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[10px] italic text-zinc-500">
+                “★★★★★ Acme transformed our pipeline.” — Jane, CEO
+              </div>
+              <div className="mt-2 flex items-center gap-2 text-[10px] text-zinc-500">
+                <span className="truncate">Subscribe to our newsletter for growth tips</span>
+                <span className="ml-auto rounded bg-white/10 px-1.5 py-0.5 text-zinc-300">→</span>
               </div>
             </div>
           </div>
           <p className="mt-3 px-1 text-xs leading-5 text-muted-foreground">
-            Carousels, scripts, and layout an agent has to fight through.
+            The same offers exist — buried in nav, marketing copy, banners, and testimonials an agent has to fight through.
           </p>
         </div>
 
