@@ -1898,3 +1898,12 @@ Sequential verified bursts; roadmap updated per feature.
 - **Auth-aware shell**: `PlatformShell` hides dashboard nav items from anonymous users (shows only public items until auth resolves — no menu flash) and swaps the owner search + sign-out for a Sign-in CTA.
 - **Create flow**: visitors can build a page; on Publish, if not signed in, their work is saved to sessionStorage and a "Create a free account to publish" modal appears (Create account / Sign in / Keep editing). On return to `/create`, the draft is restored and they can publish.
 - Verified: lint/tsc clean, `npm test` 173/173, build clean.
+
+---
+
+# Dashboard server-component refactor (2026-06-03)
+
+- `app/dashboard/page.tsx` is now a **server component**: authenticates (`getUser`, redirect backstop) and fetches pages/events/agent-visits/negotiation-count/shared-pages/profile in one parallel server-side wave, then renders `<DashboardClient initial={…} />`.
+- `app/dashboard/DashboardClient.tsx` (co-located, so import paths unchanged) is the interactive island — seeds state from the server's `initial` data (no client fetch waterfall, **no "Loading dashboard…" flash**), keeps a background refresh + all mutations (toggle/delete/bulk/select).
+- Net: dashboard SSRs with real data, server-side auth, faster TTI; client behavior preserved.
+- Verified: lint/tsc clean, `npm test` 173/173, build clean.
