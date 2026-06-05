@@ -6,6 +6,7 @@ import {
   Bell,
   Bot,
   Copy,
+  CopyPlus,
   ExternalLink,
   Gauge,
   Pencil,
@@ -21,6 +22,7 @@ import {
   getBaseUrl,
   getOfferCount,
   getReadinessScore,
+  normalizeSlug,
 } from '../../lib/agent-page'
 import { AgentVisit, getAgentTypeBreakdown, getTopPagesByAgentVisits, getTrafficSplit } from '../../lib/agent-visits'
 import { CheckoutEvent, getEventActionLabel } from '../../lib/checkout-events'
@@ -180,6 +182,49 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
 
     const supabase = createClient()
     await supabase.from('pages').delete().eq('id', id)
+    loadPages()
+  }
+
+  // Clone a page's content into a new unpublished draft (new slug, no domain).
+  async function duplicatePage(page: AgentPage) {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return
+
+    const base = normalizeSlug(`${page.name || 'page'}-copy`) || 'page-copy'
+    const slug = `${base}-${Math.random().toString(36).slice(2, 6)}`
+
+    const { error } = await supabase.from('pages').insert({
+      owner_id: user.id,
+      name: `${page.name || 'Untitled'} (Copy)`,
+      slug,
+      description: page.description ?? null,
+      website_url: page.website_url ?? null,
+      cta_url: page.cta_url ?? null,
+      cta_label: page.cta_label ?? null,
+      audience: page.audience ?? null,
+      location: page.location ?? null,
+      contact_email: page.contact_email ?? null,
+      industry: page.industry ?? null,
+      prefer_original_site: page.prefer_original_site ?? false,
+      products: page.products ?? null,
+      services: page.services ?? null,
+      faqs: page.faqs ?? null,
+      branding: page.branding ?? null,
+      mcp_enabled: page.mcp_enabled ?? false,
+      agent_memory: page.agent_memory ?? null,
+      google_calendar_id: page.google_calendar_id ?? null,
+      next_available: page.next_available ?? null,
+      llm_opt_in: page.llm_opt_in ?? false,
+      is_published: false,
+    })
+
+    if (error) {
+      alert(`Could not duplicate this page: ${error.message}`)
+      return
+    }
     loadPages()
   }
 
@@ -369,6 +414,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                   eventCount={signalsByPageId.get(page.id) ?? 0}
                   onCopy={() => copyUrl(page.slug)}
                   onDelete={() => deletePage(page.id)}
+                  onDuplicate={() => duplicatePage(page)}
                   onToggle={() => togglePublished(page.id, page.is_published)}
                   selected={selectedIds.has(page.id)}
                   onSelectToggle={() => toggleSelect(page.id)}
@@ -587,6 +633,7 @@ function PageCard({
   eventCount,
   onCopy,
   onDelete,
+  onDuplicate,
   onToggle,
   selected,
   onSelectToggle,
@@ -595,6 +642,7 @@ function PageCard({
   eventCount: number
   onCopy: () => void
   onDelete: () => void
+  onDuplicate: () => void
   onToggle: () => void
   selected?: boolean
   onSelectToggle?: () => void
@@ -649,7 +697,7 @@ function PageCard({
           {eventCount} agent signals
         </div>
 
-        <div className="mt-4 grid grid-cols-3 sm:grid-cols-6 gap-2">
+        <div className="mt-4 grid grid-cols-4 sm:grid-cols-7 gap-2">
           <a href={`/dashboard/${page.id}`} className={actionClass} aria-label="Edit page">
             <Pencil className="size-4" />
           </a>
@@ -664,6 +712,9 @@ function PageCard({
           </a>
           <button onClick={onCopy} className={actionClass} aria-label="Copy page URL">
             <Copy className="size-4" />
+          </button>
+          <button onClick={onDuplicate} className={actionClass} aria-label="Duplicate page" title="Duplicate as draft">
+            <CopyPlus className="size-4" />
           </button>
           <button onClick={onDelete} className={`${actionClass} text-red-300`} aria-label="Delete page">
             <Trash2 className="size-4" />
