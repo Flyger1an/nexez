@@ -44,6 +44,7 @@ Importer (+gated LLM fallback), Visual Builder (availability signals, A/B duplic
 | `CRON_SECRET` | protects `/api/cron/freshness` (cron in `vercel.json`) | not set |
 | `LLM_API_KEY` (+`LLM_BASE_URL`/`LLM_MODEL`, OpenAI-compatible) | real LLM-assist (builder Enhance via `/api/ai/enhance`, importer fallback) | not set (deterministic) |
 | `OBSERVABILITY_WEBHOOK_URL` | `captureError` ships errors (else console) | not set |
+| `RESEND_API_KEY` (+`EMAIL_FROM`) | transactional email (`lib/email.ts`) — emails the business on a new negotiation request | not set (no-op) |
 
 ## Roadmap
 `ROADMAP.md` is the running source of truth — append an `IMPLEMENTED`/burst entry after each change (this has been the cadence). It's very long; grep recent dated sections rather than reading the whole file.

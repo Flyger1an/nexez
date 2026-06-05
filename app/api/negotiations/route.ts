@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import {
   AgentPage,
   BASIC_OWNER_PAGE_SELECT,
@@ -9,6 +9,7 @@ import {
 } from '../../../lib/agent-page'
 import { parseMoneyCents } from '../../../lib/checkout'
 import { enforceRateLimit } from '../../../lib/rate-limit'
+import { buildNegotiationEmail, sendEmail } from '../../../lib/email'
 import { supabase } from '../../../lib/supabase'
 
 type NegotiationInput = {
@@ -118,6 +119,22 @@ export async function POST(request: Request) {
       },
       { status: 412 },
     )
+  }
+
+  // Email the business about the new request (gated on RESEND_API_KEY; no-op
+  // otherwise). Sent after the response so it never adds latency.
+  const ownerEmail = (page as { contact_email?: string | null }).contact_email
+  if (ownerEmail) {
+    const mail = buildNegotiationEmail({
+      businessName: page.name || page.slug,
+      offerName: offer.name,
+      budget: input.budget,
+      timeline: input.timeline,
+      query: input.query,
+      buyerAgent: input.buyerAgent,
+      inboxUrl: `${getBaseUrl()}/dashboard/negotiations`,
+    })
+    after(() => sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text }))
   }
 
   if (!wantsJson) {

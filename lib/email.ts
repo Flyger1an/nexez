@@ -1,0 +1,97 @@
+// Gated transactional email (Resend-compatible). Dormant unless RESEND_API_KEY
+// is set — like the other gated integrations (LLM, Stripe, Vercel). When unset,
+// sendEmail is a no-op so the rest of the flow is unaffected.
+
+export function hasEmailEnv(): boolean {
+  return Boolean(process.env.RESEND_API_KEY)
+}
+
+type SendEmailInput = { to: string; subject: string; html: string; text?: string }
+type SendResult = { ok: boolean; skipped?: boolean; id?: string; error?: string }
+
+export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
+  if (!hasEmailEnv()) return { ok: false, skipped: true }
+  if (!input.to) return { ok: false, error: 'missing recipient' }
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: process.env.EMAIL_FROM || 'Nexez <notifications@nexez.app>',
+        to: [input.to],
+        subject: input.subject,
+        html: input.html,
+        ...(input.text ? { text: input.text } : {}),
+      }),
+    })
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      return { ok: false, error: `resend ${res.status}: ${body.slice(0, 200)}` }
+    }
+    const data = (await res.json().catch(() => ({}))) as { id?: string }
+    return { ok: true, id: data?.id }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'send failed' }
+  }
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string,
+  )
+}
+
+// Pure builder (testable) for the "new negotiation request" email.
+export function buildNegotiationEmail(opts: {
+  businessName: string
+  offerName: string
+  budget?: string | null
+  timeline?: string | null
+  query?: string | null
+  buyerAgent?: string | null
+  inboxUrl: string
+}): { subject: string; html: string; text: string } {
+  const { businessName, offerName, budget, timeline, query, buyerAgent, inboxUrl } = opts
+
+  const subject = `New negotiation request for ${offerName}`
+
+  const rows: [string, string | null | undefined][] = [
+    ['Offer', offerName],
+    ['Budget', budget],
+    ['Timeline', timeline],
+    ['From agent', buyerAgent],
+    ['Message', query],
+  ]
+  const present = rows.filter(([, v]) => v)
+
+  const text = [
+    `You have a new negotiation request on your Nexez page "${businessName}".`,
+    '',
+    ...present.map(([k, v]) => `${k}: ${v}`),
+    '',
+    `Respond in your inbox: ${inboxUrl}`,
+  ].join('\n')
+
+  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.6;color:#0a0a0a">
+  <h2 style="margin:0 0 8px">New negotiation request</h2>
+  <p style="margin:0 0 12px">You have a new negotiation request on your Nexez page <strong>${escapeHtml(
+    businessName,
+  )}</strong>.</p>
+  <table style="border-collapse:collapse;margin:0 0 16px">${present
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:4px 12px 4px 0;color:#52525b">${escapeHtml(k)}</td><td style="padding:4px 0"><strong>${escapeHtml(
+          String(v),
+        )}</strong></td></tr>`,
+    )
+    .join('')}</table>
+  <p style="margin:0"><a href="${inboxUrl}" style="display:inline-block;background:#7C3AED;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600">Open your negotiation inbox</a></p>
+</div>`
+
+  return { subject, html, text }
+}
