@@ -3,9 +3,9 @@ import {
   AgentPage,
   BASIC_OWNER_PAGE_SELECT,
   PUBLIC_PAGE_SELECT,
-  getBaseUrl,
   getCheckoutOffer,
   getCheckoutOfferKey,
+  getRequestBaseUrl,
 } from '../../../lib/agent-page'
 import { parseMoneyCents } from '../../../lib/checkout'
 import { enforceRateLimit } from '../../../lib/rate-limit'
@@ -50,6 +50,7 @@ export async function POST(request: Request) {
 
   const wantsJson = request.headers.get('accept')?.includes('application/json')
   const input = await readNegotiationInput(request)
+  const baseUrl = getRequestBaseUrl(request)
 
   if (!input.slug || !input.offer) {
     return NextResponse.json({ error: 'Missing negotiation page or offer.' }, { status: 400 })
@@ -105,16 +106,15 @@ export async function POST(request: Request) {
     })
   }
 
-  const { data, error } = await supabase
-    .from('agent_negotiations')
-    .insert(negotiation)
-    .select('id, status, escrow_mode, created_at')
-    .single()
+  // Insert WITHOUT a RETURNING/select: the public agent caller is anon, which
+  // (correctly) has no SELECT policy on agent_negotiations, so reading the row
+  // back would be rejected by RLS. We already know everything we need to reply.
+  const { error } = await supabase.from('agent_negotiations').insert(negotiation)
 
   if (error) {
     return NextResponse.json(
       {
-        error: 'Negotiation could not be created. Apply the agent_negotiations migration before using this feature.',
+        error: 'Proposal validation passed, but seller inbox storage is blocked. Apply the agent_negotiations RLS fix before using this feature.',
         detail: error.message,
       },
       { status: 412 },
@@ -132,23 +132,22 @@ export async function POST(request: Request) {
       timeline: input.timeline,
       query: input.query,
       buyerAgent: input.buyerAgent,
-      inboxUrl: `${getBaseUrl()}/dashboard/negotiations`,
+      inboxUrl: `${baseUrl}/dashboard/negotiations`,
     })
     after(() => sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text }))
   }
 
   if (!wantsJson) {
-    return NextResponse.redirect(`${getBaseUrl()}/${page.slug}?negotiation=created`, { status: 303 })
+    return NextResponse.redirect(`${baseUrl}/${page.slug}?negotiation=created`, { status: 303 })
   }
 
   return NextResponse.json({
     ok: true,
-    id: data.id,
-    status: data.status,
-    escrowMode: data.escrow_mode,
+    status: negotiation.status,
+    escrowMode,
     stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
-    next: getNextStep(data.escrow_mode),
-    publicPageUrl: `${getBaseUrl()}/${page.slug}`,
+    next: getNextStep(escrowMode),
+    publicPageUrl: `${baseUrl}/${page.slug}`,
   })
 }
 
