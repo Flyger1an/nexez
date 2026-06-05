@@ -376,6 +376,29 @@ export function getReadinessScore(page: Partial<AgentPage>) {
   return Math.round((checks.filter(Boolean).length / checks.length) * 100)
 }
 
+export type Certification = {
+  certified: boolean
+  level: 'agent-ready' | null
+  readiness: number
+  label: string | null
+}
+
+/**
+ * "Nexez Certified Agent-Ready" — earned by published pages that clear a 95%
+ * readiness bar. A simple, deterministic trust signal surfaced on the public
+ * page, agent.json, and the directory.
+ */
+export function getCertification(page: Partial<AgentPage>): Certification {
+  const readiness = getReadinessScore(page)
+  const certified = Boolean(page.is_published) && readiness >= 95
+  return {
+    certified,
+    level: certified ? 'agent-ready' : null,
+    readiness,
+    label: certified ? 'Nexez Certified Agent-Ready' : null,
+  }
+}
+
 export function getBaseUrl() {
   return process.env.NEXT_PUBLIC_SITE_URL || 'https://nexez.vercel.app'
 }

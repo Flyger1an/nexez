@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { cookies } from 'next/headers'
 import crypto from 'crypto'
 import type { AgentPage } from '../../../../lib/agent-page'
+import { getBaseUrl } from '../../../../lib/agent-page'
+import { buildBookingEmail, hasEmailEnv, sendEmail } from '../../../../lib/email'
 import { fireOutboundWebhook, type OutboundWebhookPayload } from '../../../../lib/webhooks'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { createClient as createServerClient } from '../../../../utils/supabase/server'
@@ -24,7 +26,7 @@ type CalendlyPayload = {
   }
 }
 
-type WebhookPage = Pick<AgentPage, 'id' | 'owner_id' | 'slug' | 'name'>
+type WebhookPage = Pick<AgentPage, 'id' | 'owner_id' | 'slug' | 'name' | 'contact_email'>
 
 export async function POST(request: NextRequest) {
   if (!hasSupabaseAdminEnv()) {
@@ -45,7 +47,7 @@ export async function POST(request: NextRequest) {
 
   const { data: pages, error: pageError } = await supabase
     .from('pages')
-    .select('id, owner_id, slug, name')
+    .select('id, owner_id, slug, name, contact_email')
     .eq('slug', testPageSlug)
     .limit(1)
     .returns<WebhookPage[]>()
@@ -148,6 +150,21 @@ export async function POST(request: NextRequest) {
 
   if (updateError) {
     console.warn('[Calendly Webhook] Failed to update page last_booking:', updateError.message)
+  }
+
+  // Notify the business by email on a new booking (gated on RESEND_API_KEY).
+  if (eventType === 'invitee.created' && hasEmailEnv() && page.contact_email) {
+    const mail = buildBookingEmail({
+      businessName: page.name || page.slug,
+      eventName,
+      inviteeName,
+      inviteeEmail: payload.invitee?.email,
+      startTime: startedAt,
+      source: 'Calendly',
+      inboxUrl: `${getBaseUrl()}/dashboard`,
+    })
+    const to = page.contact_email
+    after(() => sendEmail({ to, subject: mail.subject, html: mail.html, text: mail.text }))
   }
 
   const outboundResults = await firePageOutbounds(page, pageSecrets?.outbound_webhooks, eventType, eventName, inviteeName, startedAt)

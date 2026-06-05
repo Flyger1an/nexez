@@ -5,6 +5,7 @@ import {
   getCheckoutOfferKey,
   getCheckoutOffers,
   getCheckoutPath,
+  getCertification,
   getOfferDestination,
   parseAvailabilityWindows,
 } from './agent-page'
@@ -60,8 +61,10 @@ export function buildAgentPagePayload(page: AgentPage) {
       'Quote the source page URL when summarizing this offer for a buyer.',
     ],
     plain_text: buildPlainText(page, offers),
-    // Tier 3: Agent memory/context stub (if present on page)
+    // Tier 3: Agent memory/context (if present on page)
     memory_context: (page as any).agent_memory || null,
+    // "Nexez Certified Agent-Ready" trust signal (published + 95%+ readiness).
+    certification: getCertification(page),
   }
 }
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, EyeOff, Plus, Trash2, X } from 'lucide-react'
+import { CheckCircle2, Copy, EyeOff, Plus, Trash2, X } from 'lucide-react'
 import { AgentPage, BASIC_OWNER_PAGE_SELECT, OWNER_PAGE_SELECT, getBaseUrl } from '../lib/agent-page'
 import { buildDuplicatePayload } from '../lib/duplicate-page'
 import { createClient } from '../utils/supabase/client'
@@ -107,6 +107,35 @@ export function PagesManager({
     reload()
   }
 
+  async function bulkDuplicate() {
+    if (!selectedIds.size) return
+    setBusy(true)
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      setBusy(false)
+      return
+    }
+    // Accumulate slugs so each new duplicate stays collision-free against the
+    // others created in this same batch.
+    const slugs = pages.map((p) => p.slug)
+    const payloads = pages
+      .filter((p) => selectedIds.has(p.id))
+      .map((p) => {
+        const payload = buildDuplicatePayload(p, user.id, slugs)
+        slugs.push((payload as { slug: string }).slug)
+        return payload
+      })
+    if (payloads.length) {
+      const { error } = await supabase.from('pages').insert(payloads)
+      if (error) alert(`Could not duplicate selected pages: ${error.message}`)
+    }
+    setBusy(false)
+    reload()
+  }
+
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev)
@@ -200,6 +229,13 @@ export function PagesManager({
               className="inline-flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-3 py-1.5 text-zinc-200 hover:bg-white/10 disabled:opacity-50"
             >
               <EyeOff className="size-4" /> Unpublish
+            </button>
+            <button
+              onClick={bulkDuplicate}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-md border border-cyan-300/30 bg-cyan-400/10 px-3 py-1.5 text-cyan-100 hover:bg-cyan-400/20 disabled:opacity-50"
+            >
+              <Copy className="size-4" /> Duplicate
             </button>
             <button
               onClick={bulkDelete}

@@ -46,6 +46,48 @@ function escapeHtml(value: string): string {
   )
 }
 
+// Pure builder (testable) for the "new booking" email (Calendly etc.).
+export function buildBookingEmail(opts: {
+  businessName: string
+  eventName: string
+  inviteeName?: string | null
+  inviteeEmail?: string | null
+  startTime?: string | null
+  source?: string | null
+  inboxUrl: string
+}): { subject: string; html: string; text: string } {
+  const { businessName, eventName, inviteeName, inviteeEmail, startTime, source, inboxUrl } = opts
+  const subject = `New booking: ${eventName}`
+  const when = startTime ? new Date(startTime).toLocaleString() : null
+  const rows: [string, string | null | undefined][] = [
+    ['Booking', eventName],
+    ['Guest', inviteeName],
+    ['Email', inviteeEmail],
+    ['When', when],
+    ['Source', source],
+  ]
+  const present = rows.filter(([, v]) => v)
+  const text = [
+    `You have a new booking on your Nexez page "${businessName}".`,
+    '',
+    ...present.map(([k, v]) => `${k}: ${v}`),
+    '',
+    `Manage it: ${inboxUrl}`,
+  ].join('\n')
+  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.6;color:#0a0a0a">
+  <h2 style="margin:0 0 8px">New booking</h2>
+  <p style="margin:0 0 12px">A new booking came in on your Nexez page <strong>${escapeHtml(businessName)}</strong>.</p>
+  <table style="border-collapse:collapse;margin:0 0 16px">${present
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:4px 12px 4px 0;color:#52525b">${escapeHtml(k)}</td><td style="padding:4px 0"><strong>${escapeHtml(String(v))}</strong></td></tr>`,
+    )
+    .join('')}</table>
+  <p style="margin:0"><a href="${inboxUrl}" style="display:inline-block;background:#10B981;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600">Open your dashboard</a></p>
+</div>`
+  return { subject, html, text }
+}
+
 // Pure builder (testable) for the "new negotiation request" email.
 export function buildNegotiationEmail(opts: {
   businessName: string

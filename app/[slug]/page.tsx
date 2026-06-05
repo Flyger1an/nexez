@@ -6,7 +6,7 @@ import { headers, cookies } from 'next/headers'
 import { createClient as createServerClient } from '../../utils/supabase/server'
 import { applyDraftOverlay } from '../../lib/draft'
 import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, LockKeyhole, Mail, MapPin } from 'lucide-react'
-import { AgentPage, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, availabilityLabel, getBaseUrl, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows, schemaAvailability } from '../../lib/agent-page'
+import { AgentPage, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, availabilityLabel, getBaseUrl, getCertification, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows, schemaAvailability } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { agentArtifactHref, getEffectiveBaseUrl, isCustomHost, normalizeDomainPath } from '../../lib/custom-domain'
 import { hasBranding, normalizeBranding } from '../../lib/branding'
@@ -241,6 +241,11 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
           {(page as any).verification_details?.domain_verified && ' ✓ Verified'}
           {(page as any).verification_details?.docs_provided?.length > 0 && ' 📜 Credentials attached'}
         </div>
+        {getCertification(page).certified && (
+          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-300/30 bg-emerald-300/10 px-3 py-0.5 text-xs text-emerald-200">
+            ✅ Nexez Certified Agent-Ready
+          </div>
+        )}
         {(page as any).verification_details?.docs_provided?.length > 0 && (
           <div className="mt-1 text-[10px] text-amber-400/80">Credentials: {((page as any).verification_details.docs_provided as string[]).join(' • ')}</div>
         )}
