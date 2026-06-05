@@ -18,10 +18,10 @@ import {
   AgentPage,
   CheckoutOffer,
   PUBLIC_PAGE_SELECT,
-  getBaseUrl,
   getCheckoutOffer,
   getCheckoutOfferKey,
   getOfferDestination,
+  getRequestBaseUrl,
 } from '../../../lib/agent-page'
 import { formatUsdCents, parseMoneyCents } from '../../../lib/checkout'
 import { logCheckoutEvent } from '../../../lib/server/log-checkout-event'
@@ -80,12 +80,13 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
 
   const destination = getOfferDestination(page, offer)
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
-  const checkoutUrl = `${getBaseUrl()}/checkout/${page.slug}?offer=${offerKey}`
-  const publicUrl = `${getBaseUrl()}/${page.slug}`
+  const requestHeaders = await headers()
+  const baseUrl = getRequestBaseUrl(requestHeaders)
+  const checkoutUrl = `${baseUrl}/checkout/${page.slug}?offer=${offerKey}`
+  const publicUrl = `${baseUrl}/${page.slug}`
   const priceCents = parseMoneyCents(offer.price)
   const displayPrice = priceCents ? formatUsdCents(priceCents) : offer.price || 'Custom quote'
-  const jsonLd = buildCheckoutJsonLd(page, offer, checkoutUrl, destination, priceCents)
-  const requestHeaders = await headers()
+  const jsonLd = buildCheckoutJsonLd(page, offer, checkoutUrl, destination, priceCents, baseUrl)
   const canContinue = Boolean(priceCents || destination)
   const missingCheckout = Boolean(search.missing_checkout)
 
@@ -340,6 +341,7 @@ function buildCheckoutJsonLd(
   checkoutUrl: string,
   destination: string,
   priceCents: number | null,
+  baseUrl: string,
 ) {
   return {
     '@context': 'https://schema.org',
@@ -349,7 +351,7 @@ function buildCheckoutJsonLd(
     isPartOf: {
       '@type': 'WebPage',
       name: page.name,
-      url: `${getBaseUrl()}/${page.slug}`,
+      url: `${baseUrl}/${page.slug}`,
     },
     mainEntity: {
       '@type': 'Offer',
@@ -361,7 +363,7 @@ function buildCheckoutJsonLd(
       seller: {
         '@type': 'Organization',
         name: page.name,
-        url: page.website_url || `${getBaseUrl()}/${page.slug}`,
+        url: page.website_url || `${baseUrl}/${page.slug}`,
         email: page.contact_email || undefined,
       },
     },

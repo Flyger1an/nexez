@@ -1,4 +1,4 @@
-import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl } from '../../../lib/agent-page'
+import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '../../../lib/agent-page'
 import { searchAgentPages } from '../../../lib/agent-search'
 import { supabase } from '../../../lib/supabase'
 
@@ -25,7 +25,8 @@ export async function GET(request: Request) {
     )
   }
 
-  const results = searchAgentPages(pages ?? [], query, Number.isFinite(limit) ? limit : 10)
+  const baseUrl = getRequestBaseUrl(request)
+  const results = searchAgentPages(pages ?? [], query, Number.isFinite(limit) ? limit : 10, baseUrl)
 
   return Response.json(
     {
@@ -33,11 +34,11 @@ export async function GET(request: Request) {
       generated_at: new Date().toISOString(),
       query,
       result_count: results.length,
-      search_url: `${getBaseUrl()}/api/agent-search?q=${encodeURIComponent(query)}`,
+      search_url: `${baseUrl}/api/agent-search?q=${encodeURIComponent(query)}`,
       results,
       usage: {
         method: 'GET',
-        example: `${getBaseUrl()}/api/agent-search?q=consulting`,
+        example: `${baseUrl}/api/agent-search?q=consulting`,
         note: 'Returns published AI-readable pages and offer-level checkout actions. Use agent_json_url for full seller context.',
       },
     },

@@ -1,9 +1,9 @@
-import { AgentPage, getBaseUrl, getCheckoutOffers, getCheckoutPath, getOfferCount } from '../../lib/agent-page'
+import { AgentPage, getCheckoutOffers, getCheckoutPath, getOfferCount, getRequestBaseUrl } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { supabase } from '../../lib/supabase'
 
-export async function GET() {
-  const baseUrl = getBaseUrl()
+export async function GET(request: Request) {
+  const baseUrl = getRequestBaseUrl(request)
   const { data: pages } = await supabase
     .from('pages')
     .select('name, slug, description, location, products, services, created_at')

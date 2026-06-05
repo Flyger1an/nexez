@@ -16,12 +16,11 @@ export function getAgentJsonPath(slug: string) {
   return `/${slug}/agent.json`
 }
 
-export function buildAgentPagePayload(page: AgentPage) {
-  const baseUrl = getBaseUrl()
+export function buildAgentPagePayload(page: AgentPage, baseUrl = getBaseUrl()) {
   const publicUrl = `${baseUrl}/${page.slug}`
   const agentJsonUrl = `${baseUrl}${getAgentJsonPath(page.slug)}`
   const checkoutOffers = getCheckoutOffers(page)
-  const offers = checkoutOffers.map((offer) => buildOfferPayload(page, offer))
+  const offers = checkoutOffers.map((offer) => buildOfferPayload(page, offer, baseUrl))
 
   return {
     schema_version: 'nexez.agent-page.v1',
@@ -60,7 +59,7 @@ export function buildAgentPagePayload(page: AgentPage) {
       page.contact_email ? 'Use contact_email for human review or custom requests.' : 'Use the public page for seller context.',
       'Quote the source page URL when summarizing this offer for a buyer.',
     ],
-    plain_text: buildPlainText(page, offers),
+    plain_text: buildPlainText(page, offers, baseUrl),
     // Tier 3: Agent memory/context (if present on page)
     memory_context: (page as any).agent_memory || null,
     // "Nexez Certified Agent-Ready" trust signal (published + 95%+ readiness).
@@ -68,8 +67,7 @@ export function buildAgentPagePayload(page: AgentPage) {
   }
 }
 
-function buildOfferPayload(page: AgentPage, offer: CheckoutOffer) {
-  const baseUrl = getBaseUrl()
+function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, baseUrl: string) {
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
   const checkoutUrl = `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`
   const providerUrl = getOfferDestination(page, offer) || null
@@ -107,19 +105,19 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer) {
         dryRun: true,
       },
     },
-    negotiation_action: buildNegotiationAction(page, offer),
+    negotiation_action: buildNegotiationAction(page, offer, baseUrl),
   }
 }
 
-function buildPlainText(page: AgentPage, offers: ReturnType<typeof buildOfferPayload>[]) {
+function buildPlainText(page: AgentPage, offers: ReturnType<typeof buildOfferPayload>[], baseUrl: string) {
   const consumerNotes = offers.some((o: any) => o.duration || o.isMobile || o.serviceArea)
     ? ' | Consumer/local services supported (duration, mobile, travelFee, serviceArea)'
     : ''
 
   return [
     `Name: ${page.name}`,
-    `URL: ${getBaseUrl()}/${page.slug}`,
-    `Agent JSON: ${getBaseUrl()}${getAgentJsonPath(page.slug)}`,
+    `URL: ${baseUrl}/${page.slug}`,
+    `Agent JSON: ${baseUrl}${getAgentJsonPath(page.slug)}`,
     `Summary: ${page.description ?? ''}`,
     `Best-fit buyer: ${page.audience ?? ''}`,
     `Location: ${page.location ?? ''}`,

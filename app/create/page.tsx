@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   Loader2,
   Sparkles,
-  Upload,
 } from 'lucide-react'
 import {
   getReadinessScore,
@@ -99,6 +98,7 @@ export default function CreatePage() {
   const [location, setLocation] = useState('')
   const [contactEmail, setContactEmail] = useState('')
   const [industry, setIndustry] = useState('')
+  const [logoUrl, setLogoUrl] = useState('')
   const [products, setProducts] = useState('')
   const [services, setServices] = useState('')
   const [faqs, setFaqs] = useState('')
@@ -161,6 +161,7 @@ export default function CreatePage() {
           if (imported.name) setName(imported.name)
           if (imported.description) setDescription(imported.description)
           if (imported.website_url) setWebsiteUrl(imported.website_url)
+          if (imported.logo_url) setLogoUrl(imported.logo_url)
           if (imported.services) setServices(imported.services)
 
           if (structured) {
@@ -198,6 +199,7 @@ export default function CreatePage() {
         if (d.location) setLocation(d.location)
         if (d.contactEmail) setContactEmail(d.contactEmail)
         if (d.industry) setIndustry(d.industry)
+        if (d.logoUrl) setLogoUrl(d.logoUrl)
         if (d.services) setServices(d.services)
         if (d.products) setProducts(d.products)
         if (d.faqs) setFaqs(d.faqs)
@@ -227,6 +229,7 @@ export default function CreatePage() {
           'nexez_pending_page',
           JSON.stringify({
             name, slug, description, websiteUrl, ctaUrl, ctaLabel, audience, location, contactEmail, industry,
+            logoUrl,
             services, products, faqs, servicesOffers, productsOffers,
           }),
         )
@@ -255,6 +258,7 @@ export default function CreatePage() {
       services: parsedServices,
       faqs: parsedFaqs,
       is_published: true,
+      branding: logoUrl ? { logo_url: logoUrl } : null,
     })
 
     setLoading(false)
@@ -594,6 +598,7 @@ export default function CreatePage() {
                   if (data.suggestedPage.name) setName(data.suggestedPage.name)
                   if (data.suggestedPage.description) setDescription(data.suggestedPage.description)
                   if (data.suggestedPage.website_url) setWebsiteUrl(data.suggestedPage.website_url)
+                  if (data.suggestedPage.logo_url) setLogoUrl(data.suggestedPage.logo_url)
 
                   if (data.structuredOffers && data.structuredOffers.length > 0) {
                     // Phase 1 A: Direct rich OfferItem[] to Visual Builder cards (primary path)
@@ -661,10 +666,27 @@ export default function CreatePage() {
                       required
                     />
                   </Field>
-                  <div className="rounded-lg border border-dashed border-white/20 bg-black/20 p-5 text-center">
-                    <p className="text-sm font-medium text-zinc-200">Logo</p>
-                    <p className="mt-2 text-sm text-zinc-500">Drag and drop or click to upload</p>
-                    <Upload className="mx-auto mt-3 size-5 text-zinc-500" />
+                  <div>
+                    <p className="text-sm font-medium text-zinc-200 mb-1">Logo (optional)</p>
+                    <div className="flex gap-2">
+                      <input
+                        value={logoUrl}
+                        onChange={(e) => setLogoUrl(e.target.value)}
+                        placeholder="https://your-site.com/logo.png (or leave empty)"
+                        className="flex-1 rounded border border-white/15 bg-black/30 px-3 py-2 text-sm"
+                      />
+                      {logoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setLogoUrl('')}
+                          className="rounded border border-red-400/40 px-2 text-xs text-red-300 hover:bg-red-400/10"
+                          title="Remove logo"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-1 text-[10px] text-zinc-500">Public image URL (auto-filled on site import). Or set/upload file later in Settings → Branding.</p>
                   </div>
                   <Field label="Short Description">
                     <textarea value={description} onChange={(event) => setDescription(event.target.value)} className={textareaClass} placeholder="Tell us about your business" />

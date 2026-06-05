@@ -1,5 +1,5 @@
 import { NextResponse, after } from 'next/server'
-import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl } from '../../../lib/agent-page'
+import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '../../../lib/agent-page'
 import { buildAgentPagePayload } from '../../../lib/agent-manifest'
 import { logAgentPageView } from '../../../lib/server/log-agent-page-view'
 import { supabase } from '../../../lib/supabase'
@@ -43,8 +43,8 @@ export async function GET(
   // Log the MCP manifest fetch as agent traffic (non-blocking).
   after(() => logAgentPageView({ page, requestHeaders: request.headers, url: request.url }))
 
-  const base = getBaseUrl()
-  const payload = buildAgentPagePayload(page)
+  const base = getRequestBaseUrl(request)
+  const payload = buildAgentPagePayload(page, base)
 
   // MCP-flavored wrapper: resources for offers + context, tools for actions.
   // Agents supporting MCP can use this as context/resources.

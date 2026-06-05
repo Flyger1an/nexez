@@ -75,11 +75,25 @@ const DEMO_PAGE: AgentPage = {
   created_at: new Date().toISOString(),
 }
 
+export const DEFAULT_AGENT_QUERY = 'Find the best-fit offer and explain the next step'
+
 export function getDemoPage(): AgentPage {
   return DEMO_PAGE
 }
 
-export function buildPublicDemoSchema(page: AgentPage, query: string) {
+export function buildDefaultAgentQuery(page: AgentPage) {
+  const offer = getCheckoutOffers(page)[0]
+  const location = page.location ? ` in ${page.location}` : ''
+
+  if (offer) {
+    const verb = offer.kind === 'services' ? 'Book' : 'Buy'
+    return `${verb} ${offer.name}${location} and confirm price, fit, and next steps`
+  }
+
+  return `Evaluate ${page.name}${location} and recommend the best next action`
+}
+
+export function buildPublicDemoSchema(page: AgentPage, query: string, baseUrl = getBaseUrl()) {
   const offers = getCheckoutOffers(page).map((offer) => {
     const effectiveUrl = offer.url || page.cta_url || page.website_url
 
@@ -93,7 +107,7 @@ export function buildPublicDemoSchema(page: AgentPage, query: string) {
       checkoutUrl: effectiveUrl,
       action: {
         method: 'POST',
-        endpoint: `${getBaseUrl()}/api/checkout`,
+        endpoint: `${baseUrl}/api/checkout`,
         body: {
           slug: page.slug,
           offer: getCheckoutOfferKey(offer.kind, offer.index),
@@ -109,8 +123,8 @@ export function buildPublicDemoSchema(page: AgentPage, query: string) {
     page: {
       name: page.name,
       slug: page.slug,
-      url: `${getBaseUrl()}/${page.slug}`,
-      agentJsonUrl: `${getBaseUrl()}/${page.slug}/agent.json`,
+      url: `${baseUrl}/${page.slug}`,
+      agentJsonUrl: `${baseUrl}/${page.slug}/agent.json`,
       summary: page.description,
       audience: page.audience,
       location: page.location,
@@ -149,7 +163,7 @@ export type SimulationResult = {
   error?: string
 }
 
-export function buildParsedSchema(page: AgentPage, query: string, agent: string) {
+export function buildParsedSchema(page: AgentPage, query: string, agent: string, baseUrl = getBaseUrl()) {
   const pagePrefer = !!page.prefer_original_site
 
   const offers = getCheckoutOffers(page).map((offer) => {
@@ -157,7 +171,7 @@ export function buildParsedSchema(page: AgentPage, query: string, agent: string)
     const useOriginal = perOfferPrefer || (pagePrefer && !!offer.url)
     const effectiveCheckout = useOriginal && offer.url 
       ? offer.url 
-      : `${getBaseUrl()}/checkout/${page.slug}?offer=${getCheckoutOfferKey((offer as any).kind, (offer as any).index)}`
+      : `${baseUrl}/checkout/${page.slug}?offer=${getCheckoutOfferKey((offer as any).kind, (offer as any).index)}`
 
     return {
       key: getCheckoutOfferKey((offer as any).kind, (offer as any).index),
@@ -170,7 +184,7 @@ export function buildParsedSchema(page: AgentPage, query: string, agent: string)
       prefersOriginal: useOriginal,
       action: {
         method: 'POST',
-        endpoint: `${getBaseUrl()}/api/checkout`,
+        endpoint: `${baseUrl}/api/checkout`,
         body: {
           slug: page.slug,
           offer: getCheckoutOfferKey((offer as any).kind, (offer as any).index),
@@ -186,8 +200,8 @@ export function buildParsedSchema(page: AgentPage, query: string, agent: string)
     page: {
       name: page.name,
       slug: page.slug,
-      url: `${getBaseUrl()}/${page.slug}`,
-      agentJsonUrl: `${getBaseUrl()}/${page.slug}/agent.json`,
+      url: `${baseUrl}/${page.slug}`,
+      agentJsonUrl: `${baseUrl}/${page.slug}/agent.json`,
       summary: page.description,
       audience: page.audience,
       location: page.location,
@@ -207,11 +221,11 @@ export function buildParsedSchema(page: AgentPage, query: string, agent: string)
 // Helper to run a full multi-agent simulation for a page (used by /simulator and enhanced public-simulate)
 // Data flywheel: results + history snapshots (persisted in page.simulations JSONB) feed scoring/recs improvements over time.
 // Modularity: history depth, advanced exports, cross-page comparisons can be tier-gated (Free vs Pro vs Business) via future billing flags without code changes.
-export function runMultiAgentSimulation(page: AgentPage, query: string = 'Book a strategy session next week') {
+export function runMultiAgentSimulation(page: AgentPage, query: string = buildDefaultAgentQuery(page), baseUrl = getBaseUrl()) {
   const agents = ['ChatGPT', 'Claude', 'Grok', 'Perplexity', 'Generic Agent']
   const results = agents.map(agent => ({
     agent,
-    schema: buildParsedSchema(page, query, agent),
+    schema: buildParsedSchema(page, query, agent, baseUrl),
     recommendations: getRecommendations(page),
     readiness: getReadinessScore(page),
   }))

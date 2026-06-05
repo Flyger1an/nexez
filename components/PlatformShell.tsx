@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '../utils/supabase/client'
 import { ThemeToggle } from './ThemeToggle'
+import { NexezLogo } from './NexezLogo'
 
 type PageHit = {
   id: string
@@ -111,8 +112,8 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
         <aside className="dashboard-sidebar fixed inset-x-0 bottom-0 z-50 border-t md:sticky md:top-0 md:inset-x-auto md:bottom-auto md:flex md:h-screen md:flex-col md:border-r md:border-t-0">
           <div className="hidden items-center gap-3 border-b border-border px-4 py-4 md:flex">
             <a href="/" className="flex min-w-0 flex-1 items-center gap-3" title="Nexez home">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-white text-sm font-semibold text-black">
-                N
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-white text-black">
+                <NexezLogo className="size-5" />
               </div>
               {!collapsed ? <span className="truncate text-sm font-medium tracking-tight">Nexez</span> : null}
             </a>
@@ -171,7 +172,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex items-center justify-between gap-3 xl:hidden">
                 <a href="/" className="flex items-center gap-2">
-                  <div className="flex size-7 items-center justify-center rounded-md border border-border bg-white text-xs font-semibold text-black">N</div>
+                  <div className="flex size-7 items-center justify-center rounded-md border border-border bg-white text-black"><NexezLogo className="size-4" /></div>
                   <span className="text-sm font-medium">Nexez</span>
                 </a>
                 <div className="flex items-center gap-2">
@@ -269,7 +270,7 @@ function QuickPageSearch() {
         .select('id,name,slug,is_published')
         .eq('owner_id', user.id)
         .order('updated_at', { ascending: false })
-        .limit(25)
+        .limit(100)
         .returns<PageHit[]>()
 
       if (!cancelled) setPages(data ?? [])
@@ -300,6 +301,8 @@ function QuickPageSearch() {
     if (hits[0]) openPage(hits[0])
   }
 
+  const showResults = focused && (query.trim().length > 0 || pages.length > 0)
+
   return (
     <form onSubmit={handleSubmit} className="relative w-full max-w-2xl">
       <label htmlFor="platform-page-search" className="mb-1 block text-xs font-medium text-muted-foreground">
@@ -313,29 +316,58 @@ function QuickPageSearch() {
           onChange={(event) => setQuery(event.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => window.setTimeout(() => setFocused(false), 150)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              if (hits[0]) openPage(hits[0])
+            }
+            if (event.key === 'Escape') {
+              setFocused(false)
+            }
+          }}
           placeholder="Find a page by name or slug..."
           className="h-10 w-full rounded-md border border-border bg-black/30 pl-9 pr-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500"
+          aria-describedby="platform-page-search-hint"
         />
       </div>
-      {focused && pages.length > 0 ? (
-        <div className="absolute left-0 right-0 top-[66px] z-50 overflow-hidden rounded-md border border-border bg-[#111] shadow-2xl">
+      <p id="platform-page-search-hint" className="mt-1 text-[11px] text-muted-foreground">
+        Press Enter to edit the first match.
+      </p>
+      {showResults ? (
+        <div className="absolute left-0 right-0 top-[84px] z-50 overflow-hidden rounded-md border border-border bg-[#111] shadow-2xl">
           {hits.length ? (
-            hits.map((page) => (
-              <button
+            hits.map((page, index) => (
+              <div
                 key={page.id}
-                type="button"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => openPage(page)}
-                className="flex w-full items-center justify-between gap-3 border-b border-border px-3 py-2 text-left text-sm last:border-b-0 hover:bg-white/[0.06]"
+                className="flex items-center justify-between gap-3 border-b border-border last:border-b-0 hover:bg-white/[0.06]"
               >
-                <span className="min-w-0">
-                  <span className="block truncate text-white">{page.name}</span>
-                  <span className="block truncate font-mono text-xs text-muted-foreground">/{page.slug}</span>
-                </span>
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ${page.is_published ? 'badge-published' : 'badge-draft'}`}>
-                  {page.is_published ? 'Live' : 'Draft'}
-                </span>
-              </button>
+                <button
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => openPage(page)}
+                  className="flex min-w-0 flex-1 items-center justify-between gap-3 px-3 py-2 text-left text-sm"
+                >
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-2">
+                      <span className="block truncate text-white">{page.name}</span>
+                      {index === 0 ? <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-zinc-400">Enter</span> : null}
+                    </span>
+                    <span className="block truncate font-mono text-xs text-muted-foreground">/{page.slug}</span>
+                  </span>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ${page.is_published ? 'badge-published' : 'badge-draft'}`}>
+                    {page.is_published ? 'Live' : 'Draft'}
+                  </span>
+                </button>
+                {page.is_published ? (
+                  <a
+                    href={`/${page.slug}`}
+                    onMouseDown={(event) => event.preventDefault()}
+                    className="mr-2 shrink-0 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-white/10 hover:text-white"
+                  >
+                    Public
+                  </a>
+                ) : null}
+              </div>
             ))
           ) : (
             <div className="px-3 py-3 text-sm text-muted-foreground">No matching pages.</div>

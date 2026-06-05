@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl } from '../../../lib/agent-page'
+import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '../../../lib/agent-page'
 import { MCP_PROTOCOL_VERSION, handleMcpRequest } from '../../../lib/mcp-server'
 import { supabase } from '../../../lib/supabase'
 
@@ -18,7 +18,7 @@ async function loadPage(slug: string) {
   return data
 }
 
-export async function GET(_request: Request, { params }: { params: Promise<{ slug: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const page = await loadPage(slug)
   if (!page || !(page as { mcp_enabled?: boolean }).mcp_enabled) {
@@ -28,7 +28,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     transport: 'http-jsonrpc',
     protocolVersion: MCP_PROTOCOL_VERSION,
     hint: 'POST JSON-RPC 2.0 requests here: initialize, tools/list, tools/call, resources/list, resources/read.',
-    static_manifest: `${getBaseUrl()}/${slug}/mcp.json`,
+    static_manifest: `${getRequestBaseUrl(request)}/${slug}/mcp.json`,
   })
 }
 
@@ -52,7 +52,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
     )
   }
 
-  const base = getBaseUrl()
+  const base = getRequestBaseUrl(request)
   // Support a single request or a JSON-RPC batch.
   if (Array.isArray(body)) {
     return NextResponse.json(body.map((req) => handleMcpRequest(page, base, req)))

@@ -44,6 +44,7 @@ export default function PageSettings({ params }: PageProps) {
   const [accentColor, setAccentColor] = useState('')
   const [logoUrl, setLogoUrl] = useState('')
   const [hideNexezBadge, setHideNexezBadge] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
   const [domainProvisioning, setDomainProvisioning] = useState(false)
   const [domainStatus, setDomainStatus] = useState<
     | null
@@ -113,6 +114,68 @@ export default function PageSettings({ params }: PageProps) {
   const publicUrl = `${getBaseUrl()}/${cleanSlug || page?.slug || ''}`
   const agentJsonUrl = `${getBaseUrl()}${getAgentJsonPath(cleanSlug || page?.slug || '')}`
   const searchUrl = `${getBaseUrl()}/api/agent-search?q=${encodeURIComponent(name || page?.name || 'service')}`
+
+  async function handleLogoFileUpload(file: File) {
+    if (!file.type.startsWith('image/')) {
+      setMessage('Please choose an image file (PNG, JPG, SVG, etc).')
+      return
+    }
+    setUploadingLogo(true)
+    setMessage('')
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      const uid = user?.id || 'anon'
+      const ext = (file.name.split('.').pop() || 'png').toLowerCase()
+      const pageIdForPath = id || (page as any)?.id || 'new'
+      const path = `logos/${uid}/${pageIdForPath}-${Date.now()}.${ext}`
+      const { error: uploadError } = await supabase
+        .storage
+        .from('logos')
+        .upload(path, file, { upsert: true, contentType: file.type })
+      if (uploadError) throw uploadError
+      const { data: pub } = supabase.storage.from('logos').getPublicUrl(path)
+      if (pub?.publicUrl) {
+        setLogoUrl(pub.publicUrl)
+        setMessage('Logo file uploaded. Click Save Settings to persist branding.')
+      }
+    } catch (err: any) {
+      console.error(err)
+      setMessage(`Logo upload failed: ${err?.message || err}. Make sure a public "logos" storage bucket exists in your Supabase project (and RLS policies allow authenticated uploads under logos/{user}/).`)
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
+
+  async function oneClickDetectLogo() {
+    if (!websiteUrl) {
+      setMessage('Add a Website URL above first (in the General section) to auto-detect logo.')
+      return
+    }
+    setUploadingLogo(true)
+    setMessage('')
+    try {
+      const res = await fetch('/api/tools/import-site', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: websiteUrl }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) throw new Error(data?.error || 'Import failed')
+      const logo = data.suggestedPage?.logo_url
+      if (logo) {
+        setLogoUrl(logo)
+        setMessage('One-click: logo detected from your website (via Site Importer magic). Save Settings to persist.')
+      } else {
+        setMessage('Importer could not auto-detect a logo. Upload a file or paste a direct https URL.')
+      }
+    } catch (e: any) {
+      setMessage('One-click logo detect failed: ' + (e?.message || e) + '. You can still upload manually.')
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
+
   const manifestPreview = useMemo(() => {
     if (!page) return '{}'
     return JSON.stringify(
@@ -592,6 +655,50 @@ export default function PageSettings({ params }: PageProps) {
                           placeholder="https://axlestrategy.com/logo.svg"
                           className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
                         />
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <label className="cursor-pointer inline-flex items-center gap-1 rounded border border-white/20 px-2 py-1 text-[10px] hover:bg-white/5">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              disabled={uploadingLogo}
+                              onChange={(e) => {
+                                const f = e.target.files?.[0]
+                                if (f) handleLogoFileUpload(f)
+                                // reset input so same file can be re-chosen
+                                e.target.value = ''
+                              }}
+                            />
+                            {uploadingLogo ? 'Uploading…' : '📁 Upload logo file'}
+                          </label>
+                          {logoUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={logoUrl} alt="logo preview" className="h-6 w-auto rounded border border-white/10" />
+                          )}
+                          {logoUrl && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setLogoUrl('')
+                                setMessage('Logo removed — Save Settings to apply the change.')
+                              }}
+                              className="rounded border border-red-400/40 px-2 py-0.5 text-[10px] text-red-300 hover:bg-red-400/10"
+                            >
+                              Remove logo
+                            </button>
+                          )}
+                        </div>
+                        <div className="mt-1">
+                          <button
+                            type="button"
+                            onClick={oneClickDetectLogo}
+                            disabled={!websiteUrl || uploadingLogo}
+                            className="text-[10px] rounded border border-[#7C3AED]/40 px-2 py-0.5 text-[#C4B5FD] hover:bg-[#7C3AED]/10 disabled:opacity-50"
+                          >
+                            ✨ One-click: detect logo from my website
+                          </button>
+                        </div>
+                        <p className="mt-0.5 text-[9px] text-zinc-500">Upload sets a public Supabase Storage URL automatically (or use one-click from importer). Or paste any https image URL. Remove clears it.</p>
                       </label>
                     </div>
                     <label className="mt-2 flex items-center gap-2 text-[11px] text-zinc-300">

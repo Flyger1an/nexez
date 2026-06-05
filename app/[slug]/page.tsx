@@ -484,10 +484,10 @@ Primary action: ${page.cta_label ?? 'Visit website'} -> ${ctaUrl}
 Products: ${products.filter((_, i) => !hiddenProducts.has(i)).map((item) => item.name).join(', ') || 'None listed'}
 Services: ${services.filter((_, i) => !hiddenServices.has(i)).map((item) => item.name).join(', ') || 'None listed'}
 Checkout URLs: ${[
-  ...services.map((item, index) => ({ item, index })).filter(({ index }) => !hiddenServices.has(index)).map(({ item, index }) => `${item.name}: ${getBaseUrl()}${getCheckoutPath(page.slug, 'services', index)}`),
-  ...products.map((item, index) => ({ item, index })).filter(({ index }) => !hiddenProducts.has(index)).map(({ item, index }) => `${item.name}: ${getBaseUrl()}${getCheckoutPath(page.slug, 'products', index)}`),
-].join('; ') || 'None listed'}
-Negotiation API: POST ${getBaseUrl()}/api/negotiations with slug="${page.slug}", offer="services-0" or "products-0", query, requestedTerms, budget, timeline, and dryRun=true to validate.`}
+	  ...services.map((item, index) => ({ item, index })).filter(({ index }) => !hiddenServices.has(index)).map(({ item, index }) => `${item.name}: ${effectiveBase}${getCheckoutPath(page.slug, 'services', index)}`),
+	  ...products.map((item, index) => ({ item, index })).filter(({ index }) => !hiddenProducts.has(index)).map(({ item, index }) => `${item.name}: ${effectiveBase}${getCheckoutPath(page.slug, 'products', index)}`),
+	].join('; ') || 'None listed'}
+	Negotiation API: POST ${effectiveBase}/api/negotiations with slug="${page.slug}", offer="services-0" or "products-0", query, requestedTerms, budget, timeline, and dryRun=true to validate.`}
           </pre>
         </section>
       </div>
@@ -640,7 +640,7 @@ function buildJsonLd(
   ].filter(({ kind, index }) => !hidden?.[kind]?.has(index)).map(({ item, kind, index }) => {
     const perOfferPrefer = !!item.prefer_original_for_this
     const useOriginal = perOfferPrefer || (pagePrefer && !!item.url)
-    const effectiveUrl = useOriginal && item.url ? item.url : `${getBaseUrl()}${getCheckoutPath(page.slug, kind, index)}`
+    const effectiveUrl = useOriginal && item.url ? item.url : `${baseUrl}${getCheckoutPath(page.slug, kind, index)}`
     return {
       '@type': 'Offer',
       name: item.name,

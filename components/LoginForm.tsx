@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { NexezLogo } from './NexezLogo'
 import {
   Bot,
   Building2,
@@ -164,8 +165,8 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-5">
         <header className="flex h-16 items-center justify-between border-b border-border">
           <a href="/" className="inline-flex items-center gap-3">
-            <div className="flex size-8 items-center justify-center rounded-md border border-border bg-white text-sm font-semibold text-black">
-              N
+            <div className="flex size-8 items-center justify-center rounded-md border border-border bg-white text-black">
+              <NexezLogo className="size-5" />
             </div>
             <span className="text-sm font-medium tracking-tight">Nexez</span>
           </a>

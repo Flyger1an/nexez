@@ -47,7 +47,7 @@ export type AgentSearchResult = {
   } | null
 }
 
-export function searchAgentPages(pages: AgentPage[], query: string, limit = 10) {
+export function searchAgentPages(pages: AgentPage[], query: string, limit = 10, baseUrl = getBaseUrl()) {
   const tokens = tokenize(query)
   // Track readiness alongside each result so ties break toward higher-quality
   // pages (quality-aware discovery) without distorting the relevance score.
@@ -63,7 +63,7 @@ export function searchAgentPages(pages: AgentPage[], query: string, limit = 10) 
 
     if (!offers.length) {
       if (pageScore > 0 || !tokens.length) {
-        scored.push({ result: buildResult(page, null, pageScore || 1), readiness })
+        scored.push({ result: buildResult(page, null, pageScore || 1, baseUrl), readiness })
       }
       continue
     }
@@ -72,7 +72,7 @@ export function searchAgentPages(pages: AgentPage[], query: string, limit = 10) 
       const offerScore = scoreOffer(tokens, page, offer)
 
       if (offerScore > 0 || !tokens.length) {
-        scored.push({ result: buildResult(page, offer, offerScore || pageScore || 1), readiness })
+        scored.push({ result: buildResult(page, offer, offerScore || pageScore || 1, baseUrl), readiness })
       }
     }
   }
@@ -88,8 +88,7 @@ export function searchAgentPages(pages: AgentPage[], query: string, limit = 10) 
     .map((s) => s.result)
 }
 
-function buildResult(page: AgentPage, offer: CheckoutOffer | null, score: number): AgentSearchResult {
-  const baseUrl = getBaseUrl()
+function buildResult(page: AgentPage, offer: CheckoutOffer | null, score: number, baseUrl: string): AgentSearchResult {
   const offerKey = offer ? getCheckoutOfferKey(offer.kind, offer.index) : ''
 
   return {

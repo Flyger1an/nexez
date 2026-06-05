@@ -25,6 +25,7 @@ import { CountUp } from '../components/CountUp'
 import { HeroBackdrop } from '../components/HeroBackdrop'
 import { TypewriterCode } from '../components/TypewriterCode'
 import { ThemeToggle } from '../components/ThemeToggle'
+import { NexezLogo } from '../components/NexezLogo'
 
 const navLinks = [
   { label: 'Directory', href: '/directory' },
@@ -122,8 +123,8 @@ export default async function NexezHome() {
       <nav className="nx-nav sticky top-0 z-50 border-b border-border backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-3.5">
           <a href="/" className="flex items-center gap-2.5">
-            <div className="flex size-8 items-center justify-center rounded-md border border-border bg-white text-sm font-semibold text-black">
-              N
+            <div className="flex size-8 items-center justify-center rounded-md border border-border bg-white text-black">
+              <NexezLogo className="size-5" />
             </div>
             <span className="text-sm font-medium tracking-tight">Nexez</span>
           </a>
@@ -780,8 +781,8 @@ function SiteFooter() {
         <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
             <a href="/" className="flex items-center gap-3">
-              <div className="flex size-8 items-center justify-center rounded-md border border-border bg-white text-sm font-semibold text-black">
-                N
+              <div className="flex size-8 items-center justify-center rounded-md border border-border bg-white text-black">
+                <NexezLogo className="size-5" />
               </div>
               <span className="text-sm font-medium tracking-tight">Nexez</span>
             </a>

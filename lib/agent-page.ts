@@ -403,6 +403,21 @@ export function getBaseUrl() {
   return process.env.NEXT_PUBLIC_SITE_URL || 'https://nexez.vercel.app'
 }
 
+type HeaderGetter = Pick<Headers, 'get'>
+
+export function getRequestBaseUrl(input: Request | HeaderGetter) {
+  const source = 'headers' in input ? input.headers : input
+  const forwardedHost = source.get('x-forwarded-host')?.split(',')[0]?.trim()
+  const host = forwardedHost || source.get('host')?.split(',')[0]?.trim()
+
+  if (!host) return getBaseUrl()
+
+  const forwardedProto = source.get('x-forwarded-proto')?.split(',')[0]?.trim()
+  const proto = forwardedProto || (host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https')
+
+  return `${proto}://${host}`
+}
+
 /**
  * Phase 3: Parse the compact ||WINDOWS|| marker we append during Google Calendar stub import.
  * Allows structured upcoming slots to roundtrip into agent.json and public page

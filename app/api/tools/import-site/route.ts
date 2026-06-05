@@ -41,6 +41,7 @@ export async function POST(request: Request) {
         website_url: result.website_url,
         services: result.servicesText,
         industry: result.industry,
+        logo_url: result.logo_url || null,
       },
       structuredOffers: result.structuredOffers,
       message: `Website analyzed across ${result.pagesAnalyzed} page(s). Rich structured offers ready for the Visual Builder.`,

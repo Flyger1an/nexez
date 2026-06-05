@@ -64,6 +64,7 @@ export type ImportResult = {
   servicesText: string // legacy pipe format for compat during transition
   industry?: string | null
   pagesAnalyzed: number
+  logo_url?: string | null  // one-click logo detection for branding
 }
 
 const COMMON_PATHS = ['/services', '/pricing', '/book', '/appointments', '/rates', '/packages', '/contact', '/']
@@ -426,6 +427,54 @@ function getIndustryBoostKeywords(industry?: string | null): string[] {
   return ['session', 'consult', 'strategy', 'coaching', 'engagement', 'discovery', 'retainer']
 }
 
+function extractLogo(html: string, baseUrl: string): string | null {
+  // Prefer high-quality images: og:image, twitter:image, then link icons (prefer svg/png over ico)
+  const tryResolve = (href: string) => {
+    try {
+      return new URL(href, baseUrl).toString()
+    } catch {
+      return null
+    }
+  }
+
+  // og:image
+  let m = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+  if (m) {
+    const r = tryResolve(m[1])
+    if (r) return r
+  }
+  // twitter:image
+  m = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i)
+  if (m) {
+    const r = tryResolve(m[1])
+    if (r) return r
+  }
+
+  // link rels for icons/logos
+  const rels = html.matchAll(/<link[^>]+rel=["']([^"']*(?:icon|logo|apple-touch-icon)[^"']*)["'][^>]+href=["']([^"']+)["']/gi)
+  let bestIco: string | null = null
+  for (const match of rels) {
+    const rel = (match[1] || '').toLowerCase()
+    const href = match[2]
+    const resolved = tryResolve(href)
+    if (!resolved) continue
+    if (resolved.endsWith('.svg') || resolved.endsWith('.png') || resolved.includes('logo')) {
+      return resolved
+    }
+    if (!bestIco) bestIco = resolved
+  }
+  if (bestIco) return bestIco
+
+  // Fallback common locations (one-click friendly)
+  try {
+    const u = new URL(baseUrl)
+    const o = u.origin
+    return `${o}/logo.svg` // most modern sites
+  } catch {
+    return null
+  }
+}
+
 export async function analyzeSite(url: string, industry?: string | null): Promise<ImportResult> {
   if (!url) throw new Error('URL required')
   const urlError = getImportUrlError(url)
@@ -473,6 +522,16 @@ export async function analyzeSite(url: string, industry?: string | null): Promis
   const descMatch = primary.html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i)
   let description = descMatch ? descMatch[1] : ''
   if (industry && description.length < 15) description = `${industry} services.`
+
+  // One-click logo for branding (C10)
+  let logo_url: string | null = null
+  for (const { html, u } of htmls) {
+    const l = extractLogo(html, u)
+    if (l) {
+      logo_url = l
+      break
+    }
+  }
 
   let rich: OfferItem[] = []
   const links = new Map<string, string>()
@@ -559,6 +618,7 @@ export async function analyzeSite(url: string, industry?: string | null): Promis
     servicesText,
     industry: industry || null,
     pagesAnalyzed: htmls.length,
+    logo_url,
   }
 
   setCached(url, result)

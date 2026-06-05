@@ -15,11 +15,12 @@ import {
   BASIC_OWNER_PAGE_SELECT,
   OWNER_PAGE_SELECT,
   PUBLIC_PAGE_SELECT,
-  getBaseUrl,
   getOfferCount,
   getReadinessScore,
 } from '../../lib/agent-page'
 import {
+  DEFAULT_AGENT_QUERY,
+  buildDefaultAgentQuery,
   getRecommendations,
   runMultiAgentSimulation,
 } from '../../lib/agent-simulator'
@@ -40,7 +41,7 @@ export default function GlobalAgentSimulator() {
   const [myPages, setMyPages] = useState<AgentPage[]>([])
   const [selectedPage, setSelectedPage] = useState<AgentPage | null>(null)
   const [pasteSlug, setPasteSlug] = useState('')
-  const [query, setQuery] = useState('Book a strategy session next week')
+  const [query, setQuery] = useState(DEFAULT_AGENT_QUERY)
   const [currentAgent, setCurrentAgent] = useState(agentTabs[0])
   const [simulationResults, setSimulationResults] = useState<any[]>([])
   const [recommendations, setRecommendations] = useState<string[]>([])
@@ -126,22 +127,24 @@ export default function GlobalAgentSimulator() {
     return fallback.data || null
   }
 
-  async function runSimulationForPage(page: AgentPage) {
+  async function runSimulationForPage(page: AgentPage, nextQuery = query) {
     setLoading(true)
     setMessage('')
     setSimulationResults([])
     setRecommendations([])
 
     try {
-      const multi = runMultiAgentSimulation(page, query)
+      const effectiveQuery = nextQuery.trim() || buildDefaultAgentQuery(page)
+      const multi = runMultiAgentSimulation(page, effectiveQuery, window.location.origin)
       setSimulationResults(multi.results)
       setRecommendations(getRecommendations(page))
+      if (effectiveQuery !== query) setQuery(effectiveQuery)
 
       // Save history if logged in and this is one of my pages (or matched owner)
       if (isLoggedIn) {
         const { data: { user } } = await supabase.auth.getUser()
         if (user && (page as any).owner_id === user.id) {
-          const newSim = buildSimulationHistoryEntry(page, query)
+          const newSim = buildSimulationHistoryEntry(page, effectiveQuery, window.location.origin)
 
           const existing = Array.isArray((page as any).simulations) ? (page as any).simulations : history
           const updated = [newSim, ...existing].slice(0, 20)
@@ -174,11 +177,13 @@ export default function GlobalAgentSimulator() {
   }
 
   async function handleSelectMyPage(page: AgentPage) {
+    const nextQuery = buildDefaultAgentQuery(page)
     setSelectedPage(page)
     setPasteSlug('')
+    setQuery(nextQuery)
     setHistory(Array.isArray((page as any).simulations) ? (page as any).simulations : [])
     setHistoryQuery('')
-    await runSimulationForPage(page)
+    await runSimulationForPage(page, nextQuery)
   }
 
   async function handlePasteAnalyze() {
@@ -194,10 +199,12 @@ export default function GlobalAgentSimulator() {
         setLoading(false)
         return
       }
+      const nextQuery = buildDefaultAgentQuery(page)
       setSelectedPage(page)
+      setQuery(nextQuery)
       setHistory(Array.isArray((page as any).simulations) ? (page as any).simulations : [])
       setHistoryQuery('')
-      await runSimulationForPage(page)
+      await runSimulationForPage(page, nextQuery)
     } catch (e: any) {
       setMessage('Failed to load page: ' + e.message)
     } finally {

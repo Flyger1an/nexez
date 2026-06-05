@@ -28,8 +28,8 @@ export function normalizeSimulatorTarget(value: string) {
   }
 }
 
-export function buildSimulationHistoryEntry(page: AgentPage, query: string): SimulationHistoryEntry {
-  const multi = runMultiAgentSimulation(page, query)
+export function buildSimulationHistoryEntry(page: AgentPage, query: string, baseUrl?: string): SimulationHistoryEntry {
+  const multi = runMultiAgentSimulation(page, query, baseUrl)
   const timestamp = new Date().toISOString()
   const id =
     typeof crypto !== 'undefined' && 'randomUUID' in crypto

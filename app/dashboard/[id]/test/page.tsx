@@ -22,7 +22,12 @@ import {
   getOfferCount,
   getReadinessScore,
 } from '../../../../lib/agent-page'
-import { buildParsedSchema, getRecommendations } from '../../../../lib/agent-simulator'
+import {
+  DEFAULT_AGENT_QUERY,
+  buildDefaultAgentQuery,
+  buildParsedSchema,
+  getRecommendations,
+} from '../../../../lib/agent-simulator'
 import { createClient } from '../../../../utils/supabase/client'
 
 type PageProps = {
@@ -49,9 +54,10 @@ export default function AgentSimulatorPage({ params }: PageProps) {
   const [running, setRunning] = useState(false)
   const [agent, setAgent] = useState(agentTabs[0])
   const [responseTab, setResponseTab] = useState(responseTabs[0])
-  const [query, setQuery] = useState('Book a strategy session next week')
+  const [query, setQuery] = useState(DEFAULT_AGENT_QUERY)
   const [message, setMessage] = useState('')
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null)
+  const [baseUrl, setBaseUrl] = useState(getBaseUrl())
 
   // Phase 4: Embed preview simulation state
   const [simulatePreferOriginal, setSimulatePreferOriginal] = useState(false)
@@ -60,9 +66,13 @@ export default function AgentSimulatorPage({ params }: PageProps) {
     params.then(({ id }) => setId(id))
   }, [params])
 
+  useEffect(() => {
+    setBaseUrl(window.location.origin)
+  }, [])
+
   const readiness = page ? getReadinessScore(page) : 0
   const recommendations = useMemo(() => (page ? getRecommendations(page) : []), [page])
-  const schema = useMemo(() => (page ? buildParsedSchema(page, query, agent) : null), [page, query, agent])
+  const schema = useMemo(() => (page ? buildParsedSchema(page, query, agent, baseUrl) : null), [page, query, agent, baseUrl])
 
   async function loadPage(pageId: string) {
     const supabase = createClient()
@@ -89,6 +99,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
     }
 
     setPage(data)
+    setQuery(buildDefaultAgentQuery(data))
     setLoading(false)
   }
 
@@ -404,7 +415,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
                   const oIndex = (offer as any).index as number
                   const effective = useOriginal && offer.url
                     ? offer.url
-                    : `${getBaseUrl()}/checkout/${page.slug}?offer=${getCheckoutOfferKey(kind, oIndex)}`
+                    : `${baseUrl}/checkout/${page.slug}?offer=${getCheckoutOfferKey(kind, oIndex)}`
                   return (
                     <div key={flatIdx} className="flex items-center justify-between gap-2 rounded bg-white/5 px-2 py-1">
                       <span className="truncate text-zinc-200">{offer.name}</span>

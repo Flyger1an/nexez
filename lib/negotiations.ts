@@ -148,12 +148,12 @@ export function formatNegotiationAmount(
   }
 }
 
-export function buildNegotiationAction(page: AgentPage, offer: CheckoutOffer) {
+export function buildNegotiationAction(page: AgentPage, offer: CheckoutOffer, baseUrl = getBaseUrl()) {
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
 
   return {
     method: 'POST',
-    endpoint: `${getBaseUrl()}/api/negotiations`,
+    endpoint: `${baseUrl}/api/negotiations`,
     content_type: 'application/json',
     body: {
       slug: page.slug,

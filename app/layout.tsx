@@ -50,9 +50,6 @@ export const metadata: Metadata = {
     title: "Nexez — Pages built for AI agents",
     description: "A clean, structured page that AI agents can understand and act on.",
   },
-  icons: {
-    icon: "/favicon.ico",
-  },
 };
 
 export default function RootLayout({

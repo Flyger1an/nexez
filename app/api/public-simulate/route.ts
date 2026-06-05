@@ -5,6 +5,7 @@ import {
   getRecommendations,
   interpretPublicQuery,
 } from '@/lib/agent-simulator'
+import { getRequestBaseUrl } from '@/lib/agent-page'
 
 export async function POST(request: Request) {
   try {
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
     const demoPage = getDemoPage()
     // Query-aware interpretation: intent, ranked offers, tailored answer + actions.
     const interpretation = interpretPublicQuery(demoPage, query)
-    const schema = buildPublicDemoSchema(demoPage, query)
+    const schema = buildPublicDemoSchema(demoPage, query, getRequestBaseUrl(request))
     const recommendations = getRecommendations(demoPage)
 
     return NextResponse.json({

@@ -7,6 +7,7 @@ import {
   getCheckoutOffer,
   getCheckoutOfferKey,
   getOfferDestination,
+  getRequestBaseUrl,
 } from '../../../lib/agent-page'
 import { parseMoneyCents, toStripeDescription } from '../../../lib/checkout'
 import { logCheckoutEvent } from '../../../lib/server/log-checkout-event'
@@ -56,8 +57,9 @@ export async function POST(request: Request) {
   }
 
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
-  const checkoutUrl = `${getBaseUrl()}/checkout/${page.slug}?offer=${offerKey}`
-  const successUrl = `${getBaseUrl()}/checkout/${page.slug}/success?session_id={CHECKOUT_SESSION_ID}&offer=${offerKey}`
+  const baseUrl = getRequestBaseUrl(request)
+  const checkoutUrl = `${baseUrl}/checkout/${page.slug}?offer=${offerKey}`
+  const successUrl = `${baseUrl}/checkout/${page.slug}/success?session_id={CHECKOUT_SESSION_ID}&offer=${offerKey}`
   const destination = getOfferDestination(page, offer)
   const amountCents = parseMoneyCents(offer.price)
   const userAgent = request.headers.get('user-agent')
