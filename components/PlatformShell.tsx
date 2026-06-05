@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react'
+import { Fragment, FormEvent, ReactNode, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   BarChart3,
@@ -9,6 +9,7 @@ import {
   ChevronRight,
   CreditCard,
   Gauge,
+  FileText,
   Grid2X2,
   Handshake,
   HelpCircle,
@@ -34,6 +35,17 @@ type PageHit = {
 
 const navItems = [
   { href: '/dashboard', label: 'Overview', icon: Grid2X2, mobile: true },
+  {
+    href: '/dashboard/pages',
+    label: 'Pages',
+    icon: FileText,
+    mobile: true,
+    subItems: [
+      { href: '/dashboard/pages', label: 'All pages' },
+      { href: '/dashboard/pages?status=published', label: 'Published' },
+      { href: '/dashboard/pages?status=draft', label: 'Drafts' },
+    ],
+  },
   { href: '/create', label: 'Create Page', icon: Plus, mobile: true },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3, mobile: true },
   { href: '/simulator', label: 'Simulator', icon: Bot, mobile: true },
@@ -116,7 +128,29 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
 
           <nav className="grid grid-cols-5 gap-1 px-2 py-2 lg:block lg:space-y-1 lg:p-3">
             {visibleNav.map((item) => (
-              <ShellNavItem key={item.href} {...item} collapsed={collapsed} pathname={pathname} />
+              <Fragment key={item.href}>
+                <ShellNavItem
+                  href={item.href}
+                  label={item.label}
+                  icon={item.icon}
+                  mobile={item.mobile}
+                  collapsed={collapsed}
+                  pathname={pathname}
+                />
+                {'subItems' in item && item.subItems && pathname.startsWith('/dashboard/pages') && !collapsed ? (
+                  <div className="ml-7 hidden space-y-0.5 lg:block">
+                    {item.subItems.map((sub) => (
+                      <a
+                        key={sub.href}
+                        href={sub.href}
+                        className="nav-item flex h-8 items-center rounded-md px-3 text-xs text-muted-foreground hover:text-white"
+                      >
+                        {sub.label}
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
+              </Fragment>
             ))}
           </nav>
 
