@@ -1,83 +1,101 @@
 # Nexez — Session Handoff
 
-_Last updated: 2026-06-04 · HEAD `a19562a` (verify with `git rev-parse --short main`)_
+_Last updated: 2026-06-05 · HEAD `fcb0481` (verify with `git rev-parse --short main`)_
 
 ## Project
 **Nexez** helps businesses create dedicated, highly structured pages optimized for **AI agents** to discover, understand, and purchase from. Dual philosophy: **premium glassmorphism human dashboard** vs **brutally clean/semantic HTML for agents** on public `[slug]` pages. A core objective is **deploying agent-optimized pages to custom domains**, managed from the Nexez backend.
 
 ## Stack & critical conventions
 - **Next.js 16.2.7 (App Router, Turbopack)** — ⚠️ `AGENTS.md` warns this is a modified Next with breaking changes vs training data; **read `node_modules/next/dist/docs/` before using framework APIs**. Middleware lives in **`proxy.ts`** at the repo root (exports `proxy`), NOT `middleware.ts`.
-- **Supabase** (Postgres + RLS + Auth). Clients:
+- **Supabase** (Postgres + RLS + Auth + Storage). Clients:
   - `utils/supabase/server.ts` → `createClient(cookieStore)` (server components / route handlers)
   - `utils/supabase/client.ts` → `createClient()` (browser)
   - `utils/supabase/admin.ts` → `createAdminClient()` / `hasSupabaseAdminEnv()` (service-role, gated)
 - **Deploy:** Vercel auto-deploys on push to `main`. Prod domain `nexez.vercel.app` (preview/branch URLs are SSO-gated; production is public). Vercel project `prj_uREcprpInoeHVhgV7aWc14TRsnLi`, team `team_rwkVXglmM5D0MPXjGTqOPVKO`. Supabase project `pvsotrzgnjpqrsndhgmu`.
 - **Verify EVERY change:** `npm run lint -- --quiet` · `npx tsc --noEmit --incremental false` · `npm test` · `npm run build`.
 - Commit messages end with `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`. Push to `main` directly (the user's workflow).
-- **The user commits to `main` in parallel** (UI shell, homepage, `/support`). Always `git fetch` + check `git rev-list --left-right --count origin/main...main` before/after edits. Keep risky changes in lib/API/test/DB; coordinate before large UI-shell rewrites.
+- **The user commits to `main` in parallel** (UI shell, homepage, settings, lib helpers). Always `git fetch` + check `git rev-list --left-right --count origin/main...main` before/after edits. This window merged a large batch of the user's parallel work alongside mine — coordinate before large UI-shell rewrites.
 - DB migrations: apply via the **Supabase MCP `apply_migration`** and also write the `.sql` into `supabase/migrations/`. **Do NOT `supabase db push`** — tracking-table versions differ from repo filenames (all migrations are idempotent).
 
-## Current state (verified this session)
-- `origin/main` == local @ **`a19562a`**, clean tree. Vercel auto-deploys on push; prod verified live.
-- **193 tests passing** (33 files); lint (`--quiet`) / tsc / build all clean.
-- **75 routes**, **24 migrations** (all applied to prod). 1 new migration this session: `20260613003000_add_ab_impression_event.sql` (applied + verified).
-- Supabase **security advisors clean** EXCEPT the **Auth "leaked password protection"** toggle → enable in the Supabase dashboard (config, not code).
+## Credentials / account (do NOT store secrets in this repo — it's public)
+- Test account email **`realestglad@gmail.com`**, owner_id **`5320a9ef-9e9f-4e8b-ac78-13b9270c571b`**. The **password is NOT recorded here on purpose** — the user pastes it in chat when authed verification is needed. Clean up any test artifacts (drafts/duplicates) you create.
 
-## This window's work (2026-06-04, commits `4fee86f`→`a19562a`)
-Big feature/polish/refactor session. Highlights, newest first:
-- **`a19562a` Gated email** (`lib/email.ts`, Resend-compatible, dormant w/o `RESEND_API_KEY`): `/api/negotiations` emails the page's contact on a new request (offer/budget/timeline/agent/msg + inbox link) via `after()`. +4 tests.
-- **`ccc7e0d` Dedicated Pages section** (the big new UX): `/dashboard/pages` = `components/PagesManager.tsx` (status tabs All/Published/Drafts via `?status=`, **bulk actions** publish/unpublish/delete, select-all). Nav `components/PlatformShell.tsx` gained a **"Pages"** item with nested All/Published/Drafts sub-items. Extracted shared `components/dashboard/PageCard.tsx` (used by Overview + manager) and pure `lib/duplicate-page.ts` `buildDuplicatePayload` (deterministic collision-free slug — **no `Math.random`**, satisfies React-compiler purity lint).
-- **`8c49bdc` / `e28d1fd` Duplicate page**: per-card action on dashboard/Pages + a **Duplicate** button in the editor action bar (`app/dashboard/[id]/page.tsx`) — clones content into a new unpublished draft (no domain/verification). Also polished the Tools "Connect more tools" box.
-- **`ab3be32` / `91ccf65` Tools page de-monolith**: `app/dashboard/tools/page.tsx` 1017→~350 lines. Extracted `components/tools/Importers.tsx` (Stripe/Shopify/Acuity), `components/tools/CalendlyTool.tsx`, `components/tools/ImportResult.tsx`. Relocation-only (import logic unchanged). Verified the Stripe + Calendly flows end-to-end logged in (live API error paths).
-- **`12cf7fc` / `56eef9f` Cleanup**: removed dev-shorthand/"stub"/"(Demo)"/"Phase 3" copy from tools + integrations + marketplace + dashboard; extracted `getReadinessInsight` to `lib/analytics.ts` (tested).
-- **`0e4c3cb` Platform-wide light/dark/system theme** (dark default): `components/ThemeToggle.tsx` + `lib/theme.ts` (no-flash `<head>` script in `app/layout.tsx`). globals.css **remaps the finite set of hardcoded neutral utilities** (`text-white`, `bg-black`, `text-zinc-*`, `bg-white/x`, `bg-black/x`, `border-white/x`, `bg-[#hex]`, **plus `hover:`/`active:`/`group-hover:` variants**) to theme tokens that flip by mode. Unlayered rules win the cascade. **Public agent pages locked to dark.** Accent tints darkened on light. Verified light+dark across homepage/login/dashboard/analytics/tools/integrations/marketplace.
-- **`1bb9166`→`b79a416` Homepage redesign** (category-defining): animated aurora backdrop, analytics command-center mock, bento grid (count-up gauge, typewriter agent.json, copy button), logo marquee, dual-philosophy "humans vs agents" split with toggle, KPI count-ups, hero parallax, premium footer, "Deploy your first AI agent–optimized page in seconds" copy. **Renamed demo brand Acme→Axle (axlestrategy.com)** everywhere user-facing (legal).
-- **`24ac527` Real A/B variant serving**: `OfferItem.ab_test`/`ab_label`, sticky `nx_ab` bucket cookie set in `proxy.ts`, `lib/ab-testing.ts` (grouping/served-index/rollup), public page serves ONE variant/visitor (real indices preserved), `logCheckoutEvent` auto-attributes, `ab_impression` events, analytics "A/B Tests" panel, builder groups variants.
+## Current state (verified this session)
+- `origin/main` == local @ **`fcb0481`**, clean tree. Vercel auto-deploys on push; prod verified live (`/icon.png` + `/nexez-logo.png` → 200; tab title "Nexez — Pages built for AI agents", favicon `/icon.png`).
+- **214 tests passing**; lint (`--quiet`) / tsc / build all clean.
+- ~48 API routes, **28 migrations**. ⚠️ **One migration NOT yet applied to prod:** `supabase/migrations/20260605190000_create_logos_storage_bucket.sql` — the Supabase MCP was down (`net::ERR_FAILED`) all session, so the `logos` storage bucket + RLS policies still need applying. **Apply this first when the MCP recovers** (or via the Supabase dashboard SQL editor) — the settings-page logo upload writes to `storage.from('logos')` and will fail until then.
+- Supabase **Auth "leaked password protection"** toggle still off → enable in the dashboard (config, not code).
+
+## This window's work (2026-06-05, commits `fa327ca`→`fcb0481`)
+Newest first. This was a copy/branding/feature session; ~20 files of the user's parallel work were merged in alongside mine at the user's request.
+- **Brand logo platform-wide** — `components/NexezLogo.tsx` renders the real mark via **CSS mask + `currentColor`** (`backgroundColor: currentColor` + `WebkitMask/mask: url(/nexez-logo.png) center/contain no-repeat`), so it inherits surrounding text color and flips with the theme with no stylesheet rule. Assets: **`public/nexez-logo.png`** (52KB, trimmed 1408²→432×643) and **`app/icon.png`** (256² favicon: white rounded square + mark); removed `app/favicon.ico`. **To swap the logo, just replace `public/nexez-logo.png`.** (A Tailwind-v4 `globals.css` `.nexez-mark` rule did NOT compile → inline style is the working approach.)
+- **SEO metadata** (`app/layout.tsx`) — `title.default` + `template: "%s · Nexez"`, description/keywords, OpenGraph + Twitter cards, `metadataBase`. Removed the `icons` field so `app/icon.png` drives the favicon. Stripped `| Nexez` from 8 pages' string titles to avoid double-branding (`… · Nexez · Nexez`).
+- **Homepage rewrite** (`app/page.tsx`) — user's new copy folded into existing renderings; sections reordered to DUAL (Problem|Solution) → BENTO (What You Get) → ANALYTICS (Proof) → KEY FEATURES (6-up grid, `keyFeatures` array) → WORKFLOW (How It Works) → SIMULATOR → PUBLIC EXAMPLES → Final CTA. Surfaced the **custom-domain example** (`offers.axlestrategy.com`). **All dashes (-) eliminated from homepage body copy.** Logo chip uses `<NexezLogo className="size-5" />`.
+- **Query-aware agent simulator** (`lib/agent-simulator.ts`) — added `detectIntent()` + `interpretPublicQuery(page, query)`: classifies intent, ranks offers / picks `bestMatch`, returns a tailored answer + agent-action list with confidence (0.97/0.86) instead of one canned reply. DEMO_PAGE renamed Aether→**Axle Strategy** (axlestrategy.com, 100% readiness, high-confidence seed data). The simulator section now inherits theme tokens (was greyed out). +5 tests.
+- **Negotiations RLS fix** (`app/api/negotiations/route.ts`) — root cause of the 412 "violates RLS": the insert used `.insert(negotiation).select('id…').single()`, but **anon has no SELECT policy** on `agent_negotiations`, so the RETURNING read failed. Fixed by dropping `.select()` (reply built from `negotiation.status`/`escrowMode`) + a SECURITY DEFINER `nz_page_is_published()` policy. Migrations: `20260613004000_fix_negotiation_insert_rls_security_definer.sql` (mine) + the user's `20260605181840…` / `20260605182538…`.
+- **Part 1 A–D platform builds:**
+  - `lib/integrations.ts` (NEW) — `mapSquareCatalogToOffers`, `mapAcuityTypesToOffers`, `deriveAvailabilityWindows`; the `app/api/integrations/{square,acuity,google-calendar}` routes now call **live vendor APIs** with a sample fallback (`connected` flag). +9 tests.
+  - `lib/analytics.ts` — `analyticsRangeBounds()` + `parseYmd()` (1d/7d/30d/all/custom from–to), used by the analytics page + export route. +6 tests.
+  - `app/api/negotiations/escrow/route.ts` (NEW) — real **Stripe manual-capture** hold/capture/cancel, gated on `STRIPE_SECRET_KEY` (→ 412 when unset). Stripe webhook handles `checkout.session.completed` for escrow.
+  - `lib/email.ts` — `buildBookingEmail`; the Calendly webhook now emails on a booking (gated on `RESEND_API_KEY`).
+- **Robustness at scale** (33-page account): `components/PagesManager.tsx` paginates (12/page, Prev/Next) + bulk **Duplicate**; `app/dashboard/DashboardClient.tsx` Overview caps at `OVERVIEW_PAGE_LIMIT = 9` + "Manage all N pages" link; `components/PlatformShell.tsx` nav responsive fix (lg→md sidebar, scrollable phone bar with all 15 items).
+- **Agent artifacts** — `lib/agent-manifest.ts` adds `voice_summary` (`rewriteForVoice`) + `certification: getCertification(page)` to `agent.json`; `lib/agent-page.ts` adds `getCertification()` (published + ≥95% readiness → "Nexez Certified Agent-Ready").
+
+### Merged user parallel work (don't re-do — already in tree)
+- **One-click logo branding** in `app/dashboard/[id]/settings/page.tsx` (+107 lines): upload to `storage.from('logos')`, one-click detect, paste-URL. `lib/importer.ts` `extractLogo()` → `logo_url`.
+- **Custom-domain base-URL threading**: `getRequestBaseUrl(input)` in `lib/agent-page.ts` (reads `x-forwarded-host`/`host`), threaded through `lib/agent-manifest.ts`.
+- **Page-search UX** in `components/PlatformShell.tsx` (Enter/Escape, result limit 25→100, hint text).
+
+### 33 demo pages + negotiations (test account)
+- Created **33 `qa33-*` demo pages** (8 published / 25 drafts) to stress-test how account robustness affects the platform. **XSS verified fully escaped** on public pages (qa33-31 `<script>` payload escaped in title/meta/og/body/JSON-LD via `safeJsonScript`).
+- **7 negotiations** simulated across offers; **`qa33-33` is at `agreement_proposed`** (left mid-flow — optional to continue).
 
 ⚠️ **`.claude/launch.json`** is untracked (local preview config for the Claude Preview MCP) — intentionally not committed.
 
 ## What's built (Phases 1–8 + G21, all live)
-Importer (+gated LLM fallback), Visual Builder (availability signals, A/B duplicate-variant, LLM Enhance), analytics (Recharts, demand insights + unserved-query gap analysis, conversion funnel), 6 integrations (Calendly/Stripe/Shopify/Square/Acuity/GCal), per-offer controls/embeds/versioning, **custom-domain hosting** (host→serve via `proxy.ts`, Vercel SSL provisioning, connection wizard, brand-root `agent.json`/`mcp.json`/`llms.txt`, multi-page domains, white-label branding + inheritance, draft→preview→publish staging, deployments/rollback), simulator, AI Co-Pilot, **real MCP JSON-RPC endpoint** `/[slug]/mcp`, negotiations end-to-end + receipts, trust/badges (`/[slug]/badge.svg` + `/[slug]/badge.json`), marketplace, **leaderboard**, programmatic **API + keys** (`/api/v1/*`), account export/delete, team invites + collaborator RLS, in-app notifications, rate limiting, observability hook, freshness-monitor cron.
+Importer (+gated LLM fallback), Visual Builder (availability signals, A/B duplicate-variant, LLM Enhance), analytics (Recharts, demand insights + unserved-query gap analysis, conversion funnel, date-range filter), 6 integrations (Calendly/Stripe/Shopify/Square/Acuity/GCal — Square/Acuity/GCal now live-API-backed), per-offer controls/embeds/versioning, **custom-domain hosting** (host→serve via `proxy.ts`, Vercel SSL provisioning, connection wizard, brand-root `agent.json`/`mcp.json`/`llms.txt`, multi-page domains, white-label branding + inheritance, draft→preview→publish staging, deployments/rollback), query-aware simulator, AI Co-Pilot, **real MCP JSON-RPC endpoint** `/[slug]/mcp`, negotiations end-to-end + receipts + Stripe escrow, trust/badges (`/[slug]/badge.svg` + `/[slug]/badge.json`), agent certification, marketplace, **leaderboard**, programmatic **API + keys** (`/api/v1/*`), account export/delete, team invites + collaborator RLS, in-app notifications, rate limiting, observability hook, freshness-monitor cron, platform-wide light/dark/system theme.
 
 ## Architecture notes for common edits
-- **Core types/helpers:** `lib/agent-page.ts` — `OfferItem`, `AgentPage`, `PUBLIC_PAGE_SELECT`/`OWNER_PAGE_SELECT`/`BASIC_OWNER_PAGE_SELECT`, `getReadinessScore`, `getTrustScore`, `getCheckoutOffers`, `getBaseUrl`, availability helpers.
+- **Core types/helpers:** `lib/agent-page.ts` — `OfferItem`, `AgentPage`, `PUBLIC_PAGE_SELECT`/`OWNER_PAGE_SELECT`/`BASIC_OWNER_PAGE_SELECT`, `getReadinessScore`, `getTrustScore`, `getCheckoutOffers`, `getBaseUrl`, `getRequestBaseUrl`, `getCertification`, availability helpers.
 - **Agent artifacts:** `lib/agent-manifest.ts` (`buildAgentPagePayload`), `lib/mcp-server.ts` (JSON-RPC), `app/[slug]/{agent.json,mcp.json,mcp,llms.txt,badge.svg,badge.json}`.
-- **Custom domains:** `lib/custom-domain.ts` (pure helpers: host detection, path→slug, artifact hrefs), `proxy.ts` (host resolution + rewrite + auth gate via `updateSession`), `lib/vercel-domains.ts` (gated), `app/api/custom-domain`.
-- **Dashboard:** `app/dashboard/page.tsx` = **server component** (auth + parallel data fetch) → `app/dashboard/DashboardClient.tsx` = client island seeded from `initial` props (co-located so relative imports are unchanged). Sidebar/nav is provided by `components/PlatformShell.tsx`, not the dashboard page.
-- **App shell:** root `app/layout.tsx` → `components/PlatformFrame.tsx` (thin gate: `usePathname` + `next/dynamic`) → `components/PlatformShell.tsx` (heavy nav/search/supabase, loaded only on platform routes, auth-aware: hides dashboard nav from anonymous).
-- **Auth gating:** `utils/supabase/middleware.ts` (`updateSession`) redirects unauthenticated `/dashboard/*` → `/login?next=…`. `/create` is public; Publish without auth saves draft to `sessionStorage` (`nexez_pending_page`) + shows a "create account to publish" modal; draft restored on return.
+- **Theme:** `globals.css` remaps the finite set of hardcoded neutral utilities (`text-white`, `bg-white/x`, `bg-black/x`, `text-zinc-*`, `border-white/x`, +`hover:`/`active:`/`group-hover:` variants) to `var(--inverse-bg/--inverse-fg/--fg)` tokens that flip by `html.light`. Brand accents untouched. **Public agent pages locked dark.** No-flash script in `app/layout.tsx`, toggle `components/ThemeToggle.tsx` + `lib/theme.ts`.
+- **Custom domains:** `lib/custom-domain.ts` (pure helpers), `proxy.ts` (host resolution + rewrite + auth gate via `updateSession`), `lib/vercel-domains.ts` (gated), `app/api/custom-domain`.
+- **Dashboard:** `app/dashboard/page.tsx` = **server component** (auth + parallel fetch) → `app/dashboard/DashboardClient.tsx` = client island seeded from `initial` props. Sidebar/nav is `components/PlatformShell.tsx`.
+- **App shell:** root `app/layout.tsx` → `components/PlatformFrame.tsx` (thin gate: `usePathname` + `next/dynamic`) → `components/PlatformShell.tsx` (heavy nav/search/supabase, platform routes only, auth-aware).
+- **Auth gating:** `utils/supabase/middleware.ts` (`updateSession`) redirects unauthenticated `/dashboard/*` → `/login?next=…`. `/create` is public; Publish without auth saves draft to `sessionStorage` (`nexez_pending_page`) + shows a "create account to publish" modal.
 
 ## Gated features (coded, dormant until env set)
 | Env var(s) | Unlocks | Status |
 |---|---|---|
 | `SUPABASE_SERVICE_ROLE_KEY` | `/api/v1/*`, account deletion | ✅ **set in prod** |
 | `VERCEL_API_TOKEN` + `VERCEL_PROJECT_ID` (+`VERCEL_TEAM_ID`) | auto domain attach + SSL (else manual mode) | not set |
-| `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` | negotiation escrow | not set |
+| `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` | negotiation escrow (`/api/negotiations/escrow`, manual-capture hold/capture/cancel) | not set |
 | `AGENT_VISIT_HASH_SALT` | privacy-safe IP hashing | not set (default fallback) |
 | `CRON_SECRET` | protects `/api/cron/freshness` (cron in `vercel.json`) | not set |
-| `LLM_API_KEY` (+`LLM_BASE_URL`/`LLM_MODEL`, OpenAI-compatible) | real LLM-assist (builder Enhance via `/api/ai/enhance`, importer fallback) | not set (deterministic) |
+| `LLM_API_KEY` (+`LLM_BASE_URL`/`LLM_MODEL`, OpenAI-compatible) | real LLM-assist (builder Enhance, importer fallback) | not set (deterministic) |
 | `OBSERVABILITY_WEBHOOK_URL` | `captureError` ships errors (else console) | not set |
-| `RESEND_API_KEY` (+`EMAIL_FROM`) | transactional email (`lib/email.ts`) — emails the business on a new negotiation request | not set (no-op) |
+| `RESEND_API_KEY` (+`EMAIL_FROM`) | transactional email (`lib/email.ts`) — negotiation requests + bookings | not set (no-op) |
+| `SQUARE_ACCESS_TOKEN` / `ACUITY_*` / Google creds | live integration imports (else sample fallback, `connected:false`) | not set |
 
 ## Roadmap
-`ROADMAP.md` is the running source of truth — append an `IMPLEMENTED`/burst entry after each change (this has been the cadence). It's very long; grep recent dated sections rather than reading the whole file.
+`ROADMAP.md` was debloated this session (1929→45 lines): concise vision / quality bars / shipped / pending / governance. It's now short enough to read whole.
 
 ## Suggested next steps (pending)
-- **Editor de-monolith**: `app/dashboard/[id]/page.tsx` is still ~1640 lines, `'use client'`, ~30 useState. Deeply client-coupled (localStorage integration status, sessionStorage reanalysis/restore handoffs, URL-param flows) — a server-component+island split is high-effort/high-risk on the most critical workflow. Tackle carefully, verify edit→save→publish→reanalyze→versions with the test login.
-- **Email reach**: extend `lib/email.ts` beyond negotiations → emails on **bookings** (Calendly/Stripe webhooks in `app/api/webhooks/*`), and/or a per-user notification-preferences toggle. Currently emails `page.contact_email`; consider the account email via service-role lookup.
+- **Apply the `logos` storage-bucket migration** (`20260605190000_create_logos_storage_bucket.sql`) when the Supabase MCP recovers — the settings logo upload depends on it. _(Top priority — it's the one un-applied migration.)_
+- **Harden inbox load**: the negotiations inbox got stuck "Loading negotiations…" once this session (transient; raw REST worked) — add a timeout / error state.
+- **Optional:** continue the `qa33-33` negotiation from `agreement_proposed` through to completion.
+- **Editor de-monolith**: `app/dashboard/[id]/page.tsx` is still ~1640 lines, `'use client'`, ~30 useState — deeply client-coupled (localStorage/sessionStorage handoffs, URL-param flows). High-effort/high-risk; verify edit→save→publish→reanalyze→versions with the test login.
 - **Test the middleware auth gate** (`utils/supabase/middleware.ts` `updateSession` redirect) — still untested.
-- **Bulk "Duplicate"** in the Pages manager bulk bar (single duplicate exists; bulk publish/unpublish/delete exist).
 - Remove now-unused deps `clsx` / `tailwind-merge` / `class-variance-authority` (shadcn scaffold removed).
 - Enable Supabase Auth **leaked-password protection** (dashboard toggle, config not code).
-- Optional light-mode long-tail: the neutral-utility remap covers the enumerated set; a rare hardcoded class on a deep screen could look slightly off in **light** mode (dark default is unaffected). Patch by class if reported.
 
-## Dev / verification workflow notes (learned this window)
-- **Test login**: the user can provide a login to verify authed screens (their own account — **ask them in chat**, don't store it; this repo is public). It has **3 real pages** — never leave test artifacts; clean up any duplicates/drafts you create.
-- **Claude Preview MCP** (`mcp__Claude_Preview__*`) drives a local dev server (`.claude/launch.json` → `npm run dev`). Quirks hit repeatedly:
+## Dev / verification workflow notes (learned across sessions)
+- **Test login**: the user pastes their account login in chat when authed verification is needed — **don't store it**; this repo is public. Clean up any test artifacts.
+- **Claude Preview MCP** (`mcp__Claude_Preview__*`) drives a local dev server (`.claude/launch.json` → `npm run dev`, 127.0.0.1:3000, server `nexez-dev`). Quirks hit repeatedly:
   - **`useSearchParams`/canonical host**: dev redirects `localhost`→`127.0.0.1`; `next.config.ts` has `allowedDevOrigins: ['127.0.0.1']` so client components hydrate in the preview. Without it, nothing is interactive.
-  - **Login form is controlled** — `preview_fill` alone didn't update React state; set values via native setter + dispatch `input`/`change`, then `form.requestSubmit()`. After submit there's a **post-login navigation race** (often lands back on `/login` or strays to `/`); log in, wait ~5s, *then* `window.location.href` to the target.
-  - **The headless browser intercepts `window.confirm()`/`alert()` natively** (auto-cancels) and eval runs in an **isolated world**, so overriding `window.confirm` from eval doesn't reach page JS → you **cannot trigger UI deletes** (they bail on `if(!confirm())`). Workaround that worked: pull the supabase session JWT from the `sb-…-auth-token` cookies in the browser, then `fetch` the Supabase **REST API** (`/rest/v1/pages?...`) with `apikey: <anon>` + `Authorization: Bearer <jwt>` to DELETE (RLS allows owner). Anon key is `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `.env.local`.
-  - The **Supabase MCP `execute_sql`** was flaky (`net::ERR_FAILED`) for parts of the session — retry, or use the REST-API approach above.
+  - **Login form is controlled** — `preview_fill` alone didn't update React state; set values via native setter + dispatch `input`/`change`, then `form.requestSubmit()`. After submit there's a **post-login navigation race**; log in, wait ~5s, *then* `window.location.href` to the target.
+  - **The headless browser intercepts `window.confirm()`/`alert()` natively** (auto-cancels) and eval runs in an **isolated world** → you cannot trigger UI deletes (they bail on `if(!confirm())`). Workaround: pull the supabase session JWT from the (chunked) `sb-…-auth-token` cookies, then `fetch` the Supabase **REST API** (`/rest/v1/pages?…`) with `apikey:<anon>` + `Authorization: Bearer <jwt>` (RLS allows owner). Anon key is `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `.env.local` (new `sb_publishable_…` format).
+  - **Supabase + Vercel MCPs were both down (`net::ERR_FAILED`) for parts of this session** — git push / curl over HTTPS work fine; retry the MCPs, or use the REST-API approach above.
 - **DB migrations**: Supabase MCP `apply_migration` (project `pvsotrzgnjpqrsndhgmu`) + write the `.sql` into `supabase/migrations/`. Idempotent. Never `supabase db push`.
 
 ## Quick verification commands
