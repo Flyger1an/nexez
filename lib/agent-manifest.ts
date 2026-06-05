@@ -9,6 +9,7 @@ import {
   parseAvailabilityWindows,
 } from './agent-page'
 import { buildNegotiationAction } from './negotiations'
+import { rewriteForVoice } from './ai-optimize'
 
 export function getAgentJsonPath(slug: string) {
   return `/${slug}/agent.json`
@@ -75,6 +76,8 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer) {
     type: offer.kind === 'services' ? 'service' : 'product',
     name: offer.name,
     description: offer.description || null,
+    // Speech-ready phrasing for voice agents (numbers/symbols spoken, no parentheticals).
+    voice_summary: offer.description ? rewriteForVoice(offer, page.name).description : null,
     price: offer.price || null,
     provider_url: providerUrl,
     checkout_url: checkoutUrl,

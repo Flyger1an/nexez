@@ -28,6 +28,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid Stripe signature.' }, { status: 401 })
   }
 
+  // Negotiation escrow: a manual-capture authorization (hold) completed.
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object as Stripe.Checkout.Session
+    if (session.metadata?.nexez_kind === 'negotiation_escrow' && session.metadata?.nexez_negotiation_id) {
+      if (!hasSupabaseAdminEnv()) {
+        return NextResponse.json({ received: true, type: event.type, note: 'SUPABASE_SERVICE_ROLE_KEY required' }, { status: 200 })
+      }
+      const admin = createAdminClient()
+      const piId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id ?? null
+      const { error: holdError } = await admin
+        .from('agent_negotiations')
+        .update({ status: 'held', escrow_mode: 'manual_capture_created', stripe_payment_intent_id: piId })
+        .eq('id', session.metadata.nexez_negotiation_id)
+      if (holdError) console.warn('[Stripe Webhook] escrow hold update failed:', holdError.message)
+      return NextResponse.json({ received: true, type: event.type, negotiation: session.metadata.nexez_negotiation_id, held: !holdError }, { status: 200 })
+    }
+    return NextResponse.json({ received: true, type: event.type }, { status: 200 })
+  }
+
   if (event.type !== 'price.updated' && event.type !== 'price.created') {
     return NextResponse.json({ received: true, type: event.type }, { status: 200 })
   }

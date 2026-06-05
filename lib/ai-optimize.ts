@@ -118,7 +118,7 @@ export function rewriteForVoice(offer: OfferItem, businessName: string): OfferIt
   desc = desc.replace(/\s*\([^)]*\)/g, '')
   return {
     ...offer,
-    description: `${desc}. To book the ${offer.name}, say it for ${businessName}.`,
+    description: `${desc.replace(/[.\s]+$/, '')}. To book the ${offer.name}, say it for ${businessName}.`,
   }
 }
 
