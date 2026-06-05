@@ -2,38 +2,40 @@
 
 import { useState } from 'react'
 
-type SimulationResult = {
-  schema: {
-    page: {
-      name: string
-      summary: string
-      audience: string
-      offers: Array<{
-        name: string
-        price: string | null
-        description: string | null
-        checkoutUrl: string
-      }>
-    }
-    suggestedActions: string[]
-  }
-  recommendations: string[]
-  naturalLanguage: string
+type SimOffer = {
+  key: string
+  type: 'service' | 'product'
+  name: string
+  price: string | null
+  description: string | null
+  checkoutUrl: string
+  bestMatch: boolean
 }
+
+type SimResponse = {
+  intent: string
+  intentLabel: string
+  naturalLanguage: string
+  readiness: number
+  confidence: number
+  offers: SimOffer[]
+  agentActions: string[]
+  recommendations: string[]
+}
+
+const PRESETS = [
+  'Can an agent book a 60-minute session next week?',
+  'How much does strategy work cost here?',
+  'Is this a good fit for a scaling startup?',
+  'What products can I buy right now?',
+]
 
 export function SimulatorTeaser() {
   const [query, setQuery] = useState('')
-  const [result, setResult] = useState<SimulationResult | null>(null)
+  const [result, setResult] = useState<SimResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'natural' | 'structured'>('natural')
-
-  const presetQueries = [
-    "Can an AI agent book a 60-minute session next week?",
-    "What does this company actually offer?",
-    "Is this good for scaling startups?",
-    "How much does strategy work cost here?",
-  ]
 
   const handleSimulate = async (customQuery?: string) => {
     const q = (customQuery || query).trim()
@@ -49,19 +51,21 @@ export function SimulatorTeaser() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: q }),
       })
-
       const data = await res.json()
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Simulation failed')
-      }
+      if (!res.ok || !data.success) throw new Error(data.error || 'Simulation failed')
 
       setResult({
-        schema: data.schema,
-        recommendations: data.recommendations,
+        intent: data.intent,
+        intentLabel: data.intentLabel,
         naturalLanguage: data.naturalLanguage,
+        readiness: data.readiness,
+        confidence: data.confidence,
+        offers: data.offers || [],
+        agentActions: data.agentActions || [],
+        recommendations: data.recommendations || [],
       })
-      if (!customQuery) setQuery(q) // keep user query if they typed it
+      setQuery(q)
+      setActiveTab('natural')
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.')
     } finally {
@@ -70,133 +74,168 @@ export function SimulatorTeaser() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="flex flex-wrap gap-2 mb-3">
-        {presetQueries.map((q, index) => (
+    <div className="mx-auto max-w-2xl text-left">
+      {/* Preset queries */}
+      <div className="mb-3 flex flex-wrap justify-center gap-2">
+        {PRESETS.map((q) => (
           <button
-            key={index}
+            key={q}
             onClick={() => handleSimulate(q)}
             disabled={loading}
-            className="text-xs px-3 py-1 rounded-full border border-white/15 hover:bg-white/5 text-[#9CA3AF] disabled:opacity-50"
+            className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-white/5 hover:text-white disabled:opacity-50"
           >
             {q}
           </button>
         ))}
       </div>
 
+      {/* Input */}
       <div className="flex gap-3">
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ask an AI-style question..."
-          className="flex-1 input text-base"
+          placeholder="Ask an AI-style question…"
+          className="input flex-1 text-base"
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleSimulate()
           }}
           disabled={loading}
         />
-        <button 
+        <button
           onClick={() => handleSimulate()}
           disabled={loading || !query.trim()}
-          className="btn-primary px-8 disabled:opacity-60"
+          className="btn-primary px-7 disabled:opacity-60"
         >
-          {loading ? 'Analyzing...' : 'Simulate'}
+          {loading ? 'Analyzing…' : 'Simulate'}
         </button>
       </div>
 
       {error && (
-        <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+        <div className="mt-4 rounded-lg border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-200">
           {error}
         </div>
       )}
 
       {result && (
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-left">
-          {/* Tabs for realistic agent experience */}
-          <div className="flex gap-1 mb-4 border-b border-white/10">
-            <button
-              onClick={() => setActiveTab('natural')}
-              className={`px-4 py-1.5 text-sm font-medium transition ${activeTab === 'natural' ? 'text-white border-b-2 border-[#7C3AED]' : 'text-[#9CA3AF] hover:text-white'}`}
-            >
-              How an agent would think
-            </button>
-            <button
-              onClick={() => setActiveTab('structured')}
-              className={`px-4 py-1.5 text-sm font-medium transition ${activeTab === 'structured' ? 'text-white border-b-2 border-[#7C3AED]' : 'text-[#9CA3AF] hover:text-white'}`}
-            >
-              Structured (what agents parse)
-            </button>
+        <div className="mt-6 rounded-2xl border border-border bg-white/[0.02] p-5 sm:p-6">
+          {/* Signal row */}
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center rounded-full border border-[#7C3AED]/30 bg-[#7C3AED]/10 px-2.5 py-0.5 text-xs font-medium text-[#C4B5FD]">
+              {result.intentLabel}
+            </span>
+            <span className="inline-flex items-center rounded-full border border-emerald-300/25 bg-emerald-300/10 px-2.5 py-0.5 text-xs text-emerald-200">
+              Readiness {result.readiness}%
+            </span>
+            <span className="ml-auto text-[11px] text-muted-foreground">
+              parse confidence {Math.round(result.confidence * 100)}%
+            </span>
           </div>
 
-          {activeTab === 'natural' && (
-            <>
-              <p className="text-[#9CA3AF] leading-relaxed mb-4">{result.naturalLanguage}</p>
-              <div className="text-sm text-[#C4B5FD] mb-2">Recommended next steps for the agent:</div>
-              <ul className="text-sm space-y-1 text-[#9CA3AF]">
-                {result.schema.suggestedActions.map((action, i) => (
-                  <li key={i}>→ {action}</li>
+          {/* Tabs */}
+          <div className="mb-4 flex gap-1 border-b border-border">
+            {([
+              ['natural', 'How an agent answers'],
+              ['structured', 'What agents parse'],
+            ] as const).map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                  activeTab === id
+                    ? 'border-b-2 border-[#7C3AED] text-white'
+                    : 'text-muted-foreground hover:text-white'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {activeTab === 'natural' ? (
+            <div>
+              <p className="leading-relaxed text-zinc-200">{result.naturalLanguage}</p>
+              <p className="mb-2 mt-5 text-xs font-medium uppercase tracking-wider text-[#A78BFA]">
+                Agent actions
+              </p>
+              <ul className="space-y-1.5">
+                {result.agentActions.map((a, i) => (
+                  <li key={i} className="flex gap-2 text-sm text-muted-foreground">
+                    <span className="select-none text-emerald-300">→</span>
+                    <span className="font-mono text-[12px] leading-5 text-zinc-300">{a}</span>
+                  </li>
                 ))}
               </ul>
-            </>
-          )}
-
-          {activeTab === 'structured' && (
-            <>
-              <h4 className="text-xl font-semibold tracking-tight mb-1">
-                {result.schema.page.name}
-              </h4>
-              <p className="text-[#9CA3AF] text-sm mb-4">{result.schema.page.summary}</p>
-
-              <div className="text-sm text-[#C4B5FD] mb-2">Best fit for:</div>
-              <p className="text-sm mb-4">{result.schema.page.audience}</p>
-
-              <div className="text-sm text-[#C4B5FD] mb-2">Offers the agent can immediately act on:</div>
-              <div className="space-y-1.5 mb-4">
-                {result.schema.page.offers.map((offer, i) => (
-                  <div key={i} className="flex justify-between items-center text-sm border-b border-white/10 pb-1.5 last:border-0">
-                    <span className="font-medium">{offer.name}</span>
-                    <span className="text-[#00F5FF] font-mono text-xs">{offer.price || 'Custom'}</span>
+            </div>
+          ) : (
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-[#A78BFA]">
+                Offers the agent can act on
+              </p>
+              <div className="space-y-2">
+                {result.offers.map((o) => (
+                  <div
+                    key={o.key}
+                    className={`rounded-lg border p-3 ${
+                      o.bestMatch
+                        ? 'border-emerald-300/40 bg-emerald-300/[0.06]'
+                        : 'border-border bg-white/[0.02]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="flex items-center gap-2 text-sm font-medium text-white">
+                        {o.name}
+                        {o.bestMatch && (
+                          <span className="rounded-full bg-emerald-300/15 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-emerald-200">
+                            Best match
+                          </span>
+                        )}
+                      </span>
+                      <span className="shrink-0 font-mono text-xs text-emerald-300">{o.price || 'Custom'}</span>
+                    </div>
+                    <div className="mt-1.5 flex items-center justify-between gap-3">
+                      <span className="truncate text-xs text-muted-foreground">{o.description}</span>
+                      <code className="shrink-0 rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                        offer={o.key}
+                      </code>
+                    </div>
                   </div>
                 ))}
               </div>
-
-              <div className="text-sm text-[#C4B5FD] mb-2">Recommended Agent Actions:</div>
-              <ul className="text-sm space-y-1 text-[#9CA3AF]">
-                {result.schema.suggestedActions.map((action, i) => (
-                  <li key={i}>→ {action}</li>
-                ))}
-              </ul>
-            </>
+            </div>
           )}
 
           {result.recommendations.length > 0 && (
-            <div className="mt-5 pt-4 border-t border-white/10">
-              <div className="text-xs uppercase tracking-widest text-amber-300 mb-2">Quick wins to improve this page for agents</div>
-              <ul className="text-xs text-[#9CA3AF] space-y-1">
-                {result.recommendations.slice(0, 3).map((rec, i) => (
-                  <li key={i}>• {rec}</li>
+            <div className="mt-5 border-t border-border pt-4">
+              <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-amber-300">
+                Quick wins to rank higher with agents
+              </p>
+              <ul className="space-y-1 text-xs text-muted-foreground">
+                {result.recommendations.slice(0, 3).map((r, i) => (
+                  <li key={i}>• {r}</li>
                 ))}
               </ul>
             </div>
           )}
 
-          {/* Strong conversion hook */}
-          <div className="mt-6 pt-4 border-t border-white/10 flex flex-col sm:flex-row gap-3 items-center">
-            <a href="/create" className="btn-primary text-sm px-6 py-2 flex-1 sm:flex-none text-center">
+          {/* Conversion hook */}
+          <div className="mt-6 flex flex-col items-center gap-3 border-t border-border pt-4 sm:flex-row">
+            <a href="/create" className="btn-primary h-10 flex-1 px-5 text-sm sm:flex-none">
               Create a page like this
             </a>
-            <a href="/dashboard/[id]/test" className="text-sm text-[#00F5FF] hover:underline">
-              Open full simulator →
+            <a href="/simulator" className="text-sm text-cyan-300 hover:underline">
+              Open the full simulator →
             </a>
           </div>
         </div>
       )}
 
-      <p className="mt-3 text-xs text-[#9CA3AF]">
-        Powered by the same deterministic simulation engine used in the full Agent Simulator. <a href="/simulator" className="underline">Open full global simulator →</a>
+      <p className="mt-3 text-center text-xs text-muted-foreground">
+        Runs on the same deterministic engine as the full Agent Simulator.{' '}
+        <a href="/simulator" className="underline hover:text-white">
+          Open global simulator →
+        </a>
       </p>
     </div>
   )
 }
-

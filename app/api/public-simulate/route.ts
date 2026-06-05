@@ -1,37 +1,42 @@
 import { NextResponse } from 'next/server'
-import { 
-  getDemoPage, 
-  buildPublicDemoSchema, 
-  getRecommendations 
+import {
+  getDemoPage,
+  buildPublicDemoSchema,
+  getRecommendations,
+  interpretPublicQuery,
 } from '@/lib/agent-simulator'
 
 export async function POST(request: Request) {
   try {
     const { query } = await request.json()
 
-    if (!query || typeof query !== 'string') {
+    if (!query || typeof query !== 'string' || !query.trim()) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 })
     }
 
     const demoPage = getDemoPage()
+    // Query-aware interpretation: intent, ranked offers, tailored answer + actions.
+    const interpretation = interpretPublicQuery(demoPage, query)
     const schema = buildPublicDemoSchema(demoPage, query)
     const recommendations = getRecommendations(demoPage)
 
-    // Simple but realistic natural language summary for the teaser
-    const audienceText = (demoPage.audience || 'ambitious teams').toLowerCase()
-    const nlSummary = `${demoPage.name} helps ${audienceText}. They offer ${demoPage.services?.length || 0} main services and some products, all clearly priced with direct actions. The page is highly structured so agents can parse offers, compare, and route intent immediately.`
-
     return NextResponse.json({
       success: true,
-      query,
+      query: interpretation.query,
+      intent: interpretation.intent,
+      intentLabel: interpretation.intentLabel,
+      naturalLanguage: interpretation.answer,
+      readiness: interpretation.readiness,
+      confidence: interpretation.confidence,
+      offers: interpretation.offers,
+      agentActions: interpretation.agentActions,
       schema,
       recommendations,
-      naturalLanguage: nlSummary,
     })
   } catch (error: any) {
     console.error('Public simulate error:', error)
     return NextResponse.json(
-      { error: 'Simulation failed' }, 
+      { error: 'Simulation failed' },
       { status: 500 }
     )
   }

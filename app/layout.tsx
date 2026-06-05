@@ -17,8 +17,39 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Nexez",
-  description: "Human-first management. Agent-first consumption. Premium AI-optimized pages for products and services.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://nexez.vercel.app"),
+  title: {
+    default: "Nexez — Pages built for AI agents",
+    template: "%s · Nexez",
+  },
+  description:
+    "Create a clean, structured page that AI agents can understand and act on — host it on your own domain or a Nexez link. JSON-LD, llms.txt, agent.json, and an MCP endpoint from one source of truth.",
+  applicationName: "Nexez",
+  keywords: [
+    "AI agents",
+    "agent-optimized pages",
+    "llms.txt",
+    "agent.json",
+    "MCP",
+    "JSON-LD",
+    "schema.org",
+    "AI SEO",
+    "agentic web",
+    "structured data",
+  ],
+  openGraph: {
+    type: "website",
+    siteName: "Nexez",
+    title: "Nexez — Pages built for AI agents",
+    description:
+      "A clean, structured page that AI agents can understand and act on. Host it on your domain or Nexez.",
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Nexez — Pages built for AI agents",
+    description: "A clean, structured page that AI agents can understand and act on.",
+  },
   icons: {
     icon: "/favicon.ico",
   },

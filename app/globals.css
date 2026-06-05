@@ -223,7 +223,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 11px 13px;
-  color: white;
+  color: var(--fg);
   font-size: 16px;
   transition: all 0.2s ease;
   width: 100%;
@@ -245,7 +245,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px 14px;
-  color: white;
+  color: var(--fg);
   font-size: 16px;
   transition: all 0.2s ease;
   resize: vertical;

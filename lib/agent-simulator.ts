@@ -217,3 +217,191 @@ export function runMultiAgentSimulation(page: AgentPage, query: string = 'Book a
   }))
   return { query, results }
 }
+
+// ---------------------------------------------------------------------------
+// Query-aware public simulation (homepage teaser).
+// Makes the demo actually respond to the visitor's question — detecting intent,
+// ranking the most relevant offers, and producing a tailored agent answer +
+// concrete next actions — instead of returning a constant response.
+// ---------------------------------------------------------------------------
+
+export type SimIntent = 'booking' | 'pricing' | 'fit' | 'product' | 'contact' | 'overview'
+
+const INTENT_LABELS: Record<SimIntent, string> = {
+  booking: 'Booking intent',
+  pricing: 'Pricing intent',
+  fit: 'Fit / qualification',
+  product: 'Product intent',
+  contact: 'Contact intent',
+  overview: 'General intent',
+}
+
+const SIM_STOPWORDS = new Set([
+  'the', 'a', 'an', 'is', 'are', 'do', 'does', 'can', 'could', 'would', 'will', 'you', 'this', 'that',
+  'for', 'to', 'of', 'and', 'or', 'with', 'how', 'what', 'much', 'it', 'my', 'me', 'your', 'they',
+  'them', 'on', 'in', 'at', 'be', 'have', 'has', 'about', 'any', 'some', 'near', 'here', 'there',
+  'get', 'need', 'want', 'their', 'we', 'us', 'i',
+])
+
+export function detectIntent(query: string): SimIntent {
+  const q = ` ${query.toLowerCase()} `
+  if (/(book|schedul|appointment|availab|slot|reserve|when can|next week|today|tomorrow|this week)/.test(q)) return 'booking'
+  if (/(price|pricing|cost|how much|rate|fee|budget|afford|cheap|expensive|\$)/.test(q)) return 'pricing'
+  if (/(product|template|pack|download|kit|toolkit|blueprint)/.test(q)) return 'product'
+  if (/(contact|email|reach|call|talk|speak|get in touch|support)/.test(q)) return 'contact'
+  if (/(fit|good for|right for|suitable|work with|help|startup|founder|team|scal|enterprise|small business)/.test(q)) return 'fit'
+  return 'overview'
+}
+
+function simTokens(s: string): string[] {
+  return (s.toLowerCase().match(/[a-z0-9]+/g) || []).filter((w) => w.length > 2 && !SIM_STOPWORDS.has(w))
+}
+
+function priceToNumber(price: string | null | undefined): number | null {
+  if (!price) return null
+  const m = price.replace(/,/g, '').match(/\d+(\.\d+)?/)
+  return m ? Math.round(parseFloat(m[0]) * 100) : null
+}
+
+export type RankedSimOffer = {
+  key: string
+  type: 'service' | 'product'
+  name: string
+  price: string | null
+  cents: number | null
+  description: string | null
+  checkoutUrl: string
+  score: number
+  bestMatch: boolean
+}
+
+export type PublicQueryResult = {
+  query: string
+  intent: SimIntent
+  intentLabel: string
+  answer: string
+  readiness: number
+  confidence: number
+  offers: RankedSimOffer[]
+  agentActions: string[]
+}
+
+export function interpretPublicQuery(page: AgentPage, query: string): PublicQueryResult {
+  const intent = detectIntent(query)
+  const qTokens = new Set(simTokens(query))
+  const q = query.trim()
+
+  const ranked: RankedSimOffer[] = getCheckoutOffers(page).map((offer) => {
+    const key = getCheckoutOfferKey(offer.kind, offer.index)
+    const checkoutUrl = offer.url || page.cta_url || page.website_url || `${getBaseUrl()}/checkout/${page.slug}?offer=${key}`
+    const tokens = simTokens(`${offer.name} ${offer.description || ''}`)
+    let score = tokens.reduce((s, w) => s + (qTokens.has(w) ? 2 : 0), 0)
+    if (intent === 'product' && offer.kind === 'products') score += 3
+    if ((intent === 'booking' || intent === 'fit') && offer.kind === 'services') score += 2
+    return {
+      key,
+      type: (offer.kind === 'services' ? 'service' : 'product') as 'service' | 'product',
+      name: offer.name,
+      price: offer.price || null,
+      cents: priceToNumber(offer.price),
+      description: offer.description || null,
+      checkoutUrl,
+      score,
+      bestMatch: false,
+    }
+  })
+
+  const readiness = getReadinessScore(page)
+  if (ranked.length === 0) {
+    return {
+      query: q,
+      intent,
+      intentLabel: INTENT_LABELS[intent],
+      answer: `${page.name} has no structured offers yet, so an agent can't act. Add at least one offer with a price and an action.`,
+      readiness,
+      confidence: 0.4,
+      offers: [],
+      agentActions: ['Add a product or service with a clear price', 'Add a booking, purchase, or contact action'],
+    }
+  }
+
+  const hadTokenMatch = ranked.some((o) => o.score > 0)
+  const withPrice = ranked.filter((o) => o.cents != null)
+  const cheapest = withPrice.slice().sort((a, b) => a.cents! - b.cents!)[0]
+  const topScored = ranked.slice().sort((a, b) => b.score - a.score)[0]
+
+  let best: RankedSimOffer
+  if (topScored && topScored.score > 0) best = topScored
+  else if (intent === 'pricing' && cheapest) best = cheapest
+  else if (intent === 'product') best = ranked.find((o) => o.type === 'product') || ranked[0]
+  else best = ranked.find((o) => o.type === 'service') || ranked[0]
+
+  const offers = ranked
+    .map((o) => ({ ...o, bestMatch: o.key === best.key }))
+    .sort((a, b) => Number(b.bestMatch) - Number(a.bestMatch) || b.score - a.score)
+
+  const audience = page.audience || 'ambitious teams'
+  const offerCount = ranked.length
+  const productCount = ranked.filter((o) => o.type === 'product').length
+  const priceCents = withPrice.map((o) => o.cents!).sort((a, b) => a - b)
+  const fmt = (c: number) => `$${Math.round(c / 100).toLocaleString()}`
+  const priceRange = priceCents.length
+    ? `${fmt(priceCents[0])}–${fmt(priceCents[priceCents.length - 1])}`
+    : 'clear, listed pricing'
+  const bm = best.name
+  const bmPrice = best.price ? ` (${best.price})` : ''
+
+  let answer: string
+  const agentActions: string[] = []
+
+  switch (intent) {
+    case 'booking':
+      answer = `${page.name} exposes structured offers, so an agent sees “${bm}”${bmPrice} is bookable directly. To act on “${q}”, it calls the checkout action with offer="${best.key}" and returns a confirmed booking link — no human back-and-forth.`
+      agentActions.push(`POST /api/checkout { slug: "${page.slug}", offer: "${best.key}" } → returns a booking link`)
+      agentActions.push(`Read /${page.slug}/agent.json for the machine-readable offer + availability schema`)
+      agentActions.push('Confirm the requested time with the buyer, then complete checkout')
+      break
+    case 'pricing':
+      answer = `Pricing is explicit, so an agent compares instantly. The entry point is “${cheapest?.name || bm}”${cheapest?.price ? ` at ${cheapest.price}` : ''}; the full range spans ${priceRange} across ${offerCount} offers — it surfaces the right tier for the buyer's budget without guessing.`
+      agentActions.push(`Compare ${offerCount} structured offers by price (${priceRange})`)
+      agentActions.push(`Recommend “${cheapest?.name || bm}”${cheapest?.price ? ` (${cheapest.price})` : ''} as the lowest-friction entry point`)
+      agentActions.push(`POST /api/checkout { offer: "${best.key}" } once the buyer picks a tier`)
+      break
+    case 'product':
+      answer = `An agent finds ${productCount || 'several'} purchasable product(s). The closest to “${q}” is “${bm}”${bmPrice}, with a direct checkout path it can complete autonomously.`
+      agentActions.push(`POST /api/checkout { slug: "${page.slug}", offer: "${best.key}" } → completes the purchase`)
+      agentActions.push(`Read /${page.slug}/agent.json for product schema + pricing`)
+      agentActions.push('Summarize the product and confirm quantity with the buyer')
+      break
+    case 'contact':
+      answer = page.contact_email
+        ? `An agent can route the buyer straight to ${page.contact_email}, or act on any of ${offerCount} structured offers — for example “${bm}”${bmPrice} — without waiting for a human.`
+        : `An agent acts on ${offerCount} structured offers directly. “${bm}”${bmPrice} is the strongest match for “${q}”.`
+      agentActions.push(page.contact_email ? `Send buyer context to ${page.contact_email}` : 'Request a contact email from the business')
+      agentActions.push(`Offer “${bm}”${bmPrice} as the recommended next step`)
+      agentActions.push(`POST /api/checkout { offer: "${best.key}" } to act immediately`)
+      break
+    case 'fit':
+      answer = `${page.name} targets ${audience}. Matching that to “${q}”, an agent recommends “${bm}”${bmPrice}, explains why it fits, and offers to book or buy on the spot.`
+      agentActions.push(`Match the buyer profile against the stated audience: ${audience}`)
+      agentActions.push(`Recommend “${bm}”${bmPrice} with a one-line rationale`)
+      agentActions.push(`POST /api/checkout { offer: "${best.key}" } when the buyer is ready`)
+      break
+    default:
+      answer = `${page.name} helps ${audience.toLowerCase()}. An agent parses ${offerCount} clearly-priced offers (${priceRange}) with direct actions, so it can answer “${q}” and route intent immediately — starting with “${bm}”${bmPrice}.`
+      agentActions.push(`Summarize ${offerCount} offers (${priceRange}) for the buyer`)
+      agentActions.push(`Recommend “${bm}”${bmPrice} as the best starting point`)
+      agentActions.push(`POST /api/checkout { offer: "${best.key}" } to act`)
+  }
+
+  return {
+    query: q,
+    intent,
+    intentLabel: INTENT_LABELS[intent],
+    answer,
+    readiness,
+    confidence: hadTokenMatch ? 0.9 : 0.74,
+    offers,
+    agentActions,
+  }
+}
