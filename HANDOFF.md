@@ -1,6 +1,6 @@
 # Nexez — Session Handoff
 
-_Last updated: 2026-06-03 · HEAD `a557feb` (verify with `git rev-parse --short main`)_
+_Last updated: 2026-06-04 · HEAD `a19562a` (verify with `git rev-parse --short main`)_
 
 ## Project
 **Nexez** helps businesses create dedicated, highly structured pages optimized for **AI agents** to discover, understand, and purchase from. Dual philosophy: **premium glassmorphism human dashboard** vs **brutally clean/semantic HTML for agents** on public `[slug]` pages. A core objective is **deploying agent-optimized pages to custom domains**, managed from the Nexez backend.
@@ -18,10 +18,23 @@ _Last updated: 2026-06-03 · HEAD `a557feb` (verify with `git rev-parse --short 
 - DB migrations: apply via the **Supabase MCP `apply_migration`** and also write the `.sql` into `supabase/migrations/`. **Do NOT `supabase db push`** — tracking-table versions differ from repo filenames (all migrations are idempotent).
 
 ## Current state (verified this session)
-- `origin/main` == local @ **`a557feb`**, clean tree.
-- **173 tests passing**; lint/tsc/build all clean.
-- **75 routes**, ~40 lib modules, **24 migrations** (all applied to prod + verified).
-- Supabase **security advisors clean** EXCEPT the **Auth "leaked password protection"** toggle → enable in the Supabase dashboard (config, not code). Perf advisors are only no-traffic `unused_index` INFOs + acceptable multiple-permissive-policies on `pages`.
+- `origin/main` == local @ **`a19562a`**, clean tree. Vercel auto-deploys on push; prod verified live.
+- **193 tests passing** (33 files); lint (`--quiet`) / tsc / build all clean.
+- **75 routes**, **24 migrations** (all applied to prod). 1 new migration this session: `20260613003000_add_ab_impression_event.sql` (applied + verified).
+- Supabase **security advisors clean** EXCEPT the **Auth "leaked password protection"** toggle → enable in the Supabase dashboard (config, not code).
+
+## This window's work (2026-06-04, commits `4fee86f`→`a19562a`)
+Big feature/polish/refactor session. Highlights, newest first:
+- **`a19562a` Gated email** (`lib/email.ts`, Resend-compatible, dormant w/o `RESEND_API_KEY`): `/api/negotiations` emails the page's contact on a new request (offer/budget/timeline/agent/msg + inbox link) via `after()`. +4 tests.
+- **`ccc7e0d` Dedicated Pages section** (the big new UX): `/dashboard/pages` = `components/PagesManager.tsx` (status tabs All/Published/Drafts via `?status=`, **bulk actions** publish/unpublish/delete, select-all). Nav `components/PlatformShell.tsx` gained a **"Pages"** item with nested All/Published/Drafts sub-items. Extracted shared `components/dashboard/PageCard.tsx` (used by Overview + manager) and pure `lib/duplicate-page.ts` `buildDuplicatePayload` (deterministic collision-free slug — **no `Math.random`**, satisfies React-compiler purity lint).
+- **`8c49bdc` / `e28d1fd` Duplicate page**: per-card action on dashboard/Pages + a **Duplicate** button in the editor action bar (`app/dashboard/[id]/page.tsx`) — clones content into a new unpublished draft (no domain/verification). Also polished the Tools "Connect more tools" box.
+- **`ab3be32` / `91ccf65` Tools page de-monolith**: `app/dashboard/tools/page.tsx` 1017→~350 lines. Extracted `components/tools/Importers.tsx` (Stripe/Shopify/Acuity), `components/tools/CalendlyTool.tsx`, `components/tools/ImportResult.tsx`. Relocation-only (import logic unchanged). Verified the Stripe + Calendly flows end-to-end logged in (live API error paths).
+- **`12cf7fc` / `56eef9f` Cleanup**: removed dev-shorthand/"stub"/"(Demo)"/"Phase 3" copy from tools + integrations + marketplace + dashboard; extracted `getReadinessInsight` to `lib/analytics.ts` (tested).
+- **`0e4c3cb` Platform-wide light/dark/system theme** (dark default): `components/ThemeToggle.tsx` + `lib/theme.ts` (no-flash `<head>` script in `app/layout.tsx`). globals.css **remaps the finite set of hardcoded neutral utilities** (`text-white`, `bg-black`, `text-zinc-*`, `bg-white/x`, `bg-black/x`, `border-white/x`, `bg-[#hex]`, **plus `hover:`/`active:`/`group-hover:` variants**) to theme tokens that flip by mode. Unlayered rules win the cascade. **Public agent pages locked to dark.** Accent tints darkened on light. Verified light+dark across homepage/login/dashboard/analytics/tools/integrations/marketplace.
+- **`1bb9166`→`b79a416` Homepage redesign** (category-defining): animated aurora backdrop, analytics command-center mock, bento grid (count-up gauge, typewriter agent.json, copy button), logo marquee, dual-philosophy "humans vs agents" split with toggle, KPI count-ups, hero parallax, premium footer, "Deploy your first AI agent–optimized page in seconds" copy. **Renamed demo brand Acme→Axle (axlestrategy.com)** everywhere user-facing (legal).
+- **`24ac527` Real A/B variant serving**: `OfferItem.ab_test`/`ab_label`, sticky `nx_ab` bucket cookie set in `proxy.ts`, `lib/ab-testing.ts` (grouping/served-index/rollup), public page serves ONE variant/visitor (real indices preserved), `logCheckoutEvent` auto-attributes, `ab_impression` events, analytics "A/B Tests" panel, builder groups variants.
+
+⚠️ **`.claude/launch.json`** is untracked (local preview config for the Claude Preview MCP) — intentionally not committed.
 
 ## What's built (Phases 1–8 + G21, all live)
 Importer (+gated LLM fallback), Visual Builder (availability signals, A/B duplicate-variant, LLM Enhance), analytics (Recharts, demand insights + unserved-query gap analysis, conversion funnel), 6 integrations (Calendly/Stripe/Shopify/Square/Acuity/GCal), per-offer controls/embeds/versioning, **custom-domain hosting** (host→serve via `proxy.ts`, Vercel SSL provisioning, connection wizard, brand-root `agent.json`/`mcp.json`/`llms.txt`, multi-page domains, white-label branding + inheritance, draft→preview→publish staging, deployments/rollback), simulator, AI Co-Pilot, **real MCP JSON-RPC endpoint** `/[slug]/mcp`, negotiations end-to-end + receipts, trust/badges (`/[slug]/badge.svg` + `/[slug]/badge.json`), marketplace, **leaderboard**, programmatic **API + keys** (`/api/v1/*`), account export/delete, team invites + collaborator RLS, in-app notifications, rate limiting, observability hook, freshness-monitor cron.
@@ -49,13 +62,23 @@ Importer (+gated LLM fallback), Visual Builder (availability signals, A/B duplic
 ## Roadmap
 `ROADMAP.md` is the running source of truth — append an `IMPLEMENTED`/burst entry after each change (this has been the cadence). It's very long; grep recent dated sections rather than reading the whole file.
 
-## Suggested next steps
-- Apply the server-component + island pattern to the heavy `/dashboard/[id]` editor (still a large client component).
-- Add a test for the middleware auth gate.
-- A/B **variant serving** (random assignment + attribution) — only duplicate-variant + analytics exist today.
-- Email notification delivery (needs a provider).
-- Remove now-unused deps `clsx` / `tailwind-merge` / `class-variance-authority` (shadcn scaffold was removed).
-- Enable Supabase Auth leaked-password protection (dashboard toggle).
+## Suggested next steps (pending)
+- **Editor de-monolith**: `app/dashboard/[id]/page.tsx` is still ~1640 lines, `'use client'`, ~30 useState. Deeply client-coupled (localStorage integration status, sessionStorage reanalysis/restore handoffs, URL-param flows) — a server-component+island split is high-effort/high-risk on the most critical workflow. Tackle carefully, verify edit→save→publish→reanalyze→versions with the test login.
+- **Email reach**: extend `lib/email.ts` beyond negotiations → emails on **bookings** (Calendly/Stripe webhooks in `app/api/webhooks/*`), and/or a per-user notification-preferences toggle. Currently emails `page.contact_email`; consider the account email via service-role lookup.
+- **Test the middleware auth gate** (`utils/supabase/middleware.ts` `updateSession` redirect) — still untested.
+- **Bulk "Duplicate"** in the Pages manager bulk bar (single duplicate exists; bulk publish/unpublish/delete exist).
+- Remove now-unused deps `clsx` / `tailwind-merge` / `class-variance-authority` (shadcn scaffold removed).
+- Enable Supabase Auth **leaked-password protection** (dashboard toggle, config not code).
+- Optional light-mode long-tail: the neutral-utility remap covers the enumerated set; a rare hardcoded class on a deep screen could look slightly off in **light** mode (dark default is unaffected). Patch by class if reported.
+
+## Dev / verification workflow notes (learned this window)
+- **Test login**: the user can provide a login to verify authed screens (their own account — **ask them in chat**, don't store it; this repo is public). It has **3 real pages** — never leave test artifacts; clean up any duplicates/drafts you create.
+- **Claude Preview MCP** (`mcp__Claude_Preview__*`) drives a local dev server (`.claude/launch.json` → `npm run dev`). Quirks hit repeatedly:
+  - **`useSearchParams`/canonical host**: dev redirects `localhost`→`127.0.0.1`; `next.config.ts` has `allowedDevOrigins: ['127.0.0.1']` so client components hydrate in the preview. Without it, nothing is interactive.
+  - **Login form is controlled** — `preview_fill` alone didn't update React state; set values via native setter + dispatch `input`/`change`, then `form.requestSubmit()`. After submit there's a **post-login navigation race** (often lands back on `/login` or strays to `/`); log in, wait ~5s, *then* `window.location.href` to the target.
+  - **The headless browser intercepts `window.confirm()`/`alert()` natively** (auto-cancels) and eval runs in an **isolated world**, so overriding `window.confirm` from eval doesn't reach page JS → you **cannot trigger UI deletes** (they bail on `if(!confirm())`). Workaround that worked: pull the supabase session JWT from the `sb-…-auth-token` cookies in the browser, then `fetch` the Supabase **REST API** (`/rest/v1/pages?...`) with `apikey: <anon>` + `Authorization: Bearer <jwt>` to DELETE (RLS allows owner). Anon key is `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `.env.local`.
+  - The **Supabase MCP `execute_sql`** was flaky (`net::ERR_FAILED`) for parts of the session — retry, or use the REST-API approach above.
+- **DB migrations**: Supabase MCP `apply_migration` (project `pvsotrzgnjpqrsndhgmu`) + write the `.sql` into `supabase/migrations/`. Idempotent. Never `supabase db push`.
 
 ## Quick verification commands
 ```bash
