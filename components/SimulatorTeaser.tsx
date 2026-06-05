@@ -24,7 +24,7 @@ type SimResponse = {
 }
 
 const PRESETS = [
-  'Can an agent book a 60-minute session next week?',
+  'Can an agent book a 60 minute session next week?',
   'How much does strategy work cost here?',
   'Is this a good fit for a scaling startup?',
   'What products can I buy right now?',

@@ -187,7 +187,7 @@ export function enhanceDescriptionForAgents(raw: string, businessName: string, a
     return generateAgentSummary(businessName || 'This business', audience, 0)
   }
   if (d.length < 60) {
-    d = `${d}. This agent page makes pricing, scope, and next steps machine-readable so AI buyers can evaluate fit instantly.`
+    d = `${d}. This agent page makes pricing, scope, and next steps machine readable so AI buyers can evaluate fit instantly.`
   }
   if (!d.toLowerCase().includes('agent') && !d.toLowerCase().includes('ai')) {
     d = `${d} Structured for AI agents and assistants.`

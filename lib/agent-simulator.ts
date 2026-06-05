@@ -21,15 +21,15 @@ export type PublicSimulationResult = {
 const DEMO_PAGE: AgentPage = {
   id: 'demo',
   owner_id: null,
-  name: 'Aether Strategy',
+  name: 'Axle Strategy',
   slug: 'demo',
   description: 'Premium strategy and execution support for ambitious founders and teams.',
-  website_url: 'https://example.com',
-  cta_url: 'https://example.com/book',
+  website_url: 'https://axlestrategy.com',
+  cta_url: 'https://axlestrategy.com/book',
   cta_label: 'Book a Strategy Session',
   audience: 'Founders and leadership teams scaling from $2M to $20M+',
-  location: 'Global (remote + select in-person)',
-  contact_email: 'hello@aetherstrategy.com',
+  location: 'Global (remote plus select in person)',
+  contact_email: 'hello@axlestrategy.com',
   industry: 'Consulting & Strategy',
   prefer_original_site: false,
   is_published: true,
@@ -37,40 +37,40 @@ const DEMO_PAGE: AgentPage = {
     {
       name: 'Founder OS Template Pack',
       price: '$99',
-      description: 'Notion + Google Sheets system with offer builder, pipeline tracker, and onboarding flows.',
-      url: 'https://example.com/products/founder-os',
+      description: 'Notion and Google Sheets system with offer builder, pipeline tracker, and onboarding flows.',
+      url: 'https://axlestrategy.com/products/founder-os',
     },
     {
-      name: 'Agent-Ready Service Blueprint',
+      name: 'Agent Ready Service Blueprint',
       price: '$149',
-      description: 'Complete framework to turn any service into a structured, AI-optimized offer.',
-      url: 'https://example.com/products/blueprint',
+      description: 'Complete framework to turn any service into a structured offer built for AI agents.',
+      url: 'https://axlestrategy.com/products/blueprint',
     },
   ],
   services: [
     {
       name: 'Strategy Session',
       price: '$450',
-      description: '60-minute focused session. Clear deliverables, recommendations, and next-step plan.',
-      url: 'https://example.com/book/strategy',
+      description: '60 minute focused session. Clear deliverables, recommendations, and a next step plan.',
+      url: 'https://axlestrategy.com/book/strategy',
       duration: '60 min',
     },
     {
       name: 'Implementation Retainer',
       price: 'From $1,800/mo',
       description: 'Ongoing execution support with priority access and monthly reviews.',
-      url: 'https://example.com/book/retainer',
+      url: 'https://axlestrategy.com/book/retainer',
     },
     {
       name: 'Leadership Coaching Package',
       price: '$2,400',
-      description: '3-month engagement with bi-weekly sessions and async support.',
-      url: 'https://example.com/book/coaching',
+      description: '3 month engagement with biweekly sessions and async support.',
+      url: 'https://axlestrategy.com/book/coaching',
     },
   ],
   faqs: [
     { question: 'Can an AI agent book directly?', answer: 'Yes. Every offer includes a direct checkout path agents can follow.' },
-    { question: 'Do you work with early-stage startups?', answer: 'We specialize in companies between $2M–$20M ARR.' },
+    { question: 'Do you work with early stage startups?', answer: 'We specialize in companies between $2M and $20M ARR.' },
   ],
   created_at: new Date().toISOString(),
 }
@@ -220,9 +220,9 @@ export function runMultiAgentSimulation(page: AgentPage, query: string = 'Book a
 
 // ---------------------------------------------------------------------------
 // Query-aware public simulation (homepage teaser).
-// Makes the demo actually respond to the visitor's question — detecting intent,
-// ranking the most relevant offers, and producing a tailored agent answer +
-// concrete next actions — instead of returning a constant response.
+// Makes the demo actually respond to the visitor's question: detecting intent,
+// ranking the most relevant offers, and producing a tailored agent answer plus
+// concrete next actions, instead of returning a constant response.
 // ---------------------------------------------------------------------------
 
 export type SimIntent = 'booking' | 'pricing' | 'fit' | 'product' | 'contact' | 'overview'
@@ -346,7 +346,7 @@ export function interpretPublicQuery(page: AgentPage, query: string): PublicQuer
   const priceCents = withPrice.map((o) => o.cents!).sort((a, b) => a - b)
   const fmt = (c: number) => `$${Math.round(c / 100).toLocaleString()}`
   const priceRange = priceCents.length
-    ? `${fmt(priceCents[0])}–${fmt(priceCents[priceCents.length - 1])}`
+    ? `${fmt(priceCents[0])} to ${fmt(priceCents[priceCents.length - 1])}`
     : 'clear, listed pricing'
   const bm = best.name
   const bmPrice = best.price ? ` (${best.price})` : ''
@@ -356,15 +356,15 @@ export function interpretPublicQuery(page: AgentPage, query: string): PublicQuer
 
   switch (intent) {
     case 'booking':
-      answer = `${page.name} exposes structured offers, so an agent sees “${bm}”${bmPrice} is bookable directly. To act on “${q}”, it calls the checkout action with offer="${best.key}" and returns a confirmed booking link — no human back-and-forth.`
+      answer = `${page.name} exposes structured offers, so an agent sees “${bm}”${bmPrice} is bookable directly. To act on “${q}”, it calls the checkout action with offer="${best.key}" and returns a confirmed booking link, with no human back and forth.`
       agentActions.push(`POST /api/checkout { slug: "${page.slug}", offer: "${best.key}" } → returns a booking link`)
-      agentActions.push(`Read /${page.slug}/agent.json for the machine-readable offer + availability schema`)
+      agentActions.push(`Read /${page.slug}/agent.json for the machine readable offer and availability schema`)
       agentActions.push('Confirm the requested time with the buyer, then complete checkout')
       break
     case 'pricing':
-      answer = `Pricing is explicit, so an agent compares instantly. The entry point is “${cheapest?.name || bm}”${cheapest?.price ? ` at ${cheapest.price}` : ''}; the full range spans ${priceRange} across ${offerCount} offers — it surfaces the right tier for the buyer's budget without guessing.`
+      answer = `Pricing is explicit, so an agent compares instantly. The entry point is “${cheapest?.name || bm}”${cheapest?.price ? ` at ${cheapest.price}` : ''}; the full range spans ${priceRange} across ${offerCount} offers, so it surfaces the right tier for the buyer's budget without guessing.`
       agentActions.push(`Compare ${offerCount} structured offers by price (${priceRange})`)
-      agentActions.push(`Recommend “${cheapest?.name || bm}”${cheapest?.price ? ` (${cheapest.price})` : ''} as the lowest-friction entry point`)
+      agentActions.push(`Recommend “${cheapest?.name || bm}”${cheapest?.price ? ` (${cheapest.price})` : ''} as the simplest entry point`)
       agentActions.push(`POST /api/checkout { offer: "${best.key}" } once the buyer picks a tier`)
       break
     case 'product':
@@ -375,7 +375,7 @@ export function interpretPublicQuery(page: AgentPage, query: string): PublicQuer
       break
     case 'contact':
       answer = page.contact_email
-        ? `An agent can route the buyer straight to ${page.contact_email}, or act on any of ${offerCount} structured offers — for example “${bm}”${bmPrice} — without waiting for a human.`
+        ? `An agent can route the buyer straight to ${page.contact_email}, or act on any of ${offerCount} structured offers, for example “${bm}”${bmPrice}, without waiting for a human.`
         : `An agent acts on ${offerCount} structured offers directly. “${bm}”${bmPrice} is the strongest match for “${q}”.`
       agentActions.push(page.contact_email ? `Send buyer context to ${page.contact_email}` : 'Request a contact email from the business')
       agentActions.push(`Offer “${bm}”${bmPrice} as the recommended next step`)
@@ -384,11 +384,11 @@ export function interpretPublicQuery(page: AgentPage, query: string): PublicQuer
     case 'fit':
       answer = `${page.name} targets ${audience}. Matching that to “${q}”, an agent recommends “${bm}”${bmPrice}, explains why it fits, and offers to book or buy on the spot.`
       agentActions.push(`Match the buyer profile against the stated audience: ${audience}`)
-      agentActions.push(`Recommend “${bm}”${bmPrice} with a one-line rationale`)
+      agentActions.push(`Recommend “${bm}”${bmPrice} with a short rationale`)
       agentActions.push(`POST /api/checkout { offer: "${best.key}" } when the buyer is ready`)
       break
     default:
-      answer = `${page.name} helps ${audience.toLowerCase()}. An agent parses ${offerCount} clearly-priced offers (${priceRange}) with direct actions, so it can answer “${q}” and route intent immediately — starting with “${bm}”${bmPrice}.`
+      answer = `${page.name} helps ${audience.toLowerCase()}. An agent parses ${offerCount} clearly priced offers (${priceRange}) with direct actions, so it can answer “${q}” and route intent immediately, starting with “${bm}”${bmPrice}.`
       agentActions.push(`Summarize ${offerCount} offers (${priceRange}) for the buyer`)
       agentActions.push(`Recommend “${bm}”${bmPrice} as the best starting point`)
       agentActions.push(`POST /api/checkout { offer: "${best.key}" } to act`)
@@ -400,7 +400,7 @@ export function interpretPublicQuery(page: AgentPage, query: string): PublicQuer
     intentLabel: INTENT_LABELS[intent],
     answer,
     readiness,
-    confidence: hadTokenMatch ? 0.9 : 0.74,
+    confidence: hadTokenMatch ? 0.97 : 0.86,
     offers,
     agentActions,
   }

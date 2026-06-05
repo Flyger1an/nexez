@@ -93,14 +93,14 @@ export function PhilosophySplit() {
               {/* the actual offers — buried in prose */}
               <p className="mt-3 text-[9px] uppercase tracking-[0.18em] text-zinc-500">Our services</p>
               <ul className="mt-1.5 space-y-1 text-zinc-400">
-                <li>• <span className="text-zinc-200">Strategy Session</span> — a focused 60-min deep dive. <span className="text-zinc-300">From $450.</span></li>
-                <li>• <span className="text-zinc-200">Retainer</span> — ongoing partnership, <span className="text-zinc-300">starting $3,000/mo.</span></li>
-                <li>• <span className="text-zinc-200">SEO Audit</span> — comprehensive, fixed-scope review.</li>
+                <li>• <span className="text-zinc-200">Strategy Session</span>: a focused 60 minute deep dive. <span className="text-zinc-300">From $450.</span></li>
+                <li>• <span className="text-zinc-200">Retainer</span>: ongoing partnership, <span className="text-zinc-300">starting $3,000/mo.</span></li>
+                <li>• <span className="text-zinc-200">SEO Audit</span>: comprehensive, fixed scope review.</li>
               </ul>
 
               {/* testimonial + newsletter clutter */}
               <div className="mt-3 rounded border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[10px] italic text-zinc-500">
-                “★★★★★ Axle transformed our pipeline.” — Jane, CEO
+                “★★★★★ Axle transformed our pipeline.” Jane, CEO
               </div>
               <div className="mt-2 flex items-center gap-2 text-[10px] text-zinc-500">
                 <span className="truncate">Subscribe to our newsletter for growth tips</span>
@@ -109,7 +109,7 @@ export function PhilosophySplit() {
             </div>
           </div>
           <p className="mt-3 px-1 text-xs leading-5 text-muted-foreground">
-            The same offers exist — buried in nav, marketing copy, banners, and testimonials an agent has to fight through.
+            The same offers exist, buried in nav, marketing copy, banners, and testimonials an agent has to fight through.
           </p>
         </div>
 
@@ -157,7 +157,7 @@ export function PhilosophySplit() {
             </div>
           </div>
           <p className="mt-3 px-1 text-xs leading-5 text-muted-foreground">
-            Offers, pricing, actions, and schema — zero ambiguity.
+            Offers, pricing, actions, and schema. Zero ambiguity.
           </p>
         </div>
       </div>

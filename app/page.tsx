@@ -40,16 +40,16 @@ type Feature = {
 }
 
 const workflow = [
-  { step: '01', title: 'Connect', copy: 'Bring in offers from your website, Calendly, Stripe, Shopify, Square — or add them by hand.' },
-  { step: '02', title: 'Optimize', copy: 'Sharpen pricing, structure, and copy with AI Co-Pilot, or edit every detail manually.' },
+  { step: '01', title: 'Connect', copy: 'Bring in offers from your website, Calendly, Stripe, Shopify, Square, or add them by hand.' },
+  { step: '02', title: 'Optimize', copy: 'Sharpen pricing, structure, and copy with AI Copilot, or edit every detail manually.' },
   { step: '03', title: 'Publish', copy: 'Go live on a Nexez link or your own custom domain.' },
   { step: '04', title: 'Measure', copy: 'Track agent visits, queries, conversion actions, and readiness over time.' },
 ]
 
 const keyFeatures: Feature[] = [
   {
-    title: 'AI Co-Pilot',
-    copy: 'Improve offers, pricing, and structure for the way agents actually parse — one click.',
+    title: 'AI Copilot',
+    copy: 'Improve offers, pricing, and structure for the way agents actually parse. One click.',
     Icon: Sparkles,
   },
   {
@@ -59,17 +59,17 @@ const keyFeatures: Feature[] = [
   },
   {
     title: 'Competitor Analyzer',
-    copy: 'Analyze how agents see any competitor’s website — structure, pricing, and readiness.',
+    copy: 'Analyze how agents see any competitor’s website: structure, pricing, and readiness.',
     Icon: Search,
   },
   {
     title: 'Analytics',
-    copy: 'Track agent visits, queries, and conversions — attributed by model.',
+    copy: 'Track agent visits, queries, and conversions, attributed by model.',
     Icon: TrendingUp,
   },
   {
     title: 'Custom Domains',
-    copy: 'Host your agent page on your own domain, with SSL and brand-root artifacts.',
+    copy: 'Host your agent page on your own domain, with SSL and brand root artifacts.',
     Icon: Globe2,
   },
   {
@@ -83,7 +83,7 @@ const stats = [
   { value: '<200ms', label: 'Agent page load' },
   { value: '19+', label: 'AI crawlers welcomed' },
   { value: '5', label: 'Agent formats per page' },
-  { value: '6', label: 'One-click integrations' },
+  { value: '6', label: 'One click integrations' },
 ]
 
 const agents = ['ChatGPT', 'Claude', 'Perplexity', 'Gemini', 'Grok', 'Copilot']
@@ -162,13 +162,13 @@ export default async function NexezHome() {
           <div>
             <div className="nx-shimmer inline-flex items-center gap-2 rounded-full border border-border bg-white/[0.04] px-3 py-1 text-xs text-muted-foreground">
               <Bot className="size-3.5 text-cyan-300" />
-              AI-readable business pages
+              AI readable business pages
             </div>
             <h1 className="mt-6 max-w-4xl text-balance text-5xl font-semibold tracking-[-0.065em] sm:text-6xl lg:text-7xl">
               Pages built for <span className="nx-accent-text">AI agents.</span>
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
-              Create a clean, structured page that AI agents can understand and act on — then host it on your own
+              Create a clean, structured page that AI agents can understand and act on. Host it on your own
               domain or a Nexez link.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -179,7 +179,7 @@ export default async function NexezHome() {
               <a href="/simulator" className="btn-secondary h-11 px-5">Test agent parsing</a>
             </div>
             <p className="mt-4 text-sm text-zinc-500">
-              Deploy your first AI agent–optimized page in seconds. No code, free to start.
+              Deploy your first page built for AI agents in seconds. No code, free to start.
             </p>
 
             <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4">
@@ -229,7 +229,7 @@ export default async function NexezHome() {
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-muted-foreground">
               Your site is built for humans, so agents struggle to parse your offers, pricing, and next steps. Nexez
-              derives a precise, structured surface from the same data you edit once — humans get the polished page,
+              derives a precise, structured surface from the same data you edit once. Humans get the polished page;
               agents get clean offers, clear pricing, and direct actions.
             </p>
           </div>
@@ -249,8 +249,8 @@ export default async function NexezHome() {
               </h2>
             </div>
             <p className="max-w-md text-sm leading-6 text-muted-foreground">
-              Your human website stays intact. From the same data, Nexez generates the lightweight, machine-readable
-              layer — and serves it on a Nexez link or your own custom domain.
+              Your human website stays intact. From the same data, Nexez generates the lightweight, structured
+              layer agents can read, and serves it on a Nexez link or your own custom domain.
             </p>
           </div>
 
@@ -272,7 +272,7 @@ export default async function NexezHome() {
               </h2>
             </div>
             <p className="max-w-md text-sm leading-6 text-muted-foreground">
-              Every visit, query, and conversion is attributed by agent — ChatGPT, Claude, Perplexity, Grok — so you can
+              Every visit, query, and conversion is attributed by agent (ChatGPT, Claude, Perplexity, Grok), so you can
               prove ROI in minutes, not quarters.
             </p>
           </div>
@@ -311,7 +311,7 @@ export default async function NexezHome() {
         <div className="mx-auto max-w-7xl px-5 py-20">
           <div className="mb-10 max-w-2xl">
             <p className="text-sm font-medium text-muted-foreground">How it works</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">From website to agent-ready.</h2>
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">From website to agent ready.</h2>
             <p className="mt-4 text-sm leading-6 text-muted-foreground">
               Intentionally boring where it should be: import, edit, publish, measure. The magic is in the structure
               agents receive.
@@ -328,6 +328,23 @@ export default async function NexezHome() {
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.copy}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* SIMULATOR */}
+      <section id="simulator" className="border-b border-border bg-white/[0.02] py-20">
+        <div className="mx-auto max-w-4xl px-5 text-center">
+          <p className="text-sm font-medium text-muted-foreground">Agent simulator</p>
+          <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">
+            See your page through an <span className="nx-accent-text">agent’s eyes.</span>
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
+            Ask a real buyer question. Watch a structured page resolve it into the exact offers, prices, and next
+            actions an AI agent would use, instantly and with no signup.
+          </p>
+          <div className="mt-8">
+            <SimulatorTeaser />
           </div>
         </div>
       </section>
@@ -360,7 +377,7 @@ export default async function NexezHome() {
                   </div>
                 </div>
                 <p className="mt-4 line-clamp-3 text-sm leading-6 text-muted-foreground">
-                  {page.description || 'A structured, AI-optimized offer page.'}
+                  {page.description || 'A structured offer page built for AI agents.'}
                 </p>
                 <div className="mt-5 flex flex-wrap gap-2 text-xs text-muted-foreground">
                   <span className="rounded-full border border-border px-2 py-1">{getOfferCount(page)} offers</span>
@@ -378,23 +395,6 @@ export default async function NexezHome() {
         </div>
       </section>
 
-      {/* SIMULATOR */}
-      <section id="simulator" className="border-b border-border bg-white/[0.02] py-20">
-        <div className="mx-auto max-w-4xl px-5 text-center">
-          <p className="text-sm font-medium text-muted-foreground">Agent simulator</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">
-            See your page through an <span className="nx-accent-text">agent’s eyes.</span>
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-            Ask a real buyer question. Watch a structured page resolve it into the exact offers, prices, and next
-            actions an AI agent would use — instantly, no sign-up.
-          </p>
-          <div className="mt-8">
-            <SimulatorTeaser />
-          </div>
-        </div>
-      </section>
-
       {/* FINAL CTA */}
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 z-0">
@@ -405,7 +405,7 @@ export default async function NexezHome() {
             Ready to get discovered <span className="nx-accent-text">by AI?</span>
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-            Deploy a crawlable, structured agent page in minutes — on a Nexez link or your own domain — and start
+            Deploy a crawlable, structured agent page in minutes, on a Nexez link or your own domain, and start
             measuring real discovery signals.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -423,7 +423,7 @@ export default async function NexezHome() {
   )
 }
 
-// Modern bento of the structured artifacts Nexez emits — the product in one glance.
+// Modern bento of the structured artifacts Nexez emits: the product in one glance.
 function BentoGrid() {
   const agentPayload = `{
   "business": "Axle Strategy",
@@ -446,7 +446,7 @@ function BentoGrid() {
           <Code2 className="size-4 text-cyan-300" />
           <p className="text-sm font-medium text-white/90">What agents read</p>
           <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-emerald-300/25 bg-emerald-300/10 px-2 py-0.5 text-[10px] text-emerald-200">
-            <span className="nx-live-dot" /> agent-ready
+            <span className="nx-live-dot" /> agent ready
           </span>
         </div>
         <div className="relative mt-4 flex-1">
@@ -546,7 +546,7 @@ function ProductPreview() {
               Executive strategy sessions, retainers, and audits for B2B founders.
             </p>
             <div className="mt-5 space-y-2">
-              {['Strategy Session - $450', 'Retainer - from $3,000/mo', 'SEO Audit - fixed scope'].map((item) => (
+              {['Strategy Session · $450', 'Retainer · from $3,000/mo', 'SEO Audit · fixed scope'].map((item) => (
                 <div key={item} className="rounded-md border border-border bg-white/[0.03] px-3 py-2 text-sm">
                   {item}
                 </div>
@@ -566,7 +566,7 @@ function ProductPreview() {
 }`}
             </pre>
             <div className="mt-4 rounded-lg border border-emerald-300/25 bg-emerald-300/10 p-3">
-              <p className="text-sm font-medium text-emerald-100">Agent-ready</p>
+              <p className="text-sm font-medium text-emerald-100">Agent ready</p>
               <p className="mt-1 text-xs leading-5 text-emerald-100/80">Clear pricing, buyer fit, schema, and booking action.</p>
             </div>
           </div>
@@ -576,7 +576,7 @@ function ProductPreview() {
   )
 }
 
-// Decorative, illustrative analytics preview — a glass "command center" that
+// Decorative, illustrative analytics preview: a glass "command center" that
 // signals the depth of measurement Nexez ships. All static SVG/CSS, no client JS.
 function AnalyticsSnapshot() {
   const kpis: {
@@ -786,7 +786,7 @@ function SiteFooter() {
               <span className="text-sm font-medium tracking-tight">Nexez</span>
             </a>
             <p className="mt-4 max-w-xs text-sm leading-6 text-muted-foreground">
-              The agent-readable layer for your business — structured, crawlable, and built to convert AI traffic.
+              The agent readable layer for your business: structured, crawlable, and built to convert AI traffic.
             </p>
             <div className="mt-5 flex flex-wrap gap-1.5">
               {['JSON-LD', 'llms.txt', 'agent.json', 'MCP'].map((f) => (
@@ -818,7 +818,7 @@ function SiteFooter() {
           <p>© {new Date().getFullYear()} Nexez. Built for the agentic web.</p>
           <p className="inline-flex items-center gap-2">
             <Globe2 className="size-3.5 text-cyan-300" />
-            Human-first management · Agent-first consumption
+            Human first management · Agent first consumption
           </p>
         </div>
       </div>
