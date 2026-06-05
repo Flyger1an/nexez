@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useMemo, useState } from 'react'
-import { ExternalLink, Loader2, Play, Save } from 'lucide-react'
+import { CopyPlus, ExternalLink, Loader2, Play, Save } from 'lucide-react'
 import { ErrorBoundary } from '../../../components/ErrorBoundary'
 import {
   AgentPage,
@@ -16,6 +16,7 @@ import {
   parseOfferLines,
   parseAvailabilityWindows,
 } from '../../../lib/agent-page'
+import { buildDuplicatePayload } from '../../../lib/duplicate-page'
 import { draftToLiveUpdate, hasPendingDraft } from '../../../lib/draft'
 import { freshnessLabel, isStale } from '../../../lib/freshness'
 import { optimizeAllOffersForAgents, enhanceDescriptionForAgents } from '../../../lib/ai-optimize'
@@ -708,6 +709,29 @@ export default function EditAgentPage({ params }: PageProps) {
     )
   }
 
+  // Clone the saved page into a new unpublished draft and open it.
+  async function duplicateThisPage() {
+    if (!page) return
+    setMessage('Duplicating…')
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: owned } = await supabase.from('pages').select('slug').eq('owner_id', user.id)
+    const slugs = (owned ?? []).map((p: { slug: string }) => p.slug)
+    const { data, error } = await supabase
+      .from('pages')
+      .insert(buildDuplicatePayload(page, user.id, slugs))
+      .select('id')
+      .single<{ id: string }>()
+    if (error || !data) {
+      setMessage(`Could not duplicate: ${error?.message ?? 'unknown error'}`)
+      return
+    }
+    window.location.href = `/dashboard/${data.id}`
+  }
+
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <ErrorBoundary>
@@ -735,6 +759,14 @@ export default function EditAgentPage({ params }: PageProps) {
             >
               Versions & History
             </a>
+            <button
+              onClick={duplicateThisPage}
+              className="inline-flex w-fit items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm text-white hover:bg-white/10"
+              title="Clone this page into a new draft"
+            >
+              <CopyPlus className="size-4" />
+              Duplicate
+            </button>
             <a
               href="/dashboard/competitors"
               className="inline-flex w-fit items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm text-white hover:bg-white/10"

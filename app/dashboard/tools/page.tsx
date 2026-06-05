@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Bot, Loader2, ExternalLink } from 'lucide-react'
+import { Bot, Loader2, ExternalLink, Link2 } from 'lucide-react'
 import { ErrorBoundary } from '../../../components/ErrorBoundary'
 import { ApiKeysManager } from '../../../components/ApiKeysManager'
 import { StripeImporter, ShopifyImporter, AcuityImporter } from '../../../components/tools/Importers'
@@ -205,12 +205,28 @@ export default function ToolsPage() {
         <CalendlyTool />
 
         {/* Import offers from your other connected tools */}
-        <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-8">
-          <h2 className="text-2xl font-semibold">Connect more tools</h2>
-          <p className="mt-1 text-[#9CA3AF]">Import offers from Stripe, Shopify, and Acuity.</p>
-          <StripeImporter />
-          <ShopifyImporter />
-          <AcuityImporter />
+        <div className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
+          <div className="flex items-start gap-3 border-b border-white/10 bg-white/[0.015] p-6">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04]">
+              <Link2 className="size-5 text-cyan-300" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-semibold">Connect more tools</h2>
+              <p className="mt-1 text-sm text-[#9CA3AF]">
+                Import offers from Stripe, Shopify, and Acuity — each becomes an editable, agent-ready page.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-0.5 text-[11px] text-cyan-200">Stripe</span>
+                <span className="rounded-full border border-purple-300/25 bg-purple-300/10 px-2.5 py-0.5 text-[11px] text-purple-200">Shopify</span>
+                <span className="rounded-full border border-orange-300/25 bg-orange-300/10 px-2.5 py-0.5 text-[11px] text-orange-200">Acuity</span>
+              </div>
+            </div>
+          </div>
+          <div className="p-6 pt-4 [&>div:first-child]:mt-0 [&>div:first-child]:border-t-0 [&>div:first-child]:pt-0">
+            <StripeImporter />
+            <ShopifyImporter />
+            <AcuityImporter />
+          </div>
         </div>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
