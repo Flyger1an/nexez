@@ -1,20 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { deriveAvailabilityWindows, type BusyPeriod } from '../../../../../lib/integrations'
 
 /**
- * Google Calendar Availability Import (Phase 3)
- * 
- * Stub implementation that returns realistic, deterministic upcoming availability windows.
- * This fulfills the "actually fetch real availability (even a basic stub)" roadmap item.
- * 
- * Future upgrade path (documented):
- * - When user connects Google OAuth (or provides a service account key),
- *   replace the generateStubAvailability() body with a real call to:
- *     GET https://www.googleapis.com/calendar/v3/calendars/{calendarId}/events
- *     with timeMin, singleEvents:true, maxResults:20, key or Authorization: Bearer
- *   Then map events to free/busy windows (invert busy periods).
- * 
- * For now: zero external deps, works immediately, produces stable output per calendarId
- * so re-imports are consistent and testable.
+ * Google Calendar Availability Import (Phase 3).
+ *
+ * Real path: POST { calendarId, accessToken } → live Google Calendar freeBusy
+ * API. Busy periods are subtracted from business hours to derive open windows.
+ * Falls back to deterministic sample windows when no OAuth token is supplied or
+ * the call fails, so the import always returns something usable.
  */
 
 type AvailabilityWindow = {
@@ -99,6 +92,47 @@ function generateStubAvailability(calendarId: string): AvailabilityPayload {
   }
 }
 
+async function fetchGoogleAvailability(calendarId: string, accessToken: string): Promise<AvailabilityPayload | null> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 9000)
+  try {
+    const now = new Date()
+    const res = await fetch('https://www.googleapis.com/calendar/v3/freeBusy', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        timeMin: now.toISOString(),
+        timeMax: new Date(now.getTime() + 14 * 86400000).toISOString(),
+        items: [{ id: calendarId }],
+      }),
+      signal: controller.signal,
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    const busy = data?.calendars?.[calendarId]?.busy
+    if (!Array.isArray(busy)) return null
+    const windows = deriveAvailabilityWindows(busy as BusyPeriod[], { now })
+    const firstFew = windows.slice(0, 3).map((w) => w.label).join(', ')
+    return {
+      calendar_id: calendarId,
+      source: 'google_calendar',
+      last_synced: now.toISOString(),
+      windows,
+      summary_note: windows.length
+        ? `Next open slots: ${firstFew} (live from Google Calendar)`
+        : 'No open business-hours slots found in the next 14 days.',
+    }
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export async function POST(request: NextRequest) {
   let body: any
   try {
@@ -112,15 +146,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'calendarId is required' }, { status: 400 })
   }
 
-  // In real future this would be the live fetch path.
-  // For now the stub is the "working import".
-  const availability = generateStubAvailability(calendarId)
+  const accessToken = (body?.accessToken || body?.access_token || '').trim()
 
+  if (accessToken) {
+    const live = await fetchGoogleAvailability(calendarId, accessToken)
+    if (live) {
+      return NextResponse.json({ success: true, connected: true, availability: live, next_available: live.summary_note })
+    }
+  }
+
+  const availability = generateStubAvailability(calendarId)
   return NextResponse.json({
     success: true,
+    connected: false,
     availability,
-    // Convenience field so callers can directly use for next_available
     next_available: availability.summary_note,
+    note: accessToken
+      ? 'Could not reach Google Calendar (check the access token and calendar id). Showing sample availability.'
+      : 'Sample availability. POST { calendarId, accessToken } to sync live free/busy.',
   })
 }
 
