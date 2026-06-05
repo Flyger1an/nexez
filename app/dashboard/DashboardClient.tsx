@@ -27,6 +27,10 @@ export type DashboardInitial = {
   displayName: string
 }
 
+// Overview shows a bounded recent set; full management (with pagination) lives
+// in /dashboard/pages so the dashboard stays fast for accounts with many pages.
+const OVERVIEW_PAGE_LIMIT = 9
+
 export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
   const [pages, setPages] = useState<AgentPage[]>(initial?.pages ?? [])
   const [events, setEvents] = useState<CheckoutEvent[]>(initial?.events ?? [])
@@ -367,11 +371,16 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
 
             <div className="mt-5 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-white">Pages</h2>
-              <span className="text-xs text-muted-foreground">{pages.length} total</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">{pages.length} total</span>
+                {pages.length > OVERVIEW_PAGE_LIMIT ? (
+                  <a href="/dashboard/pages" className="text-xs text-cyan-300 hover:underline">Manage all →</a>
+                ) : null}
+              </div>
             </div>
 
             <section className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {pages.map((page) => (
+              {pages.slice(0, OVERVIEW_PAGE_LIMIT).map((page) => (
                 <PageCard
                   key={page.id}
                   page={page}
@@ -385,6 +394,14 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                 />
               ))}
             </section>
+
+            {pages.length > OVERVIEW_PAGE_LIMIT ? (
+              <div className="mt-4 text-center">
+                <a href="/dashboard/pages" className="btn-secondary inline-flex h-10 px-4 text-sm">
+                  Manage all {pages.length} pages →
+                </a>
+              </div>
+            ) : null}
 
             {!pages.length ? (
               <div className="mt-5 rounded-lg border border-dashed border-white/15 p-12 text-center">

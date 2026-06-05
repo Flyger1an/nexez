@@ -32,6 +32,7 @@ import {
   getPageOptions,
   getPipelineCents,
   getReadinessInsight,
+  analyticsRangeBounds,
   getRevenueCents,
   getAgentDrivenRevenueCents,
   getSignalLabel,
@@ -55,6 +56,8 @@ type AnalyticsSearchParams = {
   action?: string
   range?: string
   traffic?: string
+  from?: string
+  to?: string
 }
 
 const actionOptions = [
@@ -101,39 +104,38 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
 
   const pages = await fetchOwnedPages(supabase, user.id)
 
-  // Calculate date cutoff based on range
-  const now = new Date()
-  let cutoff = new Date(0) // all time
+  // Resolve the time window: preset (1d/7d/30d/all) or a custom from/to range.
+  const { cutoff, until, isCustom } = analyticsRangeBounds({ range: filters.range, from: filters.from, to: filters.to })
 
-  if (range === '7d') {
-    cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-  } else if (range === '30d') {
-    cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-  }
-
-  const { data: checkoutEvents } = await supabase
+  let checkoutEventsQuery = supabase
     .from('checkout_events')
     .select('*')
     .eq('owner_id', user.id)
     .gte('created_at', cutoff.toISOString())
+  if (until) checkoutEventsQuery = checkoutEventsQuery.lte('created_at', until.toISOString())
+  const { data: checkoutEvents } = await checkoutEventsQuery
     .order('created_at', { ascending: false })
     .limit(500)
     .returns<CheckoutEvent[]>()
 
-  const { data: agentVisitRows, error: agentVisitError } = await supabase
+  let agentVisitsQuery = supabase
     .from('agent_visits')
     .select('*')
     .eq('owner_id', user.id)
     .gte('created_at', cutoff.toISOString())
+  if (until) agentVisitsQuery = agentVisitsQuery.lte('created_at', until.toISOString())
+  const { data: agentVisitRows, error: agentVisitError } = await agentVisitsQuery
     .order('created_at', { ascending: false })
     .limit(1000)
     .returns<AgentVisit[]>()
 
-  const { data: negotiationRows, error: negotiationError } = await supabase
+  let negotiationsQuery = supabase
     .from('agent_negotiations')
     .select('status, created_at')
     .eq('owner_id', user.id)
     .gte('created_at', cutoff.toISOString())
+  if (until) negotiationsQuery = negotiationsQuery.lte('created_at', until.toISOString())
+  const { data: negotiationRows, error: negotiationError } = await negotiationsQuery
     .returns<Pick<AgentNegotiation, 'status'>[]>()
 
   const events = checkoutEvents ?? []
@@ -222,7 +224,12 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   if (filters.q) exportParams.set('q', filters.q)
   if (filters.page) exportParams.set('page', filters.page)
   if (selectedAction && selectedAction !== 'all') exportParams.set('action', selectedAction)
-  if (range && range !== 'all') exportParams.set('range', range)
+  if (isCustom) {
+    if (filters.from) exportParams.set('from', filters.from)
+    if (filters.to) exportParams.set('to', filters.to)
+  } else if (range && range !== 'all') {
+    exportParams.set('range', range)
+  }
   if (selectedTraffic !== 'all') exportParams.set('traffic', selectedTraffic)
 
   const exportHref = `/api/analytics/export${exportParams.toString() ? `?${exportParams}` : ''}`
@@ -232,23 +239,56 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       <ErrorBoundary>
       <div className="mx-auto max-w-7xl px-6 py-8">
         <div className="flex justify-end">
-          <div className="flex items-center gap-3">
-            {/* Time range selector - Phase 2 */}
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {/* Time range selector (presets + custom range) */}
             <div className="flex rounded-lg border border-white/10 bg-white/[0.04] p-1 text-sm">
               {[
+                { label: '1d', value: '1d' },
                 { label: '7d', value: '7d' },
                 { label: '30d', value: '30d' },
                 { label: 'All', value: 'all' },
               ].map((r) => (
                 <a
                   key={r.value}
-                  href={makeAnalyticsHref(filters, { range: r.value })}
-                  className={`rounded-md px-3 py-1 transition ${range === r.value ? 'bg-white text-black' : 'text-zinc-300 hover:bg-white/10'}`}
+                  href={makeAnalyticsHref(filters, { range: r.value, from: undefined, to: undefined })}
+                  className={`rounded-md px-3 py-1 transition ${range === r.value && !isCustom ? 'bg-white text-black' : 'text-zinc-300 hover:bg-white/10'}`}
                 >
                   {r.label}
                 </a>
               ))}
             </div>
+
+            {/* Custom date range — submits ?from&to (takes precedence over the preset) */}
+            <form
+              method="get"
+              className={`flex items-center gap-1.5 rounded-lg border bg-white/[0.04] px-2 py-1 ${isCustom ? 'border-[#7C3AED]/50' : 'border-white/10'}`}
+            >
+              {filters.q ? <input type="hidden" name="q" value={filters.q} /> : null}
+              {filters.page ? <input type="hidden" name="page" value={filters.page} /> : null}
+              {selectedAction && selectedAction !== 'all' ? <input type="hidden" name="action" value={selectedAction} /> : null}
+              {selectedTraffic !== 'all' ? <input type="hidden" name="traffic" value={selectedTraffic} /> : null}
+              <input
+                type="date"
+                name="from"
+                defaultValue={filters.from ?? ''}
+                aria-label="From date"
+                className="rounded bg-transparent px-1 py-0.5 text-xs text-zinc-200 outline-none [color-scheme:dark]"
+              />
+              <span className="text-xs text-zinc-500">to</span>
+              <input
+                type="date"
+                name="to"
+                defaultValue={filters.to ?? ''}
+                aria-label="To date"
+                className="rounded bg-transparent px-1 py-0.5 text-xs text-zinc-200 outline-none [color-scheme:dark]"
+              />
+              <button
+                type="submit"
+                className={`rounded-md px-2 py-1 text-xs transition ${isCustom ? 'bg-white text-black' : 'text-zinc-300 hover:bg-white/10'}`}
+              >
+                Apply
+              </button>
+            </form>
 
             <a href={exportHref} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm text-zinc-200 hover:bg-white/10">
               <Download className="size-4" />
@@ -856,7 +896,13 @@ function makeAnalyticsHref(current: AnalyticsSearchParams, overrides: Partial<An
   const next = { ...current, ...overrides }
   const params = new URLSearchParams()
 
-  if (next.range && next.range !== '30d') params.set('range', next.range)
+  // A custom from/to range takes precedence over the preset range.
+  if (next.from || next.to) {
+    if (next.from) params.set('from', next.from)
+    if (next.to) params.set('to', next.to)
+  } else if (next.range && next.range !== '30d') {
+    params.set('range', next.range)
+  }
   if (next.q) params.set('q', next.q)
   if (next.page) params.set('page', next.page)
   if (next.action && next.action !== 'all') params.set('action', next.action)

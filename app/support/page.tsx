@@ -1,7 +1,7 @@
 import { SupportDesk } from '../../components/SupportDesk'
 
 export const metadata = {
-  title: 'Support | Nexez',
+  title: 'Support',
   description: 'Get AI-assisted Nexez support or create a support ticket with page context attached.',
 }
 

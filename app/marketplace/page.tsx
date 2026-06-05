@@ -5,7 +5,7 @@ import { MarketplaceResults } from '../../components/MarketplaceResults'
 import { TrackedDirectoryLink } from '../../components/TrackedDirectoryLink'
 
 export const metadata: Metadata = {
-  title: 'Nexez Agent Marketplace',
+  title: 'Agent Marketplace',
   description: 'Browse, favorite, and discover agent-optimized offers from across Nexez. Trending and high-trust pages for agents and humans.',
 }
 

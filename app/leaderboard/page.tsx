@@ -4,7 +4,7 @@ import { AgentPage, PUBLIC_PAGE_SELECT, getOfferCount, getReadinessScore, getTru
 import { supabase } from '../../lib/supabase'
 
 export const metadata: Metadata = {
-  title: 'Agent-Ready Leaderboard | Nexez',
+  title: 'Agent-Ready Leaderboard',
   description: 'The most agent-ready businesses on Nexez, ranked by readiness and trust.',
 }
 

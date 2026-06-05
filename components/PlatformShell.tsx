@@ -105,11 +105,11 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-background text-foreground">
       <div
         className={`grid min-h-screen transition-[grid-template-columns] duration-200 ${
-          collapsed ? 'lg:grid-cols-[72px_minmax(0,1fr)]' : 'lg:grid-cols-[248px_minmax(0,1fr)]'
+          collapsed ? 'md:grid-cols-[72px_minmax(0,1fr)]' : 'md:grid-cols-[248px_minmax(0,1fr)]'
         }`}
       >
-        <aside className="dashboard-sidebar fixed inset-x-0 bottom-0 z-50 border-t lg:sticky lg:top-0 lg:inset-x-auto lg:bottom-auto lg:flex lg:h-screen lg:flex-col lg:border-r lg:border-t-0">
-          <div className="hidden items-center gap-3 border-b border-border px-4 py-4 lg:flex">
+        <aside className="dashboard-sidebar fixed inset-x-0 bottom-0 z-50 border-t md:sticky md:top-0 md:inset-x-auto md:bottom-auto md:flex md:h-screen md:flex-col md:border-r md:border-t-0">
+          <div className="hidden items-center gap-3 border-b border-border px-4 py-4 md:flex">
             <a href="/" className="flex min-w-0 flex-1 items-center gap-3" title="Nexez home">
               <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-white text-sm font-semibold text-black">
                 N
@@ -126,19 +126,18 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
             </button>
           </div>
 
-          <nav className="grid grid-cols-5 gap-1 px-2 py-2 lg:block lg:space-y-1 lg:p-3">
+          <nav className="flex gap-1 overflow-x-auto px-2 py-2 md:block md:space-y-1 md:overflow-x-visible md:p-3">
             {visibleNav.map((item) => (
               <Fragment key={item.href}>
                 <ShellNavItem
                   href={item.href}
                   label={item.label}
                   icon={item.icon}
-                  mobile={item.mobile}
                   collapsed={collapsed}
                   pathname={pathname}
                 />
                 {'subItems' in item && item.subItems && pathname.startsWith('/dashboard/pages') && !collapsed ? (
-                  <div className="ml-7 hidden space-y-0.5 lg:block">
+                  <div className="ml-7 hidden space-y-0.5 md:block">
                     {item.subItems.map((sub) => (
                       <a
                         key={sub.href}
@@ -154,7 +153,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
             ))}
           </nav>
 
-          <div className="mt-auto hidden p-3 lg:block">
+          <div className="mt-auto hidden p-3 md:block">
             <div className={`rounded-lg border border-border bg-white/[0.03] ${collapsed ? 'p-2' : 'p-3'}`}>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Sparkles className="size-4 text-cyan-300" />
@@ -167,7 +166,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
           </div>
         </aside>
 
-        <div className="min-w-0 pb-16 lg:pb-0">
+        <div className="min-w-0 pb-16 md:pb-0">
           <header className="nx-nav sticky top-0 z-40 border-b border-border px-4 py-3 backdrop-blur-xl lg:px-6">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex items-center justify-between gap-3 xl:hidden">
@@ -223,14 +222,12 @@ function ShellNavItem({
   href,
   label,
   icon: Icon,
-  mobile,
   collapsed,
   pathname,
 }: {
   href: string
   label: string
   icon: typeof Grid2X2
-  mobile?: boolean
   collapsed: boolean
   pathname: string
 }) {
@@ -242,10 +239,10 @@ function ShellNavItem({
       title={label}
       className={`nav-item flex h-10 shrink-0 items-center gap-3 rounded-md px-3 text-sm ${
         active ? 'active' : ''
-      } ${mobile ? '' : 'hidden lg:flex'} ${collapsed ? 'lg:justify-center lg:px-0' : ''}`}
+      } ${collapsed ? 'md:justify-center md:px-0' : ''}`}
     >
       <Icon className="size-4 shrink-0" />
-      <span className={`hidden whitespace-nowrap lg:block ${collapsed ? 'lg:hidden' : 'lg:block'}`}>{label}</span>
+      <span className={`hidden whitespace-nowrap md:block ${collapsed ? 'md:hidden' : 'md:block'}`}>{label}</span>
     </a>
   )
 }

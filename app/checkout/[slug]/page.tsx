@@ -55,7 +55,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   const offer = getCheckoutOffer(page, search.offer)
 
   return {
-    title: `${offer?.name ?? page.name} checkout | Nexez`,
+    title: `${offer?.name ?? page.name} checkout`,
     description: `Agent-friendly checkout context for ${offer?.name ?? page.name}.`,
     robots: {
       index: true,

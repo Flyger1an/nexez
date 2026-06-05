@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { ArrowLeft } from 'lucide-react'
 
 export const metadata: Metadata = {
-  title: 'Terms of Service | Nexez',
+  title: 'Terms of Service',
   description: 'The terms governing your use of the Nexez platform.',
 }
 

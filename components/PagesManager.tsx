@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, EyeOff, Plus, Trash2, X } from 'lucide-react'
 import { AgentPage, BASIC_OWNER_PAGE_SELECT, OWNER_PAGE_SELECT, getBaseUrl } from '../lib/agent-page'
 import { buildDuplicatePayload } from '../lib/duplicate-page'
@@ -36,6 +36,17 @@ export function PagesManager({
     if (status === 'draft') return pages.filter((p) => !p.is_published)
     return pages
   }, [pages, status])
+
+  // Client-side pagination so the DOM stays bounded for accounts with many pages.
+  const PER_PAGE = 12
+  const [pageNum, setPageNum] = useState(1)
+  useEffect(() => {
+    setPageNum(1)
+  }, [status])
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
+  const safePage = Math.min(pageNum, totalPages)
+  const pageStart = (safePage - 1) * PER_PAGE
+  const paged = filtered.slice(pageStart, pageStart + PER_PAGE)
 
   async function reload() {
     const supabase = createClient()
@@ -208,15 +219,19 @@ export function PagesManager({
 
         {filtered.length > 0 && (
           <div className="mt-5 flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">{filtered.length} page{filtered.length === 1 ? '' : 's'}</span>
+            <span className="text-xs text-muted-foreground">
+              {filtered.length <= PER_PAGE
+                ? `${filtered.length} page${filtered.length === 1 ? '' : 's'}`
+                : `Showing ${pageStart + 1}–${Math.min(pageStart + PER_PAGE, filtered.length)} of ${filtered.length}`}
+            </span>
             <button onClick={selectAllVisible} className="text-xs text-zinc-400 hover:text-white">
-              Select all
+              Select all ({filtered.length})
             </button>
           </div>
         )}
 
         <section className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((page) => (
+          {paged.map((page) => (
             <PageCard
               key={page.id}
               page={page}
@@ -230,6 +245,28 @@ export function PagesManager({
             />
           ))}
         </section>
+
+        {totalPages > 1 && (
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => setPageNum(safePage - 1)}
+              disabled={safePage <= 1}
+              className="inline-flex h-9 items-center rounded-md border border-white/10 px-3 text-sm text-zinc-300 hover:bg-white/10 disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-muted-foreground">Page {safePage} of {totalPages}</span>
+            <button
+              type="button"
+              onClick={() => setPageNum(safePage + 1)}
+              disabled={safePage >= totalPages}
+              className="inline-flex h-9 items-center rounded-md border border-white/10 px-3 text-sm text-zinc-300 hover:bg-white/10 disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        )}
 
         {filtered.length === 0 && (
           <div className="mt-6 rounded-lg border border-dashed border-white/15 p-12 text-center">

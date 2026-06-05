@@ -72,7 +72,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const agentJson = `${base}${agentArtifactHref('agent.json', page.slug, onCustomHost, domainPath)}`
 
   return {
-    title: `${page.name} | Nexez`,
+    title: page.name,
     description: page.description ?? `${page.name} is available through an AI-readable Nexez page.`,
     alternates: {
       canonical,

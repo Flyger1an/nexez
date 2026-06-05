@@ -354,3 +354,40 @@ export function getReadinessInsight(
   const avgActive = avg(activePages)
   return { avgAll, avgActive, activeCount: activePages.length, lift: avgActive - avgAll }
 }
+
+/** Parse a YYYY-MM-DD string to a local-midnight Date, or null if invalid. */
+export function parseYmd(value: string | null | undefined): Date | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+  const d = new Date(`${value}T00:00:00`)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+export type AnalyticsRangeInput = { range?: string; from?: string; to?: string }
+export type AnalyticsRangeBounds = { cutoff: Date; until: Date | null; isCustom: boolean; preset: string }
+
+/**
+ * Resolve the analytics time window from the URL params.
+ * A custom `from`/`to` range (either bound) takes precedence over the preset
+ * `range` (1d / 7d / 30d / all). `until` is the inclusive end-of-day for `to`.
+ * Shared by the analytics page and the CSV export so they always agree.
+ */
+export function analyticsRangeBounds(input: AnalyticsRangeInput, now: Date = new Date()): AnalyticsRangeBounds {
+  const fromDate = parseYmd(input.from)
+  const toDate = parseYmd(input.to)
+  if (fromDate || toDate) {
+    let until: Date | null = null
+    if (toDate) {
+      until = new Date(toDate)
+      until.setHours(23, 59, 59, 999)
+    }
+    return { cutoff: fromDate ?? new Date(0), until, isCustom: true, preset: 'custom' }
+  }
+
+  const preset = input.range || '30d'
+  const day = 24 * 60 * 60 * 1000
+  let cutoff = new Date(0)
+  if (preset === '1d') cutoff = new Date(now.getTime() - day)
+  else if (preset === '7d') cutoff = new Date(now.getTime() - 7 * day)
+  else if (preset === '30d') cutoff = new Date(now.getTime() - 30 * day)
+  return { cutoff, until: null, isCustom: false, preset }
+}

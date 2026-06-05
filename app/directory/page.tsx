@@ -14,7 +14,7 @@ type DirectoryProps = {
 const quickFilters = ['consulting', 'strategy session', 'bookings', 'products', 'retainers']
 
 export const metadata: Metadata = {
-  title: 'Agent Marketplace + Directory | Nexez',
+  title: 'Agent Marketplace + Directory',
   description: 'Discover and favorite agent-optimized offers. Marketplace for agents + humans.',
 }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { buildAnalyticsCsv, filterAnalyticsEvents } from '../../../../lib/analytics'
+import { analyticsRangeBounds, buildAnalyticsCsv, filterAnalyticsEvents } from '../../../../lib/analytics'
 import { CheckoutEvent } from '../../../../lib/checkout-events'
 import { createClient } from '../../../../utils/supabase/server'
 
@@ -15,10 +15,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Sign in to export analytics.' }, { status: 401 })
   }
 
-  const { data, error } = await supabase
+  const sp = request.nextUrl.searchParams
+  // Honor the same time window as the analytics page (preset or custom from/to).
+  const { cutoff, until } = analyticsRangeBounds({
+    range: sp.get('range') ?? undefined,
+    from: sp.get('from') ?? undefined,
+    to: sp.get('to') ?? undefined,
+  })
+
+  let query = supabase
     .from('checkout_events')
     .select('*')
     .eq('owner_id', user.id)
+    .gte('created_at', cutoff.toISOString())
+  if (until) query = query.lte('created_at', until.toISOString())
+  const { data, error } = await query
     .order('created_at', { ascending: false })
     .limit(1000)
     .returns<CheckoutEvent[]>()
@@ -27,10 +38,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Could not export analytics.' }, { status: 500 })
   }
 
-  const action = request.nextUrl.searchParams.get('action') || 'all'
+  const action = sp.get('action') || 'all'
   const events = filterAnalyticsEvents(data ?? [], {
-    query: request.nextUrl.searchParams.get('q') ?? undefined,
-    pageId: request.nextUrl.searchParams.get('page') ?? undefined,
+    query: sp.get('q') ?? undefined,
+    pageId: sp.get('page') ?? undefined,
     action,
   })
   const csv = buildAnalyticsCsv(events)
