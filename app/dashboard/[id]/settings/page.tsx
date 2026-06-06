@@ -530,7 +530,7 @@ export default function PageSettings({ params }: PageProps) {
         </div>
 
         <section className="mt-8 grid gap-6 lg:grid-cols-[0.82fr_1.18fr]">
-          <aside className="space-y-5">
+          <aside className="space-y-5 min-w-0">
             <div>
               <p className="flex items-center gap-2 text-sm text-cyan-200">
                 <Settings className="size-4" />
@@ -581,12 +581,12 @@ export default function PageSettings({ params }: PageProps) {
               <div className="mt-4 space-y-3 text-sm">
                 <div>
                   <p className="text-xs uppercase tracking-widest text-zinc-400">Custom domain</p>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <input
                       value={customDomain}
                       onChange={(e) => setCustomDomain(e.target.value)}
                       placeholder="agents.yourcompany.com"
-                      className="mt-1 flex-1 rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
+                      className="mt-1 w-full min-w-0 flex-1 rounded border border-white/15 bg-black/30 px-2 py-1 text-sm sm:w-auto"
                     />
                     <button
                       type="button"
@@ -921,7 +921,7 @@ export default function PageSettings({ params }: PageProps) {
             </div>
           </aside>
 
-          <div className="space-y-5">
+          <div className="space-y-5 min-w-0">
             <form onSubmit={saveSettings} className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
               <div className="grid gap-5 md:grid-cols-2">
                 <Field label="Page name">
