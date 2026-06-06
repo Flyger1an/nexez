@@ -36,7 +36,7 @@ Forward-looking work, roughly by leverage:
 - **Real LLM assist** — Co-Pilot/analyzer/importer-fallback/voice are deterministic stubs gated on `LLM_API_KEY`; wire the opt-in flag through once a key is configured.
 - **Deeper integrations** — real bidirectional Calendly/Stripe sync (availability reflected in agent pages), richer price webhooks; per-domain scoped `llms.txt`/`openapi.json` (currently global).
 - **Launch-prep differentiators** — templates marketplace (curated + user packs), "Nexez Certified Agent-Ready" certification, seed 20–30 high-quality directory pages, comparison/case-study marketing pages.
-- **Deeper test coverage** — extend the route/component suites to the long tail (remaining ~30 API routes, more dashboard components), and wire the authed E2E into CI with a dedicated test account + storageState.
+- **Deeper test coverage / CI** — GitHub Actions workflows are authored (`.github/workflows/ci.yml` push/PR gate + `e2e.yml` manual Playwright) but await a `workflow`-scoped push token to land. Then: add repo secrets for the authed E2E (dedicated test account) and keep extending the route/component suites into the long tail (~25 remaining API routes, more dashboard components).
 - **Housekeeping** — enable Supabase Auth leaked-password protection (dashboard toggle); light-mode long-tail (rare hardcoded neutral classes on deep screens).
 
 ## Governance
