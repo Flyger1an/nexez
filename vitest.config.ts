@@ -1,6 +1,12 @@
 import { defineConfig, configDefaults } from 'vitest/config'
+import { fileURLToPath } from 'node:url'
 
 export default defineConfig({
+  // Mirror the tsconfig "@/*" path alias (only matches "@/", so it won't clash
+  // with scoped packages like @playwright/test or @testing-library/react).
+  resolve: {
+    alias: [{ find: /^@\//, replacement: fileURLToPath(new URL('./', import.meta.url)) }],
+  },
   test: {
     environment: 'node',
     setupFiles: ['./vitest.setup.ts'],
