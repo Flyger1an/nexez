@@ -28,6 +28,7 @@
 - **Editor architecture** — the page editor (`app/dashboard/[id]`) is a server component (auth + parallel fetch + access redirects) feeding an `EditorClient` island over a `usePageEditor` hook + presentational panels (`components/editor/*`); the smart-merge / save-payload / version logic lives in unit-tested `lib/editor-merge.ts`.
 - **Billing, support & hosted checkout** — Stripe **subscription billing** (`/dashboard/billing`, `/api/billing/{checkout,portal}`, plan Price IDs; gated → "setup Stripe" redirect when unconfigured); **support desk** (`/support`, `/api/support/{tickets,assist}`; tickets persist to `support_tickets`); **Nexez-hosted checkout** (`/checkout/[slug]` → real Stripe Checkout Session, with provider-redirect fallback for offers that prefer the original site). All Stripe surfaces degrade gracefully when `STRIPE_SECRET_KEY` is unset.
 - **Security/RLS hardening** — Supabase advisors clean except the leaked-password toggle (auth dashboard config): scoped the `logos` bucket (dropped broad listing), moved `nz_page_is_published` to a non-PostgREST `private` schema (RPC no longer exposed; negotiation INSERT policy intact), indexed the `support_tickets` FK; collaborator RLS policies already use the `(select auth.*())` init-plan form.
+- **Test coverage** — beyond the `lib/` unit suite: **API route-handler tests** (vitest, mocked Supabase via `test/supabase-mock.ts`) covering auth/tenancy/gating on the security-sensitive routes (api/v1, negotiations, account delete/export, custom-domain verify, Stripe webhook), plus **Playwright E2E** (`npm run test:e2e`) — public-page smoke + an authed, non-destructive editor smoke (creds via env, skips in CI). Responsive layout verified at mobile across all routes (no horizontal overflow).
 
 ## Pending / next
 Forward-looking work, roughly by leverage:
@@ -35,6 +36,7 @@ Forward-looking work, roughly by leverage:
 - **Real LLM assist** — Co-Pilot/analyzer/importer-fallback/voice are deterministic stubs gated on `LLM_API_KEY`; wire the opt-in flag through once a key is configured.
 - **Deeper integrations** — real bidirectional Calendly/Stripe sync (availability reflected in agent pages), richer price webhooks; per-domain scoped `llms.txt`/`openapi.json` (currently global).
 - **Launch-prep differentiators** — templates marketplace (curated + user packs), "Nexez Certified Agent-Ready" certification, seed 20–30 high-quality directory pages, comparison/case-study marketing pages.
+- **Deeper test coverage** — extend beyond the security/tenancy routes: component tests (would add `jsdom` + `@testing-library/react`), broad happy-path coverage across the remaining ~48 routes, and wiring the authed E2E into CI with a dedicated test account.
 - **Housekeeping** — enable Supabase Auth leaked-password protection (dashboard toggle); light-mode long-tail (rare hardcoded neutral classes on deep screens).
 
 ## Governance
