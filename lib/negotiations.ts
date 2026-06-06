@@ -57,6 +57,27 @@ export function getNegotiationStatusLabel(status: NegotiationStatus): string {
   return STATUS_LABELS[status] ?? status
 }
 
+/**
+ * True when a Postgres/PostgREST error means the table hasn't been migrated yet
+ * (relation does not exist / not in the schema cache) — as opposed to a
+ * transient load failure. Lets the inbox show "apply migration" guidance
+ * instead of a generic error for a not-yet-migrated project.
+ */
+export function isMissingTableError(
+  error: { code?: string | null; message?: string | null } | null | undefined,
+): boolean {
+  if (!error) return false
+  const code = error.code || ''
+  const msg = (error.message || '').toLowerCase()
+  return (
+    code === '42P01' || // Postgres: undefined_table
+    code === 'PGRST205' || // PostgREST: table not found in schema cache
+    msg.includes('does not exist') ||
+    msg.includes('could not find the table') ||
+    msg.includes('schema cache')
+  )
+}
+
 // Tone keys map to badge styling in the UI; kept abstract so styling stays
 // in the component layer.
 export function getNegotiationStatusTone(

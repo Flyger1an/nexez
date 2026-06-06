@@ -5,9 +5,26 @@ import {
   getAllowedNegotiationTransitions,
   getNegotiationStatusLabel,
   getNegotiationStatusTone,
+  isMissingTableError,
   isTerminalNegotiationStatus,
   summarizeNegotiations,
 } from '../negotiations'
+
+describe('isMissingTableError', () => {
+  it('detects a not-yet-migrated table by code or message', () => {
+    expect(isMissingTableError({ code: '42P01' })).toBe(true)
+    expect(isMissingTableError({ code: 'PGRST205' })).toBe(true)
+    expect(isMissingTableError({ message: 'relation "agent_negotiations" does not exist' })).toBe(true)
+    expect(isMissingTableError({ message: "Could not find the table 'public.agent_negotiations' in the schema cache" })).toBe(true)
+  })
+
+  it('does not flag transient/unrelated errors or empty input', () => {
+    expect(isMissingTableError({ code: '57014', message: 'canceling statement due to statement timeout' })).toBe(false)
+    expect(isMissingTableError({ message: 'JWT expired' })).toBe(false)
+    expect(isMissingTableError(null)).toBe(false)
+    expect(isMissingTableError(undefined)).toBe(false)
+  })
+})
 
 describe('negotiation status labels & tones', () => {
   it('labels every status', () => {

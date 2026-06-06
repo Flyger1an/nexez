@@ -19,9 +19,13 @@ import {
   getAllowedNegotiationTransitions,
   getNegotiationStatusLabel,
   getNegotiationStatusTone,
+  isMissingTableError,
   summarizeNegotiations,
 } from '../../../lib/negotiations'
+import { withTimeout } from '../../../lib/async-timeout'
 import { createClient } from '../../../utils/supabase/client'
+
+const LOAD_TIMEOUT_MS = 12000
 
 const TONE_BADGE: Record<ReturnType<typeof getNegotiationStatusTone>, string> = {
   open: 'border-amber-300/30 bg-amber-300/10 text-amber-200',
@@ -56,6 +60,7 @@ export default function NegotiationsInbox() {
   const [negotiations, setNegotiations] = useState<AgentNegotiation[]>([])
   const [loading, setLoading] = useState(true)
   const [migrationPending, setMigrationPending] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [message, setMessage] = useState('')
 
@@ -65,35 +70,52 @@ export default function NegotiationsInbox() {
 
   async function load() {
     setLoading(true)
+    setLoadError('')
+    setMigrationPending(false)
     const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
 
-    if (!user) {
-      window.location.href = '/login?next=/dashboard/negotiations'
-      return
+    try {
+      const {
+        data: { user },
+      } = await withTimeout(supabase.auth.getUser(), LOAD_TIMEOUT_MS, 'Timed out checking your session.')
+
+      if (!user) {
+        window.location.href = '/login?next=/dashboard/negotiations'
+        return
+      }
+
+      const { data, error } = await withTimeout(
+        supabase
+          .from('agent_negotiations')
+          .select('*')
+          .eq('owner_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(100)
+          .returns<AgentNegotiation[]>(),
+        LOAD_TIMEOUT_MS,
+        'Timed out loading negotiations. Check your connection and retry.',
+      )
+
+      if (error) {
+        if (isMissingTableError(error)) {
+          // Not-yet-migrated project: show migration guidance, not an error.
+          setMigrationPending(true)
+          setNegotiations([])
+        } else {
+          console.error('Failed to load negotiations:', error.message)
+          setLoadError(error.message || 'Failed to load negotiations.')
+        }
+      } else {
+        setNegotiations(data || [])
+      }
+    } catch (err) {
+      // Network failure or timeout — surface a retryable error instead of
+      // spinning forever (the inbox once hung on "Loading negotiations…").
+      console.error('Failed to load negotiations:', err)
+      setLoadError(err instanceof Error ? err.message : 'Failed to load negotiations.')
+    } finally {
+      setLoading(false)
     }
-
-    const { data, error } = await supabase
-      .from('agent_negotiations')
-      .select('*')
-      .eq('owner_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(100)
-      .returns<AgentNegotiation[]>()
-
-    if (error) {
-      // Treat a missing table / not-yet-migrated project as an empty inbox
-      // rather than a hard crash, consistent with the rest of the dashboard.
-      console.error('Failed to load negotiations:', error.message)
-      setMigrationPending(true)
-      setNegotiations([])
-    } else {
-      setNegotiations(data || [])
-    }
-
-    setLoading(false)
   }
 
   async function updateStatus(item: AgentNegotiation, to: NegotiationStatus) {
@@ -157,6 +179,18 @@ export default function NegotiationsInbox() {
           {loading ? (
             <div className="mt-10 flex items-center justify-center gap-2 text-zinc-400">
               <Loader2 className="size-5 animate-spin" /> Loading negotiations…
+            </div>
+          ) : loadError ? (
+            <div className="card mt-6 !p-8 text-center">
+              <XCircle className="mx-auto size-8 text-red-400/80" />
+              <p className="mt-3 text-sm font-medium text-zinc-200">Couldn’t load negotiations</p>
+              <p className="mx-auto mt-2 max-w-md text-sm text-zinc-400">{loadError}</p>
+              <button
+                onClick={() => void load()}
+                className="mt-4 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 text-sm text-zinc-200 transition hover:bg-white/10"
+              >
+                <RefreshCw className="size-4" /> Retry
+              </button>
             </div>
           ) : negotiations.length === 0 ? (
             <div className="card mt-6 !p-8 text-center">
