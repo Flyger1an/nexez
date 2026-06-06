@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { type NextRequest, NextResponse } from 'next/server'
+import { resolveAuthGate } from './auth-gate'
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -36,13 +37,13 @@ export async function updateSession(request: NextRequest) {
   // access to the dashboard menu. Public surfaces (/, /create, /marketplace,
   // /directory, /leaderboard, /simulator, /support, public pages) stay open.
   const path = request.nextUrl.pathname
-  const isProtected = path === '/dashboard' || path.startsWith('/dashboard/')
+  const gate = resolveAuthGate(path, request.nextUrl.search, Boolean(user))
 
-  if (isProtected && !user) {
+  if (gate) {
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/login'
     loginUrl.search = ''
-    loginUrl.searchParams.set('next', path + (request.nextUrl.search || ''))
+    loginUrl.searchParams.set('next', gate.next)
     return NextResponse.redirect(loginUrl)
   }
 
