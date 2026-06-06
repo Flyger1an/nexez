@@ -1,6 +1,6 @@
 # Nexez — Session Handoff
 
-_Last updated: 2026-06-05 (long-tail tests + CI) · HEAD `7f2677b` (verify with `git rev-parse --short main`)_
+_Last updated: 2026-06-05 (CI verified green) · HEAD `6052372` (verify with `git rev-parse --short main`)_
 
 ## Project
 **Nexez** helps businesses create dedicated, highly structured pages optimized for **AI agents** to discover, understand, and purchase from. Dual philosophy: **premium glassmorphism human dashboard** vs **brutally clean/semantic HTML for agents** on public `[slug]` pages. A core objective is **deploying agent-optimized pages to custom domains**, managed from the Nexez backend.
@@ -23,7 +23,7 @@ _Last updated: 2026-06-05 (long-tail tests + CI) · HEAD `7f2677b` (verify with 
 ## Current state (verified this session)
 - `origin/main` == local @ **`7f2677b`**, clean tree. Vercel auto-deploys on push; prod verified live (`/icon.png` + `/nexez-logo.png` → 200; tab title "Nexez — Pages built for AI agents", favicon `/icon.png`). The editor route `/dashboard/[id]` is now a **server component** (was a `'use client'` monolith).
 - **311 tests passing** — `lib/` units + **API route-handler tests** (auth/tenancy/gating, `app/api/**/route.test.ts`) + **component tests** (jsdom: ThemeToggle, ErrorBoundary, VisualOfferBuilder, PageCard, ReadinessAside, EditorToolbar); lint (`--quiet`) / tsc / build all clean. Playwright E2E present (`e2e/`).
-- **CI live** — `.github/workflows/ci.yml` runs lint/tsc/test/build on push+PR (Node 22, placeholder public env). `.github/workflows/e2e.yml` is a manual (workflow_dispatch) Playwright run — add repo secrets (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `E2E_EMAIL`, `E2E_PASSWORD`) to enable the authed smoke. _(The push token now has the `workflow` scope.)_
+- **CI live & verified green** — `.github/workflows/ci.yml` runs lint/tsc/test/build on push+PR (Node 22; reads `NEXT_PUBLIC_SUPABASE_*` from secrets, placeholder fallback for fork PRs). `e2e.yml` is a manual (workflow_dispatch) Playwright run. **All 4 repo secrets are configured** (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `E2E_EMAIL`, `E2E_PASSWORD`); a dispatched E2E run passed (authed editor smoke green on Actions), and CI is green on the latest commits. _(The push token now has the `workflow` scope.)_
 - ~48 API routes, **29 migrations — all applied to prod.** The settings-page logo upload (`storage.from('logos')`) works (logos bucket + RLS live).
 - ~48 API routes, **29 migrations — all applied to prod.** The settings-page logo upload (`storage.from('logos')`) works (logos bucket + RLS live).
 - **Supabase security advisors are clean except one** — the `logos` listing + `nz_page_is_published` RPC-exposure findings were fixed (`20260613020000_security_harden_advisors.sql`). The only remaining advisor is **Auth "leaked password protection"** (still off) → enable in the dashboard (config, not code; the one item I can't fix via SQL/MCP).
