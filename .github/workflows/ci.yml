@@ -10,11 +10,12 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     env:
-      # Build-time public env only. No real secrets needed: routes are
-      # server-rendered on demand, so the bundle just needs the Supabase client
-      # to construct at import. Secret-gated features stay dormant.
-      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_placeholder
+      # Prefer the real public Supabase config from repo secrets; fall back to
+      # placeholders so the gate still runs on fork PRs (where secrets aren't
+      # exposed). The build only needs the client to construct at import —
+      # secret-gated features stay dormant.
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_placeholder' }}
       NEXT_PUBLIC_SITE_URL: https://nexez.test
     steps:
       - uses: actions/checkout@v4
