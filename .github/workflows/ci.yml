@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      # Build-time public env only. No real secrets needed: routes are
+      # server-rendered on demand, so the bundle just needs the Supabase client
+      # to construct at import. Secret-gated features stay dormant.
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_placeholder
+      NEXT_PUBLIC_SITE_URL: https://nexez.test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: npm run lint -- --quiet
+      - name: Typecheck
+        run: npx tsc --noEmit --incremental false
+      - name: Unit + route + component tests
+        run: npm test
+      - name: Build
+        run: npm run build
