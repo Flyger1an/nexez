@@ -142,12 +142,14 @@ export default async function NexezHome() {
           </div>
 
           <div className="flex items-center gap-2 text-sm">
-            <ThemeToggle className="hidden sm:inline-flex" />
-            {user ? (
-              <a href="/dashboard" className="btn-secondary hidden h-9 px-3 sm:inline-flex">Overview</a>
-            ) : (
-              <a href="/login" className="btn-secondary hidden h-9 px-3 sm:inline-flex">Sign in</a>
-            )}
+            <div className="hidden items-center gap-2 sm:flex">
+              <ThemeToggle />
+              {user ? (
+                <a href="/dashboard" className="btn-secondary h-9 px-3">Overview</a>
+              ) : (
+                <a href="/login" className="btn-secondary h-9 px-3">Sign in</a>
+              )}
+            </div>
             <a href="/create" className="btn-primary h-9 px-3">
               Create page
               <ArrowRight className="size-4" />

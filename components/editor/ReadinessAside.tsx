@@ -4,7 +4,7 @@ import { PageEditor } from './usePageEditor'
 export function ReadinessAside({ e }: { e: PageEditor }) {
   const page = e.page as any
   return (
-    <aside>
+    <aside className="min-w-0">
       <div className="flex items-center gap-3">
         <h1 className="text-4xl font-semibold tracking-tight">Edit agent page</h1>
         {page?.versions?.length > 0 && (

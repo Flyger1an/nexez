@@ -71,7 +71,7 @@ export default async function AccountSettingsPage() {
         </div>
 
         <section className="mt-8 grid gap-6 lg:grid-cols-[0.82fr_1.18fr]">
-          <aside className="space-y-5">
+          <aside className="space-y-5 min-w-0">
             <div>
               <p className="flex items-center gap-2 text-sm text-cyan-200">
                 <ShieldCheck className="size-4" />
@@ -90,7 +90,7 @@ export default async function AccountSettingsPage() {
             </div>
           </aside>
 
-          <div className="space-y-5">
+          <div className="space-y-5 min-w-0">
             <ProfileSettings
               email={user.email ?? ''}
               initialFullName={(user.user_metadata?.full_name as string) ?? ''}
@@ -209,7 +209,7 @@ export default async function AccountSettingsPage() {
 
 function Endpoint({ label, value }: { label: string; value: string }) {
   return (
-    <a href={value} className="rounded-lg border border-white/10 bg-black/20 p-4 hover:bg-white/10">
+    <a href={value} className="block min-w-0 rounded-lg border border-white/10 bg-black/20 p-4 hover:bg-white/10">
       <p className="text-sm font-medium text-zinc-200">{label}</p>
       <p className="mt-2 truncate font-mono text-xs text-cyan-200">{value}</p>
     </a>

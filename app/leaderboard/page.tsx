@@ -86,7 +86,7 @@ export default async function LeaderboardPage({ searchParams }: Props) {
                   {i + 1}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <a href={`/${row.page.slug}`} className="truncate font-medium text-white hover:text-[#C4B5FD]">
+                  <a href={`/${row.page.slug}`} className="block truncate font-medium text-white hover:text-[#C4B5FD]">
                     {row.page.name}
                   </a>
                   <div className="text-xs text-zinc-500">

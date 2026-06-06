@@ -795,7 +795,7 @@ function AgentTypeList({ rows }: { rows: ReturnType<typeof getAgentTypeBreakdown
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+    <section className="min-w-0 rounded-lg border border-white/10 bg-white/[0.04] p-5">
       <h2 className="text-xl font-semibold">{title}</h2>
       <div className="mt-4">{children}</div>
     </section>

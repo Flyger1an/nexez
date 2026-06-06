@@ -30,7 +30,7 @@ export function EditorClient({ initial }: { initial: EditorInitial }) {
           <div className="mt-10 grid gap-8 lg:grid-cols-[0.75fr_1.25fr]">
             <ReadinessAside e={e} />
 
-            <form onSubmit={e.handleSubmit} className="space-y-5">
+            <form onSubmit={e.handleSubmit} className="min-w-0 space-y-5">
               {page && isStale(page) && page.website_url && (
                 <div className="rounded-lg border border-amber-300/30 bg-amber-400/5 p-3 text-sm">
                   <span className="text-amber-200">
