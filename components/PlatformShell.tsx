@@ -181,6 +181,24 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
                     <Plus className="size-3.5" />
                     New
                   </a>
+                  {authed ? (
+                    <form action="/auth/signout" method="post">
+                      <button
+                        type="submit"
+                        aria-label="Sign out"
+                        className="inline-flex size-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-white/5 hover:text-white"
+                      >
+                        <LogOut className="size-4" />
+                      </button>
+                    </form>
+                  ) : (
+                    <a
+                      href="/login"
+                      className="inline-flex h-8 items-center rounded-md border border-border px-3 text-xs font-medium text-white hover:bg-white/5"
+                    >
+                      Sign in
+                    </a>
+                  )}
                 </div>
               </div>
               {authed ? <QuickPageSearch /> : <div className="flex-1" />}
