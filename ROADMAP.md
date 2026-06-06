@@ -25,10 +25,10 @@
 - **Phase 7 advanced** — global Simulator + per-page history, AI Co-Pilot (descriptions/pricing/FAQ/schema with before-after + one-click apply), Trust Score + verification, competitor intelligence, verifiable-credentials attach, agent memory/context, voice optimization stub, team collaboration + approvals.
 - **Commerce & trust** — negotiations end-to-end + receipts, gated email on new negotiation, escrow scaffolding, leaderboard, programmatic **API + keys** (`/api/v1/*`), account export/delete, team invites + collaborator RLS, in-app notifications, rate limiting, observability hook, freshness-monitor cron.
 - **Platform polish** — premium shell (collapsible nav, search), dedicated Pages section with bulk actions + duplicate, redesigned homepage, platform-wide light/dark/system theme, hardened auth UX, onboarding checklist + empty states, real A/B variant serving + attribution.
+- **Editor architecture** — the page editor (`app/dashboard/[id]`) is a server component (auth + parallel fetch + access redirects) feeding an `EditorClient` island over a `usePageEditor` hook + presentational panels (`components/editor/*`); the smart-merge / save-payload / version logic lives in unit-tested `lib/editor-merge.ts`.
 
 ## Pending / next
 Forward-looking work, roughly by leverage:
-- **Editor de-monolith** — `app/dashboard/[id]/page.tsx` is ~1640 lines, `'use client'`, deeply coupled to localStorage/sessionStorage/URL flows. Server-component + island split is high-value but high-risk on the most critical workflow; tackle carefully and verify edit→save→publish→reanalyze→versions.
 - **Email reach** — booking emails ship for the Calendly webhook (`lib/email.ts` `buildBookingEmail`, gated on `RESEND_API_KEY`); extend to the Stripe webhook and add per-user notification preferences; consider account email via service-role lookup.
 - **Test coverage gaps** — middleware auth gate (`utils/supabase/middleware.ts` `updateSession` redirect) is still untested.
 - **Negotiations inbox hardening** — the inbox once stuck on "Loading negotiations…" (transient; raw REST worked); add a load timeout + error state.
