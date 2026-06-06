@@ -1,6 +1,6 @@
 # Nexez — Session Handoff
 
-_Last updated: 2026-06-05 · HEAD `fcb0481` (verify with `git rev-parse --short main`)_
+_Last updated: 2026-06-05 (late session) · HEAD `7c22948` (verify with `git rev-parse --short main`)_
 
 ## Project
 **Nexez** helps businesses create dedicated, highly structured pages optimized for **AI agents** to discover, understand, and purchase from. Dual philosophy: **premium glassmorphism human dashboard** vs **brutally clean/semantic HTML for agents** on public `[slug]` pages. A core objective is **deploying agent-optimized pages to custom domains**, managed from the Nexez backend.
@@ -21,10 +21,14 @@ _Last updated: 2026-06-05 · HEAD `fcb0481` (verify with `git rev-parse --short 
 - Test account email **`realestglad@gmail.com`**, owner_id **`5320a9ef-9e9f-4e8b-ac78-13b9270c571b`**. The **password is NOT recorded here on purpose** — the user pastes it in chat when authed verification is needed. Clean up any test artifacts (drafts/duplicates) you create.
 
 ## Current state (verified this session)
-- `origin/main` == local @ **`fcb0481`**, clean tree. Vercel auto-deploys on push; prod verified live (`/icon.png` + `/nexez-logo.png` → 200; tab title "Nexez — Pages built for AI agents", favicon `/icon.png`).
+- `origin/main` == local @ **`7c22948`**, clean tree. Vercel auto-deploys on push; prod verified live (`/icon.png` + `/nexez-logo.png` → 200; tab title "Nexez — Pages built for AI agents", favicon `/icon.png`).
 - **214 tests passing**; lint (`--quiet`) / tsc / build all clean.
-- ~48 API routes, **28 migrations**. ⚠️ **One migration NOT yet applied to prod:** `supabase/migrations/20260605190000_create_logos_storage_bucket.sql` — the Supabase MCP was down (`net::ERR_FAILED`) all session, so the `logos` storage bucket + RLS policies still need applying. **Apply this first when the MCP recovers** (or via the Supabase dashboard SQL editor) — the settings-page logo upload writes to `storage.from('logos')` and will fail until then.
+- ~48 API routes, **28 migrations — all applied to prod.** The `logos` storage bucket migration (`20260605190000_create_logos_storage_bucket.sql`) was applied + verified this session (bucket `public=true`; 4 RLS policies: public read + owner insert/update/delete scoped to `logos/<uid>/…`), so the settings-page logo upload (`storage.from('logos')`) now works.
 - Supabase **Auth "leaked password protection"** toggle still off → enable in the dashboard (config, not code).
+
+## Latest session (2026-06-05 late, commits `932d478`→`7c22948`)
+- **Applied the `logos` storage-bucket migration** — Supabase MCP recovered; ran `20260605190000_create_logos_storage_bucket.sql` (`{"success":true}`) and verified in prod (bucket `public=true`, 4 RLS policies). Settings logo upload unblocked. _(Was the prior handoff's top-priority pending item.)_
+- **Fixed missing logout on tablet/mobile** (`components/PlatformShell.tsx`, `7c22948`) — the sign-out/sign-in control lived only in the desktop header (`hidden … xl:flex`), so below the `xl` breakpoint (1280px — all tablets/phones) there was no way to sign out. Added the same auth control to the mobile/tablet header bar (`xl:hidden`): icon sign-out button when authed, "Sign in" link otherwise, POSTing to the existing `/auth/signout` route. lint / tsc / 214 tests / build all green. _(No new tests — pure responsive-chrome fix.)_
 
 ## This window's work (2026-06-05, commits `fa327ca`→`fcb0481`)
 Newest first. This was a copy/branding/feature session; ~20 files of the user's parallel work were merged in alongside mine at the user's request.
@@ -81,8 +85,7 @@ Importer (+gated LLM fallback), Visual Builder (availability signals, A/B duplic
 `ROADMAP.md` was debloated this session (1929→45 lines): concise vision / quality bars / shipped / pending / governance. It's now short enough to read whole.
 
 ## Suggested next steps (pending)
-- **Apply the `logos` storage-bucket migration** (`20260605190000_create_logos_storage_bucket.sql`) when the Supabase MCP recovers — the settings logo upload depends on it. _(Top priority — it's the one un-applied migration.)_
-- **Harden inbox load**: the negotiations inbox got stuck "Loading negotiations…" once this session (transient; raw REST worked) — add a timeout / error state.
+- **Harden inbox load**: the negotiations inbox got stuck "Loading negotiations…" once a prior session (transient; raw REST worked) — add a timeout / error state.
 - **Optional:** continue the `qa33-33` negotiation from `agreement_proposed` through to completion.
 - **Editor de-monolith**: `app/dashboard/[id]/page.tsx` is still ~1640 lines, `'use client'`, ~30 useState — deeply client-coupled (localStorage/sessionStorage handoffs, URL-param flows). High-effort/high-risk; verify edit→save→publish→reanalyze→versions with the test login.
 - **Test the middleware auth gate** (`utils/supabase/middleware.ts` `updateSession` redirect) — still untested.

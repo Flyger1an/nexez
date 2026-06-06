@@ -29,9 +29,9 @@
 ## Pending / next
 Forward-looking work, roughly by leverage:
 - **Editor de-monolith** — `app/dashboard/[id]/page.tsx` is ~1640 lines, `'use client'`, deeply coupled to localStorage/sessionStorage/URL flows. Server-component + island split is high-value but high-risk on the most critical workflow; tackle carefully and verify edit→save→publish→reanalyze→versions.
-- **Email reach** — extend `lib/email.ts` beyond negotiations to bookings (Calendly/Stripe webhooks) and add per-user notification preferences; consider account email via service-role lookup.
+- **Email reach** — booking emails ship for the Calendly webhook (`lib/email.ts` `buildBookingEmail`, gated on `RESEND_API_KEY`); extend to the Stripe webhook and add per-user notification preferences; consider account email via service-role lookup.
 - **Test coverage gaps** — middleware auth gate (`utils/supabase/middleware.ts` `updateSession` redirect) is still untested.
-- **Bulk Duplicate** in the Pages manager (single duplicate exists; bulk publish/unpublish/delete exist).
+- **Negotiations inbox hardening** — the inbox once stuck on "Loading negotiations…" (transient; raw REST worked); add a load timeout + error state.
 - **Real LLM assist** — Co-Pilot/analyzer/importer-fallback/voice are deterministic stubs gated on `LLM_API_KEY`; wire the opt-in flag through once a key is configured.
 - **Deeper integrations** — real bidirectional Calendly/Stripe sync (availability reflected in agent pages), richer price webhooks; per-domain scoped `llms.txt`/`openapi.json` (currently global).
 - **Launch-prep differentiators** — templates marketplace (curated + user packs), "Nexez Certified Agent-Ready" certification, seed 20–30 high-quality directory pages, comparison/case-study marketing pages.
