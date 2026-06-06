@@ -78,17 +78,24 @@ Importer (+gated LLM fallback), Visual Builder (availability signals, A/B duplic
 - **Auth gating:** `utils/supabase/middleware.ts` (`updateSession`) redirects unauthenticated `/dashboard/*` → `/login?next=…`. `/create` is public; Publish without auth saves draft to `sessionStorage` (`nexez_pending_page`) + shows a "create account to publish" modal.
 
 ## Gated features (coded, dormant until env set)
+> **Where to set:** prod values go in **Vercel → project `nexez` → Settings → Environment Variables** (tick **Production**), then redeploy. CI/E2E secrets live in GitHub Actions; dev in `.env.local`. (Full sweep verified 2026-06-05.)
+
 | Env var(s) | Unlocks | Status |
 |---|---|---|
-| `SUPABASE_SERVICE_ROLE_KEY` | `/api/v1/*`, account deletion | ✅ **set in prod** |
-| `VERCEL_API_TOKEN` + `VERCEL_PROJECT_ID` (+`VERCEL_TEAM_ID`) | auto domain attach + SSL (else manual mode) | not set |
-| `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` | negotiation escrow (`/api/negotiations/escrow`, manual-capture hold/capture/cancel) | not set |
-| `AGENT_VISIT_HASH_SALT` | privacy-safe IP hashing | not set (default fallback) |
-| `CRON_SECRET` | protects `/api/cron/freshness` (cron in `vercel.json`) | not set |
-| `LLM_API_KEY` (+`LLM_BASE_URL`/`LLM_MODEL`, OpenAI-compatible) | real LLM-assist (builder Enhance, importer fallback) | not set (deterministic) |
-| `OBSERVABILITY_WEBHOOK_URL` | `captureError` ships errors (else console) | not set |
+| `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | the app runs at all (required) | ✅ set |
+| `SUPABASE_SERVICE_ROLE_KEY` | `/api/v1/*`, account export/delete, webhook + cron DB writes | ✅ **set in prod** (verified via `/api/v1/health`) |
+| `STRIPE_SECRET_KEY` **+** ≥1 of `STRIPE_PRICE_LAUNCH` / `STRIPE_PRICE_PRO` / `STRIPE_PRICE_SCALE` | subscription billing (`/dashboard/billing`) — needs the secret **and** a plan price ID | not set |
+| `STRIPE_SECRET_KEY` | Nexez-hosted checkout (`/checkout/[slug]`) + negotiation escrow (`/api/negotiations/escrow`) | not set |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook — escrow capture + `price.updated` sync | not set |
+| `LLM_API_KEY` (+`LLM_BASE_URL`/`LLM_MODEL`, OpenAI-compatible) | real LLM assist (Co-Pilot, analyzer, importer fallback, voice) | not set (deterministic) |
 | `RESEND_API_KEY` (+`EMAIL_FROM`) | transactional email (`lib/email.ts`) — negotiation requests + bookings | not set (no-op) |
-| `SQUARE_ACCESS_TOKEN` / `ACUITY_*` / Google creds | live integration imports (else sample fallback, `connected:false`) | not set |
+| `VERCEL_API_TOKEN` + `VERCEL_PROJECT_ID` (+`VERCEL_TEAM_ID`) | auto custom-domain attach + SSL (else manual mode) | not set |
+| `OBSERVABILITY_WEBHOOK_URL` | `captureError` ships errors (else console) | not set |
+| `CRON_SECRET` | protects `/api/cron/freshness` — **route is open if unset** | not set |
+| `AGENT_VISIT_HASH_SALT` | dedicated salt for privacy-safe IP hashing | not set (falls back to SUPABASE_URL, then a default) |
+| `NEXT_PUBLIC_SITE_URL` | canonical base URL in agent artifacts | falls back to `https://nexez.vercel.app` |
+
+**NOT env vars** (correction): Square (`accessToken`), Acuity (`userId`+`apiKey`), Google Calendar (`accessToken`), Calendly (PAT), Shopify (shop+token), and the Stripe *import* are **user-supplied per request** — pasted in the UI / sent in the request body, with a sample fallback when absent. The Calendly **webhook receiver** uses a per-page secret stored in the `page_secrets` table, not env.
 
 ## Roadmap
 `ROADMAP.md` was debloated this session (1929→45 lines): concise vision / quality bars / shipped / pending / governance. It's now short enough to read whole.
