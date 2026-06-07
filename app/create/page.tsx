@@ -2,12 +2,17 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  AlertCircle,
   ArrowRight,
   Bot,
   Check,
   CheckCircle2,
+  Globe2,
+  HelpCircle,
   Loader2,
   Sparkles,
+  Wand2,
+  X,
 } from 'lucide-react'
 import {
   getReadinessScore,
@@ -26,64 +31,45 @@ import {
 } from '../../lib/ai-optimize'
 import { AICoPilot } from '../../components/AICoPilot'
 import { parseAgentCsv, sampleAgentCsv } from '../../lib/csv-import'
+import { NEXEZ_INDUSTRIES, getIndustrySuggestions } from '../../lib/industry-catalog'
 import { createClient } from '../../utils/supabase/client'
 import { VisualOfferBuilder } from '../../components/VisualOfferBuilder'
 import { ErrorBoundary } from '../../components/ErrorBoundary'
 
-const industries = [
-  // Professional / Business Services
-  'Consulting & Strategy',
-  'Coaching & Training',
-  'Creative & Design',
-  'Legal & Professional Services',
-  'Marketing & Sales',
-  // Consumer / Local Bookable Services
-  'Home Services (Plumbing, Electrical, Cleaning, etc.)',
-  'Wellness & Fitness (Massage, Personal Training, Yoga, etc.)',
-  'Beauty & Personal Care',
-  'Automotive Services',
-  'Pet Care & Services',
-  'Health & Medical',
-  'Events & Experiences',
-  'Other Local Services',
-]
-
-// Light industry-aware suggestions (Phase 1 A)
-function getIndustrySuggestions(industry: string): OfferItem[] {
-  const ind = industry.toLowerCase()
-  const base = { url: '' }
-  if (ind.includes('plumb') || ind.includes('home') || ind.includes('electrical')) {
-    return [
-      { ...base, name: 'Standard Service Call', price: 'From $129', description: 'Diagnosis + minor repair. Includes basic parts.', duration: '60 min', isMobile: true, serviceArea: 'Local metro' },
-      { ...base, name: 'Emergency Visit', price: '$189', description: 'Same-day response for urgent issues.', duration: '60-90 min', isMobile: true },
-    ]
+type GuidedImportReview = {
+  suggestedPage?: {
+    name?: string
+    description?: string
+    website_url?: string
+    services?: string
+    industry?: string | null
+    logo_url?: string | null
+    audience?: string | null
+    location?: string | null
+    cta_url?: string | null
+    cta_label?: string | null
+    faqs?: Array<{ question: string; answer: string }>
   }
-  if (ind.includes('massage') || ind.includes('wellness') || ind.includes('fitness')) {
-    return [
-      { ...base, name: '60-Minute Deep Tissue', price: '$110', description: 'Therapeutic massage with hot stones.', duration: '60 min', isMobile: true, travelFee: '$25' },
-      { ...base, name: '90-Minute Signature Session', price: '$165', description: 'Full body therapeutic treatment.', duration: '90 min', isMobile: true },
-    ]
+  structuredOffers?: OfferItem[]
+  pagesAnalyzed?: number
+  confidence?: number
+  reviewNotes?: string[]
+  sources?: Array<{ url: string; label: string; type: string; method: string }>
+  clarifyingQuestions?: Array<{ id: string; field: string; question: string; why: string }>
+  readiness?: { score: number; strengths: string[]; gaps: string[] }
+  aiStatus?: {
+    configured: boolean
+    attempted: boolean
+    used: boolean
+    status: 'deterministic' | 'structured_ai' | 'offer_ai' | 'fallback' | 'failed'
+    provider: string
+    model: string
+    reason: string
+    latencyMs?: number
+    httpStatus?: number
   }
-  if (ind.includes('clean')) {
-    return [
-      { ...base, name: 'Deep House Cleaning', price: '$189', description: 'Full top-to-bottom clean for 1-2 bedroom homes.', duration: '2-3 hours', isMobile: true },
-    ]
-  }
-  if (ind.includes('groom') || ind.includes('pet')) {
-    return [
-      { ...base, name: 'Full Grooming Package', price: '$85', description: 'Bath, haircut, nail trim, ear cleaning.', duration: '90-120 min', isMobile: true },
-    ]
-  }
-  if (ind.includes('detailing') || ind.includes('auto')) {
-    return [
-      { ...base, name: 'Mobile Car Detailing', price: 'From $149', description: 'Interior + exterior hand wash and detail.', duration: '2-3 hours', isMobile: true },
-    ]
-  }
-  // Professional default
-  return [
-    { ...base, name: 'Discovery Session', price: '$150', description: '60-minute focused call with clear next steps.', duration: '60 min' },
-    { ...base, name: 'Core Engagement', price: 'From $1,800', description: 'Full delivery with priority support.', duration: 'Ongoing' },
-  ]
+  aiAssisted?: boolean
+  message?: string
 }
 
 export default function CreatePage() {
@@ -111,6 +97,16 @@ export default function CreatePage() {
   const [publishedSlug, setPublishedSlug] = useState('')
   const [needsAuth, setNeedsAuth] = useState(false)
   const [importMessage, setImportMessage] = useState('')
+  const [importUrl, setImportUrl] = useState('')
+  const [guidedBuyer, setGuidedBuyer] = useState('')
+  const [guidedGoal, setGuidedGoal] = useState('Book appointments')
+  const [guidedFocus, setGuidedFocus] = useState('')
+  const [guidedNotes, setGuidedNotes] = useState('')
+  const [guidedReview, setGuidedReview] = useState<GuidedImportReview | null>(null)
+  const [selectedImportOffers, setSelectedImportOffers] = useState<Record<string, boolean>>({})
+  const [guidedAnswers, setGuidedAnswers] = useState<Record<string, string>>({})
+  const [showAllGuidedOffers, setShowAllGuidedOffers] = useState(false)
+  const [guidedImporting, setGuidedImporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [stripeImportOpen, setStripeImportOpen] = useState(false)
   const [stripeInput, setStripeInput] = useState('')
@@ -141,6 +137,26 @@ export default function CreatePage() {
     faqs: parsedFaqs,
     is_published: true,
   })
+  const selectedGuidedOfferCount = useMemo(() => {
+    if (!guidedReview?.structuredOffers?.length) return 0
+    return guidedReview.structuredOffers.filter((offer, index) => selectedImportOffers[offerImportKey(offer, index)]).length
+  }, [guidedReview, selectedImportOffers])
+  const guidedOfferRows = useMemo(() => {
+    const offers = guidedReview?.structuredOffers ?? []
+    const visibleOffers = showAllGuidedOffers ? offers : offers.slice(0, 8)
+    return visibleOffers.map((offer, index) => ({ offer, index }))
+  }, [guidedReview, showAllGuidedOffers])
+  const hiddenGuidedOfferCount = Math.max(0, (guidedReview?.structuredOffers?.length ?? 0) - guidedOfferRows.length)
+  const answeredGuidedQuestions = useMemo(() => {
+    return (guidedReview?.clarifyingQuestions || [])
+      .map((item) => ({
+        id: item.id,
+        field: item.field,
+        question: item.question,
+        answer: (guidedAnswers[item.id] || '').trim(),
+      }))
+      .filter((item) => item.answer)
+  }, [guidedReview, guidedAnswers])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -258,7 +274,7 @@ export default function CreatePage() {
       services: parsedServices,
       faqs: parsedFaqs,
       is_published: true,
-      branding: logoUrl ? { logo_url: logoUrl } : null,
+      branding: logoUrl ? { logo_url: logoUrl } : {},
     })
 
     setLoading(false)
@@ -269,6 +285,107 @@ export default function CreatePage() {
     }
 
     setPublishedSlug(cleanSlug)
+  }
+
+  async function runGuidedImport(options?: {
+    refine?: boolean
+    clarifyingAnswers?: Array<{ id?: string; field?: string; question: string; answer: string }>
+  }) {
+    if (!importUrl.trim()) {
+      setImportMessage('Paste a public business URL to start guided import.')
+      return
+    }
+
+    const isRefine = Boolean(options?.refine)
+    setGuidedImporting(true)
+    setGuidedReview(null)
+    setShowAllGuidedOffers(false)
+    if (!isRefine) setGuidedAnswers({})
+    setImportMessage(isRefine ? 'Refining draft with your answers...' : 'Analyzing website and preparing a draft...')
+
+    try {
+      const res = await fetch('/api/tools/import-site', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: importUrl.trim(),
+          industry,
+          targetBuyer: guidedBuyer,
+          desiredAction: guidedGoal,
+          offerFocus: guidedFocus,
+          notes: guidedNotes,
+          location,
+          clarifyingAnswers: options?.clarifyingAnswers || null,
+        }),
+      })
+      const data = await res.json()
+
+      if (!res.ok || !data.suggestedPage) {
+        setImportMessage(data.error || 'Could not analyze that site. Try a services or pricing page, or enter offers manually.')
+        return
+      }
+
+      const offers = (data.structuredOffers || []) as OfferItem[]
+      const selected = offers.reduce<Record<string, boolean>>((acc, offer, index) => {
+        acc[offerImportKey(offer, index)] = true
+        return acc
+      }, {})
+
+      setGuidedReview(data)
+      setSelectedImportOffers(selected)
+      setGuidedAnswers({})
+      setImportMessage(isRefine
+        ? `Refined draft ready. ${offers.length} offer${offers.length === 1 ? '' : 's'} found.`
+        : `Found ${offers.length} offer${offers.length === 1 ? '' : 's'}. Review the draft, then apply it to the builder.`)
+    } catch (error: any) {
+      setImportMessage(error?.message || 'Network error during guided import.')
+    } finally {
+      setGuidedImporting(false)
+    }
+  }
+
+  function refineGuidedImport() {
+    if (!answeredGuidedQuestions.length) {
+      setImportMessage('Answer at least one question to refine the draft.')
+      return
+    }
+    runGuidedImport({ refine: true, clarifyingAnswers: answeredGuidedQuestions })
+  }
+
+  function applyGuidedImport() {
+    if (!guidedReview?.suggestedPage) return
+
+    const page = guidedReview.suggestedPage
+    const keptOffers = (guidedReview.structuredOffers || []).filter((offer, index) => (
+      selectedImportOffers[offerImportKey(offer, index)]
+    ))
+
+    if (page.name) {
+      setName(page.name)
+      if (!slug) setSlug(normalizeSlug(page.name))
+    }
+    if (page.description) setDescription(page.description)
+    if (page.website_url) setWebsiteUrl(page.website_url)
+    if (page.cta_url) setCtaUrl(page.cta_url)
+    if (page.cta_label) setCtaLabel(page.cta_label)
+    if (page.logo_url) setLogoUrl(page.logo_url)
+    if (page.industry && !industry) setIndustry(page.industry)
+    if (page.audience) setAudience(page.audience)
+    if (page.location) setLocation(page.location)
+    if (page.faqs?.length) {
+      setFaqs(page.faqs.map((faq) => `${faq.question} | ${faq.answer}`).join('\n'))
+    }
+
+    if (keptOffers.length > 0) {
+      setServicesOffers(keptOffers)
+      setServices(formatOfferLines(keptOffers))
+    } else if (page.services) {
+      setServices(page.services)
+      setServicesOffers(parseOfferLines(page.services))
+    }
+
+    if (step < 2) setStep(2)
+    setImportMessage(`Guided import applied. ${keptOffers.length} offer${keptOffers.length === 1 ? ' is' : 's are'} ready in the Visual Builder.`)
   }
 
   function aiFill() {
@@ -555,83 +672,301 @@ export default function CreatePage() {
           className="hidden"
         />
 
-        {/* Site Importer - Prominent first-class option */}
         <div className="card !p-8 border border-[#7C3AED]/40">
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center size-12 rounded-2xl bg-[#7C3AED]/20 text-[#7C3AED] mb-4">
-              <Bot className="size-6" />
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-medium text-cyan-100">
+                <Wand2 className="size-3.5" />
+                Guided AI Page Import
+              </div>
+              <h3 className="mt-4 text-2xl font-semibold">Turn an existing site into a Nexez draft</h3>
+              <p className="mt-2 text-sm leading-6 text-[#9CA3AF]">
+                Paste a product, services, pricing, or booking page. Add a little context so Nexez knows what to extract and which action agents should prioritize.
+              </p>
             </div>
-            <h3 className="text-2xl font-semibold">Import from your existing website</h3>
-            <p className="text-[#9CA3AF] mt-2 max-w-md mx-auto">
-              Paste your current site and we’ll automatically extract your services and generate a ready-to-edit agent page.
-              Works with Squarespace, Wix, WordPress, Webflow, Shopify, and custom sites.
-            </p>
+            <div className="grid min-w-0 gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-4 text-xs text-zinc-400 sm:grid-cols-3 lg:w-[420px]">
+              <span className="inline-flex items-center gap-2"><Globe2 className="size-4 text-cyan-200" /> Crawl site</span>
+              <span className="inline-flex items-center gap-2"><Bot className="size-4 text-violet-200" /> Fill fields</span>
+              <span className="inline-flex items-center gap-2"><CheckCircle2 className="size-4 text-emerald-200" /> Review draft</span>
+            </div>
           </div>
 
-          <div className="max-w-lg mx-auto flex gap-3">
-            <input
-              type="url"
-              placeholder="https://yourwebsite.com"
-              className="flex-1 input"
-              id="site-importer-url"
-            />
-            <button
-              type="button"
-              disabled={loading}
-              onClick={async () => {
-                const input = document.getElementById('site-importer-url') as HTMLInputElement
-                if (!input?.value) return
+          <div className="mt-6 grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="space-y-4">
+              <Field label="Business page URL">
+                <input
+                  type="url"
+                  value={importUrl}
+                  onChange={(event) => setImportUrl(event.target.value)}
+                  placeholder="https://yourwebsite.com/services"
+                  className={inputClass}
+                />
+              </Field>
 
-                // Phase 1 A: loading state while importing
-                setLoading(true)
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Best-fit buyer">
+                  <input
+                    value={guidedBuyer}
+                    onChange={(event) => setGuidedBuyer(event.target.value)}
+                    placeholder="e.g. founders booking strategy help"
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Preferred action">
+                  <select
+                    value={guidedGoal}
+                    onChange={(event) => setGuidedGoal(event.target.value)}
+                    className={inputClass}
+                  >
+                    <option>Book appointments</option>
+                    <option>Request quotes or proposals</option>
+                    <option>Buy products</option>
+                    <option>Contact sales</option>
+                    <option>Capture qualified leads</option>
+                  </select>
+                </Field>
+              </div>
 
-                const res = await fetch('/api/tools/import-site', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ url: input.value, industry }),
-                })
-                const data = await res.json()
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Offer focus">
+                  <input
+                    value={guidedFocus}
+                    onChange={(event) => setGuidedFocus(event.target.value)}
+                    placeholder="e.g. retainers, audits, coaching"
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="What to ignore">
+                  <input
+                    value={guidedNotes}
+                    onChange={(event) => setGuidedNotes(event.target.value)}
+                    placeholder="e.g. skip blogs or freebies"
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
 
-                setLoading(false)
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  disabled={guidedImporting}
+                  onClick={() => runGuidedImport()}
+                  className="inline-flex items-center gap-2 rounded-lg bg-cyan-300 px-5 py-3 font-semibold text-zinc-950 hover:bg-cyan-200 disabled:opacity-60"
+                >
+                  {guidedImporting ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
+                  {guidedImporting ? 'Analyzing...' : 'Generate draft'}
+                </button>
+                {guidedReview ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGuidedReview(null)
+                      setSelectedImportOffers({})
+                      setGuidedAnswers({})
+                      setShowAllGuidedOffers(false)
+                      setImportMessage('')
+                    }}
+                    className={secondaryButton}
+                  >
+                    <X className="mr-2 inline size-4" />
+                    Clear review
+                  </button>
+                ) : null}
+              </div>
+            </div>
 
-                if (data.suggestedPage) {
-                  if (data.suggestedPage.name) setName(data.suggestedPage.name)
-                  if (data.suggestedPage.description) setDescription(data.suggestedPage.description)
-                  if (data.suggestedPage.website_url) setWebsiteUrl(data.suggestedPage.website_url)
-                  if (data.suggestedPage.logo_url) setLogoUrl(data.suggestedPage.logo_url)
-
-                  if (data.structuredOffers && data.structuredOffers.length > 0) {
-                    // Phase 1 A: Direct rich OfferItem[] to Visual Builder cards (primary path)
-                    const rich: OfferItem[] = data.structuredOffers
-                    setServicesOffers(rich)
-                    setServices(formatOfferLines(rich))
-                  } else if (data.suggestedPage.services) {
-                    setServices(data.suggestedPage.services)
-                  }
-
-                  if (step < 2) setStep(2)
-
-                  // Phase 1 A: richer success message with quality signals
-                  if (data.structuredOffers?.length) {
-                    const count = data.structuredOffers.length
-                    const avgConf = data.structuredOffers.reduce((s: number, o: any) => s + (o.confidence || 0.7), 0) / count
-                    const confPct = Math.round(avgConf * 100)
-                    setImportMessage(
-                      `Imported ${count} offers (${confPct}% avg confidence). Ready in the Visual Builder below.`
-                    )
-                  } else {
-                    setImportMessage(data.message || 'Website imported successfully!')
-                  }
-                } else {
-                  setImportMessage(data.error || 'Could not analyze that site. Try a different URL or enter offers manually.')
-                  setLoading(false)
-                }
-              }}
-              className="btn-primary"
-            >
-              Import & Generate
-            </button>
+            <div className="rounded-lg border border-white/10 bg-black/20 p-4">
+              <p className="text-sm font-medium text-zinc-200">Draft quality</p>
+              <div className="mt-4 grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
+                <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
+                  <p className="text-lg font-semibold text-white">{guidedReview?.structuredOffers?.length ?? 0}</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-wider text-zinc-500">Offers</p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
+                  <p className="text-lg font-semibold text-white">{guidedReview?.pagesAnalyzed ?? 0}</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-wider text-zinc-500">Pages</p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
+                  <p className="text-lg font-semibold text-white">{guidedReview?.confidence ? `${Math.round(guidedReview.confidence * 100)}%` : '--'}</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-wider text-zinc-500">Confidence</p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
+                  <p className="text-lg font-semibold text-white">{guidedReview?.readiness ? `${guidedReview.readiness.score}%` : '--'}</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-wider text-zinc-500">Readiness</p>
+                </div>
+              </div>
+              <p className="mt-4 text-xs leading-5 text-zinc-500">
+                {guidedReview
+                  ? guidedAiStatusMessage(guidedReview)
+                  : 'Run an import to see detected offers, field suggestions, and review notes before anything is applied.'}
+              </p>
+            </div>
           </div>
+
+          {guidedReview ? (
+            <div className="mt-6 rounded-lg border border-cyan-300/20 bg-cyan-300/[0.06] p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="text-lg font-semibold text-white">{guidedReview.suggestedPage?.name || 'Imported draft'}</h4>
+                    <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs text-zinc-300">
+                      {selectedGuidedOfferCount} selected
+                    </span>
+                  </div>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-300">
+                    {guidedReview.suggestedPage?.description || guidedReview.message}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={applyGuidedImport}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-zinc-950 hover:bg-zinc-200"
+                >
+                  <Check className="size-4" />
+                  Apply to builder
+                </button>
+              </div>
+
+              {guidedReview.structuredOffers?.length ? (
+                <div className="mt-5">
+                  <div className="mb-3 flex flex-col gap-3 rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-zinc-400 sm:flex-row sm:items-center sm:justify-between">
+                    <span>
+                      Showing {showAllGuidedOffers ? 'all' : `first ${guidedOfferRows.length} of`} {guidedReview.structuredOffers.length} detected offers.
+                      {' '}All selected offers will be applied{hiddenGuidedOfferCount ? ', including hidden ones' : ''}.
+                    </span>
+                    {guidedReview.structuredOffers.length > 8 ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllGuidedOffers((value) => !value)}
+                        className="inline-flex shrink-0 items-center justify-center rounded-md border border-white/15 px-3 py-1.5 font-medium text-zinc-100 hover:border-cyan-300/40 hover:text-cyan-100"
+                      >
+                        {showAllGuidedOffers ? 'Show top 8' : `Show all ${guidedReview.structuredOffers.length}`}
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {guidedOfferRows.map(({ offer, index }) => {
+                      const key = offerImportKey(offer, index)
+                      return (
+                        <label key={key} className="flex cursor-pointer gap-3 rounded-lg border border-white/10 bg-black/25 p-3 hover:border-cyan-300/30">
+                          <input
+                            type="checkbox"
+                            checked={!!selectedImportOffers[key]}
+                            onChange={(event) => {
+                              setSelectedImportOffers((current) => ({ ...current, [key]: event.target.checked }))
+                            }}
+                            className="mt-1 size-4 accent-cyan-300"
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center justify-between gap-3">
+                              <span className="truncate text-sm font-medium text-white">{offer.name}</span>
+                              <span className="shrink-0 text-xs text-cyan-200">{offer.price || 'Custom'}</span>
+                            </span>
+                            <span className="mt-1 block line-clamp-2 text-xs leading-5 text-zinc-400">{offer.description}</span>
+                            <span className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-wider text-zinc-500">
+                              <span>{Math.round((offer.confidence || 0.7) * 100)}% confidence</span>
+                              {offerProvenanceLabel(offer) ? <span>{offerProvenanceLabel(offer)}</span> : null}
+                            </span>
+                          </span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-5 flex items-start gap-3 rounded-lg border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100">
+                  <AlertCircle className="mt-0.5 size-4" />
+                  No structured offers were detected. Apply the page details, then add offers manually in the builder.
+                </div>
+              )}
+
+              {guidedReview.clarifyingQuestions?.length ? (
+                <div className="mt-5 rounded-lg border border-violet-300/20 bg-violet-300/[0.06] p-4">
+                  <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-violet-200">
+                    <HelpCircle className="size-4" />
+                    Questions to tighten the draft
+                  </p>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    {guidedReview.clarifyingQuestions.map((item) => (
+                      <div key={item.id} className="rounded-lg border border-white/10 bg-black/20 p-3">
+                        <p className="text-sm font-medium text-white">{item.question}</p>
+                        <p className="mt-1 text-xs leading-5 text-zinc-400">{item.why}</p>
+                        <textarea
+                          aria-label={`Answer: ${item.question}`}
+                          value={guidedAnswers[item.id] || ''}
+                          onChange={(event) => {
+                            setGuidedAnswers((current) => ({ ...current, [item.id]: event.target.value }))
+                          }}
+                          className="mt-3 min-h-20 w-full rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-violet-300/50"
+                          placeholder="Answer..."
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs text-zinc-500">
+                      {answeredGuidedQuestions.length} answered
+                    </p>
+                    <button
+                      type="button"
+                      onClick={refineGuidedImport}
+                      disabled={guidedImporting || !answeredGuidedQuestions.length}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-violet-300/30 px-4 py-2 text-sm font-semibold text-violet-100 hover:border-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {guidedImporting ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
+                      Refine draft
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {guidedReview.readiness?.gaps?.length ? (
+                <div className="mt-5 rounded-lg border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Readiness gaps</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {guidedReview.readiness.gaps.map((gap) => (
+                      <span key={gap} className="rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs text-amber-100">
+                        {gap}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {guidedReview.sources?.length ? (
+                <div className="mt-5 rounded-lg border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Sources checked</p>
+                  <div className="mt-3 grid gap-2 md:grid-cols-2">
+                    {guidedReview.sources.slice(0, 8).map((source) => (
+                      <a
+                        key={`${source.type}-${source.url}`}
+                        href={source.url}
+                        target="_blank"
+                        className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-zinc-300 hover:border-cyan-300/30"
+                      >
+                        <span className="block truncate font-medium text-zinc-100">{source.label}</span>
+                        <span className="mt-1 block truncate text-zinc-500">{source.method}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {guidedReview.reviewNotes?.length ? (
+                <div className="mt-5 rounded-lg border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Review notes</p>
+                  <ul className="mt-3 space-y-2 text-sm text-zinc-300">
+                    {guidedReview.reviewNotes.map((note) => (
+                      <li key={note} className="flex gap-2">
+                        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-cyan-200" />
+                        <span>{note}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <section className="mx-auto mt-10 max-w-4xl text-center">
@@ -691,22 +1026,25 @@ export default function CreatePage() {
                   <Field label="Short Description">
                     <textarea value={description} onChange={(event) => setDescription(event.target.value)} className={textareaClass} placeholder="Tell us about your business" />
                   </Field>
-                  <div>
-                    <p className="mb-3 text-sm font-medium text-zinc-200">What industry are you in?</p>
-                    <select
+                  <Field label="Industry or niche">
+                    <input
+                      list="nexez-industry-suggestions"
+                      aria-label="Industry or niche"
                       value={industry}
                       onChange={(e) => setIndustry(e.target.value)}
                       className={inputClass}
-                    >
-                      <option value="">Select your primary industry...</option>
-                      {industries.map((ind) => (
-                        <option key={ind} value={ind}>{ind}</option>
+                      placeholder="Start typing, e.g. AI consulting"
+                      autoComplete="off"
+                    />
+                    <datalist id="nexez-industry-suggestions">
+                      {NEXEZ_INDUSTRIES.map((ind) => (
+                        <option key={ind} value={ind} />
                       ))}
-                    </select>
+                    </datalist>
                     <p className="mt-1.5 text-xs text-zinc-500">
-                      This helps us suggest better templates and phrasing for your agent page.
+                      Type a category or exact niche.
                     </p>
-                  </div>
+                  </Field>
                   <div className="grid gap-3 md:grid-cols-3">
                     <button
                       className={secondaryButton}
@@ -1054,6 +1392,40 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </label>
   )
+}
+
+function offerImportKey(offer: OfferItem, index: number) {
+  return `${offer.name || 'offer'}-${offer.price || 'custom'}-${index}`
+}
+
+function offerProvenanceLabel(offer: OfferItem) {
+  const provenance = offer.metadata?.provenance as { label?: string; method?: string } | undefined
+  if (provenance?.label) return provenance.label
+  if (offer.source) return offer.source.replace(/_/g, ' ')
+  return ''
+}
+
+function guidedAiStatusMessage(review: GuidedImportReview) {
+  const status = review.aiStatus
+  if (!status) {
+    return review.aiAssisted
+      ? 'AI extraction contributed to this draft. Review pricing and links before publishing.'
+      : 'Deterministic import completed. Add an LLM key later for messy sites.'
+  }
+
+  if (status.used) {
+    return `AI extraction used ${status.model}. Review pricing and links before publishing.`
+  }
+
+  if (status.configured && status.attempted) {
+    return `AI checked the page, then deterministic import produced the draft. ${status.reason}`
+  }
+
+  if (status.configured) {
+    return 'AI is configured, but deterministic import handled this page.'
+  }
+
+  return 'Deterministic import completed. Add an LLM key later for messy sites.'
 }
 
 const inputClass =

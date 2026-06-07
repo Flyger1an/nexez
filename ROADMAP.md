@@ -15,7 +15,7 @@
 - **Dual philosophy preserved** — every screen keeps the human-premium / agent-clean split. No bloat that complicates the clean agent HTML or the premium creation flow.
 
 ## Shipped (Phases 1–8 + Phase 7 advanced tiers — all live)
-- **Importer & Builder** — multi-path crawl + schema.org/JSON-LD extraction returning rich `OfferItem[]` (confidence/source); VisualOfferBuilder with tiers, consumer fields, templates, drag; create wizard + editor share the rich surface; intelligent re-sync with smart merge.
+- **Importer & Builder** — multi-path crawl + schema.org/JSON-LD extraction returning rich `OfferItem[]` (confidence/source); guided import review with clarifying-answer refinement, 125+ industry/niche autocomplete, provenance, readiness, offer caps, and honest AI-status telemetry (`aiStatus`: used / fallback / deterministic); VisualOfferBuilder with tiers, consumer fields, templates, drag; create wizard + editor share the rich surface; intelligent re-sync with smart merge.
 - **Analytics** — full Recharts suite (traffic, top offers, funnel, action/agent breakdown, top pages, conversion leaders), time ranges, key-insights, range-aware export. Real agent-visit tracking + agent-vs-human detection.
 - **Directory / Marketplace** — pro/consumer split, facets (offer type, category, readiness thresholds), "agents also viewed", readiness/trust badges, favorites, click tracking, public `/api/directory` for agents.
 - **Integrations** — Calendly, Stripe, Shopify, Square, Acuity, Google Calendar (import → editable offers, re-sync, status pills); outbound webhooks (per-page endpoints + secrets, fire on real booking/checkout events); Calendly + Stripe webhook receivers.
@@ -33,7 +33,7 @@
 ## Pending / next
 Forward-looking work, roughly by leverage:
 - **Email reach** — booking emails ship for the Calendly webhook (`lib/email.ts` `buildBookingEmail`, gated on `RESEND_API_KEY`); extend to the Stripe webhook and add per-user notification preferences; consider account email via service-role lookup.
-- **Real LLM assist** — Co-Pilot/analyzer/importer-fallback/voice are deterministic stubs gated on `LLM_API_KEY`; wire the opt-in flag through once a key is configured.
+- **Real LLM assist** — Co-Pilot/analyzer/importer-fallback/voice are deterministic stubs gated on `LLM_API_KEY`; importer telemetry/status plumbing is shipped, next wire provider settings and opt-in controls once a key is configured.
 - **Deeper integrations** — real bidirectional Calendly/Stripe sync (availability reflected in agent pages), richer price webhooks; per-domain scoped `llms.txt`/`openapi.json` (currently global).
 - **Launch-prep differentiators** — templates marketplace (curated + user packs), "Nexez Certified Agent-Ready" certification, seed 20–30 high-quality directory pages, comparison/case-study marketing pages.
 - **Deeper test coverage / CI** — GitHub Actions CI is live (`.github/workflows/ci.yml` push/PR gate; `e2e.yml` manual Playwright). Next: add repo secrets (`NEXT_PUBLIC_SUPABASE_*`, `E2E_EMAIL`/`E2E_PASSWORD`) to enable the authed E2E run, and keep extending the route/component suites into the long tail (~25 remaining API routes, more dashboard components).

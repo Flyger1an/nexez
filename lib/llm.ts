@@ -10,15 +10,61 @@ export function llmModel(): string {
   return process.env.LLM_MODEL || 'gpt-4o-mini'
 }
 
+export function llmProviderName(): string {
+  const base = (process.env.LLM_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '')
+  try {
+    const host = new URL(base).hostname
+    return host.replace(/^api\./, '') || 'OpenAI-compatible'
+  } catch {
+    return 'OpenAI-compatible'
+  }
+}
+
+export type LlmCompletionStatus =
+  | 'not_configured'
+  | 'ok'
+  | 'empty_response'
+  | 'http_error'
+  | 'network_error'
+
+export type LlmCompletionResult = {
+  text: string | null
+  status: LlmCompletionStatus
+  configured: boolean
+  attempted: boolean
+  ok: boolean
+  model: string
+  provider: string
+  latencyMs: number
+  error?: string
+  httpStatus?: number
+}
+
 /**
- * Returns the model completion, or null when not configured / on any error
- * (callers fall back to the deterministic rewriter).
+ * Returns structured completion telemetry so callers can tell the difference
+ * between "no key", "model failed", and "model returned usable text".
  */
-export async function llmComplete(
+export async function llmCompleteDetailed(
   prompt: string,
   opts: { system?: string; maxTokens?: number; temperature?: number } = {},
-): Promise<string | null> {
-  if (!isLlmConfigured()) return null
+): Promise<LlmCompletionResult> {
+  const model = llmModel()
+  const provider = llmProviderName()
+  const startedAt = Date.now()
+
+  if (!isLlmConfigured()) {
+    return {
+      text: null,
+      status: 'not_configured',
+      configured: false,
+      attempted: false,
+      ok: false,
+      model,
+      provider,
+      latencyMs: 0,
+      error: 'LLM_API_KEY is not configured.',
+    }
+  }
 
   const base = (process.env.LLM_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '')
   const messages = [
@@ -34,18 +80,76 @@ export async function llmComplete(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: llmModel(),
+        model,
         messages,
         max_tokens: opts.maxTokens ?? 400,
         temperature: opts.temperature ?? 0.4,
       }),
       signal: AbortSignal.timeout(12_000),
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      return {
+        text: null,
+        status: 'http_error',
+        configured: true,
+        attempted: true,
+        ok: false,
+        model,
+        provider,
+        latencyMs: Date.now() - startedAt,
+        httpStatus: res.status,
+        error: `LLM request failed with HTTP ${res.status}.`,
+      }
+    }
     const data = await res.json()
     const text = data?.choices?.[0]?.message?.content
-    return typeof text === 'string' && text.trim() ? text.trim() : null
-  } catch {
-    return null
+    if (typeof text !== 'string' || !text.trim()) {
+      return {
+        text: null,
+        status: 'empty_response',
+        configured: true,
+        attempted: true,
+        ok: false,
+        model,
+        provider,
+        latencyMs: Date.now() - startedAt,
+        error: 'LLM response did not include text.',
+      }
+    }
+
+    return {
+      text: text.trim(),
+      status: 'ok',
+      configured: true,
+      attempted: true,
+      ok: true,
+      model,
+      provider,
+      latencyMs: Date.now() - startedAt,
+    }
+  } catch (error) {
+    return {
+      text: null,
+      status: 'network_error',
+      configured: true,
+      attempted: true,
+      ok: false,
+      model,
+      provider,
+      latencyMs: Date.now() - startedAt,
+      error: error instanceof Error ? error.message.slice(0, 180) : 'LLM request failed.',
+    }
   }
+}
+
+/**
+ * Returns the model completion, or null when not configured / on any error
+ * (callers fall back to the deterministic rewriter).
+ */
+export async function llmComplete(
+  prompt: string,
+  opts: { system?: string; maxTokens?: number; temperature?: number } = {},
+): Promise<string | null> {
+  const result = await llmCompleteDetailed(prompt, opts)
+  return result.text
 }

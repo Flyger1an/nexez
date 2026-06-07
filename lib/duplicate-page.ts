@@ -31,7 +31,7 @@ export function buildDuplicatePayload(page: AgentPage, ownerId: string, existing
     products: page.products ?? null,
     services: page.services ?? null,
     faqs: page.faqs ?? null,
-    branding: page.branding ?? null,
+    branding: page.branding ?? {},
     mcp_enabled: page.mcp_enabled ?? false,
     agent_memory: page.agent_memory ?? null,
     google_calendar_id: page.google_calendar_id ?? null,

@@ -1,0 +1,305 @@
+// @vitest-environment jsdom
+import { describe, expect, it, vi, afterEach } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '../../test/dom'
+import CreatePage from './page'
+import { NEXEZ_INDUSTRIES } from '../../lib/industry-catalog'
+
+vi.mock('../../utils/supabase/client', () => ({
+  createClient: () => ({
+    auth: { getUser: vi.fn(async () => ({ data: { user: null }, error: null })) },
+    from: () => ({ insert: vi.fn(async () => ({ error: null })) }),
+  }),
+}))
+
+function guidedImportPayload() {
+  const structuredOffers = Array.from({ length: 12 }, (_, index) => ({
+    name: `Agent Offer ${index + 1}`,
+    price: `$${(index + 1) * 100}`,
+    description: `Agent Offer ${index + 1} is ready for agent parsing. Next step: book appointments.`,
+    url: `https://example.com/services/agent-offer-${index + 1}`,
+    confidence: 0.84,
+    metadata: {
+      provenance: {
+        label: index % 2 === 0 ? 'Services schema' : 'Pricing page',
+        method: index % 2 === 0 ? 'schema.org JSON-LD' : 'HTML extraction',
+        url: 'https://example.com/services',
+        type: index % 2 === 0 ? 'schema_org' : 'heuristic',
+      },
+    },
+  }))
+
+  return {
+    suggestedPage: {
+      name: 'QA Strategy Studio',
+      description: 'AI-ready services for founders.',
+      website_url: 'https://example.com/services',
+      cta_url: 'https://example.com/book',
+      cta_label: 'Book appointments',
+      industry: 'Consulting & Strategy',
+      audience: 'Founders evaluating AI-ready services',
+      location: 'Remote',
+    },
+    structuredOffers,
+    pagesAnalyzed: 5,
+    confidence: 0.88,
+    readiness: { score: 91, strengths: ['Structured offers'], gaps: ['Confirm featured offers'] },
+    clarifyingQuestions: [{ id: 'featured-offers', field: 'offers', question: 'Which offers should be featured first?', why: 'Agents parse prioritized offers faster.' }],
+    sources: [{ url: 'https://example.com/services', label: 'Services page', type: 'input_url', method: 'HTML crawl' }],
+    reviewNotes: ['Imported 12 offers from controlled QA data.'],
+    aiStatus: {
+      configured: false,
+      attempted: false,
+      used: false,
+      status: 'deterministic',
+      provider: 'openai.com',
+      model: 'gpt-4o-mini',
+      reason: 'LLM_API_KEY is not configured.',
+    },
+    aiAssisted: false,
+    message: 'Mock import complete',
+  }
+}
+
+type RefinementScenario = {
+  name: string
+  url: string
+  buyer: string
+  offerFocus: string
+  industry: string
+  question: string
+  answer: string
+  initialOffer: string
+  refinedOffer: string
+  refinedDescription: string
+}
+
+const refinementScenarios: RefinementScenario[] = [
+  {
+    name: 'mobile IV therapy',
+    url: 'https://example.com/mobile-iv',
+    buyer: 'busy executives and event hosts',
+    offerFocus: 'hydration drips, recovery visits, wellness memberships',
+    industry: 'Mobile IV Therapy',
+    question: 'Which clients should agents prioritize first?',
+    answer: 'Prioritize executives, wedding parties, and travelers who need same-day mobile appointments.',
+    initialOffer: 'Mobile Hydration Visit',
+    refinedOffer: 'Executive Mobile Hydration Visit',
+    refinedDescription: 'Same-day mobile IV hydration for executives, wedding parties, and travelers with clear booking instructions.',
+  },
+  {
+    name: 'immigration law',
+    url: 'https://example.com/immigration-law',
+    buyer: 'founders and skilled professionals',
+    offerFocus: 'visa consultations, case review, filing packages',
+    industry: 'Immigration Law',
+    question: 'Which matter type should the page lead with?',
+    answer: 'Lead with O-1 and EB-2 NIW consultations for founders and skilled professionals.',
+    initialOffer: 'Immigration Strategy Consultation',
+    refinedOffer: 'O-1 and EB-2 NIW Strategy Consultation',
+    refinedDescription: 'Focused visa strategy review for founders and skilled professionals comparing O-1 and EB-2 NIW options.',
+  },
+  {
+    name: 'pressure washing',
+    url: 'https://example.com/pressure-washing',
+    buyer: 'property managers and homeowners',
+    offerFocus: 'driveway cleaning, storefront cleaning, recurring maintenance',
+    industry: 'Pressure Washing',
+    question: 'What should agents know before requesting a quote?',
+    answer: 'Ask for property type, square footage, surface material, and preferred service window.',
+    initialOffer: 'Exterior Cleaning Quote',
+    refinedOffer: 'Property Manager Exterior Cleaning Quote',
+    refinedDescription: 'Agent-ready quote request for pressure washing with property type, surface material, square footage, and timing captured up front.',
+  },
+]
+
+function guidedImportPayloadForScenario(scenario: RefinementScenario, refined = false) {
+  return {
+    suggestedPage: {
+      name: refined ? `${scenario.industry} Agent Page` : `${scenario.industry} Draft`,
+      description: refined
+        ? `${scenario.industry} offers tuned for ${scenario.buyer}. ${scenario.answer}`
+        : `${scenario.industry} services for ${scenario.buyer}.`,
+      website_url: scenario.url,
+      cta_url: `${scenario.url}/book`,
+      cta_label: scenario.industry === 'Pressure Washing' ? 'Request quote' : 'Book consultation',
+      industry: scenario.industry,
+      audience: scenario.buyer,
+      location: 'Remote or local by appointment',
+    },
+    structuredOffers: [
+      {
+        name: refined ? scenario.refinedOffer : scenario.initialOffer,
+        price: scenario.industry === 'Pressure Washing' ? 'Custom quote' : '$250',
+        description: refined ? scenario.refinedDescription : `${scenario.initialOffer} for ${scenario.buyer}.`,
+        url: `${scenario.url}/offer`,
+        confidence: refined ? 0.93 : 0.82,
+        metadata: {
+          provenance: {
+            label: 'Scenario services page',
+            method: 'Guided import simulation',
+            url: scenario.url,
+            type: 'heuristic',
+          },
+        },
+      },
+    ],
+    pagesAnalyzed: 4,
+    confidence: refined ? 0.92 : 0.81,
+    readiness: {
+      score: refined ? 92 : 78,
+      strengths: refined ? ['Clarifying answer applied', 'Agent action is clear'] : ['Detected service offer'],
+      gaps: refined ? [] : ['Answer the follow-up to tighten priority buyers'],
+    },
+    clarifyingQuestions: [{ id: `${scenario.name.replace(/\s+/g, '-')}-priority`, field: 'offers', question: scenario.question, why: 'Agents convert faster when the best-fit action is explicit.' }],
+    sources: [{ url: scenario.url, label: 'Scenario landing page', type: 'input_url', method: 'Guided import simulation' }],
+    reviewNotes: refined ? [`Refined with answer: ${scenario.answer}`] : [`Initial draft for ${scenario.name}.`],
+    aiStatus: refined
+      ? {
+          configured: true,
+          attempted: true,
+          used: true,
+          status: 'structured_ai',
+          provider: 'llm.example.com',
+          model: 'agent-draft-v1',
+          reason: 'AI extraction returned usable structured data.',
+        }
+      : {
+          configured: false,
+          attempted: false,
+          used: false,
+          status: 'deterministic',
+          provider: 'openai.com',
+          model: 'gpt-4o-mini',
+          reason: 'LLM_API_KEY is not configured.',
+        },
+    aiAssisted: refined,
+    message: refined ? 'Refined draft ready' : 'Mock import complete',
+  }
+}
+
+describe('CreatePage guided import review', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  it('makes the 8-of-12 preview explicit and can show/apply every detected offer', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(guidedImportPayload()), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })))
+
+    render(<CreatePage />)
+
+    fireEvent.change(screen.getByLabelText('Business page URL'), { target: { value: 'https://example.com/services' } })
+    fireEvent.change(screen.getByLabelText('Best-fit buyer'), { target: { value: 'founders' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Generate draft' }))
+
+    expect(await screen.findByText(/Showing first 8 of 12 detected offers/i)).toBeInTheDocument()
+    expect(screen.getByText(/including hidden ones/i)).toBeInTheDocument()
+    expect(screen.queryByText('Agent Offer 12')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show all 12' }))
+    expect(await screen.findByText('Agent Offer 12')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show top 8' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply to builder' }))
+    await waitFor(() => expect(screen.getByText(/Guided import applied. 12 offers are ready/i)).toBeInTheDocument())
+    expect(screen.getByDisplayValue('Agent Offer 12')).toBeInTheDocument()
+  })
+
+  it('sends answered clarifying questions when refining an import draft', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(guidedImportPayload()), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<CreatePage />)
+
+    fireEvent.change(screen.getByLabelText('Business page URL'), { target: { value: 'https://example.com/services' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Generate draft' }))
+
+    const answerField = await screen.findByLabelText('Answer: Which offers should be featured first?')
+    fireEvent.change(answerField, { target: { value: 'Feature implementation retainers before audits.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Refine draft' }))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    const secondCall = fetchMock.mock.calls.at(1) as unknown as [RequestInfo | URL, RequestInit]
+    const secondBody = JSON.parse(String(secondCall[1]?.body || '{}'))
+    expect(secondBody.clarifyingAnswers).toEqual([
+      {
+        id: 'featured-offers',
+        field: 'offers',
+        question: 'Which offers should be featured first?',
+        answer: 'Feature implementation retainers before audits.',
+      },
+    ])
+    expect(await screen.findByText(/Refined draft ready/i)).toBeInTheDocument()
+  })
+
+  it('uses a freeform industry field with autocomplete suggestions', () => {
+    render(<CreatePage />)
+
+    const industryInput = screen.getByLabelText('Industry or niche')
+    expect(industryInput).toHaveAttribute('list', 'nexez-industry-suggestions')
+    fireEvent.change(industryInput, { target: { value: 'Mobile IV Therapy' } })
+    expect(screen.getByDisplayValue('Mobile IV Therapy')).toBeInTheDocument()
+
+    const options = document.querySelectorAll('#nexez-industry-suggestions option')
+    expect(options).toHaveLength(NEXEZ_INDUSTRIES.length)
+    expect(Array.from(options).some((option) => option.getAttribute('value') === 'Immigration Law')).toBe(true)
+  })
+
+  it.each(refinementScenarios)('runs the refinement loop for $name offers', async (scenario) => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body || '{}'))
+      const hasClarifyingAnswers = Array.isArray(body.clarifyingAnswers) && body.clarifyingAnswers.length > 0
+
+      return new Response(JSON.stringify(guidedImportPayloadForScenario(scenario, hasClarifyingAnswers)), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<CreatePage />)
+
+    fireEvent.change(screen.getByLabelText('Business page URL'), { target: { value: scenario.url } })
+    fireEvent.change(screen.getByLabelText('Best-fit buyer'), { target: { value: scenario.buyer } })
+    fireEvent.change(screen.getByLabelText('Offer focus'), { target: { value: scenario.offerFocus } })
+    fireEvent.change(screen.getByLabelText('Industry or niche'), { target: { value: scenario.industry } })
+    fireEvent.click(screen.getByRole('button', { name: 'Generate draft' }))
+
+    expect(await screen.findByText(scenario.initialOffer)).toBeInTheDocument()
+
+    const answerField = await screen.findByLabelText(`Answer: ${scenario.question}`)
+    fireEvent.change(answerField, { target: { value: scenario.answer } })
+    fireEvent.click(screen.getByRole('button', { name: 'Refine draft' }))
+
+    expect(await screen.findByText(scenario.refinedOffer)).toBeInTheDocument()
+    expect(await screen.findByText(/AI extraction used agent-draft-v1/i)).toBeInTheDocument()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+
+    const firstCall = fetchMock.mock.calls.at(0) as unknown as [RequestInfo | URL, RequestInit]
+    const firstBody = JSON.parse(String(firstCall[1]?.body || '{}'))
+    expect(firstBody.industry).toBe(scenario.industry)
+    expect(firstBody.offerFocus).toBe(scenario.offerFocus)
+
+    const secondCall = fetchMock.mock.calls.at(1) as unknown as [RequestInfo | URL, RequestInit]
+    const secondBody = JSON.parse(String(secondCall[1]?.body || '{}'))
+    expect(secondBody.clarifyingAnswers).toEqual([
+      {
+        id: `${scenario.name.replace(/\s+/g, '-')}-priority`,
+        field: 'offers',
+        question: scenario.question,
+        answer: scenario.answer,
+      },
+    ])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply to builder' }))
+    await waitFor(() => expect(screen.getByText(/Guided import applied. 1 offer is ready/i)).toBeInTheDocument())
+    expect(screen.getByDisplayValue(scenario.refinedOffer)).toBeInTheDocument()
+    expect(screen.getByDisplayValue(scenario.refinedDescription)).toBeInTheDocument()
+  })
+})

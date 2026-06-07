@@ -20,7 +20,30 @@ export async function POST(request: Request) {
 
   // Phase 1 A: Thin production wrapper (full logic now in lib/importer.ts with multi-path, industry awareness, rich OfferItem output)
   const body = await request.json().catch(() => ({} as any))
-  const { url, industry } = body as { url?: string; industry?: string }
+  const {
+    url,
+    industry,
+    targetBuyer,
+    desiredAction,
+    offerFocus,
+    notes,
+    location,
+    clarifyingAnswers,
+  } = body as {
+    url?: string
+    industry?: string
+    targetBuyer?: string
+    desiredAction?: string
+    offerFocus?: string
+    notes?: string
+    location?: string
+    clarifyingAnswers?: Array<{
+      id?: string | null
+      field?: string | null
+      question?: string
+      answer?: string
+    }>
+  }
 
   if (!url) {
     return NextResponse.json({ error: 'Website URL is required' }, { status: 400 })
@@ -31,7 +54,27 @@ export async function POST(request: Request) {
   const timeout = new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Analysis timed out. Partial results may be available on retry or try a simpler URL.')), OVERALL_TIMEOUT_MS))
 
   try {
-    const result = await Promise.race([analyzeSite(url, industry || null), timeout])
+    const result = await Promise.race([
+      analyzeSite(url, {
+        industry: industry || null,
+        targetBuyer: targetBuyer || null,
+        desiredAction: desiredAction || null,
+        offerFocus: offerFocus || null,
+        notes: notes || null,
+        location: location || null,
+        clarifyingAnswers: Array.isArray(clarifyingAnswers)
+          ? clarifyingAnswers
+              .map((item) => ({
+                id: item.id || null,
+                field: item.field || null,
+                question: item.question || '',
+                answer: item.answer || '',
+              }))
+              .filter((item) => item.question && item.answer)
+          : null,
+      }),
+      timeout,
+    ])
 
     return NextResponse.json({
       ok: true,
@@ -42,8 +85,21 @@ export async function POST(request: Request) {
         services: result.servicesText,
         industry: result.industry,
         logo_url: result.logo_url || null,
+        audience: result.audience,
+        location: result.location,
+        cta_url: result.cta_url,
+        cta_label: result.cta_label,
+        faqs: result.faqs,
       },
       structuredOffers: result.structuredOffers,
+      pagesAnalyzed: result.pagesAnalyzed,
+      confidence: result.confidence,
+      reviewNotes: result.reviewNotes,
+      sources: result.sources,
+      clarifyingQuestions: result.clarifyingQuestions,
+      readiness: result.readiness,
+      aiStatus: result.aiStatus,
+      aiAssisted: result.aiStatus.used,
       message: `Website analyzed across ${result.pagesAnalyzed} page(s). Rich structured offers ready for the Visual Builder.`,
     })
   } catch (error: any) {
