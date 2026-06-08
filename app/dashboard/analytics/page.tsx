@@ -248,74 +248,151 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     ? `Showing only signals for /${selectedPage.slug}.`
     : 'Showing signals across every page in your workspace.'
   const selectedPageReadiness = selectedPage ? getReadinessScore(selectedPage) : avgAllReadiness
+  const activeFilterCount = [
+    filters.q,
+    selectedPageId,
+    selectedAction !== 'all' ? selectedAction : '',
+    selectedTraffic !== 'all' ? selectedTraffic : '',
+    isCustom ? `${filters.from ?? ''}${filters.to ?? ''}` : range !== '30d' ? range : '',
+  ].filter(Boolean).length
 
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <ErrorBoundary>
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <div className="flex justify-end">
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            {/* Time range selector (presets + custom range) */}
-            <div className="flex rounded-lg border border-white/10 bg-white/[0.04] p-1 text-sm">
-              {[
-                { label: '1d', value: '1d' },
-                { label: '7d', value: '7d' },
-                { label: '30d', value: '30d' },
-                { label: 'All', value: 'all' },
-              ].map((r) => (
-                <a
-                  key={r.value}
-                  href={makeAnalyticsHref(normalizedFilters, { range: r.value, from: undefined, to: undefined })}
-                  className={`rounded-md px-3 py-1 transition ${range === r.value && !isCustom ? 'bg-white text-black' : 'text-zinc-300 hover:bg-white/10'}`}
-                >
-                  {r.label}
-                </a>
-              ))}
-            </div>
-
-            {/* Custom date range — submits ?from&to (takes precedence over the preset) */}
-            <form
-              method="get"
-              className={`flex items-center gap-1.5 rounded-lg border bg-white/[0.04] px-2 py-1 ${isCustom ? 'border-[#7C3AED]/50' : 'border-white/10'}`}
-            >
-              {filters.q ? <input type="hidden" name="q" value={filters.q} /> : null}
-              {selectedPageId ? <input type="hidden" name="page" value={selectedPageId} /> : null}
-              {selectedAction && selectedAction !== 'all' ? <input type="hidden" name="action" value={selectedAction} /> : null}
-              {selectedTraffic !== 'all' ? <input type="hidden" name="traffic" value={selectedTraffic} /> : null}
-              <input
-                type="date"
-                name="from"
-                defaultValue={filters.from ?? ''}
-                aria-label="From date"
-                className="rounded bg-transparent px-1 py-0.5 text-xs text-zinc-200 outline-none [color-scheme:dark]"
-              />
-              <span className="text-xs text-zinc-500">to</span>
-              <input
-                type="date"
-                name="to"
-                defaultValue={filters.to ?? ''}
-                aria-label="To date"
-                className="rounded bg-transparent px-1 py-0.5 text-xs text-zinc-200 outline-none [color-scheme:dark]"
-              />
-              <button
-                type="submit"
-                className={`rounded-md px-2 py-1 text-xs transition ${isCustom ? 'bg-white text-black' : 'text-zinc-300 hover:bg-white/10'}`}
-              >
-                Apply
-              </button>
-            </form>
-
-            <a href={exportHref} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm text-zinc-200 hover:bg-white/10">
-              <Download className="size-4" />
-              Export CSV
-            </a>
-          </div>
-        </div>
-
-        <h1 className="mt-8 text-4xl font-semibold tracking-tight">Analytics</h1>
+        <h1 className="text-4xl font-semibold tracking-tight">Analytics</h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-400">
           Track real agent-facing intent: classified AI visits, human traffic, directory discovery, provider handoffs, and Stripe checkout sessions.
         </p>
+
+        <section className="mt-6 rounded-lg border border-cyan-300/25 bg-cyan-300/[0.06] p-5">
+          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <Filter className="size-4 text-cyan-200" />
+                Filter analytics
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
+                Set the page, action, traffic type, and time window before reading the charts below.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-zinc-300">
+                {activeFilterCount ? `${activeFilterCount} active` : 'Default view'}
+              </span>
+              <a href={exportHref} className="inline-flex h-10 items-center gap-2 rounded-lg border border-white/10 px-4 text-sm text-zinc-200 hover:bg-white/10">
+                <Download className="size-4" />
+                Export CSV
+              </a>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.42fr)]">
+            <form action="/dashboard/analytics" className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {isCustom ? (
+                <>
+                  {filters.from ? <input type="hidden" name="from" value={filters.from} /> : null}
+                  {filters.to ? <input type="hidden" name="to" value={filters.to} /> : null}
+                </>
+              ) : (
+                <input type="hidden" name="range" value={range} />
+              )}
+              <label className="relative block md:col-span-2 xl:col-span-1">
+                <span className="mb-2 block text-xs text-zinc-500">Search</span>
+                <Search className="absolute bottom-3.5 left-3 size-4 text-zinc-500" />
+                <input
+                  name="q"
+                  defaultValue={filters.q ?? ''}
+                  className="h-11 w-full rounded-lg border border-white/10 bg-black/20 pl-9 pr-3 text-sm outline-none placeholder:text-zinc-600 focus:border-cyan-300/60"
+                  placeholder="Event context..."
+                />
+              </label>
+              <Select name="page" label="Page" defaultValue={selectedPageId}>
+                <option value="">All pages</option>
+                {pageOptions.map((page) => (
+                  <option key={page.id} value={page.id}>
+                    {page.label}
+                  </option>
+                ))}
+              </Select>
+              <Select name="action" label="Action" defaultValue={selectedAction ?? 'all'}>
+                {actionOptions.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+              <Select name="traffic" label="Traffic" defaultValue={selectedTraffic}>
+                {trafficOptions.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+              <div className="flex flex-col gap-2 md:flex-row md:items-end xl:col-span-4">
+                <button className="h-11 rounded-lg bg-cyan-300 px-5 text-sm font-semibold text-zinc-950 hover:bg-cyan-200">
+                  Apply filters
+                </button>
+                {activeFilterCount ? (
+                  <a href="/dashboard/analytics" className="inline-flex h-11 items-center justify-center rounded-lg border border-white/10 px-4 text-sm text-zinc-400 hover:bg-white/10 hover:text-white">
+                    Clear filters
+                  </a>
+                ) : null}
+              </div>
+            </form>
+
+            <div className="min-w-0 border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
+              <p className="mb-3 text-xs uppercase tracking-[0.18em] text-cyan-200">Time window</p>
+              <div className="flex flex-wrap gap-2 text-sm">
+                {[
+                  { label: '1d', value: '1d' },
+                  { label: '7d', value: '7d' },
+                  { label: '30d', value: '30d' },
+                  { label: 'All', value: 'all' },
+                ].map((r) => (
+                  <a
+                    key={r.value}
+                    href={makeAnalyticsHref(normalizedFilters, { range: r.value, from: undefined, to: undefined })}
+                    className={`rounded-md border px-3 py-2 transition ${range === r.value && !isCustom ? 'border-white bg-white text-black' : 'border-white/10 text-zinc-300 hover:bg-white/10'}`}
+                  >
+                    {r.label}
+                  </a>
+                ))}
+              </div>
+
+              <form
+                method="get"
+                className={`mt-3 grid gap-2 rounded-lg border bg-black/20 p-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] sm:items-center ${isCustom ? 'border-[#7C3AED]/50' : 'border-white/10'}`}
+              >
+                {filters.q ? <input type="hidden" name="q" value={filters.q} /> : null}
+                {selectedPageId ? <input type="hidden" name="page" value={selectedPageId} /> : null}
+                {selectedAction && selectedAction !== 'all' ? <input type="hidden" name="action" value={selectedAction} /> : null}
+                {selectedTraffic !== 'all' ? <input type="hidden" name="traffic" value={selectedTraffic} /> : null}
+                <input
+                  type="date"
+                  name="from"
+                  defaultValue={filters.from ?? ''}
+                  aria-label="From date"
+                  className="min-w-0 rounded bg-transparent px-1 py-1 text-xs text-zinc-200 outline-none [color-scheme:dark]"
+                />
+                <span className="hidden text-xs text-zinc-500 sm:inline">to</span>
+                <input
+                  type="date"
+                  name="to"
+                  defaultValue={filters.to ?? ''}
+                  aria-label="To date"
+                  className="min-w-0 rounded bg-transparent px-1 py-1 text-xs text-zinc-200 outline-none [color-scheme:dark]"
+                />
+                <button
+                  type="submit"
+                  className={`rounded-md px-3 py-2 text-xs transition ${isCustom ? 'bg-white text-black' : 'text-zinc-300 hover:bg-white/10'}`}
+                >
+                  Apply
+                </button>
+              </form>
+            </div>
+          </div>
+        </section>
 
         <section className="mt-6 rounded-lg border border-white/10 bg-white/[0.04] p-5">
           <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
@@ -374,7 +451,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           />
         </section>
 
-        <section className="mt-5 grid gap-5 xl:grid-cols-[1.2fr_0.85fr_0.48fr]">
+        <section className="mt-5 grid gap-5 xl:grid-cols-3">
           <Panel title={`Agent Traffic Over Time (${range === '7d' ? 'Last 7 Days' : range === '30d' ? 'Last 30 Days' : 'All Time'})`}>
             <TrafficChart data={dailySeries} />
             <div className="mt-2 flex gap-4 text-xs text-zinc-400">
@@ -581,54 +658,6 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             )}
           </Panel>
 
-          <form action="/dashboard/analytics" className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
-            <input type="hidden" name="range" value={range} />
-            <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <Filter className="size-4 text-cyan-200" />
-              Filter
-            </h2>
-            <div className="mt-5 space-y-3">
-              <label className="relative block">
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
-                <input
-                  name="q"
-                  defaultValue={filters.q ?? ''}
-                  className="h-11 w-full rounded-lg border border-white/10 bg-black/20 pl-9 pr-3 text-sm outline-none placeholder:text-zinc-600 focus:border-cyan-300/60"
-                  placeholder="Search event context..."
-                />
-              </label>
-              <Select name="page" label="Analytics view" defaultValue={selectedPageId}>
-                <option value="">All pages</option>
-                {pageOptions.map((page) => (
-                  <option key={page.id} value={page.id}>
-                    {page.label}
-                  </option>
-                ))}
-              </Select>
-              <Select name="action" label="Action" defaultValue={selectedAction ?? 'all'}>
-                {actionOptions.map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </Select>
-              <Select name="traffic" label="Traffic" defaultValue={selectedTraffic}>
-                {trafficOptions.map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <button className="mt-5 w-full rounded-lg bg-cyan-300 px-4 py-3 text-sm font-semibold text-zinc-950 hover:bg-cyan-200">
-              Apply filters
-            </button>
-            {(filters.q || selectedPageId || (selectedAction && selectedAction !== 'all') || selectedTraffic !== 'all') ? (
-              <a href="/dashboard/analytics" className="mt-3 block text-center text-sm text-zinc-500 hover:text-white">
-                Clear filters
-              </a>
-            ) : null}
-          </form>
         </section>
 
         {/* Phase 2: Key Insights */}
