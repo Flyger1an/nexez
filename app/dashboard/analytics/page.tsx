@@ -9,6 +9,7 @@ import {
   BASIC_OWNER_PAGE_SELECT,
   OWNER_PAGE_SELECT,
   getOfferCount,
+  getReadinessScore,
 } from '../../../lib/agent-page'
 import {
   AgentVisit,
@@ -145,15 +146,24 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const negotiationSummary = summarizeNegotiations(negotiations)
   const ownedPages = pages ?? []
   const pageOptions = getPageOptions(ownedPages)
+  const selectedPage = ownedPages.find((page) => page.id === filters.page) ?? null
+  const selectedPageId = selectedPage?.id ?? ''
+  const scopedPages = selectedPage ? [selectedPage] : ownedPages
   const selectedAction = actionOptions.some(([value]) => value === filters.action) ? filters.action : 'all'
+  const normalizedFilters: AnalyticsSearchParams = {
+    ...filters,
+    page: selectedPageId || undefined,
+    action: selectedAction === 'all' ? undefined : selectedAction,
+    traffic: selectedTraffic === 'all' ? undefined : selectedTraffic,
+  }
   const filteredEvents = filterAnalyticsEvents(events, {
     query: filters.q,
-    pageId: filters.page,
+    pageId: selectedPageId || undefined,
     action: selectedAction,
   })
   const filteredAgentVisits = filterAgentVisits(agentVisits, {
     query: filters.q,
-    pageId: filters.page,
+    pageId: selectedPageId || undefined,
     traffic: selectedTraffic,
   })
   const trafficSplit = getTrafficSplit(filteredAgentVisits)
@@ -161,12 +171,12 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const topAgentVisitPages = getTopPagesByAgentVisits(filteredAgentVisits, ownedPages).slice(0, 6)
   const readinessTrend = getReadinessTrendSummary(ownedPages)
   const recentAgentVisitLogs = filteredAgentVisits.filter((visit) => visit.is_ai_agent).slice(0, 10)
-  const offerCount = ownedPages.reduce((sum, page) => sum + getOfferCount(page), 0)
+  const offerCount = scopedPages.reduce((sum, page) => sum + getOfferCount(page), 0)
   const agentPageVisits = trafficSplit.ai
   const topQueries = getTopQueries(filteredEvents, filteredAgentVisits)
   const topReferrers = getTopReferrers(filteredAgentVisits)
   // Offers to compare queries against: the filtered page if one is selected, else all owned pages.
-  const offerScopePages = filters.page ? ownedPages.filter((p) => p.id === filters.page) : ownedPages
+  const offerScopePages = scopedPages
   const offerTexts = offerScopePages.flatMap((p) =>
     [...(p.services ?? []), ...(p.products ?? [])].map((o) => `${o.name} ${o.description ?? ''}`),
   )
@@ -209,7 +219,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   // Ignore the action facet here so a "conversions only" view can't hide the
   // impression denominator — but still respect page/search/time scope.
   const abTests = rollupAbResults(
-    filterAnalyticsEvents(events, { query: filters.q, pageId: filters.page }),
+    filterAnalyticsEvents(events, { query: filters.q, pageId: selectedPageId || undefined }),
   )
 
   // Readiness ROI insight: all pages vs. the agent-engaged subset.
@@ -222,7 +232,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const exportParams = new URLSearchParams()
 
   if (filters.q) exportParams.set('q', filters.q)
-  if (filters.page) exportParams.set('page', filters.page)
+  if (selectedPageId) exportParams.set('page', selectedPageId)
   if (selectedAction && selectedAction !== 'all') exportParams.set('action', selectedAction)
   if (isCustom) {
     if (filters.from) exportParams.set('from', filters.from)
@@ -233,6 +243,11 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   if (selectedTraffic !== 'all') exportParams.set('traffic', selectedTraffic)
 
   const exportHref = `/api/analytics/export${exportParams.toString() ? `?${exportParams}` : ''}`
+  const pageViewTitle = selectedPage ? selectedPage.name : 'All pages'
+  const pageViewSubtitle = selectedPage
+    ? `Showing only signals for /${selectedPage.slug}.`
+    : 'Showing signals across every page in your workspace.'
+  const selectedPageReadiness = selectedPage ? getReadinessScore(selectedPage) : avgAllReadiness
 
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
@@ -250,7 +265,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
               ].map((r) => (
                 <a
                   key={r.value}
-                  href={makeAnalyticsHref(filters, { range: r.value, from: undefined, to: undefined })}
+                  href={makeAnalyticsHref(normalizedFilters, { range: r.value, from: undefined, to: undefined })}
                   className={`rounded-md px-3 py-1 transition ${range === r.value && !isCustom ? 'bg-white text-black' : 'text-zinc-300 hover:bg-white/10'}`}
                 >
                   {r.label}
@@ -264,7 +279,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
               className={`flex items-center gap-1.5 rounded-lg border bg-white/[0.04] px-2 py-1 ${isCustom ? 'border-[#7C3AED]/50' : 'border-white/10'}`}
             >
               {filters.q ? <input type="hidden" name="q" value={filters.q} /> : null}
-              {filters.page ? <input type="hidden" name="page" value={filters.page} /> : null}
+              {selectedPageId ? <input type="hidden" name="page" value={selectedPageId} /> : null}
               {selectedAction && selectedAction !== 'all' ? <input type="hidden" name="action" value={selectedAction} /> : null}
               {selectedTraffic !== 'all' ? <input type="hidden" name="traffic" value={selectedTraffic} /> : null}
               <input
@@ -301,6 +316,47 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-400">
           Track real agent-facing intent: classified AI visits, human traffic, directory discovery, provider handoffs, and Stripe checkout sessions.
         </p>
+
+        <section className="mt-6 rounded-lg border border-white/10 bg-white/[0.04] p-5">
+          <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-cyan-200">Analytics view</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight">{pageViewTitle}</h2>
+              <p className="mt-2 text-sm text-zinc-400">{pageViewSubtitle}</p>
+              {selectedPage ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <a
+                    href={`/${selectedPage.slug}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-zinc-200 hover:bg-white/10"
+                  >
+                    Public page
+                    <ArrowUpRight className="size-4" />
+                  </a>
+                  <a
+                    href={`/dashboard/${selectedPage.id}`}
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-zinc-200 hover:bg-white/10"
+                  >
+                    Edit page
+                    <ArrowUpRight className="size-4" />
+                  </a>
+                  <a
+                    href="/dashboard/analytics"
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-zinc-400 hover:bg-white/10 hover:text-white"
+                  >
+                    View all pages
+                  </a>
+                </div>
+              ) : null}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[420px]">
+              <MiniStat label="Scope" value={selectedPage ? 'Single page' : 'Workspace'} />
+              <MiniStat label="Offers" value={offerCount.toLocaleString()} />
+              <MiniStat label="Readiness" value={`${selectedPageReadiness}%`} />
+            </div>
+          </div>
+        </section>
 
         <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Kpi title="Tracked Signals" value={(filteredEvents.length + filteredAgentVisits.length).toLocaleString()} note={`${events.length + agentVisits.length} total stored`} tone="strong" />
@@ -353,7 +409,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             )}
           </Panel>
 
-          <Panel title="Top Pages by Agent Activity">
+          <Panel title={selectedPage ? 'Selected Page Agent Activity' : 'Top Pages by Agent Activity'}>
             {topPages.length ? (
               <TopPagesChart pages={topPages} max={maxPageEvents} />
             ) : (
@@ -541,7 +597,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                   placeholder="Search event context..."
                 />
               </label>
-              <Select name="page" label="Page" defaultValue={filters.page ?? ''}>
+              <Select name="page" label="Analytics view" defaultValue={selectedPageId}>
                 <option value="">All pages</option>
                 {pageOptions.map((page) => (
                   <option key={page.id} value={page.id}>
@@ -567,7 +623,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             <button className="mt-5 w-full rounded-lg bg-cyan-300 px-4 py-3 text-sm font-semibold text-zinc-950 hover:bg-cyan-200">
               Apply filters
             </button>
-            {(filters.q || filters.page || (selectedAction && selectedAction !== 'all') || selectedTraffic !== 'all') ? (
+            {(filters.q || selectedPageId || (selectedAction && selectedAction !== 'all') || selectedTraffic !== 'all') ? (
               <a href="/dashboard/analytics" className="mt-3 block text-center text-sm text-zinc-500 hover:text-white">
                 Clear filters
               </a>
@@ -741,6 +797,15 @@ function Kpi({
         </p>
       ) : null}
       {note ? <p className="mt-3 text-sm text-zinc-400">{note}</p> : null}
+    </div>
+  )
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-black/20 p-4">
+      <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">{label}</p>
+      <p className="mt-2 text-xl font-semibold text-white">{value}</p>
     </div>
   )
 }

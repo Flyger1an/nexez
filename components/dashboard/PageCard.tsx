@@ -1,6 +1,6 @@
 'use client'
 
-import { Activity, Bot, Copy, CopyPlus, ExternalLink, Gauge, Pencil, Play, Settings, Trash2 } from 'lucide-react'
+import { Activity, BarChart3, Bot, Copy, CopyPlus, ExternalLink, Gauge, Pencil, Play, Settings, Trash2 } from 'lucide-react'
 import { AgentPage, getOfferCount, getReadinessScore } from '../../lib/agent-page'
 
 export const pageActionClass =
@@ -74,7 +74,7 @@ export function PageCard({
           {eventCount} agent signals
         </div>
 
-        <div className="mt-4 grid grid-cols-4 sm:grid-cols-7 gap-2">
+        <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-8">
           <a href={`/dashboard/${page.id}`} className={pageActionClass} aria-label="Edit page">
             <Pencil className="size-4" />
           </a>
@@ -83,6 +83,9 @@ export function PageCard({
           </a>
           <a href={`/dashboard/${page.id}/test`} className={pageActionClass} aria-label="Test page with AI agents">
             <Play className="size-4" />
+          </a>
+          <a href={`/dashboard/analytics?page=${encodeURIComponent(page.id)}`} className={pageActionClass} aria-label="View page analytics">
+            <BarChart3 className="size-4" />
           </a>
           <a href={`/${page.slug}`} className={pageActionClass} aria-label="Preview page">
             <ExternalLink className="size-4" />

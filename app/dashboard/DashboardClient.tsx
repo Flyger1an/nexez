@@ -588,7 +588,7 @@ function AgentDetectionSummary({
             topPages.map((page) => (
               <a
                 key={page.pageId}
-                href={`/${page.slug}`}
+                href={`/dashboard/analytics?page=${encodeURIComponent(page.pageId)}&traffic=ai`}
                 className="block rounded-lg border border-white/10 bg-black/20 px-3 py-2 hover:border-cyan-300/40"
               >
                 <div className="flex items-center justify-between gap-3 text-sm">
