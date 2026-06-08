@@ -18,6 +18,7 @@ describe('EditorToolbar', () => {
     render(<EditorToolbar e={editor()} />)
     expect(screen.getByRole('button', { name: /re-analyze from website/i })).toBeEnabled()
     expect(screen.getByRole('link', { name: /view public page/i })).toHaveAttribute('href', '/demo')
+    expect(screen.getByRole('link', { name: /view public page/i })).toHaveAttribute('target', '_blank')
     expect(screen.getByRole('link', { name: /test with agents/i })).toHaveAttribute('href', '/dashboard/p1/test')
     expect(screen.getByRole('link', { name: /versions & history/i })).toHaveAttribute('href', '/dashboard/p1/settings')
   })

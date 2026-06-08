@@ -43,6 +43,8 @@ export function EditorToolbar({ e }: { e: PageEditor }) {
         </a>
         <a
           href={`/${page.slug}`}
+          target="_blank"
+          rel="noreferrer"
           className="inline-flex w-fit items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm text-white hover:bg-white/10"
         >
           View public page

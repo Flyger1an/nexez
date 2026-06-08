@@ -171,6 +171,23 @@ export function usePageEditor(initial: EditorInitial) {
     } catch {}
   }, [])
 
+  // Arrival from the create wizard after publishing a new page. The public
+  // page opens separately; the creator lands here to keep working.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('created') !== '1') return
+
+    const publicSlug = url.searchParams.get('public')
+    setMessage(publicSlug
+      ? `Page published. The public agent page opened in a new tab. If your browser blocked it, use "View public page" here.`
+      : 'Page published. Continue editing here, or use "View public page" to inspect the live agent page.')
+
+    url.searchParams.delete('created')
+    url.searchParams.delete('public')
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+  }, [])
+
   // Auto-trigger reanalysis preview when arriving from Settings "Re-sync".
   useEffect(() => {
     if (typeof window === 'undefined') return

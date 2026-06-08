@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   AlertCircle,
   ArrowRight,
@@ -73,6 +74,7 @@ type GuidedImportReview = {
 }
 
 export default function CreatePage() {
+  const router = useRouter()
   const [step, setStep] = useState(1)
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
@@ -230,6 +232,7 @@ export default function CreatePage() {
 
   const handleSubmit = async () => {
     setLoading(true)
+    const publicPageTab = openPendingPublicPageTab()
 
     const supabase = createClient()
     const {
@@ -238,6 +241,7 @@ export default function CreatePage() {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
+      closePendingPublicPageTab(publicPageTab)
       // Visitor built a page but isn't signed in — preserve their work and
       // prompt them to create an account / sign in before it goes live.
       try {
@@ -258,7 +262,7 @@ export default function CreatePage() {
     }
 
     const cleanSlug = normalizeSlug(slug || name)
-    const { error } = await supabase.from('pages').insert({
+    const { data: createdPage, error } = await supabase.from('pages').insert({
       owner_id: user.id,
       name,
       slug: cleanSlug,
@@ -275,16 +279,25 @@ export default function CreatePage() {
       faqs: parsedFaqs,
       is_published: true,
       branding: logoUrl ? { logo_url: logoUrl } : {},
-    })
+    }).select('id, slug').single()
 
     setLoading(false)
 
     if (error) {
+      closePendingPublicPageTab(publicPageTab)
       alert('Error creating page: ' + error.message)
       return
     }
 
-    setPublishedSlug(cleanSlug)
+    const createdSlug = createdPage?.slug || cleanSlug
+    sendPublicPageTab(publicPageTab, `/${createdSlug}`)
+
+    if (createdPage?.id) {
+      router.push(`/dashboard/${createdPage.id}?created=1&public=${encodeURIComponent(createdSlug)}`)
+      return
+    }
+
+    setPublishedSlug(createdSlug)
   }
 
   async function runGuidedImport(options?: {
@@ -622,15 +635,15 @@ export default function CreatePage() {
           </div>
           <h1 className="text-4xl font-semibold tracking-tight">Agent page is live</h1>
           <p className="mt-4 max-w-xl text-zinc-300">
-            Nexez published a crawlable page with structured business details, offers, FAQs,
-            and agent-friendly summary content.
+            Nexez opened the live agent page in a separate tab and kept your workspace here
+            so you can continue editing, test it with agents, or configure settings.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <a href={`/${publishedSlug}`} className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-zinc-950 hover:bg-zinc-200">
-              View page
+            <a href={`/${publishedSlug}`} target="_blank" rel="noreferrer" className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-zinc-950 hover:bg-zinc-200">
+              Open public page
             </a>
             <a href="/dashboard" className="rounded-lg border border-white/15 px-5 py-3 text-sm font-medium text-white hover:bg-white/10">
-              Dashboard
+              Continue in dashboard
             </a>
           </div>
         </div>
@@ -1426,6 +1439,43 @@ function guidedAiStatusMessage(review: GuidedImportReview) {
   }
 
   return 'Deterministic import completed. Add an LLM key later for messy sites.'
+}
+
+function openPendingPublicPageTab(): Window | null {
+  if (typeof window === 'undefined' || typeof window.open !== 'function') return null
+
+  const tab = window.open('', '_blank')
+  if (!tab) return null
+
+  try {
+    tab.opener = null
+    tab.document.title = 'Publishing Nexez page...'
+    tab.document.body.innerHTML = '<main style="min-height:100vh;display:grid;place-items:center;background:#090b10;color:white;font-family:system-ui,sans-serif"><p>Publishing your Nexez agent page...</p></main>'
+  } catch {
+    // Some browsers restrict access to the blank tab. It can still be redirected.
+  }
+
+  return tab
+}
+
+function sendPublicPageTab(tab: Window | null, path: string) {
+  if (typeof window === 'undefined') return
+  const publicUrl = new URL(path, window.location.origin).toString()
+
+  if (tab && !tab.closed) {
+    tab.location.href = publicUrl
+    return
+  }
+
+  window.open(publicUrl, '_blank', 'noopener,noreferrer')
+}
+
+function closePendingPublicPageTab(tab: Window | null) {
+  try {
+    if (tab && !tab.closed) tab.close()
+  } catch {
+    // Nothing to clean up if the browser already closed or isolated the tab.
+  }
 }
 
 const inputClass =

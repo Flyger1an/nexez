@@ -1,15 +1,43 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '../../test/dom'
 import CreatePage from './page'
 import { NEXEZ_INDUSTRIES } from '../../lib/industry-catalog'
 
+const routerMock = vi.hoisted(() => ({
+  push: vi.fn(),
+}))
+
+const supabaseMocks = vi.hoisted(() => ({
+  getUser: vi.fn(),
+  insert: vi.fn(),
+  select: vi.fn(),
+  single: vi.fn(),
+}))
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => routerMock,
+}))
+
 vi.mock('../../utils/supabase/client', () => ({
   createClient: () => ({
-    auth: { getUser: vi.fn(async () => ({ data: { user: null }, error: null })) },
-    from: () => ({ insert: vi.fn(async () => ({ error: null })) }),
+    auth: { getUser: supabaseMocks.getUser },
+    from: () => ({ insert: supabaseMocks.insert }),
   }),
 }))
+
+function resetSupabaseMocks() {
+  routerMock.push.mockReset()
+  supabaseMocks.getUser.mockReset()
+  supabaseMocks.insert.mockReset()
+  supabaseMocks.select.mockReset()
+  supabaseMocks.single.mockReset()
+
+  supabaseMocks.getUser.mockResolvedValue({ data: { user: null }, error: null })
+  supabaseMocks.insert.mockReturnValue({ select: supabaseMocks.select })
+  supabaseMocks.select.mockReturnValue({ single: supabaseMocks.single })
+  supabaseMocks.single.mockResolvedValue({ data: { id: 'page-1', slug: 'test-page' }, error: null })
+}
 
 function guidedImportPayload() {
   const structuredOffers = Array.from({ length: 12 }, (_, index) => ({
@@ -178,6 +206,10 @@ function guidedImportPayloadForScenario(scenario: RefinementScenario, refined = 
 }
 
 describe('CreatePage guided import review', () => {
+  beforeEach(() => {
+    resetSupabaseMocks()
+  })
+
   afterEach(() => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
@@ -301,5 +333,41 @@ describe('CreatePage guided import review', () => {
     await waitFor(() => expect(screen.getByText(/Guided import applied. 1 offer is ready/i)).toBeInTheDocument())
     expect(screen.getByDisplayValue(scenario.refinedOffer)).toBeInTheDocument()
     expect(screen.getByDisplayValue(scenario.refinedDescription)).toBeInTheDocument()
+  })
+
+  it('opens the public agent page in a new tab and returns the creator to the dashboard editor after publish', async () => {
+    supabaseMocks.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null })
+    supabaseMocks.single.mockResolvedValue({ data: { id: 'page-123', slug: 'acme-agent-page' }, error: null })
+
+    const tab = {
+      closed: false,
+      close: vi.fn(),
+      opener: {} as Window | null,
+      document: { title: '', body: { innerHTML: '' } },
+      location: { href: '' },
+    }
+    const openMock = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
+
+    render(<CreatePage />)
+
+    fireEvent.change(screen.getByLabelText('Business Name'), { target: { value: 'Acme Agent Page' } })
+    fireEvent.change(screen.getByLabelText('Short Description'), { target: { value: 'Agent-ready service page for Acme.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.change(screen.getByLabelText('Main website'), { target: { value: 'https://acme.example.com' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Publish agent page' }))
+
+    await waitFor(() => expect(routerMock.push).toHaveBeenCalledWith('/dashboard/page-123?created=1&public=acme-agent-page'))
+
+    expect(openMock).toHaveBeenCalledWith('', '_blank')
+    expect(tab.opener).toBeNull()
+    expect(tab.location.href).toBe(`${window.location.origin}/acme-agent-page`)
+    expect(tab.close).not.toHaveBeenCalled()
+    expect(supabaseMocks.insert).toHaveBeenCalledWith(expect.objectContaining({
+      owner_id: 'user-1',
+      name: 'Acme Agent Page',
+      slug: 'acme-agent-page',
+      is_published: true,
+    }))
   })
 })
