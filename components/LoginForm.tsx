@@ -166,7 +166,7 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
         <header className="flex h-16 items-center justify-between border-b border-border">
           <a href="/" className="inline-flex items-center gap-3">
             <div className="flex size-8 items-center justify-center rounded-md border border-border bg-white text-black">
-              <NexezLogo className="size-5" />
+              <NexezLogo className="size-6" />
             </div>
             <span className="text-sm font-medium tracking-tight">Nexez</span>
           </a>

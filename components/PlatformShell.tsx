@@ -113,7 +113,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
           <div className="hidden items-center gap-3 border-b border-border px-4 py-4 md:flex">
             <a href="/" className="flex min-w-0 flex-1 items-center gap-3" title="Nexez home">
               <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-white text-black">
-                <NexezLogo className="size-5" />
+                <NexezLogo className="size-6" />
               </div>
               {!collapsed ? <span className="truncate text-sm font-medium tracking-tight">Nexez</span> : null}
             </a>
@@ -172,7 +172,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex items-center justify-between gap-3 xl:hidden">
                 <a href="/" className="flex items-center gap-2">
-                  <div className="flex size-7 items-center justify-center rounded-md border border-border bg-white text-black"><NexezLogo className="size-4" /></div>
+                  <div className="flex size-7 items-center justify-center rounded-md border border-border bg-white text-black"><NexezLogo className="size-5" /></div>
                   <span className="text-sm font-medium">Nexez</span>
                 </a>
                 <div className="flex items-center gap-2">

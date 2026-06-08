@@ -1,4 +1,4 @@
-// Nexez brand mark. The trimmed PNG (public/nexez-logo.png) is used as a CSS
+// Nexez brand mark. The bold square PNG (public/nexez-logo.png) is used as a CSS
 // mask filled with `currentColor`, so the mark takes the surrounding text color
 // (black on the white chip in dark mode, white when the chip inverts in light
 // mode) with no extra stylesheet rule. To update the logo, replace the PNG.

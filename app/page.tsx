@@ -124,7 +124,7 @@ export default async function NexezHome() {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-3.5">
           <a href="/" className="flex items-center gap-2.5">
             <div className="flex size-8 items-center justify-center rounded-md border border-border bg-white text-black">
-              <NexezLogo className="size-5" />
+              <NexezLogo className="size-6" />
             </div>
             <span className="text-sm font-medium tracking-tight">Nexez</span>
           </a>
@@ -784,7 +784,7 @@ function SiteFooter() {
           <div>
             <a href="/" className="flex items-center gap-3">
               <div className="flex size-8 items-center justify-center rounded-md border border-border bg-white text-black">
-                <NexezLogo className="size-5" />
+                <NexezLogo className="size-6" />
               </div>
               <span className="text-sm font-medium tracking-tight">Nexez</span>
             </a>
