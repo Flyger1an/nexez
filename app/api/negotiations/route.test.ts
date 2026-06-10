@@ -84,13 +84,24 @@ describe('POST /api/negotiations', () => {
   })
 
   it('dryRun validates without inserting', async () => {
-    // dryRun now handled inside service; we don't assert on low-level insert flag anymore
-    dbRef.handler = (ctx: QueryContext) =>
-      ctx.table === 'pages' ? { data: pageWithOffer, error: null } : { data: null, error: null }
+    // Legacy semantics: a dry run validates the proposal but persists nothing —
+    // no negotiation-service call (which inserts + calls the LLM) and no inserts.
+    const ops: string[] = []
+    dbRef.handler = (ctx: QueryContext) => {
+      ops.push(`${ctx.table}:${ctx.op}`)
+      return ctx.table === 'pages' ? { data: pageWithOffer, error: null } : { data: null, error: null }
+    }
     const res = await POST(post({ slug: 'demo', offer: 'services-0', dryRun: true }))
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json).toMatchObject({ ok: true, dryRun: true })
+    expect(json.rulesEvaluation).toBeTruthy()
+    expect(json.negotiationId).toBeUndefined()
+    expect(json.statusToken).toBeUndefined()
+
+    const { negotiationService } = await import('../../../lib/negotiation.service')
+    expect(negotiationService.startOrContinue).not.toHaveBeenCalled()
+    expect(ops.some((o) => o.includes('insert'))).toBe(false)
   })
 
   it('inserts and replies from known values (no RETURNING/select — anon RLS safe)', async () => {

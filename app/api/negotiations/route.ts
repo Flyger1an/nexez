@@ -89,6 +89,24 @@ export async function POST(request: Request) {
     buyerAgent: input.buyerAgent,
   }
 
+  // Legacy dry-run semantics: validate the proposal without persisting anything.
+  // Short-circuit before the negotiation service — it inserts agent_negotiations +
+  // negotiation_messages rows and makes a blocking LLM call, none of which a dry
+  // run may do. Page + offer existence are already validated above; run only the
+  // deterministic rules evaluation and return.
+  if (input.dryRun) {
+    const rulesEvaluation = evaluateProposal(
+      { offerType: offer.offerType, rules: offer.rules, price: offer.price },
+      { proposedPriceCents },
+    )
+    return NextResponse.json({
+      ok: true,
+      dryRun: true,
+      rulesEvaluation,
+      publicPageUrl: `${baseUrl}/${page.slug}`,
+    })
+  }
+
   try {
     const result = await negotiationService.startOrContinue({
       slug: input.slug,
@@ -98,10 +116,6 @@ export async function POST(request: Request) {
       negotiationId: input.negotiationId,
       statusToken: input.statusToken,
     })
-
-    if (input.dryRun) {
-      return NextResponse.json({ ok: true, dryRun: true, ...result })
-    }
 
     // Keep backward compat for existing one-shot agent POSTs (they get the status token).
     const ownerEmail = (page as { contact_email?: string | null }).contact_email
