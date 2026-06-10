@@ -1,56 +1,63 @@
-This is a [Next.js](https://nextjs.org) project for Nexez — AI-optimized agent pages for services & products.
+# Nexez
 
-**Tech (lean MVP):** Next.js 16 (App Router), React 19, Supabase (auth + Postgres with RLS), Stripe (checkout + billing), Tailwind, Recharts, react-hook-form + zod patterns, dnd-kit (future), Lucide icons.
+**Pages AI agents can actually book from.**
 
-**Data model:** Simple flat `public.pages` table (Supabase) + `checkout_events`. JSONB for offers/services/faqs. No Prisma (deprecated & removed — see prior schema in git history if needed for future normalized refactor).
+Nexez is the infrastructure layer for **agentic commerce**. Businesses create clean, structured agent-ready pages alongside their main website. AI agents (ChatGPT, Claude, Grok, Perplexity, etc.) can discover offers, negotiate, and complete bookings autonomously.
 
-See the full MVP vision in conversation history for the 12-screen breakdown. The implementation is already very advanced.
+One source of truth. Two audiences: beautiful for humans, brutally structured for agents.
 
-## Current MVP Status (post 1-7 autonomous build session)
-All 12 core screens are functional and polished. Major autonomous work completed:
-- Real Stripe catalog import (price/product IDs → offer lines)
-- Strong local AI optimization helpers for agent copy (no LLM key required)
-- Stripe Billing Portal + usage vs plan hints
-- Custom domain field + DNS guidance + embed snippet (data path + migration ready)
-- Prisma fully removed (dead weight cleaned)
-- Simulator, analytics, directory, public pages, builder/editor all deepened
-- Build clean, new API routes added, many small agent-friendly improvements
+---
 
-Next natural user-driven steps: real Calendly OAuth, LLM-powered rewrites, production custom domain verification, plan enforcement middleware, tests.
+## ✨ Features
 
-Run `npm run dev` and create your first agent page.
+### Core
+- **Agent-optimized pages** with JSON-LD, llms.txt, agent.json, MCP endpoint, and semantic HTML
+- **Hybrid booking system**:
+  - Fixed Pricing → instant direct booking
+  - Negotiable services → smart rules + LLM-powered negotiation
+- **Persistent negotiation links** – agents can continue conversations even when offline
+- **Smart Rules Engine** – business owners define per-offer rules (price floors, notice periods, blackout dates, etc.)
+- **AI Co-Pilot** – intelligent suggestions for offers, pricing, and agent optimization
+- **Agent Simulator** – preview how different models interpret your page
+- **Competitor Analyzer** – see how agents perceive any competitor website
 
-## Getting Started
+### Analytics & Trust
+- Real-time agent detection and traffic split
+- Detailed analytics: agent visits, conversions, pipeline value, top queries
+- Trust Score and verification system
 
-First, run the development server:
+### Payments & Monetization
+- **Dual revenue model**:
+  - Subscription plans: **Free**, **Launch**, **Pro**, **Scale**, **Enterprise** (contact sales)
+  - Platform commission on every agent-driven transaction (configurable per plan)
+- Stripe Connect (business is Merchant of Record) + automatic platform fee deduction
+- Stripe Billing for subscriptions
+
+### Technical
+- Fully pluggable LLM engine (Gemini, Grok, Claude, OpenAI – swap with one env variable)
+- Persistent state for all negotiations
+- Supabase backend with clean schema
+- Production-ready error handling, logging, and webhooks
+
+---
+
+## 🛠 Tech Stack
+
+- **Frontend**: Next.js 16 (App Router) + Tailwind + shadcn/ui
+- **Backend**: Next.js API routes + Supabase
+- **Database**: Supabase (PostgreSQL)
+- **Payments**: Stripe Connect + Stripe Billing
+- **LLM Layer**: Pluggable (Gemini primary, with adapters for Grok, Claude, OpenAI)
+- **Deployment**: Vercel
+
+---
+
+## 🚀 Quick Start
 
 ```bash
+git clone https://github.com/yourusername/nexez.git
+cd nexez
+npm install
+cp .env.example .env.local
+# Fill in your Supabase, Stripe, and LLM keys
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
