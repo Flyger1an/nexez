@@ -115,9 +115,16 @@ export async function POST(request: Request) {
     })
   } catch (err: any) {
     console.error('[billing/create-subscription] Error creating embedded subscription', err)
-    return NextResponse.json(
-      { error: 'Failed to create subscription: ' + (err.message || 'Unknown error') },
-      { status: 500 }
-    )
+
+    let friendlyError = 'Failed to create subscription: ' + (err.message || 'Unknown error')
+
+    // Helpful message for the common misconfiguration (using prod_ instead of price_)
+    if (err.message && err.message.toLowerCase().includes('no such price')) {
+      friendlyError = 'Failed to create subscription: The price ID configured for this plan is invalid. ' +
+        'You have likely set one of the STRIPE_PRICE_* environment variables to a Product ID (prod_...) instead of a Price ID (price_...). ' +
+        'Go to your Stripe Dashboard → Products, open the product, copy the actual Price ID from the pricing section, and update the corresponding env var (STRIPE_PRICE_LAUNCH etc.) in your hosting platform (Vercel). Then redeploy.'
+    }
+
+    return NextResponse.json({ error: friendlyError }, { status: 500 })
   }
 }

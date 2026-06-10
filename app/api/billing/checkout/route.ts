@@ -67,7 +67,21 @@ export async function POST(request: Request) {
     },
   }
 
-  const session = await stripe.checkout.sessions.create(sessionParams)
+  let session
+  try {
+    session = await stripe.checkout.sessions.create(sessionParams)
+  } catch (err: any) {
+    console.error('[billing/checkout] Failed to create Stripe Checkout Session', err)
+
+    let target = `${getBaseUrl()}/dashboard/billing?error=stripe`
+
+    if (err.message && err.message.toLowerCase().includes('no such price')) {
+      target = `${getBaseUrl()}/dashboard/billing?error=bad_price_id`
+      // Note: the real cause is almost always STRIPE_PRICE_* env var set to a prod_xxx (product) instead of price_xxx (price)
+    }
+
+    return NextResponse.redirect(target, 303)
+  }
 
   return NextResponse.redirect(session.url || `${getBaseUrl()}/dashboard/billing`, 303)
 }

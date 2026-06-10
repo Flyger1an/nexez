@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react'
 import EmbeddedSubscriptionForm from './EmbeddedSubscriptionForm'
 import { billingPlans, getPlanPriceId } from '../../lib/billing'
-import type { BillingSubscription } from '../../lib/stripe-billing'
 
 /**
  * Client component for plan selection + Embedded Subscription checkout (Stripe Elements).
@@ -14,12 +13,11 @@ import type { BillingSubscription } from '../../lib/stripe-billing'
 
 interface EmbeddedPlanSelectorProps {
   activePlanId: string
-  billingState: BillingSubscription | null
   stripeReady: boolean
   initialPlanId?: string | null
 }
 
-export default function EmbeddedPlanSelector({ activePlanId, billingState, stripeReady, initialPlanId }: EmbeddedPlanSelectorProps) {
+export default function EmbeddedPlanSelector({ activePlanId, stripeReady, initialPlanId }: EmbeddedPlanSelectorProps) {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(initialPlanId || null)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
@@ -110,7 +108,11 @@ export default function EmbeddedPlanSelector({ activePlanId, billingState, strip
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {filteredPlans.map((plan) => {
-          const configured = Boolean(getPlanPriceId(plan) && process.env.STRIPE_SECRET_KEY)
+          const priceId = getPlanPriceId(plan)
+          // Client cannot reliably read private envs. We trust the server-computed `stripeReady` (which already validated secret + prices on the server).
+          // We still compute hasPriceForPlan for the hosted fallback button.
+          const hasPriceForPlan = Boolean(priceId)
+          const canUseEmbedded = stripeReady
           const isSelected = selectedPlanId === plan.id
           const isLoadingThis = loadingPlan === plan.id
 
@@ -122,10 +124,10 @@ export default function EmbeddedPlanSelector({ activePlanId, billingState, strip
               <div className="mt-4 space-y-2">
                 <button
                   onClick={() => startEmbeddedCheckout(plan.id)}
-                  disabled={!configured || isLoadingThis || !!clientSecret}
+                  disabled={!canUseEmbedded || isLoadingThis || !!clientSecret}
                   className="w-full rounded bg-[#7C3AED] py-2 text-xs font-medium text-white disabled:opacity-60 hover:bg-[#6D28D9]"
                 >
-                  {isLoadingThis ? 'Starting secure checkout…' : configured ? 'Subscribe with card (embedded)' : 'Configure Stripe'}
+                  {isLoadingThis ? 'Starting secure checkout…' : canUseEmbedded ? 'Subscribe with card (embedded)' : 'Configure Stripe'}
                 </button>
 
                 {/* Fallback to existing hosted flow in /api/billing/checkout */}
@@ -133,7 +135,7 @@ export default function EmbeddedPlanSelector({ activePlanId, billingState, strip
                   <input type="hidden" name="plan" value={plan.id} />
                   <button
                     type="submit"
-                    disabled={!configured}
+                    disabled={!hasPriceForPlan}
                     className="w-full rounded border border-white/15 py-1.5 text-xs text-zinc-200 hover:bg-white/5 disabled:opacity-50"
                   >
                     Or use hosted Stripe checkout →

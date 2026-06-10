@@ -51,9 +51,15 @@ export default async function BillingPage({ searchParams }: BillingProps) {
   const stripeProductionReady = stripeReadiness.productionReady
   const activePlan = billingPlans.find((plan) => plan.id === billingState?.plan_id)
   const status = billingStatusCopy(billingState?.status)
-  const periodEnd = billingState?.current_period_end
-    ? new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(billingState.current_period_end))
-    : null
+  const periodEnd = billingState?.current_period_end ? (() => {
+    try {
+      const d = new Date(billingState.current_period_end)
+      if (isNaN(d.getTime())) return null
+      return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' }).format(d)
+    } catch {
+      return null
+    }
+  })() : null
 
   // Simple usage metrics (expandable with real tracking later)
   const usageMetrics = [
@@ -110,14 +116,6 @@ export default async function BillingPage({ searchParams }: BillingProps) {
                 <form action="/api/billing/portal" method="post">
                   <button type="submit" className="rounded-lg border border-white/15 px-4 py-2 text-sm hover:bg-white/5">Manage in Stripe</button>
                 </form>
-              )}
-              {billingState?.stripe_subscription_id && !billingState.cancel_at_period_end && (
-                <button 
-                  onClick={() => { if (confirm('Cancel at end of period?')) alert('Cancellation would be handled via Stripe portal in full impl.') }}
-                  className="rounded-lg border border-red-400/30 px-4 py-2 text-sm text-red-300 hover:bg-red-400/10"
-                >
-                  Cancel subscription
-                </button>
               )}
             </div>
           </div>
@@ -225,7 +223,6 @@ export default async function BillingPage({ searchParams }: BillingProps) {
             Only paid plans (Launch+) have subscriptions. Free pays 0 sub but 15% txn commission (via Connect). */}
         <EmbeddedPlanSelector
           activePlanId={activePlan?.id || 'free'}
-          billingState={billingState}
           stripeReady={stripeReady}
           initialPlanId={initialPlanFromQuery}
         />
@@ -234,6 +231,12 @@ export default async function BillingPage({ searchParams }: BillingProps) {
         {search.setup === 'stripe' && (
           <div className="mt-6 rounded-lg border border-amber-200/20 bg-amber-200/10 p-4 text-sm text-amber-100">
             Stripe env vars needed before checkout.
+          </div>
+        )}
+        {search.error === 'bad_price_id' && (
+          <div className="mt-6 rounded-lg border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-200">
+            Configuration error: One of the STRIPE_PRICE_* environment variables is set to a Product ID (starts with prod_) instead of a Price ID (starts with price_). 
+            Fix the values in your hosting platform (Vercel), then redeploy. See Stripe Dashboard → Products for the correct Price IDs.
           </div>
         )}
         {search.canceled && (

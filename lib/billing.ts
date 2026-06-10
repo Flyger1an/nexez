@@ -68,7 +68,10 @@ export function getBillingPlan(id: string | null | undefined) {
 }
 
 export function getPlanPriceId(plan: BillingPlan) {
-  return process.env[plan.envVar] || ''
+  // Support both private (STRIPE_PRICE_*) and public (NEXT_PUBLIC_STRIPE_PRICE_*) for client-side use in embedded UI.
+  // Price IDs are safe to expose publicly (they are not secret keys).
+  const publicEnvVar = plan.envVar.replace(/^STRIPE_PRICE_/, 'NEXT_PUBLIC_STRIPE_PRICE_');
+  return process.env[plan.envVar] || process.env[publicEnvVar] || '';
 }
 
 export function getStripeBillingReadiness() {
