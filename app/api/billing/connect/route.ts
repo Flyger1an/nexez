@@ -82,8 +82,9 @@ export async function POST(request: Request) {
 
   // Create onboarding / manage link (Stripe will show the appropriate flow for the account state)
   const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://nexez.app'
-  const returnUrl = `${base}/dashboard/integrations?connect=success`
-  const refreshUrl = `${base}/dashboard/integrations?connect=refresh`
+  // Redirect back to billing page after Stripe Connect onboarding so the status/refetch logic can run immediately.
+  const returnUrl = `${base}/dashboard/billing?connect=success`
+  const refreshUrl = `${base}/dashboard/billing?connect=refresh`
 
   try {
     const link = await createStripeConnectOnboardingLink(accountId, returnUrl, refreshUrl)

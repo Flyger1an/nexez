@@ -91,60 +91,86 @@ export default function EmbeddedPlanSelector({ activePlanId, stripeReady, initia
   }
 
   return (
-    <div className="mt-8">
-      <h2 className="text-lg font-semibold mb-4">Change plan (Embedded checkout)</h2>
+    <div id="plans" className="mt-8">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">Choose a plan</h2>
+          <p className="text-sm text-[#9CA3AF] mt-0.5">Switch anytime. Billed monthly. Cancel anytime via Stripe portal.</p>
+        </div>
+        <a href="/pricing" className="text-sm text-[#7C3AED] hover:underline">View full comparison →</a>
+      </div>
 
       {successMessage && (
-        <div className="mb-4 rounded-lg border border-emerald-300/30 bg-emerald-300/10 p-3 text-sm text-emerald-200">
+        <div className="mb-4 rounded-xl border border-emerald-300/30 bg-emerald-300/10 p-4 text-sm text-emerald-200">
           {successMessage}
         </div>
       )}
 
       {error && (
-        <div className="mb-4 rounded-lg border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-300">
+        <div className="mb-4 rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-300">
           {error}
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {filteredPlans.map((plan) => {
           const priceId = getPlanPriceId(plan)
-          // Client cannot reliably read private envs. We trust the server-computed `stripeReady` (which already validated secret + prices on the server).
-          // We still compute hasPriceForPlan for the hosted fallback button.
           const hasPriceForPlan = Boolean(priceId)
           const canUseEmbedded = stripeReady
           const isSelected = selectedPlanId === plan.id
           const isLoadingThis = loadingPlan === plan.id
 
           return (
-            <div key={plan.id} className={`card !p-5 text-sm ${isSelected ? 'ring-1 ring-[#7C3AED]/60' : ''}`}>
-              <div className="font-semibold">{plan.name} — {plan.price}/{plan.cadence}</div>
-              <p className="mt-1 text-xs text-[#9CA3AF] line-clamp-2">{plan.blurb}</p>
+            <div 
+              key={plan.id} 
+              className={`group relative rounded-2xl border p-6 transition-all ${isSelected ? 'border-[#7C3AED] bg-[#1A1625] ring-1 ring-[#7C3AED]/30' : 'border-white/10 bg-[#12101B] hover:border-white/20'}`}
+            >
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="text-2xl font-semibold tracking-tight">{plan.name}</div>
+                  {plan.id === 'pro' && <span className="rounded-full bg-[#7C3AED] px-2.5 py-0.5 text-[10px] font-medium tracking-wider text-white">POPULAR</span>}
+                </div>
+                <div className="mt-1 text-sm text-[#9CA3AF]">{plan.blurb}</div>
 
-              <div className="mt-4 space-y-2">
+                <div className="mt-6 flex items-baseline gap-1">
+                  <span className="text-5xl font-semibold tracking-tighter">{plan.price}</span>
+                  <span className="text-[#9CA3AF] text-sm">/{plan.cadence}</span>
+                </div>
+              </div>
+
+              <ul className="mt-6 space-y-2 text-sm text-[#9CA3AF]">
+                {plan.features.map((feature, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="mt-1 inline-block size-1.5 rounded-full bg-emerald-400/70" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-8 space-y-2">
                 <button
                   onClick={() => startEmbeddedCheckout(plan.id)}
                   disabled={!canUseEmbedded || isLoadingThis || !!clientSecret}
-                  className="w-full rounded bg-[#7C3AED] py-2 text-xs font-medium text-white disabled:opacity-60 hover:bg-[#6D28D9]"
+                  className="w-full rounded-xl bg-[#7C3AED] py-3 text-sm font-semibold text-white transition hover:bg-[#6D28D9] disabled:opacity-60 active:bg-[#5B21B6]"
                 >
-                  {isLoadingThis ? 'Starting secure checkout…' : canUseEmbedded ? 'Subscribe with card (embedded)' : 'Configure Stripe'}
+                  {isLoadingThis ? 'Starting secure checkout…' : canUseEmbedded ? 'Subscribe with card' : 'Configure Stripe'}
                 </button>
 
-                {/* Fallback to existing hosted flow in /api/billing/checkout */}
                 <form action="/api/billing/checkout" method="post">
                   <input type="hidden" name="plan" value={plan.id} />
                   <button
                     type="submit"
                     disabled={!hasPriceForPlan}
-                    className="w-full rounded border border-white/15 py-1.5 text-xs text-zinc-200 hover:bg-white/5 disabled:opacity-50"
+                    className="w-full rounded-xl border border-white/15 py-2.5 text-sm text-zinc-200 transition hover:bg-white/5 disabled:opacity-50"
                   >
-                    Or use hosted Stripe checkout →
+                    Or use hosted Stripe checkout
                   </button>
                 </form>
               </div>
 
               {isSelected && clientSecret && (
-                <div className="mt-4 border-t border-white/10 pt-4">
+                <div className="mt-6 border-t border-white/10 pt-6">
+                  <div className="mb-3 text-xs uppercase tracking-[1px] text-[#9CA3AF]">Complete payment</div>
                   <EmbeddedSubscriptionForm
                     plan={plan}
                     clientSecret={clientSecret}
@@ -158,8 +184,8 @@ export default function EmbeddedPlanSelector({ activePlanId, stripeReady, initia
         })}
       </div>
 
-      <p className="mt-3 text-xs text-zinc-500">
-        Embedded uses Stripe Payment Element. Card data never touches our servers. Subscriptions are separate from transaction commissions (Connect + Application Fee on every plan).
+      <p className="mt-4 text-center text-[10px] text-zinc-500">
+        Subscriptions billed via Stripe. Transaction commissions (on every plan, including Free) are handled separately via your connected Stripe account.
       </p>
     </div>
   )
