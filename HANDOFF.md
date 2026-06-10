@@ -1,6 +1,10 @@
 # Nexez — Session Handoff
 
-_Last updated: 2026-06-10 (smoke test + docs sync) · app baseline HEAD `3b172bd` (verify with `git rev-parse --short HEAD`)_
+_Last updated: 2026-06-10 (Smart Rules Phase 1) · app baseline HEAD `b0e0223` (verify with `git rev-parse --short HEAD`)_
+
+## Latest session addendum (2026-06-10, commits `02e198d`→`b0e0223`)
+- **Smart Rules + hybrid booking Phase 1** (`b0e0223`) — per-offer Fixed/Negotiable + rules engine (see ROADMAP shipped entry). Key mechanics for future sessions: rules live ON the `OfferItem` (`offerType`, `rules`) with `[[TYPE]]`/`[[RULES]]` pipe-safe text markers; `smartMergeOffers` preserves them through re-imports; **pricing rules are owner-private** — `publicBookingConstraints` (lib/offer-rules.ts) is the only shape allowed into agent.json/mcp (leak asserted by tests). Negotiations insert generates a server-side `id` + one-time `status_token` (migration `20260610040000`, applied) because anon RLS forbids RETURNING; `GET /api/negotiations/status?id&token` is service-role + rate-limited (404 on any mismatch). Auto-accept reuses status `agreement_proposed` — no new statuses. Verified E2E on preview (auto-accept $110 / flag $50 on qa33-05, badges in inbox, artifacts cleaned) + prod smoke (offer_type in agent.json, status endpoint 404s, zero rule leakage). **371 tests / 70 files.** Phase 2 hooks: LLM counters consume `RulesEvaluation`; Calendly write-side blocking deferred.
+- `02e198d` — pricing links surfaced on public surfaces (user tweaks committed alongside).
 
 ## Project
 **Nexez** helps businesses create dedicated, highly structured pages optimized for **AI agents** to discover, understand, and purchase from. Dual philosophy: **premium glassmorphism human dashboard** vs **brutally clean/semantic HTML for agents** on public `[slug]` pages. A core objective is **deploying agent-optimized pages to custom domains**, managed from the Nexez backend.
