@@ -14,6 +14,17 @@ vi.mock('../supabase', async () => {
   return { supabase: createSupabaseMock((ctx) => dbRef.handler(ctx)) }
 })
 
+// The service prefers the service-role client for negotiation reads/writes
+// (anon RLS rejects them). Route it through the same handler so both paths
+// are exercised deterministically regardless of local env.
+vi.mock('../../utils/supabase/admin', async () => {
+  const { createSupabaseMock } = await import('../../test/supabase-mock')
+  return {
+    hasSupabaseAdminEnv: () => true,
+    createAdminClient: () => createSupabaseMock((ctx) => dbRef.handler(ctx)),
+  }
+})
+
 // Mock the platform LLM env for tests
 const originalEnv = process.env
 

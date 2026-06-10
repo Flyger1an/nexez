@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { supabase } from './supabase';
+import { createAdminClient, hasSupabaseAdminEnv } from '../utils/supabase/admin';
 import { createLLMAdapter, NegotiationDecision, NegotiationAction } from './llm-engine/index';
 import { evaluateProposal } from './offer-rules';
 import { AgentPage, getCheckoutOffer } from './agent-page';
@@ -50,6 +51,19 @@ export class NegotiationService {
       this.llm = createLLMAdapter();
     }
     return this.llm;
+  }
+
+  /**
+   * Client for agent_negotiations / negotiation_messages reads and writes.
+   * These rows are owner-only under RLS, but the negotiation flow runs on behalf
+   * of anonymous agents whose credential is the status token (enforced in
+   * loadNegotiation, mirroring /api/negotiations/status). With the anon client
+   * the status update matched 0 rows and history inserts were rejected, so
+   * negotiations silently lost their state. Falls back to the anon client when
+   * no service-role env is configured (tests / minimal deployments).
+   */
+  private db() {
+    return hasSupabaseAdminEnv() ? createAdminClient() : supabase;
   }
 
   /**
@@ -175,7 +189,7 @@ export class NegotiationService {
 
   /** Load full conversation history from the dedicated negotiation_messages table. */
   private async loadHistory(negotiationId: string): Promise<ConversationTurn[]> {
-    const { data, error } = await supabase
+    const { data, error } = await this.db()
       .from('negotiation_messages')
       .select('id, role, content, created_at')
       .eq('negotiation_id', negotiationId)
@@ -215,7 +229,7 @@ export class NegotiationService {
     }));
 
     if (inserts.length > 0) {
-      const { error: insertErr } = await supabase.from('negotiation_messages').insert(inserts);
+      const { error: insertErr } = await this.db().from('negotiation_messages').insert(inserts);
       if (insertErr) {
         console.error('Failed to insert negotiation messages:', insertErr);
         // continue to update status anyway
@@ -239,7 +253,10 @@ export class NegotiationService {
       update.amount_cents = decision.counter.priceCents;
     }
 
-    await supabase.from('agent_negotiations').update(update).eq('id', negotiationId);
+    const { error: updateErr } = await this.db().from('agent_negotiations').update(update).eq('id', negotiationId);
+    if (updateErr) {
+      console.error('Failed to update negotiation status:', updateErr);
+    }
   }
 
   private async loadPublishedPage(slug: string) {
@@ -253,7 +270,10 @@ export class NegotiationService {
   }
 
   private async loadNegotiation(id: string, token?: string) {
-    const query = supabase.from('agent_negotiations').select('*').eq('id', id);
+    // Owner-only under RLS, so continuation lookups need the service-role client —
+    // with the anon client this read returned nothing and every follow-up forked a
+    // brand-new negotiation instead of resuming the thread.
+    const query = this.db().from('agent_negotiations').select('*').eq('id', id);
     const { data } = await query.single();
     if (!data) return null;
 
@@ -297,7 +317,7 @@ export class NegotiationService {
       },
     };
 
-    const { error } = await supabase.from('agent_negotiations').insert(negotiation);
+    const { error } = await this.db().from('agent_negotiations').insert(negotiation);
     if (error) throw error;
 
     return { ...negotiation, status_token: statusToken };
@@ -326,7 +346,7 @@ export class NegotiationService {
       update.amount_cents = decision.counter.priceCents;
     }
 
-    await supabase.from('agent_negotiations').update(update).eq('id', id);
+    await this.db().from('agent_negotiations').update(update).eq('id', id);
   }
 
   private clampWithRules(
