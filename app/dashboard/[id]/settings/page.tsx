@@ -476,17 +476,21 @@ export default function PageSettings({ params }: PageProps) {
 	  }
 
 	  async function upsertPageSecrets(values: Record<string, unknown>) {
-	    if (!page?.owner_id) {
-	      return { error: { message: 'Page owner is missing; cannot save private settings.' } }
+	    const supabase = createClient()
+	    const { data: { user } } = await supabase.auth.getUser()
+
+	    if (!user || !page?.id) {
+	      return { error: { message: 'Not authenticated or page missing for private settings.' } }
 	    }
 
-	    const supabase = createClient()
+	    // Always use the *current* session user for owner_id (defensive against stale component state).
+	    // The RLS policies will still enforce that this user actually owns the page.
 	    return supabase
 	      .from('page_secrets')
 	      .upsert(
 	        {
 	          page_id: page.id,
-	          owner_id: page.owner_id,
+	          owner_id: user.id,
 	          ...values,
 	          updated_at: new Date().toISOString(),
 	        },
