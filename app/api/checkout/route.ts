@@ -146,6 +146,18 @@ export async function POST(request: Request) {
 
       const applicationFeeAmount = connectAccountId ? calculateApplicationFeeCents(amountCents, commissionPercent) : undefined
 
+      // Lookup billing once for Connect + plan (for fee + metadata). Dual model: subs separate.
+      let ownerPlanId: string | null = null
+      if (hasSupabaseAdminEnv() && page.owner_id) {
+        const admin = createAdminClient()
+        const { data: b } = await admin
+          .from('billing_subscriptions')
+          .select('plan_id')
+          .eq('owner_id', page.owner_id)
+          .maybeSingle()
+        ownerPlanId = b?.plan_id || null
+      }
+
       const sessionParams: any = {
         mode: 'payment',
         line_items: [
@@ -174,7 +186,7 @@ export async function POST(request: Request) {
           nexez_offer_key: offerKey,
           nexez_offer_name: offer.name,
           nexez_source: 'agent_checkout',
-          nexez_owner_plan: (await (hasSupabaseAdminEnv() && page.owner_id ? createAdminClient().from('billing_subscriptions').select('plan_id').eq('owner_id', page.owner_id).maybeSingle() : Promise.resolve({data: null}))).data?.plan_id || 'free',
+          nexez_owner_plan: ownerPlanId || 'free',
         },
       }
 

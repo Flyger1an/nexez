@@ -5,9 +5,10 @@ import { billingPlans, getPlanPriceId, getStripeBillingReadiness } from '../../.
 import { BillingSubscription, billingStatusCopy } from '../../../lib/stripe-billing'
 import { createClient } from '../../../utils/supabase/server'
 
-// Client component for the embedded subscription (Stripe Elements) flow.
-// Extracted to its own file so it can safely use 'use client' + hooks.
+// Client components for interactive parts (to avoid putting client-only code/event handlers in Server Components).
 import EmbeddedPlanSelector from '../../../components/billing/EmbeddedPlanSelector'
+import StripeConnectButton from '../../../components/billing/StripeConnectButton'
+import RefreshConnectButton from '../../../components/billing/RefreshConnectButton'
 
 type BillingProps = {
   searchParams: Promise<{ setup?: string; canceled?: string; error?: string; plan?: string }>
@@ -207,12 +208,36 @@ export default async function BillingPage({ searchParams }: BillingProps) {
           <p className="text-xs uppercase tracking-widest text-[#9CA3AF]">Stripe Connect (for agent bookings &amp; offers)</p>
           <div className="mt-3">
             <p className="text-sm">Connect your Stripe account to receive payments directly (you are the merchant of record). Nexez takes its platform fee automatically via Application Fee based on your plan.</p>
-            <div className="mt-4 flex gap-2">
-              <form action="/api/billing/connect" method="post">
-                <button type="submit" className="rounded-lg border border-white/15 px-4 py-2 text-sm hover:bg-white/5">Connect or manage Stripe account</button>
-              </form>
-              <a href="/dashboard/integrations" className="text-xs self-center text-[#7C3AED] underline">View in Integrations →</a>
-            </div>
+
+            {billingState?.stripe_connect_account_id ? (
+              <div className="mt-3 rounded bg-white/5 p-3 text-sm">
+                <div>
+                  Connected: <code className="text-xs">{billingState.stripe_connect_account_id}</code>
+                </div>
+                <div className="mt-1 flex flex-wrap gap-2 text-xs">
+                  <span className={billingState.stripe_connect_details_submitted ? 'text-emerald-400' : 'text-amber-400'}>
+                    {billingState.stripe_connect_details_submitted ? '✓ Details submitted' : 'Details pending'}
+                  </span>
+                  <span className={billingState.stripe_connect_charges_enabled ? 'text-emerald-400' : 'text-amber-400'}>
+                    {billingState.stripe_connect_charges_enabled ? '✓ Charges enabled' : 'Charges pending'}
+                  </span>
+                  <span className={billingState.stripe_connect_payouts_enabled ? 'text-emerald-400' : 'text-amber-400'}>
+                    {billingState.stripe_connect_payouts_enabled ? '✓ Payouts enabled' : 'Payouts pending'}
+                  </span>
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <StripeConnectButton />
+                  <RefreshConnectButton />
+                </div>
+                <p className="mt-1 text-[10px] text-zinc-500">Use "Manage" to update info in Stripe. "Refresh" pulls latest status.</p>
+              </div>
+            ) : (
+              <div className="mt-4 flex gap-2">
+                <StripeConnectButton />
+                <a href="/dashboard/integrations" className="text-xs self-center text-[#7C3AED] underline">View in Integrations →</a>
+              </div>
+            )}
+
             <p className="mt-2 text-[10px] text-zinc-500">Required for receiving net payouts after Nexez commission. Works for Free plan too (commission only, no sub fee).</p>
           </div>
         </div>

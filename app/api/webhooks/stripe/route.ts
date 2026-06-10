@@ -65,6 +65,34 @@ export async function POST(request: NextRequest) {
     return syncBillingSubscription(event, event.data.object as Stripe.Subscription)
   }
 
+  // Stripe Connect account status updates (details_submitted, charges_enabled, payouts_enabled).
+  // These fire after user completes onboarding or Stripe reviews/enables features.
+  // Keeps billing_subscriptions in sync without manual refresh.
+  if (event.type === 'account.updated') {
+    if (!hasSupabaseAdminEnv()) {
+      return NextResponse.json({ received: true, type: event.type, note: 'SUPABASE_SERVICE_ROLE_KEY required for Connect sync' }, { status: 200 })
+    }
+    const account = event.data.object as Stripe.Account
+    const admin = createAdminClient()
+    const { data: billing } = await admin
+      .from('billing_subscriptions')
+      .select('owner_id')
+      .eq('stripe_connect_account_id', account.id)
+      .maybeSingle<{ owner_id: string }>()
+
+    if (billing?.owner_id) {
+      const update = {
+        stripe_connect_status: account.details_submitted ? 'complete' : 'pending',
+        stripe_connect_details_submitted: account.details_submitted,
+        stripe_connect_charges_enabled: account.charges_enabled,
+        stripe_connect_payouts_enabled: account.payouts_enabled,
+      }
+      await admin.from('billing_subscriptions').update(update).eq('owner_id', billing.owner_id)
+      return NextResponse.json({ received: true, type: event.type, connect_synced: true, owner_id: billing.owner_id })
+    }
+    return NextResponse.json({ received: true, type: event.type, connect_synced: false, reason: 'no matching billing row' }, { status: 200 })
+  }
+
   if (event.type !== 'price.updated' && event.type !== 'price.created') {
     return NextResponse.json({ received: true, type: event.type }, { status: 200 })
   }

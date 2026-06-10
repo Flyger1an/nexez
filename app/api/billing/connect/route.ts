@@ -21,6 +21,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Stripe not configured for Connect.' }, { status: 412 })
   }
 
+  const stripe = new Stripe(secret)
+
   // Get or create billing row for this owner
   const { data: billing } = await supabase
     .from('billing_subscriptions')
@@ -55,7 +57,30 @@ export async function POST(request: Request) {
     }
   }
 
-  // Create onboarding link
+  // Always refresh the latest status from Stripe.
+  // These fields (details_submitted, charges_enabled, payouts_enabled) are updated asynchronously
+  // by Stripe after the user completes steps or after review.
+  let statusUpdate: Record<string, any> = {}
+  try {
+    const account = await stripe.accounts.retrieve(accountId)
+    statusUpdate = {
+      stripe_connect_status: account.details_submitted ? 'complete' : 'pending',
+      stripe_connect_details_submitted: account.details_submitted,
+      stripe_connect_charges_enabled: account.charges_enabled,
+      stripe_connect_payouts_enabled: account.payouts_enabled,
+    }
+    await supabase.from('billing_subscriptions').update(statusUpdate).eq('owner_id', user.id)
+  } catch (e: any) {
+    console.error('Failed to retrieve/update Connect account status', e)
+  }
+
+  // If caller just wants a status refresh (no redirect), return early
+  const requestUrl = new URL(request.url)
+  if (requestUrl.searchParams.get('refresh') === 'true') {
+    return NextResponse.json({ refreshed: true, ...statusUpdate })
+  }
+
+  // Create onboarding / manage link (Stripe will show the appropriate flow for the account state)
   const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://nexez.app'
   const returnUrl = `${base}/dashboard/integrations?connect=success`
   const refreshUrl = `${base}/dashboard/integrations?connect=refresh`

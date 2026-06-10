@@ -25,9 +25,9 @@ const integrations = [
   },
   {
     name: 'Stripe',
-    description: 'Import products, prices, and payment links as agent-ready checkout offers.',
+    description: 'Billing (subs + Connect payouts) in Billing page. Import products/prices as offers in Tools (or re-sync Stripe-sourced offers).',
     status: 'Available',
-    action: 'Configure',
+    action: 'Billing / Tools',
     href: '/dashboard/billing',
     icon: CreditCard,
     accent: 'cyan',
