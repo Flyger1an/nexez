@@ -1,7 +1,8 @@
 import { BadgeCheck, CreditCard, ExternalLink, Sparkles } from 'lucide-react'
 import { cookies } from 'next/headers'
 import { AgentPage, OWNER_PAGE_SELECT, getOfferCount } from '../../../lib/agent-page'
-import { billingPlans, getPlanPriceId, isStripeBillingConfigured } from '../../../lib/billing'
+import { billingPlans, getPlanPriceId, getStripeBillingReadiness } from '../../../lib/billing'
+import { BillingSubscription, billingStatusCopy } from '../../../lib/stripe-billing'
 import { createClient } from '../../../utils/supabase/server'
 
 type BillingProps = {
@@ -32,9 +33,22 @@ export default async function BillingPage({ searchParams }: BillingProps) {
     .eq('owner_id', user.id)
     .returns<AgentPage[]>()
 
+  const { data: billingState } = await supabase
+    .from('billing_subscriptions')
+    .select('*')
+    .eq('owner_id', user.id)
+    .maybeSingle<BillingSubscription>()
+
   const pageCount = pages?.length ?? 0
   const offerCount = pages?.reduce((sum, page) => sum + getOfferCount(page), 0) ?? 0
-  const stripeReady = isStripeBillingConfigured()
+  const stripeReadiness = getStripeBillingReadiness()
+  const stripeReady = stripeReadiness.subscriptionCheckoutReady
+  const stripeProductionReady = stripeReadiness.productionReady
+  const activePlan = billingPlans.find((plan) => plan.id === billingState?.plan_id)
+  const status = billingStatusCopy(billingState?.status)
+  const periodEnd = billingState?.current_period_end
+    ? new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(billingState.current_period_end))
+    : null
 
   return (
     <main className="min-h-screen bg-[#090b10] text-white">
@@ -79,15 +93,48 @@ export default async function BillingPage({ searchParams }: BillingProps) {
               </p>
             </div>
 
-            <div className={`card !p-5 ${stripeReady ? 'border-emerald-300/20 bg-emerald-300/10' : 'border-amber-200/20 bg-amber-200/10'}`}>
+            <div className={`card !p-5 ${stripeProductionReady ? 'border-emerald-300/20 bg-emerald-300/10' : 'border-amber-200/20 bg-amber-200/10'}`}>
               <div className="flex items-center gap-2">
-                <BadgeCheck className={`size-5 ${stripeReady ? 'text-emerald-300' : 'text-amber-200'}`} />
-                <p className="font-semibold">{stripeReady ? 'Stripe billing ready' : 'Stripe setup pending'}</p>
+                <BadgeCheck className={`size-5 ${stripeProductionReady ? 'text-emerald-300' : 'text-amber-200'}`} />
+                <p className="font-semibold">{stripeProductionReady ? 'Stripe production ready' : stripeReady ? 'Stripe checkout partial' : 'Stripe setup pending'}</p>
               </div>
               <p className="mt-3 text-sm leading-6 text-zinc-300">
-                {stripeReady
-                  ? 'Subscription checkout active.'
-                  : 'Add STRIPE_SECRET_KEY and plan Price IDs to activate subscription checkout.'}
+                {stripeProductionReady
+                  ? 'Subscription checkout, customer tracking, and webhook sync are active.'
+                  : stripeReady
+                    ? 'Checkout can start, but webhooks or some plan Price IDs still need production setup.'
+                    : 'Add STRIPE_SECRET_KEY and plan Price IDs to activate subscription checkout.'}
+              </p>
+              {!stripeProductionReady ? (
+                <p className="mt-2 break-words text-[10px] leading-5 text-zinc-500">
+                  Missing: {[
+                    !stripeReadiness.secretKeyConfigured ? 'STRIPE_SECRET_KEY' : '',
+                    !stripeReadiness.webhookSecretConfigured ? 'STRIPE_WEBHOOK_SECRET' : '',
+                    !stripeReadiness.serviceRoleConfigured ? 'SUPABASE_SERVICE_ROLE_KEY' : '',
+                    ...stripeReadiness.missingPlanEnvVars,
+                  ].filter(Boolean).join(', ')}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="card !p-5 text-sm">
+              <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Subscription</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-lg font-semibold text-white">{activePlan?.name ?? 'No active plan'}</span>
+                <span className={`rounded-full border px-2 py-1 text-xs ${
+                  status.tone === 'ok'
+                    ? 'border-emerald-300/30 bg-emerald-300/10 text-emerald-200'
+                    : status.tone === 'warn'
+                      ? 'border-amber-200/30 bg-amber-200/10 text-amber-100'
+                      : 'border-white/10 bg-white/[0.04] text-zinc-400'
+                }`}>
+                  {status.label}
+                </span>
+              </div>
+              <p className="mt-2 text-xs leading-5 text-zinc-400">
+                {periodEnd
+                  ? `${billingState?.cancel_at_period_end ? 'Access ends' : 'Renews'} ${periodEnd}.`
+                  : 'Subscribe through Stripe to activate plan tracking.'}
               </p>
             </div>
 

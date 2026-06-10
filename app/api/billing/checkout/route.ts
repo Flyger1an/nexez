@@ -30,10 +30,20 @@ export async function POST(request: Request) {
     return NextResponse.redirect(`${getBaseUrl()}/dashboard/billing?setup=stripe`, 303)
   }
 
+  const { data: billingState } = await supabase
+    .from('billing_subscriptions')
+    .select('stripe_customer_id')
+    .eq('owner_id', user.id)
+    .maybeSingle<{ stripe_customer_id: string | null }>()
+
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-  const session = await stripe.checkout.sessions.create({
+  const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: 'subscription',
-    customer_email: user.email || undefined,
+    client_reference_id: user.id,
+    ...(billingState?.stripe_customer_id
+      ? { customer: billingState.stripe_customer_id }
+      : { customer_email: user.email || undefined }),
+    allow_promotion_codes: true,
     line_items: [
       {
         price: priceId,
@@ -45,15 +55,19 @@ export async function POST(request: Request) {
     metadata: {
       nexez_user_id: user.id,
       nexez_plan: plan.id,
+      nexez_price_id: priceId,
       nexez_source: 'billing_page',
     },
     subscription_data: {
       metadata: {
         nexez_user_id: user.id,
         nexez_plan: plan.id,
+        nexez_price_id: priceId,
       },
     },
-  })
+  }
+
+  const session = await stripe.checkout.sessions.create(sessionParams)
 
   return NextResponse.redirect(session.url || `${getBaseUrl()}/dashboard/billing`, 303)
 }

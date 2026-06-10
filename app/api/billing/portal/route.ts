@@ -31,13 +31,22 @@ export async function POST() {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
   try {
-    // Best effort: find existing customer by email
-    const customers = await stripe.customers.list({
-      email: user.email || undefined,
-      limit: 1,
-    })
+    const { data: billingState } = await supabase
+      .from('billing_subscriptions')
+      .select('stripe_customer_id')
+      .eq('owner_id', user.id)
+      .maybeSingle<{ stripe_customer_id: string | null }>()
 
-    let customerId = customers.data[0]?.id
+    let customerId = billingState?.stripe_customer_id || null
+
+    if (!customerId) {
+      // Best effort fallback for accounts created before webhook state existed.
+      const customers = await stripe.customers.list({
+        email: user.email || undefined,
+        limit: 1,
+      })
+      customerId = customers.data[0]?.id || null
+    }
 
     if (!customerId) {
       // Create a minimal customer so portal works

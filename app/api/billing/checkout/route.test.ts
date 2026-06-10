@@ -1,6 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createSupabaseMock } from '../../../../test/supabase-mock'
 
+const { checkoutSessionsCreate } = vi.hoisted(() => ({ checkoutSessionsCreate: vi.fn() }))
+vi.mock('stripe', () => ({
+  default: class {
+    checkout = { sessions: { create: checkoutSessionsCreate } }
+  },
+}))
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ getAll: () => [], set: () => {} })) }))
 vi.mock('../../../../utils/supabase/server', () => ({ createClient: vi.fn() }))
 vi.mock('../../../../lib/billing', () => ({ getBillingPlan: vi.fn(), getPlanPriceId: vi.fn() }))
@@ -18,6 +24,7 @@ const form = (plan: string) =>
 
 describe('POST /api/billing/checkout', () => {
   beforeEach(() => vi.clearAllMocks())
+  afterEach(() => vi.unstubAllEnvs())
 
   it('redirects with ?error=plan for an unknown plan', async () => {
     vi.mocked(getBillingPlan).mockReturnValue(null as any)
@@ -41,5 +48,49 @@ describe('POST /api/billing/checkout', () => {
     const res = await POST(form('pro'))
     expect(res.status).toBe(303)
     expect(res.headers.get('location')).toContain('setup=stripe')
+  })
+
+  it('creates a Stripe subscription checkout session and reuses a stored customer', async () => {
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_ready')
+    vi.mocked(getBillingPlan).mockReturnValue({ id: 'pro', name: 'Pro' } as any)
+    vi.mocked(getPlanPriceId).mockReturnValue('price_pro' as any)
+    checkoutSessionsCreate.mockResolvedValue({ url: 'https://checkout.stripe.test/session' })
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock(
+        (ctx) => (
+          ctx.table === 'billing_subscriptions'
+            ? { data: { stripe_customer_id: 'cus_existing' } }
+            : { data: null }
+        ),
+        { user: { id: 'u1', email: 'a@b.c' } },
+      ) as any,
+    )
+
+    const res = await POST(form('pro'))
+
+    expect(res.status).toBe(303)
+    expect(res.headers.get('location')).toBe('https://checkout.stripe.test/session')
+    expect(checkoutSessionsCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: 'subscription',
+        customer: 'cus_existing',
+        client_reference_id: 'u1',
+        allow_promotion_codes: true,
+        line_items: [{ price: 'price_pro', quantity: 1 }],
+        metadata: expect.objectContaining({
+          nexez_user_id: 'u1',
+          nexez_plan: 'pro',
+          nexez_price_id: 'price_pro',
+          nexez_source: 'billing_page',
+        }),
+        subscription_data: {
+          metadata: expect.objectContaining({
+            nexez_user_id: 'u1',
+            nexez_plan: 'pro',
+            nexez_price_id: 'price_pro',
+          }),
+        },
+      }),
+    )
   })
 })

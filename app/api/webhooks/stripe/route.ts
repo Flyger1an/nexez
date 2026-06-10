@@ -1,6 +1,11 @@
 import Stripe from 'stripe'
 import { NextRequest, NextResponse } from 'next/server'
 import type { OfferItem } from '../../../../lib/agent-page'
+import {
+  buildBillingSubscriptionRow,
+  getSubscriptionPriceId,
+  stripeObjectId,
+} from '../../../../lib/stripe-billing'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'placeholder')
@@ -44,7 +49,20 @@ export async function POST(request: NextRequest) {
       if (holdError) console.warn('[Stripe Webhook] escrow hold update failed:', holdError.message)
       return NextResponse.json({ received: true, type: event.type, negotiation: session.metadata.nexez_negotiation_id, held: !holdError }, { status: 200 })
     }
+
+    if (session.metadata?.nexez_source === 'billing_page') {
+      return syncBillingCheckoutSession(event, session)
+    }
+
     return NextResponse.json({ received: true, type: event.type }, { status: 200 })
+  }
+
+  if (
+    event.type === 'customer.subscription.created' ||
+    event.type === 'customer.subscription.updated' ||
+    event.type === 'customer.subscription.deleted'
+  ) {
+    return syncBillingSubscription(event, event.data.object as Stripe.Subscription)
   }
 
   if (event.type !== 'price.updated' && event.type !== 'price.created') {
@@ -155,6 +173,124 @@ export async function GET() {
     status: 'ok',
     message: 'Stripe webhook receiver is live. POST signed Stripe events here.',
     configured: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
+    secretKeyConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
+    serviceRoleConfigured: hasSupabaseAdminEnv(),
+  })
+}
+
+async function syncBillingCheckoutSession(event: Stripe.Event, session: Stripe.Checkout.Session) {
+  if (!hasSupabaseAdminEnv()) {
+    return NextResponse.json({ received: true, type: event.type, note: 'SUPABASE_SERVICE_ROLE_KEY required' }, { status: 200 })
+  }
+
+  const ownerId = session.metadata?.nexez_user_id || session.client_reference_id
+  if (!ownerId) {
+    return NextResponse.json({ received: true, type: event.type, billing: false, reason: 'missing owner metadata' }, { status: 200 })
+  }
+
+  let subscription: Stripe.Subscription | null = null
+  const subscriptionId = stripeObjectId(session.subscription)
+
+  if (subscriptionId && process.env.STRIPE_SECRET_KEY) {
+    try {
+      subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ['items.data.price'] })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not retrieve subscription.'
+      console.warn('[Stripe Webhook] subscription retrieve failed:', message)
+    }
+  }
+
+  const supabase = createAdminClient()
+  const row = buildBillingSubscriptionRow({
+    ownerId,
+    session,
+    subscription,
+    fallbackPlanId: session.metadata?.nexez_plan,
+    fallbackPriceId: session.metadata?.nexez_price_id,
+    eventId: event.id,
+    eventType: event.type,
+  })
+
+  const { error } = await supabase
+    .from('billing_subscriptions')
+    .upsert(row, { onConflict: 'owner_id' })
+
+  if (error) {
+    console.warn('[Stripe Webhook] billing checkout sync failed:', error.message)
+    return NextResponse.json({ error: 'Could not sync billing checkout.' }, { status: 500 })
+  }
+
+  return NextResponse.json({
+    received: true,
+    type: event.type,
+    billing: true,
+    owner_id: ownerId,
+    subscription_id: row.stripe_subscription_id,
+    plan_id: row.plan_id,
+    status: row.status,
+  })
+}
+
+async function syncBillingSubscription(event: Stripe.Event, subscription: Stripe.Subscription) {
+  if (!hasSupabaseAdminEnv()) {
+    return NextResponse.json({ received: true, type: event.type, note: 'SUPABASE_SERVICE_ROLE_KEY required' }, { status: 200 })
+  }
+
+  const supabase = createAdminClient()
+  const customerId = stripeObjectId(subscription.customer)
+  let ownerId = subscription.metadata?.nexez_user_id || null
+
+  if (!ownerId) {
+    const bySubscription = await supabase
+      .from('billing_subscriptions')
+      .select('owner_id')
+      .eq('stripe_subscription_id', subscription.id)
+      .maybeSingle<{ owner_id: string }>()
+
+    ownerId = bySubscription.data?.owner_id || null
+  }
+
+  if (!ownerId && customerId) {
+    const byCustomer = await supabase
+      .from('billing_subscriptions')
+      .select('owner_id')
+      .eq('stripe_customer_id', customerId)
+      .maybeSingle<{ owner_id: string }>()
+
+    ownerId = byCustomer.data?.owner_id || null
+  }
+
+  if (!ownerId) {
+    return NextResponse.json({ received: true, type: event.type, billing: false, reason: 'no matching owner' }, { status: 200 })
+  }
+
+  const priceId = getSubscriptionPriceId(subscription) ?? subscription.metadata?.nexez_price_id ?? null
+  const row = buildBillingSubscriptionRow({
+    ownerId,
+    subscription,
+    fallbackPlanId: subscription.metadata?.nexez_plan,
+    fallbackPriceId: priceId,
+    eventId: event.id,
+    eventType: event.type,
+  })
+
+  const { error } = await supabase
+    .from('billing_subscriptions')
+    .upsert(row, { onConflict: 'owner_id' })
+
+  if (error) {
+    console.warn('[Stripe Webhook] subscription lifecycle sync failed:', error.message)
+    return NextResponse.json({ error: 'Could not sync billing subscription.' }, { status: 500 })
+  }
+
+  return NextResponse.json({
+    received: true,
+    type: event.type,
+    billing: true,
+    owner_id: ownerId,
+    subscription_id: subscription.id,
+    plan_id: row.plan_id,
+    status: row.status,
   })
 }
 
