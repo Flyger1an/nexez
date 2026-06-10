@@ -81,6 +81,12 @@ export class NegotiationService {
 
     const rules = offer.rules || {};
 
+    // Phase 2 extension: surface any Calendly/scheduling link from the offer (imported offers carry url or metadata.scheduling_url)
+    // This enables LLM to suggest concrete slot picking and richer status for agents.
+    const schedulingLink: string | undefined =
+      (offer.url && /calendly|acuity|cal\.com|schedule|booking/i.test(offer.url)) ? offer.url :
+      (offer.metadata && (offer.metadata.scheduling_url || offer.metadata.bookingUrl || offer.metadata.url)) || undefined;
+
     // 2. Load or create negotiation record
     let negotiation: any;
 
@@ -104,30 +110,41 @@ export class NegotiationService {
     };
     history.push(buyerTurn);
 
+    // Attach schedulingLink (if any) + full rules (so scope fields like includedScope etc. are visible in the JSON context the adapters build)
+    // This makes Phase 2 scope + Calendly link first-class for the LLM without changing every adapter.
+    const proposalForLLM = {
+      ...buyerProposal,
+      rules,
+      ...(schedulingLink ? { schedulingLink } : {}),
+    };
+
     // 5. Evaluate with deterministic rules first (hard constraints)
     const rulesEval = evaluateProposal(
       { offerType: offer.offerType, rules, price: offer.price },
       { proposedPriceCents: buyerProposal.proposedPriceCents || null }
     );
 
-    // 6. Call LLM with full history + current proposal (perfect memory)
+    // 6. Call LLM with full history + current proposal (perfect memory). proposalForLLM carries schedulingLink for Phase 2.
     let llmDecision: NegotiationDecision;
     try {
-      llmDecision = await this.getLLM().negotiate(rules, buyerProposal, history);
+      llmDecision = await this.getLLM().negotiate(rules, proposalForLLM, history);
     } catch (e) {
       // Fallback to deterministic if LLM fails
-      llmDecision = this.fallbackDecision(rulesEval, buyerProposal, rules);
+      llmDecision = this.fallbackDecision(rulesEval, proposalForLLM, rules);
     }
 
-    // 7. Clamp LLM decision with rules (rules always win)
-    llmDecision = this.clampWithRules(llmDecision, rulesEval, buyerProposal, rules);
+    // 7. Clamp LLM decision with rules (rules always win). Also propagate schedulingLink if LLM or we detected one.
+    llmDecision = this.clampWithRules(llmDecision, rulesEval, proposalForLLM, rules);
+    if (!llmDecision.schedulingLink && schedulingLink) {
+      llmDecision.schedulingLink = schedulingLink;
+    }
 
     // 8. Append seller (LLM) decision to history
     const sellerTurn: ConversationTurn = {
       id: randomUUID(),
       timestamp: new Date().toISOString(),
       role: 'seller_llm',
-      content: { proposal: buyerProposal },
+      content: { proposal: proposalForLLM },
       decision: llmDecision,
     };
     history.push(sellerTurn);
@@ -339,15 +356,16 @@ export class NegotiationService {
 
   private fallbackDecision(rulesEval: any, proposal: any, rules: any): NegotiationDecision {
     if (rulesEval.decision === 'auto_accept') {
-      return { action: 'accept', reasoning: 'Proposal meets all deterministic rules.' };
+      return { action: 'accept', reasoning: 'Proposal meets all deterministic rules.', schedulingLink: proposal?.schedulingLink };
     }
     if (rulesEval.decision === 'flag') {
-      return { action: 'reject', reasoning: 'Proposal violates core pricing rules.' };
+      return { action: 'reject', reasoning: 'Proposal violates core pricing rules.', schedulingLink: proposal?.schedulingLink };
     }
     return {
       action: 'counter',
       reasoning: 'Counter suggested within rules.',
       counter: { priceCents: Math.round((proposal.proposedPriceCents || 0) * 1.1) },
+      schedulingLink: proposal?.schedulingLink,
     };
   }
 }

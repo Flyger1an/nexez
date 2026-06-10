@@ -53,8 +53,9 @@ Aim for win-win outcomes when possible within the rules.
 If a proposal is ambiguous or missing critical information, request clarification rather than guessing.
 Reasoning Process (Always follow this internally):
 Carefully parse the agent's proposal (price, date/time, scope, notes, etc.).
-Review every single rule defined for this offer.
-Assess how the proposal aligns with each rule.
+Review every single rule defined for this offer (pricing floors + scope: includedScope, excludedScope, maxRevisions, maxProjectWeeks + booking constraints).
+If the offer has a schedulingLink (Calendly / Acuity / booking URL in proposal or rules), prefer directing the agent to concrete slot selection via that link when dates are involved.
+Assess how the proposal aligns with each rule (pricing + scope). Propose minimal targeted scope adjustments only when they help reach agreement within the owner's stated included/excluded/revisions/length.
 Decide the appropriate action based on the rules.
 You must respond exclusively by calling one of the available functions. Do not output any normal text as your final response.
 Available Functions:
@@ -104,6 +105,12 @@ Important:
             proposed_price: { type: 'number' },
             proposed_date: { type: 'string' },
             scope_notes: { type: 'string' },
+            // Phase 2 structured scope (preferred over free-text when possible)
+            scope_included: { type: 'string' },
+            scope_excluded: { type: 'string' },
+            max_revisions: { type: 'number' },
+            max_project_weeks: { type: 'number' },
+            scheduling_link: { type: 'string' },
             reasoning: { type: 'string' },
             internal_notes: { type: 'string' },
           },
@@ -133,9 +140,25 @@ Important:
         priceCents: args.proposed_price ? Math.round(args.proposed_price * 100) : undefined,
         proposedDate: args.proposed_date,
         scopeNotes: args.scope_notes,
+        scope: {
+          included: args.scope_included,
+          excluded: args.scope_excluded,
+          maxRevisions: args.max_revisions != null ? Number(args.max_revisions) : undefined,
+          maxProjectWeeks: args.max_project_weeks != null ? Number(args.max_project_weeks) : undefined,
+        },
       };
+      if (args.scheduling_link) decision.schedulingLink = args.scheduling_link;
     }
     if (name === 'request_clarification') decision.clarificationQuestions = args.questions || [];
+    if (args.scheduling_link && !decision.schedulingLink) decision.schedulingLink = args.scheduling_link;
+    if (!decision.scope && (args.scope_included || args.scope_excluded || args.max_revisions != null)) {
+      decision.scope = {
+        included: args.scope_included,
+        excluded: args.scope_excluded,
+        maxRevisions: args.max_revisions != null ? Number(args.max_revisions) : undefined,
+        maxProjectWeeks: args.max_project_weeks != null ? Number(args.max_project_weeks) : undefined,
+      };
+    }
     return decision;
   }
 }

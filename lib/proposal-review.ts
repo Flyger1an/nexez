@@ -118,6 +118,10 @@ function describeScope(rules: OfferItem['rules']): string {
     .join('\n')
 }
 
+// Phase 2 note: the primary intelligent path (negotiation.service + LLM adapters) now passes full rules JSON (incl. scope fields)
+// + schedulingLink to the model and returns structured scope + schedulingLink in NegotiationDecision for persistent threads.
+
+
 async function llmReview(input: ReviewProposalInput): Promise<ProposalReview | null> {
   const { offer, proposal } = input
   const rules = offer.rules || {}

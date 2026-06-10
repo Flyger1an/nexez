@@ -14,9 +14,25 @@ export interface NegotiationDecision {
     price?: string;
     proposedDate?: string;
     scopeNotes?: string;
+    // Phase 2 extension: structured scope adjustments proposed by LLM (clamped + displayed)
+    scope?: {
+      included?: string;
+      excluded?: string;
+      maxRevisions?: number;
+      maxProjectWeeks?: number;
+    };
   };
   clarificationQuestions?: string[];
   internalNotes?: string; // Private for business owner (never sent to agent)
+  // Phase 2: surfaced scheduling link (e.g. Calendly scheduling_url from imported offers) for slot picking / booking
+  schedulingLink?: string;
+  // Optional structured scope at decision root (for accept/clarify cases with scope notes)
+  scope?: {
+    included?: string;
+    excluded?: string;
+    maxRevisions?: number;
+    maxProjectWeeks?: number;
+  };
 }
 
 export interface LLMAdapter {

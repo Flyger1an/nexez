@@ -88,6 +88,24 @@ export default async function PersistentNegotiationPage({ params, searchParams }
           </div>
         </div>
 
+        {lastDecision && (lastDecision.counter || lastDecision.schedulingLink || lastDecision.scope) && (
+          <div className="card mb-6 border border-[#7C3AED]/30">
+            <div className="text-xs uppercase tracking-widest text-[#7C3AED] mb-1">Current proposed terms (from intelligent engine)</div>
+            {lastDecision.counter && (
+              <div className="text-sm">
+                {lastDecision.counter.priceCents != null && <span>Price: ${(lastDecision.counter.priceCents/100).toFixed(2)} </span>}
+                {lastDecision.counter.proposedDate && <span>· Date: {lastDecision.counter.proposedDate} </span>}
+              </div>
+            )}
+            {lastDecision.schedulingLink && (
+              <a href={lastDecision.schedulingLink} target="_blank" rel="noreferrer" className="text-sm underline text-emerald-300">Reserve this via Calendly/scheduling link →</a>
+            )}
+            {(lastDecision.scope || lastDecision.counter?.scope) && (
+              <div className="text-xs text-zinc-400 mt-1">Scope adjustments active in thread (see history for details).</div>
+            )}
+          </div>
+        )}
+
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
           <Clock className="size-5" /> Full Conversation History
           <span className="text-xs text-zinc-500 font-normal">(persistent &amp; resumable)</span>
@@ -126,8 +144,27 @@ export default async function PersistentNegotiationPage({ params, searchParams }
                       <div className="mt-2 text-xs bg-black/30 p-2 rounded">
                         Counter: ${turn.decision.counter.priceCents ? (turn.decision.counter.priceCents / 100).toFixed(2) : turn.decision.counter.price} 
                         {turn.decision.counter.proposedDate && ` · ${turn.decision.counter.proposedDate}`}
-                        {turn.decision.counter.scopeNotes && <div className="mt-1">{turn.decision.counter.scopeNotes}</div>}
+                        {turn.decision.counter.scopeNotes && <div className="mt-1">Scope: {turn.decision.counter.scopeNotes}</div>}
+                        {turn.decision.counter.scope && (
+                          <div className="mt-1 text-[10px] text-zinc-400">
+                            {turn.decision.counter.scope.included && <div>Incl: {turn.decision.counter.scope.included}</div>}
+                            {turn.decision.counter.scope.excluded && <div>Excl: {turn.decision.counter.scope.excluded}</div>}
+                            {(turn.decision.counter.scope.maxRevisions != null || turn.decision.counter.scope.maxProjectWeeks != null) && (
+                              <div>Revisions/Weeks: {turn.decision.counter.scope.maxRevisions ?? '–'} / {turn.decision.counter.scope.maxProjectWeeks ?? '–'}</div>
+                            )}
+                          </div>
+                        )}
                       </div>
+                    )}
+                    {turn.decision.scope && !turn.decision.counter && (
+                      <div className="mt-1 text-[10px] text-emerald-300/80">
+                        Scope: {turn.decision.scope.included || turn.decision.scope.excluded ? `${turn.decision.scope.included || ''} ${turn.decision.scope.excluded ? ' / excl ' + turn.decision.scope.excluded : ''}` : 'see reasoning'}
+                      </div>
+                    )}
+                    {turn.decision.schedulingLink && (
+                      <a href={turn.decision.schedulingLink} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs underline text-[#7C3AED] hover:text-white">
+                        Book concrete slot via Calendly / scheduling link →
+                      </a>
                     )}
                   </div>
                 )}

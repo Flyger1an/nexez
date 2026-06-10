@@ -347,13 +347,19 @@ function NegotiationCard({
         </a>
       </div>
 
-      {/* Show recent LLM-powered history / reasoning for owner visibility */}
-      {(((item.metadata as any)?.conversation?.length > 0) || (item.metadata as any)?.proposal_review?.reasoning) && (
+      {/* Show recent LLM-powered history / reasoning for owner visibility (Phase 2: includes scope + scheduling hints) */}
+      {(((item.metadata as any)?.conversation?.length > 0) || (item.metadata as any)?.proposal_review?.reasoning || (item.metadata as any)?.last_decision) && (
         <div className="mt-3 text-[11px] text-zinc-400 border-l border-white/20 pl-3">
           {((item.metadata as any)?.proposal_review as any)?.reasoning && <div>Initial: {((item.metadata as any).proposal_review as any).reasoning}</div>}
           {((item.metadata?.conversation as any[]) || []).slice(-2).map((t: any, idx: number) => t.decision && (
             <div key={idx}>{t.decision.action}: {t.decision.reasoning?.slice(0, 120)}...</div>
           ))}
+          {(item.metadata as any)?.last_decision?.schedulingLink && (
+            <div className="text-emerald-300/70">Scheduling link available for agent</div>
+          )}
+          {((item.metadata as any)?.last_decision?.counter?.scope || (item.metadata as any)?.last_decision?.scope) && (
+            <div>Scope terms negotiated in thread</div>
+          )}
         </div>
       )}
 

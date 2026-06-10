@@ -119,7 +119,9 @@ Newest first. Focused on billing/onboarding/LLM/Stripe config per user specs + s
 - **Optional:** continue the `qa33-33` negotiation from `agreement_proposed` through to completion.
 - **Email reach**: extend booking emails to the Stripe webhook + per-user notification preferences (Calendly booking emails already ship).
 - **Stripe production readiness**: add `STRIPE_SECRET_KEY`, plan Price IDs, and `STRIPE_WEBHOOK_SECRET`; then verify billing, hosted checkout, escrow, and price-sync flows against real Stripe events.
-- Larger roadmap items: deepen LLM (more prompts/uses once prod key, Smart Rules Phase 2 full LLM counters + Calendly block), deeper bidirectional integrations, launch-prep differentiators (templates marketplace, seed directory pages). Core "real LLM assist" (routes, simulator depth, auto, E2E, generalize, proposal review) is now shipped — see ROADMAP.
+- Larger roadmap items: deepen LLM, deeper bidirectional integrations, launch-prep differentiators (templates marketplace, seed directory pages). 
+- Smart Rules Phase 2 core objective shipped: LLM intelligence (adapters + negotiation.service with history/memory + function calling decisions) + persistent /negotiate threads mean owners do not have to manually review every proposal (auto accept/counter/clarify/reject within rules, agents continue via bookmarkable link with full LLM context). Scope + schedulingLink (Calendly etc.) now first-class in decisions/UI. Owner still has full inbox visibility + manual override. 
+- Remaining Phase 2 aspirational (scope clamping depth, Calendly server-side writes) kept pending per ROADMAP. Core "real LLM assist" + "complete Smart Rules + Intelligent Negotiation Engine" shipped — see ROADMAP.
 
 ## Dev / verification workflow notes (learned across sessions)
 - **Test login**: the user pastes their account login in chat when authed verification is needed — **don't store it**; this repo is public. Clean up any test artifacts.
