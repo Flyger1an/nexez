@@ -9,14 +9,16 @@ import { createClient } from '../../../utils/supabase/server'
 import EmbeddedPlanSelector from '../../../components/billing/EmbeddedPlanSelector'
 import StripeConnectButton from '../../../components/billing/StripeConnectButton'
 import RefreshConnectButton from '../../../components/billing/RefreshConnectButton'
+import { AutoRefreshConnect } from '../../../components/billing/AutoRefreshConnect'
 
 type BillingProps = {
-  searchParams: Promise<{ setup?: string; canceled?: string; error?: string; plan?: string }>
+  searchParams: Promise<{ setup?: string; canceled?: string; error?: string; plan?: string; connect?: string }>
 }
 
 export default async function BillingPage({ searchParams }: BillingProps) {
   const search = await searchParams
   const initialPlanFromQuery = typeof search.plan === 'string' ? search.plan : null
+  const connectSuccess = search.connect === 'success'
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
   const {
@@ -71,204 +73,201 @@ export default async function BillingPage({ searchParams }: BillingProps) {
 
   return (
     <main className="min-h-screen bg-[#090b10] text-white">
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        <div className="flex items-center justify-between">
+      <div className="mx-auto max-w-6xl px-6 py-10">
+        {/* Top nav / header */}
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <p className="flex items-center gap-2 text-sm text-cyan-200">
+            <div className="flex items-center gap-2 text-sm text-cyan-200">
               <CreditCard className="size-4" />
-              Billing &amp; Subscription
-            </p>
-            <h1 className="mt-1 text-4xl font-semibold tracking-tight">Manage your plan and payments</h1>
+              Billing
+            </div>
+            <h1 className="mt-1 text-4xl font-semibold tracking-[-1.5px]">Your plan &amp; payouts</h1>
           </div>
-          <a href="/dashboard/integrations" className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm text-zinc-300 hover:bg-white/10">
-            Integrations
-            <ExternalLink className="size-4" />
-          </a>
+          <a href="/pricing" className="rounded-lg border border-white/15 px-4 py-2 text-sm hover:bg-white/5">Compare plans</a>
         </div>
 
-        {/* Current Plan Card */}
-        <div className="mt-8 card !p-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        {/* Auto refresh helper (invisible) */}
+        <AutoRefreshConnect connectSuccess={connectSuccess} />
+
+        {/* Success / feedback banners - clean and prominent when needed */}
+        {connectSuccess && (
+          <div className="mb-6 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">
+            Stripe Connect updated. Your payouts status has been refreshed.
+          </div>
+        )}
+        {search.setup === 'stripe' && (
+          <div className="mb-6 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+            Stripe is not fully configured. Add your keys in Vercel to enable subscriptions and payouts.
+          </div>
+        )}
+        {search.error === 'bad_price_id' && (
+          <div className="mb-6 rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-200">
+            One of your STRIPE_PRICE_* env vars is set to a Product ID (prod_...) instead of a Price ID (price_...). Fix it and redeploy.
+          </div>
+        )}
+
+        {/* Current Plan — Hero style, straight to the point (Vercel/xAI inspired) */}
+        <div className="rounded-3xl border border-white/10 bg-[#111113] p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="flex items-center gap-3">
-                <span className="text-2xl font-semibold">{activePlan?.name ?? 'Free / No plan'}</span>
-                <span className={`rounded-full border px-3 py-1 text-xs ${
-                  status.tone === 'ok' ? 'border-emerald-300/30 bg-emerald-300/10 text-emerald-200' :
-                  status.tone === 'warn' ? 'border-amber-200/30 bg-amber-200/10 text-amber-100' :
-                  'border-white/10 bg-white/[0.04] text-zinc-400'
+                <span className="text-4xl font-semibold tracking-[-1px]">{activePlan?.name ?? 'Free'}</span>
+                <span className={`rounded-full border px-3 py-0.5 text-xs font-medium ${
+                  status.tone === 'ok' ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-300' :
+                  status.tone === 'warn' ? 'border-amber-400/40 bg-amber-400/10 text-amber-300' :
+                  'border-white/15 bg-white/5 text-zinc-400'
                 }`}>
                   {status.label}
                 </span>
               </div>
-              <p className="mt-1 text-sm text-[#9CA3AF]">
-                {activePlan ? `${activePlan.price}/${activePlan.cadence}` : 'Free tier'} 
-                {periodEnd ? ` • ${billingState?.cancel_at_period_end ? 'Ends' : 'Renews'} ${periodEnd}` : ''}
-              </p>
+              <div className="mt-1 text-2xl text-[#9CA3AF]">
+                {activePlan ? `${activePlan.price}/${activePlan.cadence}` : 'No subscription'}
+              </div>
+              {periodEnd && (
+                <p className="mt-2 text-sm text-[#9CA3AF]">
+                  {billingState?.cancel_at_period_end ? 'Cancels' : 'Renews'} on {periodEnd}
+                </p>
+              )}
             </div>
-            <div className="flex flex-wrap gap-2">
-              <a href="/pricing" className="rounded-lg border border-white/15 px-4 py-2 text-sm hover:bg-white/5">Compare plans</a>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <a href="/pricing" className="rounded-2xl border border-white/15 px-5 py-2.5 text-sm hover:bg-white/5">Compare plans</a>
+
+              {billingState?.stripe_subscription_id && (
+                <form action="/api/billing/portal" method="post">
+                  <button className="rounded-2xl border border-white/15 px-5 py-2.5 text-sm hover:bg-white/5">Manage subscription</button>
+                </form>
+              )}
+
               <form action="/api/billing/checkout" method="post">
                 <input type="hidden" name="plan" value={activePlan?.id || 'pro'} />
-                <button type="submit" className="rounded-lg bg-[#7C3AED] px-5 py-2 text-sm font-medium text-white hover:bg-[#6D28D9]">
+                <button className="rounded-2xl bg-[#7C3AED] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#6D28D9]">
                   {activePlan ? 'Upgrade' : 'Choose plan'}
                 </button>
               </form>
-              {billingState?.stripe_subscription_id && (
-                <form action="/api/billing/portal" method="post">
-                  <button type="submit" className="rounded-lg border border-white/15 px-4 py-2 text-sm hover:bg-white/5">Manage in Stripe</button>
-                </form>
-              )}
             </div>
           </div>
         </div>
 
-        {/* Usage Overview */}
-        <div className="mt-8">
-          <h2 className="text-lg font-semibold mb-4">Usage this period</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {usageMetrics.map((m, i) => {
-              const pct = Math.min(100, Math.round((m.current / (m.limit || 1)) * 100))
-              return (
-                <div key={i} className="card !p-5">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[#9CA3AF]">{m.label}</span>
-                    <span className="font-medium">{m.current}{m.unit} / {m.limit === 999 ? '∞' : m.limit}{m.unit}</span>
-                  </div>
-                  <div className="mt-3 h-2 rounded bg-white/10 overflow-hidden">
-                    <div className="h-2 bg-[#7C3AED]" style={{ width: `${pct}%` }} />
-                  </div>
-                  <p className="mt-1 text-[10px] text-zinc-500">{pct}% used</p>
-                </div>
-              )
-            })}
-          </div>
-          <p className="mt-2 text-xs text-zinc-500">AI usage, simulations, and other meters are tracked in real time. Upgrade to raise limits.</p>
-        </div>
-
-        {/* Payment Method + Billing History + Platform Fees */}
+        {/* Usage + Revenue side-by-side — clean and modern (Grok/Vercel feel) */}
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
-          {/* Payment Method */}
-          <div className="card !p-5">
-            <p className="text-xs uppercase tracking-widest text-[#9CA3AF]">Payment method</p>
-            <div className="mt-4 flex items-center justify-between">
-              <div>
-                <div className="font-medium">•••• •••• •••• 4242</div>
-                <div className="text-xs text-[#9CA3AF]">Visa • Expires 12/28</div>
-              </div>
-              <div className="flex gap-2">
-                <form action="/api/billing/portal" method="post">
-                  <button type="submit" className="rounded border border-white/15 px-3 py-1.5 text-xs hover:bg-white/5">Update card</button>
-                </form>
-                <button className="rounded border border-white/15 px-3 py-1.5 text-xs hover:bg-white/5">Add backup</button>
-              </div>
+          {/* Usage */}
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold tracking-wider text-[#9CA3AF] uppercase">Usage this month</h3>
+              <span className="text-xs text-[#9CA3AF]">Resets with your billing cycle</span>
             </div>
-            <p className="mt-3 text-[10px] text-zinc-500">Managed securely by Stripe. Full details in the Stripe portal.</p>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {usageMetrics.map((m, i) => {
+                const pct = Math.min(100, Math.round((m.current / (m.limit || 1)) * 100))
+                return (
+                  <div key={i} className="rounded-2xl border border-white/10 bg-[#111113] p-5">
+                    <div className="text-sm text-[#9CA3AF]">{m.label}</div>
+                    <div className="mt-3 text-3xl font-semibold tracking-tighter">
+                      {m.current}<span className="text-base font-normal text-[#9CA3AF]"> / {m.limit === 999 ? '∞' : m.limit}</span>
+                    </div>
+                    <div className="mt-4 h-1.5 overflow-hidden rounded bg-white/10">
+                      <div className="h-1.5 bg-[#7C3AED] transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                    <div className="mt-1 text-right text-[10px] text-[#9CA3AF]">{pct}% used</div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
 
-          {/* Billing History (simplified table using available data) */}
-          <div className="card !p-5">
-            <div className="flex items-center justify-between">
-              <p className="text-xs uppercase tracking-widest text-[#9CA3AF]">Billing history</p>
+          {/* Revenue & Payouts (Connect side) */}
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold tracking-wider text-[#9CA3AF] uppercase">Revenue &amp; payouts</h3>
+              <a href="/dashboard/analytics" className="text-xs text-[#7C3AED] hover:underline">See analytics →</a>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-[#111113] p-5">
+              <div className="flex items-center justify-between text-sm">
+                <div>
+                  <div className="text-[#9CA3AF]">Platform fees this month</div>
+                  <div className="mt-1 text-3xl font-semibold tracking-tighter text-emerald-300">$0</div>
+                </div>
+                <div className="text-right text-xs text-[#9CA3AF]">
+                  15% on Free<br />8% on Launch/Pro<br />6% on Scale+
+                </div>
+              </div>
+
+              <div className="my-5 border-t border-white/10" />
+
+              {/* Stripe Connect status */}
+              <div>
+                <div className="text-sm text-[#9CA3AF] mb-2">Your Stripe account (for payouts)</div>
+
+                {billingState?.stripe_connect_account_id ? (
+                  <div>
+                    <div className="font-mono text-xs text-[#9CA3AF]">{billingState.stripe_connect_account_id}</div>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                      <span className={`rounded px-2 py-0.5 ${billingState.stripe_connect_details_submitted ? 'bg-emerald-400/10 text-emerald-300' : 'bg-amber-400/10 text-amber-300'}`}>
+                        {billingState.stripe_connect_details_submitted ? 'Details submitted' : 'Details pending'}
+                      </span>
+                      <span className={`rounded px-2 py-0.5 ${billingState.stripe_connect_charges_enabled ? 'bg-emerald-400/10 text-emerald-300' : 'bg-amber-400/10 text-amber-300'}`}>
+                        {billingState.stripe_connect_charges_enabled ? 'Charges enabled' : 'Charges pending'}
+                      </span>
+                      <span className={`rounded px-2 py-0.5 ${billingState.stripe_connect_payouts_enabled ? 'bg-emerald-400/10 text-emerald-300' : 'bg-amber-400/10 text-amber-300'}`}>
+                        {billingState.stripe_connect_payouts_enabled ? 'Payouts enabled' : 'Payouts pending'}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 flex gap-2">
+                      <StripeConnectButton isConnected />
+                      <RefreshConnectButton />
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-[#9CA3AF]">Connect your Stripe account to receive earnings directly (you keep the rest after our small platform fee).</p>
+                    <div className="mt-3">
+                      <StripeConnectButton />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Billing details — consolidated and minimal */}
+        <div className="mt-8 grid gap-6 lg:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-[#111113] p-5">
+            <div className="text-sm font-semibold tracking-wider text-[#9CA3AF] uppercase mb-3">Payment method</div>
+            <div className="text-sm">Managed securely in Stripe.</div>
+            <div className="mt-3">
               <form action="/api/billing/portal" method="post">
-                <button type="submit" className="text-xs text-[#7C3AED] hover:underline">View all in Stripe →</button>
+                <button className="rounded-xl border border-white/15 px-4 py-2 text-sm hover:bg-white/5">Update payment method →</button>
               </form>
             </div>
-            <div className="mt-4 text-sm">
-              {billingState?.latest_invoice_id ? (
-                <div className="flex items-center justify-between border-t border-white/10 py-2 text-xs">
-                  <div>Latest invoice</div>
-                  <div className="font-mono text-[#9CA3AF]">{billingState.latest_invoice_id.slice(0, 12)}…</div>
-                  <a href="/dashboard/billing/success" className="text-[#7C3AED] text-xs">Download</a>
-                </div>
-              ) : (
-                <p className="text-xs text-zinc-500 py-4">No invoices yet. Subscribe to see history.</p>
-              )}
-            </div>
           </div>
-        </div>
 
-        {/* Platform Fees Summary + Stripe Connect for transactions */}
-        <div className="mt-6 card !p-5 border border-emerald-300/20">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="font-medium text-emerald-200">Platform fees this period</p>
-              <p className="mt-1 text-sm text-[#9CA3AF]">Nexez takes a configurable platform commission (e.g. 15% Free, 8% Launch/Pro, 6% Scale) on ALL agent-driven transactions via Stripe Application Fee. Free plan pays no subscription but still pays commission.</p>
-              <a href="/dashboard/analytics" className="mt-2 inline-block text-xs text-emerald-300 underline">See full revenue breakdown in Analytics →</a>
+          <div className="rounded-2xl border border-white/10 bg-[#111113] p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-semibold tracking-wider text-[#9CA3AF] uppercase">Billing history</div>
+              <form action="/api/billing/portal" method="post">
+                <button className="text-sm text-[#7C3AED] hover:underline">View all invoices →</button>
+              </form>
             </div>
-            <div className="text-right">
-              <div className="text-2xl font-semibold text-emerald-300">$0</div>
-              <div className="text-xs text-[#9CA3AF]">This month (no transactions yet)</div>
-            </div>
-          </div>
-          <p className="mt-3 text-[10px] text-zinc-500">Fees automatically netted from payouts to your connected Stripe account. Separate from your Nexez subscription.</p>
-        </div>
-
-        {/* Stripe Connect for receiving transaction payments (owner is Merchant of Record) */}
-        <div className="mt-6 card !p-5">
-          <p className="text-xs uppercase tracking-widest text-[#9CA3AF]">Stripe Connect (for agent bookings &amp; offers)</p>
-          <div className="mt-3">
-            <p className="text-sm">Connect your Stripe account to receive payments directly (you are the merchant of record). Nexez takes its platform fee automatically via Application Fee based on your plan.</p>
-
-            {billingState?.stripe_connect_account_id ? (
-              <div className="mt-3 rounded bg-white/5 p-3 text-sm">
-                <div>
-                  Connected: <code className="text-xs">{billingState.stripe_connect_account_id}</code>
-                </div>
-                <div className="mt-1 flex flex-wrap gap-2 text-xs">
-                  <span className={billingState.stripe_connect_details_submitted ? 'text-emerald-400' : 'text-amber-400'}>
-                    {billingState.stripe_connect_details_submitted ? '✓ Details submitted' : 'Details pending'}
-                  </span>
-                  <span className={billingState.stripe_connect_charges_enabled ? 'text-emerald-400' : 'text-amber-400'}>
-                    {billingState.stripe_connect_charges_enabled ? '✓ Charges enabled' : 'Charges pending'}
-                  </span>
-                  <span className={billingState.stripe_connect_payouts_enabled ? 'text-emerald-400' : 'text-amber-400'}>
-                    {billingState.stripe_connect_payouts_enabled ? '✓ Payouts enabled' : 'Payouts pending'}
-                  </span>
-                </div>
-                <div className="mt-2 flex gap-2">
-                  <StripeConnectButton />
-                  <RefreshConnectButton />
-                </div>
-                <p className="mt-1 text-[10px] text-zinc-500">Use "Manage" to update info in Stripe. "Refresh" pulls latest status.</p>
-              </div>
+            {billingState?.latest_invoice_id ? (
+              <div className="text-sm">Latest invoice available in Stripe portal.</div>
             ) : (
-              <div className="mt-4 flex gap-2">
-                <StripeConnectButton />
-                <a href="/dashboard/integrations" className="text-xs self-center text-[#7C3AED] underline">View in Integrations →</a>
-              </div>
+              <div className="text-sm text-[#9CA3AF]">No invoices yet.</div>
             )}
-
-            <p className="mt-2 text-[10px] text-zinc-500">Required for receiving net payouts after Nexez commission. Works for Free plan too (commission only, no sub fee).</p>
           </div>
         </div>
 
-        {/* Interactive plan selection + Embedded Stripe Components for recurring subscriptions.
-            Primary flow uses Embedded (PaymentElement) for better UX (no full redirect).
-            Hosted Checkout (old /api/billing/checkout) remains available as fallback.
-            Only paid plans (Launch+) have subscriptions. Free pays 0 sub but 15% txn commission (via Connect). */}
-        <EmbeddedPlanSelector
-          activePlanId={activePlan?.id || 'free'}
-          stripeReady={stripeReady}
-          initialPlanId={initialPlanFromQuery}
-        />
-
-        {/* Feedback messages */}
-        {search.setup === 'stripe' && (
-          <div className="mt-6 rounded-lg border border-amber-200/20 bg-amber-200/10 p-4 text-sm text-amber-100">
-            Stripe env vars needed before checkout.
-          </div>
-        )}
-        {search.error === 'bad_price_id' && (
-          <div className="mt-6 rounded-lg border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-200">
-            Configuration error: One of the STRIPE_PRICE_* environment variables is set to a Product ID (starts with prod_) instead of a Price ID (starts with price_). 
-            Fix the values in your hosting platform (Vercel), then redeploy. See Stripe Dashboard → Products for the correct Price IDs.
-          </div>
-        )}
-        {search.canceled && (
-          <div className="mt-6 rounded-lg border border-white/10 bg-white/[0.04] p-4 text-sm text-zinc-300">
-            Checkout canceled.
-          </div>
-        )}
+        {/* Plans — clean and prominent (moved up in visual weight) */}
+        <div className="mt-10">
+          <EmbeddedPlanSelector
+            activePlanId={activePlan?.id || 'free'}
+            stripeReady={stripeReady}
+            initialPlanId={initialPlanFromQuery}
+          />
+        </div>
       </div>
     </main>
   )

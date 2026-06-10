@@ -13,7 +13,7 @@ import { useState } from 'react'
  * 
  * Works for both initial connect and "manage" (Stripe returns appropriate link).
  */
-export default function StripeConnectButton() {
+export default function StripeConnectButton({ isConnected = false }: { isConnected?: boolean }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -24,7 +24,7 @@ export default function StripeConnectButton() {
       const res = await fetch('/api/billing/connect', { method: 'POST' })
       const data = await res.json()
       if (data.url) {
-        window.location.href = data.url // redirect to Stripe hosted onboarding/manage
+        window.location.href = data.url // redirect to Stripe hosted onboarding or manage flow
       } else {
         setError(data.error || 'Failed to start Stripe Connect onboarding.')
         setLoading(false)
@@ -35,6 +35,8 @@ export default function StripeConnectButton() {
     }
   }
 
+  const buttonLabel = isConnected ? 'Manage Stripe account' : 'Connect or manage Stripe account'
+
   return (
     <>
       <button
@@ -42,7 +44,7 @@ export default function StripeConnectButton() {
         disabled={loading}
         className="rounded-lg border border-white/15 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-50"
       >
-        {loading ? 'Connecting...' : 'Connect or manage Stripe account'}
+        {loading ? 'Connecting...' : buttonLabel}
       </button>
       {error && (
         <p className="text-xs text-red-400 mt-1">{error}</p>
