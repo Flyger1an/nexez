@@ -30,6 +30,7 @@ import { NexezLogo } from '../components/NexezLogo'
 const navLinks = [
   { label: 'Directory', href: '/directory' },
   { label: 'Marketplace', href: '/marketplace' },
+  { label: 'Pricing', href: '/pricing' },
   { label: 'Simulator', href: '/simulator' },
   { label: 'Leaderboard', href: '/leaderboard' },
 ]
@@ -754,6 +755,7 @@ function SiteFooter() {
         { label: 'Create a page', href: '/create' },
         { label: 'Directory', href: '/directory' },
         { label: 'Marketplace', href: '/marketplace' },
+        { label: 'Pricing', href: '/pricing' },
         { label: 'Leaderboard', href: '/leaderboard' },
       ],
     },

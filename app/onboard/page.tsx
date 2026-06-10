@@ -143,6 +143,8 @@ export default function OnboardPage() {
                   })}
                 </div>
 
+                <a href="/pricing" className="mt-4 inline-block text-sm text-[#9CA3AF] hover:text-white underline">Compare all plans and platform fees</a>
+
                 <button onClick={() => setStep(2)} className="mt-8 inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 font-medium text-zinc-950 hover:bg-zinc-200">
                   Continue with {selectedPlan.name} <ArrowRight className="size-4" />
                 </button>

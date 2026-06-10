@@ -204,7 +204,6 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
               {authed ? <QuickPageSearch /> : <div className="flex-1" />}
               <div className="hidden items-center gap-2 xl:flex">
                 <ThemeToggle />
-                <a href="/pricing" className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm font-medium text-white hover:bg-white/5">Pricing</a>
                 <a href="/create" className="inline-flex h-9 items-center gap-2 rounded-md bg-white px-3 text-sm font-medium text-black hover:bg-zinc-200">
                   <Plus className="size-4" />
                   New Page

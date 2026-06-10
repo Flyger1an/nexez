@@ -170,6 +170,7 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
             </div>
             <span className="text-sm font-medium tracking-tight">Nexez</span>
           </a>
+          <a href="/pricing" className="text-sm text-zinc-400 hover:text-white">Pricing</a>
         </header>
 
         <div className="grid flex-1 items-center gap-10 py-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(420px,0.7fr)]">
