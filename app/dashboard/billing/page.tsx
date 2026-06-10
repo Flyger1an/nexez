@@ -183,12 +183,12 @@ export default async function BillingPage({ searchParams }: BillingProps) {
           </div>
         </div>
 
-        {/* Platform Fees Summary */}
+        {/* Platform Fees Summary + Stripe Connect for transactions */}
         <div className="mt-6 card !p-5 border border-emerald-300/20">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="font-medium text-emerald-200">Platform fees this period</p>
-              <p className="mt-1 text-sm text-[#9CA3AF]">Nexez platform fee (15% on agent-driven transactions for most plans).</p>
+              <p className="mt-1 text-sm text-[#9CA3AF]">Nexez takes a configurable platform commission (e.g. 15% Free, 8% Launch/Pro, 6% Scale) on ALL agent-driven transactions via Stripe Application Fee. Free plan pays no subscription but still pays commission.</p>
               <a href="/dashboard/analytics" className="mt-2 inline-block text-xs text-emerald-300 underline">See full revenue breakdown in Analytics →</a>
             </div>
             <div className="text-right">
@@ -196,7 +196,22 @@ export default async function BillingPage({ searchParams }: BillingProps) {
               <div className="text-xs text-[#9CA3AF]">This month (no transactions yet)</div>
             </div>
           </div>
-          <p className="mt-3 text-[10px] text-zinc-500">Fees are automatically netted from payouts. Transparent in every transaction receipt.</p>
+          <p className="mt-3 text-[10px] text-zinc-500">Fees automatically netted from payouts to your connected Stripe account. Separate from your Nexez subscription.</p>
+        </div>
+
+        {/* Stripe Connect for receiving transaction payments (owner is Merchant of Record) */}
+        <div className="mt-6 card !p-5">
+          <p className="text-xs uppercase tracking-widest text-[#9CA3AF]">Stripe Connect (for agent bookings &amp; offers)</p>
+          <div className="mt-3">
+            <p className="text-sm">Connect your Stripe account to receive payments directly (you are the merchant of record). Nexez takes its platform fee automatically via Application Fee based on your plan.</p>
+            <div className="mt-4 flex gap-2">
+              <form action="/api/billing/connect" method="post">
+                <button type="submit" className="rounded-lg border border-white/15 px-4 py-2 text-sm hover:bg-white/5">Connect or manage Stripe account</button>
+              </form>
+              <a href="/dashboard/integrations" className="text-xs self-center text-[#7C3AED] underline">View in Integrations →</a>
+            </div>
+            <p className="mt-2 text-[10px] text-zinc-500">Required for receiving net payouts after Nexez commission. Works for Free plan too (commission only, no sub fee).</p>
+          </div>
         </div>
 
         {/* Plan upgrade grid (keep for easy upgrades) */}

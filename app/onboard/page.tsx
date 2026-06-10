@@ -55,19 +55,22 @@ export default function OnboardPage() {
 
   async function handleStripeConnect() {
     setLoading(true)
-    // Trigger Nexez plan subscription checkout for the chosen plan
-    const form = document.createElement('form')
-    form.method = 'POST'
-    form.action = '/api/billing/checkout'
-
-    const planInput = document.createElement('input')
-    planInput.type = 'hidden'
-    planInput.name = 'plan'
-    planInput.value = selectedPlanId
-    form.appendChild(planInput)
-
-    document.body.appendChild(form)
-    form.submit()
+    try {
+      // Create Stripe Connect account + get onboarding link (Express for quick setup).
+      // This is for transaction payments (owner MoR + Nexez app fee/commission on all plans incl Free).
+      // Subscriptions (Nexez billing to owner) are handled separately in Billing.
+      const res = await fetch('/api/billing/connect', { method: 'POST' })
+      const data = await res.json()
+      if (data.url) {
+        window.location.href = data.url // redirect to Stripe hosted onboarding
+      } else {
+        setError(data.error || 'Failed to start Stripe Connect onboarding.')
+        setLoading(false)
+      }
+    } catch (e: any) {
+      setError(e.message || 'Connect error')
+      setLoading(false)
+    }
   }
 
   function goToDashboard() {

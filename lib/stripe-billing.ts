@@ -1,4 +1,4 @@
-import type Stripe from 'stripe'
+import Stripe from 'stripe'
 import { BillingPlan, billingPlans } from './billing'
 
 export type BillingSubscription = {
@@ -16,6 +16,12 @@ export type BillingSubscription = {
   metadata: Record<string, unknown>
   created_at?: string
   updated_at?: string
+  // Stripe Connect for transaction payments (ALL plans, incl Free for commission)
+  stripe_connect_account_id?: string | null
+  stripe_connect_status?: string | null
+  stripe_connect_details_submitted?: boolean | null
+  stripe_connect_charges_enabled?: boolean | null
+  stripe_connect_payouts_enabled?: boolean | null
 }
 
 export function getPlanIdForStripePrice(priceId: string | null | undefined): BillingPlan['id'] | null {
@@ -102,4 +108,41 @@ export function billingStatusCopy(status: string | null | undefined) {
     default:
       return { label: 'Not subscribed', tone: 'muted' as const }
   }
+}
+
+/**
+ * Stripe Connect helpers for transaction revenue (owner is MoR, Nexez takes commission via app fee on all plans incl Free).
+ * Uses Express accounts for easy onboarding.
+ */
+export async function createStripeConnectAccount(ownerId: string, email: string, businessName?: string) {
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
+  const account = await stripe.accounts.create({
+    type: 'express',
+    country: 'US',
+    email,
+    business_profile: businessName ? { name: businessName } : undefined,
+    metadata: { nexez_owner_id: ownerId },
+  })
+  return account
+}
+
+export async function createStripeConnectOnboardingLink(accountId: string, returnUrl: string, refreshUrl: string) {
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
+  const link = await stripe.accountLinks.create({
+    account: accountId,
+    refresh_url: refreshUrl,
+    return_url: returnUrl,
+    type: 'account_onboarding',
+  })
+  return link
+}
+
+export function getCommissionPercentForPlan(planId: BillingPlan['id'] | null | undefined): number {
+  const plan = billingPlans.find(p => p.id === planId)
+  return plan?.commissionPercent ?? 15 // default 15% for free or unknown
+}
+
+export function calculateApplicationFeeCents(amountCents: number, commissionPercent: number): number {
+  if (!amountCents || amountCents <= 0) return 0
+  return Math.round(amountCents * (commissionPercent / 100))
 }

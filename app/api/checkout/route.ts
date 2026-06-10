@@ -15,6 +15,8 @@ import { logCheckoutEvent } from '../../../lib/server/log-checkout-event'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 import { supabase } from '../../../lib/supabase'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
+import { getCommissionPercentForPlan, calculateApplicationFeeCents } from '../../../lib/stripe-billing'
+import { billingPlans } from '../../../lib/billing'
 
 type CheckoutInput = {
   slug: string
@@ -123,7 +125,28 @@ export async function POST(request: Request) {
   if (process.env.STRIPE_SECRET_KEY && amountCents) {
     try {
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-      const session = await stripe.checkout.sessions.create({
+
+      // Dual revenue: Use owner's Stripe Connect for the transaction (owner is MoR).
+      // Nexez takes application fee based on owner's plan commission % (even on Free plan).
+      // This keeps subscriptions (Nexez Billing to owner) separate from transaction revenue.
+      let connectAccountId: string | null = null
+      let commissionPercent = 15 // default for free/unknown
+      if (hasSupabaseAdminEnv() && page.owner_id) {
+        const admin = createAdminClient()
+        const { data: billing } = await admin
+          .from('billing_subscriptions')
+          .select('plan_id, stripe_connect_account_id')
+          .eq('owner_id', page.owner_id)
+          .maybeSingle()
+        if (billing?.stripe_connect_account_id) {
+          connectAccountId = billing.stripe_connect_account_id
+        }
+        commissionPercent = getCommissionPercentForPlan(billing?.plan_id as any)
+      }
+
+      const applicationFeeAmount = connectAccountId ? calculateApplicationFeeCents(amountCents, commissionPercent) : undefined
+
+      const sessionParams: any = {
         mode: 'payment',
         line_items: [
           {
@@ -151,8 +174,18 @@ export async function POST(request: Request) {
           nexez_offer_key: offerKey,
           nexez_offer_name: offer.name,
           nexez_source: 'agent_checkout',
+          nexez_owner_plan: (await (hasSupabaseAdminEnv() && page.owner_id ? createAdminClient().from('billing_subscriptions').select('plan_id').eq('owner_id', page.owner_id).maybeSingle() : Promise.resolve({data: null}))).data?.plan_id || 'free',
         },
-      })
+      }
+
+      if (applicationFeeAmount && applicationFeeAmount > 0) {
+        sessionParams.application_fee_amount = applicationFeeAmount
+      }
+
+      const session = await stripe.checkout.sessions.create(
+        sessionParams,
+        connectAccountId ? { stripeAccount: connectAccountId } : undefined
+      )
 
       const sessionLog = await logCheckoutEvent({
         page,

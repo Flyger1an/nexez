@@ -6,6 +6,8 @@ export type BillingPlan = {
   envVar: string
   blurb: string
   features: string[]
+  /** Platform commission % on agent-driven transactions (applied via Stripe Application Fee). Free plan still pays commission (no subscription). */
+  commissionPercent: number
 }
 
 export const billingPlans: BillingPlan[] = [
@@ -17,6 +19,7 @@ export const billingPlans: BillingPlan[] = [
     envVar: '', // no price for free
     blurb: 'Try Nexez with limited pages and features.',
     features: ['1 published page', 'Basic agent artifacts', 'Directory listing', 'Manual analytics'],
+    commissionPercent: 15, // Free pays higher commission, no subscription fee
   },
   {
     id: 'launch',
@@ -26,6 +29,7 @@ export const billingPlans: BillingPlan[] = [
     envVar: 'STRIPE_PRICE_LAUNCH',
     blurb: 'For a solo services pro validating agent traffic.',
     features: ['3 published pages', 'Agent JSON + llms.txt', 'Directory listing', 'Basic analytics'],
+    commissionPercent: 8,
   },
   {
     id: 'pro',
@@ -35,6 +39,7 @@ export const billingPlans: BillingPlan[] = [
     envVar: 'STRIPE_PRICE_PRO',
     blurb: 'For teams running services, bookings, and paid offers.',
     features: ['25 published pages', 'Checkout event tracking', 'Agent simulator', 'Integrations workspace'],
+    commissionPercent: 8,
   },
   {
     id: 'scale',
@@ -44,6 +49,7 @@ export const billingPlans: BillingPlan[] = [
     envVar: 'STRIPE_PRICE_SCALE',
     blurb: 'For agencies and operators managing many agent pages.',
     features: ['Unlimited pages', 'Custom domain readiness', 'Advanced analytics', 'Priority setup'],
+    commissionPercent: 6,
   },
   {
     id: 'enterprise',
@@ -53,6 +59,7 @@ export const billingPlans: BillingPlan[] = [
     envVar: 'STRIPE_PRICE_ENTERPRISE',
     blurb: 'For large organizations with custom needs and SLAs.',
     features: ['Everything in Scale', 'Dedicated support', 'Custom SLAs', 'White-label options', 'Volume discounts'],
+    commissionPercent: 4, // custom in practice, default low
   },
 ]
 
