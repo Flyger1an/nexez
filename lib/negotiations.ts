@@ -196,5 +196,12 @@ export function buildNegotiationAction(page: AgentPage, offer: CheckoutOffer, ba
     },
     states: ['negotiation', 'agreement_proposed', 'held', 'complete'],
     escrow_note: 'Escrow is manual-capture Stripe-ready when STRIPE_SECRET_KEY is configured; otherwise proposals are stored for seller review.',
+    // Smart Rules Phase 1: the POST response returns a one-time statusToken +
+    // statusUrl. Poll this endpoint for "under review" → "agreement proposed" → … updates.
+    status_check: {
+      method: 'GET',
+      endpoint: `${baseUrl}/api/negotiations/status?id={negotiation_id}&token={status_token}`,
+      note: 'id and token are returned once in the create response (statusUrl is pre-built). Proposals matching the seller\'s rules may auto-accept to agreement_proposed.',
+    },
   }
 }

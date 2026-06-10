@@ -98,6 +98,73 @@ describe('POST /api/negotiations', () => {
     expect(body.escrowMode).toBe('manual_capture_ready')
   })
 
+  it('auto-accepts within rules: status agreement_proposed + token returned (Smart Rules)', async () => {
+    const negotiablePage = {
+      ...pageWithOffer,
+      services: [
+        {
+          name: 'Custom Build',
+          price: '$1,000',
+          description: '',
+          url: '',
+          offerType: 'negotiable',
+          rules: { minPrice: '$800', autoAccept: true },
+        },
+      ],
+    }
+    let inserted: any
+    dbRef.handler = (ctx: QueryContext) => {
+      if (ctx.table === 'pages') return { data: negotiablePage, error: null }
+      if (ctx.op === 'insert') inserted = ctx.payload
+      return { data: null, error: null }
+    }
+    const res = await POST(post({ slug: 'demo', offer: 'services-0', budget: '$900' }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.autoAccepted).toBe(true)
+    expect(body.status).toBe('agreement_proposed')
+    expect(body.statusToken).toMatch(/^[0-9a-f]{32}$/)
+    expect(body.statusUrl).toContain('/api/negotiations/status?id=')
+    expect(inserted.status).toBe('agreement_proposed')
+    expect(inserted.status_token).toBe(body.statusToken)
+    expect(inserted.metadata.rules_evaluation.decision).toBe('auto_accept')
+  })
+
+  it('flags below-minimum proposals but still stores them for the owner', async () => {
+    const negotiablePage = {
+      ...pageWithOffer,
+      services: [
+        { name: 'Custom Build', price: '$1,000', description: '', url: '', offerType: 'negotiable', rules: { minPrice: '$800', autoAccept: true } },
+      ],
+    }
+    let inserted: any
+    dbRef.handler = (ctx: QueryContext) => {
+      if (ctx.table === 'pages') return { data: negotiablePage, error: null }
+      if (ctx.op === 'insert') inserted = ctx.payload
+      return { data: null, error: null }
+    }
+    const body = await (await POST(post({ slug: 'demo', offer: 'services-0', budget: '$500' }))).json()
+    expect(body.autoAccepted).toBe(false)
+    expect(body.status).toBe('negotiation')
+    expect(body.rulesEvaluation.decision).toBe('flag')
+    expect(body.rulesEvaluation.reasons).toContain('below_min_price')
+    expect(inserted.status).toBe('negotiation')
+  })
+
+  it('offers without rules keep the legacy review flow (and still get a status token)', async () => {
+    let inserted: any
+    dbRef.handler = (ctx: QueryContext) => {
+      if (ctx.table === 'pages') return { data: pageWithOffer, error: null }
+      if (ctx.op === 'insert') inserted = ctx.payload
+      return { data: null, error: null }
+    }
+    const body = await (await POST(post({ slug: 'demo', offer: 'services-0', budget: '$90' }))).json()
+    expect(body.status).toBe('negotiation')
+    expect(body.autoAccepted).toBe(false)
+    expect(body.statusToken).toBeTruthy()
+    expect(inserted.metadata.rules_evaluation.decision).toBe('review')
+  })
+
   it('surfaces a 412 with guidance when the insert is blocked by RLS', async () => {
     dbRef.handler = (ctx: QueryContext) =>
       ctx.table === 'pages'

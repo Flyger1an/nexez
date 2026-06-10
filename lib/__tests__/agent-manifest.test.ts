@@ -36,3 +36,51 @@ describe('getAgentJsonPath', () => {
     expect(getAgentJsonPath('acme')).toBe('/acme/agent.json')
   })
 })
+
+describe('Smart Rules in the agent manifest (privacy invariant)', () => {
+  const rulesPage = {
+    ...page,
+    services: [
+      {
+        name: 'Custom Build',
+        description: 'Scoped work',
+        price: 'From $2,000',
+        url: '',
+        offerType: 'negotiable',
+        rules: {
+          minPrice: '$1,500',
+          maxDiscountPercent: 20,
+          autoAccept: true,
+          autoAcceptWithinPercent: 10,
+          minNoticeHours: 48,
+          blackoutDates: ['2026-12-25'],
+          maxBookingsPerWeek: 3,
+        },
+      },
+    ],
+  } as unknown as AgentPage
+  const payload = buildAgentPagePayload(rulesPage) as any
+  const offer = payload.offers[0]
+
+  it('exposes offer_type + public booking constraints', () => {
+    expect(offer.offer_type).toBe('negotiable')
+    expect(offer.accepts_negotiation).toBe(true)
+    expect(offer.min_notice_hours).toBe(48)
+    expect(offer.blackout_dates).toEqual(['2026-12-25'])
+    expect(offer.max_bookings_per_week).toBe(3)
+    expect(offer.negotiation_action.status_check.endpoint).toContain('/api/negotiations/status')
+  })
+
+  it('NEVER serializes private pricing rules (minPrice / discount / auto-accept)', () => {
+    const serialized = JSON.stringify(payload)
+    expect(serialized).not.toMatch(/minPrice|min_price|1,?500|maxDiscount|autoAccept|auto_accept/i)
+    expect(serialized).not.toContain('"rules"')
+  })
+
+  it('fixed offers without rules read as fixed with no constraints', () => {
+    const fixedPayload = buildAgentPagePayload(page) as any
+    expect(fixedPayload.offers[0].offer_type).toBe('fixed')
+    expect(fixedPayload.offers[0].accepts_negotiation).toBe(false)
+    expect(fixedPayload.offers[0].min_notice_hours).toBeUndefined()
+  })
+})

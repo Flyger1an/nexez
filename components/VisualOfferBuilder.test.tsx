@@ -32,4 +32,46 @@ describe('VisualOfferBuilder', () => {
     const next = onChange.mock.calls.at(-1)![0] as OfferItem[]
     expect(next[0].name).toBe('New name')
   })
+
+  it('switching an offer to Negotiable fires onChange with offerType (Smart Rules)', () => {
+    const onChange = vi.fn()
+    render(<VisualOfferBuilder offers={[offer({ name: 'Custom Build' })]} kind="services" onChange={onChange} pageId="p1" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Negotiable' }))
+    const next = onChange.mock.calls.at(-1)![0] as OfferItem[]
+    expect(next[0].offerType).toBe('negotiable')
+  })
+
+  it('rule inputs write a pruned rules object (empty values dropped)', () => {
+    const onChange = vi.fn()
+    render(
+      <VisualOfferBuilder
+        offers={[offer({ name: 'Custom Build', offerType: 'negotiable' })]}
+        kind="services"
+        onChange={onChange}
+        pageId="p1"
+      />,
+    )
+    fireEvent.change(screen.getByPlaceholderText('e.g. $800'), { target: { value: '$1,200' } })
+    let next = onChange.mock.calls.at(-1)![0] as OfferItem[]
+    expect(next[0].rules).toEqual({ minPrice: '$1,200' })
+
+    fireEvent.change(screen.getByPlaceholderText('48'), { target: { value: '24' } })
+    next = onChange.mock.calls.at(-1)![0] as OfferItem[]
+    expect(next[0].rules).toEqual({ minNoticeHours: 24 }) // controlled parent not re-rendered; patch is pruned-merge of original (no rules)
+  })
+
+  it('clearing the only rule removes the rules object entirely', () => {
+    const onChange = vi.fn()
+    render(
+      <VisualOfferBuilder
+        offers={[offer({ name: 'Custom Build', offerType: 'negotiable', rules: { minPrice: '$800' } })]}
+        kind="services"
+        onChange={onChange}
+        pageId="p1"
+      />,
+    )
+    fireEvent.change(screen.getByDisplayValue('$800'), { target: { value: '' } })
+    const next = onChange.mock.calls.at(-1)![0] as OfferItem[]
+    expect(next[0].rules).toBeUndefined()
+  })
 })

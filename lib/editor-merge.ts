@@ -85,6 +85,9 @@ export function smartMergeOffers(
         tiers: current.tiers?.length ? current.tiers : inc.tiers || [],
         source: inc.source || current.source,
         prefer_original_for_this: inc.prefer_original_for_this ?? current.prefer_original_for_this,
+        // Smart Rules are owner-authored — imports/re-syncs never overwrite them.
+        offerType: current.offerType ?? inc.offerType,
+        rules: current.rules ?? inc.rules,
       }
     } else {
       merged.push(inc)

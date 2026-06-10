@@ -10,9 +10,11 @@ import {
   getRequestBaseUrl,
 } from '../../../lib/agent-page'
 import { parseMoneyCents, toStripeDescription } from '../../../lib/checkout'
+import { getBookingRuleError } from '../../../lib/offer-rules'
 import { logCheckoutEvent } from '../../../lib/server/log-checkout-event'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 import { supabase } from '../../../lib/supabase'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 
 type CheckoutInput = {
   slug: string
@@ -57,6 +59,29 @@ export async function POST(request: Request) {
   }
 
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
+
+  // Smart Rules: calendar protection (Phase 1) — weekly booking cap + blackout
+  // dates. Counting booked events needs the service-role client (events are
+  // owner-only under RLS); when it's unavailable the cap is skipped gracefully.
+  if (!input.dryRun && offer.rules && (offer.rules.maxBookingsPerWeek != null || offer.rules.blackoutDates?.length)) {
+    let recentBookingsThisWeek = 0
+    if (offer.rules.maxBookingsPerWeek != null && hasSupabaseAdminEnv()) {
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+      const { count } = await createAdminClient()
+        .from('checkout_events')
+        .select('id', { count: 'exact', head: true })
+        .eq('slug', page.slug)
+        .eq('offer_key', offerKey)
+        .in('event_type', ['stripe_session_created', 'provider_redirect'])
+        .gte('created_at', weekAgo)
+      recentBookingsThisWeek = count ?? 0
+    }
+    const ruleError = getBookingRuleError(offer, { recentBookingsThisWeek })
+    if (ruleError) {
+      return NextResponse.json({ error: ruleError, code: 'booking_rules' }, { status: 409 })
+    }
+  }
+
   const baseUrl = getRequestBaseUrl(request)
   const checkoutUrl = `${baseUrl}/checkout/${page.slug}?offer=${offerKey}`
   const successUrl = `${baseUrl}/checkout/${page.slug}/success?session_id={CHECKOUT_SESSION_ID}&offer=${offerKey}`

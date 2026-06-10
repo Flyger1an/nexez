@@ -10,6 +10,7 @@ import {
   parseAvailabilityWindows,
 } from './agent-page'
 import { buildNegotiationAction } from './negotiations'
+import { publicBookingConstraints } from './offer-rules'
 import { rewriteForVoice } from './ai-optimize'
 
 export function getAgentJsonPath(slug: string) {
@@ -84,6 +85,10 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, baseUrl: strin
     checkout_url: checkoutUrl,
     prefer_original_for_this: (offer as any).prefer_original_for_this || false,
     availability: (offer as any).availability || 'available',
+    // Smart Rules Phase 1: hybrid booking. Public-safe constraints ONLY —
+    // pricing rules (min price, discount/auto-accept thresholds) never leave
+    // the server. Negotiable offers: lead with negotiation_action below.
+    ...publicBookingConstraints(offer),
     // Consumer / local service context for agents
     consumer: {
       duration: (offer as any).duration || null,

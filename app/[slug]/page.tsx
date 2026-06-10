@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation'
 import { headers, cookies } from 'next/headers'
 import { createClient as createServerClient } from '../../utils/supabase/server'
 import { applyDraftOverlay } from '../../lib/draft'
-import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, LockKeyhole, Mail, MapPin } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, Handshake, LockKeyhole, Mail, MapPin } from 'lucide-react'
 import { AgentPage, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, availabilityLabel, getBaseUrl, getCertification, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows, schemaAvailability } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { agentArtifactHref, getEffectiveBaseUrl, isCustomHost, normalizeDomainPath } from '../../lib/custom-domain'
@@ -18,7 +18,7 @@ import { supabase } from '../../lib/supabase'
 
 type PageProps = {
   params: Promise<{ slug: string }>
-  searchParams?: Promise<{ negotiation?: string; preview?: string }>
+  searchParams?: Promise<{ negotiation?: string; preview?: string; negotiate?: string }>
 }
 
 async function getPage(slug: string) {
@@ -173,6 +173,14 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
     (o) => !(o.kind === 'services' ? hiddenServices : hiddenProducts).has(o.index),
   )
   const negotiationCreated = negotiationParam === 'created'
+  const negotiationAccepted = negotiationParam === 'accepted'
+  // "Make an Offer" deep link: ?negotiate=<offerKey>#negotiate preselects the offer.
+  const requestedNegotiateKey = sp?.negotiate || ''
+  const preselectedNegotiateKey = negotiationOffers.some(
+    (o) => getCheckoutOfferKey(o.kind, o.index) === requestedNegotiateKey,
+  )
+    ? requestedNegotiateKey
+    : null
   const ctaUrl = page.cta_url || page.website_url || '#'
   const preferOriginal = !!page.prefer_original_site
   const firstCheckoutPath = services.length && !preferOriginal
@@ -386,6 +394,11 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
                 Proposal sent — the owner has received your request and will review the terms.
               </p>
             ) : null}
+            {negotiationAccepted ? (
+              <p className="mt-4 rounded-lg border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-200">
+                Proposal accepted within the seller&apos;s rules — agreement proposed. The owner will follow up to finalize payment or scheduling.
+              </p>
+            ) : null}
 
             <form method="post" action="/api/negotiations" className="card mt-6 grid gap-4 !p-6 sm:grid-cols-2">
               <input type="hidden" name="slug" value={page.slug} />
@@ -394,7 +407,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
                 <span className="text-zinc-300">Offer</span>
                 <select
                   name="offer"
-                  defaultValue={getCheckoutOfferKey(negotiationOffers[0].kind, negotiationOffers[0].index)}
+                  defaultValue={preselectedNegotiateKey ?? getCheckoutOfferKey(negotiationOffers[0].kind, negotiationOffers[0].index)}
                   className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-white"
                 >
                   {negotiationOffers.map((offer) => {
@@ -419,17 +432,20 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
               </label>
 
               <label className="block text-sm">
-                <span className="text-zinc-300">Budget (optional)</span>
+                <span className="text-zinc-300">Proposed price</span>
                 <input
                   name="budget"
                   type="text"
-                  placeholder="e.g. $500–$800"
+                  placeholder="e.g. $750"
                   className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-white placeholder:text-zinc-500"
                 />
+                <span className="mt-1 block text-[11px] text-zinc-500">
+                  Proposals within the seller&apos;s rules may be accepted automatically.
+                </span>
               </label>
 
               <label className="block text-sm">
-                <span className="text-zinc-300">Timeline (optional)</span>
+                <span className="text-zinc-300">Preferred dates / timeline (optional)</span>
                 <input
                   name="timeline"
                   type="text"
@@ -597,14 +613,27 @@ function OfferSection({
 
             <div className="mt-4 flex flex-wrap gap-3">
               {(() => {
+                // Smart Rules Phase 1: negotiable offers route to the Make-an-Offer
+                // flow (proposal + seller rules) instead of direct booking.
+                if (item.offerType === 'negotiable') {
+                  return (
+                    <a
+                      href={`?negotiate=${getCheckoutOfferKey(kind, index)}#negotiate`}
+                      className="inline-flex items-center gap-2 rounded-lg bg-[#7C3AED] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6D28D9]"
+                    >
+                      Make an Offer
+                      <Handshake className="size-4" />
+                    </a>
+                  );
+                }
                 const useOriginal = (item.prefer_original_for_this ?? false) || (preferOriginal && !!item.url);
                 return (
                   <a
                     href={useOriginal && item.url ? item.url : getCheckoutPath(pageSlug, kind, index)}
                     className="inline-flex items-center gap-2 rounded-lg bg-[#7C3AED] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6D28D9]"
                   >
-                    {useOriginal 
-                      ? (item.isMobile ? 'Book mobile visit on original site' : 'Book on original site') 
+                    {useOriginal
+                      ? (item.isMobile ? 'Book mobile visit on original site' : 'Book on original site')
                       : 'Book Now'}
                     <LockKeyhole className="size-4" />
                   </a>
@@ -619,6 +648,17 @@ function OfferSection({
             </div>
             {(item.prefer_original_for_this || (preferOriginal && item.url)) && (
               <div className="mt-2 text-[10px] text-emerald-300/80">Original site priority for this offer</div>
+            )}
+            {(item.rules?.minNoticeHours != null || item.rules?.blackoutDates?.length || item.rules?.maxBookingsPerWeek != null) && (
+              <div className="mt-2 text-[10px] text-zinc-500">
+                {[
+                  item.rules?.minNoticeHours != null ? `Requires ${item.rules.minNoticeHours}h notice` : null,
+                  item.rules?.blackoutDates?.length ? `Unavailable: ${item.rules.blackoutDates.slice(0, 3).join(', ')}` : null,
+                  item.rules?.maxBookingsPerWeek != null ? `Max ${item.rules.maxBookingsPerWeek} bookings/week` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </div>
             )}
           </article>
         ))}

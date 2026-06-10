@@ -76,6 +76,28 @@ describe('smartMergeOffers', () => {
     smartMergeOffers(existing, [offer({ name: 'A', price: '$9' })])
     expect(existing[0].price).toBe('$1')
   })
+
+  it('preserves owner-authored offerType + rules through a re-import merge (Smart Rules)', () => {
+    const existing = [
+      offer({
+        name: 'Custom Build',
+        price: 'From $2,000',
+        offerType: 'negotiable',
+        rules: { minPrice: '$1,500', autoAccept: true, minNoticeHours: 48 },
+      }),
+    ]
+    const incoming = [offer({ name: 'custom build', price: 'From $2,200' })] // fresh crawl, no rules
+    const merged = smartMergeOffers(existing, incoming)[0]
+    expect(merged.price).toBe('From $2,200') // fresh price still taken
+    expect(merged.offerType).toBe('negotiable')
+    expect(merged.rules).toEqual({ minPrice: '$1,500', autoAccept: true, minNoticeHours: 48 })
+  })
+
+  it('new imported offers stay fixed with no rules by default', () => {
+    const merged = smartMergeOffers([], [offer({ name: 'Fresh Offer', price: '$50' })])
+    expect(merged[0].offerType).toBeUndefined()
+    expect(merged[0].rules).toBeUndefined()
+  })
 })
 
 describe('countOfferChanges', () => {

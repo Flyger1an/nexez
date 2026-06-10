@@ -125,3 +125,72 @@ describe('agent-page offer parse/format roundtrip (Phase 1 A fidelity)', () => {
     expect(parsed[0].ab_label).toBe('A')
   })
 })
+
+describe('offerType + rules roundtrip (Smart Rules Phase 1 fidelity)', () => {
+  it('roundtrips a negotiable offer with rules via [[TYPE]] + [[RULES]] markers', () => {
+    const offer: OfferItem = {
+      name: 'Custom Engagement',
+      price: 'From $1,800',
+      description: 'Scoped project work',
+      url: 'https://example.com/custom',
+      offerType: 'negotiable',
+      rules: {
+        minPrice: '$1,200',
+        autoAccept: true,
+        autoAcceptWithinPercent: 10,
+        minNoticeHours: 48,
+        blackoutDates: ['2026-07-04', '2026-12-25'],
+        maxBookingsPerWeek: 3,
+      },
+    }
+    const formatted = formatOfferLines([offer])
+    expect(formatted).toContain('[[TYPE]]negotiable')
+    expect(formatted).toContain('[[RULES]]')
+
+    const parsed = parseOfferLines(formatted)
+    expect(parsed[0].offerType).toBe('negotiable')
+    expect(parsed[0].rules).toEqual(offer.rules)
+    expect(parsed[0].name).toBe('Custom Engagement')
+    expect(parsed[0].url).toBe('https://example.com/custom')
+  })
+
+  it('fixed offers without rules stay unmarked and parse identically (back-compat)', () => {
+    const input = 'Strategy Session | $450 | Focused 60-min session | https://example.com/book'
+    const parsed = parseOfferLines(input)
+    expect(parsed[0].offerType).toBeUndefined()
+    expect(parsed[0].rules).toBeUndefined()
+    expect(formatOfferLines(parsed)).toBe(input)
+  })
+
+  it('rules coexist with consumer fields without polluting the consumer block', () => {
+    const offer: OfferItem = {
+      name: 'Mobile Detail',
+      price: '$149',
+      description: 'On-site detail',
+      url: '',
+      duration: '2 hours',
+      serviceArea: 'Metro',
+      isMobile: true,
+      offerType: 'negotiable',
+      rules: { minPrice: '$100', minNoticeHours: 24 },
+    }
+    const parsed = parseOfferLines(formatOfferLines([offer]))
+    expect(parsed[0].duration).toBe('2 hours')
+    expect(parsed[0].serviceArea).toBe('Metro')
+    expect(parsed[0].isMobile).toBe(true)
+    expect(parsed[0].offerType).toBe('negotiable')
+    expect(parsed[0].rules).toEqual({ minPrice: '$100', minNoticeHours: 24 })
+  })
+
+  it('malformed [[RULES]] JSON degrades gracefully (offer still parses, rules undefined)', () => {
+    const input = 'Broken | $10 | desc | https://x.example | [[RULES]]{not-json'
+    const parsed = parseOfferLines(input)
+    expect(parsed[0].name).toBe('Broken')
+    expect(parsed[0].rules).toBeUndefined()
+  })
+
+  it('empty rules object is not serialized', () => {
+    const offer: OfferItem = { name: 'Plain', price: '$5', description: '', url: '', rules: {} }
+    expect(formatOfferLines([offer])).not.toContain('[[RULES]]')
+  })
+})

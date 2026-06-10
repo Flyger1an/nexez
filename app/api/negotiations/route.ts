@@ -1,3 +1,4 @@
+import { randomBytes, randomUUID } from 'crypto'
 import { NextResponse, after } from 'next/server'
 import {
   AgentPage,
@@ -8,6 +9,7 @@ import {
   getRequestBaseUrl,
 } from '../../../lib/agent-page'
 import { parseMoneyCents } from '../../../lib/checkout'
+import { evaluateProposal } from '../../../lib/offer-rules'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 import { buildNegotiationEmail, sendEmail } from '../../../lib/email'
 import { supabase } from '../../../lib/supabase'
@@ -69,7 +71,22 @@ export async function POST(request: Request) {
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
   const amountCents = parseMoneyCents(offer.price)
   const escrowMode = process.env.STRIPE_SECRET_KEY && amountCents ? 'manual_capture_ready' : 'not_configured'
+
+  // Smart Rules: evaluate the proposal against the offer's owner-defined rules.
+  // Auto-accept (negotiable + autoAccept on + every pricing rule passes) lands
+  // directly in 'agreement_proposed'; flagged/review proposals stay 'negotiation'.
+  const proposedPriceCents = parseMoneyCents(input.budget)
+  const rulesEvaluation = evaluateProposal(offer, { proposedPriceCents })
+  const autoAccepted = rulesEvaluation.decision === 'auto_accept'
+
+  // The anon caller has no SELECT on agent_negotiations (RLS), so the insert
+  // can't RETURN the row — generate id + status token server-side instead so
+  // the agent can poll /api/negotiations/status later.
+  const negotiationId = randomUUID()
+  const statusToken = randomBytes(16).toString('hex')
+
   const negotiation = {
+    id: negotiationId,
     page_id: page.id,
     owner_id: page.owner_id,
     slug: page.slug,
@@ -82,14 +99,21 @@ export async function POST(request: Request) {
     budget_text: input.budget || null,
     timeline_text: input.timeline || null,
     contact: input.contact || null,
-    status: 'negotiation',
+    status: autoAccepted ? 'agreement_proposed' : 'negotiation',
     escrow_mode: escrowMode,
     amount_cents: amountCents,
+    status_token: statusToken,
     metadata: {
       source: 'agent_negotiation',
       referrer: request.headers.get('referer'),
       stripe_configured: Boolean(process.env.STRIPE_SECRET_KEY),
       dry_run: Boolean(input.dryRun),
+      rules_evaluation: {
+        decision: rulesEvaluation.decision,
+        reasons: rulesEvaluation.reasons,
+        proposed_price_cents: proposedPriceCents,
+        evaluated_at: new Date().toISOString(),
+      },
     },
   }
 
@@ -97,12 +121,14 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       dryRun: true,
-      status: 'negotiation',
+      status: negotiation.status,
+      autoAccepted,
+      rulesEvaluation,
       escrowMode,
       stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
       amountCents,
       next: getNextStep(escrowMode),
-      negotiation,
+      negotiation: { ...negotiation, id: undefined, status_token: undefined },
     })
   }
 
@@ -138,12 +164,23 @@ export async function POST(request: Request) {
   }
 
   if (!wantsJson) {
-    return NextResponse.redirect(`${baseUrl}/${page.slug}?negotiation=created`, { status: 303 })
+    return NextResponse.redirect(
+      `${baseUrl}/${page.slug}?negotiation=${autoAccepted ? 'accepted' : 'created'}`,
+      { status: 303 },
+    )
   }
 
   return NextResponse.json({
     ok: true,
     status: negotiation.status,
+    autoAccepted,
+    rulesEvaluation,
+    message: autoAccepted
+      ? "Auto-accepted within the seller's rules — agreement proposed. The seller will finalize payment/scheduling."
+      : 'Proposal received — under review by the seller.',
+    // Returned exactly once: lets the submitting agent poll status later.
+    statusToken,
+    statusUrl: `${baseUrl}/api/negotiations/status?id=${negotiationId}&token=${statusToken}`,
     escrowMode,
     stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
     next: getNextStep(escrowMode),

@@ -388,6 +388,20 @@ function SortableOfferCard({
     }
   }
 
+  // Smart Rules: merge a rules patch, pruning empty values so an empty rules
+  // object is never persisted/serialized (absent = no rules).
+  function updateRules(patch: Record<string, unknown>) {
+    if (!onUpdateFull) return
+    const merged: Record<string, unknown> = { ...(offer.rules || {}), ...patch }
+    for (const key of Object.keys(merged)) {
+      const v = merged[key]
+      if (v === undefined || v === null || v === '' || v === false || (Array.isArray(v) && v.length === 0)) {
+        delete merged[key]
+      }
+    }
+    onUpdateFull(index, { rules: Object.keys(merged).length ? (merged as OfferItem['rules']) : undefined })
+  }
+
   return (
     <div
       ref={setNodeRef}
@@ -520,6 +534,95 @@ function SortableOfferCard({
               </div>
             )}
           </div>
+
+          {/* Smart Rules Phase 1: offer type + per-offer rules */}
+          {onUpdateFull && (
+            <div className="border border-white/10 rounded-lg p-3 bg-black/20">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-[#C4B5FD]">Offer type & rules</span>
+                <div className="flex gap-1" role="group" aria-label="Offer type">
+                  <button
+                    type="button"
+                    aria-pressed={offer.offerType !== 'negotiable'}
+                    onClick={() => onUpdateFull(index, { offerType: undefined })}
+                    className={`rounded px-2 py-0.5 text-[10px] border ${offer.offerType !== 'negotiable' ? 'border-cyan-300/60 bg-cyan-300/10 text-cyan-200' : 'border-white/15 text-zinc-400 hover:text-white'}`}
+                  >
+                    Fixed
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={offer.offerType === 'negotiable'}
+                    onClick={() => onUpdateFull(index, { offerType: 'negotiable' })}
+                    className={`rounded px-2 py-0.5 text-[10px] border ${offer.offerType === 'negotiable' ? 'border-violet-300/60 bg-violet-300/10 text-violet-200' : 'border-white/15 text-zinc-400 hover:text-white'}`}
+                  >
+                    Negotiable
+                  </button>
+                </div>
+              </div>
+
+              {offer.offerType === 'negotiable' && (
+                <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <label className="text-[10px] text-zinc-400">
+                    Minimum acceptable price
+                    <input
+                      value={offer.rules?.minPrice || ''}
+                      placeholder="e.g. $800"
+                      onChange={(e) => updateRules({ minPrice: e.target.value })}
+                      className="mt-0.5 w-full rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white"
+                    />
+                  </label>
+                  <label className="flex items-end gap-2 pb-1.5 text-[10px] text-zinc-300">
+                    <input
+                      type="checkbox"
+                      checked={!!offer.rules?.autoAccept}
+                      onChange={(e) => updateRules({ autoAccept: e.target.checked })}
+                      className="size-3 accent-[#7C3AED]"
+                    />
+                    Auto-accept proposals that meet every rule
+                  </label>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <label className="text-[10px] text-zinc-400">
+                  Min notice (hours)
+                  <input
+                    type="number"
+                    min={0}
+                    value={offer.rules?.minNoticeHours ?? ''}
+                    placeholder="48"
+                    onChange={(e) => updateRules({ minNoticeHours: e.target.value ? Number(e.target.value) : undefined })}
+                    className="mt-0.5 w-full rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white"
+                  />
+                </label>
+                <label className="text-[10px] text-zinc-400">
+                  Blackout dates (YYYY-MM-DD, comma-separated)
+                  <input
+                    value={(offer.rules?.blackoutDates || []).join(', ')}
+                    placeholder="2026-07-04, 2026-12-25"
+                    onChange={(e) =>
+                      updateRules({ blackoutDates: e.target.value.split(',').map((d) => d.trim()).filter(Boolean) })
+                    }
+                    className="mt-0.5 w-full rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white"
+                  />
+                </label>
+                <label className="text-[10px] text-zinc-400">
+                  Max bookings / week
+                  <input
+                    type="number"
+                    min={0}
+                    value={offer.rules?.maxBookingsPerWeek ?? ''}
+                    placeholder="5"
+                    onChange={(e) => updateRules({ maxBookingsPerWeek: e.target.value ? Number(e.target.value) : undefined })}
+                    className="mt-0.5 w-full rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white"
+                  />
+                </label>
+              </div>
+              <p className="mt-1.5 text-[9px] text-zinc-500">
+                Pricing rules are private — never shown to agents. Notice, blackout, and weekly-cap constraints are published in agent.json so agents can respect them.
+              </p>
+            </div>
+          )}
 
           {/* Per-offer "Book on original site" control (Phase 4) */}
           <div className="border border-white/10 rounded-lg p-2 bg-black/20">

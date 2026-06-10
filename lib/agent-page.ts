@@ -98,6 +98,35 @@ export type OfferItem = {
   // serves a single variant per visitor (sticky) and attributes conversions per label.
   ab_test?: string
   ab_label?: string
+
+  // Smart Rules Phase 1: hybrid booking. Absent offerType means 'fixed'
+  // (direct booking — today's behavior). 'negotiable' offers route agents to
+  // the Make-an-Offer negotiation flow instead of checkout.
+  offerType?: 'fixed' | 'negotiable'
+  rules?: OfferRules
+}
+
+/**
+ * Smart Rules Phase 1: per-offer rules. Pricing rules (minPrice, discount and
+ * auto-accept thresholds) are OWNER-PRIVATE — they drive server-side proposal
+ * evaluation and must never be serialized into agent.json/mcp/public HTML.
+ * Booking constraints (notice/blackout/max bookings) are public-safe.
+ */
+export type OfferRules = {
+  /** Lowest acceptable proposal, money string (e.g. "$1,200"). PRIVATE. */
+  minPrice?: string
+  /** Max discount vs listed price an agent proposal may request, in percent. PRIVATE. */
+  maxDiscountPercent?: number
+  /** When true, proposals that satisfy every pricing rule auto-advance to 'agreement_proposed'. */
+  autoAccept?: boolean
+  /** Auto-accept band: proposal within this percent below the listed price. PRIVATE. */
+  autoAcceptWithinPercent?: number
+  /** Minimum notice before a booking, in hours. Public-safe. */
+  minNoticeHours?: number
+  /** Unavailable dates, plain YYYY-MM-DD strings (timezone-naive on purpose). Public-safe. */
+  blackoutDates?: string[]
+  /** Calendar protection: cap on bookings per rolling week. Public-safe. */
+  maxBookingsPerWeek?: number
 }
 
 /** Map our availability to a schema.org ItemAvailability URL (for JSON-LD). */
@@ -242,13 +271,36 @@ export function parseOfferLines(value: string): OfferItem[] {
       if (label) abLabel = label
     }
 
+    // Smart Rules markers: [[TYPE]]negotiable + [[RULES]]{json} (pipe-safe; only
+    // negotiable is ever emitted — absent means fixed).
+    let offerType: OfferItem['offerType']
+    const typePart = parts.find(p => p.includes('[[TYPE]]'))
+    if (typePart && typePart.replace('[[TYPE]]', '').trim() === 'negotiable') {
+      offerType = 'negotiable'
+    }
+
+    let rules: OfferRules | undefined
+    const rulesPart = parts.find(p => p.includes('[[RULES]]') || p.includes('||RULES||'))
+    if (rulesPart) {
+      try {
+        const parsedRules = JSON.parse(rulesPart.replace('[[RULES]]', '').replace('||RULES||', ''))
+        if (parsedRules && typeof parsedRules === 'object' && !Array.isArray(parsedRules)) {
+          rules = parsedRules
+        }
+      } catch (e) {
+        // malformed rules JSON degrades gracefully — offer still parses
+      }
+    }
+
     // Consumer block stops before any marker (robust to [[ or || forms)
     const tiersIdx = parts.findIndex(p => p.includes('TIERS'))
     const preferIdx = parts.findIndex(p => p.includes('PREFER_ORIGINAL'))
     const abIdx = parts.findIndex(p => p.includes('ABTEST'))
-    const markerEnd = [tiersIdx, preferIdx, abIdx].filter(i => i !== -1).reduce((min, i) => (min === -1 ? i : Math.min(min, i)), -1 as number)
+    const typeIdx = parts.findIndex(p => p.includes('[[TYPE]]'))
+    const rulesIdx = parts.findIndex(p => p.includes('[[RULES]]') || p.includes('||RULES||'))
+    const markerEnd = [tiersIdx, preferIdx, abIdx, typeIdx, rulesIdx].filter(i => i !== -1).reduce((min, i) => (min === -1 ? i : Math.min(min, i)), -1 as number)
     const consumerEnd = markerEnd !== -1 ? markerEnd : parts.length
-    const consumerParts = parts.slice(4, consumerEnd).filter(p => !p.includes('TIERS') && !p.includes('PREFER_ORIGINAL') && !p.includes('ABTEST') && !p.startsWith('||'))
+    const consumerParts = parts.slice(4, consumerEnd).filter(p => !p.includes('TIERS') && !p.includes('PREFER_ORIGINAL') && !p.includes('ABTEST') && !p.includes('[[TYPE]]') && !p.includes('RULES') && !p.startsWith('||'))
 
     const isMobileRaw = consumerParts[3] || ''
     const isMobile = ['1', 'true', 'mobile', 'yes'].includes(isMobileRaw.toLowerCase())
@@ -266,6 +318,8 @@ export function parseOfferLines(value: string): OfferItem[] {
       prefer_original_for_this: preferOriginalForThis,
       ab_test: abTest,
       ab_label: abLabel,
+      offerType,
+      rules,
     }
   })
 }
@@ -297,6 +351,13 @@ export function formatOfferLines(items: OfferItem[] | null | undefined) {
       // Append A/B variant grouping marker (Phase 6, pipe-safe)
       if (item.ab_test) {
         base.push(`[[ABTEST]]${item.ab_test}~${item.ab_label || ''}`)
+      }
+      // Smart Rules markers (pipe-safe). Fixed is the default — only negotiable is emitted.
+      if (item.offerType === 'negotiable') {
+        base.push('[[TYPE]]negotiable')
+      }
+      if (item.rules && Object.keys(item.rules).length > 0) {
+        base.push(`[[RULES]]${JSON.stringify(item.rules)}`)
       }
       return base.join(' | ')
     })

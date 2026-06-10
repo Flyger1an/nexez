@@ -25,7 +25,7 @@ function tools() {
   return [
     {
       name: 'book_offer',
-      description: 'Get the booking/checkout target for a specific offer (respects per-offer + page original-site preferences).',
+      description: 'Get the booking/checkout target for a specific offer (respects per-offer + page original-site preferences and any booking constraints — min notice, blackout dates — listed in agent.json).',
       inputSchema: {
         type: 'object',
         properties: { offer: { type: 'string', description: 'Offer key, e.g. services-0 or products-1' } },
@@ -34,7 +34,7 @@ function tools() {
     },
     {
       name: 'negotiate_offer',
-      description: 'Submit a proposal (scope, budget, timeline) for seller review before checkout/escrow.',
+      description: "Submit a proposal (scope, budget, timeline) for seller review before checkout/escrow. Proposals matching the seller's rules may auto-accept; the create response returns a statusUrl to poll for updates.",
       inputSchema: {
         type: 'object',
         properties: {

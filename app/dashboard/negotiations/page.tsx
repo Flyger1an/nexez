@@ -268,6 +268,7 @@ function NegotiationCard({
               {getNegotiationStatusLabel(item.status)}
             </span>
             <span className="text-xs text-zinc-500">{item.offer_kind}</span>
+            <RulesEvaluationBadge metadata={item.metadata} />
           </div>
           <h2 className="mt-2 truncate text-lg font-medium">{item.offer_name}</h2>
           <a
@@ -348,4 +349,32 @@ function Field({ label, value, full }: { label: string; value: string | null; fu
       <dd className="mt-0.5 text-zinc-200">{value}</dd>
     </div>
   )
+}
+
+// Smart Rules Phase 1: surface how the proposal scored against the offer's
+// rules (recorded in metadata.rules_evaluation at submission time).
+function RulesEvaluationBadge({ metadata }: { metadata: Record<string, unknown> | null }) {
+  const evaluation = metadata?.rules_evaluation as { decision?: string; reasons?: string[] } | undefined
+  if (!evaluation?.decision) return null
+
+  if (evaluation.decision === 'auto_accept') {
+    return (
+      <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2.5 py-0.5 text-xs text-emerald-200">
+        Auto-accepted by rules
+      </span>
+    )
+  }
+  if (evaluation.decision === 'flag') {
+    const reason = evaluation.reasons?.includes('below_min_price')
+      ? 'below minimum price'
+      : evaluation.reasons?.includes('exceeds_max_discount')
+        ? 'exceeds max discount'
+        : 'outside rules'
+    return (
+      <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2.5 py-0.5 text-xs text-amber-200">
+        Flagged: {reason}
+      </span>
+    )
+  }
+  return null
 }
