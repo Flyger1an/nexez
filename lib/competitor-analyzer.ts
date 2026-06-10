@@ -1,5 +1,5 @@
 /**
- * Nexez Competitor Website Analyzer (Tier 2 — New High Priority per strategic context)
+ * Nexez Competitor Website Analyzer (New High Priority intelligence feature)
  *
  * Allows pasting ANY competitor website URL (not limited to Nexez pages).
  * Delivers detailed AI-agent perception analysis:
@@ -25,6 +25,7 @@
 import type { OfferItem } from './agent-page'
 import { fetchHtmlSafe, isPathAllowed } from './importer'
 import { getReadinessScore, getTrustScore } from './agent-page'
+import { isLlmConfigured, llmComplete } from './llm'
 
 // Long TTL cache (24-48h per spec). In-memory for MVP; easy to back by Supabase or KV later.
 const COMPETITOR_CACHE = new Map<string, { ts: number; result: CompetitorAnalysis }>()
@@ -181,12 +182,12 @@ function computeScores(signals: CompetitorAnalysis['signals'], htmlLen: number):
   return { overall, parseability, structuredDataQuality, clarityAndIntent: clarity }
 }
 
-function computeGapsAndRecs(signals: CompetitorAnalysis['signals'], scores: CompetitorScores): {
+async function computeGapsAndRecs(url: string, signals: CompetitorAnalysis['signals'], scores: CompetitorScores): Promise<{
   missing: string[]
   strengths: string[]
   weaknesses: string[]
   recommendations: string[]
-} {
+}> {
   const missing: string[] = []
   const recs: string[] = []
 
@@ -211,11 +212,20 @@ function computeGapsAndRecs(signals: CompetitorAnalysis['signals'], scores: Comp
   // Always give 2–4 concrete recs
   if (recs.length === 0) recs.push('Add duration + service area to offers for consumer/local services.', 'Run Nexez importer + Co-Pilot on your own site for instant parity.')
 
+  // Advanced LLM refinement (using the platform's configured LLM when available) for contextual recommendations
+  let finalRecs = recs.slice(0, 6)
+  if (isLlmConfigured()) {
+    try {
+      const insight = await llmComplete(`Given this competitor analysis for ${url}: missing ${missing.join(', ')}; strengths ${strengths.join(', ')}; weaknesses ${weaknesses.join(', ')}. Give 3 specific, actionable recommendations for the site owner to improve AI agent discoverability and conversion. Keep short.`, { maxTokens: 180 })
+      if (insight) finalRecs = [...finalRecs, ...insight.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 3)]
+    } catch {}
+  }
+
   return {
     missing: missing.length ? missing : ['No major gaps detected — strong agent surface.'],
     strengths: strengths.length ? strengths : ['Basic content present.'],
     weaknesses: weaknesses.length ? weaknesses : ['Minor polish opportunities only.'],
-    recommendations: recs.slice(0, 6),
+    recommendations: finalRecs,
   }
 }
 
@@ -297,7 +307,7 @@ export async function analyzeCompetitorSite(
   }
 
   const scores = computeScores(signals, textLen)
-  const { missing, strengths, weaknesses, recommendations } = computeGapsAndRecs(signals, scores)
+  const { missing, strengths, weaknesses, recommendations } = await computeGapsAndRecs(normalized, signals, scores)
 
   const result: CompetitorAnalysis = {
     url,

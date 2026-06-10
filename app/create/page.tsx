@@ -1231,7 +1231,7 @@ export default function CreatePage() {
                       }}
                     />
 
-                    {/* Co-Pilot integration in create wizard (Tier 1) */}
+                    {/* Co-Pilot integration in create wizard */}
                     <div className="mt-3">
                       <AICoPilot
                         businessName={name}

@@ -10,7 +10,7 @@ import {
   suggestSchemaImprovements,
   suggestEnhancedFAQs,
   generateStrongFaqs,
-  rewriteForVoice,
+  rewriteForVoiceSync as rewriteForVoice,
 } from '../lib/ai-optimize'
 
 type CoPilotProps = {
@@ -21,7 +21,7 @@ type CoPilotProps = {
   onApplyServices: (newText: string, newOffers: OfferItem[]) => void
   onApplyProducts: (newText: string, newOffers: OfferItem[]) => void
   onTrackUse: () => void
-  llmOptIn?: boolean  // Tier 3: from page llm_opt_in flag for hook
+  llmOptIn?: boolean  // from page llm_opt_in flag for hook
   pageId?: string     // for per-page LLM opt-in check in /api/ai/enhance
 }
 
@@ -36,7 +36,7 @@ export function AICoPilot({
   llmOptIn = false,
   pageId,
 }: CoPilotProps) {
-  const [activeTab, setActiveTab] = useState<'desc' | 'pricing' | 'faq' | 'schema' | 'voice'>('desc')
+  const [activeTab, setActiveTab] = useState<'desc' | 'pricing' | 'faq' | 'schema' | 'voice' | 'memory' | 'trust' | 'competitor'>('desc')
   const [applied, setApplied] = useState<Record<string, boolean>>({})
   const [usageCount, setUsageCount] = useState(0)
   const [localMessage, setLocalMessage] = useState('')
@@ -172,9 +172,9 @@ export function AICoPilot({
       {showMsg && <div className="mb-2 text-xs text-emerald-300">{showMsg}</div>}
 
       <div className="flex gap-2 mb-4 text-xs flex-wrap">
-        {(['desc', 'pricing', 'faq', 'schema', 'voice'] as const).map(t => (
-          <button key={t} onClick={() => setActiveTab(t)} className={`px-3 py-1 rounded ${activeTab === t ? 'bg-[#7C3AED] text-white' : 'border border-white/20'}`}>
-            {t === 'desc' ? 'Descriptions' : t === 'pricing' ? 'Pricing Tiers' : t === 'faq' ? 'FAQs' : t === 'schema' ? 'Schema' : 'Voice'}
+        {(['desc', 'pricing', 'faq', 'schema', 'voice', 'memory', 'trust', 'competitor'] as const).map(t => (
+          <button key={t} onClick={() => setActiveTab(t)} className={`px-3 py-1 rounded text-xs ${activeTab === t ? 'bg-[#7C3AED] text-white' : 'border border-white/20'}`}>
+            {t === 'desc' ? 'Descriptions' : t === 'pricing' ? 'Pricing Tiers' : t === 'faq' ? 'FAQs' : t === 'schema' ? 'Schema' : t === 'voice' ? 'Voice' : t === 'memory' ? 'Memory' : t === 'trust' ? 'Trust' : 'Competitor'}
           </button>
         ))}
       </div>
@@ -253,8 +253,38 @@ export function AICoPilot({
         </div>
       )}
 
+      {activeTab === 'memory' && (
+        <div>
+          <div className="text-xs text-zinc-400 mb-2">Agent memory suggestions (persistent context).</div>
+          <div className="text-sm bg-black/30 p-2 rounded mb-2">Use Settings → Agent Memory to edit LLM-suggested notes. Auto on publish if opt-in.</div>
+          <button onClick={() => {
+            onTrackUse()
+            setApplied(prev => ({ ...prev, memory: true }))
+          }} className="text-xs rounded bg-emerald-300 px-3 py-1 text-zinc-950">View/Edit in Settings</button>
+        </div>
+      )}
+
+      {activeTab === 'trust' && (
+        <div>
+          <div className="text-xs text-zinc-400 mb-2">Trust score insights.</div>
+          <div className="text-sm bg-black/30 p-2 rounded mb-2">Current: high if verified + events. See Analytics for LLM report.</div>
+          <button onClick={() => {
+            onTrackUse()
+            setApplied(prev => ({ ...prev, trust: true }))
+          }} className="text-xs rounded bg-emerald-300 px-3 py-1 text-zinc-950">Generate in Analytics</button>
+        </div>
+      )}
+
+      {activeTab === 'competitor' && (
+        <div>
+          <div className="text-xs text-zinc-400 mb-2">Competitor analysis (LLM-enhanced).</div>
+          <div className="text-sm bg-black/30 p-2 rounded mb-2">Compare via /dashboard/competitors. Paste any URL for scores + LLM recs.</div>
+          <a href="/dashboard/competitors" className="text-xs rounded bg-emerald-300 px-3 py-1 text-zinc-950 inline-block">Open Analyzer →</a>
+        </div>
+      )}
+
       <div className="mt-3 text-[10px] text-zinc-500">
-        {llmOptIn ? 'LLM assist enabled (when key + page opt-in configured)' : 'Deterministic engine. Tier-ready usage.'}
+        {llmOptIn ? 'LLM assist enabled (platform-configured provider when key + page opt-in)' : 'Deterministic engine (upgrade with LLM key + opt-in for advanced).'}
       </div>
     </div>
   )

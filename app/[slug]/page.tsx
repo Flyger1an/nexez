@@ -484,7 +484,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
           </section>
         )}
 
-        <div className="text-[10px] text-zinc-500 mt-2">Voice agents: descriptions can be rewritten phonetic/short via AI Co-Pilot (Tier 3). See builder for "Voice (Tier 3)" option.</div>
+        <div className="text-[10px] text-zinc-500 mt-2">Voice agents: descriptions can be rewritten to be more phonetic and concise via AI Co-Pilot. See the builder for the Voice optimization option.</div>
 
         <section className="border-t border-white/10 py-12">
           <h2 className="text-2xl font-semibold">Plain-text agent context</h2>
@@ -716,4 +716,4 @@ function buildJsonLd(
     },
   }
 }
-/* Tier 3 stubs: Voice-optimized & agent memory/context notes for future (will extend manifests). */
+/* Voice optimization and agent memory/context notes (future extensions for manifests). */

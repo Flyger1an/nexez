@@ -193,4 +193,24 @@ describe('offerType + rules roundtrip (Smart Rules Phase 1 fidelity)', () => {
     const offer: OfferItem = { name: 'Plain', price: '$5', description: '', url: '', rules: {} }
     expect(formatOfferLines([offer])).not.toContain('[[RULES]]')
   })
+
+  it('roundtrips Phase 2 rules (autoCounter + scope) through the [[RULES]] marker', () => {
+    const offer: OfferItem = {
+      name: 'Custom Engagement',
+      price: 'From $2,000',
+      description: '',
+      url: '',
+      offerType: 'negotiable',
+      rules: {
+        minPrice: '$1,500',
+        autoCounter: true,
+        includedScope: 'Design + 2 pages',
+        excludedScope: 'Copywriting',
+        maxRevisions: 2,
+        maxProjectWeeks: 6,
+      },
+    }
+    const parsed = parseOfferLines(formatOfferLines([offer]))
+    expect(parsed[0].rules).toEqual(offer.rules)
+  })
 })

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildAgentPagePayload, getAgentJsonPath } from '../agent-manifest'
+import { rewriteForVoiceSync } from '../ai-optimize'
 import type { AgentPage } from '../agent-page'
 
 const page = {

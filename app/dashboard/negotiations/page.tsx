@@ -351,10 +351,25 @@ function Field({ label, value, full }: { label: string; value: string | null; fu
   )
 }
 
-// Smart Rules Phase 1: surface how the proposal scored against the offer's
-// rules (recorded in metadata.rules_evaluation at submission time).
+// Advanced proposal review: shows LLM (platform-configured) or deterministic review + reasoning from metadata.proposal_review
+// Falls back to basic rules_evaluation for legacy.
 function RulesEvaluationBadge({ metadata }: { metadata: Record<string, unknown> | null }) {
+  const review = metadata?.proposal_review as { recommendation?: string; reasoning?: string; source?: string; model?: string } | undefined
   const evaluation = metadata?.rules_evaluation as { decision?: string; reasons?: string[] } | undefined
+
+  if (review?.recommendation) {
+    const rec = review.recommendation
+    const sourceLabel = review.source === 'llm' ? `LLM (${review.model || 'configured'})` : 'Rules'
+    let color = 'border-amber-300/30 bg-amber-300/10 text-amber-200'
+    if (rec === 'accept') color = 'border-emerald-300/30 bg-emerald-300/10 text-emerald-200'
+    if (rec === 'reject') color = 'border-red-300/30 bg-red-300/10 text-red-200'
+    return (
+      <span className={`rounded-full border px-2.5 py-0.5 text-xs ${color}`} title={review.reasoning}>
+        {rec} by {sourceLabel}
+      </span>
+    )
+  }
+
   if (!evaluation?.decision) return null
 
   if (evaluation.decision === 'auto_accept') {

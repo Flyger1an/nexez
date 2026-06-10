@@ -26,7 +26,8 @@ export async function GET(request: Request, { params }: RouteProps) {
   // HTML page). Log the visit non-blocking so it counts toward agent traffic.
   after(() => logAgentPageView({ page, requestHeaders: request.headers, url: request.url }))
 
-  return Response.json(buildAgentPagePayload(page, getRequestBaseUrl(request)), {
+  const payload = buildAgentPagePayload(page, getRequestBaseUrl(request))
+  return Response.json(payload, {
     headers: {
       'Cache-Control': 'public, max-age=120, s-maxage=300',
     },

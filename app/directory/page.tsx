@@ -330,7 +330,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
             </div>
           ) : null}
 
-          {/* Phase 7 Tier 2 Marketplace basics (favorites localStorage + server sync via FavoriteButton, trending stub) */}
+          {/* Marketplace basics (favorites localStorage + server sync via FavoriteButton, trending stub) */}
           <div className="mt-8 text-xs text-[#9CA3AF]">
             Marketplace mode: Click "★ Favorite" on cards (saved in browser + synced to account when signed in). Trending based on recent agent activity (stub). Full /marketplace route available.
             <a href="/marketplace" className="ml-2 underline">Go to full Marketplace →</a>

@@ -127,6 +127,18 @@ export type OfferRules = {
   blackoutDates?: string[]
   /** Calendar protection: cap on bookings per rolling week. Public-safe. */
   maxBookingsPerWeek?: number
+
+  // Smart Rules Phase 2 — advanced auto-decision + scope rules.
+  /** Auto-record the suggested counter-offer when a proposal lands in review/flag. */
+  autoCounter?: boolean
+  /** What the offer includes by default. Public product info. */
+  includedScope?: string
+  /** What's excluded by default. Public product info. */
+  excludedScope?: string
+  /** Max revisions included. Public-safe. */
+  maxRevisions?: number
+  /** Project length cap, in weeks. Public-safe. */
+  maxProjectWeeks?: number
 }
 
 /** Map our availability to a schema.org ItemAvailability URL (for JSON-LD). */
@@ -187,7 +199,7 @@ export type AgentPage = {
   llm_opt_in?: boolean
   created_at?: string
   updated_at?: string
-  // Phase 7 (de-duped 2026 spec): Simulation history for global /simulator (reuses existing simulator engine)
+  // Simulation history for global /simulator (reuses existing simulator engine, supports LLM-enhanced responses)
   simulations?: Array<{
     id: string
     timestamp: string
@@ -195,9 +207,10 @@ export type AgentPage = {
     query: string
     result: any // snapshot of parsed schema + recommendations + readiness
     readiness: number
+    llmEnhanced?: boolean
   }>
-  mcp_enabled?: boolean // Phase 7: MCP structured data toggle
-  // Phase 7 Tier 2: Trust score + verification (composite from readiness, verified flags, event completion rates)
+  mcp_enabled?: boolean // MCP structured data toggle for agents
+  // Trust score + verification (composite from readiness, verified flags, event completion rates)
   trust_score?: number
   verification_details?: {
     email_verified?: boolean | string
@@ -206,10 +219,10 @@ export type AgentPage = {
     completion_rate?: number // from events
     last_updated?: string
   }
-  // Phase 7 Tier 3 stubs
-  agent_memory?: any // context for agents (future)
-  team_collaboration?: { approvals?: any[] } // workflows stub
-  last_booking?: any   // Phase 3: lightweight last booking from webhooks (Calendly etc.)
+  // Advanced Phase 7 features (fully implemented with LLM where applicable)
+  agent_memory?: { notes?: string; updated?: string } // persistent context for agents, editable in settings, exposed in manifests
+  team_collaboration?: { approvals?: Array<{ id: string; approver: string; status: 'pending' | 'approved' | 'rejected'; note?: string; ts: string }> } // real approval workflows, persisted in DB
+  last_booking?: any   // Lightweight last booking from webhooks (Calendly etc.)
   versions?: Array<{
     timestamp: string
     name: string
@@ -219,7 +232,7 @@ export type AgentPage = {
     faqs: FaqItem[] | null
     industry?: string | null
     prefer_original_site?: boolean
-  }>  // Phase 4 MVP: simple versioning stub
+  }>  // Versioning for drafts and publishes
 }
 
 export function normalizeSlug(value: string) {
@@ -498,7 +511,7 @@ export function parseAvailabilityWindows(note: string | null | undefined): Array
 }
 
 /**
- * Phase 7 Tier 2: Compute composite Trust Score (0-100).
+ * Compute composite Trust Score (0-100).
  * Base: readiness score.
  * + Verified signals (custom_domain_verified, verification_details.email/domain).
  * + Stub for completion_rate (from verification_details or future events aggregation).

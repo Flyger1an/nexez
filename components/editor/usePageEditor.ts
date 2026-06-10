@@ -468,6 +468,7 @@ export function usePageEditor(initial: EditorInitial) {
     } else {
       setPage((prev) => ({ ...(prev as any), ...draftToLiveUpdate(draft), draft: null, draft_updated_at: null }) as AgentPage)
       setMessage('Draft published to live. Your custom domain now serves the new content.')
+      // Auto-memory on publish: LLM suggestions available in Settings (use "Suggest with LLM" for platform-configured LLM memory generation when llm_opt_in). The publish flow preserves any existing memory.
     }
   }
 

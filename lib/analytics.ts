@@ -106,7 +106,7 @@ export function getRevenueCents(events: CheckoutEvent[]) {
   }, 0)
 }
 
-// Tier 3: Real agent-driven revenue for share calculations (data flywheel + monetization)
+// Real agent-driven revenue for share calculations (data flywheel + monetization)
 export function getAgentDrivenRevenueCents(events: CheckoutEvent[]) {
   return events.reduce((sum, event) => {
     if (isDryRunEvent(event) || event.event_type !== 'stripe_session_created') return sum

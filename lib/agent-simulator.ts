@@ -220,7 +220,7 @@ export function buildParsedSchema(page: AgentPage, query: string, agent: string,
 
 // Helper to run a full multi-agent simulation for a page (used by /simulator and enhanced public-simulate)
 // Data flywheel: results + history snapshots (persisted in page.simulations JSONB) feed scoring/recs improvements over time.
-// Modularity: history depth, advanced exports, cross-page comparisons can be tier-gated (Free vs Pro vs Business) via future billing flags without code changes.
+// Modularity: history depth, advanced exports, cross-page comparisons supported; can be extended with billing for tiered access.
 export function runMultiAgentSimulation(page: AgentPage, query: string = buildDefaultAgentQuery(page), baseUrl = getBaseUrl()) {
   const agents = ['ChatGPT', 'Claude', 'Grok', 'Perplexity', 'Generic Agent']
   const results = agents.map(agent => ({
@@ -234,9 +234,9 @@ export function runMultiAgentSimulation(page: AgentPage, query: string = buildDe
 
 // ---------------------------------------------------------------------------
 // Query-aware public simulation (homepage teaser).
-// Makes the demo actually respond to the visitor's question: detecting intent,
+// Makes the simulation respond to the visitor's question: detecting intent,
 // ranking the most relevant offers, and producing a tailored agent answer plus
-// concrete next actions, instead of returning a constant response.
+// concrete next actions. Advanced LLM can enhance the natural language when configured.
 // ---------------------------------------------------------------------------
 
 export type SimIntent = 'booking' | 'pricing' | 'fit' | 'product' | 'contact' | 'overview'

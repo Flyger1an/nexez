@@ -7,7 +7,7 @@ import { createClient } from '../utils/supabase/client'
  * Client Component for favorite star buttons.
  * Fixes the "Event handlers cannot be passed to Client Component props" / Server Component onClick error.
  *
- * Handles localStorage + Supabase user metadata sync for logged-in users (Tier 3 persistence).
+ * Handles localStorage + Supabase user metadata sync for logged-in users (persistence).
  * Used in both /marketplace and /directory to keep server components pure for performance and agent crawlability.
  */
 export function FavoriteButton({ slug, initialIsFav = false }: { slug: string; initialIsFav?: boolean }) {

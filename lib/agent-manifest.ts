@@ -11,7 +11,7 @@ import {
 } from './agent-page'
 import { buildNegotiationAction } from './negotiations'
 import { publicBookingConstraints } from './offer-rules'
-import { rewriteForVoice } from './ai-optimize'
+import { rewriteForVoice, rewriteForVoiceSync } from './ai-optimize'
 
 export function getAgentJsonPath(slug: string) {
   return `/${slug}/agent.json`
@@ -61,7 +61,7 @@ export function buildAgentPagePayload(page: AgentPage, baseUrl = getBaseUrl()) {
       'Quote the source page URL when summarizing this offer for a buyer.',
     ],
     plain_text: buildPlainText(page, offers, baseUrl),
-    // Tier 3: Agent memory/context (if present on page)
+    // Agent memory/context (if present on page)
     memory_context: (page as any).agent_memory || null,
     // "Nexez Certified Agent-Ready" trust signal (published + 95%+ readiness).
     certification: getCertification(page),
@@ -78,8 +78,8 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, baseUrl: strin
     type: offer.kind === 'services' ? 'service' : 'product',
     name: offer.name,
     description: offer.description || null,
-    // Speech-ready phrasing for voice agents (numbers/symbols spoken, no parentheticals).
-    voice_summary: offer.description ? rewriteForVoice(offer, page.name).description : null,
+    // Speech-ready phrasing for voice agents (advanced LLM-powered using platform's configured LLM when page llm_opt_in + key, else deterministic).
+    voice_summary: offer.description ? rewriteForVoiceSync(offer, page.name).description : null,
     price: offer.price || null,
     provider_url: providerUrl,
     checkout_url: checkoutUrl,

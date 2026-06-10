@@ -49,7 +49,7 @@ export default function ToolsPage() {
   }, [])
 
 
-  // Tier 3 Developer Platform + API + Revenue Share (enhanced starter)
+  // Developer Platform + API + Revenue Share (enhanced starter)
   const devPlatformSection = (
     <div className="mt-10 rounded-2xl border border-white/10 bg-white/[0.02] p-8">
       <h2 className="text-2xl font-semibold">Developer platform &amp; API</h2>

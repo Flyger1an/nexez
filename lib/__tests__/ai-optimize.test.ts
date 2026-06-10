@@ -81,22 +81,22 @@ describe('ai-optimize (Phase 5 coverage + fidelity)', () => {
     expect(d.length).toBeGreaterThan(20)
   })
 
-  it('rewriteForVoice produces spoken-friendly output (Tier 3)', () => {
+  it('rewriteForVoice produces spoken-friendly output', async () => {
     const offer: OfferItem = {
       name: 'Strategy Session',
       price: '$450',
       description: '60-minute focused session. Price $450 with clear deliverables & next steps.',
       url: '',
     }
-    const voiced = rewriteForVoice(offer, 'Aether Strategy')
+    const voiced = await rewriteForVoice(offer, 'Aether Strategy')
     expect(voiced.description.toLowerCase()).toContain('dollars')
     expect(voiced.description.length).toBeLessThan(250)
     expect(voiced.description.toLowerCase()).toContain('say it')
   })
 })
 
-// Basic smoke for new Tier 2 analyzer (data flywheel + respectful)
-describe('competitor-analyzer (Tier 2 intelligence)', () => {
+// Basic smoke for analyzer (data flywheel + respectful)
+describe('competitor-analyzer (intelligence)', () => {
   it('analyze returns valid scores in 0-100, cache works, no crash on bad url', async () => {
     const res1 = await analyzeCompetitorSite('https://example.com')
     expect(res1.scores.overall).toBeGreaterThanOrEqual(0)

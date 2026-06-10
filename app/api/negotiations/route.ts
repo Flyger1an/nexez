@@ -10,6 +10,7 @@ import {
 } from '../../../lib/agent-page'
 import { parseMoneyCents } from '../../../lib/checkout'
 import { evaluateProposal } from '../../../lib/offer-rules'
+import { reviewProposal } from '../../../lib/proposal-review'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 import { buildNegotiationEmail, sendEmail } from '../../../lib/email'
 import { supabase } from '../../../lib/supabase'
@@ -72,12 +73,18 @@ export async function POST(request: Request) {
   const amountCents = parseMoneyCents(offer.price)
   const escrowMode = process.env.STRIPE_SECRET_KEY && amountCents ? 'manual_capture_ready' : 'not_configured'
 
-  // Smart Rules: evaluate the proposal against the offer's owner-defined rules.
-  // Auto-accept (negotiable + autoAccept on + every pricing rule passes) lands
-  // directly in 'agreement_proposed'; flagged/review proposals stay 'negotiation'.
+  // Advanced Smart Rules + LLM: Use full proposal review (using the platform's configured LLM when available + rules clamping).
+  // This provides accept/counter/reject with reasoning and suggested counter.
+  // Auto-accept only if LLM or rules decide 'accept' and within bounds.
   const proposedPriceCents = parseMoneyCents(input.budget)
+  const reviewInput = {
+    offer: { name: offer.name, price: offer.price, offerType: offer.offerType, rules: offer.rules },
+    proposal: { proposedPriceCents, query: input.query, timeline: input.timeline },
+    llmAllowed: true, // Use LLM (platform-configured provider)
+  }
+  const proposalReview = await reviewProposal(reviewInput)
   const rulesEvaluation = evaluateProposal(offer, { proposedPriceCents })
-  const autoAccepted = rulesEvaluation.decision === 'auto_accept'
+  const autoAccepted = proposalReview.recommendation === 'accept' || rulesEvaluation.decision === 'auto_accept'
 
   // The anon caller has no SELECT on agent_negotiations (RLS), so the insert
   // can't RETURN the row — generate id + status token server-side instead so
@@ -114,6 +121,13 @@ export async function POST(request: Request) {
         proposed_price_cents: proposedPriceCents,
         evaluated_at: new Date().toISOString(),
       },
+      proposal_review: {
+        recommendation: proposalReview.recommendation,
+        counter: proposalReview.counter,
+        reasoning: proposalReview.reasoning,
+        source: proposalReview.source,
+        model: proposalReview.model,
+      },
     },
   }
 
@@ -124,6 +138,7 @@ export async function POST(request: Request) {
       status: negotiation.status,
       autoAccepted,
       rulesEvaluation,
+      proposalReview,
       escrowMode,
       stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
       amountCents,

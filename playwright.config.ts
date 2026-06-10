@@ -24,5 +24,10 @@ export default defineConfig({
     url: baseURL,
     reuseExistingServer: true,
     timeout: 180_000,
+    env: {
+      LLM_API_KEY: 'szq24TGtTHN70KqdicIwNRFkmvbonePmhc9GFckKbzkcrbsG6rS1T55h3Zz5dfEclJuX73Noss5VEw9T',
+      LLM_BASE_URL: 'https://api.x.ai/v1',
+      LLM_MODEL: 'grok-4.3',
+    },
   },
 })

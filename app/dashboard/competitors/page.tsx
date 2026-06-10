@@ -14,7 +14,7 @@ export default function CompetitorIntelligence() {
   const [analysis, setAnalysis] = useState<any>(null)
   const [loading, setLoading] = useState(false)
 
-  // NEW: Competitor Website Analyzer (any URL, high-prio per Tier 2 spec)
+  // NEW: Competitor Website Analyzer (any URL, high-priority intelligence feature)
   const [extUrl, setExtUrl] = useState('')
   const [sideSlug, setSideSlug] = useState('')
   const [extAnalysis, setExtAnalysis] = useState<any>(null)
@@ -74,7 +74,7 @@ export default function CompetitorIntelligence() {
     }
   }
 
-  // NEW Analyzer (any external site) — early Tier 2 high-value intelligence feature
+  // NEW Analyzer (any external site) — high-value intelligence feature
   async function runExternalAnalysis() {
     if (!extUrl.trim()) return
     setExtLoading(true)
@@ -104,7 +104,7 @@ export default function CompetitorIntelligence() {
     }
   }
 
-  function exportExt(format: 'md' | 'json') {
+  function exportExt(format: 'md' | 'json' | 'pdf') {
     if (!extAnalysis) return
     const content = format === 'md' ? (extAnalysis._markdown || '') : JSON.stringify(extAnalysis, null, 2)
     // If server didn't attach, reconstruct lightweight
@@ -112,6 +112,16 @@ export default function CompetitorIntelligence() {
       `# Agent Analysis for ${extAnalysis.url}\n\nOverall: ${extAnalysis.scores?.overall}\n\n` + (extAnalysis.recommendations || []).join('\n') :
       JSON.stringify(extAnalysis, null, 2))
 
+    if (format === 'pdf') {
+      const printWin = window.open('', '', 'height=600,width=800')
+      if (printWin) {
+        printWin.document.write(`<html><head><title>Competitor Analysis - ${extAnalysis.url}</title></head><body><pre style="white-space: pre-wrap; font-family: monospace; padding:20px;">${final.replace(/</g,'&lt;')}</pre></body></html>`)
+        printWin.document.close()
+        printWin.focus()
+        setTimeout(() => printWin.print(), 300)
+      }
+      return
+    }
     const blob = new Blob([final], { type: format === 'json' ? 'application/json' : 'text/markdown' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -130,7 +140,7 @@ export default function CompetitorIntelligence() {
           </h1>
           <p className="mt-2 text-[#9CA3AF]">Competitive agent intel. Any URL supported.</p>
 
-          {/* NEW: Competitor Website Analyzer (High Priority — any external URL, per Tier 2 spec) */}
+          {/* NEW: Competitor Website Analyzer (High Priority — any external URL) */}
           <div className="mt-8 card border-[#7C3AED]/40">
             <div className="flex items-center gap-2 mb-2">
               <Target className="size-5 text-[#10B981]" />
@@ -158,6 +168,7 @@ export default function CompetitorIntelligence() {
                 <>
                   <button onClick={() => exportExt('md')} className="btn-secondary inline-flex items-center gap-1"><Download className="size-4" /> MD</button>
                   <button onClick={() => exportExt('json')} className="btn-secondary inline-flex items-center gap-1"><Download className="size-4" /> JSON</button>
+                  <button onClick={() => exportExt('pdf')} className="btn-secondary inline-flex items-center gap-1"><Download className="size-4" /> PDF (print)</button>
                 </>
               )}
             </div>

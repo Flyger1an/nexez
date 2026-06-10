@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { analyzeSite } from '../../../../lib/importer'
-import { isLlmConfigured } from '../../../../lib/llm'
+import { isLlmConfigured, llmComplete } from '../../../../lib/llm'
 import { captureError } from '../../../../lib/observability'
 import { createClient } from '../../../../utils/supabase/server'
 
@@ -80,6 +80,14 @@ export async function POST(request: Request) {
       timeout,
     ])
 
+    let autoMemorySuggestion = null
+    if (isLlmConfigured()) {
+      try {
+        const memPrompt = `From this imported site data, generate 2-3 concise agent memory notes (buyer prefs, restrictions, key facts). Data: ${result.description} Offers: ${result.servicesText}`
+        autoMemorySuggestion = await llmComplete(memPrompt, { maxTokens: 80 }) || null
+      } catch { autoMemorySuggestion = null }
+    }
+
     return NextResponse.json({
       ok: true,
       suggestedPage: {
@@ -98,6 +106,8 @@ export async function POST(request: Request) {
       structuredOffers: result.structuredOffers,
       pagesAnalyzed: result.pagesAnalyzed,
       confidence: result.confidence,
+      // Auto on import: LLM-generated memory suggestion if key configured (user can accept in settings)
+      autoMemorySuggestion,
       reviewNotes: result.reviewNotes,
       sources: result.sources,
       clarifyingQuestions: result.clarifyingQuestions,

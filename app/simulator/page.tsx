@@ -34,7 +34,7 @@ import {
 } from '../../lib/simulation-history'
 import { createClient } from '../../utils/supabase/client'
 
-const agentTabs = ['ChatGPT', 'Claude', 'Grok', 'Perplexity', 'Generic Agent']
+const agentTabs = ['ChatGPT', 'Claude', 'Grok', 'Perplexity', 'Generic Agent', 'LLM-Enhanced']
 
 export default function GlobalAgentSimulator() {
   const [loading, setLoading] = useState(false)
@@ -140,6 +140,33 @@ export default function GlobalAgentSimulator() {
       setRecommendations(getRecommendations(page))
       if (effectiveQuery !== query) setQuery(effectiveQuery)
 
+      // Deeper LLM responses via new route if LLM configured and page llm_opt_in or global
+      if ((page as any).llm_opt_in) {
+        try {
+          const llmRes = await fetch('/api/simulate-llm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slug: page.slug, query: effectiveQuery }),
+          })
+          const llmData = await llmRes.json()
+          if (llmData?.naturalLanguage) {
+            // Enhance the first result or add LLM tab
+            const enhancedResults = [...multi.results]
+            if (enhancedResults[0]) {
+              enhancedResults[0] = {
+                ...enhancedResults[0],
+                agent: 'LLM-Enhanced',
+                naturalLanguage: llmData.naturalLanguage,
+                llmEnhanced: true,
+              } as any
+            }
+            setSimulationResults(enhancedResults as any)
+          }
+        } catch (e) {
+          // fallback to deterministic
+        }
+      }
+
       // Save history if logged in and this is one of my pages (or matched owner)
       if (isLoggedIn) {
         const { data: { user } } = await supabase.auth.getUser()
@@ -221,7 +248,7 @@ export default function GlobalAgentSimulator() {
     // results already computed for all; just UI switch
   }
 
-  function exportCurrentAnalysis(format: 'md' | 'json' = 'md') {
+  function exportCurrentAnalysis(format: 'md' | 'json' | 'pdf' = 'md') {
     if (!selectedPage || !simulationResults.length) return
     const pageInfo = selectedPage
     const readiness = getReadinessScore(pageInfo)
@@ -252,6 +279,17 @@ export default function GlobalAgentSimulator() {
       content += `\n---\nExported from Nexez Global Simulator. Use to brief agents or improve your page.`
     }
 
+    if (format === 'pdf') {
+      const printWin = window.open('', '', 'height=600,width=800')
+      if (printWin) {
+        printWin.document.write(`<html><head><title>Nexez Simulator - ${pageInfo.slug}</title></head><body><pre style="white-space: pre-wrap; font-family: monospace; padding: 20px;">${content.replace(/</g, '&lt;')}</pre></body></html>`)
+        printWin.document.close()
+        printWin.focus()
+        setTimeout(() => printWin.print(), 500)
+      }
+      setMessage('Opened print dialog for PDF export (save as PDF).')
+      return
+    }
     downloadTextFile(
       content,
       `nexez-sim-${pageInfo.slug}-${getExportTimestamp()}.${format}`,
@@ -454,6 +492,7 @@ export default function GlobalAgentSimulator() {
                     <div className="flex gap-2">
                       <button onClick={() => exportCurrentAnalysis('md')} className="text-[10px] rounded border border-white/20 px-2 py-0.5 hover:bg-white/5">Export MD</button>
                       <button onClick={() => exportCurrentAnalysis('json')} className="text-[10px] rounded border border-white/20 px-2 py-0.5 hover:bg-white/5">Export JSON</button>
+                      <button onClick={() => exportCurrentAnalysis('pdf')} className="text-[10px] rounded border border-white/20 px-2 py-0.5 hover:bg-white/5">Export PDF (print)</button>
                     </div>
                   </div>
                   <div className="text-sm text-[#9CA3AF] space-y-1">

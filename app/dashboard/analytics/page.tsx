@@ -442,7 +442,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           <Kpi title="Conversion Rate" value={`${conversionRate}%`} note={`${conversionCount} conversions`} />
           <Kpi title="Most Active Offer" value={popularService} note={`${offerCount || 0} offers listed`} />
           <Kpi title="Tracked Revenue" value={formatUsdCents(revenueCents)} note={`${formatUsdCents(pipelineCents)} pipeline`} tone="strong" />
-          <Kpi title="Agent-Driven Revenue" value={formatUsdCents(agentRevenueCents)} note={`${agentSharePct}% share est. = ${formatUsdCents(agentShareCents)} (Tier 3 monetization)`} />
+          <Kpi title="Agent-Driven Revenue" value={formatUsdCents(agentRevenueCents)} note={`${agentSharePct}% estimated platform share = ${formatUsdCents(agentShareCents)}`} />
           <Kpi
             title="Negotiations"
             value={negotiationSummary.total.toLocaleString()}
@@ -450,6 +450,45 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             tone={negotiationSummary.open > 0 ? 'strong' : undefined}
           />
         </section>
+
+        <div className="mt-4">
+          <button onClick={() => {
+            const printWin = window.open('', '', 'height=600,width=800')
+            if (printWin) {
+              printWin.document.write(`<html><head><title>Nexez Analytics Report</title></head><body><h1>Analytics Report</h1><pre>${JSON.stringify({ revenue: agentRevenueCents, trust: 'see LLM report', negotiations: negotiationSummary }, null, 2)}</pre></body></html>`)
+              printWin.document.close()
+              printWin.focus()
+              setTimeout(() => printWin.print(), 300)
+            }
+          }} className="btn-secondary text-xs">Export Analytics as PDF (print)</button>
+        </div>
+
+        {/* Advanced: LLM Trust Report */}
+        {selectedPage && (
+          <section className="mt-6">
+            <Panel title="LLM Trust Report (Grok-powered insights)">
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/trust-report', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ page: selectedPage, events: filteredEvents }),
+                    })
+                    const data = await res.json()
+                    alert(`Trust Report (${data.score || 'N/A'}/100): ${data.report || 'Generated.'}`)
+                  } catch (e) {
+                    alert('Failed to generate LLM trust report.')
+                  }
+                }}
+                className="btn-secondary text-xs"
+              >
+                Generate LLM Trust Insights
+              </button>
+              <p className="mt-2 text-[10px] text-zinc-500">Uses configured LLM for actionable trust analysis based on score, signals, and activity. Improves with more events.</p>
+            </Panel>
+          </section>
+        )}
 
         <section className="mt-5 grid gap-5 xl:grid-cols-3">
           <Panel title={`Agent Traffic Over Time (${range === '7d' ? 'Last 7 Days' : range === '30d' ? 'Last 30 Days' : 'All Time'})`}>
