@@ -50,7 +50,7 @@ Forward-looking work, roughly by leverage:
 - Verify every change: `npm run lint -- --quiet` · `npx tsc --noEmit --incremental false` · `npm test` · `npm run build`.
 - Record granular work in commit messages and HANDOFF.md, not in this file — update the Shipped/Pending sections only when scope actually changes.
 
-## Platform Audit Snapshot (2026-06-10, post LLM depth work + clean; HEAD will advance on commit)
+## Platform Audit Snapshot (2026-06-10, post LLM depth work + clean; HEAD `970130b`)
 **Verification run (pre-commit):** uncommitted changes include the new LLM routes + proposal-review + e2e + cross-lib/app updates + these MD syncs (plus prior Smart Rules); `npm run lint -- --quiet && npx tsc --noEmit --incremental false && npm test && npm run build` will be run clean before `git add + commit`. `npm test` (70 files / **372 tests passing** — includes new simulate-llm/trust paths, agent-page llm_opt_in, ai-optimize, e2e seeded llm_opt_in test + public tab). E2E public (2/2) + editor smoke (skips w/o creds) green in local runs. Live curls on spawned `npm run dev` (with grok key) + new routes confirmed LLM-Enhanced (grok-4.3) + naturalLanguage/llmEnhanced. Latest prior commit: Smart Rules docs sync.
 
 **Code evidence of this batch (advanced LLM + simulator depth, per user "deeper LLM..." request + "with a seeded llm_opt_in page") + prior:**
