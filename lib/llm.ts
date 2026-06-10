@@ -1,6 +1,7 @@
 // Real LLM assist — OpenAI-compatible chat completions, gated behind env so it
 // stays dormant (deterministic fallback) until a key is configured.
-// Works with OpenAI, xAI, Together, etc. via LLM_BASE_URL.
+// Works with OpenAI, xAI/Grok, Google Gemini (via https://generativelanguage.googleapis.com/v1beta/openai/),
+// Together, Groq, etc. via LLM_BASE_URL + LLM_MODEL.
 
 export function isLlmConfigured(): boolean {
   return Boolean(process.env.LLM_API_KEY)

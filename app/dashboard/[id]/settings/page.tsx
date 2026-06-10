@@ -1696,7 +1696,7 @@ export default function PageSettings({ params }: PageProps) {
                 <p className="mt-1 text-[10px] text-zinc-500">Also appears in public "Agent Memory" block and /agent.json for persistent context.</p>
               </div>
 
-              {/* Tier 3: LLM opt-in stub for Co-Pilot / Analyzer (future real xAI calls) */}
+              {/* Tier 3: LLM opt-in for Co-Pilot (real calls via /api/ai/enhance when LLM_API_KEY + this flag) */}
               <div className="mt-2 text-xs p-2 border border-white/10 rounded">
                 <label className="flex items-center gap-2">
                   <input type="checkbox" checked={llmOptIn} onChange={async (e) => {
@@ -1705,11 +1705,11 @@ export default function PageSettings({ params }: PageProps) {
                     const supabase = createClient()
                     await supabase.from('pages').update({ llm_opt_in: checked }).eq('id', page.id)
                     setLlmOptIn(checked)
-                    setMessage('LLM opt-in ' + (checked ? 'enabled (future advanced AI)' : 'disabled (deterministic only)'))
+                    setMessage('LLM opt-in ' + (checked ? 'enabled — Co-Pilot will use real LLM for enhances (if key configured)' : 'disabled (deterministic only)'))
                   }} />
-                  Enable advanced AI / LLM assist (opt-in for Co-Pilot, Analyzer, Voice — Tier 3 metered)
+                  Enable advanced AI / LLM assist (opt-in for Co-Pilot enhance — gated on LLM_API_KEY + this flag)
                 </label>
-                <span className="text-[10px] text-zinc-500">Currently uses deterministic engine; flag stored for future real calls + usage tracking.</span>
+                <span className="text-[10px] text-zinc-500">Server LLM provider controlled by env (LLM_API_KEY + optional LLM_BASE_URL/MODEL). Works with OpenAI, xAI/Grok, Google Gemini (set BASE_URL to https://generativelanguage.googleapis.com/v1beta/openai/ and MODEL=gemini-1.5-flash), Anthropic (via compat), etc. Per-page opt-in + rate limits apply. Importer fallback also respects global key.</span>
               </div>
 
               {/* Tier 3: Advanced Team Collaboration & Approval Workflows (MVP) */}

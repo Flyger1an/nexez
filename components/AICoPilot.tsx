@@ -22,6 +22,7 @@ type CoPilotProps = {
   onApplyProducts: (newText: string, newOffers: OfferItem[]) => void
   onTrackUse: () => void
   llmOptIn?: boolean  // Tier 3: from page llm_opt_in flag for hook
+  pageId?: string     // for per-page LLM opt-in check in /api/ai/enhance
 }
 
 export function AICoPilot({
@@ -33,6 +34,7 @@ export function AICoPilot({
   onApplyProducts,
   onTrackUse,
   llmOptIn = false,
+  pageId,
 }: CoPilotProps) {
   const [activeTab, setActiveTab] = useState<'desc' | 'pricing' | 'faq' | 'schema' | 'voice'>('desc')
   const [applied, setApplied] = useState<Record<string, boolean>>({})
@@ -46,12 +48,54 @@ export function AICoPilot({
   const schemaTips = useMemo(() => suggestSchemaImprovements({ services: servicesOffers, products: productsOffers, description: '', faqs: [] }), [servicesOffers, productsOffers])
   const enhancedFaqs = useMemo(() => suggestEnhancedFAQs(businessName, audience, allOffers), [businessName, audience, allOffers])
 
-  function applyDescriptionEnhance(kind: 'services' | 'products') {
+  async function applyDescriptionEnhance(kind: 'services' | 'products') {
     const current = kind === 'services' ? servicesOffers : productsOffers
-    const enhanced = current.map(o => ({
-      ...o,
-      description: enhanceDescriptionForAgents(o.description || '', businessName, audience),
-    }))
+
+    let enhanced: OfferItem[]
+
+    if (llmOptIn && pageId) {
+      // Wire real LLM via the enhance API (respects page llm_opt_in + LLM_API_KEY)
+      try {
+        const first = current[0]
+        if (first) {
+          const res = await fetch('/api/ai/enhance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              description: first.description || '',
+              businessName,
+              audience,
+              pageId,
+            }),
+          })
+          const data = await res.json()
+          if (data?.enhanced) {
+            enhanced = current.map((o, i) => i === 0 ? { ...o, description: data.enhanced } : o)
+            // For simplicity, enhance only the first; bulk would need per-offer calls or a batch endpoint.
+          } else {
+            // fallback
+            enhanced = current.map(o => ({
+              ...o,
+              description: enhanceDescriptionForAgents(o.description || '', businessName, audience),
+            }))
+          }
+        } else {
+          enhanced = current
+        }
+      } catch {
+        // fallback on error
+        enhanced = current.map(o => ({
+          ...o,
+          description: enhanceDescriptionForAgents(o.description || '', businessName, audience),
+        }))
+      }
+    } else {
+      enhanced = current.map(o => ({
+        ...o,
+        description: enhanceDescriptionForAgents(o.description || '', businessName, audience),
+      }))
+    }
+
     const text = enhanced.map(o => `${o.name} | ${o.price} | ${o.description} | ${o.url || ''}`).join('\n')
 
     if (kind === 'services') onApplyServices(text, enhanced)
@@ -209,7 +253,9 @@ export function AICoPilot({
         </div>
       )}
 
-      <div className="mt-3 text-[10px] text-zinc-500">Deterministic engine. Tier-ready usage.</div>
+      <div className="mt-3 text-[10px] text-zinc-500">
+        {llmOptIn ? 'LLM assist enabled (when key + page opt-in configured)' : 'Deterministic engine. Tier-ready usage.'}
+      </div>
     </div>
   )
 }

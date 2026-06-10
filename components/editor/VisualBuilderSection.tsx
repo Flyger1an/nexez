@@ -46,6 +46,7 @@ export function VisualBuilderSection({ e }: { e: PageEditor }) {
           e.setMessage((m) => (m || '') + ' (AI Co-Pilot use tracked)')
         }}
         llmOptIn={(e.page as any)?.llm_opt_in || false}
+        pageId={e.id}
       />
 
       <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">

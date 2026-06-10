@@ -1,5 +1,5 @@
 export type BillingPlan = {
-  id: 'launch' | 'pro' | 'scale'
+  id: 'free' | 'launch' | 'pro' | 'scale' | 'enterprise'
   name: string
   price: string
   cadence: string
@@ -9,6 +9,15 @@ export type BillingPlan = {
 }
 
 export const billingPlans: BillingPlan[] = [
+  {
+    id: 'free',
+    name: 'Free',
+    price: '$0',
+    cadence: 'month',
+    envVar: '', // no price for free
+    blurb: 'Try Nexez with limited pages and features.',
+    features: ['1 published page', 'Basic agent artifacts', 'Directory listing', 'Manual analytics'],
+  },
   {
     id: 'launch',
     name: 'Launch',
@@ -35,6 +44,15 @@ export const billingPlans: BillingPlan[] = [
     envVar: 'STRIPE_PRICE_SCALE',
     blurb: 'For agencies and operators managing many agent pages.',
     features: ['Unlimited pages', 'Custom domain readiness', 'Advanced analytics', 'Priority setup'],
+  },
+  {
+    id: 'enterprise',
+    name: 'Enterprise',
+    price: 'Custom',
+    cadence: 'month',
+    envVar: 'STRIPE_PRICE_ENTERPRISE',
+    blurb: 'For large organizations with custom needs and SLAs.',
+    features: ['Everything in Scale', 'Dedicated support', 'Custom SLAs', 'White-label options', 'Volume discounts'],
   },
 ]
 
