@@ -1,7 +1,9 @@
 import { defineConfig } from '@playwright/test'
 
-// Dev canonicalizes on 127.0.0.1 (next.config.ts redirects localhost → 127.0.0.1).
-const baseURL = 'http://127.0.0.1:3000'
+// Support live deployed testing via TEST_LIVE=1 (uses https://nexez.app and skips local webServer).
+// Otherwise defaults to local dev server.
+const isLiveTest = !!process.env.TEST_LIVE
+const baseURL = isLiveTest ? 'https://nexez.app' : 'http://127.0.0.1:3000'
 
 export default defineConfig({
   testDir: './e2e',
@@ -17,17 +19,19 @@ export default defineConfig({
     navigationTimeout: 60_000,
     trace: 'retain-on-failure',
   },
-  // Reuses a running dev server if one is already up (e.g. the preview MCP),
-  // otherwise boots `npm run dev`. First cold compile can be slow.
-  webServer: {
-    command: 'npm run dev',
-    url: baseURL,
-    reuseExistingServer: true,
-    timeout: 180_000,
-    env: {
-      LLM_API_KEY: 'szq24TGtTHN70KqdicIwNRFkmvbonePmhc9GFckKbzkcrbsG6rS1T55h3Zz5dfEclJuX73Noss5VEw9T',
-      LLM_BASE_URL: 'https://api.x.ai/v1',
-      LLM_MODEL: 'grok-4.3',
+  // For live tests (TEST_LIVE=1), skip starting local dev server and use the deployed baseURL.
+  // For local: reuses a running dev server if one is already up, otherwise boots `npm run dev`.
+  ...(isLiveTest ? {} : {
+    webServer: {
+      command: 'npm run dev',
+      url: baseURL,
+      reuseExistingServer: true,
+      timeout: 180_000,
+      env: {
+        LLM_API_KEY: 'szq24TGtTHN70KqdicIwNRFkmvbonePmhc9GFckKbzkcrbsG6rS1T55h3Zz5dfEclJuX73Noss5VEw9T',
+        LLM_BASE_URL: 'https://api.x.ai/v1',
+        LLM_MODEL: 'grok-4.3',
+      },
     },
-  },
+  }),
 })

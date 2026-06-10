@@ -131,6 +131,58 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
     await page.getByText('LLM-Enhanced').click()
     await expect(page.getByText("LLM-Enhanced's view")).toBeVisible()
 
+    // Additional authed feature coverage (non-destructive page loads for main dashboard sections + flows)
+    // Tests billing, analytics, negotiations, tools, create, etc. after the LLM simulator flow.
+    await page.goto('/dashboard/analytics', { waitUntil: 'domcontentloaded' })
+    await expect(page.getByText(/Analytics|Tracked Signals|AI Agent Visits|Readiness/i)).toBeVisible({ timeout: 15000 })
+
+    await page.goto('/dashboard/billing', { waitUntil: 'domcontentloaded' })
+    await expect(page.getByText(/Billing|Current Plan|Subscription|Usage/i)).toBeVisible({ timeout: 15000 })
+
+    await page.goto('/dashboard/negotiations', { waitUntil: 'domcontentloaded' })
+    await expect(page.getByText(/Negotiations|Inbox|Make an Offer|agent_negotiations/i)).toBeVisible({ timeout: 15000 })
+
+    await page.goto('/dashboard/tools', { waitUntil: 'domcontentloaded' })
+    await expect(page.getByText(/Tools|Import|Site Import|CSV|Integrations/i)).toBeVisible({ timeout: 15000 })
+
+    await page.goto('/create', { waitUntil: 'domcontentloaded' })
+    await expect(page.getByRole('heading', { name: /create|new page|build your page/i })).toBeVisible({ timeout: 10000 })
+
+    // Quick re-visit to dashboard overview and a settings page for llm_opt_in coverage (already toggled earlier)
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
+    await expect(page.getByText(/Dashboard|Pages|Overview/i)).toBeVisible({ timeout: 10000 })
+
+    // Additional E2E coverage for the /negotiate persistent page (the core of long-lived resumable negotiations).
+    // After visiting negotiations inbox (which now links to persistent threads), exercise /negotiate/{id}:
+    // - Load full history from dedicated table
+    // - Display of turns, status, continuation form
+    // - Submit a follow-up (appends to history via API + service, LLM would see full context on next step)
+    await page.goto('/dashboard/negotiations', { waitUntil: 'domcontentloaded' })
+    await expect(page.getByText(/Negotiations|Inbox/i)).toBeVisible({ timeout: 10000 })
+
+    const negotiateLink = page.locator('a[href*="/negotiate/"]').first()
+    if (await negotiateLink.count() > 0) {
+      const href = await negotiateLink.getAttribute('href')
+      if (href) {
+        await page.goto(href, { waitUntil: 'domcontentloaded' })
+        await expect(page.getByText('Negotiation')).toBeVisible({ timeout: 10000 })
+        await expect(page.getByText('Full Conversation History')).toBeVisible({ timeout: 10000 })
+        await expect(page.getByText('Continue this negotiation')).toBeVisible()
+
+        // Submit a follow-up via the persistent page form (tests end-to-end flow for agents returning later)
+        const continueForm = page.locator('form[action="/api/negotiations"]').first()
+        if (await continueForm.count() > 0) {
+          await continueForm.locator('textarea[name="query"]').fill('E2E follow-up: updated scope from persistent link')
+          await continueForm.locator('input[name="budget"]').fill('950')
+          await continueForm.getByRole('button', { name: /Submit follow-up/i }).click()
+
+          // Wait for the submission to process and page to reflect (or redirect/re-render with new turn)
+          await page.waitForTimeout(3000)
+          await expect(page.getByText(/E2E follow-up|updated scope/i)).toBeVisible({ timeout: 15000 })
+        }
+      }
+    }
+
     expect(pageErrors, `Uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([])
   })
 })

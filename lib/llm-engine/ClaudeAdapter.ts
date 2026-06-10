@@ -1,0 +1,141 @@
+import Anthropic from '@anthropic-ai/sdk';
+import { BaseLLMAdapter, LLMAdapterError, NegotiationDecision, NegotiationAction } from './BaseLLMAdapter';
+
+/**
+ * Claude (Anthropic) Adapter using native tools.
+ */
+export class ClaudeAdapter extends BaseLLMAdapter {
+  private client: Anthropic;
+  readonly provider = 'claude';
+
+  constructor(apiKey: string, model = 'claude-3-5-sonnet-20241022') {
+    super();
+    this.model = model;
+    this.client = new Anthropic({ apiKey });
+  }
+
+  async negotiate(rules: any, proposal: any, history: any[]): Promise<NegotiationDecision> {
+    const system = this.getExactSystemPrompt();
+    const userContent = this.buildHistoryContext(history, proposal);
+
+    const tools = this.getTools();
+
+    try {
+      const msg = await this.client.messages.create({
+        model: this.model,
+        max_tokens: 1024,
+        system,
+        messages: [{ role: 'user', content: userContent }],
+        tools: tools as any,
+        tool_choice: { type: 'any' } as any,
+        temperature: 0.2,
+      });
+
+      const toolUse = msg.content.find((c: any) => c.type === 'tool_use') as any;
+      if (!toolUse) throw new Error('No tool use');
+
+      return this.parseFunctionCall(toolUse.name, toolUse.input || {});
+    } catch (err: any) {
+      throw new LLMAdapterError(`Claude negotiation failed: ${err.message}`, this.provider);
+    }
+  }
+
+  private getExactSystemPrompt(): string {
+    return `You are Nexez Negotiation Assistant, an expert, fair, professional, and commercially intelligent negotiation agent for the Nexez platform.
+
+Your role is to evaluate incoming proposals from AI agents against the specific rules the business owner has defined for each offer, then recommend or take the most appropriate action: Accept, Counter, or Reject.
+You are helpful, transparent, and strictly rule-abiding. You never violate the business owner's rules.
+Core Principles:
+Always prioritize the business owner's rules as absolute constraints.
+Be professional, polite, and solution-oriented in all communications.
+Provide clear, logical reasoning for every decision.
+Aim for win-win outcomes when possible within the rules.
+If a proposal is ambiguous or missing critical information, request clarification rather than guessing.
+Reasoning Process (Always follow this internally):
+Carefully parse the agent's proposal (price, date/time, scope, notes, etc.).
+Review every single rule defined for this offer.
+Assess how the proposal aligns with each rule.
+Decide the appropriate action based on the rules.
+You must respond exclusively by calling one of the available functions. Do not output any normal text as your final response.
+Available Functions:
+accept_proposal
+ - reasoning: string (detailed professional explanation why this proposal meets the rules)
+ - internal_notes: string (optional private notes for the business owner)
+ generate_counter_offer
+ - proposed_price: number
+ - proposed_date: string (ISO date or clear description)
+ - scope_notes: string (any adjustments to scope or terms)
+ - reasoning: string (clear explanation to the agent why you are countering)
+- internal_notes: string (optional private notes for the business owner)
+reject_proposal
+ - reasoning: string (polite but clear explanation to the agent why the proposal cannot be accepted)
+ - internal_notes: string (optional)
+request_clarification
+ - questions: array of strings (specific questions for the agent)
+- reasoning: string (why clarification is needed)
+
+Important:
+- Call only ONE function per response.
+- Always include high-quality reasoning.
+- Never invent rules that were not provided.`;
+  }
+
+  private buildHistoryContext(history: any[], currentProposal: any): string {
+    let ctx = 'OFFER RULES (private to you):\n' + JSON.stringify(currentProposal?.rules || {}, null, 2) + '\n\n';
+    if (history?.length > 0) {
+      ctx += 'FULL HISTORY FOR MEMORY:\n' + history.map((h, i) => `[${i+1}] ${JSON.stringify(h)}`).join('\n') + '\n\n';
+    }
+    ctx += 'CURRENT PROPOSAL:\n' + JSON.stringify(currentProposal, null, 2);
+    return ctx;
+  }
+
+  private getTools() {
+    return [
+      {
+        name: 'accept_proposal',
+        description: 'Accept compliant proposal.',
+        input_schema: { type: 'object', properties: { reasoning: { type: 'string' }, internal_notes: { type: 'string' } }, required: ['reasoning'] },
+      },
+      {
+        name: 'generate_counter_offer',
+        input_schema: {
+          type: 'object',
+          properties: {
+            proposed_price: { type: 'number' },
+            proposed_date: { type: 'string' },
+            scope_notes: { type: 'string' },
+            reasoning: { type: 'string' },
+            internal_notes: { type: 'string' },
+          },
+          required: ['proposed_price', 'reasoning'],
+        },
+      },
+      {
+        name: 'reject_proposal',
+        input_schema: { type: 'object', properties: { reasoning: { type: 'string' }, internal_notes: { type: 'string' } }, required: ['reasoning'] },
+      },
+      {
+        name: 'request_clarification',
+        input_schema: {
+          type: 'object',
+          properties: { questions: { type: 'array', items: { type: 'string' } }, reasoning: { type: 'string' } },
+          required: ['questions', 'reasoning'],
+        },
+      },
+    ];
+  }
+
+  private parseFunctionCall(name: string, args: any): NegotiationDecision {
+    const action = name as NegotiationAction;
+    const decision: NegotiationDecision = { action, reasoning: args.reasoning || '', internalNotes: args.internal_notes };
+    if (name === 'generate_counter_offer') {
+      decision.counter = {
+        priceCents: args.proposed_price ? Math.round(args.proposed_price * 100) : undefined,
+        proposedDate: args.proposed_date,
+        scopeNotes: args.scope_notes,
+      };
+    }
+    if (name === 'request_clarification') decision.clarificationQuestions = args.questions || [];
+    return decision;
+  }
+}

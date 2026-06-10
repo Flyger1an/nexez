@@ -14,6 +14,7 @@ import { reviewProposal } from '../../../lib/proposal-review'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 import { buildNegotiationEmail, sendEmail } from '../../../lib/email'
 import { supabase } from '../../../lib/supabase'
+import { negotiationService } from '../../../lib/negotiation.service'
 
 type NegotiationInput = {
   slug: string
@@ -70,137 +71,92 @@ export async function POST(request: Request) {
   }
 
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
-  const amountCents = parseMoneyCents(offer.price)
-  const escrowMode = process.env.STRIPE_SECRET_KEY && amountCents ? 'manual_capture_ready' : 'not_configured'
 
-  // Advanced Smart Rules + LLM: Use full proposal review (using the platform's configured LLM when available + rules clamping).
-  // This provides accept/counter/reject with reasoning and suggested counter.
-  // Auto-accept only if LLM or rules decide 'accept' and within bounds.
+  // Use the new Intelligent Negotiation Service for full conversational + persistent state.
+  // This replaces the one-shot review with a full history-aware LLM call using function calling.
+  // Supports continuation via negotiationId for the /negotiate/{id} persistent page.
   const proposedPriceCents = parseMoneyCents(input.budget)
-  const reviewInput = {
-    offer: { name: offer.name, price: offer.price, offerType: offer.offerType, rules: offer.rules },
-    proposal: { proposedPriceCents, query: input.query, timeline: input.timeline },
-    llmAllowed: true, // Use LLM (platform-configured provider)
-  }
-  const proposalReview = await reviewProposal(reviewInput)
-  const rulesEvaluation = evaluateProposal(offer, { proposedPriceCents })
-  const autoAccepted = proposalReview.recommendation === 'accept' || rulesEvaluation.decision === 'auto_accept'
-
-  // The anon caller has no SELECT on agent_negotiations (RLS), so the insert
-  // can't RETURN the row — generate id + status token server-side instead so
-  // the agent can poll /api/negotiations/status later.
-  const negotiationId = randomUUID()
-  const statusToken = randomBytes(16).toString('hex')
-
-  const negotiation = {
-    id: negotiationId,
-    page_id: page.id,
-    owner_id: page.owner_id,
-    slug: page.slug,
-    offer_key: offerKey,
-    offer_name: offer.name,
-    offer_kind: offer.kind,
-    buyer_agent: input.buyerAgent || request.headers.get('user-agent') || 'Unknown agent',
-    buyer_query: input.query || null,
-    requested_terms: input.requestedTerms || {},
-    budget_text: input.budget || null,
-    timeline_text: input.timeline || null,
-    contact: input.contact || null,
-    status: autoAccepted ? 'agreement_proposed' : 'negotiation',
-    escrow_mode: escrowMode,
-    amount_cents: amountCents,
-    status_token: statusToken,
-    metadata: {
-      source: 'agent_negotiation',
-      referrer: request.headers.get('referer'),
-      stripe_configured: Boolean(process.env.STRIPE_SECRET_KEY),
-      dry_run: Boolean(input.dryRun),
-      rules_evaluation: {
-        decision: rulesEvaluation.decision,
-        reasons: rulesEvaluation.reasons,
-        proposed_price_cents: proposedPriceCents,
-        evaluated_at: new Date().toISOString(),
-      },
-      proposal_review: {
-        recommendation: proposalReview.recommendation,
-        counter: proposalReview.counter,
-        reasoning: proposalReview.reasoning,
-        source: proposalReview.source,
-        model: proposalReview.model,
-      },
-    },
+  const buyerProposal = {
+    proposedPriceCents,
+    query: input.query,
+    timeline: input.timeline,
+    requestedTerms: input.requestedTerms,
+    budget: input.budget,
+    contact: input.contact,
+    buyerAgent: input.buyerAgent,
   }
 
-  if (input.dryRun) {
+  try {
+    const result = await negotiationService.startOrContinue({
+      slug: input.slug,
+      offerKey,
+      buyerProposal,
+      // If a persistent negotiationId is passed (from /negotiate page or agent follow-up), continue it.
+      negotiationId: (input as any).negotiationId,
+      statusToken: (input as any).statusToken,
+    })
+
+    if (input.dryRun) {
+      return NextResponse.json({ ok: true, dryRun: true, ...result })
+    }
+
+    // Keep backward compat for existing one-shot agent POSTs (they get the status token).
+    const ownerEmail = (page as { contact_email?: string | null }).contact_email
+    if (ownerEmail && ! (input as any).negotiationId) {
+      const mail = buildNegotiationEmail({
+        businessName: page.name || page.slug,
+        offerName: offer.name,
+        budget: input.budget,
+        timeline: input.timeline,
+        query: input.query,
+        buyerAgent: input.buyerAgent,
+        inboxUrl: `${baseUrl}/dashboard/negotiations`,
+      })
+      after(() => sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text }))
+    }
+
+    if (!wantsJson) {
+      return NextResponse.redirect(
+        `${baseUrl}/${page.slug}?negotiation=${result.status === 'agreement_proposed' ? 'accepted' : 'created'}`,
+        { status: 303 },
+      )
+    }
+
+    // Maintain backward compatibility with existing agent manifests, public form,
+    // and route tests that expect the old one-shot response shape.
+    const legacyAutoAccepted = result.decision.action === 'accept'
+    const legacyStatusToken = (input as any).negotiationId ? undefined : randomBytes(16).toString('hex') // for new creations
+    const legacyEscrowMode = process.env.STRIPE_SECRET_KEY ? 'manual_capture_ready' : 'not_configured'
+
     return NextResponse.json({
       ok: true,
-      dryRun: true,
-      status: negotiation.status,
-      autoAccepted,
-      rulesEvaluation,
-      proposalReview,
-      escrowMode,
+      status: result.status,
+      autoAccepted: legacyAutoAccepted,
+      rulesEvaluation: { decision: 'review' }, // legacy shape
+      proposalReview: result.decision, // new decision is richer
+      escrowMode: legacyEscrowMode,
       stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
-      amountCents,
-      next: getNextStep(escrowMode),
-      negotiation: { ...negotiation, id: undefined, status_token: undefined },
+      amountCents: null,
+      next: getNextStep(legacyEscrowMode),
+      publicPageUrl: `${baseUrl}/${page.slug}`,
+      // New intelligent engine fields
+      negotiationId: result.negotiationId,
+      decision: result.decision,
+      persistentLink: result.persistentLink,
+      historyLength: result.history.length,
+      message: result.decision.action === 'accept' 
+        ? "Accepted within the seller's rules." 
+        : result.decision.action === 'counter' 
+          ? 'Counter-offer generated by intelligent negotiation engine.' 
+          : 'Under review / clarification requested.',
+      negotiationUrl: result.persistentLink,
+      // For legacy agents: the status token (only on fresh creations)
+      ...(legacyStatusToken ? { statusToken: legacyStatusToken, statusUrl: `${baseUrl}/api/negotiations/status?id=${result.negotiationId}&token=${legacyStatusToken}` } : {}),
     })
+  } catch (err: any) {
+    console.error('Intelligent negotiation error', err)
+    return NextResponse.json({ error: 'Intelligent negotiation engine error: ' + err.message }, { status: 500 })
   }
-
-  // Insert WITHOUT a RETURNING/select: the public agent caller is anon, which
-  // (correctly) has no SELECT policy on agent_negotiations, so reading the row
-  // back would be rejected by RLS. We already know everything we need to reply.
-  const { error } = await supabase.from('agent_negotiations').insert(negotiation)
-
-  if (error) {
-    return NextResponse.json(
-      {
-        error: 'Proposal validation passed, but seller inbox storage is blocked. Apply the agent_negotiations RLS fix before using this feature.',
-        detail: error.message,
-      },
-      { status: 412 },
-    )
-  }
-
-  // Email the business about the new request (gated on RESEND_API_KEY; no-op
-  // otherwise). Sent after the response so it never adds latency.
-  const ownerEmail = (page as { contact_email?: string | null }).contact_email
-  if (ownerEmail) {
-    const mail = buildNegotiationEmail({
-      businessName: page.name || page.slug,
-      offerName: offer.name,
-      budget: input.budget,
-      timeline: input.timeline,
-      query: input.query,
-      buyerAgent: input.buyerAgent,
-      inboxUrl: `${baseUrl}/dashboard/negotiations`,
-    })
-    after(() => sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text }))
-  }
-
-  if (!wantsJson) {
-    return NextResponse.redirect(
-      `${baseUrl}/${page.slug}?negotiation=${autoAccepted ? 'accepted' : 'created'}`,
-      { status: 303 },
-    )
-  }
-
-  return NextResponse.json({
-    ok: true,
-    status: negotiation.status,
-    autoAccepted,
-    rulesEvaluation,
-    message: autoAccepted
-      ? "Auto-accepted within the seller's rules — agreement proposed. The seller will finalize payment/scheduling."
-      : 'Proposal received — under review by the seller.',
-    // Returned exactly once: lets the submitting agent poll status later.
-    statusToken,
-    statusUrl: `${baseUrl}/api/negotiations/status?id=${negotiationId}&token=${statusToken}`,
-    escrowMode,
-    stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
-    next: getNextStep(escrowMode),
-    publicPageUrl: `${baseUrl}/${page.slug}`,
-  })
 }
 
 async function readNegotiationInput(request: Request): Promise<NegotiationInput> {

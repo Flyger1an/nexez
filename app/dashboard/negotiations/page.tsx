@@ -25,6 +25,9 @@ import {
 import { withTimeout } from '../../../lib/async-timeout'
 import { createClient } from '../../../utils/supabase/client'
 
+// Note: createClient is used inside NegotiationCard for the manual owner message form
+// (direct insert to negotiation_messages + status update for seller_owner role).
+
 const LOAD_TIMEOUT_MS = 12000
 
 const TONE_BADGE: Record<ReturnType<typeof getNegotiationStatusTone>, string> = {
@@ -216,6 +219,7 @@ export default function NegotiationsInbox() {
                   item={item}
                   updating={updatingId === item.id}
                   onTransition={(to) => void updateStatus(item, to)}
+                  onRefresh={() => void load()}
                 />
               ))}
             </div>
@@ -250,10 +254,12 @@ function NegotiationCard({
   item,
   updating,
   onTransition,
+  onRefresh,
 }: {
   item: AgentNegotiation
   updating: boolean
   onTransition: (to: NegotiationStatus) => void
+  onRefresh?: () => void
 }) {
   const escrowAvailable = item.escrow_mode !== 'not_configured'
   const transitions = getAllowedNegotiationTransitions(item.status, { escrowAvailable })
@@ -336,7 +342,103 @@ function NegotiationCard({
             Receipt
           </a>
         )}
+        <a href={`/negotiate/${item.id}`} className="inline-flex items-center gap-1 text-xs text-[#7C3AED] hover:underline">
+          View full persistent thread →
+        </a>
       </div>
+
+      {/* Show recent LLM-powered history / reasoning for owner visibility */}
+      {(((item.metadata as any)?.conversation?.length > 0) || (item.metadata as any)?.proposal_review?.reasoning) && (
+        <div className="mt-3 text-[11px] text-zinc-400 border-l border-white/20 pl-3">
+          {((item.metadata as any)?.proposal_review as any)?.reasoning && <div>Initial: {((item.metadata as any).proposal_review as any).reasoning}</div>}
+          {((item.metadata?.conversation as any[]) || []).slice(-2).map((t: any, idx: number) => t.decision && (
+            <div key={idx}>{t.decision.action}: {t.decision.reasoning?.slice(0, 120)}...</div>
+          ))}
+        </div>
+      )}
+
+      {/* Owner manual message insertion UI - allows seller to manually continue/respond in the persistent negotiation */}
+      {/* This inserts a row with role 'seller_owner' into negotiation_messages and updates status. */}
+      {/* Complements the LLM-driven flow; full history (including manual) is visible on /negotiate/{id} for agents. */}
+      {transitions.length > 0 && (
+        <div className="mt-4 border-t border-white/10 pt-4">
+          <details className="group">
+            <summary className="cursor-pointer text-xs text-[#7C3AED] hover:underline flex items-center gap-1">
+              + Add manual response (as owner)
+              <span className="text-[10px] text-zinc-500 group-open:hidden">(for testing / direct control)</span>
+            </summary>
+            <form
+              className="mt-3 grid gap-3 text-xs"
+              onSubmit={async (e) => {
+                e.preventDefault()
+                const form = e.currentTarget as HTMLFormElement
+                const formData = new FormData(form)
+                const action = (formData.get('action') as string) || 'counter'
+                const reasoning = (formData.get('reasoning') as string) || 'Manual owner response.'
+                const internalNotes = (formData.get('internal_notes') as string) || undefined
+
+                const supabase = createClient()
+                const content: any = { action, reasoning }
+                if (internalNotes) content.internal_notes = internalNotes
+
+                if (action === 'counter') {
+                  const price = parseFloat(formData.get('proposed_price') as string)
+                  if (!isNaN(price)) content.proposed_price = price
+                  const date = formData.get('proposed_date') as string
+                  if (date) content.proposed_date = date
+                  const scope = formData.get('scope_notes') as string
+                  if (scope) content.scope_notes = scope
+                }
+                if (action === 'clarify') {
+                  const q = formData.get('clarification_questions') as string
+                  if (q) content.questions = q.split(',').map((s) => s.trim()).filter(Boolean)
+                }
+
+                // Insert manual owner message into the dedicated table
+                await supabase.from('negotiation_messages').insert({
+                  negotiation_id: item.id,
+                  role: 'seller_owner',
+                  content,
+                })
+
+                // Map action to status and update the negotiation (owner can do this directly)
+                let newStatus: NegotiationStatus = item.status
+                if (action === 'accept') newStatus = 'agreement_proposed'
+                else if (action === 'reject' || action === 'declined') newStatus = 'declined'
+                else if (action === 'counter') newStatus = 'negotiation' // or 'agreement_proposed' if you prefer
+
+                await supabase
+                  .from('agent_negotiations')
+                  .update({ status: newStatus, updated_at: new Date().toISOString() })
+                  .eq('id', item.id)
+
+                form.reset()
+                if (onRefresh) onRefresh()
+                else window.location.reload() // simple refresh for the inbox list
+              }}
+            >
+              <div className="flex gap-2">
+                <select name="action" className="input text-xs py-1" defaultValue="counter">
+                  <option value="accept">Accept</option>
+                  <option value="counter">Counter</option>
+                  <option value="reject">Reject</option>
+                  <option value="clarify">Request Clarification</option>
+                </select>
+                <input name="proposed_price" type="number" step="0.01" placeholder="Counter price (if counter)" className="input text-xs py-1 flex-1" />
+              </div>
+              <textarea name="reasoning" rows={2} placeholder="Reasoning (shown to agent)" className="input text-xs" required defaultValue="Manual response from owner." />
+              <input name="proposed_date" placeholder="Proposed date/timeline (if counter)" className="input text-xs py-1" />
+              <input name="scope_notes" placeholder="Scope adjustments (if counter)" className="input text-xs py-1" />
+              <input name="clarification_questions" placeholder="Questions comma-separated (if clarify)" className="input text-xs py-1" />
+              <textarea name="internal_notes" rows={1} placeholder="Internal notes (owner only, not sent to agent)" className="input text-xs" />
+              <button type="submit" disabled={updating} className="btn-secondary text-xs py-1">
+                {updating ? 'Saving...' : 'Insert manual owner message + update status'}
+              </button>
+              <p className="text-[10px] text-zinc-500">This appears in the persistent /negotiate thread for the agent with full history.</p>
+            </form>
+          </details>
+        </div>
+      )}
     </div>
   )
 }
