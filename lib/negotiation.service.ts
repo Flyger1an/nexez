@@ -69,6 +69,7 @@ export class NegotiationService {
     decision: NegotiationDecision;
     persistentLink: string;
     history: ConversationTurn[];
+    statusToken?: string;
   }> {
     const { slug, offerKey, buyerProposal, negotiationId, statusToken } = params;
 
@@ -165,6 +166,10 @@ export class NegotiationService {
       decision: llmDecision,
       persistentLink,
       history,
+      // The token persisted on the row — the credential for /api/negotiations/status
+      // and the /negotiate page. Safe to return: the caller either just created the
+      // negotiation or proved possession of the token in loadNegotiation.
+      statusToken: negotiation.status_token || undefined,
     };
   }
 
@@ -248,14 +253,18 @@ export class NegotiationService {
   }
 
   private async loadNegotiation(id: string, token?: string) {
-    // Allow loading by id + optional token for agents (anon friendly read for the conversation page)
     const query = supabase.from('agent_negotiations').select('*').eq('id', id);
     const { data } = await query.single();
     if (!data) return null;
 
-    // Basic token check if provided (for security on public /negotiate page)
-    if (token && data.status_token && data.status_token !== token) {
-      // Still allow owner later via RLS, but for public agent link require token match on first load
+    // The status token is the credential for continuing a negotiation: it is issued
+    // once at creation (status URL + persistent link) and must be presented to resume.
+    // Without this check, anyone who learned the id could append turns and receive
+    // the stored token back in the response.
+    if (data.status_token && data.status_token !== token) {
+      const err = new Error('Negotiation not found.') as Error & { status: number };
+      err.status = 404;
+      throw err;
     }
     return data;
   }

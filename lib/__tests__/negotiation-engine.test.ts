@@ -1,6 +1,18 @@
 import { describe, expect, it, vi, beforeEach, afterAll } from 'vitest'
+import type { QueryContext } from '../../test/supabase-mock'
 import { createLLMAdapter, getActiveLLMProvider } from '../llm-engine'
 import { NegotiationService, ConversationTurn } from '../negotiation.service'
+
+// Route the service's module-singleton supabase through a per-test-mutable handler
+// so the real createNewNegotiation/loadNegotiation persistence paths can be tested.
+const { dbRef } = vi.hoisted(() => ({
+  dbRef: { handler: (_ctx: any) => ({ data: null, error: null }) as { data?: any; error?: any } },
+}))
+
+vi.mock('../supabase', async () => {
+  const { createSupabaseMock } = await import('../../test/supabase-mock')
+  return { supabase: createSupabaseMock((ctx) => dbRef.handler(ctx)) }
+})
 
 // Mock the platform LLM env for tests
 const originalEnv = process.env
@@ -84,7 +96,82 @@ describe('NegotiationService (with dedicated messages table)', () => {
 
     expect(result.persistentLink).toContain('/negotiate/neg-123')
     expect(result.persistentLink).toContain('?token=tok-abc')
+    // The token the service returns must be the persisted one — the route surfaces
+    // it as statusToken/statusUrl for agent status polling.
+    expect(result.statusToken).toBe('tok-abc')
     expect(result.history.length).toBeGreaterThan(0)
+  })
+
+  it('persists the same status token it returns (fresh creation, real insert path)', async () => {
+    const page = {
+      id: 'p1',
+      owner_id: 'o1',
+      slug: 'demo',
+      services: [{ name: 'Consult', price: '$100', description: '', url: '' }],
+      products: [],
+    }
+    let insertedNegotiation: any
+    dbRef.handler = (ctx: QueryContext) => {
+      if (ctx.table === 'pages') return { data: page, error: null }
+      if (ctx.table === 'agent_negotiations' && ctx.op === 'insert') {
+        insertedNegotiation = ctx.payload
+        return { error: null }
+      }
+      return { data: [], error: null }
+    }
+
+    const mockLLM = { negotiate: vi.fn().mockResolvedValue({ action: 'counter', reasoning: 'r' }) }
+    const service = new NegotiationService(mockLLM)
+    const result = await service.startOrContinue({
+      slug: 'demo',
+      offerKey: 'services-0',
+      buyerProposal: { proposedPriceCents: 9000 },
+    })
+
+    // Regression guard for the prod bug where the route returned a token that was
+    // never written to the row → every status poll 404'd.
+    expect(insertedNegotiation?.status_token).toBeTruthy()
+    expect(result.statusToken).toBe(insertedNegotiation.status_token)
+    expect(result.persistentLink).toContain(`token=${insertedNegotiation.status_token}`)
+  })
+
+  it('continuation requires the stored token: 404 on mismatch, resumes + returns it on match', async () => {
+    const page = {
+      id: 'p1',
+      owner_id: 'o1',
+      slug: 'demo',
+      services: [{ name: 'Consult', price: '$100', description: '', url: '' }],
+      products: [],
+    }
+    const row = { id: 'neg-9', status: 'negotiation', status_token: 'real-tok', slug: 'demo', metadata: {} }
+    dbRef.handler = (ctx: QueryContext) => {
+      if (ctx.table === 'pages') return { data: page, error: null }
+      if (ctx.table === 'agent_negotiations' && ctx.op === 'select') return { data: row, error: null }
+      return { data: [], error: null }
+    }
+
+    const mockLLM = { negotiate: vi.fn().mockResolvedValue({ action: 'counter', reasoning: 'r' }) }
+    const service = new NegotiationService(mockLLM)
+
+    await expect(
+      service.startOrContinue({
+        slug: 'demo',
+        offerKey: 'services-0',
+        buyerProposal: { proposedPriceCents: 9000 },
+        negotiationId: 'neg-9',
+        statusToken: 'wrong-token',
+      }),
+    ).rejects.toMatchObject({ status: 404 })
+
+    const result = await service.startOrContinue({
+      slug: 'demo',
+      offerKey: 'services-0',
+      buyerProposal: { proposedPriceCents: 9000 },
+      negotiationId: 'neg-9',
+      statusToken: 'real-tok',
+    })
+    expect(result.negotiationId).toBe('neg-9')
+    expect(result.statusToken).toBe('real-tok')
   })
 
   it('appends buyer and seller turns to history', async () => {
