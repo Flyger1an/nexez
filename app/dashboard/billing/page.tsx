@@ -5,12 +5,17 @@ import { billingPlans, getPlanPriceId, getStripeBillingReadiness } from '../../.
 import { BillingSubscription, billingStatusCopy } from '../../../lib/stripe-billing'
 import { createClient } from '../../../utils/supabase/server'
 
+// Client component for the embedded subscription (Stripe Elements) flow.
+// Extracted to its own file so it can safely use 'use client' + hooks.
+import EmbeddedPlanSelector from '../../../components/billing/EmbeddedPlanSelector'
+
 type BillingProps = {
-  searchParams: Promise<{ setup?: string; canceled?: string; error?: string }>
+  searchParams: Promise<{ setup?: string; canceled?: string; error?: string; plan?: string }>
 }
 
 export default async function BillingPage({ searchParams }: BillingProps) {
   const search = await searchParams
+  const initialPlanFromQuery = typeof search.plan === 'string' ? search.plan : null
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
   const {
@@ -214,27 +219,16 @@ export default async function BillingPage({ searchParams }: BillingProps) {
           </div>
         </div>
 
-        {/* Plan upgrade grid (keep for easy upgrades) */}
-        <div className="mt-8">
-          <h2 className="text-lg font-semibold mb-4">Change plan</h2>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {billingPlans.filter(p => p.id !== (activePlan?.id || 'free')).map((plan, index) => {
-              const configured = Boolean(getPlanPriceId(plan) && process.env.STRIPE_SECRET_KEY)
-              return (
-                <div key={plan.id} className="card !p-5 text-sm">
-                  <div className="font-semibold">{plan.name} — {plan.price}/{plan.cadence}</div>
-                  <p className="mt-1 text-xs text-[#9CA3AF] line-clamp-2">{plan.blurb}</p>
-                  <form action="/api/billing/checkout" method="post" className="mt-4">
-                    <input type="hidden" name="plan" value={plan.id} />
-                    <button className="w-full rounded bg-white py-2 text-xs font-medium text-zinc-950 hover:bg-zinc-200">
-                      {configured ? 'Upgrade now' : 'Configure Stripe'}
-                    </button>
-                  </form>
-                </div>
-              )
-            })}
-          </div>
-        </div>
+        {/* Interactive plan selection + Embedded Stripe Components for recurring subscriptions.
+            Primary flow uses Embedded (PaymentElement) for better UX (no full redirect).
+            Hosted Checkout (old /api/billing/checkout) remains available as fallback.
+            Only paid plans (Launch+) have subscriptions. Free pays 0 sub but 15% txn commission (via Connect). */}
+        <EmbeddedPlanSelector
+          activePlanId={activePlan?.id || 'free'}
+          billingState={billingState}
+          stripeReady={stripeReady}
+          initialPlanId={initialPlanFromQuery}
+        />
 
         {/* Feedback messages */}
         {search.setup === 'stripe' && (
@@ -260,3 +254,4 @@ function Stat({ label, value }: { label: string; value: string }) {
     </div>
   )
 }
+
