@@ -67,8 +67,14 @@ export async function POST(request: NextRequest) {
         .from('agent_negotiations')
         .update({ status: nextStatus, escrow_mode: nextEscrowMode, stripe_payment_intent_id: piId })
         .eq('id', session.metadata.nexez_negotiation_id)
-      if (settleErr) console.warn('[Stripe Webhook] escrow settle update failed:', settleErr.message)
-      return NextResponse.json({ received: true, type: event.type, negotiation: session.metadata.nexez_negotiation_id, status: nextStatus, ok: !settleErr }, { status: 200 })
+      if (settleErr) {
+        console.warn('[Stripe Webhook] escrow settle update failed:', settleErr.message)
+        // Release the idempotency claim so Stripe's retry reprocesses this event
+        // (the settle update is idempotent), and signal a retry with a non-200.
+        await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
+        return NextResponse.json({ error: 'escrow settle failed', type: event.type }, { status: 500 })
+      }
+      return NextResponse.json({ received: true, type: event.type, negotiation: session.metadata.nexez_negotiation_id, status: nextStatus, ok: true }, { status: 200 })
     }
 
     if (session.metadata?.nexez_source === 'billing_page') {

@@ -17,6 +17,7 @@ export type NegotiationEscrowMode =
   | 'not_configured'
   | 'manual_capture_ready'
   | 'manual_capture_created'
+  | 'captured'
 
 export type AgentNegotiation = {
   id: string
