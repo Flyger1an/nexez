@@ -24,7 +24,10 @@ export function captureError(error: unknown, context: Record<string, unknown> = 
   const token = process.env.OBSERVABILITY_WEBHOOK_TOKEN
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  // Fire-and-forget; never throw from the error path.
+  // Fire-and-forget; never throw from the error path. But DO surface a failed send
+  // — a silently-broken observability sink (wrong token/URL) is worse than none,
+  // since you'd believe you have alerting and don't. A non-2xx or network error is
+  // logged so it shows up in the function logs instead of vanishing.
   try {
     void fetch(url, {
       method: 'POST',
@@ -38,8 +41,14 @@ export function captureError(error: unknown, context: Record<string, unknown> = 
         ts: new Date().toISOString(),
       }),
       signal: AbortSignal.timeout(4000),
-    }).catch(() => {})
+    })
+      .then((res) => {
+        if (!res.ok) console.warn(`[nexez] observability sink rejected the event: ${res.status} ${res.statusText}`)
+      })
+      .catch((err) => {
+        console.warn('[nexez] observability sink unreachable:', err instanceof Error ? err.message : String(err))
+      })
   } catch {
-    // ignore
+    // ignore — never let observability break the caller
   }
 }
