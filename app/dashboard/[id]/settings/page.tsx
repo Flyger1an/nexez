@@ -1748,9 +1748,15 @@ export default function PageSettings({ params }: PageProps) {
                   <input type="checkbox" checked={llmOptIn} onChange={async (e) => {
                     if (!page) return
                     const checked = e.target.checked
-                    const supabase = createClient()
-                    await supabase.from('pages').update({ llm_opt_in: checked }).eq('id', page.id)
+                    const previous = llmOptIn
                     setLlmOptIn(checked)
+                    const supabase = createClient()
+                    const { error } = await supabase.from('pages').update({ llm_opt_in: checked }).eq('id', page.id)
+                    if (error) {
+                      setLlmOptIn(previous)
+                      setMessage('AI assist setting could not be saved. Please try again.')
+                      return
+                    }
                     setMessage(checked ? 'Advanced AI assist enabled for this page.' : 'Advanced AI assist disabled for this page.')
                   }} />
                   Enable Advanced AI Assist
