@@ -84,6 +84,7 @@ export class NegotiationService {
     persistentLink: string;
     history: ConversationTurn[];
     statusToken?: string;
+    amountCents?: number | null;
   }> {
     const { slug, offerKey, buyerProposal, negotiationId, statusToken } = params;
 
@@ -154,12 +155,18 @@ export class NegotiationService {
       llmDecision.schedulingLink = schedulingLink;
     }
 
-    // 8. Append seller (LLM) decision to history
+    // 8. Append seller (LLM) decision to history.
+    // Do NOT persist the offer's private pricing rules (minPrice etc.) into the
+    // durable conversation log — they were attached to proposalForLLM only as
+    // LLM context. Pricing rules are owner-private (Phase 1 invariant); keeping
+    // them out of negotiation_messages means the thread is safe to surface to
+    // the buying agent on /negotiate even if a row is ever exported or re-read.
+    const { rules: _omitRules, ...proposalForLog } = proposalForLLM;
     const sellerTurn: ConversationTurn = {
       id: randomUUID(),
       timestamp: new Date().toISOString(),
       role: 'seller_llm',
-      content: { proposal: proposalForLLM },
+      content: { proposal: proposalForLog },
       decision: llmDecision,
     };
     history.push(sellerTurn);
@@ -167,8 +174,18 @@ export class NegotiationService {
     // 9. Determine new status from decision
     const newStatus = this.decisionToStatus(llmDecision.action, negotiation.status);
 
+    // The agreed amount: a counter sets its own price; an accept locks in the
+    // buyer's proposed price. Without this, accepted negotiations had no
+    // amount_cents, so the escrow hold (which requires a valid agreed amount)
+    // could never run. Null leaves any previously-agreed amount untouched.
+    const agreedAmountCents =
+      llmDecision.counter?.priceCents ??
+      (llmDecision.action === 'accept' && buyerProposal.proposedPriceCents > 0
+        ? buyerProposal.proposedPriceCents
+        : null);
+
     // 10. Persist to dedicated negotiation_messages table + update negotiation status
-    await this.persistHistoryAndStatus(negotiation.id, newStatus, [buyerTurn, sellerTurn], llmDecision, rulesEval);
+    await this.persistHistoryAndStatus(negotiation.id, newStatus, [buyerTurn, sellerTurn], llmDecision, rulesEval, agreedAmountCents);
 
     // 11. Build persistent link
     const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://nexez.app';
@@ -184,6 +201,8 @@ export class NegotiationService {
       // and the /negotiate page. Safe to return: the caller either just created the
       // negotiation or proved possession of the token in loadNegotiation.
       statusToken: negotiation.status_token || undefined,
+      // The agreed amount in cents once accepted/countered (else the prior value, or null).
+      amountCents: agreedAmountCents ?? negotiation.amount_cents ?? null,
     };
   }
 
@@ -216,7 +235,8 @@ export class NegotiationService {
     newStatus: string,
     newTurns: ConversationTurn[],
     decision: NegotiationDecision,
-    rulesEval: any
+    rulesEval: any,
+    agreedAmountCents: number | null = null
   ) {
     // Insert each new turn as a row in negotiation_messages
     const inserts = newTurns.map(turn => ({
@@ -249,8 +269,10 @@ export class NegotiationService {
       },
     };
 
-    if (decision.counter?.priceCents) {
-      update.amount_cents = decision.counter.priceCents;
+    // Lock in the agreed amount (counter price, or the accepted proposal). Left
+    // null for non-pricing turns so a prior agreed amount is never clobbered.
+    if (agreedAmountCents != null && agreedAmountCents > 0) {
+      update.amount_cents = agreedAmountCents;
     }
 
     const { error: updateErr } = await this.db().from('agent_negotiations').update(update).eq('id', negotiationId);
