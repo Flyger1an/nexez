@@ -1,5 +1,5 @@
 import Stripe from 'stripe'
-import { BillingPlan, billingPlans } from './billing'
+import { BillingPlan, billingPlans, getPlanPriceId } from './billing'
 
 export type BillingSubscription = {
   owner_id: string
@@ -26,7 +26,7 @@ export type BillingSubscription = {
 
 export function getPlanIdForStripePrice(priceId: string | null | undefined): BillingPlan['id'] | null {
   if (!priceId) return null
-  return billingPlans.find((plan) => process.env[plan.envVar] === priceId)?.id ?? null
+  return billingPlans.find((plan) => getPlanPriceId(plan) === priceId)?.id ?? null
 }
 
 export function normalizePlanId(value: string | null | undefined): BillingPlan['id'] | null {
