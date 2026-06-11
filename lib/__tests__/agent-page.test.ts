@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseOfferLines, formatOfferLines, type OfferItem } from '../agent-page'
+import { parseOfferLines, formatOfferLines, getRequestBaseUrl, type OfferItem } from '../agent-page'
 
 describe('agent-page offer parse/format roundtrip (Phase 1 A fidelity)', () => {
   it('roundtrips basic offers', () => {
@@ -123,6 +123,40 @@ describe('agent-page offer parse/format roundtrip (Phase 1 A fidelity)', () => {
     expect(parsed[0].isMobile).toBe(true)
     expect(parsed[0].ab_test).toBe('ab_zz')
     expect(parsed[0].ab_label).toBe('A')
+  })
+})
+
+describe('getRequestBaseUrl', () => {
+  it('accepts a plain Headers-like object from Next server headers()', () => {
+    const headers = new Headers({
+      host: 'nexez.app',
+      'x-forwarded-proto': 'https',
+    })
+
+    expect(getRequestBaseUrl(headers)).toBe('https://nexez.app')
+  })
+
+  it('does not mistake arbitrary headers internals for a Request', () => {
+    const nextLikeHeaders = {
+      headers: {},
+      get(name: string) {
+        if (name === 'x-forwarded-host') return 'www.nexez.app'
+        if (name === 'x-forwarded-proto') return 'https'
+        return null
+      },
+    }
+
+    expect(getRequestBaseUrl(nextLikeHeaders as unknown as Headers)).toBe('https://www.nexez.app')
+  })
+
+  it('accepts a Request object', () => {
+    const request = new Request('https://ignored.example', {
+      headers: {
+        host: 'localhost:3000',
+      },
+    })
+
+    expect(getRequestBaseUrl(request)).toBe('http://localhost:3000')
   })
 })
 

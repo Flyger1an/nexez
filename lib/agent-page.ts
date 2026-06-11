@@ -484,7 +484,11 @@ export function getBaseUrl() {
 type HeaderGetter = Pick<Headers, 'get'>
 
 export function getRequestBaseUrl(input: Request | HeaderGetter) {
-  const source = 'headers' in input ? input.headers : input
+  const maybeHeaders = 'headers' in input ? input.headers : null
+  const source =
+    maybeHeaders && typeof (maybeHeaders as HeaderGetter).get === 'function'
+      ? (maybeHeaders as HeaderGetter)
+      : (input as HeaderGetter)
   const forwardedHost = source.get('x-forwarded-host')?.split(',')[0]?.trim()
   const host = forwardedHost || source.get('host')?.split(',')[0]?.trim()
 
