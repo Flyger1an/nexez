@@ -85,8 +85,7 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
     await page.goto(settingsPath, { waitUntil: 'domcontentloaded' })
 
     // Wait for settings LLM section + checkbox to be interactive
-    const llmLabel = page.locator('label', { hasText: /Enable advanced AI/ })
-    const checkbox = llmLabel.locator('input[type="checkbox"]')
+    const checkbox = page.getByLabel(/advanced ai assist/i)
     await expect(checkbox).toBeVisible({ timeout: 15000 })
 
     // Seed: ensure llm_opt_in is true for this page (direct update, no extra save)
@@ -94,7 +93,7 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
     if (!wasChecked) {
       await checkbox.check()
       // Handler awaits the pages.update then sets the confirmation message
-      await page.getByText(/LLM opt-in enabled/i).waitFor({ timeout: 10000 }).catch(() => {})
+      await page.getByText(/Advanced AI assist enabled|LLM opt-in enabled/i).waitFor({ timeout: 10000 }).catch(() => {})
     }
 
     // Capture the slug from the rendered "Public Page" link (reliable, uses the live slug)
