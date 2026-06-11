@@ -65,8 +65,15 @@ describe('llm gating', () => {
 })
 
 describe('observability gating', () => {
-  beforeEach(() => { delete process.env.OBSERVABILITY_WEBHOOK_URL })
-  afterEach(() => { delete process.env.OBSERVABILITY_WEBHOOK_URL })
+  beforeEach(() => {
+    delete process.env.OBSERVABILITY_WEBHOOK_URL
+    delete process.env.OBSERVABILITY_WEBHOOK_TOKEN
+  })
+  afterEach(() => {
+    delete process.env.OBSERVABILITY_WEBHOOK_URL
+    delete process.env.OBSERVABILITY_WEBHOOK_TOKEN
+    vi.restoreAllMocks()
+  })
 
   it('is unconfigured without webhook + captureError never throws', () => {
     expect(isObservabilityConfigured()).toBe(false)
@@ -75,5 +82,26 @@ describe('observability gating', () => {
   it('reports configured when webhook set', () => {
     process.env.OBSERVABILITY_WEBHOOK_URL = 'https://hooks.example.com/x'
     expect(isObservabilityConfigured()).toBe(true)
+  })
+
+  it('POSTs JSON without an auth header when no token is set', () => {
+    process.env.OBSERVABILITY_WEBHOOK_URL = 'https://in.logs.betterstack.com'
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 202 }))
+    captureError(new Error('boom'), { negotiationId: 'n1' })
+    expect(fetchSpy).toHaveBeenCalledOnce()
+    const [url, init] = fetchSpy.mock.calls[0]
+    expect(url).toBe('https://in.logs.betterstack.com')
+    expect((init!.headers as Record<string, string>)['Content-Type']).toBe('application/json')
+    expect((init!.headers as Record<string, string>)['Authorization']).toBeUndefined()
+    expect(JSON.parse(init!.body as string)).toMatchObject({ service: 'nexez', level: 'error', message: 'boom', context: { negotiationId: 'n1' } })
+  })
+
+  it('sends Authorization: Bearer when OBSERVABILITY_WEBHOOK_TOKEN is set (Better Stack)', () => {
+    process.env.OBSERVABILITY_WEBHOOK_URL = 'https://s123.betterstackdata.com'
+    process.env.OBSERVABILITY_WEBHOOK_TOKEN = 'src_tok_abc'
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 202 }))
+    captureError(new Error('drift'))
+    const [, init] = fetchSpy.mock.calls[0]
+    expect((init!.headers as Record<string, string>)['Authorization']).toBe('Bearer src_tok_abc')
   })
 })
