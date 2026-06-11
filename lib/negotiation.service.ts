@@ -154,12 +154,18 @@ export class NegotiationService {
       llmDecision.schedulingLink = schedulingLink;
     }
 
-    // 8. Append seller (LLM) decision to history
+    // 8. Append seller (LLM) decision to history.
+    // Do NOT persist the offer's private pricing rules (minPrice etc.) into the
+    // durable conversation log — they were attached to proposalForLLM only as
+    // LLM context. Pricing rules are owner-private (Phase 1 invariant); keeping
+    // them out of negotiation_messages means the thread is safe to surface to
+    // the buying agent on /negotiate even if a row is ever exported or re-read.
+    const { rules: _omitRules, ...proposalForLog } = proposalForLLM;
     const sellerTurn: ConversationTurn = {
       id: randomUUID(),
       timestamp: new Date().toISOString(),
       role: 'seller_llm',
-      content: { proposal: proposalForLLM },
+      content: { proposal: proposalForLog },
       decision: llmDecision,
     };
     history.push(sellerTurn);
