@@ -79,7 +79,7 @@ export default function PageSettings({ params }: PageProps) {
   // Real recent fires (from checkout_events) for visibility of outbound value
   const [recentOutboundFires, setRecentOutboundFires] = useState<any[]>([])
 
-  // Phase 3: Google Calendar availability (import foundation)
+  // Google Calendar availability state.
   const [googleCalendarId, setGoogleCalendarId] = useState('')
   const [availabilityNote, setAvailabilityNote] = useState('')
   const [availabilitySaving, setAvailabilitySaving] = useState(false)
@@ -114,6 +114,7 @@ export default function PageSettings({ params }: PageProps) {
   const publicUrl = `${getBaseUrl()}/${cleanSlug || page?.slug || ''}`
   const agentJsonUrl = `${getBaseUrl()}${getAgentJsonPath(cleanSlug || page?.slug || '')}`
   const searchUrl = `${getBaseUrl()}/api/agent-search?q=${encodeURIComponent(name || page?.name || 'service')}`
+  const hasCalendarId = googleCalendarId.trim().length > 0
 
   async function handleLogoFileUpload(file: File) {
     if (!file.type.startsWith('image/')) {
@@ -262,19 +263,19 @@ export default function PageSettings({ params }: PageProps) {
       setOutboundEndpoints([])
     }
 
-    // Phase 3: Load Google Calendar availability
-	    setGoogleCalendarId(activePage.google_calendar_id || '')
-	    setAvailabilityNote(activePage.next_available || '')
+    // Load Google Calendar availability.
+    setGoogleCalendarId(activePage.google_calendar_id || '')
+    setAvailabilityNote(stripAvailabilityMarker(activePage.next_available))
 
-	    // Phase 5 custom domain verification status + pending token
-	    setDomainVerificationToken(activePage.domain_verification_token || '')
-	    setDomainVerified(!!activePage.custom_domain_verified)
+    // Phase 5 custom domain verification status + pending token
+    setDomainVerificationToken(activePage.domain_verification_token || '')
+    setDomainVerified(!!activePage.custom_domain_verified)
 
-	    setCalendlyWebhookSecret(activePage.calendly_webhook_secret || '')
+    setCalendlyWebhookSecret(activePage.calendly_webhook_secret || '')
 
-	    setVerificationDetails(activePage.verification_details || {})
-	    setMemoryNotes((activePage as any)?.agent_memory?.notes || '')
-	    setLlmOptIn(!!activePage.llm_opt_in)
+    setVerificationDetails(activePage.verification_details || {})
+    setMemoryNotes((activePage as any)?.agent_memory?.notes || '')
+    setLlmOptIn(!!activePage.llm_opt_in)
 
     // Load real recent events that trigger outbound (for history surface)
     try {
@@ -519,7 +520,7 @@ export default function PageSettings({ params }: PageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-[#090b10] text-white">
+    <main className="min-h-screen bg-[#090b10] text-white" data-testid="page-settings-screen">
       <div className="mx-auto max-w-6xl px-6 py-8">
         <div className="flex justify-end">
           <div className="flex flex-wrap gap-3">
@@ -1329,7 +1330,7 @@ export default function PageSettings({ params }: PageProps) {
               </p>
 
               {/* Phase 3: Per-page outbound webhooks — FIRST CLASS (url + optional secret, real test button, auto-fired) */}
-              <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4">
+              <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4" data-testid="outbound-webhooks-panel">
                 <div className="text-sm font-medium text-cyan-200 mb-2">Outbound webhooks on booking events</div>
                 <p className="text-[10px] text-zinc-400 mb-3">These endpoints receive real `booking.received` payloads automatically (Nexez checkout + Calendly webhooks). Works great with Zapier, Make, n8n, or any generic webhook receiver. Add signing secrets for production.</p>
 
@@ -1379,7 +1380,11 @@ export default function PageSettings({ params }: PageProps) {
                         <div className="flex items-center justify-between font-mono text-emerald-300/90">
                           <span className="truncate text-[11px]">{ep.url}</span>
                           <div className="flex items-center gap-2">
-                            {ep.secret && <span className="text-[9px] text-amber-400">secret</span>}
+                            {ep.secret && (
+                              <span className="text-[9px] text-amber-400" data-testid={`outbound-secret-chip-${i}`}>
+                                secret
+                              </span>
+                            )}
                             <button
                               type="button"
                               disabled={testingEndpoint === i}
@@ -1494,26 +1499,34 @@ export default function PageSettings({ params }: PageProps) {
                 )}
               </div>
 
-              {/* Phase 3: Google Calendar Availability (import foundation) */}
-              <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4">
+              {/* Google Calendar Availability */}
+              <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4" data-testid="availability-panel">
                 <div className="text-sm font-medium text-emerald-200 mb-2">Google Calendar Availability</div>
-                <p className="text-[10px] text-zinc-400 mb-3">Enter your Google Calendar ID for future automated sync, or set manual availability notes that appear in agent.json and the public page.</p>
+                <p className="text-[10px] text-zinc-400 mb-3">Enter a Google Calendar ID to create agent-readable availability windows, or leave it blank and save a manual availability note. Both appear in agent.json and the public page.</p>
 
                 <div className="space-y-2 mb-3">
-                  <input
-                    type="text"
-                    value={googleCalendarId}
-                    onChange={(e) => setGoogleCalendarId(e.target.value)}
-                    placeholder="Calendar ID (e.g. yourname@gmail.com or abc123@group.calendar.google.com)"
-                    className="w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm"
-                  />
-                  <input
-                    type="text"
-                    value={availabilityNote}
-                    onChange={(e) => setAvailabilityNote(e.target.value)}
-                    placeholder="Next available: This week, or specific dates/slots"
-                    className="w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm"
-                  />
+                  <label className="block text-[11px] text-zinc-400">
+                    Calendar ID
+                    <input
+                      type="text"
+                      value={googleCalendarId}
+                      onChange={(e) => setGoogleCalendarId(e.target.value)}
+                      placeholder="Calendar ID (e.g. yourname@gmail.com or abc123@group.calendar.google.com)"
+                      className="mt-1 w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm text-white"
+                      data-testid="google-calendar-id-input"
+                    />
+                  </label>
+                  <label className="block text-[11px] text-zinc-400">
+                    Availability note
+                    <input
+                      type="text"
+                      value={availabilityNote}
+                      onChange={(e) => setAvailabilityNote(e.target.value)}
+                      placeholder="Next available: This week, or specific dates/slots"
+                      className="mt-1 w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm text-white"
+                      data-testid="availability-note-input"
+                    />
+                  </label>
                 </div>
 
                 <button
@@ -1527,12 +1540,13 @@ export default function PageSettings({ params }: PageProps) {
                       let finalNote = availabilityNote || ''
                       let importedAvailability: any = null
 
-                      if (googleCalendarId.trim()) {
-                        // Real stub fetch (Phase 3 roadmap) — generates deterministic upcoming windows
+                      const calendarId = googleCalendarId.trim()
+
+                      if (calendarId) {
                         const res = await fetch('/api/integrations/google-calendar/availability', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ calendarId: googleCalendarId.trim() }),
+                          body: JSON.stringify({ calendarId }),
                         })
                         const data = await res.json()
                         if (!res.ok) throw new Error(data?.error || 'Import failed')
@@ -1548,12 +1562,8 @@ export default function PageSettings({ params }: PageProps) {
 
                       const payload: any = {
                         next_available: finalNote || null,
+                        google_calendar_id: calendarId || null,
                       }
-                      if (googleCalendarId.trim()) {
-                        payload.google_calendar_id = googleCalendarId.trim()
-                      }
-                      // If richer structure returned, we can also persist a compact version for agents
-                      // (stored alongside next_available using existing columns — future column `availability` jsonb can hold full object)
 
                       const supabase = createClient()
                       const { error } = await supabase
@@ -1561,7 +1571,17 @@ export default function PageSettings({ params }: PageProps) {
                         .update(payload)
                         .eq('id', page.id)
 
-                      const successMsg = googleCalendarId.trim()
+                      if (!error) {
+                        setAvailabilityNote(stripAvailabilityMarker(finalNote))
+                        setGoogleCalendarId(calendarId)
+                        setPage({
+                          ...page,
+                          next_available: finalNote || null,
+                          google_calendar_id: calendarId || null,
+                        } as AgentPage)
+                      }
+
+                      const successMsg = calendarId
                         ? `Availability imported from Google Calendar • ${importedAvailability?.windows?.length || 0} windows • Last synced just now. Live for agents.`
                         : 'Availability saved. Visible in agent.json and public page.'
 
@@ -1573,10 +1593,11 @@ export default function PageSettings({ params }: PageProps) {
                     }
                   }}
                   className="mt-1 w-full rounded-lg border border-emerald-300/40 px-4 py-1.5 text-sm text-emerald-200 hover:bg-emerald-400/10 disabled:opacity-60"
+                  data-testid="availability-save-button"
                 >
-                  {availabilitySaving ? 'Importing...' : 'Import Availability from Google Calendar'}
+                  {availabilitySaving ? 'Saving...' : hasCalendarId ? 'Import Availability from Google Calendar' : 'Save Manual Availability'}
                 </button>
-                <p className="mt-1 text-[10px] text-zinc-500">Calendar ID stored for future automated import. Availability appears for agents immediately.</p>
+                <p className="mt-1 text-[10px] text-zinc-500">Calendar ID, imported windows, and manual notes are stored on the page and appear for agents immediately.</p>
               </div>
 
               {/* Get Verified flow for Trust Score (polished) */}
@@ -1884,6 +1905,10 @@ function LinkPanel({
       </div>
     </div>
   )
+}
+
+function stripAvailabilityMarker(note: string | null | undefined) {
+  return (note || '').split('||WINDOWS||')[0].trim()
 }
 
 function DisabledRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { deriveAvailabilityWindows, type BusyPeriod } from '../../../../../lib/integrations'
 
 /**
- * Google Calendar Availability Import (Phase 3).
+ * Google Calendar Availability Import.
  *
  * Real path: POST { calendarId, accessToken } → live Google Calendar freeBusy
  * API. Busy periods are subtracted from business hours to derive open windows.
@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     status: 'ok',
-    message: 'POST { calendarId: "..." } to import stub availability windows.',
-    note: 'This is the Phase 3 stub. Real Google Calendar API integration documented in the route.',
+    message: 'POST { calendarId: "..." } to create agent-readable availability windows.',
+    note: 'Add accessToken for live Google Calendar free/busy. Without a token, Nexez returns deterministic sample windows so page setup can continue.',
   })
 }
