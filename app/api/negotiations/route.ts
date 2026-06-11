@@ -159,6 +159,9 @@ export async function POST(request: Request) {
       // The agreed amount once accepted/countered — agents can surface the price
       // they're committing to; the owner can take it straight to escrow.
       amountCents: result.amountCents ?? null,
+      // Hybrid settlement path: 'auto' (buyer may pay now) | 'awaiting_approval' (seller
+      // must approve first) | null. Lets the buyer agent know whether to call /pay.
+      settlementState: result.settlementState ?? null,
       next: getNextStep(legacyEscrowMode),
       publicPageUrl: `${baseUrl}/${page.slug}`,
       // New intelligent engine fields

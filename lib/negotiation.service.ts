@@ -4,6 +4,7 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../utils/supabase/admin'
 import { createLLMAdapter, NegotiationDecision, NegotiationAction } from './llm-engine/index';
 import { evaluateProposal } from './offer-rules';
 import { AgentPage, getCheckoutOffer } from './agent-page';
+import { getAutoSettleCeilingCents, classifySettlement, SettlementState } from './settlement';
 
 /**
  * Core Negotiation Service - the brain of the Intelligent Negotiation Engine.
@@ -85,6 +86,7 @@ export class NegotiationService {
     history: ConversationTurn[];
     statusToken?: string;
     amountCents?: number | null;
+    settlementState?: SettlementState | null;
   }> {
     const { slug, offerKey, buyerProposal, negotiationId, statusToken } = params;
 
@@ -184,8 +186,16 @@ export class NegotiationService {
         ? buyerProposal.proposedPriceCents
         : null);
 
+    // Hybrid settlement: at agreement time, classify into the autonomous (low-value)
+    // path or the owner-approval (high-value) path. Only set when an agreement is
+    // reached with a concrete amount; otherwise left null so it isn't clobbered.
+    let settlementState: SettlementState | null = null;
+    if (newStatus === 'agreement_proposed' && agreedAmountCents != null && agreedAmountCents > 0) {
+      settlementState = classifySettlement(agreedAmountCents, getAutoSettleCeilingCents(offer));
+    }
+
     // 10. Persist to dedicated negotiation_messages table + update negotiation status
-    await this.persistHistoryAndStatus(negotiation.id, newStatus, [buyerTurn, sellerTurn], llmDecision, rulesEval, agreedAmountCents);
+    await this.persistHistoryAndStatus(negotiation.id, newStatus, [buyerTurn, sellerTurn], llmDecision, rulesEval, agreedAmountCents, settlementState);
 
     // 11. Build persistent link
     const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://nexez.app';
@@ -203,6 +213,8 @@ export class NegotiationService {
       statusToken: negotiation.status_token || undefined,
       // The agreed amount in cents once accepted/countered (else the prior value, or null).
       amountCents: agreedAmountCents ?? negotiation.amount_cents ?? null,
+      // Settlement path once an agreement is reached: 'auto' | 'awaiting_approval' (else null).
+      settlementState,
     };
   }
 
@@ -236,7 +248,8 @@ export class NegotiationService {
     newTurns: ConversationTurn[],
     decision: NegotiationDecision,
     rulesEval: any,
-    agreedAmountCents: number | null = null
+    agreedAmountCents: number | null = null,
+    settlementState: SettlementState | null = null
   ) {
     // Insert each new turn as a row in negotiation_messages
     const inserts = newTurns.map(turn => ({
@@ -273,6 +286,12 @@ export class NegotiationService {
     // null for non-pricing turns so a prior agreed amount is never clobbered.
     if (agreedAmountCents != null && agreedAmountCents > 0) {
       update.amount_cents = agreedAmountCents;
+    }
+
+    // Persist the settlement path so the buyer pay endpoint + inbox know whether
+    // the agreement is autonomous or awaiting owner approval.
+    if (settlementState) {
+      update.settlement_state = settlementState;
     }
 
     const { error: updateErr } = await this.db().from('agent_negotiations').update(update).eq('id', negotiationId);

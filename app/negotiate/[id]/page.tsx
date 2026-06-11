@@ -4,6 +4,7 @@ import { createClient } from '../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 import { Handshake, Clock, Bot, User } from 'lucide-react'
 import { formatNegotiationAmount } from '../../../lib/negotiations'
+import { isPayable } from '../../../lib/settlement'
 
 /**
  * Persistent Negotiation Page - /negotiate/{negotiation_id}?token={status_token}
@@ -30,7 +31,7 @@ import { formatNegotiationAmount } from '../../../lib/negotiations'
 // and is never rendered. Deliberately absent: owner_id, buyer contact internals,
 // requested_terms, currency, Stripe ids.
 const NEGOTIATION_PAGE_SELECT =
-  'id, slug, offer_key, offer_name, status, amount_cents, metadata, status_token, updated_at'
+  'id, slug, offer_key, offer_name, status, amount_cents, settlement_state, metadata, status_token, updated_at'
 
 type NegotiationRow = {
   id: string
@@ -39,6 +40,7 @@ type NegotiationRow = {
   offer_name: string
   status: string
   amount_cents: number | null
+  settlement_state: 'auto' | 'awaiting_approval' | 'approved' | null
   metadata: any
   status_token: string | null
   updated_at: string | null
@@ -64,13 +66,15 @@ function sanitizeTurn(turn: any, isOwner: boolean) {
 
 interface Props {
   params: Promise<{ id: string }>
-  searchParams?: Promise<{ token?: string }>
+  searchParams?: Promise<{ token?: string; paid?: string; pay?: string }>
 }
 
 export default async function PersistentNegotiationPage({ params, searchParams }: Props) {
   const { id } = await params
   const sp = await searchParams
   const token = (sp?.token || '').trim()
+  const justPaid = sp?.paid === '1'
+  const payError = sp?.pay === 'error'
 
   const cookieStore = await cookies()
   const serverClient = createClient(cookieStore)
@@ -141,6 +145,13 @@ export default async function PersistentNegotiationPage({ params, searchParams }
   // a thread. The agent already has it (URL); the owner gets their own stored token.
   const formToken = viewerIsOwner ? negotiation.status_token || '' : token
 
+  // Buyer-funded settlement state for this thread.
+  const amountReady = !!negotiation.amount_cents && negotiation.amount_cents >= 50
+  const payable =
+    negotiation.status === 'agreement_proposed' && amountReady && isPayable(negotiation.settlement_state)
+  const awaitingApproval =
+    negotiation.status === 'agreement_proposed' && negotiation.settlement_state === 'awaiting_approval'
+
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white p-6">
       <div className="max-w-3xl mx-auto">
@@ -168,6 +179,42 @@ export default async function PersistentNegotiationPage({ params, searchParams }
             </div>
           </div>
         </div>
+
+        {/* Buyer-funded settlement */}
+        {justPaid && (
+          <div className="card mb-6 border border-emerald-300/40 bg-emerald-300/10">
+            <div className="text-sm font-medium text-emerald-200">Payment received — your agreement is secured.</div>
+            <div className="text-xs text-zinc-400 mt-1">The seller has been notified. This thread reflects the final status above.</div>
+          </div>
+        )}
+        {!justPaid && payError && (
+          <div className="card mb-6 border border-red-300/40 bg-red-300/10 text-sm text-red-200">
+            Payment couldn’t be started. Refresh and try again, or contact the seller.
+          </div>
+        )}
+        {!justPaid && payable && (
+          <div className="card mb-6 border border-emerald-300/30">
+            <div className="text-xs uppercase tracking-widest text-emerald-300 mb-1">Secure this agreement</div>
+            <p className="text-sm text-zinc-300 mb-3">
+              {negotiation.settlement_state === 'auto'
+                ? 'Pay now to confirm and complete this agreement.'
+                : 'Approved by the seller — pay to place the escrow hold (captured on delivery).'}
+            </p>
+            <form method="post" action="/api/negotiations/pay">
+              <input type="hidden" name="negotiationId" value={negotiation.id} />
+              <input type="hidden" name="token" value={formToken} />
+              <button type="submit" className="btn-primary">
+                Pay {formatNegotiationAmount(negotiation.amount_cents)} to secure
+              </button>
+            </form>
+            <p className="text-[10px] text-zinc-500 mt-2">Secure Stripe Checkout. Funds go to the seller; Nexez applies its platform fee.</p>
+          </div>
+        )}
+        {!justPaid && awaitingApproval && (
+          <div className="card mb-6 border border-amber-300/30 bg-amber-300/5 text-sm text-amber-200">
+            Agreement reached for {formatNegotiationAmount(negotiation.amount_cents)} — awaiting seller approval before payment. Check back shortly.
+          </div>
+        )}
 
         {lastDecision && (lastDecision.counter || lastDecision.schedulingLink || lastDecision.scope) && (
           <div className="card mb-6 border border-[#7C3AED]/30">

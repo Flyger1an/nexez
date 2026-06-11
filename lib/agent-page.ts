@@ -139,6 +139,10 @@ export type OfferRules = {
   maxRevisions?: number
   /** Project length cap, in weeks. Public-safe. */
   maxProjectWeeks?: number
+  /** Hybrid settlement ceiling, money string (e.g. "$2,000"). Agreements at/below this
+   *  amount settle autonomously (buyer self-serve, immediate capture); above it they
+   *  require owner approval before the buyer can pay. Falls back to the platform default. */
+  autoSettleMax?: string
 }
 
 /** Map our availability to a schema.org ItemAvailability URL (for JSON-LD). */

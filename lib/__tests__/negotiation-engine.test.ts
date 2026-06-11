@@ -176,6 +176,31 @@ describe('NegotiationService (with dedicated messages table)', () => {
     expect(negUpdate?.amount_cents).toBe(90000)
   })
 
+  it('classifies settlement at agreement time: auto below the ceiling, awaiting_approval above', async () => {
+    const page = {
+      id: 'p1', owner_id: 'o1', slug: 'demo',
+      services: [{ name: 'Svc', price: '$5000', offerType: 'negotiable', rules: { minPrice: '100' } }],
+      products: [],
+    }
+    let upd: any
+    dbRef.handler = (ctx: QueryContext) => {
+      if (ctx.table === 'pages') return { data: page, error: null }
+      if (ctx.table === 'agent_negotiations' && ctx.op === 'update') upd = ctx.payload
+      return { data: [], error: null }
+    }
+    const accept = () => new NegotiationService({ negotiate: vi.fn().mockResolvedValue({ action: 'accept', reasoning: 'ok' }) })
+
+    // $1,500 <= $2,000 default ceiling -> autonomous
+    const low = await accept().startOrContinue({ slug: 'demo', offerKey: 'services-0', buyerProposal: { proposedPriceCents: 150000 } })
+    expect(low.settlementState).toBe('auto')
+    expect(upd.settlement_state).toBe('auto')
+
+    // $3,000 > $2,000 -> requires owner approval
+    const high = await accept().startOrContinue({ slug: 'demo', offerKey: 'services-0', buyerProposal: { proposedPriceCents: 300000 } })
+    expect(high.settlementState).toBe('awaiting_approval')
+    expect(upd.settlement_state).toBe('awaiting_approval')
+  })
+
   it('never persists the offer private pricing rules into negotiation_messages', async () => {
     const page = {
       id: 'p1',

@@ -33,7 +33,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid Stripe signature.' }, { status: 401 })
   }
 
-  // Negotiation escrow: a manual-capture authorization (hold) completed.
+  // Idempotency: record each event id once; a conflict means we already processed it
+  // (Stripe retry / redelivery) so we no-op. Covers escrow + billing handlers below.
+  if (hasSupabaseAdminEnv()) {
+    const ledger = createAdminClient()
+    const { error: ledgerErr } = await ledger
+      .from('stripe_webhook_events')
+      .insert({ event_id: event.id, type: event.type, account: (event as { account?: string }).account ?? null })
+    if (ledgerErr) {
+      if (ledgerErr.code === '23505') {
+        return NextResponse.json({ received: true, type: event.type, duplicate: true }, { status: 200 })
+      }
+      // Don't block processing on a ledger hiccup — log and continue.
+      console.warn('[Stripe Webhook] event ledger insert failed:', ledgerErr.message)
+    }
+  }
+
+  // Negotiation escrow: a buyer-funded Checkout completed.
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
     if (session.metadata?.nexez_kind === 'negotiation_escrow' && session.metadata?.nexez_negotiation_id) {
@@ -42,12 +58,17 @@ export async function POST(request: NextRequest) {
       }
       const admin = createAdminClient()
       const piId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id ?? null
-      const { error: holdError } = await admin
+      // Hybrid settlement: 'auto' captured immediately -> complete; 'hold' authorized -> held.
+      // (Legacy escrow sessions carry no nexez_settlement; treat them as holds.)
+      const autoSettle = session.metadata?.nexez_settlement === 'auto'
+      const nextStatus = autoSettle ? 'complete' : 'held'
+      const nextEscrowMode = autoSettle ? 'captured' : 'manual_capture_created'
+      const { error: settleErr } = await admin
         .from('agent_negotiations')
-        .update({ status: 'held', escrow_mode: 'manual_capture_created', stripe_payment_intent_id: piId })
+        .update({ status: nextStatus, escrow_mode: nextEscrowMode, stripe_payment_intent_id: piId })
         .eq('id', session.metadata.nexez_negotiation_id)
-      if (holdError) console.warn('[Stripe Webhook] escrow hold update failed:', holdError.message)
-      return NextResponse.json({ received: true, type: event.type, negotiation: session.metadata.nexez_negotiation_id, held: !holdError }, { status: 200 })
+      if (settleErr) console.warn('[Stripe Webhook] escrow settle update failed:', settleErr.message)
+      return NextResponse.json({ received: true, type: event.type, negotiation: session.metadata.nexez_negotiation_id, status: nextStatus, ok: !settleErr }, { status: 200 })
     }
 
     if (session.metadata?.nexez_source === 'billing_page') {

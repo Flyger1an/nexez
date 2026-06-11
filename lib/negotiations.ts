@@ -37,6 +37,10 @@ export type AgentNegotiation = {
   amount_cents: number | null
   currency: string
   stripe_payment_intent_id: string | null
+  /** Hybrid settlement path once an agreement is reached (Burst 1). */
+  settlement_state: 'auto' | 'awaiting_approval' | 'approved' | null
+  /** Cached buyer Checkout session for idempotent pay links. */
+  stripe_checkout_session_id: string | null
   metadata: Record<string, unknown> | null
   created_at: string
   updated_at: string

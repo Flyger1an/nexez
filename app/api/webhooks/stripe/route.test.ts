@@ -7,6 +7,7 @@ const {
   createAdminClient,
   adminFrom,
   adminUpsert,
+  adminInsert,
 } = vi.hoisted(() => ({
   constructEvent: vi.fn(),
   retrieveSubscription: vi.fn(),
@@ -14,6 +15,7 @@ const {
   createAdminClient: vi.fn(),
   adminFrom: vi.fn(),
   adminUpsert: vi.fn(),
+  adminInsert: vi.fn(),
 }))
 vi.mock('stripe', () => ({
   default: class {
@@ -37,7 +39,9 @@ describe('POST /api/webhooks/stripe', () => {
     vi.clearAllMocks()
     hasSupabaseAdminEnv.mockReturnValue(false)
     adminUpsert.mockResolvedValue({ error: null })
-    adminFrom.mockReturnValue({ upsert: adminUpsert })
+    // .insert covers the new webhook event-id idempotency ledger (Burst 1).
+    adminInsert.mockResolvedValue({ error: null })
+    adminFrom.mockReturnValue({ upsert: adminUpsert, insert: adminInsert })
     createAdminClient.mockReturnValue({ from: adminFrom })
   })
   afterEach(() => vi.unstubAllEnvs())
