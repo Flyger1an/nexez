@@ -1,0 +1,78 @@
+name: Supabase Migrations
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - '.github/workflows/supabase-migrations.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - '.github/workflows/supabase-migrations.yml'
+  workflow_dispatch:
+
+jobs:
+  migration-sanity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check migration filenames
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const dir = 'supabase/migrations'
+          const files = fs.readdirSync(dir).filter((file) => file.endsWith('.sql')).sort()
+          const seen = new Map()
+          for (const file of files) {
+            const version = file.split('_')[0]
+            if (seen.has(version)) {
+              console.error(`Duplicate Supabase migration version: ${version}`)
+              console.error(`- ${seen.get(version)}`)
+              console.error(`- ${file}`)
+              process.exit(1)
+            }
+            seen.set(version, file)
+          }
+          console.log(`Checked ${files.length} Supabase migration files; no duplicate versions found.`)
+          NODE
+
+  deploy-migrations:
+    needs: migration-sanity
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Verify required secrets
+        run: |
+          missing=0
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing required GitHub Actions secret: ${name}"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Link Supabase project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+
+      - name: Show migration status
+        run: supabase migration list --linked
+
+      - name: Push pending migrations
+        run: supabase db push --linked
+
+      - name: Run security advisors
+        run: supabase db advisors --linked --type security --level info --output json --fail-on none
