@@ -139,10 +139,10 @@ export default function EmbeddedSubscriptionForm({ plan, clientSecret, onSuccess
   }
 
   return (
-    <div className="mt-4 rounded-xl border border-white/10 bg-[#0F0D18] p-5">
-      <div className="mb-4">
-        <div className="text-sm font-medium">Complete your {plan.name} subscription</div>
-        <div className="text-xs text-[#9CA3AF]">{plan.price}/{plan.cadence} • Cancel anytime via Stripe portal</div>
+    <div className="mt-2 rounded-3xl border border-white/15 bg-white/[0.025] backdrop-blur-2xl p-6 shadow-[0_10px_40px_rgb(0,0,0,0.45)]">
+      <div className="mb-5">
+        <div className="text-sm font-medium tracking-tight">Complete your {plan.name} subscription</div>
+        <div className="text-xs text-[#9CA3AF] mt-0.5">{plan.price}/{plan.cadence} • Cancel anytime via Stripe portal</div>
       </div>
 
       <Elements
