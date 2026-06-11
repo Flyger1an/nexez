@@ -5,6 +5,7 @@ import { createLLMAdapter, NegotiationDecision, NegotiationAction } from './llm-
 import { evaluateProposal } from './offer-rules';
 import { AgentPage, getCheckoutOffer } from './agent-page';
 import { getAutoSettleCeilingCents, classifySettlement, SettlementState } from './settlement';
+import { captureError } from './observability';
 
 /**
  * Core Negotiation Service - the brain of the Intelligent Negotiation Engine.
@@ -262,11 +263,9 @@ export class NegotiationService {
     }));
 
     if (inserts.length > 0) {
-      const { error: insertErr } = await this.db().from('negotiation_messages').insert(inserts);
-      if (insertErr) {
-        console.error('Failed to insert negotiation messages:', insertErr);
-        // continue to update status anyway
-      }
+      await this.withRetry('insert negotiation_messages', { negotiationId }, () =>
+        this.db().from('negotiation_messages').insert(inserts),
+      );
     }
 
     // Update negotiation status and keep summary in metadata for backward compat with existing inbox/UI
@@ -294,10 +293,31 @@ export class NegotiationService {
       update.settlement_state = settlementState;
     }
 
-    const { error: updateErr } = await this.db().from('agent_negotiations').update(update).eq('id', negotiationId);
-    if (updateErr) {
-      console.error('Failed to update negotiation status:', updateErr);
+    await this.withRetry('update negotiation status', { negotiationId, newStatus }, () =>
+      this.db().from('agent_negotiations').update(update).eq('id', negotiationId),
+    );
+  }
+
+  /**
+   * Run a DB write with a small bounded retry; on final failure, surface it via
+   * captureError (the reconcile-escrow cron is the money-side backstop for drift).
+   */
+  private async withRetry(
+    label: string,
+    ctx: Record<string, unknown>,
+    run: () => PromiseLike<{ error: unknown }>,
+  ): Promise<{ error: unknown }> {
+    let result: { error: unknown } = { error: null };
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      result = await run();
+      if (!result.error) return result;
+      if (attempt < 3) await new Promise((r) => setTimeout(r, 150 * attempt));
     }
+    captureError(new Error(`${label} failed after retries`), {
+      ...ctx,
+      dbError: (result.error as { message?: string } | null)?.message,
+    });
+    return result;
   }
 
   private async loadPublishedPage(slug: string) {

@@ -9,6 +9,9 @@ export const NEGOTIATION_STATUSES = [
   'complete',
   'declined',
   'expired',
+  // Burst 2: post-settlement reversals (owner refund, or a buyer chargeback).
+  'refunded',
+  'disputed',
 ] as const
 
 export type NegotiationStatus = (typeof NEGOTIATION_STATUSES)[number]
@@ -54,9 +57,11 @@ const STATUS_LABELS: Record<NegotiationStatus, string> = {
   complete: 'Complete',
   declined: 'Declined',
   expired: 'Expired',
+  refunded: 'Refunded',
+  disputed: 'Disputed (chargeback)',
 }
 
-const TERMINAL_STATUSES: NegotiationStatus[] = ['complete', 'declined', 'expired']
+const TERMINAL_STATUSES: NegotiationStatus[] = ['complete', 'declined', 'expired', 'refunded', 'disputed']
 
 export function getNegotiationStatusLabel(status: NegotiationStatus): string {
   return STATUS_LABELS[status] ?? status
@@ -151,7 +156,13 @@ export function summarizeNegotiations(list: Pick<AgentNegotiation, 'status'>[]):
     else if (item.status === 'agreement_proposed') summary.proposed += 1
     else if (item.status === 'held') summary.held += 1
     else if (item.status === 'complete') summary.complete += 1
-    else if (item.status === 'declined' || item.status === 'expired') summary.declined += 1
+    else if (
+      item.status === 'declined' ||
+      item.status === 'expired' ||
+      item.status === 'refunded' ||
+      item.status === 'disputed'
+    )
+      summary.declined += 1
   }
 
   return summary

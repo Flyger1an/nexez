@@ -44,6 +44,9 @@ const TRANSITION_LABEL: Record<NegotiationStatus, string> = {
   complete: 'Mark complete',
   declined: 'Decline',
   expired: 'Mark expired',
+  // Set by the refund action / Stripe webhook, never offered as a manual transition.
+  refunded: 'Refunded',
+  disputed: 'Disputed',
 }
 
 function transitionTone(to: NegotiationStatus): string {
@@ -187,7 +190,8 @@ export default function NegotiationsInbox() {
   //  - approve → unlock a high-value agreement so the buyer's pay link activates.
   //  - capture → capture the buyer's held authorization → 'complete'.
   //  - cancel  → release the hold → 'declined'.
-  async function runEscrow(item: AgentNegotiation, action: 'approve' | 'capture' | 'cancel') {
+  async function runEscrow(item: AgentNegotiation, action: 'approve' | 'capture' | 'cancel' | 'refund') {
+    if (action === 'refund' && !window.confirm('Refund this payment to the buyer? This cannot be undone.')) return
     setUpdatingId(item.id)
     setMessage('')
     try {
@@ -206,7 +210,9 @@ export default function NegotiationsInbox() {
           ? 'Approved — the buyer can now pay to secure the agreement.'
           : action === 'capture'
             ? 'Funds captured — negotiation complete.'
-            : 'Escrow hold released.'
+            : action === 'refund'
+              ? 'Payment refunded to the buyer.'
+              : 'Escrow hold released.'
       setMessage(msg)
       await load()
     } catch (err) {
@@ -336,7 +342,7 @@ function NegotiationCard({
   item: AgentNegotiation
   updating: boolean
   onTransition: (to: NegotiationStatus) => void
-  onEscrow: (action: 'approve' | 'capture' | 'cancel') => void
+  onEscrow: (action: 'approve' | 'capture' | 'cancel' | 'refund') => void
   onSaveAmount: (dollars: number) => void
   onRefresh?: () => void
 }) {
@@ -350,6 +356,8 @@ function NegotiationCard({
   const isEscrowCapture = (to: NegotiationStatus) => escrowAvailable && item.status === 'held' && to === 'complete'
   const isEscrowRelease = (to: NegotiationStatus) => escrowAvailable && item.status === 'held' && to === 'declined'
   const ownerTransitions = transitions.filter((to) => to !== 'held')
+  // A captured payment can be refunded back to the buyer.
+  const canRefund = item.status === 'complete' && escrowAvailable && !!item.stripe_payment_intent_id
 
   // Hybrid settlement at 'agreement_proposed': high value waits on owner approval,
   // low value (or approved) is just awaiting the buyer's payment.
@@ -454,7 +462,7 @@ function NegotiationCard({
           </span>
         )}
 
-        {ownerTransitions.length === 0 ? (
+        {ownerTransitions.length === 0 && !canRefund ? (
           <span className="text-xs text-zinc-500">Negotiation closed.</span>
         ) : (
           ownerTransitions.map((to) => (
@@ -468,6 +476,18 @@ function NegotiationCard({
               {labelFor(to)}
             </button>
           ))
+        )}
+
+        {/* Refund a captured payment back to the buyer (→ status 'refunded'). */}
+        {canRefund && (
+          <button
+            disabled={updating}
+            onClick={() => onEscrow('refund')}
+            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-amber-300/30 bg-amber-300/10 px-3 text-xs font-medium text-amber-100 transition hover:bg-amber-300/20 disabled:opacity-50"
+          >
+            {updating ? <Loader2 className="size-3.5 animate-spin" /> : <XCircle className="size-3.5" />}
+            Refund buyer
+          </button>
         )}
         {(item.status === 'agreement_proposed' || item.status === 'held' || item.status === 'complete') && (
           <a

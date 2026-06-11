@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { createSupabaseMock, type QueryContext } from '../../../../test/supabase-mock'
 
 const {
   constructEvent,
@@ -176,5 +177,68 @@ describe('POST /api/webhooks/stripe', () => {
       }),
       { onConflict: 'owner_id' },
     )
+  })
+
+  // Burst 2: refund / dispute / cancel reversals matched by payment intent.
+  describe('escrow reversals', () => {
+    function withNeg(neg: any) {
+      let updated: any
+      hasSupabaseAdminEnv.mockReturnValue(true)
+      createAdminClient.mockReturnValue(
+        createSupabaseMock((ctx: QueryContext) => {
+          if (ctx.table === 'agent_negotiations' && ctx.op === 'update') updated = ctx.payload
+          if (ctx.table === 'agent_negotiations') return { data: neg, error: null }
+          return { data: null, error: null } // stripe_webhook_events dedupe insert: no conflict
+        }) as any,
+      )
+      return () => updated
+    }
+
+    beforeEach(() => vi.stubEnv('STRIPE_WEBHOOK_SECRET', 'whsec_test'))
+
+    it('charge.refunded → refunded', async () => {
+      const getUpd = withNeg({ id: 'n1', status: 'complete', metadata: {} })
+      constructEvent.mockReturnValue({ id: 'evt_r', type: 'charge.refunded', data: { object: { payment_intent: 'pi_1', amount_refunded: 9000 } } })
+      const res = await POST(post({ sig: 'good', body: '{}' }))
+      expect(res.status).toBe(200)
+      expect(getUpd().status).toBe('refunded')
+    })
+
+    it('charge.dispute.created → disputed', async () => {
+      const getUpd = withNeg({ id: 'n1', status: 'complete', metadata: {} })
+      constructEvent.mockReturnValue({ id: 'evt_d', type: 'charge.dispute.created', data: { object: { payment_intent: 'pi_1', reason: 'fraudulent', amount: 9000, status: 'needs_response' } } })
+      await POST(post({ sig: 'good', body: '{}' }))
+      const upd = getUpd()
+      expect(upd.status).toBe('disputed')
+      expect((upd.metadata as any).dispute.reason).toBe('fraudulent')
+    })
+
+    it('charge.dispute.closed lost → refunded, won → complete', async () => {
+      const getLost = withNeg({ id: 'n1', status: 'disputed', metadata: {} })
+      constructEvent.mockReturnValue({ id: 'evt_dl', type: 'charge.dispute.closed', data: { object: { payment_intent: 'pi_1', status: 'lost' } } })
+      await POST(post({ sig: 'good', body: '{}' }))
+      expect(getLost().status).toBe('refunded')
+
+      const getWon = withNeg({ id: 'n1', status: 'disputed', metadata: {} })
+      constructEvent.mockReturnValue({ id: 'evt_dw', type: 'charge.dispute.closed', data: { object: { payment_intent: 'pi_1', status: 'won' } } })
+      await POST(post({ sig: 'good', body: '{}' }))
+      expect(getWon().status).toBe('complete')
+    })
+
+    it('payment_intent.canceled flips a held negotiation to declined', async () => {
+      const getUpd = withNeg({ id: 'n1', status: 'held', metadata: {} })
+      constructEvent.mockReturnValue({ id: 'evt_c', type: 'payment_intent.canceled', data: { object: { id: 'pi_1' } } })
+      await POST(post({ sig: 'good', body: '{}' }))
+      expect(getUpd().status).toBe('declined')
+    })
+
+    it('no matching negotiation → 200, no change', async () => {
+      hasSupabaseAdminEnv.mockReturnValue(true)
+      createAdminClient.mockReturnValue(createSupabaseMock(() => ({ data: null, error: null })) as any)
+      constructEvent.mockReturnValue({ id: 'evt_x', type: 'charge.refunded', data: { object: { payment_intent: 'pi_unknown' } } })
+      const res = await POST(post({ sig: 'good', body: '{}' }))
+      expect(res.status).toBe(200)
+      expect((await res.json()).matched).toBe(false)
+    })
   })
 })

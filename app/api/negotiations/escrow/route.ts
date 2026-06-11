@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-  let body: { negotiationId?: string; action?: 'approve' | 'capture' | 'cancel' }
+  let body: { negotiationId?: string; action?: 'approve' | 'capture' | 'cancel' | 'refund' }
   try {
     body = await request.json()
   } catch {
@@ -113,6 +113,32 @@ export async function POST(request: Request) {
         .eq('id', negotiation.id)
         .eq('owner_id', user.id)
       return NextResponse.json({ ok: true, action, status: 'declined' })
+    }
+
+    if (action === 'refund') {
+      // Refund a captured payment. The charge.refunded webhook also flips status,
+      // but doing it here gives the owner immediate feedback (idempotency-keyed so
+      // the webhook + this call can't double-refund).
+      if (negotiation.status !== 'complete' || !negotiation.stripe_payment_intent_id) {
+        return NextResponse.json({ error: 'Only a completed payment can be refunded.' }, { status: 409 })
+      }
+      const refund = await stripe.refunds.create(
+        { payment_intent: negotiation.stripe_payment_intent_id },
+        { ...(stripeAccount ? { stripeAccount } : {}), idempotencyKey: `refund-${negotiation.id}` },
+      )
+      await supabase
+        .from('agent_negotiations')
+        .update({
+          status: 'refunded',
+          updated_at: new Date().toISOString(),
+          metadata: {
+            ...((negotiation.metadata as Record<string, unknown>) || {}),
+            refund: { id: refund.id, amount_cents: refund.amount ?? null, source: 'owner_action', at: new Date().toISOString() },
+          },
+        })
+        .eq('id', negotiation.id)
+        .eq('owner_id', user.id)
+      return NextResponse.json({ ok: true, action, status: 'refunded', refundId: refund.id })
     }
 
     return NextResponse.json({ error: 'Unknown action.' }, { status: 400 })

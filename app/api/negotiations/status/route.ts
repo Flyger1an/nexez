@@ -94,5 +94,9 @@ function getAgentNextStep(status: NegotiationStatus, settlement?: SettlementStat
       return 'The seller declined this proposal. You may submit a revised offer.'
     case 'expired':
       return 'This proposal expired. Submit a new one if still interested.'
+    case 'refunded':
+      return 'This payment was refunded. Submit a new proposal if still interested.'
+    case 'disputed':
+      return 'This payment is under dispute. The seller has been notified; no action needed.'
   }
 }

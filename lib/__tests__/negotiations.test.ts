@@ -123,6 +123,33 @@ describe('summarizeNegotiations', () => {
   })
 })
 
+describe('refunded / disputed statuses (Burst 2)', () => {
+  it('have labels and are terminal', () => {
+    expect(getNegotiationStatusLabel('refunded')).toBe('Refunded')
+    expect(getNegotiationStatusLabel('disputed')).toBe('Disputed (chargeback)')
+    expect(isTerminalNegotiationStatus('refunded')).toBe(true)
+    expect(isTerminalNegotiationStatus('disputed')).toBe(true)
+  })
+
+  it('are never offered as manual transition targets', () => {
+    expect(getAllowedNegotiationTransitions('complete', { escrowAvailable: true })).toEqual([])
+    expect(canTransitionNegotiation('complete', 'refunded', { escrowAvailable: true })).toBe(false)
+    expect(getAllowedNegotiationTransitions('refunded')).toEqual([])
+    expect(getAllowedNegotiationTransitions('disputed')).toEqual([])
+  })
+
+  it('count toward the terminal/closed bucket in the summary', () => {
+    const s = summarizeNegotiations([{ status: 'refunded' }, { status: 'disputed' }, { status: 'declined' }])
+    expect(s.total).toBe(3)
+    expect(s.declined).toBe(3)
+  })
+
+  it('render with a muted tone', () => {
+    expect(getNegotiationStatusTone('refunded')).toBe('muted')
+    expect(getNegotiationStatusTone('disputed')).toBe('muted')
+  })
+})
+
 describe('formatNegotiationAmount', () => {
   it('formats cents as currency', () => {
     expect(formatNegotiationAmount(12500, 'usd')).toBe('$125.00')

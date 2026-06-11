@@ -84,6 +84,75 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true, type: event.type }, { status: 200 })
   }
 
+  // Negotiation escrow reversals — matched to a negotiation by its stored payment
+  // intent (works for connected-account events, which carry the same PI). All behind
+  // the event-id idempotency ledger above.
+  if (
+    event.type === 'charge.refunded' ||
+    event.type === 'charge.dispute.created' ||
+    event.type === 'charge.dispute.closed' ||
+    event.type === 'payment_intent.canceled'
+  ) {
+    if (!hasSupabaseAdminEnv()) {
+      return NextResponse.json({ received: true, type: event.type, note: 'SUPABASE_SERVICE_ROLE_KEY required' }, { status: 200 })
+    }
+    const admin = createAdminClient()
+    const obj = event.data.object as {
+      id?: string
+      payment_intent?: string | { id?: string } | null
+      amount?: number
+      amount_refunded?: number
+      reason?: string
+      status?: string
+    }
+    const piId =
+      typeof obj.payment_intent === 'string'
+        ? obj.payment_intent
+        : obj.payment_intent?.id ?? (event.type === 'payment_intent.canceled' ? obj.id ?? null : null)
+    if (!piId) {
+      return NextResponse.json({ received: true, type: event.type, matched: false }, { status: 200 })
+    }
+
+    const { data: neg } = await admin
+      .from('agent_negotiations')
+      .select('id, status, metadata')
+      .eq('stripe_payment_intent_id', piId)
+      .maybeSingle<{ id: string; status: string; metadata: Record<string, unknown> | null }>()
+    if (!neg) {
+      return NextResponse.json({ received: true, type: event.type, matched: false }, { status: 200 })
+    }
+
+    const baseMeta = (neg.metadata as Record<string, unknown>) || {}
+    const now = new Date().toISOString()
+    let update: Record<string, unknown> | null = null
+
+    if (event.type === 'charge.refunded') {
+      update = { status: 'refunded', metadata: { ...baseMeta, refund: { source: 'stripe_webhook', amount_cents: obj.amount_refunded ?? null, at: now } } }
+    } else if (event.type === 'charge.dispute.created') {
+      update = { status: 'disputed', metadata: { ...baseMeta, dispute: { reason: obj.reason ?? null, amount_cents: obj.amount ?? null, status: obj.status ?? null, at: now } } }
+    } else if (event.type === 'charge.dispute.closed') {
+      const won = obj.status === 'won'
+      update = won
+        ? { status: 'complete', metadata: { ...baseMeta, dispute_outcome: { result: 'won', at: now } } }
+        : { status: 'refunded', metadata: { ...baseMeta, dispute_outcome: { result: obj.status ?? 'lost', at: now } } }
+    } else if (event.type === 'payment_intent.canceled') {
+      // Only meaningful if we still think funds are held (hold released out-of-band).
+      if (neg.status === 'held') update = { status: 'declined' }
+    }
+
+    if (!update) {
+      return NextResponse.json({ received: true, type: event.type, negotiation: neg.id, changed: false }, { status: 200 })
+    }
+    update.updated_at = now
+    const { error: upErr } = await admin.from('agent_negotiations').update(update).eq('id', neg.id)
+    if (upErr) {
+      console.warn('[Stripe Webhook] reversal update failed:', upErr.message)
+      await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
+      return NextResponse.json({ error: 'reversal update failed', type: event.type }, { status: 500 })
+    }
+    return NextResponse.json({ received: true, type: event.type, negotiation: neg.id, status: update.status }, { status: 200 })
+  }
+
   if (
     event.type === 'customer.subscription.created' ||
     event.type === 'customer.subscription.updated' ||
