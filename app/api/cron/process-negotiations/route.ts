@@ -8,6 +8,9 @@ const LIMIT = 50
 // Only re-drive rows the `after()` fast path should already have handled — a short
 // grace avoids racing a decision that's mid-flight in a live request.
 const STALE_MS = 2 * 60_000
+// Skip rows another worker is actively processing (lease still fresh); re-pick a
+// crashed worker's row once its lease expires. Matches the service's claim lease.
+const LEASE_MS = 90_000
 // A row still pending this long means a persistently failing provider/key — alert.
 const STUCK_MS = 15 * 60_000
 export const maxDuration = 60
@@ -43,6 +46,9 @@ export async function GET(request: Request) {
     .select('id, decision_requested_at')
     .eq('decision_pending', true)
     .lt('decision_requested_at', new Date(now - STALE_MS).toISOString())
+    // Don't re-drive a row whose lease is still fresh (after() or another cron run
+    // is on it); the claim would no-op anyway, but this avoids the wasted work.
+    .or(`decision_claimed_at.is.null,decision_claimed_at.lt.${new Date(now - LEASE_MS).toISOString()}`)
     .order('decision_requested_at', { ascending: true }) // oldest first — fairness
     .limit(LIMIT)
 

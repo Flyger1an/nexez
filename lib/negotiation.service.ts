@@ -122,6 +122,8 @@ export class NegotiationService {
           .update({
             decision_pending: true,
             decision_requested_at: new Date().toISOString(),
+            // Clear any prior lease so the new turn can be claimed.
+            decision_claimed_at: null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', negotiation.id),
@@ -168,18 +170,26 @@ export class NegotiationService {
     }
   }
 
+  /** A claim lease longer than the LLM ever takes (p95 ~6s, maxDuration 60s). */
+  private static readonly CLAIM_LEASE_MS = 90_000;
+
   /**
-   * Atomically claim a pending decision. Postgres serializes the two concurrent
-   * `... WHERE decision_pending = true` updates (after() vs. cron): the winner
-   * flips it false and the UPDATE returns the row; the loser matches zero rows.
-   * Returns the claimed row, or null when already claimed / not pending.
+   * Atomically claim a pending decision via a short LEASE. The conditional UPDATE
+   * stamps decision_claimed_at only when the row is pending AND unleased (or its
+   * lease expired). Postgres serializes the two concurrent updates (after() vs.
+   * cron): the winner's WHERE matches and returns the row; the loser sees the
+   * fresh lease and matches zero rows. decision_pending stays TRUE — agents keep
+   * seeing "responding" — until persistDecision clears it. A crashed worker's
+   * lease expires so the backstop cron can re-drive it. Null = lost / not pending.
    */
   private async claimPendingDecision(id: string): Promise<any | null> {
+    const leaseCutoff = new Date(Date.now() - NegotiationService.CLAIM_LEASE_MS).toISOString();
     const { data, error } = await this.db()
       .from('agent_negotiations')
-      .update({ decision_pending: false, updated_at: new Date().toISOString() })
+      .update({ decision_claimed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', id)
       .eq('decision_pending', true)
+      .or(`decision_claimed_at.is.null,decision_claimed_at.lt.${leaseCutoff}`)
       .select('id, slug, offer_key, status, status_token, amount_cents, decision_seq, metadata');
 
     if (error) {
@@ -342,6 +352,10 @@ export class NegotiationService {
       status: newStatus,
       updated_at: new Date().toISOString(),
       decision_seq: decisionSeq,
+      // The decision is now durably written — clear the pending flag (agents stop
+      // seeing "responding") and release the lease.
+      decision_pending: false,
+      decision_claimed_at: null,
       metadata: {
         last_decision: decision,
         rules_evaluation: rulesEval,

@@ -47,6 +47,7 @@ function seedNegotiationDb(page: any, opts: { llmFails?: boolean } = {}) {
     inserted: null as any,
     messages: [] as any[],
     finalUpdates: [] as any[],
+    claimPayload: null as any,
     claimCount: 0,
   }
 
@@ -62,6 +63,7 @@ function seedNegotiationDb(page: any, opts: { llmFails?: boolean } = {}) {
         // The atomic claim filters on decision_pending=true and .select()s the row.
         if (ctx.eqs.decision_pending === true) {
           state.claimCount += 1
+          state.claimPayload = ctx.payload
           if (state.claimCount > 1) return { data: [], error: null } // already claimed → loser
           return {
             data: [
@@ -286,6 +288,22 @@ describe('NegotiationService.runDecision (async phase — LLM + claim)', () => {
     const seller = state.messages.find((m) => m.role === 'seller_llm')
     expect(seller).toBeTruthy()
     expect(state.finalUpdates.at(-1)?.decision_seq).toBe(1)
+  })
+
+  it('claims via a lease (keeps decision_pending true); only the final write clears it', async () => {
+    // Regression: clearing decision_pending at claim time created a "limbo" window
+    // where /status showed not-pending with no decision yet (LLM still running).
+    const state = seedNegotiationDb(demoPage())
+    const service = new NegotiationService(okLLM({ action: 'counter', reasoning: 'r' }))
+    const s = await service.submitProposal({ slug: 'demo', offerKey: 'services-0', buyerProposal: { proposedPriceCents: 90000 } })
+    await service.runDecision(s.negotiationId)
+
+    // The claim stamps the lease and must NOT touch decision_pending.
+    expect(state.claimPayload?.decision_claimed_at).toBeTruthy()
+    expect('decision_pending' in state.claimPayload).toBe(false)
+    // Only the durable decision write clears it (and releases the lease).
+    expect(state.finalUpdates.at(-1)?.decision_pending).toBe(false)
+    expect(state.finalUpdates.at(-1)?.decision_claimed_at).toBeNull()
   })
 
   it('runs the decision exactly once under two concurrent runDecision calls', async () => {
