@@ -1,3 +1,9 @@
+-- Burst 2: a won chargeback (charge.dispute.closed, status 'won') restores the
+-- negotiation to 'complete' from 'disputed'. The money-safety trigger otherwise
+-- blocks complete-with-PI unless coming from 'held' or an 'auto' settlement, so
+-- widen the allowed prior states to include 'disputed'. Keeps the search_path pin.
+-- Idempotent (create or replace).
+
 create or replace function public.nz_negotiation_money_safety()
 returns trigger
 language plpgsql
