@@ -37,6 +37,7 @@ import { createClient } from '../../utils/supabase/client'
 const agentTabs = ['ChatGPT', 'Claude', 'Grok', 'Perplexity', 'Generic Agent', 'LLM-Enhanced']
 
 export default function GlobalAgentSimulator() {
+  const [hydrated, setHydrated] = useState(false)
   const [loading, setLoading] = useState(false)
   const [myPages, setMyPages] = useState<AgentPage[]>([])
   const [selectedPage, setSelectedPage] = useState<AgentPage | null>(null)
@@ -57,6 +58,10 @@ export default function GlobalAgentSimulator() {
   function isMissingColumnError(error: { code?: string; message?: string }) {
     return error.code === '42703' || /column .* does not exist/i.test(error.message ?? '')
   }
+
+  useEffect(() => {
+    setHydrated(true)
+  }, [])
 
   async function fetchOwnedPublishedPages(ownerId: string) {
     const result = await supabase
@@ -136,7 +141,8 @@ export default function GlobalAgentSimulator() {
     try {
       const effectiveQuery = nextQuery.trim() || buildDefaultAgentQuery(page)
       const multi = runMultiAgentSimulation(page, effectiveQuery, window.location.origin)
-      setSimulationResults(multi.results)
+      let finalResults = multi.results
+      setSimulationResults(finalResults)
       setRecommendations(getRecommendations(page))
       if (effectiveQuery !== query) setQuery(effectiveQuery)
 
@@ -150,17 +156,20 @@ export default function GlobalAgentSimulator() {
           })
           const llmData = await llmRes.json()
           if (llmData?.naturalLanguage) {
-            // Enhance the first result or add LLM tab
-            const enhancedResults = [...multi.results]
-            if (enhancedResults[0]) {
-              enhancedResults[0] = {
-                ...enhancedResults[0],
-                agent: 'LLM-Enhanced',
-                naturalLanguage: llmData.naturalLanguage,
-                llmEnhanced: true,
-              } as any
+            const firstResult = multi.results[0]
+            if (firstResult) {
+              finalResults = [
+                ...multi.results,
+                {
+                  ...firstResult,
+                  agent: 'LLM-Enhanced',
+                  naturalLanguage: llmData.naturalLanguage,
+                  llmEnhanced: true,
+                } as any,
+              ]
+              setCurrentAgent('LLM-Enhanced')
+              setSimulationResults(finalResults)
             }
-            setSimulationResults(enhancedResults as any)
           }
         } catch (e) {
           // fallback to deterministic
@@ -171,7 +180,7 @@ export default function GlobalAgentSimulator() {
       if (isLoggedIn) {
         const { data: { user } } = await supabase.auth.getUser()
         if (user && (page as any).owner_id === user.id) {
-          const newSim = buildSimulationHistoryEntry(page, effectiveQuery, window.location.origin)
+          const newSim = buildSimulationHistoryEntry(page, effectiveQuery, window.location.origin, finalResults)
 
           const existing = Array.isArray((page as any).simulations) ? (page as any).simulations : history
           const updated = [newSim, ...existing].slice(0, 20)
@@ -192,10 +201,6 @@ export default function GlobalAgentSimulator() {
           }
         }
       }
-
-      // Always show current agent's result
-      const current = multi.results.find(r => r.agent === currentAgent) || multi.results[0]
-      setSimulationResults(multi.results)
     } catch (e: any) {
       setMessage('Simulation failed: ' + (e.message || 'unknown'))
     } finally {
@@ -369,6 +374,7 @@ export default function GlobalAgentSimulator() {
                     <button
                       key={p.id}
                       onClick={() => handleSelectMyPage(p)}
+                      disabled={!hydrated || loading}
                       className={`rounded border px-3 py-1 text-sm ${selectedPage?.id === p.id ? 'border-[#7C3AED] bg-[#7C3AED]/10' : 'border-white/15 hover:bg-white/5'}`}
                     >
                       {p.name}
@@ -388,9 +394,10 @@ export default function GlobalAgentSimulator() {
                   value={pasteSlug}
                   onChange={(e) => setPasteSlug(e.target.value)}
                   placeholder="my-offers or https://nexez.com/my-offers"
+                  disabled={!hydrated || loading}
                   className="input flex-1"
                 />
-                <button onClick={handlePasteAnalyze} disabled={loading} className="btn-primary">
+                <button onClick={handlePasteAnalyze} disabled={!hydrated || loading || !pasteSlug.trim()} className="btn-primary">
                   {loading ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />} Analyze
                 </button>
               </div>
@@ -406,8 +413,9 @@ export default function GlobalAgentSimulator() {
                 onChange={(e) => setQuery(e.target.value)}
                 className="input flex-1"
                 placeholder="Agent query"
+                disabled={!hydrated || loading}
               />
-              <button onClick={regenerate} disabled={loading} className="btn-ghost">
+              <button onClick={regenerate} disabled={!hydrated || loading} className="btn-ghost">
                 <RefreshCw className="size-4" /> Rerun
               </button>
               <a href={`/${selectedPage.slug}`} target="_blank" className="btn-secondary inline-flex items-center gap-1">

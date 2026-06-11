@@ -685,10 +685,12 @@ function formatEventTime(value: string) {
     return 'Recently'
   }
 
-  return date.toLocaleDateString('en-US', {
+  return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-  })
+    timeZone: 'UTC',
+    timeZoneName: 'short',
+  }).format(date)
 }

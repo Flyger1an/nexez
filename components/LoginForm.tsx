@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { NexezLogo } from './NexezLogo'
 import {
   Bot,
@@ -31,6 +31,11 @@ function scorePassword(pw: string): { score: number; label: string; color: strin
 }
 
 export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: LoginMode; nextPath?: string }) {
+  const [hydrated, setHydrated] = useState(false)
+  const formRef = useRef<HTMLFormElement>(null)
+  const submitButtonRef = useRef<HTMLButtonElement>(null)
+  const submitHandlerRef = useRef<(event: Event) => void>(() => {})
+  const loadingRef = useRef(false)
   const [mode, setMode] = useState<LoginMode>(initialMode)
   const [fullName, setFullName] = useState('')
   const [company, setCompany] = useState('')
@@ -84,38 +89,57 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
     }
   }
 
-  function validate(): string | null {
+  function getFormValues() {
+    const form = formRef.current
+    const data = form ? new FormData(form) : null
+
+    return {
+      fullName: String(data?.get('fullName') ?? fullName).trim(),
+      company: String(data?.get('company') ?? company).trim(),
+      industry: String(data?.get('industry') ?? industry),
+      email: String(data?.get('email') ?? email).trim(),
+      password: String(data?.get('password') ?? password),
+      confirm: String(data?.get('confirm') ?? confirm),
+      agree: data ? data.get('agree') === 'on' : agree,
+    }
+  }
+
+  function validate(values = getFormValues()): string | null {
     if (mode === 'reset') {
-      if (!email.trim()) return 'Enter the email associated with your account.'
+      if (!values.email) return 'Enter the email associated with your account.'
       return null
     }
-    if (!email.trim()) return 'Email is required.'
-    if (!password) return 'Password is required.'
+    if (!values.email) return 'Email is required.'
+    if (!values.password) return 'Password is required.'
     if (mode === 'signup') {
-      if (!fullName.trim()) return 'Please enter your full name.'
-      if (!company.trim()) return 'Please enter your company or business name.'
-      if (password.length < 8) return 'Password must be at least 8 characters.'
-      if (password !== confirm) return 'Passwords do not match.'
-      if (!agree) return 'Please accept the Terms and Privacy Policy to continue.'
+      if (!values.fullName) return 'Please enter your full name.'
+      if (!values.company) return 'Please enter your company or business name.'
+      if (values.password.length < 8) return 'Password must be at least 8 characters.'
+      if (values.password !== values.confirm) return 'Passwords do not match.'
+      if (!values.agree) return 'Please accept the Terms and Privacy Policy to continue.'
     }
     return null
   }
 
-  async function handleSubmit(event: React.FormEvent) {
+  async function handleSubmit(event: Pick<Event, 'preventDefault'>) {
     event.preventDefault()
-    const validationError = validate()
+    if (loadingRef.current) return
+
+    const values = getFormValues()
+    const validationError = validate(values)
     if (validationError) {
       setError(validationError)
       return
     }
 
+    loadingRef.current = true
     setLoading(true)
     setMessage('')
     const supabase = createClient()
 
     try {
       if (mode === 'reset') {
-        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
           redirectTo: `${window.location.origin}/auth/callback`,
         })
         if (error) return setError(error.message)
@@ -123,18 +147,18 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
       }
 
       if (mode === 'signin') {
-        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+        const { error } = await supabase.auth.signInWithPassword({ email: values.email, password: values.password })
         if (error) return setError(error.message)
       } else {
         const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password,
+          email: values.email,
+          password: values.password,
           options: {
             emailRedirectTo: `${window.location.origin}/auth/callback`,
             data: {
-              full_name: fullName.trim(),
-              company: company.trim(),
-              industry: industry || null,
+              full_name: values.fullName,
+              company: values.company,
+              industry: values.industry || null,
             },
           },
         })
@@ -147,9 +171,33 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
       const next = new URLSearchParams(window.location.search).get('next') || nextPath || '/dashboard'
       window.location.href = next
     } finally {
+      loadingRef.current = false
       setLoading(false)
     }
   }
+
+  useLayoutEffect(() => {
+    submitHandlerRef.current = (event: Event) => {
+      void handleSubmit(event)
+    }
+  })
+
+  useLayoutEffect(() => {
+    const form = formRef.current
+    const submitButton = submitButtonRef.current
+    if (!form || !submitButton) return
+
+    const onSubmit = (event: SubmitEvent) => submitHandlerRef.current(event)
+    const onSubmitClick = (event: MouseEvent) => submitHandlerRef.current(event)
+    form.addEventListener('submit', onSubmit)
+    submitButton.addEventListener('click', onSubmitClick)
+    setHydrated(true)
+
+    return () => {
+      form.removeEventListener('submit', onSubmit)
+      submitButton.removeEventListener('click', onSubmitClick)
+    }
+  }, [])
 
   const title =
     mode === 'signin' ? 'Welcome back' : mode === 'signup' ? 'Create your Nexez account' : 'Reset your password'
@@ -199,30 +247,40 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">{subtitle}</p>
               </div>
 
-              <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+              <form ref={formRef} data-hydrated={hydrated ? 'true' : 'false'} className="mt-8 space-y-4">
                 {mode === 'signup' && (
                   <>
                     <Field label="Full name" icon={<User className="size-4" />}>
                       <input
+                        name="fullName"
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         className={inputClass}
                         placeholder="Jordan Rivera"
                         autoComplete="name"
+                        disabled={!hydrated || loading}
                       />
                     </Field>
                     <Field label="Company / business name" icon={<Building2 className="size-4" />}>
                       <input
+                        name="company"
                         value={company}
                         onChange={(e) => setCompany(e.target.value)}
                         className={inputClass}
                         placeholder="Axle Plumbing Co."
                         autoComplete="organization"
+                        disabled={!hydrated || loading}
                       />
                     </Field>
                     <label className="block">
                       <span className="mb-2 block text-sm font-medium text-zinc-200">Industry (optional)</span>
-                      <select value={industry} onChange={(e) => setIndustry(e.target.value)} className={inputClass}>
+                      <select
+                        name="industry"
+                        value={industry}
+                        onChange={(e) => setIndustry(e.target.value)}
+                        className={inputClass}
+                        disabled={!hydrated || loading}
+                      >
                         <option value="">Select an industry…</option>
                         {INDUSTRIES.map((opt) => (
                           <option key={opt} value={opt}>
@@ -236,12 +294,14 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
 
                 <Field label={mode === 'reset' ? 'Account email' : 'Work email'} icon={<Mail className="size-4" />}>
                   <input
+                    name="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className={inputClass}
                     placeholder="you@company.com"
                     autoComplete="email"
+                    disabled={!hydrated || loading}
                     required
                   />
                 </Field>
@@ -251,18 +311,21 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
                   <span className="mb-2 block text-sm font-medium text-zinc-200">Password</span>
                   <div className="relative">
                     <input
+                      name="password"
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className={`${inputClass} pr-11`}
                       placeholder={mode === 'signup' ? 'At least 8 characters' : 'Your password'}
                       autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                      disabled={!hydrated || loading}
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword((s) => !s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
+                      disabled={!hydrated || loading}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white disabled:opacity-50"
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -287,12 +350,14 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
               {mode === 'signup' && (
                 <Field label="Confirm password">
                   <input
+                    name="confirm"
                     type={showPassword ? 'text' : 'password'}
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}
                     className={inputClass}
                     placeholder="Re-enter your password"
                     autoComplete="new-password"
+                    disabled={!hydrated || loading}
                     required
                   />
                   {confirm.length > 0 && confirm !== password && (
@@ -305,8 +370,10 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
                 <label className="flex items-start gap-2 text-xs leading-5 text-muted-foreground">
                   <input
                     type="checkbox"
+                    name="agree"
                     checked={agree}
                     onChange={(e) => setAgree(e.target.checked)}
+                    disabled={!hydrated || loading}
                     className="mt-0.5 size-4 rounded border-border bg-black accent-white"
                   />
                   <span>
@@ -341,8 +408,9 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
               ) : null}
 
               <button
+                ref={submitButtonRef}
                 type="submit"
-                disabled={loading}
+                disabled={!hydrated || loading}
                 className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-white px-5 text-sm font-medium text-black transition hover:bg-zinc-200 disabled:opacity-60"
               >
                 {loading ? <Loader2 className="size-4 animate-spin" /> : null}

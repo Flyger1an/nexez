@@ -28,7 +28,12 @@ export function normalizeSimulatorTarget(value: string) {
   }
 }
 
-export function buildSimulationHistoryEntry(page: AgentPage, query: string, baseUrl?: string): SimulationHistoryEntry {
+export function buildSimulationHistoryEntry(
+  page: AgentPage,
+  query: string,
+  baseUrl?: string,
+  results?: ReturnType<typeof runMultiAgentSimulation>['results'],
+): SimulationHistoryEntry {
   const multi = runMultiAgentSimulation(page, query, baseUrl)
   const timestamp = new Date().toISOString()
   const id =
@@ -43,7 +48,7 @@ export function buildSimulationHistoryEntry(page: AgentPage, query: string, base
     query,
     result: {
       query,
-      results: multi.results,
+      results: results ?? multi.results,
       recommendations: getRecommendations(page),
       overallReadiness: getReadinessScore(page),
     },

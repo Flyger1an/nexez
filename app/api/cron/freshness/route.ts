@@ -17,16 +17,17 @@ export const maxDuration = 60
  * source site (stale + has website_url). Read-only telemetry today; the report
  * is the hook for future notifications (ties into the notifications feature).
  *
- * Protected: Vercel cron sends `Authorization: Bearer ${CRON_SECRET}` when
- * CRON_SECRET is set; we require it when present.
+ * Protected: scheduled runs must send `Authorization: Bearer ${CRON_SECRET}`.
+ * Local development may run without the secret; production never should.
  */
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET
-  if (secret) {
-    const auth = request.headers.get('authorization')
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  if (!secret && process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ ok: false, error: 'cron_secret_not_configured' }, { status: 503 })
+  }
+
+  if (secret && request.headers.get('authorization') !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   if (!hasSupabaseAdminEnv()) {
