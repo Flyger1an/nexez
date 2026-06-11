@@ -43,10 +43,12 @@ test.describe('public surface', () => {
 // Dedicated E2E for simulator LLM-Enhanced tab exercising the real /api/simulate-llm route.
 // Seeds llm_opt_in=true on a test-owned published page via the settings toggle (authed),
 // then runs the paste flow which (because of llm_opt_in) triggers the deeper LLM call and
-// naturalLanguage enrichment. Uses playwright webServer-injected LLM_API_KEY (model e.g. grok-4.3).
-// Skips gracefully (CI-safe) if E2E_EMAIL/E2E_PASSWORD not provided for the test account.
+// naturalLanguage enrichment. Uses the LLM_API_KEY the dev server reads from the environment
+// (forwarded by playwright.config.ts; model e.g. grok-4.3). Skips gracefully (CI-safe) when
+// E2E_EMAIL/E2E_PASSWORD aren't provided, or when LLM_API_KEY is unset (no real LLM call possible).
 const email = process.env.E2E_EMAIL
 const password = process.env.E2E_PASSWORD
+const llmApiKey = process.env.LLM_API_KEY
 
 test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
   test('simulator LLM tab hits /api/simulate-llm + gets naturalLanguage when page llm_opt_in is seeded via settings', async ({ page }) => {
@@ -54,6 +56,7 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
     page.on('pageerror', (e) => pageErrors.push(String(e)))
 
     test.skip(!email || !password, 'set E2E_EMAIL and E2E_PASSWORD to run the seeded llm_opt_in simulator E2E')
+    test.skip(!llmApiKey, 'set LLM_API_KEY to run the seeded llm_opt_in simulator E2E (it makes a real LLM call)')
 
     // Login (same pattern as editor.spec.ts)
     await page.goto('/login', { waitUntil: 'domcontentloaded' })

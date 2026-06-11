@@ -39,6 +39,7 @@ import {
 import EmbeddedSubscriptionForm from './EmbeddedSubscriptionForm'
 import StripeConnectButton from './StripeConnectButton'
 import RefreshConnectButton from './RefreshConnectButton'
+import { GlassCard, ProgressRing, SectionHeader } from './billing-ui'
 
 import type { BillingPlan } from '../../lib/billing'
 import type { BillingSubscription } from '../../lib/stripe-billing'
@@ -54,65 +55,6 @@ const TABS = [
 ] as const
 
 type TabId = (typeof TABS)[number]['id']
-
-// Hoisted pure presentational helpers (glassmorphism + progress) — prevents "components created during render" lint errors
-function GlassCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`rounded-3xl border border-white/15 bg-white/[0.025] backdrop-blur-2xl shadow-[0_8px_30px_rgb(0,0,0,0.35)] ${className}`}>
-      {children}
-    </div>
-  )
-}
-
-function SectionHeader({ icon: Icon, title, subtitle }: { icon: any; title: string; subtitle?: string }) {
-  return (
-    <div className="mb-4 flex items-center gap-3">
-      <div className="rounded-xl bg-white/5 p-2">
-        <Icon className="size-4 text-[#9CA3AF]" />
-      </div>
-      <div>
-        <div className="text-lg font-semibold tracking-[-0.3px]">{title}</div>
-        {subtitle && <div className="text-sm text-[#9CA3AF]">{subtitle}</div>}
-      </div>
-    </div>
-  )
-}
-
-function ProgressRing({ current, limit, size = 64 }: { current: number; limit: number; size?: number }) {
-  const pct = Math.min(100, Math.max(0, Math.round((current / (limit || 1)) * 100)))
-  const radius = 26
-  const circumference = radius * 2 * Math.PI
-  const strokeDash = (pct / 100) * circumference
-  return (
-    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="rgba(255,255,255,0.08)"
-          strokeWidth="5"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="#7C3AED"
-          strokeWidth="5"
-          strokeDasharray={circumference}
-          strokeDashoffset={circumference - strokeDash}
-          strokeLinecap="round"
-        />
-      </svg>
-      <div className="absolute text-center">
-        <div className="text-lg font-semibold tracking-tighter">{pct}</div>
-        <div className="text-[9px] -mt-1 text-[#9CA3AF]">%</div>
-      </div>
-    </div>
-  )
-}
 
 interface UsageMetric {
   label: string
@@ -276,9 +218,6 @@ export default function BillingDashboardClient({
   function handleInvoiceDownload(inv: Invoice) {
     // In production this would generate a real PDF or open Stripe hosted invoice.
     // For now we surface a premium micro-interaction and offer the full portal.
-    const btnText = (document.activeElement as HTMLElement)?.textContent || ''
-    // Simple non-intrusive feedback
-    const original = inv
     // We mutate local state for the demo row to show "Downloaded"
     setInvoices((prev) =>
       prev.map((i) =>
@@ -294,67 +233,6 @@ export default function BillingDashboardClient({
     document.body.appendChild(form)
     form.submit()
     document.body.removeChild(form)
-  }
-
-  // ========== SMALL REUSABLE GLASS COMPONENTS ==========
-  // eslint-disable-next-line react-hooks/static-components
-  const GlassCard = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-    <div
-      className={`rounded-3xl border border-white/15 bg-white/[0.025] backdrop-blur-2xl shadow-[0_8px_30px_rgb(0,0,0,0.35)] ${className}`}
-    >
-      {children}
-    </div>
-  )
-
-  // eslint-disable-next-line react-hooks/static-components
-  const SectionHeader = ({ icon: Icon, title, subtitle }: { icon: any; title: string; subtitle?: string }) => (
-    <div className="mb-4 flex items-center gap-3">
-      <div className="rounded-xl bg-white/5 p-2">
-        <Icon className="size-4 text-[#9CA3AF]" />
-      </div>
-      <div>
-        <div className="text-lg font-semibold tracking-[-0.3px]">{title}</div>
-        {subtitle && <div className="text-sm text-[#9CA3AF]">{subtitle}</div>}
-      </div>
-    </div>
-  )
-
-  // Progress ring (SVG, no external deps)
-  // eslint-disable-next-line react-hooks/static-components
-  const ProgressRing = ({ current, limit, size = 64 }: { current: number; limit: number; size?: number }) => {
-    const pct = Math.min(100, Math.max(0, Math.round((current / (limit || 1)) * 100)))
-    const radius = 26
-    const circumference = radius * 2 * Math.PI
-    const strokeDash = (pct / 100) * circumference
-    return (
-      <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
-        <svg width={size} height={size} className="-rotate-90">
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke="rgba(255,255,255,0.08)"
-            strokeWidth="5"
-          />
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke="#7C3AED"
-            strokeWidth="5"
-            strokeDasharray={circumference}
-            strokeDashoffset={circumference - strokeDash}
-            strokeLinecap="round"
-          />
-        </svg>
-        <div className="absolute text-center">
-          <div className="text-lg font-semibold tracking-tighter">{pct}</div>
-          <div className="text-[9px] -mt-1 text-[#9CA3AF]">%</div>
-        </div>
-      </div>
-    )
   }
 
   // ========== TAB CONTENT COMPONENTS (kept inside for a single cohesive file while remaining scannable) ==========
@@ -461,9 +339,18 @@ export default function BillingDashboardClient({
         {/* Payment method (requirement #3) – consolidated */}
         <GlassCard className="p-7">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <div className="font-medium">Payment method</div>
-              <div className="text-sm text-[#9CA3AF] mt-0.5">Your card is managed securely by Stripe.</div>
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] font-mono text-xs text-zinc-400">
+                {billingState?.stripe_customer_id ? '••••' : '—'}
+              </div>
+              <div>
+                <div className="font-medium">Payment method</div>
+                <div className="text-sm text-[#9CA3AF] mt-0.5">
+                  {billingState?.stripe_customer_id
+                    ? 'Card on file is stored and managed securely by Stripe.'
+                    : 'No payment method is attached yet.'}
+                </div>
+              </div>
             </div>
             <form action="/api/billing/portal" method="post">
               <button className="rounded-2xl border border-white/15 px-5 py-2.5 text-sm hover:bg-white/5 transition">
@@ -531,51 +418,53 @@ export default function BillingDashboardClient({
       </div>
 
       <GlassCard className="overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-white/10 text-left text-[#9CA3AF] uppercase tracking-[1px] text-xs">
-              <th className="px-6 py-4 font-medium cursor-pointer select-none" onClick={() => toggleSort('date')}>
-                Date {sortKey === 'date' && (sortDir === 'desc' ? '↓' : '↑')}
-              </th>
-              <th className="px-6 py-4 font-medium">Description</th>
-              <th className="px-6 py-4 font-medium cursor-pointer select-none text-right" onClick={() => toggleSort('amount')}>
-                Amount {sortKey === 'amount' && (sortDir === 'desc' ? '↓' : '↑')}
-              </th>
-              <th className="px-6 py-4 font-medium">Status</th>
-              <th className="px-6 py-4 font-medium text-right">Invoice</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/10">
-            {sortedInvoices.map((inv) => (
-              <tr key={inv.id} className="hover:bg-white/[0.015] transition">
-                <td className="px-6 py-4 font-mono text-xs text-[#9CA3AF]">{inv.date}</td>
-                <td className="px-6 py-4">{inv.description}</td>
-                <td className="px-6 py-4 text-right tabular-nums">${inv.amount}</td>
-                <td className="px-6 py-4">
-                  <span
-                    className={`inline-block rounded-full px-3 py-0.5 text-xs ${
-                      inv.status === 'paid'
-                        ? 'bg-emerald-400/10 text-emerald-300'
-                        : inv.status === 'pending'
-                        ? 'bg-amber-400/10 text-amber-300'
-                        : 'bg-red-400/10 text-red-300'
-                    }`}
-                  >
-                    {inv.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <button
-                    onClick={() => handleInvoiceDownload(inv)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1 text-xs hover:bg-white/5 transition"
-                  >
-                    <Download className="size-3.5" /> Download
-                  </button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="min-w-[760px] w-full text-sm">
+            <thead>
+              <tr className="border-b border-white/10 text-left text-[#9CA3AF] uppercase tracking-[1px] text-xs">
+                <th className="px-6 py-4 font-medium cursor-pointer select-none" onClick={() => toggleSort('date')}>
+                  Date {sortKey === 'date' && (sortDir === 'desc' ? '↓' : '↑')}
+                </th>
+                <th className="px-6 py-4 font-medium">Description</th>
+                <th className="px-6 py-4 font-medium cursor-pointer select-none text-right" onClick={() => toggleSort('amount')}>
+                  Amount {sortKey === 'amount' && (sortDir === 'desc' ? '↓' : '↑')}
+                </th>
+                <th className="px-6 py-4 font-medium">Status</th>
+                <th className="px-6 py-4 font-medium text-right">Invoice</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-white/10">
+              {sortedInvoices.map((inv) => (
+                <tr key={inv.id} className="hover:bg-white/[0.015] transition">
+                  <td className="px-6 py-4 font-mono text-xs text-[#9CA3AF]">{inv.date}</td>
+                  <td className="px-6 py-4">{inv.description}</td>
+                  <td className="px-6 py-4 text-right tabular-nums">${inv.amount}</td>
+                  <td className="px-6 py-4">
+                    <span
+                      className={`inline-block rounded-full px-3 py-0.5 text-xs ${
+                        inv.status === 'paid'
+                          ? 'bg-emerald-400/10 text-emerald-300'
+                          : inv.status === 'pending'
+                            ? 'bg-amber-400/10 text-amber-300'
+                            : 'bg-red-400/10 text-red-300'
+                      }`}
+                    >
+                      {inv.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button
+                      onClick={() => handleInvoiceDownload(inv)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1 text-xs hover:bg-white/5 transition"
+                    >
+                      <Download className="size-3.5" /> Download
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </GlassCard>
 
       <p className="text-center text-xs text-[#9CA3AF]">
@@ -678,7 +567,6 @@ export default function BillingDashboardClient({
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
           {billingPlans.map((plan) => {
             const isCurrent = plan.id === currentId
-            const isPaid = plan.id !== 'free' && plan.id !== 'enterprise'
             const isLoadingThis = checkoutLoading === plan.id
             const isSelected = selectedPlanId === plan.id
 
@@ -801,9 +689,6 @@ export default function BillingDashboardClient({
   }
 
   // ========== RENDER ==========
-  // eslint-disable-next-line react-hooks/static-components
-  const ActiveIcon = TABS.find((t) => t.id === activeTab)?.icon || CreditCard
-
   return (
     <div className="space-y-8">
       {/* Glassmorphic segmented tab bar */}

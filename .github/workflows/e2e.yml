@@ -3,8 +3,10 @@ name: E2E
 # Manual trigger. Requires repo secrets to be set first:
 #   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY  (so the app renders)
 #   E2E_EMAIL, E2E_PASSWORD                                        (dedicated test account)
+#   LLM_API_KEY                                                    (real LLM call for the seeded llm_opt_in E2E)
 # The public-page smoke runs regardless; the authed editor smoke runs only when
-# E2E_EMAIL/E2E_PASSWORD are present (it self-skips otherwise).
+# E2E_EMAIL/E2E_PASSWORD are present, and the seeded llm_opt_in simulator E2E runs
+# only when LLM_API_KEY is also present (each self-skips otherwise).
 on:
   workflow_dispatch:
 
@@ -17,6 +19,11 @@ jobs:
       NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
       E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
       E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+      # Secret key for the real LLM call; base URL/model are non-secret and must
+      # match the key's provider (defaults below mirror playwright.config.ts).
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL || 'https://api.x.ai/v1' }}
+      LLM_MODEL: ${{ secrets.LLM_MODEL || 'grok-4.3' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
