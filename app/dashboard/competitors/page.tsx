@@ -68,7 +68,7 @@ export default function CompetitorIntelligence() {
         pricingComparison: 'Your base pricing vs competitors: consider tiering for better agent conversion (see Co-Pilot).',
       })
     } catch (e) {
-      setAnalysis({ error: 'Analysis failed. Ensure slugs are public/published or try demo.' })
+      setAnalysis({ error: 'Analysis failed. Make sure the pages are public, then try again.' })
     } finally {
       setLoading(false)
     }

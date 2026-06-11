@@ -16,10 +16,10 @@ export function AvailabilityCard({ e }: { e: PageEditor }) {
         {nextAvailable ? nextAvailable.split(' ||WINDOWS||')[0] : 'Not set — agents will see "Contact for current slots"'}
       </div>
       {googleCalendarId && (
-        <div className="mt-1 text-[10px] text-emerald-300">Google Calendar connected • ID: {googleCalendarId}</div>
+        <div className="mt-1 text-[10px] text-emerald-300">Google Calendar connected</div>
       )}
       {page.availability && (
-        <div className="mt-1 text-[10px] text-emerald-300">Structured availability exposed for agents</div>
+        <div className="mt-1 text-[10px] text-emerald-300">Upcoming slots ready for agents</div>
       )}
       {wins && wins.length > 0 && (
         <div className="mt-2 text-[10px] text-emerald-300">
@@ -27,25 +27,25 @@ export function AvailabilityCard({ e }: { e: PageEditor }) {
         </div>
       )}
       <p className="mt-1 text-[10px] text-zinc-500">
-        Import in Settings now generates real upcoming windows (stub). Shown in agent.json + public page.
-        Outbound webhooks fire automatically on bookings (configure in Settings).
+        Import availability in Settings to show upcoming windows on the public page and in agent data.
+        Booking webhooks fire automatically when configured.
       </p>
       {nextAvailable && (
         <div className="mt-1 text-[10px] text-emerald-300">Availability data live for agents</div>
       )}
-      <div className="mt-1 text-[10px] text-zinc-400">Google Calendar import produces concrete upcoming slots for agents (see Settings)</div>
+      <div className="mt-1 text-[10px] text-zinc-400">Google Calendar import adds upcoming slots for agents.</div>
       <div className="mt-1 text-[10px] text-emerald-300">
         {page.outbound_webhooks?.length
-          ? `${page.outbound_webhooks.length} outbound endpoint${page.outbound_webhooks.length === 1 ? '' : 's'} configured (fires on bookings)`
-          : 'No outbound webhooks yet — configure in Settings'}
+          ? `${page.outbound_webhooks.length} webhook URL${page.outbound_webhooks.length === 1 ? '' : 's'} configured`
+          : 'No booking webhooks yet — configure in Settings'}
       </div>
-      <div className="mt-1 text-[9px] text-zinc-500">Secrets supported • Test from Settings • Fires on real Nexez + Calendly events</div>
+      <div className="mt-1 text-[9px] text-zinc-500">Test events and signing protection are available in Settings.</div>
       {typeof window !== 'undefined' && localStorage.getItem('nexez_last_outbound_fired') && (
-        <div className="mt-1 text-[9px] text-emerald-300">Last outbound fire: {new Date(localStorage.getItem('nexez_last_outbound_fired')!).toLocaleString()}</div>
+        <div className="mt-1 text-[9px] text-emerald-300">Last webhook update: {new Date(localStorage.getItem('nexez_last_outbound_fired')!).toLocaleString()}</div>
       )}
-      <div className="mt-1 text-[9px] text-cyan-300/70">Per-page endpoints configured in Settings now fire automatically on booking events.</div>
-      <div className="mt-1 text-[9px] text-emerald-300/80">Real events (checkout + Calendly) trigger your systems with optional signing.</div>
-      <a href={`/dashboard/${id}/settings`} className="mt-1 inline-block text-[9px] text-cyan-400 hover:underline">Manage versions & outbound history in Settings →</a>
+      <div className="mt-1 text-[9px] text-cyan-300/70">Page webhooks configured in Settings notify automatically on booking events.</div>
+      <div className="mt-1 text-[9px] text-emerald-300/80">Checkout and Calendly bookings can notify your connected systems.</div>
+      <a href={`/dashboard/${id}/settings`} className="mt-1 inline-block text-[9px] text-cyan-400 hover:underline">Manage availability and webhook history in Settings →</a>
     </div>
   )
 }

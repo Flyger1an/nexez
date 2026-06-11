@@ -52,7 +52,7 @@ export function StripeImporter() {
       <div className="mb-4 flex items-start justify-between">
         <div>
           <h3 className="text-lg font-semibold text-cyan-200">Stripe Product &amp; Price Import</h3>
-          <p className="text-xs text-[#9CA3AF] mt-1">Paste a Stripe Secret Key (starts with sk_). Pull products/prices as rich editable offers.</p>
+          <p className="text-xs text-[#9CA3AF] mt-1">Paste a Stripe secret key to import products and prices as editable offers.</p>
         </div>
         {stripeConnected && (
           <div className="text-right text-xs">
@@ -210,7 +210,7 @@ export function ShopifyImporter() {
           type="password"
           value={shopifyToken}
           onChange={(e) => setShopifyToken(e.target.value)}
-          placeholder="Optional: Admin API token (shpat_...) for full private catalog"
+          placeholder="Admin API token (optional)"
           className="w-full input text-sm"
         />
       </div>
@@ -229,7 +229,7 @@ export function ShopifyImporter() {
         )}
       />
       <p className="mt-2 text-[10px] text-zinc-500">
-        Leave token empty for public catalog (most stores). Paste Admin API token for complete private access.
+        Leave this empty for the public catalog. Add an Admin API token only when you need private products.
       </p>
     </div>
   )

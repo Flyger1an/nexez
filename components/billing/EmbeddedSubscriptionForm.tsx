@@ -133,7 +133,7 @@ export default function EmbeddedSubscriptionForm({ plan, clientSecret, onSuccess
   if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
     return (
       <div className="rounded-lg border border-amber-200/30 bg-amber-200/10 p-4 text-sm text-amber-100">
-        Stripe publishable key is missing (NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY). Embedded checkout unavailable. Use the hosted upgrade button instead.
+        Embedded checkout is unavailable right now. Use the hosted upgrade button instead.
       </div>
     )
   }

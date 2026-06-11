@@ -244,10 +244,10 @@ export default function ToolsPage() {
             <p className="mt-3 text-[10px] text-zinc-500">Connect once, then keep your pages fresh for agents automatically.</p>
           </div>
 
-          {/* Outbound webhooks (Zapier / Make / generic) */}
+          {/* Webhook URLs for Zapier, Make, and custom automations. */}
           <div className="rounded-xl border border-white/10 p-5">
             <div className="font-semibold mb-2 text-cyan-300">Outbound webhooks</div>
-            <p className="text-xs text-[#9CA3AF] mb-3">Fire a webhook to Zapier, Make, or any endpoint when a booking arrives or an integration re-syncs. Add and test your endpoints below.</p>
+            <p className="text-xs text-[#9CA3AF] mb-3">Send booking and re-sync updates to Zapier, Make, or your own webhook URL. Add and test your URLs below.</p>
 
             <div className="flex gap-2">
               <input
@@ -276,7 +276,7 @@ export default function ToolsPage() {
             {outboundWebhooks.length > 0 && (
               <div className="mt-2 text-xs">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-zinc-400">Configured endpoints:</span>
+                  <span className="text-zinc-400">Configured webhook URLs:</span>
                   <button
                     onClick={async () => {
                       const payload = {
@@ -291,16 +291,15 @@ export default function ToolsPage() {
                           body: JSON.stringify(payload)
                         }).catch(() => {})
                       }
-                      alert(`Test sent to ${outboundWebhooks.length} endpoint(s).`)
+                      alert(`Test sent to ${outboundWebhooks.length} webhook URL(s).`)
                     }}
                     className="text-[10px] text-cyan-400 hover:text-cyan-300"
                   >
-                    Send Test
+                    Send test
                   </button>
                   <button
                     onClick={async () => {
-                      // Phase 3: Route through the real Calendly receiver so it records checkout_event + last_booking (if page) + fires outbounds.
-                      // This exercises the full durable + outbound chain for demo purposes.
+                      // Route through the Calendly receiver so the test behaves like a real booking update.
                       try {
                         const demoSecret = `nexez-test-${Date.now()}`
                         const recHeaders: Record<string, string> = {
@@ -326,7 +325,7 @@ export default function ToolsPage() {
                         }).catch(() => {})
                       } catch {}
 
-                      // Also direct (original demo behavior)
+                      // Also send a direct sample event for simple webhook catchers.
                       const payload = {
                         event: 'booking.received',
                         timestamp: new Date().toISOString(),
@@ -345,7 +344,7 @@ export default function ToolsPage() {
                           body: JSON.stringify(payload)
                         }).catch(() => {})
                       }
-                      alert(`Booking received event sent to ${outboundWebhooks.length} endpoint(s) (full receiver path exercised).`)
+                      alert(`Booking event sent to ${outboundWebhooks.length} webhook URL(s).`)
                     }}
                     className="text-[10px] text-cyan-400 hover:text-cyan-300 ml-2"
                   >

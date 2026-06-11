@@ -110,12 +110,12 @@ export default async function BillingPage({ searchParams }: BillingProps) {
         )}
         {search.setup === 'stripe' && (
           <div className="mb-6 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
-            Stripe is not fully configured. Add your keys in Vercel to enable subscriptions and payouts.
+            Billing setup is not complete yet. Add your Stripe keys in project settings to enable subscriptions and payouts.
           </div>
         )}
         {search.error === 'bad_price_id' && (
           <div className="mb-6 rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-200">
-            One of your STRIPE_PRICE_* env vars is set to a Product ID (prod_...) instead of a Price ID (price_...). Fix it and redeploy.
+            One of your Stripe plan IDs points to a product instead of a price. Copy the Price ID from Stripe, update project settings, and redeploy.
           </div>
         )}
 
@@ -132,4 +132,3 @@ export default async function BillingPage({ searchParams }: BillingProps) {
     </main>
   )
 }
-

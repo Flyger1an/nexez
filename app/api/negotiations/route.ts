@@ -231,5 +231,5 @@ function getNextStep(escrowMode: string) {
     return 'Seller can review terms, propose agreement, then create a manual-capture Stripe hold in the next checkout phase.'
   }
 
-  return 'Seller can review terms and respond manually. Escrow hold becomes available after STRIPE_SECRET_KEY is configured.'
+  return 'Seller can review terms and respond manually. Escrow hold becomes available after Stripe payments are enabled.'
 }

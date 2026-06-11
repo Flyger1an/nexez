@@ -1090,13 +1090,13 @@ export default function CreatePage() {
                     <div className="card !p-4 border border-cyan-300/30">
                       <p className="text-sm font-medium text-cyan-200">Stripe Product or Price Import</p>
                       <p className="mt-1 text-xs text-zinc-400">
-                        Paste a <code>prod_</code> ID or one or more <code>price_</code> IDs (comma separated). Requires STRIPE_SECRET_KEY on the server.
+                        Paste a Stripe product ID or one or more price IDs. Stripe imports must be enabled for this workspace.
                       </p>
                       <div className="mt-3 flex gap-2">
                         <input
                           value={stripeInput}
                           onChange={(e) => setStripeInput(e.target.value)}
-                          placeholder="prod_XXXX or price_XXXX,price_YYYY"
+                          placeholder="Product ID or Price ID"
                           className="flex-1 rounded-lg border border-white/10 bg-white/[0.06] px-3 py-2 text-sm text-white placeholder:text-zinc-600"
                         />
                         <button

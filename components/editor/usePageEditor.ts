@@ -500,7 +500,7 @@ export function usePageEditor(initial: EditorInitial) {
     if (provider === 'calendly') {
       let token = sessionStorage.getItem('nexez_last_calendly_token') || ''
       if (!token) {
-        token = prompt('Paste Calendly PAT for re-sync (not stored long-term):') || ''
+        token = prompt('Paste your Calendly access token for re-sync:') || ''
         if (token) sessionStorage.setItem('nexez_last_calendly_token', token)
       }
       return token ? { token } : null
@@ -508,7 +508,7 @@ export function usePageEditor(initial: EditorInitial) {
     if (provider === 'stripe') {
       let secret = sessionStorage.getItem('nexez_last_stripe_secret') || ''
       if (!secret) {
-        secret = prompt('Paste Stripe Secret Key for re-sync:') || ''
+        secret = prompt('Paste your Stripe secret key for re-sync:') || ''
         if (secret) sessionStorage.setItem('nexez_last_stripe_secret', secret)
       }
       return secret ? { stripeSecretKey: secret } : null
@@ -521,7 +521,7 @@ export function usePageEditor(initial: EditorInitial) {
         if (shop) sessionStorage.setItem('nexez_last_shopify_shop', shop)
       }
       if (!token) {
-        token = prompt('Admin API token (optional for public catalogs, leave blank for public):') || ''
+        token = prompt('Shopify Admin API token (optional):') || ''
         if (token) sessionStorage.setItem('nexez_last_shopify_token', token)
       }
       return shop ? { shop, accessToken: token } : null
@@ -606,8 +606,8 @@ export function usePageEditor(initial: EditorInitial) {
         body: JSON.stringify({
           event: 'invitee.created',
           payload: {
-            invitee: { name: 'Test Booker (editor demo)', email: 'demo@nexez.test' },
-            event: { name: 'Demo Consultation', start_time: new Date().toISOString() },
+            invitee: { name: 'Test Booker', email: 'test@nexez.app' },
+            event: { name: 'Test Consultation', start_time: new Date().toISOString() },
           },
         }),
       })
@@ -623,10 +623,10 @@ export function usePageEditor(initial: EditorInitial) {
           .order('created_at', { ascending: false })
           .limit(3)
         if (events) setRecentCalendlyBookings(events)
-        setMessage('Test booking recorded via webhook (durable + outbound if configured).')
+        setMessage('Test booking recorded. Connected webhook URLs were notified.')
       }
     } catch {
-      setMessage('Test webhook failed (check console).')
+      setMessage('Test webhook failed. Check the booking settings and try again.')
     }
   }
 
@@ -644,12 +644,12 @@ export function usePageEditor(initial: EditorInitial) {
       const updated = { ...current, approvals: [...(current.approvals || []), newA] }
       if ((page as any)?.id) {
         await supabase.from('pages').update({ team_collaboration: updated }).eq('id', (page as any).id)
-        alert('Approval request saved to team_collaboration. Manage in Settings.')
+        alert('Approval request saved. Manage it in Settings.')
       } else {
-        alert('Page id not available; save page first then request.')
+        alert('Save this page before requesting approval.')
       }
     } catch (e: any) {
-      alert('Failed to request: ' + e.message)
+      alert('Could not request approval: ' + e.message)
     }
   }
 

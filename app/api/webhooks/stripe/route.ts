@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   const signature = request.headers.get('stripe-signature')
 
   if (!webhookSecret) {
-    return NextResponse.json({ error: 'STRIPE_WEBHOOK_SECRET is not configured.' }, { status: 412 })
+    return NextResponse.json({ error: 'Stripe webhook signing secret is not configured.' }, { status: 412 })
   }
 
   if (!signature) {

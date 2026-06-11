@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     const priceId = getPlanPriceId(plan)
     if (!process.env.STRIPE_SECRET_KEY || !priceId) {
       console.error('[billing/create-subscription] Stripe not configured for plan', plan.id)
-      return NextResponse.json({ error: 'Stripe Billing is not configured. Set STRIPE_SECRET_KEY and plan price env vars.' }, { status: 412 })
+      return NextResponse.json({ error: 'Stripe Billing is not configured for this plan yet. Add the Stripe secret key and plan Price ID, then try again.' }, { status: 412 })
     }
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
@@ -121,8 +121,7 @@ export async function POST(request: Request) {
     // Helpful message for the common misconfiguration (using prod_ instead of price_)
     if (err.message && err.message.toLowerCase().includes('no such price')) {
       friendlyError = 'Failed to create subscription: The price ID configured for this plan is invalid. ' +
-        'You have likely set one of the STRIPE_PRICE_* environment variables to a Product ID (prod_...) instead of a Price ID (price_...). ' +
-        'Go to your Stripe Dashboard → Products, open the product, copy the actual Price ID from the pricing section, and update the corresponding env var (STRIPE_PRICE_LAUNCH etc.) in your hosting platform (Vercel). Then redeploy.'
+        'Open the plan in Stripe, copy the actual Price ID from the pricing section, update this plan in your project settings, then redeploy.'
     }
 
     return NextResponse.json({ error: friendlyError }, { status: 500 })

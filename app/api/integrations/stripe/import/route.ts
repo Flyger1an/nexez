@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
   if (!secret) {
     return NextResponse.json(
-      { error: 'No Stripe secret key configured. Add STRIPE_SECRET_KEY on the server before importing Stripe data.' },
+      { error: 'Stripe import is not enabled yet. Add your Stripe secret key in project settings, then try again.' },
       { status: 412 }
     )
   }

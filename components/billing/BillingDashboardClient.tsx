@@ -143,7 +143,7 @@ export default function BillingDashboardClient({
     if (!plan || plan.id === 'free' || plan.id === 'enterprise') return
 
     if (!stripeReady) {
-      setCheckoutError('Stripe is not fully configured. Add your keys in Vercel to enable subscriptions.')
+      setCheckoutError('Stripe is not fully configured yet. Add your Stripe keys to enable subscriptions.')
       return
     }
 
@@ -409,7 +409,7 @@ export default function BillingDashboardClient({
   const BillingHistoryTab = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <SectionHeader icon={History} title="Billing history" subtitle="Recent invoices (demo data – portal is source of truth)" />
+        <SectionHeader icon={History} title="Billing history" subtitle="Recent invoices and account records" />
         <form action="/api/billing/portal" method="post">
           <button className="text-sm text-[#7C3AED] hover:underline flex items-center gap-1">
             View full history in Stripe <Download className="size-3.5" />
@@ -486,7 +486,7 @@ export default function BillingDashboardClient({
           <div className="grid md:grid-cols-2 gap-8">
             <div>
               <div className="text-5xl font-semibold tracking-tighter text-emerald-300">$0</div>
-              <div className="text-[#9CA3AF] mt-1">Platform fees collected this month (demo)</div>
+              <div className="text-[#9CA3AF] mt-1">Platform fees collected this month</div>
               <ul className="mt-6 space-y-2 text-sm text-[#9CA3AF]">
                 <li className="flex gap-2">• Free plan: 15% commission</li>
                 <li className="flex gap-2">• Launch / Pro: 8% commission</li>

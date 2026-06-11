@@ -231,7 +231,7 @@ export function SimulatorTeaser() {
       )}
 
       <p className="mt-3 text-center text-xs text-muted-foreground">
-        Runs on the same deterministic engine as the full Agent Simulator.{' '}
+        Runs on the same simulator used by the full Agent Simulator.{' '}
         <a href="/simulator" className="underline hover:text-white">
           Open global simulator →
         </a>

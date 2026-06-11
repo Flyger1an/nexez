@@ -100,7 +100,7 @@ export default function IntegrationsPage() {
 
       if (hasPat || hasWebhook) {
         const parts = []
-        if (hasPat) parts.push(`PAT • ${new Date(calendlyConnection!.lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`)
+        if (hasPat) parts.push(`Token connected • ${new Date(calendlyConnection!.lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`)
         if (hasWebhook) parts.push(`Webhook • ${new Date(calendlyWebhook!.lastSaved).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`)
 
         return {

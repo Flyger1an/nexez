@@ -142,7 +142,7 @@ export default function PageSettings({ params }: PageProps) {
       }
     } catch (err: any) {
       console.error(err)
-      setMessage(`Logo upload failed: ${err?.message || err}. Make sure a public "logos" storage bucket exists in your Supabase project (and RLS policies allow authenticated uploads under logos/{user}/).`)
+      setMessage(`Logo upload failed: ${err?.message || err}. Check that logo uploads are enabled for your account, or paste a public image URL.`)
     } finally {
       setUploadingLogo(false)
     }
@@ -166,7 +166,7 @@ export default function PageSettings({ params }: PageProps) {
       const logo = data.suggestedPage?.logo_url
       if (logo) {
         setLogoUrl(logo)
-        setMessage('One-click: logo detected from your website (via Site Importer magic). Save Settings to persist.')
+        setMessage('Logo detected from your website. Save settings to apply it.')
       } else {
         setMessage('Importer could not auto-detect a logo. Upload a file or paste a direct https URL.')
       }
@@ -610,7 +610,7 @@ export default function PageSettings({ params }: PageProps) {
                     </button>
                   </div>
                   <p className="mt-1 text-[10px] text-zinc-500">
-                    CNAME your subdomain to your Nexez deployment host. Full ownership proof via DNS TXT.
+                    Point this subdomain to Nexez, then add the TXT record to prove ownership.
                   </p>
 
                   <div className="mt-2 flex items-center gap-2">
@@ -703,7 +703,7 @@ export default function PageSettings({ params }: PageProps) {
                             ✨ One-click: detect logo from my website
                           </button>
                         </div>
-                        <p className="mt-0.5 text-[9px] text-zinc-500">Upload sets a public Supabase Storage URL automatically (or use one-click from importer). Or paste any https image URL. Remove clears it.</p>
+                        <p className="mt-0.5 text-[9px] text-zinc-500">Upload a logo, detect one from your website, or paste any public https image URL. Remove clears it.</p>
                       </label>
                     </div>
                     <label className="mt-2 flex items-center gap-2 text-[11px] text-zinc-300">
@@ -803,13 +803,13 @@ export default function PageSettings({ params }: PageProps) {
                         <p className="mt-2 text-[11px] text-zinc-400">{domainStatus.detail}</p>
                       ) : (
                         <p className="mt-2 text-[11px] text-zinc-500">
-                          Click “Attach & provision SSL” to add this domain to the hosting provider and start TLS.
+                          Click “Attach & provision SSL” to connect this domain and start secure hosting.
                         </p>
                       )}
 
                       {domainStatus && !domainStatus.providerConfigured ? (
                         <p className="mt-1 text-[10px] text-amber-300/80">
-                          Provider auto-provisioning isn’t configured on this deployment — ownership is verified via DNS TXT; point your domain at your host for SSL.
+                          Automatic SSL setup is not available for this project. Ownership is verified; point the domain at your host to finish SSL.
                         </p>
                       ) : null}
 
@@ -868,8 +868,7 @@ export default function PageSettings({ params }: PageProps) {
                           </div>
                         ) : (
                           <p className="mt-1 text-[10px] text-zinc-500">
-                            Checks reachability, JSON-LD, agent.json at root, llms.txt, and whether
-                            GPTBot/ClaudeBot/PerplexityBot are allowed by robots.txt.
+                            Checks whether agents can reach the page, read the agent files, and access it through robots.txt.
                           </p>
                         )}
                       </div>
@@ -895,16 +894,16 @@ export default function PageSettings({ params }: PageProps) {
                       }}
                       className="accent-[#7C3AED]"
                     />
-                    <span>Enable MCP Support (Model Context Protocol structured data)</span>
+                    <span>Enable MCP structured data</span>
                   </label>
-                  <p className="text-[10px] text-zinc-500 mt-1">When on, this page exposes MCP-compatible offer resources alongside JSON-LD / agent.json / llms.txt. See public page for agent note.</p>
+                  <p className="text-[10px] text-zinc-500 mt-1">When on, compatible AI agents can discover richer page context and offer actions.</p>
                   {!!(page as any)?.mcp_enabled && (
                     <p className="text-[10px] text-cyan-200 mt-1">
                       Global discovery: <a href="/.well-known/mcp.json" className="underline">/.well-known/mcp.json</a>
                     </p>
                   )}
                 </div>
-                <DisabledRow icon={<Bot className="size-4" />} label="API key" value="Public endpoints (no key required)" />
+                <DisabledRow icon={<Bot className="size-4" />} label="Access" value="Public links, no key required" />
               </div>
 
               <div className="mt-4 border-t border-white/10 pt-4">
@@ -997,7 +996,7 @@ export default function PageSettings({ params }: PageProps) {
                     <pre className="text-[10px] bg-black/40 p-3 rounded overflow-x-auto text-[#C4B5FD] whitespace-pre-wrap">{`<script>
   (function(){var s=document.createElement('script');s.src='${getBaseUrl()}/widget.js';s.onload=function(){Nexez.init({slug:'${slug}',theme:'light'})};document.head.appendChild(s);})();
 </script>`}</pre>
-                    <p className="text-[10px] text-zinc-500 mt-1">Renders a floating "Book with agent-optimized flow" button. Respects your per-offer + page prefer-original settings. Example usage: paste the script on your site; it will read the page slug and render a floating CTA that matches your Nexez settings.</p>
+                    <p className="text-[10px] text-zinc-500 mt-1">Adds a floating booking button to your site and follows the page and offer settings you already chose.</p>
                     <button
                       type="button"
                       onClick={() => {
@@ -1012,7 +1011,7 @@ export default function PageSettings({ params }: PageProps) {
                   </div>
 
                   <div className="pt-2 border-t border-white/10 text-[11px] text-emerald-300/80">
-                    Per-offer "Book on original site" toggles (set in the builder) override this page default for individual offers. Agents see the effective preference in /agent.json and JSON-LD.
+                    Per-offer "Book on original site" toggles in the builder override this page default for individual offers.
                   </div>
 
                   {/* Live Embed Preview (further enhanced) */}
@@ -1051,7 +1050,7 @@ export default function PageSettings({ params }: PageProps) {
                 {saving ? 'Saving...' : 'Save settings'}
               </button>
 
-              {/* D-tier: Deployments timeline + rollback (built on version snapshots) */}
+              {/* Deployments timeline + rollback */}
               {(page as any)?.versions?.length > 0 && (
                 <div className="mt-8 rounded-lg border border-white/10 bg-white/[0.02] p-5">
                   <div className="flex items-center gap-2 mb-3">
@@ -1102,8 +1101,8 @@ export default function PageSettings({ params }: PageProps) {
                     ))}
                   </div>
                   <p className="mt-2 text-[10px] text-zinc-500">
-                    Each save is a deployment snapshot. “Roll back” loads that deployment’s offers + metadata
-                    into the editor to review, then Save re-publishes it live (incl. on your custom domain).
+                    Each save creates a version. “Roll back” loads that version into the editor so you can review
+                    it before publishing again.
                   </p>
                 </div>
               )}
@@ -1144,7 +1143,7 @@ export default function PageSettings({ params }: PageProps) {
                 }}
                 className="mt-3 w-full rounded-lg border border-violet-300/30 px-5 py-3 text-sm text-violet-200 hover:bg-violet-300/10"
               >
-                Re-sync from Calendly (paste PAT)
+                Re-sync from Calendly
               </button>
               {activeReSync === 'calendly' && (
                 <div className="mt-2 space-y-2">
@@ -1152,7 +1151,7 @@ export default function PageSettings({ params }: PageProps) {
                     type="password"
                     value={reSyncInput}
                     onChange={(e) => setReSyncInput(e.target.value)}
-                    placeholder="Calendly Personal Access Token"
+                    placeholder="Calendly access token"
                     className="w-full rounded border border-white/15 bg-black/30 px-3 py-2 text-sm"
                   />
                   <button
@@ -1214,7 +1213,7 @@ export default function PageSettings({ params }: PageProps) {
                 }}
                 className="mt-3 w-full rounded-lg border border-cyan-300/30 px-5 py-3 text-sm text-cyan-200 hover:bg-cyan-300/10"
               >
-                Re-sync from Stripe (paste Secret Key)
+                Re-sync from Stripe
               </button>
               {activeReSync === 'stripe' && (
                 <div className="mt-2 space-y-2">
@@ -1271,7 +1270,7 @@ export default function PageSettings({ params }: PageProps) {
                 }}
                 className="mt-3 w-full rounded-lg border border-purple-300/30 px-5 py-3 text-sm text-purple-200 hover:bg-purple-300/10"
               >
-                Re-sync from Shopify (domain + optional token)
+                Re-sync from Shopify
               </button>
               {activeReSync === 'shopify' && (
                 <div className="mt-2 space-y-2">
@@ -1286,7 +1285,7 @@ export default function PageSettings({ params }: PageProps) {
                     type="password"
                     value={reSyncInput2}
                     onChange={(e) => setReSyncInput2(e.target.value)}
-                    placeholder="Admin API token (optional for public catalogs)"
+                    placeholder="Admin API token (optional)"
                     className="w-full rounded border border-white/15 bg-black/30 px-3 py-2 text-sm"
                   />
                   <button
@@ -1331,8 +1330,8 @@ export default function PageSettings({ params }: PageProps) {
 
               {/* Phase 3: Per-page outbound webhooks — FIRST CLASS (url + optional secret, real test button, auto-fired) */}
               <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4" data-testid="outbound-webhooks-panel">
-                <div className="text-sm font-medium text-cyan-200 mb-2">Outbound webhooks on booking events</div>
-                <p className="text-[10px] text-zinc-400 mb-3">These endpoints receive real `booking.received` payloads automatically (Nexez checkout + Calendly webhooks). Works great with Zapier, Make, n8n, or any generic webhook receiver. Add signing secrets for production.</p>
+                <div className="text-sm font-medium text-cyan-200 mb-2">Booking event webhooks</div>
+                <p className="text-[10px] text-zinc-400 mb-3">Send booking activity to Zapier, Make, n8n, or your own system. Add a signing secret when you want extra protection.</p>
 
                 {/* Add new endpoint with optional secret */}
                 <div className="space-y-2 mb-3">
@@ -1367,7 +1366,7 @@ export default function PageSettings({ params }: PageProps) {
                     type="password"
                     value={newOutboundSecret}
                     onChange={(e) => setNewOutboundSecret(e.target.value)}
-                    placeholder="Optional signing secret (recommended for production)"
+                    placeholder="Optional signing secret"
                     className="w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm font-mono"
                   />
                 </div>
@@ -1445,7 +1444,7 @@ export default function PageSettings({ params }: PageProps) {
                     setMessage('')
                     try {
 	                      const { error } = await upsertPageSecrets({ outbound_webhooks: outboundEndpoints })
-	                      setMessage(error ? error.message : `Saved ${outboundEndpoints.length} outbound endpoint(s). They fire automatically on real bookings.`)
+	                      setMessage(error ? error.message : `Saved ${outboundEndpoints.length} webhook URL${outboundEndpoints.length === 1 ? '' : 's'}. They fire automatically on real bookings.`)
 	                      if (!error) setPage({ ...page, outbound_webhooks: outboundEndpoints })
                     } catch (e: any) {
                       setMessage('Failed to save: ' + e.message)
@@ -1455,13 +1454,13 @@ export default function PageSettings({ params }: PageProps) {
                   }}
                   className="mt-1 w-full rounded-lg border border-cyan-300/40 px-4 py-1.5 text-sm text-cyan-200 hover:bg-cyan-400/10 disabled:opacity-60"
                 >
-                  {outboundSaving ? 'Saving...' : `Save ${outboundEndpoints.length} Outbound Endpoint${outboundEndpoints.length === 1 ? '' : 's'}`}
+                  {outboundSaving ? 'Saving...' : `Save ${outboundEndpoints.length} Webhook URL${outboundEndpoints.length === 1 ? '' : 's'}`}
                 </button>
-                <p className="mt-1 text-[10px] text-zinc-500">Endpoints + secrets are stored on the page. They are called automatically by the Calendly receiver and on Nexez checkout events. Use "Send Test" above to verify instantly.</p>
+                <p className="mt-1 text-[10px] text-zinc-500">Webhook URLs and secrets are stored on this page. Use "Send Test" to confirm delivery.</p>
 
                 {/* Example payloads for Zapier / Make / generic webhooks */}
                 <details className="mt-3 text-[10px] text-zinc-400">
-                  <summary className="cursor-pointer hover:text-zinc-200">Example payloads (click to expand)</summary>
+                  <summary className="cursor-pointer hover:text-zinc-200">Example JSON payload</summary>
                   <pre className="mt-2 overflow-auto rounded bg-black/40 p-2 text-[9px] text-emerald-300/90">
 {`// booking.received (fired on real events)
 {
@@ -1476,7 +1475,7 @@ export default function PageSettings({ params }: PageProps) {
     "source": "nexez_checkout" | "calendly_webhook"
   }
 }`}</pre>
-                  <p className="mt-1 text-[9px]">Works with any JSON webhook receiver. Add your secret for HMAC if required.</p>
+                  <p className="mt-1 text-[9px]">Use this shape when connecting custom automation.</p>
                 </details>
                 {typeof window !== 'undefined' && localStorage.getItem('nexez_last_outbound_fired') && (
                   <p className="mt-1 text-[9px] text-emerald-300">Last test fire: {new Date(localStorage.getItem('nexez_last_outbound_fired')!).toLocaleTimeString()}</p>
@@ -1485,7 +1484,7 @@ export default function PageSettings({ params }: PageProps) {
                 {/* Real recent fires from DB (what actually triggered / would trigger your endpoints) */}
                 {recentOutboundFires.length > 0 && (
                   <div className="mt-4 border-t border-white/10 pt-3">
-                    <div className="text-[10px] uppercase tracking-widest text-cyan-400 mb-1.5">Recent real booking events (auto-fired to endpoints)</div>
+                    <div className="text-[10px] uppercase tracking-widest text-cyan-400 mb-1.5">Recent booking events</div>
                     <div className="space-y-1 text-[11px]">
                       {recentOutboundFires.map((evt, i) => (
                         <div key={i} className="flex justify-between text-cyan-200/90">
@@ -1494,7 +1493,7 @@ export default function PageSettings({ params }: PageProps) {
                         </div>
                       ))}
                     </div>
-                    <div className="mt-1 text-[9px] text-zinc-500">These events caused (or would cause) your saved outbound webhooks to be called with full payload + secret signature when configured.</div>
+                    <div className="mt-1 text-[9px] text-zinc-500">Saved webhook URLs receive these events automatically.</div>
                   </div>
                 )}
               </div>
@@ -1502,7 +1501,7 @@ export default function PageSettings({ params }: PageProps) {
               {/* Google Calendar Availability */}
               <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4" data-testid="availability-panel">
                 <div className="text-sm font-medium text-emerald-200 mb-2">Google Calendar Availability</div>
-                <p className="text-[10px] text-zinc-400 mb-3">Enter a Google Calendar ID to create agent-readable availability windows, or leave it blank and save a manual availability note. Both appear in agent.json and the public page.</p>
+                <p className="text-[10px] text-zinc-400 mb-3">Enter a Google Calendar ID to create agent-readable availability windows, or leave it blank and save a manual availability note. Both appear on the public page and in agent data.</p>
 
                 <div className="space-y-2 mb-3">
                   <label className="block text-[11px] text-zinc-400">
@@ -1582,8 +1581,8 @@ export default function PageSettings({ params }: PageProps) {
                       }
 
                       const successMsg = calendarId
-                        ? `Availability imported from Google Calendar • ${importedAvailability?.windows?.length || 0} windows • Last synced just now. Live for agents.`
-                        : 'Availability saved. Visible in agent.json and public page.'
+                        ? `Availability imported from Google Calendar • ${importedAvailability?.windows?.length || 0} windows • Last synced just now.`
+                        : 'Availability saved. Visible on the public page and in agent data.'
 
                       setMessage(error ? error.message : successMsg)
                     } catch (e: any) {
@@ -1606,7 +1605,7 @@ export default function PageSettings({ params }: PageProps) {
                   Get Verified (boosts Trust Score)
                   <span className="text-[10px] text-amber-300">+ up to +25 from signals</span>
                 </div>
-                <p className="text-[10px] text-zinc-400 mb-3">Provide signals for higher trust (shown on public pages + directory + analyzer comparisons). Manual for MVP; real events drive completion rate.</p>
+                <p className="text-[10px] text-zinc-400 mb-3">Add trust signals shown on public pages, the directory, and analyzer comparisons. Booking activity also improves this over time.</p>
 
                 {/* Live preview impact */}
                 <div className="mb-3 text-xs bg-black/30 p-2 rounded border border-white/10">
@@ -1666,7 +1665,7 @@ export default function PageSettings({ params }: PageProps) {
                         }
                       }} className="text-xs rounded border border-white/20 px-3">Add</button>
                     </div>
-                    <p className="text-[10px] text-zinc-500 mt-1">Names only for MVP (no file upload). Shown as 📜 Credentials attached on your public page.</p>
+                    <p className="text-[10px] text-zinc-500 mt-1">Add document names now. They show as credentials on your public page.</p>
                   </div>
                 </div>
 
@@ -1694,7 +1693,7 @@ export default function PageSettings({ params }: PageProps) {
               {/* Agent Memory & Context System */}
               <div className="mt-6 rounded-lg border border-zinc-300/30 bg-zinc-400/5 p-4">
                 <div className="font-medium text-zinc-200 mb-1 flex items-center gap-2">Agent Memory & Context</div>
-                <p className="text-[10px] text-zinc-400 mb-2">Notes, buyer preferences, restrictions, common objections, or "always mention X". Included in agent.json, mcp.json, public page, and simulator context. Modular (advanced memory for higher tiers).</p>
+                <p className="text-[10px] text-zinc-400 mb-2">Notes, buyer preferences, restrictions, common objections, or “always mention X.” Used by the public page, simulator, and agent data.</p>
                 <textarea
                   className="w-full h-20 rounded border border-white/15 bg-black/30 p-2 text-sm font-mono"
                   placeholder="e.g. Prefers async over live calls for first meetings. Common question: turnaround time. Restrictions: no weekends."
@@ -1709,7 +1708,7 @@ export default function PageSettings({ params }: PageProps) {
                     const mem = { notes: memoryNotes, updated: new Date().toISOString() }
                     const { error } = await supabase.from('pages').update({ agent_memory: mem }).eq('id', page.id)
                     if (!error) {
-                      setMessage('Agent memory saved. Visible to agents via manifests + public context.')
+                      setMessage('Agent memory saved. Visible to agents through the public page and agent data.')
                     } else {
                       setMessage('Save failed: ' + error.message)
                     }
@@ -1730,7 +1729,7 @@ export default function PageSettings({ params }: PageProps) {
                       const suggestion = await llmComplete(`From this page data, generate 2-4 concise persistent memory notes for AI agents (e.g. buyer prefs, restrictions, key facts to always mention). One per line, factual only. Data: ${pageData}`, { maxTokens: 150 })
                       if (suggestion) {
                         setMemoryNotes(suggestion.trim())
-                        setMessage('LLM suggested memory notes (using platform LLM). Edit and save.')
+                        setMessage('AI suggested memory notes. Edit and save when ready.')
                       }
                     } catch (e) {
                       setMessage('LLM suggestion failed (falling back to manual).')
@@ -1738,12 +1737,12 @@ export default function PageSettings({ params }: PageProps) {
                   }}
                   className="mt-2 ml-2 text-xs rounded border border-white/20 px-3 py-1 hover:bg-white/5"
                 >
-                  Suggest with LLM (platform-configured)
+                  Suggest with AI
                 </button>
-                <p className="mt-1 text-[10px] text-zinc-500">Also appears in public "Agent Memory" block and /agent.json for persistent context.</p>
+                <p className="mt-1 text-[10px] text-zinc-500">These notes help agents keep important context consistent.</p>
               </div>
 
-              {/* LLM opt-in for Co-Pilot (real calls via /api/ai/enhance when LLM_API_KEY + this flag) */}
+              {/* AI assist opt-in */}
               <div className="mt-2 text-xs p-2 border border-white/10 rounded">
                 <label className="flex items-center gap-2">
                   <input type="checkbox" checked={llmOptIn} onChange={async (e) => {
@@ -1752,17 +1751,17 @@ export default function PageSettings({ params }: PageProps) {
                     const supabase = createClient()
                     await supabase.from('pages').update({ llm_opt_in: checked }).eq('id', page.id)
                     setLlmOptIn(checked)
-                    setMessage('LLM opt-in ' + (checked ? 'enabled — Co-Pilot will use real LLM for enhances (if key configured)' : 'disabled (deterministic only)'))
+                    setMessage(checked ? 'Advanced AI assist enabled for this page.' : 'Advanced AI assist disabled for this page.')
                   }} />
-                  Enable advanced AI / LLM assist (opt-in for Co-Pilot enhance — gated on LLM_API_KEY + this flag)
+                  Enable Advanced AI Assist
                 </label>
-                <span className="text-[10px] text-zinc-500">Server LLM provider controlled by env (LLM_API_KEY + optional LLM_BASE_URL/MODEL). Works with OpenAI, xAI/Grok, Google Gemini (set BASE_URL to https://generativelanguage.googleapis.com/v1beta/openai/ and MODEL=gemini-1.5-flash), Anthropic (via compat), etc. Per-page opt-in + rate limits apply. Importer fallback also respects global key.</span>
+                <span className="text-[10px] text-zinc-500">Allow Nexez to use AI to improve page copy, agent summaries, importer results, and simulator responses for this page. You can turn this off anytime.</span>
               </div>
 
               {/* Advanced Team Collaboration & Approval Workflows (full) */}
               <div className="mt-6 rounded-lg border border-zinc-300/30 bg-zinc-400/5 p-4">
                 <div className="font-medium text-zinc-200 mb-1">Team Approvals & Collaboration</div>
-                <p className="text-[10px] text-zinc-400 mb-2">Request and manage approvals for changes (e.g. offer updates, pricing). Stored in team_collaboration. Supports real workflows; approvals visible in manifests and health panels. LLM can suggest approval notes when enabled.</p>
+                <p className="text-[10px] text-zinc-400 mb-2">Request and manage approvals for changes like offer updates or pricing. Approvals appear in editor health checks and team review surfaces.</p>
 
                 <div className="text-xs mb-2">Pending / History Approvals:</div>
                 <div className="max-h-24 overflow-auto text-xs bg-black/30 p-2 rounded mb-2 border border-white/10">
@@ -1801,7 +1800,7 @@ export default function PageSettings({ params }: PageProps) {
                     const updated = { ...current, approvals: [...(current.approvals || []), newApproval] }
                     const { error } = await supabase.from('pages').update({ team_collaboration: updated }).eq('id', page.id)
                     if (!error) {
-                      setMessage('Approval request added. Team members can review in editor or via shared manifests.')
+                      setMessage('Approval request added. Team members can review it in the editor.')
                       // local state update for immediate UI
                       const currentPage = page as any
                       setPage({ ...currentPage, team_collaboration: updated } as any)
@@ -1832,10 +1831,10 @@ export default function PageSettings({ params }: PageProps) {
                 </button>
               </div>
 
-              {/* Deeper Calendly: per-page secret for real webhook signature verification */}
+              {/* Calendly webhook signature verification */}
               <div className="mt-6 rounded-lg border border-violet-300/30 bg-violet-400/5 p-4">
-                <div className="text-sm font-medium text-violet-200 mb-2">Calendly Webhook Secret (real incoming)</div>
-                <p className="text-[10px] text-zinc-400 mb-2">Paste the signing secret you configured when creating the webhook in Calendly. Stored on this page. The receiver will use it for HMAC verification on real events (in addition to test headers).</p>
+                <div className="text-sm font-medium text-violet-200 mb-2">Calendly webhook secret</div>
+                <p className="text-[10px] text-zinc-400 mb-2">Paste the signing secret from Calendly so Nexez can verify incoming booking events for this page.</p>
                 <input
                   type="password"
                   value={calendlyWebhookSecret}
@@ -1843,7 +1842,7 @@ export default function PageSettings({ params }: PageProps) {
 	                  placeholder="Paste Calendly signing secret"
                   className="w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm font-mono"
                 />
-                <p className="mt-1 text-[10px] text-zinc-500">Save Settings to persist. Use with your Calendly webhook URL (add ?slug=your-slug or send x-nexez-test-page-slug header for association).</p>
+                <p className="mt-1 text-[10px] text-zinc-500">Save settings after pasting the secret. Use your page slug when setting up the Calendly webhook URL.</p>
               </div>
             </form>
 

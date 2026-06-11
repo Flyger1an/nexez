@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   const secret = process.env.STRIPE_SECRET_KEY
   if (!secret) {
     return NextResponse.json(
-      { error: 'Escrow is not available on this deployment. Set STRIPE_SECRET_KEY to enable manual-capture holds.' },
+      { error: 'Escrow is not available yet. Enable Stripe payments to use manual-capture holds.' },
       { status: 412 },
     )
   }

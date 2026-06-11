@@ -20,7 +20,7 @@ export function IntegrationsHealthPanel({ e }: { e: PageEditor }) {
   return (
     <div className="mb-4 rounded-lg border border-white/10 bg-white/[0.02] p-4">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-zinc-300">Connected Integrations & Health</span>
+        <span className="text-sm font-medium text-zinc-300">Connected Tools</span>
         <a href="/dashboard/integrations" className="text-[10px] text-cyan-400 hover:text-cyan-300">Full status →</a>
       </div>
 
@@ -33,7 +33,7 @@ export function IntegrationsHealthPanel({ e }: { e: PageEditor }) {
         )}
         {page?.outbound_webhooks?.length > 0 && (
           <span className="flex items-center gap-1 rounded border border-cyan-300/30 bg-cyan-400/5 px-2 py-1 text-cyan-200">
-            {page.outbound_webhooks.length} outbound endpoint{page.outbound_webhooks.length > 1 ? 's' : ''} active
+            {page.outbound_webhooks.length} webhook URL{page.outbound_webhooks.length > 1 ? 's' : ''} active
           </span>
         )}
         {page?.team_collaboration?.approvals?.some((a: any) => a.status === 'pending') && (
@@ -119,10 +119,10 @@ export function IntegrationsHealthPanel({ e }: { e: PageEditor }) {
         )}
       </div>
       <p className="mt-2 text-[10px] text-zinc-500">
-        Re-sync keeps source metadata (via stripe, via shopify, etc.) and feeds the smart merge preview. Stripe price webhooks are now active — price.updated events auto-update matching offers. Full control in <a href={`/dashboard/${id}/settings`} className="underline">Settings</a> or <a href="/dashboard/tools" className="underline">Tools</a>.
+        Re-sync refreshes imported offers and shows a merge preview before changes are applied. Stripe price updates can keep matching offers current. Manage connections in <a href={`/dashboard/${id}/settings`} className="underline">Settings</a> or <a href="/dashboard/tools" className="underline">Tools</a>.
       </p>
-      <div className="mt-2 text-[10px] text-emerald-300">Outbound webhooks + Google Calendar availability — full management in Settings</div>
-      <div className="mt-1 text-[10px] text-zinc-400">Last re-sync times shown in badges • Full health in /dashboard/integrations</div>
+      <div className="mt-2 text-[10px] text-emerald-300">Webhooks and Google Calendar availability are managed in Settings.</div>
+      <div className="mt-1 text-[10px] text-zinc-400">Last sync times appear in the badges.</div>
     </div>
   )
 }

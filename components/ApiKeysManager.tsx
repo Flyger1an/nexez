@@ -175,8 +175,7 @@ export function ApiKeysManager() {
       </div>
 
       <p className="mt-3 text-[10px] text-zinc-500">
-        Endpoints: <code>GET/POST /api/v1/pages</code>, <code>GET/PATCH /api/v1/pages/&#123;id&#125;</code>. Requires
-        the deployment to have a Supabase service role key configured.
+        Use these keys for page management through the Nexez API. Server API access must be enabled for this workspace.
       </p>
     </div>
   )

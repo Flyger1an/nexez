@@ -206,7 +206,7 @@ export function CalendlyTool() {
 
       <div className="mt-6 border-t border-white/10 pt-5">
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-sm font-medium text-violet-200">Webhooks (Real-time updates)</span>
+          <span className="text-sm font-medium text-violet-200">Booking updates</span>
           <span className="text-[10px] rounded bg-emerald-400/10 px-2 py-0.5 text-emerald-300">
             Receiver Active
           </span>
@@ -218,7 +218,7 @@ export function CalendlyTool() {
         </div>
 
         <p className="text-xs text-zinc-500 mb-3">
-          Nexez can now receive live booking events from Calendly. Configure a webhook in Calendly and paste the signing secret below.
+          Nexez can receive booking events from Calendly. Create a webhook in Calendly, then paste the signing secret below.
         </p>
 
         <div className="rounded bg-black/30 p-3 text-xs font-mono mb-3 break-all">
@@ -230,7 +230,7 @@ export function CalendlyTool() {
             type="password"
             value={webhookSecret}
             onChange={(e) => setWebhookSecret(e.target.value)}
-            placeholder="Webhook signing secret (from Calendly)"
+            placeholder="Signing secret from Calendly"
             className="flex-1 input text-sm"
           />
           <button
@@ -249,9 +249,9 @@ export function CalendlyTool() {
               disabled={webhookTesting || !webhookSecret.trim()}
               className="rounded-lg border border-violet-300/40 px-4 py-1.5 text-sm text-violet-200 hover:bg-white/5 disabled:opacity-50"
             >
-              {webhookTesting ? 'Sending test...' : 'Send Test Webhook'}
+              {webhookTesting ? 'Sending test...' : 'Send test event'}
             </button>
-            <span className="text-[10px] text-zinc-500">Verifies signature + receiver end-to-end</span>
+            <span className="text-[10px] text-zinc-500">Confirms Calendly events can reach Nexez</span>
           </div>
 
           <div className="flex gap-2">
@@ -259,7 +259,7 @@ export function CalendlyTool() {
               type="text"
               value={webhookTestPageSlug}
               onChange={(e) => setWebhookTestPageSlug(e.target.value)}
-              placeholder="Optional: your-page-slug (to create analytics event)"
+              placeholder="Optional: your-page-slug"
               className="flex-1 input text-sm"
             />
           </div>
@@ -273,7 +273,7 @@ export function CalendlyTool() {
             {webhookTestResult.error ? (
               <span className="text-red-400">Error: {webhookTestResult.error}</span>
             ) : (
-              <span className="text-emerald-300">Success ({webhookTestResult.status}): {JSON.stringify(webhookTestResult.data)}</span>
+              <span className="text-emerald-300">Success ({webhookTestResult.status}): Calendly test event received.</span>
             )}
           </div>
         )}
@@ -301,18 +301,18 @@ export function CalendlyTool() {
               <span className="font-medium">{lastWebhookEvent.data?.payload?.invitee?.name || 'Guest'}</span>
             </div>
             <div className="text-[10px] text-emerald-400/80 mt-1">
-              Recorded in Analytics as provider redirect.
+              Recorded in Analytics as a booking event.
             </div>
           </div>
         )}
 
         <p className="mt-2 text-[10px] text-zinc-500">
-          1. In Calendly → Integrations → Webhooks, create a webhook for <strong>invitee.created</strong> + <strong>invitee.canceled</strong>.<br />
-          2. Set the URL to the endpoint above.<br />
+          1. In Calendly → Integrations → Webhooks, create a booking webhook.<br />
+          2. Set the URL to the address above.<br />
           3. Copy the Signing Secret and paste it here.
         </p>
         <p className="mt-1 text-[10px] text-violet-400">
-          The receiver verifies signatures and is ready for production use.
+          Nexez verifies the secret before accepting booking events.
         </p>
       </div>
 

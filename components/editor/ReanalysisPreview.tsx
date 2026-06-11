@@ -15,7 +15,7 @@ export function ReanalysisPreview({ e }: { e: PageEditor }) {
           <p className="text-sm text-zinc-400">{pending.summary}</p>
           {pending.incomingServices?.some((o: any) => o.source) && (
             <p className="mt-1 text-[10px] text-blue-400">
-              Includes offers from integrations (source preserved).
+              Includes offers from connected tools.
               {pending.incomingServices.some((o: any) => o.source === 'stripe') && ' Stripe prices compared below.'}
             </p>
           )}
@@ -25,7 +25,7 @@ export function ReanalysisPreview({ e }: { e: PageEditor }) {
               {stripeChanges.map((c, idx) => (
                 <div key={idx}>• {c.name}: {c.old} → {c.new}</div>
               ))}
-              <div className="mt-1 text-[9px] text-amber-200/80">Fresh prices from Stripe will be applied on merge (user edits to other fields protected).</div>
+              <div className="mt-1 text-[9px] text-amber-200/80">Fresh prices from Stripe will be applied while your other edits stay protected.</div>
             </div>
           )}
         </div>
@@ -54,7 +54,7 @@ export function ReanalysisPreview({ e }: { e: PageEditor }) {
         </div>
       </div>
       <p className="mt-3 text-xs text-zinc-500">
-        Smart merge protects edited descriptions, tiers, and per-offer "Book on original site" preferences. New consumer fields, prices, and sources from integrations are incorporated (Stripe prices always fresh on apply).
+        Smart merge protects edited descriptions, tiers, and per-offer "Book on original site" preferences while adding new fields and prices from connected tools.
       </p>
     </div>
   )

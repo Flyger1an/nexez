@@ -429,7 +429,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
                 <div className="text-zinc-500">Add offers in the editor to see simulated targets.</div>
               )}
             </div>
-            <div className="mt-2 text-[9px] text-zinc-500">Per-offer toggles (set in VisualOfferBuilder) always win. This panel uses the page-level simulation checkbox above for demo purposes.</div>
+            <div className="mt-2 text-[9px] text-zinc-500">Offer-level routing choices override the page-level simulation setting above.</div>
           </div>
         </div>
       </div>

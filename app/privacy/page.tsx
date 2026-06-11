@@ -43,7 +43,7 @@ const sections: { heading: string; body: string[] }[] = [
   {
     heading: '6. Service Providers',
     body: [
-      'We use trusted processors to run the Service, including Supabase (database, authentication) and Vercel (hosting), and — where you enable them — payment and scheduling providers such as Stripe and Calendly. These providers process data on our behalf under their own terms.',
+      'We use trusted processors to run the Service, including Supabase for database and authentication, our hosting provider, and — where you enable them — payment and scheduling providers such as Stripe and Calendly. These providers process data on our behalf under their own terms.',
     ],
   },
   {
