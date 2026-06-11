@@ -71,6 +71,17 @@ export default function NegotiationsInbox() {
     void load()
   }, [])
 
+  // Surface the outcome when Stripe Checkout redirects back from an escrow hold.
+  // The webhook flips the status to 'held' asynchronously, so this is just a hint.
+  useEffect(() => {
+    const escrow = new URLSearchParams(window.location.search).get('escrow')
+    if (escrow === 'held') {
+      setMessage('Escrow hold authorized — the status updates to “Funds held” once Stripe confirms.')
+    } else if (escrow === 'cancelled') {
+      setMessage('Escrow checkout was cancelled. No hold was placed.')
+    }
+  }, [])
+
   async function load() {
     setLoading(true)
     setLoadError('')
@@ -141,6 +152,65 @@ export default function NegotiationsInbox() {
     }
 
     setUpdatingId(null)
+  }
+
+  // Set/adjust the agreed amount before placing an escrow hold. Owner-direct
+  // (RLS-scoped). The engine sets this on accept/counter; this lets the owner
+  // confirm or override it.
+  async function saveAmount(item: AgentNegotiation, dollars: number) {
+    setMessage('')
+    const cents = Math.round(dollars * 100)
+    if (!Number.isFinite(cents) || cents < 50) {
+      setMessage('Enter a valid agreed amount (minimum $0.50).')
+      return
+    }
+    setUpdatingId(item.id)
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('agent_negotiations')
+      .update({ amount_cents: cents, updated_at: new Date().toISOString() })
+      .eq('id', item.id)
+
+    if (error) {
+      setMessage(`Could not save amount: ${error.message}`)
+    } else {
+      setNegotiations((prev) => prev.map((n) => (n.id === item.id ? { ...n, amount_cents: cents } : n)))
+      setMessage(`Agreed amount set to ${formatNegotiationAmount(cents, item.currency)}.`)
+    }
+    setUpdatingId(null)
+  }
+
+  // Real Stripe escrow (manual capture) via /api/negotiations/escrow.
+  //  - hold    → returns a Checkout URL; we redirect so the card can be authorized.
+  //  - capture → captures the held authorization → 'complete'.
+  //  - cancel  → releases the hold → 'declined'.
+  async function runEscrow(item: AgentNegotiation, action: 'hold' | 'capture' | 'cancel') {
+    setUpdatingId(item.id)
+    setMessage('')
+    try {
+      const res = await fetch('/api/negotiations/escrow', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ negotiationId: item.id, action }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setMessage(data.error || `Escrow ${action} failed.`)
+        return
+      }
+      if (action === 'hold' && data.url) {
+        // Authorize the hold on Stripe's hosted page; the webhook flips to 'held'
+        // and redirects back to this inbox.
+        window.location.href = data.url as string
+        return
+      }
+      setMessage(action === 'capture' ? 'Funds captured — negotiation complete.' : 'Escrow hold released.')
+      await load()
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : `Escrow ${action} failed.`)
+    } finally {
+      setUpdatingId(null)
+    }
   }
 
   const summary = useMemo(() => summarizeNegotiations(negotiations), [negotiations])
@@ -219,6 +289,8 @@ export default function NegotiationsInbox() {
                   item={item}
                   updating={updatingId === item.id}
                   onTransition={(to) => void updateStatus(item, to)}
+                  onEscrow={(action) => void runEscrow(item, action)}
+                  onSaveAmount={(dollars) => void saveAmount(item, dollars)}
                   onRefresh={() => void load()}
                 />
               ))}
@@ -254,16 +326,48 @@ function NegotiationCard({
   item,
   updating,
   onTransition,
+  onEscrow,
+  onSaveAmount,
   onRefresh,
 }: {
   item: AgentNegotiation
   updating: boolean
   onTransition: (to: NegotiationStatus) => void
+  onEscrow: (action: 'hold' | 'capture' | 'cancel') => void
+  onSaveAmount: (dollars: number) => void
   onRefresh?: () => void
 }) {
   const escrowAvailable = item.escrow_mode !== 'not_configured'
   const transitions = getAllowedNegotiationTransitions(item.status, { escrowAvailable })
   const tone = getNegotiationStatusTone(item.status)
+  const amountReady = item.amount_cents != null && item.amount_cents >= 50
+
+  // Route escrow-relevant transitions through real Stripe instead of a direct
+  // status flip: 'held' = place hold, and from 'held', complete = capture /
+  // decline = release. Everything else stays a plain owner status update.
+  const isEscrowHold = (to: NegotiationStatus) => escrowAvailable && to === 'held'
+  const isEscrowCapture = (to: NegotiationStatus) => escrowAvailable && item.status === 'held' && to === 'complete'
+  const isEscrowRelease = (to: NegotiationStatus) => escrowAvailable && item.status === 'held' && to === 'declined'
+
+  function handleAction(to: NegotiationStatus) {
+    if (isEscrowHold(to)) return onEscrow('hold')
+    if (isEscrowCapture(to)) return onEscrow('capture')
+    if (isEscrowRelease(to)) return onEscrow('cancel')
+    return onTransition(to)
+  }
+
+  function labelFor(to: NegotiationStatus): string {
+    if (isEscrowHold(to)) return 'Place escrow hold'
+    if (isEscrowCapture(to)) return 'Capture funds'
+    if (isEscrowRelease(to)) return 'Release hold'
+    return TRANSITION_LABEL[to]
+  }
+
+  function iconFor(to: NegotiationStatus) {
+    if (isEscrowCapture(to)) return <CheckCircle2 className="size-3.5" />
+    if (isEscrowHold(to)) return <Lock className="size-3.5" />
+    return transitionIcon(to)
+  }
 
   return (
     <div className="card !p-5">
@@ -313,6 +417,11 @@ function NegotiationCard({
         )}
       </dl>
 
+      {/* Agreed amount — required before an escrow hold can authorize a card. */}
+      {item.status === 'agreement_proposed' && (
+        <AmountEditor item={item} disabled={updating} onSave={onSaveAmount} />
+      )}
+
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
         {!escrowAvailable && (
           <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500">
@@ -322,17 +431,22 @@ function NegotiationCard({
         {transitions.length === 0 ? (
           <span className="text-xs text-zinc-500">Negotiation closed.</span>
         ) : (
-          transitions.map((to) => (
-            <button
-              key={to}
-              disabled={updating}
-              onClick={() => onTransition(to)}
-              className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition disabled:opacity-50 ${transitionTone(to)}`}
-            >
-              {updating ? <Loader2 className="size-3.5 animate-spin" /> : transitionIcon(to)}
-              {TRANSITION_LABEL[to]}
-            </button>
-          ))
+          transitions.map((to) => {
+            // The hold needs an agreed amount; everything else is always enabled.
+            const blocked = updating || (isEscrowHold(to) && !amountReady)
+            return (
+              <button
+                key={to}
+                disabled={blocked}
+                onClick={() => handleAction(to)}
+                title={isEscrowHold(to) && !amountReady ? 'Set an agreed amount first.' : undefined}
+                className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition disabled:opacity-50 ${transitionTone(to)}`}
+              >
+                {updating ? <Loader2 className="size-3.5 animate-spin" /> : iconFor(to)}
+                {labelFor(to)}
+              </button>
+            )
+          })
         )}
         {(item.status === 'agreement_proposed' || item.status === 'held' || item.status === 'complete') && (
           <a
@@ -455,6 +569,53 @@ function Field({ label, value, full }: { label: string; value: string | null; fu
     <div className={full ? 'sm:col-span-2' : ''}>
       <dt className="text-xs text-zinc-500">{label}</dt>
       <dd className="mt-0.5 text-zinc-200">{value}</dd>
+    </div>
+  )
+}
+
+// Owner control to confirm/override the agreed amount. The engine sets this on
+// accept/counter; an escrow hold can't authorize a card without it.
+function AmountEditor({
+  item,
+  disabled,
+  onSave,
+}: {
+  item: AgentNegotiation
+  disabled: boolean
+  onSave: (dollars: number) => void
+}) {
+  const [value, setValue] = useState(item.amount_cents != null ? (item.amount_cents / 100).toString() : '')
+  const dollars = parseFloat(value)
+  const valid = Number.isFinite(dollars) && dollars >= 0.5
+
+  return (
+    <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-white/10 pt-4">
+      <label className="text-[11px] text-zinc-400">
+        Agreed amount (USD)
+        <div className="mt-1 flex items-center gap-1.5">
+          <span className="text-sm text-zinc-500">$</span>
+          <input
+            type="number"
+            step="0.01"
+            min="0.5"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="e.g. 800"
+            className="input w-32 py-1 text-sm"
+          />
+        </div>
+      </label>
+      <button
+        type="button"
+        disabled={disabled || !valid}
+        onClick={() => onSave(dollars)}
+        className="inline-flex min-h-[36px] items-center rounded-lg border border-white/15 px-3 text-xs font-medium text-zinc-200 transition hover:bg-white/10 disabled:opacity-50"
+      >
+        Save amount
+      </button>
+      {item.amount_cents == null && (
+        <span className="text-[11px] text-amber-300/80">Set this to enable the escrow hold.</span>
+      )}
     </div>
   )
 }

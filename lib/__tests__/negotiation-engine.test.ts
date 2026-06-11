@@ -146,6 +146,36 @@ describe('NegotiationService (with dedicated messages table)', () => {
     expect(result.persistentLink).toContain(`token=${insertedNegotiation.status_token}`)
   })
 
+  it('locks in the agreed amount on accept (= buyer proposed price) so escrow can hold', async () => {
+    const page = {
+      id: 'p1',
+      owner_id: 'o1',
+      slug: 'demo',
+      services: [{ name: 'Consult', price: '$1000', offerType: 'negotiable', rules: { minPrice: '800', autoAccept: true } }],
+      products: [],
+    }
+    let negUpdate: any
+    dbRef.handler = (ctx: QueryContext) => {
+      if (ctx.table === 'pages') return { data: page, error: null }
+      if (ctx.table === 'agent_negotiations' && ctx.op === 'update') negUpdate = ctx.payload
+      return { data: [], error: null }
+    }
+
+    const mockLLM = { negotiate: vi.fn().mockResolvedValue({ action: 'accept', reasoning: 'meets rules' }) }
+    const service = new NegotiationService(mockLLM)
+    const result = await service.startOrContinue({
+      slug: 'demo',
+      offerKey: 'services-0',
+      buyerProposal: { proposedPriceCents: 90000 },
+    })
+
+    // Without this, accepted negotiations had no amount_cents and the escrow hold
+    // (which requires a valid agreed amount) could never run.
+    expect(result.status).toBe('agreement_proposed')
+    expect(result.amountCents).toBe(90000)
+    expect(negUpdate?.amount_cents).toBe(90000)
+  })
+
   it('never persists the offer private pricing rules into negotiation_messages', async () => {
     const page = {
       id: 'p1',

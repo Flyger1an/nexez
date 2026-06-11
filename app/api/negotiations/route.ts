@@ -156,7 +156,9 @@ export async function POST(request: Request) {
       proposalReview: result.decision, // new decision is richer
       escrowMode: legacyEscrowMode,
       stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
-      amountCents: null,
+      // The agreed amount once accepted/countered — agents can surface the price
+      // they're committing to; the owner can take it straight to escrow.
+      amountCents: result.amountCents ?? null,
       next: getNextStep(legacyEscrowMode),
       publicPageUrl: `${baseUrl}/${page.slug}`,
       // New intelligent engine fields
