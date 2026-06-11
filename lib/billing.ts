@@ -75,8 +75,9 @@ export function getPlanPriceId(plan: BillingPlan) {
 }
 
 export function getStripeBillingReadiness() {
-  const configuredPlans = billingPlans.filter((plan) => Boolean(getPlanPriceId(plan)))
-  const missingPlanEnvVars = billingPlans
+  const selfServePaidPlans = billingPlans.filter((plan) => plan.envVar && plan.id !== 'enterprise')
+  const configuredPlans = selfServePaidPlans.filter((plan) => Boolean(getPlanPriceId(plan)))
+  const missingPlanEnvVars = selfServePaidPlans
     .filter((plan) => !getPlanPriceId(plan))
     .map((plan) => plan.envVar)
   const secretKeyConfigured = Boolean(process.env.STRIPE_SECRET_KEY)
