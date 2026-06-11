@@ -9,16 +9,18 @@ import { captureError } from './observability';
 
 /**
  * Core Negotiation Service - the brain of the Intelligent Negotiation Engine.
- * 
- * Responsibilities:
- * - Create or continue a persistent negotiation (by ID)
- * - Load full history + rules from DB
- * - Call the pluggable LLM (with full history for memory)
- * - Apply deterministic rules as hard floor (never let LLM violate)
- * - Persist every turn (proposal, decision, reasoning, timestamp) in metadata.conversation
- * - Return persistent link and decision
  *
- * This makes every negotiation long-lived and resumable as required.
+ * Burst 3a split the work into two phases so the LLM never blocks the POST:
+ *   - submitProposal()  (sync, on the request): create/continue the negotiation,
+ *     persist the buyer's turn, mark the row decision_pending. Returns immediately.
+ *   - runDecision()     (async, from next/server `after` + a backstop cron): claim
+ *     the pending row atomically (exactly-once), run the LLM with full history,
+ *     clamp to the rules floor (rules always win), persist the seller turn + the
+ *     new status/amount/settlement, and bump decision_seq so polling agents detect
+ *     the new turn via /api/negotiations/status.
+ *
+ * Every negotiation stays long-lived and resumable: history lives in the dedicated
+ * negotiation_messages table and the status token is the agent's credential.
  */
 
 export type ConversationTurn = {
@@ -69,11 +71,12 @@ export class NegotiationService {
   }
 
   /**
-   * Start a new negotiation or load existing by ID.
-   * If id provided, continues the conversation (appends to history).
-   * History is now stored in the dedicated negotiation_messages table for better persistence and querying.
+   * Phase 1 (sync, on the POST): record the buyer's proposal and queue an LLM
+   * decision. Does NOT call the LLM — that runs in runDecision() after the
+   * response. Returns the negotiation id + status token (the agent's credential)
+   * so the caller can hand back a statusUrl to poll.
    */
-  async startOrContinue(params: {
+  async submitProposal(params: {
     slug: string;
     offerKey: string;
     buyerProposal: any; // { proposedPriceCents?, query, timeline, contact, ... }
@@ -82,88 +85,161 @@ export class NegotiationService {
   }): Promise<{
     negotiationId: string;
     status: string;
-    decision: NegotiationDecision;
+    decisionPending: true;
     persistentLink: string;
-    history: ConversationTurn[];
     statusToken?: string;
-    amountCents?: number | null;
-    settlementState?: SettlementState | null;
   }> {
     const { slug, offerKey, buyerProposal, negotiationId, statusToken } = params;
 
-    // 1. Load page + offer (rules)
     const page = await this.loadPublishedPage(slug);
     if (!page) throw new Error('Page not found or not published');
 
     const offer = getCheckoutOffer(page, offerKey);
     if (!offer) throw new Error('Offer not found');
 
-    const rules = offer.rules || {};
-
-    // Phase 2 extension: surface any Calendly/scheduling link from the offer (imported offers carry url or metadata.scheduling_url)
-    // This enables LLM to suggest concrete slot picking and richer status for agents.
-    const schedulingLink: string | undefined =
-      (offer.url && /calendly|acuity|cal\.com|schedule|booking/i.test(offer.url)) ? offer.url :
-      (offer.metadata && (offer.metadata.scheduling_url || offer.metadata.bookingUrl || offer.metadata.url)) || undefined;
-
-    // 2. Load or create negotiation record
     let negotiation: any;
-
     if (negotiationId) {
+      // Token-as-credential check (throws a 404-shaped error on mismatch).
       negotiation = await this.loadNegotiation(negotiationId, statusToken);
+      // One decision at a time: a follow-up while the prior one is still being
+      // produced would race two LLM turns against the same history. Make the
+      // agent poll for the in-flight decision first.
+      if (negotiation?.decision_pending) {
+        const err = new Error('A decision is already in progress for this negotiation. Poll statusUrl, then submit your follow-up.') as Error & { status: number };
+        err.status = 409;
+        throw err;
+      }
     }
 
     if (!negotiation) {
+      // Fresh negotiations are created already pending (saves a round-trip).
       negotiation = await this.createNewNegotiation(page, offer, offerKey, buyerProposal);
+    } else {
+      // Continuation: re-arm the pending flag for the new buyer turn.
+      await this.withRetry('queue decision', { negotiationId: negotiation.id }, () =>
+        this.db()
+          .from('agent_negotiations')
+          .update({
+            decision_pending: true,
+            decision_requested_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', negotiation.id),
+      );
     }
 
-    // 3. Load full history from the dedicated messages table (persistent state)
-    let history: ConversationTurn[] = await this.loadHistory(negotiation.id);
+    // Persist the buyer's turn now; the seller (LLM) turn is appended by runDecision.
+    await this.withRetry('insert buyer turn', { negotiationId: negotiation.id }, () =>
+      this.db()
+        .from('negotiation_messages')
+        .insert([{ negotiation_id: negotiation.id, role: 'buyer', content: buyerProposal }]),
+    );
 
-    // 4. Append buyer's turn (will be inserted to table)
-    const buyerTurn: ConversationTurn = {
-      id: randomUUID(),
-      timestamp: new Date().toISOString(),
-      role: 'buyer',
-      content: buyerProposal,
+    return {
+      negotiationId: negotiation.id,
+      status: negotiation.status || 'negotiation',
+      decisionPending: true,
+      persistentLink: this.buildPersistentLink(negotiation.id, negotiation.status_token),
+      statusToken: negotiation.status_token || undefined,
     };
-    history.push(buyerTurn);
+  }
 
-    // Attach schedulingLink (if any) + full rules (so scope fields like includedScope etc. are visible in the JSON context the adapters build)
-    // This makes Phase 2 scope + Calendly link first-class for the LLM without changing every adapter.
+  /**
+   * Phase 2 (async): produce the LLM decision for a pending negotiation. Safe to
+   * call from both `after()` and the backstop cron — the atomic claim guarantees
+   * exactly one of them does the work. A no-op if the row was already decided.
+   */
+  async runDecision(negotiationId: string): Promise<void> {
+    const claimed = await this.claimPendingDecision(negotiationId);
+    if (!claimed) return; // lost the race, or nothing pending
+
+    try {
+      const page = await this.loadPublishedPage(claimed.slug);
+      if (!page) throw new Error('Page not found or not published');
+      const offer = getCheckoutOffer(page, claimed.offer_key);
+      if (!offer) throw new Error('Offer not found');
+      await this.produceDecision(claimed, page, offer);
+    } catch (err) {
+      // Catastrophic (page unpublished / offer removed / DB down mid-flight). Don't
+      // leave the agent polling forever — write a deterministic review turn so the
+      // thread has an answer — and surface the failure.
+      captureError(err instanceof Error ? err : new Error(String(err)), { negotiationId, phase: 'runDecision' });
+      await this.writeFallbackTurn(claimed).catch(() => {});
+    }
+  }
+
+  /**
+   * Atomically claim a pending decision. Postgres serializes the two concurrent
+   * `... WHERE decision_pending = true` updates (after() vs. cron): the winner
+   * flips it false and the UPDATE returns the row; the loser matches zero rows.
+   * Returns the claimed row, or null when already claimed / not pending.
+   */
+  private async claimPendingDecision(id: string): Promise<any | null> {
+    const { data, error } = await this.db()
+      .from('agent_negotiations')
+      .update({ decision_pending: false, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('decision_pending', true)
+      .select('id, slug, offer_key, status, status_token, amount_cents, decision_seq, metadata');
+
+    if (error) {
+      captureError(new Error('claim decision failed'), { negotiationId: id, dbError: (error as { message?: string }).message });
+      return null;
+    }
+    const rows = Array.isArray(data) ? data : data ? [data] : [];
+    return rows[0] || null;
+  }
+
+  /**
+   * Run the LLM against full history, clamp to the rules floor, and persist the
+   * seller turn + new status/amount/settlement. Mirrors the prior synchronous
+   * flow minus the buyer-turn insert (submitProposal already wrote it).
+   */
+  private async produceDecision(negotiation: any, page: any, offer: any): Promise<void> {
+    const rules = offer.rules || {};
+
+    // Surface any Calendly/scheduling link from the offer so the LLM can direct
+    // the agent to concrete slot selection (Phase 2 behavior, unchanged).
+    const schedulingLink: string | undefined =
+      offer.url && /calendly|acuity|cal\.com|schedule|booking/i.test(offer.url)
+        ? offer.url
+        : (offer.metadata && (offer.metadata.scheduling_url || offer.metadata.bookingUrl || offer.metadata.url)) || undefined;
+
+    // Full history (includes the buyer turn submitProposal persisted). The latest
+    // buyer turn is the proposal this decision answers.
+    const history: ConversationTurn[] = await this.loadHistory(negotiation.id);
+    const lastBuyer = [...history].reverse().find((t) => t.role === 'buyer');
+    const buyerProposal = (lastBuyer?.content as any) || {};
+
+    // Attach full rules + schedulingLink for the LLM only (stripped before logging).
     const proposalForLLM = {
       ...buyerProposal,
       rules,
       ...(schedulingLink ? { schedulingLink } : {}),
     };
 
-    // 5. Evaluate with deterministic rules first (hard constraints)
     const rulesEval = evaluateProposal(
       { offerType: offer.offerType, rules, price: offer.price },
-      { proposedPriceCents: buyerProposal.proposedPriceCents || null }
+      { proposedPriceCents: buyerProposal.proposedPriceCents || null },
     );
 
-    // 6. Call LLM with full history + current proposal (perfect memory). proposalForLLM carries schedulingLink for Phase 2.
     let llmDecision: NegotiationDecision;
     try {
       llmDecision = await this.getLLM().negotiate(rules, proposalForLLM, history);
-    } catch (e) {
-      // Fallback to deterministic if LLM fails
+    } catch {
+      // Provider outage / bad key — fall back to the deterministic rules decision
+      // so a polling agent still gets an answer.
       llmDecision = this.fallbackDecision(rulesEval, proposalForLLM, rules);
     }
 
-    // 7. Clamp LLM decision with rules (rules always win). Also propagate schedulingLink if LLM or we detected one.
+    // Rules always win.
     llmDecision = this.clampWithRules(llmDecision, rulesEval, proposalForLLM, rules);
     if (!llmDecision.schedulingLink && schedulingLink) {
       llmDecision.schedulingLink = schedulingLink;
     }
 
-    // 8. Append seller (LLM) decision to history.
-    // Do NOT persist the offer's private pricing rules (minPrice etc.) into the
-    // durable conversation log — they were attached to proposalForLLM only as
-    // LLM context. Pricing rules are owner-private (Phase 1 invariant); keeping
-    // them out of negotiation_messages means the thread is safe to surface to
-    // the buying agent on /negotiate even if a row is ever exported or re-read.
+    // Never persist the offer's private pricing rules into the durable message log
+    // (owner-private Phase 1 invariant) — they were attached for LLM context only.
     const { rules: _omitRules, ...proposalForLog } = proposalForLLM;
     const sellerTurn: ConversationTurn = {
       id: randomUUID(),
@@ -172,51 +248,42 @@ export class NegotiationService {
       content: { proposal: proposalForLog },
       decision: llmDecision,
     };
-    history.push(sellerTurn);
 
-    // 9. Determine new status from decision
     const newStatus = this.decisionToStatus(llmDecision.action, negotiation.status);
 
     // The agreed amount: a counter sets its own price; an accept locks in the
-    // buyer's proposed price. Without this, accepted negotiations had no
-    // amount_cents, so the escrow hold (which requires a valid agreed amount)
-    // could never run. Null leaves any previously-agreed amount untouched.
+    // buyer's proposed price (so the escrow hold has a valid amount).
     const agreedAmountCents =
       llmDecision.counter?.priceCents ??
-      (llmDecision.action === 'accept' && buyerProposal.proposedPriceCents > 0
-        ? buyerProposal.proposedPriceCents
-        : null);
+      (llmDecision.action === 'accept' && buyerProposal.proposedPriceCents > 0 ? buyerProposal.proposedPriceCents : null);
 
-    // Hybrid settlement: at agreement time, classify into the autonomous (low-value)
-    // path or the owner-approval (high-value) path. Only set when an agreement is
-    // reached with a concrete amount; otherwise left null so it isn't clobbered.
+    // Hybrid settlement: classify into the autonomous (low-value) or owner-approval
+    // (high-value) path only when an agreement is reached with a concrete amount.
     let settlementState: SettlementState | null = null;
     if (newStatus === 'agreement_proposed' && agreedAmountCents != null && agreedAmountCents > 0) {
       settlementState = classifySettlement(agreedAmountCents, getAutoSettleCeilingCents(offer));
     }
 
-    // 10. Persist to dedicated negotiation_messages table + update negotiation status
-    await this.persistHistoryAndStatus(negotiation.id, newStatus, [buyerTurn, sellerTurn], llmDecision, rulesEval, agreedAmountCents, settlementState);
+    const nextSeq = (Number(negotiation.decision_seq) || 0) + 1;
+    await this.persistDecision(negotiation.id, newStatus, sellerTurn, llmDecision, rulesEval, agreedAmountCents, settlementState, nextSeq);
+  }
 
-    // 11. Build persistent link
-    const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://nexez.app';
-    const persistentLink = `${base}/negotiate/${negotiation.id}${negotiation.status_token ? `?token=${negotiation.status_token}` : ''}`;
-
-    return {
-      negotiationId: negotiation.id,
-      status: newStatus,
-      decision: llmDecision,
-      persistentLink,
-      history,
-      // The token persisted on the row — the credential for /api/negotiations/status
-      // and the /negotiate page. Safe to return: the caller either just created the
-      // negotiation or proved possession of the token in loadNegotiation.
-      statusToken: negotiation.status_token || undefined,
-      // The agreed amount in cents once accepted/countered (else the prior value, or null).
-      amountCents: agreedAmountCents ?? negotiation.amount_cents ?? null,
-      // Settlement path once an agreement is reached: 'auto' | 'awaiting_approval' (else null).
-      settlementState,
+  /** Last-resort seller turn when the decision couldn't be produced at all. */
+  private async writeFallbackTurn(claimed: any): Promise<void> {
+    const decision: NegotiationDecision = {
+      action: 'review',
+      reasoning: 'This proposal could not be processed automatically and is pending seller review.',
     };
+    const sellerTurn: ConversationTurn = {
+      id: randomUUID(),
+      timestamp: new Date().toISOString(),
+      role: 'seller_llm',
+      content: { proposal: {} },
+      decision,
+    };
+    const newStatus = this.decisionToStatus('review', claimed?.status || 'negotiation');
+    const nextSeq = (Number(claimed?.decision_seq) || 0) + 1;
+    await this.persistDecision(claimed.id, newStatus, sellerTurn, decision, { decision: 'review' }, null, null, nextSeq);
   }
 
   /** Load full conversation history from the dedicated negotiation_messages table. */
@@ -242,58 +309,56 @@ export class NegotiationService {
     }));
   }
 
-  /** Persist new turns to the dedicated table and update negotiation status/metadata for compatibility. */
-  private async persistHistoryAndStatus(
+  /**
+   * Persist the seller turn + update the negotiation status/amount/settlement and
+   * bump decision_seq. decision_pending was already cleared by the atomic claim.
+   */
+  private async persistDecision(
     negotiationId: string,
     newStatus: string,
-    newTurns: ConversationTurn[],
+    sellerTurn: ConversationTurn,
     decision: NegotiationDecision,
     rulesEval: any,
-    agreedAmountCents: number | null = null,
-    settlementState: SettlementState | null = null
+    agreedAmountCents: number | null,
+    settlementState: SettlementState | null,
+    decisionSeq: number,
   ) {
-    // Insert each new turn as a row in negotiation_messages
-    const inserts = newTurns.map(turn => ({
-      negotiation_id: negotiationId,
-      role: turn.role,
-      content: {
-        ...turn.content,
-        ...(turn.decision ? { decision: turn.decision } : {}),
-      },
-    }));
+    await this.withRetry('insert seller turn', { negotiationId }, () =>
+      this.db()
+        .from('negotiation_messages')
+        .insert([
+          {
+            negotiation_id: negotiationId,
+            role: sellerTurn.role,
+            content: {
+              ...sellerTurn.content,
+              ...(sellerTurn.decision ? { decision: sellerTurn.decision } : {}),
+            },
+          },
+        ]),
+    );
 
-    if (inserts.length > 0) {
-      await this.withRetry('insert negotiation_messages', { negotiationId }, () =>
-        this.db().from('negotiation_messages').insert(inserts),
-      );
-    }
-
-    // Update negotiation status and keep summary in metadata for backward compat with existing inbox/UI
     const update: any = {
       status: newStatus,
       updated_at: new Date().toISOString(),
+      decision_seq: decisionSeq,
       metadata: {
-        // Keep last decision and rules for quick display
         last_decision: decision,
         rules_evaluation: rulesEval,
-        // Note: full history now in negotiation_messages table
         history_source: 'negotiation_messages',
       },
     };
 
-    // Lock in the agreed amount (counter price, or the accepted proposal). Left
-    // null for non-pricing turns so a prior agreed amount is never clobbered.
+    // Lock in the agreed amount (counter price, or accepted proposal); left null
+    // for non-pricing turns so a prior agreed amount is never clobbered.
     if (agreedAmountCents != null && agreedAmountCents > 0) {
       update.amount_cents = agreedAmountCents;
     }
-
-    // Persist the settlement path so the buyer pay endpoint + inbox know whether
-    // the agreement is autonomous or awaiting owner approval.
     if (settlementState) {
       update.settlement_state = settlementState;
     }
 
-    await this.withRetry('update negotiation status', { negotiationId, newStatus }, () =>
+    await this.withRetry('update negotiation decision', { negotiationId, newStatus }, () =>
       this.db().from('agent_negotiations').update(update).eq('id', negotiationId),
     );
   }
@@ -372,6 +437,9 @@ export class NegotiationService {
       escrow_mode: process.env.STRIPE_SECRET_KEY ? 'manual_capture_ready' : 'not_configured',
       amount_cents: null,
       status_token: statusToken,
+      // Created already awaiting an async decision (runDecision will claim it).
+      decision_pending: true,
+      decision_requested_at: new Date().toISOString(),
       metadata: {
         conversation: [],
         source: 'intelligent_negotiation_v2',
@@ -384,37 +452,16 @@ export class NegotiationService {
     return { ...negotiation, status_token: statusToken };
   }
 
-  private async persistTurn(
-    id: string,
-    newStatus: string,
-    history: ConversationTurn[],
-    decision: NegotiationDecision,
-    rulesEval: any
-  ) {
-    const update: any = {
-      status: newStatus,
-      updated_at: new Date().toISOString(),
-      metadata: {
-        conversation: history,
-        last_decision: decision,
-        rules_evaluation: rulesEval,
-        updated_by: 'llm_negotiation_service',
-      },
-    };
-
-    // If counter, store suggested amount for owner inbox convenience
-    if (decision.counter?.priceCents) {
-      update.amount_cents = decision.counter.priceCents;
-    }
-
-    await this.db().from('agent_negotiations').update(update).eq('id', id);
+  private buildPersistentLink(id: string, statusToken?: string | null): string {
+    const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://nexez.app';
+    return `${base}/negotiate/${id}${statusToken ? `?token=${statusToken}` : ''}`;
   }
 
   private clampWithRules(
     decision: NegotiationDecision,
     rulesEval: any,
     proposal: any,
-    rules: any
+    rules: any,
   ): NegotiationDecision {
     // Rules are absolute. Never allow LLM to accept below floor.
     const floor = this.computeFloor(rules, proposal);

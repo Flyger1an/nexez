@@ -53,4 +53,55 @@ describe('GET /api/negotiations/status', () => {
     expect(eqs.id).toBe('n1')
     expect(eqs.status_token).toBe('tok123')
   })
+
+  it('reports decisionPending while the async decision is still running (decision withheld)', async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      createSupabaseMock(() => ({
+        data: {
+          id: 'n1',
+          status: 'negotiation',
+          offer_name: 'Consult',
+          updated_at: null,
+          decision_pending: true,
+          decision_seq: 0,
+          metadata: { last_decision: { action: 'counter', reasoning: 'stale', internalNotes: 'secret' } },
+        },
+      })) as any,
+    )
+    const body = await (await GET(req({ id: 'n1', token: 'tok' }))).json()
+    expect(body.decisionPending).toBe(true)
+    expect(body.decision).toBeNull() // not surfaced until it lands
+    expect(body.next).toMatch(/responding|evaluat/i)
+  })
+
+  it('surfaces the landed decision (sanitized) + decisionSeq; never leaks internalNotes', async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      createSupabaseMock(() => ({
+        data: {
+          id: 'n1',
+          status: 'negotiation',
+          offer_name: 'Consult',
+          updated_at: '2026-06-11T00:00:00Z',
+          decision_pending: false,
+          decision_seq: 2,
+          metadata: {
+            last_decision: {
+              action: 'counter',
+              reasoning: 'Closer to our floor.',
+              counter: { priceCents: 90000 },
+              internalNotes: 'owner-only — never send to the agent',
+            },
+          },
+        },
+      })) as any,
+    )
+    const body = await (await GET(req({ id: 'n1', token: 'tok' }))).json()
+    expect(body.decisionPending).toBe(false)
+    expect(body.decisionSeq).toBe(2)
+    expect(body.decision).toMatchObject({ action: 'counter', counter: { priceCents: 90000 } })
+    // Privacy invariant: the owner-private internalNotes must never reach the agent.
+    expect(body.decision.internalNotes).toBeUndefined()
+    expect(JSON.stringify(body)).not.toContain('owner-only')
+    expect(body.next).toMatch(/counter/i)
+  })
 })

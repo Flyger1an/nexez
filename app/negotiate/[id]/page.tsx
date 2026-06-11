@@ -5,6 +5,8 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/
 import { Handshake, Clock, Bot, User } from 'lucide-react'
 import { formatNegotiationAmount } from '../../../lib/negotiations'
 import { isPayable } from '../../../lib/settlement'
+import { sanitizeAgentDecision } from '../../../lib/negotiation-sanitize'
+import PendingPoller from './PendingPoller'
 
 /**
  * Persistent Negotiation Page - /negotiate/{negotiation_id}?token={status_token}
@@ -31,7 +33,7 @@ import { isPayable } from '../../../lib/settlement'
 // and is never rendered. Deliberately absent: owner_id, buyer contact internals,
 // requested_terms, currency, Stripe ids.
 const NEGOTIATION_PAGE_SELECT =
-  'id, slug, offer_key, offer_name, status, amount_cents, settlement_state, metadata, status_token, updated_at'
+  'id, slug, offer_key, offer_name, status, amount_cents, settlement_state, metadata, status_token, updated_at, decision_pending, decision_seq'
 
 type NegotiationRow = {
   id: string
@@ -44,13 +46,13 @@ type NegotiationRow = {
   metadata: any
   status_token: string | null
   updated_at: string | null
+  decision_pending: boolean | null
+  decision_seq: number | null
 }
 
 /** Drop the LLM's owner-only internal notes from a decision before it reaches an agent. */
 function sanitizeDecision(decision: any, isOwner: boolean) {
-  if (!decision || isOwner) return decision
-  const { internalNotes: _internalNotes, ...safe } = decision
-  return safe
+  return isOwner ? decision : sanitizeAgentDecision(decision)
 }
 
 /** Strip owner-private fields (private pricing rules, internal notes) from a turn for agents. */
@@ -179,6 +181,11 @@ export default async function PersistentNegotiationPage({ params, searchParams }
             </div>
           </div>
         </div>
+
+        {/* Async decision in flight — poll + soft-refresh when it lands. */}
+        {negotiation.decision_pending && formToken && (
+          <PendingPoller id={negotiation.id} token={formToken} currentSeq={negotiation.decision_seq ?? 0} />
+        )}
 
         {/* Buyer-funded settlement */}
         {justPaid && (

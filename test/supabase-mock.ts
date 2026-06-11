@@ -51,7 +51,9 @@ export function createSupabaseMock(handler: QueryHandler, opts: SupabaseMockOpti
       delete: () => ((ctx.op = 'delete'), ctx.calls.push(['delete']), builder),
       // filters
       eq: (k: string, v: any) => ((ctx.eqs[k] = v), ctx.calls.push(['eq', k, v]), builder),
+      gt: (k: string, v: any) => (ctx.calls.push(['gt', k, v]), builder),
       gte: (k: string, v: any) => (ctx.calls.push(['gte', k, v]), builder),
+      lt: (k: string, v: any) => (ctx.calls.push(['lt', k, v]), builder),
       lte: (k: string, v: any) => (ctx.calls.push(['lte', k, v]), builder),
       neq: (k: string, v: any) => (ctx.calls.push(['neq', k, v]), builder),
       in: (k: string, v: any) => (ctx.calls.push(['in', k, v]), builder),

@@ -15,6 +15,12 @@ vi.mock('../../../lib/email', () => ({
   buildNegotiationEmail: vi.fn(() => ({ subject: 's', html: 'h', text: 't' })),
   sendEmail: vi.fn(),
 }))
+// Rate limiting has its own dedicated test (lib/rate-limit.test.ts). The module
+// uses a process-wide bucket Map that would leak across these many POSTs, so stub
+// it to always proceed and keep the routing assertions deterministic.
+vi.mock('../../../lib/rate-limit', () => ({
+  enforceNegotiationRateLimit: () => null,
+}))
 vi.mock('next/server', async (importOriginal) => {
   const actual = await importOriginal<typeof import('next/server')>()
   return { ...actual, after: () => {} } // run nothing after the response in tests
@@ -27,17 +33,18 @@ const PERSISTED_STATUS_TOKEN = 'persisted-status-token-abc123'
 
 vi.mock('../../../lib/negotiation.service', () => ({
   negotiationService: {
-    startOrContinue: vi.fn().mockImplementation(async (params: any) => {
+    submitProposal: vi.fn().mockImplementation(async (params: any) => {
       const id = params.negotiationId || 'new-neg-id'
       return {
         negotiationId: id,
-        status: params.negotiationId ? 'negotiation' : 'negotiation',
-        decision: { action: 'review', reasoning: 'test' },
+        status: 'negotiation',
+        decisionPending: true,
         persistentLink: `https://test/negotiate/${id}?token=${PERSISTED_STATUS_TOKEN}`,
-        history: [],
         statusToken: PERSISTED_STATUS_TOKEN,
       }
     }),
+    // Fires inside after() (a no-op in tests) — present so the route reference resolves.
+    runDecision: vi.fn().mockResolvedValue(undefined),
   },
 }))
 
@@ -85,7 +92,7 @@ describe('POST /api/negotiations', () => {
 
   it('dryRun validates without inserting', async () => {
     // Legacy semantics: a dry run validates the proposal but persists nothing —
-    // no negotiation-service call (which inserts + calls the LLM) and no inserts.
+    // no negotiation-service call (which inserts + queues the LLM) and no inserts.
     const ops: string[] = []
     dbRef.handler = (ctx: QueryContext) => {
       ops.push(`${ctx.table}:${ctx.op}`)
@@ -100,11 +107,11 @@ describe('POST /api/negotiations', () => {
     expect(json.statusToken).toBeUndefined()
 
     const { negotiationService } = await import('../../../lib/negotiation.service')
-    expect(negotiationService.startOrContinue).not.toHaveBeenCalled()
+    expect(negotiationService.submitProposal).not.toHaveBeenCalled()
     expect(ops.some((o) => o.includes('insert'))).toBe(false)
   })
 
-  it('inserts and replies from known values (no RETURNING/select — anon RLS safe)', async () => {
+  it('fresh proposal returns the async pending shape (decision is polled, not inline)', async () => {
     const ops: string[] = []
     dbRef.handler = (ctx: QueryContext) => {
       ops.push(`${ctx.table}:${ctx.op}`)
@@ -112,11 +119,12 @@ describe('POST /api/negotiations', () => {
     }
     const res = await POST(post({ slug: 'demo', offer: 'services-0', buyerAgent: 'TestBot' }))
     expect(res.status).toBe(200)
-    expect((await res.json())).toMatchObject({ ok: true, status: 'negotiation' })
-    // With the Intelligent Negotiation Service the real inserts (agent_negotiations + negotiation_messages)
-    // happen inside the service (mocked at module level in this file for route layer tests).
-    // RLS safety (no .select after insert for anon) + no RETURNING chaining is covered in
-    // lib/negotiation.service + negotiation-engine unit tests. We still saw a pages lookup.
+    const body = await res.json()
+    // Full-async contract: status is 'negotiation', the decision is NOT inline.
+    expect(body).toMatchObject({ ok: true, status: 'negotiation', decisionPending: true })
+    expect(body.decision).toBeUndefined()
+    expect(body.autoAccepted).toBeUndefined()
+    // The real inserts happen inside the (module-mocked) service; we still see the page lookup.
     expect(ops.some((o: string) => o.includes('pages'))).toBe(true)
   })
 
@@ -131,72 +139,18 @@ describe('POST /api/negotiations', () => {
     expect(body.escrowMode).toBe('manual_capture_ready')
   })
 
-  it('auto-accepts within rules: status agreement_proposed + token returned (Smart Rules)', async () => {
-    const negotiablePage = {
-      ...pageWithOffer,
-      services: [
-        {
-          name: 'Custom Build',
-          price: '$1,000',
-          description: '',
-          url: '',
-          offerType: 'negotiable',
-          rules: { minPrice: '$800', autoAccept: true },
-        },
-      ],
-    }
-    let inserted: any
-    dbRef.handler = (ctx: QueryContext) => {
-      if (ctx.table === 'pages') return { data: negotiablePage, error: null }
-      if (ctx.op === 'insert') inserted = ctx.payload
-      return { data: null, error: null }
-    }
-    const res = await POST(post({ slug: 'demo', offer: 'services-0', budget: '$900' }))
-    expect(res.status).toBe(200)
-    const body = await res.json()
-    // New service + compat layer (the module-level service mock returns 'negotiation' + review decision by default;
-    // the real auto-accept rulesEval + fallback + decisionToStatus logic for within-rules/autoAccept pages
-    // is exercised and asserted in lib/__tests__/negotiation-engine.test.ts and negotiation.service direct tests).
-    // This route test confirms the page with autoAccept rules is accepted by the handler and that a decision + persistent id are surfaced.
-    expect(['agreement_proposed', 'negotiation']).toContain(body.status)
-    // Strict: the route must surface the token the service persisted, never mint its own.
-    expect(body.statusToken).toBe(PERSISTED_STATUS_TOKEN)
-    expect(body.decision?.action || body.autoAccepted).toBeTruthy()
-  })
-
-  it('flags below-minimum proposals but still stores them for the owner', async () => {
-    const negotiablePage = {
-      ...pageWithOffer,
-      services: [
-        { name: 'Custom Build', price: '$1,000', description: '', url: '', offerType: 'negotiable', rules: { minPrice: '$800', autoAccept: true } },
-      ],
-    }
-    let inserted: any
-    dbRef.handler = (ctx: QueryContext) => {
-      if (ctx.table === 'pages') return { data: negotiablePage, error: null }
-      if (ctx.op === 'insert') inserted = ctx.payload
-      return { data: null, error: null }
-    }
-    const body = await (await POST(post({ slug: 'demo', offer: 'services-0', budget: '$500' }))).json()
-    expect(body.autoAccepted || body.decision?.action !== 'accept').toBeTruthy()
-    expect(body.status).toBe('negotiation')
-    // rulesEvaluation may be in decision or legacy
-    expect(body.rulesEvaluation?.decision || body.decision).toBeTruthy()
-  })
-
-  it('offers without rules keep the legacy review flow (and still get a status token)', async () => {
+  it('surfaces the persisted status token + statusUrl for polling (never mints its own)', async () => {
     dbRef.handler = (ctx: QueryContext) => {
       if (ctx.table === 'pages') return { data: pageWithOffer, error: null }
       return { data: null, error: null }
     }
     const body = await (await POST(post({ slug: 'demo', offer: 'services-0', budget: '$90' }))).json()
     expect(body.status).toBe('negotiation')
-    expect(body.autoAccepted).toBe(false)
+    expect(body.decisionPending).toBe(true)
     // Strict: statusToken/statusUrl must carry the persisted token so status polls resolve.
     expect(body.statusToken).toBe(PERSISTED_STATUS_TOKEN)
-    expect(body.statusUrl).toContain(`id=new-neg-id`)
+    expect(body.statusUrl).toContain('id=new-neg-id')
     expect(body.statusUrl).toContain(`token=${PERSISTED_STATUS_TOKEN}`)
-    expect(body.decision || body.proposalReview).toBeTruthy()
   })
 
   it('passes continuation credentials through and 404s on a token mismatch', async () => {
@@ -208,17 +162,41 @@ describe('POST /api/negotiations', () => {
     // Continuation: negotiationId + statusToken must reach the service untouched.
     const res = await POST(post({ slug: 'demo', offer: 'services-0', negotiationId: 'neg-1', statusToken: 'tok-1' }))
     expect(res.status).toBe(200)
-    expect(negotiationService.startOrContinue).toHaveBeenCalledWith(
+    expect(negotiationService.submitProposal).toHaveBeenCalledWith(
       expect.objectContaining({ negotiationId: 'neg-1', statusToken: 'tok-1' }),
     )
 
     // Wrong/missing token: the service raises a 404-shaped error → constant 404, no 500.
     const notFound = new Error('Negotiation not found.') as Error & { status: number }
     notFound.status = 404
-    ;(negotiationService.startOrContinue as any).mockRejectedValueOnce(notFound)
+    ;(negotiationService.submitProposal as any).mockRejectedValueOnce(notFound)
     const missRes = await POST(post({ slug: 'demo', offer: 'services-0', negotiationId: 'neg-1', statusToken: 'wrong' }))
     expect(missRes.status).toBe(404)
     expect(await missRes.json()).toEqual({ error: 'Negotiation not found.' })
+  })
+
+  it('409s when a decision is already in progress (JSON), redirects to the thread (form)', async () => {
+    dbRef.handler = (ctx: QueryContext) =>
+      ctx.table === 'pages' ? { data: pageWithOffer, error: null } : { data: null, error: null }
+    const { negotiationService } = await import('../../../lib/negotiation.service')
+
+    const conflict = new Error('A decision is already in progress for this negotiation.') as Error & { status: number }
+    conflict.status = 409
+    ;(negotiationService.submitProposal as any).mockRejectedValue(conflict)
+
+    const jsonRes = await POST(post({ slug: 'demo', offer: 'services-0', negotiationId: 'neg-1', statusToken: 'tok-1' }))
+    expect(jsonRes.status).toBe(409)
+
+    const form = new URLSearchParams({ slug: 'demo', offer: 'services-0', query: 'q', negotiationId: 'neg-1', statusToken: 'tok-1' })
+    const formRes = await POST(
+      new Request('https://nexez.test/api/negotiations', {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: form.toString(),
+      }),
+    )
+    expect(formRes.status).toBe(303)
+    expect(formRes.headers.get('location')).toContain('/negotiate/neg-1')
   })
 
   it('form-post continuations carry negotiationId/statusToken and redirect to the thread', async () => {
@@ -240,7 +218,7 @@ describe('POST /api/negotiations', () => {
       }),
     )
     const { negotiationService } = await import('../../../lib/negotiation.service')
-    expect(negotiationService.startOrContinue).toHaveBeenCalledWith(
+    expect(negotiationService.submitProposal).toHaveBeenCalledWith(
       expect.objectContaining({ negotiationId: 'neg-7', statusToken: 'tok-7' }),
     )
     // Continuations land back on the persistent thread, not the public page.
@@ -253,8 +231,8 @@ describe('POST /api/negotiations', () => {
       ctx.table === 'pages' ? { data: pageWithOffer, error: null } : { data: null, error: null }
 
     const { negotiationService } = await import('../../../lib/negotiation.service')
-    ;(negotiationService.startOrContinue as any).mockRejectedValueOnce(
-      new Error('new row violates row-level security policy')
+    ;(negotiationService.submitProposal as any).mockRejectedValueOnce(
+      new Error('new row violates row-level security policy'),
     )
     const res = await POST(post({ slug: 'demo', offer: 'services-0' }))
     expect(res.status).toBe(500)

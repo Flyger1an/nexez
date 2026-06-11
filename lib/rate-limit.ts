@@ -46,3 +46,45 @@ export function enforceRateLimit(
     { status: 429, headers: { 'Retry-After': String(res.retryAfter) } },
   )
 }
+
+// Layered quotas for the negotiation POST endpoint. The blunt 20/min/IP limit
+// couldn't distinguish "one busy agent on one page" from "a swarm hammering one
+// page from many IPs". Tunable; in-memory + per-instance (same caveat as above).
+export const NEGOTIATION_RATE_LIMITS = {
+  ip: { limit: 30, windowMs: 60_000 }, // the real abuse guard
+  page: { limit: 60, windowMs: 60_000 }, // one page can't be saturated across many IPs
+  agent: { limit: 12, windowMs: 60_000 }, // a single named agent's share of one page
+} as const
+
+/**
+ * Enforce the layered negotiation quotas. 429s if ANY of the per-IP, per-page, or
+ * per-agent+page windows is exceeded (max retryAfter of the tripped ones), else
+ * returns null to proceed.
+ *
+ * `buyerAgent` is buyer-supplied and therefore spoofable, so its bucket is a
+ * fairness/cost guard — NOT a security control. The IP and page buckets are the
+ * real guards. Back with Upstash/Redis for globally-shared limits later.
+ */
+export function enforceNegotiationRateLimit(
+  request: Request,
+  ctx: { slug?: string; buyerAgent?: string },
+  now: number = Date.now(),
+): NextResponse | null {
+  const ip = clientIp(request)
+  const slug = (ctx.slug || 'unknown').toLowerCase().slice(0, 120)
+  const agent = (ctx.buyerAgent || 'anonymous').toLowerCase().slice(0, 120)
+
+  const tripped = [
+    rateLimit(`neg:ip:${ip}`, NEGOTIATION_RATE_LIMITS.ip.limit, NEGOTIATION_RATE_LIMITS.ip.windowMs, now),
+    rateLimit(`neg:page:${slug}`, NEGOTIATION_RATE_LIMITS.page.limit, NEGOTIATION_RATE_LIMITS.page.windowMs, now),
+    rateLimit(`neg:agent:${slug}:${agent}`, NEGOTIATION_RATE_LIMITS.agent.limit, NEGOTIATION_RATE_LIMITS.agent.windowMs, now),
+  ].filter((r) => !r.ok)
+
+  if (tripped.length === 0) return null
+
+  const retryAfter = Math.max(...tripped.map((r) => r.retryAfter))
+  return NextResponse.json(
+    { error: 'Rate limit exceeded. Please slow down.', retryAfter },
+    { status: 429, headers: { 'Retry-After': String(retryAfter) } },
+  )
+}
