@@ -81,7 +81,7 @@ export default function OnboardPage() {
     <main className="min-h-screen bg-[#090b10] text-white">
       <div className="mx-auto max-w-5xl px-6 py-12">
         <div className="flex items-center gap-3 mb-8">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-[#7C3AED] text-sm font-semibold">N</div>
+          <div className="flex size-9 items-center justify-center rounded-lg bg-[var(--signal-solid)] text-sm font-semibold">N</div>
           <div>
             <div className="font-semibold tracking-tight">Nexez</div>
             <div className="text-[10px] text-[#9CA3AF] -mt-1">Onboarding</div>
@@ -96,7 +96,7 @@ export default function OnboardPage() {
               <ol className="space-y-3">
                 {steps.map((s) => (
                   <li key={s.num} className={`flex gap-3 text-sm ${step === s.num ? 'text-white' : 'text-[#9CA3AF]'}`}>
-                    <div className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px] ${step >= s.num ? 'border-[#7C3AED] bg-[#7C3AED]/10 text-[var(--signal)]' : 'border-white/20'}`}>
+                    <div className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px] ${step >= s.num ? 'border-[var(--signal)] bg-[var(--signal)]/10 text-[var(--signal)]' : 'border-white/20'}`}>
                       {step > s.num ? <Check className="size-3" /> : s.num}
                     </div>
                     <div>
@@ -125,7 +125,7 @@ export default function OnboardPage() {
                       <button
                         key={plan.id}
                         onClick={() => setSelectedPlanId(plan.id)}
-                        className={`text-left rounded-2xl border p-5 transition ${isSelected ? 'border-[#7C3AED] bg-[#1A1625]' : 'border-white/10 hover:border-white/20'}`}
+                        className={`text-left rounded-2xl border p-5 transition ${isSelected ? 'border-[var(--signal)] bg-[#1A1625]' : 'border-white/10 hover:border-white/20'}`}
                       >
                         <div className="flex justify-between">
                           <div>
@@ -171,7 +171,7 @@ export default function OnboardPage() {
                   <button 
                     onClick={handleSignupAndContinue} 
                     disabled={loading || !email || !password || !fullName || !company}
-                    className="w-full rounded-lg bg-[#7C3AED] py-3 font-medium disabled:opacity-60"
+                    className="w-full rounded-lg bg-[var(--signal-solid)] py-3 font-medium disabled:opacity-60"
                   >
                     {loading ? 'Creating account…' : 'Create account & continue'}
                   </button>
@@ -190,7 +190,7 @@ export default function OnboardPage() {
 
                 <div className="mt-8 max-w-md rounded-2xl border border-white/10 bg-[#12101B] p-6">
                   <div className="flex items-center gap-3 text-sm">
-                    <CreditCard className="size-5 text-[#7C3AED]" />
+                    <CreditCard className="size-5 text-[var(--signal)]" />
                     <div>
                       <div className="font-medium">Secure Stripe Connect</div>
                       <div className="text-xs text-[#9CA3AF]">Nexez never sees your customer payment details.</div>

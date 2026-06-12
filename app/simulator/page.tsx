@@ -366,7 +366,7 @@ export default function GlobalAgentSimulator() {
             {/* My Pages */}
             <div className="card">
               <div className="flex items-center gap-2 mb-3">
-                <Bot className="size-4 text-[#7C3AED]" />
+                <Bot className="size-4 text-[var(--signal)]" />
                 <span className="font-medium">Analyze my page</span>
               </div>
               {isLoggedIn && myPages.length > 0 ? (
@@ -376,7 +376,7 @@ export default function GlobalAgentSimulator() {
                       key={p.id}
                       onClick={() => handleSelectMyPage(p)}
                       disabled={!hydrated || loading}
-                      className={`rounded border px-3 py-1 text-sm ${selectedPage?.id === p.id ? 'border-[#7C3AED] bg-[#7C3AED]/10' : 'border-white/15 hover:bg-white/5'}`}
+                      className={`rounded border px-3 py-1 text-sm ${selectedPage?.id === p.id ? 'border-[var(--signal)] bg-[var(--signal)]/10' : 'border-white/15 hover:bg-white/5'}`}
                     >
                       {p.name}
                     </button>
@@ -440,7 +440,7 @@ export default function GlobalAgentSimulator() {
                     onClick={() => switchAgent(tab)}
                     className={`agent-tab px-6 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
                       currentAgent === tab 
-                        ? 'border-[#7C3AED] text-white bg-[#1A1625]' 
+                        ? 'border-[var(--signal)] text-white bg-[#1A1625]' 
                         : 'border-transparent text-[#9CA3AF] hover:text-white'
                     }`}
                   >
@@ -519,7 +519,7 @@ export default function GlobalAgentSimulator() {
                   <div className="flex flex-col gap-3 mb-3 md:flex-row md:items-center md:justify-between">
                     <div>
                       <h3 className="font-semibold flex items-center gap-2">
-                        <History className="size-4 text-[#7C3AED]" /> Simulation History
+                        <History className="size-4 text-[var(--signal)]" /> Simulation History
                       </h3>
                       <p className="mt-1 text-xs text-zinc-500">{history.length} saved runs for this page</p>
                     </div>
@@ -556,7 +556,7 @@ export default function GlobalAgentSimulator() {
                             <div className="text-[10px] text-zinc-500">{new Date(h.timestamp).toLocaleString()}</div>
                           </div>
                           <div className="flex gap-1 shrink-0">
-                            <button onClick={() => loadFromHistory(h)} className="text-[10px] rounded bg-[#7C3AED]/20 px-2 py-1 hover:bg-[#7C3AED]/40">Load</button>
+                            <button onClick={() => loadFromHistory(h)} className="text-[10px] rounded bg-[var(--signal)]/20 px-2 py-1 hover:bg-[var(--signal)]/40">Load</button>
                             <span className="text-[var(--ready)]/80 text-[10px] self-center">{h.readiness || '?'}%</span>
                           </div>
                         </div>
@@ -577,7 +577,7 @@ export default function GlobalAgentSimulator() {
 
           {!selectedPage && (
             <div className="card text-center py-12">
-              <Bot className="mx-auto size-8 text-[#7C3AED] mb-4" />
+              <Bot className="mx-auto size-8 text-[var(--signal)] mb-4" />
               <p className="text-xl font-medium">Start multi-agent simulation.</p>
               <p className="mt-2 text-[#9CA3AF]">ChatGPT, Claude, Grok, Perplexity.</p>
             </div>

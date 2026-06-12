@@ -136,12 +136,12 @@ export default function CompetitorIntelligence() {
       <ErrorBoundary>
         <div className="mx-auto max-w-5xl px-6 py-8">
           <h1 className="text-4xl font-semibold tracking-tight flex items-center gap-2">
-            <BarChart3 className="size-8 text-[#7C3AED]" /> AI Competitor Intelligence
+            <BarChart3 className="size-8 text-[var(--signal)]" /> AI Competitor Intelligence
           </h1>
           <p className="mt-2 text-[#9CA3AF]">Competitive agent intel. Any URL supported.</p>
 
           {/* NEW: Competitor Website Analyzer (High Priority — any external URL) */}
-          <div className="mt-8 card border-[#7C3AED]/40">
+          <div className="mt-8 card border-[var(--signal)]/40">
             <div className="flex items-center gap-2 mb-2">
               <Target className="size-5 text-[var(--ready)]" />
               <span className="font-semibold text-lg">Competitor Website Analyzer</span>

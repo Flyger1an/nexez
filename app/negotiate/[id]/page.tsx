@@ -158,7 +158,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
     <main className="min-h-screen bg-[#0A0A0F] text-white p-6">
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center gap-3 mb-8">
-          <Handshake className="size-8 text-[#7C3AED]" />
+          <Handshake className="size-8 text-[var(--signal)]" />
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">Negotiation</h1>
             <p className="text-sm text-zinc-400 font-mono">{id}</p>
@@ -224,8 +224,8 @@ export default async function PersistentNegotiationPage({ params, searchParams }
         )}
 
         {lastDecision && (lastDecision.counter || lastDecision.schedulingLink || lastDecision.scope) && (
-          <div className="card mb-6 border border-[#7C3AED]/30">
-            <div className="text-xs uppercase tracking-widest text-[#7C3AED] mb-1">Current proposed terms (from intelligent engine)</div>
+          <div className="card mb-6 border border-[var(--signal)]/30">
+            <div className="text-xs uppercase tracking-widest text-[var(--signal)] mb-1">Current proposed terms (from intelligent engine)</div>
             {lastDecision.counter && (
               <div className="text-sm">
                 {lastDecision.counter.priceCents != null && <span>Price: ${(lastDecision.counter.priceCents/100).toFixed(2)} </span>}
@@ -257,7 +257,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
                 {turn.role === 'buyer' ? (
                   <User className="size-5 text-[var(--signal)]" />
                 ) : (
-                  <Bot className="size-5 text-[#7C3AED]" />
+                  <Bot className="size-5 text-[var(--signal)]" />
                 )}
               </div>
               <div className="flex-1 min-w-0">
@@ -272,8 +272,8 @@ export default async function PersistentNegotiationPage({ params, searchParams }
                 )}
 
                 {turn.decision && (
-                  <div className="mt-3 border-l-2 border-[#7C3AED] pl-3 text-sm">
-                    <div className="font-semibold text-[#7C3AED] uppercase tracking-widest text-[10px]">{turn.decision.action}</div>
+                  <div className="mt-3 border-l-2 border-[var(--signal)] pl-3 text-sm">
+                    <div className="font-semibold text-[var(--signal)] uppercase tracking-widest text-[10px]">{turn.decision.action}</div>
                     <p className="mt-1 text-zinc-300">{turn.decision.reasoning}</p>
                     {turn.decision.counter && (
                       <div className="mt-2 text-xs bg-black/30 p-2 rounded">
@@ -297,7 +297,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
                       </div>
                     )}
                     {turn.decision.schedulingLink && (
-                      <a href={turn.decision.schedulingLink} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs underline text-[#7C3AED] hover:text-white">
+                      <a href={turn.decision.schedulingLink} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs underline text-[var(--signal)] hover:text-white">
                         Book concrete slot via Calendly / scheduling link →
                       </a>
                     )}

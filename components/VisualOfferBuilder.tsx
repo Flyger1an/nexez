@@ -431,7 +431,7 @@ function SortableOfferCard({
               <span className={`absolute -top-1.5 right-20 rounded px-1.5 py-px text-[9px] font-medium ${
                 offer.source === 'stripe' ? 'bg-[var(--signal)]/10 text-[var(--signal)]' :
                 offer.source === 'shopify' ? 'bg-[var(--signal)]/10 text-[var(--signal)]' :
-                offer.source === 'square' ? 'bg-pink-400/10 text-pink-300' :
+                offer.source === 'square' ? 'bg-[var(--signal)]/10 text-[var(--signal)]' :
                 offer.source === 'acuity' ? 'bg-[var(--amber)]/10 text-[var(--amber)]' :
                 'bg-[var(--signal)]/10 text-[var(--signal)]'
               }`}>
@@ -576,7 +576,7 @@ function SortableOfferCard({
                       type="checkbox"
                       checked={!!offer.rules?.autoAccept}
                       onChange={(e) => updateRules({ autoAccept: e.target.checked })}
-                      className="size-3 accent-[#7C3AED]"
+                      className="size-3 accent-[var(--signal)]"
                     />
                     Auto-accept proposals that meet every rule
                   </label>
@@ -638,7 +638,7 @@ function SortableOfferCard({
                       onUpdate(index, 'prefer_original_for_this' as any, String(e.target.checked));
                     }
                   }}
-                  className="size-3 accent-[#7C3AED]"
+                  className="size-3 accent-[var(--signal)]"
                 />
                 Book on original site for this offer
               </label>
@@ -692,7 +692,7 @@ function SortableOfferCard({
                 type="checkbox"
                 checked={!!offer.isMobile}
                 onChange={(e) => updateConsumerField('isMobile', e.target.checked)}
-                className="size-3 accent-[#7C3AED]"
+                className="size-3 accent-[var(--signal)]"
               />
               Mobile / comes to you
             </label>

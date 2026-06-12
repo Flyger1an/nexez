@@ -210,7 +210,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
               onClick={() => setAgent(tab)}
               className={`agent-tab px-6 py-3 text-sm font-medium border-b-2 transition-all ${
                 agent === tab 
-                  ? 'border-[#7C3AED] text-white bg-[#1A1625]' 
+                  ? 'border-[var(--signal)] text-white bg-[#1A1625]' 
                   : 'border-transparent text-[#9CA3AF] hover:text-white'
               }`}
             >
@@ -289,7 +289,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
                   onClick={() => setResponseTab(tab)}
                   className={`px-4 py-2 text-sm font-medium transition ${
                     responseTab === tab 
-                      ? 'text-white border-b-2 border-[#7C3AED]' 
+                      ? 'text-white border-b-2 border-[var(--signal)]' 
                       : 'text-[#9CA3AF] hover:text-white'
                   }`}
                 >
@@ -369,7 +369,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
                 type="checkbox"
                 checked={simulatePreferOriginal}
                 onChange={(e) => setSimulatePreferOriginal(e.target.checked)}
-                className="accent-[#7C3AED]"
+                className="accent-[var(--signal)]"
               />
               Simulate "Prefer original site" (page-level)
             </label>

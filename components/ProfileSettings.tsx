@@ -100,4 +100,4 @@ export function ProfileSettings({ email, initialFullName, initialCompany, initia
 }
 
 const inputClass =
-  'w-full rounded-lg border border-white/10 bg-white/[0.06] px-3 py-2 text-white placeholder:text-zinc-600 outline-none transition focus:border-[#7C3AED]/60'
+  'w-full rounded-lg border border-white/10 bg-white/[0.06] px-3 py-2 text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--signal)]/60'

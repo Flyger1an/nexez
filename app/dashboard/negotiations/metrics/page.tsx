@@ -100,7 +100,7 @@ export default async function NegotiationMetricsPage() {
         </Link>
 
         <div className="mb-8 flex items-center gap-3">
-          <BarChart3 className="size-7 text-[#7C3AED]" />
+          <BarChart3 className="size-7 text-[var(--signal)]" />
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Negotiation Metrics</h1>
             <p className="text-sm text-zinc-400">Your last {Math.min(MAX_NEGOTIATIONS, m.total)} negotiations · throughput over {WINDOW_DAYS} days.</p>

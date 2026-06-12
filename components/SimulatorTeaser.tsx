@@ -122,7 +122,7 @@ export function SimulatorTeaser() {
         <div className="mt-6 rounded-2xl border border-border bg-white/[0.02] p-5 sm:p-6">
           {/* Signal row */}
           <div className="mb-4 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center rounded-full border border-[#7C3AED]/30 bg-[#7C3AED]/10 px-2.5 py-0.5 text-xs font-medium text-[var(--signal)]">
+            <span className="inline-flex items-center rounded-full border border-[var(--signal)]/30 bg-[var(--signal)]/10 px-2.5 py-0.5 text-xs font-medium text-[var(--signal)]">
               {result.intentLabel}
             </span>
             <span className="inline-flex items-center rounded-full border border-[var(--ready)]/25 bg-[var(--ready)]/10 px-2.5 py-0.5 text-xs text-[var(--ready)]">
@@ -144,7 +144,7 @@ export function SimulatorTeaser() {
                 onClick={() => setActiveTab(id)}
                 className={`px-3 py-1.5 text-sm font-medium transition-colors ${
                   activeTab === id
-                    ? 'border-b-2 border-[#7C3AED] text-white'
+                    ? 'border-b-2 border-[var(--signal)] text-white'
                     : 'text-muted-foreground hover:text-white'
                 }`}
               >

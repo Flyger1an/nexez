@@ -201,7 +201,7 @@ export function PagesManager({
               href={t.href}
               className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
                 status === t.id
-                  ? 'border-[#7C3AED]/40 bg-[#7C3AED]/15 text-white'
+                  ? 'border-[var(--signal)]/40 bg-[var(--signal)]/15 text-white'
                   : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:text-white'
               }`}
             >
@@ -213,7 +213,7 @@ export function PagesManager({
 
         {/* Bulk action bar */}
         {selectedIds.size > 0 && (
-          <div className="mt-5 flex flex-wrap items-center gap-2 rounded-lg border border-[#7C3AED]/30 bg-[#7C3AED]/10 p-3 text-sm">
+          <div className="mt-5 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--signal)]/30 bg-[var(--signal)]/10 p-3 text-sm">
             <span className="font-medium text-white">{selectedIds.size} selected</span>
             <span className="text-zinc-400">·</span>
             <button

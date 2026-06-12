@@ -78,7 +78,7 @@ export function EditorFields({ e }: { e: PageEditor }) {
             type="checkbox"
             checked={e.preferOriginalSite}
             onChange={(event) => e.setPreferOriginalSite(event.target.checked)}
-            className="size-4 accent-[#7C3AED]"
+            className="size-4 accent-[var(--signal)]"
           />
           <span>Prefer linking bookings to my original website</span>
         </label>
@@ -94,7 +94,7 @@ export function EditorFields({ e }: { e: PageEditor }) {
           industry.toLowerCase().includes('beauty') ||
           industry.toLowerCase().includes('pet') ||
           industry.toLowerCase().includes('automotive')) && (
-          <div className="rounded-xl border border-[#7C3AED]/20 bg-[#1A1625] p-4">
+          <div className="rounded-xl border border-[var(--signal)]/20 bg-[#1A1625] p-4">
             <div className="text-sm font-medium text-[var(--signal)] mb-2">Consumer / Local Services</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
               <div>Duration, Service Area, Mobile, Travel Fee fields are available in each offer card below.</div>

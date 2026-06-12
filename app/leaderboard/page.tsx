@@ -52,7 +52,7 @@ export default async function LeaderboardPage({ searchParams }: Props) {
           <div className="mt-6 flex flex-wrap gap-2 text-xs">
             <a
               href="/leaderboard"
-              className={`rounded-full border px-3 py-1 ${!industry ? 'border-[#7C3AED]/50 bg-[#7C3AED]/15 text-white' : 'border-white/15 text-zinc-300 hover:bg-white/5'}`}
+              className={`rounded-full border px-3 py-1 ${!industry ? 'border-[var(--signal)]/50 bg-[var(--signal)]/15 text-white' : 'border-white/15 text-zinc-300 hover:bg-white/5'}`}
             >
               All industries
             </a>
@@ -60,7 +60,7 @@ export default async function LeaderboardPage({ searchParams }: Props) {
               <a
                 key={ind}
                 href={`/leaderboard?industry=${encodeURIComponent(ind)}`}
-                className={`rounded-full border px-3 py-1 ${industry === ind ? 'border-[#7C3AED]/50 bg-[#7C3AED]/15 text-white' : 'border-white/15 text-zinc-300 hover:bg-white/5'}`}
+                className={`rounded-full border px-3 py-1 ${industry === ind ? 'border-[var(--signal)]/50 bg-[var(--signal)]/15 text-white' : 'border-white/15 text-zinc-300 hover:bg-white/5'}`}
               >
                 {ind}
               </a>
@@ -81,7 +81,7 @@ export default async function LeaderboardPage({ searchParams }: Props) {
               >
                 <span
                   className={`flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                    i === 0 ? 'bg-[var(--amber)] text-zinc-950' : i === 1 ? 'bg-zinc-300 text-zinc-950' : i === 2 ? 'bg-[var(--amber)] text-white' : 'bg-white/10 text-zinc-300'
+                    i === 0 ? 'bg-[var(--amber)] text-zinc-950' : i === 1 ? 'bg-zinc-300 text-zinc-950' : i === 2 ? 'bg-[var(--amber)]/55 text-zinc-950' : 'bg-white/10 text-zinc-300'
                   }`}
                 >
                   {i + 1}

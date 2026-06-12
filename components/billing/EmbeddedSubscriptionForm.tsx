@@ -106,7 +106,7 @@ function CheckoutFormInner({ clientSecret, onSuccess, onCancel }: { clientSecret
         <button
           type="submit"
           disabled={!stripe || isLoading}
-          className="flex-1 rounded-lg bg-[#7C3AED] py-3 text-sm font-medium text-white disabled:opacity-60 hover:bg-[#6D28D9]"
+          className="flex-1 rounded-lg bg-[var(--signal-solid)] py-3 text-sm font-medium text-white disabled:opacity-60 hover:opacity-90"
         >
           {isLoading ? 'Processing payment…' : 'Subscribe & pay securely'}
         </button>

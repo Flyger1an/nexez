@@ -310,7 +310,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                       href={n.href}
                       className={`flex items-center justify-between gap-3 rounded-lg border px-5 py-3 text-sm transition ${
                         n.severity === 'action'
-                          ? 'border-[#7C3AED]/40 bg-[#7C3AED]/10 hover:bg-[#7C3AED]/20'
+                          ? 'border-[var(--signal)]/40 bg-[var(--signal)]/10 hover:bg-[var(--signal)]/20'
                           : 'border-white/10 bg-white/[0.03] hover:bg-white/5'
                       }`}
                     >
@@ -361,7 +361,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
             )}
 
             {selectedIds.size > 0 && (
-              <div className="mt-5 flex flex-wrap items-center gap-3 rounded-lg border border-[#7C3AED]/40 bg-[#7C3AED]/10 px-4 py-3 text-sm">
+              <div className="mt-5 flex flex-wrap items-center gap-3 rounded-lg border border-[var(--signal)]/40 bg-[var(--signal)]/10 px-4 py-3 text-sm">
                 <span className="font-medium text-white">{selectedIds.size} selected</span>
                 <button onClick={() => bulkSetPublished(true)} className="rounded border border-[var(--ready)]/40 px-3 py-1 text-xs text-[var(--ready)] hover:bg-[var(--ready)]/10">Publish</button>
                 <button onClick={() => bulkSetPublished(false)} className="rounded border border-white/20 px-3 py-1 text-xs text-zinc-200 hover:bg-white/10">Unpublish</button>
@@ -425,7 +425,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                       </div>
                       <p className="mt-1 text-xs text-zinc-500">{getOfferCount(sp)} offers · readiness {getReadinessScore(sp)}</p>
                       <div className="mt-3 flex gap-2 text-xs">
-                        <a href={`/dashboard/${sp.id}`} className="rounded border border-[#7C3AED]/40 px-3 py-1 text-[var(--signal)] hover:bg-[#7C3AED]/10">Open</a>
+                        <a href={`/dashboard/${sp.id}`} className="rounded border border-[var(--signal)]/40 px-3 py-1 text-[var(--signal)] hover:bg-[var(--signal)]/10">Open</a>
                         <a href={agentRuntimeUrl(`/${sp.slug}`)} target="_blank" rel="noreferrer" className="rounded border border-white/15 px-3 py-1 text-zinc-200 hover:bg-white/10">Public ↗</a>
                       </div>
                     </div>
@@ -487,7 +487,7 @@ function OverviewPill({ label, value }: { label: string; value: string }) {
 
 function NewUserHero({ name }: { name: string }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-[#7C3AED]/30 bg-gradient-to-br from-[var(--signal)]/15 to-[var(--ready)]/5 p-7 md:p-10">
+    <section className="overflow-hidden rounded-2xl border border-[var(--signal)]/30 bg-gradient-to-br from-[var(--signal)]/15 to-[var(--ready)]/5 p-7 md:p-10">
       <p className="text-sm text-[var(--signal)]">{name ? `Welcome, ${name}` : 'Welcome to Nexez'}</p>
       <h2 className="mt-2 max-w-2xl text-3xl font-semibold leading-tight tracking-tight">
         Publish your first agent-readable page.

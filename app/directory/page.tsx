@@ -82,7 +82,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
 
           <div className="grid gap-8 py-8 md:py-10 lg:grid-cols-[0.92fr_1.08fr] lg:items-end">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-lg border border-[#7C3AED]/30 bg-[#7C3AED]/10 px-3 py-1 text-sm font-medium text-[var(--signal)]">
+              <div className="inline-flex items-center gap-2 rounded-lg border border-[var(--signal)]/30 bg-[var(--signal)]/10 px-3 py-1 text-sm font-medium text-[var(--signal)]">
                 <Bot className="size-4" />
                 Public Agent Directory
               </div>
@@ -121,7 +121,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                   <a
                     key={filter}
                     href={`/directory?q=${encodeURIComponent(filter)}&type=${type}`}
-                    className="rounded-lg border border-white/10 bg-[#1A1625] px-3 py-2 text-sm text-[#9CA3AF] hover:border-[#7C3AED]/30 hover:text-white"
+                    className="rounded-lg border border-white/10 bg-[#1A1625] px-3 py-2 text-sm text-[#9CA3AF] hover:border-[var(--signal)]/30 hover:text-white"
                   >
                     {filter}
                   </a>
@@ -223,8 +223,8 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                     href={`/directory?q=${encodeURIComponent(cleanQuery)}&type=${type}&category=${tab.value}`}
                     className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                       isActive
-                        ? 'bg-[#7C3AED] text-white'
-                        : 'border border-white/10 bg-[#1A1625] text-[#9CA3AF] hover:border-[#7C3AED]/30'
+                        ? 'bg-[var(--signal-solid)] text-white'
+                        : 'border border-white/10 bg-[#1A1625] text-[#9CA3AF] hover:border-[var(--signal)]/30'
                     }`}
                   >
                     {tab.label}
@@ -296,7 +296,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                             href={agentRuntimeUrl(`/${p.slug}`)}
                             slug={p.slug}
                             action="similar_page"
-                            className="font-medium text-white hover:text-[#7C3AED]"
+                            className="font-medium text-white hover:text-[var(--signal)]"
                           >
                             {p.name}
                           </TrackedDirectoryLink>
@@ -362,7 +362,7 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
   })
 
   return (
-    <article className="card !p-5 transition hover:border-[#7C3AED]/30">
+    <article className="card !p-5 transition hover:border-[var(--signal)]/30">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-[var(--signal)]">
@@ -464,7 +464,7 @@ function FilterLink({
     <a
       href={`/directory?q=${encodeURIComponent(query)}&${param}=${value}&${otherParam}=${otherValue}`}
       className={`rounded-lg px-3 py-2 text-sm font-medium ${
-        active ? 'bg-[#7C3AED] text-white' : 'border border-white/10 bg-[#1A1625] text-[#9CA3AF] hover:border-[#7C3AED]/30'
+        active ? 'bg-[var(--signal-solid)] text-white' : 'border border-white/10 bg-[#1A1625] text-[#9CA3AF] hover:border-[var(--signal)]/30'
       }`}
     >
       {label}

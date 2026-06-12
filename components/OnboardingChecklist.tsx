@@ -21,7 +21,7 @@ export function OnboardingChecklist({ pages }: { pages: AgentPage[] }) {
   if (progress.complete || dismissed) return null
 
   return (
-    <section className="mb-6 rounded-2xl border border-[#7C3AED]/30 bg-gradient-to-br from-[var(--signal)]/10 to-[var(--ready)]/5 p-5 md:p-6">
+    <section className="mb-6 rounded-2xl border border-[var(--signal)]/30 bg-gradient-to-br from-[var(--signal)]/10 to-[var(--ready)]/5 p-5 md:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <Rocket className="size-5 text-[var(--signal)]" />
@@ -74,7 +74,7 @@ export function OnboardingChecklist({ pages }: { pages: AgentPage[] }) {
             {!step.done && (
               <a
                 href={step.href}
-                className="shrink-0 rounded-lg border border-[#7C3AED]/40 bg-[#7C3AED]/10 px-3 py-1 text-xs text-[var(--signal)] hover:bg-[#7C3AED]/20"
+                className="shrink-0 rounded-lg border border-[var(--signal)]/40 bg-[var(--signal)]/10 px-3 py-1 text-xs text-[var(--signal)] hover:bg-[var(--signal)]/20"
               >
                 {step.cta}
               </a>

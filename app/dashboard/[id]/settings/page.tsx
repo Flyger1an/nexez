@@ -699,7 +699,7 @@ export default function PageSettings({ params }: PageProps) {
                             type="button"
                             onClick={oneClickDetectLogo}
                             disabled={!websiteUrl || uploadingLogo}
-                            className="text-[10px] rounded border border-[#7C3AED]/40 px-2 py-0.5 text-[var(--signal)] hover:bg-[#7C3AED]/10 disabled:opacity-50"
+                            className="text-[10px] rounded border border-[var(--signal)]/40 px-2 py-0.5 text-[var(--signal)] hover:bg-[var(--signal)]/10 disabled:opacity-50"
                           >
                             ✨ One-click: detect logo from my website
                           </button>
@@ -748,7 +748,7 @@ export default function PageSettings({ params }: PageProps) {
                             type="button"
                             disabled={domainProvisioning}
                             onClick={() => callDomainAction('attach')}
-                            className="rounded border border-[#7C3AED]/40 px-2.5 py-1 text-[11px] text-[var(--signal)] hover:bg-[#7C3AED]/10 disabled:opacity-50"
+                            className="rounded border border-[var(--signal)]/40 px-2.5 py-1 text-[11px] text-[var(--signal)] hover:bg-[var(--signal)]/10 disabled:opacity-50"
                           >
                             {domainProvisioning ? 'Working…' : 'Attach & provision SSL'}
                           </button>
@@ -893,7 +893,7 @@ export default function PageSettings({ params }: PageProps) {
                           window.location.reload()
                         } catch {}
                       }}
-                      className="accent-[#7C3AED]"
+                      className="accent-[var(--signal)]"
                     />
                     <span>Enable MCP structured data</span>
                   </label>
@@ -958,7 +958,7 @@ export default function PageSettings({ params }: PageProps) {
               {/* Phase 4: Enhanced Embed & Per-Offer Original Site Linking */}
               <div className="rounded-lg border border-white/10 bg-white/[0.02] p-5">
                 <div className="flex items-center gap-2 mb-3">
-                  <Code2 className="size-4 text-[#7C3AED]" />
+                  <Code2 className="size-4 text-[var(--signal)]" />
                   <span className="font-semibold">Embed & Link to Original Site</span>
                 </div>
 
@@ -969,7 +969,7 @@ export default function PageSettings({ params }: PageProps) {
                         type="checkbox"
                         checked={preferOriginalSite}
                         onChange={(e) => setPreferOriginalSite(e.target.checked)}
-                        className="accent-[#7C3AED]"
+                        className="accent-[var(--signal)]"
                       />
                       Prefer linking bookings to my original website (page default)
                     </label>
@@ -1055,7 +1055,7 @@ export default function PageSettings({ params }: PageProps) {
               {(page as any)?.versions?.length > 0 && (
                 <div className="mt-8 rounded-lg border border-white/10 bg-white/[0.02] p-5">
                   <div className="flex items-center gap-2 mb-3">
-                    <History className="size-4 text-[#7C3AED]" />
+                    <History className="size-4 text-[var(--signal)]" />
                     <span className="font-semibold">Deployments</span>
                     <span className="text-[10px] text-zinc-500">Last 10 saves · newest first</span>
                   </div>

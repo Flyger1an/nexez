@@ -273,7 +273,7 @@ export default function BillingDashboardClient({
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => setActiveTab('plans')}
-                className="inline-flex items-center gap-2 rounded-2xl bg-[#7C3AED] px-8 py-3 text-sm font-semibold text-white transition hover:bg-[#6D28D9] active:bg-[#5B21B6]"
+                className="inline-flex items-center gap-2 rounded-2xl bg-[var(--signal-solid)] px-8 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:bg-[#5B21B6]"
               >
                 <ArrowUp className="size-4" /> Upgrade plan
               </button>
@@ -309,7 +309,7 @@ export default function BillingDashboardClient({
                       <span className="text-base font-normal text-[#9CA3AF]"> / {m.limit === 999 ? '∞' : m.limit}</span>
                     </div>
                     <div className="mt-3 h-1.5 rounded bg-white/10 overflow-hidden">
-                      <div className="h-1.5 bg-[#7C3AED] transition-all" style={{ width: `${pct}%` }} />
+                      <div className="h-1.5 bg-[var(--signal-solid)] transition-all" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 )
@@ -329,7 +329,7 @@ export default function BillingDashboardClient({
             </div>
             <button
               onClick={() => setActiveTab('fees')}
-              className="mt-5 text-sm text-[#7C3AED] hover:underline inline-flex items-center gap-1"
+              className="mt-5 text-sm text-[var(--signal)] hover:underline inline-flex items-center gap-1"
             >
               View full breakdown &amp; connect payouts <ArrowUp className="size-3 rotate-45" />
             </button>
@@ -411,7 +411,7 @@ export default function BillingDashboardClient({
       <div className="flex items-center justify-between">
         <SectionHeader icon={History} title="Billing history" subtitle="Recent invoices and account records" />
         <form action="/api/billing/portal" method="post">
-          <button className="text-sm text-[#7C3AED] hover:underline flex items-center gap-1">
+          <button className="text-sm text-[var(--signal)] hover:underline flex items-center gap-1">
             View full history in Stripe <Download className="size-3.5" />
           </button>
         </form>
@@ -573,7 +573,7 @@ export default function BillingDashboardClient({
             return (
               <GlassCard
                 key={plan.id}
-                className={`p-7 flex flex-col transition-all ${isSelected ? 'ring-1 ring-[#7C3AED]/60 border-[#7C3AED]/50' : 'hover:border-white/25'} ${isCurrent ? 'border-[#7C3AED]/30' : ''}`}
+                className={`p-7 flex flex-col transition-all ${isSelected ? 'ring-1 ring-[var(--signal)]/60 border-[var(--signal)]/50' : 'hover:border-white/25'} ${isCurrent ? 'border-[var(--signal)]/30' : ''}`}
               >
                 <div className="flex items-start justify-between">
                   <div>
@@ -581,7 +581,7 @@ export default function BillingDashboardClient({
                     <div className="text-xs text-[#9CA3AF] mt-0.5">{plan.blurb}</div>
                   </div>
                   {plan.id === 'pro' && (
-                    <span className="rounded-full bg-[#7C3AED] px-2.5 py-px text-[10px] font-medium tracking-widest text-white">POPULAR</span>
+                    <span className="rounded-full bg-[var(--signal-solid)] px-2.5 py-px text-[10px] font-medium tracking-widest text-white">POPULAR</span>
                   )}
                   {isCurrent && (
                     <span className="rounded-full border border-white/20 px-2.5 py-px text-[10px] text-[#9CA3AF]">CURRENT</span>
@@ -623,7 +623,7 @@ export default function BillingDashboardClient({
                     <button
                       onClick={() => startEmbeddedCheckout(plan.id)}
                       disabled={!stripeReady || !!isLoadingThis || !!clientSecret}
-                      className="w-full rounded-2xl bg-[#7C3AED] py-3 text-sm font-semibold text-white transition hover:bg-[#6D28D9] disabled:opacity-60 active:bg-[#5B21B6]"
+                      className="w-full rounded-2xl bg-[var(--signal-solid)] py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60 active:bg-[#5B21B6]"
                     >
                       {isLoadingThis ? (
                         <span className="inline-flex items-center gap-2">
@@ -642,7 +642,7 @@ export default function BillingDashboardClient({
 
         {/* Inline glassmorphic Embedded Checkout panel (requirement #7) */}
         {(selectedPlanId || clientSecret || checkoutError || checkoutSuccess) && (
-          <GlassCard className="p-8 border-[#7C3AED]/40">
+          <GlassCard className="p-8 border-[var(--signal)]/40">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <div className="uppercase tracking-[2px] text-xs text-[#9CA3AF]">Secure checkout</div>

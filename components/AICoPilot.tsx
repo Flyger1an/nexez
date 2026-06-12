@@ -162,7 +162,7 @@ export function AICoPilot({
   }
 
   return (
-    <div className="rounded-xl border border-[#7C3AED]/30 bg-[#1A1625] p-4">
+    <div className="rounded-xl border border-[var(--signal)]/30 bg-[#1A1625] p-4">
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="size-4 text-[var(--signal)]" />
         <span className="font-semibold text-[var(--signal)]">AI Co-Pilot</span>
@@ -173,7 +173,7 @@ export function AICoPilot({
 
       <div className="flex gap-2 mb-4 text-xs flex-wrap">
         {(['desc', 'pricing', 'faq', 'schema', 'voice', 'memory', 'trust', 'competitor'] as const).map(t => (
-          <button key={t} onClick={() => setActiveTab(t)} className={`px-3 py-1 rounded text-xs ${activeTab === t ? 'bg-[#7C3AED] text-white' : 'border border-white/20'}`}>
+          <button key={t} onClick={() => setActiveTab(t)} className={`px-3 py-1 rounded text-xs ${activeTab === t ? 'bg-[var(--signal-solid)] text-white' : 'border border-white/20'}`}>
             {t === 'desc' ? 'Descriptions' : t === 'pricing' ? 'Pricing Tiers' : t === 'faq' ? 'FAQs' : t === 'schema' ? 'Schema' : t === 'voice' ? 'Voice' : t === 'memory' ? 'Memory' : t === 'trust' ? 'Trust' : 'Competitor'}
           </button>
         ))}

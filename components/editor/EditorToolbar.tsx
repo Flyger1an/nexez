@@ -10,7 +10,7 @@ export function EditorToolbar({ e }: { e: PageEditor }) {
         <button
           onClick={e.startReanalysis}
           disabled={e.syncing || !e.websiteUrl}
-          className="inline-flex w-fit items-center gap-2 rounded-lg border border-[#7C3AED]/40 px-4 py-2 text-sm text-[var(--signal)] hover:bg-[#7C3AED]/10 disabled:opacity-50"
+          className="inline-flex w-fit items-center gap-2 rounded-lg border border-[var(--signal)]/40 px-4 py-2 text-sm text-[var(--signal)] hover:bg-[var(--signal)]/10 disabled:opacity-50"
         >
           {e.syncing ? <Loader2 className="size-4 animate-spin" /> : null}
           {e.syncing ? 'Analyzing...' : 'Re-analyze from Website (Preview)'}

@@ -29,7 +29,7 @@ export function PageCard({
   const score = getReadinessScore(page)
 
   return (
-    <article className={`card overflow-hidden p-0 ${selected ? 'ring-2 ring-[#7C3AED]/60' : ''}`}>
+    <article className={`card overflow-hidden p-0 ${selected ? 'ring-2 ring-[var(--signal)]/60' : ''}`}>
       <div className="flex items-start justify-between border-b border-white/10 p-5">
         <div className="flex items-center gap-2">
           {onSelectToggle && (
@@ -37,7 +37,7 @@ export function PageCard({
               type="checkbox"
               checked={!!selected}
               onChange={onSelectToggle}
-              className="size-4 accent-[#7C3AED]"
+              className="size-4 accent-[var(--signal)]"
               aria-label="Select page for bulk actions"
             />
           )}

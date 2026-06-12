@@ -233,7 +233,7 @@ export default function NegotiationsInbox() {
           <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h1 className="flex items-center gap-2 text-2xl font-semibold">
-                <Handshake className="size-6 text-[#7C3AED]" /> Negotiation Inbox
+                <Handshake className="size-6 text-[var(--signal)]" /> Negotiation Inbox
               </h1>
               <p className="mt-1 max-w-2xl text-sm text-zinc-400">Agent proposals + escrow status.</p>
             </div>
@@ -295,7 +295,7 @@ export default function NegotiationsInbox() {
               </p>
               <a
                 href="/dashboard"
-                className="mt-4 inline-flex items-center gap-2 text-sm text-[#7C3AED] hover:underline"
+                className="mt-4 inline-flex items-center gap-2 text-sm text-[var(--signal)] hover:underline"
               >
                 Manage your pages <ExternalLink className="size-3.5" />
               </a>
@@ -408,7 +408,7 @@ function NegotiationCard({
             href={agentRuntimeUrl(`/${item.slug}`)}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-[#7C3AED] hover:underline"
+            className="inline-flex items-center gap-1 text-xs text-[var(--signal)] hover:underline"
           >
             /{item.slug} <ExternalLink className="size-3" />
           </a>
@@ -507,7 +507,7 @@ function NegotiationCard({
             Receipt
           </a>
         )}
-        <a href={agentRuntimeUrl(`/negotiate/${item.id}`)} className="inline-flex items-center gap-1 text-xs text-[#7C3AED] hover:underline">
+        <a href={agentRuntimeUrl(`/negotiate/${item.id}`)} className="inline-flex items-center gap-1 text-xs text-[var(--signal)] hover:underline">
           View full persistent thread →
         </a>
       </div>
@@ -534,7 +534,7 @@ function NegotiationCard({
       {transitions.length > 0 && (
         <div className="mt-4 border-t border-white/10 pt-4">
           <details className="group">
-            <summary className="cursor-pointer text-xs text-[#7C3AED] hover:underline flex items-center gap-1">
+            <summary className="cursor-pointer text-xs text-[var(--signal)] hover:underline flex items-center gap-1">
               + Add manual response (as owner)
               <span className="text-[10px] text-zinc-500 group-open:hidden">(for testing / direct control)</span>
             </summary>

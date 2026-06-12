@@ -364,7 +364,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
 
               <form
                 method="get"
-                className={`mt-3 grid gap-2 rounded-lg border bg-black/20 p-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] sm:items-center ${isCustom ? 'border-[#7C3AED]/50' : 'border-white/10'}`}
+                className={`mt-3 grid gap-2 rounded-lg border bg-black/20 p-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] sm:items-center ${isCustom ? 'border-[var(--signal)]/50' : 'border-white/10'}`}
               >
                 {filters.q ? <input type="hidden" name="q" value={filters.q} /> : null}
                 {selectedPageId ? <input type="hidden" name="page" value={selectedPageId} /> : null}

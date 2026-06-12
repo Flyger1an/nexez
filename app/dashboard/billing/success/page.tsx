@@ -60,7 +60,7 @@ export default async function BillingSuccessPage({ searchParams }: SuccessProps)
           <div className="mt-7 flex flex-col sm:flex-row gap-3 justify-center">
             <a 
               href="/dashboard/billing" 
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#7C3AED] px-5 py-3 text-sm font-semibold text-white hover:bg-[#6D28D9]"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--signal-solid)] px-5 py-3 text-sm font-semibold text-white hover:opacity-90"
             >
               <CreditCard className="size-4" />
               View Billing &amp; Plan

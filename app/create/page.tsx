@@ -686,7 +686,7 @@ export default function CreatePage() {
           className="hidden"
         />
 
-        <div className="card !p-8 border border-[#7C3AED]/40">
+        <div className="card !p-8 border border-[var(--signal)]/40">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-xl">
               <div className="inline-flex items-center gap-2 rounded-full border border-[var(--signal)]/20 bg-[var(--signal)]/10 px-3 py-1 text-xs font-medium text-[var(--signal)]">
@@ -1200,7 +1200,7 @@ export default function CreatePage() {
                               setServicesOffers(combined)
                               setServices(formatOfferLines(combined))
                             }}
-                            className="text-[10px] rounded border border-[#7C3AED]/40 px-2 py-0.5 text-[var(--signal)] hover:bg-[#7C3AED]/10"
+                            className="text-[10px] rounded border border-[var(--signal)]/40 px-2 py-0.5 text-[var(--signal)] hover:bg-[var(--signal)]/10"
                           >
                             Suggest {industry.split(' ')[0]}
                           </button>

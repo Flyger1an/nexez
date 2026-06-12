@@ -96,7 +96,7 @@ export function TeamInvites() {
         <button
           type="button"
           onClick={invite}
-          className="rounded-lg border border-[#7C3AED]/40 bg-[#7C3AED]/10 px-4 py-2 text-sm text-[var(--signal)] hover:bg-[#7C3AED]/20"
+          className="rounded-lg border border-[var(--signal)]/40 bg-[var(--signal)]/10 px-4 py-2 text-sm text-[var(--signal)] hover:bg-[var(--signal)]/20"
         >
           Invite
         </button>

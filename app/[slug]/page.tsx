@@ -231,7 +231,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
         )}
 
         {preferOriginal && (
-          <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#7C3AED]/10 px-4 py-1 text-sm text-[var(--signal)]">
+          <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[var(--signal)]/10 px-4 py-1 text-sm text-[var(--signal)]">
             Bookings on this page link to the original website
           </div>
         )}
@@ -298,7 +298,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
             </div>
           </div>
 
-          <aside className="card border-[#7C3AED]/20 bg-[#1A1625] p-6">
+          <aside className="card border-[var(--signal)]/20 bg-[#1A1625] p-6">
             <div className="flex items-center gap-2 text-[var(--signal)]">
               <Bot className="size-5" />
               <h2 className="font-medium">AI agent summary</h2>
@@ -317,7 +317,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
                 const windows = parseAvailabilityWindows((page as any).next_available)
                 if (!windows || windows.length === 0) return null
                 return (
-                  <div className="mt-2 rounded border border-[#7C3AED]/20 bg-[#1A1625] p-2 text-[11px]">
+                  <div className="mt-2 rounded border border-[var(--signal)]/20 bg-[#1A1625] p-2 text-[11px]">
                     <div className="mb-1 text-[var(--signal)] text-[10px] font-medium">Next available slots (Google Calendar)</div>
                     <div className="grid grid-cols-1 gap-y-0.5 text-zinc-300">
                       {windows.slice(0, 4).map((w: any, idx: number) => (
@@ -566,9 +566,9 @@ function OfferSection({
                 <span className={`ml-2 text-[10px] rounded px-1.5 py-0.5 ${
                   item.source === 'stripe' ? 'bg-[var(--signal)]/10 text-[var(--signal)]' :
                   item.source === 'shopify' ? 'bg-[var(--signal)]/10 text-[var(--signal)]' :
-                  item.source === 'square' ? 'bg-pink-400/10 text-pink-300' :
+                  item.source === 'square' ? 'bg-[var(--signal)]/10 text-[var(--signal)]' :
                   item.source === 'acuity' ? 'bg-[var(--amber)]/10 text-[var(--amber)]' :
-                  'bg-blue-400/10 text-blue-300'
+                  'bg-[var(--signal)]/10 text-[var(--signal)]'
                 }`}>
                   via {item.source}
                 </span>
@@ -619,7 +619,7 @@ function OfferSection({
                   return (
                     <a
                       href={`?negotiate=${getCheckoutOfferKey(kind, index)}#negotiate`}
-                      className="inline-flex items-center gap-2 rounded-lg bg-[#7C3AED] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6D28D9]"
+                      className="inline-flex items-center gap-2 rounded-lg bg-[var(--signal-solid)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
                     >
                       Make an Offer
                       <Handshake className="size-4" />
@@ -630,7 +630,7 @@ function OfferSection({
                 return (
                   <a
                     href={useOriginal && item.url ? item.url : getCheckoutPath(pageSlug, kind, index)}
-                    className="inline-flex items-center gap-2 rounded-lg bg-[#7C3AED] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6D28D9]"
+                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--signal-solid)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
                   >
                     {useOriginal
                       ? (item.isMobile ? 'Book mobile visit on original site' : 'Book on original site')

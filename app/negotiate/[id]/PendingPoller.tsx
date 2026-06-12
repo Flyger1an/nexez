@@ -52,8 +52,8 @@ export default function PendingPoller({ id, token, currentSeq }: { id: string; t
   }, [id, token, currentSeq, router])
 
   return (
-    <div className="card mb-6 border border-[#7C3AED]/30 bg-[#7C3AED]/5 flex items-center gap-3">
-      <Bot className="size-5 text-[#7C3AED] animate-pulse" />
+    <div className="card mb-6 border border-[var(--signal)]/30 bg-[var(--signal)]/5 flex items-center gap-3">
+      <Bot className="size-5 text-[var(--signal)] animate-pulse" />
       <div>
         <div className="text-sm font-medium">The seller’s negotiation assistant is responding…</div>
         <div className="text-xs text-zinc-400">

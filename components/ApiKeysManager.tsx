@@ -88,7 +88,7 @@ export function ApiKeysManager() {
   return (
     <div className="card !p-5">
       <div className="flex items-center gap-2">
-        <KeyRound className="size-4 text-[#7C3AED]" />
+        <KeyRound className="size-4 text-[var(--signal)]" />
         <h3 className="font-semibold">API Keys</h3>
       </div>
       <p className="mt-1 text-sm text-[#9CA3AF]">
@@ -108,7 +108,7 @@ export function ApiKeysManager() {
           type="button"
           disabled={creating}
           onClick={createKey}
-          className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg border border-[#7C3AED]/40 bg-[#7C3AED]/10 px-4 text-sm text-[var(--signal)] hover:bg-[#7C3AED]/20 disabled:opacity-50"
+          className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg border border-[var(--signal)]/40 bg-[var(--signal)]/10 px-4 text-sm text-[var(--signal)] hover:bg-[var(--signal)]/20 disabled:opacity-50"
         >
           {creating ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
           Generate key

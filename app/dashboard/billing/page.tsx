@@ -89,7 +89,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
         <div className="flex items-center justify-between mb-8">
           <div>
             <div className="flex items-center gap-2 text-sm text-[var(--signal)]">
-              <span className="inline-block size-1.5 rounded-full bg-[#7C3AED]" />
+              <span className="inline-block size-1.5 rounded-full bg-[var(--signal-solid)]" />
               Billing
             </div>
             <h1 className="mt-1 text-4xl font-semibold tracking-[-1.5px]">Your plan &amp; payouts</h1>

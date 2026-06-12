@@ -38,7 +38,7 @@ export default async function MarketplacePage() {
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-3xl md:text-4xl font-semibold tracking-tight flex items-center gap-2">
-              <Star className="size-8 text-[#7C3AED]" /> Agent Marketplace
+              <Star className="size-8 text-[var(--signal)]" /> Agent Marketplace
             </h1>
             <p className="mt-2 text-base md:text-lg text-[#9CA3AF]">High-trust, agent-ready offers from businesses across Nexez. ({count} listings)</p>
           </div>
@@ -53,7 +53,7 @@ export default async function MarketplacePage() {
         {trending.length > 0 && (
           <div className="mt-10">
             <div className="flex items-center gap-2 mb-3">
-              <TrendingUp className="size-5 text-[#7C3AED]" />
+              <TrendingUp className="size-5 text-[var(--signal)]" />
               <h3 className="font-semibold">Trending (high trust + activity)</h3>
             </div>
             <div className="grid gap-3 md:grid-cols-3 text-sm">
@@ -64,7 +64,7 @@ export default async function MarketplacePage() {
                   slug={item.slug}
                   action="public_page"
                   surface="marketplace"
-                  className="block card !p-3 text-sm hover:border-[#7C3AED]/30"
+                  className="block card !p-3 text-sm hover:border-[var(--signal)]/30"
                 >
                   {item.name} <span className="text-xs text-[var(--ready)]">Trust {item.trust_score}</span>
                   {item.verified && ' ✓'}

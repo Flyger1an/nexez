@@ -87,13 +87,13 @@ export function IntegrationsHealthPanel({ e }: { e: PageEditor }) {
           </div>
         )}
         {s.square && (
-          <div className="flex items-center gap-2 rounded border border-pink-300/30 bg-pink-400/5 px-2 py-1 text-pink-200">
+          <div className="flex items-center gap-2 rounded border border-[var(--signal)]/30 bg-[var(--signal)]/5 px-2 py-1 text-[var(--signal)]">
             Square ✓ <span className="text-[10px] text-zinc-400">({new Date(s.square.lastImport).toLocaleDateString()})</span>
             <button
               type="button"
               disabled={busy}
               onClick={() => e.resyncIntegration('square')}
-              className="ml-1 text-[10px] rounded border border-pink-300/50 px-1.5 py-0 text-pink-100 hover:bg-pink-400/10 disabled:opacity-50"
+              className="ml-1 text-[10px] rounded border border-[var(--signal)]/50 px-1.5 py-0 text-[var(--signal)] hover:bg-[var(--signal)]/10 disabled:opacity-50"
             >
               {integrationResyncing === 'square' ? '...' : 'Re-sync'}
             </button>

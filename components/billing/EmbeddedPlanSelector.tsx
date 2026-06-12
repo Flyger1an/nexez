@@ -97,7 +97,7 @@ export default function EmbeddedPlanSelector({ activePlanId, stripeReady, initia
           <h2 className="text-xl font-semibold tracking-tight">Choose a plan</h2>
           <p className="text-sm text-[#9CA3AF] mt-0.5">Switch anytime. Billed monthly. Cancel anytime via Stripe portal.</p>
         </div>
-        <a href="/pricing" className="text-sm text-[#7C3AED] hover:underline">View full comparison →</a>
+        <a href="/pricing" className="text-sm text-[var(--signal)] hover:underline">View full comparison →</a>
       </div>
 
       {successMessage && (
@@ -123,12 +123,12 @@ export default function EmbeddedPlanSelector({ activePlanId, stripeReady, initia
           return (
             <div 
               key={plan.id} 
-              className={`group relative rounded-2xl border p-6 transition-all ${isSelected ? 'border-[#7C3AED] bg-[#1A1625] ring-1 ring-[#7C3AED]/30' : 'border-white/10 bg-[#12101B] hover:border-white/20'}`}
+              className={`group relative rounded-2xl border p-6 transition-all ${isSelected ? 'border-[var(--signal)] bg-[#1A1625] ring-1 ring-[var(--signal)]/30' : 'border-white/10 bg-[#12101B] hover:border-white/20'}`}
             >
               <div>
                 <div className="flex items-center justify-between">
                   <div className="text-2xl font-semibold tracking-tight">{plan.name}</div>
-                  {plan.id === 'pro' && <span className="rounded-full bg-[#7C3AED] px-2.5 py-0.5 text-[10px] font-medium tracking-wider text-white">POPULAR</span>}
+                  {plan.id === 'pro' && <span className="rounded-full bg-[var(--signal-solid)] px-2.5 py-0.5 text-[10px] font-medium tracking-wider text-white">POPULAR</span>}
                 </div>
                 <div className="mt-1 text-sm text-[#9CA3AF]">{plan.blurb}</div>
 
@@ -151,7 +151,7 @@ export default function EmbeddedPlanSelector({ activePlanId, stripeReady, initia
                 <button
                   onClick={() => startEmbeddedCheckout(plan.id)}
                   disabled={!canUseEmbedded || isLoadingThis || !!clientSecret}
-                  className="w-full rounded-xl bg-[#7C3AED] py-3 text-sm font-semibold text-white transition hover:bg-[#6D28D9] disabled:opacity-60 active:bg-[#5B21B6]"
+                  className="w-full rounded-xl bg-[var(--signal-solid)] py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60 active:bg-[#5B21B6]"
                 >
                   {isLoadingThis ? 'Starting secure checkout…' : canUseEmbedded ? 'Subscribe with card' : 'Configure Stripe'}
                 </button>

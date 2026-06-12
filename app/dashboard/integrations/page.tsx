@@ -197,19 +197,19 @@ export default function IntegrationsPage() {
             </div>
 
             {/* Consumer & local services */}
-            <div className="mt-6 card !p-5 border-pink-300/20 bg-pink-300/5">
-              <div className="font-semibold text-pink-300 mb-3">Consumer &amp; local services</div>
+            <div className="mt-6 card !p-5 border-[var(--signal)]/20 bg-[var(--signal)]/5">
+              <div className="font-semibold text-[var(--signal)] mb-3">Consumer &amp; local services</div>
               <div className="grid gap-4 md:grid-cols-2 text-sm">
                 <div>
                   <div className="flex items-center gap-2 font-medium">
                     Square
-                    <span className="text-[9px] rounded bg-pink-400/10 px-1.5 py-0.5 text-pink-300">Consumer</span>
+                    <span className="text-[9px] rounded bg-[var(--signal)]/10 px-1.5 py-0.5 text-[var(--signal)]">Consumer</span>
                   </div>
                   <p className="text-xs text-zinc-400 mt-1.5 leading-5">
                     Payments and bookings for mobile, wellness, and home services — with mobile, travel-fee, service-area,
                     and duration fields.
                   </p>
-                  <a href="/dashboard/tools" className="mt-2 inline-block text-[11px] text-pink-300 hover:underline">Import in Tools →</a>
+                  <a href="/dashboard/tools" className="mt-2 inline-block text-[11px] text-[var(--signal)] hover:underline">Import in Tools →</a>
                 </div>
                 <div>
                   <div className="flex items-center gap-2 font-medium">
@@ -223,7 +223,7 @@ export default function IntegrationsPage() {
                   <a href="/dashboard/tools" className="mt-2 inline-block text-[11px] text-[var(--amber)] hover:underline">Import in Tools →</a>
                 </div>
               </div>
-              <p className="mt-3 text-[11px] text-pink-300/80">Import once, then edit and re-sync from the page editor.</p>
+              <p className="mt-3 text-[11px] text-[var(--signal)]/80">Import once, then edit and re-sync from the page editor.</p>
             </div>
           </section>
         </div>
@@ -263,7 +263,7 @@ function IntegrationCard({
                 : accent === 'purple'
                   ? 'bg-[var(--signal)]/15 text-[var(--signal)]'
                   : accent === 'blue'
-                    ? 'bg-blue-300/15 text-blue-200'
+                    ? 'bg-[var(--signal)]/15 text-[var(--signal)]'
                     : 'bg-white/10 text-zinc-200'
           }`}
         >

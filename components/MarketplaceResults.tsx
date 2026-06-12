@@ -23,7 +23,7 @@ export function MarketplaceResults({ initialResults }: { initialResults: any[] }
       <div className="mb-4 flex items-center gap-3">
         <button
           onClick={() => setShowOnlyFavs(!showOnlyFavs)}
-          className={`text-sm px-3 py-1 rounded border ${showOnlyFavs ? 'bg-[#7C3AED] text-white border-[#7C3AED]' : 'border-white/10 hover:bg-white/5'}`}
+          className={`text-sm px-3 py-1 rounded border ${showOnlyFavs ? 'bg-[var(--signal-solid)] text-white border-[var(--signal)]' : 'border-white/10 hover:bg-white/5'}`}
         >
           {showOnlyFavs ? 'Show All' : '★ My Favorites Only'}
         </button>
@@ -32,9 +32,9 @@ export function MarketplaceResults({ initialResults }: { initialResults: any[] }
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filtered.length > 0 ? filtered.slice(0, 12).map((item: any) => (
-          <div key={item.slug} className="card !p-5 hover:border-[#7C3AED]/30 transition">
+          <div key={item.slug} className="card !p-5 hover:border-[var(--signal)]/30 transition">
             <div className="flex justify-between">
-              <a href={agentRuntimeUrl(`/${item.slug}`)} className="font-semibold text-lg text-white hover:text-[#7C3AED]">{item.name}</a>
+              <a href={agentRuntimeUrl(`/${item.slug}`)} className="font-semibold text-lg text-white hover:text-[var(--signal)]">{item.name}</a>
               <span className="text-xs bg-[var(--ready)]/10 text-[var(--ready)] px-1.5 py-0.5 rounded">Trust {item.trust_score || 70}</span>
             </div>
             <p className="mt-1 text-sm text-[#9CA3AF] line-clamp-2">{item.description}</p>
@@ -46,9 +46,9 @@ export function MarketplaceResults({ initialResults }: { initialResults: any[] }
               {item.has_credentials && <span className="bg-[var(--signal)]/10 text-[var(--signal)] px-1.5 py-0.5 rounded">📜 Creds</span>}
             </div>
             <div className="mt-3 flex gap-2 text-xs">
-              <TrackedDirectoryLink href={item.agent_json_url} slug={item.slug} action="agent_json" surface="marketplace" className="text-[#7C3AED] hover:underline">Agent JSON</TrackedDirectoryLink>
+              <TrackedDirectoryLink href={item.agent_json_url} slug={item.slug} action="agent_json" surface="marketplace" className="text-[var(--signal)] hover:underline">Agent JSON</TrackedDirectoryLink>
               <TrackedDirectoryLink href={agentRuntimeUrl(`/${item.slug}`)} slug={item.slug} action="public_page" surface="marketplace" className="text-[#9CA3AF] hover:underline">View</TrackedDirectoryLink>
-              <TrackedDirectoryLink href={appUrl(`/dashboard/competitors?slug=${item.slug}`)} slug={item.slug} action="analyze" surface="marketplace" className="text-[#7C3AED] hover:underline">Analyze</TrackedDirectoryLink>
+              <TrackedDirectoryLink href={appUrl(`/dashboard/competitors?slug=${item.slug}`)} slug={item.slug} action="analyze" surface="marketplace" className="text-[var(--signal)] hover:underline">Analyze</TrackedDirectoryLink>
               <FavoriteButton slug={item.slug} />
             </div>
           </div>

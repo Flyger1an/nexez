@@ -26,6 +26,8 @@ jobs:
       - run: npm ci
       - name: Lint
         run: npm run lint -- --quiet
+      - name: Palette guard
+        run: npm run lint:palette
       - name: Typecheck
         run: npx tsc --noEmit --incremental false
       - name: Unit + route + component tests

@@ -76,7 +76,7 @@ export default function ToolsPage() {
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="mx-auto max-w-4xl px-6 py-12">
         <div className="flex items-center gap-3 mb-4">
-          <Bot className="size-8 text-[#7C3AED]" />
+          <Bot className="size-8 text-[var(--signal)]" />
           <h1 className="text-4xl font-semibold tracking-tight">Tools</h1>
         </div>
         <p className="text-xl text-[#9CA3AF]">
@@ -236,9 +236,9 @@ export default function ToolsPage() {
               <li>• <span className="text-[var(--ready)]">Calendly</span> — event types, plus webhooks and signing secrets</li>
               <li>• <span className="text-[var(--signal)]">Stripe</span> — products, prices, and live price re-sync</li>
               <li>• <span className="text-[var(--signal)]">Shopify / Woo</span> — product catalog via the public feed</li>
-              <li>• <span className="text-pink-300">Square</span> — bookings and payments for mobile, wellness, and home services</li>
+              <li>• <span className="text-[var(--signal)]">Square</span> — bookings and payments for mobile, wellness, and home services</li>
               <li>• <span className="text-[var(--amber)]">Acuity Scheduling</span> — appointment types for coaching, beauty, and wellness</li>
-              <li>• <span className="text-blue-300">Google Calendar</span> — availability windows</li>
+              <li>• <span className="text-[var(--signal)]">Google Calendar</span> — availability windows</li>
               <li>• CSV and website hybrid import</li>
             </ul>
             <p className="mt-3 text-[10px] text-zinc-500">Connect once, then keep your pages fresh for agents automatically.</p>
