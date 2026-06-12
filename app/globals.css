@@ -1088,3 +1088,28 @@ html.fx .rv .funnel .step { opacity: 0; transform: translateX(-14px); transition
 html.fx .rv.inview .funnel .step { opacity: 1; transform: none; }
 html.fx .ring .fg { transition: stroke-dashoffset 1.3s cubic-bezier(.22,1,.36,1) .15s; }
 @media (prefers-reduced-motion: reduce) { html.fx .rv { opacity: 1; transform: none; } }
+
+/* ----- marketing nav (glassnav) lockup + React-state mobile menu -----
+   Rule: never ship a breakpoint where navigation disappears. The link row hides
+   only under .has-menu (added by React after hydration); without JS the links stay
+   (scrollable strip). At <=480px Sign in folds out of the bar but is in the sheet. */
+nav.glassnav .logo { font-family: var(--font-display); font-weight: 700; letter-spacing: -.04em; font-size: 1.15rem; display: inline-flex; align-items: center; gap: .55rem; color: var(--fg); }
+nav.glassnav .logo .mark { width: 22px; height: 22px; flex-shrink: 0; color: var(--fg); filter: drop-shadow(0 0 3px rgba(142,158,255,.22)); }
+nav.glassnav .nav-actions { display: inline-flex; align-items: center; gap: .5rem; }
+.menu-btn { display: none; align-items: center; justify-content: center; width: 38px; height: 38px; flex-shrink: 0; border-radius: var(--r-pill); background: linear-gradient(180deg, var(--fill-1), transparent); border: 1px solid var(--line-soft); color: var(--fg); font-size: 1.05rem; line-height: 1; cursor: pointer; transition: border-color .25s ease, background .25s ease; }
+.menu-btn:hover { border-color: var(--line); background: var(--fill-2); }
+.navsheet { position: absolute; top: calc(100% + 10px); left: 0; right: 0; display: none; padding: .55rem; z-index: 49; border-radius: 22px; border: 1px solid var(--line); background: linear-gradient(0deg, var(--glass-strong), var(--glass-strong)), var(--bg); -webkit-backdrop-filter: blur(16px) saturate(var(--sat)); backdrop-filter: blur(16px) saturate(var(--sat)); box-shadow: inset 0 1px 0 var(--edge-soft), 0 24px 50px -22px var(--shadow-c); }
+nav.glassnav.open .navsheet { display: grid; gap: .15rem; }
+.navsheet a { padding: .75rem 1.05rem; border-radius: 15px; font-size: .95rem; color: var(--fg-muted); }
+.navsheet a:hover, .navsheet a.on { color: var(--fg); background: var(--fill-2); }
+.navsheet .hair { margin: .35rem .4rem; }
+@media (max-width: 840px) {
+  nav.glassnav.has-menu .navlinks { display: none; }
+  nav.glassnav.has-menu .menu-btn { display: inline-flex; }
+  nav.glassnav:not(.has-menu) .navlinks { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  nav.glassnav:not(.has-menu) .navlinks::-webkit-scrollbar { display: none; }
+}
+@media (max-width: 480px) {
+  nav.glassnav { padding: .55rem .6rem .55rem 1rem; gap: .5rem; }
+  nav.glassnav.has-menu .nav-actions .sign-in { display: none; }
+}

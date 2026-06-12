@@ -1,6 +1,6 @@
 'use client'
 
-import { ReactNode, useEffect, useState } from 'react'
+import { ReactNode, useEffect, useRef, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { NexezLogo } from './NexezLogo'
 import { ThemeToggle } from './ThemeToggle'
@@ -52,45 +52,98 @@ const navLinks = [
 
 export function MarketingShell({ children }: { children: ReactNode }) {
   const authed = useAuthedUser()
+  const [open, setOpen] = useState(false)
+  const [enhanced, setEnhanced] = useState(false)
+  const navRef = useRef<HTMLElement>(null)
+
+  // JS hydrated -> enable the collapse-to-menu. Without JS the link row stays
+  // visible (CSS only hides it under .has-menu), so nav never disappears.
+  useEffect(() => setEnhanced(true), [])
+
+  // Close the mobile sheet on outside-click or Escape.
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('click', onDown)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('click', onDown)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
   return (
-    <div className="min-h-screen bg-background text-white">
-      <nav className="nx-nav sticky top-0 z-50 border-b border-border backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-3.5">
-          <a href="/" className="flex items-center gap-2.5">
-            <div className="flex size-8 items-center justify-center rounded-md border border-border bg-white text-black">
-              <NexezLogo className="size-6" />
-            </div>
-            <span className="text-sm font-medium tracking-tight">Nexez</span>
-          </a>
+    <div className="min-h-screen">
+      <nav
+        ref={navRef}
+        aria-label="Primary"
+        className={`glassnav${enhanced ? ' has-menu' : ''}${open ? ' open' : ''}`}
+      >
+        <a href="/" className="logo">
+          <NexezLogo className="mark" />
+          nexez
+        </a>
 
-          <div className="hidden items-center gap-0.5 lg:flex">
-            {navLinks.map((l) => (
-              <a
-                key={l.href}
-                href={l.href}
-                className="rounded-md px-3 py-1.5 text-sm text-zinc-400 transition-colors hover:bg-white/5 hover:text-white"
-              >
-                {l.label}
-              </a>
-            ))}
-          </div>
+        <div className="navlinks">
+          {navLinks.map((l) => (
+            <a key={l.href} href={l.href}>
+              {l.label}
+            </a>
+          ))}
+        </div>
 
-          <div className="flex items-center gap-2 text-sm">
-            <div className="hidden items-center gap-2 sm:flex">
-              <ThemeToggle />
-              {authed === false && (
-                <a href={appUrl('/login')} className="btn-secondary h-9 px-3">Sign in</a>
-              )}
-            </div>
-            {authed === null ? (
-              <div aria-hidden="true" className="h-9 w-28 rounded-md border border-border bg-white/5" />
-            ) : (
-              <a href={appUrl(authed ? '/dashboard' : '/onboard')} className="btn-primary h-9 px-3">
-                {authed ? 'Dashboard' : 'Get started'}
-                <ArrowRight className="size-4" />
+        <div className="nav-actions">
+          <button
+            type="button"
+            className="menu-btn"
+            aria-label="Open menu"
+            aria-expanded={open}
+            aria-controls="nav-sheet"
+            onClick={(e) => {
+              e.stopPropagation()
+              setOpen((o) => !o)
+            }}
+          >
+            ☰
+          </button>
+          <ThemeToggle />
+          {authed === false && (
+            <a href={appUrl('/login')} className="btn-secondary btn-sm sign-in">
+              Sign in
+            </a>
+          )}
+          {authed === null ? (
+            <span aria-hidden="true" className="btn-primary btn-sm" style={{ opacity: 0, pointerEvents: 'none' }}>
+              Get started
+              <ArrowRight className="size-4 arr" />
+            </span>
+          ) : (
+            <a href={appUrl(authed ? '/dashboard' : '/onboard')} className="btn-primary btn-sm">
+              {authed ? 'Dashboard' : 'Get started'}
+              <ArrowRight className="size-4 arr" />
+            </a>
+          )}
+        </div>
+
+        <div className="navsheet" id="nav-sheet">
+          {navLinks.map((l) => (
+            <a key={l.href} href={l.href} onClick={() => setOpen(false)}>
+              {l.label}
+            </a>
+          ))}
+          {authed === false && (
+            <>
+              <hr className="hair" />
+              <a href={appUrl('/login')} onClick={() => setOpen(false)}>
+                Sign in
               </a>
-            )}
-          </div>
+            </>
+          )}
         </div>
       </nav>
 
