@@ -111,7 +111,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
       >
         <aside className="dashboard-sidebar fixed inset-x-0 bottom-0 z-50 border-t md:sticky md:top-0 md:inset-x-auto md:bottom-auto md:flex md:h-screen md:flex-col md:border-r md:border-t-0">
           <div className="hidden items-center gap-3 border-b border-border px-4 py-4 md:flex">
-            <a href="/" className="flex min-w-0 flex-1 items-center gap-3" title="Nexez home">
+            <a href="/dashboard" className="flex min-w-0 flex-1 items-center gap-3" title="Nexez home">
               <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-white text-black">
                 <NexezLogo className="size-6" />
               </div>
@@ -171,7 +171,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
           <header className="nx-nav sticky top-0 z-40 border-b border-border px-4 py-3 backdrop-blur-xl lg:px-6">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex items-center justify-between gap-3 xl:hidden">
-                <a href="/" className="flex items-center gap-2">
+                <a href="/dashboard" className="flex items-center gap-2">
                   <div className="flex size-7 items-center justify-center rounded-md border border-border bg-white text-black"><NexezLogo className="size-5" /></div>
                   <span className="text-sm font-medium">Nexez</span>
                 </a>

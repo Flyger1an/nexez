@@ -33,6 +33,7 @@ import {
   normalizeSimulatorTarget,
 } from '../../lib/simulation-history'
 import { createClient } from '../../utils/supabase/client'
+import { appUrl } from '../../lib/site'
 
 const agentTabs = ['ChatGPT', 'Claude', 'Grok', 'Perplexity', 'Generic Agent', 'LLM-Enhanced']
 
@@ -382,7 +383,13 @@ export default function GlobalAgentSimulator() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-zinc-400">Sign in, or paste slug.</p>
+                <p className="text-sm text-zinc-400">
+                  Paste a public slug or URL below to try it now —{' '}
+                  <a href={appUrl('/dashboard')} className="underline hover:text-white">
+                    sign in on nexez.app
+                  </a>{' '}
+                  to test your own pages.
+                </p>
               )}
             </div>
 
