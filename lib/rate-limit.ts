@@ -27,20 +27,19 @@ export function rateLimit(key: string, limit: number, windowMs: number, now: num
 
 /** Best-effort client identity from proxy headers (falls back to a constant). */
 export function clientIp(request: Request): string {
-  // Prefer headers the trusted proxy sets to the *verified* client IP. The raw
-  // X-Forwarded-For chain is partly client-controlled: a client can prepend
-  // arbitrary entries, and Vercel appends the real IP as the LAST entry. So
-  // never trust the first XFF entry — use cf-connecting-ip / x-real-ip first,
-  // and if we must read XFF, take the last (proxy-appended) entry.
-  const cf = request.headers.get('cf-connecting-ip')
-  if (cf) return cf.trim()
+  // Read ONLY headers the Vercel edge sets to the verified client IP. Vercel
+  // overwrites x-forwarded-for / x-real-ip and adds x-vercel-forwarded-for (its
+  // trusted signal, leftmost = real client). Non-standard headers like
+  // cf-connecting-ip are NOT managed on this deployment (no Cloudflare in front),
+  // so they pass through from the caller verbatim — trusting them let a client
+  // mint a fresh rate-limit bucket per request by spoofing one header, defeating
+  // the per-IP cap regardless of the shared store. Never read cf-connecting-ip.
+  const vercel = request.headers.get('x-vercel-forwarded-for')
+  if (vercel) return vercel.split(',')[0]!.trim()
+  const xff = request.headers.get('x-forwarded-for')
+  if (xff) return xff.split(',')[0]!.trim() // Vercel sets the real client IP leftmost
   const real = request.headers.get('x-real-ip')
   if (real) return real.trim()
-  const xff = request.headers.get('x-forwarded-for')
-  if (xff) {
-    const parts = xff.split(',')
-    return parts[parts.length - 1]!.trim()
-  }
   return 'unknown'
 }
 

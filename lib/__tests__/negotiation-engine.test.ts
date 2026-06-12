@@ -114,6 +114,9 @@ const demoPage = (overrides: any = {}) => ({
   id: 'p1',
   owner_id: 'o1',
   slug: 'demo',
+  // LLM-path tests need the page opted into LLM negotiation (the engine now routes
+  // non-opted-in pages to the deterministic fallback — see the llm_opt_in gate).
+  llm_opt_in: true,
   services: [{ name: 'Consult', price: '$1000', offerType: 'negotiable', rules: { minPrice: '800', autoAccept: true } }],
   products: [],
   ...overrides,
@@ -281,6 +284,42 @@ describe('NegotiationService.runDecision (async phase — LLM + claim)', () => {
     // The deterministic clamp overrides the manipulated decision — never accept below floor.
     expect(seller?.content?.decision?.action).toBe('counter')
     expect(seller?.content?.decision?.counter?.priceCents).toBe(80000)
+  })
+
+  it('clamps a "$"-formatted seller floor (computeFloor no longer NaN-disables it)', async () => {
+    // Gauntlet #7: parseFloat("$800") was NaN -> floor silently dropped. A real
+    // owner typing "$800" must still get an enforced floor.
+    const state = seedNegotiationDb(demoPage({ services: [{ name: 'Svc', price: '$1000', offerType: 'negotiable', rules: { minPrice: '$800' } }] }))
+    const service = new NegotiationService(okLLM({ action: 'accept', reasoning: 'tempted' }))
+    const s = await service.submitProposal({ slug: 'demo', offerKey: 'services-0', buyerProposal: { proposedPriceCents: 50000 } })
+    await service.runDecision(s.negotiationId)
+    const seller = state.messages.find((m) => m.role === 'seller_llm')
+    expect(seller?.content?.decision?.action).toBe('counter')
+    expect(seller?.content?.decision?.counter?.priceCents).toBe(80000)
+  })
+
+  it('treats a sign-flipped floor as its magnitude, not "no floor" (clamp still fires)', async () => {
+    // Gauntlet #1: parseFloat("-100")*100 = -10000 left the clamp inert, so a $1
+    // proposal auto-accepted on a $113 offer. The floor must resolve to $100.
+    const state = seedNegotiationDb(demoPage({ services: [{ name: 'Svc', price: '$113', offerType: 'negotiable', rules: { minPrice: '-100', autoAccept: true } }] }))
+    const service = new NegotiationService(okLLM({ action: 'accept', reasoning: 'autoAccept says yes' }))
+    const s = await service.submitProposal({ slug: 'demo', offerKey: 'services-0', buyerProposal: { proposedPriceCents: 100 } })
+    await service.runDecision(s.negotiationId)
+    const seller = state.messages.find((m) => m.role === 'seller_llm')
+    expect(seller?.content?.decision?.action).toBe('counter')
+    expect(seller?.content?.decision?.counter?.priceCents).toBe(10000)
+  })
+
+  it('does not call the LLM for a page that has not opted into LLM negotiation', async () => {
+    // Gauntlet #6: an anon POST spent a paid LLM completion on any published page.
+    const state = seedNegotiationDb(demoPage({ llm_opt_in: false, services: [{ name: 'Svc', price: '$1000', offerType: 'negotiable', rules: { minPrice: '800' } }] }))
+    const llm = okLLM({ action: 'accept', reasoning: 'should-not-run' })
+    const service = new NegotiationService(llm as any)
+    const s = await service.submitProposal({ slug: 'demo', offerKey: 'services-0', buyerProposal: { proposedPriceCents: 50000 } })
+    await service.runDecision(s.negotiationId)
+    expect(llm.negotiate).not.toHaveBeenCalled()
+    const seller = state.messages.find((m) => m.role === 'seller_llm')
+    expect(seller?.content?.decision?.action).toBe('reject')
   })
 
   it('never persists the offer private pricing rules into negotiation_messages', async () => {

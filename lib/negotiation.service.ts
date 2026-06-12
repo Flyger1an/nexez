@@ -7,6 +7,8 @@ import { AgentPage, getCheckoutOffer, getBaseUrl } from './agent-page';
 import { getAutoSettleCeilingCents, classifySettlement, SettlementState } from './settlement';
 import { captureError } from './observability';
 import { sanitizeSchedulingLink } from './scheduling-allowlist';
+import { isTerminalNegotiationStatus, type NegotiationStatus } from './negotiations';
+import { parseMoney } from './checkout';
 
 /**
  * Core Negotiation Service - the brain of the Intelligent Negotiation Engine.
@@ -107,6 +109,16 @@ export class NegotiationService {
       // agent poll for the in-flight decision first.
       if (negotiation?.decision_pending) {
         const err = new Error('A decision is already in progress for this negotiation. Poll statusUrl, then submit your follow-up.') as Error & { status: number };
+        err.status = 409;
+        throw err;
+      }
+      // A buyer continuation may only re-open an actively-negotiating deal. Once a
+      // negotiation is funded (held), settled (complete), or terminal (declined /
+      // expired / refunded / disputed) it is closed: re-driving it back to
+      // agreement_proposed would divorce the live agreement amount from the held /
+      // captured PaymentIntent and let a buyer renegotiate a paid deal downward.
+      if (negotiation && (negotiation.status === 'held' || isTerminalNegotiationStatus(negotiation.status as NegotiationStatus))) {
+        const err = new Error('This negotiation is closed and cannot be reopened.') as Error & { status: number };
         err.status = 409;
         throw err;
       }
@@ -235,11 +247,19 @@ export class NegotiationService {
     );
 
     let llmDecision: NegotiationDecision;
-    try {
-      llmDecision = await this.getLLM().negotiate(rules, proposalForLLM, history);
-    } catch {
-      // Provider outage / bad key — fall back to the deterministic rules decision
-      // so a polling agent still gets an answer.
+    if (page?.llm_opt_in === true) {
+      try {
+        llmDecision = await this.getLLM().negotiate(rules, proposalForLLM, history);
+      } catch {
+        // Provider outage / bad key — fall back to the deterministic rules decision
+        // so a polling agent still gets an answer.
+        llmDecision = this.fallbackDecision(rulesEval, proposalForLLM, rules);
+      }
+    } else {
+      // No per-page LLM consent → deterministic decision only. Every other LLM
+      // surface (simulate-llm / public-simulate) gates on llm_opt_in; without this
+      // an anonymous POST /api/negotiations spent a paid LLM completion per request
+      // against any published page, opted-in or not.
       llmDecision = this.fallbackDecision(rulesEval, proposalForLLM, rules);
     }
 
@@ -427,8 +447,10 @@ export class NegotiationService {
     // The status token is the credential for continuing a negotiation: it is issued
     // once at creation (status URL + persistent link) and must be presented to resume.
     // Without this check, anyone who learned the id could append turns and receive
-    // the stored token back in the response.
-    if (data.status_token && data.status_token !== token) {
+    // the stored token back in the response. Fail closed: a row with a missing/empty
+    // stored token is NOT continuable (the old `data.status_token && …` form skipped
+    // the credential check entirely for any tokenless row).
+    if (!data.status_token || data.status_token !== token) {
       const err = new Error('Negotiation not found.') as Error & { status: number };
       err.status = 404;
       throw err;
@@ -487,29 +509,55 @@ export class NegotiationService {
     proposal: any,
     rules: any,
   ): NegotiationDecision {
-    // Rules are absolute. Never allow LLM to accept below floor.
-    const floor = this.computeFloor(rules, proposal);
+    // Rules are absolute. Never allow the LLM to accept below floor.
+    const { floorCents, misconfigured } = this.computeFloor(rules);
 
-    if (decision.action === 'accept' && floor != null && proposal.proposedPriceCents != null && proposal.proposedPriceCents < floor) {
+    // A configured-but-unparseable floor (e.g. "abc") must FAIL CLOSED: never
+    // silently disable the clamp and auto-accept. Hold for owner review instead.
+    if (decision.action === 'accept' && misconfigured) {
+      decision.action = 'review';
+      decision.reasoning = (decision.reasoning || '') + ' (Seller minimum is misconfigured — held for owner review instead of auto-accepting.)';
+      return decision;
+    }
+
+    if (decision.action === 'accept' && floorCents != null && proposal.proposedPriceCents != null && proposal.proposedPriceCents < floorCents) {
       decision.action = 'counter';
-      decision.counter = decision.counter || { priceCents: floor };
+      decision.counter = decision.counter || { priceCents: floorCents };
       decision.reasoning = (decision.reasoning || '') + ' (Clamped to seller minimum rules.)';
     }
 
-    if (decision.action === 'counter' && decision.counter?.priceCents != null && floor != null) {
-      decision.counter.priceCents = Math.max(decision.counter.priceCents, floor);
+    if (decision.action === 'counter' && decision.counter?.priceCents != null && floorCents != null) {
+      decision.counter.priceCents = Math.max(decision.counter.priceCents, floorCents);
     }
 
     return decision;
   }
 
-  private computeFloor(rules: any, proposal: any): number | null {
-    // Simplified floor from offer-rules logic
-    const min = parseFloat(rules?.minPrice || '0') * 100;
-    return isNaN(min) ? null : min;
+  /**
+   * Resolve the seller's hard price floor from rules.minPrice. Uses the SAME
+   * money parser as evaluateProposal (parseMoney) so the clamp and the
+   * deterministic gate can never diverge — the old parseFloat() kept the "-" sign
+   * (a "-100" floor became -10000 cents, so the clamp never fired) and NaN'd on
+   * natural "$200" / "1,000" inputs (silently disabling the floor entirely).
+   * Distinguishes three cases:
+   *   - unset/empty       -> no floor (auto-accept allowed by other rules)
+   *   - explicit 0/$0     -> no floor (owner's deliberate "any price" waiver)
+   *   - set-but-garbage   -> misconfigured: fail closed, never auto-accept
+   */
+  private computeFloor(rules: any): { floorCents: number | null; misconfigured: boolean } {
+    const raw = rules?.minPrice;
+    if (raw == null || String(raw).trim() === '') return { floorCents: null, misconfigured: false };
+    const dollars = parseMoney(String(raw));
+    if (dollars == null) return { floorCents: null, misconfigured: true };
+    if (dollars <= 0) return { floorCents: null, misconfigured: false };
+    return { floorCents: Math.round(dollars * 100), misconfigured: false };
   }
 
   private decisionToStatus(action: NegotiationAction, current: string): string {
+    // Never move a funded (held) or terminal negotiation backward to
+    // agreement_proposed — that state must only ever be reached from an active
+    // negotiating state. Defense-in-depth behind the submitProposal reopen guard.
+    if (current === 'held' || isTerminalNegotiationStatus(current as NegotiationStatus)) return current;
     if (action === 'accept') return 'agreement_proposed';
     if (action === 'reject') return 'declined';
     return current === 'negotiation' ? 'negotiation' : current;
