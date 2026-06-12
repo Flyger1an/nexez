@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   const offerKind = payload.offerKind === 'products' ? 'products' : 'services'
 
   const { data: page, error: pageError } = await supabase
-    .from('pages')
+    .from('pages_public')
     .select('id, owner_id, slug, name, is_published')
     .eq('slug', slug)
     .eq('is_published', true)

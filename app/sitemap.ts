@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase'
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = getBaseUrl()
   const { data: pages } = await supabase
-    .from('pages')
+    .from('pages_public')
     .select('slug, created_at, updated_at, products, services')
     .eq('is_published', true)
     .returns<Pick<AgentPage, 'slug' | 'created_at' | 'updated_at' | 'products' | 'services'>[]>()

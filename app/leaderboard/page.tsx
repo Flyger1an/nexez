@@ -14,7 +14,7 @@ export default async function LeaderboardPage({ searchParams }: Props) {
   const industry = (await searchParams)?.industry || ''
 
   const { data } = await supabase
-    .from('pages')
+    .from('pages_public')
     .select(PUBLIC_PAGE_SELECT)
     .eq('is_published', true)
     .limit(500)

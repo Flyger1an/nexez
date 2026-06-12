@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   const limit = Number(url.searchParams.get('limit') || 10)
 
   const { data: pages, error } = await supabase
-    .from('pages')
+    .from('pages_public')
     .select(PUBLIC_PAGE_SELECT)
     .eq('is_published', true)
     .order('created_at', { ascending: false })

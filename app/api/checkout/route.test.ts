@@ -55,9 +55,11 @@ describe('POST /api/checkout — Smart Rules calendar protection', () => {
     adminRef.handler = () => ({ data: null, error: null, count: 0 })
   })
 
+  // The checkout route reads owner-private booking rules, so the page lookup uses the
+  // service-role client (admin) when configured — the page fixture lives on adminRef.
   it('409 when the weekly booking cap is reached (count from checkout_events)', async () => {
-    dbRef.handler = (c: QueryContext) => (c.table === 'pages' ? { data: fixedPage({ maxBookingsPerWeek: 2 }), error: null } : { data: null })
-    adminRef.handler = () => ({ data: null, error: null, count: 2 })
+    adminRef.handler = (c: QueryContext) =>
+      c.table === 'pages' ? { data: fixedPage({ maxBookingsPerWeek: 2 }), error: null } : { data: null, error: null, count: 2 }
     const res = await POST(post({ slug: 'demo', offer: 'services-0' }))
     expect(res.status).toBe(409)
     const body = await res.json()
@@ -66,8 +68,8 @@ describe('POST /api/checkout — Smart Rules calendar protection', () => {
   })
 
   it('proceeds to the provider redirect when under the cap', async () => {
-    dbRef.handler = (c: QueryContext) => (c.table === 'pages' ? { data: fixedPage({ maxBookingsPerWeek: 2 }), error: null } : { data: null })
-    adminRef.handler = () => ({ data: null, error: null, count: 1 })
+    adminRef.handler = (c: QueryContext) =>
+      c.table === 'pages' ? { data: fixedPage({ maxBookingsPerWeek: 2 }), error: null } : { data: null, error: null, count: 1 }
     const res = await POST(post({ slug: 'demo', offer: 'services-0' }))
     expect(res.status).toBe(200)
     expect((await res.json()).url).toBe('https://book.example.com/deep-clean')
@@ -83,11 +85,13 @@ describe('POST /api/checkout — Smart Rules calendar protection', () => {
     expect((await res.json()).error).toMatch(/blackout/i)
   })
 
-  it('offers without rules are unaffected (no admin count query)', async () => {
-    const { createAdminClient } = await import('../../../utils/supabase/admin')
+  it('offers without rules are unaffected (no admin involvement on a no-service-role deploy)', async () => {
+    const { hasSupabaseAdminEnv, createAdminClient } = await import('../../../utils/supabase/admin')
+    vi.mocked(hasSupabaseAdminEnv).mockReturnValue(false)
     dbRef.handler = (c: QueryContext) => (c.table === 'pages' ? { data: fixedPage(), error: null } : { data: null })
     const res = await POST(post({ slug: 'demo', offer: 'services-0' }))
     expect(res.status).toBe(200)
+    // No rules + no service role → neither the page read nor a booking-count query touches admin.
     expect(vi.mocked(createAdminClient)).not.toHaveBeenCalled()
   })
 })

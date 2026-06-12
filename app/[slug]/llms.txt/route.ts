@@ -12,7 +12,7 @@ import { supabase } from '../../../lib/supabase'
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const { data: page } = await supabase
-    .from('pages')
+    .from('pages_public')
     .select(PUBLIC_PAGE_SELECT)
     .eq('slug', slug)
     .eq('is_published', true)

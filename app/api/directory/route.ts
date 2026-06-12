@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   const minReadiness = Math.max(0, parseInt(searchParams.get('min_readiness') || '0', 10) || 0)
 
   const { data: pages } = await supabase
-    .from('pages')
+    .from('pages_public')
     .select(PUBLIC_PAGE_SELECT)
     .eq('is_published', true)
     .order('created_at', { ascending: false })

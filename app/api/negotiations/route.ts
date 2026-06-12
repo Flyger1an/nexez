@@ -13,6 +13,7 @@ import { enforceNegotiationRateLimit } from '../../../lib/rate-limit'
 import { sanitizeBuyerInput } from '../../../lib/negotiation-input'
 import { buildNegotiationEmail, sendEmail } from '../../../lib/email'
 import { supabase } from '../../../lib/supabase'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 import { negotiationService } from '../../../lib/negotiation.service'
 import { captureError } from '../../../lib/observability'
 
@@ -38,7 +39,13 @@ type NegotiationInput = {
 }
 
 async function getPublishedPage(slug: string) {
-  const { data, error } = await supabase
+  // The negotiation flow needs the owner-private offer `rules` (floor clamp +
+  // dryRun rules eval), so read the base table with the service-role client —
+  // anon can't read it anymore and the public view strips `rules`. Falls back to
+  // the anon client only when no admin env is set (tests, where it's mocked).
+  const db = hasSupabaseAdminEnv() ? createAdminClient() : supabase
+
+  const { data, error } = await db
     .from('pages')
     .select(PUBLIC_PAGE_SELECT)
     .eq('slug', slug)
@@ -47,7 +54,7 @@ async function getPublishedPage(slug: string) {
 
   if (!error) return data
 
-  const { data: fallback } = await supabase
+  const { data: fallback } = await db
     .from('pages')
     .select(BASIC_OWNER_PAGE_SELECT)
     .eq('slug', slug)

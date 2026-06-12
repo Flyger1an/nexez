@@ -25,7 +25,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
   const minReadiness = Math.max(0, parseInt(rawMin, 10) || 0)
   const baseUrl = getBaseUrl()
   const { data: pages } = await supabase
-    .from('pages')
+    .from('pages_public')
     .select(PUBLIC_PAGE_SELECT)
     .eq('is_published', true)
     .order('created_at', { ascending: false })

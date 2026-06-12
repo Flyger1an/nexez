@@ -12,7 +12,7 @@ type RouteProps = {
 export async function GET(request: Request, { params }: RouteProps) {
   const { slug } = await params
   const { data: page } = await supabase
-    .from('pages')
+    .from('pages_public')
     .select(PUBLIC_PAGE_SELECT)
     .eq('slug', slug)
     .eq('is_published', true)

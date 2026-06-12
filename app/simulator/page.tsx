@@ -111,11 +111,12 @@ export default function GlobalAgentSimulator() {
   }, [])
 
   async function loadPageBySlug(slug: string): Promise<AgentPage | null> {
+    // Public "analyze a page by slug" flow — runs as anon for logged-out users, so
+    // it reads the redacted public view (offer `rules` stripped), not the base table.
     const result = await supabase
-      .from('pages')
+      .from('pages_public')
       .select(PUBLIC_PAGE_SELECT)
       .eq('slug', slug)
-      .eq('is_published', true)
       .single<AgentPage>()
 
     if (!result.error || !isMissingColumnError(result.error)) {
@@ -123,10 +124,9 @@ export default function GlobalAgentSimulator() {
     }
 
     const fallback = await supabase
-      .from('pages')
+      .from('pages_public')
       .select(BASIC_OWNER_PAGE_SELECT)
       .eq('slug', slug)
-      .eq('is_published', true)
       .single<AgentPage>()
 
     return fallback.data || null

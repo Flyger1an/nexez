@@ -400,7 +400,11 @@ export class NegotiationService {
   }
 
   private async loadPublishedPage(slug: string) {
-    const { data } = await supabase
+    // Reads owner-private offer `rules` (the floor clamp depends on minPrice), so it
+    // must use the service-role client — anon can no longer read the pages base table,
+    // and the public view strips `rules`. Falls back to anon only when no admin env
+    // is configured (tests / minimal deploys, where the page read is mocked anyway).
+    const { data } = await this.db()
       .from('pages')
       .select('*')
       .eq('slug', slug)

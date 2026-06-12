@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     }
 
     const { data: pageData } = await supabase
-      .from('pages')
+      .from('pages_public')
       .select('*')
       .eq('slug', slug)
       .eq('is_published', true)

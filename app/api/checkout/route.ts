@@ -26,7 +26,11 @@ type CheckoutInput = {
 }
 
 async function getPublishedPage(slug: string) {
-  const { data } = await supabase
+  // Checkout enforces owner-private offer `rules` (booking blackouts / max bookings),
+  // so read the base table with the service-role client — anon can't read it anymore
+  // and the public view strips `rules`. Anon fallback only when no admin env (tests).
+  const db = hasSupabaseAdminEnv() ? createAdminClient() : supabase
+  const { data } = await db
     .from('pages')
     .select(PUBLIC_PAGE_SELECT)
     .eq('slug', slug)

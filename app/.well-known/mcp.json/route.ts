@@ -15,7 +15,7 @@ const MCP_DISCOVERY_SELECT = [
 
 export async function GET() {
   const { data: pages, error } = await supabase
-    .from('pages')
+    .from('pages_public')
     .select(MCP_DISCOVERY_SELECT)
     .eq('is_published', true)
     .eq('mcp_enabled', true)

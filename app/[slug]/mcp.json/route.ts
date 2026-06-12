@@ -27,7 +27,7 @@ export async function GET(
   const { slug } = await params
 
   const { data: page } = await supabase
-    .from('pages')
+    .from('pages_public')
     .select(PUBLIC_PAGE_SELECT)
     .eq('slug', slug)
     .eq('is_published', true)

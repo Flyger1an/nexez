@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase'
 export async function GET(request: Request) {
   const baseUrl = getRequestBaseUrl(request)
   const { data: pages } = await supabase
-    .from('pages')
+    .from('pages_public')
     .select('name, slug, description, location, products, services, created_at')
     .eq('is_published', true)
     .order('created_at', { ascending: false })

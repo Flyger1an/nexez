@@ -22,11 +22,11 @@ type PageProps = {
 }
 
 async function getPage(slug: string) {
+  // Anon read of a published page → the redacted public view (offer `rules` stripped).
   const { data } = await supabase
-	    .from('pages')
+	    .from('pages_public')
 	    .select(PUBLIC_PAGE_SELECT)
     .eq('slug', slug)
-    .eq('is_published', true)
     .single<AgentPage>()
 
   return data
@@ -42,11 +42,10 @@ async function resolveBranding(page: AgentPage, onCustomHost: boolean, domainPat
   }
   try {
     const { data: root } = await supabase
-      .from('pages')
+      .from('pages_public')
       .select('branding')
       .eq('custom_domain', page.custom_domain)
       .eq('domain_path', '/')
-      .eq('is_published', true)
       .maybeSingle<{ branding?: Record<string, unknown> | null }>()
     if (root?.branding) return normalizeBranding(root.branding)
   } catch {

@@ -113,7 +113,7 @@ export default async function NexezHome() {
   } = await auth.auth.getUser()
 
   const { data: pages } = await supabase
-    .from('pages')
+    .from('pages_public')
     .select(PUBLIC_PAGE_SELECT)
     .eq('is_published', true)
     .order('created_at', { ascending: false })
