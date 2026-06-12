@@ -7,8 +7,18 @@ export async function POST(request: Request) {
   const supabase = createClient(cookieStore)
   await supabase.auth.signOut()
 
-  return NextResponse.redirect(new URL('/', request.url), {
+  const response = NextResponse.redirect(new URL('/', request.url), {
     status: 303,
   })
+  // Clear the cross-domain auth hint immediately so the marketing nav stops
+  // showing "Dashboard" the moment the user signs out.
+  response.cookies.set('nx_authed', '', {
+    sameSite: 'none',
+    secure: true,
+    httpOnly: true,
+    path: '/',
+    maxAge: 0,
+  })
+  return response
 }
 

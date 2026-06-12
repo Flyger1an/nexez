@@ -80,6 +80,13 @@ async function resolvePathMapForHost(host: string): Promise<Record<string, strin
   return pathToSlug
 }
 
+// Cheap "is this browser signed in?" check for the proxy: the Supabase session
+// lives in `sb-<ref>-auth-token` cookie(s). Presence is a heuristic only — the
+// dashboard's auth gate still validates — so it's fine to act on without a round-trip.
+function hasPlatformSession(request: NextRequest): boolean {
+  return request.cookies.getAll().some((c) => /^sb-.*-auth-token/.test(c.name) && Boolean(c.value))
+}
+
 export async function proxy(request: NextRequest) {
   const host = request.headers.get('host') || ''
   const abBucket = ensureAbBucket(request)
@@ -105,6 +112,17 @@ export async function proxy(request: NextRequest) {
   // method-preserving (SEO equity transfers; POSTs aren't broken).
   const currentHost = normalizeHost(host)
   if ((currentHost === APP_HOST || currentHost === MARKETING_HOST) && !isHostNeutralPath(request.nextUrl.pathname)) {
+    // A signed-in user who lands on the brain host's root gets their app, not the
+    // anonymous marketing home (which lives on the other domain and can't see their
+    // session). The dashboard's own auth gate re-validates, so a stale cookie just
+    // falls through to /login. 307 (temporary) — this depends on auth state.
+    if (currentHost === APP_HOST && request.nextUrl.pathname === '/' && hasPlatformSession(request)) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/dashboard'
+      url.search = ''
+      return persistAbBucket(NextResponse.redirect(url, 307), abBucket)
+    }
+
     const wantHost = canonicalHostFor(request.nextUrl.pathname)
     if (currentHost !== wantHost) {
       const url = request.nextUrl.clone()

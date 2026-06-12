@@ -1,6 +1,6 @@
 'use client'
 
-import { ReactNode } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { NexezLogo } from './NexezLogo'
 import { ThemeToggle } from './ThemeToggle'
@@ -8,9 +8,30 @@ import { appUrl } from '../lib/site'
 
 // Marketing chrome for the nexez.ai surfaces (discovery/simulator/support/legal).
 // Modeled on the homepage nav so the marketing domain stays visually consistent.
-// nexez.ai is auth-blind (no session cookie crosses from nexez.app), so the nav
-// always shows the public "Sign in / Get started" CTAs, which deep-link to the
-// product host (nexez.app) where identity lives.
+// nexez.ai can't read the nexez.app session cookie (different registrable domain), so
+// the nav renders the public "Sign in / Get started" CTAs by default and, as a
+// best-effort progressive enhancement, pings nexez.app to swap them for "Dashboard"
+// when the browser is signed in (works where third-party cookies are allowed).
+
+// Best-effort cross-domain auth check: ask nexez.app whether this browser has a
+// session (the SameSite=None `nx_authed` hint). Defaults to false (anon nav) and
+// stays false where the browser blocks the credentialed ping (Safari ITP / Firefox).
+function useAuthedHint(): boolean {
+  const [authed, setAuthed] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    fetch(appUrl('/api/auth/ping'), { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : { authed: false }))
+      .then((d) => {
+        if (!cancelled) setAuthed(Boolean(d?.authed))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  return authed
+}
 
 const navLinks = [
   { label: 'Directory', href: '/directory' },
@@ -22,6 +43,7 @@ const navLinks = [
 ]
 
 export function MarketingShell({ children }: { children: ReactNode }) {
+  const authed = useAuthedHint()
   return (
     <div className="min-h-screen bg-background text-white">
       <nav className="nx-nav sticky top-0 z-50 border-b border-border backdrop-blur-xl">
@@ -48,10 +70,12 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-2 text-sm">
             <div className="hidden items-center gap-2 sm:flex">
               <ThemeToggle />
-              <a href={appUrl('/login')} className="btn-secondary h-9 px-3">Sign in</a>
+              {!authed && (
+                <a href={appUrl('/login')} className="btn-secondary h-9 px-3">Sign in</a>
+              )}
             </div>
-            <a href={appUrl('/onboard')} className="btn-primary h-9 px-3">
-              Get started
+            <a href={appUrl(authed ? '/dashboard' : '/onboard')} className="btn-primary h-9 px-3">
+              {authed ? 'Dashboard' : 'Get started'}
               <ArrowRight className="size-4" />
             </a>
           </div>
