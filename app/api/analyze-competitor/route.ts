@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { analyzeCompetitorSite, analysisToMarkdown, analysisToJSON } from '@/lib/competitor-analyzer'
 import { createClient } from '@/utils/supabase/server'
 import { PUBLIC_PAGE_SELECT, getReadinessScore, getTrustScore, getOfferCount } from '@/lib/agent-page'
+import { enforceRateLimit } from '@/lib/rate-limit'
 
 // Scrapes an external site; allow headroom.
 export const maxDuration = 30
@@ -14,6 +15,17 @@ export const maxDuration = 30
  * Caching + respectful scraping handled in lib.
  */
 export async function POST(request: Request) {
+  // Dashboard-only feature that performs outbound scraping — require auth and throttle.
+  const limited = enforceRateLimit(request, 'analyze-competitor', 10, 60_000)
+  if (limited) return limited
+
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
   try {
     const { url, userPageSlug } = await request.json()
 
@@ -23,10 +35,8 @@ export async function POST(request: Request) {
 
     let userComparisonData: any = null
     if (userPageSlug && typeof userPageSlug === 'string') {
-      // Server-side fetch of the user's Nexez page for side-by-side (owner not strictly required for read of published)
+      // Server-side fetch of the user's Nexez page for side-by-side (reuses the authed client).
       try {
-        const cookieStore = await cookies()
-        const supabase = createClient(cookieStore)
         const { data: pageData, error: fetchError } = await supabase
           .from('pages')
           .select(PUBLIC_PAGE_SELECT)

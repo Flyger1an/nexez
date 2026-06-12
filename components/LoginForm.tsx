@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { NexezLogo } from './NexezLogo'
+import { safeNextPath } from '../lib/safe-redirect'
 import {
   Bot,
   Building2,
@@ -168,7 +169,8 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
         }
       }
 
-      const next = new URLSearchParams(window.location.search).get('next') || nextPath || '/dashboard'
+      // Guard against open redirect: only follow a same-origin relative path.
+      const next = safeNextPath(new URLSearchParams(window.location.search).get('next') || nextPath)
       window.location.href = next
     } finally {
       loadingRef.current = false

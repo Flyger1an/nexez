@@ -1,0 +1,54 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+// The page row the mocked anon client returns from pages_public.
+let pageRow: any = null
+
+vi.mock('../../../lib/supabase', async () => {
+  const { createSupabaseMock } = await import('../../../test/supabase-mock')
+  return { supabase: createSupabaseMock(() => ({ data: pageRow })) }
+})
+vi.mock('../../../lib/llm', () => ({
+  isLlmConfigured: () => true,
+  llmComplete: vi.fn(async () => 'MOCK_LLM_RESPONSE'),
+}))
+
+import { POST } from './route'
+import { llmComplete } from '../../../lib/llm'
+
+const post = (body: unknown) =>
+  new Request('https://nexez.test/api/simulate-llm', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+
+describe('POST /api/simulate-llm (llm_opt_in consent gate)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    pageRow = null
+  })
+
+  it('404 when the slug is not a published page', async () => {
+    pageRow = null
+    expect((await POST(post({ slug: 'nope', query: 'hi' }))).status).toBe(404)
+  })
+
+  it('does NOT invoke the LLM when the page has not opted in (deterministic)', async () => {
+    pageRow = { slug: 'p1', name: 'P1', is_published: true, llm_opt_in: false, services: [] }
+    const res = await POST(post({ slug: 'p1', query: 'hi' }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.llmEnhanced).toBe(false)
+    expect(llmComplete).not.toHaveBeenCalled()
+  })
+
+  it('invokes the LLM only when the page opted in', async () => {
+    pageRow = { slug: 'p2', name: 'P2', is_published: true, llm_opt_in: true, services: [] }
+    const res = await POST(post({ slug: 'p2', query: 'hi' }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.llmEnhanced).toBe(true)
+    expect(body.naturalLanguage).toBe('MOCK_LLM_RESPONSE')
+    expect(llmComplete).toHaveBeenCalledTimes(1)
+  })
+})

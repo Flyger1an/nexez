@@ -1,8 +1,22 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { isLlmConfigured, llmComplete } from '../../../lib/llm'
 import { getTrustScore } from '../../../lib/agent-page'
+import { createClient } from '../../../utils/supabase/server'
+import { enforceRateLimit } from '../../../lib/rate-limit'
 
 export async function POST(request: Request) {
+  // Dashboard-only feature that invokes a paid LLM — require auth and throttle.
+  const limited = enforceRateLimit(request, 'trust-report', 15, 60_000)
+  if (limited) return limited
+
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
   try {
     const { page, events } = await request.json()
 

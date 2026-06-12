@@ -1,8 +1,13 @@
 import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '../../../lib/agent-page'
 import { searchAgentPages } from '../../../lib/agent-search'
 import { supabase } from '../../../lib/supabase'
+import { enforceRateLimit } from '../../../lib/rate-limit'
 
 export async function GET(request: Request) {
+  // Public agent-facing search — throttle to blunt scraping/DB abuse.
+  const limited = enforceRateLimit(request, 'agent-search', 30, 60_000)
+  if (limited) return limited
+
   const url = new URL(request.url)
   const query = url.searchParams.get('q') || ''
   const limit = Number(url.searchParams.get('limit') || 10)

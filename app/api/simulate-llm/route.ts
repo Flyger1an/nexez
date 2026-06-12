@@ -3,8 +3,13 @@ import { isLlmConfigured, llmComplete } from '../../../lib/llm'
 import { buildParsedSchema } from '../../../lib/agent-simulator'
 import { getRequestBaseUrl } from '../../../lib/agent-page'
 import { supabase } from '../../../lib/supabase'
+import { enforceRateLimit } from '../../../lib/rate-limit'
 
 export async function POST(request: Request) {
+  // Public endpoint that runs a paid LLM against any published slug — throttle it.
+  const limited = enforceRateLimit(request, 'simulate-llm', 20, 60_000)
+  if (limited) return limited
+
   try {
     const { slug, query, pageId } = await request.json()
 
@@ -23,14 +28,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Page not found or not published' }, { status: 404 })
     }
 
-    if (!isLlmConfigured()) {
+    // Respect the page owner's consent: only send their page to a real LLM when the
+    // page opted in (llm_opt_in). Otherwise fall back to the deterministic simulation
+    // — this also stops an attacker forcing paid LLM calls against arbitrary slugs.
+    const llmEnabled = isLlmConfigured() && page.llm_opt_in === true
+    if (!llmEnabled) {
       const schema = buildParsedSchema(page, query, 'LLM-Agent', getRequestBaseUrl(request))
       return NextResponse.json({
         success: true,
         query,
         agent: 'LLM-Enhanced',
         schema,
-        naturalLanguage: schema.page?.summary || 'Deterministic simulation (LLM not configured).',
+        naturalLanguage: schema.page?.summary || 'Deterministic simulation (LLM not enabled for this page).',
         llmEnhanced: false,
       })
     }
