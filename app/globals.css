@@ -1113,3 +1113,33 @@ nav.glassnav.open .navsheet { display: grid; gap: .15rem; }
   nav.glassnav { padding: .55rem .6rem .55rem 1rem; gap: .5rem; }
   nav.glassnav.has-menu .nav-actions .sign-in { display: none; }
 }
+
+/* ----- homepage / marketing content re-skin (bridge) ----- */
+/* Headline accent words: a single signal color, not a multicolor gradient (rule 2). */
+.nx-accent-text {
+  background: none;
+  background-image: none;
+  background-size: auto;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  color: var(--signal);
+  -webkit-text-fill-color: var(--signal);
+  animation: none;
+}
+/* Cards adopt the liquid-glass frost + prism hairline + lift. */
+.nx-tile {
+  border-radius: 18px;
+  border-color: var(--line-soft);
+  -webkit-backdrop-filter: blur(var(--blur-card)) saturate(var(--sat));
+  backdrop-filter: blur(var(--blur-card)) saturate(var(--sat));
+}
+.nx-tile::before {
+  left: 8%;
+  right: 8%;
+  background: var(--prism);
+  opacity: .42;
+}
+.nx-tile:hover {
+  border-color: var(--line);
+  box-shadow: var(--lift-shadow);
+}
