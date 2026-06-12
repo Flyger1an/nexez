@@ -141,7 +141,7 @@ export default function IntegrationsPage() {
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
         <div className="border-b border-white/10 pb-6">
-          <p className="text-sm text-cyan-200">Integrations &amp; imports</p>
+          <p className="text-sm text-[var(--signal)]">Integrations &amp; imports</p>
           <h1 className="mt-2 text-4xl font-semibold tracking-tight">Connect your tools. Import your offers.</h1>
           <p className="mt-4 max-w-3xl text-zinc-400">
             Pull pricing, availability, and booking links from the tools you already use — then keep your agent page in
@@ -158,16 +158,16 @@ export default function IntegrationsPage() {
                 recommend you.
               </p>
             </div>
-            <div className="card !p-4 text-xs border-cyan-300/20 bg-cyan-300/10">
-              <p className="font-medium text-cyan-100 mb-3">What each integration does</p>
+            <div className="card !p-4 text-xs border-[var(--signal)]/20 bg-[var(--signal)]/10">
+              <p className="font-medium text-[var(--signal)] mb-3">What each integration does</p>
               <div className="space-y-2 text-zinc-300 text-[11px]">
-                <div className="flex justify-between gap-3"><span>Calendly</span><span className="text-right text-emerald-300">Import, webhooks &amp; secrets</span></div>
-                <div className="flex justify-between gap-3"><span>Stripe</span><span className="text-right text-emerald-300">Import &amp; live price sync</span></div>
-                <div className="flex justify-between gap-3"><span>Shopify</span><span className="text-right text-emerald-300">Catalog import &amp; re-sync</span></div>
-                <div className="flex justify-between gap-3"><span>Google Calendar</span><span className="text-right text-emerald-300">Availability windows</span></div>
-                <div className="flex justify-between gap-3"><span>Zapier / Make</span><span className="text-right text-emerald-300">Outbound on every booking</span></div>
+                <div className="flex justify-between gap-3"><span>Calendly</span><span className="text-right text-[var(--ready)]">Import, webhooks &amp; secrets</span></div>
+                <div className="flex justify-between gap-3"><span>Stripe</span><span className="text-right text-[var(--ready)]">Import &amp; live price sync</span></div>
+                <div className="flex justify-between gap-3"><span>Shopify</span><span className="text-right text-[var(--ready)]">Catalog import &amp; re-sync</span></div>
+                <div className="flex justify-between gap-3"><span>Google Calendar</span><span className="text-right text-[var(--ready)]">Availability windows</span></div>
+                <div className="flex justify-between gap-3"><span>Zapier / Make</span><span className="text-right text-[var(--ready)]">Outbound on every booking</span></div>
               </div>
-              <div className="mt-3 pt-2 border-t border-cyan-300/30 text-cyan-300 text-[10px]">
+              <div className="mt-3 pt-2 border-t border-[var(--signal)]/30 text-[var(--signal)] text-[10px]">
                 Outbound webhooks fire automatically on every agent-driven booking.
               </div>
             </div>
@@ -214,13 +214,13 @@ export default function IntegrationsPage() {
                 <div>
                   <div className="flex items-center gap-2 font-medium">
                     Acuity Scheduling
-                    <span className="text-[9px] rounded bg-orange-400/10 px-1.5 py-0.5 text-orange-300">Consumer</span>
+                    <span className="text-[9px] rounded bg-[var(--amber)]/10 px-1.5 py-0.5 text-[var(--amber)]">Consumer</span>
                   </div>
                   <p className="text-xs text-zinc-400 mt-1.5 leading-5">
                     Appointment types for coaching, beauty, medical, and fitness — time-based offers with duration and
                     tiers.
                   </p>
-                  <a href="/dashboard/tools" className="mt-2 inline-block text-[11px] text-orange-300 hover:underline">Import in Tools →</a>
+                  <a href="/dashboard/tools" className="mt-2 inline-block text-[11px] text-[var(--amber)] hover:underline">Import in Tools →</a>
                 </div>
               </div>
               <p className="mt-3 text-[11px] text-pink-300/80">Import once, then edit and re-sync from the page editor.</p>
@@ -257,11 +257,11 @@ function IntegrationCard({
         <div
           className={`flex size-11 items-center justify-center rounded-lg ${
             accent === 'cyan'
-              ? 'bg-cyan-300/15 text-cyan-200'
+              ? 'bg-[var(--signal)]/15 text-[var(--signal)]'
               : accent === 'violet'
-                ? 'bg-violet-300/15 text-violet-200'
+                ? 'bg-[var(--signal)]/15 text-[var(--signal)]'
                 : accent === 'purple'
-                  ? 'bg-purple-300/15 text-purple-200'
+                  ? 'bg-[var(--signal)]/15 text-[var(--signal)]'
                   : accent === 'blue'
                     ? 'bg-blue-300/15 text-blue-200'
                     : 'bg-white/10 text-zinc-200'
@@ -280,7 +280,7 @@ function IntegrationCard({
       <div className="mt-6 flex flex-col gap-2 sm:flex-row">
         <span
           className={`inline-flex items-center justify-center gap-1 rounded-md px-3 py-2 text-sm font-medium ${
-            connected ? 'bg-emerald-400/20 text-emerald-100' : 'bg-white/10 text-zinc-300'
+            connected ? 'bg-[var(--ready)]/20 text-[var(--ready)]' : 'bg-white/10 text-zinc-300'
           }`}
         >
           {connected ? <CheckCircle2 className="size-4" /> : <Settings className="size-4" />}

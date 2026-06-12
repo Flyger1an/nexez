@@ -68,7 +68,7 @@ export function FavoriteButton({ slug, initialIsFav = false }: { slug: string; i
     <button
       type="button"
       onClick={toggle}
-      className={`ml-1 p-1 text-amber-500 hover:text-amber-600 transition active:scale-95 ${isFav ? 'text-amber-600' : ''}`}
+      className={`ml-1 p-1 text-[var(--amber)] hover:text-[var(--amber)] transition active:scale-95 ${isFav ? 'text-[var(--amber)]' : ''}`}
       title={isFav ? 'Remove from favorites' : 'Add to favorites'}
     >
       {isFav ? '★' : '☆'}

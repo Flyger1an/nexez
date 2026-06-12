@@ -13,7 +13,7 @@ export function CopyButton({ text, label = 'Copy' }: { text: string; label?: str
     <button
       type="button"
       onClick={() => navigator.clipboard.writeText(text)}
-      className="text-[10px] text-cyan-600 hover:text-cyan-800 active:text-cyan-900"
+      className="text-[10px] text-[var(--signal)] hover:text-[var(--signal)] active:text-[var(--signal)]"
     >
       {label}
     </button>

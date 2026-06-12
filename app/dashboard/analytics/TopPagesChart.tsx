@@ -34,10 +34,10 @@ export function TopPagesChart({ pages, max }: { pages: PageActivity[]; max: numb
             width={100}
             tick={{ fontSize: 11 }}
           />
-          <Tooltip 
-            contentStyle={{ backgroundColor: '#1A1625', border: '1px solid rgba(255,255,255,0.1)' }}
+          <Tooltip
+            contentStyle={{ backgroundColor: 'var(--panel)', border: '1px solid var(--line)', borderRadius: 12, color: 'var(--fg)' }}
           />
-          <Bar dataKey="total" fill="#C4B5FD" radius={2} />
+          <Bar dataKey="total" fill="var(--signal)" radius={2} />
         </BarChart>
       )}
     </MeasuredChartFrame>

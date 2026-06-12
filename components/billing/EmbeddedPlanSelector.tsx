@@ -101,7 +101,7 @@ export default function EmbeddedPlanSelector({ activePlanId, stripeReady, initia
       </div>
 
       {successMessage && (
-        <div className="mb-4 rounded-xl border border-emerald-300/30 bg-emerald-300/10 p-4 text-sm text-emerald-200">
+        <div className="mb-4 rounded-xl border border-[var(--ready)]/30 bg-[var(--ready)]/10 p-4 text-sm text-[var(--ready)]">
           {successMessage}
         </div>
       )}
@@ -141,7 +141,7 @@ export default function EmbeddedPlanSelector({ activePlanId, stripeReady, initia
               <ul className="mt-6 space-y-2 text-sm text-[#9CA3AF]">
                 {plan.features.map((feature, idx) => (
                   <li key={idx} className="flex items-start gap-2">
-                    <span className="mt-1 inline-block size-1.5 rounded-full bg-emerald-400/70" />
+                    <span className="mt-1 inline-block size-1.5 rounded-full bg-[var(--ready)]/70" />
                     <span>{feature}</span>
                   </li>
                 ))}

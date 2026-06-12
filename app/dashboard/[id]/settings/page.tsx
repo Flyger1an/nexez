@@ -538,7 +538,7 @@ export default function PageSettings({ params }: PageProps) {
         <section className="mt-8 grid gap-6 lg:grid-cols-[0.82fr_1.18fr]">
           <aside className="space-y-5 min-w-0">
             <div>
-              <p className="flex items-center gap-2 text-sm text-cyan-200">
+              <p className="flex items-center gap-2 text-sm text-[var(--signal)]">
                 <Settings className="size-4" />
                 Page Settings
               </p>
@@ -554,7 +554,7 @@ export default function PageSettings({ params }: PageProps) {
                 <button
                   type="button"
                   onClick={() => setIsPublished((value) => !value)}
-                  className={`relative h-7 w-12 rounded-full transition ${isPublished ? 'bg-cyan-300' : 'bg-zinc-700'}`}
+                  className={`relative h-7 w-12 rounded-full transition ${isPublished ? 'bg-[var(--signal)]' : 'bg-zinc-700'}`}
                   aria-label="Toggle published status"
                 >
                   <span
@@ -579,8 +579,8 @@ export default function PageSettings({ params }: PageProps) {
               ] as [string, string][])
             } copied={copied} onCopy={copy} />
 
-            <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-5">
-              <div className="flex items-center gap-2 text-cyan-100">
+            <div className="rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/10 p-5">
+              <div className="flex items-center gap-2 text-[var(--signal)]">
                 <ShieldCheck className="size-5" />
                 <h2 className="font-semibold">Advanced</h2>
               </div>
@@ -605,7 +605,7 @@ export default function PageSettings({ params }: PageProps) {
                       type="button"
                       disabled={verifyingDomain || !domainVerificationToken}
                       onClick={verifyCustomDomain}
-                      className="mt-1 rounded border border-emerald-300/40 px-3 py-1 text-xs text-emerald-200 hover:bg-emerald-400/10 disabled:opacity-50"
+                      className="mt-1 rounded border border-[var(--ready)]/40 px-3 py-1 text-xs text-[var(--ready)] hover:bg-[var(--ready)]/10 disabled:opacity-50"
                     >
                       {verifyingDomain ? 'Checking DNS...' : 'Verify now'}
                     </button>
@@ -699,7 +699,7 @@ export default function PageSettings({ params }: PageProps) {
                             type="button"
                             onClick={oneClickDetectLogo}
                             disabled={!websiteUrl || uploadingLogo}
-                            className="text-[10px] rounded border border-[#7C3AED]/40 px-2 py-0.5 text-[#C4B5FD] hover:bg-[#7C3AED]/10 disabled:opacity-50"
+                            className="text-[10px] rounded border border-[#7C3AED]/40 px-2 py-0.5 text-[var(--signal)] hover:bg-[#7C3AED]/10 disabled:opacity-50"
                           >
                             ✨ One-click: detect logo from my website
                           </button>
@@ -721,18 +721,18 @@ export default function PageSettings({ params }: PageProps) {
                   </div>
 
                   {domainVerificationToken && (
-                    <div className="mt-2 rounded border border-amber-300/30 bg-amber-400/5 p-2 text-[11px] text-amber-200">
+                    <div className="mt-2 rounded border border-[var(--amber)]/30 bg-[var(--amber)]/5 p-2 text-[11px] text-[var(--amber)]">
                       <div className="font-medium mb-1">Add this DNS TXT record:</div>
-                      <code className="block bg-black/40 p-1 rounded text-emerald-300 break-all">
+                      <code className="block bg-black/40 p-1 rounded text-[var(--ready)] break-all">
                         _nexez-verify.{(customDomain || '').replace(/^https?:\/\//, '').split('/')[0].split(':')[0]} &nbsp; TXT &nbsp; "{domainVerificationToken}"
                       </code>
-                      <div className="mt-1 text-[10px] text-amber-300/80">Use low TTL (300). Wait for propagation, then Verify.</div>
+                      <div className="mt-1 text-[10px] text-[var(--amber)]/80">Use low TTL (300). Wait for propagation, then Verify.</div>
                     </div>
                   )}
 
                   <div className="mt-1 flex items-center gap-2 text-[10px]">
                     {customDomain && domainVerified ? (
-                      <span className="text-emerald-300">✓ Verified — custom domain ownership confirmed.</span>
+                      <span className="text-[var(--ready)]">✓ Verified — custom domain ownership confirmed.</span>
                     ) : customDomain ? (
                       <span className="text-zinc-400">Status: {domainVerificationToken ? 'Token ready — awaiting DNS verify' : 'Pending verification'}</span>
                     ) : null}
@@ -748,7 +748,7 @@ export default function PageSettings({ params }: PageProps) {
                             type="button"
                             disabled={domainProvisioning}
                             onClick={() => callDomainAction('attach')}
-                            className="rounded border border-[#7C3AED]/40 px-2.5 py-1 text-[11px] text-[#C4B5FD] hover:bg-[#7C3AED]/10 disabled:opacity-50"
+                            className="rounded border border-[#7C3AED]/40 px-2.5 py-1 text-[11px] text-[var(--signal)] hover:bg-[#7C3AED]/10 disabled:opacity-50"
                           >
                             {domainProvisioning ? 'Working…' : 'Attach & provision SSL'}
                           </button>
@@ -809,7 +809,7 @@ export default function PageSettings({ params }: PageProps) {
                       )}
 
                       {domainStatus && !domainStatus.providerConfigured ? (
-                        <p className="mt-1 text-[10px] text-amber-300/80">
+                        <p className="mt-1 text-[10px] text-[var(--amber)]/80">
                           Automatic SSL setup is not available for this project. Ownership is verified; point the domain at your host to finish SSL.
                         </p>
                       ) : null}
@@ -818,7 +818,7 @@ export default function PageSettings({ params }: PageProps) {
                         <div className="mt-2 space-y-1">
                           <div className="text-[10px] font-medium text-zinc-300">Add these DNS records:</div>
                           {domainStatus.requiredRecords.map((r, i) => (
-                            <code key={i} className="block break-all rounded bg-black/40 p-1 text-[10px] text-emerald-300">
+                            <code key={i} className="block break-all rounded bg-black/40 p-1 text-[10px] text-[var(--ready)]">
                               {r.type} {r.name ?? ''} {r.value ?? ''}
                             </code>
                           ))}
@@ -833,7 +833,7 @@ export default function PageSettings({ params }: PageProps) {
                             type="button"
                             disabled={crawlLoading}
                             onClick={runCrawlabilityTest}
-                            className="rounded border border-cyan-300/40 px-2.5 py-1 text-[11px] text-cyan-100 hover:bg-cyan-300/10 disabled:opacity-50"
+                            className="rounded border border-[var(--signal)]/40 px-2.5 py-1 text-[11px] text-[var(--signal)] hover:bg-[var(--signal)]/10 disabled:opacity-50"
                           >
                             {crawlLoading ? 'Testing…' : 'Test agent crawlability'}
                           </button>
@@ -845,9 +845,9 @@ export default function PageSettings({ params }: PageProps) {
                               <span
                                 className={
                                   crawlReport.score >= 80
-                                    ? 'text-emerald-300'
+                                    ? 'text-[var(--ready)]'
                                     : crawlReport.score >= 50
-                                      ? 'text-amber-300'
+                                      ? 'text-[var(--amber)]'
                                       : 'text-red-300'
                                 }
                               >
@@ -899,7 +899,7 @@ export default function PageSettings({ params }: PageProps) {
                   </label>
                   <p className="text-[10px] text-zinc-500 mt-1">When on, compatible AI agents can discover richer page context and offer actions.</p>
                   {!!(page as any)?.mcp_enabled && (
-                    <p className="text-[10px] text-cyan-200 mt-1">
+                    <p className="text-[10px] text-[var(--signal)] mt-1">
                       Global discovery: <a href="/.well-known/mcp.json" className="underline">/.well-known/mcp.json</a>
                     </p>
                   )}
@@ -920,7 +920,7 @@ export default function PageSettings({ params }: PageProps) {
                 <pre className="mt-2 overflow-x-auto rounded bg-black/40 p-2 text-[10px] text-zinc-400">{`<a href="${publicUrl}"><img src="${publicUrl}/badge.svg" alt="Agent-Ready" height="28"></a>`}</pre>
                 <p className="mt-1 text-[10px] text-zinc-500">Put this on your human website to show you’re agent-ready and link buyers’ agents to this page.</p>
                 <p className="mt-1 text-[10px] text-zinc-500">
-                  Verify authenticity: <a href={`${publicUrl}/badge.json`} className="text-cyan-300 hover:underline">{`${publicUrl}/badge.json`}</a> (issuer, live readiness, verified status).
+                  Verify authenticity: <a href={`${publicUrl}/badge.json`} className="text-[var(--signal)] hover:underline">{`${publicUrl}/badge.json`}</a> (issuer, live readiness, verified status).
                 </p>
               </div>
             </div>
@@ -978,7 +978,7 @@ export default function PageSettings({ params }: PageProps) {
 
                   <div>
                     <p className="text-xs uppercase tracking-widest text-zinc-400 mb-1.5">Iframe embed (recommended)</p>
-                    <pre className="text-[10px] bg-black/40 p-3 rounded overflow-x-auto text-[#C4B5FD] whitespace-pre-wrap">{`<iframe src="${publicUrl}" width="100%" height="900" style="border:1px solid #222; border-radius:12px;" loading="lazy"></iframe>`}</pre>
+                    <pre className="text-[10px] bg-black/40 p-3 rounded overflow-x-auto text-[var(--signal)] whitespace-pre-wrap">{`<iframe src="${publicUrl}" width="100%" height="900" style="border:1px solid #222; border-radius:12px;" loading="lazy"></iframe>`}</pre>
                     <button
                       type="button"
                       onClick={() => {
@@ -986,7 +986,7 @@ export default function PageSettings({ params }: PageProps) {
                         navigator.clipboard.writeText(code)
                         setMessage('Iframe embed code copied.')
                       }}
-                      className="mt-1.5 text-xs text-[#00F5FF] hover:underline"
+                      className="mt-1.5 text-xs text-[var(--signal)] hover:underline"
                     >
                       Copy iframe code
                     </button>
@@ -994,7 +994,7 @@ export default function PageSettings({ params }: PageProps) {
 
                   <div>
                     <p className="text-xs uppercase tracking-widest text-zinc-400 mb-1.5">Lightweight JS widget (floating action button)</p>
-                    <pre className="text-[10px] bg-black/40 p-3 rounded overflow-x-auto text-[#C4B5FD] whitespace-pre-wrap">{`<script>
+                    <pre className="text-[10px] bg-black/40 p-3 rounded overflow-x-auto text-[var(--signal)] whitespace-pre-wrap">{`<script>
   (function(){var s=document.createElement('script');s.src='${getBaseUrl()}/widget.js';s.onload=function(){Nexez.init({slug:'${slug}',theme:'light'})};document.head.appendChild(s);})();
 </script>`}</pre>
                     <p className="text-[10px] text-zinc-500 mt-1">Adds a floating booking button to your site and follows the page and offer settings you already chose.</p>
@@ -1005,13 +1005,13 @@ export default function PageSettings({ params }: PageProps) {
                         navigator.clipboard.writeText(js)
                         setMessage('JS widget snippet copied.')
                       }}
-                      className="mt-1.5 text-xs text-[#00F5FF] hover:underline"
+                      className="mt-1.5 text-xs text-[var(--signal)] hover:underline"
                     >
                       Copy JS widget snippet
                     </button>
                   </div>
 
-                  <div className="pt-2 border-t border-white/10 text-[11px] text-emerald-300/80">
+                  <div className="pt-2 border-t border-white/10 text-[11px] text-[var(--ready)]/80">
                     Per-offer "Book on original site" toggles in the builder override this page default for individual offers.
                   </div>
 
@@ -1019,7 +1019,7 @@ export default function PageSettings({ params }: PageProps) {
                   <div className="mt-4 border-t border-white/10 pt-4">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-xs uppercase tracking-widest text-zinc-400">Live Preview (respects current settings)</p>
-                      <a href={publicUrl} target="_blank" className="text-[10px] text-[#00F5FF] hover:underline">Open full page →</a>
+                      <a href={publicUrl} target="_blank" className="text-[10px] text-[var(--signal)] hover:underline">Open full page →</a>
                     </div>
                     <div className="rounded border border-white/10 overflow-hidden bg-[#0A0A0F]">
                       <iframe
@@ -1033,7 +1033,7 @@ export default function PageSettings({ params }: PageProps) {
                       Responsive by default (100% width). Per-offer original-site toggles take precedence. 
                       {preferOriginalSite ? " Page-level original site mode is active." : " Nexez checkout is default unless overridden per offer."}
                     </div>
-                    <div className="mt-1 text-[9px] text-emerald-300/80">
+                    <div className="mt-1 text-[9px] text-[var(--ready)]/80">
                       Tip: Use the Visual Offer Builder to set per-offer "Book on original site" for granular control.
                     </div>
                   </div>
@@ -1045,7 +1045,7 @@ export default function PageSettings({ params }: PageProps) {
               <button
                 type="submit"
                 disabled={saving}
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-300 px-5 py-3 font-semibold text-zinc-950 hover:bg-cyan-200 disabled:opacity-60"
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--signal)] px-5 py-3 font-semibold text-zinc-950 hover:bg-[var(--signal)] disabled:opacity-60"
               >
                 {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                 {saving ? 'Saving...' : 'Save settings'}
@@ -1064,14 +1064,14 @@ export default function PageSettings({ params }: PageProps) {
                       <div
                         key={d.index}
                         className={`flex items-center justify-between rounded border p-2 ${
-                          d.isCurrent ? 'border-emerald-300/30 bg-emerald-300/5' : 'border-white/10 bg-black/20'
+                          d.isCurrent ? 'border-[var(--ready)]/30 bg-[var(--ready)]/5' : 'border-white/10 bg-black/20'
                         }`}
                       >
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="truncate text-zinc-200">{d.name}</span>
                             {d.isCurrent ? (
-                              <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[9px] text-emerald-200">
+                              <span className="rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-2 py-0.5 text-[9px] text-[var(--ready)]">
                                 Live now
                               </span>
                             ) : null}
@@ -1142,7 +1142,7 @@ export default function PageSettings({ params }: PageProps) {
                   setActiveReSync(activeReSync === 'calendly' ? null : 'calendly');
                   setReSyncInput('');
                 }}
-                className="mt-3 w-full rounded-lg border border-violet-300/30 px-5 py-3 text-sm text-violet-200 hover:bg-violet-300/10"
+                className="mt-3 w-full rounded-lg border border-[var(--signal)]/30 px-5 py-3 text-sm text-[var(--signal)] hover:bg-[var(--signal)]/10"
               >
                 Re-sync from Calendly
               </button>
@@ -1195,7 +1195,7 @@ export default function PageSettings({ params }: PageProps) {
                         setReSyncInput('');
                       }
                     }}
-                    className="w-full rounded-lg bg-violet-300 px-5 py-2 text-sm font-semibold text-zinc-950 hover:bg-violet-200"
+                    className="w-full rounded-lg bg-[var(--signal)] px-5 py-2 text-sm font-semibold text-zinc-950 hover:bg-[var(--signal)]"
                   >
                     Confirm Re-sync from Calendly
                   </button>
@@ -1212,7 +1212,7 @@ export default function PageSettings({ params }: PageProps) {
                   setActiveReSync(activeReSync === 'stripe' ? null : 'stripe');
                   setReSyncInput('');
                 }}
-                className="mt-3 w-full rounded-lg border border-cyan-300/30 px-5 py-3 text-sm text-cyan-200 hover:bg-cyan-300/10"
+                className="mt-3 w-full rounded-lg border border-[var(--signal)]/30 px-5 py-3 text-sm text-[var(--signal)] hover:bg-[var(--signal)]/10"
               >
                 Re-sync from Stripe
               </button>
@@ -1251,7 +1251,7 @@ export default function PageSettings({ params }: PageProps) {
                         setReSyncInput('');
                       }
                     }}
-                    className="w-full rounded-lg bg-cyan-300 px-5 py-2 text-sm font-semibold text-zinc-950 hover:bg-cyan-200"
+                    className="w-full rounded-lg bg-[var(--signal)] px-5 py-2 text-sm font-semibold text-zinc-950 hover:bg-[var(--signal)]"
                   >
                     Confirm Re-sync from Stripe
                   </button>
@@ -1269,7 +1269,7 @@ export default function PageSettings({ params }: PageProps) {
                   setReSyncInput('');
                   setReSyncInput2('');
                 }}
-                className="mt-3 w-full rounded-lg border border-purple-300/30 px-5 py-3 text-sm text-purple-200 hover:bg-purple-300/10"
+                className="mt-3 w-full rounded-lg border border-[var(--signal)]/30 px-5 py-3 text-sm text-[var(--signal)] hover:bg-[var(--signal)]/10"
               >
                 Re-sync from Shopify
               </button>
@@ -1319,7 +1319,7 @@ export default function PageSettings({ params }: PageProps) {
                         setReSyncInput2('');
                       }
                     }}
-                    className="w-full rounded-lg bg-purple-300 px-5 py-2 text-sm font-semibold text-zinc-950 hover:bg-purple-200"
+                    className="w-full rounded-lg bg-[var(--signal)] px-5 py-2 text-sm font-semibold text-zinc-950 hover:bg-[var(--signal)]"
                   >
                     Confirm Re-sync from Shopify
                   </button>
@@ -1331,7 +1331,7 @@ export default function PageSettings({ params }: PageProps) {
 
               {/* Phase 3: Per-page outbound webhooks — FIRST CLASS (url + optional secret, real test button, auto-fired) */}
               <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4" data-testid="outbound-webhooks-panel">
-                <div className="text-sm font-medium text-cyan-200 mb-2">Booking event webhooks</div>
+                <div className="text-sm font-medium text-[var(--signal)] mb-2">Booking event webhooks</div>
                 <p className="text-[10px] text-zinc-400 mb-3">Send booking activity to Zapier, Make, n8n, or your own system. Add a signing secret when you want extra protection.</p>
 
                 {/* Add new endpoint with optional secret */}
@@ -1377,11 +1377,11 @@ export default function PageSettings({ params }: PageProps) {
                   <div className="text-xs mb-3 space-y-1.5">
                     {outboundEndpoints.map((ep, i) => (
                       <div key={i} className="rounded border border-white/10 bg-black/30 p-2">
-                        <div className="flex items-center justify-between font-mono text-emerald-300/90">
+                        <div className="flex items-center justify-between font-mono text-[var(--ready)]/90">
                           <span className="truncate text-[11px]">{ep.url}</span>
                           <div className="flex items-center gap-2">
                             {ep.secret && (
-                              <span className="text-[9px] text-amber-400" data-testid={`outbound-secret-chip-${i}`}>
+                              <span className="text-[9px] text-[var(--amber)]" data-testid={`outbound-secret-chip-${i}`}>
                                 secret
                               </span>
                             )}
@@ -1415,7 +1415,7 @@ export default function PageSettings({ params }: PageProps) {
                                   setTestingEndpoint(null)
                                 }
                               }}
-                              className="text-[10px] rounded border border-emerald-300/40 px-1.5 py-0 text-emerald-300 hover:bg-emerald-400/10 disabled:opacity-60"
+                              className="text-[10px] rounded border border-[var(--ready)]/40 px-1.5 py-0 text-[var(--ready)] hover:bg-[var(--ready)]/10 disabled:opacity-60"
                             >
                               {testingEndpoint === i ? '...' : 'Send Test'}
                             </button>
@@ -1429,7 +1429,7 @@ export default function PageSettings({ params }: PageProps) {
                           </div>
                         </div>
                         {testResults[i] && (
-                          <div className="mt-1 text-[10px] text-emerald-300 font-mono">{testResults[i]}</div>
+                          <div className="mt-1 text-[10px] text-[var(--ready)] font-mono">{testResults[i]}</div>
                         )}
                       </div>
                     ))}
@@ -1453,7 +1453,7 @@ export default function PageSettings({ params }: PageProps) {
                       setOutboundSaving(false)
                     }
                   }}
-                  className="mt-1 w-full rounded-lg border border-cyan-300/40 px-4 py-1.5 text-sm text-cyan-200 hover:bg-cyan-400/10 disabled:opacity-60"
+                  className="mt-1 w-full rounded-lg border border-[var(--signal)]/40 px-4 py-1.5 text-sm text-[var(--signal)] hover:bg-[var(--signal)]/10 disabled:opacity-60"
                 >
                   {outboundSaving ? 'Saving...' : `Save ${outboundEndpoints.length} Webhook URL${outboundEndpoints.length === 1 ? '' : 's'}`}
                 </button>
@@ -1462,7 +1462,7 @@ export default function PageSettings({ params }: PageProps) {
                 {/* Example payloads for Zapier / Make / generic webhooks */}
                 <details className="mt-3 text-[10px] text-zinc-400">
                   <summary className="cursor-pointer hover:text-zinc-200">Example JSON payload</summary>
-                  <pre className="mt-2 overflow-auto rounded bg-black/40 p-2 text-[9px] text-emerald-300/90">
+                  <pre className="mt-2 overflow-auto rounded bg-black/40 p-2 text-[9px] text-[var(--ready)]/90">
 {`// booking.received (fired on real events)
 {
   "event": "booking.received",
@@ -1479,18 +1479,18 @@ export default function PageSettings({ params }: PageProps) {
                   <p className="mt-1 text-[9px]">Use this shape when connecting custom automation.</p>
                 </details>
                 {typeof window !== 'undefined' && localStorage.getItem('nexez_last_outbound_fired') && (
-                  <p className="mt-1 text-[9px] text-emerald-300">Last test fire: {new Date(localStorage.getItem('nexez_last_outbound_fired')!).toLocaleTimeString()}</p>
+                  <p className="mt-1 text-[9px] text-[var(--ready)]">Last test fire: {new Date(localStorage.getItem('nexez_last_outbound_fired')!).toLocaleTimeString()}</p>
                 )}
 
                 {/* Real recent fires from DB (what actually triggered / would trigger your endpoints) */}
                 {recentOutboundFires.length > 0 && (
                   <div className="mt-4 border-t border-white/10 pt-3">
-                    <div className="text-[10px] uppercase tracking-widest text-cyan-400 mb-1.5">Recent booking events</div>
+                    <div className="text-[10px] uppercase tracking-widest text-[var(--signal)] mb-1.5">Recent booking events</div>
                     <div className="space-y-1 text-[11px]">
                       {recentOutboundFires.map((evt, i) => (
-                        <div key={i} className="flex justify-between text-cyan-200/90">
+                        <div key={i} className="flex justify-between text-[var(--signal)]/90">
                           <span>{evt.event_type?.replace(/_/g, ' ')} — {evt.offer_name}</span>
-                          <span className="text-cyan-400/60">{new Date(evt.created_at).toLocaleTimeString()}</span>
+                          <span className="text-[var(--signal)]/60">{new Date(evt.created_at).toLocaleTimeString()}</span>
                         </div>
                       ))}
                     </div>
@@ -1501,7 +1501,7 @@ export default function PageSettings({ params }: PageProps) {
 
               {/* Google Calendar Availability */}
               <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4" data-testid="availability-panel">
-                <div className="text-sm font-medium text-emerald-200 mb-2">Google Calendar Availability</div>
+                <div className="text-sm font-medium text-[var(--ready)] mb-2">Google Calendar Availability</div>
                 <p className="text-[10px] text-zinc-400 mb-3">Enter a Google Calendar ID to create agent-readable availability windows, or leave it blank and save a manual availability note. Both appear on the public page and in agent data.</p>
 
                 <div className="space-y-2 mb-3">
@@ -1592,7 +1592,7 @@ export default function PageSettings({ params }: PageProps) {
                       setAvailabilitySaving(false)
                     }
                   }}
-                  className="mt-1 w-full rounded-lg border border-emerald-300/40 px-4 py-1.5 text-sm text-emerald-200 hover:bg-emerald-400/10 disabled:opacity-60"
+                  className="mt-1 w-full rounded-lg border border-[var(--ready)]/40 px-4 py-1.5 text-sm text-[var(--ready)] hover:bg-[var(--ready)]/10 disabled:opacity-60"
                   data-testid="availability-save-button"
                 >
                   {availabilitySaving ? 'Saving...' : hasCalendarId ? 'Import Availability from Google Calendar' : 'Save Manual Availability'}
@@ -1601,10 +1601,10 @@ export default function PageSettings({ params }: PageProps) {
               </div>
 
               {/* Get Verified flow for Trust Score (polished) */}
-              <div className="mt-6 rounded-lg border border-amber-300/30 bg-amber-400/5 p-4">
-                <div className="text-sm font-medium text-amber-200 mb-2 flex items-center gap-2">
+              <div className="mt-6 rounded-lg border border-[var(--amber)]/30 bg-[var(--amber)]/5 p-4">
+                <div className="text-sm font-medium text-[var(--amber)] mb-2 flex items-center gap-2">
                   Get Verified (boosts Trust Score)
-                  <span className="text-[10px] text-amber-300">+ up to +25 from signals</span>
+                  <span className="text-[10px] text-[var(--amber)]">+ up to +25 from signals</span>
                 </div>
                 <p className="text-[10px] text-zinc-400 mb-3">Add trust signals shown on public pages, the directory, and analyzer comparisons. Booking activity also improves this over time.</p>
 
@@ -1628,12 +1628,12 @@ export default function PageSettings({ params }: PageProps) {
                     <div className="text-xs mb-1">Credentials / licenses / attestations (add names)</div>
                     <div className="flex flex-wrap gap-1 mb-1">
                       {(verificationDetails.docs_provided || []).map((d: string, i: number) => (
-                        <span key={i} className="inline-flex items-center gap-1 text-xs bg-amber-400/10 px-2 py-0.5 rounded">
+                        <span key={i} className="inline-flex items-center gap-1 text-xs bg-[var(--amber)]/10 px-2 py-0.5 rounded">
                           {d}
                           <button type="button" onClick={() => {
                             const next = [...(verificationDetails.docs_provided || [])]; next.splice(i,1);
                             setVerificationDetails({...verificationDetails, docs_provided: next});
-                          }} className="text-amber-300 hover:text-red-400">×</button>
+                          }} className="text-[var(--amber)] hover:text-red-400">×</button>
                         </span>
                       ))}
                       {(verificationDetails.docs_provided || []).length === 0 && <span className="text-[10px] text-zinc-500">None attached yet</span>}
@@ -1684,7 +1684,7 @@ export default function PageSettings({ params }: PageProps) {
                       setMessage('Save failed: ' + error.message)
                     }
                   }}
-                  className="mt-3 w-full rounded border border-amber-300/40 px-3 py-1.5 text-xs text-amber-200 hover:bg-amber-400/10"
+                  className="mt-3 w-full rounded border border-[var(--amber)]/40 px-3 py-1.5 text-xs text-[var(--amber)] hover:bg-[var(--amber)]/10"
                 >
                   Save Verification Signals (updates Trust immediately)
                 </button>
@@ -1693,8 +1693,8 @@ export default function PageSettings({ params }: PageProps) {
 
               {/* Agent Memory & Context System */}
               <div className="mt-6 rounded-lg border border-zinc-300/30 bg-zinc-400/5 p-4">
-                <div className="font-medium text-zinc-200 mb-1 flex items-center gap-2">Agent Memory & Context <span className="rounded bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-amber-300">Public</span></div>
-                <p className="text-[10px] text-zinc-400 mb-2">Notes, buyer preferences, restrictions, common objections, or “always mention X.” <span className="text-amber-300/90">Public — published in this page’s <code>agent.json</code> and readable by anyone, so keep private pricing strategy and internal notes out.</span></p>
+                <div className="font-medium text-zinc-200 mb-1 flex items-center gap-2">Agent Memory & Context <span className="rounded bg-[var(--amber)]/15 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-[var(--amber)]">Public</span></div>
+                <p className="text-[10px] text-zinc-400 mb-2">Notes, buyer preferences, restrictions, common objections, or “always mention X.” <span className="text-[var(--amber)]/90">Public — published in this page’s <code>agent.json</code> and readable by anyone, so keep private pricing strategy and internal notes out.</span></p>
                 <textarea
                   className="w-full h-20 rounded border border-white/15 bg-black/30 p-2 text-sm font-mono"
                   placeholder="e.g. Prefers async over live calls for first meetings. Common question: turnaround time. Restrictions: no weekends."
@@ -1839,8 +1839,8 @@ export default function PageSettings({ params }: PageProps) {
               </div>
 
               {/* Calendly webhook signature verification */}
-              <div className="mt-6 rounded-lg border border-violet-300/30 bg-violet-400/5 p-4">
-                <div className="text-sm font-medium text-violet-200 mb-2">Calendly webhook secret</div>
+              <div className="mt-6 rounded-lg border border-[var(--signal)]/30 bg-[var(--signal)]/5 p-4">
+                <div className="text-sm font-medium text-[var(--signal)] mb-2">Calendly webhook secret</div>
                 <p className="text-[10px] text-zinc-400 mb-2">Paste the signing secret from Calendly so Nexez can verify incoming booking events for this page.</p>
                 <input
                   type="password"
@@ -1856,7 +1856,7 @@ export default function PageSettings({ params }: PageProps) {
             <section className="rounded-lg border border-white/10 bg-white/[0.04]">
               <div className="flex items-center justify-between border-b border-white/10 p-5">
                 <div className="flex items-center gap-2">
-                  <Code2 className="size-5 text-cyan-200" />
+                  <Code2 className="size-5 text-[var(--signal)]" />
                   <h2 className="font-semibold">Agent Manifest Preview</h2>
                 </div>
                 <button
@@ -1864,11 +1864,11 @@ export default function PageSettings({ params }: PageProps) {
                   onClick={() => copy('Manifest', manifestPreview)}
                   className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-zinc-300 hover:bg-white/10"
                 >
-                  {copied === 'Manifest' ? <Check className="size-4 text-emerald-300" /> : <Copy className="size-4" />}
+                  {copied === 'Manifest' ? <Check className="size-4 text-[var(--ready)]" /> : <Copy className="size-4" />}
                   Copy
                 </button>
               </div>
-              <pre className="max-h-[560px] overflow-auto p-5 text-xs leading-6 text-cyan-100">
+              <pre className="max-h-[560px] overflow-auto p-5 text-xs leading-6 text-[var(--signal)]">
                 {manifestPreview}
               </pre>
             </section>
@@ -1905,7 +1905,7 @@ function LinkPanel({
               <span className="block text-zinc-100">{label}</span>
               <span className="block truncate font-mono text-xs text-zinc-500">{value}</span>
             </span>
-            {copied === label ? <Check className="size-4 shrink-0 text-emerald-300" /> : <Copy className="size-4 shrink-0" />}
+            {copied === label ? <Check className="size-4 shrink-0 text-[var(--ready)]" /> : <Copy className="size-4 shrink-0" />}
           </button>
         ))}
       </div>
@@ -1919,9 +1919,9 @@ function stripAvailabilityMarker(note: string | null | undefined) {
 
 function DisabledRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-cyan-300/10 bg-black/20 px-3 py-3">
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-[var(--signal)]/10 bg-black/20 px-3 py-3">
       <span className="flex items-center gap-2 text-zinc-300">
-        <span className="text-cyan-200">{icon}</span>
+        <span className="text-[var(--signal)]">{icon}</span>
         {label}
       </span>
       <span className="text-zinc-500">{value}</span>
@@ -1942,4 +1942,4 @@ const topButtonClass =
   'inline-flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm text-white hover:bg-white/10'
 
 const inputClass =
-  'w-full rounded-lg border border-white/10 bg-white/[0.06] px-4 py-3 text-white placeholder:text-zinc-600 outline-none transition focus:border-cyan-300/60'
+  'w-full rounded-lg border border-white/10 bg-white/[0.06] px-4 py-3 text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--signal)]/60'

@@ -122,10 +122,10 @@ export function SimulatorTeaser() {
         <div className="mt-6 rounded-2xl border border-border bg-white/[0.02] p-5 sm:p-6">
           {/* Signal row */}
           <div className="mb-4 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center rounded-full border border-[#7C3AED]/30 bg-[#7C3AED]/10 px-2.5 py-0.5 text-xs font-medium text-[#C4B5FD]">
+            <span className="inline-flex items-center rounded-full border border-[#7C3AED]/30 bg-[#7C3AED]/10 px-2.5 py-0.5 text-xs font-medium text-[var(--signal)]">
               {result.intentLabel}
             </span>
-            <span className="inline-flex items-center rounded-full border border-emerald-300/25 bg-emerald-300/10 px-2.5 py-0.5 text-xs text-emerald-200">
+            <span className="inline-flex items-center rounded-full border border-[var(--ready)]/25 bg-[var(--ready)]/10 px-2.5 py-0.5 text-xs text-[var(--ready)]">
               Readiness {result.readiness}%
             </span>
             <span className="ml-auto text-[11px] text-muted-foreground">
@@ -156,13 +156,13 @@ export function SimulatorTeaser() {
           {activeTab === 'natural' ? (
             <div>
               <p className="leading-relaxed text-zinc-200">{result.naturalLanguage}</p>
-              <p className="mb-2 mt-5 text-xs font-medium uppercase tracking-wider text-[#A78BFA]">
+              <p className="mb-2 mt-5 text-xs font-medium uppercase tracking-wider text-[var(--signal)]">
                 Agent actions
               </p>
               <ul className="space-y-1.5">
                 {result.agentActions.map((a, i) => (
                   <li key={i} className="flex gap-2 text-sm text-muted-foreground">
-                    <span className="select-none text-emerald-300">→</span>
+                    <span className="select-none text-[var(--ready)]">→</span>
                     <span className="font-mono text-[12px] leading-5 text-zinc-300">{a}</span>
                   </li>
                 ))}
@@ -170,7 +170,7 @@ export function SimulatorTeaser() {
             </div>
           ) : (
             <div>
-              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-[#A78BFA]">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--signal)]">
                 Offers the agent can act on
               </p>
               <div className="space-y-2">
@@ -179,7 +179,7 @@ export function SimulatorTeaser() {
                     key={o.key}
                     className={`rounded-lg border p-3 ${
                       o.bestMatch
-                        ? 'border-emerald-300/40 bg-emerald-300/[0.06]'
+                        ? 'border-[var(--ready)]/40 bg-[var(--ready)]/[0.06]'
                         : 'border-border bg-white/[0.02]'
                     }`}
                   >
@@ -187,12 +187,12 @@ export function SimulatorTeaser() {
                       <span className="flex items-center gap-2 text-sm font-medium text-white">
                         {o.name}
                         {o.bestMatch && (
-                          <span className="rounded-full bg-emerald-300/15 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-emerald-200">
+                          <span className="rounded-full bg-[var(--ready)]/15 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[var(--ready)]">
                             Best match
                           </span>
                         )}
                       </span>
-                      <span className="shrink-0 font-mono text-xs text-emerald-300">{o.price || 'Custom'}</span>
+                      <span className="shrink-0 font-mono text-xs text-[var(--ready)]">{o.price || 'Custom'}</span>
                     </div>
                     <div className="mt-1.5 flex items-center justify-between gap-3">
                       <span className="truncate text-xs text-muted-foreground">{o.description}</span>
@@ -208,7 +208,7 @@ export function SimulatorTeaser() {
 
           {result.recommendations.length > 0 && (
             <div className="mt-5 border-t border-border pt-4">
-              <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-amber-300">
+              <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-[var(--amber)]">
                 Quick wins to rank higher with agents
               </p>
               <ul className="space-y-1 text-xs text-muted-foreground">
@@ -224,7 +224,7 @@ export function SimulatorTeaser() {
             <a href={appUrl('/create')} className="btn-primary h-10 flex-1 px-5 text-sm sm:flex-none">
               Create a page like this
             </a>
-            <a href="/simulator" className="text-sm text-cyan-300 hover:underline">
+            <a href="/simulator" className="text-sm text-[var(--signal)] hover:underline">
               Open the full simulator →
             </a>
           </div>

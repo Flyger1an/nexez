@@ -96,12 +96,12 @@ export default function OnboardPage() {
               <ol className="space-y-3">
                 {steps.map((s) => (
                   <li key={s.num} className={`flex gap-3 text-sm ${step === s.num ? 'text-white' : 'text-[#9CA3AF]'}`}>
-                    <div className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px] ${step >= s.num ? 'border-[#7C3AED] bg-[#7C3AED]/10 text-[#C4B5FD]' : 'border-white/20'}`}>
+                    <div className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px] ${step >= s.num ? 'border-[#7C3AED] bg-[#7C3AED]/10 text-[var(--signal)]' : 'border-white/20'}`}>
                       {step > s.num ? <Check className="size-3" /> : s.num}
                     </div>
                     <div>
                       <div className="font-medium">{s.title}</div>
-                      {s.num === 3 && <div className="text-[10px] text-emerald-400">Recommended for receiving agent payments</div>}
+                      {s.num === 3 && <div className="text-[10px] text-[var(--ready)]">Recommended for receiving agent payments</div>}
                     </div>
                   </li>
                 ))}
@@ -132,7 +132,7 @@ export default function OnboardPage() {
                             <div className="font-semibold text-lg">{plan.name}</div>
                             <div className="text-sm text-[#9CA3AF]">{plan.blurb}</div>
                           </div>
-                          {isPopular && <span className="rounded bg-cyan-300 px-2 py-0.5 text-[10px] font-semibold text-zinc-950 h-fit">Popular</span>}
+                          {isPopular && <span className="rounded bg-[var(--signal)] px-2 py-0.5 text-[10px] font-semibold text-zinc-950 h-fit">Popular</span>}
                         </div>
                         <div className="mt-4">
                           <span className="text-3xl font-semibold tracking-tight">{plan.price}</span>
@@ -185,7 +185,7 @@ export default function OnboardPage() {
                 <h1 className="text-4xl font-semibold tracking-tight">Connect Stripe</h1>
                 <p className="mt-2 max-w-md text-[#9CA3AF]">
                   Link your Stripe account so agents can pay you directly for bookings and offers. 
-                  <span className="text-emerald-300"> Recommended — start receiving payments immediately.</span>
+                  <span className="text-[var(--ready)]"> Recommended — start receiving payments immediately.</span>
                 </p>
 
                 <div className="mt-8 max-w-md rounded-2xl border border-white/10 bg-[#12101B] p-6">
@@ -216,7 +216,7 @@ export default function OnboardPage() {
 
             {step === 4 && (
               <div className="text-center">
-                <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-full bg-emerald-400 text-4xl">🎉</div>
+                <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-full bg-[var(--ready)] text-4xl">🎉</div>
                 <h1 className="text-4xl font-semibold tracking-tight">You’re all set!</h1>
                 <p className="mt-3 text-[#9CA3AF]">Welcome to the {selectedPlan.name} plan. Your account is ready.</p>
 

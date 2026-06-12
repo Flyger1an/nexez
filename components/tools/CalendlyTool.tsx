@@ -152,16 +152,16 @@ export function CalendlyTool() {
   }
 
   return (
-    <div className="mt-8 rounded-2xl border border-violet-400/20 bg-white/[0.015] p-8">
+    <div className="mt-8 rounded-2xl border border-[var(--signal)]/20 bg-white/[0.015] p-8">
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-violet-200">Calendly Booking Import</h2>
+          <h2 className="text-2xl font-semibold text-[var(--signal)]">Calendly Booking Import</h2>
           <p className="text-[#9CA3AF] mt-1">Connect your Calendly token to import event types as bookable offers.</p>
         </div>
         {calendlyConnected && (
           <div className="text-right text-xs">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-3 py-1 text-emerald-300">
-              <div className="size-1.5 rounded-full bg-emerald-400" />
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-[var(--ready)]/10 px-3 py-1 text-[var(--ready)]">
+              <div className="size-1.5 rounded-full bg-[var(--ready)]" />
               Connected
             </div>
             <div className="mt-1 text-[10px] text-zinc-500">
@@ -182,7 +182,7 @@ export function CalendlyTool() {
         <button
           onClick={handleCalendlyImport}
           disabled={calendlyLoading || !calendlyToken.trim()}
-          className="btn-primary bg-violet-300 text-zinc-950 hover:bg-violet-200"
+          className="btn-primary bg-[var(--signal)] text-zinc-950 hover:bg-[var(--signal)]"
         >
           {calendlyLoading ? <Loader2 className="size-4 animate-spin" /> : 'Import Events'}
         </button>
@@ -190,7 +190,7 @@ export function CalendlyTool() {
           <button
             onClick={handleCalendlyReSync}
             disabled={calendlyLoading}
-            className="rounded-lg border border-violet-300/40 px-4 py-2 text-sm text-violet-200 hover:bg-white/5"
+            className="rounded-lg border border-[var(--signal)]/40 px-4 py-2 text-sm text-[var(--signal)] hover:bg-white/5"
           >
             Re-sync
           </button>
@@ -199,19 +199,19 @@ export function CalendlyTool() {
 
       <p className="mt-2 text-[10px] text-zinc-500">
         Get your token at{' '}
-        <a href="https://calendly.com/integrations/api_webhooks" target="_blank" className="underline hover:text-violet-300">
+        <a href="https://calendly.com/integrations/api_webhooks" target="_blank" className="underline hover:text-[var(--signal)]">
           Calendly Integrations → API &amp; Webhooks
         </a>
       </p>
 
       <div className="mt-6 border-t border-white/10 pt-5">
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-sm font-medium text-violet-200">Booking updates</span>
-          <span className="text-[10px] rounded bg-emerald-400/10 px-2 py-0.5 text-emerald-300">
+          <span className="text-sm font-medium text-[var(--signal)]">Booking updates</span>
+          <span className="text-[10px] rounded bg-[var(--ready)]/10 px-2 py-0.5 text-[var(--ready)]">
             Receiver Active
           </span>
           {webhookConnected && (
-            <span className="text-[10px] rounded bg-emerald-400/10 px-2 py-0.5 text-emerald-300">
+            <span className="text-[10px] rounded bg-[var(--ready)]/10 px-2 py-0.5 text-[var(--ready)]">
               Secret Saved
             </span>
           )}
@@ -236,7 +236,7 @@ export function CalendlyTool() {
           <button
             onClick={() => saveCalendlyWebhook(webhookSecret)}
             disabled={!webhookSecret.trim()}
-            className="rounded-lg border border-violet-300/40 px-4 text-sm text-violet-200 hover:bg-white/5"
+            className="rounded-lg border border-[var(--signal)]/40 px-4 text-sm text-[var(--signal)] hover:bg-white/5"
           >
             Save Secret
           </button>
@@ -247,7 +247,7 @@ export function CalendlyTool() {
             <button
               onClick={sendTestWebhook}
               disabled={webhookTesting || !webhookSecret.trim()}
-              className="rounded-lg border border-violet-300/40 px-4 py-1.5 text-sm text-violet-200 hover:bg-white/5 disabled:opacity-50"
+              className="rounded-lg border border-[var(--signal)]/40 px-4 py-1.5 text-sm text-[var(--signal)] hover:bg-white/5 disabled:opacity-50"
             >
               {webhookTesting ? 'Sending test...' : 'Send test event'}
             </button>
@@ -273,15 +273,15 @@ export function CalendlyTool() {
             {webhookTestResult.error ? (
               <span className="text-red-400">Error: {webhookTestResult.error}</span>
             ) : (
-              <span className="text-emerald-300">Success ({webhookTestResult.status}): Calendly test event received.</span>
+              <span className="text-[var(--ready)]">Success ({webhookTestResult.status}): Calendly test event received.</span>
             )}
           </div>
         )}
 
         {lastWebhookEvent && (
-          <div className="mt-4 rounded border border-emerald-300/30 bg-emerald-400/5 p-4 text-sm">
+          <div className="mt-4 rounded border border-[var(--ready)]/30 bg-[var(--ready)]/5 p-4 text-sm">
             <div className="flex items-center justify-between mb-2">
-              <span className="font-semibold text-emerald-300">Last Booking Received</span>
+              <span className="font-semibold text-[var(--ready)]">Last Booking Received</span>
               <button
                 onClick={() => {
                   setLastWebhookEvent(null)
@@ -300,7 +300,7 @@ export function CalendlyTool() {
               <span className="text-zinc-400"> with </span>
               <span className="font-medium">{lastWebhookEvent.data?.payload?.invitee?.name || 'Guest'}</span>
             </div>
-            <div className="text-[10px] text-emerald-400/80 mt-1">
+            <div className="text-[10px] text-[var(--ready)]/80 mt-1">
               Recorded in Analytics as a booking event.
             </div>
           </div>
@@ -311,7 +311,7 @@ export function CalendlyTool() {
           2. Set the URL to the address above.<br />
           3. Copy the Signing Secret and paste it here.
         </p>
-        <p className="mt-1 text-[10px] text-violet-400">
+        <p className="mt-1 text-[10px] text-[var(--signal)]">
           Nexez verifies the secret before accepting booking events.
         </p>
       </div>
@@ -323,11 +323,11 @@ export function CalendlyTool() {
           ) : (
             <>
               <div className="flex items-center justify-between mb-4">
-                <p className="text-emerald-400 font-medium">{calendlyResult.message || `Imported ${calendlyResult.count} event types`}</p>
+                <p className="text-[var(--ready)] font-medium">{calendlyResult.message || `Imported ${calendlyResult.count} event types`}</p>
                 {calendlyResult.structuredOffers?.length > 0 && (
                   <button
                     onClick={startPageFromCalendly}
-                    className="rounded-lg bg-violet-300 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-violet-200"
+                    className="rounded-lg bg-[var(--signal)] px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-[var(--signal)]"
                   >
                     Create Page from these offers →
                   </button>
@@ -340,12 +340,12 @@ export function CalendlyTool() {
                     <div key={i} className="text-sm bg-white/[0.03] p-3 rounded flex items-center justify-between gap-3">
                       <div>
                         <span className="font-medium">{offer.name}</span>
-                        <span className="ml-2 text-violet-300">• {offer.duration}</span>
+                        <span className="ml-2 text-[var(--signal)]">• {offer.duration}</span>
                       </div>
                       <a
                         href={offer.url}
                         target="_blank"
-                        className="text-xs text-violet-400 hover:text-violet-300 underline"
+                        className="text-xs text-[var(--signal)] hover:text-[var(--signal)] underline"
                       >
                         Booking link
                       </a>

@@ -237,7 +237,7 @@ export function VisualOfferBuilder({ offers, kind, onChange, businessName, audie
       {/* Templates */}
       <div>
         <div className="mb-2 flex items-center gap-2 text-sm font-medium text-zinc-300">
-          <Sparkles className="size-4 text-cyan-300" />
+          <Sparkles className="size-4 text-[var(--signal)]" />
           Rich Service Templates
         </div>
         <div className="flex flex-wrap gap-2">
@@ -246,7 +246,7 @@ export function VisualOfferBuilder({ offers, kind, onChange, businessName, audie
               key={idx}
               type="button"
               onClick={() => addTemplate(tpl)}
-              className="rounded-lg border border-white/15 bg-white/[0.03] px-3 py-2 text-left text-xs text-cyan-200 hover:bg-white/10 active:bg-white/10 md:py-1.5"
+              className="rounded-lg border border-white/15 bg-white/[0.03] px-3 py-2 text-left text-xs text-[var(--signal)] hover:bg-white/10 active:bg-white/10 md:py-1.5"
             >
               + {tpl.name}
             </button>
@@ -423,24 +423,24 @@ function SortableOfferCard({
           {/* Basic Info */}
           <div className="relative grid grid-cols-1 gap-3 md:grid-cols-2">
             {typeof offer.confidence === 'number' && (
-              <span className="absolute -top-1.5 right-0 rounded bg-emerald-400/10 px-1.5 py-px text-[9px] font-medium text-emerald-300">
+              <span className="absolute -top-1.5 right-0 rounded bg-[var(--ready)]/10 px-1.5 py-px text-[9px] font-medium text-[var(--ready)]">
                 {Math.round(offer.confidence * 100)}% match
               </span>
             )}
             {offer.source && (
               <span className={`absolute -top-1.5 right-20 rounded px-1.5 py-px text-[9px] font-medium ${
-                offer.source === 'stripe' ? 'bg-cyan-400/10 text-cyan-300' :
-                offer.source === 'shopify' ? 'bg-purple-400/10 text-purple-300' :
+                offer.source === 'stripe' ? 'bg-[var(--signal)]/10 text-[var(--signal)]' :
+                offer.source === 'shopify' ? 'bg-[var(--signal)]/10 text-[var(--signal)]' :
                 offer.source === 'square' ? 'bg-pink-400/10 text-pink-300' :
-                offer.source === 'acuity' ? 'bg-orange-400/10 text-orange-300' :
-                'bg-violet-400/10 text-violet-300'
+                offer.source === 'acuity' ? 'bg-[var(--amber)]/10 text-[var(--amber)]' :
+                'bg-[var(--signal)]/10 text-[var(--signal)]'
               }`}>
                 via {offer.source}
               </span>
             )}
             {offer.ab_test && (
               <span
-                className="absolute -top-1.5 left-0 rounded bg-fuchsia-400/10 px-1.5 py-px text-[9px] font-medium text-fuchsia-300"
+                className="absolute -top-1.5 left-0 rounded bg-[var(--signal)]/10 px-1.5 py-px text-[9px] font-medium text-[var(--signal)]"
                 title="A/B test variant — visitors are split across variants; compare in Analytics → A/B Tests"
               >
                 A/B · Variant {offer.ab_label || '?'}
@@ -496,7 +496,7 @@ function SortableOfferCard({
                   setEnhancing(false)
                 }
               }}
-              className="absolute top-2 right-2 text-[10px] flex items-center gap-1 rounded border border-cyan-300/40 bg-black/50 px-1.5 py-0.5 text-cyan-300 hover:bg-cyan-300/10 disabled:opacity-50"
+              className="absolute top-2 right-2 text-[10px] flex items-center gap-1 rounded border border-[var(--signal)]/40 bg-black/50 px-1.5 py-0.5 text-[var(--signal)] hover:bg-[var(--signal)]/10 disabled:opacity-50"
               title="Enhance this offer description for AI agents"
             >
               <Sparkles className="size-3" /> {enhancing ? 'Enhancing…' : 'Enhance'}
@@ -506,8 +506,8 @@ function SortableOfferCard({
           {/* Pricing Tiers */}
           <div className="border border-white/10 rounded-lg p-3 bg-black/20">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-[#C4B5FD]">Pricing Tiers</span>
-              <button type="button" onClick={addTier} className="text-xs text-cyan-300 hover:text-cyan-200">+ Add Tier</button>
+              <span className="text-xs font-medium text-[var(--signal)]">Pricing Tiers</span>
+              <button type="button" onClick={addTier} className="text-xs text-[var(--signal)] hover:text-[var(--signal)]">+ Add Tier</button>
             </div>
             {tiers.length > 0 && (
               <div className="space-y-2">
@@ -539,13 +539,13 @@ function SortableOfferCard({
           {onUpdateFull && (
             <div className="border border-white/10 rounded-lg p-3 bg-black/20">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-[#C4B5FD]">Offer type & rules</span>
+                <span className="text-xs font-medium text-[var(--signal)]">Offer type & rules</span>
                 <div className="flex gap-1" role="group" aria-label="Offer type">
                   <button
                     type="button"
                     aria-pressed={offer.offerType !== 'negotiable'}
                     onClick={() => onUpdateFull(index, { offerType: undefined })}
-                    className={`rounded px-2 py-0.5 text-[10px] border ${offer.offerType !== 'negotiable' ? 'border-cyan-300/60 bg-cyan-300/10 text-cyan-200' : 'border-white/15 text-zinc-400 hover:text-white'}`}
+                    className={`rounded px-2 py-0.5 text-[10px] border ${offer.offerType !== 'negotiable' ? 'border-[var(--signal)]/60 bg-[var(--signal)]/10 text-[var(--signal)]' : 'border-white/15 text-zinc-400 hover:text-white'}`}
                   >
                     Fixed
                   </button>
@@ -553,7 +553,7 @@ function SortableOfferCard({
                     type="button"
                     aria-pressed={offer.offerType === 'negotiable'}
                     onClick={() => onUpdateFull(index, { offerType: 'negotiable' })}
-                    className={`rounded px-2 py-0.5 text-[10px] border ${offer.offerType === 'negotiable' ? 'border-violet-300/60 bg-violet-300/10 text-violet-200' : 'border-white/15 text-zinc-400 hover:text-white'}`}
+                    className={`rounded px-2 py-0.5 text-[10px] border ${offer.offerType === 'negotiable' ? 'border-[var(--signal)]/60 bg-[var(--signal)]/10 text-[var(--signal)]' : 'border-white/15 text-zinc-400 hover:text-white'}`}
                   >
                     Negotiable
                   </button>
@@ -643,7 +643,7 @@ function SortableOfferCard({
                 Book on original site for this offer
               </label>
               {offer.prefer_original_for_this && (
-                <span className="text-[9px] text-emerald-300">Original site priority</span>
+                <span className="text-[9px] text-[var(--ready)]">Original site priority</span>
               )}
             </div>
             <input
@@ -704,7 +704,7 @@ function SortableOfferCard({
             <button
               type="button"
               onClick={() => onDuplicate(index)}
-              className="min-h-[44px] min-w-[44px] rounded p-2 text-cyan-300 hover:bg-cyan-300/10 active:bg-cyan-300/20 md:p-1"
+              className="min-h-[44px] min-w-[44px] rounded p-2 text-[var(--signal)] hover:bg-[var(--signal)]/10 active:bg-[var(--signal)]/20 md:p-1"
               aria-label="Duplicate offer as A/B variant"
               title="Duplicate as A/B variant — visitors are split 50/50 and served one variant each; compare in Analytics → A/B Tests"
             >

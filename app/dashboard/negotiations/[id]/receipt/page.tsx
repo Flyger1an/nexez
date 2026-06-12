@@ -53,7 +53,7 @@ export default async function NegotiationReceiptPage({ params }: { params: Promi
               </div>
               <span className="font-semibold">Nexez · Agreement Receipt</span>
             </div>
-            <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2.5 py-0.5 text-xs text-emerald-200">
+            <span className="rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-2.5 py-0.5 text-xs text-[var(--ready)]">
               {getNegotiationStatusLabel(n.status)}
             </span>
           </div>

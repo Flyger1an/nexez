@@ -5,15 +5,15 @@ export function CalendlyBookingsCard({ e }: { e: PageEditor }) {
   if (!lastBooking && recentCalendlyBookings.length === 0) return null
 
   return (
-    <div className="rounded-lg border border-emerald-300/20 bg-emerald-400/5 p-4 mb-4">
+    <div className="rounded-lg border border-[var(--ready)]/20 bg-[var(--ready)]/5 p-4 mb-4">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-emerald-300">Recent Calendly Bookings (via webhook)</span>
+        <span className="text-sm font-medium text-[var(--ready)]">Recent Calendly Bookings (via webhook)</span>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-emerald-400/70">Live from webhooks</span>
+          <span className="text-[10px] text-[var(--ready)]/70">Live from webhooks</span>
           <button
             type="button"
             onClick={e.sendTestBooking}
-            className="text-[10px] rounded border border-emerald-300/40 px-2 py-0.5 text-emerald-200 hover:bg-emerald-400/10"
+            className="text-[10px] rounded border border-[var(--ready)]/40 px-2 py-0.5 text-[var(--ready)] hover:bg-[var(--ready)]/10"
           >
             Send test booking
           </button>
@@ -21,7 +21,7 @@ export function CalendlyBookingsCard({ e }: { e: PageEditor }) {
       </div>
       {lastBooking && (
         <div className="mb-2 text-sm">
-          <span className="font-medium text-emerald-200">Last:</span> {lastBooking.event_name} with {lastBooking.invitee_name}
+          <span className="font-medium text-[var(--ready)]">Last:</span> {lastBooking.event_name} with {lastBooking.invitee_name}
           <span className="ml-2 text-xs text-zinc-500">({new Date(lastBooking.at).toLocaleString()})</span>
         </div>
       )}

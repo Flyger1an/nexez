@@ -40,7 +40,7 @@ export function ProfileSettings({ email, initialFullName, initialCompany, initia
   return (
     <section className="card !p-5">
       <div className="flex items-center gap-2">
-        <UserCircle className="size-5 text-cyan-200" />
+        <UserCircle className="size-5 text-[var(--signal)]" />
         <h2 className="text-xl font-semibold">Your Profile</h2>
       </div>
       <p className="mt-1 text-sm text-zinc-400">Used across your workspace and account. Email is managed at sign-in.</p>
@@ -92,7 +92,7 @@ export function ProfileSettings({ email, initialFullName, initialCompany, initia
           Save profile
         </button>
         {message ? (
-          <span className={`text-sm ${tone === 'ok' ? 'text-emerald-300' : 'text-red-300'}`}>{message}</span>
+          <span className={`text-sm ${tone === 'ok' ? 'text-[var(--ready)]' : 'text-red-300'}`}>{message}</span>
         ) : null}
       </div>
     </section>

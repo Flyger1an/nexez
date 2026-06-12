@@ -12,14 +12,14 @@ export function VisualBuilderSection({ e }: { e: PageEditor }) {
           <button
             type="button"
             onClick={e.optimizeOffersWithAI}
-            className="rounded-lg border border-cyan-300/40 px-3 py-1 text-xs text-cyan-200 hover:bg-cyan-300/10"
+            className="rounded-lg border border-[var(--signal)]/40 px-3 py-1 text-xs text-[var(--signal)] hover:bg-[var(--signal)]/10"
           >
             AI Optimize All
           </button>
           <button
             type="button"
             onClick={e.enhanceAllOffers}
-            className="rounded-lg border border-cyan-300/40 px-3 py-1 text-xs text-cyan-200 hover:bg-cyan-300/10"
+            className="rounded-lg border border-[var(--signal)]/40 px-3 py-1 text-xs text-[var(--signal)] hover:bg-[var(--signal)]/10"
           >
             Enhance All
           </button>
@@ -50,7 +50,7 @@ export function VisualBuilderSection({ e }: { e: PageEditor }) {
       />
 
       <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
-        <p className="mb-3 text-xs uppercase tracking-widest text-cyan-300">Services</p>
+        <p className="mb-3 text-xs uppercase tracking-widest text-[var(--signal)]">Services</p>
         <VisualOfferBuilder
           offers={e.parsedServices}
           kind="services"
@@ -65,7 +65,7 @@ export function VisualBuilderSection({ e }: { e: PageEditor }) {
       </div>
 
       <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
-        <p className="mb-3 text-xs uppercase tracking-widest text-cyan-300">Products</p>
+        <p className="mb-3 text-xs uppercase tracking-widest text-[var(--signal)]">Products</p>
         <VisualOfferBuilder
           offers={e.parsedProducts}
           kind="products"

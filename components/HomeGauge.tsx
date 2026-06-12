@@ -46,8 +46,8 @@ export function HomeGauge({ value = 92, label = 'Readiness score' }: { value?: n
         <svg viewBox="0 0 100 100" className="size-full -rotate-90">
           <defs>
             <linearGradient id="nx-gauge-grad" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#00D4FF" />
-              <stop offset="100%" stopColor="#7C3AED" />
+              <stop offset="0%" stopColor="var(--signal)" />
+              <stop offset="100%" stopColor="var(--ready)" />
             </linearGradient>
           </defs>
           <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="7" />

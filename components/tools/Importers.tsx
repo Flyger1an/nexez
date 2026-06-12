@@ -51,13 +51,13 @@ export function StripeImporter() {
     <div className="mt-8 border-t border-white/10 pt-6">
       <div className="mb-4 flex items-start justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-cyan-200">Stripe Product &amp; Price Import</h3>
+          <h3 className="text-lg font-semibold text-[var(--signal)]">Stripe Product &amp; Price Import</h3>
           <p className="text-xs text-[#9CA3AF] mt-1">Paste a Stripe secret key to import products and prices as editable offers.</p>
         </div>
         {stripeConnected && (
           <div className="text-right text-xs">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-3 py-1 text-emerald-300">
-              <div className="size-1.5 rounded-full bg-emerald-400" />
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-[var(--ready)]/10 px-3 py-1 text-[var(--ready)]">
+              <div className="size-1.5 rounded-full bg-[var(--ready)]" />
               Connected
             </div>
             <div className="mt-1 text-[10px] text-zinc-500">
@@ -78,7 +78,7 @@ export function StripeImporter() {
         <button
           onClick={handleStripeImport}
           disabled={stripeLoading || !stripeKey.trim()}
-          className="btn-primary bg-cyan-300 text-zinc-950 hover:bg-cyan-200"
+          className="btn-primary bg-[var(--signal)] text-zinc-950 hover:bg-[var(--signal)]"
         >
           {stripeLoading ? <Loader2 className="size-4 animate-spin" /> : 'Import Products'}
         </button>
@@ -92,7 +92,7 @@ export function StripeImporter() {
               }
             }}
             disabled={stripeLoading}
-            className="rounded-lg border border-cyan-300/40 px-4 py-2 text-sm text-cyan-200 hover:bg-white/5"
+            className="rounded-lg border border-[var(--signal)]/40 px-4 py-2 text-sm text-[var(--signal)] hover:bg-white/5"
           >
             Re-sync
           </button>
@@ -102,7 +102,7 @@ export function StripeImporter() {
       <ImportResult
         result={stripeResult}
         wrapperClass="mt-4 rounded-xl border border-white/10 bg-black/30 p-5"
-        createClass="bg-cyan-300 px-4 py-1.5 hover:bg-cyan-200"
+        createClass="bg-[var(--signal)] px-4 py-1.5 hover:bg-[var(--signal)]"
         maxOffers={3}
         onCreate={() => {
           sessionStorage.setItem('nexez_imported_structured', JSON.stringify(stripeResult.structuredOffers))
@@ -170,7 +170,7 @@ export function ShopifyImporter() {
   return (
     <div className="mt-8 border-t border-white/10 pt-6">
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-purple-200">Shopify Catalog Import</h3>
+        <h3 className="text-lg font-semibold text-[var(--signal)]">Shopify Catalog Import</h3>
         <p className="text-xs text-[#9CA3AF] mt-1">Enter your Shopify store URL. We automatically try the public products feed + enhanced crawling.</p>
       </div>
 
@@ -185,7 +185,7 @@ export function ShopifyImporter() {
         <button
           onClick={handleShopifyImport}
           disabled={shopifyLoading || !shopifyUrl.trim()}
-          className="btn-primary bg-purple-300 text-zinc-950 hover:bg-purple-200"
+          className="btn-primary bg-[var(--signal)] text-zinc-950 hover:bg-[var(--signal)]"
         >
           {shopifyLoading ? <Loader2 className="size-4 animate-spin" /> : 'Import Catalog'}
         </button>
@@ -198,7 +198,7 @@ export function ShopifyImporter() {
               }
             }}
             disabled={shopifyLoading}
-            className="rounded-lg border border-purple-300/40 px-4 py-2 text-sm text-purple-200 hover:bg-white/5"
+            className="rounded-lg border border-[var(--signal)]/40 px-4 py-2 text-sm text-[var(--signal)] hover:bg-white/5"
           >
             Re-sync
           </button>
@@ -219,7 +219,7 @@ export function ShopifyImporter() {
         result={shopifyResult}
         wrapperClass="mt-4 rounded-xl border border-white/10 bg-black/30 p-5"
         defaultMessage="Shopify catalog imported"
-        createClass="bg-purple-300 px-4 py-1.5 hover:bg-purple-200"
+        createClass="bg-[var(--signal)] px-4 py-1.5 hover:bg-[var(--signal)]"
         onCreate={() => {
           sessionStorage.setItem('nexez_imported_structured', JSON.stringify(shopifyResult.structuredOffers))
           window.location.href = '/create?imported=true&source=shopify'
@@ -277,11 +277,11 @@ export function AcuityImporter() {
     <div className="mt-6 rounded-xl border border-white/10 p-5">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <div className="font-semibold text-orange-300">Acuity Scheduling — Consumer Services</div>
+          <div className="font-semibold text-[var(--amber)]">Acuity Scheduling — Consumer Services</div>
           <p className="text-xs text-[#9CA3AF]">Import appointment types for coaching, beauty, wellness, medical, fitness. Strong scheduling + consumer fields.</p>
         </div>
         {acuityConnected && (
-          <span className="text-[10px] text-emerald-400">Connected • {new Date(acuityConnected.lastImport).toLocaleTimeString()}</span>
+          <span className="text-[10px] text-[var(--ready)]">Connected • {new Date(acuityConnected.lastImport).toLocaleTimeString()}</span>
         )}
       </div>
 
@@ -296,7 +296,7 @@ export function AcuityImporter() {
         <button
           onClick={handleAcuityImport}
           disabled={acuityLoading}
-          className="btn-primary bg-orange-300 text-zinc-950 hover:bg-orange-200"
+          className="btn-primary bg-[var(--amber)] text-zinc-950 hover:bg-[var(--amber)]"
         >
           {acuityLoading ? <Loader2 className="size-4 animate-spin" /> : 'Import from Acuity'}
         </button>
@@ -304,7 +304,7 @@ export function AcuityImporter() {
           <button
             onClick={() => handleAcuityImport()}
             disabled={acuityLoading}
-            className="rounded-lg border border-orange-300/40 px-3 py-1 text-sm text-orange-200 hover:bg-white/5"
+            className="rounded-lg border border-[var(--amber)]/40 px-3 py-1 text-sm text-[var(--amber)] hover:bg-white/5"
           >
             Re-sync
           </button>
@@ -314,7 +314,7 @@ export function AcuityImporter() {
       <ImportResult
         result={acuityResult}
         defaultMessage="Acuity appointment types imported"
-        createClass="bg-orange-300 px-4 py-1 hover:bg-orange-200"
+        createClass="bg-[var(--amber)] px-4 py-1 hover:bg-[var(--amber)]"
         maxOffers={4}
         onCreate={() => {
           sessionStorage.setItem('nexez_imported_structured', JSON.stringify(acuityResult.structuredOffers))

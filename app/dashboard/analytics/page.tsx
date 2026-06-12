@@ -267,11 +267,11 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           Track real agent-facing intent: classified AI visits, human traffic, directory discovery, provider handoffs, and Stripe checkout sessions.
         </p>
 
-        <section className="mt-6 rounded-lg border border-cyan-300/25 bg-cyan-300/[0.06] p-5">
+        <section className="mt-6 rounded-lg border border-[var(--signal)]/25 bg-[var(--signal)]/[0.06] p-5">
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
             <div>
               <h2 className="flex items-center gap-2 text-lg font-semibold">
-                <Filter className="size-4 text-cyan-200" />
+                <Filter className="size-4 text-[var(--signal)]" />
                 Filter analytics
               </h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
@@ -305,7 +305,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                 <input
                   name="q"
                   defaultValue={filters.q ?? ''}
-                  className="h-11 w-full rounded-lg border border-white/10 bg-black/20 pl-9 pr-3 text-sm outline-none placeholder:text-zinc-600 focus:border-cyan-300/60"
+                  className="h-11 w-full rounded-lg border border-white/10 bg-black/20 pl-9 pr-3 text-sm outline-none placeholder:text-zinc-600 focus:border-[var(--signal)]/60"
                   placeholder="Event context..."
                 />
               </label>
@@ -332,7 +332,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                 ))}
               </Select>
               <div className="flex flex-col gap-2 md:flex-row md:items-end xl:col-span-4">
-                <button className="h-11 rounded-lg bg-cyan-300 px-5 text-sm font-semibold text-zinc-950 hover:bg-cyan-200">
+                <button className="h-11 rounded-lg bg-[var(--signal)] px-5 text-sm font-semibold text-zinc-950 hover:bg-[var(--signal)]">
                   Apply filters
                 </button>
                 {activeFilterCount ? (
@@ -344,7 +344,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             </form>
 
             <div className="min-w-0 border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
-              <p className="mb-3 text-xs uppercase tracking-[0.18em] text-cyan-200">Time window</p>
+              <p className="mb-3 text-xs uppercase tracking-[0.18em] text-[var(--signal)]">Time window</p>
               <div className="flex flex-wrap gap-2 text-sm">
                 {[
                   { label: '1d', value: '1d' },
@@ -399,7 +399,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         <section className="mt-6 rounded-lg border border-white/10 bg-white/[0.04] p-5">
           <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
             <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-cyan-200">Analytics view</p>
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--signal)]">Analytics view</p>
               <h2 className="mt-2 text-2xl font-semibold tracking-tight">{pageViewTitle}</h2>
               <p className="mt-2 text-sm text-zinc-400">{pageViewSubtitle}</p>
               {selectedPage ? (
@@ -465,16 +465,16 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             <TrafficChart data={dailySeries} />
             <div className="mt-2 flex gap-4 text-xs text-zinc-400">
               <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-[#7C3AED]" /> Total Signals
+                <div className="h-2 w-2 rounded-full bg-[var(--fg-muted)]" /> Total Signals
               </div>
               <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-emerald-500" /> Agent Visits
+                <div className="h-2 w-2 rounded-full bg-[var(--signal)]" /> Agent Visits
               </div>
               <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-amber-400" /> Discovery
+                <div className="h-2 w-2 rounded-full bg-[var(--amber)]" /> Discovery
               </div>
               <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-[#00F5FF]" /> Conversions
+                <div className="h-2 w-2 rounded-full bg-[var(--ready)]" /> Conversions
               </div>
             </div>
           </Panel>
@@ -513,11 +513,11 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                         {offer.name}
                         <span className="ml-2 text-[10px] text-zinc-500 font-normal">/{offer.pageSlug}</span>
                       </div>
-                      <div className="font-semibold text-emerald-300 shrink-0">{offer.conversionRate}%</div>
+                      <div className="font-semibold text-[var(--ready)] shrink-0">{offer.conversionRate}%</div>
                     </div>
                     <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-emerald-300 rounded-full transition-all" 
+                        className="h-full bg-[var(--ready)] rounded-full transition-all" 
                         style={{ width: `${Math.min(100, offer.conversionRate)}%` }}
                       />
                     </div>
@@ -540,7 +540,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                   return (
                     <div key={test.test}>
                       <div className="mb-2 flex items-center justify-between text-xs">
-                        <span className="uppercase tracking-[0.18em] text-fuchsia-200">
+                        <span className="uppercase tracking-[0.18em] text-[var(--signal)]">
                           {test.variants[0]?.offerName?.replace(/\s*\(Variant [A-Z]\)$/, '') || 'Experiment'}
                         </span>
                         {test.slug ? <span className="text-[10px] text-zinc-500">/{test.slug}</span> : null}
@@ -552,18 +552,18 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                             <div key={v.label}>
                               <div className="flex items-center justify-between text-sm mb-1">
                                 <div className="truncate pr-2 text-white">
-                                  <span className={`mr-2 rounded px-1.5 py-px text-[10px] font-semibold ${isWinner ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/10 text-zinc-300'}`}>
+                                  <span className={`mr-2 rounded px-1.5 py-px text-[10px] font-semibold ${isWinner ? 'bg-[var(--ready)]/15 text-[var(--ready)]' : 'bg-white/10 text-zinc-300'}`}>
                                     {v.label}{isWinner ? ' · winning' : ''}
                                   </span>
                                   <span className="text-zinc-400">{v.offerName}</span>
                                 </div>
-                                <div className={`shrink-0 font-semibold ${isWinner ? 'text-emerald-300' : 'text-zinc-200'}`}>
+                                <div className={`shrink-0 font-semibold ${isWinner ? 'text-[var(--ready)]' : 'text-zinc-200'}`}>
                                   {(v.rate * 100).toFixed(1)}%
                                 </div>
                               </div>
                               <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
                                 <div
-                                  className={`h-full rounded-full transition-all ${isWinner ? 'bg-emerald-300' : 'bg-fuchsia-300'}`}
+                                  className={`h-full rounded-full transition-all ${isWinner ? 'bg-[var(--ready)]' : 'bg-[var(--signal)]'}`}
                                   style={{ width: `${Math.min(100, (v.rate / maxRate) * 100)}%` }}
                                 />
                               </div>
@@ -599,8 +599,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           <Panel title="Discovery ROI">
             {discoveryClicks ? (
               <div className="space-y-4 text-sm">
-                <div className="rounded-lg border border-amber-300/20 bg-amber-400/10 p-4">
-                  <div className="text-xs uppercase tracking-[0.18em] text-amber-200">Click to intent</div>
+                <div className="rounded-lg border border-[var(--amber)]/20 bg-[var(--amber)]/10 p-4">
+                  <div className="text-xs uppercase tracking-[0.18em] text-[var(--amber)]">Click to intent</div>
                   <div className="mt-2 text-3xl font-semibold text-white">{discoveryToIntentRate}%</div>
                   <p className="mt-1 text-xs text-zinc-400">
                     Checkout attempts divided by discovery clicks in this filtered period.
@@ -619,12 +619,12 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
               <div className="space-y-4 text-sm">
                 {topQueries.length > 0 && (
                   <div>
-                    <div className="text-xs uppercase tracking-[0.18em] text-cyan-200">Top agent queries</div>
+                    <div className="text-xs uppercase tracking-[0.18em] text-[var(--signal)]">Top agent queries</div>
                     <ul className="mt-2 space-y-1">
                       {topQueries.map((q) => (
                         <li key={q.query} className="flex items-center justify-between gap-3 rounded border border-white/10 bg-black/20 px-3 py-1.5">
                           <span className="truncate text-zinc-200">{q.query}</span>
-                          <span className="shrink-0 rounded-full bg-cyan-300/10 px-2 py-0.5 text-xs text-cyan-100">{q.count}</span>
+                          <span className="shrink-0 rounded-full bg-[var(--signal)]/10 px-2 py-0.5 text-xs text-[var(--signal)]">{q.count}</span>
                         </li>
                       ))}
                     </ul>
@@ -634,12 +634,12 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                   </div>
                 )}
                 {unservedQueries.length > 0 && (
-                  <div className="rounded-lg border border-amber-300/20 bg-amber-400/5 p-3">
-                    <div className="text-xs uppercase tracking-[0.18em] text-amber-200">Gaps — searched but not offered</div>
+                  <div className="rounded-lg border border-[var(--amber)]/20 bg-[var(--amber)]/5 p-3">
+                    <div className="text-xs uppercase tracking-[0.18em] text-[var(--amber)]">Gaps — searched but not offered</div>
                     <ul className="mt-2 flex flex-wrap gap-1.5">
                       {unservedQueries.map((q) => (
-                        <li key={q.query} className="rounded-full border border-amber-300/30 bg-amber-400/10 px-2.5 py-0.5 text-xs text-amber-200">
-                          {q.query} <span className="text-amber-300/70">×{q.count}</span>
+                        <li key={q.query} className="rounded-full border border-[var(--amber)]/30 bg-[var(--amber)]/10 px-2.5 py-0.5 text-xs text-[var(--amber)]">
+                          {q.query} <span className="text-[var(--amber)]/70">×{q.count}</span>
                         </li>
                       ))}
                     </ul>
@@ -650,7 +650,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                 )}
                 {topReferrers.length > 0 && (
                   <div>
-                    <div className="text-xs uppercase tracking-[0.18em] text-cyan-200">Top referrers</div>
+                    <div className="text-xs uppercase tracking-[0.18em] text-[var(--signal)]">Top referrers</div>
                     <ul className="mt-2 space-y-1">
                       {topReferrers.map((r) => (
                         <li key={r.query} className="flex items-center justify-between gap-3 text-zinc-300">
@@ -683,7 +683,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                 Agent traffic vs average ({avgAllReadiness}%)
               </div>
               {avgActiveReadiness > avgAllReadiness && (
-                <div className="mt-2 text-xs text-emerald-300">↑ Quality attracts agents</div>
+                <div className="mt-2 text-xs text-[var(--ready)]">↑ Quality attracts agents</div>
               )}
             </div>
 
@@ -739,7 +739,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                   <tr key={visit.id} className="border-t border-white/10">
                     <td className="px-5 py-4">
                       <span className="inline-flex items-center gap-2">
-                        <Bot className="size-4 text-cyan-200" />
+                        <Bot className="size-4 text-[var(--signal)]" />
                         {visit.agent_type}
                       </span>
                       <span className="mt-1 block text-xs text-zinc-600">{formatEventDate(visit.created_at)}</span>
@@ -747,8 +747,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                     <td className="px-5 py-4 text-zinc-300">
                       <span className="line-clamp-1">{formatVisitQuery(visit)}</span>
                     </td>
-                    <td className="px-5 py-4 font-mono text-xs text-cyan-200">/{visit.slug}</td>
-                    <td className="px-5 py-4 text-right text-emerald-200">{Math.round(Number(visit.confidence_score || 0))}%</td>
+                    <td className="px-5 py-4 font-mono text-xs text-[var(--signal)]">/{visit.slug}</td>
+                    <td className="px-5 py-4 text-right text-[var(--ready)]">{Math.round(Number(visit.confidence_score || 0))}%</td>
                   </tr>
                 ))}
               </tbody>
@@ -781,7 +781,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                   <tr key={event.id} className="border-t border-white/10">
                     <td className="px-5 py-4">
                       <span className="inline-flex items-center gap-2">
-                        <Bot className="size-4 text-cyan-200" />
+                        <Bot className="size-4 text-[var(--signal)]" />
                         {getAgentName(event.agent_user_agent)}
                       </span>
                     </td>
@@ -793,7 +793,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                       {getEventActionLabel(event.event_type)}
                       <span className="mt-1 block text-xs text-zinc-600">{formatEventDate(event.created_at)}</span>
                     </td>
-                    <td className="px-5 py-4 text-right text-cyan-200">{getSignalLabel(event)}</td>
+                    <td className="px-5 py-4 text-right text-[var(--signal)]">{getSignalLabel(event)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -825,11 +825,11 @@ function Kpi({
   tone?: 'strong'
 }) {
   return (
-    <div className={`rounded-lg border border-white/10 p-5 ${tone ? 'bg-cyan-300/15' : 'bg-white/[0.04]'}`}>
+    <div className={`rounded-lg border border-white/10 p-5 ${tone ? 'bg-[var(--signal)]/15' : 'bg-white/[0.04]'}`}>
       <p className="text-sm text-zinc-300">{title}</p>
       <p className="mt-3 text-4xl font-semibold tracking-tight">{value}</p>
       {delta ? (
-        <p className="mt-3 inline-flex items-center gap-1 text-sm text-cyan-200">
+        <p className="mt-3 inline-flex items-center gap-1 text-sm text-[var(--signal)]">
           <ArrowUpRight className="size-4" />
           {delta}
         </p>
@@ -858,8 +858,8 @@ function TrafficSplit({ split }: { split: ReturnType<typeof getTrafficSplit> }) 
         <div className="h-3 bg-gradient-to-r from-[var(--ready)] via-[var(--signal)] to-[var(--signal)]" style={{ width: `${aiShare}%` }} />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-3">
-          <p className="text-xs text-cyan-100">AI agents</p>
+        <div className="rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/10 p-3">
+          <p className="text-xs text-[var(--signal)]">AI agents</p>
           <p className="mt-1 text-2xl font-semibold">{split.ai}</p>
           <p className="mt-1 text-xs text-zinc-500">{aiShare}%</p>
         </div>
@@ -884,10 +884,10 @@ function AgentTypeList({ rows }: { rows: ReturnType<typeof getAgentTypeBreakdown
         <div key={row.agentType} className="rounded-lg border border-white/10 bg-black/20 p-3">
           <div className="flex items-center justify-between gap-3 text-sm">
             <span className="truncate text-zinc-200">{row.agentType}</span>
-            <span className="font-mono text-cyan-200">{row.total}</span>
+            <span className="font-mono text-[var(--signal)]">{row.total}</span>
           </div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
-            <div className="h-full rounded-full bg-cyan-300" style={{ width: `${Math.min(100, Math.round(row.avgConfidence))}%` }} />
+            <div className="h-full rounded-full bg-[var(--signal)]" style={{ width: `${Math.min(100, Math.round(row.avgConfidence))}%` }} />
           </div>
           <p className="mt-1 text-xs text-zinc-500">{Math.round(row.avgConfidence)}% average confidence</p>
         </div>
@@ -922,7 +922,7 @@ function Select({
       <select
         name={name}
         defaultValue={defaultValue}
-        className="h-11 w-full rounded-lg border border-white/10 bg-black/20 px-3 text-sm text-zinc-200 outline-none focus:border-cyan-300/60"
+        className="h-11 w-full rounded-lg border border-white/10 bg-black/20 px-3 text-sm text-zinc-200 outline-none focus:border-[var(--signal)]/60"
       >
         {children}
       </select>
@@ -958,7 +958,7 @@ function DiscoveryList({ title, rows }: { title: string; rows: Array<{ label: st
         {rows.slice(0, 4).map((row) => (
           <div key={row.label} className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 px-3 py-2">
             <span className="capitalize text-zinc-300">{row.label}</span>
-            <span className="font-mono text-cyan-200">{row.total}</span>
+            <span className="font-mono text-[var(--signal)]">{row.total}</span>
           </div>
         ))}
       </div>

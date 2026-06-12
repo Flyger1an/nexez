@@ -85,11 +85,11 @@ const agents = ['ChatGPT', 'Claude', 'Perplexity', 'Gemini', 'Grok', 'Copilot']
 
 // Illustrative figures for the homepage analytics preview (clearly a sample).
 const agentMix = [
-  { name: 'ChatGPT', pct: 41, color: '#10B981' },
-  { name: 'Claude', pct: 27, color: '#A78BFA' },
-  { name: 'Perplexity', pct: 18, color: '#00D4FF' },
-  { name: 'Grok', pct: 9, color: '#F59E0B' },
-  { name: 'Other', pct: 5, color: '#71717A' },
+  { name: 'ChatGPT', pct: 41, color: 'var(--signal)' },
+  { name: 'Claude', pct: 27, color: 'var(--ready)' },
+  { name: 'Perplexity', pct: 18, color: 'var(--amber)' },
+  { name: 'Grok', pct: 9, color: 'var(--fg-muted)' },
+  { name: 'Other', pct: 5, color: 'var(--fg-muted-2)' },
 ]
 
 const sampleQueries = [
@@ -114,7 +114,7 @@ export default async function NexezHome() {
         <div className="relative z-10 mx-auto grid max-w-7xl gap-12 px-5 py-20 lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,0.85fr)] lg:items-center lg:py-28">
           <div>
             <div className="nx-shimmer inline-flex items-center gap-2 rounded-full border border-border bg-white/[0.04] px-3 py-1 text-xs text-muted-foreground">
-              <Bot className="size-3.5 text-cyan-300" />
+              <Bot className="size-3.5 text-[var(--signal)]" />
               AI readable business pages
             </div>
             <h1 className="mt-6 max-w-4xl text-balance text-5xl font-semibold tracking-[-0.065em] sm:text-6xl lg:text-7xl">
@@ -247,7 +247,7 @@ export default async function NexezHome() {
             {keyFeatures.map(({ title, copy, Icon }) => (
               <div key={title} className="card flex items-start gap-3">
                 <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-black">
-                  <Icon className="size-4 text-[#A78BFA]" />
+                  <Icon className="size-4 text-[var(--signal)]" />
                 </div>
                 <div>
                   <h3 className="text-sm font-medium tracking-tight">{title}</h3>
@@ -275,7 +275,7 @@ export default async function NexezHome() {
               <div key={item.step} className="nx-tile p-5">
                 <div className="flex items-center justify-between">
                   <p className="font-mono text-xs text-muted-foreground">{item.step}</p>
-                  {i < workflow.length - 1 ? <ArrowRight className="size-4 text-white/20" /> : <CheckCircle2 className="size-4 text-emerald-300/60" />}
+                  {i < workflow.length - 1 ? <ArrowRight className="size-4 text-white/20" /> : <CheckCircle2 className="size-4 text-[var(--ready)]/60" />}
                 </div>
                 <h3 className="mt-4 text-xl font-medium">{item.title}</h3>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.copy}</p>
@@ -326,7 +326,7 @@ export default async function NexezHome() {
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Ready</p>
-                    <p className="mt-1 font-mono text-lg text-emerald-300">{getReadinessScore(page)}%</p>
+                    <p className="mt-1 font-mono text-lg text-[var(--ready)]">{getReadinessScore(page)}%</p>
                   </div>
                 </div>
                 <p className="mt-4 line-clamp-3 text-sm leading-6 text-muted-foreground">
@@ -394,9 +394,9 @@ function BentoGrid() {
       {/* Agent-readable payload — the centerpiece */}
       <div className="nx-tile group flex flex-col p-5 md:col-span-2 md:row-span-2">
         <div className="flex items-center gap-2">
-          <Code2 className="size-4 text-cyan-300" />
+          <Code2 className="size-4 text-[var(--signal)]" />
           <p className="text-sm font-medium text-white/90">What agents read</p>
-          <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-emerald-300/25 bg-emerald-300/10 px-2 py-0.5 text-[10px] text-emerald-200">
+          <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-[var(--ready)]/25 bg-[var(--ready)]/10 px-2 py-0.5 text-[10px] text-[var(--ready)]">
             <span className="nx-live-dot" /> agent ready
           </span>
         </div>
@@ -423,7 +423,7 @@ function BentoGrid() {
       {/* Schema formats */}
       <div className="nx-tile flex flex-col p-5">
         <div className="flex items-center gap-2">
-          <Layers className="size-4 text-[#A78BFA]" />
+          <Layers className="size-4 text-[var(--signal)]" />
           <p className="text-sm font-medium text-white/90">Every format</p>
         </div>
         <div className="mt-auto flex flex-wrap gap-1.5">
@@ -437,10 +437,10 @@ function BentoGrid() {
       <div className="nx-tile flex flex-col p-5 md:col-span-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <TrendingUp className="size-4 text-emerald-300" />
+            <TrendingUp className="size-4 text-[var(--ready)]" />
             <p className="text-sm font-medium text-white/90">Agent visits</p>
           </div>
-          <p className="font-mono text-xs text-emerald-300">+18.4%</p>
+          <p className="font-mono text-xs text-[var(--ready)]">+18.4%</p>
         </div>
         <MiniSparkline />
       </div>
@@ -455,12 +455,12 @@ function MiniSparkline() {
     <svg viewBox="0 0 300 64" preserveAspectRatio="none" className="mt-auto h-16 w-full" role="img" aria-label="Sample agent visit trend">
       <defs>
         <linearGradient id="nx-mini-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#00D4FF" stopOpacity="0.25" />
-          <stop offset="100%" stopColor="#00D4FF" stopOpacity="0" />
+          <stop offset="0%" stopColor="var(--signal)" stopOpacity="0.25" />
+          <stop offset="100%" stopColor="var(--signal)" stopOpacity="0" />
         </linearGradient>
         <linearGradient id="nx-mini-stroke" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#00D4FF" />
-          <stop offset="100%" stopColor="#7C3AED" />
+          <stop offset="0%" stopColor="var(--signal)" />
+          <stop offset="100%" stopColor="var(--signal)" />
         </linearGradient>
       </defs>
       <path d={area} fill="url(#nx-mini-fill)" />
@@ -477,12 +477,12 @@ function ProductPreview() {
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
             <span className="size-2 rounded-full bg-red-400" />
-            <span className="size-2 rounded-full bg-amber-400" />
-            <span className="size-2 rounded-full bg-emerald-400" />
+            <span className="size-2 rounded-full bg-[var(--amber)]" />
+            <span className="size-2 rounded-full bg-[var(--ready)]" />
           </div>
           <div className="flex items-center gap-2 font-mono text-xs">
             <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-white/[0.04] px-2 py-0.5 text-zinc-300">
-              <Lock className="size-3 text-emerald-300" />
+              <Lock className="size-3 text-[var(--ready)]" />
               offers.axlestrategy.com
             </span>
             <span className="hidden text-[10px] text-zinc-500 sm:inline">or nexez.app/axle</span>
@@ -516,9 +516,9 @@ function ProductPreview() {
   "readiness": 92
 }`}
             </pre>
-            <div className="mt-4 rounded-lg border border-emerald-300/25 bg-emerald-300/10 p-3">
-              <p className="text-sm font-medium text-emerald-100">Agent ready</p>
-              <p className="mt-1 text-xs leading-5 text-emerald-100/80">Clear pricing, buyer fit, schema, and booking action.</p>
+            <div className="mt-4 rounded-lg border border-[var(--ready)]/25 bg-[var(--ready)]/10 p-3">
+              <p className="text-sm font-medium text-[var(--ready)]">Agent ready</p>
+              <p className="mt-1 text-xs leading-5 text-[var(--ready)]/80">Clear pricing, buyer fit, schema, and booking action.</p>
             </div>
           </div>
         </div>
@@ -577,7 +577,7 @@ function AnalyticsSnapshot() {
                 separator={k.separator}
                 className="mt-1.5 block font-mono text-xl tracking-tight text-white sm:text-2xl"
               />
-              <p className={`mt-1 inline-flex items-center gap-1 text-[10px] ${k.up ? 'text-emerald-300' : 'text-red-300'}`}>
+              <p className={`mt-1 inline-flex items-center gap-1 text-[10px] ${k.up ? 'text-[var(--ready)]' : 'text-red-300'}`}>
                 <TrendingUp className="size-3" />
                 {k.delta}
               </p>
@@ -594,8 +594,8 @@ function AnalyticsSnapshot() {
             </div>
             <TrafficSparkline />
             <div className="mt-3 flex flex-wrap items-center gap-4 text-[10px] text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-[#00D4FF]" /> Agent visits</span>
-              <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-[#A78BFA]" /> Conversions</span>
+              <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-[var(--signal)]" /> Agent visits</span>
+              <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-[var(--signal)]" /> Conversions</span>
             </div>
           </div>
 
@@ -628,7 +628,7 @@ function AnalyticsSnapshot() {
               {sampleQueries.map((s) => (
                 <div key={s.q} className="flex items-center justify-between gap-3 rounded-md border border-border bg-white/[0.02] px-3 py-2">
                   <span className="truncate text-[12px] text-zinc-300">“{s.q}”</span>
-                  <span className="shrink-0 rounded-full bg-[#00D4FF]/10 px-2 py-0.5 font-mono text-[10px] text-[#7DE3FF]">{s.n}</span>
+                  <span className="shrink-0 rounded-full bg-[var(--signal)]/10 px-2 py-0.5 font-mono text-[10px] text-[var(--signal)]">{s.n}</span>
                 </div>
               ))}
             </div>
@@ -670,12 +670,12 @@ function TrafficSparkline() {
     <svg viewBox="0 0 600 160" preserveAspectRatio="none" className="h-32 w-full sm:h-40" role="img" aria-label="Sample agent traffic trend">
       <defs>
         <linearGradient id="nx-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#00D4FF" stopOpacity="0.28" />
-          <stop offset="100%" stopColor="#00D4FF" stopOpacity="0" />
+          <stop offset="0%" stopColor="var(--signal)" stopOpacity="0.28" />
+          <stop offset="100%" stopColor="var(--signal)" stopOpacity="0" />
         </linearGradient>
         <linearGradient id="nx-stroke" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#00D4FF" />
-          <stop offset="100%" stopColor="#7C3AED" />
+          <stop offset="0%" stopColor="var(--signal)" />
+          <stop offset="100%" stopColor="var(--signal)" />
         </linearGradient>
       </defs>
       {/* baseline grid */}
@@ -683,10 +683,10 @@ function TrafficSparkline() {
         <line key={y} x1="0" y1={y} x2="600" y2={y} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
       ))}
       <path d={visitsArea} fill="url(#nx-fill)" />
-      <path d={conv} fill="none" stroke="#A78BFA" strokeOpacity="0.85" strokeWidth="2" strokeLinecap="round" className="nx-spark" />
+      <path d={conv} fill="none" stroke="var(--ready)" strokeOpacity="0.85" strokeWidth="2" strokeLinecap="round" className="nx-spark" />
       <path d={visits} fill="none" stroke="url(#nx-stroke)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="nx-spark" />
-      <circle cx="600" cy="28" r="4" fill="#00D4FF" />
-      <circle cx="600" cy="28" r="4" fill="#00D4FF" opacity="0.4">
+      <circle cx="600" cy="28" r="4" fill="var(--signal)" />
+      <circle cx="600" cy="28" r="4" fill="var(--signal)" opacity="0.4">
         <animate attributeName="r" values="4;9;4" dur="2.4s" repeatCount="indefinite" />
         <animate attributeName="opacity" values="0.4;0;0.4" dur="2.4s" repeatCount="indefinite" />
       </circle>

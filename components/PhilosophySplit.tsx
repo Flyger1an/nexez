@@ -20,13 +20,13 @@ export function PhilosophySplit() {
     view === 'agent'
       ? 'opacity-30 hidden lg:block'
       : view === 'human'
-        ? 'ring-1 ring-cyan-400/25'
+        ? 'ring-1 ring-[var(--signal)]/25'
         : ''
   const agentCls =
     view === 'human'
       ? 'opacity-30 hidden lg:block'
       : view === 'agent'
-        ? 'ring-1 ring-cyan-400/25'
+        ? 'ring-1 ring-[var(--signal)]/25'
         : ''
 
   return (
@@ -75,7 +75,7 @@ export function PhilosophySplit() {
               </div>
 
               {/* hero — marketing, not structured */}
-              <div className="mt-3 rounded-md bg-gradient-to-br from-violet-500/25 via-white/[0.05] to-cyan-500/15 p-3.5">
+              <div className="mt-3 rounded-md bg-gradient-to-br from-[var(--signal)]/25 via-white/[0.05] to-[var(--signal)]/15 p-3.5">
                 <p className="text-[15px] font-semibold tracking-tight text-white">Strategy that scales your B2B.</p>
                 <p className="mt-1 text-[11px] text-zinc-400">Trusted by 200+ founders to find their next growth lever.</p>
                 <div className="mt-2.5 flex gap-2">
@@ -116,7 +116,7 @@ export function PhilosophySplit() {
         {/* connector */}
         <div className={`flex items-center justify-center lg:flex-col lg:gap-3 ${view === 'both' ? '' : 'hidden lg:flex'}`}>
           <div className="flex items-center gap-2 rounded-full border border-border bg-white/[0.04] px-3 py-1.5 text-[11px] text-muted-foreground">
-            <Sparkles className="size-3.5 text-cyan-300" />
+            <Sparkles className="size-3.5 text-[var(--signal)]" />
             Nexez derives
           </div>
           <ArrowRight className="size-5 rotate-90 text-white/30 lg:rotate-0" />
@@ -125,7 +125,7 @@ export function PhilosophySplit() {
         {/* Agent surface */}
         <div className={`nx-tile p-4 transition-all duration-300 ${agentCls}`}>
           <p className="mb-3 px-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">What agents get</p>
-          <div className="rounded-lg border border-cyan-400/15 bg-cyan-400/[0.03] p-4">
+          <div className="rounded-lg border border-[var(--signal)]/15 bg-[var(--signal)]/[0.03] p-4">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-white">Axle Strategy</span>
               <span className="nx-chip">readiness 92</span>
@@ -141,7 +141,7 @@ export function PhilosophySplit() {
                   className="flex items-center justify-between rounded-md border border-border bg-black/30 px-3 py-2 text-xs"
                 >
                   <span className="text-zinc-200">{n}</span>
-                  <span className="font-mono text-cyan-200">{p}</span>
+                  <span className="font-mono text-[var(--signal)]">{p}</span>
                 </div>
               ))}
             </div>
@@ -149,7 +149,7 @@ export function PhilosophySplit() {
               {['book', 'buy', 'contact', 'negotiate'].map((a) => (
                 <span
                   key={a}
-                  className="rounded-full border border-emerald-300/25 bg-emerald-300/10 px-2 py-0.5 text-[10px] text-emerald-200"
+                  className="rounded-full border border-[var(--ready)]/25 bg-[var(--ready)]/10 px-2 py-0.5 text-[10px] text-[var(--ready)]"
                 >
                   {a}
                 </span>

@@ -174,7 +174,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
             </div>
             <div className="text-right">
               <div className="uppercase text-[10px] tracking-[2px] text-zinc-500">Current Status</div>
-              <div className="text-lg font-semibold text-emerald-300">{negotiation.status}</div>
+              <div className="text-lg font-semibold text-[var(--ready)]">{negotiation.status}</div>
               {negotiation.amount_cents && (
                 <div className="text-sm">{formatNegotiationAmount(negotiation.amount_cents)}</div>
               )}
@@ -189,8 +189,8 @@ export default async function PersistentNegotiationPage({ params, searchParams }
 
         {/* Buyer-funded settlement */}
         {justPaid && (
-          <div className="card mb-6 border border-emerald-300/40 bg-emerald-300/10">
-            <div className="text-sm font-medium text-emerald-200">Payment received — your agreement is secured.</div>
+          <div className="card mb-6 border border-[var(--ready)]/40 bg-[var(--ready)]/10">
+            <div className="text-sm font-medium text-[var(--ready)]">Payment received — your agreement is secured.</div>
             <div className="text-xs text-zinc-400 mt-1">The seller has been notified. This thread reflects the final status above.</div>
           </div>
         )}
@@ -200,8 +200,8 @@ export default async function PersistentNegotiationPage({ params, searchParams }
           </div>
         )}
         {!justPaid && payable && (
-          <div className="card mb-6 border border-emerald-300/30">
-            <div className="text-xs uppercase tracking-widest text-emerald-300 mb-1">Secure this agreement</div>
+          <div className="card mb-6 border border-[var(--ready)]/30">
+            <div className="text-xs uppercase tracking-widest text-[var(--ready)] mb-1">Secure this agreement</div>
             <p className="text-sm text-zinc-300 mb-3">
               {negotiation.settlement_state === 'auto'
                 ? 'Pay now to confirm and complete this agreement.'
@@ -218,7 +218,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
           </div>
         )}
         {!justPaid && awaitingApproval && (
-          <div className="card mb-6 border border-amber-300/30 bg-amber-300/5 text-sm text-amber-200">
+          <div className="card mb-6 border border-[var(--amber)]/30 bg-[var(--amber)]/5 text-sm text-[var(--amber)]">
             Agreement reached for {formatNegotiationAmount(negotiation.amount_cents)} — awaiting seller approval before payment. Check back shortly.
           </div>
         )}
@@ -233,7 +233,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
               </div>
             )}
             {lastDecision.schedulingLink && (
-              <a href={lastDecision.schedulingLink} target="_blank" rel="noreferrer" className="text-sm underline text-emerald-300">Reserve this via Calendly/scheduling link →</a>
+              <a href={lastDecision.schedulingLink} target="_blank" rel="noreferrer" className="text-sm underline text-[var(--ready)]">Reserve this via Calendly/scheduling link →</a>
             )}
             {(lastDecision.scope || lastDecision.counter?.scope) && (
               <div className="text-xs text-zinc-400 mt-1">Scope adjustments active in thread (see history for details).</div>
@@ -255,7 +255,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
             <div key={turn.id || index} className="card flex gap-4">
               <div className="mt-1">
                 {turn.role === 'buyer' ? (
-                  <User className="size-5 text-cyan-400" />
+                  <User className="size-5 text-[var(--signal)]" />
                 ) : (
                   <Bot className="size-5 text-[#7C3AED]" />
                 )}
@@ -292,7 +292,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
                       </div>
                     )}
                     {turn.decision.scope && !turn.decision.counter && (
-                      <div className="mt-1 text-[10px] text-emerald-300/80">
+                      <div className="mt-1 text-[10px] text-[var(--ready)]/80">
                         Scope: {turn.decision.scope.included || turn.decision.scope.excluded ? `${turn.decision.scope.included || ''} ${turn.decision.scope.excluded ? ' / excl ' + turn.decision.scope.excluded : ''}` : 'see reasoning'}
                       </div>
                     )}

@@ -402,7 +402,7 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
                   className={`rounded-md border p-3 text-sm ${
                     messageTone === 'error'
                       ? 'border-red-300/30 bg-red-400/10 text-red-200'
-                      : 'border-emerald-300/30 bg-emerald-300/10 text-emerald-200'
+                      : 'border-[var(--ready)]/30 bg-[var(--ready)]/10 text-[var(--ready)]'
                   }`}
                 >
                   {message}
@@ -470,7 +470,7 @@ function Benefit({ icon, title, text }: { icon: React.ReactNode; title: string; 
   return (
     <div className="rounded-lg border border-border bg-white/[0.03] p-4">
       <div className="flex items-center gap-3">
-        <span className="flex size-8 items-center justify-center rounded-md border border-border bg-black text-cyan-300">{icon}</span>
+        <span className="flex size-8 items-center justify-center rounded-md border border-border bg-black text-[var(--signal)]">{icon}</span>
         <p className="text-sm font-medium text-white">{title}</p>
       </div>
       <p className="mt-3 text-sm leading-6 text-muted-foreground">{text}</p>

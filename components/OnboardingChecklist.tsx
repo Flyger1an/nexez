@@ -24,7 +24,7 @@ export function OnboardingChecklist({ pages }: { pages: AgentPage[] }) {
     <section className="mb-6 rounded-2xl border border-[#7C3AED]/30 bg-gradient-to-br from-[var(--signal)]/10 to-[var(--ready)]/5 p-5 md:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Rocket className="size-5 text-[#C4B5FD]" />
+          <Rocket className="size-5 text-[var(--signal)]" />
           <h2 className="text-lg font-semibold">Get set up</h2>
           <span className="text-xs text-zinc-400">
             {progress.done}/{progress.total} done
@@ -55,12 +55,12 @@ export function OnboardingChecklist({ pages }: { pages: AgentPage[] }) {
           <li
             key={step.id}
             className={`flex items-start justify-between gap-3 rounded-lg border p-3 ${
-              step.done ? 'border-emerald-300/20 bg-emerald-300/5' : 'border-white/10 bg-white/[0.03]'
+              step.done ? 'border-[var(--ready)]/20 bg-[var(--ready)]/5' : 'border-white/10 bg-white/[0.03]'
             }`}
           >
             <div className="flex min-w-0 items-start gap-2">
               {step.done ? (
-                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-300" />
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[var(--ready)]" />
               ) : (
                 <Circle className="mt-0.5 size-4 shrink-0 text-zinc-500" />
               )}
@@ -74,7 +74,7 @@ export function OnboardingChecklist({ pages }: { pages: AgentPage[] }) {
             {!step.done && (
               <a
                 href={step.href}
-                className="shrink-0 rounded-lg border border-[#7C3AED]/40 bg-[#7C3AED]/10 px-3 py-1 text-xs text-[#C4B5FD] hover:bg-[#7C3AED]/20"
+                className="shrink-0 rounded-lg border border-[#7C3AED]/40 bg-[#7C3AED]/10 px-3 py-1 text-xs text-[var(--signal)] hover:bg-[#7C3AED]/20"
               >
                 {step.cta}
               </a>

@@ -171,7 +171,7 @@ export function SupportDesk() {
       <section className="rounded-lg border border-border bg-white/[0.03] p-5 md:p-6">
         <div className="flex items-start gap-3">
           <div className="flex size-9 items-center justify-center rounded-md border border-border bg-black">
-            <HelpCircle className="size-4 text-cyan-300" />
+            <HelpCircle className="size-4 text-[var(--signal)]" />
           </div>
           <div>
             <h2 className="text-xl font-semibold tracking-tight">Tell us what needs help</h2>
@@ -249,7 +249,7 @@ export function SupportDesk() {
           />
         </label>
 
-        {message ? <p className="mt-3 rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">{message}</p> : null}
+        {message ? <p className="mt-3 rounded-md border border-[var(--amber)]/20 bg-[var(--amber)]/10 px-3 py-2 text-sm text-[var(--amber)]">{message}</p> : null}
 
         <div className="mt-5 flex flex-col gap-3 sm:flex-row">
           <button
@@ -285,7 +285,7 @@ export function SupportDesk() {
         {assist ? (
           <div className="rounded-lg border border-border bg-white/[0.04] p-5">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-200">AI support answer</p>
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--signal)]">AI support answer</p>
               <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
                 {assist.confidence}% confidence
               </span>
@@ -304,7 +304,7 @@ export function SupportDesk() {
               <button
                 type="button"
                 onClick={() => setTicket({ id: 'resolved', status: 'resolved', persisted: false, message: 'Marked as solved by AI support.' })}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-emerald-300/25 bg-emerald-300/10 px-3 text-sm text-emerald-100"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[var(--ready)]/25 bg-[var(--ready)]/10 px-3 text-sm text-[var(--ready)]"
               >
                 <CheckCircle2 className="size-4" />
                 This helped
@@ -327,15 +327,15 @@ export function SupportDesk() {
         )}
 
         {ticket ? (
-          <div className="rounded-lg border border-emerald-300/25 bg-emerald-300/10 p-5">
-            <div className="flex items-center gap-2 text-emerald-100">
+          <div className="rounded-lg border border-[var(--ready)]/25 bg-[var(--ready)]/10 p-5">
+            <div className="flex items-center gap-2 text-[var(--ready)]">
               <TicketCheck className="size-4" />
               <p className="font-medium">{ticket.status === 'resolved' ? 'Solved by AI support' : 'Ticket created'}</p>
             </div>
-            <p className="mt-2 font-mono text-xs text-emerald-100/80">{ticket.id}</p>
-            {ticket.message ? <p className="mt-2 text-xs leading-5 text-emerald-100/80">{ticket.message}</p> : null}
+            <p className="mt-2 font-mono text-xs text-[var(--ready)]/80">{ticket.id}</p>
+            {ticket.message ? <p className="mt-2 text-xs leading-5 text-[var(--ready)]/80">{ticket.message}</p> : null}
             {!ticket.persisted && ticket.id !== 'resolved' ? (
-              <p className="mt-2 text-xs leading-5 text-emerald-100/80">
+              <p className="mt-2 text-xs leading-5 text-[var(--ready)]/80">
                 Review mode: this will persist after the support_tickets migration is applied.
               </p>
             ) : null}

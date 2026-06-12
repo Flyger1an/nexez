@@ -33,11 +33,11 @@ export function AgentBreakdown({ events }: { events: any[] }) {
     <MeasuredChartFrame className="h-48">
       {({ width, height }) => (
         <BarChart width={width} height={height} data={data} layout="vertical">
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-          <XAxis type="number" stroke="#666" />
-          <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 11 }} stroke="#666" />
-          <Tooltip contentStyle={{ backgroundColor: '#1A1625', border: '1px solid rgba(255,255,255,0.1)' }} />
-          <Bar dataKey="value" fill="#00F5FF" radius={3} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+          <XAxis type="number" stroke="var(--fg-muted-2)" />
+          <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 11 }} stroke="var(--fg-muted-2)" />
+          <Tooltip contentStyle={{ backgroundColor: 'var(--panel)', border: '1px solid var(--line)', borderRadius: 12, color: 'var(--fg)' }} />
+          <Bar dataKey="value" fill="var(--signal)" radius={3} />
         </BarChart>
       )}
     </MeasuredChartFrame>

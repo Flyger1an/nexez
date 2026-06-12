@@ -3,7 +3,7 @@
 import { PieChart, Pie, Cell, Tooltip } from 'recharts'
 import { MeasuredChartFrame } from './MeasuredChartFrame'
 
-const COLORS = ['#7C3AED', '#00F5FF', '#C4B5FD', '#F59E0B', '#10B981']
+const COLORS = ['var(--signal)', 'var(--ready)', 'var(--amber)', 'var(--fg-muted)', 'var(--fg-muted-2)']
 
 export function ActionBreakdown({ events }: { events: any[] }) {
   const counts: Record<string, number> = {}

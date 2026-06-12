@@ -631,7 +631,7 @@ export default function CreatePage() {
     return (
       <main className="min-h-screen bg-[#090b10] text-white">
         <div className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center px-6 text-center">
-          <div className="mb-6 flex size-14 items-center justify-center rounded-lg bg-emerald-400 text-zinc-950">
+          <div className="mb-6 flex size-14 items-center justify-center rounded-lg bg-[var(--ready)] text-zinc-950">
             <Check className="size-7" />
           </div>
           <h1 className="text-4xl font-semibold tracking-tight">Agent page is live</h1>
@@ -689,7 +689,7 @@ export default function CreatePage() {
         <div className="card !p-8 border border-[#7C3AED]/40">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-medium text-cyan-100">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--signal)]/20 bg-[var(--signal)]/10 px-3 py-1 text-xs font-medium text-[var(--signal)]">
                 <Wand2 className="size-3.5" />
                 Guided AI Page Import
               </div>
@@ -699,9 +699,9 @@ export default function CreatePage() {
               </p>
             </div>
             <div className="grid min-w-0 gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-4 text-xs text-zinc-400 sm:grid-cols-3 lg:w-[420px]">
-              <span className="inline-flex items-center gap-2"><Globe2 className="size-4 text-cyan-200" /> Crawl site</span>
-              <span className="inline-flex items-center gap-2"><Bot className="size-4 text-violet-200" /> Fill fields</span>
-              <span className="inline-flex items-center gap-2"><CheckCircle2 className="size-4 text-emerald-200" /> Review draft</span>
+              <span className="inline-flex items-center gap-2"><Globe2 className="size-4 text-[var(--signal)]" /> Crawl site</span>
+              <span className="inline-flex items-center gap-2"><Bot className="size-4 text-[var(--signal)]" /> Fill fields</span>
+              <span className="inline-flex items-center gap-2"><CheckCircle2 className="size-4 text-[var(--ready)]" /> Review draft</span>
             </div>
           </div>
 
@@ -765,7 +765,7 @@ export default function CreatePage() {
                   type="button"
                   disabled={guidedImporting}
                   onClick={() => runGuidedImport()}
-                  className="inline-flex items-center gap-2 rounded-lg bg-cyan-300 px-5 py-3 font-semibold text-zinc-950 hover:bg-cyan-200 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-lg bg-[var(--signal)] px-5 py-3 font-semibold text-zinc-950 hover:bg-[var(--signal)] disabled:opacity-60"
                 >
                   {guidedImporting ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
                   {guidedImporting ? 'Analyzing...' : 'Generate draft'}
@@ -818,7 +818,7 @@ export default function CreatePage() {
           </div>
 
           {guidedReview ? (
-            <div className="mt-6 rounded-lg border border-cyan-300/20 bg-cyan-300/[0.06] p-5">
+            <div className="mt-6 rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/[0.06] p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -852,7 +852,7 @@ export default function CreatePage() {
                       <button
                         type="button"
                         onClick={() => setShowAllGuidedOffers((value) => !value)}
-                        className="inline-flex shrink-0 items-center justify-center rounded-md border border-white/15 px-3 py-1.5 font-medium text-zinc-100 hover:border-cyan-300/40 hover:text-cyan-100"
+                        className="inline-flex shrink-0 items-center justify-center rounded-md border border-white/15 px-3 py-1.5 font-medium text-zinc-100 hover:border-[var(--signal)]/40 hover:text-[var(--signal)]"
                       >
                         {showAllGuidedOffers ? 'Show top 8' : `Show all ${guidedReview.structuredOffers.length}`}
                       </button>
@@ -862,19 +862,19 @@ export default function CreatePage() {
                     {guidedOfferRows.map(({ offer, index }) => {
                       const key = offerImportKey(offer, index)
                       return (
-                        <label key={key} className="flex cursor-pointer gap-3 rounded-lg border border-white/10 bg-black/25 p-3 hover:border-cyan-300/30">
+                        <label key={key} className="flex cursor-pointer gap-3 rounded-lg border border-white/10 bg-black/25 p-3 hover:border-[var(--signal)]/30">
                           <input
                             type="checkbox"
                             checked={!!selectedImportOffers[key]}
                             onChange={(event) => {
                               setSelectedImportOffers((current) => ({ ...current, [key]: event.target.checked }))
                             }}
-                            className="mt-1 size-4 accent-cyan-300"
+                            className="mt-1 size-4 accent-[var(--signal)]"
                           />
                           <span className="min-w-0 flex-1">
                             <span className="flex items-center justify-between gap-3">
                               <span className="truncate text-sm font-medium text-white">{offer.name}</span>
-                              <span className="shrink-0 text-xs text-cyan-200">{offer.price || 'Custom'}</span>
+                              <span className="shrink-0 text-xs text-[var(--signal)]">{offer.price || 'Custom'}</span>
                             </span>
                             <span className="mt-1 block line-clamp-2 text-xs leading-5 text-zinc-400">{offer.description}</span>
                             <span className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-wider text-zinc-500">
@@ -888,15 +888,15 @@ export default function CreatePage() {
                   </div>
                 </div>
               ) : (
-                <div className="mt-5 flex items-start gap-3 rounded-lg border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100">
+                <div className="mt-5 flex items-start gap-3 rounded-lg border border-[var(--amber)]/20 bg-[var(--amber)]/10 p-4 text-sm text-[var(--amber)]">
                   <AlertCircle className="mt-0.5 size-4" />
                   No structured offers were detected. Apply the page details, then add offers manually in the builder.
                 </div>
               )}
 
               {guidedReview.clarifyingQuestions?.length ? (
-                <div className="mt-5 rounded-lg border border-violet-300/20 bg-violet-300/[0.06] p-4">
-                  <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-violet-200">
+                <div className="mt-5 rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/[0.06] p-4">
+                  <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-[var(--signal)]">
                     <HelpCircle className="size-4" />
                     Questions to tighten the draft
                   </p>
@@ -911,7 +911,7 @@ export default function CreatePage() {
                           onChange={(event) => {
                             setGuidedAnswers((current) => ({ ...current, [item.id]: event.target.value }))
                           }}
-                          className="mt-3 min-h-20 w-full rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-violet-300/50"
+                          className="mt-3 min-h-20 w-full rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--signal)]/50"
                           placeholder="Answer..."
                         />
                       </div>
@@ -925,7 +925,7 @@ export default function CreatePage() {
                       type="button"
                       onClick={refineGuidedImport}
                       disabled={guidedImporting || !answeredGuidedQuestions.length}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-violet-300/30 px-4 py-2 text-sm font-semibold text-violet-100 hover:border-violet-200 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--signal)]/30 px-4 py-2 text-sm font-semibold text-[var(--signal)] hover:border-[var(--signal)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {guidedImporting ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
                       Refine draft
@@ -939,7 +939,7 @@ export default function CreatePage() {
                   <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Readiness gaps</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {guidedReview.readiness.gaps.map((gap) => (
-                      <span key={gap} className="rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs text-amber-100">
+                      <span key={gap} className="rounded-full border border-[var(--amber)]/20 bg-[var(--amber)]/10 px-3 py-1 text-xs text-[var(--amber)]">
                         {gap}
                       </span>
                     ))}
@@ -956,7 +956,7 @@ export default function CreatePage() {
                         key={`${source.type}-${source.url}`}
                         href={source.url}
                         target="_blank"
-                        className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-zinc-300 hover:border-cyan-300/30"
+                        className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-zinc-300 hover:border-[var(--signal)]/30"
                       >
                         <span className="block truncate font-medium text-zinc-100">{source.label}</span>
                         <span className="mt-1 block truncate text-zinc-500">{source.method}</span>
@@ -972,7 +972,7 @@ export default function CreatePage() {
                   <ul className="mt-3 space-y-2 text-sm text-zinc-300">
                     {guidedReview.reviewNotes.map((note) => (
                       <li key={note} className="flex gap-2">
-                        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-cyan-200" />
+                        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[var(--signal)]" />
                         <span>{note}</span>
                       </li>
                     ))}
@@ -1088,8 +1088,8 @@ export default function CreatePage() {
                   </div>
 
                   {stripeImportOpen && (
-                    <div className="card !p-4 border border-cyan-300/30">
-                      <p className="text-sm font-medium text-cyan-200">Stripe Product or Price Import</p>
+                    <div className="card !p-4 border border-[var(--signal)]/30">
+                      <p className="text-sm font-medium text-[var(--signal)]">Stripe Product or Price Import</p>
                       <p className="mt-1 text-xs text-zinc-400">
                         Paste a Stripe product ID or one or more price IDs. Stripe imports must be enabled for this workspace.
                       </p>
@@ -1104,7 +1104,7 @@ export default function CreatePage() {
                           type="button"
                           onClick={importFromStripe}
                           disabled={stripeImporting || !stripeInput.trim()}
-                          className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-medium text-zinc-950 disabled:opacity-50"
+                          className="rounded-lg bg-[var(--signal)] px-4 py-2 text-sm font-medium text-zinc-950 disabled:opacity-50"
                         >
                           {stripeImporting ? 'Importing...' : 'Import'}
                         </button>
@@ -1114,8 +1114,8 @@ export default function CreatePage() {
                   )}
 
                   {calendlyImportOpen && (
-                    <div className="card !p-4 border border-violet-300/30">
-                      <p className="text-sm font-medium text-violet-200">Calendly Bookings Import</p>
+                    <div className="card !p-4 border border-[var(--signal)]/30">
+                      <p className="text-sm font-medium text-[var(--signal)]">Calendly Bookings Import</p>
                       <p className="mt-1 text-xs text-zinc-400">
                         Paste a Calendly Personal Access Token. We&apos;ll import your active event types as rich editable offers (duration + direct booking URL included).
                       </p>
@@ -1131,7 +1131,7 @@ export default function CreatePage() {
                           type="button"
                           onClick={importFromCalendly}
                           disabled={calendlyImporting || !calendlyToken.trim()}
-                          className="rounded-lg bg-violet-300 px-4 py-2 text-sm font-medium text-zinc-950 disabled:opacity-50"
+                          className="rounded-lg bg-[var(--signal)] px-4 py-2 text-sm font-medium text-zinc-950 disabled:opacity-50"
                         >
                           {calendlyImporting ? 'Importing...' : 'Import'}
                         </button>
@@ -1149,17 +1149,17 @@ export default function CreatePage() {
                     <a
                       href={sampleCsvHref}
                       download="nexez-agent-page-sample.csv"
-                      className="mt-3 inline-flex text-cyan-200 hover:text-cyan-100"
+                      className="mt-3 inline-flex text-[var(--signal)] hover:text-[var(--signal)]"
                     >
                       Download sample CSV
                     </a>
                   </div>
                   {importMessage ? (
-                    <p className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-3 text-sm text-cyan-100">
+                    <p className="rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/10 p-3 text-sm text-[var(--signal)]">
                       {importMessage}
                     </p>
                   ) : null}
-                  <button onClick={aiFill} className="w-full rounded-lg bg-cyan-300 px-5 py-3 font-semibold text-zinc-950 hover:bg-cyan-200" type="button">
+                  <button onClick={aiFill} className="w-full rounded-lg bg-[var(--signal)] px-5 py-3 font-semibold text-zinc-950 hover:bg-[var(--signal)]" type="button">
                     Agent Optimize
                   </button>
                 </div>
@@ -1170,7 +1170,7 @@ export default function CreatePage() {
                   {/* Phase 1 A: Visual Builder is now primary in create (matches editor + roadmap) */}
                   <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <p className="text-xs uppercase tracking-widest text-cyan-300">Services</p>
+                      <p className="text-xs uppercase tracking-widest text-[var(--signal)]">Services</p>
                       <div className="flex gap-2">
                         <button
                           type="button"
@@ -1184,7 +1184,7 @@ export default function CreatePage() {
                             setServicesOffers(enhanced)
                             setServices(formatOfferLines(enhanced))
                           }}
-                          className="text-[10px] rounded border border-cyan-300/40 px-2 py-0.5 text-cyan-300 hover:bg-cyan-300/10"
+                          className="text-[10px] rounded border border-[var(--signal)]/40 px-2 py-0.5 text-[var(--signal)] hover:bg-[var(--signal)]/10"
                         >
                           Enhance All
                         </button>
@@ -1200,7 +1200,7 @@ export default function CreatePage() {
                               setServicesOffers(combined)
                               setServices(formatOfferLines(combined))
                             }}
-                            className="text-[10px] rounded border border-[#7C3AED]/40 px-2 py-0.5 text-[#C4B5FD] hover:bg-[#7C3AED]/10"
+                            className="text-[10px] rounded border border-[#7C3AED]/40 px-2 py-0.5 text-[var(--signal)] hover:bg-[#7C3AED]/10"
                           >
                             Suggest {industry.split(' ')[0]}
                           </button>
@@ -1220,7 +1220,7 @@ export default function CreatePage() {
                   </div>
 
                   <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
-                    <p className="mb-3 text-xs uppercase tracking-widest text-cyan-300">Products</p>
+                    <p className="mb-3 text-xs uppercase tracking-widest text-[var(--signal)]">Products</p>
                     <VisualOfferBuilder
                       offers={parsedProducts}
                       kind="products"
@@ -1248,7 +1248,7 @@ export default function CreatePage() {
                   </div>
 
                   {importMessage ? (
-                    <p className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-3 text-sm text-cyan-100">
+                    <p className="rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/10 p-3 text-sm text-[var(--signal)]">
                       {importMessage}
                     </p>
                   ) : null}
@@ -1289,9 +1289,9 @@ export default function CreatePage() {
 
               {step === 3 ? (
                 <div className="space-y-5">
-                  <div className="rounded-lg border border-emerald-300/20 bg-emerald-300/10 p-5">
+                  <div className="rounded-lg border border-[var(--ready)]/20 bg-[var(--ready)]/10 p-5">
                     <div className="flex items-center gap-3">
-                      <CheckCircle2 className="size-8 text-emerald-300" />
+                      <CheckCircle2 className="size-8 text-[var(--ready)]" />
                       <div>
                         <h3 className="text-xl font-semibold">Agent parse check</h3>
                         <p className="text-sm text-zinc-400">{score}% crawler-ready.</p>
@@ -1320,7 +1320,7 @@ export default function CreatePage() {
                   <Field label="FAQs, one per line: question | answer">
                     <textarea value={faqs} onChange={(event) => setFaqs(event.target.value)} className={textareaClass} placeholder="Can agents book directly? | Yes, use the booking URL on this page." />
                   </Field>
-                  <button type="button" onClick={aiFill} className="w-full rounded-lg bg-cyan-300 px-5 py-3 font-semibold text-zinc-950 hover:bg-cyan-200">
+                  <button type="button" onClick={aiFill} className="w-full rounded-lg bg-[var(--signal)] px-5 py-3 font-semibold text-zinc-950 hover:bg-[var(--signal)]">
                     Fill Agent Context
                   </button>
                 </div>
@@ -1330,7 +1330,7 @@ export default function CreatePage() {
             <aside className="border-t border-white/10 bg-black/20 p-6 lg:border-l lg:border-t-0">
               <h3 className="text-xl font-semibold">Live Preview</h3>
               <div className="mt-5 rounded-lg border border-white/10 bg-[#111620] p-5">
-                <div className="mb-5 flex size-10 items-center justify-center rounded-lg bg-cyan-300/20 text-cyan-200">
+                <div className="mb-5 flex size-10 items-center justify-center rounded-lg bg-[var(--signal)]/20 text-[var(--signal)]">
                   <Bot className="size-5" />
                 </div>
                 <h4 className="text-2xl font-semibold">{name || 'Strategy Session'}</h4>
@@ -1339,11 +1339,11 @@ export default function CreatePage() {
                   {[...parsedServices, ...parsedProducts].slice(0, 3).map((offer, index) => (
                     <div key={`${offer.name}-${index}`} className="flex justify-between rounded-md bg-white/5 px-3 py-2">
                       <span>{offer.name || 'Untitled offer'}</span>
-                      <span className="text-cyan-200">{offer.price}</span>
+                      <span className="text-[var(--signal)]">{offer.price}</span>
                     </div>
                   ))}
                 </div>
-                <button type="button" className="mt-5 w-full rounded-lg bg-cyan-300 px-4 py-3 font-semibold text-zinc-950">
+                <button type="button" className="mt-5 w-full rounded-lg bg-[var(--signal)] px-4 py-3 font-semibold text-zinc-950">
                   {ctaLabel || 'Book Now'}
                 </button>
               </div>
@@ -1366,7 +1366,7 @@ Action: ${ctaLabel || 'Visit website'}`}
               Back
             </button>
             {step < 3 ? (
-              <button onClick={() => setStep(Math.min(3, step + 1))} className="inline-flex items-center gap-2 rounded-lg bg-cyan-300 px-5 py-3 font-semibold text-zinc-950 hover:bg-cyan-200" type="button">
+              <button onClick={() => setStep(Math.min(3, step + 1))} className="inline-flex items-center gap-2 rounded-lg bg-[var(--signal)] px-5 py-3 font-semibold text-zinc-950 hover:bg-[var(--signal)]" type="button">
                 Next
                 <ArrowRight className="size-4" />
               </button>
@@ -1389,10 +1389,10 @@ function Progress({ step }: { step: number }) {
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
       {[1, 2, 3].map((item) => (
         <div key={item} className="flex items-center gap-3">
-          <div className={`flex size-7 items-center justify-center rounded-full text-xs font-semibold ${item <= step ? 'bg-cyan-300 text-zinc-950' : 'bg-zinc-700 text-zinc-300'}`}>
+          <div className={`flex size-7 items-center justify-center rounded-full text-xs font-semibold ${item <= step ? 'bg-[var(--signal)] text-zinc-950' : 'bg-zinc-700 text-zinc-300'}`}>
             {item < step ? <Check className="size-4" /> : item}
           </div>
-          <div className={`h-1 flex-1 rounded-full ${item <= step ? 'bg-cyan-300' : 'bg-zinc-700'}`} />
+          <div className={`h-1 flex-1 rounded-full ${item <= step ? 'bg-[var(--signal)]' : 'bg-zinc-700'}`} />
         </div>
       ))}
     </div>
@@ -1480,10 +1480,10 @@ function closePendingPublicPageTab(tab: Window | null) {
 }
 
 const inputClass =
-  'w-full rounded-lg border border-white/10 bg-white/[0.06] px-4 py-3 text-white placeholder:text-zinc-600 outline-none transition focus:border-cyan-300/60'
+  'w-full rounded-lg border border-white/10 bg-white/[0.06] px-4 py-3 text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--signal)]/60'
 
 const textareaClass =
-  'min-h-28 w-full rounded-lg border border-white/10 bg-white/[0.06] px-4 py-3 text-white placeholder:text-zinc-600 outline-none transition focus:border-cyan-300/60'
+  'min-h-28 w-full rounded-lg border border-white/10 bg-white/[0.06] px-4 py-3 text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--signal)]/60'
 
 const secondaryButton =
   'rounded-lg border border-white/15 px-5 py-3 text-sm font-medium text-white hover:bg-white/10 disabled:opacity-40'

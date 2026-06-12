@@ -73,7 +73,7 @@ export default async function AccountSettingsPage() {
         <section className="mt-8 grid gap-6 lg:grid-cols-[0.82fr_1.18fr]">
           <aside className="space-y-5 min-w-0">
             <div>
-              <p className="flex items-center gap-2 text-sm text-cyan-200">
+              <p className="flex items-center gap-2 text-sm text-[var(--signal)]">
                 <ShieldCheck className="size-4" />
                 Advanced Config
               </p>
@@ -101,7 +101,7 @@ export default async function AccountSettingsPage() {
             <AccountDataControls email={user.email ?? ''} />
             <section className="card !p-5">
               <div className="flex items-center gap-2">
-                <Search className="size-5 text-cyan-200" />
+                <Search className="size-5 text-[var(--signal)]" />
                 <h2 className="text-xl font-semibold">Discovery Endpoints</h2>
               </div>
               <div className="mt-5 grid gap-3 md:grid-cols-2">
@@ -117,7 +117,7 @@ export default async function AccountSettingsPage() {
             <section className="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-2">
               <div className="card !p-5">
                 <div className="flex items-center gap-2">
-                  <Globe2 className="size-5 text-cyan-200" />
+                  <Globe2 className="size-5 text-[var(--signal)]" />
                   <h2 className="text-xl font-semibold">Custom Domains</h2>
                 </div>
                 <div className="mt-5 space-y-3 text-sm">
@@ -129,7 +129,7 @@ export default async function AccountSettingsPage() {
 
               <div className="card !p-5">
                 <div className="flex items-center gap-2">
-                  <KeyRound className="size-5 text-cyan-200" />
+                  <KeyRound className="size-5 text-[var(--signal)]" />
                   <h2 className="text-xl font-semibold">API Access</h2>
                 </div>
                 <div className="mt-5 space-y-3 text-sm">
@@ -142,14 +142,14 @@ export default async function AccountSettingsPage() {
 
             <section className="card !p-5">
               <div className="flex items-center gap-2">
-                <Code2 className="size-5 text-cyan-200" />
+                <Code2 className="size-5 text-[var(--signal)]" />
                 <h2 className="text-xl font-semibold">Schema Controls</h2>
               </div>
               <div className="mt-5 grid gap-3 md:grid-cols-2">
                 {schemaSignals.map(([label, description]) => (
                   <div key={label} className="rounded-lg border border-white/10 bg-black/20 p-4">
                     <div className="flex items-center gap-2">
-                      <BadgeCheck className="size-4 text-emerald-300" />
+                      <BadgeCheck className="size-4 text-[var(--ready)]" />
                       <p className="font-medium">{label}</p>
                     </div>
                     <p className="mt-2 text-sm leading-6 text-zinc-500">{description}</p>
@@ -160,7 +160,7 @@ export default async function AccountSettingsPage() {
 
             <section className="card !p-5">
               <div className="flex items-center gap-2">
-                <Link2 className="size-5 text-cyan-200" />
+                <Link2 className="size-5 text-[var(--signal)]" />
                 <h2 className="text-xl font-semibold">Agent Surface Status</h2>
               </div>
               <div className="mt-5 overflow-x-auto">
@@ -183,9 +183,9 @@ export default async function AccountSettingsPage() {
                         </td>
                         <td className="py-4 text-zinc-300">{page.is_published ? 'Published' : 'Draft'}</td>
                         <td className="py-4 text-zinc-300">{getOfferCount(page)}</td>
-                        <td className="py-4 text-cyan-200">{getReadinessScore(page)}%</td>
+                        <td className="py-4 text-[var(--signal)]">{getReadinessScore(page)}%</td>
                         <td className="py-4 text-right">
-                          <a href={`/dashboard/${page.id}/settings`} className="text-cyan-200 hover:text-cyan-100">
+                          <a href={`/dashboard/${page.id}/settings`} className="text-[var(--signal)] hover:text-[var(--signal)]">
                             Configure
                           </a>
                         </td>
@@ -211,7 +211,7 @@ function Endpoint({ label, value }: { label: string; value: string }) {
   return (
     <a href={value} className="block min-w-0 rounded-lg border border-white/10 bg-black/20 p-4 hover:bg-white/10">
       <p className="text-sm font-medium text-zinc-200">{label}</p>
-      <p className="mt-2 truncate font-mono text-xs text-cyan-200">{value}</p>
+      <p className="mt-2 truncate font-mono text-xs text-[var(--signal)]">{value}</p>
     </a>
   )
 }

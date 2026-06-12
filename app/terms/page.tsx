@@ -80,7 +80,7 @@ export default function TermsPage() {
         <h1 className="mt-8 text-4xl font-semibold tracking-tight">Terms of Service</h1>
         <p className="mt-2 text-sm text-zinc-400">Last updated: {LAST_UPDATED}</p>
 
-        <div className="mt-6 rounded-lg border border-amber-300/20 bg-amber-400/5 p-4 text-xs text-amber-200/90">
+        <div className="mt-6 rounded-lg border border-[var(--amber)]/20 bg-[var(--amber)]/5 p-4 text-xs text-[var(--amber)]/90">
           This is a general template provided for convenience and is not legal advice. Have it reviewed by counsel
           before relying on it for your business.
         </div>
@@ -99,7 +99,7 @@ export default function TermsPage() {
         </div>
 
         <p className="mt-12 text-sm text-zinc-500">
-          See also our <a href="/privacy" className="text-cyan-200 hover:underline">Privacy Policy</a>.
+          See also our <a href="/privacy" className="text-[var(--signal)] hover:underline">Privacy Policy</a>.
         </p>
       </div>
     </main>

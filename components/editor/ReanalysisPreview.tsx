@@ -11,7 +11,7 @@ export function ReanalysisPreview({ e }: { e: PageEditor }) {
     <div className="rounded-xl border border-[#7C3AED]/30 bg-[#1A1625] p-5">
       <div className="flex items-center justify-between">
         <div>
-          <p className="font-medium text-[#C4B5FD]">Re-analysis Preview</p>
+          <p className="font-medium text-[var(--signal)]">Re-analysis Preview</p>
           <p className="text-sm text-zinc-400">{pending.summary}</p>
           {pending.incomingServices?.some((o: any) => o.source) && (
             <p className="mt-1 text-[10px] text-blue-400">
@@ -20,12 +20,12 @@ export function ReanalysisPreview({ e }: { e: PageEditor }) {
             </p>
           )}
           {stripeChanges.length > 0 && (
-            <div className="mt-2 rounded border border-amber-300/20 bg-amber-400/5 p-2 text-[10px] text-amber-300">
+            <div className="mt-2 rounded border border-[var(--amber)]/20 bg-[var(--amber)]/5 p-2 text-[10px] text-[var(--amber)]">
               <div className="font-medium mb-1">Stripe price changes detected:</div>
               {stripeChanges.map((c, idx) => (
                 <div key={idx}>• {c.name}: {c.old} → {c.new}</div>
               ))}
-              <div className="mt-1 text-[9px] text-amber-200/80">Fresh prices from Stripe will be applied while your other edits stay protected.</div>
+              <div className="mt-1 text-[9px] text-[var(--amber)]/80">Fresh prices from Stripe will be applied while your other edits stay protected.</div>
             </div>
           )}
         </div>

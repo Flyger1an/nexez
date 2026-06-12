@@ -143,9 +143,9 @@ export default function CompetitorIntelligence() {
           {/* NEW: Competitor Website Analyzer (High Priority — any external URL) */}
           <div className="mt-8 card border-[#7C3AED]/40">
             <div className="flex items-center gap-2 mb-2">
-              <Target className="size-5 text-[#10B981]" />
+              <Target className="size-5 text-[var(--ready)]" />
               <span className="font-semibold text-lg">Competitor Website Analyzer</span>
-              <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300">NEW — High Value</span>
+              <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-[var(--ready)]/10 text-[var(--ready)]">NEW — High Value</span>
             </div>
             <p className="text-sm text-[#9CA3AF] mb-4">Trust, parseability, schema, gaps.</p>
 
@@ -172,7 +172,7 @@ export default function CompetitorIntelligence() {
                 </>
               )}
             </div>
-            {extMessage && <p className="mt-2 text-xs text-emerald-300">{extMessage}</p>}
+            {extMessage && <p className="mt-2 text-xs text-[var(--ready)]">{extMessage}</p>}
 
             {extAnalysis && (
               <div className="mt-6 border-t border-white/10 pt-5">
@@ -188,7 +188,7 @@ export default function CompetitorIntelligence() {
                   ].map((s, i) => (
                     <div key={i} className="rounded-lg bg-[#12101B] border border-white/10 p-3">
                       <div className="text-[10px] uppercase tracking-widest text-zinc-400">{s.label}</div>
-                      <div className={`text-3xl font-semibold mt-1 ${s.val >= 80 ? 'text-emerald-400' : s.val >= 55 ? 'text-amber-400' : 'text-rose-400'}`}>{s.val ?? '—'}</div>
+                      <div className={`text-3xl font-semibold mt-1 ${s.val >= 80 ? 'text-[var(--ready)]' : s.val >= 55 ? 'text-[var(--amber)]' : 'text-rose-400'}`}>{s.val ?? '—'}</div>
                       <div className="h-1.5 bg-white/10 rounded mt-2 overflow-hidden"><div className="h-1.5 bg-current" style={{ width: `${Math.min(100, s.val || 0)}%` }} /></div>
                     </div>
                   ))}
@@ -201,22 +201,22 @@ export default function CompetitorIntelligence() {
                     <ul className="space-y-1 text-xs text-[#9CA3AF]">{(extAnalysis.missing || []).map((m: string, i: number) => <li key={i}>• {m}</li>)}</ul>
                   </div>
                   <div className="card bg-black/30">
-                    <div className="font-medium mb-2 text-emerald-300">Strengths</div>
+                    <div className="font-medium mb-2 text-[var(--ready)]">Strengths</div>
                     <ul className="space-y-1 text-xs text-[#9CA3AF]">{(extAnalysis.strengths || []).map((s: string, i: number) => <li key={i}>• {s}</li>)}</ul>
                   </div>
                   <div className="card bg-black/30">
-                    <div className="font-medium mb-2 text-amber-300">Weaknesses</div>
+                    <div className="font-medium mb-2 text-[var(--amber)]">Weaknesses</div>
                     <ul className="space-y-1 text-xs text-[#9CA3AF]">{(extAnalysis.weaknesses || []).map((w: string, i: number) => <li key={i}>• {w}</li>)}</ul>
                   </div>
                   <div className="card bg-black/30">
-                    <div className="font-medium mb-2 text-[#C4B5FD]">Actionable Recommendations</div>
+                    <div className="font-medium mb-2 text-[var(--signal)]">Actionable Recommendations</div>
                     <ul className="space-y-1 text-xs text-[#9CA3AF]">{(extAnalysis.recommendations || []).map((r: string, i: number) => <li key={i}>• {r}</li>)}</ul>
                   </div>
                 </div>
 
                 {/* Side-by-side (optional) */}
                 {extAnalysis.userComparison && (
-                  <div className="mt-4 card border-[#10B981]/30">
+                  <div className="mt-4 card border-[var(--ready)]/30">
                     <div className="font-semibold mb-1">Side-by-Side vs Your Nexez Page (/{extAnalysis.userComparison.slug})</div>
                     <div className="text-sm">Your Readiness: <span className="font-mono">{extAnalysis.userComparison.readiness}</span> • Trust: <span className="font-mono">{extAnalysis.userComparison.trust}</span> • Offers: {extAnalysis.userComparison.offerCount}</div>
                     <div className="text-xs mt-1 text-zinc-400">{extAnalysis.userComparison.summary}</div>
@@ -245,7 +245,7 @@ export default function CompetitorIntelligence() {
                       const next = [...competitorSlugs]; next[i] = e.target.value; setCompetitorSlugs(next)
                     }} placeholder="competitor-slug" className="input w-full mt-1" />
                   ))}
-                  <button onClick={() => setCompetitorSlugs([...competitorSlugs, ''])} className="text-xs mt-1 text-cyan-400">+ Add competitor</button>
+                  <button onClick={() => setCompetitorSlugs([...competitorSlugs, ''])} className="text-xs mt-1 text-[var(--signal)]">+ Add competitor</button>
                 </div>
               </div>
               <button onClick={runAnalysis} disabled={loading} className="btn-primary mt-4 w-full">

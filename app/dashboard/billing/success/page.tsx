@@ -31,11 +31,11 @@ export default async function BillingSuccessPage({ searchParams }: SuccessProps)
     <main className="min-h-screen bg-[#090b10] text-white">
       <div className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-12">
         <section className="card !p-8 text-center">
-          <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-emerald-400 text-zinc-950">
+          <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-[var(--ready)] text-zinc-950">
             <CheckCircle2 className="size-9" />
           </div>
 
-          <p className="mt-6 text-sm font-medium text-cyan-200">
+          <p className="mt-6 text-sm font-medium text-[var(--signal)]">
             {isEmbedded ? 'Embedded subscription confirmed' : 'Subscription checkout complete'}
           </p>
 

@@ -281,8 +281,8 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
             ) : (
               <section className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
                 <div className="relative p-6 md:p-8">
-                  <div className="absolute right-8 top-8 hidden size-32 rounded-full bg-cyan-300/25 blur-3xl md:block" />
-                  <p className="text-sm text-cyan-200">Your Nexez agent pages received</p>
+                  <div className="absolute right-8 top-8 hidden size-32 rounded-full bg-[var(--signal)]/25 blur-3xl md:block" />
+                  <p className="text-sm text-[var(--signal)]">Your Nexez agent pages received</p>
                   <h2 className="mt-2 text-3xl font-semibold tracking-tight">
                     {agentPageVisits} AI agent visits, {trafficSplit.human} human visits, {discoveryClicks} discovery clicks, and {conversionActions} conversion actions
                   </h2>
@@ -291,7 +291,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                     a live view of how AI agents are discovering and acting on your business.
                   </p>
                   {topOffer ? (
-                    <p className="mt-4 inline-flex rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-sm text-cyan-100">
+                    <p className="mt-4 inline-flex rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/10 px-3 py-2 text-sm text-[var(--signal)]">
                       Top signal: {topOffer}
                     </p>
                   ) : null}
@@ -315,10 +315,10 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                       }`}
                     >
                       <span className="flex items-center gap-3">
-                        <Bell className={`size-4 ${n.severity === 'action' ? 'text-[#A78BFA]' : 'text-zinc-400'}`} />
+                        <Bell className={`size-4 ${n.severity === 'action' ? 'text-[var(--signal)]' : 'text-zinc-400'}`} />
                         <span className="text-white">{n.message}</span>
                       </span>
-                      <span className="shrink-0 text-sm font-medium text-[#A78BFA]">{n.cta} →</span>
+                      <span className="shrink-0 text-sm font-medium text-[var(--signal)]">{n.cta} →</span>
                     </a>
                   ))}
                 </div>
@@ -334,11 +334,11 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
               </div>
               <div className="kpi-card">
                 <p className="text-sm text-[#9CA3AF]">AI agent visits</p>
-                <p className="mt-2 text-4xl font-semibold tracking-tighter text-emerald-300">{agentPageVisits}</p>
+                <p className="mt-2 text-4xl font-semibold tracking-tighter text-[var(--ready)]">{agentPageVisits}</p>
               </div>
               <div className="kpi-card">
                 <p className="text-sm text-[#9CA3AF]">Discovery clicks</p>
-                <p className="mt-2 text-4xl font-semibold tracking-tighter text-amber-300">{discoveryClicks}</p>
+                <p className="mt-2 text-4xl font-semibold tracking-tighter text-[var(--amber)]">{discoveryClicks}</p>
               </div>
               <div className="kpi-card">
                 <p className="text-sm text-[#9CA3AF]">Checkout attempts</p>
@@ -346,7 +346,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
               </div>
               <div className="kpi-card">
                 <p className="text-sm text-[#9CA3AF]">Conversions</p>
-                <p className="mt-2 text-4xl font-semibold tracking-tighter text-[#10B981]">{conversionActions}</p>
+                <p className="mt-2 text-4xl font-semibold tracking-tighter text-[var(--ready)]">{conversionActions}</p>
               </div>
               <div className="kpi-card">
                 <p className="text-sm text-[#9CA3AF]">Avg readiness</p>
@@ -363,9 +363,9 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
             {selectedIds.size > 0 && (
               <div className="mt-5 flex flex-wrap items-center gap-3 rounded-lg border border-[#7C3AED]/40 bg-[#7C3AED]/10 px-4 py-3 text-sm">
                 <span className="font-medium text-white">{selectedIds.size} selected</span>
-                <button onClick={() => bulkSetPublished(true)} className="rounded border border-emerald-300/40 px-3 py-1 text-xs text-emerald-200 hover:bg-emerald-300/10">Publish</button>
+                <button onClick={() => bulkSetPublished(true)} className="rounded border border-[var(--ready)]/40 px-3 py-1 text-xs text-[var(--ready)] hover:bg-[var(--ready)]/10">Publish</button>
                 <button onClick={() => bulkSetPublished(false)} className="rounded border border-white/20 px-3 py-1 text-xs text-zinc-200 hover:bg-white/10">Unpublish</button>
-                <button onClick={bulkExport} className="rounded border border-cyan-300/40 px-3 py-1 text-xs text-cyan-100 hover:bg-cyan-300/10">Export JSON</button>
+                <button onClick={bulkExport} className="rounded border border-[var(--signal)]/40 px-3 py-1 text-xs text-[var(--signal)] hover:bg-[var(--signal)]/10">Export JSON</button>
                 <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-xs text-zinc-400 hover:text-white">Clear</button>
               </div>
             )}
@@ -375,7 +375,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
               <div className="flex items-center gap-3">
                 <span className="text-xs text-muted-foreground">{pages.length} total</span>
                 {pages.length > OVERVIEW_PAGE_LIMIT ? (
-                  <a href="/dashboard/pages" className="text-xs text-cyan-300 hover:underline">Manage all →</a>
+                  <a href="/dashboard/pages" className="text-xs text-[var(--signal)] hover:underline">Manage all →</a>
                 ) : null}
               </div>
             </div>
@@ -412,7 +412,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
 
             {sharedPages.length > 0 && (
               <div className="mt-10">
-                <h2 className="text-lg font-semibold text-cyan-200">Shared with me</h2>
+                <h2 className="text-lg font-semibold text-[var(--signal)]">Shared with me</h2>
                 <p className="mt-1 text-xs text-zinc-500">Pages your teammates have shared with you.</p>
                 <section className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {sharedPages.map((sp) => (
@@ -425,7 +425,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                       </div>
                       <p className="mt-1 text-xs text-zinc-500">{getOfferCount(sp)} offers · readiness {getReadinessScore(sp)}</p>
                       <div className="mt-3 flex gap-2 text-xs">
-                        <a href={`/dashboard/${sp.id}`} className="rounded border border-[#7C3AED]/40 px-3 py-1 text-[#C4B5FD] hover:bg-[#7C3AED]/10">Open</a>
+                        <a href={`/dashboard/${sp.id}`} className="rounded border border-[#7C3AED]/40 px-3 py-1 text-[var(--signal)] hover:bg-[#7C3AED]/10">Open</a>
                         <a href={agentRuntimeUrl(`/${sp.slug}`)} target="_blank" rel="noreferrer" className="rounded border border-white/15 px-3 py-1 text-zinc-200 hover:bg-white/10">Public ↗</a>
                       </div>
                     </div>
@@ -488,7 +488,7 @@ function OverviewPill({ label, value }: { label: string; value: string }) {
 function NewUserHero({ name }: { name: string }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-[#7C3AED]/30 bg-gradient-to-br from-[var(--signal)]/15 to-[var(--ready)]/5 p-7 md:p-10">
-      <p className="text-sm text-[#C4B5FD]">{name ? `Welcome, ${name}` : 'Welcome to Nexez'}</p>
+      <p className="text-sm text-[var(--signal)]">{name ? `Welcome, ${name}` : 'Welcome to Nexez'}</p>
       <h2 className="mt-2 max-w-2xl text-3xl font-semibold leading-tight tracking-tight">
         Publish your first agent-readable page.
       </h2>
@@ -539,8 +539,8 @@ function AgentDetectionSummary({
 
   return (
     <section className="mt-6 grid gap-4 xl:grid-cols-[0.8fr_1fr_1fr]">
-      <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-5">
-        <p className="text-xs uppercase tracking-[0.18em] text-cyan-100">AI detection</p>
+      <div className="rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/10 p-5">
+        <p className="text-xs uppercase tracking-[0.18em] text-[var(--signal)]">AI detection</p>
         <h2 className="mt-2 text-xl font-semibold">Traffic split</h2>
         <div className="mt-5 overflow-hidden rounded-full border border-white/10 bg-black/30">
           <div className="h-3 bg-gradient-to-r from-[var(--ready)] to-[var(--signal)]" style={{ width: `${aiShare}%` }} />
@@ -548,7 +548,7 @@ function AgentDetectionSummary({
         <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
           <div>
             <p className="text-zinc-500">AI agents</p>
-            <p className="mt-1 text-2xl font-semibold text-cyan-100">{trafficSplit.ai}</p>
+            <p className="mt-1 text-2xl font-semibold text-[var(--signal)]">{trafficSplit.ai}</p>
             <p className="mt-1 text-xs text-zinc-500">{aiShare}% of visits</p>
           </div>
           <div>
@@ -560,7 +560,7 @@ function AgentDetectionSummary({
       </div>
 
       <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
-        <p className="text-xs uppercase tracking-[0.18em] text-[#C4B5FD]">Agent types</p>
+        <p className="text-xs uppercase tracking-[0.18em] text-[var(--signal)]">Agent types</p>
         <h2 className="mt-2 text-xl font-semibold">Who is parsing you</h2>
         <div className="mt-4 space-y-3">
           {breakdown.length ? (
@@ -568,7 +568,7 @@ function AgentDetectionSummary({
               <div key={row.agentType} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <span className="truncate text-zinc-200">{row.agentType}</span>
-                  <span className="font-mono text-cyan-200">{row.total}</span>
+                  <span className="font-mono text-[var(--signal)]">{row.total}</span>
                 </div>
                 <p className="mt-1 text-xs text-zinc-500">{Math.round(row.avgConfidence)}% avg confidence</p>
               </div>
@@ -582,7 +582,7 @@ function AgentDetectionSummary({
       </div>
 
       <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
-        <p className="text-xs uppercase tracking-[0.18em] text-emerald-200">Top pages</p>
+        <p className="text-xs uppercase tracking-[0.18em] text-[var(--ready)]">Top pages</p>
         <h2 className="mt-2 text-xl font-semibold">Most agent-readable</h2>
         <div className="mt-4 space-y-3">
           {topPages.length ? (
@@ -590,13 +590,13 @@ function AgentDetectionSummary({
               <a
                 key={page.pageId}
                 href={`/dashboard/analytics?page=${encodeURIComponent(page.pageId)}&traffic=ai`}
-                className="block rounded-lg border border-white/10 bg-black/20 px-3 py-2 hover:border-cyan-300/40"
+                className="block rounded-lg border border-white/10 bg-black/20 px-3 py-2 hover:border-[var(--signal)]/40"
               >
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <span className="line-clamp-1 text-zinc-200">{page.name}</span>
-                  <span className="font-mono text-emerald-200">{page.total}</span>
+                  <span className="font-mono text-[var(--ready)]">{page.total}</span>
                 </div>
-                <p className="mt-1 font-mono text-xs text-cyan-200">/{page.slug}</p>
+                <p className="mt-1 font-mono text-xs text-[var(--signal)]">/{page.slug}</p>
               </a>
             ))
           ) : (
@@ -618,10 +618,10 @@ function RecentActivity({ events, pages }: { events: CheckoutEvent[]; pages: Age
     <section className="mt-5 rounded-lg border border-white/10 bg-white/[0.04]">
       <div className="flex flex-col justify-between gap-3 border-b border-white/10 p-5 md:flex-row md:items-center">
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-cyan-200">Agent activity</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-[var(--signal)]">Agent activity</p>
           <h2 className="mt-1 text-xl font-semibold">Recent discovery + checkout signals</h2>
         </div>
-        <a href="/dashboard/analytics" className="text-sm text-zinc-400 hover:text-cyan-200">
+        <a href="/dashboard/analytics" className="text-sm text-zinc-400 hover:text-[var(--signal)]">
           View analytics
         </a>
       </div>
@@ -636,7 +636,7 @@ function RecentActivity({ events, pages }: { events: CheckoutEvent[]; pages: Age
               </div>
               <div>
                 <p className="line-clamp-1 text-sm text-zinc-300">{event.offer_name}</p>
-                <p className="mt-1 font-mono text-xs text-cyan-200">/{event.slug}</p>
+                <p className="mt-1 font-mono text-xs text-[var(--signal)]">/{event.slug}</p>
               </div>
               <p className="line-clamp-1 text-sm text-zinc-400">
                 {event.query || event.referrer || 'No query context'}
@@ -653,7 +653,7 @@ function RecentActivity({ events, pages }: { events: CheckoutEvent[]; pages: Age
           </p>
           <a
             href={firstPage ? `/dashboard/${firstPage.id}/test` : '/create'}
-            className="inline-flex items-center justify-center rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-cyan-200"
+            className="inline-flex items-center justify-center rounded-lg bg-[var(--signal)] px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-[var(--signal)]"
           >
             {firstPage ? 'Test a page' : 'Create a page'}
           </a>

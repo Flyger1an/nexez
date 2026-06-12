@@ -39,12 +39,12 @@ export function TopOffersChart({ offers, max }: { offers: OfferStat[]; max: numb
             width={110}
             tick={{ fontSize: 11 }}
           />
-          <Tooltip 
-            contentStyle={{ backgroundColor: '#1A1625', border: '1px solid rgba(255,255,255,0.1)' }}
+          <Tooltip
+            contentStyle={{ backgroundColor: 'var(--panel)', border: '1px solid var(--line)', borderRadius: 12, color: 'var(--fg)' }}
             formatter={(value, name) => [value, name === 'total' ? 'Total Events' : 'Conversions']}
           />
-          <Bar dataKey="total" fill="#7C3AED" radius={2} name="Total Events" />
-          <Bar dataKey="conversions" fill="#00F5FF" radius={2} name="Conversions" />
+          <Bar dataKey="total" fill="var(--signal)" radius={2} name="Total Events" />
+          <Bar dataKey="conversions" fill="var(--ready)" radius={2} name="Conversions" />
         </BarChart>
       )}
     </MeasuredChartFrame>

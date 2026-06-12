@@ -158,7 +158,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
           <div className="mt-auto hidden p-3 md:block">
             <div className={`rounded-lg border border-border bg-white/[0.03] ${collapsed ? 'p-2' : 'p-3'}`}>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Sparkles className="size-4 text-cyan-300" />
+                <Sparkles className="size-4 text-[var(--signal)]" />
                 {!collapsed ? <span>Agent layer active</span> : null}
               </div>
               {!collapsed ? (

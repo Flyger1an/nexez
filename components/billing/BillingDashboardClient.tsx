@@ -320,7 +320,7 @@ export default function BillingDashboardClient({
           <GlassCard className="p-7">
             <SectionHeader icon={Percent} title="Platform fees this month" subtitle="Transaction commissions" />
             <div className="flex items-baseline gap-2">
-              <span className="text-5xl font-semibold tracking-tighter text-emerald-300">$0</span>
+              <span className="text-5xl font-semibold tracking-tighter text-[var(--ready)]">$0</span>
               <span className="text-[#9CA3AF]">estimated</span>
             </div>
             <div className="mt-4 text-sm text-[#9CA3AF]">
@@ -443,9 +443,9 @@ export default function BillingDashboardClient({
                     <span
                       className={`inline-block rounded-full px-3 py-0.5 text-xs ${
                         inv.status === 'paid'
-                          ? 'bg-emerald-400/10 text-emerald-300'
+                          ? 'bg-[var(--ready)]/10 text-[var(--ready)]'
                           : inv.status === 'pending'
-                            ? 'bg-amber-400/10 text-amber-300'
+                            ? 'bg-[var(--amber)]/10 text-[var(--amber)]'
                             : 'bg-red-400/10 text-red-300'
                       }`}
                     >
@@ -485,7 +485,7 @@ export default function BillingDashboardClient({
           <SectionHeader icon={Percent} title="Platform fees & payouts" subtitle="How you earn on every transaction" />
           <div className="grid md:grid-cols-2 gap-8">
             <div>
-              <div className="text-5xl font-semibold tracking-tighter text-emerald-300">$0</div>
+              <div className="text-5xl font-semibold tracking-tighter text-[var(--ready)]">$0</div>
               <div className="text-[#9CA3AF] mt-1">Platform fees collected this month</div>
               <ul className="mt-6 space-y-2 text-sm text-[#9CA3AF]">
                 <li className="flex gap-2">• Free plan: 15% commission</li>
@@ -520,7 +520,7 @@ export default function BillingDashboardClient({
                 ].map((s, i) => (
                   <span
                     key={i}
-                    className={`rounded px-3 py-1 text-xs ${s.ok ? 'bg-emerald-400/10 text-emerald-300' : 'bg-amber-400/10 text-amber-300'}`}
+                    className={`rounded px-3 py-1 text-xs ${s.ok ? 'bg-[var(--ready)]/10 text-[var(--ready)]' : 'bg-[var(--amber)]/10 text-[var(--amber)]'}`}
                   >
                     {s.label}
                   </span>
@@ -598,7 +598,7 @@ export default function BillingDashboardClient({
                 <ul className="mt-6 space-y-2.5 text-sm flex-1 text-[#9CA3AF]">
                   {plan.features.map((f, idx) => (
                     <li key={idx} className="flex items-start gap-2.5">
-                      <Check className="mt-1 size-3.5 text-emerald-400/90 shrink-0" />
+                      <Check className="mt-1 size-3.5 text-[var(--ready)]/90 shrink-0" />
                       <span>{f}</span>
                     </li>
                   ))}
@@ -654,7 +654,7 @@ export default function BillingDashboardClient({
             </div>
 
             {checkoutSuccess && (
-              <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-5 text-emerald-200">
+              <div className="rounded-2xl border border-[var(--ready)]/30 bg-[var(--ready)]/10 p-5 text-[var(--ready)]">
                 {checkoutSuccess}
               </div>
             )}

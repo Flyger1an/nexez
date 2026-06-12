@@ -88,7 +88,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
         {/* Top header (consistent with platform) */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <div className="flex items-center gap-2 text-sm text-cyan-200">
+            <div className="flex items-center gap-2 text-sm text-[var(--signal)]">
               <span className="inline-block size-1.5 rounded-full bg-[#7C3AED]" />
               Billing
             </div>
@@ -104,12 +104,12 @@ export default async function BillingPage({ searchParams }: BillingProps) {
 
         {/* Feedback banners (preserved for connect/setup errors) */}
         {connectSuccess && (
-          <div className="mb-6 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">
+          <div className="mb-6 rounded-2xl border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-4 py-3 text-sm text-[var(--ready)]">
             Stripe Connect updated. Your payouts status has been refreshed.
           </div>
         )}
         {search.setup === 'stripe' && (
-          <div className="mb-6 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+          <div className="mb-6 rounded-2xl border border-[var(--amber)]/30 bg-[var(--amber)]/10 px-4 py-3 text-sm text-[var(--amber)]">
             Billing setup is not complete yet. Add your Stripe keys in project settings to enable subscriptions and payouts.
           </div>
         )}

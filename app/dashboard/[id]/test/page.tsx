@@ -230,7 +230,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
                 <h3 className="text-xl font-semibold tracking-tight">What agents will see</h3>
               </div>
               <div className="text-right">
-                <div className="text-4xl font-semibold text-[#10B981]">{readiness}</div>
+                <div className="text-4xl font-semibold text-[var(--ready)]">{readiness}</div>
                 <div className="text-xs text-[#9CA3AF] -mt-1">READINESS</div>
               </div>
             </div>
@@ -301,7 +301,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
             {/* Simulated Agent Output */}
             <div className="min-h-[320px] card !p-5 text-sm">
               {responseTab === 'Parsed Schema' && schema && (
-                <pre className="font-mono text-xs text-[#C4B5FD] whitespace-pre-wrap">{JSON.stringify(schema, null, 2)}</pre>
+                <pre className="font-mono text-xs text-[var(--signal)] whitespace-pre-wrap">{JSON.stringify(schema, null, 2)}</pre>
               )}
               {responseTab === 'Natural Language' && (
                 <div className="space-y-4 text-[#9CA3AF]">
@@ -312,7 +312,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
               )}
               {responseTab === 'Suggested Actions' && (
                 <div>
-                  <div className="text-[#10B981] font-medium mb-3">High-confidence next steps</div>
+                  <div className="text-[var(--ready)] font-medium mb-3">High-confidence next steps</div>
                   <ul className="space-y-2 text-sm">
                     <li className="flex gap-2">→ Use the "Agent checkout" button on the top offer</li>
                     <li className="flex gap-2">→ Ask for clarification on timeline and budget</li>
@@ -333,14 +333,14 @@ export default function AgentSimulatorPage({ params }: PageProps) {
         {/* Recommendations */}
         <div className="mt-8 card">
           <h3 className="font-semibold flex items-center gap-2 mb-4">
-            <Lightbulb className="size-4 text-[#F59E0B]" />
+            <Lightbulb className="size-4 text-[var(--amber)]" />
             Recommendations to improve agent performance
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm text-[#9CA3AF]">
             {recommendations.length ? (
               recommendations.map((rec, i) => <div key={i}>• {rec}</div>)
             ) : (
-              <div className="text-[#10B981]">This page is already well-optimized for agents.</div>
+              <div className="text-[var(--ready)]">This page is already well-optimized for agents.</div>
             )}
           </div>
         </div>
@@ -359,7 +359,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
               >
                 Open in new tab <ExternalLink className="size-3" />
               </button>
-              <a href={`/dashboard/${id}/settings`} className="text-xs text-[#00F5FF] hover:underline">Configure per-offer prefs →</a>
+              <a href={`/dashboard/${id}/settings`} className="text-xs text-[var(--signal)] hover:underline">Configure per-offer prefs →</a>
             </div>
           </div>
 
@@ -396,7 +396,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
             </div>
           </div>
 
-          <p className="mt-2 text-[10px] text-emerald-300/80">
+          <p className="mt-2 text-[10px] text-[var(--ready)]/80">
             {simulatePreferOriginal
               ? "Simulation active: In a real embed, booking CTAs would route to the original website for offers without per-offer override."
               : "Default behavior: Nexez checkout is preferred unless per-offer or page-level original preference is set."}
@@ -420,7 +420,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
                   return (
                     <div key={flatIdx} className="flex items-center justify-between gap-2 rounded bg-white/5 px-2 py-1">
                       <span className="truncate text-zinc-200">{offer.name}</span>
-                      <span className={`font-mono text-[10px] ${useOriginal ? 'text-amber-300' : 'text-cyan-300'}`}>
+                      <span className={`font-mono text-[10px] ${useOriginal ? 'text-[var(--amber)]' : 'text-[var(--signal)]'}`}>
                         {useOriginal ? '→ original site' : '→ Nexez checkout'} {effective.length > 48 ? '…' + effective.slice(-40) : effective}
                       </span>
                     </div>

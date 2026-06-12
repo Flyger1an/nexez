@@ -203,7 +203,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
 
       <div className="mx-auto max-w-5xl px-6 py-10">
         {previewing && (
-          <div className="mb-4 rounded-lg border border-amber-300/40 bg-amber-400/10 px-4 py-2 text-sm text-amber-200">
+          <div className="mb-4 rounded-lg border border-[var(--amber)]/40 bg-[var(--amber)]/10 px-4 py-2 text-sm text-[var(--amber)]">
             Draft preview — this is staged content, not the live page. Publish from the editor to go live.
           </div>
         )}
@@ -231,35 +231,35 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
         )}
 
         {preferOriginal && (
-          <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#7C3AED]/10 px-4 py-1 text-sm text-[#C4B5FD]">
+          <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#7C3AED]/10 px-4 py-1 text-sm text-[var(--signal)]">
             Bookings on this page link to the original website
           </div>
         )}
 
         {(page as any).mcp_enabled && (
-          <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-emerald-400/10 px-3 py-0.5 text-xs text-emerald-300">
+          <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-[var(--ready)]/10 px-3 py-0.5 text-xs text-[var(--ready)]">
             MCP Ready — structured context for Model Context Protocol agents
             <a href={mcpJsonHref} className="underline">mcp.json</a>
           </div>
         )}
 
-        <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-amber-400/10 px-3 py-0.5 text-xs text-amber-300">
+        <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-[var(--amber)]/10 px-3 py-0.5 text-xs text-[var(--amber)]">
           Trust Score: {getTrustScore(page, trustEvents)}/100
           {(page as any).verification_details?.domain_verified && ' ✓ Verified'}
           {(page as any).verification_details?.docs_provided?.length > 0 && ' 📜 Credentials attached'}
         </div>
         {getCertification(page).certified && (
-          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-300/30 bg-emerald-300/10 px-3 py-0.5 text-xs text-emerald-200">
+          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-3 py-0.5 text-xs text-[var(--ready)]">
             ✅ Nexez Certified Agent-Ready
           </div>
         )}
         {(page as any).verification_details?.docs_provided?.length > 0 && (
-          <div className="mt-1 text-[10px] text-amber-400/80">Credentials: {((page as any).verification_details.docs_provided as string[]).join(' • ')}</div>
+          <div className="mt-1 text-[10px] text-[var(--amber)]/80">Credentials: {((page as any).verification_details.docs_provided as string[]).join(' • ')}</div>
         )}
 
         <section className="grid gap-10 py-8 md:py-12 lg:grid-cols-[1.15fr_0.85fr] lg:py-16">
           <div>
-            <p className="font-mono text-sm text-[#00F5FF]">/{page.slug}</p>
+            <p className="font-mono text-sm text-[var(--signal)]">/{page.slug}</p>
             <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-[-1.5px] sm:text-5xl md:text-6xl lg:text-7xl">
               {page.name}
             </h1>
@@ -299,7 +299,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
           </div>
 
           <aside className="card border-[#7C3AED]/20 bg-[#1A1625] p-6">
-            <div className="flex items-center gap-2 text-cyan-100">
+            <div className="flex items-center gap-2 text-[var(--signal)]">
               <Bot className="size-5" />
               <h2 className="font-medium">AI agent summary</h2>
             </div>
@@ -318,7 +318,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
                 if (!windows || windows.length === 0) return null
                 return (
                   <div className="mt-2 rounded border border-[#7C3AED]/20 bg-[#1A1625] p-2 text-[11px]">
-                    <div className="mb-1 text-cyan-400 text-[10px] font-medium">Next available slots (Google Calendar)</div>
+                    <div className="mb-1 text-[var(--signal)] text-[10px] font-medium">Next available slots (Google Calendar)</div>
                     <div className="grid grid-cols-1 gap-y-0.5 text-zinc-300">
                       {windows.slice(0, 4).map((w: any, idx: number) => (
                         <div key={idx}>{w.label || `${w.date} ${w.start}–${w.end}`}</div>
@@ -342,7 +342,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
             </div>
             <a
               href={agentJsonHref}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg border border-cyan-300/30 px-4 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-300/10"
+              className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[var(--signal)]/30 px-4 py-2 text-sm font-medium text-[var(--signal)] hover:bg-[var(--signal)]/10"
             >
               Agent JSON
               <Code2 className="size-4" />
@@ -390,12 +390,12 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
             </p>
 
             {negotiationCreated ? (
-              <p className="mt-4 rounded-lg border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-200">
+              <p className="mt-4 rounded-lg border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-4 py-3 text-sm text-[var(--ready)]">
                 Proposal sent — the owner has received your request and will review the terms.
               </p>
             ) : null}
             {negotiationAccepted ? (
-              <p className="mt-4 rounded-lg border border-emerald-300/30 bg-emerald-300/10 px-4 py-3 text-sm text-emerald-200">
+              <p className="mt-4 rounded-lg border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-4 py-3 text-sm text-[var(--ready)]">
                 Proposal accepted within the seller&apos;s rules — agreement proposed. The owner will follow up to finalize payment or scheduling.
               </p>
             ) : null}
@@ -523,7 +523,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 function InfoTile({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="card !p-5">
-      <div className="text-cyan-200">{icon}</div>
+      <div className="text-[var(--signal)]">{icon}</div>
       <p className="mt-4 text-sm text-zinc-500">{label}</p>
       <p className="mt-1 font-medium text-white">{value}</p>
     </div>
@@ -561,13 +561,13 @@ function OfferSection({
           <article key={`${item.name}-${index}`} className="card !p-5">
             <div className="flex items-start justify-between gap-4">
               <h3 className="text-lg font-medium text-white">{item.name}</h3>
-              {item.price ? <p className="shrink-0 text-sm text-cyan-200">{item.price}</p> : null}
+              {item.price ? <p className="shrink-0 text-sm text-[var(--signal)]">{item.price}</p> : null}
               {item.source && (
                 <span className={`ml-2 text-[10px] rounded px-1.5 py-0.5 ${
-                  item.source === 'stripe' ? 'bg-cyan-400/10 text-cyan-300' :
-                  item.source === 'shopify' ? 'bg-purple-400/10 text-purple-300' :
+                  item.source === 'stripe' ? 'bg-[var(--signal)]/10 text-[var(--signal)]' :
+                  item.source === 'shopify' ? 'bg-[var(--signal)]/10 text-[var(--signal)]' :
                   item.source === 'square' ? 'bg-pink-400/10 text-pink-300' :
-                  item.source === 'acuity' ? 'bg-orange-400/10 text-orange-300' :
+                  item.source === 'acuity' ? 'bg-[var(--amber)]/10 text-[var(--amber)]' :
                   'bg-blue-400/10 text-blue-300'
                 }`}>
                   via {item.source}
@@ -579,7 +579,7 @@ function OfferSection({
                 className={`mt-2 inline-block rounded-full border px-2.5 py-0.5 text-[11px] ${
                   item.availability === 'sold_out'
                     ? 'border-red-400/30 bg-red-400/10 text-red-300'
-                    : 'border-amber-400/30 bg-amber-400/10 text-amber-300'
+                    : 'border-[var(--amber)]/30 bg-[var(--amber)]/10 text-[var(--amber)]'
                 }`}
               >
                 {availabilityLabel(item.availability)}
@@ -589,9 +589,9 @@ function OfferSection({
             {/* Consumer service metadata - Enhanced */}
             {(item.duration || item.serviceArea || item.isMobile || item.travelFee) && (
               <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                {item.duration && <span className="rounded-full bg-white/5 px-2.5 py-0.5 border border-white/10 text-[#C4B5FD]">{item.duration}</span>}
+                {item.duration && <span className="rounded-full bg-white/5 px-2.5 py-0.5 border border-white/10 text-[var(--signal)]">{item.duration}</span>}
                 {item.serviceArea && <span className="rounded-full bg-white/5 px-2.5 py-0.5 border border-white/10">{item.serviceArea}</span>}
-                {item.isMobile && <span className="rounded-full bg-emerald-400/10 px-2.5 py-0.5 border border-emerald-400/30 text-emerald-300">Mobile</span>}
+                {item.isMobile && <span className="rounded-full bg-[var(--ready)]/10 px-2.5 py-0.5 border border-[var(--ready)]/30 text-[var(--ready)]">Mobile</span>}
                 {item.travelFee && <span className="rounded-full bg-white/5 px-2.5 py-0.5 border border-white/10">+ {item.travelFee} travel</span>}
               </div>
             )}
@@ -599,12 +599,12 @@ function OfferSection({
             {/* Pricing Tiers (Phase 1 A fidelity) */}
             {item.tiers && item.tiers.length > 0 && (
               <div className="mt-3 text-xs">
-                <div className="uppercase tracking-widest text-[10px] text-[#C4B5FD] mb-1">Tiers</div>
+                <div className="uppercase tracking-widest text-[10px] text-[var(--signal)] mb-1">Tiers</div>
                 <ul className="space-y-1">
                   {item.tiers.map((t, ti) => (
                     <li key={ti} className="flex justify-between rounded bg-white/5 px-2 py-1">
                       <span>{t.name}</span>
-                      <span className="text-cyan-200">{t.price}</span>
+                      <span className="text-[var(--signal)]">{t.price}</span>
                     </li>
                   ))}
                 </ul>
@@ -640,14 +640,14 @@ function OfferSection({
                 );
               })()}
               {item.url ? (
-                <a href={item.url} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm text-[#00F5FF] hover:bg-white/10">
+                <a href={item.url} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm text-[var(--signal)] hover:bg-white/10">
                   View details
                   <ArrowUpRight className="size-4" />
                 </a>
               ) : null}
             </div>
             {(item.prefer_original_for_this || (preferOriginal && item.url)) && (
-              <div className="mt-2 text-[10px] text-emerald-300/80">Original site priority for this offer</div>
+              <div className="mt-2 text-[10px] text-[var(--ready)]/80">Original site priority for this offer</div>
             )}
             {(item.rules?.minNoticeHours != null || item.rules?.blackoutDates?.length || item.rules?.maxBookingsPerWeek != null) && (
               <div className="mt-2 text-[10px] text-zinc-500">

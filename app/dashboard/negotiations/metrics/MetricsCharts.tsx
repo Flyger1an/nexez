@@ -3,7 +3,7 @@
 import { PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, ResponsiveContainer } from 'recharts'
 import { MeasuredChartFrame } from '../../analytics/MeasuredChartFrame'
 
-const DONUT_COLORS = ['#7C3AED', '#00F5FF', '#C4B5FD', '#F59E0B', '#10B981', '#EF4444', '#6366F1', '#94A3B8']
+const DONUT_COLORS = ['var(--signal)', 'var(--ready)', 'var(--amber)', '#ef4444', 'var(--fg-muted)', 'var(--fg-muted-2)', 'var(--signal)', 'var(--ready)']
 
 function EmptyChart({ label }: { label: string }) {
   return (
@@ -43,8 +43,8 @@ export function ThroughputChart({ data }: { data: Array<{ date: string; count: n
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
           <XAxis dataKey="date" hide />
-          <Tooltip cursor={{ fill: 'rgba(124,58,237,0.12)' }} labelFormatter={(d) => String(d)} />
-          <Bar dataKey="count" fill="#7C3AED" radius={[3, 3, 0, 0]} />
+          <Tooltip cursor={{ fill: 'rgba(142,158,255,0.12)' }} labelFormatter={(d) => String(d)} />
+          <Bar dataKey="count" fill="var(--signal)" radius={[3, 3, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

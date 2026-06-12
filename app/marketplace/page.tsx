@@ -66,7 +66,7 @@ export default async function MarketplacePage() {
                   surface="marketplace"
                   className="block card !p-3 text-sm hover:border-[#7C3AED]/30"
                 >
-                  {item.name} <span className="text-xs text-emerald-400">Trust {item.trust_score}</span>
+                  {item.name} <span className="text-xs text-[var(--ready)]">Trust {item.trust_score}</span>
                   {item.verified && ' ✓'}
                 </TrackedDirectoryLink>
               ))}
@@ -80,8 +80,8 @@ export default async function MarketplacePage() {
           <h3 className="font-semibold">How the marketplace works</h3>
           <ul className="mt-3 list-disc pl-5 text-[#9CA3AF] space-y-1.5 leading-6">
             <li>Listings rank by trust score and recent agent activity, so the most reliable businesses surface first.</li>
-            <li>Add <code className="text-cyan-200">?min_readiness=80</code> on the directory API to filter down to elite, fully agent-ready pages.</li>
-            <li>Every listing exposes structured data at <code className="text-cyan-200">/&lt;slug&gt;/agent.json</code>, <code className="text-cyan-200">/llms.txt</code>, and <code className="text-cyan-200">mcp.json</code>.</li>
+            <li>Add <code className="text-[var(--signal)]">?min_readiness=80</code> on the directory API to filter down to elite, fully agent-ready pages.</li>
+            <li>Every listing exposes structured data at <code className="text-[var(--signal)]">/&lt;slug&gt;/agent.json</code>, <code className="text-[var(--signal)]">/llms.txt</code>, and <code className="text-[var(--signal)]">mcp.json</code>.</li>
             <li>Favorites are saved to this browser and sync to your account once you sign in.</li>
             <li>Run any page through the Competitor Analyzer and AI Co-Pilot for a deeper read.</li>
           </ul>

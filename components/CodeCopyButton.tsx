@@ -22,7 +22,7 @@ export function CodeCopyButton({ text, label = 'Copy' }: { text: string; label?:
       className="inline-flex items-center gap-1.5 rounded-md border border-border bg-white/[0.04] px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-white/25 hover:text-white"
       aria-label={copied ? 'Copied' : label}
     >
-      {copied ? <Check className="size-3 text-emerald-300" /> : <Copy className="size-3" />}
+      {copied ? <Check className="size-3 text-[var(--ready)]" /> : <Copy className="size-3" />}
       {copied ? 'Copied' : label}
     </button>
   )

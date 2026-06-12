@@ -39,7 +39,7 @@ export default async function LeaderboardPage({ searchParams }: Props) {
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="mx-auto max-w-4xl px-6 py-10">
         <header className="flex items-center gap-3">
-          <Trophy className="size-7 text-amber-300" />
+          <Trophy className="size-7 text-[var(--amber)]" />
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">Agent-Ready Leaderboard</h1>
             <p className="mt-1 text-sm text-zinc-400">
@@ -81,13 +81,13 @@ export default async function LeaderboardPage({ searchParams }: Props) {
               >
                 <span
                   className={`flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                    i === 0 ? 'bg-amber-300 text-zinc-950' : i === 1 ? 'bg-zinc-300 text-zinc-950' : i === 2 ? 'bg-amber-700 text-white' : 'bg-white/10 text-zinc-300'
+                    i === 0 ? 'bg-[var(--amber)] text-zinc-950' : i === 1 ? 'bg-zinc-300 text-zinc-950' : i === 2 ? 'bg-[var(--amber)] text-white' : 'bg-white/10 text-zinc-300'
                   }`}
                 >
                   {i + 1}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <a href={agentRuntimeUrl(`/${row.page.slug}`)} className="block truncate font-medium text-white hover:text-[#C4B5FD]">
+                  <a href={agentRuntimeUrl(`/${row.page.slug}`)} className="block truncate font-medium text-white hover:text-[var(--signal)]">
                     {row.page.name}
                   </a>
                   <div className="text-xs text-zinc-500">
@@ -96,11 +96,11 @@ export default async function LeaderboardPage({ searchParams }: Props) {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-lg font-semibold text-emerald-300">{row.readiness}</div>
+                  <div className="text-lg font-semibold text-[var(--ready)]">{row.readiness}</div>
                   <div className="text-[10px] uppercase tracking-wider text-zinc-500">readiness</div>
                 </div>
                 <div className="hidden text-right sm:block">
-                  <div className="text-lg font-semibold text-cyan-200">{row.trust}</div>
+                  <div className="text-lg font-semibold text-[var(--signal)]">{row.trust}</div>
                   <div className="text-[10px] uppercase tracking-wider text-zinc-500">trust</div>
                 </div>
               </li>
@@ -110,7 +110,7 @@ export default async function LeaderboardPage({ searchParams }: Props) {
 
         <p className="mt-8 text-xs text-zinc-500">
           Want to climb? Improve your readiness in the editor and verify your custom domain.{' '}
-          <a href={appUrl('/create')} className="text-cyan-200 hover:underline">Create a page →</a>
+          <a href={appUrl('/create')} className="text-[var(--signal)] hover:underline">Create a page →</a>
         </p>
       </div>
     </main>

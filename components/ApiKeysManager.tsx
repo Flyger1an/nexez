@@ -108,7 +108,7 @@ export function ApiKeysManager() {
           type="button"
           disabled={creating}
           onClick={createKey}
-          className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg border border-[#7C3AED]/40 bg-[#7C3AED]/10 px-4 text-sm text-[#C4B5FD] hover:bg-[#7C3AED]/20 disabled:opacity-50"
+          className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg border border-[#7C3AED]/40 bg-[#7C3AED]/10 px-4 text-sm text-[var(--signal)] hover:bg-[#7C3AED]/20 disabled:opacity-50"
         >
           {creating ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
           Generate key
@@ -116,10 +116,10 @@ export function ApiKeysManager() {
       </div>
 
       {freshKey && (
-        <div className="mt-3 rounded-lg border border-emerald-300/30 bg-emerald-300/10 p-3 text-sm">
-          <div className="text-emerald-200">Your new key — copy it now, it won’t be shown again:</div>
+        <div className="mt-3 rounded-lg border border-[var(--ready)]/30 bg-[var(--ready)]/10 p-3 text-sm">
+          <div className="text-[var(--ready)]">Your new key — copy it now, it won’t be shown again:</div>
           <div className="mt-2 flex items-center gap-2">
-            <code className="flex-1 break-all rounded bg-black/50 px-2 py-1 text-emerald-300">{freshKey}</code>
+            <code className="flex-1 break-all rounded bg-black/50 px-2 py-1 text-[var(--ready)]">{freshKey}</code>
             <button
               type="button"
               onClick={() => navigator.clipboard?.writeText(freshKey)}
@@ -131,7 +131,7 @@ export function ApiKeysManager() {
         </div>
       )}
 
-      {message && <p className="mt-2 text-xs text-amber-300">{message}</p>}
+      {message && <p className="mt-2 text-xs text-[var(--amber)]">{message}</p>}
 
       <div className="mt-4 space-y-2">
         {loading ? (

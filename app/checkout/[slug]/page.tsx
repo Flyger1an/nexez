@@ -132,7 +132,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
 
         <section className="mt-8 overflow-hidden card !p-0 border border-white/10 bg-gradient-to-br from-[#141720] via-[#0f141c] to-[#10201f]">
           <div className="border-b border-white/10 px-6 py-8 text-center md:px-10">
-            <p className="text-sm font-medium text-cyan-200">Powered by Nexez + payment provider</p>
+            <p className="text-sm font-medium text-[var(--signal)]">Powered by Nexez + payment provider</p>
             <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-5xl">
               Secure Checkout - AI Agent Friendly
             </h1>
@@ -145,7 +145,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
                   <p className="text-sm text-zinc-400">Order Summary</p>
                   <h2 className="mt-2 text-2xl font-semibold">{offer.name}</h2>
                 </div>
-                <div className="rounded-full border border-amber-200/30 bg-amber-200/10 px-3 py-2 text-xs font-semibold text-amber-100">
+                <div className="rounded-full border border-[var(--amber)]/30 bg-[var(--amber)]/10 px-3 py-2 text-xs font-semibold text-[var(--amber)]">
                   SSL
                 </div>
               </div>
@@ -168,7 +168,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
                 <div className="mt-4 flex flex-wrap gap-2 text-xs">
                   {offer.duration && <span className="rounded bg-white/5 px-2 py-0.5 border border-white/10">{offer.duration}</span>}
                   {offer.serviceArea && <span className="rounded bg-white/5 px-2 py-0.5 border border-white/10">{offer.serviceArea}</span>}
-                  {offer.isMobile && <span className="rounded bg-emerald-400/10 px-2 py-0.5 border border-emerald-400/30 text-emerald-300">Mobile / on-site</span>}
+                  {offer.isMobile && <span className="rounded bg-[var(--ready)]/10 px-2 py-0.5 border border-[var(--ready)]/30 text-[var(--ready)]">Mobile / on-site</span>}
                   {offer.travelFee && <span className="rounded bg-white/5 px-2 py-0.5 border border-white/10">+ {offer.travelFee} travel</span>}
                 </div>
               )}
@@ -183,7 +183,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
               </div>
 
               <label className="mt-7 flex items-center gap-3 text-sm text-zinc-300">
-                <input type="checkbox" defaultChecked className="size-5 accent-cyan-300" />
+                <input type="checkbox" defaultChecked className="size-5 accent-[var(--signal)]" />
                 Request human review for high-value or custom purchases
               </label>
             </section>
@@ -204,9 +204,9 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
                 <CheckoutInput label="Billing email/name" value={page.contact_email || 'buyer@example.com'} />
               </div>
 
-              <div className="mt-6 rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-4">
+              <div className="mt-6 rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/10 p-4">
                 <div className="flex items-start gap-3">
-                  <Bot className="mt-1 size-5 text-cyan-200" />
+                  <Bot className="mt-1 size-5 text-[var(--signal)]" />
                   <p className="text-sm leading-6 text-zinc-200">
                     Buyer intent, selected offer, provider URL, and page context are packaged for the payment handoff.
                   </p>
@@ -214,7 +214,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
               </div>
 
               {missingCheckout ? (
-                <div className="mt-4 rounded-lg border border-amber-200/20 bg-amber-200/10 p-3 text-sm text-amber-100">
+                <div className="mt-4 rounded-lg border border-[var(--amber)]/20 bg-[var(--amber)]/10 p-3 text-sm text-[var(--amber)]">
                   Stripe is not configured yet and this offer has no provider URL, so checkout needs a payment destination.
                 </div>
               ) : null}
@@ -226,7 +226,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
                   <input type="hidden" name="query" value="agent_checkout_confirm" />
                   <button
                     type="submit"
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-300 px-5 py-4 text-sm font-semibold text-zinc-950 hover:bg-cyan-200"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--signal)] px-5 py-4 text-sm font-semibold text-zinc-950 hover:bg-[var(--signal)]"
                   >
                     Confirm & Continue
                     <ArrowRight className="size-4" />
@@ -252,7 +252,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
 
         <section className="mt-6 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
           <div className="card !p-5">
-            <div className="flex items-center gap-2 text-cyan-100">
+            <div className="flex items-center gap-2 text-[var(--signal)]">
               <Sparkles className="size-5" />
               <h2 className="font-semibold">Agent Handoff</h2>
             </div>
@@ -267,7 +267,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
             </div>
           </div>
 
-          <pre className="overflow-x-auto rounded-lg border border-white/10 bg-black p-5 text-xs leading-6 text-cyan-100">
+          <pre className="overflow-x-auto rounded-lg border border-white/10 bg-black p-5 text-xs leading-6 text-[var(--signal)]">
 {JSON.stringify(
   {
     checkoutUrl,
@@ -296,7 +296,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
 function StatusPill({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/10 px-3 py-1.5">
-      <span className="text-cyan-200">{icon}</span>
+      <span className="text-[var(--signal)]">{icon}</span>
       {label}
     </span>
   )
@@ -329,7 +329,7 @@ function CheckoutInput({ label, value }: { label: string; value: string }) {
 function Signal({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <div className="flex items-center gap-2 card !p-3 text-zinc-300">
-      <span className="text-cyan-200">{icon}</span>
+      <span className="text-[var(--signal)]">{icon}</span>
       {label}
     </div>
   )

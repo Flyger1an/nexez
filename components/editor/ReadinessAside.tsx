@@ -12,7 +12,7 @@ export function ReadinessAside({ e }: { e: PageEditor }) {
             {page.versions.length} versions
           </span>
         )}
-        <span className="rounded-full border border-amber-300/30 bg-amber-400/5 px-2.5 py-0.5 text-xs text-amber-200">
+        <span className="rounded-full border border-[var(--amber)]/30 bg-[var(--amber)]/5 px-2.5 py-0.5 text-xs text-[var(--amber)]">
           Trust {getTrustScore(page, e.trustEvents)}/100
         </span>
       </div>
@@ -23,7 +23,7 @@ export function ReadinessAside({ e }: { e: PageEditor }) {
         <p className="text-sm text-zinc-500">AI readiness</p>
         <p className="mt-2 text-4xl font-semibold">{e.score}%</p>
         <div className="mt-4 h-2 rounded-full bg-white/10">
-          <div className="h-full rounded-full bg-cyan-300" style={{ width: `${e.score}%` }} />
+          <div className="h-full rounded-full bg-[var(--signal)]" style={{ width: `${e.score}%` }} />
         </div>
       </div>
     </aside>

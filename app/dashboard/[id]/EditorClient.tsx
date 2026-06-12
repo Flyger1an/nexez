@@ -33,20 +33,20 @@ export function EditorClient({ initial }: { initial: EditorInitial }) {
 
             <form onSubmit={e.handleSubmit} className="min-w-0 space-y-5">
               {page && isStale(page) && page.website_url && (
-                <div className="rounded-lg border border-amber-300/30 bg-amber-400/5 p-3 text-sm">
-                  <span className="text-amber-200">
+                <div className="rounded-lg border border-[var(--amber)]/30 bg-[var(--amber)]/5 p-3 text-sm">
+                  <span className="text-[var(--amber)]">
                     Freshness: {freshnessLabel(page)}. Your live business may have changed — re-sync from your
                     website to keep agent data accurate.
                   </span>{' '}
-                  <a href={`/dashboard/${e.id}/settings`} className="text-cyan-300 hover:underline">
+                  <a href={`/dashboard/${e.id}/settings`} className="text-[var(--signal)] hover:underline">
                     Re-sync in Settings →
                   </a>
                 </div>
               )}
               {e.restoredVersion && (
-                <div className="rounded-lg border border-amber-300/40 bg-amber-400/10 p-3 text-sm">
+                <div className="rounded-lg border border-[var(--amber)]/40 bg-[var(--amber)]/10 p-3 text-sm">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-amber-200">
+                    <span className="font-medium text-[var(--amber)]">
                       Restored from version saved {new Date(e.restoredVersion.timestamp).toLocaleString()}
                     </span>
                     <button
@@ -55,12 +55,12 @@ export function EditorClient({ initial }: { initial: EditorInitial }) {
                         e.setRestoredVersion(null)
                         e.setMessage('Restored state discarded. You can continue editing or reload the page.')
                       }}
-                      className="rounded border border-amber-300/40 px-2 py-0.5 text-xs hover:bg-amber-400/20"
+                      className="rounded border border-[var(--amber)]/40 px-2 py-0.5 text-xs hover:bg-[var(--amber)]/20"
                     >
                       Discard restore
                     </button>
                   </div>
-                  <div className="mt-1 text-[11px] text-amber-300/80">Review the offers and metadata, then Save to make this the current version.</div>
+                  <div className="mt-1 text-[11px] text-[var(--amber)]/80">Review the offers and metadata, then Save to make this the current version.</div>
                 </div>
               )}
 
@@ -96,7 +96,7 @@ export function EditorClient({ initial }: { initial: EditorInitial }) {
                   type="checkbox"
                   checked={e.isPublished}
                   onChange={(event) => e.setIsPublished(event.target.checked)}
-                  className="size-4 accent-cyan-300"
+                  className="size-4 accent-[var(--signal)]"
                 />
                 Published and visible to crawlers
               </label>
@@ -104,7 +104,7 @@ export function EditorClient({ initial }: { initial: EditorInitial }) {
               {e.message ? <p className="rounded-lg border border-white/10 bg-black/30 p-3 text-sm text-zinc-300">{e.message}</p> : null}
 
               {page?.team_collaboration?.approvals?.some((a: any) => a.status === 'pending') && (
-                <div className="rounded-lg border border-amber-300/30 bg-amber-400/5 p-3 text-xs text-amber-200">
+                <div className="rounded-lg border border-[var(--amber)]/30 bg-[var(--amber)]/5 p-3 text-xs text-[var(--amber)]">
                   Team approvals pending. Saving will queue these edits as a new approval request (see Settings). The live published version updates only after approval.
                 </div>
               )}
@@ -134,8 +134,8 @@ export function EditorClient({ initial }: { initial: EditorInitial }) {
                   </button>
                 </div>
                 {hasPendingDraft(page) && (
-                  <div className="mt-2 flex flex-col gap-2 rounded border border-amber-300/30 bg-amber-400/5 p-2 sm:flex-row sm:items-center sm:justify-between">
-                    <span className="text-[11px] text-amber-200">
+                  <div className="mt-2 flex flex-col gap-2 rounded border border-[var(--amber)]/30 bg-[var(--amber)]/5 p-2 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-[11px] text-[var(--amber)]">
                       Draft staged{page?.draft_updated_at ? ` ${new Date(page.draft_updated_at).toLocaleString()}` : ''} — not live yet.
                     </span>
                     <span className="flex gap-2">
@@ -143,7 +143,7 @@ export function EditorClient({ initial }: { initial: EditorInitial }) {
                         href={appUrl(`/${e.slug}?preview=1`)}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded border border-cyan-300/40 px-3 py-1 text-[11px] text-cyan-100 hover:bg-cyan-300/10"
+                        className="rounded border border-[var(--signal)]/40 px-3 py-1 text-[11px] text-[var(--signal)] hover:bg-[var(--signal)]/10"
                       >
                         Preview draft ↗
                       </a>
@@ -151,7 +151,7 @@ export function EditorClient({ initial }: { initial: EditorInitial }) {
                         type="button"
                         disabled={e.saving}
                         onClick={e.handlePublishDraft}
-                        className="rounded border border-emerald-300/40 px-3 py-1 text-[11px] text-emerald-100 hover:bg-emerald-300/10 disabled:opacity-50"
+                        className="rounded border border-[var(--ready)]/40 px-3 py-1 text-[11px] text-[var(--ready)] hover:bg-[var(--ready)]/10 disabled:opacity-50"
                       >
                         Publish draft → live
                       </button>

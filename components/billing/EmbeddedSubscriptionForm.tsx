@@ -132,7 +132,7 @@ function CheckoutFormInner({ clientSecret, onSuccess, onCancel }: { clientSecret
 export default function EmbeddedSubscriptionForm({ plan, clientSecret, onSuccess, onCancel }: EmbeddedSubscriptionFormProps) {
   if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
     return (
-      <div className="rounded-lg border border-amber-200/30 bg-amber-200/10 p-4 text-sm text-amber-100">
+      <div className="rounded-lg border border-[var(--amber)]/30 bg-[var(--amber)]/10 p-4 text-sm text-[var(--amber)]">
         Embedded checkout is unavailable right now. Use the hosted upgrade button instead.
       </div>
     )
@@ -152,7 +152,7 @@ export default function EmbeddedSubscriptionForm({ plan, clientSecret, onSuccess
           appearance: {
             theme: 'night',
             variables: {
-              colorPrimary: '#7C3AED',
+              colorPrimary: '#8E9EFF',
               colorBackground: '#0F0D18',
               colorText: '#ffffff',
               colorDanger: '#ef4444',

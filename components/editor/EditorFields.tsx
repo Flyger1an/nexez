@@ -26,7 +26,7 @@ export function EditorFields({ e }: { e: PageEditor }) {
         <button
           type="button"
           onClick={e.enhanceDescriptionWithAI}
-          className="mt-2 rounded-lg border border-cyan-300/40 px-3 py-1 text-xs text-cyan-200 hover:bg-cyan-300/10"
+          className="mt-2 rounded-lg border border-[var(--signal)]/40 px-3 py-1 text-xs text-[var(--signal)] hover:bg-[var(--signal)]/10"
         >
           Enhance for AI agents
         </button>
@@ -95,7 +95,7 @@ export function EditorFields({ e }: { e: PageEditor }) {
           industry.toLowerCase().includes('pet') ||
           industry.toLowerCase().includes('automotive')) && (
           <div className="rounded-xl border border-[#7C3AED]/20 bg-[#1A1625] p-4">
-            <div className="text-sm font-medium text-[#C4B5FD] mb-2">Consumer / Local Services</div>
+            <div className="text-sm font-medium text-[var(--signal)] mb-2">Consumer / Local Services</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
               <div>Duration, Service Area, Mobile, Travel Fee fields are available in each offer card below.</div>
             </div>

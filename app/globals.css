@@ -1179,6 +1179,8 @@ html.light { --signal-solid: #4f46e5; }
 /* text / icon accent */
 .text-\[\#7C3AED\] { color: var(--signal); }
 .text-\[\#6D28D9\] { color: var(--signal); }
+/* form controls (checkboxes/radios/range) tinted with the legacy purple */
+.accent-\[\#7C3AED\] { accent-color: var(--signal); }
 
 /* solid fills (buttons/badges/dots/bars). They carry white text, but the
    neutral remap flips .text-white -> --fg (dark) in light mode, which would be

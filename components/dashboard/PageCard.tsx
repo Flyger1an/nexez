@@ -42,7 +42,7 @@ export function PageCard({
             />
           )}
           <div className="flex size-10 items-center justify-center rounded-2xl bg-white/5">
-            <Bot className="size-5 text-[#C4B5FD]" />
+            <Bot className="size-5 text-[var(--signal)]" />
           </div>
         </div>
         <button
@@ -57,21 +57,21 @@ export function PageCard({
 
       <div className="p-5">
         <h3 className="line-clamp-1 text-lg font-semibold">{page.name}</h3>
-        <p className="mt-1 font-mono text-xs text-cyan-200">/{page.slug}</p>
+        <p className="mt-1 font-mono text-xs text-[var(--signal)]">/{page.slug}</p>
         <p className="mt-3 line-clamp-2 min-h-10 text-sm leading-5 text-zinc-400">
           {page.description || 'No AI summary yet.'}
         </p>
 
         <div className="mt-4 flex items-center justify-between text-xs text-zinc-500">
           <span>{getOfferCount(page)} offers</span>
-          <span className="inline-flex items-center gap-1 text-cyan-200">
+          <span className="inline-flex items-center gap-1 text-[var(--signal)]">
             <Gauge className="size-3" />
             {score}% ready
           </span>
         </div>
 
         <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300">
-          <Activity className="size-3 text-cyan-200" />
+          <Activity className="size-3 text-[var(--signal)]" />
           {eventCount} agent signals
         </div>
 

@@ -65,7 +65,7 @@ export function TeamInvites() {
   return (
     <section className="card !p-5">
       <div className="flex items-center gap-2">
-        <Users className="size-5 text-cyan-200" />
+        <Users className="size-5 text-[var(--signal)]" />
         <h2 className="text-xl font-semibold">Team</h2>
       </div>
       <p className="mt-1 text-sm text-zinc-400">
@@ -96,12 +96,12 @@ export function TeamInvites() {
         <button
           type="button"
           onClick={invite}
-          className="rounded-lg border border-[#7C3AED]/40 bg-[#7C3AED]/10 px-4 py-2 text-sm text-[#C4B5FD] hover:bg-[#7C3AED]/20"
+          className="rounded-lg border border-[#7C3AED]/40 bg-[#7C3AED]/10 px-4 py-2 text-sm text-[var(--signal)] hover:bg-[#7C3AED]/20"
         >
           Invite
         </button>
       </div>
-      {message && <p className="mt-2 text-xs text-amber-300">{message}</p>}
+      {message && <p className="mt-2 text-xs text-[var(--amber)]">{message}</p>}
 
       <div className="mt-4 space-y-2">
         {loading ? (

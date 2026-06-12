@@ -130,7 +130,7 @@ export default async function NegotiationMetricsPage() {
           </ChartCard>
           <ChartCard title="Held in escrow">
             <div className="flex h-48 flex-col items-center justify-center gap-1">
-              <div className="text-3xl font-semibold text-emerald-300">{formatUsdCents(m.volume.heldCents)}</div>
+              <div className="text-3xl font-semibold text-[var(--ready)]">{formatUsdCents(m.volume.heldCents)}</div>
               <div className="text-xs text-zinc-500">{m.volume.heldCount} held · {m.statusCounts.disputed} disputed · {m.statusCounts.refunded} refunded</div>
             </div>
           </ChartCard>

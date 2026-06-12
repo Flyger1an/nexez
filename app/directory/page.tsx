@@ -82,7 +82,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
 
           <div className="grid gap-8 py-8 md:py-10 lg:grid-cols-[0.92fr_1.08fr] lg:items-end">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-lg border border-[#7C3AED]/30 bg-[#7C3AED]/10 px-3 py-1 text-sm font-medium text-[#C4B5FD]">
+              <div className="inline-flex items-center gap-2 rounded-lg border border-[#7C3AED]/30 bg-[#7C3AED]/10 px-3 py-1 text-sm font-medium text-[var(--signal)]">
                 <Bot className="size-4" />
                 Public Agent Directory
               </div>
@@ -94,7 +94,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
               </p>
               <a
                 href="/leaderboard"
-                className="mt-4 inline-flex items-center gap-2 rounded-lg border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-sm text-amber-200 hover:bg-amber-400/20"
+                className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[var(--amber)]/30 bg-[var(--amber)]/10 px-3 py-1.5 text-sm text-[var(--amber)] hover:bg-[var(--amber)]/20"
               >
                 🏆 Agent-Ready Leaderboard
               </a>
@@ -161,7 +161,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
           </div>
 
           <div className="card !p-5">
-            <div className="flex items-center gap-2 text-[#00F5FF]">
+            <div className="flex items-center gap-2 text-[var(--signal)]">
               <Sparkles className="size-4" />
               <p className="text-sm font-semibold">Agent API</p>
             </div>
@@ -171,7 +171,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                   <span>Agent search</span>
                   <CopyButton text={`${baseUrl}/api/agent-search?q=${encodeURIComponent(cleanQuery || 'consulting')}`} />
                 </div>
-                <code className="block break-all rounded bg-[#0A0A0F] p-2 text-[#C4B5FD] font-mono text-[10px]">
+                <code className="block break-all rounded bg-[#0A0A0F] p-2 text-[var(--signal)] font-mono text-[10px]">
                   {`${baseUrl}/api/agent-search?q=${encodeURIComponent(cleanQuery || 'consulting')}`}
                 </code>
               </div>
@@ -180,7 +180,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                   <span>Directory API</span>
                   <CopyButton text={`${baseUrl}/api/directory?category=consumer`} />
                 </div>
-                <code className="block break-all rounded bg-[#0A0A0F] p-2 text-[#C4B5FD] font-mono text-[10px]">
+                <code className="block break-all rounded bg-[#0A0A0F] p-2 text-[var(--signal)] font-mono text-[10px]">
                   {`${baseUrl}/api/directory?category=consumer`}
                 </code>
               </div>
@@ -203,7 +203,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                         : 'All agent-ready offers'}
                 </h2>
               </div>
-              <a href={agentRuntimeUrl('/openapi.json')} className="inline-flex items-center gap-2 text-sm font-medium text-cyan-700 hover:text-cyan-900">
+              <a href={agentRuntimeUrl('/openapi.json')} className="inline-flex items-center gap-2 text-sm font-medium text-[var(--signal)] hover:text-[var(--signal)]">
                 OpenAPI
                 <ExternalLink className="size-4" />
               </a>
@@ -235,13 +235,13 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
               {/* Quick high-quality filter (Phase 2) */}
               <a
                 href={`/directory?q=${encodeURIComponent(cleanQuery)}&type=${type}&category=${categoryFilter}&min_readiness=80`}
-                className="rounded-full border border-emerald-300/50 bg-emerald-500/10 px-4 py-1.5 text-sm font-medium text-emerald-400 hover:bg-emerald-500/20"
+                className="rounded-full border border-[var(--ready)]/50 bg-[var(--ready)]/10 px-4 py-1.5 text-sm font-medium text-[var(--ready)] hover:bg-[var(--ready)]/20"
               >
                 High Quality (80%+)
               </a>
               <a
                 href={`/directory?q=${encodeURIComponent(cleanQuery)}&type=${type}&category=${categoryFilter}&min_readiness=90`}
-                className="rounded-full border border-emerald-300/50 bg-emerald-500/10 px-4 py-1.5 text-sm font-medium text-emerald-400 hover:bg-emerald-500/20"
+                className="rounded-full border border-[var(--ready)]/50 bg-[var(--ready)]/10 px-4 py-1.5 text-sm font-medium text-[var(--ready)] hover:bg-[var(--ready)]/20"
               >
                 Elite (90%+)
               </a>
@@ -301,7 +301,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                             {p.name}
                           </TrackedDirectoryLink>
                           <FavoriteButton slug={p.slug} />
-                          <span className="text-[10px] rounded bg-emerald-500/10 px-1.5 py-0.5 text-emerald-400 font-medium">
+                          <span className="text-[10px] rounded bg-[var(--ready)]/10 px-1.5 py-0.5 text-[var(--ready)] font-medium">
                             {readiness}% ready • Trust {getTrustScore(p)}/100
                             {(p as any).verification_details?.domain_verified || (p as any).custom_domain_verified ? ' ✓' : ''}
                             {Array.isArray((p as any).verification_details?.docs_provided) && (p as any).verification_details.docs_provided.length > 0 ? ' 📜' : ''}
@@ -314,7 +314,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
               </div>
               <a 
                 href={`/directory?category=${categoryFilter}&type=${type}&min_readiness=80`}
-                className="mt-3 inline-block text-sm text-cyan-600 hover:text-cyan-800"
+                className="mt-3 inline-block text-sm text-[var(--signal)] hover:text-[var(--signal)]"
               >
                 View all high readiness pages in this category →
               </a>
@@ -365,7 +365,7 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
     <article className="card !p-5 transition hover:border-[#7C3AED]/30">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-[#00F5FF]">
+          <p className="text-xs font-medium uppercase tracking-wide text-[var(--signal)]">
             {offer?.type ?? 'page'} match
           </p>
           <h3 className="mt-2 text-xl font-semibold text-white">{offer?.name || result.page.name}</h3>
@@ -377,7 +377,7 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
           <div className="rounded-lg bg-white/10 px-2 py-1 text-xs font-medium text-[#9CA3AF]">
             {result.score}
           </div>
-          <div className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${readiness >= 75 ? 'bg-emerald-500/10 text-emerald-400' : readiness >= 55 ? 'bg-amber-500/10 text-amber-400' : 'bg-white/10 text-[#9CA3AF]'}`}>
+          <div className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${readiness >= 75 ? 'bg-[var(--ready)]/10 text-[var(--ready)]' : readiness >= 55 ? 'bg-[var(--amber)]/10 text-[var(--amber)]' : 'bg-white/10 text-[#9CA3AF]'}`}>
             {readiness}% ready
           </div>
         </div>
@@ -388,14 +388,14 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
       </p>
 
       <div className="mt-5 flex flex-wrap gap-2 text-xs text-[#9CA3AF]">
-        {offer?.price ? <span className="rounded-md bg-cyan-500/10 px-2 py-1 text-cyan-400">{offer.price}</span> : null}
+        {offer?.price ? <span className="rounded-md bg-[var(--signal)]/10 px-2 py-1 text-[var(--signal)]">{offer.price}</span> : null}
         {result.page.location ? <span className="rounded-md bg-white/10 px-2 py-1">{result.page.location}</span> : null}
         {result.page.audience ? <span className="rounded-md bg-white/10 px-2 py-1">{result.page.audience}</span> : null}
         {/* Phase 5 signals */}
         {((result.page as any).services?.length || 0) + ((result.page as any).products?.length || 0) > 0 && (
           <span className="rounded-md bg-white/10 px-2 py-1">{((result.page as any).services?.length || 0) + ((result.page as any).products?.length || 0)} offers</span>
         )}
-        {(result.page as any).last_booking && <span className="rounded-md bg-emerald-500/10 px-2 py-1 text-emerald-400">recent activity</span>}
+        {(result.page as any).last_booking && <span className="rounded-md bg-[var(--ready)]/10 px-2 py-1 text-[var(--ready)]">recent activity</span>}
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">

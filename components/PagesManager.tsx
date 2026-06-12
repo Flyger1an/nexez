@@ -181,7 +181,7 @@ export function PagesManager({
       <div className="mx-auto max-w-7xl px-6 py-8">
         <div className="flex flex-col gap-4 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm text-cyan-200">Manage</p>
+            <p className="text-sm text-[var(--signal)]">Manage</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">Pages</h1>
             <p className="mt-2 text-sm text-zinc-400">
               Create, publish, duplicate, and organize every agent page from one place.
@@ -219,7 +219,7 @@ export function PagesManager({
             <button
               onClick={() => bulkSetPublished(true)}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300/30 bg-emerald-400/10 px-3 py-1.5 text-emerald-200 hover:bg-emerald-400/20 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-3 py-1.5 text-[var(--ready)] hover:bg-[var(--ready)]/20 disabled:opacity-50"
             >
               <CheckCircle2 className="size-4" /> Publish
             </button>
@@ -233,7 +233,7 @@ export function PagesManager({
             <button
               onClick={bulkDuplicate}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-md border border-cyan-300/30 bg-cyan-400/10 px-3 py-1.5 text-cyan-100 hover:bg-cyan-400/20 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--signal)]/30 bg-[var(--signal)]/10 px-3 py-1.5 text-[var(--signal)] hover:bg-[var(--signal)]/20 disabled:opacity-50"
             >
               <Copy className="size-4" /> Duplicate
             </button>

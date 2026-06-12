@@ -458,7 +458,7 @@ export default function GlobalAgentSimulator() {
                       <h3 className="text-xl font-semibold">{selectedPage.name}</h3>
                     </div>
                     <div className="text-right">
-                      <div className="text-3xl font-semibold text-[#10B981]">{getReadinessScore(selectedPage)}</div>
+                      <div className="text-3xl font-semibold text-[var(--ready)]">{getReadinessScore(selectedPage)}</div>
                       <div className="text-xs text-[#9CA3AF] -mt-1">READINESS</div>
                     </div>
                   </div>
@@ -477,7 +477,7 @@ export default function GlobalAgentSimulator() {
 
                   <div className="min-h-[280px] rounded-2xl bg-[#12101B] border border-white/10 p-5 text-sm">
                     {simulationResults.find(r => r.agent === currentAgent) && (
-                      <pre className="font-mono text-xs text-[#C4B5FD] whitespace-pre-wrap overflow-auto max-h-[260px]">
+                      <pre className="font-mono text-xs text-[var(--signal)] whitespace-pre-wrap overflow-auto max-h-[260px]">
                         {JSON.stringify(simulationResults.find(r => r.agent === currentAgent)?.schema, null, 2)}
                       </pre>
                     )}
@@ -501,7 +501,7 @@ export default function GlobalAgentSimulator() {
                 <div className="card">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-semibold flex items-center gap-2">
-                      <RefreshCw className="size-4 text-[#F59E0B]" /> Recommendations
+                      <RefreshCw className="size-4 text-[var(--amber)]" /> Recommendations
                     </h3>
                     <div className="flex gap-2">
                       <button onClick={() => exportCurrentAnalysis('md')} className="text-[10px] rounded border border-white/20 px-2 py-0.5 hover:bg-white/5">Export MD</button>
@@ -542,7 +542,7 @@ export default function GlobalAgentSimulator() {
                   {historyStats.latestQuery ? (
                     <button
                       onClick={() => setQuery(historyStats.latestQuery)}
-                      className="mb-3 w-full rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-left text-xs text-cyan-100 hover:bg-cyan-300/15"
+                      className="mb-3 w-full rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/10 px-3 py-2 text-left text-xs text-[var(--signal)] hover:bg-[var(--signal)]/15"
                     >
                       Use latest query: {historyStats.latestQuery.slice(0, 90)}
                     </button>
@@ -552,12 +552,12 @@ export default function GlobalAgentSimulator() {
                       {filteredHistory.map((h, idx) => (
                         <div key={h.id || idx} className="rounded border border-white/10 p-2 text-xs flex items-center justify-between gap-2">
                           <div className="min-w-0">
-                            <span className="font-mono text-[#C4B5FD]">{h.agent || 'multi'}</span> — { (h.query || '').slice(0, 52) }{(h.query || '').length > 52 ? '...' : ''}
+                            <span className="font-mono text-[var(--signal)]">{h.agent || 'multi'}</span> — { (h.query || '').slice(0, 52) }{(h.query || '').length > 52 ? '...' : ''}
                             <div className="text-[10px] text-zinc-500">{new Date(h.timestamp).toLocaleString()}</div>
                           </div>
                           <div className="flex gap-1 shrink-0">
                             <button onClick={() => loadFromHistory(h)} className="text-[10px] rounded bg-[#7C3AED]/20 px-2 py-1 hover:bg-[#7C3AED]/40">Load</button>
-                            <span className="text-emerald-400/80 text-[10px] self-center">{h.readiness || '?'}%</span>
+                            <span className="text-[var(--ready)]/80 text-[10px] self-center">{h.readiness || '?'}%</span>
                           </div>
                         </div>
                       ))}
@@ -583,7 +583,7 @@ export default function GlobalAgentSimulator() {
             </div>
           )}
 
-          {message && <p className="mt-4 text-sm text-emerald-300">{message}</p>}
+          {message && <p className="mt-4 text-sm text-[var(--ready)]">{message}</p>}
         </div>
       </ErrorBoundary>
     </main>
@@ -594,7 +594,7 @@ function HistoryStat({ label, value, tone }: { label: string; value: string; ton
   return (
     <div className="card !p-4">
       <p className="text-xs text-zinc-500">{label}</p>
-      <p className={`mt-1 text-2xl font-semibold ${tone === 'good' ? 'text-emerald-300' : tone === 'warn' ? 'text-amber-300' : 'text-white'}`}>
+      <p className={`mt-1 text-2xl font-semibold ${tone === 'good' ? 'text-[var(--ready)]' : tone === 'warn' ? 'text-[var(--amber)]' : 'text-white'}`}>
         {value}
       </p>
     </div>

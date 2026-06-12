@@ -33,9 +33,9 @@ import { agentRuntimeUrl } from '../../../lib/site'
 const LOAD_TIMEOUT_MS = 12000
 
 const TONE_BADGE: Record<ReturnType<typeof getNegotiationStatusTone>, string> = {
-  open: 'border-amber-300/30 bg-amber-300/10 text-amber-200',
-  progress: 'border-cyan-300/30 bg-cyan-300/10 text-cyan-100',
-  success: 'border-emerald-300/30 bg-emerald-300/10 text-emerald-200',
+  open: 'border-[var(--amber)]/30 bg-[var(--amber)]/10 text-[var(--amber)]',
+  progress: 'border-[var(--signal)]/30 bg-[var(--signal)]/10 text-[var(--signal)]',
+  success: 'border-[var(--ready)]/30 bg-[var(--ready)]/10 text-[var(--ready)]',
   muted: 'border-white/10 bg-white/5 text-zinc-400',
 }
 
@@ -52,9 +52,9 @@ const TRANSITION_LABEL: Record<NegotiationStatus, string> = {
 }
 
 function transitionTone(to: NegotiationStatus): string {
-  if (to === 'complete') return 'border-emerald-300/30 bg-emerald-300/10 text-emerald-100 hover:bg-emerald-300/20'
+  if (to === 'complete') return 'border-[var(--ready)]/30 bg-[var(--ready)]/10 text-[var(--ready)] hover:bg-[var(--ready)]/20'
   if (to === 'declined') return 'border-red-300/30 bg-red-300/10 text-red-100 hover:bg-red-300/20'
-  return 'border-cyan-300/30 bg-cyan-300/10 text-cyan-100 hover:bg-cyan-300/20'
+  return 'border-[var(--signal)]/30 bg-[var(--signal)]/10 text-[var(--signal)] hover:bg-[var(--signal)]/20'
 }
 
 function transitionIcon(to: NegotiationStatus) {
@@ -414,7 +414,7 @@ function NegotiationCard({
           </a>
         </div>
         <div className="text-right">
-          <p className="text-sm font-semibold text-cyan-100">
+          <p className="text-sm font-semibold text-[var(--signal)]">
             {formatNegotiationAmount(item.amount_cents, item.currency)}
           </p>
           <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-zinc-500">
@@ -458,7 +458,7 @@ function NegotiationCard({
             disabled={updating || !amountReady}
             onClick={() => onEscrow('approve')}
             title={!amountReady ? 'Set an agreed amount first.' : 'Approve so the buyer can pay to secure this agreement.'}
-            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-emerald-300/30 bg-emerald-300/10 px-3 text-xs font-medium text-emerald-100 transition hover:bg-emerald-300/20 disabled:opacity-50"
+            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-3 text-xs font-medium text-[var(--ready)] transition hover:bg-[var(--ready)]/20 disabled:opacity-50"
           >
             {updating ? <Loader2 className="size-3.5 animate-spin" /> : <Lock className="size-3.5" />}
             Approve &amp; request payment
@@ -467,7 +467,7 @@ function NegotiationCard({
 
         {/* Low-value / approved: nothing for the owner to do but wait on the buyer. */}
         {buyerCanPay && (
-          <span className="inline-flex items-center gap-1 text-[11px] text-cyan-200/80">
+          <span className="inline-flex items-center gap-1 text-[11px] text-[var(--signal)]/80">
             <Clock className="size-3" /> Awaiting buyer payment{item.settlement_state === 'auto' ? ' · auto-settle' : ''}
           </span>
         )}
@@ -493,7 +493,7 @@ function NegotiationCard({
           <button
             disabled={updating}
             onClick={() => onEscrow('refund')}
-            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-amber-300/30 bg-amber-300/10 px-3 text-xs font-medium text-amber-100 transition hover:bg-amber-300/20 disabled:opacity-50"
+            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-[var(--amber)]/30 bg-[var(--amber)]/10 px-3 text-xs font-medium text-[var(--amber)] transition hover:bg-[var(--amber)]/20 disabled:opacity-50"
           >
             {updating ? <Loader2 className="size-3.5 animate-spin" /> : <XCircle className="size-3.5" />}
             Refund buyer
@@ -520,7 +520,7 @@ function NegotiationCard({
             <div key={idx}>{t.decision.action}: {t.decision.reasoning?.slice(0, 120)}...</div>
           ))}
           {(item.metadata as any)?.last_decision?.schedulingLink && (
-            <div className="text-emerald-300/70">Scheduling link available for agent</div>
+            <div className="text-[var(--ready)]/70">Scheduling link available for agent</div>
           )}
           {((item.metadata as any)?.last_decision?.counter?.scope || (item.metadata as any)?.last_decision?.scope) && (
             <div>Scope terms negotiated in thread</div>
@@ -665,7 +665,7 @@ function AmountEditor({
         Save amount
       </button>
       {item.amount_cents == null && (
-        <span className="text-[11px] text-amber-300/80">Set this to enable the escrow hold.</span>
+        <span className="text-[11px] text-[var(--amber)]/80">Set this to enable the escrow hold.</span>
       )}
     </div>
   )
@@ -680,8 +680,8 @@ function RulesEvaluationBadge({ metadata }: { metadata: Record<string, unknown> 
   if (review?.recommendation) {
     const rec = review.recommendation
     const sourceLabel = review.source === 'llm' ? `LLM (${review.model || 'configured'})` : 'Rules'
-    let color = 'border-amber-300/30 bg-amber-300/10 text-amber-200'
-    if (rec === 'accept') color = 'border-emerald-300/30 bg-emerald-300/10 text-emerald-200'
+    let color = 'border-[var(--amber)]/30 bg-[var(--amber)]/10 text-[var(--amber)]'
+    if (rec === 'accept') color = 'border-[var(--ready)]/30 bg-[var(--ready)]/10 text-[var(--ready)]'
     if (rec === 'reject') color = 'border-red-300/30 bg-red-300/10 text-red-200'
     return (
       <span className={`rounded-full border px-2.5 py-0.5 text-xs ${color}`} title={review.reasoning}>
@@ -694,7 +694,7 @@ function RulesEvaluationBadge({ metadata }: { metadata: Record<string, unknown> 
 
   if (evaluation.decision === 'auto_accept') {
     return (
-      <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2.5 py-0.5 text-xs text-emerald-200">
+      <span className="rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-2.5 py-0.5 text-xs text-[var(--ready)]">
         Auto-accepted by rules
       </span>
     )
@@ -706,7 +706,7 @@ function RulesEvaluationBadge({ metadata }: { metadata: Record<string, unknown> 
         ? 'exceeds max discount'
         : 'outside rules'
     return (
-      <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2.5 py-0.5 text-xs text-amber-200">
+      <span className="rounded-full border border-[var(--amber)]/30 bg-[var(--amber)]/10 px-2.5 py-0.5 text-xs text-[var(--amber)]">
         Flagged: {reason}
       </span>
     )

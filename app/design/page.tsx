@@ -14,11 +14,11 @@ export default function DesignSystemShowcase() {
           <h2 className="text-2xl font-semibold mb-6 tracking-tight">Color Palette</h2>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {[
-              { name: 'Deep Void', hex: '#0A0A0F' },
-              { name: 'Midnight Purple', hex: '#1A1625' },
-              { name: 'Electric Purple', hex: '#7C3AED' },
-              { name: 'Neon Teal', hex: '#00F5FF' },
-              { name: 'Soft Lavender', hex: '#C4B5FD' },
+              { name: 'Background', hex: 'var(--bg)' },
+              { name: 'Surface', hex: 'var(--panel)' },
+              { name: 'Signal (periwinkle)', hex: 'var(--signal)' },
+              { name: 'Ready (teal)', hex: 'var(--ready)' },
+              { name: 'Amber', hex: 'var(--amber)' },
             ].map((c) => (
               <div key={c.name} className="card p-4">
                 <div className="h-16 rounded-xl mb-3" style={{ background: c.hex }} />
@@ -44,12 +44,12 @@ export default function DesignSystemShowcase() {
           <h2 className="text-2xl font-semibold mb-6 tracking-tight">Cards</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="card">
-              <div className="text-[#00F5FF] mb-2">Premium</div>
+              <div className="text-[var(--ready)] mb-2">Premium</div>
               <h3 className="text-2xl font-semibold">Standard Card</h3>
               <p className="text-[#9CA3AF] mt-2">Used across dashboard and public surfaces.</p>
             </div>
-            <div className="card border-[#7C3AED]/30">
-              <div className="text-[#C4B5FD]">Highlighted</div>
+            <div className="card border-[var(--signal)]/30">
+              <div className="text-[var(--signal)]">Highlighted</div>
               <h3 className="text-2xl font-semibold mt-1">With Accent Border</h3>
             </div>
           </div>

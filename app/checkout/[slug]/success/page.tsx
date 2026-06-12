@@ -17,10 +17,10 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
         </a>
 
         <section className="mt-8 card !p-8 text-center">
-          <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-emerald-400 text-zinc-950">
+          <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-[var(--ready)] text-zinc-950">
             <CheckCircle2 className="size-9" />
           </div>
-          <p className="mt-6 text-sm font-medium text-cyan-200">Checkout handoff complete</p>
+          <p className="mt-6 text-sm font-medium text-[var(--signal)]">Checkout handoff complete</p>
           <h1 className="mt-3 text-4xl font-semibold tracking-tight">Payment session created</h1>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-zinc-400">
             Nexez attached the selected offer and agent context to this checkout handoff. The seller can reconcile
@@ -33,7 +33,7 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
           </div>
 
           <div className="mt-7 flex flex-wrap justify-center gap-3">
-            <a href={`/${slug}`} className="inline-flex items-center gap-2 rounded-lg bg-cyan-300 px-5 py-3 text-sm font-semibold text-zinc-950 hover:bg-cyan-200">
+            <a href={`/${slug}`} className="inline-flex items-center gap-2 rounded-lg bg-[var(--signal)] px-5 py-3 text-sm font-semibold text-zinc-950 hover:bg-[var(--signal)]">
               <Bot className="size-4" />
               Public Page
             </a>
