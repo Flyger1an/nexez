@@ -10,6 +10,7 @@ import {
   normalizeHost,
 } from './lib/custom-domain'
 import { AB_BUCKET_COOKIE, randomBucket } from './lib/ab-testing'
+import { APP_HOST, MARKETING_HOST, canonicalHostFor, isHostNeutralPath } from './lib/site'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL
 const AB_BUCKET_MAX_AGE = 60 * 60 * 24 * 365 // 1 year
@@ -96,6 +97,22 @@ export async function proxy(request: NextRequest) {
       }
     }
     // Unknown/unverified custom domain → fall through to normal handling.
+  }
+
+  // Canonical-host split: marketing routes live on nexez.ai, the agent-facing brain
+  // on nexez.app. Enforce only on the two real prod hosts so *.vercel.app previews
+  // and localhost keep serving every route for dev/preview. 308 = permanent +
+  // method-preserving (SEO equity transfers; POSTs aren't broken).
+  const currentHost = normalizeHost(host)
+  if ((currentHost === APP_HOST || currentHost === MARKETING_HOST) && !isHostNeutralPath(request.nextUrl.pathname)) {
+    const wantHost = canonicalHostFor(request.nextUrl.pathname)
+    if (currentHost !== wantHost) {
+      const url = request.nextUrl.clone()
+      url.host = wantHost
+      url.protocol = 'https'
+      url.port = ''
+      return persistAbBucket(NextResponse.redirect(url, 308), abBucket)
+    }
   }
 
   return persistAbBucket(await updateSession(request), abBucket)

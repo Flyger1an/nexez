@@ -1,8 +1,13 @@
 import type { MetadataRoute } from 'next'
-import { getBaseUrl } from '../lib/agent-page'
+import { headers } from 'next/headers'
+import { APP_HOST } from '../lib/site'
 
-export default function robots(): MetadataRoute.Robots {
-  const baseUrl = getBaseUrl()
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  // Host-aware: each domain points at its own sitemap (the marketing sitemap on
+  // nexez.ai, the agent/product sitemap on nexez.app).
+  const h = await headers()
+  const host = (h.get('x-forwarded-host') || h.get('host') || APP_HOST).split(',')[0]!.trim()
+  const baseUrl = host.startsWith('localhost') || host.startsWith('127.') ? `http://${host}` : `https://${host}`
 
   return {
     rules: [
@@ -39,4 +44,3 @@ export default function robots(): MetadataRoute.Robots {
     sitemap: `${baseUrl}/sitemap.xml`,
   }
 }
-

@@ -28,8 +28,17 @@ export function isPlatformHost(host: string | null | undefined, siteUrl?: string
   if (h === 'localhost' || h === '127.0.0.1' || h.endsWith('.localhost')) return true
   if (h.endsWith('.vercel.app')) return true
 
-  const site = normalizeHost(extractHostFromUrl(siteUrl))
-  if (site && (h === site || h === `www.${site}` || `www.${h}` === site)) return true
+  const matchesConfigured = (configured: string | null | undefined): boolean => {
+    const c = normalizeHost(extractHostFromUrl(configured))
+    return !!c && (h === c || h === `www.${c}` || `www.${h}` === c)
+  }
+
+  // Both the product host (NEXT_PUBLIC_SITE_URL = nexez.app) and the marketing host
+  // (NEXT_PUBLIC_MARKETING_URL = nexez.ai) are first-party platform hosts — never a
+  // customer's custom domain. The marketing URL is read directly to avoid a circular
+  // import with lib/site.
+  if (matchesConfigured(siteUrl)) return true
+  if (matchesConfigured(process.env.NEXT_PUBLIC_MARKETING_URL || 'https://nexez.ai')) return true
 
   return false
 }
