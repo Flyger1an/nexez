@@ -33,7 +33,7 @@ import {
   normalizeSimulatorTarget,
 } from '../../lib/simulation-history'
 import { createClient } from '../../utils/supabase/client'
-import { appUrl } from '../../lib/site'
+import { agentRuntimeUrl, appUrl } from '../../lib/site'
 
 const agentTabs = ['ChatGPT', 'Claude', 'Grok', 'Perplexity', 'Generic Agent', 'LLM-Enhanced']
 
@@ -354,7 +354,7 @@ export default function GlobalAgentSimulator() {
             <div className="flex flex-wrap gap-3">
               <a href="/directory" className="btn-secondary text-sm">Browse Directory</a>
               {selectedPage && (
-                <a href={`/dashboard/${(selectedPage as any).id || ''}/test`} className="btn-secondary text-sm">
+                <a href={appUrl(`/dashboard/${(selectedPage as any).id || ''}/test`)} className="btn-secondary text-sm">
                   Per-page simulator →
                 </a>
               )}
@@ -386,9 +386,8 @@ export default function GlobalAgentSimulator() {
                 <p className="text-sm text-zinc-400">
                   Paste a public slug or URL below to try it now —{' '}
                   <a href={appUrl('/dashboard')} className="underline hover:text-white">
-                    sign in on nexez.app
+                    sign in to test your own pages
                   </a>{' '}
-                  to test your own pages.
                 </p>
               )}
             </div>
@@ -425,7 +424,7 @@ export default function GlobalAgentSimulator() {
               <button onClick={regenerate} disabled={!hydrated || loading} className="btn-ghost">
                 <RefreshCw className="size-4" /> Rerun
               </button>
-              <a href={`/${selectedPage.slug}`} target="_blank" className="btn-secondary inline-flex items-center gap-1">
+              <a href={agentRuntimeUrl(`/${selectedPage.slug}`)} target="_blank" className="btn-secondary inline-flex items-center gap-1">
                 View public page <ExternalLink className="size-3" />
               </a>
             </div>

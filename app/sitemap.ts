@@ -3,14 +3,15 @@ import { headers } from 'next/headers'
 import { AgentPage, getCheckoutOffers, getCheckoutPath } from '../lib/agent-page'
 import { getAgentJsonPath } from '../lib/agent-manifest'
 import { supabase } from '../lib/supabase'
-import { APP_HOST, MARKETING_HOST, marketingUrl } from '../lib/site'
+import { AGENT_RUNTIME_HOST, APP_HOST, MARKETING_HOST, agentRuntimeUrl, marketingUrl } from '../lib/site'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // Host-aware split: marketing/discovery URLs on nexez.ai, the agent-facing
-  // brain (agent pages + artifacts) on nexez.app — each domain its own sitemap.
+  // Host-aware split: marketing/discovery URLs on nexez.ai, app UI hidden from
+  // search, and agent pages/artifacts on nexez.app.
   const h = await headers()
-  const host = (h.get('x-forwarded-host') || h.get('host') || APP_HOST).split(',')[0]!.trim().toLowerCase()
+  const host = (h.get('x-forwarded-host') || h.get('host') || AGENT_RUNTIME_HOST).split(',')[0]!.trim().toLowerCase()
   const isMarketing = host === MARKETING_HOST || host === `www.${MARKETING_HOST}`
+  const isApp = host === APP_HOST || host === `www.${APP_HOST}`
 
   if (isMarketing) {
     const entry = (
@@ -31,8 +32,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ]
   }
 
-  // Brain/agent sitemap — always rooted at nexez.app.
-  const baseUrl = `https://${APP_HOST}`
+  if (isApp) return []
+
+  // Public agent sitemap is always rooted at nexez.app.
+  const baseUrl = agentRuntimeUrl('/').replace(/\/$/, '')
   const { data: pages } = await supabase
     .from('pages_public')
     .select('slug, created_at, updated_at, products, services')

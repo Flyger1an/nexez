@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Bot, CheckCircle2, HelpCircle, Loader2, Send, TicketCheck } from 'lucide-react'
 import { createClient } from '../utils/supabase/client'
+import { appUrl } from '../lib/site'
 
 type PageOption = {
   id: string
@@ -160,7 +161,7 @@ export function SupportDesk() {
         <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">
           Support needs your workspace context so AI can inspect the right pages and tickets are tied to your account.
         </p>
-        <a href="/login?next=/support" className="btn-primary mt-5">Sign in</a>
+        <a href={appUrl('/login?next=/support')} className="btn-primary mt-5">Sign in</a>
       </div>
     )
   }

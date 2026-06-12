@@ -16,6 +16,7 @@ import { OutboundActivityCard } from '../../../components/editor/OutboundActivit
 import { IntegrationsHealthPanel } from '../../../components/editor/IntegrationsHealthPanel'
 import { AvailabilityCard } from '../../../components/editor/AvailabilityCard'
 import { ReanalysisPreview } from '../../../components/editor/ReanalysisPreview'
+import { appUrl } from '../../../lib/site'
 
 export function EditorClient({ initial }: { initial: EditorInitial }) {
   const e = usePageEditor(initial)
@@ -139,7 +140,7 @@ export function EditorClient({ initial }: { initial: EditorInitial }) {
                     </span>
                     <span className="flex gap-2">
                       <a
-                        href={`/${e.slug}?preview=1`}
+                        href={appUrl(`/${e.slug}?preview=1`)}
                         target="_blank"
                         rel="noreferrer"
                         className="rounded border border-cyan-300/40 px-3 py-1 text-[11px] text-cyan-100 hover:bg-cyan-300/10"

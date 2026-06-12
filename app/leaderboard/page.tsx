@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Trophy } from 'lucide-react'
 import { AgentPage, PUBLIC_PAGE_SELECT, getOfferCount, getReadinessScore, getTrustScore } from '../../lib/agent-page'
 import { supabase } from '../../lib/supabase'
+import { agentRuntimeUrl, appUrl } from '../../lib/site'
 
 export const metadata: Metadata = {
   title: 'Agent-Ready Leaderboard',
@@ -86,7 +87,7 @@ export default async function LeaderboardPage({ searchParams }: Props) {
                   {i + 1}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <a href={`/${row.page.slug}`} className="block truncate font-medium text-white hover:text-[#C4B5FD]">
+                  <a href={agentRuntimeUrl(`/${row.page.slug}`)} className="block truncate font-medium text-white hover:text-[#C4B5FD]">
                     {row.page.name}
                   </a>
                   <div className="text-xs text-zinc-500">
@@ -109,7 +110,7 @@ export default async function LeaderboardPage({ searchParams }: Props) {
 
         <p className="mt-8 text-xs text-zinc-500">
           Want to climb? Improve your readiness in the editor and verify your custom domain.{' '}
-          <a href="/create" className="text-cyan-200 hover:underline">Create a page →</a>
+          <a href={appUrl('/create')} className="text-cyan-200 hover:underline">Create a page →</a>
         </p>
       </div>
     </main>

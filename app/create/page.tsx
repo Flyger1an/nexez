@@ -36,6 +36,7 @@ import { NEXEZ_INDUSTRIES, getIndustrySuggestions } from '../../lib/industry-cat
 import { createClient } from '../../utils/supabase/client'
 import { VisualOfferBuilder } from '../../components/VisualOfferBuilder'
 import { ErrorBoundary } from '../../components/ErrorBoundary'
+import { agentRuntimeUrl, appUrl } from '../../lib/site'
 
 type GuidedImportReview = {
   suggestedPage?: {
@@ -639,10 +640,10 @@ export default function CreatePage() {
             so you can continue editing, test it with agents, or configure settings.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <a href={`/${publishedSlug}`} target="_blank" rel="noreferrer" className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-zinc-950 hover:bg-zinc-200">
+            <a href={agentRuntimeUrl(`/${publishedSlug}`)} target="_blank" rel="noreferrer" className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-zinc-950 hover:bg-zinc-200">
               Open public page
             </a>
-            <a href="/dashboard" className="rounded-lg border border-white/15 px-5 py-3 text-sm font-medium text-white hover:bg-white/10">
+            <a href={appUrl('/dashboard')} className="rounded-lg border border-white/15 px-5 py-3 text-sm font-medium text-white hover:bg-white/10">
               Continue in dashboard
             </a>
           </div>
@@ -1460,7 +1461,7 @@ function openPendingPublicPageTab(): Window | null {
 
 function sendPublicPageTab(tab: Window | null, path: string) {
   if (typeof window === 'undefined') return
-  const publicUrl = new URL(path, window.location.origin).toString()
+  const publicUrl = new URL(path, agentRuntimeUrl('/')).toString()
 
   if (tab && !tab.closed) {
     tab.location.href = publicUrl

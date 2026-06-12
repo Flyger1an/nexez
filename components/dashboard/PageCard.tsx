@@ -2,6 +2,7 @@
 
 import { Activity, BarChart3, Bot, Copy, CopyPlus, ExternalLink, Gauge, Pencil, Play, Settings, Trash2 } from 'lucide-react'
 import { AgentPage, getOfferCount, getReadinessScore } from '../../lib/agent-page'
+import { agentRuntimeUrl } from '../../lib/site'
 
 export const pageActionClass =
   'inline-flex h-9 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-zinc-300 hover:bg-white/10 hover:text-white'
@@ -87,7 +88,7 @@ export function PageCard({
           <a href={`/dashboard/analytics?page=${encodeURIComponent(page.id)}`} className={pageActionClass} aria-label="View page analytics">
             <BarChart3 className="size-4" />
           </a>
-          <a href={`/${page.slug}`} className={pageActionClass} aria-label="Preview page">
+          <a href={agentRuntimeUrl(`/${page.slug}`)} className={pageActionClass} aria-label="Preview page">
             <ExternalLink className="size-4" />
           </a>
           <button onClick={onCopy} className={pageActionClass} aria-label="Copy page URL">

@@ -26,6 +26,7 @@ import {
 import { createClient } from '../utils/supabase/client'
 import { ThemeToggle } from './ThemeToggle'
 import { NexezLogo } from './NexezLogo'
+import { agentRuntimeUrl } from '../lib/site'
 
 type PageHit = {
   id: string
@@ -378,7 +379,7 @@ function QuickPageSearch() {
                 </button>
                 {page.is_published ? (
                   <a
-                    href={`/${page.slug}`}
+                    href={agentRuntimeUrl(`/${page.slug}`)}
                     onMouseDown={(event) => event.preventDefault()}
                     className="mr-2 shrink-0 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-white/10 hover:text-white"
                   >

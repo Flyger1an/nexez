@@ -29,6 +29,7 @@ import {
   getRecommendations,
 } from '../../../../lib/agent-simulator'
 import { createClient } from '../../../../utils/supabase/client'
+import { agentRuntimeUrl } from '../../../../lib/site'
 
 type PageProps = {
   params: Promise<{ id: string }>
@@ -181,7 +182,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
               <Wrench className="size-4" />
               Edit Page
             </a>
-            <a href={`/${page.slug}`} className={topButtonClass}>
+            <a href={agentRuntimeUrl(`/${page.slug}`)} className={topButtonClass}>
               <ExternalLink className="size-4" />
               Public Page
             </a>
@@ -196,7 +197,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
           </div>
           <div className="flex gap-3">
             <a href={`/dashboard/${page?.id}`} className="btn-secondary">Edit Page</a>
-            <a href={`/${page?.slug}`} className="btn-secondary">View Live</a>
+            <a href={agentRuntimeUrl(`/${page?.slug}`)} className="btn-secondary">View Live</a>
             <a href="/simulator" className="btn-secondary">Global /simulator</a>
           </div>
         </div>

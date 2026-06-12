@@ -478,7 +478,7 @@ export function getCertification(page: Partial<AgentPage>): Certification {
 }
 
 export function getBaseUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL || 'https://nexez.vercel.app'
+  return process.env.NEXT_PUBLIC_AGENT_RUNTIME_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://nexez.app'
 }
 
 type HeaderGetter = Pick<Headers, 'get'>

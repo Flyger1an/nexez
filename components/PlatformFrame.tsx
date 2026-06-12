@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic'
 import { isMarketingPath } from '../lib/site'
 
 // The heavy chrome is code-split and only loaded where it's used:
-//  - PlatformShell: the in-app product nav (nexez.app: dashboard, page builder).
+//  - PlatformShell: the in-app product nav (app.nexez.ai: dashboard, page builder).
 //  - MarketingShell: the marketing nav/footer (nexez.ai: homepage, discovery,
 //    pricing, simulator, …).
 // Agent/public pages, auth, and the API render children directly — keeping those
@@ -15,7 +15,7 @@ const PlatformShell = dynamic(() => import('./PlatformShell'))
 const MarketingShell = dynamic(() => import('./MarketingShell').then((m) => m.MarketingShell))
 
 // Product routes that get the in-app shell. The discovery/simulator/support
-// surfaces moved to MarketingShell as part of the nexez.ai / nexez.app split.
+// surfaces moved to MarketingShell as part of the nexez.ai / app.nexez.ai split.
 const platformPrefixes = ['/dashboard', '/create']
 
 export function PlatformFrame({ children }: { children: ReactNode }) {

@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase'
 import { CopyButton } from './CopyButton'
 import { FavoriteButton } from '../../components/FavoriteButton'
 import { TrackedDirectoryLink } from '../../components/TrackedDirectoryLink'
+import { agentRuntimeUrl, appUrl } from '../../lib/site'
 
 type DirectoryProps = {
   searchParams: Promise<{ q?: string; type?: string; category?: string; min_readiness?: string }>
@@ -69,11 +70,11 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
         <div className="mx-auto max-w-7xl px-6 py-6">
           <div className="flex justify-end">
             <div className="flex flex-wrap items-center gap-3 text-sm">
-              <a href="/agent-pages.json" className="btn-secondary inline-flex items-center gap-2">
+              <a href={agentRuntimeUrl('/agent-pages.json')} className="btn-secondary inline-flex items-center gap-2">
                 <Code2 className="size-4" />
                 Agent Index
               </a>
-              <a href="/dashboard" className="btn-primary inline-flex items-center gap-2">
+              <a href={appUrl('/dashboard')} className="btn-primary inline-flex items-center gap-2">
                 Dashboard
               </a>
             </div>
@@ -153,9 +154,9 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
           <div className="card !p-5">
             <p className="text-sm font-semibold text-[#9CA3AF]">Category</p>
             <div className="mt-4 grid gap-2">
-              <FilterLink label="All" value="all" active={type === 'all'} query={cleanQuery} param="category" currentOther={type} />
-              <FilterLink label="Professional" value="professional" active={type === 'professional'} query={cleanQuery} param="category" currentOther={type} />
-              <FilterLink label="Consumer / Local" value="consumer" active={type === 'consumer'} query={cleanQuery} param="category" currentOther={type} />
+              <FilterLink label="All" value="all" active={categoryFilter === 'all'} query={cleanQuery} param="category" currentOther={type} />
+              <FilterLink label="Professional" value="professional" active={categoryFilter === 'professional'} query={cleanQuery} param="category" currentOther={type} />
+              <FilterLink label="Consumer / Local" value="consumer" active={categoryFilter === 'consumer'} query={cleanQuery} param="category" currentOther={type} />
             </div>
           </div>
 
@@ -202,7 +203,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                         : 'All agent-ready offers'}
                 </h2>
               </div>
-              <a href="/openapi.json" className="inline-flex items-center gap-2 text-sm font-medium text-cyan-700 hover:text-cyan-900">
+              <a href={agentRuntimeUrl('/openapi.json')} className="inline-flex items-center gap-2 text-sm font-medium text-cyan-700 hover:text-cyan-900">
                 OpenAPI
                 <ExternalLink className="size-4" />
               </a>
@@ -292,7 +293,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                       <div key={p.slug} className="card !p-4 text-sm">
                         <div className="flex items-start justify-between">
                           <TrackedDirectoryLink
-                            href={`/${p.slug}`}
+                            href={agentRuntimeUrl(`/${p.slug}`)}
                             slug={p.slug}
                             action="similar_page"
                             className="font-medium text-white hover:text-[#7C3AED]"
@@ -323,7 +324,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
           {!results.length ? (
             <div className="card p-8 text-center">
               <p className="text-[#9CA3AF]">No published offers match this search.</p>
-              <a href="/create" className="btn-primary mt-5 inline-flex items-center gap-2">
+              <a href={appUrl('/create')} className="btn-primary mt-5 inline-flex items-center gap-2">
                 Create page
                 <ArrowRight className="size-4" />
               </a>

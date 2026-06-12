@@ -1,19 +1,13 @@
 import { NextResponse } from 'next/server'
-import { MARKETING_HOST } from '../../../../lib/site'
+import { APP_HOST, MARKETING_HOST } from '../../../../lib/site'
 
-// Best-effort, cross-domain auth hint for the marketing nav.
-//
-// nexez.ai is a different registrable domain, so it can't read the nexez.app session
-// cookie (host-only + SameSite=Lax). This endpoint reads the non-sensitive
-// `nx_authed` hint cookie (SameSite=None, set by the auth middleware) and reports it
-// back to the marketing origin with credentialed CORS, so the nav can swap
-// "Sign in / Get started" → "Dashboard" when the browser is signed in.
-//
-// It returns ONLY a boolean, carries no session data, and is never used for
-// authorization. Works where the browser sends third-party cookies (Chrome); Safari
-// ITP / Firefox TCP block that, and the nav simply falls back to the public CTAs.
-
-const ALLOWED_ORIGINS = new Set([`https://${MARKETING_HOST}`, `https://www.${MARKETING_HOST}`])
+// Best-effort auth presence ping for same-site nexez.ai surfaces. Real
+// authorization still uses Supabase getUser() inside protected routes.
+const ALLOWED_ORIGINS = new Set([
+  `https://${MARKETING_HOST}`,
+  `https://www.${MARKETING_HOST}`,
+  `https://${APP_HOST}`,
+])
 
 function corsHeaders(origin: string | null): Record<string, string> {
   if (origin && ALLOWED_ORIGINS.has(origin)) {
@@ -28,7 +22,7 @@ function corsHeaders(origin: string | null): Record<string, string> {
 
 export async function GET(request: Request) {
   const cookie = request.headers.get('cookie') || ''
-  const authed = /(?:^|;\s*)nx_authed=1(?:;|$)/.test(cookie)
+  const authed = /(?:^|;\s*)sb-[^=;]+-auth-token(?:\.[0-9]+)?=/.test(cookie)
   return NextResponse.json(
     { authed },
     { headers: { ...corsHeaders(request.headers.get('origin')), 'Cache-Control': 'no-store' } },

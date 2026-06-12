@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '../../test/dom'
 import CreatePage from './page'
 import { NEXEZ_INDUSTRIES } from '../../lib/industry-catalog'
+import { agentRuntimeUrl } from '../../lib/site'
 
 const routerMock = vi.hoisted(() => ({
   push: vi.fn(),
@@ -361,7 +362,7 @@ describe('CreatePage guided import review', () => {
 
     expect(openMock).toHaveBeenCalledWith('', '_blank')
     expect(tab.opener).toBeNull()
-    expect(tab.location.href).toBe(`${window.location.origin}/acme-agent-page`)
+    expect(tab.location.href).toBe(agentRuntimeUrl('/acme-agent-page'))
     expect(tab.close).not.toHaveBeenCalled()
     expect(supabaseMocks.insert).toHaveBeenCalledWith(expect.objectContaining({
       owner_id: 'user-1',

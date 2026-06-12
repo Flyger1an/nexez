@@ -47,6 +47,7 @@ import { CheckoutEvent, getEventActionLabel } from '../../../lib/checkout-events
 import { createClient } from '../../../utils/supabase/server'
 import { cookies } from 'next/headers'
 import AnalyticsActions from './AnalyticsActions'
+import { agentRuntimeUrl } from '../../../lib/site'
 
 type AnalyticsPageProps = {
   searchParams: Promise<AnalyticsSearchParams>
@@ -404,7 +405,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
               {selectedPage ? (
                 <div className="mt-4 flex flex-wrap gap-2">
                   <a
-                    href={`/${selectedPage.slug}`}
+                    href={agentRuntimeUrl(`/${selectedPage.slug}`)}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-zinc-200 hover:bg-white/10"

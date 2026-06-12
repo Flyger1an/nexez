@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { FavoriteButton } from './FavoriteButton'
 import { TrackedDirectoryLink } from './TrackedDirectoryLink'
+import { agentRuntimeUrl, appUrl } from '../lib/site'
 
 export function MarketplaceResults({ initialResults }: { initialResults: any[] }) {
   const [showOnlyFavs, setShowOnlyFavs] = useState(false)
@@ -33,7 +34,7 @@ export function MarketplaceResults({ initialResults }: { initialResults: any[] }
         {filtered.length > 0 ? filtered.slice(0, 12).map((item: any) => (
           <div key={item.slug} className="card !p-5 hover:border-[#7C3AED]/30 transition">
             <div className="flex justify-between">
-              <a href={`/${item.slug}`} className="font-semibold text-lg text-white hover:text-[#7C3AED]">{item.name}</a>
+              <a href={agentRuntimeUrl(`/${item.slug}`)} className="font-semibold text-lg text-white hover:text-[#7C3AED]">{item.name}</a>
               <span className="text-xs bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded">Trust {item.trust_score || 70}</span>
             </div>
             <p className="mt-1 text-sm text-[#9CA3AF] line-clamp-2">{item.description}</p>
@@ -46,8 +47,8 @@ export function MarketplaceResults({ initialResults }: { initialResults: any[] }
             </div>
             <div className="mt-3 flex gap-2 text-xs">
               <TrackedDirectoryLink href={item.agent_json_url} slug={item.slug} action="agent_json" surface="marketplace" className="text-[#7C3AED] hover:underline">Agent JSON</TrackedDirectoryLink>
-              <TrackedDirectoryLink href={`/${item.slug}`} slug={item.slug} action="public_page" surface="marketplace" className="text-[#9CA3AF] hover:underline">View</TrackedDirectoryLink>
-              <TrackedDirectoryLink href={`/dashboard/competitors?slug=${item.slug}`} slug={item.slug} action="analyze" surface="marketplace" className="text-[#7C3AED] hover:underline">Analyze</TrackedDirectoryLink>
+              <TrackedDirectoryLink href={agentRuntimeUrl(`/${item.slug}`)} slug={item.slug} action="public_page" surface="marketplace" className="text-[#9CA3AF] hover:underline">View</TrackedDirectoryLink>
+              <TrackedDirectoryLink href={appUrl(`/dashboard/competitors?slug=${item.slug}`)} slug={item.slug} action="analyze" surface="marketplace" className="text-[#7C3AED] hover:underline">Analyze</TrackedDirectoryLink>
               <FavoriteButton slug={item.slug} />
             </div>
           </div>

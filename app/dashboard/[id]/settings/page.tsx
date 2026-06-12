@@ -20,6 +20,7 @@ import { normalizeBranding } from '../../../../lib/branding'
 import { deploymentChangeAt, summarizeDeployments } from '../../../../lib/deployments'
 import { buildAgentPagePayload, getAgentJsonPath } from '../../../../lib/agent-manifest'
 import { createClient } from '../../../../utils/supabase/client'
+import { agentRuntimeUrl } from '../../../../lib/site'
 
 type PageProps = {
   params: Promise<{ id: string }>
@@ -527,7 +528,7 @@ export default function PageSettings({ params }: PageProps) {
             <a href={`/dashboard/${page.id}`} className={topButtonClass}>
               Edit Page
             </a>
-            <a href={`/${page.slug}`} className={topButtonClass}>
+            <a href={agentRuntimeUrl(`/${page.slug}`)} className={topButtonClass}>
               <ExternalLink className="size-4" />
               Public Page
             </a>

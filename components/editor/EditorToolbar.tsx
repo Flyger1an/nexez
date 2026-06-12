@@ -1,5 +1,6 @@
 import { CopyPlus, ExternalLink, Loader2, Play } from 'lucide-react'
 import { PageEditor } from './usePageEditor'
+import { agentRuntimeUrl } from '../../lib/site'
 
 export function EditorToolbar({ e }: { e: PageEditor }) {
   const page = e.page
@@ -42,7 +43,7 @@ export function EditorToolbar({ e }: { e: PageEditor }) {
           Competitor Intel
         </a>
         <a
-          href={`/${page.slug}`}
+          href={agentRuntimeUrl(`/${page.slug}`)}
           target="_blank"
           rel="noreferrer"
           className="inline-flex w-fit items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm text-white hover:bg-white/10"

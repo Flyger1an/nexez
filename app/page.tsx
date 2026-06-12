@@ -14,7 +14,7 @@ import {
 import type { ComponentType } from 'react'
 import { AgentPage, PUBLIC_PAGE_SELECT, getOfferCount, getReadinessScore } from '../lib/agent-page'
 import { supabase } from '../lib/supabase'
-import { appUrl } from '../lib/site'
+import { agentRuntimeUrl, appUrl } from '../lib/site'
 import { SimulatorTeaser } from '../components/SimulatorTeaser'
 import { HomeGauge } from '../components/HomeGauge'
 import { PhilosophySplit } from '../components/PhilosophySplit'
@@ -318,7 +318,7 @@ export default async function NexezHome() {
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {pages?.slice(0, 6).map((page) => (
-              <a key={page.id} href={appUrl(`/${page.slug}`)} className="nx-tile group block p-6">
+              <a key={page.id} href={agentRuntimeUrl(`/${page.slug}`)} className="nx-tile group block p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <h3 className="line-clamp-1 text-lg font-medium group-hover:text-white">{page.name}</h3>

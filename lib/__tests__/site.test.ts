@@ -1,14 +1,25 @@
 import { describe, it, expect } from 'vitest'
-import { isMarketingPath, isHostNeutralPath, canonicalHostFor, appUrl, marketingUrl, APP_HOST, MARKETING_HOST } from '../site'
+import {
+  AGENT_RUNTIME_HOST,
+  APP_HOST,
+  MARKETING_HOST,
+  agentRuntimeUrl,
+  appUrl,
+  canonicalHostFor,
+  isAppPath,
+  isHostNeutralPath,
+  isMarketingPath,
+  marketingUrl,
+} from '../site'
 
 describe('isMarketingPath', () => {
-  it('treats the homepage + marketing prefixes as marketing (→ nexez.ai)', () => {
+  it('treats the homepage + marketing prefixes as marketing', () => {
     for (const p of ['/', '/pricing', '/pricing/teams', '/directory', '/leaderboard', '/marketplace', '/simulator', '/support', '/privacy', '/terms', '/design', '/blog/x', '/docs']) {
       expect(isMarketingPath(p), p).toBe(true)
     }
   })
 
-  it('treats brain routes as NOT marketing (→ nexez.app)', () => {
+  it('treats app/runtime routes as NOT marketing', () => {
     for (const p of ['/dashboard', '/dashboard/x', '/negotiate/abc', '/checkout/foo', '/api/negotiations', '/login', '/onboard', '/create', '/some-agent-slug', '/agent.json']) {
       expect(isMarketingPath(p), p).toBe(false)
     }
@@ -39,24 +50,42 @@ describe('isHostNeutralPath', () => {
 })
 
 describe('canonicalHostFor', () => {
-  it('routes marketing → MARKETING_HOST, everything else (the brain) → APP_HOST', () => {
+  it('routes marketing, app, and public runtime paths to their canonical hosts', () => {
     expect(canonicalHostFor('/')).toBe(MARKETING_HOST)
     expect(canonicalHostFor('/pricing')).toBe(MARKETING_HOST)
+    expect(canonicalHostFor('/api/directory')).toBe(MARKETING_HOST)
+
     expect(canonicalHostFor('/dashboard')).toBe(APP_HOST)
-    expect(canonicalHostFor('/some-slug')).toBe(APP_HOST)
-    expect(canonicalHostFor('/api/negotiations')).toBe(APP_HOST)
+    expect(canonicalHostFor('/create')).toBe(APP_HOST)
+    expect(canonicalHostFor('/api/billing')).toBe(APP_HOST)
+
+    expect(canonicalHostFor('/some-slug')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/agent-pages.json')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/api/negotiations')).toBe(AGENT_RUNTIME_HOST)
   })
 })
 
-describe('appUrl / marketingUrl', () => {
+describe('isAppPath', () => {
+  it('only flags human product routes', () => {
+    expect(isAppPath('/dashboard')).toBe(true)
+    expect(isAppPath('/dashboard/settings')).toBe(true)
+    expect(isAppPath('/create')).toBe(true)
+    expect(isAppPath('/some-slug')).toBe(false)
+  })
+})
+
+describe('appUrl / marketingUrl / agentRuntimeUrl', () => {
   it('build absolute cross-domain URLs and add a leading slash', () => {
     expect(appUrl('/login')).toBe(`https://${APP_HOST}/login`)
     expect(appUrl('onboard')).toBe(`https://${APP_HOST}/onboard`)
     expect(marketingUrl('/pricing')).toBe(`https://${MARKETING_HOST}/pricing`)
     expect(marketingUrl()).toBe(`https://${MARKETING_HOST}/`)
+    expect(agentRuntimeUrl('/acme')).toBe(`https://${AGENT_RUNTIME_HOST}/acme`)
   })
 
-  it('the two hosts are distinct (the split is real)', () => {
+  it('the hosts are distinct', () => {
     expect(APP_HOST).not.toBe(MARKETING_HOST)
+    expect(AGENT_RUNTIME_HOST).not.toBe(MARKETING_HOST)
+    expect(AGENT_RUNTIME_HOST).not.toBe(APP_HOST)
   })
 })

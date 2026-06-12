@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../utils/supabase/server'
 import { createStripeConnectAccount, createStripeConnectOnboardingLink } from '../../../../lib/stripe-billing'
+import { appUrl } from '../../../../lib/site'
 import Stripe from 'stripe'
 
 /**
@@ -11,8 +12,9 @@ import Stripe from 'stripe'
  * Stores account id in billing_subscriptions.stripe_connect_account_id
  */
 export async function POST(request: Request) {
+  const requestUrl = new URL(request.url)
   const cookieStore = await cookies()
-  const supabase = createClient(cookieStore)
+  const supabase = createClient(cookieStore, requestUrl.host)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
@@ -75,16 +77,14 @@ export async function POST(request: Request) {
   }
 
   // If caller just wants a status refresh (no redirect), return early
-  const requestUrl = new URL(request.url)
   if (requestUrl.searchParams.get('refresh') === 'true') {
     return NextResponse.json({ refreshed: true, ...statusUpdate })
   }
 
   // Create onboarding / manage link (Stripe will show the appropriate flow for the account state)
-  const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://nexez.app'
   // Redirect back to billing page after Stripe Connect onboarding so the status/refetch logic can run immediately.
-  const returnUrl = `${base}/dashboard/billing?connect=success`
-  const refreshUrl = `${base}/dashboard/billing?connect=refresh`
+  const returnUrl = appUrl('/dashboard/billing?connect=success')
+  const refreshUrl = appUrl('/dashboard/billing?connect=refresh')
 
   try {
     const link = await createStripeConnectOnboardingLink(accountId, returnUrl, refreshUrl)

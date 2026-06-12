@@ -17,6 +17,7 @@ import { createClient } from '../../utils/supabase/client'
 import { PageCard } from '../../components/dashboard/PageCard'
 import { OnboardingChecklist } from '../../components/OnboardingChecklist'
 import { buildNotifications } from '../../lib/notifications'
+import { agentRuntimeUrl } from '../../lib/site'
 
 export type DashboardInitial = {
   pages: AgentPage[]
@@ -425,7 +426,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                       <p className="mt-1 text-xs text-zinc-500">{getOfferCount(sp)} offers · readiness {getReadinessScore(sp)}</p>
                       <div className="mt-3 flex gap-2 text-xs">
                         <a href={`/dashboard/${sp.id}`} className="rounded border border-[#7C3AED]/40 px-3 py-1 text-[#C4B5FD] hover:bg-[#7C3AED]/10">Open</a>
-                        <a href={`/${sp.slug}`} target="_blank" rel="noreferrer" className="rounded border border-white/15 px-3 py-1 text-zinc-200 hover:bg-white/10">Public ↗</a>
+                        <a href={agentRuntimeUrl(`/${sp.slug}`)} target="_blank" rel="noreferrer" className="rounded border border-white/15 px-3 py-1 text-zinc-200 hover:bg-white/10">Public ↗</a>
                       </div>
                     </div>
                   ))}

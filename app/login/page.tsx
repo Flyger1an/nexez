@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { LoginForm, LoginMode } from '../../components/LoginForm'
 import { createClient } from '../../utils/supabase/server'
@@ -24,14 +24,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const initialMode = toLoginMode(firstValue(params?.mode))
   const nextPath = firstValue(params?.next)
 
-  // Already signed in? Don't show a login form — go straight to the app. The
-  // marketing surface (nexez.ai) is a different registrable domain, so it can't
-  // see the nexez.app session cookie and its nav always shows "Sign in"; this makes
-  // that button bounce an authenticated user back into their dashboard instead of a
-  // confusing form that looks like they were logged out. (Password reset still
-  // renders, since that can legitimately run while a stale session exists.)
+  // Already signed in? Don't show a login form. Shared .nexez.ai cookies let
+  // nexez.ai and app.nexez.ai agree on auth state, while nexez.app stays focused
+  // on public agent pages.
   if (initialMode !== 'reset') {
-    const supabase = createClient(await cookies())
+    const host = (await headers()).get('host')
+    const supabase = createClient(await cookies(), host)
     const {
       data: { user },
     } = await supabase.auth.getUser()

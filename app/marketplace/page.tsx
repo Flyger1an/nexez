@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import { Star, TrendingUp } from 'lucide-react'
-import { getBaseUrl } from '../../lib/agent-page'
 import { MarketplaceResults } from '../../components/MarketplaceResults'
 import { TrackedDirectoryLink } from '../../components/TrackedDirectoryLink'
+import { agentRuntimeUrl, appUrl, marketingUrl } from '../../lib/site'
 
 export const metadata: Metadata = {
   title: 'Agent Marketplace',
@@ -11,8 +11,7 @@ export const metadata: Metadata = {
 
 async function fetchMarketplaceData() {
   try {
-    const base = getBaseUrl()
-    const res = await fetch(`${base}/api/directory?min_readiness=50`, { cache: 'no-store' })
+    const res = await fetch(marketingUrl('/api/directory?min_readiness=50'), { cache: 'no-store' })
     if (!res.ok) return { results: [], count: 0 }
     const data = await res.json()
     return { results: data.results || [], count: data.count || 0 }
@@ -61,7 +60,7 @@ export default async function MarketplacePage() {
               {trending.map((item: any) => (
                 <TrackedDirectoryLink
                   key={item.slug}
-                  href={`/${item.slug}`}
+                  href={agentRuntimeUrl(`/${item.slug}`)}
                   slug={item.slug}
                   action="public_page"
                   surface="marketplace"
@@ -90,7 +89,7 @@ export default async function MarketplacePage() {
         </div>
 
         <div className="mt-6 text-center">
-          <a href="/create" className="btn-secondary inline-flex items-center gap-2">
+          <a href={appUrl('/create')} className="btn-secondary inline-flex items-center gap-2">
             List your offers in the Marketplace
           </a>
         </div>

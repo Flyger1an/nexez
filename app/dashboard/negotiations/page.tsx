@@ -25,6 +25,7 @@ import {
 } from '../../../lib/negotiations'
 import { withTimeout } from '../../../lib/async-timeout'
 import { createClient } from '../../../utils/supabase/client'
+import { agentRuntimeUrl } from '../../../lib/site'
 
 // Note: createClient is used inside NegotiationCard for the manual owner message form
 // (direct insert to negotiation_messages + status update for seller_owner role).
@@ -404,7 +405,7 @@ function NegotiationCard({
           </div>
           <h2 className="mt-2 truncate text-lg font-medium">{item.offer_name}</h2>
           <a
-            href={`/${item.slug}`}
+            href={agentRuntimeUrl(`/${item.slug}`)}
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1 text-xs text-[#7C3AED] hover:underline"
@@ -506,7 +507,7 @@ function NegotiationCard({
             Receipt
           </a>
         )}
-        <a href={`/negotiate/${item.id}`} className="inline-flex items-center gap-1 text-xs text-[#7C3AED] hover:underline">
+        <a href={agentRuntimeUrl(`/negotiate/${item.id}`)} className="inline-flex items-center gap-1 text-xs text-[#7C3AED] hover:underline">
           View full persistent thread →
         </a>
       </div>

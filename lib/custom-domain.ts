@@ -19,8 +19,8 @@ function extractHostFromUrl(url: string | null | undefined): string {
 
 /**
  * Hosts that belong to the Nexez platform itself (never treated as a customer's
- * custom domain): localhost, Vercel preview/prod domains, and the configured
- * site URL host.
+ * custom domain): localhost, Vercel preview/prod domains, and configured
+ * first-party Nexez hosts.
  */
 export function isPlatformHost(host: string | null | undefined, siteUrl?: string | null): boolean {
   const h = normalizeHost(host)
@@ -33,12 +33,12 @@ export function isPlatformHost(host: string | null | undefined, siteUrl?: string
     return !!c && (h === c || h === `www.${c}` || `www.${h}` === c)
   }
 
-  // Both the product host (NEXT_PUBLIC_SITE_URL = nexez.app) and the marketing host
-  // (NEXT_PUBLIC_MARKETING_URL = nexez.ai) are first-party platform hosts — never a
-  // customer's custom domain. The marketing URL is read directly to avoid a circular
-  // import with lib/site.
+  // All first-party hosts are platform hosts, never customer custom domains. Keep
+  // this env-based to avoid a circular import with lib/site.
   if (matchesConfigured(siteUrl)) return true
   if (matchesConfigured(process.env.NEXT_PUBLIC_MARKETING_URL || 'https://nexez.ai')) return true
+  if (matchesConfigured(process.env.NEXT_PUBLIC_APP_URL || 'https://app.nexez.ai')) return true
+  if (matchesConfigured(process.env.NEXT_PUBLIC_AGENT_RUNTIME_URL || 'https://nexez.app')) return true
 
   return false
 }

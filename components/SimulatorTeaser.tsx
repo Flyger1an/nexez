@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { appUrl } from '../lib/site'
 
 type SimOffer = {
   key: string
@@ -220,7 +221,7 @@ export function SimulatorTeaser() {
 
           {/* Conversion hook */}
           <div className="mt-6 flex flex-col items-center gap-3 border-t border-border pt-4 sm:flex-row">
-            <a href="/create" className="btn-primary h-10 flex-1 px-5 text-sm sm:flex-none">
+            <a href={appUrl('/create')} className="btn-primary h-10 flex-1 px-5 text-sm sm:flex-none">
               Create a page like this
             </a>
             <a href="/simulator" className="text-sm text-cyan-300 hover:underline">

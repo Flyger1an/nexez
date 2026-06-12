@@ -10,7 +10,13 @@ import {
   normalizeHost,
 } from './lib/custom-domain'
 import { AB_BUCKET_COOKIE, randomBucket } from './lib/ab-testing'
-import { APP_HOST, MARKETING_HOST, canonicalHostFor, isHostNeutralPath } from './lib/site'
+import {
+  AGENT_RUNTIME_HOST,
+  APP_HOST,
+  MARKETING_HOST,
+  canonicalHostFor,
+  isHostNeutralPath,
+} from './lib/site'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL
 const AB_BUCKET_MAX_AGE = 60 * 60 * 24 * 365 // 1 year
@@ -106,24 +112,30 @@ export async function proxy(request: NextRequest) {
     // Unknown/unverified custom domain → fall through to normal handling.
   }
 
-  // Canonical-host split: marketing routes live on nexez.ai, the agent-facing brain
-  // on nexez.app. Enforce only on the two real prod hosts so *.vercel.app previews
-  // and localhost keep serving every route for dev/preview. 308 = permanent +
-  // method-preserving (SEO equity transfers; POSTs aren't broken).
+  // Canonical-host split: marketing routes live on nexez.ai, the app lives on
+  // app.nexez.ai, and public agent pages/artifacts live on nexez.app. Enforce
+  // only on real first-party prod hosts so previews and localhost keep serving
+  // every route for dev/preview. 308 = permanent + method-preserving.
   const currentHost = normalizeHost(host)
-  if ((currentHost === APP_HOST || currentHost === MARKETING_HOST) && !isHostNeutralPath(request.nextUrl.pathname)) {
-    // A signed-in user who lands on the brain host's root gets their app, not the
-    // anonymous marketing home (which lives on the other domain and can't see their
-    // session). The dashboard's own auth gate re-validates, so a stale cookie just
-    // falls through to /login. 307 (temporary) — this depends on auth state.
-    if (currentHost === APP_HOST && request.nextUrl.pathname === '/' && hasPlatformSession(request)) {
+  const matchesFirstPartyHost = (firstPartyHost: string) =>
+    currentHost === firstPartyHost || currentHost === `www.${firstPartyHost}`
+  const isFirstPartyHost =
+    matchesFirstPartyHost(APP_HOST) ||
+    matchesFirstPartyHost(MARKETING_HOST) ||
+    matchesFirstPartyHost(AGENT_RUNTIME_HOST)
+  if (isFirstPartyHost && !isHostNeutralPath(request.nextUrl.pathname)) {
+    // A signed-in user who lands on the app host's root gets their dashboard.
+    // The dashboard auth gate still validates, so stale cookies fall through to
+    // /login. 307 because this depends on auth state.
+    if (matchesFirstPartyHost(APP_HOST) && request.nextUrl.pathname === '/' && hasPlatformSession(request)) {
       const url = request.nextUrl.clone()
       url.pathname = '/dashboard'
       url.search = ''
       return persistAbBucket(NextResponse.redirect(url, 307), abBucket)
     }
 
-    const wantHost = canonicalHostFor(request.nextUrl.pathname)
+    const isOwnerPreview = request.nextUrl.searchParams.get('preview') === '1'
+    const wantHost = isOwnerPreview ? APP_HOST : canonicalHostFor(request.nextUrl.pathname)
     if (currentHost !== wantHost) {
       const url = request.nextUrl.clone()
       url.host = wantHost
