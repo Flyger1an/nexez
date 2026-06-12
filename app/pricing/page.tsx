@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { Check, Star } from 'lucide-react'
 import { billingPlans } from '../../lib/billing'
+import { appUrl } from '../../lib/site'
 
 export default function PricingPage() {
   const [selectedPlan, setSelectedPlan] = useState<string>('pro')
@@ -78,7 +79,7 @@ export default function PricingPage() {
                 </ul>
 
                 <a
-                  href={isFree ? '/login?mode=signup' : `/dashboard/billing?plan=${plan.id}`}
+                  href={isFree ? appUrl('/login?mode=signup') : appUrl(`/dashboard/billing?plan=${plan.id}`)}
                   className={`mt-8 block w-full rounded-lg py-3 text-center text-sm font-semibold transition ${
                     isPopular
                       ? 'bg-[#7C3AED] text-white hover:bg-[#6D28D9]'
@@ -165,7 +166,7 @@ export default function PricingPage() {
         </div>
 
         <div className="mt-12 text-center">
-          <a href="/login?mode=signup" className="inline-flex items-center gap-2 rounded-lg bg-white px-8 py-3 font-medium text-zinc-950 hover:bg-zinc-200">
+          <a href={appUrl('/login?mode=signup')} className="inline-flex items-center gap-2 rounded-lg bg-white px-8 py-3 font-medium text-zinc-950 hover:bg-zinc-200">
             Start for free
           </a>
           <p className="mt-2 text-xs text-zinc-500">No credit card required for Free tier.</p>

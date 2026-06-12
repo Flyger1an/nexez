@@ -1,6 +1,5 @@
 import {
   ArrowRight,
-  ArrowUpRight,
   Bot,
   Globe2,
   TrendingUp,
@@ -13,10 +12,9 @@ import {
   Lock,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
-import { cookies } from 'next/headers'
 import { AgentPage, PUBLIC_PAGE_SELECT, getOfferCount, getReadinessScore } from '../lib/agent-page'
 import { supabase } from '../lib/supabase'
-import { createClient } from '../utils/supabase/server'
+import { appUrl } from '../lib/site'
 import { SimulatorTeaser } from '../components/SimulatorTeaser'
 import { HomeGauge } from '../components/HomeGauge'
 import { PhilosophySplit } from '../components/PhilosophySplit'
@@ -24,16 +22,11 @@ import { CodeCopyButton } from '../components/CodeCopyButton'
 import { CountUp } from '../components/CountUp'
 import { HeroBackdrop } from '../components/HeroBackdrop'
 import { TypewriterCode } from '../components/TypewriterCode'
-import { ThemeToggle } from '../components/ThemeToggle'
-import { NexezLogo } from '../components/NexezLogo'
 
-const navLinks = [
-  { label: 'Directory', href: '/directory' },
-  { label: 'Marketplace', href: '/marketplace' },
-  { label: 'Pricing', href: '/pricing' },
-  { label: 'Simulator', href: '/simulator' },
-  { label: 'Leaderboard', href: '/leaderboard' },
-]
+// Marketing homepage: statically served (fast on nexez.ai) but revalidated every
+// 5 min so the "Public examples" showcase picks up newly published pages without a
+// redeploy. The always-live listing lives on /directory.
+export const revalidate = 300
 
 type Feature = {
   title: string
@@ -106,12 +99,6 @@ const sampleQueries = [
 ]
 
 export default async function NexezHome() {
-  const cookieStore = await cookies()
-  const auth = createClient(cookieStore)
-  const {
-    data: { user },
-  } = await auth.auth.getUser()
-
   const { data: pages } = await supabase
     .from('pages_public')
     .select(PUBLIC_PAGE_SELECT)
@@ -120,45 +107,7 @@ export default async function NexezHome() {
     .returns<AgentPage[]>()
 
   return (
-    <main className="min-h-screen bg-background text-white">
-      <nav className="nx-nav sticky top-0 z-50 border-b border-border backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-3.5">
-          <a href="/" className="flex items-center gap-2.5">
-            <div className="flex size-8 items-center justify-center rounded-md border border-border bg-white text-black">
-              <NexezLogo className="size-6" />
-            </div>
-            <span className="text-sm font-medium tracking-tight">Nexez</span>
-          </a>
-
-          <div className="hidden items-center gap-0.5 lg:flex">
-            {navLinks.map((l) => (
-              <a
-                key={l.href}
-                href={l.href}
-                className="rounded-md px-3 py-1.5 text-sm text-zinc-400 transition-colors hover:bg-white/5 hover:text-white"
-              >
-                {l.label}
-              </a>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2 text-sm">
-            <div className="hidden items-center gap-2 sm:flex">
-              <ThemeToggle />
-              {user ? (
-                <a href="/dashboard" className="btn-secondary h-9 px-3">Overview</a>
-              ) : (
-                <a href="/login" className="btn-secondary h-9 px-3">Sign in</a>
-              )}
-            </div>
-            <a href="/create" className="btn-primary h-9 px-3">
-              Create page
-              <ArrowRight className="size-4" />
-            </a>
-          </div>
-        </div>
-      </nav>
-
+    <main>
       {/* HERO */}
       <section className="relative overflow-hidden border-b border-border">
         <HeroBackdrop />
@@ -176,7 +125,7 @@ export default async function NexezHome() {
               domain or a Nexez link.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a href="/create" className="btn-primary h-11 px-5">
+              <a href={appUrl('/create')} className="btn-primary h-11 px-5">
                 Get started free
                 <ArrowRight className="size-4" />
               </a>
@@ -369,7 +318,7 @@ export default async function NexezHome() {
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {pages?.slice(0, 6).map((page) => (
-              <a key={page.id} href={`/${page.slug}`} className="nx-tile group block p-6">
+              <a key={page.id} href={appUrl(`/${page.slug}`)} className="nx-tile group block p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <h3 className="line-clamp-1 text-lg font-medium group-hover:text-white">{page.name}</h3>
@@ -413,7 +362,7 @@ export default async function NexezHome() {
             measuring real discovery signals.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <a href="/create" className="btn-primary h-11 px-5">
+            <a href={appUrl('/create')} className="btn-primary h-11 px-5">
               Deploy your agent page
               <ArrowRight className="size-4" />
             </a>
@@ -421,8 +370,6 @@ export default async function NexezHome() {
           </div>
         </div>
       </section>
-
-      <SiteFooter />
     </main>
   )
 }
@@ -744,89 +691,5 @@ function TrafficSparkline() {
         <animate attributeName="opacity" values="0.4;0;0.4" dur="2.4s" repeatCount="indefinite" />
       </circle>
     </svg>
-  )
-}
-
-function SiteFooter() {
-  const cols: { title: string; links: { label: string; href: string }[] }[] = [
-    {
-      title: 'Product',
-      links: [
-        { label: 'Create a page', href: '/create' },
-        { label: 'Directory', href: '/directory' },
-        { label: 'Marketplace', href: '/marketplace' },
-        { label: 'Pricing', href: '/pricing' },
-        { label: 'Leaderboard', href: '/leaderboard' },
-      ],
-    },
-    {
-      title: 'Agents',
-      links: [
-        { label: 'Agent simulator', href: '/simulator' },
-        { label: 'OpenAPI', href: '/openapi.json' },
-        { label: 'robots.txt', href: '/robots.txt' },
-        { label: 'sitemap.xml', href: '/sitemap.xml' },
-      ],
-    },
-    {
-      title: 'Company',
-      links: [
-        { label: 'Support', href: '/support' },
-        { label: 'Privacy', href: '/privacy' },
-        { label: 'Terms', href: '/terms' },
-        { label: 'Sign in', href: '/login' },
-      ],
-    },
-  ]
-
-  return (
-    <footer className="border-t border-border bg-white/[0.015]">
-      <div className="mx-auto max-w-7xl px-5 py-14">
-        <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
-          <div>
-            <a href="/" className="flex items-center gap-3">
-              <div className="flex size-8 items-center justify-center rounded-md border border-border bg-white text-black">
-                <NexezLogo className="size-6" />
-              </div>
-              <span className="text-sm font-medium tracking-tight">Nexez</span>
-            </a>
-            <p className="mt-4 max-w-xs text-sm leading-6 text-muted-foreground">
-              The agent readable layer for your business: structured, crawlable, and built to convert AI traffic.
-            </p>
-            <div className="mt-5 flex flex-wrap gap-1.5">
-              {['JSON-LD', 'llms.txt', 'agent.json', 'MCP'].map((f) => (
-                <span key={f} className="nx-chip">{f}</span>
-              ))}
-            </div>
-          </div>
-
-          {cols.map((col) => (
-            <div key={col.title}>
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">{col.title}</p>
-              <ul className="mt-4 space-y-2.5">
-                {col.links.map((l) => (
-                  <li key={l.label}>
-                    <a href={l.href} className="inline-flex items-center gap-1 text-sm text-zinc-400 transition-colors hover:text-white">
-                      {l.label}
-                      <ArrowUpRight className="size-3 opacity-0 transition-opacity group-hover:opacity-100" />
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-
-        <div className="nx-hairline my-10" />
-
-        <div className="flex flex-col items-center justify-between gap-3 text-xs text-muted-foreground sm:flex-row">
-          <p>© {new Date().getFullYear()} Nexez. Built for the agentic web.</p>
-          <p className="inline-flex items-center gap-2">
-            <Globe2 className="size-3.5 text-cyan-300" />
-            Human first management · Agent first consumption
-          </p>
-        </div>
-      </div>
-    </footer>
   )
 }
