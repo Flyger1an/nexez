@@ -965,48 +965,61 @@ function clampSummary(value: string, maxLength: number): string {
   return `${clipped.slice(0, end).trim().replace(/[.,;:\s]+$/, '')}...`
 }
 
-export async function fetchHtmlSafe(url: string, timeoutMs = 6500): Promise<string | null> {
-  if (getImportUrlError(url)) return null
-  if (await getResolvedImportUrlError(url)) return null
-
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Nexez Site Importer Bot/1.0 (Production)' },
-      signal: controller.signal,
-      redirect: 'follow',
-    })
-    if (!res.ok) return null
-    const html = await res.text()
-    return html.length > 50 ? html : null
-  } catch {
-    return null
-  } finally {
-    clearTimeout(timer)
+/**
+ * SSRF-hardened fetch. Validates the target (literal + DNS-resolved private-IP
+ * block) and follows redirects MANUALLY, re-validating EVERY hop. The native
+ * redirect:'follow' only checks the initial URL, so a 30x to 127.0.0.1 /
+ * 169.254.169.254 sailed past the guard (red-team gauntlet finding). Returns the
+ * final Response, or null if any hop is unsafe / the chain errors / loops.
+ */
+export async function safeFetch(
+  url: string,
+  init: RequestInit = {},
+  opts: { maxRedirects?: number; timeoutMs?: number } = {},
+): Promise<Response | null> {
+  const maxRedirects = opts.maxRedirects ?? 4
+  const timeoutMs = opts.timeoutMs ?? 6500
+  let current = url
+  for (let hop = 0; hop <= maxRedirects; hop++) {
+    if (getImportUrlError(current)) return null
+    if (await getResolvedImportUrlError(current)) return null
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    let res: Response
+    try {
+      res = await fetch(current, { ...init, signal: controller.signal, redirect: 'manual' })
+    } catch {
+      return null
+    } finally {
+      clearTimeout(timer)
+    }
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get('location')
+      if (!loc) return res
+      try {
+        current = new URL(loc, current).toString()
+      } catch {
+        return null
+      }
+      continue // re-validate the redirect target before connecting to it
+    }
+    return res
   }
+  return null // redirect loop / too many hops
+}
+
+export async function fetchHtmlSafe(url: string, timeoutMs = 6500): Promise<string | null> {
+  const res = await safeFetch(url, { headers: { 'User-Agent': 'Nexez Site Importer Bot/1.0 (Production)' } }, { timeoutMs })
+  if (!res || !res.ok) return null
+  const html = await res.text()
+  return html.length > 50 ? html : null
 }
 
 async function fetchTextSafe(url: string, timeoutMs = 4500): Promise<string | null> {
-  if (getImportUrlError(url)) return null
-  if (await getResolvedImportUrlError(url)) return null
-
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Nexez Site Importer Bot/1.0 (Production)' },
-      signal: controller.signal,
-      redirect: 'follow',
-    })
-    if (!res.ok) return null
-    const text = await res.text()
-    return text.length > 20 ? text : null
-  } catch {
-    return null
-  } finally {
-    clearTimeout(timer)
-  }
+  const res = await safeFetch(url, { headers: { 'User-Agent': 'Nexez Site Importer Bot/1.0 (Production)' } }, { timeoutMs })
+  if (!res || !res.ok) return null
+  const text = await res.text()
+  return text.length > 20 ? text : null
 }
 
 function stripHtml(html: string, maxLength = 8000): string {

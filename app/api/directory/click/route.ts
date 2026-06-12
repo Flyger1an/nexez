@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '../../../../lib/supabase'
+import { enforceRateLimit } from '../../../../lib/rate-limit'
 
 type ClickPayload = {
   slug?: string
@@ -16,6 +17,11 @@ const allowedActions = new Set(['public_page', 'agent_json', 'checkout', 'analyz
 const allowedSurfaces = new Set(['directory', 'marketplace'])
 
 export async function POST(request: Request) {
+  // Unauthenticated metric write — cap it so it can't be used to mass-forge a
+  // page's discovery-click analytics (red-team gauntlet finding).
+  const limited = await enforceRateLimit(request, 'directory-click', 30, 60_000)
+  if (limited) return limited
+
   const payload = await readPayload(request)
   const slug = payload.slug?.trim()
 

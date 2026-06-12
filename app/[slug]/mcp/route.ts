@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server'
 import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '../../../lib/agent-page'
 import { MCP_PROTOCOL_VERSION, handleMcpRequest } from '../../../lib/mcp-server'
 import { supabase } from '../../../lib/supabase'
+import { enforceRateLimit } from '../../../lib/rate-limit'
+
+// Cap on JSON-RPC batch size — an unbounded array was a single-request
+// amplification DoS (~194x) on this unauthenticated endpoint (red-team gauntlet).
+const MCP_MAX_BATCH = 25
 
 /**
  * Real MCP endpoint (JSON-RPC 2.0 over HTTP) at /<slug>/mcp.
@@ -33,6 +38,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ slug: string }> }) {
+  const limited = await enforceRateLimit(request, 'mcp', 60, 60_000)
+  if (limited) return limited
+
   const { slug } = await params
   const page = await loadPage(slug)
   if (!page || !(page as { mcp_enabled?: boolean }).mcp_enabled) {
@@ -53,8 +61,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
   }
 
   const base = getRequestBaseUrl(request)
-  // Support a single request or a JSON-RPC batch.
+  // Support a single request or a JSON-RPC batch (bounded — an unbounded batch was
+  // a single-request amplification DoS).
   if (Array.isArray(body)) {
+    if (body.length > MCP_MAX_BATCH) {
+      return NextResponse.json(
+        { jsonrpc: '2.0', id: null, error: { code: -32600, message: `Batch too large (max ${MCP_MAX_BATCH} requests).` } },
+        { status: 413 },
+      )
+    }
     return NextResponse.json(body.map((req) => handleMcpRequest(page, base, req)))
   }
   return NextResponse.json(handleMcpRequest(page, base, body as Record<string, unknown>))

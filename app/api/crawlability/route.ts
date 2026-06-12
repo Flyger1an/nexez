@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { fetchHtmlSafe, getImportUrlError } from '../../../lib/importer'
+import { fetchHtmlSafe, getImportUrlError, getResolvedImportUrlError, safeFetch } from '../../../lib/importer'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 
 // Multiple external fetches (page + agent.json + llms.txt + robots).
@@ -30,26 +30,21 @@ function normalizeUrl(input: string): string | null {
   }
 }
 
+// All outbound probes go through safeFetch (DNS-resolve → private-IP block →
+// manual, re-validated redirects). The raw fetch() here previously had no SSRF
+// guard at all, so a public name resolving to a private IP (localtest.me →
+// 127.0.0.1, *.nip.io) turned this into a blind internal port/host oracle via the
+// fast-refuse-vs-timeout differential (red-team gauntlet finding).
 async function probe(url: string): Promise<{ ok: boolean; status: number; ms: number }> {
   const started = Date.now()
-  try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Nexez Crawlability Bot/1.0' },
-      signal: AbortSignal.timeout(6500),
-    })
-    return { ok: res.ok, status: res.status, ms: Date.now() - started }
-  } catch {
-    return { ok: false, status: 0, ms: Date.now() - started }
-  }
+  const res = await safeFetch(url, { headers: { 'User-Agent': 'Nexez Crawlability Bot/1.0' } }, { timeoutMs: 6500 })
+  return { ok: !!res && res.ok, status: res?.status ?? 0, ms: Date.now() - started }
 }
 
 async function probeJson(url: string): Promise<boolean> {
+  const res = await safeFetch(url, { headers: { 'User-Agent': 'Nexez Crawlability Bot/1.0', Accept: 'application/json' } }, { timeoutMs: 6500 })
+  if (!res || !res.ok) return false
   try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Nexez Crawlability Bot/1.0', Accept: 'application/json' },
-      signal: AbortSignal.timeout(6500),
-    })
-    if (!res.ok) return false
     await res.json()
     return true
   } catch {
@@ -73,8 +68,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'A valid URL is required' }, { status: 400 })
   }
 
-  // SSRF guard: only public http(s) hosts (blocks localhost/private/link-local).
-  const urlError = getImportUrlError(url)
+  // SSRF guard: literal host check THEN DNS-resolved private-IP check (the literal
+  // check alone let public names that resolve to private IPs through).
+  const urlError = getImportUrlError(url) || (await getResolvedImportUrlError(url))
   if (urlError) {
     return NextResponse.json({ error: urlError }, { status: 400 })
   }

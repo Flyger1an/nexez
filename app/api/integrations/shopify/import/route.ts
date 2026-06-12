@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import { createClient } from '../../../../../utils/supabase/server'
 
 /**
  * Shopify Integration for Nexez (Phase 3)
- * 
+ *
  * Supports two modes:
  * 1. Public catalog (no token) - uses the enhanced general importer
  * 2. Authenticated (Admin API token) - full private catalog access
- * 
+ *
  * This route focuses on authenticated import using Shopify Admin API.
  */
 
@@ -16,7 +18,34 @@ type ShopifyImportRequest = {
   limit?: number
 }
 
+/**
+ * Resolve a Shopify store to a strictly-validated *.myshopify.com host. The old
+ * `shop.includes('.myshopify.com')` substring check let an attacker point the
+ * Admin-API call (carrying the caller's X-Shopify-Access-Token) at any host —
+ * e.g. "evil.com/x#.myshopify.com" — turning this into an unauthenticated SSRF +
+ * credential relay (red-team gauntlet finding). Pin the authority to a real
+ * Shopify subdomain before building the URL.
+ */
+function resolveShopDomain(shop: string): string | null {
+  let host = (shop || '').trim().toLowerCase()
+  if (host.includes('://')) {
+    try { host = new URL(host).hostname } catch { return null }
+  }
+  host = host.replace(/[/?#].*$/, '') // defensive: strip any path/query/fragment
+  if (!host.includes('.')) host = `${host}.myshopify.com`
+  return /^[a-z0-9][a-z0-9-]{0,59}\.myshopify\.com$/.test(host) ? host : null
+}
+
 export async function POST(request: Request) {
+  // Require an authenticated session — this route fetches a private catalog with a
+  // caller-supplied admin token and must not be anonymously abusable.
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
+  }
+
   let body: ShopifyImportRequest
   try {
     body = await request.json()
@@ -30,12 +59,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Shop domain and access token are required' }, { status: 400 })
   }
 
-  // Normalize shop domain
-  const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`
+  const shopDomain = resolveShopDomain(shop)
+  if (!shopDomain) {
+    return NextResponse.json({ error: 'Invalid Shopify store domain (expected your-store.myshopify.com).' }, { status: 400 })
+  }
+  const safeLimit = Math.min(Math.max(1, Number(limit) || 50), 250)
   const apiVersion = '2024-01'
 
   try {
-    const url = `https://${shopDomain}/admin/api/${apiVersion}/products.json?limit=${limit}&fields=id,title,body_html,handle,product_type,variants,images`
+    const url = `https://${shopDomain}/admin/api/${apiVersion}/products.json?limit=${safeLimit}&fields=id,title,body_html,handle,product_type,variants,images`
 
     const res = await fetch(url, {
       headers: {
@@ -45,11 +77,12 @@ export async function POST(request: Request) {
     })
 
     if (!res.ok) {
-      const errorText = await res.text()
-      return NextResponse.json({ 
-        error: 'Failed to fetch from Shopify', 
-        details: errorText 
-      }, { status: 401 })
+      // Do NOT reflect the upstream response body — it was a read-SSRF exfiltration
+      // channel. Surface only Shopify's status code.
+      return NextResponse.json({
+        error: 'Failed to fetch from Shopify',
+        status: res.status,
+      }, { status: 502 })
     }
 
     const data = await res.json()
@@ -94,9 +127,6 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error('Shopify import error:', error)
-    return NextResponse.json({ 
-      error: 'Shopify import failed', 
-      details: error.message 
-    }, { status: 500 })
+    return NextResponse.json({ error: 'Shopify import failed' }, { status: 500 })
   }
 }

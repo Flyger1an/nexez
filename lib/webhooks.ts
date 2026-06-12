@@ -4,6 +4,8 @@
  * Server routes use this to fire user-configured webhooks. Keep validation
  * here so tests, checkout events, and provider webhooks share the same guardrails.
  */
+import dns from 'node:dns/promises'
+import net from 'node:net'
 
 export type OutboundWebhookPayload = {
   event: string
@@ -49,16 +51,41 @@ export function getWebhookEndpointError(endpoint: string): string | null {
     return 'Webhook endpoint cannot target localhost, private networks, or link-local addresses.'
   }
 
-  if (!hostname.includes('.') && !hostname.endsWith('webhook.site')) {
+  if (!hostname.includes('.')) {
     return 'Webhook endpoint must use a public hostname.'
   }
 
   return null
 }
 
+/**
+ * As getWebhookEndpointError, plus a DNS resolution so a public hostname that
+ * resolves to a private/link-local/loopback address is rejected before we connect
+ * (the literal check only catches IP-literal hosts). Used at fire time.
+ */
+export async function getResolvedWebhookEndpointError(endpoint: string): Promise<string | null> {
+  const literal = getWebhookEndpointError(endpoint)
+  if (literal) return literal
+  const hostname = new URL(endpoint).hostname.toLowerCase()
+  const blocked = 'Webhook endpoint resolves to a private or local network address.'
+  if (net.isIP(hostname)) {
+    return PRIVATE_HOST_PATTERNS.some((p) => p.test(hostname)) ? blocked : null
+  }
+  try {
+    const records = await Promise.race([
+      dns.lookup(hostname, { all: true }),
+      new Promise<{ address: string }[]>((_, reject) => setTimeout(() => reject(new Error('dns timeout')), 1500)),
+    ])
+    if (records.some((r) => PRIVATE_HOST_PATTERNS.some((p) => p.test(r.address)))) return blocked
+  } catch {
+    return null // let the fetch surface real network errors; guard is for confirmed private resolutions
+  }
+  return null
+}
+
 export async function fireOutboundWebhook(endpoint: string, secret: string | null, payload: OutboundWebhookPayload) {
   try {
-    const endpointError = getWebhookEndpointError(endpoint)
+    const endpointError = await getResolvedWebhookEndpointError(endpoint)
     if (endpointError) return { ok: false, error: endpointError }
 
     const body = JSON.stringify(payload)
@@ -81,6 +108,9 @@ export async function fireOutboundWebhook(endpoint: string, secret: string | nul
       headers,
       body,
       signal: controller.signal,
+      // Don't follow redirects — a 30x to a private host would re-introduce SSRF
+      // (and leak the signed payload to the redirect target).
+      redirect: 'manual',
     }).finally(() => clearTimeout(timeout))
 
     return { ok: res.ok, status: res.status }

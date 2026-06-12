@@ -12,7 +12,6 @@ const ALLOWED_SCHEDULING_HOSTS = [
   'cal.com',
   'acuityscheduling.com',
   'squareup.com',
-  'square.site',
   'youcanbook.me',
   'savvycal.com',
   'tidycal.com',
@@ -22,8 +21,11 @@ const ALLOWED_SCHEDULING_HOSTS = [
   'setmore.com',
   'calendar.google.com',
   'outlook.office365.com',
-  'hubspot.com',
+  'meetings.hubspot.com',
 ]
+// Note: open-signup / user-content hosts (square.site, the broad hubspot.com) were
+// removed — `host.endsWith('.square.site')` would have trusted attacker.square.site,
+// undercutting the anti-phishing purpose. Keep only dedicated scheduler hosts.
 
 function hostOf(url: string | null | undefined): string | null {
   if (!url || typeof url !== 'string') return null
