@@ -267,6 +267,7 @@
 }
 
 .nav-item {
+  position: relative;
   color: var(--color-muted-gray);
   transition: all 0.2s ease;
 }
@@ -276,10 +277,26 @@
   background: rgba(255, 255, 255, 0.06);
 }
 
+/* Active "you are here" item: periwinkle accent (theme-aware via --signal/--fg,
+   so it reads correctly in both dark and light — no separate light override). */
 .nav-item.active {
-  color: white;
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  color: var(--fg);
+  background: color-mix(in srgb, var(--signal) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal) 28%, transparent);
+}
+.nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 58%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--signal);
+}
+.nav-item.active svg {
+  color: var(--signal);
 }
 
 /* KPI Cards */
@@ -891,7 +908,7 @@ html.light .btn-secondary { color: var(--fg); }
 html.light .dashboard-sidebar { background: #ffffff; }
 html.light .nav-item { color: var(--fg-muted); }
 html.light .nav-item:hover { color: var(--fg); background: rgba(0, 0, 0, 0.05); }
-html.light .nav-item.active { color: var(--fg); background: rgba(0, 0, 0, 0.06); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08); }
+/* .nav-item.active is theme-aware (periwinkle, defined above) — no light override. */
 html.light .nx-grid {
   background-image:
     linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),

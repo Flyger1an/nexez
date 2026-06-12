@@ -855,7 +855,7 @@ function TrafficSplit({ split }: { split: ReturnType<typeof getTrafficSplit> }) 
   return (
     <div className="space-y-4">
       <div className="overflow-hidden rounded-full border border-white/10 bg-black/30">
-        <div className="h-3 bg-gradient-to-r from-[#00F5FF] via-[#7C3AED] to-[#C4B5FD]" style={{ width: `${aiShare}%` }} />
+        <div className="h-3 bg-gradient-to-r from-[var(--ready)] via-[var(--signal)] to-[var(--signal)]" style={{ width: `${aiShare}%` }} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-3">

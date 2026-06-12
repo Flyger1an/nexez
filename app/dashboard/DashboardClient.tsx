@@ -487,7 +487,7 @@ function OverviewPill({ label, value }: { label: string; value: string }) {
 
 function NewUserHero({ name }: { name: string }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-[#7C3AED]/30 bg-gradient-to-br from-[#7C3AED]/15 to-[#00F5FF]/5 p-7 md:p-10">
+    <section className="overflow-hidden rounded-2xl border border-[#7C3AED]/30 bg-gradient-to-br from-[var(--signal)]/15 to-[var(--ready)]/5 p-7 md:p-10">
       <p className="text-sm text-[#C4B5FD]">{name ? `Welcome, ${name}` : 'Welcome to Nexez'}</p>
       <h2 className="mt-2 max-w-2xl text-3xl font-semibold leading-tight tracking-tight">
         Publish your first agent-readable page.
@@ -499,7 +499,7 @@ function NewUserHero({ name }: { name: string }) {
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">
         <a
           href="/create"
-          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#7C3AED] to-[#00F5FF] px-6 font-medium text-[#0A0A0F] transition hover:opacity-90"
+          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[var(--signal)] to-[var(--ready)] px-6 font-medium text-[#0A0A0F] transition hover:opacity-90"
         >
           <Plus className="size-4" /> Import your site
         </a>
@@ -543,7 +543,7 @@ function AgentDetectionSummary({
         <p className="text-xs uppercase tracking-[0.18em] text-cyan-100">AI detection</p>
         <h2 className="mt-2 text-xl font-semibold">Traffic split</h2>
         <div className="mt-5 overflow-hidden rounded-full border border-white/10 bg-black/30">
-          <div className="h-3 bg-gradient-to-r from-[#00F5FF] to-[#7C3AED]" style={{ width: `${aiShare}%` }} />
+          <div className="h-3 bg-gradient-to-r from-[var(--ready)] to-[var(--signal)]" style={{ width: `${aiShare}%` }} />
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
           <div>

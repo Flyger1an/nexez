@@ -783,7 +783,7 @@ export default function PageSettings({ params }: PageProps) {
                                     isError
                                       ? 'bg-red-400/60'
                                       : i <= activeIdx
-                                        ? 'bg-gradient-to-r from-[#7C3AED] to-[#00F5FF]'
+                                        ? 'bg-gradient-to-r from-[var(--signal)] to-[var(--ready)]'
                                         : 'bg-white/10'
                                   }`}
                                 />

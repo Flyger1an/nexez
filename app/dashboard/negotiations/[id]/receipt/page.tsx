@@ -48,7 +48,7 @@ export default async function NegotiationReceiptPage({ params }: { params: Promi
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8">
           <div className="flex items-center justify-between border-b border-white/10 pb-4">
             <div className="flex items-center gap-2">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#7C3AED] to-[#00F5FF]">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--signal)] to-[var(--ready)]">
                 <span className="text-sm font-bold text-[#0A0A0F]">N</span>
               </div>
               <span className="font-semibold">Nexez · Agreement Receipt</span>

@@ -658,13 +658,13 @@ export default function CreatePage() {
       {needsAuth && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div className="card w-full max-w-md !p-7 text-center">
-            <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#7C3AED] to-[#00F5FF] text-lg font-bold text-[#0A0A0F]">N</div>
+            <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--signal)] to-[var(--ready)] text-lg font-bold text-[#0A0A0F]">N</div>
             <h2 className="mt-4 text-2xl font-semibold">Create a free account to publish</h2>
             <p className="mt-2 text-sm leading-6 text-zinc-400">
               Your page is saved. Sign in or create an account to publish it and unlock your dashboard, analytics, and custom domains.
             </p>
             <div className="mt-6 flex flex-col gap-2">
-              <a href="/login?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-gradient-to-r from-[#7C3AED] to-[#00F5FF] px-5 font-medium text-[#0A0A0F] hover:opacity-90">
+              <a href="/login?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-gradient-to-r from-[var(--signal)] to-[var(--ready)] px-5 font-medium text-[#0A0A0F] hover:opacity-90">
                 Create account
               </a>
               <a href="/login?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-white/15 px-5 text-sm font-medium text-white hover:bg-white/5">
