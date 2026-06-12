@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import {
+  BarChart3,
   CheckCircle2,
   Clock,
   ExternalLink,
@@ -235,12 +236,20 @@ export default function NegotiationsInbox() {
               </h1>
               <p className="mt-1 max-w-2xl text-sm text-zinc-400">Agent proposals + escrow status.</p>
             </div>
-            <button
-              onClick={() => void load()}
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 text-sm transition hover:bg-white/10"
-            >
-              <RefreshCw className="size-4" /> Refresh
-            </button>
+            <div className="flex items-center gap-2">
+              <a
+                href="/dashboard/negotiations/metrics"
+                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 text-sm transition hover:bg-white/10"
+              >
+                <BarChart3 className="size-4" /> Metrics
+              </a>
+              <button
+                onClick={() => void load()}
+                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 text-sm transition hover:bg-white/10"
+              >
+                <RefreshCw className="size-4" /> Refresh
+              </button>
+            </div>
           </header>
 
           {/* KPI summary */}

@@ -13,6 +13,9 @@ const STALE_MS = 2 * 60_000
 const LEASE_MS = 90_000
 // A row still pending this long means a persistently failing provider/key — alert.
 const STUCK_MS = 15 * 60_000
+// Aggregate backlog above this (across ALL owners, beyond this run's LIMIT) is an
+// ops signal the async engine isn't keeping up — alert proactively.
+const BACKLOG_ALERT_THRESHOLD = 25
 export const maxDuration = 60
 
 /**
@@ -79,5 +82,30 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, scanned: rows.length, processed, stuck, ran_at: new Date(now).toISOString() })
+  // Aggregate health (cheap: the partial index on decision_pending). Counts the
+  // WHOLE pending backlog — including rows beyond this run's LIMIT — plus the oldest
+  // pending age, and alerts once per run when unhealthy. This is distinct from the
+  // per-row stuck alert above (which only sees the scanned batch).
+  const { count: backlogCount } = await admin
+    .from('agent_negotiations')
+    .select('id', { count: 'exact', head: true })
+    .eq('decision_pending', true)
+  const { data: oldestPending } = await admin
+    .from('agent_negotiations')
+    .select('decision_requested_at')
+    .eq('decision_pending', true)
+    .order('decision_requested_at', { ascending: true })
+    .limit(1)
+    .maybeSingle<{ decision_requested_at: string | null }>()
+
+  const backlog = backlogCount ?? 0
+  const oldestPendingMs = oldestPending?.decision_requested_at
+    ? Math.max(0, now - new Date(oldestPending.decision_requested_at).getTime())
+    : 0
+
+  if (backlog > BACKLOG_ALERT_THRESHOLD || oldestPendingMs > STUCK_MS) {
+    captureError(new Error('negotiation decision backlog'), { backlog, oldestPendingMs })
+  }
+
+  return NextResponse.json({ ok: true, scanned: rows.length, processed, stuck, backlog, oldestPendingMs, ran_at: new Date(now).toISOString() })
 }
