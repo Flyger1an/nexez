@@ -30,6 +30,9 @@ export async function GET(request: Request, { params }: RouteProps) {
   return Response.json(payload, {
     headers: {
       'Cache-Control': 'public, max-age=120, s-maxage=300',
+      // The base URL reflects the request host; key the CDN cache on it so a forged
+      // x-forwarded-host can't poison the entry served to other hosts.
+      Vary: 'x-forwarded-host',
     },
   })
 }

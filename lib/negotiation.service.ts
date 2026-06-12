@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 import { createAdminClient, hasSupabaseAdminEnv } from '../utils/supabase/admin';
 import { createLLMAdapter, NegotiationDecision, NegotiationAction } from './llm-engine/index';
 import { evaluateProposal } from './offer-rules';
-import { AgentPage, getCheckoutOffer } from './agent-page';
+import { AgentPage, getCheckoutOffer, getBaseUrl } from './agent-page';
 import { getAutoSettleCeilingCents, classifySettlement, SettlementState } from './settlement';
 import { captureError } from './observability';
 import { sanitizeSchedulingLink } from './scheduling-allowlist';
@@ -474,7 +474,10 @@ export class NegotiationService {
   }
 
   private buildPersistentLink(id: string, statusToken?: string | null): string {
-    const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://nexez.app';
+    // Single source of truth for the agent-runtime base (honors
+    // NEXT_PUBLIC_AGENT_RUNTIME_URL, then NEXT_PUBLIC_SITE_URL) so this agent-bookmarked
+    // link never diverges from the other agent artifacts.
+    const base = getBaseUrl();
     return `${base}/negotiate/${id}${statusToken ? `?token=${statusToken}` : ''}`;
   }
 

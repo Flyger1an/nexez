@@ -135,6 +135,10 @@ export function canonicalHostFor(pathname: string): string {
   if (isAgentRuntimePath(pathname) || matchesPrefix(pathname, AGENT_RUNTIME_API_PREFIXES)) {
     return AGENT_RUNTIME_HOST
   }
+  // Fail safe for UNLISTED routes: an unrecognized API is private-by-default (app
+  // host) so a future app-only /api/* added without a prefix entry isn't exposed on
+  // the public agent runtime; everything else (e.g. /[slug] agent pages) is runtime.
+  if (pathname.startsWith('/api/')) return APP_HOST
   return AGENT_RUNTIME_HOST
 }
 

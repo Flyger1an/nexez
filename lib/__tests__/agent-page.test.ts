@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseOfferLines, formatOfferLines, getRequestBaseUrl, type OfferItem } from '../agent-page'
+import { parseOfferLines, formatOfferLines, getRequestBaseUrl, getBaseUrl, type OfferItem } from '../agent-page'
 
 describe('agent-page offer parse/format roundtrip (Phase 1 A fidelity)', () => {
   it('roundtrips basic offers', () => {
@@ -157,6 +157,18 @@ describe('getRequestBaseUrl', () => {
     })
 
     expect(getRequestBaseUrl(request)).toBe('http://localhost:3000')
+  })
+
+  it('falls back to the canonical base when the forwarded host is malformed/injected', () => {
+    const inject = (h: string) =>
+      getRequestBaseUrl({ get: (n: string) => (n === 'x-forwarded-host' ? h : null) } as unknown as Headers)
+    // A garbage / header-injected x-forwarded-host must not be reflected into the
+    // (CDN-cached) base URL — it falls back to the canonical runtime base instead.
+    expect(inject('evil.com/path')).toBe(getBaseUrl())
+    expect(inject('evil.com white space')).toBe(getBaseUrl())
+    expect(inject('a\r\nset-cookie: x=y')).toBe(getBaseUrl())
+    // A well-formed host (e.g. a verified custom domain) is still honored.
+    expect(inject('offers.acme.com')).toBe('https://offers.acme.com')
   })
 })
 

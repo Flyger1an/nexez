@@ -9,16 +9,9 @@ export async function POST(request: Request) {
   const supabase = createClient(cookieStore, requestUrl.host)
   await supabase.auth.signOut()
 
-  const response = NextResponse.redirect(marketingUrl('/'), {
+  // signOut() clears the shared session cookie on domain=.nexez.ai (host passed to
+  // createClient above), removing it across nexez.ai + app.nexez.ai.
+  return NextResponse.redirect(marketingUrl('/'), {
     status: 303,
   })
-  // Clear the old auth hint used before nexez.ai/app.nexez.ai shared cookies.
-  response.cookies.set('nx_authed', '', {
-    sameSite: 'none',
-    secure: true,
-    httpOnly: true,
-    path: '/',
-    maxAge: 0,
-  })
-  return response
 }

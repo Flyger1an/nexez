@@ -483,6 +483,13 @@ export function getBaseUrl() {
 
 type HeaderGetter = Pick<Headers, 'get'>
 
+// A well-formed host: letters/digits/dots/hyphens, optional :port. The base URL
+// derived here is embedded in (CDN-cached) agent artifacts, so a malformed or
+// injected `x-forwarded-host` must never be reflected — fall back to the canonical
+// runtime base instead. (Defense-in-depth alongside `Vary: x-forwarded-host` on the
+// cached artifacts; the platform should also strip client-supplied X-Forwarded-Host.)
+const VALID_HOST_RE = /^[a-z0-9.-]+(?::\d+)?$/i
+
 export function getRequestBaseUrl(input: Request | HeaderGetter) {
   const maybeHeaders = 'headers' in input ? input.headers : null
   const source =
@@ -492,7 +499,7 @@ export function getRequestBaseUrl(input: Request | HeaderGetter) {
   const forwardedHost = source.get('x-forwarded-host')?.split(',')[0]?.trim()
   const host = forwardedHost || source.get('host')?.split(',')[0]?.trim()
 
-  if (!host) return getBaseUrl()
+  if (!host || !VALID_HOST_RE.test(host)) return getBaseUrl()
 
   const forwardedProto = source.get('x-forwarded-proto')?.split(',')[0]?.trim()
   const proto = forwardedProto || (host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https')

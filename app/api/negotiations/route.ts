@@ -8,6 +8,7 @@ import {
   getRequestBaseUrl,
 } from '../../../lib/agent-page'
 import { parseMoneyCents } from '../../../lib/checkout'
+import { appUrl } from '../../../lib/site'
 import { evaluateProposal } from '../../../lib/offer-rules'
 import { enforceNegotiationRateLimit } from '../../../lib/rate-limit'
 import { sanitizeBuyerInput } from '../../../lib/negotiation-input'
@@ -155,7 +156,7 @@ export async function POST(request: Request) {
         timeline: input.timeline,
         query: input.query,
         buyerAgent: input.buyerAgent,
-        inboxUrl: `${baseUrl}/dashboard/negotiations`,
+        inboxUrl: appUrl('/dashboard/negotiations'),
       })
       after(() => sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text }))
     }

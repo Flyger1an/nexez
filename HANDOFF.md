@@ -79,8 +79,13 @@ See memory: [[parallel-main-push-workflow]], [[nexez-deploy-verify-loop]].
 | `OBSERVABILITY_WEBHOOK_URL` (+`OBSERVABILITY_WEBHOOK_TOKEN`) | `captureError` → Better Stack | ✅ set (verified) |
 | `AGENT_VISIT_HASH_SALT` | salt for agent-visit IP hashing | ✅ set (don't rotate) |
 | `VERCEL_API_TOKEN` + `VERCEL_PROJECT_ID` + `VERCEL_TEAM_ID` | auto custom-domain attach + SSL | ✅ set |
-| `NEXT_PUBLIC_SITE_URL` | the **brain** base URL (agent artifacts) | ✅ `https://nexez.app` |
-| `NEXT_PUBLIC_MARKETING_URL` | the **marketing** host | ⬜ optional (code defaults to `https://nexez.ai`) |
+| `NEXT_PUBLIC_SITE_URL` | **load-bearing** — feeds `AGENT_RUNTIME_HOST` + `getBaseUrl()` (agent artifacts/escrow links). **Must stay `https://nexez.app`** (NOT app.nexez.ai) | ✅ `https://nexez.app` |
+| `NEXT_PUBLIC_MARKETING_URL` | the **marketing** host (`MARKETING_HOST`) | ⬜ optional (code defaults to `https://nexez.ai`) |
+| `NEXT_PUBLIC_APP_URL` | the **authenticated app** host (`APP_HOST`) — dashboard/login/auth | ⬜ optional (defaults `https://app.nexez.ai`); **must be a subdomain of the cookie domain** |
+| `NEXT_PUBLIC_AGENT_RUNTIME_URL` | overrides the **agent runtime** host (`AGENT_RUNTIME_HOST`); takes precedence over `SITE_URL` for `getBaseUrl()` | ⬜ optional (falls back to `SITE_URL` → `nexez.app`) |
+| `NEXT_PUBLIC_AUTH_COOKIE_DOMAIN` | shared session-cookie domain across marketing+app | ⬜ optional (defaults `.nexez.ai`); must cover `app.nexez.ai` |
+
+> **3-host architecture (commit `669c05d`):** `nexez.ai` marketing · `app.nexez.ai` authenticated app · `nexez.app` public agent runtime. A shared `.nexez.ai` session cookie spans marketing+app (agent runtime is cookie-isolated). **Cutover prereqs:** attach `app.nexez.ai` in Vercel (DNS+SSL); set Supabase Auth Site URL=`https://app.nexez.ai` + Redirect URLs `https://app.nexez.ai/**` (login moved there).
 
 **NOT env vars:** Square/Acuity/GCal/Calendly/Shopify creds + Stripe *import* are per-request. Calendly webhook uses a per-page secret in `page_secrets`.
 

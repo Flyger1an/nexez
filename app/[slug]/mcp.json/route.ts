@@ -133,6 +133,9 @@ export async function GET(
     headers: {
       'Content-Type': 'application/json',
       'Cache-Control': 'public, max-age=300, s-maxage=3600',
+      // Base URL reflects the request host — vary the CDN cache key on it (this is
+      // cached for 1h, the widest poisoning window of the artifacts).
+      Vary: 'x-forwarded-host',
     },
   })
 }

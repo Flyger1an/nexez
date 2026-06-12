@@ -63,6 +63,22 @@ describe('canonicalHostFor', () => {
     expect(canonicalHostFor('/agent-pages.json')).toBe(AGENT_RUNTIME_HOST)
     expect(canonicalHostFor('/api/negotiations')).toBe(AGENT_RUNTIME_HOST)
   })
+
+  it('keeps the money + webhook + checkout/negotiate routes on the agent runtime host', () => {
+    // These are buyer/Stripe/agent surfaces; pinning them guards against an
+    // accidental prefix-list reshuffle that would break escrow links or webhook delivery.
+    expect(canonicalHostFor('/api/checkout')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/api/webhooks/stripe')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/api/cron/reconcile-escrow')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/api/v1/pages')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/checkout/acme')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/negotiate/abc-123')).toBe(AGENT_RUNTIME_HOST)
+  })
+
+  it('defaults an UNLISTED /api/* route to the private app host (fail-safe), but a slug to the runtime', () => {
+    expect(canonicalHostFor('/api/some-future-private-route')).toBe(APP_HOST)
+    expect(canonicalHostFor('/totally-unknown-slug')).toBe(AGENT_RUNTIME_HOST)
+  })
 })
 
 describe('isAppPath', () => {

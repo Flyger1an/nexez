@@ -67,8 +67,12 @@ async function resolvePathMapForHost(host: string): Promise<Record<string, strin
       { cookies: { getAll: () => [], setAll: () => {} } },
     )
 
+    // Read the redacted public view, NOT base `pages`: anon SELECT on `pages` is
+    // revoked (owner-private rules redaction), so querying `pages` here silently
+    // fails (permission denied) and breaks custom-domain routing. `pages_public`
+    // exposes the slug/domain_path/custom_domain(+verified)/is_published this needs.
     const { data } = await supabase
-      .from('pages')
+      .from('pages_public')
       .select('slug, domain_path')
       .in('custom_domain', hostLookupCandidates(host))
       .eq('is_published', true)
