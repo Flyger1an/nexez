@@ -1,0 +1,244 @@
+/* ════════════════════════════════════════════════════════════════════
+   NEXEZ · LIQUID GLASS DESIGN SYSTEM — single source of truth
+   Link this stylesheet + nexez-fx.js on ANY page and it inherits:
+   tokens (both themes), buttons, glass panels, nav, chips, type scale,
+   cursor specular, scroll reveals, counters, ring/chart animation.
+   Theme: add data-theme="light" to <html>, or call flip().
+   Fonts: Schibsted Grotesk · Instrument Sans · JetBrains Mono (Google Fonts).
+   ════════════════════════════════════════════════════════════════════ */
+/* ─────────────── NEXEZ · LIQUID GLASS v2 — BLACK / LIGHT, REDUCED FROST ─────────────── */
+:root{
+  /* canvas */
+  --bg:#000; --text:#EEF1F8; --muted:rgba(238,241,248,.58); --faint:rgba(238,241,248,.34);
+  /* surfaces (frost reduced ~40%: lower alphas, less blur, thinner edges) */
+  --glass:rgba(255,255,255,.035); --glass-strong:rgba(255,255,255,.06);
+  --fill-1:rgba(255,255,255,.045); --fill-2:rgba(255,255,255,.075);
+  --line:rgba(255,255,255,.1); --line-soft:rgba(255,255,255,.065); --line-hi:rgba(255,255,255,.22);
+  --edge:rgba(255,255,255,.13); --edge-soft:rgba(255,255,255,.06);
+  --raise:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.03));
+  --blur-card:10px; --blur-btn:12px; --sat:125%;
+  --shadow-c:rgba(0,0,0,.7); --inset-dim:rgba(0,0,0,.5);
+  --drop:0 14px 36px -16px rgba(0,0,0,.7);
+  --card-shadow:inset 0 1px 0 var(--edge-soft),0 18px 44px -26px rgba(0,0,0,.75);
+  --lift-shadow:inset 0 1px 0 rgba(255,255,255,.13),0 26px 56px -26px rgba(0,0,0,.85);
+  /* code wells — always dark, both themes */
+  --well:#0A0D13; --well-line:rgba(255,255,255,.08); --well-muted:rgba(238,241,248,.62);
+  /* accents */
+  --signal:#8E9EFF; --ready:#5FEAD3; --amber:#FFD9A8;
+  --prism:linear-gradient(90deg,#8E9EFF,#5FEAD3 55%,#FFD9A8);
+  --sel:rgba(142,158,255,.35); --sheen:rgba(255,255,255,.13); --text-dim:rgba(238,241,248,.66);
+  /* buttons */
+  --btn-grad:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.025));
+  --btn-border:rgba(255,255,255,.13); --btn-border-hi:rgba(255,255,255,.26);
+  --btn-edge:rgba(255,255,255,.15); --btn-edge-hi:rgba(255,255,255,.24);
+  --btn-shadow:0 10px 26px -12px rgba(0,0,0,.65);
+  --btn-shadow-hi:0 16px 38px -14px rgba(0,0,0,.75);
+  --pri-grad:linear-gradient(180deg,rgba(155,170,255,.26),rgba(142,158,255,.07));
+  --pri-border:rgba(155,170,255,.38); --pri-glow:0 10px 28px -12px rgba(142,158,255,.26);
+  --pri-glow-hi:0 14px 38px -14px rgba(142,158,255,.38);
+  --r-card:26px; --r-pill:999px;
+  --font-display:"Schibsted Grotesk",system-ui,sans-serif;
+  --font-body:"Instrument Sans",system-ui,sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,monospace;
+}
+html[data-theme="light"]{
+  --bg:#F4F5F8; --text:#0D1016; --muted:rgba(13,16,22,.62); --faint:rgba(13,16,22,.4);
+  --glass:rgba(255,255,255,.6); --glass-strong:rgba(255,255,255,.78);
+  --fill-1:rgba(13,16,22,.045); --fill-2:rgba(13,16,22,.075);
+  --line:rgba(13,16,22,.12); --line-soft:rgba(13,16,22,.07); --line-hi:rgba(13,16,22,.26);
+  --edge:rgba(255,255,255,.6); --edge-soft:rgba(255,255,255,.38);
+  --raise:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.6));
+  --shadow-c:rgba(25,35,65,.22); --inset-dim:rgba(13,16,22,.14);
+  --drop:0 14px 36px -16px rgba(25,35,65,.2);
+  --card-shadow:inset 0 1px 0 var(--edge),0 18px 44px -26px rgba(25,35,65,.22);
+  --lift-shadow:inset 0 1px 0 rgba(255,255,255,.95),0 26px 56px -26px rgba(25,35,65,.3);
+  --signal:#5566F2; --ready:#0E9F87; --amber:#C8862F;
+  --prism:linear-gradient(90deg,#5566F2,#15B79E 55%,#E8A94C);
+  --sel:rgba(85,102,242,.22); --sheen:rgba(255,255,255,.32); --text-dim:rgba(13,16,22,.58);
+  --btn-grad:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.55));
+  --btn-border:rgba(13,16,22,.1); --btn-border-hi:rgba(13,16,22,.2);
+  --btn-edge:rgba(255,255,255,.7); --btn-edge-hi:rgba(255,255,255,.9);
+  --btn-shadow:0 10px 26px -12px rgba(25,35,65,.22);
+  --btn-shadow-hi:0 16px 38px -14px rgba(25,35,65,.3);
+  --pri-grad:linear-gradient(180deg,rgba(85,102,242,.2),rgba(85,102,242,.06));
+  --pri-border:rgba(85,102,242,.36); --pri-glow:0 10px 28px -12px rgba(85,102,242,.2);
+  --pri-glow-hi:0 14px 38px -14px rgba(85,102,242,.3);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:16px;
+  line-height:1.6;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;overflow-x:hidden;min-height:100vh;
+  transition:background .4s ease,color .4s ease}
+/* atmosphere — quieter aurora on pure black */
+.atmos{position:fixed;inset:0;z-index:-2;background:
+  radial-gradient(900px 600px at 12% -10%,rgba(142,158,255,.09),transparent 60%),
+  radial-gradient(800px 600px at 88% 8%,rgba(95,234,211,.05),transparent 55%),
+  radial-gradient(1000px 700px at 50% 115%,rgba(142,158,255,.06),transparent 60%),#000;
+  transition:opacity .4s ease}
+.atmos::after{content:"";position:absolute;inset:0;opacity:.4;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .03 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");}
+html[data-theme="light"] .atmos{background:
+  radial-gradient(900px 600px at 12% -10%,rgba(85,102,242,.08),transparent 60%),
+  radial-gradient(800px 600px at 88% 8%,rgba(21,183,158,.06),transparent 55%),
+  radial-gradient(1000px 700px at 50% 115%,rgba(232,169,76,.06),transparent 60%),#F4F5F8}
+html[data-theme="light"] .atmos::after{opacity:.5;filter:invert(1)}
+::selection{background:var(--sel)}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1180px;margin:0 auto;padding:0 28px}
+
+/* type scale */
+.display{font-family:var(--font-display);font-weight:600;letter-spacing:-.035em;line-height:1.04;
+  font-size:clamp(2.6rem,6vw,4.4rem)}
+h2.display{font-size:clamp(2rem,4vw,2.9rem)}
+.eyebrow{font-family:var(--font-mono);font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--faint);display:flex;align-items:center;gap:.7rem}
+.eyebrow::before{content:"";width:22px;height:1px;background:var(--prism)}
+.lede{color:var(--muted);font-size:1.06rem;max-width:56ch}
+.mono{font-family:var(--font-mono)}
+.grad-text{background:linear-gradient(177deg,var(--text) 28%,var(--text-dim));-webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* ── liquid buttons — frost reduced, motion kept ── */
+.btn{position:relative;display:inline-flex;align-items:center;gap:.55rem;
+  padding:.85rem 1.7rem;border-radius:var(--r-pill);cursor:pointer;isolation:isolate;
+  font-family:var(--font-body);font-weight:600;font-size:.95rem;letter-spacing:-.01em;color:var(--text);
+  background:var(--btn-grad);
+  -webkit-backdrop-filter:blur(var(--blur-btn)) saturate(var(--sat));backdrop-filter:blur(var(--blur-btn)) saturate(var(--sat));
+  border:1px solid var(--btn-border);
+  box-shadow:inset 0 1px 0 var(--btn-edge),var(--btn-shadow);
+  transition:transform .35s cubic-bezier(.34,1.56,.5,1),box-shadow .35s ease,border-color .35s ease;
+  overflow:hidden;white-space:nowrap}
+.btn::before{content:"";position:absolute;inset:-40%;z-index:-1;
+  background:linear-gradient(115deg,transparent 30%,var(--sheen) 48%,transparent 60%);
+  transform:translateX(-80%) rotate(.001deg);transition:transform .8s cubic-bezier(.22,1,.36,1)}
+.btn:hover{transform:translateY(-2px) scale(1.025);border-color:var(--btn-border-hi);
+  box-shadow:inset 0 1px 0 var(--btn-edge-hi),var(--btn-shadow-hi)}
+.btn:hover::before{transform:translateX(80%) rotate(.001deg)}
+.btn:active{transform:translateY(0) scale(.965);transition-duration:.1s}
+.btn:focus-visible{outline:2px solid var(--signal);outline-offset:3px}
+.btn-primary{background:var(--pri-grad),var(--btn-grad);border-color:var(--pri-border);
+  box-shadow:inset 0 1px 0 var(--btn-edge),var(--pri-glow)}
+.btn-primary:hover{box-shadow:inset 0 1px 0 var(--btn-edge-hi),var(--pri-glow-hi)}
+.btn-ghost{background:linear-gradient(180deg,var(--fill-1),transparent);border-color:var(--line-soft)}
+.btn-sm{padding:.55rem 1.15rem;font-size:.85rem}
+.btn .arr{transition:transform .3s ease}
+.btn:hover .arr{transform:translateX(3px)}
+.btn.mode{padding:.55rem .8rem;font-size:1rem;line-height:1}
+
+/* ── panels — lighter frost ── */
+.glass{position:relative;background:var(--glass);border:1px solid var(--line-soft);
+  border-radius:var(--r-card);
+  -webkit-backdrop-filter:blur(var(--blur-card)) saturate(var(--sat));backdrop-filter:blur(var(--blur-card)) saturate(var(--sat));
+  box-shadow:var(--card-shadow);transition:background .4s ease,border-color .3s ease}
+.glass.prism::before{content:"";position:absolute;top:-1px;left:8%;right:8%;height:1px;
+  background:var(--prism);opacity:.45}
+.glass:hover{border-color:var(--line)}
+.card{padding:1.8rem}
+.lift{transition:transform .4s cubic-bezier(.22,1,.36,1),box-shadow .4s ease,border-color .4s ease,background .4s ease}
+.lift:hover{transform:translateY(-4px);box-shadow:var(--lift-shadow)}
+
+/* ── nav ── */
+nav.glassnav{position:sticky;top:14px;z-index:50;margin:14px auto 0;max-width:1180px;
+  display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  padding:.65rem .75rem .65rem 1.4rem;border-radius:var(--r-pill);
+  background:var(--raise);border:1px solid var(--btn-border);
+  -webkit-backdrop-filter:blur(14px) saturate(var(--sat));backdrop-filter:blur(14px) saturate(var(--sat));
+  box-shadow:inset 0 1px 0 var(--edge),0 14px 34px -18px var(--shadow-c);
+  transition:background .4s ease}
+.logo{font-family:var(--font-display);font-weight:700;letter-spacing:-.04em;font-size:1.15rem;
+  display:flex;align-items:center;gap:.55rem}
+.logo .mark{width:21px;height:21px;flex-shrink:0;color:var(--text);
+  filter:drop-shadow(0 0 3px rgba(142,158,255,.22))}
+.navlinks{display:flex;gap:.25rem;align-items:center}
+.navlinks a{padding:.45rem .95rem;border-radius:var(--r-pill);font-size:.9rem;color:var(--muted);
+  transition:all .25s ease}
+.navlinks a:hover{color:var(--text);background:var(--fill-2)}
+.navlinks a.on{color:var(--text);background:var(--fill-2);box-shadow:inset 0 1px 0 var(--edge-soft)}
+
+/* ── chips, misc ── */
+.chip{display:inline-flex;align-items:center;gap:.45rem;padding:.32rem .85rem;
+  border-radius:var(--r-pill);font-family:var(--font-mono);font-size:.72rem;letter-spacing:.06em;
+  background:var(--fill-1);border:1px solid var(--line-soft);color:var(--muted);transition:background .4s ease}
+.chip.ready{color:var(--ready);border-color:rgba(95,234,211,.3);background:rgba(95,234,211,.07)}
+html[data-theme="light"] .chip.ready{border-color:rgba(14,159,135,.3);background:rgba(14,159,135,.07)}
+.chip.ready::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--ready);
+  box-shadow:0 0 5px var(--ready)}
+.hair{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent);border:0}
+.kpi-num{font-family:var(--font-display);font-weight:600;letter-spacing:-.04em;font-size:2.2rem;line-height:1}
+.up{color:var(--ready);font-family:var(--font-mono);font-size:.74rem}
+footer{padding:3.5rem 0 4rem;color:var(--faint);font-size:.85rem;text-align:center}
+/* ── mobile & tablet ──
+   Hard rule (§5): never ship a breakpoint where navigation disappears. The ☰
+   button + sheet are built by fx.js, which then marks the nav `.has-menu`. The
+   link row is hidden ONLY under `.has-menu`, so if JS never runs the links stay
+   on screen (degrading to a horizontally scrollable strip) — nav never vanishes. */
+.menu-btn{display:none}
+.navsheet{position:absolute;top:calc(100% + 10px);left:0;right:0;display:none;padding:.55rem;z-index:49;
+  border-radius:22px;border:1px solid var(--line);
+  background:linear-gradient(0deg,var(--glass-strong),var(--glass-strong)),var(--bg);
+  -webkit-backdrop-filter:blur(16px) saturate(var(--sat));backdrop-filter:blur(16px) saturate(var(--sat));
+  box-shadow:inset 0 1px 0 var(--edge-soft),0 24px 50px -22px var(--shadow-c)}
+nav.glassnav.open .navsheet{display:grid;gap:.15rem}
+.navsheet a{padding:.75rem 1.05rem;border-radius:15px;font-size:.95rem;color:var(--muted)}
+.navsheet a:hover,.navsheet a.on{color:var(--text);background:var(--fill-2)}
+.navsheet .hair{margin:.35rem .4rem} /* divider above the folded-in ghost actions */
+@media(max-width:840px){
+  .wrap{padding:0 18px}
+  nav.glassnav{top:10px;margin-top:10px}
+  /* JS present: collapse the link row into the ☰ sheet */
+  nav.glassnav.has-menu .navlinks{display:none}
+  nav.glassnav.has-menu .menu-btn{display:inline-flex}
+  /* No-JS fallback: links remain reachable as a scrollable strip */
+  nav.glassnav:not(.has-menu) .navlinks{flex-wrap:nowrap;overflow-x:auto;max-width:100%;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none}
+  nav.glassnav:not(.has-menu) .navlinks::-webkit-scrollbar{display:none}
+}
+@media(max-width:480px){
+  nav.glassnav{padding:.55rem .6rem .55rem 1rem;gap:.5rem}
+  /* Sign in folds out of the bar (◐ + primary CTA remain) — it stays reachable in
+     the ☰ sheet, where fx.js clones the folded ghost actions. Only when JS built
+     the menu, so the no-JS bar keeps Sign in visible. */
+  nav.glassnav.has-menu a.btn-ghost{display:none}
+  .btn{padding:.8rem 1.4rem}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* ─────────── v3 INTERACTION LAYER — light that follows you ─────────── */
+/* cursor-tracked specular on buttons */
+.btn::after{content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;opacity:0;
+  background:radial-gradient(130px 70px at var(--mx,50%) var(--my,50%),var(--sheen),transparent 72%);
+  transition:opacity .3s ease}
+.btn:hover::after{opacity:1}
+/* cursor-tracked glow inside cards */
+.glass.lift::after{content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;opacity:0;
+  pointer-events:none;
+  background:radial-gradient(380px 240px at var(--mx,50%) var(--my,50%),var(--card-glow),transparent 70%);
+  transition:opacity .45s ease}
+.glass.lift:hover::after{opacity:1}
+:root{--card-glow:rgba(255,255,255,.035)}
+html[data-theme="light"]{--card-glow:rgba(85,102,242,.05)}
+/* scroll reveals */
+html.fx .rv{opacity:0;transform:translateY(22px);
+  transition:opacity .8s ease,transform .9s cubic-bezier(.22,1,.36,1)}
+html.fx .rv.inview{opacity:1;transform:none}
+/* charts grow in */
+html.fx .rv .chart .bar{transform:scaleY(0);transform-origin:bottom;
+  transition:transform .9s cubic-bezier(.22,1,.36,1)}
+html.fx .rv.inview .chart .bar{transform:scaleY(1)}
+html.fx .rv .share .fill{transform:scaleX(0);transform-origin:left;
+  transition:transform 1.1s cubic-bezier(.22,1,.36,1)}
+html.fx .rv.inview .share .fill{transform:scaleX(1)}
+html.fx .rv .funnel .step{opacity:0;transform:translateX(-14px);
+  transition:opacity .6s ease,transform .7s cubic-bezier(.22,1,.36,1)}
+html.fx .rv.inview .funnel .step{opacity:1;transform:none}
+/* readiness rings draw themselves */
+html.fx .ring .fg{transition:stroke-dashoffset 1.3s cubic-bezier(.22,1,.36,1) .15s}
+/* hero word stagger */
+html.fx .stagger .w{display:inline-block;opacity:0;transform:translateY(.45em) rotate(.001deg);
+  animation:wordup .75s cubic-bezier(.22,1,.36,1) forwards;animation-delay:calc(var(--i)*85ms)}
+@keyframes wordup{to{opacity:1;transform:none}}
+html.fx .stagger .grad-text .w{background:linear-gradient(177deg,var(--text) 28%,var(--text-dim));-webkit-background-clip:text;
+  background-clip:text;color:transparent}
+/* logo pulse — alive, barely */
+html.fx .logo .mark{animation:pulse 4s ease-in-out infinite}
+@keyframes pulse{0%,100%{filter:drop-shadow(0 0 2px rgba(142,158,255,.28))}50%{filter:drop-shadow(0 0 6px rgba(95,234,211,.42))}}
+@media(prefers-reduced-motion:reduce){html.fx .rv{opacity:1;transform:none}}

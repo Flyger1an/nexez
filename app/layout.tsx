@@ -1,20 +1,15 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Schibsted_Grotesk, Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import { PlatformFrame } from "../components/PlatformFrame";
+import { DesignSystemFx } from "../components/DesignSystemFx";
 import { THEME_NO_FLASH_SCRIPT } from "../lib/theme";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-});
+// Liquid Glass typography: Schibsted Grotesk (display) · Instrument Sans (body/UI)
+// · JetBrains Mono (all data). All three are variable fonts.
+const fontDisplay = Schibsted_Grotesk({ variable: "--font-schibsted", subsets: ["latin"] });
+const fontBody = Instrument_Sans({ variable: "--font-instrument", subsets: ["latin"] });
+const fontMono = JetBrains_Mono({ variable: "--font-jetbrains", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://nexez.vercel.app"),
@@ -60,7 +55,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${fontDisplay.variable} ${fontBody.variable} ${fontMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
@@ -68,6 +63,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <PlatformFrame>{children}</PlatformFrame>
+        <DesignSystemFx />
       </body>
     </html>
   );
