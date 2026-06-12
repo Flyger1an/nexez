@@ -1143,3 +1143,52 @@ nav.glassnav.open .navsheet { display: grid; gap: .15rem; }
   border-color: var(--line);
   box-shadow: var(--lift-shadow);
 }
+
+/* ============================================================================
+   LEGACY BRAND ACCENT -> PERIWINKLE  (design-system migration, app-wide)
+   The old brand purple (#7C3AED / hover #6D28D9) is used across the app as an
+   arbitrary Tailwind color. Remap those generated utilities to the periwinkle
+   --signal family so every surface matches the new accent (same approach the
+   neutral remap above uses for zinc/white/black). Text, borders, rings and
+   translucent tints use --signal directly; SOLID fills (buttons/badges/dots
+   that carry white text) use --signal-solid — a deeper periwinkle that keeps
+   white text legible in BOTH themes (a bare --signal is too light in dark).
+   Gradient stops (from-/via-/to-) only appear on auth'd dashboard surfaces and
+   are handled there, not here (overriding Tailwind's --tw-gradient-stops in CSS
+   is unreliable). ============================================================= */
+:root { --signal-solid: #5145e8; }
+html.light { --signal-solid: #4f46e5; }
+
+/* text / icon accent */
+.text-\[\#7C3AED\] { color: var(--signal); }
+.text-\[\#6D28D9\] { color: var(--signal); }
+
+/* solid fills (buttons/badges/dots/bars). They carry white text, but the
+   neutral remap flips .text-white -> --fg (dark) in light mode, which would be
+   illegible on the dark-indigo fill — so force white here (the fill is deep
+   periwinkle in BOTH themes). Harmless on text-less dots/bars. */
+.bg-\[\#7C3AED\] { background-color: var(--signal-solid); color: #fff; }
+.hover\:bg-\[\#6D28D9\]:hover { background-color: color-mix(in srgb, var(--signal-solid) 84%, #000); }
+
+/* translucent tint backgrounds */
+.bg-\[\#7C3AED\]\/5  { background-color: color-mix(in srgb, var(--signal) 5%, transparent); }
+.bg-\[\#7C3AED\]\/10 { background-color: color-mix(in srgb, var(--signal) 10%, transparent); }
+.bg-\[\#7C3AED\]\/15 { background-color: color-mix(in srgb, var(--signal) 15%, transparent); }
+.bg-\[\#7C3AED\]\/20 { background-color: color-mix(in srgb, var(--signal) 20%, transparent); }
+.bg-\[\#7C3AED\]\/40 { background-color: color-mix(in srgb, var(--signal) 40%, transparent); }
+
+/* borders */
+.border-\[\#7C3AED\]      { border-color: var(--signal); }
+.border-\[\#7C3AED\]\/20  { border-color: color-mix(in srgb, var(--signal) 20%, transparent); }
+.border-\[\#7C3AED\]\/30  { border-color: color-mix(in srgb, var(--signal) 30%, transparent); }
+.border-\[\#7C3AED\]\/40  { border-color: color-mix(in srgb, var(--signal) 40%, transparent); }
+.border-\[\#7C3AED\]\/50  { border-color: color-mix(in srgb, var(--signal) 50%, transparent); }
+.border-\[\#7C3AED\]\/60  { border-color: color-mix(in srgb, var(--signal) 60%, transparent); }
+
+/* rings */
+.ring-\[\#7C3AED\]\/30 { --tw-ring-color: color-mix(in srgb, var(--signal) 30%, transparent); }
+.ring-\[\#7C3AED\]\/60 { --tw-ring-color: color-mix(in srgb, var(--signal) 60%, transparent); }
+
+/* emerald accent text wasn't covered by the 100-300 light-darken rule above;
+   400/500 were low-contrast on the light surface. */
+html.light:not(:has(.public-agent-page)) :is(.text-emerald-400, .text-emerald-500) { color: #047857; }
