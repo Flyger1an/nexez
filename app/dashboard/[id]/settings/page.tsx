@@ -1692,8 +1692,8 @@ export default function PageSettings({ params }: PageProps) {
 
               {/* Agent Memory & Context System */}
               <div className="mt-6 rounded-lg border border-zinc-300/30 bg-zinc-400/5 p-4">
-                <div className="font-medium text-zinc-200 mb-1 flex items-center gap-2">Agent Memory & Context</div>
-                <p className="text-[10px] text-zinc-400 mb-2">Notes, buyer preferences, restrictions, common objections, or “always mention X.” Used by the public page, simulator, and agent data.</p>
+                <div className="font-medium text-zinc-200 mb-1 flex items-center gap-2">Agent Memory & Context <span className="rounded bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-amber-300">Public</span></div>
+                <p className="text-[10px] text-zinc-400 mb-2">Notes, buyer preferences, restrictions, common objections, or “always mention X.” <span className="text-amber-300/90">Public — published in this page’s <code>agent.json</code> and readable by anyone, so keep private pricing strategy and internal notes out.</span></p>
                 <textarea
                   className="w-full h-20 rounded border border-white/15 bg-black/30 p-2 text-sm font-mono"
                   placeholder="e.g. Prefers async over live calls for first meetings. Common question: turnaround time. Restrictions: no weekends."
@@ -1708,7 +1708,7 @@ export default function PageSettings({ params }: PageProps) {
                     const mem = { notes: memoryNotes, updated: new Date().toISOString() }
                     const { error } = await supabase.from('pages').update({ agent_memory: mem }).eq('id', page.id)
                     if (!error) {
-                      setMessage('Agent memory saved. Visible to agents through the public page and agent data.')
+                      setMessage('Agent memory saved — it’s public (published in your agent.json) and readable by anyone, not just agents.')
                     } else {
                       setMessage('Save failed: ' + error.message)
                     }
@@ -1739,7 +1739,7 @@ export default function PageSettings({ params }: PageProps) {
                 >
                   Suggest with AI
                 </button>
-                <p className="mt-1 text-[10px] text-zinc-500">These notes help agents keep important context consistent.</p>
+                <p className="mt-1 text-[10px] text-zinc-500">These notes help agents keep important context consistent. They are world-readable — keep anything confidential out.</p>
               </div>
 
               {/* AI assist opt-in */}

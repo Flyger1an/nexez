@@ -58,7 +58,7 @@ async function probeJson(url: string): Promise<boolean> {
 }
 
 export async function POST(request: Request) {
-  const limited = enforceRateLimit(request, 'crawlability', 10, 60_000)
+  const limited = await enforceRateLimit(request, 'crawlability', 10, 60_000)
   if (limited) return limited
 
   let body: { url?: string }

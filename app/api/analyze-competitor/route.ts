@@ -16,7 +16,7 @@ export const maxDuration = 30
  */
 export async function POST(request: Request) {
   // Dashboard-only feature that performs outbound scraping — require auth and throttle.
-  const limited = enforceRateLimit(request, 'analyze-competitor', 10, 60_000)
+  const limited = await enforceRateLimit(request, 'analyze-competitor', 10, 60_000)
   if (limited) return limited
 
   const cookieStore = await cookies()

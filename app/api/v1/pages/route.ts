@@ -16,7 +16,7 @@ async function uniqueSlug(admin: ReturnType<typeof createAdminClient>, base: str
 }
 
 export async function GET(request: Request) {
-  const limited = enforceRateLimit(request, 'v1-pages', 60, 60_000)
+  const limited = await enforceRateLimit(request, 'v1-pages', 60, 60_000)
   if (limited) return limited
   const auth = await authenticateApiKey(request)
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const limited = enforceRateLimit(request, 'v1-pages-write', 30, 60_000)
+  const limited = await enforceRateLimit(request, 'v1-pages-write', 30, 60_000)
   if (limited) return limited
   const auth = await authenticateApiKey(request)
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })

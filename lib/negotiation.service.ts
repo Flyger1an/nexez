@@ -6,6 +6,7 @@ import { evaluateProposal } from './offer-rules';
 import { AgentPage, getCheckoutOffer } from './agent-page';
 import { getAutoSettleCeilingCents, classifySettlement, SettlementState } from './settlement';
 import { captureError } from './observability';
+import { sanitizeSchedulingLink } from './scheduling-allowlist';
 
 /**
  * Core Negotiation Service - the brain of the Intelligent Negotiation Engine.
@@ -244,9 +245,11 @@ export class NegotiationService {
 
     // Rules always win.
     llmDecision = this.clampWithRules(llmDecision, rulesEval, proposalForLLM, rules);
-    if (!llmDecision.schedulingLink && schedulingLink) {
-      llmDecision.schedulingLink = schedulingLink;
-    }
+    // Never let an LLM-emitted scheduling link reach the agent unless it points at a
+    // known provider (or the owner's own configured link) — blocks a prompt injection
+    // from planting a phishing <a href> in the rendered decision. Falls back to the
+    // owner-derived link when the candidate is missing or off-allowlist.
+    llmDecision.schedulingLink = sanitizeSchedulingLink(llmDecision.schedulingLink, schedulingLink);
 
     // Never persist the offer's private pricing rules into the durable message log
     // (owner-private Phase 1 invariant) — they were attached for LLM context only.

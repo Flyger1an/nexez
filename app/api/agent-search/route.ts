@@ -5,7 +5,7 @@ import { enforceRateLimit } from '../../../lib/rate-limit'
 
 export async function GET(request: Request) {
   // Public agent-facing search — throttle to blunt scraping/DB abuse.
-  const limited = enforceRateLimit(request, 'agent-search', 30, 60_000)
+  const limited = await enforceRateLimit(request, 'agent-search', 30, 60_000)
   if (limited) return limited
 
   const url = new URL(request.url)

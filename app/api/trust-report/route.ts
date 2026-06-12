@@ -7,7 +7,7 @@ import { enforceRateLimit } from '../../../lib/rate-limit'
 
 export async function POST(request: Request) {
   // Dashboard-only feature that invokes a paid LLM — require auth and throttle.
-  const limited = enforceRateLimit(request, 'trust-report', 15, 60_000)
+  const limited = await enforceRateLimit(request, 'trust-report', 15, 60_000)
   if (limited) return limited
 
   const cookieStore = await cookies()

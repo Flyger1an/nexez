@@ -77,7 +77,7 @@ export async function POST(request: Request) {
 
   // Layered quotas (per IP + per page + per agent) — keyed on the parsed input so
   // one page or one named agent can't dominate. Done after parsing so we have slug.
-  const limited = enforceNegotiationRateLimit(request, { slug: input.slug, buyerAgent: input.buyerAgent })
+  const limited = await enforceNegotiationRateLimit(request, { slug: input.slug, buyerAgent: input.buyerAgent })
   if (limited) return limited
 
   if (!input.slug || !input.offer) {

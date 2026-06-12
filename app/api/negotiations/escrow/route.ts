@@ -17,7 +17,7 @@ import type { AgentNegotiation } from '../../../../lib/negotiations'
  * The buyer's funds live on the owner's connected account, so capture/cancel target it.
  */
 export async function POST(request: Request) {
-  const limited = enforceRateLimit(request, 'negotiation-escrow', 20, 60_000)
+  const limited = await enforceRateLimit(request, 'negotiation-escrow', 20, 60_000)
   if (limited) return limited
 
   const secret = process.env.STRIPE_SECRET_KEY

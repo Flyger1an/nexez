@@ -12,7 +12,7 @@ import { enforceRateLimit } from '../../../../lib/rate-limit'
  * the deterministic rewriter. Returns the source so the UI can label it.
  */
 export async function POST(request: Request) {
-  const limited = enforceRateLimit(request, 'ai-enhance', 20, 60_000)
+  const limited = await enforceRateLimit(request, 'ai-enhance', 20, 60_000)
   if (limited) return limited
 
   const cookieStore = await cookies()

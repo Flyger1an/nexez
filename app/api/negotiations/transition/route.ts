@@ -20,7 +20,7 @@ import {
  * This route handles: propose agreement, decline, reopen, and offline complete.
  */
 export async function POST(request: Request) {
-  const limited = enforceRateLimit(request, 'negotiation-transition', 30, 60_000)
+  const limited = await enforceRateLimit(request, 'negotiation-transition', 30, 60_000)
   if (limited) return limited
 
   const cookieStore = await cookies()

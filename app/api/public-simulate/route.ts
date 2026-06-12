@@ -11,7 +11,7 @@ import { enforceRateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
   // Public, unauthenticated demo endpoint that invokes a paid LLM — throttle it.
-  const limited = enforceRateLimit(request, 'public-simulate', 20, 60_000)
+  const limited = await enforceRateLimit(request, 'public-simulate', 20, 60_000)
   if (limited) return limited
 
   try {

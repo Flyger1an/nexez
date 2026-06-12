@@ -23,7 +23,7 @@ const allowedCategories = new Set(['general', 'page_setup', 'agent_visibility', 
 const allowedPriorities = new Set(['low', 'normal', 'high', 'urgent'])
 
 export async function POST(request: Request) {
-  const limited = enforceRateLimit(request, 'support-tickets', 12, 60_000)
+  const limited = await enforceRateLimit(request, 'support-tickets', 12, 60_000)
   if (limited) return limited
 
   const cookieStore = await cookies()

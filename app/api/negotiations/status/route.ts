@@ -24,7 +24,7 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supaba
  */
 export async function GET(request: Request) {
   // Polling needs headroom — keep the per-IP allowance generous here.
-  const limited = enforceRateLimit(request, 'negotiation-status', 60, 60_000)
+  const limited = await enforceRateLimit(request, 'negotiation-status', 60, 60_000)
   if (limited) return limited
 
   if (!hasSupabaseAdminEnv()) {
