@@ -128,6 +128,15 @@ describe('POST /api/negotiations', () => {
     expect(ops.some((o: string) => o.includes('pages'))).toBe(true)
   })
 
+  it('caps an oversized buyer query before it reaches the service (prompt-stuffing guard)', async () => {
+    dbRef.handler = (ctx: QueryContext) => (ctx.table === 'pages' ? { data: pageWithOffer, error: null } : { data: null, error: null })
+    const { negotiationService } = await import('../../../lib/negotiation.service')
+    await POST(post({ slug: 'demo', offer: 'services-0', query: 'a'.repeat(9000), buyerAgent: 'TestBot' }))
+    const passed = (negotiationService.submitProposal as any).mock.calls[0][0]
+    expect(passed.buyerProposal.query.length).toBeLessThanOrEqual(2000 + 20)
+    expect(passed.buyerProposal.query.endsWith('[truncated]')).toBe(true)
+  })
+
   it('escrow mode flips to manual_capture_ready when Stripe is configured', async () => {
     dbRef.handler = (ctx: QueryContext) => (ctx.table === 'pages' ? { data: pageWithOffer, error: null } : { data: null, error: null })
 

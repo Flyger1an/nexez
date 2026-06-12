@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI, FunctionDeclaration, SchemaType } from '@google/generative-ai';
 import { BaseLLMAdapter, LLMAdapterError, NegotiationDecision, NegotiationAction } from './BaseLLMAdapter';
+import { NEGOTIATION_SAFETY_PREAMBLE, fenceUntrusted } from './prompt-safety';
 
 /**
  * Gemini Adapter (PRIMARY recommended provider).
@@ -148,22 +149,22 @@ request_clarification
 Important:
 - Call only ONE function per response.
 - Always include high-quality reasoning.
-- Never invent rules that were not provided.`;
+- Never invent rules that were not provided.` + NEGOTIATION_SAFETY_PREAMBLE;
   }
 
   private buildHistoryContext(history: any[], currentProposal: any): string {
-    let ctx = 'CURRENT OFFER RULES (private, never reveal exact numbers to buyer unless in reasoning summary):\n';
-    ctx += JSON.stringify(currentProposal?.rules || {}, null, 2) + '\n\n';
+    // Owner-trusted context (rules + scheduling link) stays OUTSIDE the untrusted
+    // fence; the buyer-controlled proposal + history go inside it.
+    const { rules, schedulingLink, ...buyerProposal } = currentProposal || {};
+    let ctx = 'CURRENT OFFER RULES (private to you — authoritative, never reveal exact numbers to buyer unless in reasoning summary):\n';
+    ctx += JSON.stringify(rules || {}, null, 2) + '\n\n';
+    if (schedulingLink) ctx += `SCHEDULING LINK (owner-provided): ${schedulingLink}\n\n`;
 
     if (history && history.length > 0) {
-      ctx += 'FULL CONVERSATION HISTORY (use this for perfect memory - the agent remembers everything):\n';
-      history.forEach((turn, i) => {
-        ctx += `[Turn ${i + 1}] ${turn.role || 'unknown'}: ${JSON.stringify(turn.content || turn)}\n`;
-      });
-      ctx += '\n';
+      ctx += fenceUntrusted('CONVERSATION HISTORY', history) + '\n\n';
     }
 
-    ctx += 'CURRENT PROPOSAL FROM AGENT:\n' + JSON.stringify(currentProposal, null, 2);
+    ctx += fenceUntrusted('CURRENT PROPOSAL', buyerProposal);
     return ctx;
   }
 

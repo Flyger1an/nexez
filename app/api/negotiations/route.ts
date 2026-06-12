@@ -10,6 +10,7 @@ import {
 import { parseMoneyCents } from '../../../lib/checkout'
 import { evaluateProposal } from '../../../lib/offer-rules'
 import { enforceNegotiationRateLimit } from '../../../lib/rate-limit'
+import { sanitizeBuyerInput } from '../../../lib/negotiation-input'
 import { buildNegotiationEmail, sendEmail } from '../../../lib/email'
 import { supabase } from '../../../lib/supabase'
 import { negotiationService } from '../../../lib/negotiation.service'
@@ -60,6 +61,12 @@ export async function POST(request: Request) {
   const wantsJson = request.headers.get('accept')?.includes('application/json')
   const input = await readNegotiationInput(request)
   const baseUrl = getRequestBaseUrl(request)
+
+  // Cap untrusted buyer fields at the single entry point — this bounds both the
+  // persisted message log and the LLM prompt (prompt-stuffing / cost guard, and
+  // limits what an injection payload can carry). Done before rate limiting so the
+  // per-agent key uses the capped buyerAgent.
+  Object.assign(input, sanitizeBuyerInput(input))
 
   // Layered quotas (per IP + per page + per agent) — keyed on the parsed input so
   // one page or one named agent can't dominate. Done after parsing so we have slug.
