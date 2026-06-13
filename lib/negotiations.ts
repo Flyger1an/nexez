@@ -46,6 +46,10 @@ export type AgentNegotiation = {
   /** Cached buyer Checkout session for idempotent pay links. */
   stripe_checkout_session_id: string | null
   metadata: Record<string, unknown> | null
+  /** Continuation credential. Owner-only field — used to build the owner's own
+   * persistent-thread link (the agent runtime is cookie-isolated, so that link
+   * authenticates by token, not session). Never render it. */
+  status_token: string | null
   created_at: string
   updated_at: string
 }

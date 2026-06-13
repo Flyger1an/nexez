@@ -507,8 +507,11 @@ function NegotiationCard({
             Receipt
           </a>
         )}
-        <a href={agentRuntimeUrl(`/negotiate/${item.id}`)} className="inline-flex items-center gap-1 text-xs text-[var(--signal)] hover:underline">
-          View full persistent thread →
+        <a
+          href={agentRuntimeUrl(`/negotiate/${item.id}${item.status_token ? `?token=${item.status_token}` : ''}`)}
+          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-[var(--signal)]/40 bg-[var(--signal)]/10 px-3 text-xs font-medium text-[var(--signal)] transition hover:bg-[var(--signal)]/20"
+        >
+          View negotiation
         </a>
       </div>
 
