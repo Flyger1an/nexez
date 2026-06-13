@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const { serverUserRef, adminRef, adminUpdates } = vi.hoisted(() => ({
   serverUserRef: { user: { id: 'user_1' } as any },
   adminRef: {
-    handler: (_ctx: any) => ({ data: null, error: null }),
+    handler: (_ctx: any): { data: any; error: any } => ({ data: null, error: null }),
   },
   adminUpdates: [] as Array<{ table: string; payload: any; eqs: Record<string, any> }>,
 }))

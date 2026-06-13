@@ -693,7 +693,7 @@ export default function BillingDashboardClient({
     <div className="space-y-8">
       {/* Glassmorphic segmented tab bar */}
       <div className="flex flex-wrap items-center gap-2 border-b border-white/10 pb-1">
-        <div className="inline-flex rounded-2xl border border-white/10 bg-white/[0.03] p-1 backdrop-blur-xl">
+        <div className="flex max-w-full overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.03] p-1 backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TABS.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
@@ -701,7 +701,7 @@ export default function BillingDashboardClient({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 rounded-[14px] px-5 py-2 text-sm font-medium transition-all ${
+                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[14px] px-3.5 sm:px-5 py-2 text-sm font-medium transition-all ${
                   isActive
                     ? 'bg-white/10 text-white shadow-inner'
                     : 'text-[#9CA3AF] hover:text-white hover:bg-white/5'
