@@ -5,8 +5,6 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   BarChart3,
   Bot,
-  ChevronLeft,
-  ChevronRight,
   CreditCard,
   Gauge,
   FileText,
@@ -15,6 +13,8 @@ import {
   HelpCircle,
   Link2,
   LogOut,
+  Pin,
+  PinOff,
   Plus,
   Search,
   Settings,
@@ -67,12 +67,15 @@ const navItems = [
 // routes via a dynamic import in PlatformFrame, so public/agent pages stay lean.
 export default function PlatformShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const [collapsed, setCollapsed] = useState(false)
+  // `pinned` keeps the rail statically open (pushes the canvas). When unpinned
+  // (the default) the rail is a thin icon strip that pops out to full width on
+  // hover, overlaying the canvas instead of reflowing it.
+  const [pinned, setPinned] = useState(false)
   const [authed, setAuthed] = useState<boolean | null>(null)
 
   useEffect(() => {
-    const stored = window.localStorage.getItem('nexez-sidebar-collapsed')
-    if (stored) setCollapsed(stored === 'true')
+    const stored = window.localStorage.getItem('nexez-sidebar-pinned')
+    if (stored) setPinned(stored === 'true')
   }, [])
 
   useEffect(() => {
@@ -95,10 +98,10 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
   // always show. Until auth resolves, show only public items (no flash of the menu).
   const visibleNav = navItems.filter((item) => !item.href.startsWith('/dashboard') || authed === true)
 
-  function toggleCollapsed() {
-    setCollapsed((current) => {
+  function togglePinned() {
+    setPinned((current) => {
       const next = !current
-      window.localStorage.setItem('nexez-sidebar-collapsed', String(next))
+      window.localStorage.setItem('nexez-sidebar-pinned', String(next))
       return next
     })
   }
@@ -107,24 +110,37 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-background text-foreground">
       <div
         className={`grid min-h-screen transition-[grid-template-columns] duration-200 ${
-          collapsed ? 'md:grid-cols-[72px_minmax(0,1fr)]' : 'md:grid-cols-[248px_minmax(0,1fr)]'
+          pinned ? 'md:grid-cols-[248px_minmax(0,1fr)]' : 'md:grid-cols-[72px_minmax(0,1fr)]'
         }`}
       >
-        <aside className="dashboard-sidebar fixed inset-x-0 bottom-0 z-50 border-t md:sticky md:top-0 md:inset-x-auto md:bottom-auto md:flex md:h-screen md:flex-col md:border-r md:border-t-0">
+        <aside
+          className={`dashboard-sidebar group/sidebar fixed inset-x-0 bottom-0 z-50 border-t md:sticky md:top-0 md:inset-x-auto md:bottom-auto md:flex md:h-screen md:flex-col md:overflow-x-hidden md:border-r md:border-t-0 md:transition-[width] md:duration-200 ${
+            pinned ? 'md:w-[248px]' : 'md:w-[72px] md:hover:w-[248px] md:hover:shadow-2xl md:hover:shadow-black/40'
+          }`}
+        >
           <div className="hidden items-center gap-3 border-b border-border px-4 py-4 md:flex">
             <a href="/dashboard" className="flex min-w-0 flex-1 items-center gap-3" title="Nexez home">
               <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-white text-black">
                 <NexezLogo className="size-6" />
               </div>
-              {!collapsed ? <span className="truncate text-sm font-medium tracking-tight">Nexez</span> : null}
+              <span
+                className={`truncate text-sm font-medium tracking-tight transition-opacity duration-150 ${
+                  pinned ? 'opacity-100' : 'opacity-0 group-hover/sidebar:opacity-100'
+                }`}
+              >
+                Nexez
+              </span>
             </a>
             <button
               type="button"
-              onClick={toggleCollapsed}
-              className="inline-flex size-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-white/5 hover:text-white"
-              aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+              onClick={togglePinned}
+              className={`inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-opacity duration-150 hover:bg-white/5 hover:text-white ${
+                pinned ? 'opacity-100' : 'opacity-0 group-hover/sidebar:opacity-100'
+              }`}
+              aria-label={pinned ? 'Unpin navigation (expands on hover)' : 'Pin navigation open'}
+              title={pinned ? 'Unpin navigation' : 'Pin navigation open'}
             >
-              {collapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
+              {pinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
             </button>
           </div>
 
@@ -135,10 +151,10 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
                   href={item.href}
                   label={item.label}
                   icon={item.icon}
-                  collapsed={collapsed}
+                  pinned={pinned}
                   pathname={pathname}
                 />
-                {'subItems' in item && item.subItems && pathname.startsWith('/dashboard/pages') && !collapsed ? (
+                {'subItems' in item && item.subItems && pathname.startsWith('/dashboard/pages') && pinned ? (
                   <div className="ml-7 hidden space-y-0.5 md:block">
                     {item.subItems.map((sub) => (
                       <a
@@ -156,14 +172,24 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
           </nav>
 
           <div className="mt-auto hidden p-3 md:block">
-            <div className={`rounded-lg border border-border bg-white/[0.03] ${collapsed ? 'p-2' : 'p-3'}`}>
+            <div className={`rounded-lg border border-border bg-white/[0.03] ${pinned ? 'p-3' : 'p-2 group-hover/sidebar:p-3'}`}>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Sparkles className="size-4 text-[var(--signal)]" />
-                {!collapsed ? <span>Agent layer active</span> : null}
+                <Sparkles className="size-4 shrink-0 text-[var(--signal)]" />
+                <span
+                  className={`whitespace-nowrap transition-opacity duration-150 ${
+                    pinned ? 'opacity-100' : 'opacity-0 group-hover/sidebar:opacity-100'
+                  }`}
+                >
+                  Agent layer active
+                </span>
               </div>
-              {!collapsed ? (
-                <p className="mt-2 text-xs leading-5 text-muted-foreground">Sitemap, llms.txt, agent.json, and MCP stay connected.</p>
-              ) : null}
+              <p
+                className={`mt-2 text-xs leading-5 text-muted-foreground ${
+                  pinned ? 'block' : 'hidden group-hover/sidebar:block'
+                }`}
+              >
+                Sitemap, llms.txt, agent.json, and MCP stay connected.
+              </p>
             </div>
           </div>
         </aside>
@@ -242,13 +268,13 @@ function ShellNavItem({
   href,
   label,
   icon: Icon,
-  collapsed,
+  pinned,
   pathname,
 }: {
   href: string
   label: string
   icon: typeof Grid2X2
-  collapsed: boolean
+  pinned: boolean
   pathname: string
 }) {
   const active = href === '/dashboard' ? pathname === '/dashboard' : pathname === href || pathname.startsWith(`${href}/`)
@@ -257,12 +283,16 @@ function ShellNavItem({
     <a
       href={href}
       title={label}
-      className={`nav-item flex h-10 shrink-0 items-center gap-3 rounded-md px-3 text-sm ${
-        active ? 'active' : ''
-      } ${collapsed ? 'md:justify-center md:px-0' : ''}`}
+      className={`nav-item flex h-10 shrink-0 items-center gap-3 rounded-md px-3 text-sm ${active ? 'active' : ''}`}
     >
       <Icon className="size-4 shrink-0" />
-      <span className={`hidden whitespace-nowrap md:block ${collapsed ? 'md:hidden' : 'md:block'}`}>{label}</span>
+      <span
+        className={`hidden whitespace-nowrap transition-opacity duration-150 md:block ${
+          pinned ? 'md:opacity-100' : 'md:opacity-0 md:group-hover/sidebar:opacity-100'
+        }`}
+      >
+        {label}
+      </span>
     </a>
   )
 }
