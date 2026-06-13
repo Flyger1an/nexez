@@ -179,6 +179,96 @@ describe('POST /api/webhooks/stripe', () => {
     )
   })
 
+  describe('negotiation escrow checkout sessions', () => {
+    beforeEach(() => {
+      vi.stubEnv('STRIPE_WEBHOOK_SECRET', 'whsec_test')
+      hasSupabaseAdminEnv.mockReturnValue(true)
+    })
+
+    function withEscrowNeg(neg: any) {
+      let updated: any
+      createAdminClient.mockReturnValue(
+        createSupabaseMock((ctx: QueryContext) => {
+          if (ctx.table === 'agent_negotiations' && ctx.op === 'update') {
+            updated = ctx.payload
+            return { data: neg, error: null }
+          }
+          if (ctx.table === 'agent_negotiations') return { data: neg, error: null }
+          return { data: null, error: null }
+        }) as any,
+      )
+      return () => updated
+    }
+
+    it('settles only when the completed session matches current money terms', async () => {
+      const getUpd = withEscrowNeg({
+        id: 'n1',
+        status: 'agreement_proposed',
+        amount_cents: 90000,
+        currency: 'usd',
+        settlement_state: 'auto',
+        stripe_checkout_session_id: 'cs_current',
+      })
+      constructEvent.mockReturnValue({
+        id: 'evt_escrow',
+        type: 'checkout.session.completed',
+        data: {
+          object: {
+            id: 'cs_current',
+            amount_total: 90000,
+            currency: 'usd',
+            payment_status: 'paid',
+            payment_intent: 'pi_1',
+            metadata: {
+              nexez_kind: 'negotiation_escrow',
+              nexez_negotiation_id: 'n1',
+              nexez_settlement: 'auto',
+            },
+          },
+        },
+      })
+
+      const res = await POST(post({ sig: 'good', body: '{}' }))
+      expect(res.status).toBe(200)
+      expect(getUpd()).toMatchObject({ status: 'complete', escrow_mode: 'captured', stripe_payment_intent_id: 'pi_1' })
+    })
+
+    it('ignores stale completed sessions with an old amount', async () => {
+      const getUpd = withEscrowNeg({
+        id: 'n1',
+        status: 'agreement_proposed',
+        amount_cents: 120000,
+        currency: 'usd',
+        settlement_state: 'auto',
+        stripe_checkout_session_id: 'cs_current',
+      })
+      constructEvent.mockReturnValue({
+        id: 'evt_stale',
+        type: 'checkout.session.completed',
+        data: {
+          object: {
+            id: 'cs_old',
+            amount_total: 90000,
+            currency: 'usd',
+            payment_status: 'paid',
+            payment_intent: 'pi_old',
+            metadata: {
+              nexez_kind: 'negotiation_escrow',
+              nexez_negotiation_id: 'n1',
+              nexez_settlement: 'auto',
+            },
+          },
+        },
+      })
+
+      const res = await POST(post({ sig: 'good', body: '{}' }))
+      const json = await res.json()
+      expect(res.status).toBe(200)
+      expect(json).toMatchObject({ ignored: true, reason: 'stale_or_mismatched_checkout_session' })
+      expect(getUpd()).toBeUndefined()
+    })
+  })
+
   // Burst 2: refund / dispute / cancel reversals matched by payment intent.
   describe('escrow reversals', () => {
     function withNeg(neg: any) {

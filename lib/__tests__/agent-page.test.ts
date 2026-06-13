@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseOfferLines, formatOfferLines, getRequestBaseUrl, getBaseUrl, type OfferItem } from '../agent-page'
+import { parseOfferLines, formatOfferLines, getCheckoutOffer, getRequestBaseUrl, getBaseUrl, type OfferItem } from '../agent-page'
 
 describe('agent-page offer parse/format roundtrip (Phase 1 A fidelity)', () => {
   it('roundtrips basic offers', () => {
@@ -123,6 +123,26 @@ describe('agent-page offer parse/format roundtrip (Phase 1 A fidelity)', () => {
     expect(parsed[0].isMobile).toBe(true)
     expect(parsed[0].ab_test).toBe('ab_zz')
     expect(parsed[0].ab_label).toBe('A')
+  })
+})
+
+describe('getCheckoutOffer', () => {
+  const page = {
+    services: [
+      { name: 'Strategy', price: '$100', description: '', url: '' },
+      { name: 'Audit', price: '$200', description: '', url: '' },
+    ],
+    products: [{ name: 'Template', price: '$50', description: '', url: '' }],
+  }
+
+  it('defaults to the first offer when no key is provided', () => {
+    expect(getCheckoutOffer(page)?.name).toBe('Strategy')
+  })
+
+  it('returns null for malformed or out-of-range offer keys', () => {
+    expect(getCheckoutOffer(page, 'services-999')).toBeNull()
+    expect(getCheckoutOffer(page, 'products-nope')).toBeNull()
+    expect(getCheckoutOffer(page, 'services--1')).toBeNull()
   })
 })
 

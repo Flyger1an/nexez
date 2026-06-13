@@ -61,12 +61,49 @@ export async function POST(request: NextRequest) {
       // Hybrid settlement: 'auto' captured immediately -> complete; 'hold' authorized -> held.
       // (Legacy escrow sessions carry no nexez_settlement; treat them as holds.)
       const autoSettle = session.metadata?.nexez_settlement === 'auto'
+      const expectedSettlementState = autoSettle ? 'auto' : 'approved'
+      const { data: negotiation } = await admin
+        .from('agent_negotiations')
+        .select('id, status, amount_cents, currency, settlement_state, stripe_checkout_session_id')
+        .eq('id', session.metadata.nexez_negotiation_id)
+        .maybeSingle<{
+          id: string
+          status: string
+          amount_cents: number | null
+          currency: string | null
+          settlement_state: string | null
+          stripe_checkout_session_id: string | null
+        }>()
+
+      if (!negotiation) {
+        return NextResponse.json({ received: true, type: event.type, matched: false }, { status: 200 })
+      }
+
+      const paid = !session.payment_status || session.payment_status === 'paid'
+      const amountMatches = session.amount_total === negotiation.amount_cents
+      const currencyMatches = (session.currency || '').toLowerCase() === (negotiation.currency || 'usd').toLowerCase()
+      const sessionMatches = negotiation.stripe_checkout_session_id === session.id
+      const settlementMatches = negotiation.settlement_state === expectedSettlementState
+      if (!paid || !amountMatches || !currencyMatches || !sessionMatches || !settlementMatches) {
+        return NextResponse.json(
+          {
+            received: true,
+            type: event.type,
+            negotiation: negotiation.id,
+            ignored: true,
+            reason: 'stale_or_mismatched_checkout_session',
+          },
+          { status: 200 },
+        )
+      }
+
       const nextStatus = autoSettle ? 'complete' : 'held'
       const nextEscrowMode = autoSettle ? 'captured' : 'manual_capture_created'
       const { error: settleErr } = await admin
         .from('agent_negotiations')
         .update({ status: nextStatus, escrow_mode: nextEscrowMode, stripe_payment_intent_id: piId })
         .eq('id', session.metadata.nexez_negotiation_id)
+        .eq('stripe_checkout_session_id', session.id)
       if (settleErr) {
         console.warn('[Stripe Webhook] escrow settle update failed:', settleErr.message)
         // Release the idempotency claim so Stripe's retry reprocesses this event

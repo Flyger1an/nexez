@@ -33,6 +33,24 @@ describe('VisualOfferBuilder', () => {
     expect(next[0].name).toBe('New name')
   })
 
+  it('uses the original offer index when editing through a source filter', () => {
+    const onChange = vi.fn()
+    render(
+      <VisualOfferBuilder
+        offers={[offer({ name: 'Calendly offer', source: 'calendly' as any }), offer({ name: 'Stripe offer', source: 'stripe' as any })]}
+        kind="services"
+        onChange={onChange}
+        pageId="p1"
+      />,
+    )
+
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'stripe' } })
+    fireEvent.click(screen.getByRole('button', { name: /remove offer/i }))
+
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect((onChange.mock.calls[0][0] as OfferItem[]).map((o) => o.name)).toEqual(['Calendly offer'])
+  })
+
   it('switching an offer to Negotiable fires onChange with offerType (Smart Rules)', () => {
     const onChange = vi.fn()
     render(<VisualOfferBuilder offers={[offer({ name: 'Custom Build' })]} kind="services" onChange={onChange} pageId="p1" />)

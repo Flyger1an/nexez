@@ -1,6 +1,9 @@
-import { AgentPage, PUBLIC_PAGE_SELECT, getCheckoutOffers, getCheckoutPath, getOfferCount, getRequestBaseUrl } from '../../lib/agent-page'
+import { AgentPage, PUBLIC_PAGE_SELECT, getCheckoutOffers, getCheckoutPath, getOfferCount, getRequestBaseUrl, sanitizePublicUrl } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
+import { markdownLinkLabel, markdownText } from '../../lib/agent-text'
 import { supabase } from '../../lib/supabase'
+
+const GLOBAL_LLMS_OFFERS_PER_PAGE = 12
 
 export async function GET(request: Request) {
   const baseUrl = getRequestBaseUrl(request)
@@ -24,20 +27,24 @@ export async function GET(request: Request) {
     '',
     '## Published Agent Pages',
     '',
-    ...(pages ?? []).map((page) =>
-      [
-        `- [${page.name}](${baseUrl}/${page.slug})`,
+    ...(pages ?? []).map((page) => {
+      const offers = getCheckoutOffers(page)
+      const shownOffers = offers.slice(0, GLOBAL_LLMS_OFFERS_PER_PAGE)
+      const omitted = Math.max(0, offers.length - shownOffers.length)
+      return [
+        `- [${markdownLinkLabel(page.name)}](${baseUrl}/${page.slug})`,
         `  - Agent JSON: ${baseUrl}${getAgentJsonPath(page.slug)}`,
         ...((page as any).mcp_enabled ? [`  - MCP manifest: ${baseUrl}/${page.slug}/mcp.json`] : []),
-        `  - Summary: ${page.description || 'No summary provided.'}`,
-        `  - Location: ${page.location || 'Not specified'}`,
+        `  - Summary: ${markdownText(page.description, 'No summary provided.', 360)}`,
+        `  - Location: ${markdownText(page.location, 'Not specified', 160)}`,
         `  - Offers: ${getOfferCount(page)}`,
-        `  - Primary action: ${page.cta_label || 'Visit website'} -> ${page.cta_url || page.website_url || `${baseUrl}/${page.slug}`}`,
-        ...getCheckoutOffers(page).map((offer) =>
-          `  - Checkout: ${offer.name} -> ${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
+        `  - Primary action: ${markdownText(page.cta_label, 'Visit website', 80)} -> ${sanitizePublicUrl(page.cta_url) || sanitizePublicUrl(page.website_url) || `${baseUrl}/${page.slug}`}`,
+        ...shownOffers.map((offer) =>
+          `  - Checkout: ${markdownText(offer.name, 'Offer', 120)} -> ${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
         ),
-      ].join('\n'),
-    ),
+        ...(omitted ? [`  - Additional offers omitted from this global index: ${omitted}. Use Agent JSON for the full offer list.`] : []),
+      ].join('\n')
+    }),
     '',
     '## Agent Use',
     '',

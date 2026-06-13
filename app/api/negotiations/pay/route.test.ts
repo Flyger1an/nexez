@@ -64,7 +64,14 @@ describe('POST /api/negotiations/pay', () => {
     vi.mocked(hasSupabaseAdminEnv).mockReturnValue(true)
     vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_x')
     stripeRef.create = vi.fn(async () => ({ id: 'cs_new', url: 'https://pay/cs_new', status: 'open' }))
-    stripeRef.retrieve = vi.fn(async (id: string) => ({ id, url: `https://pay/${id}`, status: 'open' }))
+    stripeRef.retrieve = vi.fn(async (id: string) => ({
+      id,
+      url: `https://pay/${id}`,
+      status: 'open',
+      amount_total: 90000,
+      currency: 'usd',
+      metadata: { nexez_payment_fingerprint: '90000:usd:auto:acct_1:7200' },
+    }))
   })
   afterEach(() => vi.unstubAllEnvs())
 
@@ -103,7 +110,7 @@ describe('POST /api/negotiations/pay', () => {
     // 8% Pro commission on $900 = $72
     expect(params.payment_intent_data.application_fee_amount).toBe(7200)
     expect(opts.stripeAccount).toBe('acct_1')
-    expect(opts.idempotencyKey).toBe('escrow-n1-auto')
+    expect(opts.idempotencyKey).toBe('escrow-n1-90000:usd:auto:acct_1:7200')
   })
 
   it('approved (high value): manual-capture hold, metadata "hold"', async () => {
@@ -121,5 +128,13 @@ describe('POST /api/negotiations/pay', () => {
     expect(res.status).toBe(200)
     expect((await res.json())).toMatchObject({ reused: true, url: 'https://pay/cs_existing' })
     expect((stripeRef.create as any)).not.toHaveBeenCalled()
+  })
+
+  it('does not reuse an open session when money terms changed', async () => {
+    db({ ...NEG, amount_cents: 120000, stripe_checkout_session_id: 'cs_existing' })
+    const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))
+    expect(res.status).toBe(200)
+    expect((await res.json())).toMatchObject({ sessionId: 'cs_new' })
+    expect((stripeRef.create as any)).toHaveBeenCalledTimes(1)
   })
 })

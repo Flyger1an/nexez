@@ -6,7 +6,7 @@ import { headers, cookies } from 'next/headers'
 import { createClient as createServerClient } from '../../utils/supabase/server'
 import { applyDraftOverlay } from '../../lib/draft'
 import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, Handshake, LockKeyhole, Mail, MapPin } from 'lucide-react'
-import { AgentPage, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, availabilityLabel, getBaseUrl, getCertification, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows, schemaAvailability } from '../../lib/agent-page'
+import { AgentPage, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, availabilityLabel, getBaseUrl, getCertification, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows, sanitizePublicUrl, schemaAvailability } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { agentArtifactHref, getEffectiveBaseUrl, isCustomHost, normalizeDomainPath } from '../../lib/custom-domain'
 import { hasBranding, normalizeBranding } from '../../lib/branding'
@@ -180,7 +180,8 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
   )
     ? requestedNegotiateKey
     : null
-  const ctaUrl = page.cta_url || page.website_url || '#'
+  const ctaUrl = sanitizePublicUrl(page.cta_url) || sanitizePublicUrl(page.website_url) || '#'
+  const websiteUrl = sanitizePublicUrl(page.website_url)
   const preferOriginal = !!page.prefer_original_site
   const firstCheckoutPath = services.length && !preferOriginal
     ? getCheckoutPath(page.slug, 'services', 0)
@@ -290,8 +291,8 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
                   {page.cta_label || 'Visit website'}
                 </a>
               ) : null}
-              {page.website_url ? (
-                <a href={page.website_url} className="btn-secondary">
+              {websiteUrl ? (
+                <a href={websiteUrl} className="btn-secondary">
                   Main website
                 </a>
               ) : null}
@@ -626,10 +627,11 @@ function OfferSection({
                     </a>
                   );
                 }
-                const useOriginal = (item.prefer_original_for_this ?? false) || (preferOriginal && !!item.url);
+                const safeItemUrl = sanitizePublicUrl(item.url);
+                const useOriginal = (item.prefer_original_for_this ?? false) || (preferOriginal && !!safeItemUrl);
                 return (
                   <a
-                    href={useOriginal && item.url ? item.url : getCheckoutPath(pageSlug, kind, index)}
+                    href={useOriginal && safeItemUrl ? safeItemUrl : getCheckoutPath(pageSlug, kind, index)}
                     className="inline-flex items-center gap-2 rounded-lg bg-[var(--signal-solid)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
                   >
                     {useOriginal
@@ -639,12 +641,15 @@ function OfferSection({
                   </a>
                 );
               })()}
-              {item.url ? (
-                <a href={item.url} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm text-[var(--signal)] hover:bg-white/10">
-                  View details
-                  <ArrowUpRight className="size-4" />
-                </a>
-              ) : null}
+              {(() => {
+                const detailsUrl = sanitizePublicUrl(item.url);
+                return detailsUrl ? (
+                  <a href={detailsUrl} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm text-[var(--signal)] hover:bg-white/10">
+                    View details
+                    <ArrowUpRight className="size-4" />
+                  </a>
+                ) : null;
+              })()}
             </div>
             {(item.prefer_original_for_this || (preferOriginal && item.url)) && (
               <div className="mt-2 text-[10px] text-[var(--ready)]/80">Original site priority for this offer</div>

@@ -173,6 +173,7 @@ export function VisualOfferBuilder({ offers, kind, onChange, businessName, audie
     if (over && active.id !== over.id) {
       const oldIndex = offers.findIndex((o, i) => getOfferId(o, i) === active.id)
       const newIndex = offers.findIndex((o, i) => getOfferId(o, i) === over.id)
+      if (oldIndex < 0 || newIndex < 0) return
       onChange(arrayMove(offers, oldIndex, newIndex))
     }
   }
@@ -280,28 +281,31 @@ export function VisualOfferBuilder({ offers, kind, onChange, businessName, audie
 
       {/* Draggable List with optional source filter */}
       {(() => {
-        const filteredOffers = sourceFilter === 'all' 
-          ? offers 
-          : offers.filter(o => o.source === sourceFilter)
+        const visibleOffers = offers
+          .map((offer, originalIndex) => ({
+            offer,
+            originalIndex,
+            id: getOfferId(offer, originalIndex),
+          }))
+          .filter((row) => sourceFilter === 'all' || row.offer.source === sourceFilter)
 
         return (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext
-              items={filteredOffers.map((o, i) => getOfferId(o, i))}
+              items={visibleOffers.map((row) => row.id)}
               strategy={verticalListSortingStrategy}
             >
               <div className="space-y-3">
-                {filteredOffers.length === 0 && (
+                {visibleOffers.length === 0 && (
                   <div className="rounded-lg border border-dashed border-white/15 p-8 text-center text-sm text-zinc-500">
                     No offers match the current filter.
                   </div>
                 )}
-                {filteredOffers.map((offer, index) => {
-                  const originalIndex = offers.findIndex((o, i) => getOfferId(o, i) === getOfferId(offer, index))
+                {visibleOffers.map(({ offer, originalIndex, id }) => {
                   return (
                     <SortableOfferCard
-                      key={getOfferId(offer, index)}
-                      id={getOfferId(offer, index)}
+                      key={id}
+                      id={id}
                       offer={offer}
                       index={originalIndex}
                       onUpdate={updateOffer}

@@ -392,23 +392,11 @@ export default function PageSettings({ params }: PageProps) {
       const data = await res.json()
 
       if (data.verified) {
-        // Success: persist verified status + clear token
-        const supabase = createClient()
-	        const { error } = await supabase
-	          .from('pages')
-	          .update({
-	            custom_domain_verified: new Date().toISOString(),
-	          })
-	          .eq('id', id)
-	        const { error: secretError } = await upsertPageSecrets({ domain_verification_token: null })
-
-	        if (!error && !secretError) {
-	          setDomainVerified(true)
-	          setDomainVerificationToken('')
-	          setMessage(`✓ Verified! ${customDomain.trim()} now shows as verified. Real DNS ownership proven.`)
-	        } else {
-	          setMessage('DNS check passed but failed to save verified status: ' + (error?.message || secretError?.message))
-	        }
+        // The server persists verified status and clears the owner-only token.
+        setDomainVerified(true)
+        setDomainVerificationToken('')
+        setPage((current) => current ? { ...current, custom_domain_verified: data.verifiedAt || new Date().toISOString() } : current)
+        setMessage(`✓ Verified! ${customDomain.trim()} now shows as verified. Real DNS ownership proven.`)
       } else {
         setMessage(data.message || data.error || 'Verification failed. Check the exact TXT value and try again after propagation.')
       }
@@ -426,6 +414,9 @@ export default function PageSettings({ params }: PageProps) {
     setSaving(true)
     setMessage('')
 
+    const previousDomain = (page.custom_domain || '').trim().toLowerCase()
+    const nextDomain = (customDomain || '').trim().toLowerCase()
+    const domainChanged = previousDomain !== nextDomain
     const supabase = createClient()
     const { error } = await supabase
       .from('pages')
@@ -451,12 +442,20 @@ export default function PageSettings({ params }: PageProps) {
 	      .eq('id', page.id)
 	    const { error: secretError } = error
 	      ? { error: null }
-	      : await upsertPageSecrets({ calendly_webhook_secret: calendlyWebhookSecret || null })
+	      : await upsertPageSecrets({
+            calendly_webhook_secret: calendlyWebhookSecret || null,
+            ...(domainChanged ? { domain_verification_token: null } : {}),
+          })
 
 	    setSaving(false)
 	    setMessage(error ? error.message : secretError ? secretError.message : 'Settings saved.')
 
 	    if (!error && !secretError) {
+        if (domainChanged) {
+          setDomainVerified(false)
+          setDomainVerificationToken('')
+          setDomainStatus(null)
+        }
 	      setPage({
 	        ...page,
         name,
@@ -466,6 +465,9 @@ export default function PageSettings({ params }: PageProps) {
         cta_label: ctaLabel || 'Visit website',
 	        contact_email: contactEmail,
 	        is_published: isPublished,
+          custom_domain: customDomain || null,
+          custom_domain_verified: domainChanged ? null : page.custom_domain_verified,
+          domain_path: normalizeDomainPath(domainPath),
 	        calendly_webhook_secret: calendlyWebhookSecret || null,
 	      })
 	    }

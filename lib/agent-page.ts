@@ -416,19 +416,37 @@ export function getCheckoutOffer(page: Pick<AgentPage, 'products' | 'services'>,
 
   const match = key.match(/^(services|products)-(\d+)$/)
   if (!match) {
-    return allOffers[0] ?? null
+    return null
   }
 
   const [, kind, indexValue] = match
   const index = Number(indexValue)
 
-  return allOffers.find((offer) => offer.kind === kind && offer.index === index) ?? allOffers[0] ?? null
+  return allOffers.find((offer) => offer.kind === kind && offer.index === index) ?? null
+}
+
+export function sanitizePublicUrl(value: string | null | undefined, opts: { allowRelative?: boolean } = {}): string {
+  const raw = (value || '').trim()
+  if (!raw) return ''
+  if (opts.allowRelative && raw.startsWith('/') && !raw.startsWith('//')) return raw
+  try {
+    const url = new URL(raw)
+    if (url.protocol === 'http:' || url.protocol === 'https:' || url.protocol === 'mailto:' || url.protocol === 'tel:') {
+      return url.toString()
+    }
+  } catch {
+    return ''
+  }
+  return ''
 }
 
 export function getOfferDestination(page: Pick<AgentPage, 'cta_url' | 'website_url' | 'contact_email'>, offer?: Pick<OfferItem, 'url'> | null) {
-  if (offer?.url) return offer.url
-  if (page.cta_url) return page.cta_url
-  if (page.website_url) return page.website_url
+  const offerUrl = sanitizePublicUrl(offer?.url)
+  const ctaUrl = sanitizePublicUrl(page.cta_url)
+  const websiteUrl = sanitizePublicUrl(page.website_url)
+  if (offerUrl) return offerUrl
+  if (ctaUrl) return ctaUrl
+  if (websiteUrl) return websiteUrl
   if (page.contact_email) return `mailto:${page.contact_email}`
   return ''
 }

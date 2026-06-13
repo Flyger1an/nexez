@@ -1,5 +1,6 @@
-import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getCheckoutOffers, getCheckoutPath } from '../../../lib/agent-page'
+import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getCheckoutOffers, getCheckoutPath, sanitizePublicUrl } from '../../../lib/agent-page'
 import { getAgentJsonPath } from '../../../lib/agent-manifest'
+import { markdownText } from '../../../lib/agent-text'
 import { agentArtifactHref, getEffectiveBaseUrl, isCustomHost, normalizeDomainPath } from '../../../lib/custom-domain'
 import { supabase } from '../../../lib/supabase'
 
@@ -32,33 +33,34 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   const agentJson = `${base}${onCustomHost ? agentArtifactHref('agent.json', page.slug, true, domainPath) : getAgentJsonPath(page.slug)}`
   const mcpEnabled = Boolean((page as { mcp_enabled?: boolean }).mcp_enabled)
   const offers = getCheckoutOffers(page)
+  const primaryActionUrl = sanitizePublicUrl(page.cta_url) || sanitizePublicUrl(page.website_url) || self
 
   const body = [
-    `# ${page.name}`,
+    `# ${markdownText(page.name, 'Agent page', 120)}`,
     '',
-    `> ${page.description || 'AI-readable agent page on Nexez.'}`,
+    `> ${markdownText(page.description, 'AI-readable agent page on Nexez.', 360)}`,
     '',
     `URL: ${self}`,
     `Agent JSON: ${agentJson}`,
     ...(mcpEnabled
       ? [`MCP manifest: ${base}${agentArtifactHref('mcp.json', page.slug, onCustomHost, domainPath)}`]
       : []),
-    `Location: ${page.location || 'Not specified'}`,
-    `Best-fit buyer: ${page.audience || 'Not specified'}`,
-    `Primary action: ${page.cta_label || 'Visit website'} -> ${page.cta_url || page.website_url || self}`,
+    `Location: ${markdownText(page.location, 'Not specified', 160)}`,
+    `Best-fit buyer: ${markdownText(page.audience, 'Not specified', 180)}`,
+    `Primary action: ${markdownText(page.cta_label, 'Visit website', 80)} -> ${primaryActionUrl}`,
     '',
     '## Offers',
     '',
     ...(offers.length
       ? offers.map(
           (o) =>
-            `- ${o.name}${o.price ? ` (${o.price})` : ''} -> ${platform}${getCheckoutPath(page.slug, o.kind, o.index)}`,
+            `- ${markdownText(o.name, 'Offer', 120)}${o.price ? ` (${markdownText(o.price, '', 60)})` : ''} -> ${platform}${getCheckoutPath(page.slug, o.kind, o.index)}`,
         )
       : ['- None listed']),
     '',
     '## Agent Use',
     '',
-    `This page describes ${page.name}. Use it to understand the offer, compare options, answer buyer questions, and route purchase or booking intent to the URLs above.`,
+    `This page describes ${markdownText(page.name, 'this business', 120)}. Use it to understand the offer, compare options, answer buyer questions, and route purchase or booking intent to the URLs above.`,
     `Checkout validation: POST ${platform}/api/checkout with slug="${page.slug}", offer, query, dryRun=true.`,
     `Negotiate: POST ${platform}/api/negotiations with slug="${page.slug}", offer="services-0" or "products-0".`,
   ].join('\n')

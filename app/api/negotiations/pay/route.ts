@@ -7,6 +7,22 @@ import { getCommissionPercentForPlan, calculateApplicationFeeCents } from '../..
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import type { AgentNegotiation } from '../../../../lib/negotiations'
 
+function paymentFingerprint(input: {
+  amountCents: number
+  currency: string
+  settlementState: string | null
+  connectAccountId: string | null
+  applicationFeeAmount?: number
+}) {
+  return [
+    input.amountCents,
+    input.currency.toLowerCase(),
+    input.settlementState || 'none',
+    input.connectAccountId || 'platform',
+    input.applicationFeeAmount ?? 0,
+  ].join(':')
+}
+
 /**
  * Buyer-facing escrow funding — the BUYER pays the agreed amount (not the owner).
  *
@@ -101,24 +117,41 @@ export async function POST(request: Request) {
   const stripe = new Stripe(secret)
   const requestOptions = connectAccountId ? { stripeAccount: connectAccountId } : undefined
 
-  // Idempotent reuse: if we already created a session and it's still open, return it.
+  const autoSettle = negotiation.settlement_state === 'auto'
+  const currency = (negotiation.currency || 'usd').toLowerCase()
+  const applicationFeeAmount = connectAccountId
+    ? calculateApplicationFeeCents(negotiation.amount_cents, commissionPercent)
+    : undefined
+  const fingerprint = paymentFingerprint({
+    amountCents: negotiation.amount_cents,
+    currency,
+    settlementState: negotiation.settlement_state,
+    connectAccountId,
+    applicationFeeAmount,
+  })
+
+  // Idempotent reuse: only reuse a still-open Checkout session if it exactly
+  // matches the current money terms. Amount/fee/settlement can change while an
+  // old buyer tab is open; blindly reusing that session lets the buyer underpay.
   if (negotiation.stripe_checkout_session_id) {
     try {
       const existing = await stripe.checkout.sessions.retrieve(negotiation.stripe_checkout_session_id, undefined, requestOptions)
-      if (existing.status === 'open' && existing.url) {
+      const existingUrl = existing.url
+      const sameTerms =
+        existing.status === 'open' &&
+        existingUrl &&
+        existing.amount_total === negotiation.amount_cents &&
+        existing.currency?.toLowerCase() === currency &&
+        existing.metadata?.nexez_payment_fingerprint === fingerprint
+      if (sameTerms) {
         return wantsJson
-          ? NextResponse.json({ ok: true, url: existing.url, sessionId: existing.id, reused: true })
-          : NextResponse.redirect(existing.url, { status: 303 })
+          ? NextResponse.json({ ok: true, url: existingUrl, sessionId: existing.id, reused: true })
+          : NextResponse.redirect(existingUrl, { status: 303 })
       }
     } catch {
       // Stale/foreign session id — fall through and create a fresh one.
     }
   }
-
-  const autoSettle = negotiation.settlement_state === 'auto'
-  const applicationFeeAmount = connectAccountId
-    ? calculateApplicationFeeCents(negotiation.amount_cents, commissionPercent)
-    : undefined
 
   try {
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
@@ -126,7 +159,7 @@ export async function POST(request: Request) {
       line_items: [
         {
           price_data: {
-            currency: negotiation.currency || 'usd',
+            currency,
             unit_amount: negotiation.amount_cents,
             product_data: {
               name: `${negotiation.offer_name} — ${autoSettle ? 'payment' : 'escrow hold'}`,
@@ -146,12 +179,17 @@ export async function POST(request: Request) {
         nexez_kind: 'negotiation_escrow',
         nexez_negotiation_id: negotiation.id,
         nexez_settlement: autoSettle ? 'auto' : 'hold',
+        nexez_amount_cents: String(negotiation.amount_cents),
+        nexez_currency: currency,
+        nexez_connect_account: connectAccountId || '',
+        nexez_application_fee_cents: String(applicationFeeAmount ?? 0),
+        nexez_payment_fingerprint: fingerprint,
       },
     }
 
     const session = await stripe.checkout.sessions.create(sessionParams, {
       ...(requestOptions || {}),
-      idempotencyKey: `escrow-${negotiation.id}-${negotiation.settlement_state}`,
+      idempotencyKey: `escrow-${negotiation.id}-${fingerprint}`,
     })
 
     await admin
