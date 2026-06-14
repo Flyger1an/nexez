@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { MarketingContentPage } from '../../components/marketing/MarketingContentPage'
+import { SecurityHero } from '../../components/marketing/heroes'
 import { marketingPages } from '../../lib/marketing-content'
 
 const content = marketingPages.security
@@ -10,5 +11,5 @@ export const metadata: Metadata = {
 }
 
 export default function SecurityPage() {
-  return <MarketingContentPage content={content} />
+  return <MarketingContentPage content={content} accent="amber" hero={<SecurityHero content={content} />} />
 }
