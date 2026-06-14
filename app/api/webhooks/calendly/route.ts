@@ -5,6 +5,7 @@ import type { AgentPage } from '../../../../lib/agent-page'
 import { getBaseUrl } from '../../../../lib/agent-page'
 import { buildBookingEmail, hasEmailEnv, sendEmail } from '../../../../lib/email'
 import { fireOutboundWebhook, type OutboundWebhookPayload } from '../../../../lib/webhooks'
+import { fireOwnerOutboundWebhooks } from '../../../../lib/server/outbound-webhooks'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { createClient as createServerClient } from '../../../../utils/supabase/server'
 
@@ -167,13 +168,29 @@ export async function POST(request: NextRequest) {
     after(() => sendEmail({ to, subject: mail.subject, html: mail.html, text: mail.text }))
   }
 
-  const outboundResults = await firePageOutbounds(page, pageSecrets?.outbound_webhooks, eventType, eventName, inviteeName, startedAt)
+  // One booking payload, delivered to both the per-page webhooks and the owner's
+  // account-level webhooks (Tools → Developer platform).
+  const bookingPayload: OutboundWebhookPayload = {
+    event: 'booking.received',
+    timestamp: new Date().toISOString(),
+    page: { id: page.id, slug: page.slug, name: page.name || page.slug },
+    data: {
+      source: 'calendly',
+      event_name: eventName,
+      invitee_name: inviteeName,
+      start_time: startedAt,
+      calendly_event_type: eventType,
+    },
+  }
+  const outboundResults = await firePageOutbounds(pageSecrets?.outbound_webhooks, bookingPayload)
+  const accountOutboundResults = await fireOwnerOutboundWebhooks(supabase, page.owner_id, bookingPayload)
 
   return NextResponse.json({
     received: true,
     event: eventType,
     page: page.slug,
     outbound: outboundResults,
+    accountOutbound: accountOutboundResults,
   })
 }
 
@@ -200,29 +217,9 @@ export async function GET() {
   })
 }
 
-async function firePageOutbounds(
-  page: WebhookPage,
-  outbounds: AgentPage['outbound_webhooks'],
-  eventType: string,
-  eventName: string,
-  inviteeName: string,
-  startedAt: string | null,
-) {
+async function firePageOutbounds(outbounds: AgentPage['outbound_webhooks'], payload: OutboundWebhookPayload) {
   const pageOutbounds = outbounds
   if (!Array.isArray(pageOutbounds) || pageOutbounds.length === 0) return []
-
-  const payload: OutboundWebhookPayload = {
-    event: 'booking.received',
-    timestamp: new Date().toISOString(),
-    page: { id: page.id, slug: page.slug, name: page.name || page.slug },
-    data: {
-      source: 'calendly',
-      event_name: eventName,
-      invitee_name: inviteeName,
-      start_time: startedAt,
-      calendly_event_type: eventType,
-    },
-  }
 
   const results = []
   for (const stored of pageOutbounds) {

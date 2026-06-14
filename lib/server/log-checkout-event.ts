@@ -1,6 +1,7 @@
 import { AgentPage, CheckoutOffer, getCheckoutOfferKey } from '../agent-page'
 import { supabase } from '../supabase'
 import { fireOutboundWebhook, OutboundWebhookPayload } from '../webhooks'
+import { fireOwnerOutboundWebhooks } from './outbound-webhooks'
 import type { CheckoutEventType } from '../checkout-events'
 
 type LogCheckoutEventInput = {
@@ -61,6 +62,25 @@ export async function logCheckoutEvent({
           const { createAdminClient, hasSupabaseAdminEnv } = await import('../../utils/supabase/admin')
           if (!hasSupabaseAdminEnv()) return { ok: !error, error }
           const admin = createAdminClient()
+
+          const obPayload: OutboundWebhookPayload = {
+            event: eventType === 'provider_redirect' ? 'booking.provider_redirect' : 'booking.checkout_initiated',
+            timestamp: new Date().toISOString(),
+            page: {
+              id: page.id,
+              slug: page.slug,
+              name: page.name || page.slug,
+            },
+            data: {
+              event_type: eventType,
+              offer_name: offer.name,
+              offer_key: getCheckoutOfferKey(offer.kind, offer.index),
+              amount: metadata?.amount_cents || null,
+              source: 'nexez_checkout',
+            },
+          }
+
+          // Per-page webhooks (configured in a page's Settings).
           const { data: pageSecrets } = await admin
             .from('page_secrets')
             .select('outbound_webhooks')
@@ -74,22 +94,6 @@ export async function logCheckoutEvent({
           }
 
           if (endpoints.length > 0) {
-            const obPayload: OutboundWebhookPayload = {
-              event: eventType === 'provider_redirect' ? 'booking.provider_redirect' : 'booking.checkout_initiated',
-              timestamp: new Date().toISOString(),
-              page: {
-                id: page.id,
-                slug: page.slug,
-                name: page.name || page.slug,
-              },
-              data: {
-                event_type: eventType,
-                offer_name: offer.name,
-                offer_key: getCheckoutOfferKey(offer.kind, offer.index),
-                amount: metadata?.amount_cents || null,
-                source: 'nexez_checkout',
-              },
-            }
             // Support richer shape {url, secret?} for signing (same as Calendly receiver)
             const outboundsFull = (pageSecrets as any)?.outbound_webhooks || []
             for (const ep of endpoints) {
@@ -99,6 +103,10 @@ export async function logCheckoutEvent({
               console.log(`[Checkout Events] Fired outbound ${obPayload.event} to ${ep} (secret: ${!!secret}):`, res)
             }
           }
+
+          // Account-level webhooks (Tools → Developer platform): fire for every
+          // valuable event across all of the owner's pages, page-config or not.
+          await fireOwnerOutboundWebhooks(admin, page.owner_id, obPayload)
         } catch (e) {
           console.warn('[Checkout Events] Outbound firing error (non-blocking):', e)
         }

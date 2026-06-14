@@ -328,3 +328,108 @@ export function AcuityImporter() {
     </div>
   )
 }
+
+export function SquareImporter() {
+  const [squareToken, setSquareToken] = useState('')
+  const [squareLoading, setSquareLoading] = useState(false)
+  const [squareResult, setSquareResult] = useState<any>(null)
+  const [squareConnected, setSquareConnected] = useState<{ lastImport: string } | null>(null)
+
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem('nexez_square_connection')
+      if (s) setSquareConnected(JSON.parse(s))
+    } catch {}
+  }, [])
+
+  async function handleSquareImport() {
+    setSquareLoading(true)
+    setSquareResult(null)
+
+    try {
+      const res = await fetch('/api/integrations/square/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken: squareToken.trim() || undefined }),
+      })
+      const data = await res.json()
+      setSquareResult(data)
+
+      // Only record a real connection when live items came back (connected: true).
+      if (!data.error && data.connected) {
+        const conn = { lastImport: new Date().toISOString() }
+        setSquareConnected(conn)
+        try { localStorage.setItem('nexez_square_connection', JSON.stringify(conn)) } catch {}
+      }
+    } catch (e) {
+      setSquareResult({ error: 'Failed to import from Square' })
+    } finally {
+      setSquareLoading(false)
+    }
+  }
+
+  const isSample = squareResult && !squareResult.error && squareResult.connected === false
+
+  return (
+    <div className="mt-6 rounded-xl border border-white/10 p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <div className="font-semibold text-[var(--signal)]">Square — Bookings &amp; Payments</div>
+          <p className="text-xs text-[#9CA3AF]">Import your Square catalog items as offers — for mobile, wellness, and home services.</p>
+        </div>
+        {squareConnected && (
+          <span className="text-[10px] text-[var(--ready)]">Connected • {new Date(squareConnected.lastImport).toLocaleTimeString()}</span>
+        )}
+      </div>
+
+      <div className="flex gap-2 mb-2">
+        <input
+          type="password"
+          value={squareToken}
+          onChange={(e) => setSquareToken(e.target.value)}
+          placeholder="Square access token (Catalog read)"
+          className="flex-1 input text-sm"
+        />
+        <button
+          onClick={handleSquareImport}
+          disabled={squareLoading}
+          className="btn-primary bg-[var(--signal)] text-zinc-950 hover:bg-[var(--signal)]"
+        >
+          {squareLoading ? <Loader2 className="size-4 animate-spin" /> : 'Import from Square'}
+        </button>
+        {squareConnected && (
+          <button
+            onClick={() => handleSquareImport()}
+            disabled={squareLoading}
+            className="rounded-lg border border-[var(--signal)]/40 px-3 py-1 text-sm text-[var(--signal)] hover:bg-white/5"
+          >
+            Re-sync
+          </button>
+        )}
+      </div>
+
+      <ImportResult
+        result={squareResult}
+        defaultMessage="Square catalog imported"
+        createClass="bg-[var(--signal)] px-4 py-1 hover:bg-[var(--signal)]"
+        maxOffers={4}
+        onCreate={() => {
+          sessionStorage.setItem('nexez_imported_structured', JSON.stringify(squareResult.structuredOffers))
+          window.location.href = '/create?imported=true&source=square'
+        }}
+        renderOffer={(o: any, i: number) => (
+          <div key={i}>• {o.name} — {o.price} {o.duration ? `(${o.duration})` : ''}</div>
+        )}
+        footer={
+          isSample ? (
+            <p className="mt-2 text-[10px] text-[var(--amber)]">
+              Showing sample data — add a Square access token with Catalog read to import your live items.
+            </p>
+          ) : (
+            <p className="mt-2 text-[10px] text-zinc-500">Variations become tiers; price_money becomes price.</p>
+          )
+        }
+      />
+    </div>
+  )
+}

@@ -4,8 +4,18 @@ import { useState, useEffect } from 'react'
 import { Bot, Loader2, ExternalLink, Link2 } from 'lucide-react'
 import { ErrorBoundary } from '../../../components/ErrorBoundary'
 import { ApiKeysManager } from '../../../components/ApiKeysManager'
-import { StripeImporter, ShopifyImporter, AcuityImporter } from '../../../components/tools/Importers'
+import { StripeImporter, ShopifyImporter, AcuityImporter, SquareImporter } from '../../../components/tools/Importers'
 import { CalendlyTool } from '../../../components/tools/CalendlyTool'
+
+type OutboundWebhook = {
+  id: string
+  url: string
+  active: boolean
+  secret: string
+  last_status: string | null
+  last_delivery_at: string | null
+  created_at: string
+}
 
 export default function ToolsPage() {
   const [url, setUrl] = useState('')
@@ -15,9 +25,14 @@ export default function ToolsPage() {
   // Developer platform — API keys are managed via <ApiKeysManager />
   const revenueShare = 15 // % on agent-driven transactions
 
-  // Outbound webhook config (supports multiple)
+  // Account-level outbound webhooks: persisted server-side (DB + RLS) and
+  // delivered, HMAC-signed, on real booking + checkout/re-sync events.
   const [outboundWebhookUrl, setOutboundWebhookUrl] = useState('')
-  const [outboundWebhooks, setOutboundWebhooks] = useState<string[]>([])
+  const [outboundWebhooks, setOutboundWebhooks] = useState<OutboundWebhook[]>([])
+  const [webhookBusy, setWebhookBusy] = useState(false)
+  const [webhookError, setWebhookError] = useState<string | null>(null)
+  const [webhookStatus, setWebhookStatus] = useState<Record<string, string>>({})
+  const [revealedSecret, setRevealedSecret] = useState<Record<string, boolean>>({})
 
   async function handleImport() {
     if (!url) return
@@ -39,14 +54,67 @@ export default function ToolsPage() {
     }
   }
 
-  useEffect(() => {
+  async function loadWebhooks() {
     try {
-      const savedList = localStorage.getItem('nexez_outbound_webhooks')
-      if (savedList) {
-        setOutboundWebhooks(JSON.parse(savedList))
-      }
+      const res = await fetch('/api/dashboard/outbound-webhooks')
+      if (!res.ok) return
+      const data = await res.json()
+      setOutboundWebhooks(Array.isArray(data.webhooks) ? data.webhooks : [])
     } catch {}
+  }
+
+  useEffect(() => {
+    loadWebhooks()
   }, [])
+
+  async function addWebhook() {
+    const value = outboundWebhookUrl.trim()
+    if (!value) return
+    setWebhookBusy(true)
+    setWebhookError(null)
+    try {
+      const res = await fetch('/api/dashboard/outbound-webhooks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: value }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setWebhookError(data.error || 'Could not add webhook.')
+        return
+      }
+      setOutboundWebhookUrl('')
+      await loadWebhooks()
+    } catch {
+      setWebhookError('Network error adding webhook.')
+    } finally {
+      setWebhookBusy(false)
+    }
+  }
+
+  async function removeWebhook(id: string) {
+    await fetch(`/api/dashboard/outbound-webhooks?id=${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {})
+    await loadWebhooks()
+  }
+
+  async function testWebhook(id: string) {
+    setWebhookStatus((prev) => ({ ...prev, [id]: 'Sending…' }))
+    try {
+      const res = await fetch('/api/dashboard/outbound-webhooks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'test', id }),
+      })
+      const data = await res.json()
+      setWebhookStatus((prev) => ({
+        ...prev,
+        [id]: data.success ? `Delivered (HTTP ${data.status})` : `Failed: ${data.error || `HTTP ${data.status}`}`,
+      }))
+      await loadWebhooks()
+    } catch {
+      setWebhookStatus((prev) => ({ ...prev, [id]: 'Network error' }))
+    }
+  }
 
 
   // Developer Platform + API + Revenue Share (enhanced starter)
@@ -65,9 +133,6 @@ export default function ToolsPage() {
         <a href="/agent-pages.json" className="text-[var(--signal)] hover:underline block">Public agent index →</a>
         <a href="/api/directory" className="text-[var(--signal)] hover:underline block">Directory API — readiness &amp; trust signals →</a>
         <a href="/api/public-simulate" className="text-[var(--signal)] hover:underline block">Simulation API — preview how agents read a page →</a>
-        <div className="text-xs text-zinc-500 mt-2">
-          Outbound webhooks are live today. Programmatic key management and payouts are on the way.
-        </div>
       </div>
     </div>
   )
@@ -213,11 +278,12 @@ export default function ToolsPage() {
             <div>
               <h2 className="text-2xl font-semibold">Connect more tools</h2>
               <p className="mt-1 text-sm text-[#9CA3AF]">
-                Import offers from Stripe, Shopify, and Acuity — each becomes an editable, agent-ready page.
+                Import offers from Stripe, Shopify, Square, and Acuity — each becomes an editable, agent-ready page.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <span className="rounded-full border border-[var(--signal)]/25 bg-[var(--signal)]/10 px-2.5 py-0.5 text-[11px] text-[var(--signal)]">Stripe</span>
                 <span className="rounded-full border border-[var(--signal)]/25 bg-[var(--signal)]/10 px-2.5 py-0.5 text-[11px] text-[var(--signal)]">Shopify</span>
+                <span className="rounded-full border border-[var(--signal)]/25 bg-[var(--signal)]/10 px-2.5 py-0.5 text-[11px] text-[var(--signal)]">Square</span>
                 <span className="rounded-full border border-[var(--amber)]/25 bg-[var(--amber)]/10 px-2.5 py-0.5 text-[11px] text-[var(--amber)]">Acuity</span>
               </div>
             </div>
@@ -225,6 +291,7 @@ export default function ToolsPage() {
           <div className="p-6 pt-4 [&>div:first-child]:mt-0 [&>div:first-child]:border-t-0 [&>div:first-child]:pt-0">
             <StripeImporter />
             <ShopifyImporter />
+            <SquareImporter />
             <AcuityImporter />
           </div>
         </div>
@@ -244,10 +311,13 @@ export default function ToolsPage() {
             <p className="mt-3 text-[10px] text-zinc-500">Connect once, then keep your pages fresh for agents automatically.</p>
           </div>
 
-          {/* Webhook URLs for Zapier, Make, and custom automations. */}
+          {/* Account-level outbound webhooks for Zapier, Make, and custom automations. */}
           <div className="rounded-xl border border-white/10 p-5">
             <div className="font-semibold mb-2 text-[var(--signal)]">Outbound webhooks</div>
-            <p className="text-xs text-[#9CA3AF] mb-3">Send booking and re-sync updates to Zapier, Make, or your own webhook URL. Add and test your URLs below.</p>
+            <p className="text-xs text-[#9CA3AF] mb-3">
+              Send booking and checkout/re-sync events to Zapier, Make, or your own URL. Nexez delivers them
+              server-side, signed with HMAC-SHA256 (header <code className="text-[var(--ready)]">X-Nexez-Signature: t=…,v1=…</code>).
+            </p>
 
             <div className="flex gap-2">
               <input
@@ -256,105 +326,67 @@ export default function ToolsPage() {
                 className="flex-1 input text-sm"
                 value={outboundWebhookUrl}
                 onChange={(e) => setOutboundWebhookUrl(e.target.value)}
-              />
-              <button
-                onClick={() => {
-                  if (outboundWebhookUrl.trim()) {
-                    const newList = [...outboundWebhooks, outboundWebhookUrl.trim()]
-                    const uniqueList = Array.from(new Set(newList))
-                    setOutboundWebhooks(uniqueList)
-                    localStorage.setItem('nexez_outbound_webhooks', JSON.stringify(uniqueList))
-                    setOutboundWebhookUrl('')
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    addWebhook()
                   }
                 }}
-                className="rounded border border-white/20 px-4 text-sm hover:bg-white/5"
+              />
+              <button
+                onClick={addWebhook}
+                disabled={webhookBusy || !outboundWebhookUrl.trim()}
+                className="rounded border border-white/20 px-4 text-sm hover:bg-white/5 disabled:opacity-50"
               >
-                Add
+                {webhookBusy ? <Loader2 className="size-4 animate-spin" /> : 'Add'}
               </button>
             </div>
+            {webhookError && <p className="mt-2 text-[11px] text-[var(--amber)]">{webhookError}</p>}
 
-            {outboundWebhooks.length > 0 && (
-              <div className="mt-2 text-xs">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-zinc-400">Configured webhook URLs:</span>
-                  <button
-                    onClick={async () => {
-                      const payload = {
-                        event: 'test.webhook',
-                        timestamp: new Date().toISOString(),
-                        data: { message: 'Test from Nexez Tools' }
-                      }
-                      for (const url of outboundWebhooks) {
-                        await fetch(url, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify(payload)
-                        }).catch(() => {})
-                      }
-                      alert(`Test sent to ${outboundWebhooks.length} webhook URL(s).`)
-                    }}
-                    className="text-[10px] text-[var(--signal)] hover:text-[var(--signal)]"
-                  >
-                    Send test
-                  </button>
-                  <button
-                    onClick={async () => {
-                      // Route through the Calendly receiver so the test behaves like a real booking update.
-                      try {
-                        const demoSecret = `nexez-test-${Date.now()}`
-                        const recHeaders: Record<string, string> = {
-                          'Content-Type': 'application/json',
-                          'x-nexez-test-secret': demoSecret,
-                          'x-nexez-test-page-slug': 'demo',
-                          'x-nexez-test-mode': 'true',
-                        }
-                        if (outboundWebhooks.length > 0) {
-                          recHeaders['x-nexez-outbound-endpoints'] = JSON.stringify(outboundWebhooks)
-                        }
-                        const recPayload = {
-                          event: 'invitee.created',
-                          payload: {
-                            invitee: { name: 'Test User', email: 'test@example.com' },
-                            event: { name: 'Test Consultation (via outbound test)', start_time: new Date().toISOString() },
-                          },
-                        }
-                        await fetch('/api/webhooks/calendly', {
-                          method: 'POST',
-                          headers: recHeaders,
-                          body: JSON.stringify(recPayload),
-                        }).catch(() => {})
-                      } catch {}
-
-                      // Also send a direct sample event for simple webhook catchers.
-                      const payload = {
-                        event: 'booking.received',
-                        timestamp: new Date().toISOString(),
-                        page: { slug: 'demo-page' },
-                        data: {
-                          integration: 'calendly',
-                          event_name: 'Test Consultation',
-                          invitee_name: 'Test User',
-                          start_time: new Date().toISOString()
-                        }
-                      }
-                      for (const url of outboundWebhooks) {
-                        await fetch(url, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify(payload)
-                        }).catch(() => {})
-                      }
-                      alert(`Booking event sent to ${outboundWebhooks.length} webhook URL(s).`)
-                    }}
-                    className="text-[10px] text-[var(--signal)] hover:text-[var(--signal)] ml-2"
-                  >
-                    Test Booking Event
-                  </button>
-                </div>
-                {outboundWebhooks.map((url, idx) => (
-                  <div key={idx} className="font-mono text-[var(--ready)] truncate">{url}</div>
+            {outboundWebhooks.length > 0 ? (
+              <div className="mt-3 space-y-2 text-xs">
+                {outboundWebhooks.map((wh) => (
+                  <div key={wh.id} className="rounded-lg border border-white/10 bg-black/20 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="min-w-0 truncate font-mono text-[var(--ready)]">{wh.url}</span>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button onClick={() => testWebhook(wh.id)} className="text-[10px] text-[var(--signal)] hover:underline">
+                          Send test
+                        </button>
+                        <button onClick={() => removeWebhook(wh.id)} className="text-[10px] text-zinc-500 hover:text-[var(--amber)]">
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-500">
+                      <span>
+                        Secret:{' '}
+                        <code className="text-zinc-400">
+                          {revealedSecret[wh.id] ? wh.secret : `${wh.secret.slice(0, 9)}…`}
+                        </code>
+                        <button
+                          onClick={() => setRevealedSecret((prev) => ({ ...prev, [wh.id]: !prev[wh.id] }))}
+                          className="ml-1.5 text-[var(--signal)] hover:underline"
+                        >
+                          {revealedSecret[wh.id] ? 'Hide' : 'Reveal'}
+                        </button>
+                      </span>
+                      {webhookStatus[wh.id] ? (
+                        <span className="text-zinc-400">{webhookStatus[wh.id]}</span>
+                      ) : wh.last_status ? (
+                        <span>
+                          Last: {wh.last_status}
+                          {wh.last_delivery_at ? ` · ${new Date(wh.last_delivery_at).toLocaleString()}` : ''}
+                        </span>
+                      ) : (
+                        <span>No deliveries yet</span>
+                      )}
+                    </div>
+                  </div>
                 ))}
               </div>
+            ) : (
+              <p className="mt-3 text-[11px] text-zinc-500">No webhooks yet — add a URL to start receiving signed events.</p>
             )}
           </div>
         </div>
