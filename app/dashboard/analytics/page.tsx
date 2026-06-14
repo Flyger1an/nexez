@@ -347,6 +347,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
               <p className="mb-3 text-xs uppercase tracking-[0.18em] text-[var(--signal)]">Time window</p>
               <div className="flex flex-wrap gap-2 text-sm">
                 {[
+                  { label: 'Today', value: 'today' },
                   { label: '1d', value: '1d' },
                   { label: '7d', value: '7d' },
                   { label: '30d', value: '30d' },
@@ -461,7 +462,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         />
 
         <section className="mt-5 grid gap-5 xl:grid-cols-3">
-          <Panel title={`Agent Traffic Over Time (${range === '7d' ? 'Last 7 Days' : range === '30d' ? 'Last 30 Days' : 'All Time'})`}>
+          <Panel title={`Agent Traffic Over Time (${range === 'today' ? 'Today' : range === '1d' ? 'Last 24 Hours' : range === '7d' ? 'Last 7 Days' : range === '30d' ? 'Last 30 Days' : 'All Time'})`}>
             <TrafficChart data={dailySeries} />
             <div className="mt-2 flex gap-4 text-xs text-zinc-400">
               <div className="flex items-center gap-2">

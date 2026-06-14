@@ -368,8 +368,9 @@ export type AnalyticsRangeBounds = { cutoff: Date; until: Date | null; isCustom:
 /**
  * Resolve the analytics time window from the URL params.
  * A custom `from`/`to` range (either bound) takes precedence over the preset
- * `range` (1d / 7d / 30d / all). `until` is the inclusive end-of-day for `to`.
- * Shared by the analytics page and the CSV export so they always agree.
+ * `range` (today / 1d / 7d / 30d / all). `until` is the inclusive end-of-day for `to`.
+ * Shared by the analytics page, the CSV export, and the dashboard Overview
+ * "today" headline so they always agree.
  */
 export function analyticsRangeBounds(input: AnalyticsRangeInput, now: Date = new Date()): AnalyticsRangeBounds {
   const fromDate = parseYmd(input.from)
@@ -386,7 +387,12 @@ export function analyticsRangeBounds(input: AnalyticsRangeInput, now: Date = new
   const preset = input.range || '30d'
   const day = 24 * 60 * 60 * 1000
   let cutoff = new Date(0)
-  if (preset === '1d') cutoff = new Date(now.getTime() - day)
+  if (preset === 'today') {
+    // Calendar day: midnight → now. Shared by the dashboard Overview headline and
+    // the Analytics "Today" range so the two always show the same window.
+    cutoff = new Date(now)
+    cutoff.setHours(0, 0, 0, 0)
+  } else if (preset === '1d') cutoff = new Date(now.getTime() - day)
   else if (preset === '7d') cutoff = new Date(now.getTime() - 7 * day)
   else if (preset === '30d') cutoff = new Date(now.getTime() - 30 * day)
   return { cutoff, until: null, isCustom: false, preset }

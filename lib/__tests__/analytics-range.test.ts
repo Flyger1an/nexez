@@ -19,6 +19,21 @@ describe('analyticsRangeBounds', () => {
     expect(NOW.getTime() - cutoff.getTime()).toBe(DAY)
   })
 
+  it('"today" cuts off at the start of the current day (midnight → now)', () => {
+    const { cutoff, until, preset } = analyticsRangeBounds({ range: 'today' }, NOW)
+    expect(preset).toBe('today')
+    expect(until).toBeNull()
+    // Start of NOW's calendar day, and never after now.
+    expect(cutoff.getHours()).toBe(0)
+    expect(cutoff.getMinutes()).toBe(0)
+    expect(cutoff.getSeconds()).toBe(0)
+    expect(cutoff.getMilliseconds()).toBe(0)
+    expect(cutoff.getTime()).toBeLessThanOrEqual(NOW.getTime())
+    expect(cutoff.getFullYear()).toBe(NOW.getFullYear())
+    expect(cutoff.getMonth()).toBe(NOW.getMonth())
+    expect(cutoff.getDate()).toBe(NOW.getDate())
+  })
+
   it('"all" returns an epoch cutoff and no upper bound', () => {
     const { cutoff, until } = analyticsRangeBounds({ range: 'all' }, NOW)
     expect(cutoff.getTime()).toBe(0)

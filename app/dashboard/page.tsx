@@ -4,6 +4,7 @@ import { createClient } from '../../utils/supabase/server'
 import { AgentPage, BASIC_OWNER_PAGE_SELECT, OWNER_PAGE_SELECT } from '../../lib/agent-page'
 import { AgentVisit } from '../../lib/agent-visits'
 import { CheckoutEvent } from '../../lib/checkout-events'
+import { analyticsRangeBounds } from '../../lib/analytics'
 import { DashboardClient, DashboardInitial } from './DashboardClient'
 
 // Server component: authenticates + fetches the dashboard's data in one parallel
@@ -56,6 +57,10 @@ export default async function DashboardPage() {
     sharedPages = shared.data ?? []
   }
 
+  // Start-of-today cutoff, computed once server-side from the SAME helper the
+  // Analytics "Today" range uses, so the Overview headline and Analytics agree.
+  const todayCutoff = analyticsRangeBounds({ range: 'today' }).cutoff.toISOString()
+
   const initial: DashboardInitial = {
     pages,
     events: eventRes.error ? [] : eventRes.data ?? [],
@@ -63,6 +68,7 @@ export default async function DashboardPage() {
     openNegotiations: negRes.error ? 0 : negRes.count ?? 0,
     sharedPages,
     displayName,
+    todayCutoff,
   }
 
   return <DashboardClient initial={initial} />

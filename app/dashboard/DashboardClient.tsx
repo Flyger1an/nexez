@@ -12,6 +12,12 @@ import {
 } from '../../lib/agent-page'
 import { buildDuplicatePayload } from '../../lib/duplicate-page'
 import { AgentVisit, getAgentTypeBreakdown, getTopPagesByAgentVisits, getTrafficSplit } from '../../lib/agent-visits'
+import {
+  getCheckoutAttemptCount,
+  getConversionCount,
+  getDiscoveryClickCount,
+  isDryRunEvent,
+} from '../../lib/analytics'
 import { CheckoutEvent, getEventActionLabel } from '../../lib/checkout-events'
 import { createClient } from '../../utils/supabase/client'
 import { PageCard } from '../../components/dashboard/PageCard'
@@ -26,6 +32,9 @@ export type DashboardInitial = {
   openNegotiations: number
   sharedPages: AgentPage[]
   displayName: string
+  // Start-of-today (ISO), computed server-side from the same helper Analytics
+  // uses, so the Overview headline and Analytics' "Today" range stay in sync.
+  todayCutoff: string
 }
 
 // Overview shows a bounded recent set; full management (with pagination) lives
@@ -52,17 +61,38 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
     ? Math.round(pages.reduce((sum, page) => sum + getReadinessScore(page), 0) / pages.length)
     : 0
   const totalOffers = pages.reduce((sum, page) => sum + getOfferCount(page), 0)
-  const trafficSplit = useMemo(() => getTrafficSplit(agentVisits), [agentVisits])
-  const agentTypeBreakdown = useMemo(() => getAgentTypeBreakdown(agentVisits).slice(0, 4), [agentVisits])
-  const topAgentPages = useMemo(() => getTopPagesByAgentVisits(agentVisits, pages).slice(0, 4), [agentVisits, pages])
-  const totalTrackedSignals = events.length + agentVisits.length
+
+  // The Overview headline + KPIs report TODAY's activity. We scope to the
+  // server-provided start-of-today cutoff and reuse the Analytics helpers (which
+  // exclude dry-run/simulation events) so the numbers match the Analytics
+  // "Today" range exactly. `created_at` is compared as an absolute instant so
+  // the window is identical regardless of where the filter runs.
+  const cutoffMs = useMemo(() => {
+    const ms = Date.parse(initial?.todayCutoff ?? '')
+    if (!Number.isNaN(ms)) return ms
+    const start = new Date()
+    start.setHours(0, 0, 0, 0)
+    return start.getTime()
+  }, [initial?.todayCutoff])
+  const todayEvents = useMemo(
+    () => events.filter((e) => Date.parse(e.created_at) >= cutoffMs),
+    [events, cutoffMs],
+  )
+  const todayVisits = useMemo(
+    () => agentVisits.filter((v) => Date.parse(v.created_at) >= cutoffMs),
+    [agentVisits, cutoffMs],
+  )
+
+  const trafficSplit = useMemo(() => getTrafficSplit(todayVisits), [todayVisits])
+  const agentTypeBreakdown = useMemo(() => getAgentTypeBreakdown(todayVisits).slice(0, 4), [todayVisits])
+  const topAgentPages = useMemo(() => getTopPagesByAgentVisits(todayVisits, pages).slice(0, 4), [todayVisits, pages])
+  const totalTrackedSignals =
+    todayEvents.filter((event) => !isDryRunEvent(event)).length + todayVisits.length
   const agentPageVisits = trafficSplit.ai
-  const discoveryClicks = events.filter((event) => event.event_type === 'directory_click').length
-  const checkoutAttempts = events.filter((event) => event.event_type === 'checkout_attempt').length
-  const conversionActions = events.filter((event) =>
-    ['provider_redirect', 'stripe_session_created'].includes(event.event_type),
-  ).length
-  const topOffer = getTopOffer(events)
+  const discoveryClicks = useMemo(() => getDiscoveryClickCount(todayEvents), [todayEvents])
+  const checkoutAttempts = useMemo(() => getCheckoutAttemptCount(todayEvents), [todayEvents])
+  const conversionActions = useMemo(() => getConversionCount(todayEvents), [todayEvents])
+  const topOffer = getTopOffer(todayEvents)
   const signalsByPageId = useMemo(() => {
     const counts = new Map<string, number>()
 
@@ -282,13 +312,14 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
               <section className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
                 <div className="relative p-6 md:p-8">
                   <div className="absolute right-8 top-8 hidden size-32 rounded-full bg-[var(--signal)]/25 blur-3xl md:block" />
-                  <p className="text-sm text-[var(--signal)]">Your Nexez agent pages received</p>
+                  <p className="text-sm text-[var(--signal)]">Today, your Nexez agent pages received</p>
                   <h2 className="mt-2 text-3xl font-semibold tracking-tight">
                     {agentPageVisits} AI agent visits, {trafficSplit.human} human visits, {discoveryClicks} discovery clicks, and {conversionActions} conversion actions
                   </h2>
                   <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
-                    {totalTrackedSignals} tracked signals across {publishedCount} published pages and {totalOffers} listed offers —
-                    a live view of how AI agents are discovering and acting on your business.
+                    {totalTrackedSignals} tracked signals today across {publishedCount} published pages and {totalOffers} listed offers —
+                    a live view of how AI agents are discovering and acting on your business. See full history in{' '}
+                    <a href="/dashboard/analytics" className="text-[var(--signal)] hover:underline">Analytics</a>.
                   </p>
                   {topOffer ? (
                     <p className="mt-4 inline-flex rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/10 px-3 py-2 text-sm text-[var(--signal)]">
@@ -327,7 +358,13 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
 
             {pages.length > 0 && (
             <>
-            <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+            <div className="mt-6 flex items-center justify-between">
+              <h2 className="text-sm font-medium uppercase tracking-[0.18em] text-[var(--signal)]">Today</h2>
+              <a href="/dashboard/analytics?range=today" className="text-xs text-zinc-400 hover:text-[var(--signal)]">
+                View in Analytics →
+              </a>
+            </div>
+            <section className="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
               <div className="kpi-card">
                 <p className="text-sm text-[#9CA3AF]">Tracked signals</p>
                 <p className="mt-2 text-4xl font-semibold tracking-tighter">{totalTrackedSignals}</p>
@@ -351,6 +388,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
               <div className="kpi-card">
                 <p className="text-sm text-[#9CA3AF]">Avg readiness</p>
                 <p className="mt-2 text-4xl font-semibold tracking-tighter">{averageReadiness}%</p>
+                <p className="mt-1 text-[11px] text-zinc-500">all pages</p>
               </div>
             </section>
 
