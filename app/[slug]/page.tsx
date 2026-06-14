@@ -6,7 +6,7 @@ import { headers, cookies } from 'next/headers'
 import { createClient as createServerClient } from '../../utils/supabase/server'
 import { applyDraftOverlay } from '../../lib/draft'
 import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, Handshake, LockKeyhole, Mail, MapPin } from 'lucide-react'
-import { AgentPage, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, availabilityLabel, getBaseUrl, getCertification, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows, sanitizePublicUrl, schemaAvailability } from '../../lib/agent-page'
+import { AgentPage, CredentialRecord, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, availabilityLabel, getBaseUrl, getCertification, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows, sanitizePublicUrl, schemaAvailability } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { agentArtifactHref, getEffectiveBaseUrl, isCustomHost, normalizeDomainPath } from '../../lib/custom-domain'
 import { hasBranding, normalizeBranding } from '../../lib/branding'
@@ -260,15 +260,43 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
                 </span>
               )}
             </div>
-            {(page as any).verification_details?.docs_provided?.length > 0 ? (
-              <p className="mt-1.5 text-[11px] text-[#9CA3AF]">
-                Self-reported credentials:{' '}
-                {((page as any).verification_details.docs_provided as Array<string | { name?: string }>)
-                  .map((d) => (typeof d === 'string' ? d : d?.name))
-                  .filter(Boolean)
-                  .join(' • ')}
-              </p>
-            ) : null}
+            {(() => {
+              const docs = ((page as any).verification_details?.docs_provided ?? []) as Array<string | CredentialRecord>
+              const verified = docs.filter((d): d is CredentialRecord => typeof d === 'object' && d?.status === 'verified')
+              const selfReported = docs.filter((d): d is string => typeof d === 'string')
+              if (!verified.length && !selfReported.length) return null
+              return (
+                <div className="mt-2 space-y-1.5">
+                  {verified.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {verified.map((d) => (
+                        <span
+                          key={d.id}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-2.5 py-0.5 text-[11px] text-[var(--ready)]"
+                          title="LLM-reviewed credential (not authority-verified)"
+                        >
+                          ✓ Reviewed: {d.verdict?.type || d.name}
+                          {d.verdict?.issuer ? ` · ${d.verdict.issuer}` : ''}
+                          {d.public && d.file_path ? (
+                            <a
+                              href={`/api/credentials/view?slug=${encodeURIComponent(page.slug)}&id=${encodeURIComponent(d.id)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="underline hover:no-underline"
+                            >
+                              View
+                            </a>
+                          ) : null}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {selfReported.length > 0 ? (
+                    <p className="text-[11px] text-[#9CA3AF]">Self-reported: {selfReported.join(' • ')}</p>
+                  ) : null}
+                </div>
+              )
+            })()}
             <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-[-1.5px] sm:text-5xl md:text-6xl lg:text-7xl">
               {page.name}
             </h1>

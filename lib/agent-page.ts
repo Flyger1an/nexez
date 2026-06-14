@@ -171,6 +171,30 @@ export type FaqItem = {
   answer: string
 }
 
+// A reviewed credential. Legacy entries are bare strings (self-reported, never
+// score-boosting); new entries are records carrying the LLM review verdict.
+export type CredentialRecord = {
+  id: string
+  name: string
+  status: 'pending' | 'verified' | 'rejected'
+  file_path?: string
+  mime?: string
+  public?: boolean // owner opted to expose the file on the public page (signed URL)
+  verdict?: {
+    type?: string
+    issuer?: string
+    holder?: string
+    expiry?: string
+    expired?: boolean
+    holder_matches_business?: boolean
+    legitimate?: boolean
+    confidence?: number
+    reason?: string
+  }
+  uploaded_at?: string
+  reviewed_at?: string
+}
+
 export type AgentPage = {
   id: string
   owner_id: string | null
@@ -222,16 +246,7 @@ export type AgentPage = {
     // A credential is either a legacy/self-reported name (string) or a reviewed
     // record. Only records with status 'verified' (set by the LLM review pass)
     // count toward the trust score; strings are treated as self-reported.
-    docs_provided?: Array<
-      | string
-      | {
-          name: string
-          status?: 'pending' | 'verified' | 'rejected'
-          file_path?: string
-          verdict?: { type?: string; issuer?: string; holder?: string; reason?: string; confidence?: number }
-          reviewed_at?: string
-        }
-    >
+    docs_provided?: Array<string | CredentialRecord>
     completion_rate?: number // from events
     last_updated?: string
   }

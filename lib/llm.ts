@@ -154,3 +154,58 @@ export async function llmComplete(
   const result = await llmCompleteDetailed(prompt, opts)
   return result.text
 }
+
+/**
+ * Vision variant: sends one or more images alongside the prompt using the
+ * OpenAI-compatible multimodal message shape (content parts with image_url).
+ * Works with vision-capable OpenAI-compatible models (gpt-4o / gpt-4o-mini,
+ * etc.). `images` are data URLs (data:image/png;base64,…) or https URLs.
+ * Same fail-safe telemetry as llmCompleteDetailed — callers treat a non-ok
+ * result as "could not review" (never as a pass).
+ */
+export async function llmVisionCompleteDetailed(
+  prompt: string,
+  images: string[],
+  opts: { system?: string; maxTokens?: number; temperature?: number } = {},
+): Promise<LlmCompletionResult> {
+  const model = llmModel()
+  const provider = llmProviderName()
+  const startedAt = Date.now()
+
+  if (!isLlmConfigured()) {
+    return { text: null, status: 'not_configured', configured: false, attempted: false, ok: false, model, provider, latencyMs: 0, error: 'LLM_API_KEY is not configured.' }
+  }
+  if (!images.length) {
+    return { text: null, status: 'empty_response', configured: true, attempted: false, ok: false, model, provider, latencyMs: 0, error: 'No image supplied for vision review.' }
+  }
+
+  const base = (process.env.LLM_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '')
+  const userContent = [
+    { type: 'text', text: prompt },
+    ...images.map((url) => ({ type: 'image_url', image_url: { url } })),
+  ]
+  const messages = [
+    ...(opts.system ? [{ role: 'system', content: opts.system }] : []),
+    { role: 'user', content: userContent },
+  ]
+
+  try {
+    const res = await fetch(`${base}/chat/completions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.LLM_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, messages, max_tokens: opts.maxTokens ?? 600, temperature: opts.temperature ?? 0.2 }),
+      signal: AbortSignal.timeout(20_000),
+    })
+    if (!res.ok) {
+      return { text: null, status: 'http_error', configured: true, attempted: true, ok: false, model, provider, latencyMs: Date.now() - startedAt, httpStatus: res.status, error: `LLM vision request failed with HTTP ${res.status}.` }
+    }
+    const data = await res.json()
+    const text = data?.choices?.[0]?.message?.content
+    if (typeof text !== 'string' || !text.trim()) {
+      return { text: null, status: 'empty_response', configured: true, attempted: true, ok: false, model, provider, latencyMs: Date.now() - startedAt, error: 'LLM vision response did not include text.' }
+    }
+    return { text: text.trim(), status: 'ok', configured: true, attempted: true, ok: true, model, provider, latencyMs: Date.now() - startedAt }
+  } catch (error) {
+    return { text: null, status: 'network_error', configured: true, attempted: true, ok: false, model, provider, latencyMs: Date.now() - startedAt, error: error instanceof Error ? error.message.slice(0, 180) : 'LLM vision request failed.' }
+  }
+}

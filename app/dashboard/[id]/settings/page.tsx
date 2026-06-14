@@ -21,6 +21,7 @@ import { deploymentChangeAt, summarizeDeployments } from '../../../../lib/deploy
 import { buildAgentPagePayload, getAgentJsonPath } from '../../../../lib/agent-manifest'
 import { createClient } from '../../../../utils/supabase/client'
 import { agentRuntimeUrl } from '../../../../lib/site'
+import { CredentialsManager } from '../../../../components/CredentialsManager'
 
 type PageProps = {
   params: Promise<{ id: string }>
@@ -1612,7 +1613,7 @@ export default function PageSettings({ params }: PageProps) {
 
                 {/* Live preview impact */}
                 <div className="mb-3 text-xs bg-black/30 p-2 rounded border border-white/10">
-                  Current signals impact: Email {verificationDetails.email_verified ? '+10' : '0'} • Domain { (verificationDetails.domain_verified || domainVerified) ? '+15' : '0' } • Docs {(verificationDetails.docs_provided || []).length > 0 ? '+10' : '0'} • (readiness base 60% + events)
+                  Current signals impact: Email {verificationDetails.email_verified ? '+10' : '0'} • Domain { (verificationDetails.domain_verified || domainVerified) ? '+15' : '0' } • Credentials {(verificationDetails.docs_provided || []).some((d: any) => d && typeof d === 'object' && d.status === 'verified') ? '+10' : '0'} • (readiness base 60% + events)
                 </div>
 
                 <div className="space-y-3">
@@ -1625,51 +1626,14 @@ export default function PageSettings({ params }: PageProps) {
                     Domain verified (see custom domain above)
                   </label>
 
-                  {/* Docs as chips (better UX than raw comma) */}
-                  <div>
-                    <div className="text-xs mb-1">Credentials / licenses / attestations (add names)</div>
-                    <div className="flex flex-wrap gap-1 mb-1">
-                      {(verificationDetails.docs_provided || []).map((d: string, i: number) => (
-                        <span key={i} className="inline-flex items-center gap-1 text-xs bg-[var(--amber)]/10 px-2 py-0.5 rounded">
-                          {d}
-                          <button type="button" onClick={() => {
-                            const next = [...(verificationDetails.docs_provided || [])]; next.splice(i,1);
-                            setVerificationDetails({...verificationDetails, docs_provided: next});
-                          }} className="text-[var(--amber)] hover:text-red-400">×</button>
-                        </span>
-                      ))}
-                      {(verificationDetails.docs_provided || []).length === 0 && <span className="text-[10px] text-zinc-500">None attached yet</span>}
-                    </div>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="e.g. plumbing-license.pdf"
-                        className="flex-1 rounded border border-white/15 bg-black/30 px-3 py-1 text-sm"
-                        id="new-doc-input"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            const inp = (e.target as HTMLInputElement);
-                            const val = inp.value.trim();
-                            if (val) {
-                              const current = verificationDetails.docs_provided || [];
-                              if (!current.includes(val)) setVerificationDetails({...verificationDetails, docs_provided: [...current, val]});
-                              inp.value = '';
-                            }
-                          }
-                        }}
-                      />
-                      <button type="button" onClick={() => {
-                        const inp = document.getElementById('new-doc-input') as HTMLInputElement | null;
-                        const val = inp?.value.trim();
-                        if (val) {
-                          const current = verificationDetails.docs_provided || [];
-                          if (!current.includes(val)) setVerificationDetails({...verificationDetails, docs_provided: [...current, val]});
-                          if (inp) inp.value = '';
-                        }
-                      }} className="text-xs rounded border border-white/20 px-3">Add</button>
-                    </div>
-                    <p className="text-[10px] text-zinc-500 mt-1">Add document names now. They show as credentials on your public page.</p>
-                  </div>
+                  {/* Upload + LLM-review credentials (only 'verified' boost the score). */}
+                  {page ? (
+                    <CredentialsManager
+                      pageId={page.id}
+                      docs={verificationDetails.docs_provided || []}
+                      onChange={(docs) => setVerificationDetails({ ...verificationDetails, docs_provided: docs })}
+                    />
+                  ) : null}
                 </div>
 
                 <button
