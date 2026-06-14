@@ -7,6 +7,7 @@ import {
   appUrl,
   canonicalHostFor,
   isAppPath,
+  isDualPath,
   isHostNeutralPath,
   isMarketingPath,
   marketingUrl,
@@ -78,6 +79,25 @@ describe('canonicalHostFor', () => {
   it('defaults an UNLISTED /api/* route to the private app host (fail-safe), but a slug to the runtime', () => {
     expect(canonicalHostFor('/api/some-future-private-route')).toBe(APP_HOST)
     expect(canonicalHostFor('/totally-unknown-slug')).toBe(AGENT_RUNTIME_HOST)
+  })
+})
+
+describe('isDualPath', () => {
+  it('flags the discovery surfaces that exist in both marketing + app chrome', () => {
+    for (const p of ['/directory', '/leaderboard', '/marketplace', '/simulator', '/support', '/directory/foo', '/support/']) {
+      expect(isDualPath(p), p).toBe(true)
+    }
+  })
+
+  it('does NOT flag marketing-only or app/runtime routes', () => {
+    for (const p of ['/pricing', '/privacy', '/terms', '/design', '/blog/x', '/docs', '/', '/dashboard', '/create', '/some-slug', '/supporters']) {
+      expect(isDualPath(p), p).toBe(false)
+    }
+  })
+
+  it('stays canonical to the marketing host (the per-visitor app-host override lives in the proxy)', () => {
+    expect(canonicalHostFor('/simulator')).toBe(MARKETING_HOST)
+    expect(canonicalHostFor('/marketplace')).toBe(MARKETING_HOST)
   })
 })
 

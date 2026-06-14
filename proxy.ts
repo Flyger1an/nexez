@@ -10,11 +10,13 @@ import {
   normalizeHost,
 } from './lib/custom-domain'
 import { AB_BUCKET_COOKIE, randomBucket } from './lib/ab-testing'
+import { hasSupabaseAuthCookie } from './lib/auth-cookie'
 import {
   AGENT_RUNTIME_HOST,
   APP_HOST,
   MARKETING_HOST,
   canonicalHostFor,
+  isDualPath,
   isHostNeutralPath,
 } from './lib/site'
 
@@ -94,7 +96,7 @@ async function resolvePathMapForHost(host: string): Promise<Record<string, strin
 // lives in `sb-<ref>-auth-token` cookie(s). Presence is a heuristic only — the
 // dashboard's auth gate still validates — so it's fine to act on without a round-trip.
 function hasPlatformSession(request: NextRequest): boolean {
-  return request.cookies.getAll().some((c) => /^sb-.*-auth-token/.test(c.name) && Boolean(c.value))
+  return hasSupabaseAuthCookie(request.cookies.getAll())
 }
 
 export async function proxy(request: NextRequest) {
@@ -139,7 +141,14 @@ export async function proxy(request: NextRequest) {
     }
 
     const isOwnerPreview = request.nextUrl.searchParams.get('preview') === '1'
-    const wantHost = isOwnerPreview ? APP_HOST : canonicalHostFor(request.nextUrl.pathname)
+    let wantHost = isOwnerPreview ? APP_HOST : canonicalHostFor(request.nextUrl.pathname)
+    // Dual discovery surfaces (directory/leaderboard/marketplace/simulator/support)
+    // are canonical to the marketing host for anonymous visitors, but a signed-in
+    // visitor gets the in-app experience on the app host — so they keep the
+    // dashboard nav instead of bouncing to the marketing chrome.
+    if (isDualPath(request.nextUrl.pathname) && hasPlatformSession(request)) {
+      wantHost = APP_HOST
+    }
     if (currentHost !== wantHost) {
       const url = request.nextUrl.clone()
       url.host = wantHost

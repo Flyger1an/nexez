@@ -42,6 +42,12 @@ const MARKETING_PREFIXES = [
   '/docs', // future docs
 ] as const
 
+// Discovery/community surfaces that exist in BOTH contexts: marketing chrome for
+// anonymous visitors (nexez.ai) and the in-app dashboard chrome for signed-in
+// users (app host). A subset of MARKETING_PREFIXES — the proxy keeps a signed-in
+// visitor on the app host for these, and PlatformFrame picks the matching shell.
+const DUAL_PREFIXES = ['/directory', '/leaderboard', '/marketplace', '/simulator', '/support'] as const
+
 const APP_PREFIXES = ['/dashboard', '/create', '/login', '/auth', '/onboard'] as const
 
 const MARKETING_API_PREFIXES = [
@@ -104,6 +110,16 @@ export function isMarketingPath(pathname: string): boolean {
   if (p === '/') return true
   // Match a prefix exactly or as a path segment (so `/design` matches but `/designs` does not).
   return MARKETING_PREFIXES.some((pre) => p === pre || p.startsWith(`${pre}/`))
+}
+
+/**
+ * True when `pathname` is a discovery surface rendered in BOTH the marketing and
+ * the in-app chrome (directory, leaderboard, marketplace, simulator, support).
+ * The proxy routes signed-in visitors to the app host for these; PlatformFrame
+ * then shows the dashboard nav instead of the marketing nav.
+ */
+export function isDualPath(pathname: string): boolean {
+  return matchesPrefix(pathname, DUAL_PREFIXES)
 }
 
 /** True when `pathname` should be served on the authenticated app host. */

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { Schibsted_Grotesk, Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import { PlatformFrame } from "../components/PlatformFrame";
 import { DesignSystemFx } from "../components/DesignSystemFx";
+import { hasSupabaseAuthCookie } from "../lib/auth-cookie";
 import { THEME_NO_FLASH_SCRIPT } from "../lib/theme";
 import "./globals.css";
 
@@ -47,11 +49,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Resolve the session server-side so PlatformFrame can pick the right chrome on
+  // the dual discovery surfaces (signed-in → dashboard nav) without a client flash.
+  const hasSession = hasSupabaseAuthCookie((await cookies()).getAll());
+
   return (
     <html
       lang="en"
@@ -62,7 +68,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: THEME_NO_FLASH_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
-        <PlatformFrame>{children}</PlatformFrame>
+        <PlatformFrame hasSession={hasSession}>{children}</PlatformFrame>
         <DesignSystemFx />
       </body>
     </html>
