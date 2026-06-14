@@ -219,7 +219,19 @@ export type AgentPage = {
   verification_details?: {
     email_verified?: boolean | string
     domain_verified?: boolean | string
-    docs_provided?: string[]
+    // A credential is either a legacy/self-reported name (string) or a reviewed
+    // record. Only records with status 'verified' (set by the LLM review pass)
+    // count toward the trust score; strings are treated as self-reported.
+    docs_provided?: Array<
+      | string
+      | {
+          name: string
+          status?: 'pending' | 'verified' | 'rejected'
+          file_path?: string
+          verdict?: { type?: string; issuer?: string; holder?: string; reason?: string; confidence?: number }
+          reviewed_at?: string
+        }
+    >
     completion_rate?: number // from events
     last_updated?: string
   }
@@ -558,7 +570,14 @@ export function getTrustScore(page: Partial<AgentPage>, events?: any[]): number 
   const v = (page as any).verification_details || {}
   const hasDomain = !!(page.custom_domain_verified || v.domain_verified)
   const hasEmail = !!v.email_verified
-  const hasDocs = Array.isArray(v.docs_provided) && v.docs_provided.length > 0
+  // Credentials only count toward trust once they've actually been REVIEWED.
+  // A self-reported entry (a bare filename string) must NOT boost the score —
+  // otherwise anyone lists a random file and inflates their ranking. The bonus
+  // applies only to credentials carrying a verified status (set by the LLM
+  // review pass); unreviewed / self-reported docs contribute nothing.
+  const hasVerifiedDocs =
+    Array.isArray(v.docs_provided) &&
+    v.docs_provided.some((d: any) => d && typeof d === 'object' && d.status === 'verified')
 
   let completion = v.completion_rate || 0
   if (events && events.length > 0) {
@@ -570,7 +589,7 @@ export function getTrustScore(page: Partial<AgentPage>, events?: any[]): number 
 
   if (hasDomain) score += 15
   if (hasEmail) score += 10
-  if (hasDocs) score += 10
+  if (hasVerifiedDocs) score += 10
   score += Math.min(5, (completion / 100) * 5) // up to +5 from completion
 
   return Math.max(0, Math.min(100, Math.round(score)))

@@ -38,13 +38,22 @@ describe('getTrustScore', () => {
   it('base is 60% of readiness with no verification', () => {
     expect(getTrustScore(fullPage)).toBe(60) // readiness 100 * 0.6
   })
-  it('adds verification bonuses (domain +15, email +10, docs +10)', () => {
+  it('adds verification bonuses (domain +15, email +10); self-reported docs do NOT boost', () => {
     expect(getTrustScore({ ...fullPage, custom_domain_verified: '2026-01-01' })).toBe(75)
+    // A self-reported credential (bare filename string) must NOT boost the score.
     expect(
       getTrustScore({
         ...fullPage,
         custom_domain_verified: '2026-01-01',
         verification_details: { email_verified: true, docs_provided: ['license.pdf'] },
+      } as Partial<AgentPage>),
+    ).toBe(85)
+    // Only a reviewed/verified credential (status: 'verified') adds +10.
+    expect(
+      getTrustScore({
+        ...fullPage,
+        custom_domain_verified: '2026-01-01',
+        verification_details: { email_verified: true, docs_provided: [{ name: 'license.pdf', status: 'verified' }] },
       } as Partial<AgentPage>),
     ).toBe(95)
   })

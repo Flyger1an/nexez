@@ -10,6 +10,7 @@ import { AgentPage, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, availabilityLabel, g
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { agentArtifactHref, getEffectiveBaseUrl, isCustomHost, normalizeDomainPath } from '../../lib/custom-domain'
 import { hasBranding, normalizeBranding } from '../../lib/branding'
+import { BackLink } from '../../components/BackLink'
 import { safeJsonScript } from '../../lib/safe-json'
 import { logAgentPageView } from '../../lib/server/log-agent-page-view'
 import { logAbImpressions } from '../../lib/server/log-ab-impressions'
@@ -225,10 +226,10 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
             ) : null}
           </div>
         ) : branding.hide_nexez_badge ? null : (
-          <a href="/" className="inline-flex items-center gap-2 text-sm text-[#9CA3AF] hover:text-white">
+          <BackLink fallbackHref="/" className="inline-flex items-center gap-2 text-sm text-[#9CA3AF] hover:text-white">
             <ArrowLeft className="size-4" />
-            Nexez
-          </a>
+            Back
+          </BackLink>
         )}
 
         {preferOriginal && (
@@ -244,23 +245,30 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
           </div>
         )}
 
-        <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-[var(--amber)]/10 px-3 py-0.5 text-xs text-[var(--amber)]">
-          Trust Score: {getTrustScore(page, trustEvents)}/100
-          {(page as any).verification_details?.domain_verified && ' ✓ Verified'}
-          {(page as any).verification_details?.docs_provided?.length > 0 && ' 📜 Credentials attached'}
-        </div>
-        {getCertification(page).certified && (
-          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-3 py-0.5 text-xs text-[var(--ready)]">
-            ✅ Nexez Certified Agent-Ready
-          </div>
-        )}
-        {(page as any).verification_details?.docs_provided?.length > 0 && (
-          <div className="mt-1 text-[10px] text-[var(--amber)]/80">Credentials: {((page as any).verification_details.docs_provided as string[]).join(' • ')}</div>
-        )}
-
         <section className="grid gap-10 py-8 md:py-12 lg:grid-cols-[1.15fr_0.85fr] lg:py-16">
           <div>
             <p className="font-mono text-sm text-[var(--signal)]">/{page.slug}</p>
+            {/* Trust signals sit right under the slug so identity + credibility read together. */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--amber)]/10 px-3 py-0.5 text-xs text-[var(--amber)]">
+                Trust Score: {getTrustScore(page, trustEvents)}/100
+                {(page as any).verification_details?.domain_verified ? ' · ✓ Domain verified' : ''}
+              </span>
+              {getCertification(page).certified && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-3 py-0.5 text-xs text-[var(--ready)]">
+                  ✅ Nexez Certified Agent-Ready
+                </span>
+              )}
+            </div>
+            {(page as any).verification_details?.docs_provided?.length > 0 ? (
+              <p className="mt-1.5 text-[11px] text-[#9CA3AF]">
+                Self-reported credentials:{' '}
+                {((page as any).verification_details.docs_provided as Array<string | { name?: string }>)
+                  .map((d) => (typeof d === 'string' ? d : d?.name))
+                  .filter(Boolean)
+                  .join(' • ')}
+              </p>
+            ) : null}
             <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-[-1.5px] sm:text-5xl md:text-6xl lg:text-7xl">
               {page.name}
             </h1>
@@ -270,32 +278,38 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
 
             <div className="mt-8 flex flex-wrap gap-3">
               {firstCheckoutPath ? (
-                <a
-                  href={firstCheckoutPath}
-                  className="btn-primary"
-                >
-                  Book Now
-                  <LockKeyhole className="size-4" />
-                </a>
+                <>
+                  {/* Primary booking action goes through Nexez's secure checkout. */}
+                  <a href={firstCheckoutPath} className="btn-primary">
+                    Book Now
+                    <LockKeyhole className="size-4" />
+                  </a>
+                  {/* Distinct secondary: the brand's own site (one link, never another "Book Now"). */}
+                  {(() => {
+                    const siteUrl = websiteUrl || (ctaUrl !== '#' ? ctaUrl : '')
+                    return siteUrl ? (
+                      <a href={siteUrl} className="btn-secondary">
+                        Visit website
+                        <ArrowUpRight className="size-4" />
+                      </a>
+                    ) : null
+                  })()}
+                </>
               ) : (
-                <a
-                  href={ctaUrl}
-                  className="btn-primary"
-                >
-                  {page.cta_label || (preferOriginal ? 'Visit our website to book' : 'Visit website')}
-                  <ArrowUpRight className="size-4" />
-                </a>
+                <>
+                  {/* No Nexez checkout → the CTA itself is the (external) booking action. */}
+                  <a href={ctaUrl} className="btn-primary">
+                    {page.cta_label || (preferOriginal ? 'Book on our website' : 'Visit website')}
+                    <ArrowUpRight className="size-4" />
+                  </a>
+                  {/* Offer the main site too, but only if it's a different URL than the CTA. */}
+                  {websiteUrl && websiteUrl !== ctaUrl ? (
+                    <a href={websiteUrl} className="btn-secondary">
+                      Main website
+                    </a>
+                  ) : null}
+                </>
               )}
-              {firstCheckoutPath && ctaUrl !== '#' ? (
-                <a href={ctaUrl} className="btn-secondary">
-                  {page.cta_label || 'Visit website'}
-                </a>
-              ) : null}
-              {websiteUrl ? (
-                <a href={websiteUrl} className="btn-secondary">
-                  Main website
-                </a>
-              ) : null}
             </div>
           </div>
 
