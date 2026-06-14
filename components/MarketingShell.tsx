@@ -42,12 +42,12 @@ function useAuthedUser(): boolean | null {
 }
 
 const navLinks = [
+  { label: 'How it works', href: '/how-it-works' },
+  { label: 'Use cases', href: '/use-cases' },
+  { label: 'Examples', href: '/examples' },
   { label: 'Directory', href: '/directory' },
-  { label: 'Marketplace', href: '/marketplace' },
   { label: 'Pricing', href: '/pricing' },
   { label: 'Simulator', href: '/simulator' },
-  { label: 'Leaderboard', href: '/leaderboard' },
-  { label: 'Support', href: '/support' },
 ]
 
 export function MarketingShell({ children }: { children: ReactNode }) {
@@ -203,6 +203,9 @@ function MarketingFooter({ authed }: { authed: boolean | null }) {
         <FooterCol
           title="Explore"
           links={[
+            ['How it works', '/how-it-works'],
+            ['Use cases', '/use-cases'],
+            ['Examples', '/examples'],
             ['Directory', '/directory'],
             ['Marketplace', '/marketplace'],
             ['Leaderboard', '/leaderboard'],
@@ -215,8 +218,14 @@ function MarketingFooter({ authed }: { authed: boolean | null }) {
           links={gettingStartedLinks}
         />
         <FooterCol
-          title="Legal"
+          title="Trust"
           links={[
+            ['Agent readiness', '/agent-readiness'],
+            ['Integrations', '/integrations'],
+            ['Developers', '/developers'],
+            ['Security', '/security'],
+            ['Compare', '/compare'],
+            ['Enterprise', '/enterprise'],
             ['Privacy', '/privacy'],
             ['Terms', '/terms'],
           ]}
