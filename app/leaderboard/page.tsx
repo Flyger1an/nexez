@@ -3,6 +3,7 @@ import { Trophy } from 'lucide-react'
 import { AgentPage, PUBLIC_PAGE_SELECT, getOfferCount, getReadinessScore, getTrustScore } from '../../lib/agent-page'
 import { supabase } from '../../lib/supabase'
 import { agentRuntimeUrl, appUrl } from '../../lib/site'
+import { DiscoveryTabs } from '../../components/DiscoveryTabs'
 
 export const metadata: Metadata = {
   title: 'Agent-Ready Leaderboard',
@@ -38,6 +39,7 @@ export default async function LeaderboardPage({ searchParams }: Props) {
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="mx-auto max-w-4xl px-6 py-10">
+        <DiscoveryTabs />
         <header className="flex items-center gap-3">
           <Trophy className="size-7 text-[var(--amber)]" />
           <div>

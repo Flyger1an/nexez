@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   BarChart3,
   Bot,
+  Compass,
   CreditCard,
   Gauge,
   FileText,
@@ -19,8 +20,6 @@ import {
   Search,
   Settings,
   Sparkles,
-  Store,
-  Trophy,
   Wrench,
 } from 'lucide-react'
 import { createClient } from '../utils/supabase/client'
@@ -51,9 +50,7 @@ const navItems = [
   { href: '/create', label: 'Create Page', icon: Plus, mobile: true },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3, mobile: true },
   { href: '/simulator', label: 'Simulator', icon: Bot, mobile: true },
-  { href: '/marketplace', label: 'Marketplace', icon: Store },
-  { href: '/directory', label: 'Directory', icon: Search },
-  { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
+  { href: '/directory', label: 'Discovery', icon: Compass, match: ['/directory', '/marketplace', '/leaderboard'] },
   { href: '/dashboard/competitors', label: 'Competitors', icon: Gauge },
   { href: '/dashboard/negotiations', label: 'Negotiations', icon: Handshake },
   { href: '/dashboard/integrations', label: 'Integrations', icon: Link2 },
@@ -165,6 +162,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
                   icon={item.icon}
                   pinned={pinned}
                   pathname={pathname}
+                  match={'match' in item ? (item.match as string[]) : undefined}
                 />
                 {'subItems' in item && item.subItems && pathname.startsWith('/dashboard/pages') && pinned ? (
                   <div className="ml-7 hidden space-y-0.5 md:block">
@@ -282,14 +280,20 @@ function ShellNavItem({
   icon: Icon,
   pinned,
   pathname,
+  match,
 }: {
   href: string
   label: string
   icon: typeof Grid2X2
   pinned: boolean
   pathname: string
+  match?: string[]
 }) {
-  const active = href === '/dashboard' ? pathname === '/dashboard' : pathname === href || pathname.startsWith(`${href}/`)
+  const paths = match ?? [href]
+  const active =
+    href === '/dashboard'
+      ? pathname === '/dashboard'
+      : paths.some((p) => pathname === p || pathname.startsWith(`${p}/`))
 
   return (
     <a

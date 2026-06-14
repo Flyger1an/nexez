@@ -45,7 +45,7 @@ const navLinks = [
   { label: 'How it works', href: '/how-it-works' },
   { label: 'Use cases', href: '/use-cases' },
   { label: 'Examples', href: '/examples' },
-  { label: 'Directory', href: '/directory' },
+  { label: 'Discovery', href: '/directory' },
   { label: 'Pricing', href: '/pricing' },
   { label: 'Simulator', href: '/simulator' },
 ]

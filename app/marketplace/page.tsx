@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Star, TrendingUp } from 'lucide-react'
 import { MarketplaceResults } from '../../components/MarketplaceResults'
 import { TrackedDirectoryLink } from '../../components/TrackedDirectoryLink'
+import { DiscoveryTabs } from '../../components/DiscoveryTabs'
 import { agentRuntimeUrl, appUrl, marketingUrl } from '../../lib/site'
 
 export const metadata: Metadata = {
@@ -35,6 +36,7 @@ export default async function MarketplacePage() {
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
+        <DiscoveryTabs />
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-3xl md:text-4xl font-semibold tracking-tight flex items-center gap-2">

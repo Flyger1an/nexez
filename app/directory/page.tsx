@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase'
 import { CopyButton } from './CopyButton'
 import { FavoriteButton } from '../../components/FavoriteButton'
 import { TrackedDirectoryLink } from '../../components/TrackedDirectoryLink'
+import { DiscoveryTabs } from '../../components/DiscoveryTabs'
 import { agentRuntimeUrl, appUrl } from '../../lib/site'
 
 type DirectoryProps = {
@@ -68,6 +69,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <section className="border-b border-white/10 bg-[#0F0D18]">
         <div className="mx-auto max-w-7xl px-6 py-6">
+          <DiscoveryTabs />
           <div className="flex justify-end">
             <div className="flex flex-wrap items-center gap-3 text-sm">
               <a href={agentRuntimeUrl('/agent-pages.json')} className="btn-secondary inline-flex items-center gap-2">
