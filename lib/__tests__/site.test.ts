@@ -15,7 +15,7 @@ import {
 
 describe('isMarketingPath', () => {
   it('treats the homepage + marketing prefixes as marketing', () => {
-    for (const p of ['/', '/pricing', '/pricing/teams', '/directory', '/leaderboard', '/marketplace', '/simulator', '/support', '/privacy', '/terms', '/design', '/blog/x', '/docs']) {
+    for (const p of ['/', '/pricing', '/pricing/teams', '/discovery', '/leaderboard', '/simulator', '/support', '/privacy', '/terms', '/design', '/blog/x', '/docs']) {
       expect(isMarketingPath(p), p).toBe(true)
     }
   })
@@ -84,7 +84,7 @@ describe('canonicalHostFor', () => {
 
 describe('isDualPath', () => {
   it('flags the discovery surfaces that exist in both marketing + app chrome', () => {
-    for (const p of ['/directory', '/leaderboard', '/marketplace', '/simulator', '/support', '/directory/foo', '/support/']) {
+    for (const p of ['/discovery', '/leaderboard', '/simulator', '/support', '/discovery/foo', '/support/']) {
       expect(isDualPath(p), p).toBe(true)
     }
   })
@@ -97,7 +97,7 @@ describe('isDualPath', () => {
 
   it('stays canonical to the marketing host (the per-visitor app-host override lives in the proxy)', () => {
     expect(canonicalHostFor('/simulator')).toBe(MARKETING_HOST)
-    expect(canonicalHostFor('/marketplace')).toBe(MARKETING_HOST)
+    expect(canonicalHostFor('/discovery')).toBe(MARKETING_HOST)
   })
 })
 

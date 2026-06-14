@@ -111,7 +111,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     description:
       'Use these templates as starting points for services, retainers, bookings, local work, SaaS implementation, and productized offers. Each example is written to be short, scannable, and machine-readable.',
     primaryCta: { label: 'Use a template', href: appUrl('/create') },
-    secondaryCta: { label: 'Browse live pages', href: '/directory' },
+    secondaryCta: { label: 'Browse live pages', href: '/discovery' },
     stats: [
       { value: '9', label: 'Launch-ready patterns' },
       { value: '5', label: 'Offer models covered' },
@@ -300,7 +300,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     description:
       'AI agents do not browse like humans. They parse, compare, verify, and act. Agent readiness is the practical discipline of making your offers understandable enough for those systems to recommend.',
     primaryCta: { label: 'Run the simulator', href: '/simulator' },
-    secondaryCta: { label: 'See live examples', href: '/directory' },
+    secondaryCta: { label: 'See live examples', href: '/discovery' },
     stats: [
       { value: '92%', label: 'Target readiness score' },
       { value: '5', label: 'Agent-readable outputs' },
@@ -426,7 +426,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     description:
       'Traditional websites persuade humans. Directories list businesses. SEO pages chase rankings. Nexez creates a structured buying layer for AI agents that need to understand, compare, and act.',
     primaryCta: { label: 'Create an agent page', href: appUrl('/create') },
-    secondaryCta: { label: 'See the directory', href: '/directory' },
+    secondaryCta: { label: 'See the directory', href: '/discovery' },
     stats: [
       { value: 'Human', label: 'Website remains intact' },
       { value: 'Agent', label: 'Nexez page is structured' },

@@ -1,14 +1,12 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { Search, Store, Trophy } from 'lucide-react'
+import { Search, Trophy } from 'lucide-react'
 
-// Section nav for the Discovery surfaces. Directory (search), Marketplace
-// (trending), and Leaderboard (ranked) are three lenses on the same published-
-// pages corpus, so they share one tabbed header and read as a single section.
+// Section nav for Discovery. Browse (search + trending) and Leaderboard (ranked)
+// are two lenses on the same published-pages corpus, sharing one tabbed header.
 const TABS = [
-  { href: '/directory', label: 'Directory', hint: 'Search', icon: Search },
-  { href: '/marketplace', label: 'Marketplace', hint: 'Trending', icon: Store },
+  { href: '/discovery', label: 'Browse', hint: 'Search & trending', icon: Search },
   { href: '/leaderboard', label: 'Leaderboard', hint: 'Top-ranked', icon: Trophy },
 ] as const
 

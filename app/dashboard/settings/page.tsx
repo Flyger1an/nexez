@@ -105,7 +105,7 @@ export default async function AccountSettingsPage() {
                 <h2 className="text-xl font-semibold">Discovery Endpoints</h2>
               </div>
               <div className="mt-5 grid gap-3 md:grid-cols-2">
-                <Endpoint label="Agent directory" value={`${baseUrl}/directory`} />
+                <Endpoint label="Agent discovery" value={`${baseUrl}/discovery`} />
                 <Endpoint label="llms.txt" value={`${baseUrl}/llms.txt`} />
                 <Endpoint label="Agent index" value={`${baseUrl}/agent-pages.json`} />
                 <Endpoint label="Search API" value={`${baseUrl}/api/agent-search?q=consulting`} />

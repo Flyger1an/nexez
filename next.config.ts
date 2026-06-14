@@ -23,6 +23,12 @@ const nextConfig: NextConfig = {
         destination: "http://127.0.0.1:3000/:path*",
         permanent: false,
       },
+      // Discovery consolidation: the Directory is now the canonical Browse view
+      // at /discovery; the old Marketplace folded into it as the "trending" sort.
+      // 308s preserve SEO equity + the incoming query string. (/api/directory is
+      // a separate API route and is intentionally untouched.)
+      { source: "/directory", destination: "/discovery", permanent: true },
+      { source: "/marketplace", destination: "/discovery?sort=trending", permanent: true },
     ];
   },
 };

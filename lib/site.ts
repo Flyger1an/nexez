@@ -40,9 +40,8 @@ const MARKETING_PREFIXES = [
   '/privacy',
   '/terms',
   '/design',
-  '/directory',
+  '/discovery',
   '/leaderboard',
-  '/marketplace',
   '/simulator',
   '/support',
   '/use-cases',
@@ -54,7 +53,7 @@ const MARKETING_PREFIXES = [
 // anonymous visitors (nexez.ai) and the in-app dashboard chrome for signed-in
 // users (app host). A subset of MARKETING_PREFIXES — the proxy keeps a signed-in
 // visitor on the app host for these, and PlatformFrame picks the matching shell.
-const DUAL_PREFIXES = ['/directory', '/leaderboard', '/marketplace', '/simulator', '/support'] as const
+const DUAL_PREFIXES = ['/discovery', '/leaderboard', '/simulator', '/support'] as const
 
 const APP_PREFIXES = ['/dashboard', '/create', '/login', '/auth', '/onboard'] as const
 

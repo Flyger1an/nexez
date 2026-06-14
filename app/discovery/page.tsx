@@ -10,18 +10,33 @@ import { DiscoveryTabs } from '../../components/DiscoveryTabs'
 import { agentRuntimeUrl, appUrl } from '../../lib/site'
 
 type DirectoryProps = {
-  searchParams: Promise<{ q?: string; type?: string; category?: string; min_readiness?: string }>
+  searchParams: Promise<{ q?: string; type?: string; category?: string; min_readiness?: string; sort?: string }>
 }
 
 const quickFilters = ['consulting', 'strategy session', 'bookings', 'products', 'retainers']
 
+// Trending = high-trust + recent activity (the old Marketplace's ranking),
+// now a sort mode of the unified Browse view.
+function trendingScore(result: AgentSearchResult): number {
+  const p = result.page as unknown as Record<string, unknown>
+  const trust = getTrustScore({
+    ...(p as Partial<AgentPage>),
+    products: (p.products as AgentPage['products']) ?? [],
+    services: (p.services as AgentPage['services']) ?? [],
+    faqs: (p.faqs as AgentPage['faqs']) ?? [],
+    is_published: true,
+  })
+  return trust + (p.last_booking ? 12 : 0)
+}
+
 export const metadata: Metadata = {
-  title: 'Agent Marketplace + Directory',
-  description: 'Discover and favorite agent-optimized offers. Marketplace for agents + humans.',
+  title: 'Discovery — Browse agent-ready offers',
+  description: 'Search, browse trending, and discover agent-optimized offers from businesses across Nexez.',
 }
 
 export default async function DirectoryPage({ searchParams }: DirectoryProps) {
-  const { q = '', type = 'all', category: rawCategory = 'all', min_readiness: rawMin = '0' } = await searchParams
+  const { q = '', type = 'all', category: rawCategory = 'all', min_readiness: rawMin = '0', sort: rawSort = '' } = await searchParams
+  const sortMode: 'relevant' | 'trending' | 'new' = rawSort === 'trending' || rawSort === 'new' ? rawSort : 'relevant'
   const cleanQuery = q.trim()
   const categoryFilter = (rawCategory === 'professional' || rawCategory === 'consumer') ? rawCategory : 'all'
   const minReadiness = Math.max(0, parseInt(rawMin, 10) || 0)
@@ -62,6 +77,15 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
     if (type === 'all') return true
     return result.offer?.type === type
   })
+  if (sortMode === 'trending') {
+    results.sort((a, b) => trendingScore(b) - trendingScore(a))
+  } else if (sortMode === 'new') {
+    results.sort(
+      (a, b) =>
+        new Date((b.page as unknown as { created_at?: string }).created_at ?? 0).getTime() -
+        new Date((a.page as unknown as { created_at?: string }).created_at ?? 0).getTime(),
+    )
+  }
   const pageCount = pages?.length ?? 0
   const offerCount = pages?.reduce((sum, page) => sum + getOfferCount(page), 0) ?? 0
 
@@ -99,7 +123,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
               </a>
             </div>
 
-            <form action="/directory" className="rounded-lg border border-white/10 bg-[#1A1625] p-3">
+            <form action="/discovery" className="rounded-lg border border-white/10 bg-[#1A1625] p-3">
               <label className="relative block">
                 <Search className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-[#9CA3AF]" />
                 <input
@@ -119,7 +143,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                 {quickFilters.map((filter) => (
                   <a
                     key={filter}
-                    href={`/directory?q=${encodeURIComponent(filter)}&type=${type}`}
+                    href={`/discovery?q=${encodeURIComponent(filter)}&type=${type}`}
                     className="rounded-lg border border-white/10 bg-[#1A1625] px-3 py-2 text-sm text-[#9CA3AF] hover:border-[var(--signal)]/30 hover:text-white"
                   >
                     {filter}
@@ -219,7 +243,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                 return (
                   <a
                     key={tab.value}
-                    href={`/directory?q=${encodeURIComponent(cleanQuery)}&type=${type}&category=${tab.value}`}
+                    href={`/discovery?q=${encodeURIComponent(cleanQuery)}&type=${type}&category=${tab.value}`}
                     className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                       isActive
                         ? 'bg-[var(--signal-solid)] text-white'
@@ -233,13 +257,13 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
 
               {/* Quick high-quality filter (Phase 2) */}
               <a
-                href={`/directory?q=${encodeURIComponent(cleanQuery)}&type=${type}&category=${categoryFilter}&min_readiness=80`}
+                href={`/discovery?q=${encodeURIComponent(cleanQuery)}&type=${type}&category=${categoryFilter}&min_readiness=80`}
                 className="rounded-full border border-[var(--ready)]/50 bg-[var(--ready)]/10 px-4 py-1.5 text-sm font-medium text-[var(--ready)] hover:bg-[var(--ready)]/20"
               >
                 High Quality (80%+)
               </a>
               <a
-                href={`/directory?q=${encodeURIComponent(cleanQuery)}&type=${type}&category=${categoryFilter}&min_readiness=90`}
+                href={`/discovery?q=${encodeURIComponent(cleanQuery)}&type=${type}&category=${categoryFilter}&min_readiness=90`}
                 className="rounded-full border border-[var(--ready)]/50 bg-[var(--ready)]/10 px-4 py-1.5 text-sm font-medium text-[var(--ready)] hover:bg-[var(--ready)]/20"
               >
                 Elite (90%+)
@@ -247,7 +271,36 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-[#9CA3AF]">Sort</span>
+            {[
+              { label: 'Relevant', value: 'relevant' },
+              { label: 'Trending', value: 'trending' },
+              { label: 'Newest', value: 'new' },
+            ].map((s) => {
+              const active = sortMode === s.value
+              const params = new URLSearchParams()
+              if (cleanQuery) params.set('q', cleanQuery)
+              if (type !== 'all') params.set('type', type)
+              if (categoryFilter !== 'all') params.set('category', categoryFilter)
+              if (minReadiness > 0) params.set('min_readiness', String(minReadiness))
+              if (s.value !== 'relevant') params.set('sort', s.value)
+              const qs = params.toString()
+              return (
+                <a
+                  key={s.value}
+                  href={`/discovery${qs ? `?${qs}` : ''}`}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                    active ? 'bg-[var(--signal)]/15 text-[var(--signal)]' : 'border border-white/10 text-[#9CA3AF] hover:text-white'
+                  }`}
+                >
+                  {s.label}
+                </a>
+              )
+            })}
+          </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
             {results.map((result) => (
               <DirectoryCard key={`${result.page.slug}-${result.offer?.key ?? 'page'}`} result={result} />
             ))}
@@ -312,7 +365,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                   })}
               </div>
               <a 
-                href={`/directory?category=${categoryFilter}&type=${type}&min_readiness=80`}
+                href={`/discovery?category=${categoryFilter}&type=${type}&min_readiness=80`}
                 className="mt-3 inline-block text-sm text-[var(--signal)] hover:text-[var(--signal)]"
               >
                 View all high readiness pages in this category →
@@ -331,8 +384,8 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
           ) : null}
 
           <div className="mt-8 text-xs text-[#9CA3AF]">
-            Marketplace mode: Favorite pages, track popular agent-ready offers, and continue browsing in the full marketplace.
-            <a href="/marketplace" className="ml-2 underline">Go to full Marketplace →</a>
+            Favorite pages, track popular agent-ready offers, and sort by what is trending right now.
+            <a href="/discovery?sort=trending" className="ml-2 underline">See trending →</a>
           </div>
         </div>
       </section>
@@ -458,7 +511,7 @@ function FilterLink({
 
   return (
     <a
-      href={`/directory?q=${encodeURIComponent(query)}&${param}=${value}&${otherParam}=${otherValue}`}
+      href={`/discovery?q=${encodeURIComponent(query)}&${param}=${value}&${otherParam}=${otherValue}`}
       className={`rounded-lg px-3 py-2 text-sm font-medium ${
         active ? 'bg-[var(--signal-solid)] text-white' : 'border border-white/10 bg-[#1A1625] text-[#9CA3AF] hover:border-[var(--signal)]/30'
       }`}

@@ -310,7 +310,7 @@ export default async function NexezHome() {
               <p className="text-sm font-medium text-muted-foreground">Public examples</p>
               <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">Pages agents can discover now.</h2>
             </div>
-            <a href="/directory" className="btn-secondary h-10 px-4">
+            <a href="/discovery" className="btn-secondary h-10 px-4">
               Browse directory
               <ArrowRight className="size-4" />
             </a>
@@ -366,7 +366,7 @@ export default async function NexezHome() {
               Deploy your agent page
               <ArrowRight className="size-4" />
             </a>
-            <a href="/directory" className="btn-secondary h-11 px-5">See live examples</a>
+            <a href="/discovery" className="btn-secondary h-11 px-5">See live examples</a>
           </div>
         </div>
       </section>

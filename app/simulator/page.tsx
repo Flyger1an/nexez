@@ -352,7 +352,7 @@ export default function GlobalAgentSimulator() {
               <h1 className="text-3xl md:text-4xl font-semibold tracking-tighter">Test agent parsing</h1>
             </div>
             <div className="flex flex-wrap gap-3">
-              <a href="/directory" className="btn-secondary text-sm">Browse Directory</a>
+              <a href="/discovery" className="btn-secondary text-sm">Browse Discovery</a>
               {selectedPage && (
                 <a href={appUrl(`/dashboard/${(selectedPage as any).id || ''}/test`)} className="btn-secondary text-sm">
                   Per-page simulator →

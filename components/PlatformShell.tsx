@@ -50,7 +50,7 @@ const navItems = [
   { href: '/create', label: 'Create Page', icon: Plus, mobile: true },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3, mobile: true },
   { href: '/simulator', label: 'Simulator', icon: Bot, mobile: true },
-  { href: '/directory', label: 'Discovery', icon: Compass, match: ['/directory', '/marketplace', '/leaderboard'] },
+  { href: '/discovery', label: 'Discovery', icon: Compass, match: ['/discovery', '/leaderboard'] },
   { href: '/dashboard/competitors', label: 'Competitors', icon: Gauge },
   { href: '/dashboard/negotiations', label: 'Negotiations', icon: Handshake },
   { href: '/dashboard/integrations', label: 'Integrations', icon: Link2 },

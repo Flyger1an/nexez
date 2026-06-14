@@ -45,7 +45,7 @@ const navLinks = [
   { label: 'How it works', href: '/how-it-works' },
   { label: 'Use cases', href: '/use-cases' },
   { label: 'Examples', href: '/examples' },
-  { label: 'Discovery', href: '/directory' },
+  { label: 'Discovery', href: '/discovery' },
   { label: 'Pricing', href: '/pricing' },
   { label: 'Simulator', href: '/simulator' },
 ]
@@ -206,8 +206,7 @@ function MarketingFooter({ authed }: { authed: boolean | null }) {
             ['How it works', '/how-it-works'],
             ['Use cases', '/use-cases'],
             ['Examples', '/examples'],
-            ['Directory', '/directory'],
-            ['Marketplace', '/marketplace'],
+            ['Discovery', '/discovery'],
             ['Leaderboard', '/leaderboard'],
             ['Simulator', '/simulator'],
             ['Pricing', '/pricing'],
