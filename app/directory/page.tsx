@@ -74,9 +74,6 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                 <Code2 className="size-4" />
                 Agent Index
               </a>
-              <a href={appUrl('/dashboard')} className="btn-primary inline-flex items-center gap-2">
-                Dashboard
-              </a>
             </div>
           </div>
 
