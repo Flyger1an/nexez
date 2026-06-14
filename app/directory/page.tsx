@@ -106,7 +106,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                 <input
                   name="q"
                   defaultValue={cleanQuery}
-                  className="input h-14 w-full pl-12 pr-4 text-base"
+                  className="input h-14 w-full !pl-12 pr-4 text-base"
                   placeholder="Search for strategy sessions, bookings, retainers..."
                 />
               </label>
@@ -373,10 +373,7 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
             /{result.page.slug}
           </a>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <div className="rounded-lg bg-white/10 px-2 py-1 text-xs font-medium text-[#9CA3AF]">
-            {result.score}
-          </div>
+        <div className="flex shrink-0 flex-col items-end gap-1">
           <div className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${readiness >= 75 ? 'bg-[var(--ready)]/10 text-[var(--ready)]' : readiness >= 55 ? 'bg-[var(--amber)]/10 text-[var(--amber)]' : 'bg-white/10 text-[#9CA3AF]'}`}>
             {readiness}% ready
           </div>
