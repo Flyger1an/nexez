@@ -92,7 +92,7 @@ export async function POST(request: Request) {
       const firstVariant = product.variants?.[0]
       const price = firstVariant?.price ? `$${parseFloat(firstVariant.price).toFixed(0)}` : 'See options'
       
-      let description = product.body_html 
+      const description = product.body_html 
         ? product.body_html.replace(/<[^>]+>/g, ' ').trim().substring(0, 280)
         : (product.product_type || 'Shopify product')
 

@@ -1261,7 +1261,7 @@ function extractFromHeuristics(html: string, baseUrl: string, industry?: string 
   const seen = new Set<string>()
   for (const text of candidates.slice(0, 12)) {
     const price = extractPrice(text) || 'Custom'
-    let name = cleanName(text.replace(price, ''))
+    const name = cleanName(text.replace(price, ''))
     if (!name || seen.has(name.toLowerCase())) continue
     seen.add(name.toLowerCase())
 

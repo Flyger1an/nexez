@@ -57,7 +57,6 @@ export function CountUp({
     )
     io.observe(el)
     return () => io.disconnect()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, prefix, suffix, decimals, separator, durationMs])
 
   return (

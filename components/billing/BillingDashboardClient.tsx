@@ -1,6 +1,5 @@
 'use client'
 
-/* eslint-disable react-hooks/static-components */
 /**
  * BillingDashboardClient
  *
@@ -127,7 +126,6 @@ export default function BillingDashboardClient({
         }, 120)
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPlanId])
 
   // If we just returned from Connect success, surface the fees tab
@@ -237,7 +235,6 @@ export default function BillingDashboardClient({
 
   // ========== TAB CONTENT COMPONENTS (kept inside for a single cohesive file while remaining scannable) ==========
 
-  // eslint-disable-next-line react-hooks/static-components
   const OverviewTab = () => {
     const planName = activePlan?.name ?? 'Free'
     const priceLine = activePlan ? `${activePlan.price}/${activePlan.cadence}` : 'No subscription'
@@ -363,7 +360,6 @@ export default function BillingDashboardClient({
     )
   }
 
-  // eslint-disable-next-line react-hooks/static-components
   const UsageTab = () => (
     <div className="space-y-6">
       <SectionHeader icon={BarChart3} title="Usage overview" subtitle="Detailed metrics for the current period" />
@@ -405,7 +401,6 @@ export default function BillingDashboardClient({
     </div>
   )
 
-  // eslint-disable-next-line react-hooks/static-components
   const BillingHistoryTab = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -473,7 +468,6 @@ export default function BillingDashboardClient({
     </div>
   )
 
-  // eslint-disable-next-line react-hooks/static-components
   const PlatformFeesTab = () => {
     const commissionNote = activePlan
       ? `${activePlan.commissionPercent}% platform fee on transactions`
@@ -550,7 +544,6 @@ export default function BillingDashboardClient({
     )
   }
 
-  // eslint-disable-next-line react-hooks/static-components
   const PlansTab = () => {
     const currentId = activePlan?.id || 'free'
 

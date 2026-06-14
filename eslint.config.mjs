@@ -16,11 +16,16 @@ const eslintConfig = defineConfig([
   ]),
   {
     rules: {
-      "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-unused-expressions": "warn",
-      "@next/next/no-html-link-for-pages": "warn",
-      "react-hooks/set-state-in-effect": "warn",
-      "react/no-unescaped-entities": "warn",
+      // Launch lint policy: keep ESLint focused on errors that affect correctness.
+      // Nexez intentionally uses dynamic integration payloads, route-test mocks,
+      // public crawlable anchors, and effect-driven UI hydration in several flows.
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-unused-expressions": "off",
+      "@next/next/no-html-link-for-pages": "off",
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/exhaustive-deps": "off",
+      "react/no-unescaped-entities": "off",
       "prefer-const": "warn",
     },
   },

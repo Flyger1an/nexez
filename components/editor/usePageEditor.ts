@@ -210,7 +210,6 @@ export function usePageEditor(initial: EditorInitial) {
       sessionStorage.removeItem('nexez_imported_page')
       window.history.replaceState({}, '', window.location.pathname)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, servicesOffers.length])
 
   // Version restore handoff from Settings history — populate state from snapshot.
@@ -240,7 +239,6 @@ export function usePageEditor(initial: EditorInitial) {
       sessionStorage.removeItem('nexez_restore_version')
       window.history.replaceState({}, '', window.location.pathname)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   function optimizeOffersWithAI() {

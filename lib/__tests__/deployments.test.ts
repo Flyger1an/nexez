@@ -7,7 +7,6 @@ import {
   type PageVersion,
 } from '../deployments'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mkOffer = (name: string): any => ({ name })
 
 function version(over: Partial<PageVersion>): PageVersion {

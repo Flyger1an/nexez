@@ -69,7 +69,6 @@ export default function EmbeddedPlanSelector({ activePlanId, stripeReady, initia
         startEmbeddedCheckout(initialPlanId)
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPlanId])
 
   function handleEmbeddedSuccess() {
