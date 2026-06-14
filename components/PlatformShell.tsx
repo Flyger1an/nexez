@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, FormEvent, ReactNode, useEffect, useMemo, useState } from 'react'
+import { Fragment, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   BarChart3,
@@ -71,11 +71,20 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
   // (the default) the rail is a thin icon strip that pops out to full width on
   // hover, overlaying the canvas instead of reflowing it.
   const [pinned, setPinned] = useState(false)
+  // The pin/unpin toggle animates slowly + deliberately (rail width + canvas
+  // reflow together). The hover pop-out stays snappy — so we only switch to the
+  // slow duration while a toggle is in flight, then reset.
+  const [pinAnimating, setPinAnimating] = useState(false)
+  const pinTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [authed, setAuthed] = useState<boolean | null>(null)
 
   useEffect(() => {
     const stored = window.localStorage.getItem('nexez-sidebar-pinned')
     if (stored) setPinned(stored === 'true')
+  }, [])
+
+  useEffect(() => () => {
+    if (pinTimer.current) clearTimeout(pinTimer.current)
   }, [])
 
   useEffect(() => {
@@ -99,6 +108,9 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
   const visibleNav = navItems.filter((item) => !item.href.startsWith('/dashboard') || authed === true)
 
   function togglePinned() {
+    setPinAnimating(true)
+    if (pinTimer.current) clearTimeout(pinTimer.current)
+    pinTimer.current = setTimeout(() => setPinAnimating(false), 560)
     setPinned((current) => {
       const next = !current
       window.localStorage.setItem('nexez-sidebar-pinned', String(next))
@@ -109,14 +121,14 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div
-        className={`grid min-h-screen transition-[grid-template-columns] duration-200 ${
-          pinned ? 'md:grid-cols-[248px_minmax(0,1fr)]' : 'md:grid-cols-[72px_minmax(0,1fr)]'
-        }`}
+        className={`grid min-h-screen transition-[grid-template-columns] ease-in-out ${
+          pinAnimating ? 'duration-[520ms]' : 'duration-200'
+        } ${pinned ? 'md:grid-cols-[248px_minmax(0,1fr)]' : 'md:grid-cols-[72px_minmax(0,1fr)]'}`}
       >
         <aside
-          className={`dashboard-sidebar group/sidebar fixed inset-x-0 bottom-0 z-50 border-t md:sticky md:top-0 md:inset-x-auto md:bottom-auto md:flex md:h-screen md:flex-col md:overflow-x-hidden md:border-r md:border-t-0 md:transition-[width] md:duration-200 ${
-            pinned ? 'md:w-[248px]' : 'md:w-[72px] md:hover:w-[248px] md:hover:shadow-2xl md:hover:shadow-black/40'
-          }`}
+          className={`dashboard-sidebar group/sidebar fixed inset-x-0 bottom-0 z-50 border-t md:sticky md:top-0 md:inset-x-auto md:bottom-auto md:flex md:h-screen md:flex-col md:overflow-x-hidden md:border-r md:border-t-0 md:transition-[width] md:ease-in-out ${
+            pinAnimating ? 'md:duration-[520ms]' : 'md:duration-200'
+          } ${pinned ? 'md:w-[248px]' : 'md:w-[72px] md:hover:w-[248px] md:hover:shadow-2xl md:hover:shadow-black/40'}`}
         >
           <div className="hidden items-center gap-3 border-b border-border px-4 py-4 md:flex">
             <a href="/dashboard" className="flex min-w-0 flex-1 items-center gap-3" title="Nexez home">
