@@ -34,16 +34,26 @@ function upgradeHref(planId: PlanId) {
 function upgradeCta(planId: PlanId, planName: string) {
   return planId === 'enterprise' ? 'Talk to sales' : `Upgrade to ${planName}`
 }
+// The default "this lives on plan X" body, shared by the gate teaser and the
+// banner so the phrasing stays consistent (callers can still override via
+// `description`). `short` is the compact one-liner the banner uses.
+function upgradeBody(plan: { id: PlanId; name: string }, opts?: { short?: boolean }) {
+  if (plan.id === 'enterprise') {
+    return opts?.short
+      ? `available on the ${plan.name} plan — talk to our team.`
+      : `Available on the ${plan.name} plan — talk to our team to enable it.`
+  }
+  return opts?.short
+    ? `available on the ${plan.name} plan and up.`
+    : `Available on the ${plan.name} plan and up — upgrade to unlock.`
+}
 
 export function PlanGate({ feature, currentPlan, children, title, description, variant = 'card' }: PlanGateProps) {
   if (planAllows(currentPlan, feature)) return <>{children}</>
 
   const plan = minPlanForFeature(feature)
   const heading = title ?? FEATURE_LABELS[feature]
-  const isEnterprise = plan.id === 'enterprise'
-  const body = description ?? (isEnterprise
-    ? `Available on the ${plan.name} plan — talk to our team to enable it.`
-    : `Available on the ${plan.name} plan and up — upgrade to unlock.`)
+  const body = description ?? upgradeBody(plan)
   const href = upgradeHref(plan.id)
   const cta = upgradeCta(plan.id, plan.name)
 
@@ -100,7 +110,7 @@ export function UpgradeBanner({
     <div className={`flex flex-wrap items-center gap-3 rounded-xl border border-[var(--signal)]/25 bg-[var(--signal)]/[0.06] px-4 py-3 ${className}`}>
       <Sparkles className="size-4 shrink-0 text-[var(--signal)]" />
       <span className="min-w-0 flex-1 text-sm text-zinc-300">
-        <span className="font-medium text-white">{title ?? FEATURE_LABELS[feature]}</span> — {description ?? `available on the ${plan.name} plan and up.`}
+        <span className="font-medium text-white">{title ?? FEATURE_LABELS[feature]}</span> — {description ?? upgradeBody(plan, { short: true })}
       </span>
       <a href={upgradeHref(plan.id)} className="btn-primary btn-sm inline-flex shrink-0 items-center gap-1.5">
         <Sparkles className="size-3.5" /> {upgradeCta(plan.id, plan.name)}
