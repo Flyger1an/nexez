@@ -12,15 +12,18 @@ const tone = (a: Accent) => `var(--${a})`
 export function MarketingContentPage({
   content,
   hero,
+  proof,
   accent = 'signal',
 }: {
   content: MarketingPageContent
   hero?: ReactNode
+  proof?: ReactNode
   accent?: Accent
 }) {
   return (
     <main className="min-h-screen">
       {hero ?? <DefaultHero content={content} />}
+      {proof}
 
       {content.sections.map((section, index) => (
         <section

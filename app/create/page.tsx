@@ -19,6 +19,7 @@ import {
   getReadinessScore,
   normalizeSlug,
   OfferItem,
+  formatFaqLines,
   parseFaqLines,
   parseOfferLines,
   formatOfferLines,
@@ -37,6 +38,7 @@ import { createClient } from '../../utils/supabase/client'
 import { VisualOfferBuilder } from '../../components/VisualOfferBuilder'
 import { ErrorBoundary } from '../../components/ErrorBoundary'
 import { agentRuntimeUrl, appUrl } from '../../lib/site'
+import { getCreatePageTemplate } from '../../lib/create-page-templates'
 
 type GuidedImportReview = {
   suggestedPage?: {
@@ -163,6 +165,21 @@ export default function CreatePage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
+    const template = getCreatePageTemplate(params.get('template'))
+
+    if (template) {
+      setName(template.name)
+      setSlug(template.slug)
+      setDescription(template.description)
+      setAudience(template.audience)
+      setIndustry(template.industry)
+      setCtaLabel(template.ctaLabel)
+      setServicesOffers(template.servicesOffers)
+      setServices(formatOfferLines(template.servicesOffers))
+      setFaqs(formatFaqLines(template.faqs))
+      setImportMessage(template.notice)
+      setStep(1)
+    }
 
     if (params.get('import') === 'csv') {
       setStep(2)

@@ -1,4 +1,5 @@
 import { appUrl, agentRuntimeUrl } from './site'
+import type { CreateTemplateId } from './create-page-templates'
 
 export type MarketingCta = {
   label: string
@@ -43,10 +44,10 @@ export const marketingPages: Record<string, MarketingPageContent> = {
   'how-it-works': {
     slug: 'how-it-works',
     eyebrow: 'How it works',
-    title: 'Turn a busy website into an',
-    accent: 'agent-ready buying surface.',
+    title: 'Your website is for people.',
+    accent: 'Your Nexez page is for agents.',
     description:
-      'Nexez gives your business a separate, lightweight page built for AI agents to read, compare, and act on. Your main site stays human-first. Your agent page becomes the clean source of truth.',
+      'Nexez turns the useful parts of your business website into a separate, lightweight page AI agents can read, compare, and act on. Your main site stays human-first. Your agent page becomes the clean source of truth.',
     primaryCta: { label: 'Create your first page', href: appUrl('/create') },
     secondaryCta: { label: 'Test the simulator', href: '/simulator' },
     stats: [
@@ -74,9 +75,9 @@ export const marketingPages: Record<string, MarketingPageContent> = {
       },
       {
         eyebrow: 'Step 2',
-        title: 'Shape the page for machine understanding.',
+        title: 'Shape the page for agent decisions.',
         copy:
-          'Agent pages avoid the usual marketing-site mess: heavy scripts, vague CTAs, scattered pricing, and copy that hides the next step. Nexez makes the offer model explicit.',
+          'Agent pages avoid the usual marketing-site mess: heavy scripts, vague CTAs, scattered pricing, and copy that hides the next step. Nexez makes the offer model explicit enough for a buying assistant to recommend.',
         cards: [
           { title: 'Clear offers', copy: 'Services, products, packages, retainers, and bookings are separated into predictable blocks.' },
           { title: 'Direct actions', copy: 'Each offer can point to booking, checkout, contact, negotiation, or external handoff.' },
@@ -106,11 +107,11 @@ export const marketingPages: Record<string, MarketingPageContent> = {
   examples: {
     slug: 'examples',
     eyebrow: 'Examples and templates',
-    title: 'Show buyers and agents',
-    accent: 'exactly what you sell.',
+    title: 'Start with the page shape',
+    accent: 'agents already want.',
     description:
-      'Use these templates as starting points for services, retainers, bookings, local work, SaaS implementation, and productized offers. Each example is written to be short, scannable, and machine-readable.',
-    primaryCta: { label: 'Use a template', href: appUrl('/create') },
+      'Use these templates as starting points for services, retainers, bookings, local work, SaaS implementation, and productized offers. Each one is built around a buyer intent, not a decorative landing page section.',
+    primaryCta: { label: 'Use a template', href: appUrl('/create?template=consulting') },
     secondaryCta: { label: 'Browse live pages', href: '/discovery' },
     stats: [
       { value: '9', label: 'Launch-ready patterns' },
@@ -295,10 +296,10 @@ export const marketingPages: Record<string, MarketingPageContent> = {
   'agent-readiness': {
     slug: 'agent-readiness',
     eyebrow: 'Agent readiness',
-    title: 'Make your business legible',
-    accent: 'to the next search interface.',
+    title: 'Make your business recommendable',
+    accent: 'by AI agents.',
     description:
-      'AI agents do not browse like humans. They parse, compare, verify, and act. Agent readiness is the practical discipline of making your offers understandable enough for those systems to recommend.',
+      'AI agents do not browse like humans. They parse, compare, verify, and act. Agent readiness is the practical discipline of making your offers clear enough for those systems to recommend without guessing.',
     primaryCta: { label: 'Run the simulator', href: '/simulator' },
     secondaryCta: { label: 'See live examples', href: '/discovery' },
     stats: [
@@ -549,6 +550,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
 export type UseCasePage = {
   slug: string
   label: string
+  templateId: CreateTemplateId
   title: string
   description: string
   buyerIntent: string
@@ -561,6 +563,7 @@ export const useCases: UseCasePage[] = [
   {
     slug: 'consultants',
     label: 'Consultants',
+    templateId: 'consulting',
     title: 'Consulting pages agents can compare in seconds.',
     description:
       'Package strategy calls, audits, and retainers into clear offers with scope, price signal, buyer fit, and booking path.',
@@ -572,6 +575,7 @@ export const useCases: UseCasePage[] = [
   {
     slug: 'agencies',
     label: 'Agencies',
+    templateId: 'consulting',
     title: 'Agency offers that do not get buried in a bloated site.',
     description:
       'Turn service menus, packages, audits, retainers, and implementation work into structured pages agents can recommend.',
@@ -583,6 +587,7 @@ export const useCases: UseCasePage[] = [
   {
     slug: 'coaches',
     label: 'Coaches',
+    templateId: 'consulting',
     title: 'Coaching pages with clear programs and next steps.',
     description:
       'Help agents understand session types, program length, fit, pricing, booking rules, and what a buyer should expect.',
@@ -594,6 +599,7 @@ export const useCases: UseCasePage[] = [
   {
     slug: 'local-services',
     label: 'Local services',
+    templateId: 'local-service',
     title: 'Local service pages agents can safely book.',
     description:
       'Make service area, availability, job types, estimates, emergency rules, and contact paths explicit for buyer assistants.',
@@ -605,6 +611,7 @@ export const useCases: UseCasePage[] = [
   {
     slug: 'saas',
     label: 'SaaS',
+    templateId: 'productized-package',
     title: 'SaaS implementation and service offers built for agent-led evaluation.',
     description:
       'Clarify plans, implementation packages, integrations, support tiers, and sales handoffs for agents comparing software options.',
@@ -616,6 +623,7 @@ export const useCases: UseCasePage[] = [
   {
     slug: 'marketplaces',
     label: 'Marketplaces',
+    templateId: 'productized-package',
     title: 'Marketplace listings that agents can understand as structured inventory.',
     description:
       'Expose providers, merchants, packages, availability, and trust signals in a format agents can search, compare, and route.',

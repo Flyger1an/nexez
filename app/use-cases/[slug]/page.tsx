@@ -45,7 +45,7 @@ export default async function UseCaseDetailPage({ params }: UseCaseProps) {
               {useCase.description}
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a href={appUrl('/create')} className="btn-primary h-11 px-5">
+              <a href={appUrl(`/create?template=${useCase.templateId}`)} className="btn-primary h-11 px-5">
                 {useCase.cta}
                 <ArrowRight className="size-4" />
               </a>
@@ -111,7 +111,7 @@ export default async function UseCaseDetailPage({ params }: UseCaseProps) {
             Start with this use case, import what you already have, and tighten the page until the buying path is obvious.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <a href={appUrl('/create')} className="btn-primary h-11 px-5">
+            <a href={appUrl(`/create?template=${useCase.templateId}`)} className="btn-primary h-11 px-5">
               {useCase.cta}
               <ArrowRight className="size-4" />
             </a>

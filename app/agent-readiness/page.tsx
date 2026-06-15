@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { MarketingContentPage } from '../../components/marketing/MarketingContentPage'
+import { AgentReadinessProof } from '../../components/marketing/ConversionProofSections'
 import { ReadinessHero } from '../../components/marketing/heroes'
 import { marketingPages } from '../../lib/marketing-content'
 
@@ -11,5 +12,12 @@ export const metadata: Metadata = {
 }
 
 export default function AgentReadinessPage() {
-  return <MarketingContentPage content={content} accent="ready" hero={<ReadinessHero content={content} />} />
+  return (
+    <MarketingContentPage
+      content={content}
+      accent="ready"
+      hero={<ReadinessHero content={content} />}
+      proof={<AgentReadinessProof />}
+    />
+  )
 }
