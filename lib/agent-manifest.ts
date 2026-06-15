@@ -17,11 +17,20 @@ export function getAgentJsonPath(slug: string) {
   return `/${slug}/agent.json`
 }
 
-export function buildAgentPagePayload(page: AgentPage, baseUrl = getBaseUrl()) {
+export function buildAgentPagePayload(
+  page: AgentPage,
+  baseUrl = getBaseUrl(),
+  opts: { negotiationAllowed?: boolean } = {},
+) {
+  // negotiationAllowed gates the per-offer negotiation_action so the machine
+  // manifest matches the public render + the gated POST /api/negotiations. Pure
+  // builder shared by bulk endpoints, so the caller threads the resolved plan
+  // entitlement explicitly (default false = omit, never a DB read in here).
+  const negotiationAllowed = opts.negotiationAllowed === true
   const publicUrl = `${baseUrl}/${page.slug}`
   const agentJsonUrl = `${baseUrl}${getAgentJsonPath(page.slug)}`
   const checkoutOffers = getCheckoutOffers(page)
-  const offers = checkoutOffers.map((offer) => buildOfferPayload(page, offer, baseUrl))
+  const offers = checkoutOffers.map((offer) => buildOfferPayload(page, offer, baseUrl, negotiationAllowed))
 
   return {
     schema_version: 'nexez.agent-page.v1',
@@ -68,8 +77,11 @@ export function buildAgentPagePayload(page: AgentPage, baseUrl = getBaseUrl()) {
   }
 }
 
-function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, baseUrl: string) {
+function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, baseUrl: string, negotiationAllowed = false) {
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
+  // Only advertise negotiation when the owner's plan allows it AND this offer is
+  // negotiable — otherwise an agent would POST /api/negotiations and get a 403.
+  const isNegotiable = (offer as { offerType?: string }).offerType === 'negotiable'
   const checkoutUrl = `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`
   const providerUrl = getOfferDestination(page, offer) || null
 
@@ -110,7 +122,7 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, baseUrl: strin
         dryRun: true,
       },
     },
-    negotiation_action: buildNegotiationAction(page, offer, baseUrl),
+    negotiation_action: negotiationAllowed && isNegotiable ? buildNegotiationAction(page, offer, baseUrl) : undefined,
   }
 }
 

@@ -21,7 +21,7 @@ function err(id: string | number | null, code: number, message: string): JsonRpc
   return { jsonrpc: '2.0', id, error: { code, message } }
 }
 
-function tools() {
+function tools(negotiationAllowed: boolean) {
   return [
     {
       name: 'book_offer',
@@ -32,20 +32,26 @@ function tools() {
         required: ['offer'],
       },
     },
-    {
-      name: 'negotiate_offer',
-      description: "Submit a proposal (scope, budget, timeline) for seller review before checkout/escrow. Proposals matching the seller's rules may auto-accept; the create response returns a statusUrl to poll for updates.",
-      inputSchema: {
-        type: 'object',
-        properties: {
-          offer: { type: 'string' },
-          query: { type: 'string' },
-          budget: { type: 'string' },
-          timeline: { type: 'string' },
-        },
-        required: ['offer'],
-      },
-    },
+    // negotiate_offer is only advertised when the owner's plan allows negotiation
+    // AND the page has a negotiable offer — else calling it would 403.
+    ...(negotiationAllowed
+      ? [
+          {
+            name: 'negotiate_offer',
+            description: "Submit a proposal (scope, budget, timeline) for seller review before checkout/escrow. Proposals matching the seller's rules may auto-accept; the create response returns a statusUrl to poll for updates.",
+            inputSchema: {
+              type: 'object',
+              properties: {
+                offer: { type: 'string', description: 'Offer key, e.g. services-0 or products-1' },
+                query: { type: 'string', description: 'Buyer request / context' },
+                budget: { type: 'string', description: 'Budget or range' },
+                timeline: { type: 'string', description: 'Desired timeline' },
+              },
+              required: ['offer'],
+            },
+          },
+        ]
+      : []),
   ]
 }
 
@@ -65,10 +71,17 @@ function resources(page: AgentPage, baseUrl: string) {
   return list
 }
 
-/** Handle one JSON-RPC MCP request for a page. Pure. */
-export function handleMcpRequest(page: AgentPage, baseUrl: string, req: JsonRpcRequest): JsonRpcResponse {
+/** Handle one JSON-RPC MCP request for a page. Pure — the route resolves the
+ *  (async) negotiation entitlement and threads it in via opts.negotiationAllowed. */
+export function handleMcpRequest(
+  page: AgentPage,
+  baseUrl: string,
+  req: JsonRpcRequest,
+  opts: { negotiationAllowed?: boolean } = {},
+): JsonRpcResponse {
   const id = req.id ?? null
   const method = req.method || ''
+  const negotiationAllowed = opts.negotiationAllowed === true
 
   switch (method) {
     case 'initialize':
@@ -80,7 +93,7 @@ export function handleMcpRequest(page: AgentPage, baseUrl: string, req: JsonRpcR
     case 'ping':
       return ok(id, {})
     case 'tools/list':
-      return ok(id, { tools: tools() })
+      return ok(id, { tools: tools(negotiationAllowed) })
     case 'resources/list':
       return ok(id, { resources: resources(page, baseUrl) })
     case 'resources/read': {
@@ -101,6 +114,8 @@ export function handleMcpRequest(page: AgentPage, baseUrl: string, req: JsonRpcR
         return ok(id, { content: [{ type: 'text', text: `Booking target for "${offer.name}": ${target}` }] })
       }
       if (name === 'negotiate_offer') {
+        // Gate to match the advertised tool list + the gated POST endpoint.
+        if (!negotiationAllowed) return err(id, -32601, 'negotiate_offer is not available for this page.')
         return ok(id, {
           content: [{ type: 'text', text: `POST ${baseUrl}/api/negotiations with slug="${page.slug}", offer="${offerKey || 'services-0'}", plus query/budget/timeline.` }],
         })

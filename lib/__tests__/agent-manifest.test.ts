@@ -60,7 +60,9 @@ describe('Smart Rules in the agent manifest (privacy invariant)', () => {
       },
     ],
   } as unknown as AgentPage
-  const payload = buildAgentPagePayload(rulesPage) as any
+  // negotiation_action is gated: it appears only when the owner's plan allows
+  // negotiation (threaded in by the route). Build with it enabled here.
+  const payload = buildAgentPagePayload(rulesPage, undefined, { negotiationAllowed: true }) as any
   const offer = payload.offers[0]
 
   it('exposes offer_type + public booking constraints', () => {
@@ -70,6 +72,12 @@ describe('Smart Rules in the agent manifest (privacy invariant)', () => {
     expect(offer.blackout_dates).toEqual(['2026-12-25'])
     expect(offer.max_bookings_per_week).toBe(3)
     expect(offer.negotiation_action.status_check.endpoint).toContain('/api/negotiations/status')
+  })
+
+  it('OMITS negotiation_action when the plan does not allow negotiation (default)', () => {
+    const gated = buildAgentPagePayload(rulesPage) as any
+    expect(gated.offers[0].offer_type).toBe('negotiable') // booking constraints still public
+    expect(gated.offers[0].negotiation_action).toBeUndefined() // but no live negotiation endpoint
   })
 
   it('NEVER serializes private pricing rules (minPrice / discount / auto-accept)', () => {

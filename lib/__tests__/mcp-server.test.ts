@@ -15,11 +15,22 @@ describe('handleMcpRequest', () => {
     expect((r.result as any).protocolVersion).toBe(MCP_PROTOCOL_VERSION)
     expect((r.result as any).serverInfo.name).toBe('nexez:acme')
   })
-  it('tools/list includes book_offer + negotiate_offer', () => {
-    const r = handleMcpRequest(page, base, { id: 2, method: 'tools/list' })
-    const names = (r.result as any).tools.map((t: any) => t.name)
-    expect(names).toContain('book_offer')
-    expect(names).toContain('negotiate_offer')
+  it('tools/list includes negotiate_offer ONLY when negotiation is allowed', () => {
+    const allowed = handleMcpRequest(page, base, { id: 2, method: 'tools/list' }, { negotiationAllowed: true })
+    const allowedNames = (allowed.result as any).tools.map((t: any) => t.name)
+    expect(allowedNames).toContain('book_offer')
+    expect(allowedNames).toContain('negotiate_offer')
+
+    // Default (plan doesn't allow / no negotiable offer): book_offer only.
+    const gated = handleMcpRequest(page, base, { id: 2, method: 'tools/list' })
+    const gatedNames = (gated.result as any).tools.map((t: any) => t.name)
+    expect(gatedNames).toContain('book_offer')
+    expect(gatedNames).not.toContain('negotiate_offer')
+  })
+
+  it('tools/call negotiate_offer is rejected when negotiation is not allowed', () => {
+    const r = handleMcpRequest(page, base, { id: 6, method: 'tools/call', params: { name: 'negotiate_offer', arguments: { offer: 'services-0' } } })
+    expect(r.error?.code).toBe(-32601)
   })
   it('resources/list includes agent.json + offers', () => {
     const r = handleMcpRequest(page, base, { id: 3, method: 'resources/list' })

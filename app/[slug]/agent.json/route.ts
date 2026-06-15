@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '../../../lib/agent-page'
 import { buildAgentPagePayload } from '../../../lib/agent-manifest'
 import { logAgentPageView } from '../../../lib/server/log-agent-page-view'
+import { resolveNegotiationAllowed } from '../../../lib/server/negotiation-visibility'
 import { supabase } from '../../../lib/supabase'
 
 type RouteProps = {
@@ -26,7 +27,8 @@ export async function GET(request: Request, { params }: RouteProps) {
   // HTML page). Log the visit non-blocking so it counts toward agent traffic.
   after(() => logAgentPageView({ page, requestHeaders: request.headers, url: request.url }))
 
-  const payload = buildAgentPagePayload(page, getRequestBaseUrl(request))
+  const negotiationAllowed = await resolveNegotiationAllowed(page)
+  const payload = buildAgentPagePayload(page, getRequestBaseUrl(request), { negotiationAllowed })
   return Response.json(payload, {
     headers: {
       'Cache-Control': 'public, max-age=120, s-maxage=300',

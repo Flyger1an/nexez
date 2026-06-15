@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '../../../lib/agent-page'
 import { MCP_PROTOCOL_VERSION, handleMcpRequest } from '../../../lib/mcp-server'
+import { resolveNegotiationAllowed } from '../../../lib/server/negotiation-visibility'
 import { supabase } from '../../../lib/supabase'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 
@@ -61,6 +62,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
   }
 
   const base = getRequestBaseUrl(request)
+  // Resolve negotiation entitlement once (async) and thread it into the pure
+  // handler so the advertised tools + tools/call match the gated POST endpoint.
+  const negotiationAllowed = await resolveNegotiationAllowed(page)
   // Support a single request or a JSON-RPC batch (bounded — an unbounded batch was
   // a single-request amplification DoS).
   if (Array.isArray(body)) {
@@ -70,7 +74,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
         { status: 413 },
       )
     }
-    return NextResponse.json(body.map((req) => handleMcpRequest(page, base, req)))
+    return NextResponse.json(body.map((req) => handleMcpRequest(page, base, req, { negotiationAllowed })))
   }
-  return NextResponse.json(handleMcpRequest(page, base, body as Record<string, unknown>))
+  return NextResponse.json(handleMcpRequest(page, base, body as Record<string, unknown>, { negotiationAllowed }))
 }

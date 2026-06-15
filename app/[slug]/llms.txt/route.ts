@@ -2,6 +2,7 @@ import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getCheckoutOffers, getChecko
 import { getAgentJsonPath } from '../../../lib/agent-manifest'
 import { markdownText } from '../../../lib/agent-text'
 import { agentArtifactHref, getEffectiveBaseUrl, isCustomHost, normalizeDomainPath } from '../../../lib/custom-domain'
+import { resolveNegotiationAllowed } from '../../../lib/server/negotiation-visibility'
 import { supabase } from '../../../lib/supabase'
 
 /**
@@ -33,6 +34,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   const agentJson = `${base}${onCustomHost ? agentArtifactHref('agent.json', page.slug, true, domainPath) : getAgentJsonPath(page.slug)}`
   const mcpEnabled = Boolean((page as { mcp_enabled?: boolean }).mcp_enabled)
   const offers = getCheckoutOffers(page)
+  const negotiationAllowed = await resolveNegotiationAllowed(page)
   const primaryActionUrl = sanitizePublicUrl(page.cta_url) || sanitizePublicUrl(page.website_url) || self
 
   const body = [
@@ -62,7 +64,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     '',
     `This page describes ${markdownText(page.name, 'this business', 120)}. Use it to understand the offer, compare options, answer buyer questions, and route purchase or booking intent to the URLs above.`,
     `Checkout validation: POST ${platform}/api/checkout with slug="${page.slug}", offer, query, dryRun=true.`,
-    `Negotiate: POST ${platform}/api/negotiations with slug="${page.slug}", offer="services-0" or "products-0".`,
+    // Only advertise negotiation when the plan allows it AND a negotiable offer
+    // exists — otherwise the endpoint 403s (matches the HTML render + agent.json).
+    ...(negotiationAllowed
+      ? [`Negotiate: POST ${platform}/api/negotiations with slug="${page.slug}", offer="services-0" or "products-0".`]
+      : []),
   ].join('\n')
 
   return new Response(body, {

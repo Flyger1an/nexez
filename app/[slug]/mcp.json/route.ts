@@ -2,6 +2,7 @@ import { NextResponse, after } from 'next/server'
 import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '../../../lib/agent-page'
 import { buildAgentPagePayload } from '../../../lib/agent-manifest'
 import { logAgentPageView } from '../../../lib/server/log-agent-page-view'
+import { resolveNegotiationAllowed } from '../../../lib/server/negotiation-visibility'
 import { supabase } from '../../../lib/supabase'
 
 /**
@@ -44,7 +45,8 @@ export async function GET(
   after(() => logAgentPageView({ page, requestHeaders: request.headers, url: request.url }))
 
   const base = getRequestBaseUrl(request)
-  const payload = buildAgentPagePayload(page, base)
+  const negotiationAllowed = await resolveNegotiationAllowed(page)
+  const payload = buildAgentPagePayload(page, base, { negotiationAllowed })
 
   // MCP-flavored wrapper: resources for offers + context, tools for actions.
   // Agents supporting MCP can use this as context/resources.
@@ -99,24 +101,30 @@ export async function GET(
           required: ['slug', 'offer'],
         },
       },
-      {
-        name: 'negotiate_offer',
-        description: 'Submit proposed scope, budget, timeline, or buyer constraints for seller review before checkout or escrow.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            slug: { type: 'string' },
-            offer: { type: 'string', description: 'e.g. services-0 or products-1' },
-            buyerAgent: { type: 'string' },
-            query: { type: 'string' },
-            requestedTerms: { type: 'object' },
-            budget: { type: 'string' },
-            timeline: { type: 'string' },
-            contact: { type: 'string' },
-          },
-          required: ['slug', 'offer'],
-        },
-      },
+      // negotiate_offer is only advertised when the owner's plan allows negotiation
+      // AND the page has a negotiable offer — otherwise calling it would 403.
+      ...(negotiationAllowed
+        ? [
+            {
+              name: 'negotiate_offer',
+              description: 'Submit proposed scope, budget, timeline, or buyer constraints for seller review before checkout or escrow.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  slug: { type: 'string' },
+                  offer: { type: 'string', description: 'e.g. services-0 or products-1' },
+                  buyerAgent: { type: 'string' },
+                  query: { type: 'string' },
+                  requestedTerms: { type: 'object' },
+                  budget: { type: 'string' },
+                  timeline: { type: 'string' },
+                  contact: { type: 'string' },
+                },
+                required: ['slug', 'offer'],
+              },
+            },
+          ]
+        : []),
     ],
     prompts: [],
     _nexez: {
