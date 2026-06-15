@@ -59,7 +59,7 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
         </p>
         <div className="mt-1 flex gap-2">
           <a href={appUrl('/login')} className="btn-secondary text-sm">Sign in</a>
-          <a href={appUrl('/onboard')} className="btn-primary text-sm">Get started</a>
+          <a href={appUrl('/create')} className="btn-primary text-sm">Get started</a>
         </div>
       </div>
     )

@@ -664,7 +664,7 @@ export default function CreatePage() {
               Your page is saved. Sign in or create an account to publish it and unlock your dashboard, analytics, and custom domains.
             </p>
             <div className="mt-6 flex flex-col gap-2">
-              <a href="/login?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-gradient-to-r from-[var(--signal)] to-[var(--ready)] px-5 font-medium text-[#0A0A0F] hover:opacity-90">
+              <a href="/login?mode=signup&next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-gradient-to-r from-[var(--signal)] to-[var(--ready)] px-5 font-medium text-[#0A0A0F] hover:opacity-90">
                 Create account
               </a>
               <a href="/login?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-white/15 px-5 text-sm font-medium text-white hover:bg-white/5">

@@ -1012,7 +1012,7 @@ function UrlComparisonPanel({ c }: { c: UrlSimComparison }) {
         </div>
         <div className="flex flex-col justify-center gap-2 rounded-2xl border border-white/10 bg-[#12101B] p-4">
           <p className="text-sm text-zinc-300">Make {c.host} agent-ready</p>
-          <a href={appUrl('/onboard')} className="btn-primary justify-center">
+          <a href={appUrl('/create')} className="btn-primary justify-center">
             Build this page <ArrowRight className="size-4" />
           </a>
         </div>

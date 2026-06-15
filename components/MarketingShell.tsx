@@ -123,7 +123,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
               <ArrowRight className="size-4 arr" />
             </span>
           ) : (
-            <a href={appUrl(authed ? '/dashboard' : '/onboard')} className="btn-primary btn-sm">
+            <a href={appUrl(authed ? '/dashboard' : '/create')} className="btn-primary btn-sm">
               {authed ? 'Dashboard' : 'Get started'}
               <ArrowRight className="size-4 arr" />
             </a>

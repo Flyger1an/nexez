@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, ArrowRight, CreditCard, User, Sparkles } from 'lucide-react'
 import { createClient } from '../../utils/supabase/client'
@@ -20,6 +20,24 @@ export default function OnboardPage() {
   const [error, setError] = useState('')
 
   const selectedPlan = billingPlans.find(p => p.id === selectedPlanId) || billingPlans[1]
+  const isPaidPlan = selectedPlanId !== 'free' && selectedPlanId !== 'enterprise'
+  // Where to send a freshly-onboarded user: paid plans go straight to checkout
+  // (so the plan choice isn't silently dropped); Free/Enterprise go to the dashboard.
+  const postSignupPath = isPaidPlan ? `/dashboard/billing?plan=${selectedPlanId}` : '/dashboard'
+
+  useEffect(() => {
+    const planParam = new URLSearchParams(window.location.search).get('plan')
+    if (planParam && billingPlans.some((p) => p.id === planParam)) setSelectedPlanId(planParam)
+    // Already signed in (e.g. arriving from pricing "Choose plan")? Skip the signup
+    // wizard and go straight to checkout for the chosen plan, or the dashboard.
+    createClient()
+      .auth.getUser()
+      .then(({ data }) => {
+        if (!data.user) return
+        const paid = planParam && planParam !== 'free' && planParam !== 'enterprise'
+        router.replace(paid ? `/dashboard/billing?plan=${planParam}` : '/dashboard')
+      })
+  }, [])
 
   const steps = [
     { num: 1, title: 'Choose Your Plan' },
@@ -38,7 +56,7 @@ export default function OnboardPage() {
       password,
       options: {
         data: { full_name: fullName, company, plan: selectedPlanId },
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboard?step=3`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(postSignupPath)}`,
       },
     })
 
@@ -73,8 +91,8 @@ export default function OnboardPage() {
     }
   }
 
-  function goToDashboard() {
-    router.push('/dashboard')
+  function finishOnboarding() {
+    router.push(postSignupPath)
   }
 
   return (
@@ -230,7 +248,9 @@ export default function OnboardPage() {
                 </div>
 
                 <div className="mt-8 flex justify-center gap-3">
-                  <button onClick={goToDashboard} className="rounded-lg bg-white px-8 py-3 font-medium text-zinc-950 hover:bg-zinc-200">Go to Dashboard</button>
+                  <button onClick={finishOnboarding} className="rounded-lg bg-white px-8 py-3 font-medium text-zinc-950 hover:bg-zinc-200">
+                    {isPaidPlan ? `Start your ${selectedPlan.name} plan` : 'Go to Dashboard'}
+                  </button>
                   <a href="/create" className="rounded-lg border border-white/15 px-8 py-3 hover:bg-white/5">Create your first page</a>
                 </div>
               </div>

@@ -1,21 +1,19 @@
 import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { getBaseUrl } from '../../../../lib/agent-page'
+import { appUrl } from '../../../../lib/site'
 import { createClient } from '../../../../utils/supabase/server'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 
 /**
- * Stripe Billing Portal for Nexez subscriptions (lean MVP).
- * Creates a portal session so users can manage their subscription,
- * update payment methods, cancel, etc.
- *
- * For true customer lookup we ideally store stripe_customer_id after checkout success.
- * This version falls back to email lookup (good enough for early MVP).
+ * Stripe Billing Portal for Nexez subscriptions.
+ * Creates a portal session so users can manage their subscription, update
+ * payment methods, cancel, etc. /login + /dashboard/billing live on the APP host,
+ * so redirects use appUrl() (not getBaseUrl(), which is the agent-runtime host).
  */
-
 export async function POST() {
   if (!process.env.STRIPE_SECRET_KEY) {
-    return NextResponse.redirect(`${getBaseUrl()}/dashboard/billing?setup=stripe`, 303)
+    return NextResponse.redirect(appUrl('/dashboard/billing?setup=stripe'), 303)
   }
 
   const cookieStore = await cookies()
@@ -25,7 +23,7 @@ export async function POST() {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return NextResponse.redirect(`${getBaseUrl()}/login?next=/dashboard/billing`, 303)
+    return NextResponse.redirect(appUrl('/login?next=/dashboard/billing'), 303)
   }
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
@@ -38,6 +36,7 @@ export async function POST() {
       .maybeSingle<{ stripe_customer_id: string | null }>()
 
     let customerId = billingState?.stripe_customer_id || null
+    let resolvedByFallback = false
 
     if (!customerId) {
       // Best effort fallback for accounts created before webhook state existed.
@@ -46,25 +45,41 @@ export async function POST() {
         limit: 1,
       })
       customerId = customers.data[0]?.id || null
+      if (customerId) resolvedByFallback = true
     }
 
     if (!customerId) {
-      // Create a minimal customer so portal works
+      // Create a minimal customer so the portal works.
       const customer = await stripe.customers.create({
         email: user.email || undefined,
         metadata: { nexez_user_id: user.id },
       })
       customerId = customer.id
+      resolvedByFallback = true
+    }
+
+    // Persist a customer id resolved/created outside the webhook path so repeated
+    // portal opens don't spawn duplicate Stripe customers (writes go through the
+    // service-role client — RLS has no user insert/update on billing_subscriptions).
+    if (resolvedByFallback && customerId && hasSupabaseAdminEnv()) {
+      try {
+        const admin = createAdminClient()
+        await admin
+          .from('billing_subscriptions')
+          .upsert({ owner_id: user.id, stripe_customer_id: customerId }, { onConflict: 'owner_id' })
+      } catch (persistErr) {
+        console.warn('[billing/portal] could not persist stripe_customer_id (non-fatal)', persistErr)
+      }
     }
 
     const portal = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${getBaseUrl()}/dashboard/billing`,
+      return_url: appUrl('/dashboard/billing'),
     })
 
-    return NextResponse.redirect(portal.url || `${getBaseUrl()}/dashboard/billing`, 303)
+    return NextResponse.redirect(portal.url || appUrl('/dashboard/billing'), 303)
   } catch (error: any) {
     console.error('Stripe portal error', error)
-    return NextResponse.redirect(`${getBaseUrl()}/dashboard/billing?error=portal`, 303)
+    return NextResponse.redirect(appUrl('/dashboard/billing?error=portal'), 303)
   }
 }

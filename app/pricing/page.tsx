@@ -86,7 +86,7 @@ export default function PricingPage() {
                 </ul>
 
                 <a
-                  href={isFree ? appUrl('/login?mode=signup') : appUrl(`/dashboard/billing?plan=${plan.id}`)}
+                  href={isFree ? appUrl('/create') : isEnterprise ? '/support' : appUrl(`/onboard?plan=${plan.id}`)}
                   className={`mt-8 w-full ${isPopular ? 'btn-primary' : 'btn-secondary'}`}
                 >
                   {isFree ? 'Get started free' : isEnterprise ? 'Contact sales' : 'Choose plan'}
