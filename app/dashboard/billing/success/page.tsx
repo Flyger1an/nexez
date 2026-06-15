@@ -20,6 +20,7 @@ export default async function BillingSuccessPage({ searchParams }: SuccessProps)
   // now, so the dashboard shows the new plan immediately (not after webhook latency).
   // Falls back silently to the webhook if anything is unavailable.
   let syncedPlanId: string | null = null
+  let payoutsEnabled = true // default true → only show the connect-payout nudge when we KNOW it's missing
   if (sessionId) {
     const cookieStore = await cookies()
     const supabase = createClient(cookieStore)
@@ -29,6 +30,12 @@ export default async function BillingSuccessPage({ searchParams }: SuccessProps)
     if (user) {
       const synced = await syncCheckoutSessionForOwner(sessionId, user.id)
       syncedPlanId = synced?.planId ?? null
+      const { data: billing } = await supabase
+        .from('billing_subscriptions')
+        .select('stripe_connect_payouts_enabled')
+        .eq('owner_id', user.id)
+        .maybeSingle<{ stripe_connect_payouts_enabled: boolean | null }>()
+      payoutsEnabled = Boolean(billing?.stripe_connect_payouts_enabled)
     }
   }
 
@@ -78,9 +85,27 @@ export default async function BillingSuccessPage({ searchParams }: SuccessProps)
             )}
           </div>
 
+          {!payoutsEnabled && (
+            <div className="mt-7 rounded-xl border border-[var(--ready)]/30 bg-[var(--ready)]/10 p-4 text-left">
+              <p className="font-medium text-white">One more step to get paid</p>
+              <p className="mt-1 text-sm text-zinc-400">
+                Your plan is active. Now connect your payout account so agents can pay you directly on every sale.
+              </p>
+            </div>
+          )}
+
           <div className="mt-7 flex flex-col sm:flex-row gap-3 justify-center">
-            <a 
-              href="/dashboard/billing" 
+            {!payoutsEnabled && (
+              <a
+                href="/dashboard/billing?tab=fees"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--ready)] px-5 py-3 text-sm font-semibold text-zinc-950 hover:opacity-90"
+              >
+                <CreditCard className="size-4" />
+                Connect payout account
+              </a>
+            )}
+            <a
+              href="/dashboard/billing"
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--signal-solid)] px-5 py-3 text-sm font-semibold text-white hover:opacity-90"
             >
               <CreditCard className="size-4" />

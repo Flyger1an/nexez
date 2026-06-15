@@ -46,6 +46,7 @@ import type { BillingPlan } from '../../lib/billing'
 import type { BillingSubscription } from '../../lib/stripe-billing'
 import { billingStatusCopy } from '../../lib/stripe-billing'
 import { billingPlans } from '../../lib/billing'
+import { formatCurrencyAmount } from '../../lib/currency'
 
 // Tab definition (order matches user spec)
 const TABS = [
@@ -89,6 +90,9 @@ interface BillingDashboardClientProps {
   // Real Stripe invoices (empty when none / not configured) + real platform fee this month.
   invoices: Invoice[]
   platformFeesCents: number
+  agentRevenueCents?: number
+  revenueCurrency?: string
+  commissionPct?: number
   stripeReady: boolean
   initialPlanId?: string | null
   connectSuccess?: boolean
@@ -100,6 +104,9 @@ export default function BillingDashboardClient({
   usage,
   invoices: invoicesProp,
   platformFeesCents,
+  agentRevenueCents = 0,
+  revenueCurrency = 'usd',
+  commissionPct = 15,
   stripeReady,
   initialPlanId,
   connectSuccess,
@@ -335,6 +342,21 @@ export default function BillingDashboardClient({
               </a>
             </div>
           </div>
+        </GlassCard>
+
+        {/* How money flows — the dual-revenue model in one glance */}
+        <GlassCard className="p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-stretch sm:justify-between">
+            <MoneyFlowStep label="Agents buy through your pages" value={formatCurrencyAmount(agentRevenueCents, revenueCurrency)} sub="gross sales this month" tone="white" />
+            <FlowArrow />
+            <MoneyFlowStep label={`Nexez fee (${commissionPct}%)`} value={`– ${formatCurrencyAmount(platformFeesCents, revenueCurrency)}`} sub="only when you get paid" tone="muted" />
+            <FlowArrow />
+            <MoneyFlowStep label="Net to you" value={formatCurrencyAmount(Math.max(0, agentRevenueCents - platformFeesCents), revenueCurrency)} sub="paid out to your Stripe" tone="ready" />
+          </div>
+          <p className="mt-4 border-t border-white/10 pt-3 text-xs text-[#9CA3AF]">
+            Transaction fees are separate from your <span className="text-white">{activePlan?.name ?? 'Free'}</span> subscription
+            {activePlan?.cadence ? ` (${activePlan.price}/${activePlan.cadence})` : ''} — that’s what you pay Nexez to run your pages.
+          </p>
         </GlassCard>
 
         {/* Usage + Platform Fees summary side-by-side (elegant overview) */}
@@ -645,6 +667,14 @@ export default function BillingDashboardClient({
                 </div>
 
                 <div className="text-xs text-[#9CA3AF] mt-1">{plan.commissionPercent}% platform fee on transactions</div>
+                {!isCurrent && plan.commissionPercent < commissionPct && (
+                  <div className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md bg-[var(--ready)]/10 px-2 py-1 text-xs font-medium text-[var(--ready)]">
+                    Lower fee: {commissionPct}% → {plan.commissionPercent}%
+                    {agentRevenueCents > 0
+                      ? ` · keep +${formatCurrencyAmount(Math.round((agentRevenueCents * (commissionPct - plan.commissionPercent)) / 100), revenueCurrency)} on this month’s sales`
+                      : ''}
+                  </div>
+                )}
 
                 <ul className="mt-6 space-y-2.5 text-sm flex-1 text-[#9CA3AF]">
                   {plan.features.map((f, idx) => (
@@ -782,4 +812,19 @@ export default function BillingDashboardClient({
       </div>
     </div>
   )
+}
+
+function MoneyFlowStep({ label, value, sub, tone }: { label: string; value: string; sub: string; tone: 'white' | 'muted' | 'ready' }) {
+  const valueClass = tone === 'ready' ? 'text-[var(--ready)]' : tone === 'muted' ? 'text-[#9CA3AF]' : 'text-white'
+  return (
+    <div className="flex-1">
+      <p className="text-xs uppercase tracking-wide text-[#9CA3AF]">{label}</p>
+      <p className={`mt-1 text-2xl font-semibold tracking-tight ${valueClass}`}>{value}</p>
+      <p className="mt-0.5 text-xs text-[#9CA3AF]">{sub}</p>
+    </div>
+  )
+}
+
+function FlowArrow() {
+  return <div className="hidden shrink-0 items-center text-2xl text-[#4B5563] sm:flex">→</div>
 }
