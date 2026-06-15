@@ -6,6 +6,9 @@ import { AgentPage, BASIC_OWNER_PAGE_SELECT, OWNER_PAGE_SELECT, getBaseUrl } fro
 import { buildDuplicatePayload } from '../lib/duplicate-page'
 import { createClient } from '../utils/supabase/client'
 import { PageCard } from './dashboard/PageCard'
+import { getPlanLimits } from '../lib/billing'
+import { appUrl } from '../lib/site'
+import { usePlan } from './billing/PlanProvider'
 
 type Status = 'all' | 'published' | 'draft'
 
@@ -18,9 +21,12 @@ export function PagesManager({
   signalsByPageId: Record<string, number>
   status?: Status
 }) {
+  const plan = usePlan()
+  const pageLimit = getPlanLimits(plan).pages
   const [pages, setPages] = useState<AgentPage[]>(initialPages)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
+  const [limitMsg, setLimitMsg] = useState<string | null>(null)
 
   const counts = useMemo(
     () => ({
@@ -30,6 +36,10 @@ export function PagesManager({
     }),
     [pages],
   )
+
+  function atPublishLimit() {
+    return Number.isFinite(pageLimit) && counts.published >= pageLimit
+  }
 
   const filtered = useMemo(() => {
     if (status === 'published') return pages.filter((p) => p.is_published)
@@ -73,6 +83,13 @@ export function PagesManager({
   }
 
   async function togglePublished(id: string, current: boolean) {
+    // Plan gate: block publishing a new page past the plan's limit (the v1 API and
+    // create flow enforce server-side too; this surfaces the upgrade nudge in the UI).
+    if (!current && atPublishLimit()) {
+      setLimitMsg(`Your plan allows ${pageLimit} published page${pageLimit === 1 ? '' : 's'}. Upgrade to publish more.`)
+      return
+    }
+    setLimitMsg(null)
     const supabase = createClient()
     await supabase.from('pages').update({ is_published: !current }).eq('id', id)
     reload()
@@ -151,6 +168,15 @@ export function PagesManager({
 
   async function bulkSetPublished(published: boolean) {
     if (!selectedIds.size) return
+    // Plan gate: don't let a bulk-publish push past the plan's published-page limit.
+    if (published && Number.isFinite(pageLimit)) {
+      const newlyPublishing = [...selectedIds].filter((id) => !pages.find((p) => p.id === id)?.is_published).length
+      if (counts.published + newlyPublishing > pageLimit) {
+        setLimitMsg(`Your plan allows ${pageLimit} published page${pageLimit === 1 ? '' : 's'}. Upgrade to publish more.`)
+        return
+      }
+    }
+    setLimitMsg(null)
     setBusy(true)
     const supabase = createClient()
     await Promise.all(
@@ -179,6 +205,12 @@ export function PagesManager({
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
+        {limitMsg && (
+          <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-[var(--signal)]/25 bg-[var(--signal)]/[0.06] px-4 py-3">
+            <span className="min-w-0 flex-1 text-sm text-zinc-300">{limitMsg}</span>
+            <a href={appUrl('/dashboard/billing')} className="btn-primary btn-sm shrink-0">Upgrade plan</a>
+          </div>
+        )}
         <div className="flex flex-col gap-4 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm text-[var(--signal)]">Manage</p>
