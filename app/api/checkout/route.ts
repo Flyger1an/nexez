@@ -16,6 +16,7 @@ import { enforceRateLimit } from '../../../lib/rate-limit'
 import { supabase } from '../../../lib/supabase'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 import { getCommissionPercentForPlan, calculateApplicationFeeCents } from '../../../lib/stripe-billing'
+import { getOwnerPlanId } from '../../../lib/server/plan'
 import { billingPlans } from '../../../lib/billing'
 
 type CheckoutInput = {
@@ -133,34 +134,25 @@ export async function POST(request: Request) {
       // Dual revenue: Use owner's Stripe Connect for the transaction (owner is MoR).
       // Nexez takes application fee based on owner's plan commission % (even on Free plan).
       // This keeps subscriptions (Nexez Billing to owner) separate from transaction revenue.
+      // Resolve the owner's plan STATUS-AWARELY (a canceled/incomplete 'pro' row
+      // must not keep the discounted commission) — getOwnerPlanId is the single
+      // source of truth shared with entitlements/limits. Connect account is read
+      // alongside for the application-fee split. Dual model: subs stay separate.
       let connectAccountId: string | null = null
-      let commissionPercent = 15 // default for free/unknown
+      let ownerPlanId: Awaited<ReturnType<typeof getOwnerPlanId>> = 'free'
       if (hasSupabaseAdminEnv() && page.owner_id) {
         const admin = createAdminClient()
+        ownerPlanId = await getOwnerPlanId(admin, page.owner_id)
         const { data: billing } = await admin
           .from('billing_subscriptions')
-          .select('plan_id, stripe_connect_account_id')
+          .select('stripe_connect_account_id')
           .eq('owner_id', page.owner_id)
-          .maybeSingle()
-        if (billing?.stripe_connect_account_id) {
-          connectAccountId = billing.stripe_connect_account_id
-        }
-        commissionPercent = getCommissionPercentForPlan(billing?.plan_id as any)
+          .maybeSingle<{ stripe_connect_account_id: string | null }>()
+        if (billing?.stripe_connect_account_id) connectAccountId = billing.stripe_connect_account_id
       }
+      const commissionPercent = getCommissionPercentForPlan(ownerPlanId)
 
       const applicationFeeAmount = connectAccountId ? calculateApplicationFeeCents(amountCents, commissionPercent) : undefined
-
-      // Lookup billing once for Connect + plan (for fee + metadata). Dual model: subs separate.
-      let ownerPlanId: string | null = null
-      if (hasSupabaseAdminEnv() && page.owner_id) {
-        const admin = createAdminClient()
-        const { data: b } = await admin
-          .from('billing_subscriptions')
-          .select('plan_id')
-          .eq('owner_id', page.owner_id)
-          .maybeSingle()
-        ownerPlanId = b?.plan_id || null
-      }
 
       const sessionParams: any = {
         mode: 'payment',
@@ -190,7 +182,7 @@ export async function POST(request: Request) {
           nexez_offer_key: offerKey,
           nexez_offer_name: offer.name,
           nexez_source: 'agent_checkout',
-          nexez_owner_plan: ownerPlanId || 'free',
+          nexez_owner_plan: ownerPlanId,
         },
       }
 

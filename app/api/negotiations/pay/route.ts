@@ -5,6 +5,7 @@ import { enforceRateLimit } from '../../../../lib/rate-limit'
 import { isPayable } from '../../../../lib/settlement'
 import { getCommissionPercentForPlan, calculateApplicationFeeCents } from '../../../../lib/stripe-billing'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
+import { getOwnerPlanId } from '../../../../lib/server/plan'
 import type { AgentNegotiation } from '../../../../lib/negotiations'
 
 function paymentFingerprint(input: {
@@ -105,14 +106,16 @@ export async function POST(request: Request) {
   // Connect routing: owner is merchant of record, Nexez takes the plan commission as
   // an application fee. Mirrors app/api/checkout/route.ts.
   let connectAccountId: string | null = null
-  let commissionPercent = 15
+  // Status-aware plan resolution (canceled/incomplete 'pro' → Free 15%, not 6%) —
+  // single source of truth, mirrors app/api/checkout/route.ts and entitlements.
+  const ownerPlanId = await getOwnerPlanId(admin, negotiation.owner_id as string)
   const { data: billing } = await admin
     .from('billing_subscriptions')
-    .select('plan_id, stripe_connect_account_id')
+    .select('stripe_connect_account_id')
     .eq('owner_id', negotiation.owner_id as string)
-    .maybeSingle<{ plan_id: string | null; stripe_connect_account_id: string | null }>()
+    .maybeSingle<{ stripe_connect_account_id: string | null }>()
   if (billing?.stripe_connect_account_id) connectAccountId = billing.stripe_connect_account_id
-  commissionPercent = getCommissionPercentForPlan(billing?.plan_id as any)
+  const commissionPercent = getCommissionPercentForPlan(ownerPlanId)
 
   const stripe = new Stripe(secret)
   const requestOptions = connectAccountId ? { stripeAccount: connectAccountId } : undefined

@@ -39,7 +39,7 @@ const NEG = {
   stripe_checkout_session_id: null,
 }
 
-function db(neg: any, billing: any = { plan_id: 'pro', stripe_connect_account_id: 'acct_1' }) {
+function db(neg: any, billing: any = { plan_id: 'pro', status: 'active', stripe_connect_account_id: 'acct_1' }) {
   adminRef.handler = (ctx: QueryContext) => {
     if (ctx.table === 'agent_negotiations' && ctx.op === 'select') {
       // honor the id+token scoping the route applies
@@ -111,6 +111,17 @@ describe('POST /api/negotiations/pay', () => {
     expect(params.payment_intent_data.application_fee_amount).toBe(5400)
     expect(opts.stripeAccount).toBe('acct_1')
     expect(opts.idempotencyKey).toBe('escrow-n1-90000:usd:auto:acct_1:5400')
+  })
+
+  it('canceled "pro" subscription reverts to Free 15% commission (status-aware, not raw plan_id)', async () => {
+    // A {plan_id:'pro', status:'canceled'} row must NOT keep the 6% rate — commission
+    // is resolved via getOwnerPlanId (live-status only), same as entitlements.
+    db(NEG, { plan_id: 'pro', status: 'canceled', stripe_connect_account_id: 'acct_1' })
+    const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))
+    expect(res.status).toBe(200)
+    const [params] = (stripeRef.create as any).mock.calls[0]
+    // canceled pro → free → 15% of $900 = $135
+    expect(params.payment_intent_data.application_fee_amount).toBe(13500)
   })
 
   it('approved (high value): manual-capture hold, metadata "hold"', async () => {
