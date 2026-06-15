@@ -202,11 +202,17 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
                 <StatusPill icon={<BadgeCheck className="size-3.5" />} label="Agent-authenticated" />
               </div>
 
-              <div className="mt-7 grid gap-4 md:grid-cols-2">
-                <CheckoutInput label="Card number" value="4242 4242 4242 4242" />
-                <CheckoutInput label="Expiry" value="MM / YY" />
-                <CheckoutInput label="CVC" value="CVC" />
-                <CheckoutInput label="Billing email/name" value={page.contact_email || 'buyer@example.com'} />
+              <div className="mt-7 rounded-xl border border-white/10 bg-black/20 p-5">
+                <div className="flex items-start gap-3">
+                  <LockKeyhole className="mt-0.5 size-5 shrink-0 text-[var(--ready)]" />
+                  <div>
+                    <p className="font-medium">You’ll pay securely on Stripe</p>
+                    <p className="mt-1 text-sm leading-6 text-zinc-400">
+                      No card details are entered or stored on Nexez. Continue to complete payment on Stripe’s secure
+                      checkout — your selected offer and buyer context are passed along, and the seller is paid directly.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="mt-6 rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/10 p-4">
@@ -315,19 +321,6 @@ function DetailRow({ label, value, strong }: { label: string; value: string; str
         {value}
       </span>
     </div>
-  )
-}
-
-function CheckoutInput({ label, value }: { label: string; value: string }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-sm text-zinc-400">{label}</span>
-      <input
-        readOnly
-        value={value}
-        className="h-12 w-full rounded-lg border border-white/10 bg-black/25 px-4 text-sm text-zinc-300 outline-none"
-      />
-    </label>
   )
 }
 

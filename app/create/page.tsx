@@ -102,6 +102,7 @@ export default function CreatePage() {
   const [publishedSlug, setPublishedSlug] = useState('')
   const [needsAuth, setNeedsAuth] = useState(false)
   const [importMessage, setImportMessage] = useState('')
+  const [publishError, setPublishError] = useState('')
   const [importUrl, setImportUrl] = useState('')
   const [guidedBuyer, setGuidedBuyer] = useState('')
   const [guidedGoal, setGuidedGoal] = useState('Book appointments')
@@ -303,9 +304,15 @@ export default function CreatePage() {
 
     if (error) {
       closePendingPublicPageTab(publicPageTab)
-      alert('Error creating page: ' + error.message)
+      const isSlugTaken = (error as { code?: string }).code === '23505' || /duplicate|unique|already exists/i.test(error.message)
+      setPublishError(
+        isSlugTaken
+          ? `The link “/${cleanSlug}” is already taken. Try a different page name or edit the slug, then publish again.`
+          : `Couldn’t publish your page: ${error.message}. Your work is saved — try again.`,
+      )
       return
     }
+    setPublishError('')
 
     const createdSlug = createdPage?.slug || cleanSlug
     sendPublicPageTab(publicPageTab, `/${createdSlug}`)
@@ -1080,16 +1087,6 @@ export default function CreatePage() {
                     <button
                       className={secondaryButton}
                       type="button"
-                      onClick={() => {
-                        setImportMessage('Calendly: Paste your scheduling link or event type details below (or use CSV for now — excellent results).')
-                        setStep(2)
-                      }}
-                    >
-                      Import Calendly
-                    </button>
-                    <button
-                      className={secondaryButton}
-                      type="button"
                       onClick={() => setStripeImportOpen(!stripeImportOpen)}
                     >
                       Import Stripe
@@ -1394,6 +1391,11 @@ Action: ${ctaLabel || 'Visit website'}`}
               </button>
             )}
           </div>
+          {publishError && (
+            <p className="mt-3 rounded-lg border border-[var(--amber)]/40 bg-[var(--amber)]/10 px-4 py-3 text-sm text-[var(--amber)]">
+              {publishError}
+            </p>
+          )}
         </div>
       </div>
     </main>

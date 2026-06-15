@@ -118,21 +118,21 @@ export default async function NexezHome() {
               AI readable business pages
             </div>
             <h1 className="mt-6 max-w-4xl text-balance text-5xl font-semibold tracking-[-0.065em] sm:text-6xl lg:text-7xl">
-              Pages built for <span className="nx-accent-text">AI agents.</span>
+              Where AI agents <span className="nx-accent-text">buy from you.</span>
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
-              Create a clean, structured page that AI agents can understand and act on. Host it on your own
-              domain or a Nexez link.
+              Publish a page AI agents can read — then book and pay through, straight to your Stripe. Nexez is the
+              marketplace where agents discover your offers, and we only earn a fee when you get paid.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a href={appUrl('/create')} className="btn-primary h-11 px-5">
                 Get started free
                 <ArrowRight className="size-4" />
               </a>
-              <a href="/simulator" className="btn-secondary h-11 px-5">Test agent parsing</a>
+              <a href="/simulator" className="btn-secondary h-11 px-5">See how agents rank you</a>
             </div>
             <p className="mt-4 text-sm text-zinc-500">
-              Deploy your first page built for AI agents in seconds. No code, free to start.
+              Live in seconds. No code. Free to start — you only pay a commission when an agent buys.
             </p>
 
             <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4">

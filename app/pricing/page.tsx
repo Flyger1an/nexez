@@ -26,12 +26,14 @@ export default function PricingPage() {
 
         {/* Main Pricing Tiers */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5 mb-16">
-          {tiers.map((plan) => {
+          {tiers.map((plan, planIndex) => {
             const isPopular = plan.id === 'pro'
             const isFree = plan.id === 'free'
             const isEnterprise = plan.id === 'enterprise'
             const priceDisplay = isFree ? '$0' : isEnterprise ? 'Custom' : plan.price
             const cadence = isEnterprise ? '' : `/${plan.cadence}`
+            // Plans are cumulative — make that legible (each builds on the one before).
+            const previousPlanName = !isFree && !isEnterprise && planIndex > 0 ? tiers[planIndex - 1].name : null
 
             return (
               <div
@@ -67,6 +69,12 @@ export default function PricingPage() {
                 </div>
 
                 <ul className="mt-8 flex-1 space-y-3 text-sm">
+                  {previousPlanName && (
+                    <li className="flex items-start gap-2 font-medium text-white">
+                      <Check className="mt-0.5 size-4 shrink-0" style={{ color: 'var(--ready)' }} />
+                      <span>Everything in {previousPlanName}, plus:</span>
+                    </li>
+                  )}
                   {plan.features.map((feature, i) => (
                     <li key={i} className="flex items-start gap-2">
                       <Check className="mt-0.5 size-4 shrink-0" style={{ color: 'var(--ready)' }} />
