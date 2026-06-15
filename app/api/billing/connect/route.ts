@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '../../../../utils/supabase/server'
 import { createStripeConnectAccount, createStripeConnectOnboardingLink } from '../../../../lib/stripe-billing'
 import { appUrl } from '../../../../lib/site'
+import { billingPlans } from '../../../../lib/billing'
 import Stripe from 'stripe'
 
 /**
@@ -81,9 +82,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ refreshed: true, ...statusUpdate })
   }
 
+  // If the caller is mid-funnel on a paid plan (e.g. the onboarding wizard),
+  // thread that plan through the return URL so payouts onboarding lands back on
+  // billing with checkout auto-opening for that plan — keeping subscription +
+  // payouts setup one coherent flow instead of dropping the subscription.
+  const body = await request.json().catch(() => ({} as { plan?: string }))
+  const requestedPlan = typeof body?.plan === 'string' ? body.plan : ''
+  const resumePlan = billingPlans.find((p) => p.id === requestedPlan && p.envVar && p.id !== 'enterprise')?.id
+
   // Create onboarding / manage link (Stripe will show the appropriate flow for the account state)
   // Redirect back to billing page after Stripe Connect onboarding so the status/refetch logic can run immediately.
-  const returnUrl = appUrl('/dashboard/billing?connect=success')
+  const returnUrl = appUrl(`/dashboard/billing?connect=success${resumePlan ? `&plan=${resumePlan}` : ''}`)
   const refreshUrl = appUrl('/dashboard/billing?connect=refresh')
 
   try {

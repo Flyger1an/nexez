@@ -18,6 +18,7 @@ export default function OnboardPage() {
   const [company, setCompany] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [needsEmailConfirm, setNeedsEmailConfirm] = useState(false)
 
   const selectedPlan = billingPlans.find(p => p.id === selectedPlanId) || billingPlans[1]
   const isPaidPlan = selectedPlanId !== 'free' && selectedPlanId !== 'enterprise'
@@ -51,7 +52,7 @@ export default function OnboardPage() {
     setError('')
     const supabase = createClient()
 
-    const { error: signUpError } = await supabase.auth.signUp({
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -66,7 +67,16 @@ export default function OnboardPage() {
       return
     }
 
-    // For demo, assume email confirm or auto-login in dev
+    // When email confirmation is required there is NO session yet, so we can't
+    // proceed to Stripe Connect (which needs an authenticated request). Show a
+    // "check your email" state; the confirmation link resumes via
+    // /auth/callback?next=postSignupPath (checkout for paid, dashboard for free).
+    if (!data.session) {
+      setNeedsEmailConfirm(true)
+      setLoading(false)
+      return
+    }
+
     setStep(3)
     setLoading(false)
   }
@@ -77,7 +87,12 @@ export default function OnboardPage() {
       // Create Stripe Connect account + get onboarding link (Express for quick setup).
       // This is for transaction payments (owner MoR + Nexez app fee/commission on all plans incl Free).
       // Subscriptions (Nexez billing to owner) are handled separately in Billing.
-      const res = await fetch('/api/billing/connect', { method: 'POST' })
+      const res = await fetch('/api/billing/connect', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        // Carry the chosen paid plan so payouts onboarding returns to checkout for it.
+        body: JSON.stringify(isPaidPlan ? { plan: selectedPlanId } : {}),
+      })
       const data = await res.json()
       if (data.url) {
         window.location.href = data.url // redirect to Stripe hosted onboarding
@@ -173,7 +188,31 @@ export default function OnboardPage() {
               </div>
             )}
 
-            {step === 2 && (
+            {step === 2 && needsEmailConfirm && (
+              <div>
+                <h1 className="text-4xl font-semibold tracking-tight">Confirm your email</h1>
+                <p className="mt-2 max-w-md text-[#9CA3AF]">
+                  We sent a confirmation link to <span className="text-white">{email}</span>. Click it to
+                  activate your account — you’ll be taken straight to{' '}
+                  {isPaidPlan ? `checkout for the ${selectedPlan.name} plan` : 'your dashboard'} to finish.
+                </p>
+                <div className="mt-8 max-w-md rounded-2xl border border-white/10 bg-[#12101B] p-6 text-sm text-[#9CA3AF]">
+                  <div className="flex items-center gap-3 text-white">
+                    <Check className="size-5 text-[var(--ready)]" />
+                    <span className="font-medium">Account created</span>
+                  </div>
+                  <p className="mt-3">
+                    Didn’t get the email? Check spam, or{' '}
+                    <button onClick={() => { setNeedsEmailConfirm(false); }} className="text-[var(--signal)] underline">
+                      go back
+                    </button>{' '}
+                    to re-enter your details.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {step === 2 && !needsEmailConfirm && (
               <div>
                 <h1 className="text-4xl font-semibold tracking-tight">Create your account</h1>
                 <p className="mt-1 text-[#9CA3AF]">You're signing up for the {selectedPlan.name} plan.</p>
@@ -234,22 +273,28 @@ export default function OnboardPage() {
 
             {step === 4 && (
               <div className="text-center">
-                <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-full bg-[var(--ready)] text-4xl">🎉</div>
-                <h1 className="text-4xl font-semibold tracking-tight">You’re all set!</h1>
-                <p className="mt-3 text-[#9CA3AF]">Welcome to the {selectedPlan.name} plan. Your account is ready.</p>
+                <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-full bg-[var(--ready)] text-4xl">{isPaidPlan ? '💳' : '🎉'}</div>
+                <h1 className="text-4xl font-semibold tracking-tight">
+                  {isPaidPlan ? 'One step left' : "You’re all set!"}
+                </h1>
+                <p className="mt-3 text-[#9CA3AF]">
+                  {isPaidPlan
+                    ? `Confirm your ${selectedPlan.name} subscription to activate it — secure checkout, cancel anytime.`
+                    : 'Your Free workspace is ready. Create your first agent-optimized page whenever you like.'}
+                </p>
 
                 <div className="mt-8 inline-block rounded-2xl border border-white/10 bg-[#12101B] p-6 text-left text-sm">
                   <div className="font-medium">Summary</div>
                   <div className="mt-2 space-y-1 text-[#9CA3AF]">
-                    <div>• Plan: {selectedPlan.name} ({selectedPlan.price}/{selectedPlan.cadence})</div>
-                    <div>• Stripe: {loading ? 'Connecting…' : 'Connected (or skipped)'}</div>
+                    <div>• Plan: {selectedPlan.name} {selectedPlan.cadence ? `(${selectedPlan.price}/${selectedPlan.cadence})` : `(${selectedPlan.price})`}{isPaidPlan ? ' — confirm at checkout' : ''}</div>
+                    <div>• Stripe payouts: connect anytime from Billing or Integrations</div>
                     <div>• Next: Create your first agent-optimized page</div>
                   </div>
                 </div>
 
                 <div className="mt-8 flex justify-center gap-3">
                   <button onClick={finishOnboarding} className="rounded-lg bg-white px-8 py-3 font-medium text-zinc-950 hover:bg-zinc-200">
-                    {isPaidPlan ? `Start your ${selectedPlan.name} plan` : 'Go to Dashboard'}
+                    {isPaidPlan ? `Confirm your ${selectedPlan.name} subscription` : 'Go to Dashboard'}
                   </button>
                   <a href="/create" className="rounded-lg border border-white/15 px-8 py-3 hover:bg-white/5">Create your first page</a>
                 </div>
