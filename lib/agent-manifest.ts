@@ -11,7 +11,7 @@ import {
 } from './agent-page'
 import { buildNegotiationAction } from './negotiations'
 import { publicBookingConstraints } from './offer-rules'
-import { rewriteForVoice, rewriteForVoiceSync } from './ai-optimize'
+import { rewriteForVoiceSync } from './ai-optimize'
 
 export function getAgentJsonPath(slug: string) {
   return `/${slug}/agent.json`

@@ -101,43 +101,9 @@ export function generateStrongFaqs(businessName: string, audience: string, hasPr
   return faqs
 }
 
-// Voice Agent Optimization - advanced LLM-powered (using the platform's configured LLM when llm_opt_in + key set, else high-quality deterministic).
-// Makes descriptions phonetic, short, spoken-friendly (numbers as words, remove fluff, clear pauses, natural flow).
-import { isLlmConfigured, llmComplete } from './llm'
-
-export async function rewriteForVoice(offer: OfferItem, businessName: string, useLlm = false): Promise<OfferItem> {
-  const base = { ...offer }
-
-  if (useLlm && isLlmConfigured()) {
-    try {
-      const prompt = `Rewrite this offer description for voice AI agents (e.g. Siri, Alexa, voice assistants). Make it phonetic, concise, spoken naturally: spell out numbers and symbols, remove parentheticals and fluff, use short sentences, natural pauses. Keep all facts, pricing, actions intact. Business: ${businessName}. Original: "${offer.description || ''}"`
-      const voiced = await llmComplete(prompt, { maxTokens: 200, temperature: 0.3 })
-      if (voiced) {
-        base.description = voiced.trim()
-        return base
-      }
-    } catch (e) {
-      // fall to deterministic
-    }
-  }
-
-  // Deterministic high-quality fallback (always available)
-  let desc = (offer.description || '').trim()
-  if (desc.length > 140) desc = desc.substring(0, 137) + '...'
-  desc = desc.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
-  desc = desc.replace(/\b(\d+)\s*(min|minute|minutes|hr|hour|hours)\b/gi, '$1 $2')
-    .replace(/\$(\d+)/g, '$1 dollars')
-    .replace(/&/g, ' and ')
-    .replace(/%/g, ' percent ')
-    .replace(/\//g, ' or ')
-  desc = desc.replace(/\s*\([^)]*\)/g, '')
-  return {
-    ...offer,
-    description: `${desc.replace(/[.\s]+$/, '')}. To book the ${offer.name}, say it for ${businessName}.`,
-  }
-}
-
-// Sync deterministic for tests / legacy
+// Voice Agent Optimization — deterministic, spoken-friendly rewrite (numbers as
+// words, remove fluff, clear pauses, natural flow). The LLM-backed variant lives
+// in lib/ai-optimize-llm.ts (server-only) so this module stays client-safe.
 export function rewriteForVoiceSync(offer: OfferItem, businessName: string): OfferItem {
   let desc = (offer.description || '').trim()
   if (desc.length > 140) desc = desc.substring(0, 137) + '...'

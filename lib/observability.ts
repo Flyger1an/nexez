@@ -1,3 +1,4 @@
+import 'server-only'
 // Lightweight error observability — gated behind env. When OBSERVABILITY_WEBHOOK_URL
 // is set, errors are POSTed there (Better Stack / Logtail, Axiom, Slack relay, etc.);
 // otherwise we just console.error. No heavy SDK dependency.

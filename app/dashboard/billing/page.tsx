@@ -1,7 +1,8 @@
 import Stripe from 'stripe'
 import { cookies } from 'next/headers'
 import { AgentPage, OWNER_PAGE_SELECT, getOfferCount } from '../../../lib/agent-page'
-import { billingPlans, getPlanLimits, getStripeBillingReadiness } from '../../../lib/billing'
+import { billingPlans, getPlanLimits } from '../../../lib/billing'
+import { getStripeBillingReadiness } from '../../../lib/server/billing-readiness'
 import { BillingSubscription, getCommissionPercentForPlan } from '../../../lib/stripe-billing'
 import {
   getAgentDrivenRevenueCents,

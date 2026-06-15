@@ -1,3 +1,4 @@
+import 'server-only';
 import { randomUUID } from 'crypto';
 import { supabase } from './supabase';
 import { createAdminClient, hasSupabaseAdminEnv } from '../utils/supabase/admin';

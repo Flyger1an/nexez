@@ -1,3 +1,4 @@
+import 'server-only';
 import { LLMAdapter } from './BaseLLMAdapter';
 import { GeminiAdapter } from './GeminiAdapter';
 import { GrokAdapter } from './GrokAdapter';

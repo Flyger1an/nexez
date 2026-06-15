@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { optimizeAllOffersForAgents, rewriteOfferForAgents, enhanceDescriptionForAgents, rewriteForVoice } from '../ai-optimize'
+import { optimizeAllOffersForAgents, rewriteOfferForAgents, enhanceDescriptionForAgents } from '../ai-optimize'
+import { rewriteForVoice } from '../ai-optimize-llm'
 import { parseOfferLines, type OfferItem } from '../agent-page'
 import { analyzeCompetitorSite } from '../competitor-analyzer'
 

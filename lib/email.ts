@@ -1,3 +1,4 @@
+import 'server-only'
 // Gated transactional email (Resend-compatible). Dormant unless RESEND_API_KEY
 // is set — like the other gated integrations (LLM, Stripe, Vercel). When unset,
 // sendEmail is a no-op so the rest of the flow is unaffected.

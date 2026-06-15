@@ -1,3 +1,4 @@
+import 'server-only'
 import { NextResponse } from 'next/server'
 
 // Fixed-window rate limiter. Two backends, same RateResult contract:

@@ -1,3 +1,4 @@
+import 'server-only'
 import { AgentPage } from '../agent-page'
 import { detectAgentVisit } from '../agent-detection'
 import { supabase } from '../supabase'

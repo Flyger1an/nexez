@@ -1,7 +1,13 @@
+import 'server-only'
 // Real LLM assist — OpenAI-compatible chat completions, gated behind env so it
 // stays dormant (deterministic fallback) until a key is configured.
 // Works with OpenAI, xAI/Grok, Google Gemini (via https://generativelanguage.googleapis.com/v1beta/openai/),
 // Together, Groq, etc. via LLM_BASE_URL + LLM_MODEL.
+//
+// `import 'server-only'` (above) makes any client-bundle import of this module a
+// build error — the LLM_API_KEY it reads must never reach the browser. The
+// deterministic, client-safe helpers live in lib/ai-optimize.ts; the LLM-backed
+// voice rewrite lives in lib/ai-optimize-llm.ts (also server-only).
 
 export function isLlmConfigured(): boolean {
   return Boolean(process.env.LLM_API_KEY)

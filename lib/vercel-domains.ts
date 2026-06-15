@@ -1,3 +1,4 @@
+import 'server-only'
 // A2 — Custom domain SSL + provisioning via the hosting provider (Vercel).
 // Gated like Stripe: when VERCEL_API_TOKEN + VERCEL_PROJECT_ID are absent the
 // platform falls back to "manual" mode (ownership-verified, user points DNS at
