@@ -34,6 +34,7 @@ import {
   Check,
   Loader2,
   AlertTriangle,
+  ExternalLink,
 } from 'lucide-react'
 
 import EmbeddedSubscriptionForm from './EmbeddedSubscriptionForm'
@@ -307,7 +308,9 @@ export default function BillingDashboardClient({
                   {billingState?.cancel_at_period_end ? 'Cancels' : 'Renews'} on {periodEnd}
                 </p>
               )}
-              <p className="mt-1 text-sm text-[#9CA3AF]">Billed monthly • Cancel anytime via Stripe portal</p>
+              <p className="mt-1 text-sm text-[#9CA3AF]">
+                {activePlan?.cadence ? `Billed ${activePlan.cadence} • Cancel anytime via Stripe portal` : 'No active subscription • Upgrade anytime'}
+              </p>
             </div>
 
             <div className="flex flex-wrap gap-3">
@@ -506,7 +509,9 @@ export default function BillingDashboardClient({
                       onClick={() => handleInvoiceDownload(inv)}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1 text-xs hover:bg-white/5 transition"
                     >
-                      <Download className="size-3.5" /> Download
+                      {inv.hostedUrl
+                        ? <><Download className="size-3.5" /> Download</>
+                        : <><ExternalLink className="size-3.5" /> Open in Stripe</>}
                     </button>
                   </td>
                 </tr>

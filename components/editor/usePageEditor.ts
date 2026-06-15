@@ -20,6 +20,7 @@ import {
 } from '../../lib/editor-merge'
 import { buildDuplicatePayload } from '../../lib/duplicate-page'
 import { draftToLiveUpdate } from '../../lib/draft'
+import { publishErrorMessage } from '../../lib/publish-error'
 import { optimizeAllOffersForAgents, enhanceDescriptionForAgents } from '../../lib/ai-optimize'
 import { createClient } from '../../utils/supabase/client'
 import { EditorEvent, EditorInitial, IntegrationStatus, PendingReanalysis, ResyncProvider } from './types'
@@ -421,7 +422,7 @@ export function usePageEditor(initial: EditorInitial) {
     }
     setSaving(false)
     if (error) {
-      setMessage(error.message)
+      setMessage(publishErrorMessage(error))
     } else if (updatePayload.team_collaboration) {
       setMessage('Saved. Edit queued as team approval request (see Settings). Version snapshot created.')
     } else {
@@ -439,7 +440,7 @@ export function usePageEditor(initial: EditorInitial) {
     const { error } = await supabase.from('pages').update({ draft, draft_updated_at: draftUpdatedAt }).eq('id', page.id)
     setSaving(false)
     if (error) {
-      setMessage(error.message)
+      setMessage(publishErrorMessage(error))
     } else {
       setPage((prev) => ({ ...(prev as any), draft, draft_updated_at: draftUpdatedAt }) as AgentPage)
       setMessage('Draft saved (staged). Preview it on your page, then Publish to go live.')
@@ -462,7 +463,7 @@ export function usePageEditor(initial: EditorInitial) {
       .eq('id', page.id)
     setSaving(false)
     if (error) {
-      setMessage(error.message)
+      setMessage(publishErrorMessage(error))
     } else {
       setPage((prev) => ({ ...(prev as any), ...draftToLiveUpdate(draft), draft: null, draft_updated_at: null }) as AgentPage)
       setMessage('Draft published to live. Your custom domain now serves the new content.')

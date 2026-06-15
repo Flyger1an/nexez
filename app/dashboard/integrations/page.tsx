@@ -14,6 +14,9 @@ import {
 } from 'lucide-react'
 import { UpgradeBanner } from '../../../components/billing/PlanGate'
 import { usePlan } from '../../../components/billing/PlanProvider'
+import { planAllows } from '../../../lib/billing'
+import { appUrl } from '../../../lib/site'
+import { Lock } from 'lucide-react'
 
 const integrations = [
   {
@@ -186,7 +189,12 @@ export default function IntegrationsPage() {
           <section>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {dynamicIntegrations.map((integration) => (
-                <IntegrationCard key={integration.name} {...integration} />
+                <IntegrationCard
+                  key={integration.name}
+                  {...integration}
+                  // CSV / manual stays free; live connectors are gated to Pro.
+                  locked={!planAllows(plan, 'integrations') && integration.name !== 'CSV Upload'}
+                />
               ))}
             </div>
 
@@ -250,6 +258,7 @@ function IntegrationCard({
   href,
   icon: Icon,
   accent,
+  locked = false,
 }: {
   name: string
   description: string
@@ -258,6 +267,7 @@ function IntegrationCard({
   href: string
   icon: React.ComponentType<{ className?: string }>
   accent: string
+  locked?: boolean
 }) {
   const connected = status === 'Connected'
 
@@ -284,7 +294,14 @@ function IntegrationCard({
         </button>
       </div>
 
-      <h3 className="mt-6 text-xl font-semibold">{name}</h3>
+      <h3 className="mt-6 flex items-center gap-2 text-xl font-semibold">
+        {name}
+        {locked && (
+          <span className="inline-flex items-center gap-1 rounded-full border border-[var(--signal)]/30 bg-[var(--signal)]/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--signal)]">
+            <Lock className="size-3" /> Pro
+          </span>
+        )}
+      </h3>
       <p className="mt-2 min-h-12 text-sm leading-6 text-zinc-400">{description}</p>
 
       <div className="mt-6 flex flex-col gap-2 sm:flex-row">
@@ -296,9 +313,17 @@ function IntegrationCard({
           {connected ? <CheckCircle2 className="size-4" /> : <Settings className="size-4" />}
           {status}
         </span>
-        <a href={href} className="flex-1 rounded-md bg-white/15 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-white/20 active:bg-white/20">
-          {action}
-        </a>
+        {locked ? (
+          // Gated for this plan — point straight at checkout instead of bouncing
+          // through Tools to a teaser.
+          <a href={appUrl('/dashboard/billing?plan=pro')} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md bg-[var(--signal-solid)] px-3 py-2 text-center text-sm font-semibold text-white hover:opacity-90">
+            <Lock className="size-3.5" /> Upgrade to connect
+          </a>
+        ) : (
+          <a href={href} className="flex-1 rounded-md bg-white/15 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-white/20 active:bg-white/20">
+            {action}
+          </a>
+        )}
       </div>
     </article>
   )

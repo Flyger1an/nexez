@@ -1,13 +1,11 @@
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import { Check, Star } from 'lucide-react'
 import { billingPlans } from '../../lib/billing'
 import { appUrl } from '../../lib/site'
 
 export default function PricingPage() {
-  const [selectedPlan, setSelectedPlan] = useState<string>('pro')
-
   const tiers = [
     ...billingPlans,
     // Add Free explicitly for display if not in list, but we added it
@@ -32,19 +30,17 @@ export default function PricingPage() {
             const isPopular = plan.id === 'pro'
             const isFree = plan.id === 'free'
             const isEnterprise = plan.id === 'enterprise'
-            const isSelected = selectedPlan === plan.id
             const priceDisplay = isFree ? '$0' : isEnterprise ? 'Custom' : plan.price
             const cadence = isEnterprise ? '' : `/${plan.cadence}`
 
             return (
               <div
                 key={plan.id}
-                onClick={() => !isEnterprise && setSelectedPlan(plan.id)}
-                style={isSelected ? {
+                style={isPopular ? {
                   borderColor: 'var(--signal)',
                   background: 'color-mix(in srgb, var(--signal) 8%, transparent)',
                 } : undefined}
-                className={`glass lift relative rounded-3xl p-6 flex flex-col cursor-pointer ${
+                className={`glass lift relative rounded-3xl p-6 flex flex-col ${
                   isPopular ? 'prism scale-[1.02]' : ''
                 }`}
               >

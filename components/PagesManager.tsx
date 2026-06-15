@@ -8,6 +8,8 @@ import { createClient } from '../utils/supabase/client'
 import { PageCard } from './dashboard/PageCard'
 import { appUrl } from '../lib/site'
 import { publishErrorMessage } from '../lib/publish-error'
+import { getPlanLimits } from '../lib/billing'
+import { usePlan } from './billing/PlanProvider'
 
 type Status = 'all' | 'published' | 'draft'
 
@@ -20,6 +22,7 @@ export function PagesManager({
   signalsByPageId: Record<string, number>
   status?: Status
 }) {
+  const plan = usePlan()
   const [pages, setPages] = useState<AgentPage[]>(initialPages)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
@@ -33,6 +36,14 @@ export function PagesManager({
     }),
     [pages],
   )
+
+  // Published-page usage meter. The real limit can be raised by a grandfathered
+  // baseline the client can't see, so only show the "of N" cap when we're within
+  // the plan limit; once over (grandfathered) just show the count. Enforcement is
+  // server-side (DB trigger) — this is purely the heads-up + upgrade nudge.
+  const publishedLimit = getPlanLimits(plan).pages
+  const showCap = Number.isFinite(publishedLimit) && counts.published <= publishedLimit
+  const atCap = showCap && counts.published >= publishedLimit
 
   const filtered = useMemo(() => {
     if (status === 'published') return pages.filter((p) => p.is_published)
@@ -216,8 +227,22 @@ export function PagesManager({
           </a>
         </div>
 
-        {/* Status tabs */}
+        {/* Status tabs + published-usage meter */}
         <div className="mt-6 flex flex-wrap items-center gap-2">
+          {showCap && (
+            <span
+              className={`mr-1 inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs ${
+                atCap ? 'border-[var(--amber)]/40 bg-[var(--amber)]/10 text-[var(--amber)]' : 'border-white/10 bg-white/[0.03] text-zinc-400'
+              }`}
+            >
+              {counts.published} of {publishedLimit} published
+              {atCap && (
+                <a href={appUrl('/dashboard/billing')} className="font-semibold underline hover:no-underline">
+                  Upgrade
+                </a>
+              )}
+            </span>
+          )}
           {tabs.map((t) => (
             <a
               key={t.id}

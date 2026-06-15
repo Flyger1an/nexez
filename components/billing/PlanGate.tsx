@@ -25,8 +25,14 @@ type PlanGateProps = {
   variant?: 'card' | 'tile' | 'inline'
 }
 
+// Enterprise isn't self-serve — its "upgrade" is a sales conversation, not a
+// checkout link (a checkout deep-link for Enterprise silently does nothing).
 function upgradeHref(planId: PlanId) {
+  if (planId === 'enterprise') return appUrl('/support?topic=enterprise')
   return appUrl(`/dashboard/billing?plan=${planId}`)
+}
+function upgradeCta(planId: PlanId, planName: string) {
+  return planId === 'enterprise' ? 'Talk to sales' : `Upgrade to ${planName}`
 }
 
 export function PlanGate({ feature, currentPlan, children, title, description, variant = 'card' }: PlanGateProps) {
@@ -34,8 +40,12 @@ export function PlanGate({ feature, currentPlan, children, title, description, v
 
   const plan = minPlanForFeature(feature)
   const heading = title ?? FEATURE_LABELS[feature]
-  const body = description ?? `Available on the ${plan.name} plan and up — upgrade to unlock.`
+  const isEnterprise = plan.id === 'enterprise'
+  const body = description ?? (isEnterprise
+    ? `Available on the ${plan.name} plan — talk to our team to enable it.`
+    : `Available on the ${plan.name} plan and up — upgrade to unlock.`)
   const href = upgradeHref(plan.id)
+  const cta = upgradeCta(plan.id, plan.name)
 
   if (variant === 'inline') {
     return (
@@ -45,7 +55,7 @@ export function PlanGate({ feature, currentPlan, children, title, description, v
           <span className="font-medium text-white">{heading}</span> — {body}
         </span>
         <a href={href} className="btn-primary btn-sm inline-flex shrink-0 items-center gap-1.5">
-          <Sparkles className="size-3.5" /> Upgrade to {plan.name}
+          <Sparkles className="size-3.5" /> {cta}
         </a>
       </div>
     )
@@ -60,7 +70,7 @@ export function PlanGate({ feature, currentPlan, children, title, description, v
       <h3 className="text-xl font-semibold">{heading}</h3>
       <p className="max-w-md text-sm text-zinc-400">{body}</p>
       <a href={href} className="btn-primary mt-1 inline-flex items-center gap-1.5 text-sm">
-        <Sparkles className="size-4" /> Upgrade to {plan.name}
+        <Sparkles className="size-4" /> {cta}
       </a>
     </div>
   )
@@ -93,7 +103,7 @@ export function UpgradeBanner({
         <span className="font-medium text-white">{title ?? FEATURE_LABELS[feature]}</span> — {description ?? `available on the ${plan.name} plan and up.`}
       </span>
       <a href={upgradeHref(plan.id)} className="btn-primary btn-sm inline-flex shrink-0 items-center gap-1.5">
-        <Sparkles className="size-3.5" /> Upgrade to {plan.name}
+        <Sparkles className="size-3.5" /> {upgradeCta(plan.id, plan.name)}
       </a>
     </div>
   )
