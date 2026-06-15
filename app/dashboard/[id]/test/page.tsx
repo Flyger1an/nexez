@@ -10,7 +10,6 @@ import {
   Loader2,
   MessageSquareText,
   Play,
-  Wrench,
 } from 'lucide-react'
 import { ErrorBoundary } from '../../../../components/ErrorBoundary'
 import {
@@ -176,29 +175,18 @@ export default function AgentSimulatorPage({ params }: PageProps) {
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <ErrorBoundary>
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <div className="flex justify-end">
-          <div className="flex flex-wrap gap-3">
-            <a href={`/dashboard/${page.id}`} className={topButtonClass}>
-              <Wrench className="size-4" />
-              Edit Page
-            </a>
-            <a href={agentRuntimeUrl(`/${page.slug}`)} className={topButtonClass}>
-              <ExternalLink className="size-4" />
-              Public Page
-            </a>
-          </div>
-        </div>
-
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm text-[#9CA3AF]">Agent Simulator</p>
             <h1 className="text-4xl font-semibold tracking-tighter">See exactly how AI agents parse your page</h1>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <a href={`/dashboard/${page?.id}`} className="btn-secondary">Edit Page</a>
-            <a href={agentRuntimeUrl(`/${page?.slug}`)} className="btn-secondary">View Live</a>
-            <a href="/simulator" className="btn-secondary">Global /simulator</a>
+            <a href={agentRuntimeUrl(`/${page?.slug}`)} target="_blank" rel="noreferrer" className="btn-secondary inline-flex items-center gap-1.5">
+              View Live <ExternalLink className="size-3.5" />
+            </a>
+            <a href="/simulator" className="btn-secondary">Agent Lab</a>
           </div>
         </div>
 
@@ -468,6 +456,3 @@ function formatProvider(provider?: string) {
       return 'Checkout path responded'
   }
 }
-
-const topButtonClass =
-  'inline-flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm text-white hover:bg-white/10'
