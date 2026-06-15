@@ -1366,12 +1366,21 @@ function extractLogo(html: string, baseUrl: string): string | null {
   }
 }
 
-export async function analyzeSite(url: string, guidanceInput?: string | ImportGuidance | null): Promise<ImportResult> {
+export async function analyzeSite(
+  url: string,
+  guidanceInput?: string | ImportGuidance | null,
+  opts?: { skipLlm?: boolean },
+): Promise<ImportResult> {
   if (!url) throw new Error('URL required')
   const urlError = getImportUrlError(url)
   if (urlError) throw new Error(urlError)
   const resolvedUrlError = await getResolvedImportUrlError(url)
   if (resolvedUrlError) throw new Error(resolvedUrlError)
+  // Deterministic-only mode: used by the unauthenticated /api/simulate-url demo
+  // so an anonymous, outward-facing endpoint never spends on the LLM. The
+  // deterministic crawl (schema.org/JSON-LD, common paths, Shopify, agent docs)
+  // still produces a real structured result.
+  const skipLlm = opts?.skipLlm === true
   const guidance = normalizeGuidance(guidanceInput)
   const industry = guidance.industry || null
 
@@ -1436,10 +1445,12 @@ export async function analyzeSite(url: string, guidanceInput?: string | ImportGu
   let description = descMatch ? descMatch[1] : ''
   if (industry && description.length < 15) description = `${industry} services.`
 
-  const aiDraftAttempt = await llmExtractDraftWithStatus(allDocs, guidance).catch((error) => ({
-    draft: null,
-    skippedReason: error instanceof Error ? error.message.slice(0, 180) : 'AI draft extraction failed.',
-  } satisfies AiDraftAttempt))
+  const aiDraftAttempt: AiDraftAttempt = skipLlm
+    ? { draft: null, skippedReason: 'AI extraction disabled for this run.' }
+    : await llmExtractDraftWithStatus(allDocs, guidance).catch((error) => ({
+        draft: null,
+        skippedReason: error instanceof Error ? error.message.slice(0, 180) : 'AI draft extraction failed.',
+      } satisfies AiDraftAttempt))
   const aiDraft = aiDraftAttempt.draft
   let aiStatus = aiStatusFromAttempt(
     aiDraftAttempt,
@@ -1493,7 +1504,7 @@ export async function analyzeSite(url: string, guidanceInput?: string | ImportGu
 
   if (aiDraft?.offers?.length) {
     rich = mergeOffers(rich, aiDraft.offers)
-  } else if (rich.length < 2 && isLlmConfigured() && primary.html) {
+  } else if (rich.length < 2 && !skipLlm && isLlmConfigured() && primary.html) {
     // Legacy narrow fallback if the full AI draft failed.
     try {
       const llmOfferAttempt = await llmExtractOffersWithStatus(primary.html, guidance)
@@ -1513,7 +1524,7 @@ export async function analyzeSite(url: string, guidanceInput?: string | ImportGu
     }
   }
 
-  if (!isLlmConfigured()) {
+  if (skipLlm || !isLlmConfigured()) {
     aiStatus = deterministicAiStatus()
   }
 

@@ -55,6 +55,7 @@ describe('canonicalHostFor', () => {
     expect(canonicalHostFor('/')).toBe(MARKETING_HOST)
     expect(canonicalHostFor('/pricing')).toBe(MARKETING_HOST)
     expect(canonicalHostFor('/api/directory')).toBe(MARKETING_HOST)
+    expect(canonicalHostFor('/api/simulate-url')).toBe(MARKETING_HOST)
 
     expect(canonicalHostFor('/dashboard')).toBe(APP_HOST)
     expect(canonicalHostFor('/create')).toBe(APP_HOST)

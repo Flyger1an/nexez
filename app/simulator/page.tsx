@@ -6,11 +6,13 @@ import {
   Bot,
   Check,
   ExternalLink,
+  Globe,
   History,
   Loader2,
   MinusCircle,
   Play,
   RefreshCw,
+  Sparkles,
   X,
 } from 'lucide-react'
 import { ErrorBoundary } from '../../components/ErrorBoundary'
@@ -32,6 +34,7 @@ import {
   type AgentVerdict,
 } from '../../lib/agent-simulator'
 import { analyzeQueryRank, type QueryRankAnalysis } from '../../lib/agent-search'
+import type { UrlSimComparison } from '../../lib/url-simulation'
 import {
   SimulationHistoryEntry,
   buildSimulationHistoryEntry,
@@ -57,6 +60,10 @@ export default function GlobalAgentSimulator() {
   const [recommendations, setRecommendations] = useState<string[]>([])
   const [successReport, setSuccessReport] = useState<AgentSuccessReport | null>(null)
   const [rankAnalysis, setRankAnalysis] = useState<QueryRankAnalysis | null>(null)
+  // "Simulate any URL" — public, logged-out demo (deterministic crawl).
+  const [urlInput, setUrlInput] = useState('')
+  const [urlLoading, setUrlLoading] = useState(false)
+  const [urlComparison, setUrlComparison] = useState<UrlSimComparison | null>(null)
   const [history, setHistory] = useState<SimulationHistoryEntry[]>([])
   const [historyQuery, setHistoryQuery] = useState('')
   const [message, setMessage] = useState('')
@@ -250,6 +257,7 @@ export default function GlobalAgentSimulator() {
 
   async function handleSelectMyPage(page: AgentPage) {
     const nextQuery = buildDefaultAgentQuery(page)
+    setUrlComparison(null)
     setSelectedPage(page)
     setPasteSlug('')
     setQuery(nextQuery)
@@ -272,6 +280,7 @@ export default function GlobalAgentSimulator() {
         return
       }
       const nextQuery = buildDefaultAgentQuery(page)
+      setUrlComparison(null)
       setSelectedPage(page)
       setQuery(nextQuery)
       setHistory(Array.isArray((page as any).simulations) ? (page as any).simulations : [])
@@ -281,6 +290,38 @@ export default function GlobalAgentSimulator() {
       setMessage('Failed to load page: ' + e.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Public "simulate any website" demo: crawl any URL (deterministic, server-side
+  // SSRF-guarded) and show raw-vs-agent-ready. Independent of the Nexez-page flow,
+  // so it clears any selected page to avoid mixing the two views.
+  async function handleSimulateUrl() {
+    const url = urlInput.trim()
+    if (!url) return
+    setUrlLoading(true)
+    setMessage('')
+    setUrlComparison(null)
+    setSelectedPage(null)
+    setSimulationResults([])
+    setSuccessReport(null)
+    setRankAnalysis(null)
+    try {
+      const res = await fetch('/api/simulate-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        setMessage(data?.error || 'Could not analyze that URL. Try a public business website.')
+        return
+      }
+      setUrlComparison(data as UrlSimComparison)
+    } catch {
+      setMessage('Could not reach the analyzer. Please try again.')
+    } finally {
+      setUrlLoading(false)
     }
   }
 
@@ -453,6 +494,32 @@ export default function GlobalAgentSimulator() {
               <p className="text-[10px] text-zinc-500 mt-1">Published pages only.</p>
             </div>
           </div>
+
+          {/* Simulate any website — public, no account needed */}
+          <div className="card mb-8">
+            <div className="flex items-center gap-2 mb-2">
+              <Globe className="size-4 text-[var(--ready)]" />
+              <span className="font-medium">Simulate any website</span>
+              <span className="rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--ready)]">No account needed</span>
+            </div>
+            <p className="mb-3 text-sm text-zinc-400">See what an AI agent gets from any business site today — and what it would get if the same business were agent-ready on Nexez.</p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !urlLoading && urlInput.trim()) handleSimulateUrl() }}
+                placeholder="https://any-business.com"
+                disabled={!hydrated || urlLoading}
+                className="input flex-1"
+              />
+              <button onClick={handleSimulateUrl} disabled={!hydrated || urlLoading || !urlInput.trim()} className="btn-primary">
+                {urlLoading ? <Loader2 className="size-4 animate-spin" /> : <Globe className="size-4" />} Simulate
+              </button>
+            </div>
+            <p className="mt-1 text-[10px] text-zinc-500">Public pages only · we crawl, never store your input · deterministic (no AI cost).</p>
+          </div>
+
+          {urlComparison && <UrlComparisonPanel c={urlComparison} />}
 
           {/* Query + Actions */}
           {selectedPage && (
@@ -685,7 +752,7 @@ export default function GlobalAgentSimulator() {
             </>
           )}
 
-          {!selectedPage && (
+          {!selectedPage && !urlComparison && (
             <div className="card text-center py-12">
               <Bot className="mx-auto size-8 text-[var(--signal)] mb-4" />
               <p className="text-xl font-medium">Start multi-agent simulation.</p>
@@ -807,6 +874,106 @@ function WinQueryPanel({ a, query }: { a: QueryRankAnalysis; query: string }) {
           </ul>
         </div>
       )}
+    </div>
+  )
+}
+
+function UrlSignalTag({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
+        ok ? 'border-[var(--ready)]/30 bg-[var(--ready)]/10 text-[var(--ready)]' : 'border-white/10 bg-white/[0.02] text-zinc-500'
+      }`}
+    >
+      {ok ? <Check className="size-3" /> : <X className="size-3" />} {label}
+    </span>
+  )
+}
+
+function UrlComparisonPanel({ c }: { c: UrlSimComparison }) {
+  const ar = c.agentReady
+  return (
+    <div className="card mb-8">
+      <div className="mb-5">
+        <p className="text-xs uppercase tracking-[2px] text-[#9CA3AF]">Any-URL Simulation</p>
+        <h3 className="text-xl font-semibold">What an AI agent sees on {c.host}</h3>
+        <p className="mt-1 max-w-2xl text-sm text-zinc-400">{c.verdict}</p>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Raw site today */}
+        <div className="rounded-2xl border border-white/10 bg-[#12101B] p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-sm font-medium text-zinc-300">Raw site today</p>
+            <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-0.5 text-[11px] font-medium text-red-400">Not actionable</span>
+          </div>
+          <dl className="space-y-2 text-sm">
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-zinc-500">Page title (all an agent gets for free)</dt>
+              <dd className="text-zinc-200">{c.raw.title || '—'}</dd>
+            </div>
+          </dl>
+          <p className="mt-3 text-sm text-zinc-400">{c.raw.summary}</p>
+          <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+            <UrlSignalTag ok={c.raw.nativeStructuredData} label="schema.org data" />
+            <UrlSignalTag ok={c.raw.nativeAgentDocs} label="agent.json / llms.txt" />
+            <UrlSignalTag ok={false} label="callable checkout" />
+            <UrlSignalTag ok={false} label="unified offer list" />
+          </div>
+        </div>
+
+        {/* Agent-ready on Nexez */}
+        <div className="rounded-2xl border border-[var(--ready)]/25 bg-[var(--ready)]/[0.04] p-5">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="flex items-center gap-1.5 text-sm font-medium text-zinc-200">
+              <Sparkles className="size-3.5 text-[var(--ready)]" /> As an agent-ready Nexez page
+            </p>
+            <span className="text-2xl font-semibold tabular-nums text-[var(--ready)]">
+              {ar.readiness}
+              <span className="text-xs text-zinc-500">/100</span>
+            </span>
+          </div>
+          <p className="text-xs text-zinc-500">
+            {ar.offerCount} offer{ar.offerCount === 1 ? '' : 's'}
+            {ar.pricedCount ? ` · ${ar.pricedCount} priced` : ''}
+            {ar.faqCount ? ` · ${ar.faqCount} FAQ${ar.faqCount === 1 ? '' : 's'}` : ''}
+            {` · crawled ${ar.pagesAnalyzed} page${ar.pagesAnalyzed === 1 ? '' : 's'}`}
+          </p>
+          {ar.offers.length > 0 ? (
+            <ul className="mt-3 max-h-52 space-y-1.5 overflow-auto">
+              {ar.offers.slice(0, 8).map((o, i) => (
+                <li key={i} className="flex items-baseline justify-between gap-3 text-sm">
+                  <span className="truncate text-zinc-200">{o.name}</span>
+                  <span className="shrink-0 font-mono text-xs text-[var(--ready)]">{o.price || '—'}</span>
+                </li>
+              ))}
+              {ar.offers.length > 8 && <li className="text-[11px] text-zinc-500">+{ar.offers.length - 8} more</li>}
+            </ul>
+          ) : (
+            <p className="mt-3 text-sm text-zinc-400">No offers auto-detected from the public pages — you&apos;d add them in the builder.</p>
+          )}
+        </div>
+      </div>
+
+      {/* What Nexez adds + CTA */}
+      <div className="mt-5 grid gap-4 md:grid-cols-[1.4fr_0.6fr]">
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-[var(--ready)]">What Nexez adds</p>
+          <ul className="mt-1 space-y-1">
+            {c.gains.map((g, i) => (
+              <li key={i} className="flex gap-2 text-sm text-zinc-300">
+                <Check className="mt-0.5 size-3.5 shrink-0 text-[var(--ready)]" /> <span>{g}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="flex flex-col justify-center gap-2 rounded-2xl border border-white/10 bg-[#12101B] p-4">
+          <p className="text-sm text-zinc-300">Make {c.host} agent-ready</p>
+          <a href={appUrl('/onboard')} className="btn-primary justify-center">
+            Build this page <ArrowRight className="size-4" />
+          </a>
+        </div>
+      </div>
     </div>
   )
 }

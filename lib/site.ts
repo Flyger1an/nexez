@@ -61,6 +61,7 @@ const MARKETING_API_PREFIXES = [
   '/api/directory',
   '/api/public-simulate',
   '/api/simulate-llm',
+  '/api/simulate-url',
   '/api/support',
 ] as const
 
