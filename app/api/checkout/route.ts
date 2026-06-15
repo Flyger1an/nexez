@@ -127,32 +127,32 @@ export async function POST(request: Request) {
     })
   }
 
-  if (process.env.STRIPE_SECRET_KEY && amountCents) {
+  // Resolve the owner's plan + Connect account UP FRONT. A card charge only ever
+  // runs through the owner's Connect account (owner is merchant of record; Nexez
+  // takes the plan commission as an application fee). We deliberately do NOT charge
+  // into the PLATFORM account for a seller who hasn't connected Stripe — they
+  // couldn't receive the funds and it creates a payout / money-transmission
+  // liability. No Connect → fall through to the seller's external checkout
+  // (destination) or a payments-not-set-up response below. Plan is resolved
+  // status-awarely (canceled/incomplete 'pro' ≠ 6%) via the single-source helper.
+  let connectAccountId: string | null = null
+  let ownerPlanId: Awaited<ReturnType<typeof getOwnerPlanId>> = 'free'
+  if (hasSupabaseAdminEnv() && page.owner_id) {
+    const admin = createAdminClient()
+    ownerPlanId = await getOwnerPlanId(admin, page.owner_id)
+    const { data: billing } = await admin
+      .from('billing_subscriptions')
+      .select('stripe_connect_account_id')
+      .eq('owner_id', page.owner_id)
+      .maybeSingle<{ stripe_connect_account_id: string | null }>()
+    if (billing?.stripe_connect_account_id) connectAccountId = billing.stripe_connect_account_id
+  }
+  const commissionPercent = getCommissionPercentForPlan(ownerPlanId)
+
+  if (process.env.STRIPE_SECRET_KEY && amountCents && connectAccountId) {
     try {
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-
-      // Dual revenue: Use owner's Stripe Connect for the transaction (owner is MoR).
-      // Nexez takes application fee based on owner's plan commission % (even on Free plan).
-      // This keeps subscriptions (Nexez Billing to owner) separate from transaction revenue.
-      // Resolve the owner's plan STATUS-AWARELY (a canceled/incomplete 'pro' row
-      // must not keep the discounted commission) — getOwnerPlanId is the single
-      // source of truth shared with entitlements/limits. Connect account is read
-      // alongside for the application-fee split. Dual model: subs stay separate.
-      let connectAccountId: string | null = null
-      let ownerPlanId: Awaited<ReturnType<typeof getOwnerPlanId>> = 'free'
-      if (hasSupabaseAdminEnv() && page.owner_id) {
-        const admin = createAdminClient()
-        ownerPlanId = await getOwnerPlanId(admin, page.owner_id)
-        const { data: billing } = await admin
-          .from('billing_subscriptions')
-          .select('stripe_connect_account_id')
-          .eq('owner_id', page.owner_id)
-          .maybeSingle<{ stripe_connect_account_id: string | null }>()
-        if (billing?.stripe_connect_account_id) connectAccountId = billing.stripe_connect_account_id
-      }
-      const commissionPercent = getCommissionPercentForPlan(ownerPlanId)
-
-      const applicationFeeAmount = connectAccountId ? calculateApplicationFeeCents(amountCents, commissionPercent) : undefined
+      const applicationFeeAmount = calculateApplicationFeeCents(amountCents, commissionPercent)
 
       const sessionParams: any = {
         mode: 'payment',
@@ -190,10 +190,7 @@ export async function POST(request: Request) {
         sessionParams.application_fee_amount = applicationFeeAmount
       }
 
-      const session = await stripe.checkout.sessions.create(
-        sessionParams,
-        connectAccountId ? { stripeAccount: connectAccountId } : undefined
-      )
+      const session = await stripe.checkout.sessions.create(sessionParams, { stripeAccount: connectAccountId })
 
       const sessionLog = await logCheckoutEvent({
         page,

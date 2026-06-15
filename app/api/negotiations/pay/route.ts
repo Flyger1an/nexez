@@ -117,14 +117,22 @@ export async function POST(request: Request) {
   if (billing?.stripe_connect_account_id) connectAccountId = billing.stripe_connect_account_id
   const commissionPercent = getCommissionPercentForPlan(ownerPlanId)
 
+  // Never route the payment through the PLATFORM account: without the seller's
+  // Connect account they can't receive the funds and it creates a payout/money-
+  // transmission liability. The seller must connect Stripe payouts before an
+  // agreement can be paid.
+  if (!connectAccountId) {
+    return fail(409, 'This seller hasn’t connected Stripe payouts yet, so this agreement can’t be paid. Ask the seller to connect payouts, then try again.', {
+      code: 'owner_not_connected',
+    })
+  }
+
   const stripe = new Stripe(secret)
-  const requestOptions = connectAccountId ? { stripeAccount: connectAccountId } : undefined
+  const requestOptions = { stripeAccount: connectAccountId }
 
   const autoSettle = negotiation.settlement_state === 'auto'
   const currency = (negotiation.currency || 'usd').toLowerCase()
-  const applicationFeeAmount = connectAccountId
-    ? calculateApplicationFeeCents(negotiation.amount_cents, commissionPercent)
-    : undefined
+  const applicationFeeAmount = calculateApplicationFeeCents(negotiation.amount_cents, commissionPercent)
   const fingerprint = paymentFingerprint({
     amountCents: negotiation.amount_cents,
     currency,

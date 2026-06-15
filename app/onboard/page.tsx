@@ -134,7 +134,7 @@ export default function OnboardPage() {
                     </div>
                     <div>
                       <div className="font-medium">{s.title}</div>
-                      {s.num === 3 && <div className="text-[10px] text-[var(--ready)]">Recommended for receiving agent payments</div>}
+                      {s.num === 3 && <div className="text-[10px] text-[var(--ready)]">Required to accept card payments</div>}
                     </div>
                   </li>
                 ))}
@@ -241,8 +241,9 @@ export default function OnboardPage() {
               <div>
                 <h1 className="text-4xl font-semibold tracking-tight">Connect Stripe</h1>
                 <p className="mt-2 max-w-md text-[#9CA3AF]">
-                  Link your Stripe account so agents can pay you directly for bookings and offers. 
-                  <span className="text-[var(--ready)]"> Recommended — start receiving payments immediately.</span>
+                  Link your Stripe account so agents can pay you directly for bookings and offers.
+                  <span className="text-[var(--ready)]"> Required to accept card payments on Nexez</span> — without it,
+                  agents are routed to your external booking links instead.
                 </p>
 
                 <div className="mt-8 max-w-md rounded-2xl border border-white/10 bg-[#12101B] p-6">
