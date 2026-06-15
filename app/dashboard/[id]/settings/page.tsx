@@ -22,12 +22,16 @@ import { buildAgentPagePayload, getAgentJsonPath } from '../../../../lib/agent-m
 import { createClient } from '../../../../utils/supabase/client'
 import { agentRuntimeUrl } from '../../../../lib/site'
 import { CredentialsManager } from '../../../../components/CredentialsManager'
+import { planAllows } from '../../../../lib/billing'
+import { ProBadge } from '../../../../components/billing/PlanGate'
+import { usePlan } from '../../../../components/billing/PlanProvider'
 
 type PageProps = {
   params: Promise<{ id: string }>
 }
 
 export default function PageSettings({ params }: PageProps) {
+  const plan = usePlan()
   const [id, setId] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -589,7 +593,10 @@ export default function PageSettings({ params }: PageProps) {
               </div>
               <div className="mt-4 space-y-3 text-sm">
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-zinc-400">Custom domain</p>
+                  <p className="flex items-center gap-2 text-xs uppercase tracking-widest text-zinc-400">
+                    Custom domain
+                    {!planAllows(plan, 'customDomain') && <ProBadge feature="customDomain" />}
+                  </p>
                   <div className="flex flex-wrap gap-2">
                     <input
                       value={customDomain}
@@ -633,7 +640,10 @@ export default function PageSettings({ params }: PageProps) {
 
                   {/* C10: white-label branding */}
                   <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <p className="text-[11px] font-medium text-zinc-200">Branding / White-label</p>
+                    <p className="flex items-center gap-2 text-[11px] font-medium text-zinc-200">
+                      Branding / White-label
+                      {!planAllows(plan, 'whiteLabel') && <ProBadge feature="whiteLabel" />}
+                    </p>
                     <p className="mt-0.5 text-[10px] text-zinc-500">
                       Applied to the public page (especially on your custom domain).
                     </p>
@@ -1727,6 +1737,7 @@ export default function PageSettings({ params }: PageProps) {
                     setMessage(checked ? 'Advanced AI assist enabled for this page.' : 'Advanced AI assist disabled for this page.')
                   }} />
                   Enable Advanced AI Assist
+                  {!planAllows(plan, 'aiFeatures') && <ProBadge feature="aiFeatures" />}
                 </label>
                 <span className="text-[10px] text-zinc-500">Allow Nexez to use AI to improve page copy, agent summaries, importer results, and simulator responses for this page. You can turn this off anytime.</span>
               </div>
