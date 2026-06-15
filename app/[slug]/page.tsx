@@ -202,11 +202,18 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
   // needs Scale+. Only read the owner's plan when the page actually customizes
   // branding, so default pages stay read-free on this hot path.
   const brandingCustomized = Boolean(branding.hide_nexez_badge || branding.logo_url || branding.brand_name)
-  const ownerPlan = brandingCustomized && hasSupabaseAdminEnv()
+  const hasNegotiationOffers = negotiationOffers.length > 0
+  // Resolve the owner's plan only when the page uses a plan-gated surface (custom
+  // branding OR negotiable offers); default pages stay read-free on this hot path.
+  const ownerPlan = (brandingCustomized || hasNegotiationOffers) && hasSupabaseAdminEnv()
     ? await getOwnerPlanId(createAdminClient(), (page as { owner_id?: string }).owner_id)
     : 'enterprise'
   const showBrand = Boolean(branding.logo_url || branding.brand_name) && planAllows(ownerPlan, 'whiteLabel')
   const hideBadge = Boolean(branding.hide_nexez_badge) && planAllows(ownerPlan, 'removeBadge')
+  // Negotiation is a Pro capability and POST /api/negotiations 403s below Pro.
+  // Gate the buyer-facing render to match so sub-Pro pages fall back to direct
+  // booking instead of showing an offer form / agent block the API will reject.
+  const negotiationAllowed = hasNegotiationOffers && planAllows(ownerPlan, 'negotiation')
 
   return (
     <main className="public-agent-page min-h-screen bg-[#0A0A0F] text-white" style={accentStyle}>
@@ -417,8 +424,8 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
           ) : null}
         </section>
 
-        <OfferSection title="Products" items={products} kind="products" pageSlug={page.slug} preferOriginal={preferOriginal} hiddenIndices={hiddenProducts} />
-        <OfferSection title="Services" items={services} kind="services" pageSlug={page.slug} preferOriginal={preferOriginal} hiddenIndices={hiddenServices} />
+        <OfferSection title="Products" items={products} kind="products" pageSlug={page.slug} preferOriginal={preferOriginal} hiddenIndices={hiddenProducts} allowNegotiation={negotiationAllowed} />
+        <OfferSection title="Services" items={services} kind="services" pageSlug={page.slug} preferOriginal={preferOriginal} hiddenIndices={hiddenServices} allowNegotiation={negotiationAllowed} />
 
         {faqs.length ? (
           <section className="border-t border-white/10 py-12">
@@ -434,7 +441,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
           </section>
         ) : null}
 
-        {negotiationOffers.length ? (
+        {negotiationAllowed ? (
           <section id="negotiate" className="border-t border-white/10 py-12">
             <h2 className="text-2xl font-semibold">Request a custom quote</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
@@ -557,8 +564,8 @@ Services: ${services.filter((_, i) => !hiddenServices.has(i)).map((item) => item
 Checkout URLs: ${[
 	  ...services.map((item, index) => ({ item, index })).filter(({ index }) => !hiddenServices.has(index)).map(({ item, index }) => `${item.name}: ${effectiveBase}${getCheckoutPath(page.slug, 'services', index)}`),
 	  ...products.map((item, index) => ({ item, index })).filter(({ index }) => !hiddenProducts.has(index)).map(({ item, index }) => `${item.name}: ${effectiveBase}${getCheckoutPath(page.slug, 'products', index)}`),
-	].join('; ') || 'None listed'}
-	Negotiation API: POST ${effectiveBase}/api/negotiations with slug="${page.slug}", offer="services-0" or "products-0", query, requestedTerms, budget, timeline, and dryRun=true to validate.`}
+	].join('; ') || 'None listed'}${negotiationAllowed ? `
+	Negotiation API: POST ${effectiveBase}/api/negotiations with slug="${page.slug}", offer="services-0" or "products-0", query, requestedTerms, budget, timeline, and dryRun=true to validate.` : ''}`}
           </pre>
         </section>
       </div>
@@ -592,6 +599,7 @@ function OfferSection({
   pageSlug,
   preferOriginal = false,
   hiddenIndices,
+  allowNegotiation = false,
 }: {
   title: string
   items: OfferItem[]
@@ -599,6 +607,7 @@ function OfferSection({
   pageSlug: string
   preferOriginal?: boolean
   hiddenIndices?: Set<number>
+  allowNegotiation?: boolean
 }) {
   // A/B serving hides non-served variants while keeping each remaining item's
   // real array index (checkout paths derive from it).
@@ -669,8 +678,10 @@ function OfferSection({
             <div className="mt-4 flex flex-wrap gap-3">
               {(() => {
                 // Smart Rules Phase 1: negotiable offers route to the Make-an-Offer
-                // flow (proposal + seller rules) instead of direct booking.
-                if (item.offerType === 'negotiable') {
+                // flow (proposal + seller rules) instead of direct booking — but only
+                // when the owner's plan unlocks negotiation. Below Pro (where POST
+                // /api/negotiations 403s) these fall through to the direct-book path.
+                if (item.offerType === 'negotiable' && allowNegotiation) {
                   return (
                     <a
                       href={`?negotiate=${getCheckoutOfferKey(kind, index)}#negotiate`}
