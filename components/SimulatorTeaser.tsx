@@ -232,7 +232,7 @@ export function SimulatorTeaser() {
       )}
 
       <p className="mt-3 text-center text-xs text-muted-foreground">
-        Runs on the same simulator used by the full Agent Simulator.{' '}
+        Want to grade a live page? Paste any URL in the full simulator to see how it ranks for a query.{' '}
         <a href="/simulator" className="underline hover:text-white">
           Open global simulator →
         </a>

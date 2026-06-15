@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { analyticsRangeBounds, clampHistoryRange, parseYmd } from '../analytics'
+import {
+  analyticsRangeBounds,
+  clampHistoryRange,
+  parseYmd,
+  previousPeriodBounds,
+  pctDelta,
+} from '../analytics'
 
 const NOW = new Date('2026-06-05T12:00:00Z')
 const DAY = 24 * 60 * 60 * 1000
@@ -109,5 +115,56 @@ describe('clampHistoryRange (analyticsHistory Pro gate)', () => {
       to: undefined,
     })
     expect(clampHistoryRange({ to: '2026-01-01' }, false)).toEqual({ range: '30d', from: undefined, to: undefined })
+  })
+})
+
+describe('previousPeriodBounds (period-over-period window)', () => {
+  it('returns the equal-length window immediately before a 7d preset', () => {
+    const bounds = analyticsRangeBounds({ range: '7d' }, NOW)
+    const prev = previousPeriodBounds(bounds, NOW)
+    expect(prev).not.toBeNull()
+    // prev window ends exactly where the current window starts...
+    expect(prev!.until.getTime()).toBe(bounds.cutoff.getTime())
+    // ...and is the same 7-day length.
+    expect(prev!.until.getTime() - prev!.cutoff.getTime()).toBe(7 * DAY)
+  })
+
+  it('returns null for the all-time preset (no meaningful prior period)', () => {
+    expect(previousPeriodBounds(analyticsRangeBounds({ range: 'all' }, NOW), NOW)).toBeNull()
+  })
+
+  it('returns null for custom ranges', () => {
+    const bounds = analyticsRangeBounds({ from: '2026-05-01', to: '2026-05-31' }, NOW)
+    expect(previousPeriodBounds(bounds, NOW)).toBeNull()
+  })
+
+  it('handles the "today" preset (window = midnight→now)', () => {
+    const bounds = analyticsRangeBounds({ range: 'today' }, NOW)
+    const prev = previousPeriodBounds(bounds, NOW)
+    expect(prev).not.toBeNull()
+    expect(prev!.until.getTime()).toBe(bounds.cutoff.getTime())
+    expect(prev!.until.getTime() - prev!.cutoff.getTime()).toBe(NOW.getTime() - bounds.cutoff.getTime())
+  })
+})
+
+describe('pctDelta (higher-is-better KPI change)', () => {
+  it('computes a positive change', () => {
+    expect(pctDelta(120, 100, 'prev 7d')).toEqual({ text: '+20% vs prev 7d', dir: 'up' })
+  })
+
+  it('computes a negative change', () => {
+    expect(pctDelta(80, 100, 'prev 7d')).toEqual({ text: '-20% vs prev 7d', dir: 'down' })
+  })
+
+  it('reports no change when equal', () => {
+    expect(pctDelta(100, 100)).toEqual({ text: 'no change vs prev period', dir: 'flat' })
+  })
+
+  it('labels growth from zero as "new"', () => {
+    expect(pctDelta(5, 0, 'prev 30d')).toEqual({ text: 'new vs prev 30d', dir: 'up' })
+  })
+
+  it('returns null when there is nothing to compare (both zero)', () => {
+    expect(pctDelta(0, 0)).toBeNull()
   })
 })

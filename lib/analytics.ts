@@ -443,3 +443,40 @@ export function clampHistoryRange(input: AnalyticsRangeInput, fullHistory: boole
   if (!gated) return { range: input.range, from: input.from, to: input.to }
   return { range: '30d', from: undefined, to: undefined }
 }
+
+export type KpiDelta = { text: string; dir: 'up' | 'down' | 'flat' }
+
+/**
+ * The equal-length window immediately before `bounds.cutoff`, used for the
+ * period-over-period KPI deltas. Only meaningful for the bounded presets
+ * (today / 1d / 7d / 30d) — returns null for all-time (epoch cutoff) and custom
+ * ranges, where "the previous period" isn't well defined.
+ */
+export function previousPeriodBounds(
+  bounds: AnalyticsRangeBounds,
+  now: Date = new Date(),
+): { cutoff: Date; until: Date } | null {
+  if (bounds.isCustom || bounds.preset === 'all' || bounds.cutoff.getTime() <= 0) return null
+  const end = bounds.until ?? now
+  const len = end.getTime() - bounds.cutoff.getTime()
+  if (len <= 0) return null
+  return {
+    cutoff: new Date(bounds.cutoff.getTime() - len),
+    until: new Date(bounds.cutoff.getTime()),
+  }
+}
+
+/**
+ * Format a period-over-period change for a "higher is better" KPI. Returns null
+ * when there's no prior signal to compare against — the UI then hides the delta
+ * rather than showing a misleading "+100%".
+ */
+export function pctDelta(current: number, previous: number, label = 'prev period'): KpiDelta | null {
+  if (previous <= 0) {
+    if (current <= 0) return null
+    return { text: `new vs ${label}`, dir: 'up' }
+  }
+  const pct = Math.round(((current - previous) / previous) * 100)
+  if (pct === 0) return { text: `no change vs ${label}`, dir: 'flat' }
+  return { text: `${pct > 0 ? '+' : ''}${pct}% vs ${label}`, dir: pct > 0 ? 'up' : 'down' }
+}

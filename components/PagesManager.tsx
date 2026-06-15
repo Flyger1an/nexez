@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, Copy, EyeOff, Plus, Trash2, X } from 'lucide-react'
+import { CheckCircle2, Copy, EyeOff, Plus, Search, Trash2, X } from 'lucide-react'
 import { AgentPage, BASIC_OWNER_PAGE_SELECT, OWNER_PAGE_SELECT, getBaseUrl } from '../lib/agent-page'
 import { buildDuplicatePayload } from '../lib/duplicate-page'
 import { createClient } from '../utils/supabase/client'
@@ -12,6 +12,7 @@ import { getPlanLimits } from '../lib/billing'
 import { usePlan } from './billing/PlanProvider'
 
 type Status = 'all' | 'published' | 'draft'
+type SortBy = 'newest' | 'oldest' | 'az'
 
 export function PagesManager({
   initialPages,
@@ -27,6 +28,8 @@ export function PagesManager({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const [limitMsg, setLimitMsg] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const [sortBy, setSortBy] = useState<SortBy>('newest')
 
   const counts = useMemo(
     () => ({
@@ -46,17 +49,27 @@ export function PagesManager({
   const atCap = showCap && counts.published >= publishedLimit
 
   const filtered = useMemo(() => {
-    if (status === 'published') return pages.filter((p) => p.is_published)
-    if (status === 'draft') return pages.filter((p) => !p.is_published)
-    return pages
-  }, [pages, status])
+    let list = pages
+    if (status === 'published') list = list.filter((p) => p.is_published)
+    else if (status === 'draft') list = list.filter((p) => !p.is_published)
+    const needle = query.trim().toLowerCase()
+    if (needle) {
+      list = list.filter((p) => `${p.name ?? ''} ${p.slug ?? ''}`.toLowerCase().includes(needle))
+    }
+    // created_at is an ISO timestamp, so a lexicographic compare is chronological.
+    const sorted = [...list]
+    if (sortBy === 'az') sorted.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
+    else if (sortBy === 'oldest') sorted.sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''))
+    else sorted.sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
+    return sorted
+  }, [pages, status, query, sortBy])
 
   // Client-side pagination so the DOM stays bounded for accounts with many pages.
   const PER_PAGE = 12
   const [pageNum, setPageNum] = useState(1)
   useEffect(() => {
     setPageNum(1)
-  }, [status])
+  }, [status, query, sortBy])
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
   const safePage = Math.min(pageNum, totalPages)
   const pageStart = (safePage - 1) * PER_PAGE
@@ -259,6 +272,34 @@ export function PagesManager({
           ))}
         </div>
 
+        {/* Search + sort */}
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search pages by name or slug…"
+              aria-label="Search pages"
+              className="h-10 w-full rounded-lg border border-white/10 bg-white/[0.03] pl-9 pr-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[var(--signal)]/50"
+            />
+          </div>
+          <label className="flex shrink-0 items-center gap-2 text-xs text-zinc-400">
+            Sort
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortBy)}
+              aria-label="Sort pages"
+              className="h-10 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-sm text-white outline-none focus:border-[var(--signal)]/50"
+            >
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="az">Name (A–Z)</option>
+            </select>
+          </label>
+        </div>
+
         {/* Bulk action bar */}
         {selectedIds.size > 0 && (
           <div className="mt-5 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--signal)]/30 bg-[var(--signal)]/10 p-3 text-sm">
@@ -355,15 +396,23 @@ export function PagesManager({
         {filtered.length === 0 && (
           <div className="mt-6 rounded-lg border border-dashed border-white/15 p-12 text-center">
             <p className="text-zinc-400">
-              {status === 'published'
-                ? 'No published pages yet — publish a draft to make it discoverable by agents.'
-                : status === 'draft'
-                  ? 'No drafts. Pages you create or duplicate land here until you publish them.'
-                  : 'No pages yet — create your first agent page to get started.'}
+              {query.trim()
+                ? `No pages match “${query.trim()}”.`
+                : status === 'published'
+                  ? 'No published pages yet — publish a draft to make it discoverable by agents.'
+                  : status === 'draft'
+                    ? 'No drafts. Pages you create or duplicate land here until you publish them.'
+                    : 'No pages yet — create your first agent page to get started.'}
             </p>
-            <a href="/create" className="btn-secondary mt-4 inline-flex h-10 px-4">
-              <Plus className="size-4" /> Create a page
-            </a>
+            {query.trim() ? (
+              <button onClick={() => setQuery('')} className="btn-secondary mt-4 inline-flex h-10 px-4">
+                Clear search
+              </button>
+            ) : (
+              <a href="/create" className="btn-secondary mt-4 inline-flex h-10 px-4">
+                <Plus className="size-4" /> Create a page
+              </a>
+            )}
           </div>
         )}
       </div>

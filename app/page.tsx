@@ -290,11 +290,11 @@ export default async function NexezHome() {
         <div className="mx-auto max-w-4xl px-5 text-center">
           <p className="text-sm font-medium text-muted-foreground">Agent simulator</p>
           <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">
-            See your page through an <span className="nx-accent-text">agent’s eyes.</span>
+            Agents pick one answer. <span className="nx-accent-text">Win the query.</span>
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-            Ask a real buyer question. Watch a structured page resolve it into the exact offers, prices, and next
-            actions an AI agent would use, instantly and with no signup.
+            Ask a real buyer question and watch a structured page resolve it into the exact offers, prices, and next
+            actions an AI agent would use — then see what it takes to be the one it picks. Instantly, no signup.
           </p>
           <div className="mt-8">
             <SimulatorTeaser />

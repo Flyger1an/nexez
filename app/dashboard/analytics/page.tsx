@@ -1,4 +1,4 @@
-import { ArrowUpRight, Bot, Download, Filter, Lock, Search } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Bot, Download, Filter, Lock, Minus, Search, Sparkles } from 'lucide-react'
 import { ErrorBoundary } from '../../../components/ErrorBoundary'
 import { TrafficChart } from './TrafficChart'
 import { TopOffersChart } from './TopOffersChart'
@@ -35,6 +35,9 @@ import {
   getReadinessInsight,
   analyticsRangeBounds,
   clampHistoryRange,
+  previousPeriodBounds,
+  pctDelta,
+  type KpiDelta,
   getRevenueCents,
   getRevenueCurrency,
   getAgentDrivenRevenueCents,
@@ -120,7 +123,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const range = historyWindow.range || '30d'
 
   // Resolve the time window: preset (1d/7d/30d/all) or a custom from/to range.
-  const { cutoff, until, isCustom } = analyticsRangeBounds(historyWindow)
+  const rangeBounds = analyticsRangeBounds(historyWindow)
+  const { cutoff, until, isCustom } = rangeBounds
 
   let checkoutEventsQuery = supabase
     .from('checkout_events')
@@ -222,6 +226,91 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const topOffers = getTopOfferStats(filteredEvents).slice(0, 5)
   const maxDailyEvents = Math.max(...dailySeries.map((point) => point.total), 1)
   const maxOfferEvents = Math.max(...topOffers.map((offer) => offer.total), 1)
+
+  // Period-over-period deltas: fetch the equal-length window immediately before
+  // the current one (bounded presets only — all-time/custom have no "prev") and
+  // compare the headline KPIs apples-to-apples (same page/action/traffic/query).
+  const prevBounds = previousPeriodBounds(rangeBounds)
+  const periodLabel =
+    range === 'today' ? 'prior period' : range === '1d' ? 'prev 24h' : range === '7d' ? 'prev 7d' : 'prev 30d'
+  const periodHuman =
+    range === 'today'
+      ? 'the prior period'
+      : range === '1d'
+        ? 'the previous 24 hours'
+        : range === '7d'
+          ? 'the previous 7 days'
+          : 'the previous 30 days'
+  let signalsDelta: KpiDelta | null = null
+  let agentVisitsDelta: KpiDelta | null = null
+  let revenueDelta: KpiDelta | null = null
+  let conversionDelta: KpiDelta | null = null
+  let agentRevenueDelta: KpiDelta | null = null
+  if (prevBounds) {
+    const [{ data: prevCheckoutRows }, { data: prevVisitRows }] = await Promise.all([
+      supabase
+        .from('checkout_events')
+        .select('*')
+        .eq('owner_id', user.id)
+        .gte('created_at', prevBounds.cutoff.toISOString())
+        .lt('created_at', prevBounds.until.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(500)
+        .returns<CheckoutEvent[]>(),
+      supabase
+        .from('agent_visits')
+        .select('*')
+        .eq('owner_id', user.id)
+        .gte('created_at', prevBounds.cutoff.toISOString())
+        .lt('created_at', prevBounds.until.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1000)
+        .returns<AgentVisit[]>(),
+    ])
+    const prevEvents = filterAnalyticsEvents(prevCheckoutRows ?? [], {
+      query: filters.q,
+      pageId: selectedPageId || undefined,
+      action: selectedAction,
+    })
+    const prevVisits = filterAgentVisits(prevVisitRows ?? [], {
+      query: filters.q,
+      pageId: selectedPageId || undefined,
+      traffic: selectedTraffic,
+    })
+    const prevAttempts = getCheckoutAttemptCount(prevEvents)
+    const prevConversions = getConversionCount(prevEvents)
+    const prevConversionRate = prevEvents.length
+      ? (prevConversions / Math.max(prevAttempts || prevEvents.length, 1)) * 100
+      : 0
+    signalsDelta = pctDelta(
+      filteredEvents.length + filteredAgentVisits.length,
+      prevEvents.length + prevVisits.length,
+      periodLabel,
+    )
+    agentVisitsDelta = pctDelta(agentPageVisits, getTrafficSplit(prevVisits).ai, periodLabel)
+    revenueDelta = pctDelta(revenueCents, getRevenueCents(prevEvents), periodLabel)
+    conversionDelta = pctDelta(Number(conversionRate), prevConversionRate, periodLabel)
+    agentRevenueDelta = pctDelta(agentRevenueCents, getAgentDrivenRevenueCents(prevEvents), periodLabel)
+  }
+
+  // One-line takeaway from the biggest movers (drives the insight band).
+  const movers = [
+    { label: 'agent visits', d: agentVisitsDelta },
+    { label: 'tracked revenue', d: revenueDelta },
+    { label: 'conversion rate', d: conversionDelta },
+    { label: 'total signals', d: signalsDelta },
+  ]
+    .map(({ label, d }) => {
+      if (!d || d.dir === 'flat') return null
+      const pct = d.text.match(/-?\d+%/)?.[0]
+      if (!pct) return d.text.startsWith('new') ? `${label} started from zero` : null
+      return `${label} ${d.dir === 'up' ? 'up' : 'down'} ${pct.replace('-', '')}`
+    })
+    .filter((p): p is string => Boolean(p))
+    .slice(0, 3)
+  const insightSentence = movers.length
+    ? `Versus ${periodHuman}, ${movers.length === 1 ? movers[0] : `${movers.slice(0, -1).join(', ')} and ${movers[movers.length - 1]}`}.`
+    : null
 
   // Top Pages by Agent Activity (Phase 2 + AI detection foundation)
   const topPages = topAgentVisitPages
@@ -486,14 +575,21 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           </div>
         </section>
 
-        <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Kpi title="Tracked Signals" value={(filteredEvents.length + filteredAgentVisits.length).toLocaleString()} note={`${events.length + agentVisits.length} total stored`} tone="strong" />
-          <Kpi title="AI Agent Visits" value={agentPageVisits.toLocaleString()} note={`${trafficSplit.human} human/unknown visits`} />
+        {insightSentence ? (
+          <p className="mt-6 flex items-start gap-2 rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/[0.06] px-4 py-3 text-sm text-zinc-200">
+            <Sparkles className="mt-0.5 size-4 shrink-0 text-[var(--signal)]" />
+            <span>{insightSentence}</span>
+          </p>
+        ) : null}
+
+        <section className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Kpi title="Tracked Signals" value={(filteredEvents.length + filteredAgentVisits.length).toLocaleString()} delta={signalsDelta} note={`${events.length + agentVisits.length} total stored`} tone="strong" />
+          <Kpi title="AI Agent Visits" value={agentPageVisits.toLocaleString()} delta={agentVisitsDelta} note={`${trafficSplit.human} human/unknown visits`} />
           <Kpi title="Discovery Clicks" value={discoveryClicks.toLocaleString()} note="Directory + Marketplace clickthroughs" />
-          <Kpi title="Conversion Rate" value={`${conversionRate}%`} note={`${conversionCount} conversions`} />
+          <Kpi title="Conversion Rate" value={`${conversionRate}%`} delta={conversionDelta} note={`${conversionCount} conversions`} />
           <Kpi title="Most Active Offer" value={popularService} note={`${offerCount || 0} offers listed`} />
-          <Kpi title="Tracked Revenue" value={money(revenueCents)} note={`${money(pipelineCents)} pipeline`} tone="strong" />
-          <Kpi title="Agent-Driven Revenue" value={money(agentRevenueCents)} note={`${agentSharePct}% estimated platform share = ${money(agentShareCents)}`} />
+          <Kpi title="Tracked Revenue" value={money(revenueCents)} delta={revenueDelta} note={`${money(pipelineCents)} pipeline`} tone="strong" />
+          <Kpi title="Agent-Driven Revenue" value={money(agentRevenueCents)} delta={agentRevenueDelta} note={`${agentSharePct}% estimated platform share = ${money(agentShareCents)}`} />
           <Kpi
             title="Negotiations"
             value={negotiationSummary.total.toLocaleString()}
@@ -869,7 +965,7 @@ function Kpi({
 }: {
   title: string
   value: string
-  delta?: string
+  delta?: KpiDelta | null
   note?: string
   tone?: 'strong'
 }) {
@@ -878,9 +974,23 @@ function Kpi({
       <p className="text-sm text-zinc-300">{title}</p>
       <p className="mt-3 text-4xl font-semibold tracking-tight">{value}</p>
       {delta ? (
-        <p className="mt-3 inline-flex items-center gap-1 text-sm text-[var(--signal)]">
-          <ArrowUpRight className="size-4" />
-          {delta}
+        <p
+          className={`mt-3 inline-flex items-center gap-1 text-sm ${
+            delta.dir === 'up'
+              ? 'text-[var(--ready)]'
+              : delta.dir === 'down'
+                ? 'text-red-300'
+                : 'text-zinc-400'
+          }`}
+        >
+          {delta.dir === 'up' ? (
+            <ArrowUpRight className="size-4" />
+          ) : delta.dir === 'down' ? (
+            <ArrowDownRight className="size-4" />
+          ) : (
+            <Minus className="size-4" />
+          )}
+          {delta.text}
         </p>
       ) : null}
       {note ? <p className="mt-3 text-sm text-zinc-400">{note}</p> : null}

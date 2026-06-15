@@ -51,7 +51,7 @@ const navItems = [
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3, mobile: true },
   { href: '/simulator', label: 'Agent Lab', icon: Bot, mobile: true },
   { href: '/discovery', label: 'Discovery', icon: Compass, match: ['/discovery', '/leaderboard'] },
-  { href: '/dashboard/negotiations', label: 'Negotiations', icon: Handshake },
+  { href: '/dashboard/negotiations', label: 'Negotiations', icon: Handshake, mobile: true },
   { href: '/dashboard/finance', label: 'Finance', icon: Wallet, mobile: true },
   { href: '/dashboard/integrations', label: 'Integrations', icon: Link2 },
   { href: '/dashboard/tools', label: 'Tools', icon: Wrench },
@@ -74,10 +74,35 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
   const [pinAnimating, setPinAnimating] = useState(false)
   const pinTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [authed, setAuthed] = useState<boolean | null>(null)
+  const [openNegotiations, setOpenNegotiations] = useState(0)
 
   useEffect(() => {
     const stored = window.localStorage.getItem('nexez-sidebar-pinned')
     if (stored) setPinned(stored === 'true')
+  }, [])
+
+  // Open-negotiations count for the nav badge. Owner-scoped (RLS) read via the
+  // browser client — mirrors the dashboard Overview's "open" definition
+  // (negotiation + agreement_proposed + held). Fails soft to 0.
+  useEffect(() => {
+    let cancelled = false
+    async function loadCount() {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user || cancelled) return
+      const { count } = await supabase
+        .from('agent_negotiations')
+        .select('id', { count: 'exact', head: true })
+        .eq('owner_id', user.id)
+        .in('status', ['negotiation', 'agreement_proposed', 'held'])
+      if (!cancelled) setOpenNegotiations(count ?? 0)
+    }
+    loadCount().catch(() => {})
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => () => {
@@ -163,6 +188,8 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
                   pinned={pinned}
                   pathname={pathname}
                   match={'match' in item ? (item.match as string[]) : undefined}
+                  badge={item.href === '/dashboard/negotiations' ? openNegotiations : 0}
+                  mobileFirst={'mobile' in item && item.mobile === true}
                 />
                 {'subItems' in item && item.subItems && pathname.startsWith('/dashboard/pages') && pinned ? (
                   <div className="ml-7 hidden space-y-0.5 md:block">
@@ -281,6 +308,8 @@ function ShellNavItem({
   pinned,
   pathname,
   match,
+  badge = 0,
+  mobileFirst = false,
 }: {
   href: string
   label: string
@@ -288,6 +317,8 @@ function ShellNavItem({
   pinned: boolean
   pathname: string
   match?: string[]
+  badge?: number
+  mobileFirst?: boolean
 }) {
   const paths = match ?? [href]
   const active =
@@ -298,10 +329,25 @@ function ShellNavItem({
   return (
     <a
       href={href}
-      title={label}
+      title={badge > 0 ? `${label} (${badge} open)` : label}
+      // On the mobile horizontal strip (flex), float the priority items first so
+      // the common destinations are reachable without scrolling. Order is ignored
+      // on the desktop rail (md:block). Nothing is ever hidden.
+      style={{ order: mobileFirst ? 0 : 1 }}
       className={`nav-item flex h-10 shrink-0 items-center gap-3 rounded-md px-3 text-sm ${active ? 'active' : ''}`}
     >
-      <Icon className="size-4 shrink-0" />
+      <span className="relative shrink-0">
+        <Icon className="size-4 shrink-0" />
+        {badge > 0 ? (
+          <span
+            className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--signal-solid)] px-1 text-[10px] font-semibold leading-none"
+            style={{ color: '#fff' }}
+            aria-label={`${badge} open`}
+          >
+            {badge > 99 ? '99+' : badge}
+          </span>
+        ) : null}
+      </span>
       <span
         className={`hidden whitespace-nowrap transition-opacity duration-150 md:block ${
           pinned ? 'md:opacity-100' : 'md:opacity-0 md:group-hover/sidebar:opacity-100'
