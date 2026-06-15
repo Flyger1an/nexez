@@ -17,6 +17,7 @@ import { usePlan } from '../../../components/billing/PlanProvider'
 import { planAllows } from '../../../lib/billing'
 import { appUrl } from '../../../lib/site'
 import { Lock } from 'lucide-react'
+import { loadIntegrations, type IntegrationStatusRow } from '../../../lib/integration-status'
 
 const integrations = [
   {
@@ -81,6 +82,9 @@ export default function IntegrationsPage() {
   const [calendlyWebhook, setCalendlyWebhook] = useState<{ lastSaved: string } | null>(null)
   const [stripeConnection, setStripeConnection] = useState<{ lastImport: string } | null>(null)
   const [shopifyConnection, setShopifyConnection] = useState<{ lastImport: string } | null>(null)
+  // Server-of-record status (cross-device), keyed by provider. localStorage stays
+  // as an instant/offline fallback for connections made before this row landed.
+  const [dbStatus, setDbStatus] = useState<Record<string, IntegrationStatusRow>>({})
 
   useEffect(() => {
     try {
@@ -96,45 +100,53 @@ export default function IntegrationsPage() {
       const shopify = localStorage.getItem('nexez_shopify_connection')
       if (shopify) setShopifyConnection(JSON.parse(shopify))
     } catch {}
+
+    let cancelled = false
+    loadIntegrations().then((rows) => {
+      if (cancelled) return
+      setDbStatus(Object.fromEntries(rows.map((r) => [r.provider, r])))
+    })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  // Dynamic status for integrations (Phase 3 status dashboard)
+  const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+  // Dynamic status: DB row (cross-device) wins, localStorage is the fallback.
   const dynamicIntegrations = integrations.map((int) => {
     if (int.name === 'Calendly') {
-      const hasPat = !!calendlyConnection
-      const hasWebhook = !!calendlyWebhook
-
+      const pat = dbStatus['calendly']
+      const wh = dbStatus['calendly_webhook']
+      const hasPat = !!pat || !!calendlyConnection
+      const hasWebhook = !!wh || !!calendlyWebhook
       if (hasPat || hasWebhook) {
-        const parts = []
-        if (hasPat) parts.push(`Token connected • ${new Date(calendlyConnection!.lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`)
-        if (hasWebhook) parts.push(`Webhook • ${new Date(calendlyWebhook!.lastSaved).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`)
-
-        return {
-          ...int,
-          status: 'Connected',
-          description: parts.join(' • '),
-          action: 'Manage in Tools',
-        }
+        const parts: string[] = []
+        if (hasPat) parts.push(`Token connected • ${fmtTime(pat?.last_event_at ?? calendlyConnection!.lastSync)}`)
+        if (hasWebhook) parts.push(`Webhook • ${fmtTime(wh?.last_event_at ?? calendlyWebhook!.lastSaved)}`)
+        return { ...int, status: 'Connected', description: parts.join(' • '), action: 'Manage in Tools' }
       }
     }
 
     if (int.name === 'Stripe') {
-      if (stripeConnection) {
+      const row = dbStatus['stripe']
+      if (row || stripeConnection) {
         return {
           ...int,
           status: 'Connected',
-          description: `Connected • Last import ${new Date(stripeConnection.lastImport).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+          description: `Connected • Last import ${fmtTime(row?.last_event_at ?? stripeConnection!.lastImport)}`,
           action: 'Manage in Tools',
         }
       }
     }
 
     if (int.name === 'Shopify / Woo') {
-      if (shopifyConnection) {
+      const row = dbStatus['shopify']
+      if (row || shopifyConnection) {
         return {
           ...int,
           status: 'Connected',
-          description: `Connected • Last import ${new Date(shopifyConnection.lastImport).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+          description: `Connected • Last import ${fmtTime(row?.last_event_at ?? shopifyConnection!.lastImport)}`,
           action: 'Manage in Tools',
         }
       }

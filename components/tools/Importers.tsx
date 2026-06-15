@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { ImportResult } from './ImportResult'
+import { recordIntegration } from '../../lib/integration-status'
 
 // Self-contained integration importers for the Tools page. Each owns its state,
 // handler, and "Connected" status (restored from localStorage on mount), so the
@@ -39,6 +40,7 @@ export function StripeImporter() {
         const conn = { lastImport: new Date().toISOString() }
         localStorage.setItem('nexez_stripe_connection', JSON.stringify(conn))
         setStripeConnected(conn)
+        void recordIntegration('stripe', 'Catalog imported')
       }
     } catch (e) {
       setStripeResult({ error: 'Failed to connect to Stripe' })
@@ -159,6 +161,7 @@ export function ShopifyImporter() {
         const conn = { lastImport: new Date().toISOString() }
         setShopifyConnected(conn)
         try { localStorage.setItem('nexez_shopify_connection', JSON.stringify(conn)) } catch {}
+        void recordIntegration('shopify', 'Catalog imported')
       }
     } catch (e) {
       setShopifyResult({ error: 'Failed to import Shopify catalog' })
@@ -265,6 +268,7 @@ export function AcuityImporter() {
         const conn = { lastImport: new Date().toISOString() }
         setAcuityConnected(conn)
         try { localStorage.setItem('nexez_acuity_connection', JSON.stringify(conn)) } catch {}
+        void recordIntegration('acuity', 'Appointments imported')
       }
     } catch (e) {
       setAcuityResult({ error: 'Failed to import from Acuity' })
@@ -360,6 +364,7 @@ export function SquareImporter() {
         const conn = { lastImport: new Date().toISOString() }
         setSquareConnected(conn)
         try { localStorage.setItem('nexez_square_connection', JSON.stringify(conn)) } catch {}
+        void recordIntegration('square', 'Catalog imported')
       }
     } catch (e) {
       setSquareResult({ error: 'Failed to import from Square' })

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
+import { recordIntegration } from '../../lib/integration-status'
 
 // Self-contained Calendly tool: token import, webhook configuration + test, and
 // the imported-events result. Owns its own state and restores connection/webhook
@@ -48,6 +49,7 @@ export function CalendlyTool() {
     }
     localStorage.setItem('nexez_calendly_connection', JSON.stringify(connection))
     setCalendlyConnected(connection)
+    void recordIntegration('calendly', `Token ${masked}`)
   }
 
   async function handleCalendlyImport() {
@@ -97,6 +99,7 @@ export function CalendlyTool() {
     const data = { lastSaved: new Date().toISOString() }
     localStorage.setItem('nexez_calendly_webhook', JSON.stringify(data))
     setWebhookConnected(data)
+    void recordIntegration('calendly_webhook', 'Webhook configured')
     setWebhookSecret('')
   }
 
