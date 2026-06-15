@@ -10,12 +10,20 @@ import { PlanProvider } from '../../components/billing/PlanProvider'
  * (each dashboard page does its own getUser() + redirect).
  */
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const cookieStore = await cookies()
-  const supabase = createClient(cookieStore)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  const plan = await getOwnerPlanId(supabase, user?.id)
+  // A transient auth/billing blip here should degrade to a free-gated dashboard,
+  // not 500 the whole subtree. Auth/redirect is still enforced per-page, so
+  // failing soft to 'free' introduces no auth hole (it only restricts features).
+  let plan: Awaited<ReturnType<typeof getOwnerPlanId>> = 'free'
+  try {
+    const cookieStore = await cookies()
+    const supabase = createClient(cookieStore)
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    plan = await getOwnerPlanId(supabase, user?.id)
+  } catch {
+    plan = 'free'
+  }
 
   return <PlanProvider plan={plan}>{children}</PlanProvider>
 }

@@ -727,6 +727,7 @@ export default function PageSettings({ params }: PageProps) {
                         onChange={(e) => setHideNexezBadge(e.target.checked)}
                       />
                       Hide the “Nexez” header link (full white-label)
+                      {!planAllows(plan, 'removeBadge') && <ProBadge feature="removeBadge" />}
                     </label>
                     <p className="mt-1 text-[10px] text-zinc-500">
                       Invalid colors/URLs are ignored on render (hex + http(s) only). Save to apply.
