@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import { createClient } from '../../../../../utils/supabase/server'
+import { ownerAllows } from '../../../../../lib/server/plan'
 
 /**
  * Calendly Integration for Nexez
@@ -24,6 +27,23 @@ type CalendlyEventType = {
 }
 
 export async function POST(request: Request) {
+  // Require auth + the `integrations` (Pro) capability: this route makes an
+  // authenticated outbound call with a caller-supplied token, so it must not be
+  // anonymously abusable, and live third-party sync is a Pro feature. Free/Launch
+  // owners can still add offers manually or upload a CSV (both client-side, free).
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Sign in to import from Calendly.' }, { status: 401 })
+  }
+  if (!(await ownerAllows(supabase, user.id, 'integrations'))) {
+    return NextResponse.json(
+      { error: 'Connecting Calendly is a Pro feature. Upgrade to sync live event types, or add offers manually / upload a CSV (free).' },
+      { status: 402 },
+    )
+  }
+
   const { token } = await request.json()
 
   if (!token) {

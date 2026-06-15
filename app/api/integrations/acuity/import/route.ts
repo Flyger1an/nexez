@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import { createClient } from '../../../../../utils/supabase/server'
+import { ownerAllows } from '../../../../../lib/server/plan'
 import { formatOfferLines, type OfferItem } from '../../../../../lib/agent-page'
 import { mapAcuityTypesToOffers } from '../../../../../lib/integrations'
 
@@ -74,6 +77,21 @@ function sampleOffers(): OfferItem[] {
 }
 
 export async function POST(request: Request) {
+  // Require auth + `integrations` (Pro): authenticated outbound call with a
+  // caller-supplied API key — not anonymously abusable, and live sync is Pro.
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Sign in to import from Acuity.' }, { status: 401 })
+  }
+  if (!(await ownerAllows(supabase, user.id, 'integrations'))) {
+    return NextResponse.json(
+      { error: 'Connecting Acuity is a Pro feature. Upgrade to sync appointment types, or add offers manually / upload a CSV (free).' },
+      { status: 402 },
+    )
+  }
+
   let body: AcuityImportRequest
   try {
     body = await request.json()

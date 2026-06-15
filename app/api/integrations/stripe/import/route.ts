@@ -1,5 +1,8 @@
 import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import { createClient } from '../../../../../utils/supabase/server'
+import { ownerAllows } from '../../../../../lib/server/plan'
 
 /**
  * Stripe Import for Nexez agent pages (lean MVP).
@@ -17,6 +20,23 @@ type ImportRequest = {
 }
 
 export async function POST(request: Request) {
+  // Require auth + `integrations` (Pro). In production this route lists products
+  // with the platform STRIPE_SECRET_KEY, so an anonymous caller could otherwise
+  // enumerate the platform's Stripe catalog. Free/Launch owners build manually or
+  // via CSV (free); live Stripe sync is Pro.
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Sign in to import from Stripe.' }, { status: 401 })
+  }
+  if (!(await ownerAllows(supabase, user.id, 'integrations'))) {
+    return NextResponse.json(
+      { error: 'Importing from Stripe is a Pro feature. Upgrade to sync products, or add offers manually / upload a CSV (free).' },
+      { status: 402 },
+    )
+  }
+
   let body: ImportRequest & { stripeSecretKey?: string }
   try {
     body = await request.json()

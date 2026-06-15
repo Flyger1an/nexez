@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../../utils/supabase/server'
+import { ownerAllows } from '../../../../../lib/server/plan'
 
 /**
  * Shopify Integration for Nexez (Phase 3)
@@ -44,6 +45,14 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
+  }
+  // Live catalog sync is a Pro (`integrations`) capability. Free/Launch owners
+  // build manually or via CSV (free).
+  if (!(await ownerAllows(supabase, user.id, 'integrations'))) {
+    return NextResponse.json(
+      { error: 'Connecting Shopify is a Pro feature. Upgrade to import your catalog, or add offers manually / upload a CSV (free).' },
+      { status: 402 },
+    )
   }
 
   let body: ShopifyImportRequest
