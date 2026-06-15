@@ -9,7 +9,8 @@ import {
   getOfferDestination,
   getRequestBaseUrl,
 } from '../../../lib/agent-page'
-import { parseMoneyCents, toStripeDescription } from '../../../lib/checkout'
+import { parseMoney, toStripeDescription } from '../../../lib/checkout'
+import { normalizeCurrency, toStripeAmount } from '../../../lib/currency'
 import { getBookingRuleError } from '../../../lib/offer-rules'
 import { logCheckoutEvent } from '../../../lib/server/log-checkout-event'
 import { enforceRateLimit } from '../../../lib/rate-limit'
@@ -93,7 +94,11 @@ export async function POST(request: Request) {
   const checkoutUrl = `${baseUrl}/checkout/${page.slug}?offer=${offerKey}`
   const successUrl = `${baseUrl}/checkout/${page.slug}/success?session_id={CHECKOUT_SESSION_ID}&offer=${offerKey}`
   const destination = getOfferDestination(page, offer)
-  const amountCents = parseMoneyCents(offer.price)
+  // Multi-currency: the page's currency is the source of truth for what the buyer
+  // is charged; the offer price string is just the amount. amountCents is the
+  // Stripe smallest-unit amount (×100, or as-is for zero-decimal currencies like JPY).
+  const currency = normalizeCurrency(page.currency)
+  const amountCents = toStripeAmount(parseMoney(offer.price) ?? 0, currency) || null
   const userAgent = request.headers.get('user-agent')
   const referrer = request.headers.get('referer')
 
@@ -108,6 +113,7 @@ export async function POST(request: Request) {
     providerUrl: destination || null,
     metadata: {
       amount_cents: amountCents,
+      currency,
       accept: request.headers.get('accept'),
       source: input.dryRun ? 'agent_simulator' : 'agent_checkout',
       dry_run: Boolean(input.dryRun),
@@ -159,7 +165,7 @@ export async function POST(request: Request) {
         line_items: [
           {
             price_data: {
-              currency: 'usd',
+              currency,
               unit_amount: amountCents,
               product_data: {
                 name: `${page.name}: ${offer.name}`,
@@ -204,6 +210,7 @@ export async function POST(request: Request) {
         stripeSessionId: session.id,
         metadata: {
           amount_cents: amountCents,
+          currency,
         },
       })
 

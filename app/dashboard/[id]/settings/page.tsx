@@ -25,6 +25,7 @@ import { CredentialsManager } from '../../../../components/CredentialsManager'
 import { planAllows } from '../../../../lib/billing'
 import { ProBadge } from '../../../../components/billing/PlanGate'
 import { usePlan } from '../../../../components/billing/PlanProvider'
+import { SUPPORTED_CURRENCIES, normalizeCurrency } from '../../../../lib/currency'
 
 type PageProps = {
   params: Promise<{ id: string }>
@@ -50,6 +51,7 @@ export default function PageSettings({ params }: PageProps) {
   const [accentColor, setAccentColor] = useState('')
   const [logoUrl, setLogoUrl] = useState('')
   const [hideNexezBadge, setHideNexezBadge] = useState(false)
+  const [currency, setCurrency] = useState('usd')
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [domainProvisioning, setDomainProvisioning] = useState(false)
   const [domainStatus, setDomainStatus] = useState<
@@ -239,6 +241,7 @@ export default function PageSettings({ params }: PageProps) {
 	    } as AgentPage
 
 	    setPage(activePage)
+	    setCurrency(normalizeCurrency((activePage as { currency?: string }).currency))
 	    setName(activePage.name)
 	    setSlug(activePage.slug)
 	    setWebsiteUrl(activePage.website_url ?? '')
@@ -592,6 +595,32 @@ export default function PageSettings({ params }: PageProps) {
                 <h2 className="font-semibold">Advanced</h2>
               </div>
               <div className="mt-4 space-y-3 text-sm">
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-zinc-400">Settlement currency</p>
+                  <p className="mt-0.5 text-[11px] text-zinc-500">The currency buyers are charged in at checkout for this page's offers.</p>
+                  <select
+                    value={currency}
+                    onChange={async (e) => {
+                      if (!page) return
+                      const next = normalizeCurrency(e.target.value)
+                      const previous = currency
+                      setCurrency(next)
+                      const supabase = createClient()
+                      const { error } = await supabase.from('pages').update({ currency: next }).eq('id', page.id)
+                      if (error) {
+                        setCurrency(previous)
+                        setMessage('Currency could not be saved. Please try again.')
+                      } else {
+                        setMessage(`Checkout currency set to ${next.toUpperCase()}.`)
+                      }
+                    }}
+                    className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-white [color-scheme:dark]"
+                  >
+                    {SUPPORTED_CURRENCIES.map((c) => (
+                      <option key={c.code} value={c.code}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <p className="flex items-center gap-2 text-xs uppercase tracking-widest text-zinc-400">
                     Custom domain

@@ -35,6 +35,7 @@ export const PUBLIC_PAGE_SELECT = [
   'next_available',
   'last_booking',
   'llm_opt_in',
+  'currency',
 ].join(', ')
 
 export const OWNER_PAGE_SELECT = [
@@ -213,6 +214,7 @@ export type AgentPage = {
   services: OfferItem[] | null
   faqs: FaqItem[] | null
   is_published: boolean
+  currency?: string | null  // Multi-currency: page settlement currency (ISO 4217, lowercase); default 'usd'
   custom_domain?: string | null
   custom_domain_verified?: boolean | string | null  // Phase 5: timestamp or true when DNS verified
   domain_path?: string | null  // C9: path this page serves at on its custom_domain ("/" or "/pricing")

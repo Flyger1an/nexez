@@ -17,6 +17,7 @@ export const WRITABLE_PAGE_FIELDS = [
   'is_published',
   'custom_domain',
   'domain_path',
+  'currency',
 ] as const
 
 /** Pick only client-writable fields from an arbitrary request body. */
