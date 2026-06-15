@@ -1,4 +1,4 @@
-import { ArrowUpRight, Bot, Download, Filter, Search } from 'lucide-react'
+import { ArrowUpRight, Bot, Download, Filter, Lock, Search } from 'lucide-react'
 import { ErrorBoundary } from '../../../components/ErrorBoundary'
 import { TrafficChart } from './TrafficChart'
 import { TopOffersChart } from './TopOffersChart'
@@ -34,6 +34,7 @@ import {
   getPipelineCents,
   getReadinessInsight,
   analyticsRangeBounds,
+  clampHistoryRange,
   getRevenueCents,
   getAgentDrivenRevenueCents,
   getSignalLabel,
@@ -47,7 +48,10 @@ import { CheckoutEvent, getEventActionLabel } from '../../../lib/checkout-events
 import { createClient } from '../../../utils/supabase/server'
 import { cookies } from 'next/headers'
 import AnalyticsActions from './AnalyticsActions'
-import { agentRuntimeUrl } from '../../../lib/site'
+import { agentRuntimeUrl, appUrl } from '../../../lib/site'
+import { getOwnerPlanId } from '../../../lib/server/plan'
+import { planAllows } from '../../../lib/billing'
+import { ProBadge } from '../../../components/billing/PlanGate'
 
 type AnalyticsPageProps = {
   searchParams: Promise<AnalyticsSearchParams>
@@ -84,7 +88,6 @@ const trafficOptions: Array<[AgentVisitTrafficFilter, string]> = [
 
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   const filters = await searchParams
-  const range = filters.range || '30d'
   const selectedTraffic = trafficOptions.some(([value]) => value === filters.traffic)
     ? (filters.traffic as AgentVisitTrafficFilter)
     : 'all'
@@ -107,8 +110,16 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
 
   const pages = await fetchOwnedPages(supabase, user.id)
 
+  // analyticsHistory (Pro): All-time + custom date ranges are Pro-only; today/1d/7d/30d
+  // stay free. Clamp gated selections server-side so a URL like ?range=all or
+  // ?from=2020-01-01 can't read history beyond the free window (the UI teaser alone
+  // is bypassable). The CSV export route applies the same clamp.
+  const fullHistory = planAllows(await getOwnerPlanId(supabase, user.id), 'analyticsHistory')
+  const historyWindow = clampHistoryRange({ range: filters.range, from: filters.from, to: filters.to }, fullHistory)
+  const range = historyWindow.range || '30d'
+
   // Resolve the time window: preset (1d/7d/30d/all) or a custom from/to range.
-  const { cutoff, until, isCustom } = analyticsRangeBounds({ range: filters.range, from: filters.from, to: filters.to })
+  const { cutoff, until, isCustom } = analyticsRangeBounds(historyWindow)
 
   let checkoutEventsQuery = supabase
     .from('checkout_events')
@@ -154,6 +165,10 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const selectedAction = actionOptions.some(([value]) => value === filters.action) ? filters.action : 'all'
   const normalizedFilters: AnalyticsSearchParams = {
     ...filters,
+    // Use the plan-clamped time window so links never carry a gated range.
+    range: historyWindow.range,
+    from: historyWindow.from,
+    to: historyWindow.to,
     page: selectedPageId || undefined,
     action: selectedAction === 'all' ? undefined : selectedAction,
     traffic: selectedTraffic === 'all' ? undefined : selectedTraffic,
@@ -237,8 +252,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   if (selectedPageId) exportParams.set('page', selectedPageId)
   if (selectedAction && selectedAction !== 'all') exportParams.set('action', selectedAction)
   if (isCustom) {
-    if (filters.from) exportParams.set('from', filters.from)
-    if (filters.to) exportParams.set('to', filters.to)
+    if (historyWindow.from) exportParams.set('from', historyWindow.from)
+    if (historyWindow.to) exportParams.set('to', historyWindow.to)
   } else if (range && range !== 'all') {
     exportParams.set('range', range)
   }
@@ -255,7 +270,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     selectedPageId,
     selectedAction !== 'all' ? selectedAction : '',
     selectedTraffic !== 'all' ? selectedTraffic : '',
-    isCustom ? `${filters.from ?? ''}${filters.to ?? ''}` : range !== '30d' ? range : '',
+    isCustom ? `${historyWindow.from ?? ''}${historyWindow.to ?? ''}` : range !== '30d' ? range : '',
   ].filter(Boolean).length
 
   return (
@@ -293,8 +308,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             <form action="/dashboard/analytics" className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {isCustom ? (
                 <>
-                  {filters.from ? <input type="hidden" name="from" value={filters.from} /> : null}
-                  {filters.to ? <input type="hidden" name="to" value={filters.to} /> : null}
+                  {historyWindow.from ? <input type="hidden" name="from" value={historyWindow.from} /> : null}
+                  {historyWindow.to ? <input type="hidden" name="to" value={historyWindow.to} /> : null}
                 </>
               ) : (
                 <input type="hidden" name="range" value={range} />
@@ -344,7 +359,10 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             </form>
 
             <div className="min-w-0 border-t border-white/10 pt-5 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
-              <p className="mb-3 text-xs uppercase tracking-[0.18em] text-[var(--signal)]">Time window</p>
+              <p className="mb-3 flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--signal)]">
+                Time window
+                {!fullHistory && <ProBadge feature="analyticsHistory" />}
+              </p>
               <div className="flex flex-wrap gap-2 text-sm">
                 {[
                   { label: 'Today', value: 'today' },
@@ -352,47 +370,72 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                   { label: '7d', value: '7d' },
                   { label: '30d', value: '30d' },
                   { label: 'All', value: 'all' },
-                ].map((r) => (
-                  <a
-                    key={r.value}
-                    href={makeAnalyticsHref(normalizedFilters, { range: r.value, from: undefined, to: undefined })}
-                    className={`rounded-md border px-3 py-2 transition ${range === r.value && !isCustom ? 'border-white bg-white text-black' : 'border-white/10 text-zinc-300 hover:bg-white/10'}`}
-                  >
-                    {r.label}
-                  </a>
-                ))}
+                ].map((r) => {
+                  // 'All time' is a Pro (analyticsHistory) capability — show it locked for lower tiers.
+                  if (r.value === 'all' && !fullHistory) {
+                    return (
+                      <a
+                        key={r.value}
+                        href={appUrl('/dashboard/billing?plan=pro')}
+                        title="All-time history is on the Pro plan"
+                        className="inline-flex items-center gap-1 rounded-md border border-[var(--signal)]/30 bg-[var(--signal)]/[0.06] px-3 py-2 text-zinc-400 transition hover:bg-[var(--signal)]/15"
+                      >
+                        <Lock className="size-3.5 text-[var(--signal)]" /> All
+                      </a>
+                    )
+                  }
+                  return (
+                    <a
+                      key={r.value}
+                      href={makeAnalyticsHref(normalizedFilters, { range: r.value, from: undefined, to: undefined })}
+                      className={`rounded-md border px-3 py-2 transition ${range === r.value && !isCustom ? 'border-white bg-white text-black' : 'border-white/10 text-zinc-300 hover:bg-white/10'}`}
+                    >
+                      {r.label}
+                    </a>
+                  )
+                })}
               </div>
 
-              <form
-                method="get"
-                className={`mt-3 grid gap-2 rounded-lg border bg-black/20 p-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] sm:items-center ${isCustom ? 'border-[var(--signal)]/50' : 'border-white/10'}`}
-              >
-                {filters.q ? <input type="hidden" name="q" value={filters.q} /> : null}
-                {selectedPageId ? <input type="hidden" name="page" value={selectedPageId} /> : null}
-                {selectedAction && selectedAction !== 'all' ? <input type="hidden" name="action" value={selectedAction} /> : null}
-                {selectedTraffic !== 'all' ? <input type="hidden" name="traffic" value={selectedTraffic} /> : null}
-                <input
-                  type="date"
-                  name="from"
-                  defaultValue={filters.from ?? ''}
-                  aria-label="From date"
-                  className="min-w-0 rounded bg-transparent px-1 py-1 text-xs text-zinc-200 outline-none [color-scheme:dark]"
-                />
-                <span className="hidden text-xs text-zinc-500 sm:inline">to</span>
-                <input
-                  type="date"
-                  name="to"
-                  defaultValue={filters.to ?? ''}
-                  aria-label="To date"
-                  className="min-w-0 rounded bg-transparent px-1 py-1 text-xs text-zinc-200 outline-none [color-scheme:dark]"
-                />
-                <button
-                  type="submit"
-                  className={`rounded-md px-3 py-2 text-xs transition ${isCustom ? 'bg-white text-black' : 'text-zinc-300 hover:bg-white/10'}`}
+              {fullHistory ? (
+                <form
+                  method="get"
+                  className={`mt-3 grid gap-2 rounded-lg border bg-black/20 p-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] sm:items-center ${isCustom ? 'border-[var(--signal)]/50' : 'border-white/10'}`}
                 >
-                  Apply
-                </button>
-              </form>
+                  {filters.q ? <input type="hidden" name="q" value={filters.q} /> : null}
+                  {selectedPageId ? <input type="hidden" name="page" value={selectedPageId} /> : null}
+                  {selectedAction && selectedAction !== 'all' ? <input type="hidden" name="action" value={selectedAction} /> : null}
+                  {selectedTraffic !== 'all' ? <input type="hidden" name="traffic" value={selectedTraffic} /> : null}
+                  <input
+                    type="date"
+                    name="from"
+                    defaultValue={historyWindow.from ?? ''}
+                    aria-label="From date"
+                    className="min-w-0 rounded bg-transparent px-1 py-1 text-xs text-zinc-200 outline-none [color-scheme:dark]"
+                  />
+                  <span className="hidden text-xs text-zinc-500 sm:inline">to</span>
+                  <input
+                    type="date"
+                    name="to"
+                    defaultValue={historyWindow.to ?? ''}
+                    aria-label="To date"
+                    className="min-w-0 rounded bg-transparent px-1 py-1 text-xs text-zinc-200 outline-none [color-scheme:dark]"
+                  />
+                  <button
+                    type="submit"
+                    className={`rounded-md px-3 py-2 text-xs transition ${isCustom ? 'bg-white text-black' : 'text-zinc-300 hover:bg-white/10'}`}
+                  >
+                    Apply
+                  </button>
+                </form>
+              ) : (
+                <a
+                  href={appUrl('/dashboard/billing?plan=pro')}
+                  className="mt-3 flex items-center gap-2 rounded-lg border border-[var(--signal)]/25 bg-[var(--signal)]/[0.06] p-3 text-xs text-zinc-300 transition hover:bg-[var(--signal)]/12"
+                >
+                  <Lock className="size-3.5 shrink-0 text-[var(--signal)]" />
+                  <span>Custom date ranges &amp; all-time history are on <span className="font-medium text-white">Pro</span> — upgrade to unlock.</span>
+                </a>
+              )}
             </div>
           </div>
         </section>

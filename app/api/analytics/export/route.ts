@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { analyticsRangeBounds, buildAnalyticsCsv, filterAnalyticsEvents } from '../../../../lib/analytics'
+import { analyticsRangeBounds, buildAnalyticsCsv, clampHistoryRange, filterAnalyticsEvents } from '../../../../lib/analytics'
 import { CheckoutEvent } from '../../../../lib/checkout-events'
 import { createClient } from '../../../../utils/supabase/server'
+import { getOwnerPlanId } from '../../../../lib/server/plan'
+import { planAllows } from '../../../../lib/billing'
 
 export async function GET(request: NextRequest) {
   const cookieStore = await cookies()
@@ -16,12 +18,20 @@ export async function GET(request: NextRequest) {
   }
 
   const sp = request.nextUrl.searchParams
+  // analyticsHistory (Pro) gate: All-time + custom date ranges are Pro-only.
+  // Clamp them to the default 30-day window for lower tiers so a hand-crafted
+  // `?range=all` / `?from=...` can't pull history beyond the free window.
+  const fullHistory = planAllows(await getOwnerPlanId(supabase, user.id), 'analyticsHistory')
+  const window = clampHistoryRange(
+    {
+      range: sp.get('range') ?? undefined,
+      from: sp.get('from') ?? undefined,
+      to: sp.get('to') ?? undefined,
+    },
+    fullHistory,
+  )
   // Honor the same time window as the analytics page (preset or custom from/to).
-  const { cutoff, until } = analyticsRangeBounds({
-    range: sp.get('range') ?? undefined,
-    from: sp.get('from') ?? undefined,
-    to: sp.get('to') ?? undefined,
-  })
+  const { cutoff, until } = analyticsRangeBounds(window)
 
   let query = supabase
     .from('checkout_events')

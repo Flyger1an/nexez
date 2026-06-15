@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { analyticsRangeBounds, parseYmd } from '../analytics'
+import { analyticsRangeBounds, clampHistoryRange, parseYmd } from '../analytics'
 
 const NOW = new Date('2026-06-05T12:00:00Z')
 const DAY = 24 * 60 * 60 * 1000
@@ -65,5 +65,35 @@ describe('analyticsRangeBounds', () => {
     const { isCustom, preset } = analyticsRangeBounds({ range: '7d', from: 'garbage' }, NOW)
     expect(isCustom).toBe(false)
     expect(preset).toBe('7d')
+  })
+})
+
+describe('clampHistoryRange (analyticsHistory Pro gate)', () => {
+  it('passes everything through untouched for full-history (Pro+) plans', () => {
+    expect(clampHistoryRange({ range: 'all' }, true)).toEqual({ range: 'all', from: undefined, to: undefined })
+    expect(clampHistoryRange({ range: '7d', from: '2026-01-01', to: '2026-02-01' }, true)).toEqual({
+      range: '7d',
+      from: '2026-01-01',
+      to: '2026-02-01',
+    })
+  })
+
+  it('leaves the free presets (today/1d/7d/30d) alone for lower tiers', () => {
+    for (const range of ['today', '1d', '7d', '30d', undefined]) {
+      expect(clampHistoryRange({ range }, false)).toEqual({ range, from: undefined, to: undefined })
+    }
+  })
+
+  it('clamps the all-time preset down to 30d for lower tiers', () => {
+    expect(clampHistoryRange({ range: 'all' }, false)).toEqual({ range: '30d', from: undefined, to: undefined })
+  })
+
+  it('drops a custom from/to range (even a single open bound) for lower tiers', () => {
+    expect(clampHistoryRange({ range: '7d', from: '2020-01-01' }, false)).toEqual({
+      range: '30d',
+      from: undefined,
+      to: undefined,
+    })
+    expect(clampHistoryRange({ to: '2026-01-01' }, false)).toEqual({ range: '30d', from: undefined, to: undefined })
   })
 })
