@@ -29,6 +29,9 @@ const nextConfig: NextConfig = {
       // a separate API route and is intentionally untouched.)
       { source: "/directory", destination: "/discovery", permanent: true },
       { source: "/marketplace", destination: "/discovery?sort=trending", permanent: true },
+      // Agent Lab consolidation: the standalone Competitors dashboard page folded
+      // into the simulator as its signed-in "Compare a competitor" lens.
+      { source: "/dashboard/competitors", destination: "/simulator?mode=compare", permanent: true },
     ];
   },
 };

@@ -13,8 +13,10 @@ import {
   Play,
   RefreshCw,
   Sparkles,
+  Target,
   X,
 } from 'lucide-react'
+import { CompetitorCompare } from '../../components/simulator/CompetitorCompare'
 import { ErrorBoundary } from '../../components/ErrorBoundary'
 import {
   AgentPage,
@@ -68,6 +70,9 @@ export default function GlobalAgentSimulator() {
   const [historyQuery, setHistoryQuery] = useState('')
   const [message, setMessage] = useState('')
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  // Which lens of the Agent Lab is active. 'test' (your page / any slug), 'url'
+  // (simulate any website), or 'compare' (score a competitor — signed-in).
+  const [mode, setMode] = useState<'test' | 'url' | 'compare'>('test')
 
   const supabase = createClient()
   const filteredHistory = filterSimulationHistory(history, historyQuery)
@@ -129,6 +134,10 @@ export default function GlobalAgentSimulator() {
 
   useEffect(() => {
     loadMyPages()
+    // Deep-link support: /simulator?mode=compare|url (used by the editor toolbar,
+    // AI co-pilot, and the retired /dashboard/competitors redirect).
+    const m = new URLSearchParams(window.location.search).get('mode')
+    if (m === 'compare' || m === 'url' || m === 'test') setMode(m)
   }, [])
 
   async function loadPageBySlug(slug: string): Promise<AgentPage | null> {
@@ -430,14 +439,14 @@ export default function GlobalAgentSimulator() {
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <ErrorBoundary>
         <div className="mx-auto max-w-7xl px-6 py-8">
-          <div className="flex flex-col gap-4 mb-8 md:flex-row md:items-end md:justify-between">
+          <div className="flex flex-col gap-4 mb-6 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-sm text-[#9CA3AF]">Global Agent Simulator</p>
-              <h1 className="text-3xl md:text-4xl font-semibold tracking-tighter">Test agent parsing</h1>
+              <p className="text-sm text-[#9CA3AF]">Agent Lab</p>
+              <h1 className="text-3xl md:text-4xl font-semibold tracking-tighter">Test, simulate &amp; compare</h1>
             </div>
             <div className="flex flex-wrap gap-3">
               <a href="/discovery" className="btn-secondary text-sm">Browse Discovery</a>
-              {selectedPage && (
+              {mode === 'test' && selectedPage && (
                 <a href={appUrl(`/dashboard/${(selectedPage as any).id || ''}/test`)} className="btn-secondary text-sm">
                   Per-page simulator →
                 </a>
@@ -445,6 +454,31 @@ export default function GlobalAgentSimulator() {
             </div>
           </div>
 
+          {/* Mode tabs — the three lenses of the Agent Lab */}
+          <div className="mb-8 flex flex-wrap gap-2">
+            {([
+              { key: 'test', label: 'Test a page', icon: Bot },
+              { key: 'url', label: 'Any URL', icon: Globe },
+              { key: 'compare', label: 'Compare a competitor', icon: Target },
+            ] as const).map((m) => (
+              <button
+                key={m.key}
+                onClick={() => setMode(m.key)}
+                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
+                  mode === m.key
+                    ? 'border-[var(--signal)] bg-[var(--signal)]/10 text-white'
+                    : 'border-white/15 text-[#9CA3AF] hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <m.icon className="size-4" /> {m.label}
+                {m.key === 'compare' && !isLoggedIn && <span className="text-[10px] text-zinc-500">(sign in)</span>}
+              </button>
+            ))}
+          </div>
+
+          {/* ── TEST A PAGE ───────────────────────────────────────────── */}
+          {mode === 'test' && (
+          <>
           {/* Controls */}
           <div className="grid gap-4 lg:grid-cols-2 mb-8">
             {/* My Pages */}
@@ -494,32 +528,6 @@ export default function GlobalAgentSimulator() {
               <p className="text-[10px] text-zinc-500 mt-1">Published pages only.</p>
             </div>
           </div>
-
-          {/* Simulate any website — public, no account needed */}
-          <div className="card mb-8">
-            <div className="flex items-center gap-2 mb-2">
-              <Globe className="size-4 text-[var(--ready)]" />
-              <span className="font-medium">Simulate any website</span>
-              <span className="rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--ready)]">No account needed</span>
-            </div>
-            <p className="mb-3 text-sm text-zinc-400">See what an AI agent gets from any business site today — and what it would get if the same business were agent-ready on Nexez.</p>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <input
-                value={urlInput}
-                onChange={(e) => setUrlInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !urlLoading && urlInput.trim()) handleSimulateUrl() }}
-                placeholder="https://any-business.com"
-                disabled={!hydrated || urlLoading}
-                className="input flex-1"
-              />
-              <button onClick={handleSimulateUrl} disabled={!hydrated || urlLoading || !urlInput.trim()} className="btn-primary">
-                {urlLoading ? <Loader2 className="size-4 animate-spin" /> : <Globe className="size-4" />} Simulate
-              </button>
-            </div>
-            <p className="mt-1 text-[10px] text-zinc-500">Public pages only · we crawl, never store your input · deterministic (no AI cost).</p>
-          </div>
-
-          {urlComparison && <UrlComparisonPanel c={urlComparison} />}
 
           {/* Query + Actions */}
           {selectedPage && (
@@ -752,13 +760,48 @@ export default function GlobalAgentSimulator() {
             </>
           )}
 
-          {!selectedPage && !urlComparison && (
+          {!selectedPage && (
             <div className="card text-center py-12">
               <Bot className="mx-auto size-8 text-[var(--signal)] mb-4" />
-              <p className="text-xl font-medium">Start multi-agent simulation.</p>
-              <p className="mt-2 text-[#9CA3AF]">ChatGPT, Claude, Grok, Perplexity.</p>
+              <p className="text-xl font-medium">Pick one of your pages or paste a public slug.</p>
+              <p className="mt-2 text-[#9CA3AF]">See it judged by ChatGPT, Claude, Grok, and Perplexity — with a success score and where it ranks.</p>
             </div>
           )}
+          </>
+          )}
+
+          {/* ── ANY URL ──────────────────────────────────────────────── */}
+          {mode === 'url' && (
+          <>
+            <div className="card mb-8">
+              <div className="flex items-center gap-2 mb-2">
+                <Globe className="size-4 text-[var(--ready)]" />
+                <span className="font-medium">Simulate any website</span>
+                <span className="rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--ready)]">No account needed</span>
+              </div>
+              <p className="mb-3 text-sm text-zinc-400">See what an AI agent gets from any business site today — and what it would get if the same business were agent-ready on Nexez.</p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !urlLoading && urlInput.trim()) handleSimulateUrl() }}
+                  placeholder="https://any-business.com"
+                  disabled={!hydrated || urlLoading}
+                  className="input flex-1"
+                />
+                <button onClick={handleSimulateUrl} disabled={!hydrated || urlLoading || !urlInput.trim()} className="btn-primary">
+                  {urlLoading ? <Loader2 className="size-4 animate-spin" /> : <Globe className="size-4" />} Simulate
+                </button>
+              </div>
+              <p className="mt-1 text-[10px] text-zinc-500">Public pages only · we crawl, never store your input · deterministic (no AI cost).</p>
+            </div>
+
+            {urlComparison && <UrlComparisonPanel c={urlComparison} />}
+          </>
+          )}
+
+          {/* ── COMPARE A COMPETITOR (signed-in) ─────────────────────── */}
+          {mode === 'compare' && <CompetitorCompare isLoggedIn={isLoggedIn} myPages={myPages} />}
 
           {message && <p className="mt-4 text-sm text-[var(--ready)]">{message}</p>}
         </div>

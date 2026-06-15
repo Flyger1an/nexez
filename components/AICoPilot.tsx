@@ -279,7 +279,7 @@ export function AICoPilot({
         <div>
           <div className="text-xs text-zinc-400 mb-2">Competitor analysis.</div>
           <div className="text-sm bg-black/30 p-2 rounded mb-2">Compare your page against another website for scores and AI recommendations.</div>
-          <a href="/dashboard/competitors" className="text-xs rounded bg-[var(--ready)] px-3 py-1 text-zinc-950 inline-block">Open Analyzer →</a>
+          <a href="/simulator?mode=compare" className="text-xs rounded bg-[var(--ready)] px-3 py-1 text-zinc-950 inline-block">Open Analyzer →</a>
         </div>
       )}
 

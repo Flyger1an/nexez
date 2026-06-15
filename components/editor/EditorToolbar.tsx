@@ -37,7 +37,7 @@ export function EditorToolbar({ e }: { e: PageEditor }) {
           Duplicate
         </button>
         <a
-          href="/dashboard/competitors"
+          href="/simulator?mode=compare"
           className="inline-flex w-fit items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm text-white hover:bg-white/10"
         >
           Competitor Intel

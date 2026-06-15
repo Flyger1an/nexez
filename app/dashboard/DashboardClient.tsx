@@ -551,7 +551,7 @@ function NewUserHero({ name }: { name: string }) {
           href="/simulator"
           className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-white/10 px-6 text-sm text-zinc-300 transition hover:bg-white/5"
         >
-          Test agent parsing
+          Open the Agent Lab
         </a>
       </div>
       <div className="mt-6 grid grid-cols-1 gap-3 text-sm text-zinc-400 sm:grid-cols-3">
