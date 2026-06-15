@@ -33,6 +33,7 @@ import {
   Calendar,
   Check,
   Loader2,
+  AlertTriangle,
 } from 'lucide-react'
 
 import EmbeddedSubscriptionForm from './EmbeddedSubscriptionForm'
@@ -42,6 +43,7 @@ import { GlassCard, ProgressRing, SectionHeader } from './billing-ui'
 
 import type { BillingPlan } from '../../lib/billing'
 import type { BillingSubscription } from '../../lib/stripe-billing'
+import { billingStatusCopy } from '../../lib/stripe-billing'
 import { billingPlans } from '../../lib/billing'
 
 // Tab definition (order matches user spec)
@@ -236,7 +238,18 @@ export default function BillingDashboardClient({
   const OverviewTab = () => {
     const planName = activePlan?.name ?? 'Free'
     const priceLine = activePlan ? `${activePlan.price}/${activePlan.cadence}` : 'No subscription'
-    const statusLabel = billingState?.status === 'active' ? 'Active' : billingState?.status ?? 'Free'
+    const status = billingStatusCopy(billingState?.status)
+    const statusPillClass =
+      status.tone === 'ok'
+        ? 'border-[var(--ready)]/40 bg-[var(--ready)]/10 text-[var(--ready)]'
+        : status.tone === 'warn'
+          ? 'border-[var(--amber)]/40 bg-[var(--amber)]/10 text-[var(--amber)]'
+          : 'border-white/20 bg-white/5 text-[#9CA3AF]'
+    // Recovery banner for states that need the user to act (past_due/unpaid →
+    // update payment; incomplete → finish checkout). Drives the dead-until-now
+    // billingStatusCopy helper.
+    const needsAction = status.tone === 'warn'
+    const isIncomplete = billingState?.status === 'incomplete'
     const periodEnd = billingState?.current_period_end
       ? new Intl.DateTimeFormat('en', { month: 'long', day: 'numeric', year: 'numeric' }).format(
           new Date(billingState.current_period_end)
@@ -245,14 +258,46 @@ export default function BillingDashboardClient({
 
     return (
       <div className="space-y-8">
+        {needsAction && (
+          <div className="flex flex-col gap-3 rounded-2xl border border-[var(--amber)]/40 bg-[var(--amber)]/10 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 size-5 shrink-0 text-[var(--amber)]" />
+              <div>
+                <p className="font-medium text-white">
+                  {isIncomplete ? 'Your checkout is unfinished' : 'Your payment needs attention'}
+                </p>
+                <p className="mt-1 text-sm text-[#9CA3AF]">
+                  {isIncomplete
+                    ? 'Complete payment to activate your subscription.'
+                    : 'We couldn’t process your latest payment. Update your payment method to keep your plan active.'}
+                </p>
+              </div>
+            </div>
+            {isIncomplete ? (
+              <button
+                onClick={() => setActiveTab('plans')}
+                className="shrink-0 rounded-2xl bg-[var(--signal-solid)] px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+              >
+                Finish checkout
+              </button>
+            ) : (
+              <form action="/api/billing/portal" method="post" className="shrink-0">
+                <button className="rounded-2xl bg-[var(--signal-solid)] px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90">
+                  Update payment method
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+
         {/* 1. Current Plan – Large hero-style glass card */}
         <GlassCard className="p-8 md:p-10">
           <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="flex items-center gap-3">
                 <span className="text-5xl font-semibold tracking-[-1.5px]">{planName}</span>
-                <span className="rounded-full border border-white/20 bg-white/5 px-4 py-1 text-xs font-medium tracking-[1px] text-[#9CA3AF] uppercase">
-                  {statusLabel}
+                <span className={`rounded-full border px-4 py-1 text-xs font-medium tracking-[1px] uppercase ${statusPillClass}`}>
+                  {status.label}
                 </span>
               </div>
               <div className="mt-2 text-3xl text-[#9CA3AF] tracking-tight">{priceLine}</div>

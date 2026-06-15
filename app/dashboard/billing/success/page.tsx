@@ -1,18 +1,39 @@
 import { CheckCircle2, CreditCard, ArrowRight } from 'lucide-react'
+import { cookies } from 'next/headers'
 import { getBillingPlan } from '../../../../lib/billing'
+import { createClient } from '../../../../utils/supabase/server'
+import { syncCheckoutSessionForOwner } from '../../../../lib/server/sync-checkout-session'
 
 type SuccessProps = {
-  searchParams: Promise<{ 
-    session_id?: string; 
-    plan?: string; 
-    embedded_success?: string; 
+  searchParams: Promise<{
+    session_id?: string;
+    plan?: string;
+    embedded_success?: string;
   }>
 }
 
 export default async function BillingSuccessPage({ searchParams }: SuccessProps) {
   const { session_id: sessionId, plan: planId, embedded_success } = await searchParams
-  const plan = getBillingPlan(planId)
   const isEmbedded = !!embedded_success
+
+  // Read-your-write: reconcile the just-completed session into billing_subscriptions
+  // now, so the dashboard shows the new plan immediately (not after webhook latency).
+  // Falls back silently to the webhook if anything is unavailable.
+  let syncedPlanId: string | null = null
+  if (sessionId) {
+    const cookieStore = await cookies()
+    const supabase = createClient(cookieStore)
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (user) {
+      const synced = await syncCheckoutSessionForOwner(sessionId, user.id)
+      syncedPlanId = synced?.planId ?? null
+    }
+  }
+
+  // Prefer the plan we just confirmed from Stripe over the (spoofable) query param.
+  const plan = getBillingPlan(syncedPlanId || planId)
 
   const heading = plan 
     ? `${plan.name} is active` 
@@ -76,9 +97,11 @@ export default async function BillingSuccessPage({ searchParams }: SuccessProps)
           </div>
 
           <p className="mt-6 text-xs text-zinc-500 max-w-md mx-auto">
-            {isEmbedded 
-              ? 'Your billing status will update shortly once the webhook syncs the subscription details. You can manage everything (cancel, update payment method) via the Stripe portal from the Billing page.'
-              : 'Your subscription is now active. Manage billing, update payment methods, or cancel via the Stripe portal linked from your Billing dashboard.'}
+            {syncedPlanId
+              ? 'Your subscription is active and your workspace is updated. Manage billing, update payment methods, or cancel via the Stripe portal linked from your Billing dashboard.'
+              : isEmbedded
+                ? 'Your billing status will update shortly once the webhook syncs the subscription details. You can manage everything (cancel, update payment method) via the Stripe portal from the Billing page.'
+                : 'Your subscription is now active. Manage billing, update payment methods, or cancel via the Stripe portal linked from your Billing dashboard.'}
           </p>
         </section>
       </div>

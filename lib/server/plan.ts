@@ -1,9 +1,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { planAllows, type PlanFeature, type PlanId } from '../billing'
 
-// A subscription only confers its plan when it's in a live state; an abandoned
-// 'incomplete' or 'canceled' row falls back to Free (mirrors the billing page guard).
-const LIVE_STATUSES = new Set(['active', 'trialing', 'past_due', 'unpaid'])
+// A subscription only confers its plan when it's in a LIVE state; an abandoned
+// 'incomplete' or 'canceled' row falls back to Free. This is the SINGLE source of
+// truth for "is this owner entitled to their plan", shared by entitlements
+// (getOwnerPlanId → gating), the transaction commission (checkout + pay routes),
+// and the billing dashboard guard. GRACE POLICY (intentional): past_due/unpaid
+// retain access + the plan commission rate during Stripe's dunning window so a
+// transient payment failure doesn't instantly downgrade a paying customer.
+// NOTE: the DB triggers (page-limit, team-collaboration) hardcode this same set
+// in SQL — keep them in sync with this constant.
+export const LIVE_STATUSES = new Set(['active', 'trialing', 'past_due', 'unpaid'])
 const VALID_PLANS = new Set<PlanId>(['free', 'launch', 'pro', 'scale', 'enterprise'])
 
 /**
