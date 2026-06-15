@@ -2,12 +2,16 @@
 
 import React, { useEffect, useState } from 'react'
 import {
+  ArrowRight,
   Bot,
+  Check,
   ExternalLink,
   History,
   Loader2,
+  MinusCircle,
   Play,
   RefreshCw,
+  X,
 } from 'lucide-react'
 import { ErrorBoundary } from '../../components/ErrorBoundary'
 import {
@@ -22,7 +26,10 @@ import {
   DEFAULT_AGENT_QUERY,
   buildDefaultAgentQuery,
   getRecommendations,
+  gradeAgentSuccess,
   runMultiAgentSimulation,
+  type AgentSuccessReport,
+  type AgentVerdict,
 } from '../../lib/agent-simulator'
 import {
   SimulationHistoryEntry,
@@ -47,6 +54,7 @@ export default function GlobalAgentSimulator() {
   const [currentAgent, setCurrentAgent] = useState(agentTabs[0])
   const [simulationResults, setSimulationResults] = useState<any[]>([])
   const [recommendations, setRecommendations] = useState<string[]>([])
+  const [successReport, setSuccessReport] = useState<AgentSuccessReport | null>(null)
   const [history, setHistory] = useState<SimulationHistoryEntry[]>([])
   const [historyQuery, setHistoryQuery] = useState('')
   const [message, setMessage] = useState('')
@@ -55,6 +63,9 @@ export default function GlobalAgentSimulator() {
   const supabase = createClient()
   const filteredHistory = filterSimulationHistory(history, historyQuery)
   const historyStats = getSimulationHistoryStats(history)
+  const currentResult = simulationResults.find((r) => r.agent === currentAgent)
+  const currentVerdict: AgentVerdict | undefined = currentResult?.verdict
+  const ownsSelected = !!selectedPage && myPages.some((p) => p.id === selectedPage.id)
 
   function isMissingColumnError(error: { code?: string; message?: string }) {
     return error.code === '42703' || /column .* does not exist/i.test(error.message ?? '')
@@ -138,6 +149,7 @@ export default function GlobalAgentSimulator() {
     setMessage('')
     setSimulationResults([])
     setRecommendations([])
+    setSuccessReport(null)
 
     try {
       const effectiveQuery = nextQuery.trim() || buildDefaultAgentQuery(page)
@@ -145,6 +157,7 @@ export default function GlobalAgentSimulator() {
       let finalResults = multi.results
       setSimulationResults(finalResults)
       setRecommendations(getRecommendations(page))
+      setSuccessReport(multi.success)
       if (effectiveQuery !== query) setQuery(effectiveQuery)
 
       // Deeper LLM responses via new route if LLM configured and page llm_opt_in or global
@@ -333,6 +346,7 @@ export default function GlobalAgentSimulator() {
     if (h.result && h.result.results) {
       setSimulationResults(h.result.results)
       setRecommendations(h.result.recommendations || getRecommendations(selectedPage!))
+      if (selectedPage) setSuccessReport(gradeAgentSuccess(selectedPage, h.query || query))
       setQuery(h.query || query)
       setMessage(`Loaded historical analysis from ${new Date(h.timestamp).toLocaleString()}.`)
     } else if (h.result) {
@@ -468,22 +482,87 @@ export default function GlobalAgentSimulator() {
 
                 {/* Right: Current agent view */}
                 <div className="card">
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between mb-4 gap-3">
                     <div>
-                      <p className="text-xs uppercase tracking-[2px] text-[#9CA3AF]">Agent Parse</p>
-                      <h3 className="text-xl font-semibold">{currentAgent}'s view</h3>
+                      <p className="text-xs uppercase tracking-[2px] text-[#9CA3AF]">Agent Verdict</p>
+                      <h3 className="text-xl font-semibold">{currentAgent}&apos;s view</h3>
                     </div>
+                    {currentVerdict && !currentResult?.llmEnhanced && <StanceBadge stance={currentVerdict.stance} />}
                   </div>
 
                   <div className="min-h-[280px] rounded-2xl bg-[#12101B] border border-white/10 p-5 text-sm">
-                    {simulationResults.find(r => r.agent === currentAgent) && (
+                    {currentResult?.llmEnhanced ? (
+                      <div className="space-y-3">
+                        <p className="text-[11px] uppercase tracking-wide text-[var(--signal)]">LLM-enhanced response</p>
+                        <p className="leading-relaxed whitespace-pre-wrap text-zinc-200">{currentResult.naturalLanguage}</p>
+                      </div>
+                    ) : currentVerdict ? (
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-wide text-zinc-500">Optimizing for</p>
+                          <p className="text-zinc-300">{currentVerdict.lens}</p>
+                        </div>
+                        <p className="text-base leading-snug text-white">{currentVerdict.headline}</p>
+                        {currentVerdict.noticed.length > 0 && (
+                          <div>
+                            <p className="text-[11px] uppercase tracking-wide text-[var(--ready)]">Noticed</p>
+                            <ul className="mt-1 space-y-1">
+                              {currentVerdict.noticed.map((n, i) => (
+                                <li key={i} className="flex gap-2 text-zinc-300">
+                                  <Check className="mt-0.5 size-3.5 shrink-0 text-[var(--ready)]" /> <span>{n}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {currentVerdict.gaps.length > 0 && (
+                          <div>
+                            <p className="text-[11px] uppercase tracking-wide text-[var(--amber)]">Would want</p>
+                            <ul className="mt-1 space-y-1">
+                              {currentVerdict.gaps.map((g, i) => (
+                                <li key={i} className="flex gap-2 text-zinc-300">
+                                  <span className="mt-0.5 text-[var(--amber)]">•</span> <span>{g}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        <details className="mt-1">
+                          <summary className="cursor-pointer text-xs text-zinc-500 hover:text-zinc-300">Raw agent.json parse</summary>
+                          <pre className="mt-2 font-mono text-xs text-[var(--signal)] whitespace-pre-wrap overflow-auto max-h-[220px]">
+                            {JSON.stringify(currentResult?.schema, null, 2)}
+                          </pre>
+                        </details>
+                      </div>
+                    ) : currentResult ? (
                       <pre className="font-mono text-xs text-[var(--signal)] whitespace-pre-wrap overflow-auto max-h-[260px]">
-                        {JSON.stringify(simulationResults.find(r => r.agent === currentAgent)?.schema, null, 2)}
+                        {JSON.stringify(currentResult?.schema, null, 2)}
                       </pre>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </div>
+
+              {successReport && (
+                <div className="card mt-6">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-[2px] text-[#9CA3AF]">Agent Success Score</p>
+                      <h3 className="text-xl font-semibold">Can an agent finish a buyer&apos;s request?</h3>
+                      <p className="mt-1 max-w-xl text-sm text-zinc-400">{successReport.summary}</p>
+                    </div>
+                    <ScoreDial score={successReport.score} verdict={successReport.verdict} />
+                  </div>
+                  <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                    {successReport.checks.map((c) => (
+                      <CheckRow key={c.key} check={c} canFix={ownsSelected} pageId={selectedPage?.id} />
+                    ))}
+                  </div>
+                  {!ownsSelected && (
+                    <p className="mt-3 text-[11px] text-zinc-500">Sign in and select your own page to get one-click fixes for each gap.</p>
+                  )}
+                </div>
+              )}
 
               <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
                 <HistoryStat label="Saved runs" value={String(historyStats.totalRuns)} />
@@ -597,6 +676,77 @@ function HistoryStat({ label, value, tone }: { label: string; value: string; ton
       <p className={`mt-1 text-2xl font-semibold ${tone === 'good' ? 'text-[var(--ready)]' : tone === 'warn' ? 'text-[var(--amber)]' : 'text-white'}`}>
         {value}
       </p>
+    </div>
+  )
+}
+
+const STANCE_META: Record<AgentVerdict['stance'], { label: string; cls: string; Icon: typeof Check }> = {
+  recommend: { label: 'Would recommend', cls: 'border-[var(--ready)]/40 bg-[var(--ready)]/10 text-[var(--ready)]', Icon: Check },
+  needs_info: { label: 'Needs more info', cls: 'border-[var(--amber)]/40 bg-[var(--amber)]/10 text-[var(--amber)]', Icon: MinusCircle },
+  skip: { label: 'Would skip', cls: 'border-red-500/40 bg-red-500/10 text-red-400', Icon: X },
+}
+
+function StanceBadge({ stance }: { stance: AgentVerdict['stance'] }) {
+  const m = STANCE_META[stance]
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${m.cls}`}>
+      <m.Icon className="size-3.5" /> {m.label}
+    </span>
+  )
+}
+
+function ScoreDial({ score, verdict }: { score: number; verdict: AgentSuccessReport['verdict'] }) {
+  const tone =
+    verdict === 'ready' ? 'text-[var(--ready)]' : verdict === 'partial' ? 'text-[var(--amber)]' : 'text-red-400'
+  const label = verdict === 'ready' ? 'Agent-ready' : verdict === 'partial' ? 'Partial' : 'Blocked'
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#12101B] px-5 py-3">
+      <div className={`text-4xl font-semibold tabular-nums ${tone}`}>{score}</div>
+      <div className="leading-tight">
+        <div className="text-xs text-zinc-500">/ 100</div>
+        <div className={`text-sm font-medium ${tone}`}>{label}</div>
+      </div>
+    </div>
+  )
+}
+
+function CheckRow({
+  check,
+  canFix,
+  pageId,
+}: {
+  check: AgentSuccessReport['checks'][number]
+  canFix: boolean
+  pageId?: string
+}) {
+  return (
+    <div
+      className={`flex items-start gap-3 rounded-xl border p-3 ${
+        check.pass ? 'border-white/10 bg-white/[0.02]' : 'border-[var(--amber)]/25 bg-[var(--amber)]/[0.04]'
+      }`}
+    >
+      <span className="mt-0.5 shrink-0">
+        {check.pass ? <Check className="size-4 text-[var(--ready)]" /> : <MinusCircle className="size-4 text-[var(--amber)]" />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p className={`text-sm font-medium ${check.pass ? 'text-zinc-200' : 'text-white'}`}>{check.label}</p>
+          {check.relevant && (
+            <span className="rounded border border-[var(--signal)]/30 bg-[var(--signal)]/10 px-1.5 py-px text-[9px] uppercase tracking-wide text-[var(--signal)]">
+              this query
+            </span>
+          )}
+        </div>
+        <p className="mt-0.5 text-xs text-zinc-500">{check.pass ? check.detail : check.fix}</p>
+        {!check.pass && canFix && pageId && (
+          <a
+            href={appUrl(`/dashboard/${pageId}`)}
+            className="mt-1.5 inline-flex items-center gap-1 text-xs text-[var(--signal)] hover:underline"
+          >
+            Fix in editor <ArrowRight className="size-3" />
+          </a>
+        )}
+      </div>
     </div>
   )
 }
