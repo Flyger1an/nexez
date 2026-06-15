@@ -48,6 +48,23 @@ describe('isHostNeutralPath', () => {
     expect(isHostNeutralPath('/dashboard')).toBe(false)
     expect(isHostNeutralPath('/')).toBe(false)
   })
+  it('flags public APIs that back dual surfaces, so they serve same-origin on both hosts', () => {
+    // Simulator (signed-in users browse it on the app host).
+    expect(isHostNeutralPath('/api/simulate-llm')).toBe(true)
+    expect(isHostNeutralPath('/api/simulate-url')).toBe(true)
+    // Support routes carry the session — must not be redirected cross-domain.
+    expect(isHostNeutralPath('/api/support/assist')).toBe(true)
+    expect(isHostNeutralPath('/api/support/tickets')).toBe(true)
+    // Discovery click-tracking + listing.
+    expect(isHostNeutralPath('/api/directory')).toBe(true)
+    expect(isHostNeutralPath('/api/directory/click')).toBe(true)
+  })
+  it('does NOT flag other API routes (they stay canonical to their host)', () => {
+    expect(isHostNeutralPath('/api/public-simulate')).toBe(false) // homepage-only, marketing
+    expect(isHostNeutralPath('/api/billing')).toBe(false)
+    expect(isHostNeutralPath('/api/checkout')).toBe(false)
+    expect(isHostNeutralPath('/api/agent-search')).toBe(false)
+  })
 })
 
 describe('canonicalHostFor', () => {

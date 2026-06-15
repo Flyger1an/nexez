@@ -107,9 +107,28 @@ const AGENT_RUNTIME_EXACT = new Set(['/agent-pages.json', '/llms.txt', '/openapi
 // sitemap/robots on nexez.ai would bounce to nexez.app.
 const HOST_NEUTRAL = new Set(['/sitemap.xml', '/robots.txt'])
 
+// Public, stateless API routes that BACK dual surfaces (the simulator, support,
+// and discovery click-tracking). A dual page renders on the marketing host for
+// anonymous visitors and on the app host for signed-in ones, so the APIs its
+// client code calls must be reachable SAME-ORIGIN on both. Canonical-redirecting
+// them (to the marketing host) breaks the signed-in/app-host case two ways: the
+// cross-domain hop is blocked by CORS, and for the session-bearing support routes
+// it also drops the auth cookie (different registrable domain). So — like
+// sitemap/robots — these skip the canonical-host redirect and are served on
+// whichever first-party host requests them. They remain marketing-canonical for
+// SEO/link purposes (see canonicalHostFor); this only suppresses the redirect.
+const HOST_NEUTRAL_API_PREFIXES = [
+  '/api/simulate-llm',
+  '/api/simulate-url',
+  '/api/support',
+  '/api/directory',
+] as const
+
 /** True when a path is served per-host and must skip canonical-host redirects. */
 export function isHostNeutralPath(pathname: string): boolean {
-  return HOST_NEUTRAL.has(pathname.replace(/\/+$/, '') || '/')
+  const p = pathname.replace(/\/+$/, '') || '/'
+  if (HOST_NEUTRAL.has(p)) return true
+  return HOST_NEUTRAL_API_PREFIXES.some((pre) => p === pre || p.startsWith(`${pre}/`))
 }
 
 /** True when `pathname` should be served on the marketing host (nexez.ai). */
