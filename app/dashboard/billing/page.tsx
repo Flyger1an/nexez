@@ -1,7 +1,15 @@
+import Stripe from 'stripe'
 import { cookies } from 'next/headers'
 import { AgentPage, OWNER_PAGE_SELECT, getOfferCount } from '../../../lib/agent-page'
 import { billingPlans, getPlanLimits, getStripeBillingReadiness } from '../../../lib/billing'
-import { BillingSubscription } from '../../../lib/stripe-billing'
+import { BillingSubscription, getCommissionPercentForPlan } from '../../../lib/stripe-billing'
+import {
+  getAgentDrivenRevenueCents,
+  getAgentPageVisitCount,
+  getConversionCount,
+  getDiscoveryClickCount,
+} from '../../../lib/analytics'
+import type { CheckoutEvent } from '../../../lib/checkout-events'
 import { createClient } from '../../../utils/supabase/server'
 
 // Client components
@@ -46,6 +54,18 @@ export default async function BillingPage({ searchParams }: BillingProps) {
 
   const pageCount = pages?.length ?? 0
   const offerCount = pages?.reduce((sum, page) => sum + getOfferCount(page), 0) ?? 0
+
+  // Real this-month engagement + platform-fee figures (replace the old placeholders).
+  const monthStart = new Date()
+  monthStart.setUTCDate(1)
+  monthStart.setUTCHours(0, 0, 0, 0)
+  const { data: monthEvents } = await supabase
+    .from('checkout_events')
+    .select('*')
+    .eq('owner_id', user.id)
+    .gte('created_at', monthStart.toISOString())
+    .returns<CheckoutEvent[]>()
+  const events = monthEvents ?? []
   const stripeReadiness = getStripeBillingReadiness()
   const stripeReady = stripeReadiness.subscriptionCheckoutReady
   // Only treat the stored plan as ACTIVE when the subscription is in a live state.
@@ -55,38 +75,42 @@ export default async function BillingPage({ searchParams }: BillingProps) {
   const hasLiveSubscription = Boolean(billingState?.plan_id) && liveSubStatuses.includes(billingState?.status ?? '')
   const activePlan = hasLiveSubscription ? billingPlans.find((plan) => plan.id === billingState?.plan_id) : undefined
 
-  // Rich usage data passed to the tabbed client (real numbers where possible, illustrative placeholders for the rest)
   // Page limit comes from the billing catalog (single source of truth); 999 is the
   // client's "unlimited" sentinel, so map the catalog's Infinity onto it.
   const planPageLimit = getPlanLimits(activePlan?.id).pages
   const pageLimit = Number.isFinite(planPageLimit) ? planPageLimit : 999
 
+  // Real platform fee this month = agent-driven revenue × the plan's commission %.
+  const commissionPct = getCommissionPercentForPlan(activePlan?.id ?? null)
+  const platformFeesCents = Math.round((getAgentDrivenRevenueCents(events) * commissionPct) / 100)
+
+  // Usage: pages metered against the plan limit; the rest are real this-month
+  // engagement counts (limit: null → shown as a plain count, not a fake cap).
   const usage = {
-    pages: {
-      label: 'Published Pages',
-      current: pageCount,
-      limit: pageLimit,
-    },
-    offers: {
-      label: 'Total Offers',
-      current: offerCount,
-      limit: 500,
-    },
-    aiOptimizations: {
-      label: 'AI Optimizations (month)',
-      current: 12,
-      limit: 100,
-    },
-    simulations: {
-      label: 'Agent Simulations',
-      current: 47,
-      limit: 200,
-    },
-    impressions: {
-      label: 'Directory Impressions',
-      current: 1240,
-      limit: 10000,
-    },
+    pages: { label: 'Published Pages', current: pageCount, limit: pageLimit },
+    offers: { label: 'Total Offers', current: offerCount, limit: null },
+    aiOptimizations: { label: 'Agent visits (mo)', current: getAgentPageVisitCount(events), limit: null },
+    simulations: { label: 'Discovery clicks (mo)', current: getDiscoveryClickCount(events), limit: null },
+    impressions: { label: 'Conversions (mo)', current: getConversionCount(events), limit: null },
+  }
+
+  // Real Stripe invoices for Billing History (replaces the hardcoded placeholders).
+  let invoices: Array<{ id: string; date: string; description: string; amount: number; status: 'paid' | 'pending' | 'failed'; hostedUrl: string | null }> = []
+  if (billingState?.stripe_customer_id && process.env.STRIPE_SECRET_KEY) {
+    try {
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+      const list = await stripe.invoices.list({ customer: billingState.stripe_customer_id, limit: 12 })
+      invoices = list.data.map((inv) => ({
+        id: inv.number || inv.id || 'invoice',
+        date: new Date((inv.created ?? 0) * 1000).toISOString().slice(0, 10),
+        description: inv.lines?.data?.[0]?.description || (activePlan ? `${activePlan.name} plan` : 'Subscription'),
+        amount: Math.round(inv.amount_paid ?? inv.total ?? 0) / 100,
+        status: inv.status === 'paid' ? 'paid' : inv.status === 'open' ? 'pending' : inv.status === 'void' || inv.status === 'uncollectible' ? 'failed' : 'pending',
+        hostedUrl: inv.hosted_invoice_url || null,
+      }))
+    } catch (e) {
+      console.warn('[billing] Stripe invoice fetch failed (non-fatal)', e)
+    }
   }
 
   return (
@@ -131,6 +155,8 @@ export default async function BillingPage({ searchParams }: BillingProps) {
           activePlan={activePlan}
           billingState={billingState}
           usage={usage}
+          invoices={invoices}
+          platformFeesCents={platformFeesCents}
           stripeReady={stripeReady}
           initialPlanId={initialPlanFromQuery}
           connectSuccess={connectSuccess}

@@ -58,7 +58,8 @@ type TabId = (typeof TABS)[number]['id']
 interface UsageMetric {
   label: string
   current: number
-  limit: number
+  // null = a real running count with no plan cap (rendered as a plain number, not "x / y").
+  limit: number | null
   unit?: string
 }
 
@@ -68,12 +69,13 @@ interface Invoice {
   description: string
   amount: number
   status: 'paid' | 'pending' | 'failed'
+  hostedUrl?: string | null
 }
 
 interface BillingDashboardClientProps {
   activePlan: BillingPlan | undefined
   billingState: BillingSubscription | null
-  // Real + derived usage (pages & offers come from DB, others are illustrative placeholders)
+  // Pages are metered against the plan limit; the rest are real this-month counts.
   usage: {
     pages: UsageMetric
     offers: UsageMetric
@@ -81,6 +83,9 @@ interface BillingDashboardClientProps {
     simulations: UsageMetric
     impressions: UsageMetric
   }
+  // Real Stripe invoices (empty when none / not configured) + real platform fee this month.
+  invoices: Invoice[]
+  platformFeesCents: number
   stripeReady: boolean
   initialPlanId?: string | null
   connectSuccess?: boolean
@@ -90,6 +95,8 @@ export default function BillingDashboardClient({
   activePlan,
   billingState,
   usage,
+  invoices: invoicesProp,
+  platformFeesCents,
   stripeReady,
   initialPlanId,
   connectSuccess,
@@ -104,13 +111,8 @@ export default function BillingDashboardClient({
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [checkoutSuccess, setCheckoutSuccess] = useState<string | null>(null)
 
-  // Billing history (sortable placeholders – real data would come from Stripe webhooks / invoices table)
-  const [invoices, setInvoices] = useState<Invoice[]>([
-    { id: 'inv_9kL2pQ', date: '2026-05-01', description: 'Pro plan – May 2026', amount: 49, status: 'paid' },
-    { id: 'inv_8mX7vR', date: '2026-04-01', description: 'Pro plan – Apr 2026', amount: 49, status: 'paid' },
-    { id: 'inv_7nP4sT', date: '2026-03-12', description: 'Launch plan – Mar 2026', amount: 19, status: 'paid' },
-    { id: 'inv_6qW9uY', date: '2026-02-01', description: 'Launch plan – Feb 2026', amount: 19, status: 'paid' },
-  ])
+  // Real Stripe invoices passed from the server (empty when none / Stripe not configured).
+  const invoices = invoicesProp
   const [sortKey, setSortKey] = useState<'date' | 'amount'>('date')
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
 
@@ -214,16 +216,12 @@ export default function BillingDashboardClient({
   }
 
   function handleInvoiceDownload(inv: Invoice) {
-    // In production this would generate a real PDF or open Stripe hosted invoice.
-    // For now we surface a premium micro-interaction and offer the full portal.
-    // We mutate local state for the demo row to show "Downloaded"
-    setInvoices((prev) =>
-      prev.map((i) =>
-        i.id === inv.id ? { ...i, status: i.status === 'paid' ? 'paid' : i.status } : i
-      )
-    )
-    // Open Stripe customer portal for real invoices (best source of truth)
-    // The portal form is a server action that works from any page.
+    // Open the real Stripe-hosted invoice when we have its URL; otherwise fall back
+    // to the customer portal (the source of truth for all invoices).
+    if (inv.hostedUrl) {
+      window.open(inv.hostedUrl, '_blank', 'noopener,noreferrer')
+      return
+    }
     const form = document.createElement('form')
     form.method = 'POST'
     form.action = '/api/billing/portal'
@@ -297,17 +295,20 @@ export default function BillingDashboardClient({
             <SectionHeader icon={BarChart3} title="Usage snapshot" subtitle="This billing cycle" />
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
               {[usage.pages, usage.offers, usage.aiOptimizations].map((m, idx) => {
-                const pct = Math.min(100, Math.round((m.current / (m.limit || 1)) * 100))
+                const capped = m.limit != null
+                const pct = capped ? Math.min(100, Math.round((m.current / (m.limit || 1)) * 100)) : 0
                 return (
                   <div key={idx} className="rounded-2xl border border-white/10 bg-white/[0.015] p-4">
                     <div className="text-sm text-[#9CA3AF]">{m.label}</div>
                     <div className="mt-3 text-3xl font-semibold tracking-tighter">
                       {m.current}
-                      <span className="text-base font-normal text-[#9CA3AF]"> / {m.limit === 999 ? '∞' : m.limit}</span>
+                      {capped && <span className="text-base font-normal text-[#9CA3AF]"> / {m.limit === 999 ? '∞' : m.limit}</span>}
                     </div>
-                    <div className="mt-3 h-1.5 rounded bg-white/10 overflow-hidden">
-                      <div className="h-1.5 bg-[var(--signal-solid)] transition-all" style={{ width: `${pct}%` }} />
-                    </div>
+                    {capped && (
+                      <div className="mt-3 h-1.5 rounded bg-white/10 overflow-hidden">
+                        <div className="h-1.5 bg-[var(--signal-solid)] transition-all" style={{ width: `${pct}%` }} />
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -317,8 +318,8 @@ export default function BillingDashboardClient({
           <GlassCard className="p-7">
             <SectionHeader icon={Percent} title="Platform fees this month" subtitle="Transaction commissions" />
             <div className="flex items-baseline gap-2">
-              <span className="text-5xl font-semibold tracking-tighter text-[var(--ready)]">$0</span>
-              <span className="text-[#9CA3AF]">estimated</span>
+              <span className="text-5xl font-semibold tracking-tighter text-[var(--ready)]">${(platformFeesCents / 100).toFixed(2)}</span>
+              <span className="text-[#9CA3AF]">this month</span>
             </div>
             <div className="mt-4 text-sm text-[#9CA3AF]">
               You keep 85–96% of every transaction depending on plan. Connect your Stripe account in the
@@ -372,7 +373,8 @@ export default function BillingDashboardClient({
           usage.simulations,
           usage.impressions,
         ].map((metric, index) => {
-          const pct = Math.min(100, Math.round((metric.current / (metric.limit || 1)) * 100))
+          const capped = metric.limit != null
+          const pct = capped ? Math.min(100, Math.round((metric.current / (metric.limit || 1)) * 100)) : 0
           return (
             <GlassCard key={index} className="p-6 flex flex-col">
               <div className="text-sm text-[#9CA3AF] mb-4">{metric.label}</div>
@@ -381,15 +383,15 @@ export default function BillingDashboardClient({
                 <div>
                   <div className="text-4xl font-semibold tracking-tighter tabular-nums">
                     {metric.current}
-                    <span className="text-lg font-normal text-[#9CA3AF]"> / {metric.limit === 999 ? '∞' : metric.limit}</span>
+                    {capped && <span className="text-lg font-normal text-[#9CA3AF]"> / {metric.limit === 999 ? '∞' : metric.limit}</span>}
                   </div>
-                  <div className="text-[10px] uppercase tracking-[1px] text-[#9CA3AF] mt-1">{pct}% used</div>
+                  <div className="text-[10px] uppercase tracking-[1px] text-[#9CA3AF] mt-1">{capped ? `${pct}% used` : 'this month'}</div>
                 </div>
-                <ProgressRing current={metric.current} limit={metric.limit} />
+                {capped && <ProgressRing current={metric.current} limit={metric.limit ?? 0} />}
               </div>
 
               <div className="mt-5 h-px bg-white/10" />
-              <div className="mt-3 text-xs text-[#9CA3AF]">Resets with your billing cycle</div>
+              <div className="mt-3 text-xs text-[#9CA3AF]">{capped ? 'Resets with your billing cycle' : 'Live engagement'}</div>
             </GlassCard>
           )
         })}
@@ -429,11 +431,18 @@ export default function BillingDashboardClient({
               </tr>
             </thead>
             <tbody className="divide-y divide-white/10">
+              {sortedInvoices.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-10 text-center text-sm text-[#9CA3AF]">
+                    No invoices yet. Paid-subscription invoices appear here (and in your Stripe portal) after your first payment.
+                  </td>
+                </tr>
+              )}
               {sortedInvoices.map((inv) => (
                 <tr key={inv.id} className="hover:bg-white/[0.015] transition">
                   <td className="px-6 py-4 font-mono text-xs text-[#9CA3AF]">{inv.date}</td>
                   <td className="px-6 py-4">{inv.description}</td>
-                  <td className="px-6 py-4 text-right tabular-nums">${inv.amount}</td>
+                  <td className="px-6 py-4 text-right tabular-nums">${inv.amount.toFixed(2)}</td>
                   <td className="px-6 py-4">
                     <span
                       className={`inline-block rounded-full px-3 py-0.5 text-xs ${
@@ -471,7 +480,7 @@ export default function BillingDashboardClient({
   const PlatformFeesTab = () => {
     const commissionNote = activePlan
       ? `${activePlan.commissionPercent}% platform fee on transactions`
-      : '15% on Free • 8% on Launch/Pro • 6% on Scale+'
+      : billingPlans.map((p) => `${p.name} ${p.commissionPercent}%`).join(' • ')
 
     return (
       <div className="space-y-8">
@@ -479,13 +488,12 @@ export default function BillingDashboardClient({
           <SectionHeader icon={Percent} title="Platform fees & payouts" subtitle="How you earn on every transaction" />
           <div className="grid md:grid-cols-2 gap-8">
             <div>
-              <div className="text-5xl font-semibold tracking-tighter text-[var(--ready)]">$0</div>
+              <div className="text-5xl font-semibold tracking-tighter text-[var(--ready)]">${(platformFeesCents / 100).toFixed(2)}</div>
               <div className="text-[#9CA3AF] mt-1">Platform fees collected this month</div>
               <ul className="mt-6 space-y-2 text-sm text-[#9CA3AF]">
-                <li className="flex gap-2">• Free plan: 15% commission</li>
-                <li className="flex gap-2">• Launch / Pro: 8% commission</li>
-                <li className="flex gap-2">• Scale: 6% commission</li>
-                <li className="flex gap-2">• Enterprise: 4% (custom)</li>
+                {billingPlans.map((p) => (
+                  <li key={p.id} className="flex gap-2">• {p.name}: {p.commissionPercent}% commission</li>
+                ))}
               </ul>
             </div>
             <div className="text-sm text-[#9CA3AF] border-l border-white/10 pl-8">
