@@ -202,10 +202,15 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
   // needs Scale+. Only read the owner's plan when the page actually customizes
   // branding, so default pages stay read-free on this hot path.
   const brandingCustomized = Boolean(branding.hide_nexez_badge || branding.logo_url || branding.brand_name)
-  const hasNegotiationOffers = negotiationOffers.length > 0
+  // Negotiation only surfaces when the seller has actually marked an offer
+  // negotiable — keep the denominator to negotiable offers (not "any offer") so
+  // the owner-plan read below stays off the hot path for ordinary offer pages.
+  const hasNegotiableOffer = negotiationOffers.some(
+    (o) => (o as { offerType?: string }).offerType === 'negotiable',
+  )
   // Resolve the owner's plan only when the page uses a plan-gated surface (custom
-  // branding OR negotiable offers); default pages stay read-free on this hot path.
-  const ownerPlan = (brandingCustomized || hasNegotiationOffers) && hasSupabaseAdminEnv()
+  // branding OR a negotiable offer); ordinary pages stay read-free on this hot path.
+  const ownerPlan = (brandingCustomized || hasNegotiableOffer) && hasSupabaseAdminEnv()
     ? await getOwnerPlanId(createAdminClient(), (page as { owner_id?: string }).owner_id)
     : 'enterprise'
   const showBrand = Boolean(branding.logo_url || branding.brand_name) && planAllows(ownerPlan, 'whiteLabel')
@@ -213,7 +218,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
   // Negotiation is a Pro capability and POST /api/negotiations 403s below Pro.
   // Gate the buyer-facing render to match so sub-Pro pages fall back to direct
   // booking instead of showing an offer form / agent block the API will reject.
-  const negotiationAllowed = hasNegotiationOffers && planAllows(ownerPlan, 'negotiation')
+  const negotiationAllowed = hasNegotiableOffer && planAllows(ownerPlan, 'negotiation')
 
   return (
     <main className="public-agent-page min-h-screen bg-[#0A0A0F] text-white" style={accentStyle}>

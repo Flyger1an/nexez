@@ -398,17 +398,24 @@ export function analyticsRangeBounds(input: AnalyticsRangeInput, now: Date = new
   return { cutoff, until: null, isCustom: false, preset }
 }
 
+/** The only presets free of the analyticsHistory (Pro) gate. */
+const FREE_RANGE_PRESETS = new Set(['today', '1d', '7d', '30d'])
+
 /**
- * analyticsHistory (Pro) gate. All-time and custom date ranges are a Pro+
- * capability; today / 1d / 7d / 30d stay free for everyone. For plans without
- * `analyticsHistory`, clamp an `all` preset or any custom from/to down to the
- * default 30-day window. Applied server-side on BOTH the analytics page and the
- * CSV export, so a hand-crafted URL (`?range=all`, `?from=2020-01-01`) can't
- * read history beyond the free window — the client teaser alone is bypassable.
+ * analyticsHistory (Pro) gate. Only the short presets (today / 1d / 7d / 30d)
+ * stay free; all-time, custom from/to, AND any unrecognized range string are a
+ * Pro+ capability. For plans without `analyticsHistory`, clamp every gated input
+ * down to the default 30-day window. This is allowlist-based on purpose:
+ * analyticsRangeBounds defaults an unknown preset (e.g. `90d`) to an epoch
+ * cutoff = all-time, so gating only `all`/custom would let `?range=90d` slip the
+ * paywall. Applied server-side on BOTH the analytics page and the CSV export so
+ * a hand-crafted URL can't read history beyond the free window — the client
+ * teaser alone is bypassable.
  */
 export function clampHistoryRange(input: AnalyticsRangeInput, fullHistory: boolean): AnalyticsRangeInput {
   if (fullHistory) return { range: input.range, from: input.from, to: input.to }
-  const gated = input.range === 'all' || !!input.from || !!input.to
+  const isFreePreset = input.range != null && FREE_RANGE_PRESETS.has(input.range)
+  const gated = !!input.from || !!input.to || !isFreePreset
   if (!gated) return { range: input.range, from: input.from, to: input.to }
   return { range: '30d', from: undefined, to: undefined }
 }

@@ -79,13 +79,27 @@ describe('clampHistoryRange (analyticsHistory Pro gate)', () => {
   })
 
   it('leaves the free presets (today/1d/7d/30d) alone for lower tiers', () => {
-    for (const range of ['today', '1d', '7d', '30d', undefined]) {
+    for (const range of ['today', '1d', '7d', '30d']) {
       expect(clampHistoryRange({ range }, false)).toEqual({ range, from: undefined, to: undefined })
     }
   })
 
   it('clamps the all-time preset down to 30d for lower tiers', () => {
     expect(clampHistoryRange({ range: 'all' }, false)).toEqual({ range: '30d', from: undefined, to: undefined })
+  })
+
+  it('clamps ANY unrecognized range string down to 30d for lower tiers (no epoch-cutoff bypass)', () => {
+    // analyticsRangeBounds defaults an unknown preset to an epoch (all-time)
+    // cutoff, so the gate must allowlist the free presets, not just block "all".
+    for (const range of ['90d', '60d', '365d', '1y', 'foo', '']) {
+      expect(clampHistoryRange({ range }, false)).toEqual({ range: '30d', from: undefined, to: undefined })
+    }
+    // undefined (no range param) likewise clamps to the default window.
+    expect(clampHistoryRange({ range: undefined }, false)).toEqual({ range: '30d', from: undefined, to: undefined })
+  })
+
+  it('still passes unrecognized ranges through untouched for full-history (Pro+) plans', () => {
+    expect(clampHistoryRange({ range: '90d' }, true)).toEqual({ range: '90d', from: undefined, to: undefined })
   })
 
   it('drops a custom from/to range (even a single open bound) for lower tiers', () => {

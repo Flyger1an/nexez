@@ -87,6 +87,12 @@ begin
     return NEW;  -- nothing to scope a limit to; let other constraints handle it
   end if;
 
+  -- Serialize concurrent publishes for the same owner so the count-then-check
+  -- below can't be raced past the limit (transaction-scoped; auto-released at
+  -- commit/rollback). Only taken on actual publish transitions, so the common
+  -- path is unaffected.
+  perform pg_advisory_xact_lock(hashtext('published_page_limit:' || NEW.owner_id::text));
+
   v_effective := greatest(
     public.plan_published_page_limit(NEW.owner_id),
     coalesce((select baseline from public.published_page_grandfather where owner_id = NEW.owner_id), 0)
