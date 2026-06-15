@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { type PlanId } from '../billing'
+import { planAllows, type PlanFeature, type PlanId } from '../billing'
 
 // A subscription only confers its plan when it's in a live state; an abandoned
 // 'incomplete' or 'canceled' row falls back to Free (mirrors the billing page guard).
@@ -34,4 +34,13 @@ export async function getOwnerPlanId(
     // fall through to free on any read error — gating fails safe (most restrictive)
   }
   return 'free'
+}
+
+/** True when `ownerId`'s plan unlocks `feature`. Server-side enforcement helper. */
+export async function ownerAllows(
+  supabase: Pick<SupabaseClient, 'from'>,
+  ownerId: string | null | undefined,
+  feature: PlanFeature,
+): Promise<boolean> {
+  return planAllows(await getOwnerPlanId(supabase, ownerId), feature)
 }

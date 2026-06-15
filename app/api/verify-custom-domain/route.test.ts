@@ -17,7 +17,13 @@ vi.mock('../../../utils/supabase/server', async () => {
   const { createSupabaseMock } = await import('../../../test/supabase-mock')
   return {
     createClient: vi.fn(() =>
-      createSupabaseMock(() => ({ data: null, error: null }), { user: serverUserRef.user })
+      createSupabaseMock(
+        (ctx: { table?: string }) =>
+          ctx.table === 'billing_subscriptions'
+            ? { data: { plan_id: 'launch', status: 'active' }, error: null }
+            : { data: null, error: null },
+        { user: serverUserRef.user },
+      )
     ),
   }
 })

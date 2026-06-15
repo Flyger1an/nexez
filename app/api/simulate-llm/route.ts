@@ -4,6 +4,8 @@ import { buildParsedSchema } from '../../../lib/agent-simulator'
 import { getRequestBaseUrl } from '../../../lib/agent-page'
 import { supabase } from '../../../lib/supabase'
 import { enforceRateLimit } from '../../../lib/rate-limit'
+import { ownerAllows } from '../../../lib/server/plan'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 
 export async function POST(request: Request) {
   // Public endpoint that runs a paid LLM against any published slug — throttle it.
@@ -31,7 +33,13 @@ export async function POST(request: Request) {
     // Respect the page owner's consent: only send their page to a real LLM when the
     // page opted in (llm_opt_in). Otherwise fall back to the deterministic simulation
     // — this also stops an attacker forcing paid LLM calls against arbitrary slugs.
-    const llmEnabled = isLlmConfigured() && page.llm_opt_in === true
+    // Plan gate: AI features unlock on Launch+. Resolve the owner's plan with the
+    // admin client (this is a public route; the anon client can't read another
+    // owner's billing row). If admin isn't configured, fall back to the opt-in gate.
+    const planAllowsAi = hasSupabaseAdminEnv()
+      ? await ownerAllows(createAdminClient(), page.owner_id, 'aiFeatures')
+      : true
+    const llmEnabled = isLlmConfigured() && page.llm_opt_in === true && planAllowsAi
     if (!llmEnabled) {
       const schema = buildParsedSchema(page, query, 'LLM-Agent', getRequestBaseUrl(request))
       return NextResponse.json({

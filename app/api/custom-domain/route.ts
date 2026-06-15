@@ -9,6 +9,7 @@ import {
   removeDomainFromProject,
   type VercelDomainStatus,
 } from '../../../lib/vercel-domains'
+import { ownerAllows } from '../../../lib/server/plan'
 
 /**
  * A2 — Custom domain provisioning (owner-authed).
@@ -69,6 +70,12 @@ export async function POST(request: Request) {
       { error: 'No page you own uses this domain. Save the custom domain on the page first.' },
       { status: 403 },
     )
+  }
+
+  // Plan gate: attaching a NEW custom domain requires Launch+. Status checks and
+  // removal stay open so a downgraded owner can still inspect/detach their domain.
+  if (action === 'attach' && !(await ownerAllows(supabase, user.id, 'customDomain'))) {
+    return NextResponse.json({ error: 'Custom domains are available on the Launch plan and up.', upgrade: 'launch' }, { status: 402 })
   }
 
   const providerConfigured = isVercelDomainConfigured()

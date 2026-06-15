@@ -4,6 +4,7 @@ import dns from 'dns'
 import { promisify } from 'util'
 import { createClient } from '../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
+import { ownerAllows } from '../../../lib/server/plan'
 
 const resolveTxt = promisify(dns.resolveTxt)
 
@@ -76,6 +77,11 @@ export async function POST(request: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  }
+
+  // Plan gate: verifying (enabling) a custom domain requires Launch+.
+  if (!(await ownerAllows(supabase, user.id, 'customDomain'))) {
+    return NextResponse.json({ error: 'Custom domains are available on the Launch plan and up.', upgrade: 'launch' }, { status: 402 })
   }
 
   const admin = createAdminClient()

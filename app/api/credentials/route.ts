@@ -4,6 +4,7 @@ import crypto from 'crypto'
 import { createClient } from '../../../utils/supabase/server'
 import { reviewCredential } from '../../../lib/credential-review'
 import type { CredentialRecord } from '../../../lib/agent-page'
+import { ownerAllows } from '../../../lib/server/plan'
 
 // Owner-managed, LLM-reviewed credentials for a page. Files live in the private
 // `credentials` bucket; the record (with the review verdict) is stored in
@@ -66,14 +67,20 @@ export async function POST(request: Request) {
   const up = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type, upsert: false })
   if (up.error) return NextResponse.json({ error: `Upload failed: ${up.error.message}` }, { status: 500 })
 
+  // Plan gate: LLM credential review is an AI feature (Launch+). Below that the file
+  // is still stored + listed, but stays 'pending' (no trust boost) — same fail-safe
+  // shape as a failed review, with a reason that nudges the upgrade.
+  const aiAllowed = await ownerAllows(supabase, user.id, 'aiFeatures')
   // Fail-safe: any review failure → pending (never verified), so the file is
   // stored + listed but does not boost trust until it actually passes review.
-  const review = await reviewCredential({
-    name: file.name,
-    mime: file.type,
-    bytes,
-    business: { name: page.name, industry: page.industry, location: page.location },
-  })
+  const review = aiAllowed
+    ? await reviewCredential({
+        name: file.name,
+        mime: file.type,
+        bytes,
+        business: { name: page.name, industry: page.industry, location: page.location },
+      })
+    : { status: 'pending' as const, verdict: { reason: 'Credential review is an AI feature — upgrade to the Launch plan to get documents reviewed and verified.' } }
 
   const record: CredentialRecord = {
     id,

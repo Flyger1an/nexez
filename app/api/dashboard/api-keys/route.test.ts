@@ -27,6 +27,7 @@ describe('POST /api/dashboard/api-keys', () => {
     vi.mocked(createClient).mockReturnValue(
       createSupabaseMock(
         (c) => {
+          if (c.table === 'billing_subscriptions') return { data: { plan_id: 'pro', status: 'active' } }
           if (c.op === 'insert') {
             insert = c.payload
             return { data: { id: 'k1', name: c.payload.name, prefix: c.payload.prefix, created_at: 't' } }

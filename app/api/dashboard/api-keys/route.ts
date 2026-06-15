@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../utils/supabase/server'
 import { generateApiKey } from '../../../../lib/api-keys'
+import { ownerAllows } from '../../../../lib/server/plan'
 
 /**
  * Mint a new API key for the authenticated dashboard user. The raw key is
@@ -15,6 +16,12 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
+  // Plan gate: programmatic API access is a Pro feature. Minting is the chokepoint —
+  // keys can't exist without it, so gating here is sufficient.
+  if (!(await ownerAllows(supabase, user.id, 'apiAccess'))) {
+    return NextResponse.json({ error: 'API access is available on the Pro plan and up.', upgrade: 'pro' }, { status: 402 })
+  }
 
   let name = 'API key'
   try {

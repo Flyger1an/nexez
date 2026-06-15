@@ -4,6 +4,7 @@ import { analyzeCompetitorSite, analysisToMarkdown, analysisToJSON } from '@/lib
 import { createClient } from '@/utils/supabase/server'
 import { PUBLIC_PAGE_SELECT, getReadinessScore, getTrustScore, getOfferCount } from '@/lib/agent-page'
 import { enforceRateLimit } from '@/lib/rate-limit'
+import { ownerAllows } from '@/lib/server/plan'
 
 // Scrapes an external site; allow headroom.
 export const maxDuration = 30
@@ -25,6 +26,12 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
+  // Plan gate: LLM competitor analysis is an AI feature (Launch+). No deterministic
+  // fallback here, so return a clear upgrade signal below the threshold.
+  if (!(await ownerAllows(supabase, user.id, 'aiFeatures'))) {
+    return NextResponse.json({ error: 'Competitor analysis is an AI feature. Upgrade to the Launch plan or higher to unlock it.', upgrade: 'launch' }, { status: 402 })
+  }
 
   try {
     const { url, userPageSlug } = await request.json()

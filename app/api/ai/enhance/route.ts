@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '../../../../utils/supabase/server'
 import { enhanceDescriptionForAgents } from '../../../../lib/ai-optimize'
 import { isLlmConfigured, llmComplete } from '../../../../lib/llm'
+import { ownerAllows } from '../../../../lib/server/plan'
 import { captureError } from '../../../../lib/observability'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 
@@ -45,7 +46,11 @@ export async function POST(request: Request) {
     optedIn = Boolean(data?.llm_opt_in)
   }
 
-  if (isLlmConfigured() && optedIn) {
+  // Plan gate: AI features unlock on Launch+. Below that we still return a useful
+  // result via the deterministic path (no error) — the LLM call is what's gated.
+  const aiAllowed = await ownerAllows(supabase, user.id, 'aiFeatures')
+
+  if (isLlmConfigured() && optedIn && aiAllowed) {
     try {
       const enhanced = await llmComplete(
         `Rewrite this ${businessName} offer description so AI agents can clearly understand and act on it. Keep it factual, concise, include concrete specifics (what's included, who it's for: ${audience}). Return only the rewritten description.\n\n"${description}"`,
