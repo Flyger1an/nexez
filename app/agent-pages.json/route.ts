@@ -1,15 +1,18 @@
-import { AgentPage, getCheckoutOffers, getCheckoutPath, getOfferCount, getRequestBaseUrl } from '../../lib/agent-page'
+import { AgentPage, getCertification, getCheckoutOffers, getCheckoutPath, getOfferCount, getRequestBaseUrl } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
+import { normalizeCurrency } from '../../lib/currency'
 import { supabase } from '../../lib/supabase'
 
 export async function GET(request: Request) {
   const baseUrl = getRequestBaseUrl(request)
+  // Select enough to compute price/currency + an accurate readiness/trust signal,
+  // so agents can shortlist from the index without fetching every per-page manifest.
   const { data: pages } = await supabase
     .from('pages_public')
-    .select('name, slug, description, location, products, services, created_at')
+    .select('name, slug, description, location, products, services, created_at, currency, website_url, cta_url, audience, industry, contact_email, faqs, is_published')
     .eq('is_published', true)
     .order('created_at', { ascending: false })
-    .returns<Pick<AgentPage, 'name' | 'slug' | 'description' | 'location' | 'products' | 'services' | 'created_at'>[]>()
+    .returns<AgentPage[]>()
 
   return Response.json(
     {
@@ -19,17 +22,25 @@ export async function GET(request: Request) {
       openapi_url: `${baseUrl}/openapi.json`,
       capabilities_url: `${baseUrl}/.well-known/nexez.json`,
       search_url: `${baseUrl}/api/agent-search?q={query}`,
-      pages: (pages ?? []).map((page) => ({
+      pages: (pages ?? []).map((page) => {
+        const cert = getCertification(page)
+        const currency = normalizeCurrency(page.currency)
+        return {
         name: page.name,
         slug: page.slug,
         url: `${baseUrl}/${page.slug}`,
         agent_json_url: `${baseUrl}${getAgentJsonPath(page.slug)}`,
         description: page.description,
         location: page.location,
+        currency,
+        readiness: cert.readiness,
+        certified: cert.certified,
         offer_count: getOfferCount(page),
         checkout_urls: getCheckoutOffers(page).map((offer) => ({
           offer: offer.name,
           type: offer.kind === 'services' ? 'service' : 'product',
+          price: offer.price || null,
+          currency,
           url: `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
           action: {
             method: 'POST',
@@ -45,7 +56,8 @@ export async function GET(request: Request) {
             },
           },
         })),
-      })),
+        }
+      }),
     },
     {
       headers: {
