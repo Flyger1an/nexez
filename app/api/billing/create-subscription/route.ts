@@ -67,11 +67,14 @@ export async function POST(request: Request) {
       })
       customerId = customer.id
 
-      // Upsert preliminary row so webhook can find it easily (plan/status will be updated by events)
+      // Upsert a preliminary row so the webhook can find this customer by owner_id.
+      // Deliberately DO NOT write plan_id here — payment hasn't happened yet, and the
+      // billing UI derives the active plan from plan_id. Writing it optimistically made
+      // an abandoned checkout show a plan the user never paid for. The webhook
+      // (customer.subscription.* / checkout.session.completed) sets plan_id on confirmation.
       await supabase.from('billing_subscriptions').upsert({
         owner_id: user.id,
         stripe_customer_id: customerId,
-        plan_id: plan.id,
         status: 'incomplete',
         metadata: { source: 'create-subscription', created_via: 'embedded' },
       }, { onConflict: 'owner_id' })

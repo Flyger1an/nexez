@@ -114,11 +114,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true, type: event.type, negotiation: session.metadata.nexez_negotiation_id, status: nextStatus, ok: true }, { status: 200 })
     }
 
-    if (session.metadata?.nexez_source === 'billing_page') {
+    // Both the hosted checkout ('billing_page') and the embedded subscription
+    // flow ('embedded_billing') are Nexez plan checkouts — sync either one.
+    if (session.metadata?.nexez_source === 'billing_page' || session.metadata?.nexez_source === 'embedded_billing') {
       return syncBillingCheckoutSession(event, session)
     }
 
     return NextResponse.json({ received: true, type: event.type }, { status: 200 })
+  }
+
+  // Subscription invoice lifecycle — keep plan status fresh on payment success and
+  // failure (dunning). A failed payment flips the subscription to past_due/unpaid;
+  // a paid invoice restores active. We re-sync the underlying subscription so
+  // billing_subscriptions.status always reflects Stripe, not just the periodic
+  // subscription.updated event.
+  if (
+    event.type === 'invoice.payment_failed' ||
+    event.type === 'invoice.paid' ||
+    event.type === 'invoice.payment_succeeded'
+  ) {
+    if (!hasSupabaseAdminEnv()) {
+      return NextResponse.json({ received: true, type: event.type, note: 'SUPABASE_SERVICE_ROLE_KEY required' }, { status: 200 })
+    }
+    const invoice = event.data.object as Stripe.Invoice
+    const subId = stripeObjectId((invoice as { subscription?: string | { id?: string } | null }).subscription)
+    if (subId && process.env.STRIPE_SECRET_KEY) {
+      try {
+        const sub = await stripe.subscriptions.retrieve(subId, { expand: ['items.data.price'] })
+        return syncBillingSubscription(event, sub)
+      } catch (error) {
+        console.warn('[Stripe Webhook] invoice subscription retrieve failed:', error instanceof Error ? error.message : error)
+      }
+    }
+    return NextResponse.json({ received: true, type: event.type, billing: false, reason: 'no subscription on invoice' }, { status: 200 })
   }
 
   // Negotiation escrow reversals — matched to a negotiation by its stored payment

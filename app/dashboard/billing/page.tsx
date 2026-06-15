@@ -48,7 +48,12 @@ export default async function BillingPage({ searchParams }: BillingProps) {
   const offerCount = pages?.reduce((sum, page) => sum + getOfferCount(page), 0) ?? 0
   const stripeReadiness = getStripeBillingReadiness()
   const stripeReady = stripeReadiness.subscriptionCheckoutReady
-  const activePlan = billingPlans.find((plan) => plan.id === billingState?.plan_id)
+  // Only treat the stored plan as ACTIVE when the subscription is in a live state.
+  // An abandoned/incomplete or canceled row must not show a plan the user isn't on
+  // (it would otherwise inherit the plan_id written during checkout creation).
+  const liveSubStatuses = ['active', 'trialing', 'past_due', 'unpaid']
+  const hasLiveSubscription = Boolean(billingState?.plan_id) && liveSubStatuses.includes(billingState?.status ?? '')
+  const activePlan = hasLiveSubscription ? billingPlans.find((plan) => plan.id === billingState?.plan_id) : undefined
 
   // Rich usage data passed to the tabbed client (real numbers where possible, illustrative placeholders for the rest)
   // Page limit comes from the billing catalog (single source of truth); 999 is the
