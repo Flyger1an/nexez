@@ -324,20 +324,39 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
               <section className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
                 <div className="relative p-6 md:p-8">
                   <div className="absolute right-8 top-8 hidden size-32 rounded-full bg-[var(--signal)]/25 blur-3xl md:block" />
-                  <p className="text-sm text-[var(--signal)]">Today, your Nexez agent pages received</p>
-                  <h2 className="mt-2 text-3xl font-semibold tracking-tight">
-                    {agentPageVisits} AI agent visits, {trafficSplit.human} human visits, {discoveryClicks} discovery clicks, and {conversionActions} conversion actions
-                  </h2>
-                  <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
-                    {totalTrackedSignals} tracked signals today across {publishedCount} published pages and {totalOffers} listed offers —
-                    a live view of how AI agents are discovering and acting on your business. See full history in{' '}
-                    <a href="/dashboard/analytics" className="text-[var(--signal)] hover:underline">Analytics</a>.
-                  </p>
-                  {topOffer ? (
-                    <p className="mt-4 inline-flex rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/10 px-3 py-2 text-sm text-[var(--signal)]">
-                      Top signal: {topOffer}
-                    </p>
-                  ) : null}
+                  {totalTrackedSignals === 0 ? (
+                    <>
+                      <p className="text-sm text-[var(--signal)]">Today on your agent pages</p>
+                      <h2 className="mt-2 text-3xl font-semibold tracking-tight">
+                        {publishedCount > 0
+                          ? `All quiet so far — your ${publishedCount} published page${publishedCount === 1 ? '' : 's'} ${publishedCount === 1 ? 'is' : 'are'} live and crawlable.`
+                          : 'Publish a page to start appearing to AI agents.'}
+                      </h2>
+                      <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
+                        Agent discovery builds over time. {publishedCount > 0 ? 'Share your page link and ' : 'Publish your first page, then '}
+                        connect Stripe to accept payments, or see how agents rank you in the{' '}
+                        <a href="/simulator" className="text-[var(--signal)] hover:underline">Agent Lab</a>. History lives in{' '}
+                        <a href="/dashboard/analytics" className="text-[var(--signal)] hover:underline">Analytics</a>.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-[var(--signal)]">Today, your Nexez agent pages received</p>
+                      <h2 className="mt-2 text-3xl font-semibold tracking-tight">
+                        {agentPageVisits} AI agent visits, {trafficSplit.human} human visits, {discoveryClicks} discovery clicks, and {conversionActions} conversion actions
+                      </h2>
+                      <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
+                        {totalTrackedSignals} tracked signals today across {publishedCount} published pages and {totalOffers} listed offers —
+                        a live view of how AI agents are discovering and acting on your business. See full history in{' '}
+                        <a href="/dashboard/analytics" className="text-[var(--signal)] hover:underline">Analytics</a>.
+                      </p>
+                      {topOffer ? (
+                        <p className="mt-4 inline-flex rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/10 px-3 py-2 text-sm text-[var(--signal)]">
+                          Top signal: {topOffer}
+                        </p>
+                      ) : null}
+                    </>
+                  )}
                 </div>
               </section>
             )}

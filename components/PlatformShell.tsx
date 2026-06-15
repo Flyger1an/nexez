@@ -318,6 +318,24 @@ function QuickPageSearch() {
   const [pages, setPages] = useState<PageHit[]>([])
   const [query, setQuery] = useState('')
   const [focused, setFocused] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Global shortcut: Cmd/Ctrl+K or "/" focuses page search (skip when already typing).
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      const inField = /^(input|textarea|select)$/i.test((event.target as HTMLElement)?.tagName ?? '') ||
+        (event.target as HTMLElement)?.isContentEditable
+      const isCmdK = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k'
+      const isSlash = event.key === '/' && !inField
+      if (isCmdK || isSlash) {
+        event.preventDefault()
+        inputRef.current?.focus()
+        inputRef.current?.select()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -377,6 +395,7 @@ function QuickPageSearch() {
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
         <input
           id="platform-page-search"
+          ref={inputRef}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onFocus={() => setFocused(true)}
@@ -395,8 +414,8 @@ function QuickPageSearch() {
           aria-describedby="platform-page-search-hint"
         />
       </div>
-      <p id="platform-page-search-hint" className="mt-1 text-[11px] text-muted-foreground">
-        Press Enter to edit the first match.
+      <p id="platform-page-search-hint" className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        Press <kbd className="rounded border border-border bg-black/40 px-1 font-mono text-[10px]">⌘K</kbd> to search, Enter to open the first match.
       </p>
       {showResults ? (
         <div className="absolute left-0 right-0 top-[84px] z-50 overflow-hidden rounded-md border border-border bg-[#111] shadow-2xl">

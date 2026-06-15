@@ -295,21 +295,33 @@ export default function NegotiationsInbox() {
               </button>
             </div>
           ) : negotiations.length === 0 ? (
-            <div className="card mt-6 !p-8 text-center">
-              <Handshake className="mx-auto size-8 text-zinc-500" />
-              <p className="mt-3 text-sm font-medium text-zinc-200">No negotiations yet</p>
-              <p className="mx-auto mt-2 max-w-md text-sm text-zinc-400">
-                {migrationPending
-                  ? 'Apply agent_negotiations migration.'
-                  : 'Agent proposals appear here.'}
-              </p>
-              <a
-                href="/dashboard"
-                className="mt-4 inline-flex items-center gap-2 text-sm text-[var(--signal)] hover:underline"
-              >
-                Manage your pages <ExternalLink className="size-3.5" />
-              </a>
-            </div>
+            migrationPending ? (
+              <div className="card mt-6 !p-8 text-center">
+                <Handshake className="mx-auto size-8 text-zinc-500" />
+                <p className="mt-3 text-sm font-medium text-zinc-200">Negotiations are being set up</p>
+                <p className="mx-auto mt-2 max-w-md text-sm text-zinc-400">
+                  This workspace is finishing setup for agent negotiations — check back shortly.
+                </p>
+              </div>
+            ) : (
+              <div className="card mt-6 !p-8 text-center">
+                <Handshake className="mx-auto size-8 text-[var(--signal)]" />
+                <p className="mt-3 text-base font-medium text-white">No proposals yet</p>
+                <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-zinc-400">
+                  When an AI agent or buyer proposes terms on one of your negotiable offers — scope, budget, timeline —
+                  it lands here for you to <span className="text-zinc-200">accept, counter, or decline</span>, with escrow
+                  on agreed deals. Mark an offer “negotiable” in the page editor to invite proposals.
+                </p>
+                <div className="mt-5 flex flex-wrap justify-center gap-3">
+                  <a href="/dashboard/pages" className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20">
+                    Set an offer to negotiable
+                  </a>
+                  <a href="/dashboard/finance" className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm text-zinc-200 hover:bg-white/5">
+                    View finances <ExternalLink className="size-3.5" />
+                  </a>
+                </div>
+              </div>
+            )
           ) : (
             <div className="mt-6 space-y-4">
               {negotiations.map((item) => (
