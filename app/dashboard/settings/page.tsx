@@ -14,6 +14,8 @@ import { createClient } from '../../../utils/supabase/server'
 import { ProfileSettings } from '../../../components/ProfileSettings'
 import { AccountDataControls } from '../../../components/AccountDataControls'
 import { TeamInvites } from '../../../components/TeamInvites'
+import { PlanGate } from '../../../components/billing/PlanGate'
+import { getOwnerPlanId } from '../../../lib/server/plan'
 
 const schemaSignals = [
   ['WebPage', 'Public page identity and canonical URL'],
@@ -38,6 +40,8 @@ export default async function AccountSettingsPage() {
       </main>
     )
   }
+
+  const currentPlan = await getOwnerPlanId(supabase, user.id)
 
   const { data: pages } = await supabase
     .from('pages')
@@ -97,7 +101,14 @@ export default async function AccountSettingsPage() {
               initialCompany={(user.user_metadata?.company as string) ?? ''}
               initialIndustry={(user.user_metadata?.industry as string) ?? ''}
             />
-            <TeamInvites />
+            <PlanGate
+              feature="teamCollaboration"
+              currentPlan={currentPlan}
+              title="Team collaboration"
+              description="Invite editors and reviewers and run approval workflows on your pages — available on the Scale plan and up."
+            >
+              <TeamInvites />
+            </PlanGate>
             <AccountDataControls email={user.email ?? ''} />
             <section className="card !p-5">
               <div className="flex items-center gap-2">

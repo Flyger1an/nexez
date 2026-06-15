@@ -12,6 +12,8 @@ import {
   ShoppingCart,
   Workflow,
 } from 'lucide-react'
+import { UpgradeBanner } from '../../../components/billing/PlanGate'
+import { usePlan } from '../../../components/billing/PlanProvider'
 
 const integrations = [
   {
@@ -71,6 +73,7 @@ const integrations = [
 ]
 
 export default function IntegrationsPage() {
+  const plan = usePlan()
   const [calendlyConnection, setCalendlyConnection] = useState<{ lastSync: string; maskedToken: string } | null>(null)
   const [calendlyWebhook, setCalendlyWebhook] = useState<{ lastSaved: string } | null>(null)
   const [stripeConnection, setStripeConnection] = useState<{ lastImport: string } | null>(null)
@@ -140,6 +143,13 @@ export default function IntegrationsPage() {
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
+        <UpgradeBanner
+          feature="integrations"
+          currentPlan={plan}
+          title="Integrations"
+          description="connect Calendly, Stripe, Shopify, Square & more and keep your offers in sync — on the Pro plan and up."
+          className="mb-6"
+        />
         <div className="border-b border-white/10 pb-6">
           <p className="text-sm text-[var(--signal)]">Integrations &amp; imports</p>
           <h1 className="mt-2 text-4xl font-semibold tracking-tight">Connect your tools. Import your offers.</h1>

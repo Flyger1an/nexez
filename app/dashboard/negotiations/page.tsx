@@ -13,6 +13,8 @@ import {
   XCircle,
 } from 'lucide-react'
 import { ErrorBoundary } from '../../../components/ErrorBoundary'
+import { UpgradeBanner } from '../../../components/billing/PlanGate'
+import { usePlan } from '../../../components/billing/PlanProvider'
 import {
   AgentNegotiation,
   NegotiationStatus,
@@ -65,6 +67,7 @@ function transitionIcon(to: NegotiationStatus) {
 }
 
 export default function NegotiationsInbox() {
+  const plan = usePlan()
   const [negotiations, setNegotiations] = useState<AgentNegotiation[]>([])
   const [loading, setLoading] = useState(true)
   const [migrationPending, setMigrationPending] = useState(false)
@@ -230,6 +233,13 @@ export default function NegotiationsInbox() {
     <ErrorBoundary>
       <main className="min-h-screen bg-[#0A0A0F] text-white">
         <div className="mx-auto max-w-5xl px-4 py-8 md:px-8">
+          <UpgradeBanner
+            feature="negotiation"
+            currentPlan={plan}
+            title="Negotiation & smart pricing"
+            description="let agents make offers, set auto-accept rules, and run counter-offers — on the Pro plan and up."
+            className="mb-6"
+          />
           <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h1 className="flex items-center gap-2 text-2xl font-semibold">
