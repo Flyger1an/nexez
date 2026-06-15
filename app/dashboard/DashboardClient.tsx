@@ -24,6 +24,7 @@ import { PageCard } from '../../components/dashboard/PageCard'
 import { OnboardingChecklist } from '../../components/OnboardingChecklist'
 import { buildNotifications } from '../../lib/notifications'
 import { agentRuntimeUrl } from '../../lib/site'
+import { publishErrorMessage } from '../../lib/publish-error'
 
 export type DashboardInitial = {
   pages: AgentPage[]
@@ -196,7 +197,14 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
 
   async function togglePublished(id: string, currentStatus: boolean) {
     const supabase = createClient()
-    await supabase.from('pages').update({ is_published: !currentStatus }).eq('id', id)
+    // The published-page limit is enforced by a DB trigger; surface its message
+    // (e.g. when a Free owner tries to publish past their limit) instead of
+    // silently leaving the page unpublished.
+    const { error } = await supabase.from('pages').update({ is_published: !currentStatus }).eq('id', id)
+    if (error) {
+      alert(publishErrorMessage(error))
+      return
+    }
     loadPages()
   }
 
@@ -242,10 +250,14 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
 
   async function bulkSetPublished(published: boolean) {
     const supabase = createClient()
-    await Promise.all(
+    // The DB trigger enforces the limit per row: rows that fit publish, the rest
+    // are rejected. Surface the limit message if any row was rejected.
+    const results = await Promise.all(
       [...selectedIds].map((id) => supabase.from('pages').update({ is_published: published }).eq('id', id)),
     )
+    const firstError = results.map((r) => r.error).find(Boolean)
     setSelectedIds(new Set())
+    if (firstError) alert(publishErrorMessage(firstError))
     loadPages()
   }
 

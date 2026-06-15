@@ -6,9 +6,8 @@ import { AgentPage, BASIC_OWNER_PAGE_SELECT, OWNER_PAGE_SELECT, getBaseUrl } fro
 import { buildDuplicatePayload } from '../lib/duplicate-page'
 import { createClient } from '../utils/supabase/client'
 import { PageCard } from './dashboard/PageCard'
-import { getPlanLimits } from '../lib/billing'
 import { appUrl } from '../lib/site'
-import { usePlan } from './billing/PlanProvider'
+import { publishErrorMessage } from '../lib/publish-error'
 
 type Status = 'all' | 'published' | 'draft'
 
@@ -21,8 +20,6 @@ export function PagesManager({
   signalsByPageId: Record<string, number>
   status?: Status
 }) {
-  const plan = usePlan()
-  const pageLimit = getPlanLimits(plan).pages
   const [pages, setPages] = useState<AgentPage[]>(initialPages)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
@@ -36,10 +33,6 @@ export function PagesManager({
     }),
     [pages],
   )
-
-  function atPublishLimit() {
-    return Number.isFinite(pageLimit) && counts.published >= pageLimit
-  }
 
   const filtered = useMemo(() => {
     if (status === 'published') return pages.filter((p) => p.is_published)
@@ -83,15 +76,16 @@ export function PagesManager({
   }
 
   async function togglePublished(id: string, current: boolean) {
-    // Plan gate: block publishing a new page past the plan's limit (the v1 API and
-    // create flow enforce server-side too; this surfaces the upgrade nudge in the UI).
-    if (!current && atPublishLimit()) {
-      setLimitMsg(`Your plan allows ${pageLimit} published page${pageLimit === 1 ? '' : 's'}. Upgrade to publish more.`)
-      return
-    }
     setLimitMsg(null)
     const supabase = createClient()
-    await supabase.from('pages').update({ is_published: !current }).eq('id', id)
+    // The published-page limit is enforced server-side by a DB trigger (plan limit
+    // + grandfathered baseline), so we attempt the write and surface its verdict —
+    // this stays correct for grandfathered owners the client can't reason about.
+    const { error } = await supabase.from('pages').update({ is_published: !current }).eq('id', id)
+    if (error) {
+      setLimitMsg(publishErrorMessage(error))
+      return
+    }
     reload()
   }
 
@@ -168,21 +162,18 @@ export function PagesManager({
 
   async function bulkSetPublished(published: boolean) {
     if (!selectedIds.size) return
-    // Plan gate: don't let a bulk-publish push past the plan's published-page limit.
-    if (published && Number.isFinite(pageLimit)) {
-      const newlyPublishing = [...selectedIds].filter((id) => !pages.find((p) => p.id === id)?.is_published).length
-      if (counts.published + newlyPublishing > pageLimit) {
-        setLimitMsg(`Your plan allows ${pageLimit} published page${pageLimit === 1 ? '' : 's'}. Upgrade to publish more.`)
-        return
-      }
-    }
     setLimitMsg(null)
     setBusy(true)
     const supabase = createClient()
-    await Promise.all(
+    // The DB trigger enforces the published-page limit per row; a bulk publish that
+    // would exceed it lands the rows that fit and rejects the rest. Surface the
+    // limit message if any row was rejected, then reload to reflect actual state.
+    const results = await Promise.all(
       [...selectedIds].map((id) => supabase.from('pages').update({ is_published: published }).eq('id', id)),
     )
+    const firstError = results.map((r) => r.error).find(Boolean)
     setBusy(false)
+    if (firstError) setLimitMsg(publishErrorMessage(firstError))
     reload()
   }
 
