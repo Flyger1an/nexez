@@ -15,6 +15,7 @@ import { sanitizeBuyerInput } from '../../../lib/negotiation-input'
 import { buildNegotiationEmail, sendEmail } from '../../../lib/email'
 import { supabase } from '../../../lib/supabase'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
+import { ownerAllows } from '../../../lib/server/plan'
 import { negotiationService } from '../../../lib/negotiation.service'
 import { captureError } from '../../../lib/observability'
 
@@ -93,6 +94,16 @@ export async function POST(request: Request) {
   const offer = getCheckoutOffer(page, input.offer)
   if (!offer) {
     return NextResponse.json({ error: 'Negotiation offer not found.' }, { status: 404 })
+  }
+
+  // Plan gate: negotiation (make-an-offer + smart-pricing rules) is a Pro feature.
+  // If the page owner isn't on Pro+, the page doesn't accept offers (resolved with
+  // the admin client since this is a public, buyer-facing route).
+  const ownerNegotiationAllowed = hasSupabaseAdminEnv()
+    ? await ownerAllows(createAdminClient(), (page as { owner_id?: string }).owner_id, 'negotiation')
+    : true
+  if (!ownerNegotiationAllowed) {
+    return NextResponse.json({ error: 'This page is not accepting offers — use the listed price to book or buy.' }, { status: 403 })
   }
 
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)

@@ -4,6 +4,20 @@ import { authenticateApiKey } from '../../../../lib/server/api-auth'
 import { PUBLIC_PAGE_SELECT, getBaseUrl, normalizeSlug } from '../../../../lib/agent-page'
 import { pickWritablePageFields } from '../../../../lib/api-pages'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
+import { getOwnerPlanId } from '../../../../lib/server/plan'
+import { getPlanLimits } from '../../../../lib/billing'
+
+/** True when publishing one more page would exceed the owner's plan page limit. */
+async function publishedLimitReached(admin: ReturnType<typeof createAdminClient>, ownerId: string) {
+  const limit = getPlanLimits(await getOwnerPlanId(admin, ownerId)).pages
+  if (!Number.isFinite(limit)) return { reached: false, limit }
+  const { count } = await admin
+    .from('pages')
+    .select('id', { count: 'exact', head: true })
+    .eq('owner_id', ownerId)
+    .eq('is_published', true)
+  return { reached: (count ?? 0) >= limit, limit }
+}
 
 async function uniqueSlug(admin: ReturnType<typeof createAdminClient>, base: string): Promise<string> {
   const root = normalizeSlug(base) || 'page'
@@ -58,6 +72,17 @@ export async function POST(request: Request) {
     slug,
     owner_id: auth.ownerId,
     is_published: body.is_published === true, // explicit opt-in; default draft
+  }
+
+  // Plan gate: enforce the published-page limit before creating a published page.
+  if (insert.is_published) {
+    const { reached, limit } = await publishedLimitReached(admin, auth.ownerId)
+    if (reached) {
+      return NextResponse.json(
+        { error: `Your plan allows ${limit} published page${limit === 1 ? '' : 's'}. Upgrade your plan or create this as a draft (is_published: false).` },
+        { status: 402 },
+      )
+    }
   }
 
   const { data, error } = await admin.from('pages').insert(insert).select(PUBLIC_PAGE_SELECT).single()

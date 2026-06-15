@@ -3,6 +3,8 @@ import { createAdminClient } from '../../../../../utils/supabase/admin'
 import { authenticateApiKey } from '../../../../../lib/server/api-auth'
 import { PUBLIC_PAGE_SELECT, getBaseUrl, normalizeSlug } from '../../../../../lib/agent-page'
 import { pickWritablePageFields } from '../../../../../lib/api-pages'
+import { getOwnerPlanId } from '../../../../../lib/server/plan'
+import { getPlanLimits } from '../../../../../lib/billing'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authenticateApiKey(request)
@@ -41,6 +43,34 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const admin = createAdminClient()
+
+  // Plan gate: only when flipping a draft → published (editing an already-published
+  // page is unrestricted). Count of currently-published pages vs the plan limit.
+  if (update.is_published === true) {
+    const { data: current } = await admin
+      .from('pages')
+      .select('is_published')
+      .eq('id', id)
+      .eq('owner_id', auth.ownerId)
+      .maybeSingle<{ is_published: boolean }>()
+    if (current && current.is_published !== true) {
+      const limit = getPlanLimits(await getOwnerPlanId(admin, auth.ownerId)).pages
+      if (Number.isFinite(limit)) {
+        const { count } = await admin
+          .from('pages')
+          .select('id', { count: 'exact', head: true })
+          .eq('owner_id', auth.ownerId)
+          .eq('is_published', true)
+        if ((count ?? 0) >= limit) {
+          return NextResponse.json(
+            { error: `Your plan allows ${limit} published page${limit === 1 ? '' : 's'}. Upgrade your plan to publish more.` },
+            { status: 402 },
+          )
+        }
+      }
+    }
+  }
+
   // Scope the update to the owner so a key can never touch another tenant's page.
   const { data, error } = await admin
     .from('pages')

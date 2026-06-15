@@ -16,6 +16,9 @@ import { logAgentPageView } from '../../lib/server/log-agent-page-view'
 import { logAbImpressions } from '../../lib/server/log-ab-impressions'
 import { AB_BUCKET_COOKIE, parseBucket, hiddenVariantIndices } from '../../lib/ab-testing'
 import { supabase } from '../../lib/supabase'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
+import { getOwnerPlanId } from '../../lib/server/plan'
+import { planAllows } from '../../lib/billing'
 
 type PageProps = {
   params: Promise<{ slug: string }>
@@ -194,7 +197,16 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
   const accentStyle = branding.accent_color
     ? ({ '--brand-accent': branding.accent_color } as CSSProperties)
     : undefined
-  const showBrand = Boolean(branding.logo_url || branding.brand_name)
+  // Plan-gate branding at RENDER time (unbypassable regardless of what's stored):
+  // removing the Nexez badge needs Launch+, full white-label (custom name/logo)
+  // needs Scale+. Only read the owner's plan when the page actually customizes
+  // branding, so default pages stay read-free on this hot path.
+  const brandingCustomized = Boolean(branding.hide_nexez_badge || branding.logo_url || branding.brand_name)
+  const ownerPlan = brandingCustomized && hasSupabaseAdminEnv()
+    ? await getOwnerPlanId(createAdminClient(), (page as { owner_id?: string }).owner_id)
+    : 'enterprise'
+  const showBrand = Boolean(branding.logo_url || branding.brand_name) && planAllows(ownerPlan, 'whiteLabel')
+  const hideBadge = Boolean(branding.hide_nexez_badge) && planAllows(ownerPlan, 'removeBadge')
 
   return (
     <main className="public-agent-page min-h-screen bg-[#0A0A0F] text-white" style={accentStyle}>
@@ -225,7 +237,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
               </span>
             ) : null}
           </div>
-        ) : branding.hide_nexez_badge ? null : (
+        ) : hideBadge ? null : (
           <BackLink fallbackHref="/" className="inline-flex items-center gap-2 text-sm text-[#9CA3AF] hover:text-white">
             <ArrowLeft className="size-4" />
             Back
