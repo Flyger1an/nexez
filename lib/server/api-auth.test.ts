@@ -43,10 +43,11 @@ describe('authenticateApiKey', () => {
     expect(await authenticateApiKey(req('Bearer nxz_live_rev'))).toMatchObject({ ok: false, status: 401 })
   })
 
-  it('returns ownerId for a valid key and looks it up by the hashed token', async () => {
+  it('returns ownerId for a valid key (on a Pro plan) and looks it up by the hashed token', async () => {
     let lookedUpHash: unknown
     vi.mocked(createAdminClient).mockReturnValue(
       createSupabaseMock((ctx) => {
+        if (ctx.table === 'billing_subscriptions') return { data: { plan_id: 'pro', status: 'active' } }
         if (ctx.op === 'select') {
           lookedUpHash = ctx.eqs.key_hash
           return { data: { id: 'k1', owner_id: 'owner-123', revoked_at: null } }
@@ -57,5 +58,16 @@ describe('authenticateApiKey', () => {
     const result = await authenticateApiKey(req('Bearer nxz_live_good'))
     expect(result).toEqual({ ok: true, ownerId: 'owner-123', keyId: 'k1' })
     expect(lookedUpHash).toBe(hashApiKey('nxz_live_good')) // never queries the raw token
+  })
+
+  it('402 when the key is valid but the owner is below Pro (apiAccess revoked on downgrade)', async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      createSupabaseMock((ctx) => {
+        if (ctx.table === 'billing_subscriptions') return { data: { plan_id: 'free', status: 'active' } }
+        if (ctx.op === 'select') return { data: { id: 'k1', owner_id: 'owner-123', revoked_at: null } }
+        return { data: null }
+      }) as any,
+    )
+    expect(await authenticateApiKey(req('Bearer nxz_live_good'))).toMatchObject({ ok: false, status: 402 })
   })
 })

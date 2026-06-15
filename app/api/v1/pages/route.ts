@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '../../../../utils/supabase/admin'
 import { authenticateApiKey } from '../../../../lib/server/api-auth'
 import { PUBLIC_PAGE_SELECT, getBaseUrl, normalizeSlug } from '../../../../lib/agent-page'
-import { pickWritablePageFields } from '../../../../lib/api-pages'
+import { pickWritablePageFields, wantsCustomDomain } from '../../../../lib/api-pages'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
-import { getOwnerPlanId } from '../../../../lib/server/plan'
+import { getOwnerPlanId, ownerAllows } from '../../../../lib/server/plan'
 import { getPlanLimits } from '../../../../lib/billing'
 
 /** True when publishing one more page would exceed the owner's plan page limit. */
@@ -72,6 +72,15 @@ export async function POST(request: Request) {
     slug,
     owner_id: auth.ownerId,
     is_published: body.is_published === true, // explicit opt-in; default draft
+  }
+
+  // Plan gate: attaching a custom domain is a Launch+ (`customDomain`) capability.
+  // Only reads billing when a domain is actually being set (default pages skip it).
+  if (wantsCustomDomain(insert) && !(await ownerAllows(admin, auth.ownerId, 'customDomain'))) {
+    return NextResponse.json(
+      { error: 'Custom domains are available on the Launch plan and up. Upgrade to attach a domain.' },
+      { status: 402 },
+    )
   }
 
   // Plan gate: enforce the published-page limit before creating a published page.

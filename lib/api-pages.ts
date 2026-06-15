@@ -27,3 +27,13 @@ export function pickWritablePageFields(body: Record<string, unknown>): Record<st
   }
   return out
 }
+
+/**
+ * True when a write is trying to SET a non-empty custom domain / domain path
+ * (attaching a domain is the `customDomain` Launch+ capability). Clearing it
+ * (empty string / null) is always allowed so a downgraded owner can detach.
+ */
+export function wantsCustomDomain(fields: Record<string, unknown>): boolean {
+  const nonEmpty = (v: unknown) => typeof v === 'string' && v.trim() !== ''
+  return nonEmpty(fields.custom_domain) || nonEmpty(fields.domain_path)
+}

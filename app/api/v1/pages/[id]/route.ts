@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '../../../../../utils/supabase/admin'
 import { authenticateApiKey } from '../../../../../lib/server/api-auth'
 import { PUBLIC_PAGE_SELECT, getBaseUrl, normalizeSlug } from '../../../../../lib/agent-page'
-import { pickWritablePageFields } from '../../../../../lib/api-pages'
-import { getOwnerPlanId } from '../../../../../lib/server/plan'
+import { pickWritablePageFields, wantsCustomDomain } from '../../../../../lib/api-pages'
+import { getOwnerPlanId, ownerAllows } from '../../../../../lib/server/plan'
 import { getPlanLimits } from '../../../../../lib/billing'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -43,6 +43,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const admin = createAdminClient()
+
+  // Plan gate: attaching a custom domain is a Launch+ (`customDomain`) capability.
+  // Clearing it stays open so a downgraded owner can still detach.
+  if (wantsCustomDomain(update) && !(await ownerAllows(admin, auth.ownerId, 'customDomain'))) {
+    return NextResponse.json(
+      { error: 'Custom domains are available on the Launch plan and up. Upgrade to attach a domain.' },
+      { status: 402 },
+    )
+  }
 
   // Plan gate: only when flipping a draft → published (editing an already-published
   // page is unrestricted). Count of currently-published pages vs the plan limit.

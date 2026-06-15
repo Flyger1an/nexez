@@ -1,6 +1,7 @@
 import 'server-only'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 import { hashApiKey, parseBearer } from '../api-keys'
+import { ownerAllows } from './plan'
 
 export type ApiAuthOk = { ok: true; ownerId: string; keyId: string }
 export type ApiAuthErr = { ok: false; error: string; status: number }
@@ -38,6 +39,14 @@ export async function authenticateApiKey(request: Request): Promise<ApiAuthResul
   }
   if (data.revoked_at) {
     return { ok: false, error: 'This API key has been revoked.', status: 401 }
+  }
+
+  // Plan gate: programmatic API access is a Pro (`apiAccess`) capability, re-checked
+  // on EVERY request. Keys aren't auto-revoked on downgrade, so a key minted on Pro
+  // must stop working once the owner drops below Pro (the only enforcement otherwise
+  // was at mint time — gating-review HIGH).
+  if (!(await ownerAllows(admin, data.owner_id, 'apiAccess'))) {
+    return { ok: false, error: 'API access requires the Pro plan. Upgrade to use the API.', status: 402 }
   }
 
   // Best-effort usage tracking; never blocks the request.
