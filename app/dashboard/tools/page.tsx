@@ -6,6 +6,8 @@ import { ErrorBoundary } from '../../../components/ErrorBoundary'
 import { ApiKeysManager } from '../../../components/ApiKeysManager'
 import { StripeImporter, ShopifyImporter, AcuityImporter, SquareImporter } from '../../../components/tools/Importers'
 import { CalendlyTool } from '../../../components/tools/CalendlyTool'
+import { PlanGate } from '../../../components/billing/PlanGate'
+import { usePlan } from '../../../components/billing/PlanProvider'
 
 type OutboundWebhook = {
   id: string
@@ -18,6 +20,7 @@ type OutboundWebhook = {
 }
 
 export default function ToolsPage() {
+  const plan = usePlan()
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<any>(null)
@@ -125,7 +128,15 @@ export default function ToolsPage() {
         Public APIs and agent endpoints, plus revenue share on agent-driven sales.
       </p>
       <div className="mt-4">
-        <ApiKeysManager />
+        <PlanGate
+          feature="apiAccess"
+          currentPlan={plan}
+          variant="tile"
+          title="API access & keys"
+          description="Mint API keys and manage your agent pages programmatically via the REST API. Available on the Pro plan and up."
+        >
+          <ApiKeysManager />
+        </PlanGate>
       </div>
       <div className="mt-4 text-sm space-y-1.5">
         <div className="text-zinc-300">Revenue share: {revenueShare}% on agent-driven transactions.</div>
@@ -289,10 +300,18 @@ export default function ToolsPage() {
             </div>
           </div>
           <div className="p-6 pt-4 [&>div:first-child]:mt-0 [&>div:first-child]:border-t-0 [&>div:first-child]:pt-0">
-            <StripeImporter />
-            <ShopifyImporter />
-            <SquareImporter />
-            <AcuityImporter />
+            <PlanGate
+              feature="integrations"
+              currentPlan={plan}
+              variant="tile"
+              title="Connect your tools"
+              description="Import offers from Stripe, Shopify, Square, and Acuity — and keep them synced. Available on the Pro plan and up."
+            >
+              <StripeImporter />
+              <ShopifyImporter />
+              <SquareImporter />
+              <AcuityImporter />
+            </PlanGate>
           </div>
         </div>
 
@@ -319,6 +338,13 @@ export default function ToolsPage() {
               server-side, signed with HMAC-SHA256 (header <code className="text-[var(--ready)]">X-Nexez-Signature: t=…,v1=…</code>).
             </p>
 
+            <PlanGate
+              feature="outboundWebhooks"
+              currentPlan={plan}
+              variant="inline"
+              title="Outbound webhooks"
+              description="deliver signed booking & checkout events to Zapier, Make, or your own URL. Pro plan and up."
+            >
             <div className="flex gap-2">
               <input
                 type="url"
@@ -388,6 +414,7 @@ export default function ToolsPage() {
             ) : (
               <p className="mt-3 text-[11px] text-zinc-500">No webhooks yet — add a URL to start receiving signed events.</p>
             )}
+            </PlanGate>
           </div>
         </div>
 
