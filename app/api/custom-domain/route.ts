@@ -9,7 +9,8 @@ import {
   removeDomainFromProject,
   type VercelDomainStatus,
 } from '../../../lib/vercel-domains'
-import { ownerAllows } from '../../../lib/server/plan'
+import { getOwnerPlanId } from '../../../lib/server/plan'
+import { getPlanLimits, planAllows } from '../../../lib/billing'
 
 /**
  * A2 — Custom domain provisioning (owner-authed).
@@ -72,10 +73,35 @@ export async function POST(request: Request) {
     )
   }
 
-  // Plan gate: attaching a NEW custom domain requires Launch+. Status checks and
-  // removal stay open so a downgraded owner can still inspect/detach their domain.
-  if (action === 'attach' && !(await ownerAllows(supabase, user.id, 'customDomain'))) {
-    return NextResponse.json({ error: 'Custom domains are available on the Launch plan and up.', upgrade: 'launch' }, { status: 402 })
+  // Plan gate: attaching a NEW custom domain requires Launch+ AND must stay within
+  // the plan's customDomains count. Status checks and removal stay open so a
+  // downgraded owner can still inspect/detach. (Free is already blocked by the
+  // boolean; the count caps Launch=1 / Pro=5 / Scale=25 / Enterprise=∞.)
+  if (action === 'attach') {
+    const planId = await getOwnerPlanId(supabase, user.id)
+    if (!planAllows(planId, 'customDomain')) {
+      return NextResponse.json({ error: 'Custom domains are available on the Launch plan and up.', upgrade: 'launch' }, { status: 402 })
+    }
+    const limit = getPlanLimits(planId).customDomains
+    if (Number.isFinite(limit)) {
+      const { data: owned } = await supabase
+        .from('pages')
+        .select('custom_domain')
+        .eq('owner_id', user.id)
+        .not('custom_domain', 'is', null)
+        .neq('custom_domain', domain)
+        .returns<Array<{ custom_domain: string | null }>>()
+      const distinct = new Set((owned ?? []).map((p) => p.custom_domain).filter(Boolean) as string[])
+      if (distinct.size >= limit) {
+        return NextResponse.json(
+          {
+            error: `Your plan includes ${limit} custom domain${limit === 1 ? '' : 's'}. Upgrade to connect more.`,
+            upgrade: 'pro',
+          },
+          { status: 402 },
+        )
+      }
+    }
   }
 
   const providerConfigured = isVercelDomainConfigured()
