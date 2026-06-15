@@ -108,26 +108,22 @@ export default function PricingPage() {
             </p>
           </div>
 
-          <div className="mt-10 grid gap-6 md:grid-cols-3">
-            <div className="glass rounded-2xl p-6">
-              <div className="text-sm font-medium" style={{ color: 'var(--ready)' }}>Free / Launch</div>
-              <div className="mt-2 text-4xl font-semibold">15%</div>
-              <p className="mt-2 text-sm text-[#9CA3AF]">Platform fee on every completed booking or payment.</p>
-              <div className="mt-4 text-xs text-zinc-500">Example: $100 booking → $15 to Nexez, $85 to you.</div>
-            </div>
-            <div className="glass rounded-2xl p-6">
-              <div className="text-sm font-medium" style={{ color: 'var(--ready)' }}>Pro</div>
-              <div className="mt-2 text-4xl font-semibold">10%</div>
-              <p className="mt-2 text-sm text-[#9CA3AF]">Lower rate as you scale. Includes priority support for payments.</p>
-              <div className="mt-4 text-xs text-zinc-500">Example: $100 booking → $10 to Nexez, $90 to you.</div>
-            </div>
-            <div className="glass rounded-2xl p-6">
-              <div className="text-sm font-medium" style={{ color: 'var(--ready)' }}>Scale / Enterprise</div>
-              <div className="mt-2 text-4xl font-semibold">6% — 8%</div>
-              <p className="mt-2 text-sm text-[#9CA3AF]">Volume-based. Custom rates available for Enterprise.</p>
-              <div className="mt-4 text-xs text-zinc-500">Negotiated per agreement. Contact sales for details.</div>
-            </div>
+          {/* Commission ladder — rendered from the billing catalog (single source
+              of truth) so the advertised rate always matches what's actually charged. */}
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {billingPlans.map((plan) => (
+              <div key={plan.id} className="glass rounded-2xl p-5">
+                <div className="text-sm font-medium" style={{ color: 'var(--ready)' }}>{plan.name}</div>
+                <div className="mt-2 text-3xl font-semibold">{plan.commissionPercent}%</div>
+                <p className="mt-2 text-xs text-[#9CA3AF]">
+                  {plan.id === 'free'
+                    ? 'On every completed booking or payment — no subscription.'
+                    : `$100 booking → $${plan.commissionPercent} to Nexez, $${100 - plan.commissionPercent} to you.`}
+                </p>
+              </div>
+            ))}
           </div>
+          <p className="mt-4 text-center text-xs text-zinc-500">The transaction fee steps down as your plan goes up — higher tiers keep more of every sale.</p>
 
           <p className="mt-8 text-center text-xs text-[#9CA3AF]">
             Fees are automatically deducted at payout. Full transparency in your Billing History.

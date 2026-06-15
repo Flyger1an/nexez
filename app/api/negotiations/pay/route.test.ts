@@ -70,7 +70,7 @@ describe('POST /api/negotiations/pay', () => {
       status: 'open',
       amount_total: 90000,
       currency: 'usd',
-      metadata: { nexez_payment_fingerprint: '90000:usd:auto:acct_1:7200' },
+      metadata: { nexez_payment_fingerprint: '90000:usd:auto:acct_1:5400' },
     }))
   })
   afterEach(() => vi.unstubAllEnvs())
@@ -107,10 +107,10 @@ describe('POST /api/negotiations/pay', () => {
     expect(params.payment_intent_data.capture_method).toBe('automatic')
     expect(params.metadata.nexez_settlement).toBe('auto')
     expect(params.metadata.nexez_negotiation_id).toBe('n1')
-    // 8% Pro commission on $900 = $72
-    expect(params.payment_intent_data.application_fee_amount).toBe(7200)
+    // 6% Pro commission on $900 = $54
+    expect(params.payment_intent_data.application_fee_amount).toBe(5400)
     expect(opts.stripeAccount).toBe('acct_1')
-    expect(opts.idempotencyKey).toBe('escrow-n1-90000:usd:auto:acct_1:7200')
+    expect(opts.idempotencyKey).toBe('escrow-n1-90000:usd:auto:acct_1:5400')
   })
 
   it('approved (high value): manual-capture hold, metadata "hold"', async () => {

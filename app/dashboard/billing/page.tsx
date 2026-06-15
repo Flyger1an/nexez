@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { AgentPage, OWNER_PAGE_SELECT, getOfferCount } from '../../../lib/agent-page'
-import { billingPlans, getStripeBillingReadiness } from '../../../lib/billing'
+import { billingPlans, getPlanLimits, getStripeBillingReadiness } from '../../../lib/billing'
 import { BillingSubscription } from '../../../lib/stripe-billing'
 import { createClient } from '../../../utils/supabase/server'
 
@@ -51,8 +51,10 @@ export default async function BillingPage({ searchParams }: BillingProps) {
   const activePlan = billingPlans.find((plan) => plan.id === billingState?.plan_id)
 
   // Rich usage data passed to the tabbed client (real numbers where possible, illustrative placeholders for the rest)
-  const pageLimit =
-    activePlan?.id === 'free' ? 1 : activePlan?.id === 'launch' ? 3 : activePlan?.id === 'pro' ? 25 : activePlan?.id === 'enterprise' ? 999 : 50
+  // Page limit comes from the billing catalog (single source of truth); 999 is the
+  // client's "unlimited" sentinel, so map the catalog's Infinity onto it.
+  const planPageLimit = getPlanLimits(activePlan?.id).pages
+  const pageLimit = Number.isFinite(planPageLimit) ? planPageLimit : 999
 
   const usage = {
     pages: {
