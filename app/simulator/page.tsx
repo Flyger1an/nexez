@@ -31,6 +31,7 @@ import {
   type AgentSuccessReport,
   type AgentVerdict,
 } from '../../lib/agent-simulator'
+import { analyzeQueryRank, type QueryRankAnalysis } from '../../lib/agent-search'
 import {
   SimulationHistoryEntry,
   buildSimulationHistoryEntry,
@@ -55,6 +56,7 @@ export default function GlobalAgentSimulator() {
   const [simulationResults, setSimulationResults] = useState<any[]>([])
   const [recommendations, setRecommendations] = useState<string[]>([])
   const [successReport, setSuccessReport] = useState<AgentSuccessReport | null>(null)
+  const [rankAnalysis, setRankAnalysis] = useState<QueryRankAnalysis | null>(null)
   const [history, setHistory] = useState<SimulationHistoryEntry[]>([])
   const [historyQuery, setHistoryQuery] = useState('')
   const [message, setMessage] = useState('')
@@ -144,12 +146,32 @@ export default function GlobalAgentSimulator() {
     return fallback.data || null
   }
 
+  // Rank `page` against the live published field for `q`, using the same
+  // relevance+readiness ranking /api/agent-search applies. Best-effort: on any
+  // read failure the panel simply doesn't render.
+  async function computeRankAnalysis(page: AgentPage, q: string) {
+    try {
+      const { data, error } = await supabase
+        .from('pages_public')
+        .select(PUBLIC_PAGE_SELECT)
+        .eq('is_published', true)
+        .order('created_at', { ascending: false })
+        .limit(100)
+        .returns<AgentPage[]>()
+      const field = error ? [] : data ?? []
+      setRankAnalysis(analyzeQueryRank(field, page, q))
+    } catch {
+      setRankAnalysis(null)
+    }
+  }
+
   async function runSimulationForPage(page: AgentPage, nextQuery = query) {
     setLoading(true)
     setMessage('')
     setSimulationResults([])
     setRecommendations([])
     setSuccessReport(null)
+    setRankAnalysis(null)
 
     try {
       const effectiveQuery = nextQuery.trim() || buildDefaultAgentQuery(page)
@@ -158,6 +180,10 @@ export default function GlobalAgentSimulator() {
       setSimulationResults(finalResults)
       setRecommendations(getRecommendations(page))
       setSuccessReport(multi.success)
+      // Win-the-query: rank this page against the live published field for the
+      // same query (read pages_public directly, like loadPageBySlug, so it works
+      // same-origin on both the marketing and app hosts).
+      void computeRankAnalysis(page, effectiveQuery)
       if (effectiveQuery !== query) setQuery(effectiveQuery)
 
       // Deeper LLM responses via new route if LLM configured and page llm_opt_in or global
@@ -346,7 +372,10 @@ export default function GlobalAgentSimulator() {
     if (h.result && h.result.results) {
       setSimulationResults(h.result.results)
       setRecommendations(h.result.recommendations || getRecommendations(selectedPage!))
-      if (selectedPage) setSuccessReport(gradeAgentSuccess(selectedPage, h.query || query))
+      if (selectedPage) {
+        setSuccessReport(gradeAgentSuccess(selectedPage, h.query || query))
+        void computeRankAnalysis(selectedPage, h.query || query)
+      }
       setQuery(h.query || query)
       setMessage(`Loaded historical analysis from ${new Date(h.timestamp).toLocaleString()}.`)
     } else if (h.result) {
@@ -564,6 +593,8 @@ export default function GlobalAgentSimulator() {
                 </div>
               )}
 
+              {rankAnalysis && <WinQueryPanel a={rankAnalysis} query={query} />}
+
               <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
                 <HistoryStat label="Saved runs" value={String(historyStats.totalRuns)} />
                 <HistoryStat label="Latest readiness" value={`${historyStats.latestReadiness || getReadinessScore(selectedPage)}%`} />
@@ -706,6 +737,76 @@ function ScoreDial({ score, verdict }: { score: number; verdict: AgentSuccessRep
         <div className="text-xs text-zinc-500">/ 100</div>
         <div className={`text-sm font-medium ${tone}`}>{label}</div>
       </div>
+    </div>
+  )
+}
+
+function WinQueryPanel({ a, query }: { a: QueryRankAnalysis; query: string }) {
+  const tone = !a.matched ? 'text-[var(--amber)]' : a.rank === 1 ? 'text-[var(--ready)]' : a.rank <= 3 ? 'text-[var(--signal)]' : 'text-[var(--amber)]'
+  return (
+    <div className="card mt-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-[2px] text-[#9CA3AF]">Win the Query</p>
+          <h3 className="text-xl font-semibold">When an agent searches Nexez for this, where do you land?</h3>
+          <p className="mt-1 max-w-xl text-sm text-zinc-400">
+            Query: <span className="text-zinc-200">“{query}”</span>
+            {!a.published && <span className="ml-1 text-[var(--amber)]">· projected (unpublished)</span>}
+          </p>
+        </div>
+        <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#12101B] px-5 py-3">
+          {a.matched ? (
+            <>
+              <div className={`text-4xl font-semibold tabular-nums ${tone}`}>#{a.rank}</div>
+              <div className="leading-tight">
+                <div className="text-xs text-zinc-500">of {a.field} competing</div>
+                <div className={`text-sm font-medium ${tone}`}>{a.rank === 1 ? 'Top result' : 'Ranked'}</div>
+              </div>
+            </>
+          ) : (
+            <div className="leading-tight">
+              <div className={`text-lg font-semibold ${tone}`}>Not surfacing</div>
+              <div className="text-xs text-zinc-500">for this query</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {a.competitorsAbove.length > 0 && (
+        <div className="mt-5">
+          <p className="text-[11px] uppercase tracking-wide text-zinc-500">Who beats you, and why</p>
+          <div className="mt-2 space-y-2">
+            {a.competitorsAbove.map((c, i) => (
+              <div key={c.slug} className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-sm font-medium text-zinc-200">
+                    <span className="text-zinc-500">#{i + 1}</span> {c.name}
+                  </p>
+                  <span className="shrink-0 text-[11px] text-zinc-500">readiness {c.readiness}%</span>
+                </div>
+                <ul className="mt-1 space-y-0.5">
+                  {c.reasons.map((r, j) => (
+                    <li key={j} className="text-xs text-zinc-400">• {r}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {a.toWin.length > 0 && (
+        <div className="mt-5">
+          <p className="text-[11px] uppercase tracking-wide text-[var(--ready)]">How to win</p>
+          <ul className="mt-1 space-y-1">
+            {a.toWin.map((t, i) => (
+              <li key={i} className="flex gap-2 text-sm text-zinc-300">
+                <ArrowRight className="mt-0.5 size-3.5 shrink-0 text-[var(--ready)]" /> <span>{t}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }
