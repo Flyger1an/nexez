@@ -19,6 +19,7 @@ import {
   Search,
   Settings,
   Sparkles,
+  Wallet,
   Wrench,
 } from 'lucide-react'
 import { createClient } from '../utils/supabase/client'
@@ -51,6 +52,7 @@ const navItems = [
   { href: '/simulator', label: 'Agent Lab', icon: Bot, mobile: true },
   { href: '/discovery', label: 'Discovery', icon: Compass, match: ['/discovery', '/leaderboard'] },
   { href: '/dashboard/negotiations', label: 'Negotiations', icon: Handshake },
+  { href: '/dashboard/finance', label: 'Finance', icon: Wallet, mobile: true },
   { href: '/dashboard/integrations', label: 'Integrations', icon: Link2 },
   { href: '/dashboard/tools', label: 'Tools', icon: Wrench },
   { href: '/dashboard/billing', label: 'Billing', icon: CreditCard },
