@@ -4,6 +4,7 @@ import { analyzeSite } from '../../../../lib/importer'
 import { isLlmConfigured, llmComplete } from '../../../../lib/llm'
 import { captureError } from '../../../../lib/observability'
 import { createClient } from '../../../../utils/supabase/server'
+import { ownerAllows } from '../../../../lib/server/plan'
 
 // Multi-page crawl (+ optional LLM extraction); allow headroom.
 export const maxDuration = 45
@@ -50,11 +51,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Website URL is required' }, { status: 400 })
   }
 
+  // LLM-assisted extraction + the auto agent-memory suggestion are `aiFeatures`
+  // (Launch+). Below that, run the deterministic crawl only (still a real,
+  // structured import) so Free users keep a working importer without the paid LLM.
+  const aiAllowed = await ownerAllows(supabase, user.id, 'aiFeatures')
+  const llmEnabled = isLlmConfigured() && aiAllowed
+
   // Phase 5 robustness: overall timeout guard so importer never hangs the request (per-fetch already timeout'd).
   // The deterministic crawl finishes well inside 14s, but the guided AI path can
   // add up to two ~12s model calls — give it headroom under maxDuration (45s)
   // so the race doesn't clip LLM-assisted imports.
-  const OVERALL_TIMEOUT_MS = isLlmConfigured() ? 40_000 : 14_000
+  const OVERALL_TIMEOUT_MS = llmEnabled ? 40_000 : 14_000
   const timeout = new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Analysis timed out. Partial results may be available on retry or try a simpler URL.')), OVERALL_TIMEOUT_MS))
 
   try {
@@ -76,12 +83,12 @@ export async function POST(request: Request) {
               }))
               .filter((item) => item.question && item.answer)
           : null,
-      }),
+      }, { skipLlm: !aiAllowed }),
       timeout,
     ])
 
     let autoMemorySuggestion = null
-    if (isLlmConfigured()) {
+    if (llmEnabled) {
       try {
         const memPrompt = `From this imported site data, generate 2-3 concise agent memory notes (buyer prefs, restrictions, key facts). Data: ${result.description} Offers: ${result.servicesText}`
         autoMemorySuggestion = await llmComplete(memPrompt, { maxTokens: 80 }) || null

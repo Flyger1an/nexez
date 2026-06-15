@@ -1698,18 +1698,24 @@ export default function PageSettings({ params }: PageProps) {
                   type="button"
                   onClick={async () => {
                     if (!page) return
-                    const supabase = createClient()
-                    // Advanced: Use the platform's configured LLM to suggest rich memory context from page data
+                    // Server-side, gated AI suggestion (auth + aiFeatures + llm_opt_in).
                     try {
-                      const { llmComplete } = await import('../../../../lib/llm')
-                      const pageData = `Name: ${page.name}. Description: ${page.description || ''}. Offers: ${JSON.stringify((page as any).services || (page as any).products || [])}. Audience: ${page.audience || ''}`
-                      const suggestion = await llmComplete(`From this page data, generate 2-4 concise persistent memory notes for AI agents (e.g. buyer prefs, restrictions, key facts to always mention). One per line, factual only. Data: ${pageData}`, { maxTokens: 150 })
-                      if (suggestion) {
-                        setMemoryNotes(suggestion.trim())
+                      const res = await fetch('/api/ai/suggest', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ pageId: page.id, kind: 'memory' }),
+                      })
+                      const data = await res.json()
+                      if (!res.ok) {
+                        setMessage(data.error || 'AI suggestion is unavailable right now.')
+                        return
+                      }
+                      if (data.suggestion) {
+                        setMemoryNotes(String(data.suggestion).trim())
                         setMessage('AI suggested memory notes. Edit and save when ready.')
                       }
-                    } catch (e) {
-                      setMessage('LLM suggestion failed (falling back to manual).')
+                    } catch {
+                      setMessage('AI suggestion failed (falling back to manual).')
                     }
                   }}
                   className="mt-2 ml-2 text-xs rounded border border-white/20 px-3 py-1 hover:bg-white/5"
@@ -1768,11 +1774,18 @@ export default function PageSettings({ params }: PageProps) {
                     const supabase = createClient()
                     const current = (page as any).team_collaboration || { approvals: [] }
                     let note = 'Offer pricing/structure update'
-                    // Advanced: Use the platform's configured LLM to suggest professional approval note
+                    // Server-side, gated AI suggestion. On any gate/error keep the
+                    // sensible default note (this is an optional enhancement).
                     try {
-                      const { llmComplete } = await import('../../../../lib/llm')
-                      const sug = await llmComplete(`Suggest a short professional approval request note for a business offer update on "${(page as any).name || 'the page'}". Keep under 60 chars, factual.`, { maxTokens: 30 })
-                      if (sug) note = sug.trim().slice(0, 80)
+                      const res = await fetch('/api/ai/suggest', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ pageId: page.id, kind: 'approval-note' }),
+                      })
+                      if (res.ok) {
+                        const data = await res.json()
+                        if (data.suggestion) note = String(data.suggestion).trim().slice(0, 80)
+                      }
                     } catch {}
                     const newApproval = {
                       id: Date.now().toString(),

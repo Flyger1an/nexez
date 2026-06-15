@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { isLlmConfigured, llmComplete } from '../../../lib/llm'
 import { getTrustScore } from '../../../lib/agent-page'
 import { createClient } from '../../../utils/supabase/server'
+import { ownerAllows } from '../../../lib/server/plan'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 
 export async function POST(request: Request) {
@@ -27,11 +28,15 @@ export async function POST(request: Request) {
     const score = getTrustScore(page, events || [])
     const verification = (page as any).verification_details || {}
 
-    if (!isLlmConfigured()) {
+    // The LLM-written report is an `aiFeatures` (Launch+) capability. Below that,
+    // fall back to the deterministic score-only report (same fail-soft shape as
+    // the no-LLM branch) so the feature still returns something useful.
+    const aiAllowed = await ownerAllows(supabase, user.id, 'aiFeatures')
+    if (!isLlmConfigured() || !aiAllowed) {
       return NextResponse.json({
         success: true,
         score,
-        report: `Trust Score: ${score}/100. Based on readiness (${Math.round(score * 0.6)} base), verification signals, and events. Configure LLM for advanced report.`,
+        report: `Trust Score: ${score}/100. Based on readiness (${Math.round(score * 0.6)} base), verification signals, and events.${aiAllowed ? ' Configure LLM for advanced report.' : ' Upgrade to Launch for an AI-written trust report.'}`,
         llmEnhanced: false,
       })
     }
