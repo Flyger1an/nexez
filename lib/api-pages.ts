@@ -1,3 +1,5 @@
+import { normalizeCurrency } from './currency'
+
 // Shared field whitelist for the programmatic page API (single source for both
 // the collection and item routes).
 export const WRITABLE_PAGE_FIELDS = [
@@ -26,6 +28,8 @@ export function pickWritablePageFields(body: Record<string, unknown>): Record<st
   for (const key of WRITABLE_PAGE_FIELDS) {
     if (body[key] !== undefined) out[key] = body[key]
   }
+  // Persist only a supported, normalized currency code (never a raw/invalid value).
+  if (out.currency !== undefined) out.currency = normalizeCurrency(out.currency as string)
   return out
 }
 

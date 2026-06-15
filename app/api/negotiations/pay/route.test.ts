@@ -124,6 +124,14 @@ describe('POST /api/negotiations/pay', () => {
     expect(params.payment_intent_data.application_fee_amount).toBe(13500)
   })
 
+  it('409 owner_not_connected when the seller has no Stripe Connect account (no platform-account charge)', async () => {
+    db(NEG, { plan_id: 'pro', status: 'active', stripe_connect_account_id: null })
+    const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))
+    expect(res.status).toBe(409)
+    expect((await res.json()).code).toBe('owner_not_connected')
+    expect(stripeRef.create).not.toHaveBeenCalled()
+  })
+
   it('approved (high value): manual-capture hold, metadata "hold"', async () => {
     db({ ...NEG, settlement_state: 'approved', amount_cents: 500000 })
     const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))

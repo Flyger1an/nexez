@@ -36,11 +36,12 @@ import {
   analyticsRangeBounds,
   clampHistoryRange,
   getRevenueCents,
+  getRevenueCurrency,
   getAgentDrivenRevenueCents,
   getSignalLabel,
   getTopOfferStats,
 } from '../../../lib/analytics'
-import { formatUsdCents } from '../../../lib/checkout'
+import { formatCurrencyAmount } from '../../../lib/currency'
 import { rollupAbResults } from '../../../lib/ab-testing'
 import { AgentNegotiation, summarizeNegotiations } from '../../../lib/negotiations'
 import { getTopQueries, getTopReferrers, getUnservedQueries } from '../../../lib/demand-insights'
@@ -209,6 +210,10 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const agentRevenueCents = getAgentDrivenRevenueCents(filteredEvents)
   const agentSharePct = 15 // platform share on agent-driven transactions
   const agentShareCents = Math.round(agentRevenueCents * (agentSharePct / 100))
+  // Format revenue in the workspace's actual settlement currency (recorded on
+  // checkout events) — correct incl. zero-decimal currencies, not hardcoded USD.
+  const revenueCurrency = getRevenueCurrency(filteredEvents)
+  const money = (cents: number) => formatCurrencyAmount(cents, revenueCurrency)
   const popularService = getTopOfferStats(filteredEvents)[0]?.name || 'No offer activity yet'
   const dailySeries = mergeVisitCountsIntoDailySeries(getDailyEventSeries(filteredEvents, 10), filteredAgentVisits)
   const discoveryActions = getDiscoveryActionStats(filteredEvents)
@@ -487,8 +492,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           <Kpi title="Discovery Clicks" value={discoveryClicks.toLocaleString()} note="Directory + Marketplace clickthroughs" />
           <Kpi title="Conversion Rate" value={`${conversionRate}%`} note={`${conversionCount} conversions`} />
           <Kpi title="Most Active Offer" value={popularService} note={`${offerCount || 0} offers listed`} />
-          <Kpi title="Tracked Revenue" value={formatUsdCents(revenueCents)} note={`${formatUsdCents(pipelineCents)} pipeline`} tone="strong" />
-          <Kpi title="Agent-Driven Revenue" value={formatUsdCents(agentRevenueCents)} note={`${agentSharePct}% estimated platform share = ${formatUsdCents(agentShareCents)}`} />
+          <Kpi title="Tracked Revenue" value={money(revenueCents)} note={`${money(pipelineCents)} pipeline`} tone="strong" />
+          <Kpi title="Agent-Driven Revenue" value={money(agentRevenueCents)} note={`${agentSharePct}% estimated platform share = ${money(agentShareCents)}`} />
           <Kpi
             title="Negotiations"
             value={negotiationSummary.total.toLocaleString()}

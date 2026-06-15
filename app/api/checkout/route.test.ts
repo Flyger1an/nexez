@@ -85,6 +85,21 @@ describe('POST /api/checkout — Smart Rules calendar protection', () => {
     expect((await res.json()).error).toMatch(/blackout/i)
   })
 
+  it('never charges the platform account when the seller has no Connect — routes to the external link', async () => {
+    // Stripe key IS set and admin env is available, the offer has a price, but the
+    // owner has no Connect account (billing_subscriptions returns null). The charge
+    // must NOT run on the platform account; it falls back to the external link.
+    const { hasSupabaseAdminEnv } = await import('../../../utils/supabase/admin')
+    vi.mocked(hasSupabaseAdminEnv).mockReturnValue(true)
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_x')
+    adminRef.handler = (c: QueryContext) =>
+      c.table === 'pages' ? { data: fixedPage(), error: null } : { data: null, error: null, count: 0 }
+    const res = await POST(post({ slug: 'demo', offer: 'services-0' }))
+    expect(res.status).toBe(200)
+    expect((await res.json()).url).toBe('https://book.example.com/deep-clean')
+    vi.unstubAllEnvs()
+  })
+
   it('offers without rules are unaffected (no admin involvement on a no-service-role deploy)', async () => {
     const { hasSupabaseAdminEnv, createAdminClient } = await import('../../../utils/supabase/admin')
     vi.mocked(hasSupabaseAdminEnv).mockReturnValue(false)

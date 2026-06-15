@@ -64,6 +64,11 @@ export function toStripeAmount(amount: number, currency: string): number {
   return isZeroDecimalCurrency(currency) ? Math.round(amount) : Math.round(amount * 100)
 }
 
+/** Convert a Stripe smallest-unit amount back to the human (major) amount. */
+export function toMajorAmount(smallestUnitAmount: number, currency: string): number {
+  return isZeroDecimalCurrency(normalizeCurrency(currency)) ? smallestUnitAmount : smallestUnitAmount / 100
+}
+
 /** Format a smallest-unit amount + currency for display (locale-aware). */
 export function formatCurrencyAmount(smallestUnitAmount: number, currency: string): string {
   const code = normalizeCurrency(currency)

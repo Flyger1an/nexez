@@ -260,6 +260,30 @@ export function formatEventDate(value: string) {
   })
 }
 
+/**
+ * Dominant settlement currency across the revenue events (from metadata.currency,
+ * recorded by the checkout route), defaulting to usd. Lets the dashboard format
+ * revenue in the workspace's actual currency — correct, incl. zero-decimal, for a
+ * single-currency workspace (the common case). Mixed-currency totals are summed in
+ * smallest units and only approximate; a full per-currency breakdown is a follow-up.
+ */
+export function getRevenueCurrency(events: CheckoutEvent[]): string {
+  const counts = new Map<string, number>()
+  for (const event of events) {
+    const code = (event.metadata?.currency as string | undefined)?.toLowerCase()
+    if (code) counts.set(code, (counts.get(code) ?? 0) + 1)
+  }
+  let best = 'usd'
+  let bestN = 0
+  for (const [code, n] of counts) {
+    if (n > bestN) {
+      best = code
+      bestN = n
+    }
+  }
+  return best
+}
+
 export function getAmountCents(event: CheckoutEvent) {
   const amount = event.metadata?.amount_cents
 

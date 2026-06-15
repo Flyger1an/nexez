@@ -23,7 +23,8 @@ import {
   getOfferDestination,
   getRequestBaseUrl,
 } from '../../../lib/agent-page'
-import { formatUsdCents, parseMoneyCents } from '../../../lib/checkout'
+import { parseMoney } from '../../../lib/checkout'
+import { normalizeCurrency, toStripeAmount, formatCurrencyAmount, toMajorAmount } from '../../../lib/currency'
 import { logCheckoutEvent } from '../../../lib/server/log-checkout-event'
 import { safeJsonScript } from '../../../lib/safe-json'
 import { supabase } from '../../../lib/supabase'
@@ -84,9 +85,13 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
   const baseUrl = getRequestBaseUrl(requestHeaders)
   const checkoutUrl = `${baseUrl}/checkout/${page.slug}?offer=${offerKey}`
   const publicUrl = `${baseUrl}/${page.slug}`
-  const priceCents = parseMoneyCents(offer.price)
-  const displayPrice = priceCents ? formatUsdCents(priceCents) : offer.price || 'Custom quote'
-  const jsonLd = buildCheckoutJsonLd(page, offer, checkoutUrl, destination, priceCents, baseUrl)
+  // Show the buyer the SAME currency + amount the charge will use (the page's
+  // settlement currency), not a hardcoded USD — otherwise the displayed price
+  // silently mismatches what Stripe charges.
+  const currency = normalizeCurrency(page.currency)
+  const priceCents = toStripeAmount(parseMoney(offer.price) ?? 0, currency) || null
+  const displayPrice = priceCents ? formatCurrencyAmount(priceCents, currency) : offer.price || 'Custom quote'
+  const jsonLd = buildCheckoutJsonLd(page, offer, checkoutUrl, destination, priceCents, baseUrl, currency)
   const canContinue = Boolean(priceCents || destination)
   const missingCheckout = Boolean(search.missing_checkout)
 
@@ -342,6 +347,7 @@ function buildCheckoutJsonLd(
   destination: string,
   priceCents: number | null,
   baseUrl: string,
+  currency: string,
 ) {
   return {
     '@context': 'https://schema.org',
@@ -357,8 +363,8 @@ function buildCheckoutJsonLd(
       '@type': 'Offer',
       name: offer.name,
       description: offer.description || undefined,
-      price: priceCents ? priceCents / 100 : undefined,
-      priceCurrency: priceCents ? 'USD' : undefined,
+      price: priceCents ? toMajorAmount(priceCents, currency) : undefined,
+      priceCurrency: priceCents ? currency.toUpperCase() : undefined,
       url: checkoutUrl,
       seller: {
         '@type': 'Organization',

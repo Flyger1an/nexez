@@ -120,27 +120,15 @@ export async function POST(request: Request) {
     },
   })
 
-  if (input.dryRun) {
-    return NextResponse.json({
-      ok: true,
-      provider: getDryRunProvider(destination, amountCents),
-      checkoutUrl,
-      actionUrl: destination || null,
-      stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
-      events: {
-        checkoutAttemptLogged: attemptLog.ok,
-      },
-    })
-  }
-
-  // Resolve the owner's plan + Connect account UP FRONT. A card charge only ever
-  // runs through the owner's Connect account (owner is merchant of record; Nexez
-  // takes the plan commission as an application fee). We deliberately do NOT charge
-  // into the PLATFORM account for a seller who hasn't connected Stripe — they
-  // couldn't receive the funds and it creates a payout / money-transmission
-  // liability. No Connect → fall through to the seller's external checkout
-  // (destination) or a payments-not-set-up response below. Plan is resolved
-  // status-awarely (canceled/incomplete 'pro' ≠ 6%) via the single-source helper.
+  // Resolve the owner's plan + Connect account UP FRONT (before the dry-run return
+  // too, so the simulator reflects reality). A card charge only ever runs through
+  // the owner's Connect account (owner is merchant of record; Nexez takes the plan
+  // commission as an application fee). We deliberately do NOT charge into the
+  // PLATFORM account for a seller who hasn't connected Stripe — they couldn't
+  // receive the funds and it creates a payout / money-transmission liability. No
+  // Connect → fall through to the seller's external checkout (destination) or a
+  // payments-not-set-up response below. Plan is resolved status-awarely
+  // (canceled/incomplete 'pro' ≠ 6%) via the single-source helper.
   let connectAccountId: string | null = null
   let ownerPlanId: Awaited<ReturnType<typeof getOwnerPlanId>> = 'free'
   if (hasSupabaseAdminEnv() && page.owner_id) {
@@ -154,6 +142,21 @@ export async function POST(request: Request) {
     if (billing?.stripe_connect_account_id) connectAccountId = billing.stripe_connect_account_id
   }
   const commissionPercent = getCommissionPercentForPlan(ownerPlanId)
+
+  if (input.dryRun) {
+    return NextResponse.json({
+      ok: true,
+      provider: getDryRunProvider(destination, amountCents, connectAccountId),
+      checkoutUrl,
+      actionUrl: destination || null,
+      currency,
+      stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
+      connectReady: Boolean(connectAccountId),
+      events: {
+        checkoutAttemptLogged: attemptLog.ok,
+      },
+    })
+  }
 
   if (process.env.STRIPE_SECRET_KEY && amountCents && connectAccountId) {
     try {
@@ -323,9 +326,13 @@ async function readCheckoutInput(request: Request): Promise<CheckoutInput> {
   }
 }
 
-function getDryRunProvider(destination: string, amountCents: number | null) {
-  if (process.env.STRIPE_SECRET_KEY && amountCents) return 'stripe_ready'
+function getDryRunProvider(destination: string, amountCents: number | null, connectAccountId: string | null) {
+  // Mirror the live path: a Stripe charge requires BOTH a key and the seller's
+  // Connect account. Without Connect we fall back to the external link, or report
+  // that the seller still needs to connect payouts.
+  if (process.env.STRIPE_SECRET_KEY && amountCents && connectAccountId) return 'stripe_ready'
   if (destination) return 'provider_ready'
+  if (process.env.STRIPE_SECRET_KEY && amountCents && !connectAccountId) return 'needs_connect'
   if (amountCents) return 'needs_stripe_key'
   return 'needs_checkout_url'
 }
