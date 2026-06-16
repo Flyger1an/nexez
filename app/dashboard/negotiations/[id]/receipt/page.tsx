@@ -91,7 +91,7 @@ export default async function NegotiationReceiptPage({ params }: { params: Promi
         </div>
 
         <p className="mt-4 text-[11px] text-zinc-500 print:hidden">
-          Tip: use your browser’s Print (⌘/Ctrl-P) to save this receipt as a PDF or share it.
+          Tip: use your browser’s Print or Share to save this receipt as a PDF.
         </p>
       </div>
     </main>

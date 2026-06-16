@@ -460,11 +460,12 @@ function QuickPageSearch() {
           aria-describedby="platform-page-search-hint"
         />
       </div>
-      <p id="platform-page-search-hint" className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+      {/* Keyboard hint is desktop-only — hide on phones (no ⌘K / Enter there). */}
+      <p id="platform-page-search-hint" className="mt-1 hidden items-center gap-1.5 text-[11px] text-muted-foreground sm:flex">
         Press <kbd className="rounded border border-border bg-black/40 px-1 font-mono text-[10px]">⌘K</kbd> to search, Enter to open the first match.
       </p>
       {showResults ? (
-        <div className="absolute left-0 right-0 top-[84px] z-50 overflow-hidden rounded-md border border-border bg-[#111] shadow-2xl">
+        <div className="absolute left-0 right-0 top-[64px] z-50 overflow-hidden rounded-md border border-border bg-[#111] shadow-2xl sm:top-[84px]">
           {hits.length ? (
             hits.map((page, index) => (
               <div
