@@ -1,9 +1,13 @@
 import { defineConfig } from '@playwright/test'
 
-// Support live deployed testing via TEST_LIVE=1 (uses https://nexez.app and skips local webServer).
-// Otherwise defaults to local dev server.
+// Support live deployed testing via TEST_LIVE=1 (skips the local webServer).
+// Under the 3-host split (nexez.ai marketing · app.nexez.ai app · nexez.app agent
+// runtime) the proxy 308-canonicalizes each route to its host, so a single base
+// still reaches every surface via redirects. Default to the agent runtime
+// (nexez.app) since the [slug]/agent-page specs are the core; override with
+// E2E_BASE_URL to target a specific host (e.g. app.nexez.ai for authed flows).
 const isLiveTest = !!process.env.TEST_LIVE
-const baseURL = isLiveTest ? 'https://nexez.app' : 'http://127.0.0.1:3000'
+const baseURL = process.env.E2E_BASE_URL || (isLiveTest ? 'https://nexez.app' : 'http://127.0.0.1:3000')
 
 // LLM config for the local dev server is sourced from the environment — never
 // committed. Locally it comes from your shell or .env.local; in CI from a GitHub

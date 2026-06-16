@@ -20,7 +20,7 @@ test.describe('public surface', () => {
     page.on('pageerror', (e) => pageErrors.push(String(e)))
 
     await page.goto('/simulator', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByText('Global Agent Simulator')).toBeVisible()
+    await expect(page.getByText('Test, simulate & compare')).toBeVisible()
 
     // Use a public example slug to run simulation (renders tabs including LLM-Enhanced)
     await page.waitForSelector('input[placeholder*="my-offers"]', { timeout: 10000 })
@@ -105,7 +105,7 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
 
     // Now go to simulator (same auth context) and exercise the paste + analyze path
     await page.goto('/simulator', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByText('Global Agent Simulator')).toBeVisible()
+    await expect(page.getByText('Test, simulate & compare')).toBeVisible()
     await page.waitForSelector('input[placeholder*="my-offers"]', { timeout: 10000 })
 
     // Capture the response from the deeper LLM route (only fires because we seeded llm_opt_in=true on the page)

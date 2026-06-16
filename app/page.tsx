@@ -25,7 +25,7 @@ import { TypewriterCode } from '../components/TypewriterCode'
 
 // Marketing homepage: statically served (fast on nexez.ai) but revalidated every
 // 5 min so the "Public examples" showcase picks up newly published pages without a
-// redeploy. The always-live listing lives on /directory.
+// redeploy. The always-live listing lives on /discovery.
 export const revalidate = 300
 
 type Feature = {
