@@ -1,5 +1,19 @@
 name: Supabase Migrations
 
+# Source of truth for migrations is the Supabase MCP `apply_migration` (see AGENTS.md:
+# "Never `supabase db push`" — the DB schema is authoritative via MCP, and the
+# schema_migrations history table is reconciled out-of-band via the periodic
+# "clean supabase migration history" commits). This workflow therefore VALIDATES the
+# migration files; it does NOT deploy.
+#
+# A previous `deploy-migrations` job ran `supabase db push` on push to main. It was
+# removed because it (1) duplicated the MCP apply path, (2) perpetually failed — the
+# schema_migrations history intentionally drifts from the files, so `db push` tried to
+# re-apply already-existing objects, and (3) used supabase/setup-cli@v1, the repo's
+# only action flagged by GitHub's Node-runtime deprecation. A working `db push` here
+# would also be a footgun: it could conflict with / clobber MCP-applied state.
+# Security advisors are run via the Supabase MCP `get_advisors` instead of in CI.
+
 on:
   pull_request:
     branches: [main]
@@ -38,41 +52,3 @@ jobs:
           }
           console.log(`Checked ${files.length} Supabase migration files; no duplicate versions found.`)
           NODE
-
-  deploy-migrations:
-    needs: migration-sanity
-    if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      - name: Verify required secrets
-        run: |
-          missing=0
-          for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_ID; do
-            if [ -z "${!name}" ]; then
-              echo "::error::Missing required GitHub Actions secret: ${name}"
-              missing=1
-            fi
-          done
-          exit "$missing"
-
-      - name: Link Supabase project
-        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
-
-      - name: Show migration status
-        run: supabase migration list --linked
-
-      - name: Push pending migrations
-        run: supabase db push --linked
-
-      - name: Run security advisors
-        run: supabase db advisors --linked --type security --level info --output json --fail-on none
