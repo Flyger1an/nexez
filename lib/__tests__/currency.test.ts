@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeCurrency, toStripeAmount, isZeroDecimalCurrency, formatCurrencyAmount } from '../currency'
+import { normalizeCurrency, toStripeAmount, isZeroDecimalCurrency, formatCurrencyAmount, minorToStripeAmount } from '../currency'
 
 describe('currency', () => {
   it('normalizes to a supported lowercase code, defaulting to usd', () => {
@@ -27,6 +27,20 @@ describe('currency', () => {
     expect(toStripeAmount(0, 'usd')).toBe(0)
     expect(toStripeAmount(-5, 'usd')).toBe(0)
     expect(toStripeAmount(NaN, 'usd')).toBe(0)
+  })
+
+  it('converts stored 2-decimal minor units to the Stripe charge amount per currency', () => {
+    // 2-decimal currencies: minor units already match Stripe's smallest unit (no-op).
+    expect(minorToStripeAmount(90000, 'usd')).toBe(90000) // $900.00
+    expect(minorToStripeAmount(1999, 'gbp')).toBe(1999) // £19.99
+    // zero-decimal: a value stored as major×100 must be divided by 100 so ¥1,000
+    // (stored 100000) charges ¥1,000, not ¥100,000 (the negotiation over-charge bug).
+    expect(minorToStripeAmount(100000, 'jpy')).toBe(1000)
+    expect(minorToStripeAmount(500000, 'krw')).toBe(5000)
+    // defaults + guards
+    expect(minorToStripeAmount(5000, null)).toBe(5000) // null → usd
+    expect(minorToStripeAmount(0, 'jpy')).toBe(0)
+    expect(minorToStripeAmount(-100, 'usd')).toBe(0)
   })
 
   it('formats smallest-unit amounts back to a human string', () => {

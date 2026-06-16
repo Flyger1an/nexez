@@ -10,6 +10,7 @@ import { captureError } from './observability';
 import { sanitizeSchedulingLink } from './scheduling-allowlist';
 import { isTerminalNegotiationStatus, type NegotiationStatus } from './negotiations';
 import { parseMoney } from './checkout';
+import { normalizeCurrency } from './currency';
 
 /**
  * Core Negotiation Service - the brain of the Intelligent Negotiation Engine.
@@ -471,6 +472,11 @@ export class NegotiationService {
       offer_key: offerKey,
       offer_name: offer.name,
       offer_kind: offer.kind,
+      // Settlement currency for the whole negotiation — inherit the page's currency
+      // (was relying on the DB default 'usd', so non-USD pages mis-recorded + charged
+      // the buyer in USD). amount_cents stays 2-decimal minor units; the charge site
+      // converts to Stripe's smallest unit per this currency.
+      currency: normalizeCurrency(page.currency),
       buyer_agent: proposal.buyerAgent || 'Unknown Agent',
       buyer_query: proposal.query || null,
       requested_terms: proposal.requestedTerms || {},

@@ -1,12 +1,14 @@
 import Stripe from 'stripe'
-import { NextRequest, NextResponse } from 'next/server'
-import type { OfferItem } from '../../../../lib/agent-page'
+import { NextRequest, NextResponse, after } from 'next/server'
+import { getBaseUrl, type OfferItem } from '../../../../lib/agent-page'
 import {
   buildBillingSubscriptionRow,
   getSubscriptionPriceId,
   stripeObjectId,
 } from '../../../../lib/stripe-billing'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
+import { minorToStripeAmount, formatCurrencyAmount } from '../../../../lib/currency'
+import { buildEscrowFundedEmail, hasEmailEnv, sendEmail } from '../../../../lib/email'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'placeholder')
 
@@ -78,7 +80,7 @@ export async function POST(request: NextRequest) {
       const expectedSettlementState = autoSettle ? 'auto' : 'approved'
       const { data: negotiation } = await admin
         .from('agent_negotiations')
-        .select('id, status, amount_cents, currency, settlement_state, stripe_checkout_session_id')
+        .select('id, status, amount_cents, currency, settlement_state, stripe_checkout_session_id, offer_name, slug, page_id, buyer_agent')
         .eq('id', session.metadata.nexez_negotiation_id)
         .maybeSingle<{
           id: string
@@ -87,6 +89,10 @@ export async function POST(request: NextRequest) {
           currency: string | null
           settlement_state: string | null
           stripe_checkout_session_id: string | null
+          offer_name: string | null
+          slug: string | null
+          page_id: string | null
+          buyer_agent: string | null
         }>()
 
       if (!negotiation) {
@@ -94,7 +100,11 @@ export async function POST(request: NextRequest) {
       }
 
       const paid = !session.payment_status || session.payment_status === 'paid'
-      const amountMatches = session.amount_total === negotiation.amount_cents
+      // amount_cents is 2-decimal minor units; the charge (pay route) sends Stripe's
+      // smallest unit via minorToStripeAmount, so validate against the same conversion
+      // — otherwise zero-decimal currencies (JPY/KRW) never match and never settle.
+      const expectedChargeAmount = minorToStripeAmount(negotiation.amount_cents ?? 0, negotiation.currency)
+      const amountMatches = session.amount_total === expectedChargeAmount
       const currencyMatches = (session.currency || '').toLowerCase() === (negotiation.currency || 'usd').toLowerCase()
       const sessionMatches = negotiation.stripe_checkout_session_id === session.id
       const settlementMatches = negotiation.settlement_state === expectedSettlementState
@@ -124,6 +134,29 @@ export async function POST(request: NextRequest) {
         // (the settle update is idempotent), and signal a retry with a non-200.
         await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
         return NextResponse.json({ error: 'escrow settle failed', type: event.type }, { status: 500 })
+      }
+
+      // Notify the seller that a buyer funded the deal — mirrors the Calendly
+      // booking email. Owner email = the page's contact_email. Gated on RESEND
+      // env (dormant otherwise) and fired via after() so it never blocks the 200.
+      if (hasEmailEnv() && negotiation.page_id) {
+        after(async () => {
+          const { data: page } = await admin
+            .from('pages')
+            .select('name, contact_email')
+            .eq('id', negotiation.page_id as string)
+            .maybeSingle<{ name: string | null; contact_email: string | null }>()
+          if (!page?.contact_email) return
+          const mail = buildEscrowFundedEmail({
+            businessName: page.name || negotiation.slug || 'your page',
+            offerName: negotiation.offer_name || 'Agreement',
+            amount: formatCurrencyAmount(session.amount_total ?? expectedChargeAmount, negotiation.currency || 'usd'),
+            held: !autoSettle,
+            buyerAgent: negotiation.buyer_agent,
+            inboxUrl: `${getBaseUrl()}/dashboard/negotiations`,
+          })
+          await sendEmail({ to: page.contact_email, subject: mail.subject, html: mail.html, text: mail.text })
+        })
       }
       return NextResponse.json({ received: true, type: event.type, negotiation: session.metadata.nexez_negotiation_id, status: nextStatus, ok: true }, { status: 200 })
     }

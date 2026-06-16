@@ -113,6 +113,19 @@ describe('POST /api/negotiations/pay', () => {
     expect(opts.idempotencyKey).toBe('escrow-n1-90000:usd:auto:acct_1:5400')
   })
 
+  it('zero-decimal currency: charges Stripe smallest unit, not amount_cents (JPY 100x bug)', async () => {
+    // amount_cents is stored as major×100 (¥1,000 → 100000); JPY is zero-decimal so
+    // Stripe must be charged 1000, not 100000, and the app fee scales with it.
+    db({ ...NEG, currency: 'jpy', amount_cents: 100000 })
+    const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))
+    expect(res.status).toBe(200)
+    const [params, opts] = (stripeRef.create as any).mock.calls[0]
+    expect(params.line_items[0].price_data.currency).toBe('jpy')
+    expect(params.line_items[0].price_data.unit_amount).toBe(1000) // ¥1,000, not ¥100,000
+    expect(params.payment_intent_data.application_fee_amount).toBe(60) // 6% of ¥1,000
+    expect(opts.idempotencyKey).toBe('escrow-n1-1000:jpy:auto:acct_1:60')
+  })
+
   it('canceled "pro" subscription reverts to Free 15% commission (status-aware, not raw plan_id)', async () => {
     // A {plan_id:'pro', status:'canceled'} row must NOT keep the 6% rate — commission
     // is resolved via getOwnerPlanId (live-status only), same as entitlements.

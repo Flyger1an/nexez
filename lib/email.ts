@@ -89,6 +89,51 @@ export function buildBookingEmail(opts: {
   return { subject, html, text }
 }
 
+// Pure builder (testable) for the "buyer funded the escrow" seller notification,
+// sent from the Stripe webhook when a negotiated deal is paid. `held` = a manual-
+// capture hold the owner still needs to capture on delivery; otherwise it's already
+// captured (auto-settle). `amount` is pre-formatted + currency-aware by the caller.
+export function buildEscrowFundedEmail(opts: {
+  businessName: string
+  offerName: string
+  amount: string
+  held: boolean
+  buyerAgent?: string | null
+  inboxUrl: string
+}): { subject: string; html: string; text: string } {
+  const { businessName, offerName, amount, held, buyerAgent, inboxUrl } = opts
+  const subject = held ? `Payment held in escrow: ${offerName}` : `Payment received: ${offerName}`
+  const lead = held
+    ? `A buyer funded an escrow hold on your Nexez page "${businessName}". Capture it from your inbox once you've delivered.`
+    : `A buyer paid for an agreement on your Nexez page "${businessName}".`
+  const rows: [string, string | null | undefined][] = [
+    ['Offer', offerName],
+    ['Amount', amount],
+    ['Status', held ? 'Held in escrow (awaiting your capture)' : 'Captured'],
+    ['From agent', buyerAgent],
+  ]
+  const present = rows.filter(([, v]) => v)
+  const text = [
+    lead,
+    '',
+    ...present.map(([k, v]) => `${k}: ${v}`),
+    '',
+    `Manage it: ${inboxUrl}`,
+  ].join('\n')
+  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.6;color:#0a0a0a">
+  <h2 style="margin:0 0 8px">${held ? 'Payment held in escrow' : 'Payment received'}</h2>
+  <p style="margin:0 0 12px">${escapeHtml(lead)}</p>
+  <table style="border-collapse:collapse;margin:0 0 16px">${present
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:4px 12px 4px 0;color:#52525b">${escapeHtml(k)}</td><td style="padding:4px 0"><strong>${escapeHtml(String(v))}</strong></td></tr>`,
+    )
+    .join('')}</table>
+  <p style="margin:0"><a href="${inboxUrl}" style="display:inline-block;background:#10B981;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600">Open your negotiation inbox</a></p>
+</div>`
+  return { subject, html, text }
+}
+
 // Pure builder (testable) for the "new negotiation request" email.
 export function buildNegotiationEmail(opts: {
   businessName: string

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { buildNegotiationEmail, hasEmailEnv, sendEmail } from '../email'
+import { buildEscrowFundedEmail, buildNegotiationEmail, hasEmailEnv, sendEmail } from '../email'
 
 describe('email gating', () => {
   const original = process.env.RESEND_API_KEY
@@ -48,5 +48,35 @@ describe('buildNegotiationEmail', () => {
     expect(mail.text).not.toContain('Budget:')
     expect(mail.html).toContain('A &amp; B &lt;Co&gt;')
     expect(mail.html).not.toContain('<Co>')
+  })
+})
+
+describe('buildEscrowFundedEmail', () => {
+  it('held: subject + status reflect an escrow hold awaiting capture', () => {
+    const mail = buildEscrowFundedEmail({
+      businessName: 'Axle Strategy',
+      offerName: 'Strategy Session',
+      amount: '¥1,000',
+      held: true,
+      buyerAgent: 'ChatGPT',
+      inboxUrl: 'https://nexez.app/dashboard/negotiations',
+    })
+    expect(mail.subject).toBe('Payment held in escrow: Strategy Session')
+    expect(mail.text).toContain('Amount: ¥1,000')
+    expect(mail.text).toContain('Held in escrow')
+    expect(mail.html).toContain('https://nexez.app/dashboard/negotiations')
+  })
+
+  it('captured: subject + status reflect an immediate (auto-settle) payment', () => {
+    const mail = buildEscrowFundedEmail({
+      businessName: 'A & B <Co>',
+      offerName: 'Audit',
+      amount: '$50',
+      held: false,
+      inboxUrl: 'https://nexez.app/dashboard/negotiations',
+    })
+    expect(mail.subject).toBe('Payment received: Audit')
+    expect(mail.text).toContain('Status: Captured')
+    expect(mail.html).toContain('A &amp; B &lt;Co&gt;') // escaped
   })
 })

@@ -69,6 +69,22 @@ export function toMajorAmount(smallestUnitAmount: number, currency: string): num
   return isZeroDecimalCurrency(normalizeCurrency(currency)) ? smallestUnitAmount : smallestUnitAmount / 100
 }
 
+/**
+ * Convert an amount stored in the app's 2-decimal "minor unit" convention (always
+ * major × 100 regardless of currency — how negotiation `amount_cents` and parsed
+ * budgets are recorded) into the Stripe smallest-unit charge amount for `currency`.
+ * No-op for 2-decimal currencies; divides by 100 for zero-decimal currencies so an
+ * amount stored as 100000 charges ¥1,000, not ¥100,000 (the 100x over-charge bug).
+ */
+export function minorToStripeAmount(minorUnits: number, currency: string | null | undefined): number {
+  if (!Number.isFinite(minorUnits) || minorUnits <= 0) return 0
+  // Pass the raw code straight to toStripeAmount (which keys off isZeroDecimalCurrency
+  // directly, like the direct-checkout path) rather than normalizeCurrency — the
+  // zero-decimal set is broader than the curated SUPPORTED list (e.g. KRW), and an
+  // unrecognized code safely defaults to 2-decimal (×100).
+  return toStripeAmount(minorUnits / 100, currency ?? '')
+}
+
 /** Format a smallest-unit amount + currency for display (locale-aware). */
 export function formatCurrencyAmount(smallestUnitAmount: number, currency: string): string {
   const code = normalizeCurrency(currency)

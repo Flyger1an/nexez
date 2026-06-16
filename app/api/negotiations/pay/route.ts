@@ -4,6 +4,7 @@ import { getBaseUrl } from '../../../../lib/agent-page'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 import { isPayable } from '../../../../lib/settlement'
 import { getCommissionPercentForPlan, calculateApplicationFeeCents } from '../../../../lib/stripe-billing'
+import { minorToStripeAmount } from '../../../../lib/currency'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { getOwnerPlanId } from '../../../../lib/server/plan'
 import type { AgentNegotiation } from '../../../../lib/negotiations'
@@ -132,9 +133,14 @@ export async function POST(request: Request) {
 
   const autoSettle = negotiation.settlement_state === 'auto'
   const currency = (negotiation.currency || 'usd').toLowerCase()
-  const applicationFeeAmount = calculateApplicationFeeCents(negotiation.amount_cents, commissionPercent)
+  // amount_cents is stored as 2-decimal minor units (major × 100) regardless of
+  // currency; convert to Stripe's smallest unit for THIS currency so zero-decimal
+  // currencies (JPY/KRW) aren't charged 100x. The webhook validates the completed
+  // session against the same conversion (minorToStripeAmount).
+  const chargeAmount = minorToStripeAmount(negotiation.amount_cents, currency)
+  const applicationFeeAmount = calculateApplicationFeeCents(chargeAmount, commissionPercent)
   const fingerprint = paymentFingerprint({
-    amountCents: negotiation.amount_cents,
+    amountCents: chargeAmount,
     currency,
     settlementState: negotiation.settlement_state,
     connectAccountId,
@@ -151,7 +157,7 @@ export async function POST(request: Request) {
       const sameTerms =
         existing.status === 'open' &&
         existingUrl &&
-        existing.amount_total === negotiation.amount_cents &&
+        existing.amount_total === chargeAmount &&
         existing.currency?.toLowerCase() === currency &&
         existing.metadata?.nexez_payment_fingerprint === fingerprint
       if (sameTerms) {
@@ -171,7 +177,7 @@ export async function POST(request: Request) {
         {
           price_data: {
             currency,
-            unit_amount: negotiation.amount_cents,
+            unit_amount: chargeAmount,
             product_data: {
               name: `${negotiation.offer_name} — ${autoSettle ? 'payment' : 'escrow hold'}`,
             },
