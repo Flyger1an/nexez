@@ -372,7 +372,7 @@ describe('CreatePage guided import review', () => {
     }))
   })
 
-  it('saves the page as a draft and opens the editor when the publish limit is hit and the owner accepts', async () => {
+  it('offers Save as draft inline when the publish limit is hit, and saving creates a draft + opens the editor', async () => {
     supabaseMocks.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null })
     supabaseMocks.single
       .mockResolvedValueOnce({
@@ -382,7 +382,6 @@ describe('CreatePage guided import review', () => {
       .mockResolvedValueOnce({ data: { id: 'page-draft', slug: 'acme-agent-page' }, error: null })
 
     vi.spyOn(window, 'open').mockReturnValue(null)
-    const confirmMock = vi.spyOn(window, 'confirm').mockReturnValue(true)
     const alertMock = vi.spyOn(window, 'alert').mockImplementation(() => {})
 
     render(<CreatePage />)
@@ -394,16 +393,19 @@ describe('CreatePage guided import review', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     fireEvent.click(screen.getByRole('button', { name: 'Publish agent page' }))
 
-    await waitFor(() => expect(routerMock.push).toHaveBeenCalledWith('/dashboard/page-draft?created=1&draft=1'))
+    // Limit surfaces inline with a "Save as draft" action (no native confirm/alert).
+    const draftButton = await screen.findByRole('button', { name: 'Save as draft' })
+    expect(screen.getByText('Published page limit reached for your plan (1 page(s)). Upgrade to publish more.')).toBeTruthy()
+    fireEvent.click(draftButton)
 
-    expect(confirmMock).toHaveBeenCalledOnce()
+    await waitFor(() => expect(routerMock.push).toHaveBeenCalledWith('/dashboard/page-draft?created=1&draft=1'))
     expect(alertMock).not.toHaveBeenCalled()
     expect(supabaseMocks.insert).toHaveBeenCalledTimes(2)
     expect(supabaseMocks.insert).toHaveBeenNthCalledWith(1, expect.objectContaining({ is_published: true }))
     expect(supabaseMocks.insert).toHaveBeenNthCalledWith(2, expect.objectContaining({ is_published: false }))
   })
 
-  it('shows the limit inline and creates nothing when the publish limit is hit and the owner declines the draft', async () => {
+  it('creates nothing while the limit is shown until the owner chooses Save as draft', async () => {
     supabaseMocks.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null })
     supabaseMocks.single.mockResolvedValue({
       data: null,
@@ -411,7 +413,6 @@ describe('CreatePage guided import review', () => {
     })
 
     vi.spyOn(window, 'open').mockReturnValue(null)
-    const confirmMock = vi.spyOn(window, 'confirm').mockReturnValue(false)
     const alertMock = vi.spyOn(window, 'alert').mockImplementation(() => {})
 
     render(<CreatePage />)
@@ -423,9 +424,10 @@ describe('CreatePage guided import review', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     fireEvent.click(screen.getByRole('button', { name: 'Publish agent page' }))
 
-    // Declined → the limit is surfaced inline (not via alert) and no page is created.
+    // The limit is inline (not via alert); the page is only created on the user's
+    // explicit "Save as draft" choice — which we don't make here.
     expect(await screen.findByText('Published page limit reached for your plan (1 page(s)). Upgrade to publish more.')).toBeTruthy()
-    expect(confirmMock).toHaveBeenCalledOnce()
+    expect(screen.getByRole('button', { name: 'Save as draft' })).toBeTruthy()
     expect(alertMock).not.toHaveBeenCalled()
     expect(supabaseMocks.insert).toHaveBeenCalledTimes(1)
     expect(routerMock.push).not.toHaveBeenCalled()

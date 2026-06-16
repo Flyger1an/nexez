@@ -104,6 +104,9 @@ export default function CreatePage() {
   const [needsAuth, setNeedsAuth] = useState(false)
   const [importMessage, setImportMessage] = useState('')
   const [publishError, setPublishError] = useState('')
+  // When publishing hits the plan's page limit, offer to save the built page as a
+  // draft inline (instead of a native confirm) so the build-first funnel survives.
+  const [draftOffer, setDraftOffer] = useState(false)
   const [importUrl, setImportUrl] = useState('')
   const [guidedBuyer, setGuidedBuyer] = useState('')
   const [guidedGoal, setGuidedGoal] = useState('Book appointments')
@@ -250,9 +253,12 @@ export default function CreatePage() {
     }
   }, [])
 
-  const handleSubmit = async () => {
+  const handleSubmit = async ({ asDraft = false }: { asDraft?: boolean } = {}) => {
     setLoading(true)
-    const publicPageTab = openPendingPublicPageTab()
+    setPublishError('')
+    setDraftOffer(false)
+    // Drafts aren't public, so they skip the optimistic public tab.
+    const publicPageTab = asDraft ? null : openPendingPublicPageTab()
 
     const supabase = createClient()
     const {
@@ -302,45 +308,36 @@ export default function CreatePage() {
         branding: logoUrl ? { logo_url: logoUrl } : {},
       }).select('id, slug').single()
 
-    let { data: createdPage, error } = await insertPage(true)
-
-    // A Free owner at their published-page limit (DB trigger) would otherwise lose
-    // the page they just built. Keep the build-first funnel intact: offer to save it
-    // as an unpublished draft and continue into the editor (publish later / upgrade).
-    // If they decline, `error` stays set and falls through to the inline message.
-    let createdAsDraft = false
-    if (error && isPublishLimitError(error)) {
-      const saveAsDraft = window.confirm(
-        `${publishErrorMessage(error)}\n\nSave this page as an unpublished draft instead? You can publish it later (or upgrade your plan) from the editor.`,
-      )
-      if (saveAsDraft) {
-        ;({ data: createdPage, error } = await insertPage(false))
-        createdAsDraft = !error
-      }
-    }
+    const { data: createdPage, error } = await insertPage(!asDraft)
 
     setLoading(false)
+
+    // A Free owner at their published-page limit (DB trigger) would otherwise lose
+    // the page they just built. Keep the build-first funnel intact: surface the limit
+    // inline with a "Save as draft" action (re-runs this as a draft) instead of a
+    // native confirm. Drafts can't hit the limit, so this is publish-only.
+    if (!asDraft && error && isPublishLimitError(error)) {
+      closePendingPublicPageTab(publicPageTab)
+      setPublishError(publishErrorMessage(error))
+      setDraftOffer(true)
+      return
+    }
 
     if (error) {
       closePendingPublicPageTab(publicPageTab)
       const isSlugTaken = (error as { code?: string }).code === '23505' || /duplicate|unique|already exists/i.test(error.message)
       setPublishError(
-        isPublishLimitError(error)
-          ? publishErrorMessage(error)
-          : isSlugTaken
-            ? `The link “/${cleanSlug}” is already taken. Try a different page name or edit the slug, then publish again.`
-            : `Couldn’t publish your page: ${error.message}. Your work is saved — try again.`,
+        isSlugTaken
+          ? `The link “/${cleanSlug}” is already taken. Try a different page name or edit the slug, then publish again.`
+          : `Couldn’t publish your page: ${error.message}. Your work is saved — try again.`,
       )
       return
     }
-    setPublishError('')
 
     const createdSlug = createdPage?.slug || cleanSlug
 
-    if (createdAsDraft) {
-      // Drafts aren't publicly visible — don't point the pending tab at the public
-      // URL; just take the owner to the editor to finish or publish.
-      closePendingPublicPageTab(publicPageTab)
+    if (asDraft) {
+      // Drafts aren't publicly visible — straight to the editor to finish or publish.
       if (createdPage?.id) {
         router.push(`/dashboard/${createdPage.id}?created=1&draft=1`)
       }
@@ -1417,16 +1414,32 @@ Action: ${ctaLabel || 'Visit website'}`}
                 <ArrowRight className="size-4" />
               </button>
             ) : (
-              <button onClick={handleSubmit} disabled={loading || !name || !previewSlug || !description || !websiteUrl} className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 font-semibold text-zinc-950 hover:bg-zinc-200 disabled:opacity-60" type="button">
+              <button onClick={() => handleSubmit()} disabled={loading || !name || !previewSlug || !description || !websiteUrl} className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 font-semibold text-zinc-950 hover:bg-zinc-200 disabled:opacity-60" type="button">
                 {loading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
                 {loading ? 'Publishing...' : 'Publish agent page'}
               </button>
             )}
           </div>
           {publishError && (
-            <p className="mt-3 rounded-lg border border-[var(--amber)]/40 bg-[var(--amber)]/10 px-4 py-3 text-sm text-[var(--amber)]">
-              {publishError}
-            </p>
+            <div className="mt-3 rounded-lg border border-[var(--amber)]/40 bg-[var(--amber)]/10 px-4 py-3 text-sm text-[var(--amber)]">
+              <p>{publishError}</p>
+              {draftOffer && (
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSubmit({ asDraft: true })}
+                    disabled={loading}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-[var(--amber)]/20 px-3 py-1.5 text-xs font-medium text-[var(--amber)] hover:bg-[var(--amber)]/30 disabled:opacity-50"
+                  >
+                    {loading ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                    {loading ? 'Saving…' : 'Save as draft'}
+                  </button>
+                  <a href={appUrl('/dashboard/billing?plan=pro')} className="text-xs font-medium underline hover:no-underline">
+                    Upgrade to publish more
+                  </a>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
