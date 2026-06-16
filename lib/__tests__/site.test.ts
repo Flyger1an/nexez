@@ -83,6 +83,18 @@ describe('canonicalHostFor', () => {
     expect(canonicalHostFor('/api/negotiations')).toBe(AGENT_RUNTIME_HOST)
   })
 
+  it('keeps agent/buyer negotiation routes on the runtime but OWNER actions on the app host', () => {
+    // The proposal (agents), pay link (buyer), and status poll (agents) are public
+    // agent-runtime surfaces. escrow/transition are owner actions fired from the
+    // dashboard (app host) where the session cookie lives — canonicalizing them to
+    // the runtime made the dashboard POST a cross-origin 308 ("Load failed").
+    expect(canonicalHostFor('/api/negotiations')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/api/negotiations/pay')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/api/negotiations/status')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/api/negotiations/escrow')).toBe(APP_HOST)
+    expect(canonicalHostFor('/api/negotiations/transition')).toBe(APP_HOST)
+  })
+
   it('keeps the money + webhook + checkout/negotiate routes on the agent runtime host', () => {
     // These are buyer/Stripe/agent surfaces; pinning them guards against an
     // accidental prefix-list reshuffle that would break escrow links or webhook delivery.

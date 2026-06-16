@@ -76,6 +76,13 @@ const APP_API_PREFIXES = [
   '/api/custom-domain',
   '/api/dashboard',
   '/api/integrations',
+  // Owner-only negotiation actions are called from the dashboard (app host) where
+  // the session cookie lives — NOT by agents. They must resolve to APP_HOST even
+  // though they sit under /api/negotiations (an agent-runtime prefix); listed here
+  // because the app check runs before the agent-runtime check in canonicalHostFor.
+  // (The agent/buyer-facing /api/negotiations, /pay, /status stay on the runtime.)
+  '/api/negotiations/escrow',
+  '/api/negotiations/transition',
   '/api/onboarding',
   '/api/pages',
   '/api/payment-method',
