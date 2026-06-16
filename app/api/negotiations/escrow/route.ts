@@ -102,6 +102,15 @@ export async function POST(request: Request) {
     }
 
     if (action === 'cancel') {
+      // Only a not-yet-captured deal can be cancelled. A 'complete' (captured) or
+      // terminal negotiation must not be flipped to 'declined' — use refund for a
+      // completed payment. (The money-safety trigger doesn't guard this backward move.)
+      if (!['negotiation', 'agreement_proposed', 'held'].includes(negotiation.status)) {
+        return NextResponse.json(
+          { error: 'This agreement can no longer be cancelled (it is already captured or closed). Refund a completed payment instead.' },
+          { status: 409 },
+        )
+      }
       if (negotiation.stripe_payment_intent_id) {
         await stripe.paymentIntents
           .cancel(negotiation.stripe_payment_intent_id, {}, stripeAccount ? { stripeAccount } : undefined)

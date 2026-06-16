@@ -58,6 +58,16 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
     setLoading(false)
   }, [initialMode])
 
+  // Surface an auth error bounced here via the URL (e.g. an expired confirmation
+  // link from /auth/callback) so the user isn't dropped on a silent blank form.
+  useEffect(() => {
+    const err = new URLSearchParams(window.location.search).get('error')
+    if (err === 'auth_callback') {
+      setMessageTone('error')
+      setMessage('That sign-in link is invalid or has expired. Please sign in again.')
+    }
+  }, [])
+
   function setError(msg: string) {
     setMessageTone('error')
     setMessage(msg)

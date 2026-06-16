@@ -37,7 +37,13 @@ export async function syncCheckoutSessionForOwner(
       eventType: 'checkout-success-sync',
     })
     const admin = createAdminClient()
-    await admin.from('billing_subscriptions').upsert(row, { onConflict: 'owner_id' })
+    const { error: upsertErr } = await admin.from('billing_subscriptions').upsert(row, { onConflict: 'owner_id' })
+    if (upsertErr) {
+      // Don't report a falsely-synced plan if the write was rejected (RLS/constraint)
+      // — return null so the success page falls back to the DB/webhook source of truth.
+      console.warn('[checkout-sync] billing upsert failed:', upsertErr.message)
+      return null
+    }
     return { planId: row.plan_id ?? null, status: row.status ?? null }
   } catch {
     return null

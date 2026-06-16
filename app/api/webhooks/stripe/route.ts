@@ -295,7 +295,14 @@ export async function POST(request: NextRequest) {
         stripe_connect_charges_enabled: account.charges_enabled,
         stripe_connect_payouts_enabled: account.payouts_enabled,
       }
-      await admin.from('billing_subscriptions').update(update).eq('owner_id', billing.owner_id)
+      const { error: connectErr } = await admin.from('billing_subscriptions').update(update).eq('owner_id', billing.owner_id)
+      if (connectErr) {
+        // Don't 200 a failed sync (the Connect-id-bug class): release the idempotency
+        // claim and signal a retry so Stripe redelivers and the status isn't left stale.
+        console.warn('[Stripe Webhook] account.updated connect sync failed:', connectErr.message)
+        await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
+        return NextResponse.json({ error: 'connect sync failed', type: event.type }, { status: 500 })
+      }
       return NextResponse.json({ received: true, type: event.type, connect_synced: true, owner_id: billing.owner_id })
     }
     return NextResponse.json({ received: true, type: event.type, connect_synced: false, reason: 'no matching billing row' }, { status: 200 })

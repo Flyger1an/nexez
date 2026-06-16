@@ -78,3 +78,26 @@ describe('POST /api/negotiations/escrow — refund', () => {
     expect(upd.metadata.refund).toMatchObject({ id: 're_1', amount_cents: 9000, source: 'owner_action' })
   })
 })
+
+describe('POST /api/negotiations/escrow — cancel', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_x')
+  })
+  afterEach(() => vi.unstubAllEnvs())
+
+  it('409 — a captured (complete) deal cannot be cancelled (must refund instead)', async () => {
+    const getUpdate = withNegotiation({ id: 'n1', status: 'complete', stripe_payment_intent_id: 'pi_1', metadata: {} })
+    const res = await POST(post({ negotiationId: 'n1', action: 'cancel' }))
+    expect(res.status).toBe(409)
+    expect(getUpdate()).toBeUndefined() // status NOT flipped to declined
+  })
+
+  it('cancels a held authorization → status declined', async () => {
+    const getUpdate = withNegotiation({ id: 'n1', status: 'held', stripe_payment_intent_id: 'pi_1', metadata: {} })
+    const res = await POST(post({ negotiationId: 'n1', action: 'cancel' }))
+    expect(res.status).toBe(200)
+    expect((await res.json())).toMatchObject({ ok: true, status: 'declined' })
+    expect(getUpdate().status).toBe('declined')
+  })
+})
