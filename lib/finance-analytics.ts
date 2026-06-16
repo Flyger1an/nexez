@@ -7,7 +7,7 @@
 // settlement-currency smallest unit (per lib/currency), so cross-currency sums are
 // meaningless. Everything here buckets BY currency.
 import type { CheckoutEvent } from './checkout-events'
-import { getAmountCents, isDryRunEvent } from './analytics'
+import { getAgentName, getAmountCents, isDryRunEvent } from './analytics'
 import { normalizeCurrency } from './currency'
 import { calculateApplicationFeeCents } from './stripe-billing'
 
@@ -128,4 +128,153 @@ export function getCurrencyOptions(events: CheckoutEvent[]): string[] {
     gmv.set(code, (gmv.get(code) ?? 0) + getAmountCents(event))
   }
   return [...gmv.entries()].sort((a, b) => b[1] - a[1]).map(([code]) => code)
+}
+
+// ── Negotiated / escrow channel ─────────────────────────────────────────────
+// The second revenue rail (agent_negotiations). Distinct from direct checkout:
+// these are AGREED escrow amounts with a real settlement lifecycle, NOT checkout
+// intent — never sum the two channels into one number, and never across currencies.
+
+/** The widened agent_negotiations row the finance page selects (status + money + provenance). */
+export type NegotiationFinanceRow = {
+  id?: string | null
+  status: string
+  amount_cents: number | null
+  currency: string | null
+  slug?: string | null
+  offer_name?: string | null
+  buyer_agent?: string | null
+  created_at?: string | null
+}
+
+export type NegotiationCurrencyRow = {
+  currency: string
+  agreedCents: number
+  deals: number
+  heldCents: number
+  completeCents: number
+  reversedCents: number
+}
+
+// A deal counts as "agreed" once it reaches/passes agreement. Reversals
+// (refunded/disputed) are surfaced separately as money OUT, not in agreed/deals.
+const AGREED_STATUSES = new Set(['agreement_proposed', 'held', 'complete'])
+
+/**
+ * Per-currency roll-up of the negotiated/escrow channel: agreed value + deal
+ * count, currently-held escrow, captured (complete), and reversed
+ * (refunded + disputed). Mirrors rollupFinanceByCurrency's per-currency shape so
+ * one component renders both channels. NEVER sums across currencies.
+ */
+export function rollupNegotiationsByCurrency(negs: NegotiationFinanceRow[]): NegotiationCurrencyRow[] {
+  const map = new Map<string, NegotiationCurrencyRow>()
+  for (const n of negs) {
+    if (!n.amount_cents) continue
+    const currency = normalizeCurrency(n.currency)
+    const row =
+      map.get(currency) ??
+      { currency, agreedCents: 0, deals: 0, heldCents: 0, completeCents: 0, reversedCents: 0 }
+    const cents = n.amount_cents
+    if (AGREED_STATUSES.has(n.status)) {
+      row.agreedCents += cents
+      row.deals += 1
+    }
+    if (n.status === 'held') row.heldCents += cents
+    else if (n.status === 'complete') row.completeCents += cents
+    else if (n.status === 'refunded' || n.status === 'disputed') row.reversedCents += cents
+    map.set(currency, row)
+  }
+  return [...map.values()].sort((a, b) => b.agreedCents - a.agreedCents)
+}
+
+/**
+ * Share of captured escrow value that was later reversed (refunded/disputed) — a
+ * marketplace trust signal. Returns null when there's no settled volume to judge
+ * (mirrors pctDelta's "no signal → null" so the UI shows "—" not a fake 0%).
+ */
+export function getReversalRate(row: { completeCents: number; reversedCents: number }): number | null {
+  const denom = row.completeCents + row.reversedCents
+  if (denom <= 0) return null
+  return row.reversedCents / denom
+}
+
+// ── Unified marketplace ledger ──────────────────────────────────────────────
+
+export type LedgerEntry = {
+  id: string
+  channel: 'direct' | 'negotiated'
+  timestamp: string
+  offerName: string
+  pageSlug: string
+  buyerLabel: string
+  amountCents: number
+  currency: string
+  feeCents: number
+  netCents: number
+  status: string | null // negotiation status (negotiated rows only)
+  isReversal: boolean
+}
+
+// Negotiation statuses that represent a real money event worth a ledger row.
+const LEDGER_NEG_STATUSES = new Set(['held', 'complete', 'refunded', 'disputed'])
+
+/**
+ * Interleave the DIRECT checkout channel (checkout_events) and the NEGOTIATED
+ * escrow channel (agent_negotiations) into one time-ordered ledger — the living
+ * record of marketplace activity. The est. fee is DERIVED (amount × current plan
+ * rate), not the historical application_fee. Each row carries its own currency;
+ * callers must never total the amount/fee/net columns (mixed currencies coexist
+ * as independent rows). Skips dry-run + amount-less rows.
+ */
+export function buildMarketplaceLedger(
+  events: CheckoutEvent[],
+  negs: NegotiationFinanceRow[],
+  commissionPct: number,
+  limit = 25,
+): LedgerEntry[] {
+  const entries: LedgerEntry[] = []
+  for (const event of events) {
+    if (!isRevenueEvent(event)) continue
+    const amountCents = getAmountCents(event)
+    const feeCents = calculateApplicationFeeCents(amountCents, commissionPct)
+    entries.push({
+      id: event.id,
+      channel: 'direct',
+      timestamp: event.created_at,
+      offerName: event.offer_name || event.offer_key,
+      pageSlug: event.slug,
+      buyerLabel: getAgentName(event.agent_user_agent),
+      amountCents,
+      currency: eventCurrency(event),
+      feeCents,
+      netCents: amountCents - feeCents,
+      status: null,
+      isReversal: false,
+    })
+  }
+  for (const n of negs) {
+    if (!n.amount_cents || !LEDGER_NEG_STATUSES.has(n.status)) continue
+    const amountCents = n.amount_cents
+    const isReversal = n.status === 'refunded' || n.status === 'disputed'
+    // A refund/dispute returns the full amount to the buyer (escrow refunds aren't
+    // fee-reduced), so the seller's outflow is the whole amount — fee n/a.
+    const feeCents = isReversal ? 0 : calculateApplicationFeeCents(amountCents, commissionPct)
+    entries.push({
+      id: n.id ? `neg-${n.id}` : `neg-${n.slug ?? ''}-${n.created_at ?? ''}`,
+      channel: 'negotiated',
+      timestamp: n.created_at ?? '',
+      offerName: n.offer_name || 'Negotiated deal',
+      pageSlug: n.slug ?? '',
+      buyerLabel: (n.buyer_agent || 'Agent').slice(0, 72),
+      amountCents,
+      currency: normalizeCurrency(n.currency),
+      feeCents,
+      netCents: isReversal ? amountCents : amountCents - feeCents,
+      status: n.status,
+      isReversal,
+    })
+  }
+  return entries
+    .sort((a, b) => (a.timestamp < b.timestamp ? 1 : a.timestamp > b.timestamp ? -1 : 0))
+    .slice(0, limit)
 }

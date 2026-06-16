@@ -23,6 +23,20 @@ export type PayoutSnapshot = {
   payouts: PayoutLine[]
 }
 
+/**
+ * The soonest in-flight payout (pending/in_transit with an arrival estimate), for
+ * the "Next payout" headline. Returns null when none — Stripe gives an estimate,
+ * not a guaranteed date or a schedule, so the UI says "next expected", not a cadence.
+ */
+export function getNextPayout(snapshot: PayoutSnapshot | null): PayoutLine | null {
+  if (!snapshot) return null
+  const inFlight = snapshot.payouts.filter(
+    (p) => (p.status === 'pending' || p.status === 'in_transit') && p.arrivalDate != null,
+  )
+  if (!inFlight.length) return null
+  return inFlight.reduce((soonest, p) => ((p.arrivalDate ?? Infinity) < (soonest.arrivalDate ?? Infinity) ? p : soonest))
+}
+
 export async function getConnectPayoutSnapshot(connectAccountId: string | null | undefined): Promise<PayoutSnapshot | null> {
   if (!connectAccountId || !process.env.STRIPE_SECRET_KEY) return null
   try {
