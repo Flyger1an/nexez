@@ -96,13 +96,20 @@ const APP_API_PREFIXES = [
   '/api/verify-custom-domain',
 ] as const
 
-const AGENT_RUNTIME_PREFIXES = ['/checkout', '/negotiate', '/.well-known'] as const
+// `/orders` is the public buyer order portal — buyer-facing, cookie-isolated, lives
+// on the agent runtime next to `/checkout` (where the buyer already is).
+const AGENT_RUNTIME_PREFIXES = ['/checkout', '/negotiate', '/orders', '/.well-known'] as const
 
 const AGENT_RUNTIME_API_PREFIXES = [
   '/api/agent-search',
   '/api/checkout',
   '/api/cron',
   '/api/negotiations',
+  // The buyer-portal recourse API. Deliberately NOT `/api/orders` — that prefix
+  // holds the OWNER refund action (/api/orders/refund), which must stay on the app
+  // host with the owner session (see APP_API_PREFIXES); routing it here would 308 it
+  // cross-origin. Buyer (token-gated) routes get their own namespace.
+  '/api/order-portal',
   '/api/v1',
   '/api/webhooks',
 ] as const

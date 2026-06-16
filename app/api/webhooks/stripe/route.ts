@@ -8,7 +8,14 @@ import {
 } from '../../../../lib/stripe-billing'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { minorToStripeAmount, formatCurrencyAmount } from '../../../../lib/currency'
-import { buildEscrowFundedEmail, buildMoneyEventEmail, hasEmailEnv, sendEmail } from '../../../../lib/email'
+import {
+  buildBuyerReceiptEmail,
+  buildBuyerStatusEmail,
+  buildEscrowFundedEmail,
+  buildMoneyEventEmail,
+  hasEmailEnv,
+  sendEmail,
+} from '../../../../lib/email'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'placeholder')
 
@@ -80,7 +87,7 @@ export async function POST(request: NextRequest) {
       const expectedSettlementState = autoSettle ? 'auto' : 'approved'
       const { data: negotiation } = await admin
         .from('agent_negotiations')
-        .select('id, status, amount_cents, currency, settlement_state, stripe_checkout_session_id, offer_name, slug, page_id, buyer_agent')
+        .select('id, status, amount_cents, currency, settlement_state, stripe_checkout_session_id, offer_name, slug, page_id, buyer_agent, status_token')
         .eq('id', session.metadata.nexez_negotiation_id)
         .maybeSingle<{
           id: string
@@ -93,6 +100,7 @@ export async function POST(request: NextRequest) {
           slug: string | null
           page_id: string | null
           buyer_agent: string | null
+          status_token: string | null
         }>()
 
       if (!negotiation) {
@@ -123,9 +131,17 @@ export async function POST(request: NextRequest) {
 
       const nextStatus = autoSettle ? 'complete' : 'held'
       const nextEscrowMode = autoSettle ? 'captured' : 'manual_capture_created'
+      // Capture the buyer's email (Stripe collected it) so we can email a receipt +
+      // future status updates. Only ever ADDED — never overwritten with null.
+      const buyerEmail = session.customer_details?.email || session.customer_email || null
       const { error: settleErr } = await admin
         .from('agent_negotiations')
-        .update({ status: nextStatus, escrow_mode: nextEscrowMode, stripe_payment_intent_id: piId })
+        .update({
+          status: nextStatus,
+          escrow_mode: nextEscrowMode,
+          stripe_payment_intent_id: piId,
+          ...(buyerEmail ? { buyer_email: buyerEmail } : {}),
+        })
         .eq('id', session.metadata.nexez_negotiation_id)
         .eq('stripe_checkout_session_id', session.id)
       if (settleErr) {
@@ -158,6 +174,25 @@ export async function POST(request: NextRequest) {
           await sendEmail({ to: page.contact_email, subject: mail.subject, html: mail.html, text: mail.text })
         })
       }
+      // Buyer receipt + portal link (negotiation buyers reuse status_token as their
+      // portal credential). Only when we captured a buyer email this funding.
+      if (hasEmailEnv() && buyerEmail && negotiation.status_token) {
+        const token = negotiation.status_token
+        after(async () => {
+          const { data: page } = await admin
+            .from('pages')
+            .select('name')
+            .eq('id', negotiation.page_id as string)
+            .maybeSingle<{ name: string | null }>()
+          const mail = buildBuyerReceiptEmail({
+            businessName: page?.name || negotiation.slug || 'the seller',
+            offerName: negotiation.offer_name || 'Agreement',
+            amount: formatCurrencyAmount(session.amount_total ?? expectedChargeAmount, negotiation.currency || 'usd'),
+            manageUrl: `${getBaseUrl()}/orders/${token}`,
+          })
+          await sendEmail({ to: buyerEmail, subject: mail.subject, html: mail.html, text: mail.text })
+        })
+      }
       return NextResponse.json({ received: true, type: event.type, negotiation: session.metadata.nexez_negotiation_id, status: nextStatus, ok: true }, { status: 200 })
     }
 
@@ -180,6 +215,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ received: true, type: event.type, order: false, reason: 'unpaid or missing owner/amount' }, { status: 200 })
       }
       const admin = createAdminClient()
+      // Capture the buyer email (Stripe collected it) — added, never nulled, so a
+      // re-delivery without customer_details can't wipe it. access_token is minted by
+      // the column DEFAULT (so this upsert can't clobber it on a re-delivery).
+      const buyerEmail = session.customer_details?.email || session.customer_email || null
       const orderRow = {
         owner_id: ownerId,
         page_id: session.metadata.nexez_page_id || null,
@@ -193,12 +232,36 @@ export async function POST(request: NextRequest) {
         currency: (session.currency || 'usd').toLowerCase(),
         application_fee_cents: Number(session.metadata.nexez_application_fee_cents || 0) || null,
         status: 'paid',
+        ...(buyerEmail ? { buyer_email: buyerEmail } : {}),
       }
       const { error: orderErr } = await admin.from('checkout_orders').upsert(orderRow, { onConflict: 'stripe_session_id' })
       if (orderErr) {
         console.warn('[Stripe Webhook] checkout_orders upsert failed:', orderErr.message)
         await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
         return NextResponse.json({ error: 'order persist failed', type: event.type }, { status: 500 })
+      }
+      // Email the buyer a receipt + portal link. The portal token is the row's
+      // access_token (DB-minted on insert); read it back so the link is correct even
+      // on a re-delivery. Gated on a captured buyer email + RESEND env.
+      if (hasEmailEnv() && buyerEmail) {
+        after(async () => {
+          const { data: row } = await admin
+            .from('checkout_orders')
+            .select('access_token')
+            .eq('stripe_session_id', session.id)
+            .maybeSingle<{ access_token: string | null }>()
+          if (!row?.access_token) return
+          const { data: page } = orderRow.page_id
+            ? await admin.from('pages').select('name').eq('id', orderRow.page_id as string).maybeSingle<{ name: string | null }>()
+            : { data: null }
+          const mail = buildBuyerReceiptEmail({
+            businessName: page?.name || orderRow.slug || 'the seller',
+            offerName: orderRow.offer_name || 'Your purchase',
+            amount: formatCurrencyAmount(orderRow.amount_cents, orderRow.currency),
+            manageUrl: `${getBaseUrl()}/orders/${row.access_token}`,
+          })
+          await sendEmail({ to: buyerEmail, subject: mail.subject, html: mail.html, text: mail.text })
+        })
       }
       if (hasEmailEnv() && orderRow.page_id) {
         after(async () => {
@@ -278,7 +341,7 @@ export async function POST(request: NextRequest) {
 
     const { data: neg } = await admin
       .from('agent_negotiations')
-      .select('id, status, metadata, offer_name, page_id, currency, buyer_agent, slug')
+      .select('id, status, metadata, offer_name, page_id, currency, buyer_agent, slug, buyer_email, status_token')
       .eq('stripe_payment_intent_id', piId)
       .maybeSingle<{
         id: string
@@ -289,15 +352,17 @@ export async function POST(request: NextRequest) {
         currency: string | null
         buyer_agent: string | null
         slug: string | null
+        buyer_email: string | null
+        status_token: string | null
       }>()
     if (!neg) {
       // Not a negotiation — try a direct-checkout ORDER (same PI matching). This is
       // what closes the "direct-checkout disputes/refunds vanish silently" hole.
       const { data: order } = await admin
         .from('checkout_orders')
-        .select('id, status, metadata, offer_name, page_id, currency, slug')
+        .select('id, status, metadata, offer_name, page_id, currency, slug, buyer_email, access_token')
         .eq('stripe_payment_intent_id', piId)
-        .maybeSingle<{ id: string; status: string; metadata: Record<string, unknown> | null; offer_name: string | null; page_id: string | null; currency: string | null; slug: string | null }>()
+        .maybeSingle<{ id: string; status: string; metadata: Record<string, unknown> | null; offer_name: string | null; page_id: string | null; currency: string | null; slug: string | null; buyer_email: string | null; access_token: string | null }>()
       if (!order) {
         return NextResponse.json({ received: true, type: event.type, matched: false }, { status: 200 })
       }
@@ -305,6 +370,9 @@ export async function POST(request: NextRequest) {
       const oNow = new Date().toISOString()
       let oUpdate: Record<string, unknown> | null = null
       let oNotify: { kind: 'refund' | 'dispute_opened' | 'dispute_closed'; amountCents: number | null; detail: string | null } | null = null
+      // Buyer-facing status update (sent to the buyer's captured email). Distinct from
+      // the seller notify: we skip dispute_opened (the buyer started it via their bank).
+      let oBuyerNotify: { kind: 'refunded' | 'partial_refund' | 'dispute_update'; amountCents: number | null; detail: string | null } | null = null
       if (event.type === 'charge.refunded') {
         // A PARTIAL refund (e.g. from the Stripe dashboard) must NOT mark the order
         // fully refunded — keep it 'paid' so the owner can still refund the remainder
@@ -314,6 +382,14 @@ export async function POST(request: NextRequest) {
           ? { status: 'refunded', metadata: { ...oMeta, refund: { source: 'stripe_webhook', amount_cents: obj.amount_refunded ?? null, at: oNow } } }
           : { metadata: { ...oMeta, partial_refund: { amount_cents: obj.amount_refunded ?? null, at: oNow } } }
         oNotify = { kind: 'refund', amountCents: obj.amount_refunded ?? null, detail: fullyRefunded ? null : 'Partial refund — the order stays open for the remainder.' }
+        // Only email the buyer on a NEW transition — a lost dispute already fired a
+        // 'refunded' email, and Stripe sends a separate charge.refunded for the same PI
+        // (distinct event id → not collapsed by the ledger), which would double-email.
+        if (fullyRefunded) {
+          if (order.status !== 'refunded') oBuyerNotify = { kind: 'refunded', amountCents: obj.amount_refunded ?? null, detail: null }
+        } else if (!oMeta.partial_refund) {
+          oBuyerNotify = { kind: 'partial_refund', amountCents: obj.amount_refunded ?? null, detail: null }
+        }
       } else if (event.type === 'charge.dispute.created') {
         oUpdate = { status: 'disputed', metadata: { ...oMeta, dispute: { reason: obj.reason ?? null, amount_cents: obj.amount ?? null, at: oNow } } }
         oNotify = { kind: 'dispute_opened', amountCents: obj.amount ?? null, detail: obj.reason ? `Reason: ${obj.reason}` : null }
@@ -321,6 +397,11 @@ export async function POST(request: NextRequest) {
         const won = obj.status === 'won'
         oUpdate = { status: won ? 'dispute_won' : 'refunded', metadata: { ...oMeta, dispute_outcome: { result: won ? 'won' : obj.status ?? 'lost', at: oNow } } }
         oNotify = { kind: 'dispute_closed', amountCents: obj.amount ?? null, detail: won ? 'You won — funds retained.' : `Lost (${obj.status ?? 'lost'}) — refunded to the buyer.` }
+        if (won) {
+          if (order.status !== 'dispute_won') oBuyerNotify = { kind: 'dispute_update', amountCents: obj.amount ?? null, detail: 'The dispute was resolved.' }
+        } else if (order.status !== 'refunded') {
+          oBuyerNotify = { kind: 'refunded', amountCents: obj.amount ?? null, detail: null }
+        }
       }
       if (!oUpdate) {
         return NextResponse.json({ received: true, type: event.type, order: order.id, changed: false }, { status: 200 })
@@ -348,6 +429,26 @@ export async function POST(request: NextRequest) {
           await sendEmail({ to: page.contact_email, subject: mail.subject, html: mail.html, text: mail.text })
         })
       }
+      // Buyer-facing status update (refund processed / dispute resolved).
+      if (oBuyerNotify && hasEmailEnv() && order.buyer_email && order.access_token) {
+        const bn = oBuyerNotify
+        const buyerTo = order.buyer_email
+        const token = order.access_token
+        after(async () => {
+          const { data: page } = order.page_id
+            ? await admin.from('pages').select('name').eq('id', order.page_id as string).maybeSingle<{ name: string | null }>()
+            : { data: null }
+          const mail = buildBuyerStatusEmail({
+            kind: bn.kind,
+            businessName: page?.name || order.slug || 'the seller',
+            offerName: order.offer_name || 'Your purchase',
+            amount: bn.amountCents != null ? formatCurrencyAmount(bn.amountCents, order.currency || 'usd') : null,
+            detail: bn.detail,
+            manageUrl: `${getBaseUrl()}/orders/${token}`,
+          })
+          await sendEmail({ to: buyerTo, subject: mail.subject, html: mail.html, text: mail.text })
+        })
+      }
       return NextResponse.json({ received: true, type: event.type, order: order.id, status: oUpdate.status }, { status: 200 })
     }
 
@@ -356,6 +457,8 @@ export async function POST(request: NextRequest) {
     let update: Record<string, unknown> | null = null
     // Seller notification descriptor (time-sensitive for disputes). null = no email.
     let notify: { kind: 'refund' | 'dispute_opened' | 'dispute_closed'; amountCents: number | null; detail: string | null } | null = null
+    // Buyer-facing status update (skips dispute_opened — the buyer started it).
+    let buyerNotify: { kind: 'refunded' | 'partial_refund' | 'dispute_update'; amountCents: number | null; detail: string | null } | null = null
 
     if (event.type === 'charge.refunded') {
       // A PARTIAL refund keeps the deal 'complete' (remainder still refundable);
@@ -365,6 +468,12 @@ export async function POST(request: NextRequest) {
         ? { status: 'refunded', metadata: { ...baseMeta, refund: { source: 'stripe_webhook', amount_cents: obj.amount_refunded ?? null, at: now } } }
         : { metadata: { ...baseMeta, partial_refund: { amount_cents: obj.amount_refunded ?? null, at: now } } }
       notify = { kind: 'refund', amountCents: obj.amount_refunded ?? null, detail: fullyRefunded ? null : 'Partial refund — the deal stays open for the remainder.' }
+      // Email the buyer only on a NEW transition (avoid the lost-dispute + charge.refunded double).
+      if (fullyRefunded) {
+        if (neg.status !== 'refunded') buyerNotify = { kind: 'refunded', amountCents: obj.amount_refunded ?? null, detail: null }
+      } else if (!baseMeta.partial_refund) {
+        buyerNotify = { kind: 'partial_refund', amountCents: obj.amount_refunded ?? null, detail: null }
+      }
     } else if (event.type === 'charge.dispute.created') {
       update = { status: 'disputed', metadata: { ...baseMeta, dispute: { reason: obj.reason ?? null, amount_cents: obj.amount ?? null, status: obj.status ?? null, at: now } } }
       notify = { kind: 'dispute_opened', amountCents: obj.amount ?? null, detail: obj.reason ? `Reason: ${obj.reason}` : null }
@@ -374,6 +483,11 @@ export async function POST(request: NextRequest) {
         ? { status: 'complete', metadata: { ...baseMeta, dispute_outcome: { result: 'won', at: now } } }
         : { status: 'refunded', metadata: { ...baseMeta, dispute_outcome: { result: obj.status ?? 'lost', at: now } } }
       notify = { kind: 'dispute_closed', amountCents: obj.amount ?? null, detail: won ? 'You won — funds retained.' : `Lost (${obj.status ?? 'lost'}) — refunded to the buyer.` }
+      if (won) {
+        if (neg.status !== 'complete') buyerNotify = { kind: 'dispute_update', amountCents: obj.amount ?? null, detail: 'The dispute was resolved.' }
+      } else if (neg.status !== 'refunded') {
+        buyerNotify = { kind: 'refunded', amountCents: obj.amount ?? null, detail: null }
+      }
     } else if (event.type === 'payment_intent.canceled') {
       // Only meaningful if we still think funds are held (hold released out-of-band).
       if (neg.status === 'held') update = { status: 'declined' }
@@ -410,6 +524,26 @@ export async function POST(request: NextRequest) {
           inboxUrl: `${getBaseUrl()}/dashboard/negotiations`,
         })
         await sendEmail({ to: page.contact_email, subject: mail.subject, html: mail.html, text: mail.text })
+      })
+    }
+    // Buyer-facing status update for the negotiation buyer (status_token = portal credential).
+    if (buyerNotify && hasEmailEnv() && neg.buyer_email && neg.status_token) {
+      const bn = buyerNotify
+      const buyerTo = neg.buyer_email
+      const token = neg.status_token
+      after(async () => {
+        const { data: page } = neg.page_id
+          ? await admin.from('pages').select('name').eq('id', neg.page_id as string).maybeSingle<{ name: string | null }>()
+          : { data: null }
+        const mail = buildBuyerStatusEmail({
+          kind: bn.kind,
+          businessName: page?.name || neg.slug || 'the seller',
+          offerName: neg.offer_name || 'Agreement',
+          amount: bn.amountCents != null ? formatCurrencyAmount(bn.amountCents, neg.currency || 'usd') : null,
+          detail: bn.detail,
+          manageUrl: `${getBaseUrl()}/orders/${token}`,
+        })
+        await sendEmail({ to: buyerTo, subject: mail.subject, html: mail.html, text: mail.text })
       })
     }
     return NextResponse.json({ received: true, type: event.type, negotiation: neg.id, status: update.status }, { status: 200 })

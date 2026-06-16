@@ -1,0 +1,64 @@
+import { describe, it, expect } from 'vitest'
+import { buildBuyerReceiptEmail, buildBuyerStatusEmail, buildBuyerRequestEmail } from './email'
+
+describe('buildBuyerReceiptEmail', () => {
+  it('includes the seller, amount + portal link', () => {
+    const m = buildBuyerReceiptEmail({
+      businessName: 'Acme',
+      offerName: 'Logo design',
+      amount: '$50.00',
+      manageUrl: 'https://nexez.app/orders/tok123',
+    })
+    expect(m.subject).toContain('Acme')
+    expect(m.html).toContain('https://nexez.app/orders/tok123')
+    expect(m.html).toContain('$50.00')
+    expect(m.text).toContain('Logo design')
+  })
+
+  it('escapes HTML in the business name', () => {
+    const m = buildBuyerReceiptEmail({ businessName: '<script>x</script>', offerName: 'x', amount: '$1', manageUrl: 'u' })
+    expect(m.html).not.toContain('<script>x</script>')
+    expect(m.html).toContain('&lt;script&gt;')
+  })
+})
+
+describe('buildBuyerStatusEmail', () => {
+  it('refunded copy mentions the refund', () => {
+    const m = buildBuyerStatusEmail({ kind: 'refunded', businessName: 'Acme', offerName: 'X', amount: '$50.00', manageUrl: 'u' })
+    expect(m.subject.toLowerCase()).toContain('refund')
+    expect(m.html).toContain('$50.00')
+  })
+
+  it('request_received acknowledges to the buyer', () => {
+    const m = buildBuyerStatusEmail({ kind: 'request_received', businessName: 'Acme', offerName: 'X', manageUrl: 'u' })
+    expect(m.subject.toLowerCase()).toContain('received')
+  })
+
+  it('partial_refund has its own subject', () => {
+    const m = buildBuyerStatusEmail({ kind: 'partial_refund', businessName: 'Acme', offerName: 'X', manageUrl: 'u' })
+    expect(m.subject.toLowerCase()).toContain('partial')
+  })
+})
+
+describe('buildBuyerRequestEmail', () => {
+  it('refund_request drives the seller to Finance + surfaces the buyer', () => {
+    const m = buildBuyerRequestEmail({
+      kind: 'refund_request',
+      businessName: 'Acme',
+      offerName: 'Logo',
+      amount: '$50.00',
+      message: 'wrong item',
+      buyerEmail: 'buyer@example.com',
+      inboxUrl: 'https://app.nexez.ai/dashboard/finance',
+    })
+    expect(m.subject.toLowerCase()).toContain('refund')
+    expect(m.html).toContain('buyer@example.com')
+    expect(m.html).toContain('wrong item')
+    expect(m.text).toContain('https://app.nexez.ai/dashboard/finance')
+  })
+
+  it('problem_report uses problem copy', () => {
+    const m = buildBuyerRequestEmail({ kind: 'problem_report', businessName: 'Acme', offerName: 'Logo', inboxUrl: 'u' })
+    expect(m.subject.toLowerCase()).toContain('problem')
+  })
+})

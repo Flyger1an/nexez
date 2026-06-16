@@ -35,6 +35,7 @@ import {
 import { formatCurrencyAmount, normalizeCurrency } from '../../../lib/currency'
 import { EmptyState, type EmptyStateCta } from '../../../components/EmptyState'
 import { OrdersPanel, type OrderRow } from '../../../components/dashboard/OrdersPanel'
+import { BuyerRequestsPanel, type BuyerRequestRow } from '../../../components/dashboard/BuyerRequestsPanel'
 import { getCommissionPercentForPlan, billingStatusCopy, type BillingSubscription } from '../../../lib/stripe-billing'
 import { getConnectPayoutSnapshot, getNextPayout } from '../../../lib/server/connect-finance'
 import { getNegotiationStatusLabel, getNegotiationStatusTone, type NegotiationStatus } from '../../../lib/negotiations'
@@ -133,6 +134,16 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
     .limit(100)
     .returns<OrderRow[]>()
   const orders = orderRows ?? []
+
+  // Buyer-filed recourse (refund requests / problem reports from the order portal).
+  const { data: requestRows } = await supabase
+    .from('order_requests')
+    .select('id, order_kind, kind, status, message, buyer_email, slug, created_at')
+    .eq('owner_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(100)
+    .returns<BuyerRequestRow[]>()
+  const buyerRequests = requestRows ?? []
 
   // Per-currency roll-up + the selected currency for the hero/trend/top-offers.
   const byCurrency = rollupFinanceByCurrency(events, commissionPct)
@@ -451,6 +462,9 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
               </p>
             </GlassCard>
           )}
+
+          {/* Buyer-filed refund requests / problem reports from the order portal */}
+          <BuyerRequestsPanel requests={buyerRequests} />
 
           {/* Direct-checkout orders with in-app refund */}
           <OrdersPanel orders={orders} />

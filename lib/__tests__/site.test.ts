@@ -106,6 +106,18 @@ describe('canonicalHostFor', () => {
     expect(canonicalHostFor('/negotiate/abc-123')).toBe(AGENT_RUNTIME_HOST)
   })
 
+  it('routes the buyer order portal to the runtime, but keeps owner /api/orders/* on the app host', () => {
+    // The buyer portal (public, token-gated) lives on the agent runtime…
+    expect(canonicalHostFor('/orders')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/orders/tok_abc123')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/api/order-portal/request')).toBe(AGENT_RUNTIME_HOST)
+    // …but the OWNER actions under /api/orders/* must stay on the app host (owner
+    // session). The /api/order-portal prefix must NOT capture them — a 308 here would
+    // push the owner refund/triage cross-origin and drop the session.
+    expect(canonicalHostFor('/api/orders/refund')).toBe(APP_HOST)
+    expect(canonicalHostFor('/api/orders/request-status')).toBe(APP_HOST)
+  })
+
   it('defaults an UNLISTED /api/* route to the private app host (fail-safe), but a slug to the runtime', () => {
     expect(canonicalHostFor('/api/some-future-private-route')).toBe(APP_HOST)
     expect(canonicalHostFor('/totally-unknown-slug')).toBe(AGENT_RUNTIME_HOST)
