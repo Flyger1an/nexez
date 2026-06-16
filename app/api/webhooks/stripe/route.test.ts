@@ -347,4 +347,57 @@ describe('POST /api/webhooks/stripe', () => {
       expect((await res.json()).matched).toBe(false)
     })
   })
+
+  describe('direct-checkout orders', () => {
+    beforeEach(() => vi.stubEnv('STRIPE_WEBHOOK_SECRET', 'whsec_test'))
+
+    it('session.completed (agent_checkout) → persists a checkout_orders row with the captured PI', async () => {
+      hasSupabaseAdminEnv.mockReturnValue(true)
+      let upserted: any
+      createAdminClient.mockReturnValue(
+        createSupabaseMock((ctx: QueryContext) => {
+          if (ctx.table === 'checkout_orders' && ctx.op === 'upsert') upserted = ctx.payload
+          return { data: null, error: null }
+        }) as any,
+      )
+      constructEvent.mockReturnValue({
+        id: 'evt_dc',
+        type: 'checkout.session.completed',
+        account: 'acct_x',
+        data: {
+          object: {
+            id: 'cs_dc', payment_status: 'paid', payment_intent: 'pi_dc', amount_total: 5000, currency: 'usd',
+            metadata: { nexez_source: 'agent_checkout', nexez_owner_id: 'owner-1', nexez_page_id: 'pg1', nexez_page_slug: 'acme', nexez_offer_name: 'Audit', nexez_offer_key: 's0', nexez_application_fee_cents: '750' },
+          },
+        },
+      })
+      const res = await POST(post({ sig: 'good', body: '{}' }))
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ order: true, status: 'paid' })
+      expect(upserted).toMatchObject({ owner_id: 'owner-1', stripe_session_id: 'cs_dc', stripe_payment_intent_id: 'pi_dc', amount_cents: 5000, currency: 'usd', status: 'paid', application_fee_cents: 750, stripe_connect_account_id: 'acct_x' })
+    })
+
+    it('charge.refunded with no negotiation but a matching ORDER → order refunded', async () => {
+      hasSupabaseAdminEnv.mockReturnValue(true)
+      let updated: any
+      createAdminClient.mockReturnValue(
+        createSupabaseMock((ctx: QueryContext) => {
+          if (ctx.table === 'agent_negotiations') return { data: null, error: null }
+          if (ctx.table === 'checkout_orders') {
+            if (ctx.op === 'update') {
+              updated = ctx.payload
+              return { data: null, error: null }
+            }
+            return { data: { id: 'o1', status: 'paid', metadata: {}, page_id: 'pg1', currency: 'usd', offer_name: 'Audit', slug: 'acme' }, error: null }
+          }
+          return { data: null, error: null }
+        }) as any,
+      )
+      constructEvent.mockReturnValue({ id: 'evt_or', type: 'charge.refunded', data: { object: { payment_intent: 'pi_dc', amount_refunded: 5000 } } })
+      const res = await POST(post({ sig: 'good', body: '{}' }))
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ order: 'o1', status: 'refunded' })
+      expect(updated.status).toBe('refunded')
+    })
+  })
 })

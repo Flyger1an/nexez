@@ -167,6 +167,57 @@ export async function POST(request: NextRequest) {
       return syncBillingCheckoutSession(event, session)
     }
 
+    // Direct agent checkout (non-negotiation): persist a durable ORDER record so the
+    // sale can be refunded / dispute-tracked in-app, and notify the seller.
+    if (session.metadata?.nexez_source === 'agent_checkout') {
+      if (!hasSupabaseAdminEnv()) {
+        return NextResponse.json({ received: true, type: event.type, note: 'SUPABASE_SERVICE_ROLE_KEY required' }, { status: 200 })
+      }
+      const paid = !session.payment_status || session.payment_status === 'paid'
+      const ownerId = session.metadata.nexez_owner_id || null
+      const piId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id ?? null
+      if (!paid || !ownerId || !session.amount_total) {
+        return NextResponse.json({ received: true, type: event.type, order: false, reason: 'unpaid or missing owner/amount' }, { status: 200 })
+      }
+      const admin = createAdminClient()
+      const orderRow = {
+        owner_id: ownerId,
+        page_id: session.metadata.nexez_page_id || null,
+        slug: session.metadata.nexez_page_slug || null,
+        offer_name: session.metadata.nexez_offer_name || null,
+        offer_key: session.metadata.nexez_offer_key || null,
+        stripe_session_id: session.id,
+        stripe_payment_intent_id: piId,
+        stripe_connect_account_id: (event as { account?: string }).account ?? null,
+        amount_cents: session.amount_total,
+        currency: (session.currency || 'usd').toLowerCase(),
+        application_fee_cents: Number(session.metadata.nexez_application_fee_cents || 0) || null,
+        status: 'paid',
+      }
+      const { error: orderErr } = await admin.from('checkout_orders').upsert(orderRow, { onConflict: 'stripe_session_id' })
+      if (orderErr) {
+        console.warn('[Stripe Webhook] checkout_orders upsert failed:', orderErr.message)
+        await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
+        return NextResponse.json({ error: 'order persist failed', type: event.type }, { status: 500 })
+      }
+      if (hasEmailEnv() && orderRow.page_id) {
+        after(async () => {
+          const { data: page } = await admin.from('pages').select('name, contact_email').eq('id', orderRow.page_id as string).maybeSingle<{ name: string | null; contact_email: string | null }>()
+          if (!page?.contact_email) return
+          const mail = buildEscrowFundedEmail({
+            businessName: page.name || orderRow.slug || 'your page',
+            offerName: orderRow.offer_name || 'Your offer',
+            amount: formatCurrencyAmount(orderRow.amount_cents, orderRow.currency),
+            held: false,
+            buyerAgent: null,
+            inboxUrl: `${getBaseUrl()}/dashboard/finance`,
+          })
+          await sendEmail({ to: page.contact_email, subject: mail.subject, html: mail.html, text: mail.text })
+        })
+      }
+      return NextResponse.json({ received: true, type: event.type, order: true, status: 'paid' }, { status: 200 })
+    }
+
     return NextResponse.json({ received: true, type: event.type }, { status: 200 })
   }
 
@@ -240,7 +291,64 @@ export async function POST(request: NextRequest) {
         slug: string | null
       }>()
     if (!neg) {
-      return NextResponse.json({ received: true, type: event.type, matched: false }, { status: 200 })
+      // Not a negotiation — try a direct-checkout ORDER (same PI matching). This is
+      // what closes the "direct-checkout disputes/refunds vanish silently" hole.
+      const { data: order } = await admin
+        .from('checkout_orders')
+        .select('id, status, metadata, offer_name, page_id, currency, slug')
+        .eq('stripe_payment_intent_id', piId)
+        .maybeSingle<{ id: string; status: string; metadata: Record<string, unknown> | null; offer_name: string | null; page_id: string | null; currency: string | null; slug: string | null }>()
+      if (!order) {
+        return NextResponse.json({ received: true, type: event.type, matched: false }, { status: 200 })
+      }
+      const oMeta = (order.metadata as Record<string, unknown>) || {}
+      const oNow = new Date().toISOString()
+      let oUpdate: Record<string, unknown> | null = null
+      let oNotify: { kind: 'refund' | 'dispute_opened' | 'dispute_closed'; amountCents: number | null; detail: string | null } | null = null
+      if (event.type === 'charge.refunded') {
+        // A PARTIAL refund (e.g. from the Stripe dashboard) must NOT mark the order
+        // fully refunded — keep it 'paid' so the owner can still refund the remainder
+        // in-app; only a full refund flips status. (Stripe never double-refunds.)
+        const fullyRefunded = obj.amount == null || obj.amount_refunded == null || obj.amount_refunded >= obj.amount
+        oUpdate = fullyRefunded
+          ? { status: 'refunded', metadata: { ...oMeta, refund: { source: 'stripe_webhook', amount_cents: obj.amount_refunded ?? null, at: oNow } } }
+          : { metadata: { ...oMeta, partial_refund: { amount_cents: obj.amount_refunded ?? null, at: oNow } } }
+        oNotify = { kind: 'refund', amountCents: obj.amount_refunded ?? null, detail: fullyRefunded ? null : 'Partial refund — the order stays open for the remainder.' }
+      } else if (event.type === 'charge.dispute.created') {
+        oUpdate = { status: 'disputed', metadata: { ...oMeta, dispute: { reason: obj.reason ?? null, amount_cents: obj.amount ?? null, at: oNow } } }
+        oNotify = { kind: 'dispute_opened', amountCents: obj.amount ?? null, detail: obj.reason ? `Reason: ${obj.reason}` : null }
+      } else if (event.type === 'charge.dispute.closed') {
+        const won = obj.status === 'won'
+        oUpdate = { status: won ? 'dispute_won' : 'refunded', metadata: { ...oMeta, dispute_outcome: { result: won ? 'won' : obj.status ?? 'lost', at: oNow } } }
+        oNotify = { kind: 'dispute_closed', amountCents: obj.amount ?? null, detail: won ? 'You won — funds retained.' : `Lost (${obj.status ?? 'lost'}) — refunded to the buyer.` }
+      }
+      if (!oUpdate) {
+        return NextResponse.json({ received: true, type: event.type, order: order.id, changed: false }, { status: 200 })
+      }
+      oUpdate.updated_at = oNow
+      const { error: oErr } = await admin.from('checkout_orders').update(oUpdate).eq('id', order.id)
+      if (oErr) {
+        console.warn('[Stripe Webhook] order reversal update failed:', oErr.message)
+        await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
+        return NextResponse.json({ error: 'order reversal update failed', type: event.type }, { status: 500 })
+      }
+      if (oNotify && hasEmailEnv() && order.page_id) {
+        const on = oNotify
+        after(async () => {
+          const { data: page } = await admin.from('pages').select('name, contact_email').eq('id', order.page_id as string).maybeSingle<{ name: string | null; contact_email: string | null }>()
+          if (!page?.contact_email) return
+          const mail = buildMoneyEventEmail({
+            kind: on.kind,
+            businessName: page.name || order.slug || 'your page',
+            offerName: order.offer_name || 'Your offer',
+            amount: on.amountCents != null ? formatCurrencyAmount(on.amountCents, order.currency || 'usd') : null,
+            detail: on.detail,
+            inboxUrl: `${getBaseUrl()}/dashboard/finance`,
+          })
+          await sendEmail({ to: page.contact_email, subject: mail.subject, html: mail.html, text: mail.text })
+        })
+      }
+      return NextResponse.json({ received: true, type: event.type, order: order.id, status: oUpdate.status }, { status: 200 })
     }
 
     const baseMeta = (neg.metadata as Record<string, unknown>) || {}

@@ -34,6 +34,7 @@ import {
 } from '../../../lib/finance-analytics'
 import { formatCurrencyAmount, normalizeCurrency } from '../../../lib/currency'
 import { EmptyState, type EmptyStateCta } from '../../../components/EmptyState'
+import { OrdersPanel, type OrderRow } from '../../../components/dashboard/OrdersPanel'
 import { getCommissionPercentForPlan, billingStatusCopy, type BillingSubscription } from '../../../lib/stripe-billing'
 import { getConnectPayoutSnapshot, getNextPayout } from '../../../lib/server/connect-finance'
 import { getNegotiationStatusLabel, getNegotiationStatusTone, type NegotiationStatus } from '../../../lib/negotiations'
@@ -122,6 +123,16 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
     .returns<NegotiationFinanceRow[]>()
   const negRows = negRowsRaw ?? []
   const negByCurrency = rollupNegotiationsByCurrency(negRows)
+
+  // Direct-checkout orders (refundable in-app via the panel below).
+  const { data: orderRows } = await supabase
+    .from('checkout_orders')
+    .select('id, offer_name, amount_cents, currency, status, slug')
+    .eq('owner_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(100)
+    .returns<OrderRow[]>()
+  const orders = orderRows ?? []
 
   // Per-currency roll-up + the selected currency for the hero/trend/top-offers.
   const byCurrency = rollupFinanceByCurrency(events, commissionPct)
@@ -440,6 +451,9 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
               </p>
             </GlassCard>
           )}
+
+          {/* Direct-checkout orders with in-app refund */}
+          <OrdersPanel orders={orders} />
 
           {/* Payouts + top offers */}
           <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1fr]">
