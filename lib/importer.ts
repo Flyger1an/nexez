@@ -582,15 +582,10 @@ function isBlockedIpv6(address: string): boolean {
 export async function isPathAllowed(base: string, path: string): Promise<boolean> {
   try {
     const robotsUrl = normalizeUrl(base, '/robots.txt')
-    const controller = new AbortController()
-    const t = setTimeout(() => controller.abort(), 4000)
-    const res = await fetch(robotsUrl, {
-      headers: { 'User-Agent': 'Nexez Site Importer Bot/1.0' },
-      signal: controller.signal,
-    })
-    clearTimeout(t)
-    if (!res.ok) return true // no robots or unreadable → allow (we're polite anyway)
-    const txt = await res.text()
+    // SSRF-safe: validate the target + EVERY redirect hop (a malicious robots.txt
+    // 30x to an internal host must not be followed). null = unreadable/unsafe -> allow.
+    const txt = await fetchTextSafe(robotsUrl, 4000)
+    if (txt === null) return true // no robots or unreadable/unsafe -> allow (we're polite anyway)
     // Very simple parser: look for User-agent: * or our bot, then Disallow lines
     const lines = txt.split('\n').map(l => l.trim().toLowerCase())
     let inRelevant = false
@@ -617,14 +612,10 @@ async function tryExtractShopifyProducts(baseUrl: string): Promise<OfferItem[]> 
     const u = new URL(baseUrl)
     // Common Shopify public endpoint (works on many public stores without auth)
     const shopifyUrl = `${u.origin}/products.json?limit=30`
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 5000)
-    const res = await fetch(shopifyUrl, {
-      headers: { 'User-Agent': 'Nexez Site Importer Bot/1.0 (Shopify)' },
-      signal: controller.signal,
-    })
-    clearTimeout(timer)
-    if (!res.ok) return []
+    // SSRF-safe: validate the target + every redirect hop (a 30x to an internal
+    // host must not be followed) before connecting / parsing the JSON body.
+    const res = await safeFetch(shopifyUrl, { headers: { 'User-Agent': 'Nexez Site Importer Bot/1.0 (Shopify)' } }, { timeoutMs: 5000 })
+    if (!res || !res.ok) return []
 
     const data = await res.json()
     const products = data.products || data

@@ -42,10 +42,14 @@ export async function POST(request: Request) {
 
     let userComparisonData: any = null
     if (userPageSlug && typeof userPageSlug === 'string') {
-      // Server-side fetch of the user's Nexez page for side-by-side (reuses the authed client).
+      // Server-side fetch of a published page for side-by-side. Read the redacted
+      // pages_public VIEW (not base `pages`): this is a by-slug, NOT owner-scoped
+      // read with the authed client, so reading base pages would depend on the
+      // broad published-read RLS policy we're removing (H1). The view exposes the
+      // same PUBLIC_PAGE_SELECT columns minus owner-private offer `rules`.
       try {
         const { data: pageData, error: fetchError } = await supabase
-          .from('pages')
+          .from('pages_public')
           .select(PUBLIC_PAGE_SELECT)
           .eq('slug', userPageSlug.replace(/^\//, ''))
           .eq('is_published', true)
