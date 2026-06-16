@@ -26,6 +26,16 @@ describe('buildAgentPagePayload', () => {
     expect(payload.offers[0].action.endpoint).toContain('/api/checkout')
   })
 
+  it('surfaces the settlement currency on the page block and each offer', () => {
+    // no currency on the page → defaults to usd (so an agent never assumes blindly)
+    expect(payload.page.currency).toBe('usd')
+    expect(payload.offers[0].currency).toBe('usd')
+    // a non-USD page propagates to the page block + every offer
+    const gbp = buildAgentPagePayload({ ...page, currency: 'gbp' } as unknown as AgentPage) as any
+    expect(gbp.page.currency).toBe('gbp')
+    expect(gbp.offers[0].currency).toBe('gbp')
+  })
+
   it('includes a plain_text block for LLMs', () => {
     expect(typeof payload.plain_text).toBe('string')
     expect(payload.plain_text).toContain('Acme')

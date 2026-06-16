@@ -7,6 +7,7 @@ import { createClient as createServerClient } from '../../utils/supabase/server'
 import { applyDraftOverlay } from '../../lib/draft'
 import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, Handshake, LockKeyhole, Mail, MapPin } from 'lucide-react'
 import { AgentPage, CredentialRecord, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, availabilityLabel, getBaseUrl, getCertification, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows, sanitizePublicUrl, schemaAvailability } from '../../lib/agent-page'
+import { normalizeCurrency } from '../../lib/currency'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { agentArtifactHref, getEffectiveBaseUrl, isCustomHost, normalizeDomainPath } from '../../lib/custom-domain'
 import { hasBranding, normalizeBranding } from '../../lib/branding'
@@ -761,6 +762,9 @@ function buildJsonLd(
       name: item.name,
       description: item.description || undefined,
       price: item.price || undefined,
+      // schema.org Offer.price is ambiguous without priceCurrency — surface the page
+      // settlement currency (matches the checkout page's JSON-LD).
+      priceCurrency: item.price ? normalizeCurrency((page as { currency?: string | null }).currency).toUpperCase() : undefined,
       availability: schemaAvailability(item.availability),
       url: effectiveUrl,
       potentialAction: {

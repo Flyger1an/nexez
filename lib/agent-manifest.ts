@@ -12,6 +12,7 @@ import {
 import { buildNegotiationAction } from './negotiations'
 import { publicBookingConstraints } from './offer-rules'
 import { rewriteForVoiceSync } from './ai-optimize'
+import { normalizeCurrency } from './currency'
 
 export function getAgentJsonPath(slug: string) {
   return `/${slug}/agent.json`
@@ -41,6 +42,9 @@ export function buildAgentPagePayload(
       slug: page.slug,
       url: publicUrl,
       agent_json_url: agentJsonUrl,
+      // Settlement currency for every offer price below (ISO 4217, lowercase) so an
+      // agent can compare prices across pages without fetching each one.
+      currency: normalizeCurrency((page as { currency?: string | null }).currency),
       description: page.description,
       website_url: page.website_url,
       cta_url: page.cta_url,
@@ -93,6 +97,9 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, baseUrl: strin
     // Speech-ready phrasing for voice agents (advanced LLM-powered using platform's configured LLM when page llm_opt_in + key, else deterministic).
     voice_summary: offer.description ? rewriteForVoiceSync(offer, page.name).description : null,
     price: offer.price || null,
+    // Currency for `price` (the page settlement currency) — explicit per-offer so an
+    // agent reading a single offer never has to assume USD.
+    currency: normalizeCurrency((page as { currency?: string | null }).currency),
     provider_url: providerUrl,
     checkout_url: checkoutUrl,
     prefer_original_for_this: (offer as any).prefer_original_for_this || false,
