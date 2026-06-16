@@ -70,6 +70,8 @@ describe('POST /api/negotiations/escrow — refund', () => {
     // refund created with an idempotency key
     const [params, opts] = (stripeRef.refundCreate as any).mock.calls[0]
     expect(params.payment_intent).toBe('pi_1')
+    // gives Nexez's commission back on the refund (seller isn't out the fee)
+    expect(params.refund_application_fee).toBe(true)
     expect(opts.idempotencyKey).toBe('refund-n1')
     // status flipped + metadata.refund recorded, prior metadata preserved
     const upd = getUpdate()

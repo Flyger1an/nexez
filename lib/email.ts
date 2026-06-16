@@ -134,6 +134,59 @@ export function buildEscrowFundedEmail(opts: {
   return { subject, html, text }
 }
 
+// Pure builder (testable) for refund / dispute seller notifications, fired from the
+// Stripe webhook reversal handlers. `kind` drives urgency + copy; `detail` is an
+// optional extra line (dispute reason, or won/lost outcome). `amount` is pre-formatted.
+export function buildMoneyEventEmail(opts: {
+  kind: 'refund' | 'dispute_opened' | 'dispute_closed'
+  businessName: string
+  offerName: string
+  amount?: string | null
+  detail?: string | null
+  inboxUrl: string
+}): { subject: string; html: string; text: string } {
+  const { businessName, offerName, amount, detail, inboxUrl } = opts
+  const copy = {
+    refund: {
+      subject: `Refund processed: ${offerName}`,
+      heading: 'Refund processed',
+      lead: `A payment on your Nexez page "${businessName}" was refunded to the buyer.`,
+      color: '#0a0a0a',
+    },
+    dispute_opened: {
+      subject: `⚠️ Payment disputed: ${offerName}`,
+      heading: 'A payment is disputed',
+      lead: `A buyer disputed a payment on your Nexez page "${businessName}". Disputes are time-sensitive — respond with evidence in your Stripe dashboard before the deadline, or the dispute is auto-lost.`,
+      color: '#b91c1c',
+    },
+    dispute_closed: {
+      subject: `Dispute resolved: ${offerName}`,
+      heading: 'Dispute resolved',
+      lead: `A dispute on your Nexez page "${businessName}" has closed.`,
+      color: '#0a0a0a',
+    },
+  }[opts.kind]
+  const rows: [string, string | null | undefined][] = [
+    ['Offer', offerName],
+    ['Amount', amount],
+    ['Details', detail],
+  ]
+  const present = rows.filter(([, v]) => v)
+  const text = [copy.lead, '', ...present.map(([k, v]) => `${k}: ${v}`), '', `Manage it: ${inboxUrl}`].join('\n')
+  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.6;color:#0a0a0a">
+  <h2 style="margin:0 0 8px;color:${copy.color}">${escapeHtml(copy.heading)}</h2>
+  <p style="margin:0 0 12px">${escapeHtml(copy.lead)}</p>
+  <table style="border-collapse:collapse;margin:0 0 16px">${present
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:4px 12px 4px 0;color:#52525b">${escapeHtml(k)}</td><td style="padding:4px 0"><strong>${escapeHtml(String(v))}</strong></td></tr>`,
+    )
+    .join('')}</table>
+  <p style="margin:0"><a href="${inboxUrl}" style="display:inline-block;background:#10B981;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600">Open your negotiation inbox</a></p>
+</div>`
+  return { subject: copy.subject, html, text }
+}
+
 // Pure builder (testable) for the "new negotiation request" email.
 export function buildNegotiationEmail(opts: {
   businessName: string

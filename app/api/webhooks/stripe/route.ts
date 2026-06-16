@@ -8,7 +8,7 @@ import {
 } from '../../../../lib/stripe-billing'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { minorToStripeAmount, formatCurrencyAmount } from '../../../../lib/currency'
-import { buildEscrowFundedEmail, hasEmailEnv, sendEmail } from '../../../../lib/email'
+import { buildEscrowFundedEmail, buildMoneyEventEmail, hasEmailEnv, sendEmail } from '../../../../lib/email'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'placeholder')
 
@@ -227,9 +227,18 @@ export async function POST(request: NextRequest) {
 
     const { data: neg } = await admin
       .from('agent_negotiations')
-      .select('id, status, metadata')
+      .select('id, status, metadata, offer_name, page_id, currency, buyer_agent, slug')
       .eq('stripe_payment_intent_id', piId)
-      .maybeSingle<{ id: string; status: string; metadata: Record<string, unknown> | null }>()
+      .maybeSingle<{
+        id: string
+        status: string
+        metadata: Record<string, unknown> | null
+        offer_name: string | null
+        page_id: string | null
+        currency: string | null
+        buyer_agent: string | null
+        slug: string | null
+      }>()
     if (!neg) {
       return NextResponse.json({ received: true, type: event.type, matched: false }, { status: 200 })
     }
@@ -237,16 +246,21 @@ export async function POST(request: NextRequest) {
     const baseMeta = (neg.metadata as Record<string, unknown>) || {}
     const now = new Date().toISOString()
     let update: Record<string, unknown> | null = null
+    // Seller notification descriptor (time-sensitive for disputes). null = no email.
+    let notify: { kind: 'refund' | 'dispute_opened' | 'dispute_closed'; amountCents: number | null; detail: string | null } | null = null
 
     if (event.type === 'charge.refunded') {
       update = { status: 'refunded', metadata: { ...baseMeta, refund: { source: 'stripe_webhook', amount_cents: obj.amount_refunded ?? null, at: now } } }
+      notify = { kind: 'refund', amountCents: obj.amount_refunded ?? null, detail: null }
     } else if (event.type === 'charge.dispute.created') {
       update = { status: 'disputed', metadata: { ...baseMeta, dispute: { reason: obj.reason ?? null, amount_cents: obj.amount ?? null, status: obj.status ?? null, at: now } } }
+      notify = { kind: 'dispute_opened', amountCents: obj.amount ?? null, detail: obj.reason ? `Reason: ${obj.reason}` : null }
     } else if (event.type === 'charge.dispute.closed') {
       const won = obj.status === 'won'
       update = won
         ? { status: 'complete', metadata: { ...baseMeta, dispute_outcome: { result: 'won', at: now } } }
         : { status: 'refunded', metadata: { ...baseMeta, dispute_outcome: { result: obj.status ?? 'lost', at: now } } }
+      notify = { kind: 'dispute_closed', amountCents: obj.amount ?? null, detail: won ? 'You won — funds retained.' : `Lost (${obj.status ?? 'lost'}) — refunded to the buyer.` }
     } else if (event.type === 'payment_intent.canceled') {
       // Only meaningful if we still think funds are held (hold released out-of-band).
       if (neg.status === 'held') update = { status: 'declined' }
@@ -261,6 +275,29 @@ export async function POST(request: NextRequest) {
       console.warn('[Stripe Webhook] reversal update failed:', upErr.message)
       await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
       return NextResponse.json({ error: 'reversal update failed', type: event.type }, { status: 500 })
+    }
+
+    // Notify the seller — refunds are informational; a dispute is time-sensitive
+    // (evidence deadline), so silent DB-only handling risked auto-lost disputes.
+    if (notify && hasEmailEnv() && neg.page_id) {
+      const n = notify
+      after(async () => {
+        const { data: page } = await admin
+          .from('pages')
+          .select('name, contact_email')
+          .eq('id', neg.page_id as string)
+          .maybeSingle<{ name: string | null; contact_email: string | null }>()
+        if (!page?.contact_email) return
+        const mail = buildMoneyEventEmail({
+          kind: n.kind,
+          businessName: page.name || neg.slug || 'your page',
+          offerName: neg.offer_name || 'Agreement',
+          amount: n.amountCents != null ? formatCurrencyAmount(n.amountCents, neg.currency || 'usd') : null,
+          detail: n.detail,
+          inboxUrl: `${getBaseUrl()}/dashboard/negotiations`,
+        })
+        await sendEmail({ to: page.contact_email, subject: mail.subject, html: mail.html, text: mail.text })
+      })
     }
     return NextResponse.json({ received: true, type: event.type, negotiation: neg.id, status: update.status }, { status: 200 })
   }

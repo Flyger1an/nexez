@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { buildEscrowFundedEmail, buildNegotiationEmail, hasEmailEnv, sendEmail } from '../email'
+import { buildEscrowFundedEmail, buildMoneyEventEmail, buildNegotiationEmail, hasEmailEnv, sendEmail } from '../email'
 
 describe('email gating', () => {
   const original = process.env.RESEND_API_KEY
@@ -78,5 +78,27 @@ describe('buildEscrowFundedEmail', () => {
     expect(mail.subject).toBe('Payment received: Audit')
     expect(mail.text).toContain('Status: Captured')
     expect(mail.html).toContain('A &amp; B &lt;Co&gt;') // escaped
+  })
+})
+
+describe('buildMoneyEventEmail', () => {
+  it('refund: informational subject + amount', () => {
+    const mail = buildMoneyEventEmail({ kind: 'refund', businessName: 'Axle', offerName: 'Audit', amount: '$50', inboxUrl: 'https://nexez.app/dashboard/negotiations' })
+    expect(mail.subject).toBe('Refund processed: Audit')
+    expect(mail.text).toContain('Amount: $50')
+    expect(mail.text).toContain('refunded to the buyer')
+  })
+
+  it('dispute_opened: urgent subject + the time-sensitive evidence warning', () => {
+    const mail = buildMoneyEventEmail({ kind: 'dispute_opened', businessName: 'Axle', offerName: 'Audit', amount: '$50', detail: 'Reason: fraudulent', inboxUrl: 'https://nexez.app/dashboard/negotiations' })
+    expect(mail.subject).toContain('Payment disputed: Audit')
+    expect(mail.text).toContain('time-sensitive')
+    expect(mail.text).toContain('Reason: fraudulent')
+  })
+
+  it('dispute_closed: resolution subject + outcome detail', () => {
+    const mail = buildMoneyEventEmail({ kind: 'dispute_closed', businessName: 'Axle', offerName: 'Audit', detail: 'You won — funds retained.', inboxUrl: 'https://nexez.app/dashboard/negotiations' })
+    expect(mail.subject).toBe('Dispute resolved: Audit')
+    expect(mail.text).toContain('You won')
   })
 })

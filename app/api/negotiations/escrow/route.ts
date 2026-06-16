@@ -132,7 +132,14 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Only a completed payment can be refunded.' }, { status: 409 })
       }
       const refund = await stripe.refunds.create(
-        { payment_intent: negotiation.stripe_payment_intent_id },
+        {
+          payment_intent: negotiation.stripe_payment_intent_id,
+          // Give Nexez's commission BACK on a refund — the charge took an
+          // application_fee to the platform, so without this the seller would eat
+          // the full refund while Nexez kept its cut. Proportional on the (full)
+          // refund. Connected-account refund (stripeAccount) of a direct charge.
+          refund_application_fee: true,
+        },
         { ...(stripeAccount ? { stripeAccount } : {}), idempotencyKey: `refund-${negotiation.id}` },
       )
       await supabase
