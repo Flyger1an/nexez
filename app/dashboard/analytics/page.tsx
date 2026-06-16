@@ -636,7 +636,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             {topOffers.length ? (
               <TopOffersChart offers={topOffers} max={maxOfferEvents} />
             ) : (
-              <EmptyPanel message="No offer signals yet." />
+              <EmptyPanel message="No offer signals yet." hint="Publish a page and share its link — as agents discover and act on your offers, the leaders show up here." />
             )}
           </Panel>
 
@@ -808,7 +808,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                 )}
               </div>
             ) : (
-              <EmptyPanel message="No agent queries yet." />
+              <EmptyPanel message="No agent queries yet." hint="The questions agents ask about your offers land here — a goldmine for sharpening your copy once traffic arrives." />
             )}
           </Panel>
 
@@ -1099,10 +1099,12 @@ function Insight({ title, value, detail }: { title: string; value: string; detai
   )
 }
 
-function EmptyPanel({ message }: { message: string }) {
+function EmptyPanel({ message, hint }: { message: string; hint?: string }) {
   return (
-    <div className="flex min-h-48 items-center justify-center rounded-lg border border-dashed border-white/10 p-6 text-center text-sm text-zinc-500">
-      {message}
+    <div className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-white/10 p-6 text-center">
+      <Sparkles className="size-5 text-[var(--signal)]/60" aria-hidden />
+      <p className="text-sm text-zinc-400">{message}</p>
+      {hint ? <p className="max-w-xs text-xs text-zinc-500">{hint}</p> : null}
     </div>
   )
 }

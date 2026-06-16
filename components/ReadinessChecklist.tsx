@@ -11,18 +11,29 @@ import type { ReadinessCriterion } from '../lib/agent-page'
 export function ReadinessChecklist({ criteria, score }: { criteria: ReadinessCriterion[]; score: number }) {
   const missing = criteria.filter((c) => !c.met)
   const metCount = criteria.length - missing.length
+  const allMet = missing.length === 0
 
   return (
     <div className="rounded-lg border border-white/10 bg-black/20 p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-white">
-          {missing.length === 0 ? 'Agent-ready ✓' : "What's still missing"}
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-white">
+          {allMet ? (
+            <>
+              <CheckCircle2 className="nx-celebrate-pop size-4 text-[var(--ready)]" aria-hidden />
+              Agent-ready 🎉
+            </>
+          ) : (
+            "What's still missing"
+          )}
         </p>
-        <p className="text-sm font-semibold text-[var(--signal)]">{score}%</p>
+        <p className={`text-sm font-semibold ${allMet ? 'text-[var(--ready)]' : 'text-[var(--signal)]'}`}>{score}%</p>
       </div>
 
       <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuenow={score} aria-valuemin={0} aria-valuemax={100}>
-        <div className="h-full rounded-full bg-[var(--ready)] transition-all" style={{ width: `${score}%` }} />
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${score}%`, background: allMet ? 'linear-gradient(90deg, var(--signal), var(--ready))' : 'var(--ready)' }}
+        />
       </div>
 
       <ul className="space-y-1.5">
@@ -42,7 +53,9 @@ export function ReadinessChecklist({ criteria, score }: { criteria: ReadinessCri
       </ul>
 
       <p className="mt-3 text-xs text-zinc-500">
-        {metCount} of {criteria.length} ready{missing.length ? ' — finish the rest for a Certified Agent-Ready badge.' : '.'}
+        {allMet
+          ? 'All set — hit Publish to go live and earn the Certified Agent-Ready badge.'
+          : `${metCount} of ${criteria.length} ready — finish the rest for a Certified Agent-Ready badge.`}
       </p>
     </div>
   )

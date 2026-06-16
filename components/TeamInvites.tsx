@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Mail, Users, X } from 'lucide-react'
 import { createClient } from '../utils/supabase/client'
+import { EmptyState } from './EmptyState'
 import { TEAM_ROLES, TeamRole, isValidEmail, roleLabel } from '../lib/team'
 
 type Invite = { id: string; email: string; role: TeamRole; status: string; created_at: string }
@@ -109,7 +110,10 @@ export function TeamInvites() {
             <Loader2 className="size-4 animate-spin" /> Loading…
           </div>
         ) : invites.length === 0 ? (
-          <p className="text-sm text-zinc-500">No teammates invited yet.</p>
+          <EmptyState icon={Users} title="No teammates yet">
+            Invite collaborators to help manage your pages and negotiations — they get scoped, role-based access without
+            sharing your login.
+          </EmptyState>
         ) : (
           invites.map((inv) => (
             <div key={inv.id} className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 p-2 text-sm">

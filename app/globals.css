@@ -1179,3 +1179,34 @@ nav.glassnav.open .navsheet { display: grid; gap: .15rem; }
 :root { --signal-solid: #5145e8; }
 html.light { --signal-solid: #4f46e5; }
 .bg-\[var\(--signal-solid\)\] { color: #fff; }
+
+/* ============================================================================
+   VISUAL DELIGHT — entrance + celebration motion (CSS-only, accessible)
+   Keyframes are global; the `animation:` APPLICATION lives under
+   prefers-reduced-motion:no-preference, so reduced-motion users get the final
+   (visible) state instantly with zero motion. animation-fill-mode:both means the
+   element ALWAYS lands at its end state even if the animation is interrupted — so
+   these never hide critical content (unlike the JS scroll-reveal `.rv`).
+   ============================================================================ */
+@keyframes nx-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes nx-celebrate { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes nx-celebrate-pop {
+  0% { transform: scale(.4); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* gentle fade + rise for a single element (empty states, cards) */
+  .nx-rise { animation: nx-rise .5s cubic-bezier(.22,1,.36,1) both; }
+  /* staggered version: direct children rise in sequence (KPI rows, card grids) */
+  .nx-rise-stagger > * { animation: nx-rise .5s cubic-bezier(.22,1,.36,1) both; }
+  .nx-rise-stagger > *:nth-child(2) { animation-delay: .06s; }
+  .nx-rise-stagger > *:nth-child(3) { animation-delay: .12s; }
+  .nx-rise-stagger > *:nth-child(4) { animation-delay: .18s; }
+  .nx-rise-stagger > *:nth-child(5) { animation-delay: .24s; }
+  .nx-rise-stagger > *:nth-child(n+6) { animation-delay: .3s; }
+  /* celebration banner entrance + its icon pop */
+  .nx-celebrate { animation: nx-celebrate .5s cubic-bezier(.22,1,.36,1) both; }
+  .nx-celebrate-pop { animation: nx-celebrate-pop .6s cubic-bezier(.34,1.56,.5,1) both; }
+}

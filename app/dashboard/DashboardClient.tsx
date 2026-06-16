@@ -395,7 +395,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                 View in Analytics →
               </a>
             </div>
-            <section className="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+            <section className="nx-rise-stagger mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
               <div className="kpi-card">
                 <p className="text-sm text-[#9CA3AF]">Tracked signals</p>
                 <p className="mt-2 text-4xl font-semibold tracking-tighter">{totalTrackedSignals}</p>

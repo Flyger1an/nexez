@@ -16,6 +16,7 @@ import { OutboundActivityCard } from '../../../components/editor/OutboundActivit
 import { IntegrationsHealthPanel } from '../../../components/editor/IntegrationsHealthPanel'
 import { AvailabilityCard } from '../../../components/editor/AvailabilityCard'
 import { ReanalysisPreview } from '../../../components/editor/ReanalysisPreview'
+import { PublishCelebration } from '../../../components/editor/PublishCelebration'
 import { appUrl } from '../../../lib/site'
 
 export function EditorClient({ initial }: { initial: EditorInitial }) {
@@ -26,6 +27,7 @@ export function EditorClient({ initial }: { initial: EditorInitial }) {
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <ErrorBoundary>
         <div className="mx-auto max-w-5xl px-6 py-10">
+          <PublishCelebration />
           <EditorToolbar e={e} />
 
           <div className="mt-10 grid gap-8 lg:grid-cols-[0.75fr_1.25fr]">

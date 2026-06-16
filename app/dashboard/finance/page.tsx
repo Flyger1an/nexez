@@ -33,6 +33,7 @@ import {
   type LedgerEntry,
 } from '../../../lib/finance-analytics'
 import { formatCurrencyAmount, normalizeCurrency } from '../../../lib/currency'
+import { EmptyState, type EmptyStateCta } from '../../../components/EmptyState'
 import { getCommissionPercentForPlan, billingStatusCopy, type BillingSubscription } from '../../../lib/stripe-billing'
 import { getConnectPayoutSnapshot, getNextPayout } from '../../../lib/server/connect-finance'
 import { getNegotiationStatusLabel, getNegotiationStatusTone, type NegotiationStatus } from '../../../lib/negotiations'
@@ -289,7 +290,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
           )}
 
           {/* Hero KPIs (selected currency) */}
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="nx-rise-stagger mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <KpiTile label="Sales volume (GMV)" value={money(sel.gmvCents)} sub={`${sel.orders} order${sel.orders === 1 ? '' : 's'}`} delta={gmvDelta} icon={<TrendingUp className="size-4" />} />
             <KpiTile label="Net to you" value={money(sel.netCents)} sub={`after ${commissionPct}% fee`} delta={netDelta} icon={<Coins className="size-4" />} tone="ready" />
             <KpiTile label="Nexez commission" value={money(sel.nexezFeeCents)} sub={`${commissionPct}% take-rate`} delta={feeDelta} icon={<Receipt className="size-4" />} />
@@ -748,22 +749,18 @@ function PayoutStatus({ status }: { status: string }) {
 }
 
 function EmptyFinance({ payoutsReady, connectAccountId }: { payoutsReady: boolean; connectAccountId: string | null }) {
+  const ctas: EmptyStateCta[] = []
+  if (!connectAccountId) ctas.push({ label: 'Connect Stripe', href: '/dashboard/billing?tab=fees' })
+  ctas.push({ label: 'View your pages', href: '/dashboard/pages', variant: 'secondary' })
   return (
-    <div className="rounded-xl border border-dashed border-white/10 p-10 text-center">
-      <Wallet className="mx-auto size-8 text-zinc-600" />
-      <p className="mt-3 font-medium">No sales yet in this window</p>
-      <p className="mx-auto mt-1 max-w-md text-sm text-zinc-500">
-        When agents buy through your pages, your revenue, fees, and payouts show up here.
-        {!connectAccountId ? ' First, connect Stripe so you can accept payments.' : !payoutsReady ? ' Finish Stripe verification to enable payouts.' : ''}
-      </p>
-      <div className="mt-4 flex justify-center gap-3">
-        {!connectAccountId && (
-          <a href="/dashboard/billing?tab=fees" className="btn-primary btn-sm inline-flex">Connect Stripe</a>
-        )}
-        <a href="/dashboard/pages" className="inline-flex rounded-lg border border-white/15 px-4 py-2 text-sm hover:bg-white/5">
-          View your pages
-        </a>
-      </div>
-    </div>
+    <EmptyState icon={Wallet} title="Your first sale lands here" ctas={ctas}>
+      When an agent buys through one of your pages, the revenue, Nexez fee, net-to-you, and payouts all show up here —
+      per currency.
+      {!connectAccountId
+        ? ' First, connect Stripe so you can accept payments.'
+        : !payoutsReady
+          ? ' Finish Stripe verification to enable payouts.'
+          : ''}
+    </EmptyState>
   )
 }

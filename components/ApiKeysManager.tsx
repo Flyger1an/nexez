@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Copy, KeyRound, Loader2, Plus, Trash2 } from 'lucide-react'
 import { createClient } from '../utils/supabase/client'
+import { EmptyState } from './EmptyState'
 
 type ApiKey = {
   id: string
@@ -139,7 +140,10 @@ export function ApiKeysManager() {
             <Loader2 className="size-4 animate-spin" /> Loading keys…
           </div>
         ) : keys.length === 0 ? (
-          <p className="text-sm text-zinc-500">No API keys yet.</p>
+          <EmptyState icon={KeyRound} title="No API keys yet">
+            Create a key to let your own agents or back-end call the Nexez API on your behalf — programmatic access to your
+            pages, offers, and negotiations.
+          </EmptyState>
         ) : (
           keys.map((k) => (
             <div
