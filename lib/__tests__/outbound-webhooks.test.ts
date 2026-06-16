@@ -14,13 +14,26 @@ import { fireOwnerOutboundWebhooks } from '../server/outbound-webhooks'
 
 type Row = { id: string; url: string; secret: string | null }
 
-function mockAdmin(rows: Row[]) {
+function mockAdmin(rows: Row[], plan: { plan_id: string; status: string } | null = { plan_id: 'pro', status: 'active' }) {
   const updates: Array<{ id: unknown; patch: Record<string, unknown> }> = []
   const queries: Array<{ col: string; val: unknown }> = []
   const admin = {
     updates,
     queries,
-    from() {
+    from(table: string) {
+      // Dispatch is now Pro+-gated: getOwnerPlanId reads billing_subscriptions
+      // (single .eq().maybeSingle()) before any webhook fires.
+      if (table === 'billing_subscriptions') {
+        return {
+          select() {
+            return {
+              eq() {
+                return { async maybeSingle() { return { data: plan, error: null } } }
+              },
+            }
+          },
+        }
+      }
       return {
         select() {
           return {
@@ -57,6 +70,17 @@ describe('fireOwnerOutboundWebhooks', () => {
   it('returns [] for a missing owner without touching the DB', async () => {
     const admin = mockAdmin([])
     expect(await fireOwnerOutboundWebhooks(admin, null, payload)).toEqual([])
+    expect(fireOutboundWebhook).not.toHaveBeenCalled()
+  })
+
+  it('returns [] without firing when the owner plan does not allow outbound webhooks (downgrade)', async () => {
+    // A Free (or downgraded) owner with active rows must NOT receive deliveries —
+    // the dispatch-time plan re-check closes the retained-feature leak.
+    const admin = mockAdmin(
+      [{ id: 'a', url: 'https://hook.example.com/ok', secret: 'whsec_a' }],
+      { plan_id: 'free', status: 'active' },
+    )
+    expect(await fireOwnerOutboundWebhooks(admin, 'owner-1', payload)).toEqual([])
     expect(fireOutboundWebhook).not.toHaveBeenCalled()
   })
 

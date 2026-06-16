@@ -6,6 +6,7 @@ import { getBaseUrl } from '../../../../lib/agent-page'
 import { buildBookingEmail, hasEmailEnv, sendEmail } from '../../../../lib/email'
 import { fireOutboundWebhook, type OutboundWebhookPayload } from '../../../../lib/webhooks'
 import { fireOwnerOutboundWebhooks } from '../../../../lib/server/outbound-webhooks'
+import { ownerAllows } from '../../../../lib/server/plan'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { createClient as createServerClient } from '../../../../utils/supabase/server'
 
@@ -182,8 +183,12 @@ export async function POST(request: NextRequest) {
       calendly_event_type: eventType,
     },
   }
-  const outboundResults = await firePageOutbounds(pageSecrets?.outbound_webhooks, bookingPayload)
-  const accountOutboundResults = await fireOwnerOutboundWebhooks(supabase, page.owner_id, bookingPayload)
+  // Outbound webhooks are Pro+ — re-check at dispatch time so a downgraded owner
+  // stops receiving deliveries (both per-page and account-level). `supabase` here
+  // is the service-role client, so the plan resolves correctly.
+  const obAllowed = await ownerAllows(supabase, page.owner_id, 'outboundWebhooks')
+  const outboundResults = obAllowed ? await firePageOutbounds(pageSecrets?.outbound_webhooks, bookingPayload) : []
+  const accountOutboundResults = obAllowed ? await fireOwnerOutboundWebhooks(supabase, page.owner_id, bookingPayload) : []
 
   return NextResponse.json({
     received: true,

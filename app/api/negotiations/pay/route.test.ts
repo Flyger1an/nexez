@@ -39,7 +39,7 @@ const NEG = {
   stripe_checkout_session_id: null,
 }
 
-function db(neg: any, billing: any = { plan_id: 'pro', status: 'active', stripe_connect_account_id: 'acct_1' }) {
+function db(neg: any, billing: any = { plan_id: 'pro', status: 'active', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true }) {
   adminRef.handler = (ctx: QueryContext) => {
     if (ctx.table === 'agent_negotiations' && ctx.op === 'select') {
       // honor the id+token scoping the route applies
@@ -129,7 +129,7 @@ describe('POST /api/negotiations/pay', () => {
   it('canceled "pro" subscription reverts to Free 15% commission (status-aware, not raw plan_id)', async () => {
     // A {plan_id:'pro', status:'canceled'} row must NOT keep the 6% rate — commission
     // is resolved via getOwnerPlanId (live-status only), same as entitlements.
-    db(NEG, { plan_id: 'pro', status: 'canceled', stripe_connect_account_id: 'acct_1' })
+    db(NEG, { plan_id: 'pro', status: 'canceled', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true })
     const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))
     expect(res.status).toBe(200)
     const [params] = (stripeRef.create as any).mock.calls[0]
@@ -139,6 +139,14 @@ describe('POST /api/negotiations/pay', () => {
 
   it('409 owner_not_connected when the seller has no Stripe Connect account (no platform-account charge)', async () => {
     db(NEG, { plan_id: 'pro', status: 'active', stripe_connect_account_id: null })
+    const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))
+    expect(res.status).toBe(409)
+    expect((await res.json()).code).toBe('owner_not_connected')
+    expect(stripeRef.create).not.toHaveBeenCalled()
+  })
+
+  it('409 owner_not_connected when the Connect account exists but charges are NOT enabled (mid-onboarding)', async () => {
+    db(NEG, { plan_id: 'pro', status: 'active', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: false })
     const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))
     expect(res.status).toBe(409)
     expect((await res.json()).code).toBe('owner_not_connected')

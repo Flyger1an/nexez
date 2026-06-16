@@ -2,6 +2,7 @@ import { AgentPage, CheckoutOffer, getCheckoutOfferKey } from '../agent-page'
 import { supabase } from '../supabase'
 import { fireOutboundWebhook, OutboundWebhookPayload } from '../webhooks'
 import { fireOwnerOutboundWebhooks } from './outbound-webhooks'
+import { ownerAllows } from './plan'
 import type { CheckoutEventType } from '../checkout-events'
 
 type LogCheckoutEventInput = {
@@ -62,6 +63,11 @@ export async function logCheckoutEvent({
           const { createAdminClient, hasSupabaseAdminEnv } = await import('../../utils/supabase/admin')
           if (!hasSupabaseAdminEnv()) return { ok: !error, error }
           const admin = createAdminClient()
+
+          // Outbound webhooks are Pro+ — re-check at dispatch time (not just at
+          // create time) so a downgraded owner stops receiving BOTH per-page and
+          // account-level deliveries. (fireOwnerOutboundWebhooks self-gates too.)
+          if (!(await ownerAllows(admin, page.owner_id, 'outboundWebhooks'))) return { ok: !error, error }
 
           const obPayload: OutboundWebhookPayload = {
             event: eventType === 'provider_redirect' ? 'booking.provider_redirect' : 'booking.checkout_initiated',

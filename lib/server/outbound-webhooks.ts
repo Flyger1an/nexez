@@ -1,4 +1,5 @@
 import { fireOutboundWebhook, type OutboundWebhookPayload } from '../webhooks'
+import { ownerAllows } from './plan'
 
 // The codebase uses loosely-typed Supabase clients; we only need `.from()`.
 // Kept `any`-returning to avoid fighting the generated Database types.
@@ -26,6 +27,11 @@ export async function fireOwnerOutboundWebhooks(
   payload: OutboundWebhookPayload,
 ): Promise<OutboundDeliveryResult[]> {
   if (!ownerId) return []
+
+  // Plan gate at DISPATCH time (not just at create time): outbound webhooks are
+  // Pro+, so a downgraded owner must stop receiving deliveries. Both callers pass
+  // a service-role client, so the plan read resolves the real plan (not RLS-empty).
+  if (!(await ownerAllows(admin, ownerId, 'outboundWebhooks'))) return []
 
   let rows: OutboundWebhookRow[] = []
   try {

@@ -112,10 +112,15 @@ export async function POST(request: Request) {
   const ownerPlanId = await getOwnerPlanId(admin, negotiation.owner_id as string)
   const { data: billing } = await admin
     .from('billing_subscriptions')
-    .select('stripe_connect_account_id')
+    .select('stripe_connect_account_id, stripe_connect_charges_enabled')
     .eq('owner_id', negotiation.owner_id as string)
-    .maybeSingle<{ stripe_connect_account_id: string | null }>()
-  if (billing?.stripe_connect_account_id) connectAccountId = billing.stripe_connect_account_id
+    .maybeSingle<{ stripe_connect_account_id: string | null; stripe_connect_charges_enabled: boolean | null }>()
+  // Only route to a Connect account that can actually ACCEPT a charge (onboarding
+  // complete). An id without charges_enabled would create a dead-end session, so
+  // treat it as not-connected (→ the owner_not_connected fallback below).
+  if (billing?.stripe_connect_account_id && billing.stripe_connect_charges_enabled === true) {
+    connectAccountId = billing.stripe_connect_account_id
+  }
   const commissionPercent = getCommissionPercentForPlan(ownerPlanId)
 
   // Never route the payment through the PLATFORM account: without the seller's

@@ -136,10 +136,16 @@ export async function POST(request: Request) {
     ownerPlanId = await getOwnerPlanId(admin, page.owner_id)
     const { data: billing } = await admin
       .from('billing_subscriptions')
-      .select('stripe_connect_account_id')
+      .select('stripe_connect_account_id, stripe_connect_charges_enabled')
       .eq('owner_id', page.owner_id)
-      .maybeSingle<{ stripe_connect_account_id: string | null }>()
-    if (billing?.stripe_connect_account_id) connectAccountId = billing.stripe_connect_account_id
+      .maybeSingle<{ stripe_connect_account_id: string | null; stripe_connect_charges_enabled: boolean | null }>()
+    // Only route a charge to a Connect account that can actually ACCEPT one. An
+    // owner who created the account but hasn't finished onboarding has an id but
+    // charges_enabled !== true — fall through to the external destination instead
+    // of creating a dead-end Checkout session that fails at Stripe.
+    if (billing?.stripe_connect_account_id && billing.stripe_connect_charges_enabled === true) {
+      connectAccountId = billing.stripe_connect_account_id
+    }
   }
   const commissionPercent = getCommissionPercentForPlan(ownerPlanId)
 
