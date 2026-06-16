@@ -1,0 +1,49 @@
+'use client'
+
+import { CheckCircle2, Circle } from 'lucide-react'
+import type { ReadinessCriterion } from '../lib/agent-page'
+
+/**
+ * "What's still missing" checklist for the /create flow. Derives entirely from
+ * `getReadinessCriteria` so it stays in lockstep with the readiness % shown
+ * alongside it. Met items collapse to a quiet done-row; unmet items surface a hint.
+ */
+export function ReadinessChecklist({ criteria, score }: { criteria: ReadinessCriterion[]; score: number }) {
+  const missing = criteria.filter((c) => !c.met)
+  const metCount = criteria.length - missing.length
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-black/20 p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-white">
+          {missing.length === 0 ? 'Agent-ready ✓' : "What's still missing"}
+        </p>
+        <p className="text-sm font-semibold text-[var(--signal)]">{score}%</p>
+      </div>
+
+      <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuenow={score} aria-valuemin={0} aria-valuemax={100}>
+        <div className="h-full rounded-full bg-[var(--ready)] transition-all" style={{ width: `${score}%` }} />
+      </div>
+
+      <ul className="space-y-1.5">
+        {criteria.map((c) => (
+          <li key={c.id} className="flex items-start gap-2.5">
+            {c.met ? (
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[var(--ready)]" aria-hidden />
+            ) : (
+              <Circle className="mt-0.5 size-4 shrink-0 text-zinc-600" aria-hidden />
+            )}
+            <div className="min-w-0 flex-1">
+              <p className={c.met ? 'text-sm text-zinc-500' : 'text-sm font-medium text-zinc-100'}>{c.label}</p>
+              {!c.met ? <p className="text-xs text-zinc-500">{c.hint}</p> : null}
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <p className="mt-3 text-xs text-zinc-500">
+        {metCount} of {criteria.length} ready{missing.length ? ' — finish the rest for a Certified Agent-Ready badge.' : '.'}
+      </p>
+    </div>
+  )
+}

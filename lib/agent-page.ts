@@ -480,25 +480,43 @@ export function getOfferDestination(page: Pick<AgentPage, 'cta_url' | 'website_u
   return ''
 }
 
-export function getReadinessScore(page: Partial<AgentPage>) {
-  const checks = [
-    Boolean(page.name),
-    Boolean(page.slug),
-    Boolean(page.description),
-    Boolean(page.website_url),
-    Boolean(page.cta_url),
-    Boolean(page.audience),
-    Boolean(page.industry),
-    Boolean(page.location || page.contact_email),
-    getOfferCount({
-      products: page.products ?? null,
-      services: page.services ?? null,
-    }) > 0,
-    Boolean(page.faqs?.length),
-    Boolean(page.is_published),
-  ]
+export type ReadinessCriterion = {
+  id: string
+  label: string
+  met: boolean
+  /** Shown only when unmet — a short nudge toward filling it in. */
+  hint: string
+}
 
-  return Math.round((checks.filter(Boolean).length / checks.length) * 100)
+/**
+ * Per-criterion readiness breakdown — the single source of truth for both the
+ * numeric score and the "what's still missing" checklist on /create. Keep the
+ * order stable; `getReadinessScore` is derived from `met`/total so the percentage
+ * and the checklist can never drift apart.
+ */
+export function getReadinessCriteria(page: Partial<AgentPage>): ReadinessCriterion[] {
+  const offerCount = getOfferCount({
+    products: page.products ?? null,
+    services: page.services ?? null,
+  })
+  return [
+    { id: 'name', label: 'Business name', met: Boolean(page.name), hint: 'Name the business or offer agents will see.' },
+    { id: 'slug', label: 'Public link', met: Boolean(page.slug), hint: 'Set the page URL (auto-fills from the name).' },
+    { id: 'description', label: 'Short description', met: Boolean(page.description), hint: 'Say what you offer in a sentence or two.' },
+    { id: 'website_url', label: 'Main website', met: Boolean(page.website_url), hint: 'Link your site so agents can verify you.' },
+    { id: 'cta_url', label: 'Booking / checkout link', met: Boolean(page.cta_url), hint: 'Where agents send buyers to convert.' },
+    { id: 'audience', label: 'Best-fit buyer', met: Boolean(page.audience), hint: 'Describe who benefits most.' },
+    { id: 'industry', label: 'Industry or niche', met: Boolean(page.industry), hint: 'Pick a category for better agent matching.' },
+    { id: 'location_or_contact', label: 'Location or contact', met: Boolean(page.location || page.contact_email), hint: 'Add a service area or a contact email.' },
+    { id: 'offers', label: 'At least one offer', met: offerCount > 0, hint: 'Add a service or product agents can buy.' },
+    { id: 'faqs', label: 'FAQs', met: Boolean(page.faqs?.length), hint: 'Answer 1–3 questions agents will ask.' },
+    { id: 'publish', label: 'Published', met: Boolean(page.is_published), hint: 'Publish to make the page crawlable.' },
+  ]
+}
+
+export function getReadinessScore(page: Partial<AgentPage>) {
+  const criteria = getReadinessCriteria(page)
+  return Math.round((criteria.filter((c) => c.met).length / criteria.length) * 100)
 }
 
 export type Certification = {

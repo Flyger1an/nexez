@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getReadinessScore, getTrustScore, type AgentPage } from '../agent-page'
+import { getReadinessScore, getReadinessCriteria, getTrustScore, type AgentPage } from '../agent-page'
 
 const fullPage: Partial<AgentPage> = {
   name: 'Acme',
@@ -31,6 +31,30 @@ describe('getReadinessScore', () => {
     const withOffers = getReadinessScore({ name: 'x', services: [{ name: 'a', description: '', price: '', url: '' }] })
     const without = getReadinessScore({ name: 'x' })
     expect(withOffers).toBeGreaterThan(without)
+  })
+})
+
+describe('getReadinessCriteria', () => {
+  it('returns a stable per-criterion breakdown that drives the score', () => {
+    const all = getReadinessCriteria(fullPage)
+    expect(all).toHaveLength(11)
+    expect(all.every((c) => c.met)).toBe(true)
+    // every criterion carries an id + a non-empty hint for the "what's missing" UI
+    expect(all.every((c) => c.id && c.label && c.hint)).toBe(true)
+  })
+  it('stays in lockstep with getReadinessScore (met/total === %)', () => {
+    for (const page of [{}, fullPage, { name: 'x', slug: 'x', is_published: true }, { name: 'x', industry: 'Law' }]) {
+      const criteria = getReadinessCriteria(page)
+      const derived = Math.round((criteria.filter((c) => c.met).length / criteria.length) * 100)
+      expect(derived).toBe(getReadinessScore(page))
+    }
+  })
+  it('marks unmet criteria so the checklist can surface them', () => {
+    const criteria = getReadinessCriteria({ name: 'x' })
+    const unmet = criteria.filter((c) => !c.met).map((c) => c.id)
+    expect(unmet).toContain('industry')
+    expect(unmet).toContain('offers')
+    expect(unmet).toContain('publish')
   })
 })
 

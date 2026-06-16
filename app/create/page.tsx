@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import {
   getReadinessScore,
+  getReadinessCriteria,
   normalizeSlug,
   OfferItem,
   formatFaqLines,
@@ -37,6 +38,7 @@ import { NEXEZ_INDUSTRIES, getIndustrySuggestions } from '../../lib/industry-cat
 import { createClient } from '../../utils/supabase/client'
 import { VisualOfferBuilder } from '../../components/VisualOfferBuilder'
 import { ErrorBoundary } from '../../components/ErrorBoundary'
+import { ReadinessChecklist } from '../../components/ReadinessChecklist'
 import { AGENT_RUNTIME_HOST, agentRuntimeUrl, appUrl } from '../../lib/site'
 import { getCreatePageTemplate } from '../../lib/create-page-templates'
 import { isPublishLimitError, publishErrorMessage } from '../../lib/publish-error'
@@ -133,20 +135,26 @@ export default function CreatePage() {
   const parsedProducts = useMemo(() => (productsOffers.length ? productsOffers : parseOfferLines(products)), [productsOffers, products])
   const parsedServices = useMemo(() => (servicesOffers.length ? servicesOffers : parseOfferLines(services)), [servicesOffers, services])
   const parsedFaqs = useMemo(() => parseFaqLines(faqs), [faqs])
-  const score = getReadinessScore({
-    name,
-    slug: previewSlug,
-    description,
-    website_url: websiteUrl,
-    cta_url: ctaUrl || websiteUrl,
-    audience,
-    location,
-    contact_email: contactEmail,
-    products: parsedProducts,
-    services: parsedServices,
-    faqs: parsedFaqs,
-    is_published: true,
-  })
+  const readinessInput = useMemo(
+    () => ({
+      name,
+      slug: previewSlug,
+      description,
+      website_url: websiteUrl,
+      cta_url: ctaUrl || websiteUrl,
+      audience,
+      industry,
+      location,
+      contact_email: contactEmail,
+      products: parsedProducts,
+      services: parsedServices,
+      faqs: parsedFaqs,
+      is_published: true,
+    }),
+    [name, previewSlug, description, websiteUrl, ctaUrl, audience, industry, location, contactEmail, parsedProducts, parsedServices, parsedFaqs],
+  )
+  const score = getReadinessScore(readinessInput)
+  const readinessCriteria = useMemo(() => getReadinessCriteria(readinessInput), [readinessInput])
   const selectedGuidedOfferCount = useMemo(() => {
     if (!guidedReview?.structuredOffers?.length) return 0
     return guidedReview.structuredOffers.filter((offer, index) => selectedImportOffers[offerImportKey(offer, index)]).length
@@ -1341,6 +1349,7 @@ export default function CreatePage() {
                       </div>
                     </div>
                   </div>
+                  <ReadinessChecklist criteria={readinessCriteria} score={score} />
                   <div className="grid gap-5 md:grid-cols-2">
                     <Field label="Public slug">
                       <input value={slug} onChange={(event) => setSlug(normalizeSlug(event.target.value))} className={inputClass} />
