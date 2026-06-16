@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../utils/supabase/server'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { createStripeConnectAccount, createStripeConnectOnboardingLink } from '../../../../lib/stripe-billing'
 import { appUrl } from '../../../../lib/site'
 import { billingPlans } from '../../../../lib/billing'
@@ -23,10 +24,18 @@ export async function POST(request: Request) {
   if (!secret) {
     return NextResponse.json({ error: 'Stripe not configured for Connect.' }, { status: 412 })
   }
-
+  // billing_subscriptions is server-managed: RLS lets owners SELECT but NOT
+  // insert/update, so the account id + status MUST be persisted with the
+  // service-role client (same pattern as the webhook + portal route). Without it
+  // the write is silently rejected by RLS and the account is forgotten — so never
+  // create an orphan Stripe account we can't save.
+  if (!hasSupabaseAdminEnv()) {
+    return NextResponse.json({ error: 'Server is not configured to persist the Connect account.' }, { status: 500 })
+  }
+  const admin = createAdminClient()
   const stripe = new Stripe(secret)
 
-  // Get or create billing row for this owner
+  // Read the owner's billing row (owner SELECT is RLS-allowed on the session client).
   const { data: billing } = await supabase
     .from('billing_subscriptions')
     .select('*')
@@ -37,26 +46,32 @@ export async function POST(request: Request) {
 
   if (!accountId) {
     // Create new Express account
+    let account
     try {
-      const account = await createStripeConnectAccount(
+      account = await createStripeConnectAccount(
         user.id,
         user.email || '',
         (user.user_metadata as any)?.company || (user.user_metadata as any)?.full_name
       )
-      accountId = account.id
-
-      // Save to billing_subscriptions (create row if needed)
-      await supabase.from('billing_subscriptions').upsert({
-        owner_id: user.id,
-        stripe_connect_account_id: accountId,
-        stripe_connect_status: 'pending',
-        plan_id: billing?.plan_id || 'free',
-        status: billing?.status || 'unconfigured',
-        metadata: { ...(billing?.metadata || {}), connect_onboarding_started: new Date().toISOString() },
-      }, { onConflict: 'owner_id' })
     } catch (e: any) {
       console.error('Connect account create failed', e)
       return NextResponse.json({ error: 'Failed to create Stripe Connect account: ' + e.message }, { status: 500 })
+    }
+    accountId = account.id
+
+    // Persist the account id via the service-role client; surface a failure instead
+    // of silently 200-ing (which previously left the account orphaned).
+    const { error: upsertError } = await admin.from('billing_subscriptions').upsert({
+      owner_id: user.id,
+      stripe_connect_account_id: accountId,
+      stripe_connect_status: 'pending',
+      plan_id: billing?.plan_id || 'free',
+      status: billing?.status || 'unconfigured',
+      metadata: { ...(billing?.metadata || {}), connect_onboarding_started: new Date().toISOString() },
+    }, { onConflict: 'owner_id' })
+    if (upsertError) {
+      console.error('Failed to persist Connect account id', upsertError)
+      return NextResponse.json({ error: 'Failed to save your Connect account: ' + upsertError.message }, { status: 500 })
     }
   }
 
@@ -72,7 +87,8 @@ export async function POST(request: Request) {
       stripe_connect_charges_enabled: account.charges_enabled,
       stripe_connect_payouts_enabled: account.payouts_enabled,
     }
-    await supabase.from('billing_subscriptions').update(statusUpdate).eq('owner_id', user.id)
+    const { error: updateError } = await admin.from('billing_subscriptions').update(statusUpdate).eq('owner_id', user.id)
+    if (updateError) console.error('Failed to update Connect account status', updateError)
   } catch (e: any) {
     console.error('Failed to retrieve/update Connect account status', e)
   }

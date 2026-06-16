@@ -2,6 +2,7 @@ import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../utils/supabase/server'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { getBillingPlan, getPlanPriceId } from '../../../../lib/billing'
 
 /**
@@ -72,12 +73,20 @@ export async function POST(request: Request) {
       // billing UI derives the active plan from plan_id. Writing it optimistically made
       // an abandoned checkout show a plan the user never paid for. The webhook
       // (customer.subscription.* / checkout.session.completed) sets plan_id on confirmation.
-      await supabase.from('billing_subscriptions').upsert({
-        owner_id: user.id,
-        stripe_customer_id: customerId,
-        status: 'incomplete',
-        metadata: { source: 'create-subscription', created_via: 'embedded' },
-      }, { onConflict: 'owner_id' })
+      // Must use the service-role client: RLS allows owners SELECT but not insert/update
+      // on billing_subscriptions, so a session-client write is silently rejected (which
+      // left the customer id unlinked and the subscription state unsynced).
+      if (hasSupabaseAdminEnv()) {
+        const { error: linkError } = await createAdminClient().from('billing_subscriptions').upsert({
+          owner_id: user.id,
+          stripe_customer_id: customerId,
+          status: 'incomplete',
+          metadata: { source: 'create-subscription', created_via: 'embedded' },
+        }, { onConflict: 'owner_id' })
+        if (linkError) console.error('[billing/create-subscription] failed to persist stripe_customer_id', linkError)
+      } else {
+        console.warn('[billing/create-subscription] admin env missing — customer id not persisted; webhook will backfill via metadata')
+      }
     }
 
     // Create the subscription in incomplete state so we get a client_secret for Elements.
