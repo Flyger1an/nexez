@@ -1,4 +1,6 @@
-import { ArrowLeft, BadgeCheck, Bot, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, BadgeCheck, Bot, CheckCircle2, LifeBuoy } from 'lucide-react'
+import { cookies } from 'next/headers'
+import { createClient } from '../../../../utils/supabase/server'
 
 type PageProps = {
   params: Promise<{ slug: string }>
@@ -7,6 +9,20 @@ type PageProps = {
 
 export default async function CheckoutSuccessPage({ params, searchParams }: PageProps) {
   const [{ slug }, search] = await Promise.all([params, searchParams])
+
+  // Buyer recourse: surface the seller's contact (from the redacted public view) so a
+  // buyer with a question/issue has a path — the seller can then refund from Finance.
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+  const { data: page } = await supabase
+    .from('pages_public')
+    .select('name, contact_email')
+    .eq('slug', slug)
+    .maybeSingle<{ name: string | null; contact_email: string | null }>()
+  const sellerEmail = page?.contact_email || null
+  const mailto = sellerEmail
+    ? `mailto:${sellerEmail}?subject=${encodeURIComponent(`Order question — ${slug}`)}&body=${encodeURIComponent(`Hi, I have a question about my recent order${search.session_id ? ` (Stripe session ${search.session_id})` : ''}.`)}`
+    : null
 
   return (
     <main className="min-h-screen bg-[#090b10] text-white">
@@ -42,6 +58,21 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
               Checkout Context
             </a>
           </div>
+
+          {mailto ? (
+            <div className="mx-auto mt-8 max-w-xl rounded-xl border border-white/10 bg-white/[0.03] p-4 text-left text-sm">
+              <p className="flex items-center gap-2 font-medium text-white">
+                <LifeBuoy className="size-4 text-[var(--signal)]" /> Questions or an issue with this order?
+              </p>
+              <p className="mt-1 text-zinc-400">
+                Contact {page?.name || 'the seller'} directly — they can look it up by the Stripe session above and refund
+                if needed.
+              </p>
+              <a href={mailto} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-[var(--signal)]/40 bg-[var(--signal)]/10 px-4 py-2 text-sm font-semibold text-[var(--signal)] hover:bg-[var(--signal)]/20">
+                Contact the seller
+              </a>
+            </div>
+          ) : null}
         </section>
       </div>
     </main>
