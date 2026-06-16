@@ -37,8 +37,9 @@ import { NEXEZ_INDUSTRIES, getIndustrySuggestions } from '../../lib/industry-cat
 import { createClient } from '../../utils/supabase/client'
 import { VisualOfferBuilder } from '../../components/VisualOfferBuilder'
 import { ErrorBoundary } from '../../components/ErrorBoundary'
-import { agentRuntimeUrl, appUrl } from '../../lib/site'
+import { AGENT_RUNTIME_HOST, agentRuntimeUrl, appUrl } from '../../lib/site'
 import { getCreatePageTemplate } from '../../lib/create-page-templates'
+import { isPublishLimitError, publishErrorMessage } from '../../lib/publish-error'
 
 type GuidedImportReview = {
   suggestedPage?: {
@@ -281,24 +282,42 @@ export default function CreatePage() {
     }
 
     const cleanSlug = normalizeSlug(slug || name)
-    const { data: createdPage, error } = await supabase.from('pages').insert({
-      owner_id: user.id,
-      name,
-      slug: cleanSlug,
-      description,
-      website_url: websiteUrl,
-      cta_url: ctaUrl || websiteUrl,
-      cta_label: ctaLabel || 'Visit website',
-      audience,
-      location,
-      contact_email: contactEmail,
-      industry,                    // NEW: Industry selection for better templates & copy
-      products: parsedProducts,
-      services: parsedServices,
-      faqs: parsedFaqs,
-      is_published: true,
-      branding: logoUrl ? { logo_url: logoUrl } : {},
-    }).select('id, slug').single()
+    const insertPage = (isPublished: boolean) =>
+      supabase.from('pages').insert({
+        owner_id: user.id,
+        name,
+        slug: cleanSlug,
+        description,
+        website_url: websiteUrl,
+        cta_url: ctaUrl || websiteUrl,
+        cta_label: ctaLabel || 'Visit website',
+        audience,
+        location,
+        contact_email: contactEmail,
+        industry,                    // NEW: Industry selection for better templates & copy
+        products: parsedProducts,
+        services: parsedServices,
+        faqs: parsedFaqs,
+        is_published: isPublished,
+        branding: logoUrl ? { logo_url: logoUrl } : {},
+      }).select('id, slug').single()
+
+    let { data: createdPage, error } = await insertPage(true)
+
+    // A Free owner at their published-page limit (DB trigger) would otherwise lose
+    // the page they just built. Keep the build-first funnel intact: offer to save it
+    // as an unpublished draft and continue into the editor (publish later / upgrade).
+    // If they decline, `error` stays set and falls through to the inline message.
+    let createdAsDraft = false
+    if (error && isPublishLimitError(error)) {
+      const saveAsDraft = window.confirm(
+        `${publishErrorMessage(error)}\n\nSave this page as an unpublished draft instead? You can publish it later (or upgrade your plan) from the editor.`,
+      )
+      if (saveAsDraft) {
+        ;({ data: createdPage, error } = await insertPage(false))
+        createdAsDraft = !error
+      }
+    }
 
     setLoading(false)
 
@@ -306,15 +325,28 @@ export default function CreatePage() {
       closePendingPublicPageTab(publicPageTab)
       const isSlugTaken = (error as { code?: string }).code === '23505' || /duplicate|unique|already exists/i.test(error.message)
       setPublishError(
-        isSlugTaken
-          ? `The link “/${cleanSlug}” is already taken. Try a different page name or edit the slug, then publish again.`
-          : `Couldn’t publish your page: ${error.message}. Your work is saved — try again.`,
+        isPublishLimitError(error)
+          ? publishErrorMessage(error)
+          : isSlugTaken
+            ? `The link “/${cleanSlug}” is already taken. Try a different page name or edit the slug, then publish again.`
+            : `Couldn’t publish your page: ${error.message}. Your work is saved — try again.`,
       )
       return
     }
     setPublishError('')
 
     const createdSlug = createdPage?.slug || cleanSlug
+
+    if (createdAsDraft) {
+      // Drafts aren't publicly visible — don't point the pending tab at the public
+      // URL; just take the owner to the editor to finish or publish.
+      closePendingPublicPageTab(publicPageTab)
+      if (createdPage?.id) {
+        router.push(`/dashboard/${createdPage.id}?created=1&draft=1`)
+      }
+      return
+    }
+
     sendPublicPageTab(publicPageTab, `/${createdSlug}`)
 
     if (createdPage?.id) {
@@ -1366,7 +1398,7 @@ export default function CreatePage() {
                 <p className="text-sm font-medium text-zinc-200">Agent sees</p>
                 <pre className="mt-3 whitespace-pre-wrap text-xs leading-5 text-zinc-400">
 {`Name: ${name || 'Not set'}
-URL: nexez.vercel.app/${previewSlug || 'your-slug'}
+URL: ${AGENT_RUNTIME_HOST}/${previewSlug || 'your-slug'}
 Offers: ${parsedProducts.length + parsedServices.length}
 Buyer: ${audience || 'Not set'}
 Action: ${ctaLabel || 'Visit website'}`}

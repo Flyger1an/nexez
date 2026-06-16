@@ -371,4 +371,63 @@ describe('CreatePage guided import review', () => {
       is_published: true,
     }))
   })
+
+  it('saves the page as a draft and opens the editor when the publish limit is hit and the owner accepts', async () => {
+    supabaseMocks.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null })
+    supabaseMocks.single
+      .mockResolvedValueOnce({
+        data: null,
+        error: { code: '23514', message: 'Published page limit reached for your plan (1 page(s)).', hint: 'Upgrade to publish more.' },
+      })
+      .mockResolvedValueOnce({ data: { id: 'page-draft', slug: 'acme-agent-page' }, error: null })
+
+    vi.spyOn(window, 'open').mockReturnValue(null)
+    const confirmMock = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const alertMock = vi.spyOn(window, 'alert').mockImplementation(() => {})
+
+    render(<CreatePage />)
+
+    fireEvent.change(screen.getByLabelText('Business Name'), { target: { value: 'Acme Agent Page' } })
+    fireEvent.change(screen.getByLabelText('Short Description'), { target: { value: 'Agent-ready service page for Acme.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.change(screen.getByLabelText('Main website'), { target: { value: 'https://acme.example.com' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Publish agent page' }))
+
+    await waitFor(() => expect(routerMock.push).toHaveBeenCalledWith('/dashboard/page-draft?created=1&draft=1'))
+
+    expect(confirmMock).toHaveBeenCalledOnce()
+    expect(alertMock).not.toHaveBeenCalled()
+    expect(supabaseMocks.insert).toHaveBeenCalledTimes(2)
+    expect(supabaseMocks.insert).toHaveBeenNthCalledWith(1, expect.objectContaining({ is_published: true }))
+    expect(supabaseMocks.insert).toHaveBeenNthCalledWith(2, expect.objectContaining({ is_published: false }))
+  })
+
+  it('shows the limit inline and creates nothing when the publish limit is hit and the owner declines the draft', async () => {
+    supabaseMocks.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null })
+    supabaseMocks.single.mockResolvedValue({
+      data: null,
+      error: { code: '23514', message: 'Published page limit reached for your plan (1 page(s)).', hint: 'Upgrade to publish more.' },
+    })
+
+    vi.spyOn(window, 'open').mockReturnValue(null)
+    const confirmMock = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const alertMock = vi.spyOn(window, 'alert').mockImplementation(() => {})
+
+    render(<CreatePage />)
+
+    fireEvent.change(screen.getByLabelText('Business Name'), { target: { value: 'Acme Agent Page' } })
+    fireEvent.change(screen.getByLabelText('Short Description'), { target: { value: 'Agent-ready service page for Acme.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.change(screen.getByLabelText('Main website'), { target: { value: 'https://acme.example.com' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Publish agent page' }))
+
+    // Declined → the limit is surfaced inline (not via alert) and no page is created.
+    expect(await screen.findByText('Published page limit reached for your plan (1 page(s)). Upgrade to publish more.')).toBeTruthy()
+    expect(confirmMock).toHaveBeenCalledOnce()
+    expect(alertMock).not.toHaveBeenCalled()
+    expect(supabaseMocks.insert).toHaveBeenCalledTimes(1)
+    expect(routerMock.push).not.toHaveBeenCalled()
+  })
 })
