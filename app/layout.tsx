@@ -14,7 +14,7 @@ const fontBody = Instrument_Sans({ variable: "--font-instrument", subsets: ["lat
 const fontMono = JetBrains_Mono({ variable: "--font-jetbrains", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://nexez.vercel.app"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://nexez.app"),
   title: {
     default: "Nexez — Pages built for AI agents",
     template: "%s · Nexez",

@@ -608,7 +608,7 @@ export default function BillingDashboardClient({
           ) : (
             <div>
               <p className="text-sm text-[#9CA3AF] max-w-prose">
-                Connect your Stripe account (Express) so Nexez can pay out the earnings from your agent-driven checkouts after our platform fee.
+                Connect your Stripe account (Express) so Nexez can pay out your agent-driven earnings directly to your bank.
               </p>
               <div className="mt-5">
                 <StripeConnectButton />

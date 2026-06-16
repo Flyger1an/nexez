@@ -132,7 +132,7 @@ export default async function NexezHome() {
               <a href="/simulator" className="btn-secondary h-11 px-5">See how agents rank you</a>
             </div>
             <p className="mt-4 text-sm text-zinc-500">
-              Live in seconds. No code. Free to start — you only pay a commission when an agent buys.
+              Live in seconds. No code. Free to start.
             </p>
 
             <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4">

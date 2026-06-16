@@ -214,7 +214,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
                 Pay {formatNegotiationAmount(negotiation.amount_cents)} to secure
               </button>
             </form>
-            <p className="text-[10px] text-zinc-500 mt-2">Secure Stripe Checkout. Funds go to the seller; Nexez applies its platform fee.</p>
+            <p className="text-[10px] text-zinc-500 mt-2">Secure Stripe Checkout. Funds go to the seller.</p>
           </div>
         )}
         {!justPaid && awaitingApproval && (

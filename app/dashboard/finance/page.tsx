@@ -314,8 +314,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                 <FlowLegend swatch="var(--signal)" label={`Nexez commission (${commissionPct}%)`} value={money(sel.nexezFeeCents)} pct={pct(sel.nexezFeeCents, sel.gmvCents)} />
               </div>
               <p className="mt-3 text-[11px] text-zinc-500">
-                Commission is estimated at your current {commissionPct}% rate. Your Stripe processing fee is charged
-                separately on your connected account and isn’t shown here.
+                Your Stripe processing fee is charged separately on your connected account and isn’t shown here.
               </p>
             </GlassCard>
           )}
@@ -436,8 +435,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
               </div>
               <p className="mt-3 text-[11px] text-zinc-500">
                 Direct rows are checkout sessions (purchase intent); negotiated rows are escrow deals with their current
-                status. Each row is in its own currency — amounts are never totaled across rows. Est. fee is derived from
-                your current {commissionPct}% rate.
+                status. Each row is in its own currency — amounts are never totaled across rows.
               </p>
             </GlassCard>
           )}
@@ -453,8 +451,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                 <div className="mt-4 rounded-xl border border-[var(--signal)]/25 bg-[var(--signal)]/[0.06] p-4 text-sm text-zinc-300">
                   <p className="font-medium text-white">Connect Stripe to get paid</p>
                   <p className="mt-1 text-zinc-400">
-                    Agents pay you directly; Nexez takes {commissionPct}% as a fee. You need a connected account to accept
-                    card payments and receive payouts.
+                    Agents pay you directly. You need a connected account to accept card payments and receive payouts.
                   </p>
                   <a href="/dashboard/billing?tab=fees" className="btn-primary btn-sm mt-3 inline-flex">Set up payouts</a>
                 </div>

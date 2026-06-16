@@ -19,7 +19,7 @@ export default function PricingPage() {
           <div className="eyebrow justify-center">Plans &amp; pricing</div>
           <h1 className="display mt-4">Simple, transparent pricing.</h1>
           <p className="lede mx-auto mt-4 text-center">
-            Subscribe to manage your agent pages. We only take a small platform fee when agents book and pay through your pages.
+            Subscribe to manage your agent pages.
           </p>
           <div className="mt-4 text-sm" style={{ color: 'var(--ready)' }}>No hidden fees. Cancel anytime.</div>
         </div>
