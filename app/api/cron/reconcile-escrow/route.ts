@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { captureError } from '../../../../lib/observability'
 import { reconcilePaymentState, type StripePiStatus } from '../../../../lib/escrow-reconcile'
+import { stripeObjectId } from '../../../../lib/stripe-billing'
 import type { NegotiationStatus } from '../../../../lib/negotiations'
 
 // Bound the work per run so the cron stays fast and within Stripe rate limits.
@@ -38,22 +39,7 @@ export async function GET(request: Request) {
   const admin = createAdminClient()
   const stripe = new Stripe(stripeKey)
 
-  // Candidates: have a PI, not in a settled-terminal state (complete/refunded/disputed
-  // are settled; declined/expired carry no live money). Newest first, bounded.
-  const { data, error } = await admin
-    .from('agent_negotiations')
-    .select('id, owner_id, status, settlement_state, stripe_payment_intent_id')
-    .not('stripe_payment_intent_id', 'is', null)
-    .in('status', ['agreement_proposed', 'held'])
-    .order('updated_at', { ascending: false })
-    .limit(LIMIT)
-
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
-  }
-
-  const rows = data ?? []
-  // Cache the owner→connected-account lookup so each PI is retrieved on the right account.
+  // Cache the owner→connected-account lookup so each retrieve hits the right account.
   const connectByOwner = new Map<string, string | null>()
   async function connectFor(ownerId: string | null): Promise<string | undefined> {
     if (!ownerId) return undefined
@@ -67,6 +53,59 @@ export async function GET(request: Request) {
     }
     return connectByOwner.get(ownerId) || undefined
   }
+
+  // Backfill pass: a paid Checkout session whose webhook never landed (e.g. the
+  // connected-account endpoint wasn't configured) leaves the negotiation with a
+  // session id but NO payment intent — invisible to the PI-based scan below, so a
+  // missed webhook would strand real money. Resolve the session on the connected
+  // account and persist its PI so the reconcile loop can heal it this same run.
+  let backfilled = 0
+  const { data: sessionOnly } = await admin
+    .from('agent_negotiations')
+    .select('id, owner_id, stripe_checkout_session_id')
+    .is('stripe_payment_intent_id', null)
+    .not('stripe_checkout_session_id', 'is', null)
+    .in('status', ['agreement_proposed', 'held'])
+    .order('updated_at', { ascending: false })
+    .limit(LIMIT)
+  for (const row of sessionOnly ?? []) {
+    try {
+      const stripeAccount = await connectFor(row.owner_id)
+      const session = await stripe.checkout.sessions.retrieve(
+        row.stripe_checkout_session_id as string,
+        { expand: ['payment_intent'] },
+        stripeAccount ? { stripeAccount } : undefined,
+      )
+      const piId = stripeObjectId(session.payment_intent)
+      if (session.payment_status === 'paid' && piId) {
+        const { error: upErr } = await admin
+          .from('agent_negotiations')
+          .update({ stripe_payment_intent_id: piId, updated_at: new Date().toISOString() })
+          .eq('id', row.id)
+          .is('stripe_payment_intent_id', null)
+        if (!upErr) backfilled += 1
+      }
+    } catch {
+      // Unreadable/foreign/expired session — skip; a later run retries.
+    }
+  }
+
+  // Candidates: have a PI (including any just backfilled), not in a settled-terminal
+  // state (complete/refunded/disputed are settled; declined/expired carry no live
+  // money). Newest first, bounded.
+  const { data, error } = await admin
+    .from('agent_negotiations')
+    .select('id, owner_id, status, settlement_state, stripe_payment_intent_id')
+    .not('stripe_payment_intent_id', 'is', null)
+    .in('status', ['agreement_proposed', 'held'])
+    .order('updated_at', { ascending: false })
+    .limit(LIMIT)
+
+  if (error) {
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+  }
+
+  const rows = data ?? []
 
   let healed = 0
   let alerted = 0
@@ -117,5 +156,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, scanned: rows.length, healed, alerted, actions, ran_at: new Date().toISOString() })
+  return NextResponse.json({ ok: true, scanned: rows.length, backfilled, healed, alerted, actions, ran_at: new Date().toISOString() })
 }

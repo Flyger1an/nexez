@@ -72,6 +72,22 @@ describe('POST /api/webhooks/stripe', () => {
     expect((await res.json()).received).toBe(true)
   })
 
+  it('verifies against the connected-accounts secret when the account secret fails (multi-endpoint)', async () => {
+    vi.stubEnv('STRIPE_WEBHOOK_SECRET', 'whsec_account')
+    vi.stubEnv('STRIPE_WEBHOOK_SECRET_CONNECT', 'whsec_connect')
+    // The connected-account endpoint signs with its OWN secret; the account secret
+    // must NOT verify it, the connect secret must.
+    constructEvent.mockImplementation((_body: string, _sig: string, secret: string) => {
+      if (secret === 'whsec_connect') return { type: 'checkout.session.completed', data: { object: {} } }
+      throw new Error('No signatures found matching the expected signature')
+    })
+    const res = await POST(post({ sig: 'good', body: '{"id":"evt_connect_1"}' }))
+    expect(res.status).toBe(200)
+    expect((await res.json()).received).toBe(true)
+    // Both secrets were tried (account first, then connect).
+    expect(constructEvent).toHaveBeenCalledTimes(2)
+  })
+
   it('syncs billing checkout sessions into billing_subscriptions', async () => {
     vi.stubEnv('STRIPE_WEBHOOK_SECRET', 'whsec_test')
     vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_ready')

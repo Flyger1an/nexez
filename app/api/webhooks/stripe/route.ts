@@ -11,10 +11,18 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supaba
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'placeholder')
 
 export async function POST(request: NextRequest) {
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+  // A Connect platform needs TWO endpoints — one for "your account" events
+  // (subscriptions) and one for "connected account" events (the escrow charges,
+  // refunds, disputes) — and Stripe gives each its OWN signing secret. Verify
+  // against every configured secret so both endpoints' events are accepted.
+  // STRIPE_WEBHOOK_SECRET_CONNECT is the connected-accounts endpoint's secret;
+  // either var may also hold a comma-separated list (e.g. during a rotation).
+  const webhookSecrets = [process.env.STRIPE_WEBHOOK_SECRET, process.env.STRIPE_WEBHOOK_SECRET_CONNECT]
+    .filter((s): s is string => Boolean(s))
+    .flatMap((s) => s.split(',').map((p) => p.trim()).filter(Boolean))
   const signature = request.headers.get('stripe-signature')
 
-  if (!webhookSecret) {
+  if (!webhookSecrets.length) {
     return NextResponse.json({ error: 'Stripe webhook signing secret is not configured.' }, { status: 412 })
   }
 
@@ -22,14 +30,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing Stripe signature.' }, { status: 400 })
   }
 
-  let event: Stripe.Event
+  let event: Stripe.Event | null = null
   const rawBody = await request.text()
 
-  try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret)
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid Stripe webhook signature.'
-    console.warn('[Stripe Webhook] Signature verification failed:', message)
+  let lastError = 'Invalid Stripe webhook signature.'
+  for (const secret of webhookSecrets) {
+    try {
+      event = stripe.webhooks.constructEvent(rawBody, signature, secret)
+      break
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : lastError
+    }
+  }
+  if (!event) {
+    console.warn('[Stripe Webhook] Signature verification failed against all configured secrets:', lastError)
     return NextResponse.json({ error: 'Invalid Stripe signature.' }, { status: 401 })
   }
 
