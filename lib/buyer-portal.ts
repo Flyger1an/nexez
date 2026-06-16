@@ -34,6 +34,20 @@ export type BuyerOrderView = {
   requests: BuyerOrderRequest[]
 }
 
+// Lightweight summary for the "find my orders" list (one row per order). Each carries
+// its own per-order portal token so the row links straight into the full view.
+export type BuyerOrderSummary = {
+  kind: BuyerOrderKind
+  token: string
+  offerName: string | null
+  amountCents: number | null
+  currency: string
+  status: string
+  sellerName: string | null
+  slug: string | null
+  createdAt: string
+}
+
 export type StatusTone = 'positive' | 'neutral' | 'warning' | 'pending'
 
 export type StatusDescriptor = { label: string; tone: StatusTone; description: string }

@@ -384,3 +384,30 @@ export function buildBuyerRequestEmail(opts: {
 </div>`
   return { subject, html, text }
 }
+
+// Pure builder (testable) for the "find my orders" magic-link email — sent ONLY when a
+// lookup matched real orders for the address. Carries one signed, expiring link to the
+// buyer's order list (per-order tokens live on that page, never in this email).
+export function buildOrderLookupEmail(opts: {
+  count: number
+  findUrl: string
+}): { subject: string; html: string; text: string } {
+  const { count, findUrl } = opts
+  const subject = 'Your Nexez orders'
+  const lead =
+    count === 1
+      ? 'Here is the order linked to this email. Use the secure link below to view it, track its status, or get help. The link expires in 24 hours.'
+      : `Here are the ${count} orders linked to this email. Use the secure link below to view them, track status, or get help. The link expires in 24 hours.`
+  const text = [lead, '', `View your orders: ${findUrl}`, '', "If you didn't request this, you can ignore this email."].join('\n')
+  return {
+    subject,
+    html: buyerEmailHtml({
+      heading: 'Your orders',
+      lead,
+      rows: [['Orders', String(count)]],
+      ctaLabel: 'View your orders',
+      manageUrl: findUrl,
+    }),
+    text,
+  }
+}

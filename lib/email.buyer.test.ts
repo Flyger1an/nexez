@@ -1,5 +1,20 @@
 import { describe, it, expect } from 'vitest'
-import { buildBuyerReceiptEmail, buildBuyerStatusEmail, buildBuyerRequestEmail } from './email'
+import { buildBuyerReceiptEmail, buildBuyerStatusEmail, buildBuyerRequestEmail, buildOrderLookupEmail } from './email'
+
+describe('buildOrderLookupEmail', () => {
+  it('carries the find link + singular copy for one order', () => {
+    const m = buildOrderLookupEmail({ count: 1, findUrl: 'https://nexez.app/orders/find/tok' })
+    expect(m.html).toContain('https://nexez.app/orders/find/tok')
+    expect(m.text).toContain('https://nexez.app/orders/find/tok')
+    expect(m.subject.toLowerCase()).toContain('orders')
+    expect(m.text.toLowerCase()).toContain('the order')
+  })
+  it('pluralizes for multiple orders + mentions expiry', () => {
+    const m = buildOrderLookupEmail({ count: 3, findUrl: 'https://nexez.app/orders/find/tok' })
+    expect(m.text).toContain('3 orders')
+    expect(m.text.toLowerCase()).toContain('24 hours')
+  })
+})
 
 describe('buildBuyerReceiptEmail', () => {
   it('includes the seller, amount + portal link', () => {

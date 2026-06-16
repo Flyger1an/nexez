@@ -310,3 +310,81 @@ export async function loadOrderTokenBySession(sessionId: string): Promise<Sessio
   if (!data?.access_token) return null
   return { token: data.access_token, status: data.status }
 }
+
+// Batch-resolve seller display names for a set of slugs (one query, not N).
+async function loadSellerNames(admin: ReturnType<typeof createAdminClient>, slugs: string[]): Promise<Map<string, string>> {
+  const unique = [...new Set(slugs.filter(Boolean))]
+  if (!unique.length) return new Map()
+  const { data } = await admin
+    .from('pages_public')
+    .select('slug, name')
+    .in('slug', unique)
+    .returns<{ slug: string; name: string | null }[]>()
+  return new Map((data ?? []).filter((r) => r.name).map((r) => [r.slug, r.name as string]))
+}
+
+const FIND_ORDERS_CAP = 50
+
+/** Find ALL orders/negotiations for a buyer email (the "find my orders" magic link).
+ *  Email match is case-insensitive. Returns lightweight summaries, newest first, each
+ *  carrying its own per-order token so the row links into the full portal view. The
+ *  email is the authorization (the caller verified a signed token over it). */
+export async function findOrdersByEmail(email: string): Promise<import('../buyer-portal').BuyerOrderSummary[]> {
+  const clean = (email || '').trim()
+  if (!clean || !hasSupabaseAdminEnv()) return []
+  const admin = createAdminClient()
+
+  // Case-insensitive EXACT match. Escape the LIKE metacharacters so a buyer email can
+  // never wildcard-match another buyer's address. NB: besides SQL's % and _, PostgREST
+  // additionally aliases `*` to `%` in its ilike operator (URL-level, before SQL), and
+  // both _ and * pass the route's email regex — so * MUST be escaped too.
+  const pattern = clean.replace(/([\\%_*])/g, '\\$1')
+
+  const [orders, negs] = await Promise.all([
+    admin
+      .from('checkout_orders')
+      .select('access_token, slug, offer_name, amount_cents, currency, status, metadata, created_at')
+      .ilike('buyer_email', pattern)
+      .order('created_at', { ascending: false })
+      .limit(FIND_ORDERS_CAP)
+      .returns<{ access_token: string | null; slug: string | null; offer_name: string | null; amount_cents: number; currency: string; status: string; metadata: Record<string, unknown> | null; created_at: string }[]>(),
+    admin
+      .from('agent_negotiations')
+      .select('status_token, slug, offer_name, amount_cents, currency, status, metadata, created_at')
+      .ilike('buyer_email', pattern)
+      .order('created_at', { ascending: false })
+      .limit(FIND_ORDERS_CAP)
+      .returns<{ status_token: string | null; slug: string | null; offer_name: string | null; amount_cents: number | null; currency: string; status: string; metadata: Record<string, unknown> | null; created_at: string }[]>(),
+  ])
+
+  const orderRows = (orders.data ?? []).filter((r) => r.access_token)
+  const negRows = (negs.data ?? []).filter((r) => r.status_token)
+  const sellers = await loadSellerNames(admin, [...orderRows.map((r) => r.slug ?? ''), ...negRows.map((r) => r.slug ?? '')])
+
+  const summaries: import('../buyer-portal').BuyerOrderSummary[] = [
+    ...orderRows.map((r) => ({
+      kind: 'checkout' as const,
+      token: r.access_token as string,
+      offerName: r.offer_name,
+      amountCents: r.amount_cents,
+      currency: r.currency || 'usd',
+      status: deriveOrderStatus(r.status, r.metadata),
+      sellerName: r.slug ? sellers.get(r.slug) ?? null : null,
+      slug: r.slug,
+      createdAt: r.created_at,
+    })),
+    ...negRows.map((r) => ({
+      kind: 'negotiation' as const,
+      token: r.status_token as string,
+      offerName: r.offer_name,
+      amountCents: negotiationDisplayCents(r.amount_cents, r.currency || 'usd'),
+      currency: r.currency || 'usd',
+      status: deriveOrderStatus(r.status, r.metadata),
+      sellerName: r.slug ? sellers.get(r.slug) ?? null : null,
+      slug: r.slug,
+      createdAt: r.created_at,
+    })),
+  ]
+
+  return summaries.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, FIND_ORDERS_CAP)
+}
