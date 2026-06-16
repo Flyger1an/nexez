@@ -33,7 +33,6 @@ export function OrdersPanel({ orders }: { orders: OrderRow[] }) {
   async function refund(id: string) {
     setBusyId(id)
     setError('')
-    setConfirmId(null)
     try {
       const res = await fetch('/api/orders/refund', {
         method: 'POST',
@@ -45,6 +44,7 @@ export function OrdersPanel({ orders }: { orders: OrderRow[] }) {
         setError(data.error || 'Refund failed.')
         return
       }
+      setConfirmId(null)
       setRows((r) => r.map((o) => (o.id === id ? { ...o, status: 'refunded' } : o)))
     } catch {
       setError('Refund failed — try again.')

@@ -50,6 +50,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'This order has no captured payment to refund yet.' }, { status: 409 })
   }
 
+  // Full refund only. (In-app PARTIAL refunds need a cumulative-refunded ledger to be
+  // safe — without it, equal-amount partials collide on the idempotency key and a
+  // repeat silently under-refunds. Tracked as a follow-up; out-of-band partials from
+  // the Stripe dashboard are still handled correctly by the charge.refunded webhook,
+  // which keeps the row open on a partial.)
   const stripe = new Stripe(secret)
   const stripeAccount = order.stripe_connect_account_id || undefined
   try {

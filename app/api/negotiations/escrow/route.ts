@@ -131,13 +131,15 @@ export async function POST(request: Request) {
       if (negotiation.status !== 'complete' || !negotiation.stripe_payment_intent_id) {
         return NextResponse.json({ error: 'Only a completed payment can be refunded.' }, { status: 409 })
       }
+      // Full refund only. (In-app PARTIAL refunds need a cumulative-refunded ledger to
+      // be safe; tracked as a follow-up. Out-of-band partials from Stripe are still
+      // handled by the charge.refunded webhook, which keeps the deal open on a partial.)
       const refund = await stripe.refunds.create(
         {
           payment_intent: negotiation.stripe_payment_intent_id,
           // Give Nexez's commission BACK on a refund — the charge took an
           // application_fee to the platform, so without this the seller would eat
-          // the full refund while Nexez kept its cut. Proportional on the (full)
-          // refund. Connected-account refund (stripeAccount) of a direct charge.
+          // the full refund while Nexez kept its cut. Connected-account refund.
           refund_application_fee: true,
         },
         { ...(stripeAccount ? { stripeAccount } : {}), idempotencyKey: `refund-${negotiation.id}` },

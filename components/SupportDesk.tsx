@@ -31,6 +31,7 @@ const categories = [
   { value: 'agent_visibility', label: 'Agent visibility' },
   { value: 'integrations', label: 'Integrations' },
   { value: 'billing', label: 'Billing' },
+  { value: 'transaction', label: 'Refund / order issue' },
   { value: 'bug', label: 'Bug' },
   { value: 'feature_request', label: 'Feature request' },
   { value: 'general', label: 'General' },
@@ -44,6 +45,7 @@ export function SupportDesk() {
   const [priority, setPriority] = useState('normal')
   const [subject, setSubject] = useState('')
   const [query, setQuery] = useState('')
+  const [reference, setReference] = useState('')
   const [assist, setAssist] = useState<AssistResult | null>(null)
   const [ticket, setTicket] = useState<TicketResult | null>(null)
   const [message, setMessage] = useState('')
@@ -136,6 +138,7 @@ export function SupportDesk() {
           category,
           priority,
           query,
+          reference: category === 'transaction' ? reference : '',
           aiResponse: assist ? `${assist.summary}\n\n${assist.steps.join('\n')}` : '',
           metadata: {
             ai_confidence: assist?.confidence,
@@ -213,6 +216,18 @@ export function SupportDesk() {
               ))}
             </select>
           </label>
+
+          {category === 'transaction' ? (
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-muted-foreground">Related order / deal reference</span>
+              <input
+                value={reference}
+                onChange={(event) => setReference(event.target.value)}
+                className="h-11 w-full rounded-md border border-border bg-black/40 px-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500"
+                placeholder="Negotiation/order id or Stripe session — helps us trace it"
+              />
+            </label>
+          ) : null}
 
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-muted-foreground">Subject</span>

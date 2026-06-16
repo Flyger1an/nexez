@@ -11,6 +11,7 @@ type SupportTicketInput = {
   priority?: string
   query?: string
   aiResponse?: string
+  reference?: string
   metadata?: Record<string, unknown>
 }
 
@@ -19,7 +20,7 @@ type SupabaseLikeError = {
   message?: string
 }
 
-const allowedCategories = new Set(['general', 'page_setup', 'agent_visibility', 'integrations', 'billing', 'bug', 'feature_request'])
+const allowedCategories = new Set(['general', 'page_setup', 'agent_visibility', 'integrations', 'billing', 'bug', 'feature_request', 'transaction'])
 const allowedPriorities = new Set(['low', 'normal', 'high', 'urgent'])
 
 export async function POST(request: Request) {
@@ -72,6 +73,10 @@ export async function POST(request: Request) {
     pageName = page.name
   }
 
+  // Optional transaction reference (a negotiation/order id or Stripe session) so a
+  // money issue is a trackable case, not a generic ticket. Capped + nullable.
+  const reference = (body.reference || '').trim().slice(0, 200) || null
+
   const ticket = {
     owner_id: user.id,
     page_id: pageId,
@@ -80,6 +85,7 @@ export async function POST(request: Request) {
     category,
     priority,
     query,
+    reference,
     ai_response: body.aiResponse || null,
     metadata: {
       ...(body.metadata || {}),

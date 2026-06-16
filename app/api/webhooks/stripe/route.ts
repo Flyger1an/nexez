@@ -358,8 +358,13 @@ export async function POST(request: NextRequest) {
     let notify: { kind: 'refund' | 'dispute_opened' | 'dispute_closed'; amountCents: number | null; detail: string | null } | null = null
 
     if (event.type === 'charge.refunded') {
-      update = { status: 'refunded', metadata: { ...baseMeta, refund: { source: 'stripe_webhook', amount_cents: obj.amount_refunded ?? null, at: now } } }
-      notify = { kind: 'refund', amountCents: obj.amount_refunded ?? null, detail: null }
+      // A PARTIAL refund keeps the deal 'complete' (remainder still refundable);
+      // only a full refund closes it. Mirrors the direct-order handler above.
+      const fullyRefunded = obj.amount == null || obj.amount_refunded == null || obj.amount_refunded >= obj.amount
+      update = fullyRefunded
+        ? { status: 'refunded', metadata: { ...baseMeta, refund: { source: 'stripe_webhook', amount_cents: obj.amount_refunded ?? null, at: now } } }
+        : { metadata: { ...baseMeta, partial_refund: { amount_cents: obj.amount_refunded ?? null, at: now } } }
+      notify = { kind: 'refund', amountCents: obj.amount_refunded ?? null, detail: fullyRefunded ? null : 'Partial refund — the deal stays open for the remainder.' }
     } else if (event.type === 'charge.dispute.created') {
       update = { status: 'disputed', metadata: { ...baseMeta, dispute: { reason: obj.reason ?? null, amount_cents: obj.amount ?? null, status: obj.status ?? null, at: now } } }
       notify = { kind: 'dispute_opened', amountCents: obj.amount ?? null, detail: obj.reason ? `Reason: ${obj.reason}` : null }
