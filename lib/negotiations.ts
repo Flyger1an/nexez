@@ -72,6 +72,61 @@ export function getNegotiationStatusLabel(status: NegotiationStatus): string {
 }
 
 /**
+ * Humanize a requested-terms key (camelCase / snake_case / kebab → "Sentence
+ * case") to match the surrounding field labels (e.g. "Buyer agent", "Timeline").
+ */
+export function humanizeTermKey(key: string): string {
+  const spaced = String(key)
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+  // Whitespace/punctuation-only keys collapse to '' — caller substitutes a label.
+  if (!spaced) return ''
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1)
+}
+
+function formatTermValue(value: unknown): string {
+  if (value == null) return '—'
+  if (typeof value === 'string') return value.trim() || '—'
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (Array.isArray(value)) {
+    const parts = value.map(formatTermValue).filter((p) => p && p !== '—')
+    return parts.length ? parts.join(', ') : '—'
+  }
+  if (typeof value === 'object') {
+    const parts = Object.entries(value as Record<string, unknown>).map(
+      ([k, v]) => `${humanizeTermKey(k)}: ${formatTermValue(v)}`,
+    )
+    return parts.length ? parts.join('; ') : '—'
+  }
+  return String(value)
+}
+
+/**
+ * Turn buyer-submitted `requested_terms` into readable label/value rows for the
+ * owner inbox + receipt — instead of dumping raw `JSON.stringify` at the human.
+ * Pure + client-safe; React escapes the values, so this carries no injection
+ * risk. Input is `unknown` on purpose: it's buyer-controlled raw JSON stored in a
+ * JSONB column, so while it's *usually* an object it can also arrive as an array
+ * or bare primitive — those are surfaced under a single "Terms" row rather than
+ * silently dropped. The form-fallback shape `{ note: "<raw text>" }` (set when a
+ * buyer posts non-JSON terms) renders as a single "Note" row.
+ */
+export function formatRequestedTerms(terms: unknown): { label: string; value: string }[] {
+  if (terms == null) return []
+  if (Array.isArray(terms) || typeof terms !== 'object') {
+    const value = formatTermValue(terms)
+    return value === '—' ? [] : [{ label: 'Terms', value }]
+  }
+  return Object.entries(terms as Record<string, unknown>).map(([key, value]) => ({
+    label: humanizeTermKey(key) || 'Term',
+    value: formatTermValue(value),
+  }))
+}
+
+/**
  * True when a Postgres/PostgREST error means the table hasn't been migrated yet
  * (relation does not exist / not in the schema cache) — as opposed to a
  * transient load failure. Lets the inbox show "apply migration" guidance

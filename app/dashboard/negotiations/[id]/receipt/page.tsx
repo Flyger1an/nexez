@@ -3,6 +3,7 @@ import { createClient } from '../../../../../utils/supabase/server'
 import {
   AgentNegotiation,
   formatNegotiationAmount,
+  formatRequestedTerms,
   getNegotiationStatusLabel,
 } from '../../../../../lib/negotiations'
 import { getBaseUrl } from '../../../../../lib/agent-page'
@@ -40,7 +41,7 @@ export default async function NegotiationReceiptPage({ params }: { params: Promi
     )
   }
 
-  const terms = n.requested_terms && Object.keys(n.requested_terms).length ? JSON.stringify(n.requested_terms) : null
+  const termRows = formatRequestedTerms(n.requested_terms)
 
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
@@ -67,7 +68,18 @@ export default async function NegotiationReceiptPage({ params }: { params: Promi
             <Row label="Budget" value={n.budget_text || '—'} />
             <Row label="Timeline" value={n.timeline_text || '—'} />
             {n.buyer_query ? <Row label="Request" value={n.buyer_query} /> : null}
-            {terms ? <Row label="Requested terms" value={terms} mono /> : null}
+            {termRows.length > 0 ? (
+              <div className="border-t border-white/10 pt-3">
+                <dt className="mb-1 text-zinc-500">Requested terms</dt>
+                <dd>
+                  <dl className="space-y-1">
+                    {termRows.map((t, i) => (
+                      <Row key={i} label={t.label} value={t.value} />
+                    ))}
+                  </dl>
+                </dd>
+              </div>
+            ) : null}
             <Row label="Reference" value={n.id} mono />
             <Row label="Created" value={new Date(n.created_at).toLocaleString()} />
           </dl>

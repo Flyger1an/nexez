@@ -19,6 +19,7 @@ import {
   AgentNegotiation,
   NegotiationStatus,
   formatNegotiationAmount,
+  formatRequestedTerms,
   getAllowedNegotiationTransitions,
   getNegotiationStatusLabel,
   getNegotiationStatusTone,
@@ -382,6 +383,7 @@ function NegotiationCard({
   const transitions = getAllowedNegotiationTransitions(item.status, { escrowAvailable })
   const tone = getNegotiationStatusTone(item.status)
   const amountReady = item.amount_cents != null && item.amount_cents >= 50
+  const termRows = formatRequestedTerms(item.requested_terms)
 
   // The BUYER funds the hold (via the /negotiate pay link), so owners never set 'held'.
   // From 'held', the owner's complete = capture and decline = release the authorization.
@@ -452,11 +454,18 @@ function NegotiationCard({
         <Field label="Budget" value={item.budget_text} />
         <Field label="Timeline" value={item.timeline_text} />
         {item.buyer_query && <Field label="Request" value={item.buyer_query} full />}
-        {item.requested_terms && Object.keys(item.requested_terms).length > 0 && (
+        {termRows.length > 0 && (
           <div className="sm:col-span-2">
             <dt className="text-xs text-zinc-500">Requested terms</dt>
-            <dd className="mt-1 rounded-lg border border-white/10 bg-black/30 p-2 font-mono text-xs text-zinc-300">
-              {JSON.stringify(item.requested_terms)}
+            <dd className="mt-1 rounded-lg border border-white/10 bg-black/30 p-2.5">
+              <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+                {termRows.map((t, i) => (
+                  <div key={i} className="flex justify-between gap-3">
+                    <dt className="shrink-0 text-xs text-zinc-500">{t.label}</dt>
+                    <dd className="min-w-0 break-words text-right text-xs text-zinc-200">{t.value}</dd>
+                  </div>
+                ))}
+              </dl>
             </dd>
           </div>
         )}

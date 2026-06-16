@@ -2,13 +2,74 @@ import { describe, expect, it } from 'vitest'
 import {
   canTransitionNegotiation,
   formatNegotiationAmount,
+  formatRequestedTerms,
   getAllowedNegotiationTransitions,
   getNegotiationStatusLabel,
   getNegotiationStatusTone,
+  humanizeTermKey,
   isMissingTableError,
   isTerminalNegotiationStatus,
   summarizeNegotiations,
 } from '../negotiations'
+
+describe('humanizeTermKey', () => {
+  it('title-cases camelCase, snake_case, and kebab-case keys', () => {
+    expect(humanizeTermKey('procurementMode')).toBe('Procurement mode')
+    expect(humanizeTermKey('desiredSettlement')).toBe('Desired settlement')
+    expect(humanizeTermKey('max_revisions')).toBe('Max revisions')
+    expect(humanizeTermKey('delivery-window')).toBe('Delivery window')
+    expect(humanizeTermKey('note')).toBe('Note')
+  })
+  it('handles numbers in keys and is resilient to odd input', () => {
+    expect(humanizeTermKey('tier2Pricing')).toBe('Tier2 pricing')
+    expect(humanizeTermKey('')).toBe('')
+  })
+})
+
+describe('formatRequestedTerms', () => {
+  it('renders the reported bug payload as readable rows (no raw JSON)', () => {
+    expect(formatRequestedTerms({ procurementMode: 'qa-gauntlet', desiredSettlement: 'standard' })).toEqual([
+      { label: 'Procurement mode', value: 'qa-gauntlet' },
+      { label: 'Desired settlement', value: 'standard' },
+    ])
+  })
+  it('formats primitives, arrays, and nested objects', () => {
+    expect(formatRequestedTerms({ rush: true, quantity: 3, regions: ['us', 'eu'] })).toEqual([
+      { label: 'Rush', value: 'true' },
+      { label: 'Quantity', value: '3' },
+      { label: 'Regions', value: 'us, eu' },
+    ])
+    expect(formatRequestedTerms({ scope: { included: 'logo', maxRevisions: 2 } })).toEqual([
+      { label: 'Scope', value: 'Included: logo; Max revisions: 2' },
+    ])
+  })
+  it('renders the non-JSON form fallback as a Note row', () => {
+    expect(formatRequestedTerms({ note: 'just call me' })).toEqual([{ label: 'Note', value: 'just call me' }])
+  })
+  it('returns [] for null/empty terms', () => {
+    expect(formatRequestedTerms(null)).toEqual([])
+    expect(formatRequestedTerms({})).toEqual([])
+    expect(formatRequestedTerms(undefined)).toEqual([])
+    expect(formatRequestedTerms([])).toEqual([])
+  })
+  it('surfaces a top-level array or bare primitive under a single "Terms" row (no silent drop)', () => {
+    expect(formatRequestedTerms(['rush', 'gift wrap'])).toEqual([{ label: 'Terms', value: 'rush, gift wrap' }])
+    expect(formatRequestedTerms('call me')).toEqual([{ label: 'Terms', value: 'call me' }])
+    expect(formatRequestedTerms(42)).toEqual([{ label: 'Terms', value: '42' }])
+  })
+  it('falls back to "Term" for blank/whitespace/punctuation-only keys', () => {
+    expect(formatRequestedTerms({ '   ': 'x', '___': 'y' })).toEqual([
+      { label: 'Term', value: 'x' },
+      { label: 'Term', value: 'y' },
+    ])
+  })
+  it('uses an em-dash for null/empty values rather than "null"', () => {
+    expect(formatRequestedTerms({ budget: null, notes: '' })).toEqual([
+      { label: 'Budget', value: '—' },
+      { label: 'Notes', value: '—' },
+    ])
+  })
+})
 
 describe('isMissingTableError', () => {
   it('detects a not-yet-migrated table by code or message', () => {
