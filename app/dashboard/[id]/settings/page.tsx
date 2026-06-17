@@ -32,7 +32,12 @@ type PageProps = {
 }
 
 export default function PageSettings({ params }: PageProps) {
-  const plan = usePlan()
+  // The EFFECTIVE plan governing this page's feature gates is the page OWNER's, not
+  // the logged-in user's — so an editor-collaborator sees the owner's entitlements.
+  // Falls back to the logged-in user's plan until the settings-context loads.
+  const ownPlan = usePlan()
+  const [plan, setPlan] = useState(ownPlan)
+  const [pageRole, setPageRole] = useState<'owner' | 'editor' | 'viewer'>('owner')
   const [id, setId] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -214,11 +219,13 @@ export default function PageSettings({ params }: PageProps) {
       return
     }
 
+    // Load by id (RLS grants the owner OR a collaborator read). Then settings-context
+    // authorizes EDITORS only + returns the OWNER's effective plan + owner-only secrets
+    // (an editor can't read page_secrets directly under RLS).
     const { data, error } = await supabase
       .from('pages')
       .select(OWNER_PAGE_SELECT)
       .eq('id', pageId)
-      .eq('owner_id', user.id)
       .single<AgentPage>()
 
 	    if (error || !data) {
@@ -227,11 +234,20 @@ export default function PageSettings({ params }: PageProps) {
 	      return
 	    }
 
-	    const { data: secrets } = await supabase
-	      .from('page_secrets')
-	      .select('calendly_webhook_secret, outbound_webhooks, domain_verification_token')
-	      .eq('page_id', pageId)
-	      .maybeSingle()
+	    const ctxRes = await fetch(`/api/pages/${pageId}/settings-context`)
+	    if (!ctxRes.ok) {
+	      setMessage('You do not have edit access to this page’s settings.')
+	      setLoading(false)
+	      return
+	    }
+	    const ctx = (await ctxRes.json().catch(() => ({}))) as {
+	      role?: 'owner' | 'editor' | 'viewer'
+	      plan?: typeof ownPlan
+	      secrets?: { calendly_webhook_secret: string | null; outbound_webhooks: unknown; domain_verification_token: string | null }
+	    }
+	    if (ctx.plan) setPlan(ctx.plan)
+	    if (ctx.role) setPageRole(ctx.role)
+	    const secrets = ctx.secrets
 
 	    const activePage = {
 	      ...data,
@@ -488,26 +504,26 @@ export default function PageSettings({ params }: PageProps) {
 	  }
 
 	  async function upsertPageSecrets(values: Record<string, unknown>) {
-	    const supabase = createClient()
-	    const { data: { user } } = await supabase.auth.getUser()
-
-	    if (!user || !page?.id) {
-	      return { error: { message: 'Not authenticated or page missing for private settings.' } }
+	    if (!page?.id) {
+	      return { error: { message: 'Page missing for private settings.' } }
 	    }
-
-	    // Always use the *current* session user for owner_id (defensive against stale component state).
-	    // The RLS policies will still enforce that this user actually owns the page.
-	    return supabase
-	      .from('page_secrets')
-	      .upsert(
-	        {
-	          page_id: page.id,
-	          owner_id: user.id,
-	          ...values,
-	          updated_at: new Date().toISOString(),
-	        },
-	        { onConflict: 'page_id' },
-	      )
+	    // Write via the server route: page_secrets is owner-RLS'd, so a collaborator
+	    // can't upsert it directly. The route authorizes (owner/editor) + writes under
+	    // the PAGE OWNER via the service-role client.
+	    try {
+	      const res = await fetch(`/api/pages/${page.id}/secrets`, {
+	        method: 'POST',
+	        headers: { 'content-type': 'application/json' },
+	        body: JSON.stringify(values),
+	      })
+	      if (!res.ok) {
+	        const data = (await res.json().catch(() => ({}))) as { error?: string }
+	        return { error: { message: data.error || 'Could not save settings.' } }
+	      }
+	      return { error: null }
+	    } catch {
+	      return { error: { message: 'Could not save settings — try again.' } }
+	    }
 	  }
 
 	  if (loading) {
