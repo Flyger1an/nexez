@@ -16,6 +16,7 @@ import {
   hasEmailEnv,
   sendEmail,
 } from '../../../../lib/email'
+import { resolveOwnerNotifyEmail } from '../../../../lib/server/owner-email'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'placeholder')
 
@@ -159,10 +160,11 @@ export async function POST(request: NextRequest) {
         after(async () => {
           const { data: page } = await admin
             .from('pages')
-            .select('name, contact_email')
+            .select('name, contact_email, owner_id')
             .eq('id', negotiation.page_id as string)
-            .maybeSingle<{ name: string | null; contact_email: string | null }>()
-          if (!page?.contact_email) return
+            .maybeSingle<{ name: string | null; contact_email: string | null; owner_id: string | null }>()
+          const ownerEmail = await resolveOwnerNotifyEmail({ contactEmail: page?.contact_email, ownerId: page?.owner_id })
+          if (!ownerEmail || !page) return
           const mail = await buildEscrowFundedEmail({
             businessName: page.name || negotiation.slug || 'your page',
             offerName: negotiation.offer_name || 'Agreement',
@@ -171,7 +173,7 @@ export async function POST(request: NextRequest) {
             buyerAgent: negotiation.buyer_agent,
             inboxUrl: `${getBaseUrl()}/dashboard/negotiations`,
           })
-          await sendEmail({ to: page.contact_email, subject: mail.subject, html: mail.html, text: mail.text })
+          await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
         })
       }
       // Buyer receipt + portal link (negotiation buyers reuse status_token as their
@@ -265,8 +267,9 @@ export async function POST(request: NextRequest) {
       }
       if (hasEmailEnv() && orderRow.page_id) {
         after(async () => {
-          const { data: page } = await admin.from('pages').select('name, contact_email').eq('id', orderRow.page_id as string).maybeSingle<{ name: string | null; contact_email: string | null }>()
-          if (!page?.contact_email) return
+          const { data: page } = await admin.from('pages').select('name, contact_email, owner_id').eq('id', orderRow.page_id as string).maybeSingle<{ name: string | null; contact_email: string | null; owner_id: string | null }>()
+          const ownerEmail = await resolveOwnerNotifyEmail({ contactEmail: page?.contact_email, ownerId: page?.owner_id })
+          if (!ownerEmail || !page) return
           const mail = await buildEscrowFundedEmail({
             businessName: page.name || orderRow.slug || 'your page',
             offerName: orderRow.offer_name || 'Your offer',
@@ -275,7 +278,7 @@ export async function POST(request: NextRequest) {
             buyerAgent: null,
             inboxUrl: `${getBaseUrl()}/dashboard/finance`,
           })
-          await sendEmail({ to: page.contact_email, subject: mail.subject, html: mail.html, text: mail.text })
+          await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
         })
       }
       return NextResponse.json({ received: true, type: event.type, order: true, status: 'paid' }, { status: 200 })
@@ -416,8 +419,9 @@ export async function POST(request: NextRequest) {
       if (oNotify && hasEmailEnv() && order.page_id) {
         const on = oNotify
         after(async () => {
-          const { data: page } = await admin.from('pages').select('name, contact_email').eq('id', order.page_id as string).maybeSingle<{ name: string | null; contact_email: string | null }>()
-          if (!page?.contact_email) return
+          const { data: page } = await admin.from('pages').select('name, contact_email, owner_id').eq('id', order.page_id as string).maybeSingle<{ name: string | null; contact_email: string | null; owner_id: string | null }>()
+          const ownerEmail = await resolveOwnerNotifyEmail({ contactEmail: page?.contact_email, ownerId: page?.owner_id })
+          if (!ownerEmail || !page) return
           const mail = await buildMoneyEventEmail({
             kind: on.kind,
             businessName: page.name || order.slug || 'your page',
@@ -426,7 +430,7 @@ export async function POST(request: NextRequest) {
             detail: on.detail,
             inboxUrl: `${getBaseUrl()}/dashboard/finance`,
           })
-          await sendEmail({ to: page.contact_email, subject: mail.subject, html: mail.html, text: mail.text })
+          await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
         })
       }
       // Buyer-facing status update (refund processed / dispute resolved).
@@ -511,10 +515,11 @@ export async function POST(request: NextRequest) {
       after(async () => {
         const { data: page } = await admin
           .from('pages')
-          .select('name, contact_email')
+          .select('name, contact_email, owner_id')
           .eq('id', neg.page_id as string)
-          .maybeSingle<{ name: string | null; contact_email: string | null }>()
-        if (!page?.contact_email) return
+          .maybeSingle<{ name: string | null; contact_email: string | null; owner_id: string | null }>()
+        const ownerEmail = await resolveOwnerNotifyEmail({ contactEmail: page?.contact_email, ownerId: page?.owner_id })
+        if (!ownerEmail || !page) return
         const mail = await buildMoneyEventEmail({
           kind: n.kind,
           businessName: page.name || neg.slug || 'your page',
@@ -523,7 +528,7 @@ export async function POST(request: NextRequest) {
           detail: n.detail,
           inboxUrl: `${getBaseUrl()}/dashboard/negotiations`,
         })
-        await sendEmail({ to: page.contact_email, subject: mail.subject, html: mail.html, text: mail.text })
+        await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
       })
     }
     // Buyer-facing status update for the negotiation buyer (status_token = portal credential).

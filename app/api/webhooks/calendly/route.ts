@@ -4,6 +4,7 @@ import crypto from 'crypto'
 import type { AgentPage } from '../../../../lib/agent-page'
 import { getBaseUrl } from '../../../../lib/agent-page'
 import { buildBookingEmail, hasEmailEnv, sendEmail } from '../../../../lib/email'
+import { resolveOwnerNotifyEmail } from '../../../../lib/server/owner-email'
 import { fireOutboundWebhook, type OutboundWebhookPayload } from '../../../../lib/webhooks'
 import { fireOwnerOutboundWebhooks } from '../../../../lib/server/outbound-webhooks'
 import { ownerAllows } from '../../../../lib/server/plan'
@@ -154,10 +155,12 @@ export async function POST(request: NextRequest) {
     console.warn('[Calendly Webhook] Failed to update page last_booking:', updateError.message)
   }
 
-  // Notify the business by email on a new booking (gated on RESEND_API_KEY).
-  if (eventType === 'invitee.created' && hasEmailEnv() && page.contact_email) {
-    const to = page.contact_email
+  // Notify the business by email on a new booking (gated on RESEND_API_KEY). Recipient
+  // falls back to the owner's account email when the page has no explicit contact_email.
+  if (eventType === 'invitee.created' && hasEmailEnv()) {
     after(async () => {
+      const to = await resolveOwnerNotifyEmail({ contactEmail: page.contact_email, ownerId: page.owner_id })
+      if (!to) return
       const mail = await buildBookingEmail({
         businessName: page.name || page.slug,
         eventName,
