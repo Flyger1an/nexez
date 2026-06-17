@@ -159,18 +159,28 @@ export async function POST(request: Request) {
 
     // Notify the owner of a fresh proposal (continuations don't re-notify).
     const ownerEmail = (page as { contact_email?: string | null }).contact_email
+    // TEMP DIAGNOSTIC ([neg-email]): emails silently stopped reaching Resend; these tagged
+    // logs pinpoint whether the branch is entered, whether after() flushes, and what
+    // sendEmail returns. Remove once the cause is confirmed + the real fix lands.
+    console.log('[neg-email] branch', JSON.stringify({ hasOwnerEmail: Boolean(ownerEmail), negotiationId: input.negotiationId || null }))
     if (ownerEmail && !input.negotiationId) {
       after(async () => {
-        const mail = await buildNegotiationEmail({
-          businessName: page.name || page.slug,
-          offerName: offer.name,
-          budget: input.budget,
-          timeline: input.timeline,
-          query: input.query,
-          buyerAgent: input.buyerAgent,
-          inboxUrl: appUrl('/dashboard/negotiations'),
-        })
-        await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
+        try {
+          console.log('[neg-email] after() fired — building + sending')
+          const mail = await buildNegotiationEmail({
+            businessName: page.name || page.slug,
+            offerName: offer.name,
+            budget: input.budget,
+            timeline: input.timeline,
+            query: input.query,
+            buyerAgent: input.buyerAgent,
+            inboxUrl: appUrl('/dashboard/negotiations'),
+          })
+          const r = await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
+          console.log('[neg-email] sendEmail result', JSON.stringify(r))
+        } catch (e) {
+          console.error('[neg-email] after() threw', e instanceof Error ? e.message : e)
+        }
       })
     }
 
