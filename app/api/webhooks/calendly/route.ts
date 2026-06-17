@@ -156,17 +156,19 @@ export async function POST(request: NextRequest) {
 
   // Notify the business by email on a new booking (gated on RESEND_API_KEY).
   if (eventType === 'invitee.created' && hasEmailEnv() && page.contact_email) {
-    const mail = buildBookingEmail({
-      businessName: page.name || page.slug,
-      eventName,
-      inviteeName,
-      inviteeEmail: payload.invitee?.email,
-      startTime: startedAt,
-      source: 'Calendly',
-      inboxUrl: `${getBaseUrl()}/dashboard`,
-    })
     const to = page.contact_email
-    after(() => sendEmail({ to, subject: mail.subject, html: mail.html, text: mail.text }))
+    after(async () => {
+      const mail = await buildBookingEmail({
+        businessName: page.name || page.slug,
+        eventName,
+        inviteeName,
+        inviteeEmail: payload.invitee?.email,
+        startTime: startedAt,
+        source: 'Calendly',
+        inboxUrl: `${getBaseUrl()}/dashboard`,
+      })
+      await sendEmail({ to, subject: mail.subject, html: mail.html, text: mail.text })
+    })
   }
 
   // One booking payload, delivered to both the per-page webhooks and the owner's

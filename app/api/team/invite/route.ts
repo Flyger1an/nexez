@@ -73,7 +73,7 @@ export async function POST(request: Request) {
   // email was skipped (no RESEND) or rejected.
   let emailed = false
   if (hasEmailEnv()) {
-    const mail = buildTeamInviteEmail({
+    const mail = await buildTeamInviteEmail({
       inviterEmail: user.email || 'A Nexez user',
       inviteeEmail: email,
       role,

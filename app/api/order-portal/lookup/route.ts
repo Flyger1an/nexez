@@ -42,7 +42,7 @@ export async function POST(request: Request) {
         if (!orders.length) return // never email a non-customer address
         const token = signLookupToken(email)
         if (!token) return
-        const mail = buildOrderLookupEmail({ count: orders.length, findUrl: `${getBaseUrl()}/orders/find/${token}` })
+        const mail = await buildOrderLookupEmail({ count: orders.length, findUrl: `${getBaseUrl()}/orders/find/${token}` })
         await sendEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text })
       })
     }

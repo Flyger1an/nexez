@@ -160,16 +160,18 @@ export async function POST(request: Request) {
     // Notify the owner of a fresh proposal (continuations don't re-notify).
     const ownerEmail = (page as { contact_email?: string | null }).contact_email
     if (ownerEmail && !input.negotiationId) {
-      const mail = buildNegotiationEmail({
-        businessName: page.name || page.slug,
-        offerName: offer.name,
-        budget: input.budget,
-        timeline: input.timeline,
-        query: input.query,
-        buyerAgent: input.buyerAgent,
-        inboxUrl: appUrl('/dashboard/negotiations'),
+      after(async () => {
+        const mail = await buildNegotiationEmail({
+          businessName: page.name || page.slug,
+          offerName: offer.name,
+          budget: input.budget,
+          timeline: input.timeline,
+          query: input.query,
+          buyerAgent: input.buyerAgent,
+          inboxUrl: appUrl('/dashboard/negotiations'),
+        })
+        await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
       })
-      after(() => sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text }))
     }
 
     const statusUrl = result.statusToken

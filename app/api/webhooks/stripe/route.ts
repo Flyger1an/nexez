@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
             .eq('id', negotiation.page_id as string)
             .maybeSingle<{ name: string | null; contact_email: string | null }>()
           if (!page?.contact_email) return
-          const mail = buildEscrowFundedEmail({
+          const mail = await buildEscrowFundedEmail({
             businessName: page.name || negotiation.slug || 'your page',
             offerName: negotiation.offer_name || 'Agreement',
             amount: formatCurrencyAmount(session.amount_total ?? expectedChargeAmount, negotiation.currency || 'usd'),
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
             .select('name')
             .eq('id', negotiation.page_id as string)
             .maybeSingle<{ name: string | null }>()
-          const mail = buildBuyerReceiptEmail({
+          const mail = await buildBuyerReceiptEmail({
             businessName: page?.name || negotiation.slug || 'the seller',
             offerName: negotiation.offer_name || 'Agreement',
             amount: formatCurrencyAmount(session.amount_total ?? expectedChargeAmount, negotiation.currency || 'usd'),
@@ -254,7 +254,7 @@ export async function POST(request: NextRequest) {
           const { data: page } = orderRow.page_id
             ? await admin.from('pages').select('name').eq('id', orderRow.page_id as string).maybeSingle<{ name: string | null }>()
             : { data: null }
-          const mail = buildBuyerReceiptEmail({
+          const mail = await buildBuyerReceiptEmail({
             businessName: page?.name || orderRow.slug || 'the seller',
             offerName: orderRow.offer_name || 'Your purchase',
             amount: formatCurrencyAmount(orderRow.amount_cents, orderRow.currency),
@@ -267,7 +267,7 @@ export async function POST(request: NextRequest) {
         after(async () => {
           const { data: page } = await admin.from('pages').select('name, contact_email').eq('id', orderRow.page_id as string).maybeSingle<{ name: string | null; contact_email: string | null }>()
           if (!page?.contact_email) return
-          const mail = buildEscrowFundedEmail({
+          const mail = await buildEscrowFundedEmail({
             businessName: page.name || orderRow.slug || 'your page',
             offerName: orderRow.offer_name || 'Your offer',
             amount: formatCurrencyAmount(orderRow.amount_cents, orderRow.currency),
@@ -418,7 +418,7 @@ export async function POST(request: NextRequest) {
         after(async () => {
           const { data: page } = await admin.from('pages').select('name, contact_email').eq('id', order.page_id as string).maybeSingle<{ name: string | null; contact_email: string | null }>()
           if (!page?.contact_email) return
-          const mail = buildMoneyEventEmail({
+          const mail = await buildMoneyEventEmail({
             kind: on.kind,
             businessName: page.name || order.slug || 'your page',
             offerName: order.offer_name || 'Your offer',
@@ -438,7 +438,7 @@ export async function POST(request: NextRequest) {
           const { data: page } = order.page_id
             ? await admin.from('pages').select('name').eq('id', order.page_id as string).maybeSingle<{ name: string | null }>()
             : { data: null }
-          const mail = buildBuyerStatusEmail({
+          const mail = await buildBuyerStatusEmail({
             kind: bn.kind,
             businessName: page?.name || order.slug || 'the seller',
             offerName: order.offer_name || 'Your purchase',
@@ -515,7 +515,7 @@ export async function POST(request: NextRequest) {
           .eq('id', neg.page_id as string)
           .maybeSingle<{ name: string | null; contact_email: string | null }>()
         if (!page?.contact_email) return
-        const mail = buildMoneyEventEmail({
+        const mail = await buildMoneyEventEmail({
           kind: n.kind,
           businessName: page.name || neg.slug || 'your page',
           offerName: neg.offer_name || 'Agreement',
@@ -535,7 +535,7 @@ export async function POST(request: NextRequest) {
         const { data: page } = neg.page_id
           ? await admin.from('pages').select('name').eq('id', neg.page_id as string).maybeSingle<{ name: string | null }>()
           : { data: null }
-        const mail = buildBuyerStatusEmail({
+        const mail = await buildBuyerStatusEmail({
           kind: bn.kind,
           businessName: page?.name || neg.slug || 'the seller',
           offerName: neg.offer_name || 'Agreement',

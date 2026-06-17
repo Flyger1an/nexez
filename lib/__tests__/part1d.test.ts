@@ -40,8 +40,8 @@ describe('getCertification', () => {
 })
 
 describe('buildBookingEmail', () => {
-  it('builds a subject + rows and escapes html', () => {
-    const mail = buildBookingEmail({
+  it('builds a subject + rows and escapes html', async () => {
+    const mail = await buildBookingEmail({
       businessName: 'Apex <b>Advisory</b>',
       eventName: 'Strategy Session',
       inviteeName: 'Jane',

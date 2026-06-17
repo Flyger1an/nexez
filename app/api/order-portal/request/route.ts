@@ -96,7 +96,7 @@ export async function POST(request: Request) {
     const buyerEmail = target.buyerEmail
     after(async () => {
       if (sellerEmail) {
-        const mail = buildBuyerRequestEmail({
+        const mail = await buildBuyerRequestEmail({
           kind,
           businessName,
           offerName: target.offerName || 'an order',
@@ -109,7 +109,7 @@ export async function POST(request: Request) {
         await sendEmail({ to: sellerEmail, subject: mail.subject, html: mail.html, text: mail.text })
       }
       if (buyerEmail) {
-        const mail = buildBuyerStatusEmail({
+        const mail = await buildBuyerStatusEmail({
           kind: 'request_received',
           businessName,
           offerName: target.offerName || 'your order',

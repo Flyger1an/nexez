@@ -22,8 +22,8 @@ describe('email gating', () => {
 })
 
 describe('buildNegotiationEmail', () => {
-  it('includes the offer + provided fields and a deep link to the inbox', () => {
-    const mail = buildNegotiationEmail({
+  it('includes the offer + provided fields and a deep link to the inbox', async () => {
+    const mail = await buildNegotiationEmail({
       businessName: 'Apex Advisory',
       offerName: 'Strategy Session',
       budget: '$400',
@@ -39,8 +39,8 @@ describe('buildNegotiationEmail', () => {
     expect(mail.html).toContain('https://nexez.app/dashboard/negotiations')
   })
 
-  it('omits missing fields and escapes HTML', () => {
-    const mail = buildNegotiationEmail({
+  it('omits missing fields and escapes HTML', async () => {
+    const mail = await buildNegotiationEmail({
       businessName: 'A & B <Co>',
       offerName: 'Audit',
       inboxUrl: 'https://nexez.app/dashboard/negotiations',
@@ -52,8 +52,8 @@ describe('buildNegotiationEmail', () => {
 })
 
 describe('buildEscrowFundedEmail', () => {
-  it('held: subject + status reflect an escrow hold awaiting capture', () => {
-    const mail = buildEscrowFundedEmail({
+  it('held: subject + status reflect an escrow hold awaiting capture', async () => {
+    const mail = await buildEscrowFundedEmail({
       businessName: 'Apex Advisory',
       offerName: 'Strategy Session',
       amount: '¥1,000',
@@ -67,8 +67,8 @@ describe('buildEscrowFundedEmail', () => {
     expect(mail.html).toContain('https://nexez.app/dashboard/negotiations')
   })
 
-  it('captured: subject + status reflect an immediate (auto-settle) payment', () => {
-    const mail = buildEscrowFundedEmail({
+  it('captured: subject + status reflect an immediate (auto-settle) payment', async () => {
+    const mail = await buildEscrowFundedEmail({
       businessName: 'A & B <Co>',
       offerName: 'Audit',
       amount: '$50',
@@ -82,22 +82,22 @@ describe('buildEscrowFundedEmail', () => {
 })
 
 describe('buildMoneyEventEmail', () => {
-  it('refund: informational subject + amount', () => {
-    const mail = buildMoneyEventEmail({ kind: 'refund', businessName: 'Apex', offerName: 'Audit', amount: '$50', inboxUrl: 'https://nexez.app/dashboard/negotiations' })
+  it('refund: informational subject + amount', async () => {
+    const mail = await buildMoneyEventEmail({ kind: 'refund', businessName: 'Apex', offerName: 'Audit', amount: '$50', inboxUrl: 'https://nexez.app/dashboard/negotiations' })
     expect(mail.subject).toBe('Refund processed: Audit')
     expect(mail.text).toContain('Amount: $50')
     expect(mail.text).toContain('refunded to the buyer')
   })
 
-  it('dispute_opened: urgent subject + the time-sensitive evidence warning', () => {
-    const mail = buildMoneyEventEmail({ kind: 'dispute_opened', businessName: 'Apex', offerName: 'Audit', amount: '$50', detail: 'Reason: fraudulent', inboxUrl: 'https://nexez.app/dashboard/negotiations' })
+  it('dispute_opened: urgent subject + the time-sensitive evidence warning', async () => {
+    const mail = await buildMoneyEventEmail({ kind: 'dispute_opened', businessName: 'Apex', offerName: 'Audit', amount: '$50', detail: 'Reason: fraudulent', inboxUrl: 'https://nexez.app/dashboard/negotiations' })
     expect(mail.subject).toContain('Payment disputed: Audit')
     expect(mail.text).toContain('time-sensitive')
     expect(mail.text).toContain('Reason: fraudulent')
   })
 
-  it('dispute_closed: resolution subject + outcome detail', () => {
-    const mail = buildMoneyEventEmail({ kind: 'dispute_closed', businessName: 'Apex', offerName: 'Audit', detail: 'You won — funds retained.', inboxUrl: 'https://nexez.app/dashboard/negotiations' })
+  it('dispute_closed: resolution subject + outcome detail', async () => {
+    const mail = await buildMoneyEventEmail({ kind: 'dispute_closed', businessName: 'Apex', offerName: 'Audit', detail: 'You won — funds retained.', inboxUrl: 'https://nexez.app/dashboard/negotiations' })
     expect(mail.subject).toBe('Dispute resolved: Audit')
     expect(mail.text).toContain('You won')
   })
