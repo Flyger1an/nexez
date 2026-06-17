@@ -1,7 +1,14 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { createClient } from '../../../utils/supabase/server'
 import { cookies } from 'next/headers'
 import { safeNextPath } from '../../../lib/safe-redirect'
+import { sendOnceSystemEmail } from '../../../lib/server/system-email'
+import { buildWelcomeEmail } from '../../../lib/email'
+
+// A user counts as "new" (gets the welcome) only if their account was created very
+// recently — so an existing user signing in again never gets a backfill blast, and
+// the send-once ledger keeps it to exactly one even if signup + first login coincide.
+const WELCOME_WINDOW_MS = 24 * 60 * 60 * 1000
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
@@ -20,6 +27,21 @@ export async function GET(request: Request) {
       loginUrl.searchParams.set('error', 'auth_callback')
       if (next && next !== '/') loginUrl.searchParams.set('next', next)
       return NextResponse.redirect(loginUrl)
+    }
+
+    // Welcome the user once, on their first sign-in. Deferred so it never blocks the
+    // redirect; send-once-guarded so repeat logins don't re-fire. Gated on a recent
+    // created_at so existing users aren't welcomed on their next login.
+    const { data: { user } } = await supabase.auth.getUser()
+    const createdMs = user?.created_at ? Date.parse(user.created_at) : NaN
+    if (user?.email && Number.isFinite(createdMs) && Date.now() - createdMs < WELCOME_WINDOW_MS) {
+      const createUrl = new URL('/create', requestUrl.origin).toString()
+      const name = (user.user_metadata?.full_name as string | undefined) || (user.user_metadata?.name as string | undefined) || null
+      const to = user.email
+      const ownerId = user.id
+      after(async () => {
+        await sendOnceSystemEmail({ ownerId, kind: 'welcome', to, build: () => buildWelcomeEmail({ name, createUrl }) })
+      })
     }
   }
 

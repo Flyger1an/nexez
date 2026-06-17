@@ -26,6 +26,7 @@ import {
   isMissingTableError,
   summarizeNegotiations,
 } from '../../../lib/negotiations'
+import { toMajorAmount } from '../../../lib/currency'
 import { withTimeout } from '../../../lib/async-timeout'
 import { createClient } from '../../../utils/supabase/client'
 import { agentRuntimeUrl } from '../../../lib/site'
@@ -196,15 +197,14 @@ export default function NegotiationsInbox() {
   //  - approve → unlock a high-value agreement so the buyer's pay link activates.
   //  - capture → capture the buyer's held authorization → 'complete'.
   //  - cancel  → release the hold → 'declined'.
-  async function runEscrow(item: AgentNegotiation, action: 'approve' | 'capture' | 'cancel' | 'refund') {
-    if (action === 'refund' && !window.confirm('Refund this payment to the buyer? This cannot be undone.')) return
+  async function runEscrow(item: AgentNegotiation, action: 'approve' | 'capture' | 'cancel' | 'refund', amount?: number) {
     setUpdatingId(item.id)
     setMessage('')
     try {
       const res = await fetch('/api/negotiations/escrow', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ negotiationId: item.id, action }),
+        body: JSON.stringify({ negotiationId: item.id, action, ...(amount != null ? { amount } : {}) }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -217,7 +217,9 @@ export default function NegotiationsInbox() {
           : action === 'capture'
             ? 'Funds captured — negotiation complete.'
             : action === 'refund'
-              ? 'Payment refunded to the buyer.'
+              ? (data as { fully?: boolean }).fully === false
+                ? 'Partial refund sent to the buyer — the remainder is still refundable.'
+                : 'Payment refunded to the buyer.'
               : 'Escrow hold released.'
       setMessage(msg)
       await load()
@@ -375,7 +377,7 @@ function NegotiationCard({
   item: AgentNegotiation
   updating: boolean
   onTransition: (to: NegotiationStatus) => void
-  onEscrow: (action: 'approve' | 'capture' | 'cancel' | 'refund') => void
+  onEscrow: (action: 'approve' | 'capture' | 'cancel' | 'refund', amount?: number) => void
   onSaveAmount: (dollars: number) => void
   onRefresh?: () => void
 }) {
@@ -390,8 +392,24 @@ function NegotiationCard({
   const isEscrowCapture = (to: NegotiationStatus) => escrowAvailable && item.status === 'held' && to === 'complete'
   const isEscrowRelease = (to: NegotiationStatus) => escrowAvailable && item.status === 'held' && to === 'declined'
   const ownerTransitions = transitions.filter((to) => to !== 'held')
-  // A captured payment can be refunded back to the buyer.
+  // A captured payment can be refunded back to the buyer — in full or in part.
   const canRefund = item.status === 'complete' && escrowAvailable && !!item.stripe_payment_intent_id
+  // Refundable remainder in MAJOR units: amount_cents is app-minor (major×100);
+  // refunded_cents is Stripe smallest-unit. Both reduce to the same major scale.
+  const refundedMajor = toMajorAmount(item.refunded_cents || 0, item.currency)
+  const fullMajor = item.amount_cents != null ? item.amount_cents / 100 : 0
+  const remainingMajor = Math.max(0, fullMajor - refundedMajor)
+  const [refundOpen, setRefundOpen] = useState(false)
+  const [refundAmount, setRefundAmount] = useState('')
+
+  function submitRefund() {
+    const entered = Number(refundAmount)
+    if (!Number.isFinite(entered) || entered <= 0 || entered > remainingMajor + 1e-9) return
+    // At/above the remainder → full remainder (omit amount, server refunds exact cents).
+    const partial = entered < remainingMajor - 1e-9
+    setRefundOpen(false)
+    onEscrow('refund', partial ? entered : undefined)
+  }
 
   // Hybrid settlement at 'agreement_proposed': high value waits on owner approval,
   // low value (or approved) is just awaiting the buyer's payment.
@@ -519,17 +537,46 @@ function NegotiationCard({
           ))
         )}
 
-        {/* Refund a captured payment back to the buyer (→ status 'refunded'). */}
-        {canRefund && (
-          <button
-            disabled={updating}
-            onClick={() => onEscrow('refund')}
-            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-[var(--amber)]/30 bg-[var(--amber)]/10 px-3 text-xs font-medium text-[var(--amber)] transition hover:bg-[var(--amber)]/20 disabled:opacity-50"
-          >
-            {updating ? <Loader2 className="size-3.5 animate-spin" /> : <XCircle className="size-3.5" />}
-            Refund buyer
-          </button>
-        )}
+        {/* Refund a captured payment back to the buyer — full or partial. A partial
+            keeps the deal 'complete' so the remainder stays refundable. */}
+        {canRefund &&
+          (refundOpen ? (
+            <span className="inline-flex items-center gap-2">
+              <span className="text-xs text-zinc-400">Refund</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={refundAmount}
+                onChange={(e) => setRefundAmount(e.target.value)}
+                aria-label="Refund amount"
+                className="w-24 rounded-md border border-white/15 bg-black/30 px-2 py-1 text-xs text-zinc-100"
+              />
+              <button
+                type="button"
+                disabled={updating}
+                onClick={submitRefund}
+                className="rounded-lg border border-[var(--amber)]/40 bg-[var(--amber)]/10 px-2.5 py-1 text-xs font-semibold text-[var(--amber)] hover:bg-[var(--amber)]/20 disabled:opacity-50"
+              >
+                {updating ? <Loader2 className="size-3.5 animate-spin" /> : 'Confirm'}
+              </button>
+              <button type="button" onClick={() => setRefundOpen(false)} className="text-xs text-zinc-500 hover:text-zinc-300">
+                Cancel
+              </button>
+            </span>
+          ) : (
+            <button
+              disabled={updating}
+              onClick={() => {
+                setRefundAmount(remainingMajor ? String(remainingMajor) : '')
+                setRefundOpen(true)
+              }}
+              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-[var(--amber)]/30 bg-[var(--amber)]/10 px-3 text-xs font-medium text-[var(--amber)] transition hover:bg-[var(--amber)]/20 disabled:opacity-50"
+            >
+              {updating ? <Loader2 className="size-3.5 animate-spin" /> : <XCircle className="size-3.5" />}
+              {(item.refunded_cents || 0) > 0 ? 'Refund more' : 'Refund buyer'}
+            </button>
+          ))}
         {(item.status === 'agreement_proposed' || item.status === 'held' || item.status === 'complete') && (
           <a
             href={`/dashboard/negotiations/${item.id}/receipt`}

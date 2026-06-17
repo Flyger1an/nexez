@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../utils/supabase/server'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
+import { minorToStripeAmount, toStripeAmount } from '../../../../lib/currency'
+import { planRefund, refundIdempotencyKey } from '../../../../lib/refunds'
 import type { AgentNegotiation } from '../../../../lib/negotiations'
 
 /**
@@ -35,7 +37,7 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-  let body: { negotiationId?: string; action?: 'approve' | 'capture' | 'cancel' | 'refund' }
+  let body: { negotiationId?: string; action?: 'approve' | 'capture' | 'cancel' | 'refund'; amount?: number }
   try {
     body = await request.json()
   } catch {
@@ -45,6 +47,11 @@ export async function POST(request: Request) {
   const { negotiationId, action } = body
   if (!negotiationId || !action) {
     return NextResponse.json({ error: 'negotiationId and action are required.' }, { status: 400 })
+  }
+  // Optional partial-refund amount, in MAJOR units of the deal currency (omit = full remainder).
+  const hasAmount = body.amount != null
+  if (action === 'refund' && hasAmount && (typeof body.amount !== 'number' || !Number.isFinite(body.amount) || body.amount <= 0)) {
+    return NextResponse.json({ error: 'amount must be a positive number.' }, { status: 400 })
   }
 
   // Load the negotiation — RLS ensures the caller can only read their own.
@@ -125,38 +132,58 @@ export async function POST(request: Request) {
     }
 
     if (action === 'refund') {
-      // Refund a captured payment. The charge.refunded webhook also flips status,
-      // but doing it here gives the owner immediate feedback (idempotency-keyed so
-      // the webhook + this call can't double-refund).
+      // Refund a captured payment, in full or in part. The charge.refunded webhook
+      // also reconciles status + refunded_cents, but doing it here gives the owner
+      // immediate feedback. Idempotency is keyed on the running cumulative total so
+      // the webhook + this call (and two equal partials) can't double-refund.
       if (negotiation.status !== 'complete' || !negotiation.stripe_payment_intent_id) {
         return NextResponse.json({ error: 'Only a completed payment can be refunded.' }, { status: 409 })
       }
-      // Full refund only. (In-app PARTIAL refunds need a cumulative-refunded ledger to
-      // be safe; tracked as a follow-up. Out-of-band partials from Stripe are still
-      // handled by the charge.refunded webhook, which keeps the deal open on a partial.)
+      // amount_cents is the app's major×100 minor convention; the original charge used
+      // minorToStripeAmount, so the captured Stripe amount = the same conversion.
+      // refunded_cents is already Stripe smallest-unit (set from charge.amount_refunded).
+      const plan = planRefund({
+        capturedAmount: minorToStripeAmount(negotiation.amount_cents ?? 0, negotiation.currency),
+        alreadyRefunded: negotiation.refunded_cents ?? 0,
+        requestedAmount: hasAmount ? toStripeAmount(body.amount as number, negotiation.currency) : null,
+      })
+      if (!plan.ok) return NextResponse.json({ error: plan.error }, { status: plan.status })
       const refund = await stripe.refunds.create(
         {
           payment_intent: negotiation.stripe_payment_intent_id,
+          amount: plan.refundAmount,
           // Give Nexez's commission BACK on a refund — the charge took an
           // application_fee to the platform, so without this the seller would eat
-          // the full refund while Nexez kept its cut. Connected-account refund.
+          // the full refund while Nexez kept its cut (proportional on a partial).
+          // Connected-account refund.
           refund_application_fee: true,
         },
-        { ...(stripeAccount ? { stripeAccount } : {}), idempotencyKey: `refund-${negotiation.id}` },
+        { ...(stripeAccount ? { stripeAccount } : {}), idempotencyKey: refundIdempotencyKey('refund', negotiation.id, plan.newTotal) },
       )
+      const now = new Date().toISOString()
+      const meta = (negotiation.metadata as Record<string, unknown>) || {}
       await supabase
         .from('agent_negotiations')
         .update({
-          status: 'refunded',
-          updated_at: new Date().toISOString(),
-          metadata: {
-            ...((negotiation.metadata as Record<string, unknown>) || {}),
-            refund: { id: refund.id, amount_cents: refund.amount ?? null, source: 'owner_action', at: new Date().toISOString() },
-          },
+          // A partial keeps the deal 'complete' (remainder still refundable); only a
+          // full refund closes it as 'refunded'. refunded_cents = running total.
+          ...(plan.fully ? { status: 'refunded' } : {}),
+          refunded_cents: plan.newTotal,
+          updated_at: now,
+          metadata: plan.fully
+            ? { ...meta, refund: { id: refund.id, amount_cents: plan.newTotal, source: 'owner_action', at: now } }
+            : { ...meta, partial_refund: { last_refund_id: refund.id, amount_cents: plan.newTotal, source: 'owner_action', at: now } },
         })
         .eq('id', negotiation.id)
         .eq('owner_id', user.id)
-      return NextResponse.json({ ok: true, action, status: 'refunded', refundId: refund.id })
+      return NextResponse.json({
+        ok: true,
+        action,
+        status: plan.fully ? 'refunded' : 'complete',
+        refundId: refund.id,
+        refundedCents: plan.newTotal,
+        fully: plan.fully,
+      })
     }
 
     return NextResponse.json({ error: 'Unknown action.' }, { status: 400 })

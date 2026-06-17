@@ -13,10 +13,12 @@ import {
   buildBuyerStatusEmail,
   buildEscrowFundedEmail,
   buildMoneyEventEmail,
+  buildStripeConnectedEmail,
   hasEmailEnv,
   sendEmail,
 } from '../../../../lib/email'
 import { resolveOwnerNotifyEmail } from '../../../../lib/server/owner-email'
+import { sendOnceSystemEmail } from '../../../../lib/server/system-email'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'placeholder')
 
@@ -381,9 +383,12 @@ export async function POST(request: NextRequest) {
         // fully refunded — keep it 'paid' so the owner can still refund the remainder
         // in-app; only a full refund flips status. (Stripe never double-refunds.)
         const fullyRefunded = obj.amount == null || obj.amount_refunded == null || obj.amount_refunded >= obj.amount
+        // Reconcile the cumulative-refunded ledger to Stripe's authoritative total
+        // (covers out-of-band Stripe-dashboard refunds + confirms in-app ones).
+        const refundedLedger = obj.amount_refunded != null ? { refunded_cents: obj.amount_refunded } : {}
         oUpdate = fullyRefunded
-          ? { status: 'refunded', metadata: { ...oMeta, refund: { source: 'stripe_webhook', amount_cents: obj.amount_refunded ?? null, at: oNow } } }
-          : { metadata: { ...oMeta, partial_refund: { amount_cents: obj.amount_refunded ?? null, at: oNow } } }
+          ? { status: 'refunded', ...refundedLedger, metadata: { ...oMeta, refund: { source: 'stripe_webhook', amount_cents: obj.amount_refunded ?? null, at: oNow } } }
+          : { ...refundedLedger, metadata: { ...oMeta, partial_refund: { amount_cents: obj.amount_refunded ?? null, at: oNow } } }
         oNotify = { kind: 'refund', amountCents: obj.amount_refunded ?? null, detail: fullyRefunded ? null : 'Partial refund — the order stays open for the remainder.' }
         // Only email the buyer on a NEW transition — a lost dispute already fired a
         // 'refunded' email, and Stripe sends a separate charge.refunded for the same PI
@@ -468,9 +473,11 @@ export async function POST(request: NextRequest) {
       // A PARTIAL refund keeps the deal 'complete' (remainder still refundable);
       // only a full refund closes it. Mirrors the direct-order handler above.
       const fullyRefunded = obj.amount == null || obj.amount_refunded == null || obj.amount_refunded >= obj.amount
+      // Reconcile the cumulative-refunded ledger to Stripe's authoritative total.
+      const refundedLedger = obj.amount_refunded != null ? { refunded_cents: obj.amount_refunded } : {}
       update = fullyRefunded
-        ? { status: 'refunded', metadata: { ...baseMeta, refund: { source: 'stripe_webhook', amount_cents: obj.amount_refunded ?? null, at: now } } }
-        : { metadata: { ...baseMeta, partial_refund: { amount_cents: obj.amount_refunded ?? null, at: now } } }
+        ? { status: 'refunded', ...refundedLedger, metadata: { ...baseMeta, refund: { source: 'stripe_webhook', amount_cents: obj.amount_refunded ?? null, at: now } } }
+        : { ...refundedLedger, metadata: { ...baseMeta, partial_refund: { amount_cents: obj.amount_refunded ?? null, at: now } } }
       notify = { kind: 'refund', amountCents: obj.amount_refunded ?? null, detail: fullyRefunded ? null : 'Partial refund — the deal stays open for the remainder.' }
       // Email the buyer only on a NEW transition (avoid the lost-dispute + charge.refunded double).
       if (fullyRefunded) {
@@ -573,9 +580,9 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient()
     const { data: billing } = await admin
       .from('billing_subscriptions')
-      .select('owner_id')
+      .select('owner_id, stripe_connect_charges_enabled')
       .eq('stripe_connect_account_id', account.id)
-      .maybeSingle<{ owner_id: string }>()
+      .maybeSingle<{ owner_id: string; stripe_connect_charges_enabled: boolean | null }>()
 
     if (billing?.owner_id) {
       const update = {
@@ -591,6 +598,22 @@ export async function POST(request: NextRequest) {
         console.warn('[Stripe Webhook] account.updated connect sync failed:', connectErr.message)
         await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
         return NextResponse.json({ error: 'connect sync failed', type: event.type }, { status: 500 })
+      }
+      // Charges just turned on (false/unset → true): tell the owner they can accept
+      // agent payments now. Send-once-guarded (account.updated fires repeatedly).
+      const justEnabled = !billing.stripe_connect_charges_enabled && account.charges_enabled === true
+      if (justEnabled && hasEmailEnv()) {
+        const ownerId = billing.owner_id
+        after(async () => {
+          const to = await resolveOwnerNotifyEmail({ ownerId })
+          if (!to) return
+          await sendOnceSystemEmail({
+            ownerId,
+            kind: 'stripe_connected',
+            to,
+            build: () => buildStripeConnectedEmail({ financeUrl: `${getBaseUrl()}/dashboard/finance` }),
+          })
+        })
       }
       return NextResponse.json({ received: true, type: event.type, connect_synced: true, owner_id: billing.owner_id })
     }

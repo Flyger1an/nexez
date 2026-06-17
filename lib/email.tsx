@@ -12,6 +12,8 @@ import {
   BuyerRequestEmail,
   OrderLookupEmail,
   TeamInviteEmail,
+  WelcomeEmail,
+  StripeConnectedEmail,
 } from '../emails/templates'
 
 // Gated transactional email (Resend-compatible). Dormant unless RESEND_API_KEY
@@ -344,5 +346,34 @@ export async function buildTeamInviteEmail(opts: {
     `Accept the invite: ${acceptUrl}`,
   ].join('\n')
   const html = await renderHtml(<TeamInviteEmail lead={lead} inviteeEmail={inviteeEmail} acceptUrl={acceptUrl} />, text)
+  return { subject, html, text }
+}
+
+// ── New-user welcome (fired once on first sign-in via sendOnceSystemEmail) ───────
+export async function buildWelcomeEmail(opts: { name?: string | null; createUrl: string }): Promise<Built> {
+  const { name, createUrl } = opts
+  const subject = 'Welcome to Nexez'
+  const greeting = name ? `Welcome to Nexez, ${name}.` : 'Welcome to Nexez.'
+  const text = [
+    greeting,
+    '',
+    'Publish a page AI agents can read — then let them book and pay through, straight to your own Stripe. You only pay a fee when you get paid.',
+    '',
+    `Create your first agent page: ${createUrl}`,
+  ].join('\n')
+  const html = await renderHtml(<WelcomeEmail name={name} createUrl={createUrl} />, text)
+  return { subject, html, text }
+}
+
+// ── Stripe Connect linked + charges enabled (fired once on the false→true flip) ──
+export async function buildStripeConnectedEmail(opts: { financeUrl: string }): Promise<Built> {
+  const { financeUrl } = opts
+  const subject = 'Stripe is connected — you can accept agent payments'
+  const text = [
+    'Your Stripe account is linked and charges are enabled. You can now accept card payments from AI agents — payouts go straight to your Stripe, and Nexez only takes its fee when you get paid.',
+    '',
+    `Open your Finance dashboard: ${financeUrl}`,
+  ].join('\n')
+  const html = await renderHtml(<StripeConnectedEmail financeUrl={financeUrl} />, text)
   return { subject, html, text }
 }

@@ -56,28 +56,68 @@ describe('POST /api/negotiations/escrow — refund', () => {
   })
 
   it('409 when the negotiation is not a completed payment', async () => {
-    withNegotiation({ id: 'n1', status: 'held', stripe_payment_intent_id: 'pi_1', metadata: {} })
+    withNegotiation({ id: 'n1', status: 'held', stripe_payment_intent_id: 'pi_1', amount_cents: 9000, currency: 'usd', refunded_cents: 0, metadata: {} })
     const res = await POST(post({ negotiationId: 'n1', action: 'refund' }))
     expect(res.status).toBe(409)
     expect((stripeRef.refundCreate as any)).not.toHaveBeenCalled()
   })
 
-  it('refunds a completed payment → status refunded (+ idempotency key)', async () => {
-    const getUpdate = withNegotiation({ id: 'n1', status: 'complete', stripe_payment_intent_id: 'pi_1', metadata: { foo: 'bar' } })
+  it('refunds a completed payment IN FULL → status refunded (+ cumulative idempotency key)', async () => {
+    const getUpdate = withNegotiation({ id: 'n1', status: 'complete', stripe_payment_intent_id: 'pi_1', amount_cents: 9000, currency: 'usd', refunded_cents: 0, metadata: { foo: 'bar' } })
     const res = await POST(post({ negotiationId: 'n1', action: 'refund' }))
     expect(res.status).toBe(200)
-    expect((await res.json())).toMatchObject({ ok: true, status: 'refunded', refundId: 're_1' })
-    // refund created with an idempotency key
+    expect((await res.json())).toMatchObject({ ok: true, status: 'refunded', refundId: 're_1', fully: true, refundedCents: 9000 })
     const [params, opts] = (stripeRef.refundCreate as any).mock.calls[0]
     expect(params.payment_intent).toBe('pi_1')
+    expect(params.amount).toBe(9000) // full remainder, explicit amount
     // gives Nexez's commission back on the refund (seller isn't out the fee)
     expect(params.refund_application_fee).toBe(true)
-    expect(opts.idempotencyKey).toBe('refund-n1')
-    // status flipped + metadata.refund recorded, prior metadata preserved
+    // keyed on the resulting cumulative total, not just the id
+    expect(opts.idempotencyKey).toBe('refund-n1-9000')
     const upd = getUpdate()
     expect(upd.status).toBe('refunded')
+    expect(upd.refunded_cents).toBe(9000)
     expect(upd.metadata.foo).toBe('bar')
     expect(upd.metadata.refund).toMatchObject({ id: 're_1', amount_cents: 9000, source: 'owner_action' })
+  })
+
+  it('PARTIAL refund keeps the deal complete + advances the ledger', async () => {
+    stripeRef.refundCreate = vi.fn(async () => ({ id: 're_p1', amount: 3000 }))
+    const getUpdate = withNegotiation({ id: 'n1', status: 'complete', stripe_payment_intent_id: 'pi_1', amount_cents: 9000, currency: 'usd', refunded_cents: 0, metadata: {} })
+    const res = await POST(post({ negotiationId: 'n1', action: 'refund', amount: 30 })) // $30 of $90
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ ok: true, status: 'complete', fully: false, refundedCents: 3000 })
+    const [params, opts] = (stripeRef.refundCreate as any).mock.calls[0]
+    expect(params.amount).toBe(3000)
+    expect(opts.idempotencyKey).toBe('refund-n1-3000')
+    const upd = getUpdate()
+    expect(upd.status).toBeUndefined() // not flipped — remainder still refundable
+    expect(upd.refunded_cents).toBe(3000)
+    expect(upd.metadata.partial_refund).toMatchObject({ amount_cents: 3000, source: 'owner_action' })
+  })
+
+  it('a SECOND equal-amount partial gets a distinct key (no collision) + closes when it reaches the total', async () => {
+    stripeRef.refundCreate = vi.fn(async () => ({ id: 're_p2', amount: 6000 }))
+    const getUpdate = withNegotiation({ id: 'n1', status: 'complete', stripe_payment_intent_id: 'pi_1', amount_cents: 9000, currency: 'usd', refunded_cents: 3000, metadata: { partial_refund: { amount_cents: 3000 } } })
+    const res = await POST(post({ negotiationId: 'n1', action: 'refund', amount: 60 })) // remaining $60 → full
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ ok: true, status: 'refunded', fully: true, refundedCents: 9000 })
+    const [, opts] = (stripeRef.refundCreate as any).mock.calls[0]
+    expect(opts.idempotencyKey).toBe('refund-n1-9000') // distinct from the first partial's key
+    expect(getUpdate().status).toBe('refunded')
+  })
+
+  it('400 on a non-positive partial amount', async () => {
+    withNegotiation({ id: 'n1', status: 'complete', stripe_payment_intent_id: 'pi_1', amount_cents: 9000, currency: 'usd', refunded_cents: 0, metadata: {} })
+    expect((await POST(post({ negotiationId: 'n1', action: 'refund', amount: 0 }))).status).toBe(400)
+    expect((await POST(post({ negotiationId: 'n1', action: 'refund', amount: -5 }))).status).toBe(400)
+  })
+
+  it('409 when the requested partial exceeds the refundable remainder', async () => {
+    withNegotiation({ id: 'n1', status: 'complete', stripe_payment_intent_id: 'pi_1', amount_cents: 9000, currency: 'usd', refunded_cents: 6000, metadata: {} })
+    const res = await POST(post({ negotiationId: 'n1', action: 'refund', amount: 50 })) // $50 > $30 remaining
+    expect(res.status).toBe(409)
+    expect((stripeRef.refundCreate as any)).not.toHaveBeenCalled()
   })
 })
 

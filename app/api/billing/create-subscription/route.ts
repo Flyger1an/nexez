@@ -45,6 +45,17 @@ export async function POST(request: Request) {
       console.error('[billing/create-subscription] Stripe not configured for plan', plan.id)
       return NextResponse.json({ error: 'Stripe Billing is not configured for this plan yet. Add the Stripe secret key and plan Price ID, then try again.' }, { status: 412 })
     }
+    // Guard the common misconfiguration up front: a value that isn't a Stripe Price ID
+    // (e.g. a "prod_…" product id pasted by mistake) would otherwise reach Stripe and
+    // 500. A TEST price id under LIVE keys still passes this check — Stripe's "no such
+    // price" path below catches that and returns the same actionable guidance.
+    if (!/^price_/.test(priceId)) {
+      console.error('[billing/create-subscription] plan price id is not a Stripe Price id', { plan: plan.id, priceId })
+      return NextResponse.json(
+        { error: 'Stripe Billing for this plan is misconfigured: the configured value is not a Stripe Price ID (it must start with "price_"). Set the plan’s STRIPE_PRICE_… env var to the live Price ID and redeploy.' },
+        { status: 412 },
+      )
+    }
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 

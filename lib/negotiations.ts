@@ -40,6 +40,9 @@ export type AgentNegotiation = {
   escrow_mode: NegotiationEscrowMode
   amount_cents: number | null
   currency: string
+  /** Cumulative amount refunded so far, Stripe smallest-unit (0 = none). Caps in-app
+   *  partial refunds + keys their idempotency; reconciled from charge.amount_refunded. */
+  refunded_cents: number
   stripe_payment_intent_id: string | null
   /** Hybrid settlement path once an agreement is reached (Burst 1). */
   settlement_state: 'auto' | 'awaiting_approval' | 'approved' | null

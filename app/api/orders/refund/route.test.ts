@@ -75,13 +75,47 @@ describe('POST /api/orders/refund', () => {
     expect(stripeRef.refundCreate).not.toHaveBeenCalled()
   })
 
-  it('refunds on the connected account WITH fee reversal + a stable idempotency key', async () => {
-    session({ id: 'o1', status: 'paid', stripe_payment_intent_id: 'pi_1', stripe_connect_account_id: 'acct_1', metadata: {} })
+  it('refunds IN FULL on the connected account WITH fee reversal + a cumulative idempotency key', async () => {
+    let upd: any
+    adminRef.handler = (c) => { if (c.op === 'update') upd = c.payload; return { data: null, error: null } }
+    session({ id: 'o1', status: 'paid', stripe_payment_intent_id: 'pi_1', stripe_connect_account_id: 'acct_1', amount_cents: 5000, currency: 'usd', refunded_cents: 0, metadata: {} })
     const res = await POST(post({ orderId: 'o1' }))
     expect(res.status).toBe(200)
-    expect(await res.json()).toMatchObject({ ok: true, status: 'refunded', refundId: 're_1' })
+    expect(await res.json()).toMatchObject({ ok: true, status: 'refunded', refundId: 're_1', fully: true, refundedCents: 5000 })
     const [params, opts] = (stripeRef.refundCreate as any).mock.calls[0]
-    expect(params).toMatchObject({ payment_intent: 'pi_1', refund_application_fee: true })
-    expect(opts).toMatchObject({ stripeAccount: 'acct_1', idempotencyKey: 'refund-order-o1' })
+    expect(params).toMatchObject({ payment_intent: 'pi_1', amount: 5000, refund_application_fee: true })
+    expect(opts).toMatchObject({ stripeAccount: 'acct_1', idempotencyKey: 'refund-order-o1-5000' })
+    expect(upd).toMatchObject({ status: 'refunded', refunded_cents: 5000 })
+    expect(upd.metadata.refund).toMatchObject({ amount_cents: 5000, source: 'owner_action' })
+  })
+
+  it('PARTIAL refund keeps the order paid + advances the ledger (distinct keys, no collision)', async () => {
+    let upd: any
+    adminRef.handler = (c) => { if (c.op === 'update') upd = c.payload; return { data: null, error: null } }
+    stripeRef.refundCreate = vi.fn(async () => ({ id: 're_p', amount: 2000 }))
+    // already refunded $20 of $50 → a further $20 partial brings the total to $40 (still open)
+    session({ id: 'o1', status: 'paid', stripe_payment_intent_id: 'pi_1', stripe_connect_account_id: 'acct_1', amount_cents: 5000, currency: 'usd', refunded_cents: 2000, metadata: { partial_refund: { amount_cents: 2000 } } })
+    const res = await POST(post({ orderId: 'o1', amount: 20 }))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ ok: true, status: 'paid', fully: false, refundedCents: 4000 })
+    const [params, opts] = (stripeRef.refundCreate as any).mock.calls[0]
+    expect(params.amount).toBe(2000)
+    expect(opts.idempotencyKey).toBe('refund-order-o1-4000') // cumulative, distinct from the first $20's key
+    expect(upd.status).toBeUndefined() // stays paid
+    expect(upd.refunded_cents).toBe(4000)
+    expect(upd.metadata.partial_refund).toMatchObject({ amount_cents: 4000, source: 'owner_action' })
+  })
+
+  it('400 on a non-positive partial amount', async () => {
+    session({ id: 'o1', status: 'paid', stripe_payment_intent_id: 'pi_1', stripe_connect_account_id: 'acct_1', amount_cents: 5000, currency: 'usd', refunded_cents: 0, metadata: {} })
+    expect((await POST(post({ orderId: 'o1', amount: 0 }))).status).toBe(400)
+    expect((stripeRef.refundCreate as any)).not.toHaveBeenCalled()
+  })
+
+  it('409 when the requested partial exceeds the refundable remainder', async () => {
+    session({ id: 'o1', status: 'paid', stripe_payment_intent_id: 'pi_1', stripe_connect_account_id: 'acct_1', amount_cents: 5000, currency: 'usd', refunded_cents: 4000, metadata: {} })
+    const res = await POST(post({ orderId: 'o1', amount: 30 })) // $30 > $10 remaining
+    expect(res.status).toBe(409)
+    expect((stripeRef.refundCreate as any)).not.toHaveBeenCalled()
   })
 })
