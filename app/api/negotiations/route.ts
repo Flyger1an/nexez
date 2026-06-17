@@ -13,6 +13,7 @@ import { evaluateProposal } from '../../../lib/offer-rules'
 import { enforceNegotiationRateLimit } from '../../../lib/rate-limit'
 import { sanitizeBuyerInput } from '../../../lib/negotiation-input'
 import { buildNegotiationEmail, sendEmail } from '../../../lib/email'
+import { resolveOwnerNotifyEmail } from '../../../lib/server/owner-email'
 import { supabase } from '../../../lib/supabase'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 import { ownerAllows } from '../../../lib/server/plan'
@@ -157,16 +158,19 @@ export async function POST(request: Request) {
       ),
     )
 
-    // Notify the owner of a fresh proposal (continuations don't re-notify).
-    const ownerEmail = (page as { contact_email?: string | null }).contact_email
-    // TEMP DIAGNOSTIC ([neg-email]): emails silently stopped reaching Resend; these tagged
-    // logs pinpoint whether the branch is entered, whether after() flushes, and what
-    // sendEmail returns. Remove once the cause is confirmed + the real fix lands.
-    console.log('[neg-email] branch', JSON.stringify({ hasOwnerEmail: Boolean(ownerEmail), negotiationId: input.negotiationId || null }))
-    if (ownerEmail && !input.negotiationId) {
-      after(async () => {
-        try {
-          console.log('[neg-email] after() fired — building + sending')
+    // Notify the owner of a fresh proposal (continuations don't re-notify). Resolve the
+    // recipient with a fallback to the owner's ACCOUNT email — many pages never set an
+    // explicit contact_email, and without this the notification is silently skipped (the
+    // root cause of the missed proposal emails). Send INLINE (awaited) so delivery never
+    // depends on after() flushing; try/catch so a send failure can't break the buyer's
+    // submission. (First-proposal only, so the latency cost is bounded.)
+    if (!input.negotiationId) {
+      try {
+        const ownerEmail = await resolveOwnerNotifyEmail({
+          contactEmail: (page as { contact_email?: string | null }).contact_email,
+          ownerId: (page as { owner_id?: string | null }).owner_id,
+        })
+        if (ownerEmail) {
           const mail = await buildNegotiationEmail({
             businessName: page.name || page.slug,
             offerName: offer.name,
@@ -176,12 +180,12 @@ export async function POST(request: Request) {
             buyerAgent: input.buyerAgent,
             inboxUrl: appUrl('/dashboard/negotiations'),
           })
-          const r = await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
-          console.log('[neg-email] sendEmail result', JSON.stringify(r))
-        } catch (e) {
-          console.error('[neg-email] after() threw', e instanceof Error ? e.message : e)
+          const sent = await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
+          if (!sent.ok && !sent.skipped) console.error('[email] negotiation notify failed:', sent.error)
         }
-      })
+      } catch (e) {
+        console.error('[email] negotiation notify threw:', e instanceof Error ? e.message : e)
+      }
     }
 
     const statusUrl = result.statusToken
