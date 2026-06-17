@@ -1,5 +1,7 @@
 import 'server-only'
+import type { ReactElement } from 'react'
 import { render } from '@react-email/render'
+import { captureError } from './observability'
 import {
   BookingEmail,
   NegotiationEmail,
@@ -65,6 +67,28 @@ const present = (rows: Row[]) => rows.filter(([, v]) => v)
 const textBody = (lead: string, rows: Row[], cta: string, url: string) =>
   [lead, '', ...present(rows).map(([k, v]) => `${k}: ${v}`), '', `${cta}: ${url}`].join('\n')
 
+// A plain-HTML fallback built from the (always-present) text body. Used only if
+// react-email render() throws.
+function basicHtml(text: string): string {
+  const esc = text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c] as string)
+  return `<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;white-space:pre-wrap;line-height:1.6;color:#0a0a0a;max-width:560px;margin:0 auto;padding:24px">${esc}</div>`
+}
+
+// Render a template to HTML, but NEVER let a render failure silently kill the email.
+// react-email's render() can throw at runtime (e.g. a serverless output-tracing gap that
+// drops a transitive dep — passes locally + in the build, fails live). On failure we log
+// + report it and fall back to the plain-text body as HTML, so the email still sends.
+async function renderHtml(element: ReactElement, text: string): Promise<string> {
+  try {
+    return await render(element)
+  } catch (e) {
+    const template = (element.type as { name?: string })?.name || 'email'
+    console.error(`[email] render failed for "${template}" — sending plain-HTML fallback:`, e)
+    captureError(e, { area: 'email-render', template })
+    return basicHtml(text)
+  }
+}
+
 // ── Seller: new booking (Calendly etc.) ─────────────────────────────────────────
 export async function buildBookingEmail(opts: {
   businessName: string
@@ -86,7 +110,7 @@ export async function buildBookingEmail(opts: {
     ['Source', source],
   ]
   const text = textBody(`You have a new booking on your Nexez page "${businessName}".`, rows, 'Manage it', inboxUrl)
-  const html = await render(<BookingEmail businessName={businessName} rows={rows} inboxUrl={inboxUrl} />)
+  const html = await renderHtml(<BookingEmail businessName={businessName} rows={rows} inboxUrl={inboxUrl} />, text)
   return { subject, html, text }
 }
 
@@ -111,7 +135,7 @@ export async function buildEscrowFundedEmail(opts: {
     ['From agent', buyerAgent],
   ]
   const text = textBody(lead, rows, 'Manage it', inboxUrl)
-  const html = await render(<EscrowFundedEmail lead={lead} held={held} rows={rows} inboxUrl={inboxUrl} />)
+  const html = await renderHtml(<EscrowFundedEmail lead={lead} held={held} rows={rows} inboxUrl={inboxUrl} />, text)
   return { subject, html, text }
 }
 
@@ -151,8 +175,9 @@ export async function buildMoneyEventEmail(opts: {
     ['Details', detail],
   ]
   const text = textBody(copy.lead, rows, 'Manage it', inboxUrl)
-  const html = await render(
+  const html = await renderHtml(
     <MoneyEventEmail heading={copy.heading} tone={copy.tone} lead={copy.lead} rows={rows} inboxUrl={inboxUrl} />,
+    text,
   )
   return { subject: copy.subject, html, text }
 }
@@ -182,7 +207,7 @@ export async function buildNegotiationEmail(opts: {
     'Respond in your inbox',
     inboxUrl,
   )
-  const html = await render(<NegotiationEmail businessName={businessName} rows={rows} inboxUrl={inboxUrl} />)
+  const html = await renderHtml(<NegotiationEmail businessName={businessName} rows={rows} inboxUrl={inboxUrl} />, text)
   return { subject, html, text }
 }
 
@@ -202,7 +227,7 @@ export async function buildBuyerReceiptEmail(opts: {
     ['Amount', amount],
   ]
   const text = textBody(lead, rows, 'Manage your order', manageUrl)
-  const html = await render(<BuyerReceiptEmail lead={lead} rows={rows} manageUrl={manageUrl} />)
+  const html = await renderHtml(<BuyerReceiptEmail lead={lead} rows={rows} manageUrl={manageUrl} />, text)
   return { subject, html, text }
 }
 
@@ -249,8 +274,9 @@ export async function buildBuyerStatusEmail(opts: {
     ['Details', detail],
   ]
   const text = textBody(copy.lead, rows, 'View your order', manageUrl)
-  const html = await render(
+  const html = await renderHtml(
     <BuyerStatusEmail heading={copy.heading} lead={copy.lead} cta={copy.cta} rows={rows} manageUrl={manageUrl} />,
+    text,
   )
   return { subject: copy.subject, html, text }
 }
@@ -279,8 +305,9 @@ export async function buildBuyerRequestEmail(opts: {
     ['Message', message],
   ]
   const text = textBody(lead, rows, 'Review it', inboxUrl)
-  const html = await render(
+  const html = await renderHtml(
     <BuyerRequestEmail heading={heading} tone={isRefund ? 'caution' : 'neutral'} lead={lead} rows={rows} inboxUrl={inboxUrl} />,
+    text,
   )
   return { subject, html, text }
 }
@@ -294,7 +321,7 @@ export async function buildOrderLookupEmail(opts: { count: number; findUrl: stri
       ? 'Here is the order linked to this email. Use the secure link below to view it, track its status, or get help. The link expires in 24 hours.'
       : `Here are the ${count} orders linked to this email. Use the secure link below to view them, track status, or get help. The link expires in 24 hours.`
   const text = [lead, '', `View your orders: ${findUrl}`, '', "If you didn't request this, you can ignore this email."].join('\n')
-  const html = await render(<OrderLookupEmail lead={lead} count={count} findUrl={findUrl} />)
+  const html = await renderHtml(<OrderLookupEmail lead={lead} count={count} findUrl={findUrl} />, text)
   return { subject, html, text }
 }
 
@@ -316,6 +343,6 @@ export async function buildTeamInviteEmail(opts: {
     '',
     `Accept the invite: ${acceptUrl}`,
   ].join('\n')
-  const html = await render(<TeamInviteEmail lead={lead} inviteeEmail={inviteeEmail} acceptUrl={acceptUrl} />)
+  const html = await renderHtml(<TeamInviteEmail lead={lead} inviteeEmail={inviteeEmail} acceptUrl={acceptUrl} />, text)
   return { subject, html, text }
 }

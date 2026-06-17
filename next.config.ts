@@ -6,6 +6,11 @@ const nextConfig: NextConfig = {
   // allow it as a dev origin — otherwise Next blocks HMR/client dev resources
   // and client components never hydrate locally. Dev-only; no production impact.
   allowedDevOrigins: ["127.0.0.1"],
+  // Keep react-email out of the server bundle so its transitive deps are present at
+  // runtime in the Vercel serverless function. Bundling it dropped a dependency under
+  // Next's output tracing, so render() threw at runtime (passed locally + in the build
+  // — full node_modules — but failed live), silently killing every transactional email.
+  serverExternalPackages: ["@react-email/components", "@react-email/render"],
   turbopack: {
     root: path.resolve("."),
   },
