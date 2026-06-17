@@ -76,28 +76,28 @@ export function PageCard({
         </div>
 
         <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-8">
-          <a href={`/dashboard/${page.id}`} className={pageActionClass} aria-label="Edit page">
+          <a href={`/dashboard/${page.id}`} className={pageActionClass} aria-label="Edit page" title="Edit page">
             <Pencil className="size-4" />
           </a>
-          <a href={`/dashboard/${page.id}/settings`} className={pageActionClass} aria-label="Page settings">
+          <a href={`/dashboard/${page.id}/settings`} className={pageActionClass} aria-label="Page settings" title="Page settings">
             <Settings className="size-4" />
           </a>
-          <a href={`/dashboard/${page.id}/test`} className={pageActionClass} aria-label="Test page with AI agents">
+          <a href={`/dashboard/${page.id}/test`} className={pageActionClass} aria-label="Test page with AI agents" title="Test page with AI agents">
             <Play className="size-4" />
           </a>
-          <a href={`/dashboard/analytics?page=${encodeURIComponent(page.id)}`} className={pageActionClass} aria-label="View page analytics">
+          <a href={`/dashboard/analytics?page=${encodeURIComponent(page.id)}`} className={pageActionClass} aria-label="View page analytics" title="View page analytics">
             <BarChart3 className="size-4" />
           </a>
-          <a href={agentRuntimeUrl(`/${page.slug}`)} className={pageActionClass} aria-label="Preview page">
+          <a href={agentRuntimeUrl(`/${page.slug}`)} className={pageActionClass} aria-label="Preview page" title="Preview live page">
             <ExternalLink className="size-4" />
           </a>
-          <button onClick={onCopy} className={pageActionClass} aria-label="Copy page URL">
+          <button onClick={onCopy} className={pageActionClass} aria-label="Copy page URL" title="Copy page URL">
             <Copy className="size-4" />
           </button>
           <button onClick={onDuplicate} className={pageActionClass} aria-label="Duplicate page" title="Duplicate as draft">
             <CopyPlus className="size-4" />
           </button>
-          <button onClick={onDelete} className={`${pageActionClass} text-red-300`} aria-label="Delete page">
+          <button onClick={onDelete} className={`${pageActionClass} text-red-300`} aria-label="Delete page" title="Delete page">
             <Trash2 className="size-4" />
           </button>
         </div>

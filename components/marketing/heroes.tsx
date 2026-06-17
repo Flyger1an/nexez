@@ -237,7 +237,7 @@ export function DevelopersHero({ content }: { content: MarketingPageContent }) {
         <pre className="overflow-x-auto p-5 font-mono text-[12.5px] leading-6">
           <code>
             <span className="text-muted-foreground">{'{'}</span>
-            {'\n  '}<span style={{ color: 'var(--signal)' }}>&quot;business&quot;</span>: <span style={{ color: 'var(--ready)' }}>&quot;Axle Strategy&quot;</span>,
+            {'\n  '}<span style={{ color: 'var(--signal)' }}>&quot;business&quot;</span>: <span style={{ color: 'var(--ready)' }}>&quot;Nexez Agency&quot;</span>,
             {'\n  '}<span style={{ color: 'var(--signal)' }}>&quot;offers&quot;</span>: [
             {'\n    '}{'{ '}<span style={{ color: 'var(--signal)' }}>&quot;name&quot;</span>: <span style={{ color: 'var(--ready)' }}>&quot;Strategy Session&quot;</span>,
             {'\n      '}<span style={{ color: 'var(--signal)' }}>&quot;price&quot;</span>: <span style={{ color: 'var(--amber)' }}>450</span>,

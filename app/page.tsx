@@ -377,7 +377,7 @@ export default async function NexezHome() {
 // Modern bento of the structured artifacts Nexez emits: the product in one glance.
 function BentoGrid() {
   const agentPayload = `{
-  "business": "Axle Strategy",
+  "business": "Nexez Agency",
   "best_fit": "B2B founders",
   "offers": [
     { "name": "Strategy Session", "price": "$450", "book": true },
@@ -483,16 +483,16 @@ function ProductPreview() {
           <div className="flex items-center gap-2 font-mono text-xs">
             <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-white/[0.04] px-2 py-0.5 text-zinc-300">
               <Lock className="size-3 text-[var(--ready)]" />
-              offers.axlestrategy.com
+              offers.nexezagency.com
             </span>
-            <span className="hidden text-[10px] text-zinc-500 sm:inline">or nexez.app/axle</span>
+            <span className="hidden text-[10px] text-zinc-500 sm:inline">or nexez.app/nexez-agency</span>
           </div>
         </div>
 
         <div className="grid gap-0 md:grid-cols-[0.9fr_1fr]">
           <div className="border-b border-border p-5 md:border-b-0 md:border-r">
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Agent page</p>
-            <h3 className="mt-4 text-2xl font-semibold tracking-tight">Axle Strategy</h3>
+            <h3 className="mt-4 text-2xl font-semibold tracking-tight">Nexez Agency</h3>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
               Executive strategy sessions, retainers, and audits for B2B founders.
             </p>

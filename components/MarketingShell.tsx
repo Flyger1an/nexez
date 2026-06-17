@@ -102,6 +102,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
             type="button"
             className="menu-btn"
             aria-label="Open menu"
+            title="Menu"
             aria-expanded={open}
             aria-controls="nav-sheet"
             onClick={(e) => {

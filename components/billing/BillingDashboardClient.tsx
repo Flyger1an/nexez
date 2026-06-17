@@ -323,7 +323,7 @@ export default function BillingDashboardClient({
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => setActiveTab('plans')}
-                className="inline-flex items-center gap-2 rounded-2xl bg-[var(--signal-solid)] px-8 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:bg-[#5B21B6]"
+                className="inline-flex items-center gap-2 rounded-2xl bg-[var(--signal-solid)] px-8 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:opacity-80"
               >
                 <ArrowUp className="size-4" /> Upgrade plan
               </button>
@@ -704,7 +704,7 @@ export default function BillingDashboardClient({
                     <button
                       onClick={() => startEmbeddedCheckout(plan.id)}
                       disabled={!stripeReady || !!isLoadingThis || !!clientSecret}
-                      className="w-full rounded-2xl bg-[var(--signal-solid)] py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60 active:bg-[#5B21B6]"
+                      className="w-full rounded-2xl bg-[var(--signal-solid)] py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60 active:opacity-80"
                     >
                       {isLoadingThis ? (
                         <span className="inline-flex items-center gap-2">
@@ -826,5 +826,5 @@ function MoneyFlowStep({ label, value, sub, tone }: { label: string; value: stri
 }
 
 function FlowArrow() {
-  return <div className="hidden shrink-0 items-center text-2xl text-[#4B5563] sm:flex">→</div>
+  return <div className="hidden shrink-0 items-center text-2xl text-[var(--fg-muted-2)] sm:flex">→</div>
 }

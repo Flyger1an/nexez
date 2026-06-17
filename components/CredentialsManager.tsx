@@ -87,7 +87,7 @@ export function CredentialsManager({
                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${style?.cls ?? 'bg-white/10 text-zinc-400'}`}>
                   {style?.label ?? 'Self-reported'}
                 </span>
-                <button type="button" onClick={() => remove(doc)} className="shrink-0 text-zinc-500 hover:text-red-400" aria-label="Remove credential">
+                <button type="button" onClick={() => remove(doc)} className="shrink-0 text-zinc-500 hover:text-red-400" aria-label="Remove credential" title="Remove credential">
                   <X className="size-3.5" />
                 </button>
               </div>

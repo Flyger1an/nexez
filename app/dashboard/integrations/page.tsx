@@ -301,7 +301,7 @@ function IntegrationCard({
         >
           <Icon className="size-5" />
         </div>
-        <button className="min-h-[44px] min-w-[44px] rounded-md p-2 text-zinc-500 hover:bg-white/10 hover:text-white active:bg-white/10 md:p-1" aria-label={`${name} options`}>
+        <button className="min-h-[44px] min-w-[44px] rounded-md p-2 text-zinc-500 hover:bg-white/10 hover:text-white active:bg-white/10 md:p-1" aria-label={`${name} options`} title={`${name} options`}>
           <MoreHorizontal className="size-5" />
         </button>
       </div>

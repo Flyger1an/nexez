@@ -861,6 +861,7 @@ html:has(.public-agent-page) body {
 .bg-\[\#090b10\],
 .bg-\[\#0F0D18\],
 .bg-\[\#0c0c12\],
+.bg-\[\#0b0d12\],
 .bg-\[\#111\],
 .bg-\[\#111620\] { background-color: var(--bg-2); }
 .bg-\[\#1A1625\],

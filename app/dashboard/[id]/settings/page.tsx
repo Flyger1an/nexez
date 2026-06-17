@@ -587,6 +587,7 @@ export default function PageSettings({ params }: PageProps) {
                   onClick={() => setIsPublished((value) => !value)}
                   className={`relative h-7 w-12 rounded-full transition ${isPublished ? 'bg-[var(--signal)]' : 'bg-zinc-700'}`}
                   aria-label="Toggle published status"
+                  title="Toggle published status"
                 >
                   <span
                     className={`absolute top-1 size-5 rounded-full bg-white transition ${
@@ -703,7 +704,7 @@ export default function PageSettings({ params }: PageProps) {
                         <input
                           value={brandName}
                           onChange={(e) => setBrandName(e.target.value)}
-                          placeholder="Axle Plumbing Co."
+                          placeholder="Apex Plumbing Co."
                           className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
                         />
                       </label>
@@ -721,7 +722,7 @@ export default function PageSettings({ params }: PageProps) {
                         <input
                           value={logoUrl}
                           onChange={(e) => setLogoUrl(e.target.value)}
-                          placeholder="https://axlestrategy.com/logo.svg"
+                          placeholder="https://apexplumbing.com/logo.svg"
                           className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
                         />
                         <div className="mt-1 flex flex-wrap items-center gap-2">

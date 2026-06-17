@@ -279,7 +279,7 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
                         value={company}
                         onChange={(e) => setCompany(e.target.value)}
                         className={inputClass}
-                        placeholder="Axle Plumbing Co."
+                        placeholder="Apex Plumbing Co."
                         autoComplete="organization"
                         disabled={!hydrated || loading}
                       />
@@ -339,6 +339,7 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
                       disabled={!hydrated || loading}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white disabled:opacity-50"
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      title={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                     </button>

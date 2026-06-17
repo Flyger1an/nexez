@@ -60,7 +60,7 @@ export function ProfileSettings({ email, initialFullName, initialCompany, initia
           <input
             value={company}
             onChange={(e) => setCompany(e.target.value)}
-            placeholder="Axle Plumbing Co."
+            placeholder="Apex Plumbing Co."
             className={inputClass}
           />
         </label>

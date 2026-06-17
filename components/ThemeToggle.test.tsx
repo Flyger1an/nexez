@@ -10,11 +10,11 @@ describe('ThemeToggle', () => {
     document.documentElement.classList.remove('light', 'dark')
   })
 
-  it('renders the three theme options and defaults to dark', () => {
+  it('renders the three theme options and defaults to light', () => {
     render(<ThemeToggle />)
-    expect(screen.getByRole('radio', { name: 'Light' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Dark' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: 'System' })).toBeInTheDocument()
-    expect(screen.getByRole('radio', { name: 'Dark' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('radio', { name: 'Light' })).toHaveAttribute('aria-checked', 'true')
   })
 
   it('persists the choice and toggles the class on <html> when picked', () => {

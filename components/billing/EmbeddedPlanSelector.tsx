@@ -150,7 +150,7 @@ export default function EmbeddedPlanSelector({ activePlanId, stripeReady, initia
                 <button
                   onClick={() => startEmbeddedCheckout(plan.id)}
                   disabled={!canUseEmbedded || isLoadingThis || !!clientSecret}
-                  className="w-full rounded-xl bg-[var(--signal-solid)] py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60 active:bg-[#5B21B6]"
+                  className="w-full rounded-xl bg-[var(--signal-solid)] py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60 active:opacity-80"
                 >
                   {isLoadingThis ? 'Starting secure checkout…' : canUseEmbedded ? 'Subscribe with card' : 'Configure Stripe'}
                 </button>

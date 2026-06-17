@@ -60,13 +60,13 @@ export function PhilosophySplit() {
               <span className="size-2 rounded-full bg-white/25" />
               <span className="size-2 rounded-full bg-white/25" />
               <span className="ml-2 truncate rounded bg-white/[0.06] px-2 py-0.5 font-mono text-[10px] text-zinc-500">
-                axlestrategy.com/services
+                nexezagency.com/services
               </span>
             </div>
             <div className="p-4 text-[11px] leading-relaxed">
               {/* nav */}
               <div className="flex items-center gap-3 border-b border-white/5 pb-2.5">
-                <span className="text-[13px] font-semibold text-white">Axle</span>
+                <span className="text-[13px] font-semibold text-white">Nexez Agency</span>
                 <span className="text-zinc-500">Home</span>
                 <span className="text-zinc-400">Services</span>
                 <span className="hidden text-zinc-500 sm:inline">About</span>
@@ -100,7 +100,7 @@ export function PhilosophySplit() {
 
               {/* testimonial + newsletter clutter */}
               <div className="mt-3 rounded border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[10px] italic text-zinc-500">
-                “★★★★★ Axle transformed our pipeline.” Jane, CEO
+                “★★★★★ Nexez Agency transformed our pipeline.” Jane, CEO
               </div>
               <div className="mt-2 flex items-center gap-2 text-[10px] text-zinc-500">
                 <span className="truncate">Subscribe to our newsletter for growth tips</span>
@@ -127,7 +127,7 @@ export function PhilosophySplit() {
           <p className="mb-3 px-1 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">What agents get</p>
           <div className="rounded-lg border border-[var(--signal)]/15 bg-[var(--signal)]/[0.03] p-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-white">Axle Strategy</span>
+              <span className="text-sm font-medium text-white">Nexez Agency</span>
               <span className="nx-chip">readiness 92</span>
             </div>
             <div className="mt-3 space-y-1.5">

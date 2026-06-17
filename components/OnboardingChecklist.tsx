@@ -38,6 +38,7 @@ export function OnboardingChecklist({ pages }: { pages: AgentPage[] }) {
           }}
           className="text-zinc-400 hover:text-white"
           aria-label="Dismiss"
+          title="Dismiss"
         >
           <X className="size-4" />
         </button>

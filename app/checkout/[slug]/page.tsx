@@ -135,7 +135,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
           </div>
         </div>
 
-        <section className="mt-8 overflow-hidden card !p-0 border border-white/10 bg-gradient-to-br from-[#141720] via-[#0f141c] to-[#10201f]">
+        <section className="mt-8 overflow-hidden card !p-0 border border-white/10 bg-gradient-to-br from-[var(--panel)] via-[var(--bg-2)] to-[var(--panel)]">
           <div className="border-b border-white/10 px-6 py-8 text-center md:px-10">
             <p className="text-sm font-medium text-[var(--signal)]">Powered by Nexez + payment provider</p>
             <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-5xl">

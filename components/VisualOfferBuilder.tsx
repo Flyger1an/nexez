@@ -419,6 +419,7 @@ function SortableOfferCard({
           {...listeners}
           className="mt-1 min-h-[44px] min-w-[44px] cursor-grab touch-manipulation rounded p-2 text-zinc-400 active:cursor-grabbing active:bg-white/5 hover:text-white md:mt-2"
           aria-label="Drag to reorder offer"
+          title="Drag to reorder"
         >
           <GripVertical className="size-5 md:size-4" />
         </button>
@@ -720,6 +721,7 @@ function SortableOfferCard({
             onClick={() => onRemove(index)}
             className="min-h-[44px] min-w-[44px] rounded p-2 text-red-400 hover:bg-red-500/10 active:bg-red-500/20 md:p-1"
             aria-label="Remove offer"
+            title="Remove offer"
           >
             <Trash2 className="size-5 md:size-4" />
           </button>

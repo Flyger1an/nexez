@@ -49,6 +49,7 @@ export function PublishCelebration() {
         type="button"
         onClick={() => setShow(false)}
         aria-label="Dismiss"
+        title="Dismiss"
         className="absolute right-3 top-3 text-zinc-400 transition-colors hover:text-white"
       >
         <X className="size-4" />

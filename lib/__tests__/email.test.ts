@@ -24,7 +24,7 @@ describe('email gating', () => {
 describe('buildNegotiationEmail', () => {
   it('includes the offer + provided fields and a deep link to the inbox', () => {
     const mail = buildNegotiationEmail({
-      businessName: 'Axle Strategy',
+      businessName: 'Apex Advisory',
       offerName: 'Strategy Session',
       budget: '$400',
       timeline: 'next week',
@@ -54,7 +54,7 @@ describe('buildNegotiationEmail', () => {
 describe('buildEscrowFundedEmail', () => {
   it('held: subject + status reflect an escrow hold awaiting capture', () => {
     const mail = buildEscrowFundedEmail({
-      businessName: 'Axle Strategy',
+      businessName: 'Apex Advisory',
       offerName: 'Strategy Session',
       amount: '¥1,000',
       held: true,
@@ -83,21 +83,21 @@ describe('buildEscrowFundedEmail', () => {
 
 describe('buildMoneyEventEmail', () => {
   it('refund: informational subject + amount', () => {
-    const mail = buildMoneyEventEmail({ kind: 'refund', businessName: 'Axle', offerName: 'Audit', amount: '$50', inboxUrl: 'https://nexez.app/dashboard/negotiations' })
+    const mail = buildMoneyEventEmail({ kind: 'refund', businessName: 'Apex', offerName: 'Audit', amount: '$50', inboxUrl: 'https://nexez.app/dashboard/negotiations' })
     expect(mail.subject).toBe('Refund processed: Audit')
     expect(mail.text).toContain('Amount: $50')
     expect(mail.text).toContain('refunded to the buyer')
   })
 
   it('dispute_opened: urgent subject + the time-sensitive evidence warning', () => {
-    const mail = buildMoneyEventEmail({ kind: 'dispute_opened', businessName: 'Axle', offerName: 'Audit', amount: '$50', detail: 'Reason: fraudulent', inboxUrl: 'https://nexez.app/dashboard/negotiations' })
+    const mail = buildMoneyEventEmail({ kind: 'dispute_opened', businessName: 'Apex', offerName: 'Audit', amount: '$50', detail: 'Reason: fraudulent', inboxUrl: 'https://nexez.app/dashboard/negotiations' })
     expect(mail.subject).toContain('Payment disputed: Audit')
     expect(mail.text).toContain('time-sensitive')
     expect(mail.text).toContain('Reason: fraudulent')
   })
 
   it('dispute_closed: resolution subject + outcome detail', () => {
-    const mail = buildMoneyEventEmail({ kind: 'dispute_closed', businessName: 'Axle', offerName: 'Audit', detail: 'You won — funds retained.', inboxUrl: 'https://nexez.app/dashboard/negotiations' })
+    const mail = buildMoneyEventEmail({ kind: 'dispute_closed', businessName: 'Apex', offerName: 'Audit', detail: 'You won — funds retained.', inboxUrl: 'https://nexez.app/dashboard/negotiations' })
     expect(mail.subject).toBe('Dispute resolved: Audit')
     expect(mail.text).toContain('You won')
   })

@@ -250,6 +250,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
                       <button
                         type="submit"
                         aria-label="Sign out"
+                        title="Sign out"
                         className="inline-flex size-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-white/5 hover:text-white"
                       >
                         <LogOut className="size-4" />
@@ -277,6 +278,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
                     <button
                       type="submit"
                       aria-label="Sign out"
+                      title="Sign out"
                       className="inline-flex size-9 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-white/5 hover:text-white"
                     >
                       <LogOut className="size-4" />

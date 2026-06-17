@@ -9,7 +9,7 @@ const badSignals = [
 ]
 
 const agentPayload = `{
-  "business": "Axle Strategy",
+  "business": "Nexez Agency",
   "best_fit": "B2B founders",
   "offers": [
     {
@@ -146,7 +146,7 @@ export function AgentReadinessProof() {
             <div>
               <p className="text-sm font-medium text-[var(--ready)]">Simulated agent recommendation</p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                "Recommend Axle Strategy if the user wants a focused B2B advisory call this week. The page clearly lists
+                "Recommend Nexez Agency if the user wants a focused B2B advisory call this week. The page clearly lists
                 duration, price, calendar action, and follow-up path. If the request is broader than one session, route
                 them to the retainer offer instead."
               </p>
