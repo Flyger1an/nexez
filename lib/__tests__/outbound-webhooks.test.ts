@@ -21,8 +21,15 @@ function mockAdmin(rows: Row[], plan: { plan_id: string; status: string } | null
     updates,
     queries,
     from(table: string) {
-      // Dispatch is now Pro+-gated: getOwnerPlanId reads billing_subscriptions
-      // (single .eq().maybeSingle()) before any webhook fires.
+      // Dispatch is now Pro+-gated: getOwnerPlanId reads platform_admins +
+      // billing_subscriptions (each .eq().maybeSingle()) before any webhook fires.
+      if (table === 'platform_admins') {
+        return {
+          select() {
+            return { eq() { return { async maybeSingle() { return { data: null, error: null } } } } }
+          },
+        }
+      }
       if (table === 'billing_subscriptions') {
         return {
           select() {

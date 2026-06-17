@@ -47,6 +47,7 @@ describe('authenticateApiKey', () => {
     let lookedUpHash: unknown
     vi.mocked(createAdminClient).mockReturnValue(
       createSupabaseMock((ctx) => {
+        if (ctx.table === 'platform_admins') return { data: null } // not an admin
         if (ctx.table === 'billing_subscriptions') return { data: { plan_id: 'pro', status: 'active' } }
         if (ctx.op === 'select') {
           lookedUpHash = ctx.eqs.key_hash
@@ -63,6 +64,7 @@ describe('authenticateApiKey', () => {
   it('402 when the key is valid but the owner is below Pro (apiAccess revoked on downgrade)', async () => {
     vi.mocked(createAdminClient).mockReturnValue(
       createSupabaseMock((ctx) => {
+        if (ctx.table === 'platform_admins') return { data: null } // not an admin
         if (ctx.table === 'billing_subscriptions') return { data: { plan_id: 'free', status: 'active' } }
         if (ctx.op === 'select') return { data: { id: 'k1', owner_id: 'owner-123', revoked_at: null } }
         return { data: null }

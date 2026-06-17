@@ -28,19 +28,48 @@ export async function getOwnerPlanId(
 ): Promise<PlanId> {
   if (!ownerId) return 'free'
   try {
-    const { data } = await supabase
-      .from('billing_subscriptions')
-      .select('plan_id, status')
-      .eq('owner_id', ownerId)
-      .maybeSingle<{ plan_id: string | null; status: string | null }>()
-    const planId = data?.plan_id
-    if (planId && VALID_PLANS.has(planId as PlanId) && LIVE_STATUSES.has(data?.status ?? '')) {
+    // Resolve admin status + subscription in parallel. A platform admin gets the TOP
+    // tier everywhere (ENTITLEMENTS only — not an RLS/cross-tenant bypass), mirroring
+    // the SQL owner_plan_rank()/plan_published_page_limit() admin short-circuit.
+    // supabase-js surfaces query errors in `.error` (no throw), so a missing
+    // platform_admins table (e.g. pre-migration) just yields null → billing still
+    // resolves normally and gating never breaks.
+    const [adminRes, subRes] = await Promise.all([
+      supabase.from('platform_admins').select('user_id').eq('user_id', ownerId).maybeSingle<{ user_id: string }>(),
+      supabase
+        .from('billing_subscriptions')
+        .select('plan_id, status')
+        .eq('owner_id', ownerId)
+        .maybeSingle<{ plan_id: string | null; status: string | null }>(),
+    ])
+    if (adminRes.data) return 'enterprise'
+    const planId = subRes.data?.plan_id
+    if (planId && VALID_PLANS.has(planId as PlanId) && LIVE_STATUSES.has(subRes.data?.status ?? '')) {
       return planId as PlanId
     }
   } catch {
     // fall through to free on any read error — gating fails safe (most restrictive)
   }
   return 'free'
+}
+
+/** True when `ownerId` is a platform admin (entitlements god-mode). Reads
+ *  platform_admins (own row under RLS, or any row via the admin client). Best-effort. */
+export async function isPlatformAdmin(
+  supabase: Pick<SupabaseClient, 'from'>,
+  ownerId: string | null | undefined,
+): Promise<boolean> {
+  if (!ownerId) return false
+  try {
+    const { data } = await supabase
+      .from('platform_admins')
+      .select('user_id')
+      .eq('user_id', ownerId)
+      .maybeSingle<{ user_id: string }>()
+    return Boolean(data)
+  } catch {
+    return false
+  }
 }
 
 /** True when `ownerId`'s plan unlocks `feature`. Server-side enforcement helper. */
