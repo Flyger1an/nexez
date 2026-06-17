@@ -1,5 +1,25 @@
 import { describe, it, expect } from 'vitest'
-import { buildBuyerReceiptEmail, buildBuyerStatusEmail, buildBuyerRequestEmail, buildOrderLookupEmail } from './email'
+import { buildBuyerReceiptEmail, buildBuyerStatusEmail, buildBuyerRequestEmail, buildOrderLookupEmail, buildTeamInviteEmail } from './email'
+
+describe('buildTeamInviteEmail', () => {
+  it('names the inviter, role, accept link, and stresses the exact-email requirement', () => {
+    const m = buildTeamInviteEmail({
+      inviterEmail: 'owner@example.com',
+      inviteeEmail: 'mate@example.com',
+      role: 'editor',
+      acceptUrl: 'https://app.nexez.ai/login?next=/dashboard',
+    })
+    expect(m.subject).toContain('owner@example.com')
+    expect(m.html).toContain('https://app.nexez.ai/login?next=/dashboard')
+    expect(m.html).toContain('mate@example.com') // the address they must use
+    expect(m.text.toLowerCase()).toContain('this email address')
+    expect(m.html.toLowerCase()).toContain('edit')
+  })
+  it('uses read-only copy for a viewer role', () => {
+    const m = buildTeamInviteEmail({ inviterEmail: 'o@x.com', inviteeEmail: 'v@x.com', role: 'viewer', acceptUrl: 'u' })
+    expect(m.html.toLowerCase()).toContain('read-only')
+  })
+})
 
 describe('buildOrderLookupEmail', () => {
   it('carries the find link + singular copy for one order', () => {

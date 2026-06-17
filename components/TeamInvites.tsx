@@ -42,18 +42,32 @@ export function TeamInvites() {
       return
     }
     setMessage('')
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return
-    const { error } = await supabase
-      .from('team_invites')
-      .insert({ owner_id: user.id, email: email.trim().toLowerCase(), role })
-    if (error) setMessage(error.message)
-    else {
+    // Server route: inserts under the owner's session (RLS + plan-gate still apply)
+    // AND emails the invitee a link to join — a direct client insert sent no
+    // notification, so the teammate never knew and collaboration never started.
+    try {
+      const to = email.trim().toLowerCase()
+      const res = await fetch('/api/team/invite', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: to, role }),
+      })
+      const data = (await res.json().catch(() => ({}))) as { error?: string; alreadyInvited?: boolean; emailed?: boolean }
+      if (!res.ok) {
+        setMessage(data.error || 'Could not send the invite.')
+        return
+      }
       setEmail('')
+      setMessage(
+        data.alreadyInvited
+          ? `${to} is already invited.`
+          : data.emailed
+            ? `Invite sent to ${to}.`
+            : `Invite created for ${to}, but we couldn’t send the email — share the workspace link directly.`,
+      )
       void load()
+    } catch {
+      setMessage('Could not send the invite — try again.')
     }
   }
 
@@ -70,7 +84,8 @@ export function TeamInvites() {
         <h2 className="text-xl font-semibold">Team</h2>
       </div>
       <p className="mt-1 text-sm text-zinc-400">
-        Invite teammates to your workspace. (Invite management is live; shared editing access rolls out next.)
+        Invite teammates by email — they get role-based access to your pages and negotiations. We email them a link to
+        join; they sign in with that same email to get access.
       </p>
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
@@ -102,7 +117,9 @@ export function TeamInvites() {
           Invite
         </button>
       </div>
-      {message && <p className="mt-2 text-xs text-[var(--amber)]">{message}</p>}
+      {message && (
+        <p className={`mt-2 text-xs ${message.startsWith('Invite sent') || message.includes('already invited') ? 'text-[var(--ready)]' : 'text-[var(--amber)]'}`}>{message}</p>
+      )}
 
       <div className="mt-4 space-y-2">
         {loading ? (

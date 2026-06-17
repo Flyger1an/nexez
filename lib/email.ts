@@ -411,3 +411,33 @@ export function buildOrderLookupEmail(opts: {
     text,
   }
 }
+
+// Pure builder (testable) for the team-collaboration invite email — sent to the
+// invited teammate when an owner adds them. The invitee must sign in / sign up with
+// THIS exact email (the access RLS keys on the JWT email), so the copy is explicit.
+export function buildTeamInviteEmail(opts: {
+  inviterEmail: string
+  inviteeEmail: string
+  role: string
+  acceptUrl: string
+}): { subject: string; html: string; text: string } {
+  const { inviterEmail, inviteeEmail, role, acceptUrl } = opts
+  const roleCopy = role === 'editor' ? 'edit their pages and negotiations' : 'view their pages (read-only)'
+  const subject = `${inviterEmail} invited you to collaborate on Nexez`
+  const lead = `${inviterEmail} invited you to their Nexez workspace as a ${role}. You'll be able to ${roleCopy}.`
+  const text = [
+    lead,
+    '',
+    `Important: sign in or create your account using THIS email address (${inviteeEmail}) — that's how your access is granted.`,
+    '',
+    `Accept the invite: ${acceptUrl}`,
+  ].join('\n')
+  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.6;color:#0a0a0a">
+  <h2 style="margin:0 0 8px">You're invited to collaborate</h2>
+  <p style="margin:0 0 12px">${escapeHtml(lead)}</p>
+  <p style="margin:0 0 16px;font-size:13px;color:#52525b">Sign in or create your account using <strong>${escapeHtml(inviteeEmail)}</strong> — that exact address is how your access is granted.</p>
+  <p style="margin:0"><a href="${acceptUrl}" style="display:inline-block;background:#5566F2;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600">Accept invite</a></p>
+  <p style="margin:14px 0 0;font-size:12px;color:#71717a">If you weren't expecting this, you can ignore this email.</p>
+</div>`
+  return { subject, html, text }
+}
