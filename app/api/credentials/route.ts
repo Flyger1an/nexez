@@ -40,6 +40,7 @@ async function authedOwner(pageId: string): Promise<AuthedOwner> {
     pageId,
     userId: user.id,
     userEmail: user.email,
+    userEmailConfirmedAt: user.email_confirmed_at,
     requireEditor: true,
   })
   if (!access) return { error: NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 }) }

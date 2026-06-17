@@ -2,7 +2,9 @@ import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../../utils/supabase/server'
+import { createAdminClient } from '../../../../../utils/supabase/admin'
 import { ownerAllows } from '../../../../../lib/server/plan'
+import { resolveFeatureOwner } from '../../../../../lib/server/page-access'
 
 /**
  * Stripe Import for Nexez agent pages (lean MVP).
@@ -20,28 +22,43 @@ type ImportRequest = {
 }
 
 export async function POST(request: Request) {
-  // Require auth + `integrations` (Pro). In production this route lists products
-  // with the platform STRIPE_SECRET_KEY, so an anonymous caller could otherwise
-  // enumerate the platform's Stripe catalog. Free/Launch owners build manually or
-  // via CSV (free); live Stripe sync is Pro.
+  // Require auth + `integrations` (Pro) ON THE EFFECTIVE OWNER. In production this
+  // route lists products with the platform STRIPE_SECRET_KEY, so an anonymous caller
+  // could otherwise enumerate the platform's Stripe catalog. When a `pageId` is
+  // supplied an editor-collaborator may import into the owner's page (gate on the
+  // owner's plan); the page-less create flow self-gates. Free/Launch owners build
+  // manually or via CSV (free); live Stripe sync is Pro.
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Sign in to import from Stripe.' }, { status: 401 })
   }
-  if (!(await ownerAllows(supabase, user.id, 'integrations'))) {
-    return NextResponse.json(
-      { error: 'Importing from Stripe is a Pro feature. Upgrade to sync products, or add offers manually / upload a CSV (free).' },
-      { status: 402 },
-    )
-  }
 
-  let body: ImportRequest & { stripeSecretKey?: string }
+  let body: ImportRequest & { stripeSecretKey?: string; pageId?: string }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  const access = await resolveFeatureOwner({
+    pageId: body.pageId,
+    userId: user.id,
+    userEmail: user.email,
+    userEmailConfirmedAt: user.email_confirmed_at,
+  })
+  if (!access.ok) {
+    return NextResponse.json(
+      { error: access.status === 503 ? 'Server is not configured for this action.' : 'You do not have edit access to this page.' },
+      { status: access.status },
+    )
+  }
+  if (!(await ownerAllows(access.scoped ? createAdminClient() : supabase, access.ownerId, 'integrations'))) {
+    return NextResponse.json(
+      { error: 'Importing from Stripe is a Pro feature. Upgrade to sync products, or add offers manually / upload a CSV (free).' },
+      { status: 402 },
+    )
   }
 
   const requestSecret = body.stripeSecretKey?.trim()

@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../../utils/supabase/server'
+import { createAdminClient } from '../../../../../utils/supabase/admin'
 import { ownerAllows } from '../../../../../lib/server/plan'
+import { resolveFeatureOwner } from '../../../../../lib/server/page-access'
 import { formatOfferLines, type OfferItem } from '../../../../../lib/agent-page'
 import { mapAcuityTypesToOffers } from '../../../../../lib/integrations'
 
@@ -16,6 +18,7 @@ import { mapAcuityTypesToOffers } from '../../../../../lib/integrations'
 type AcuityImportRequest = {
   userId?: string
   apiKey?: string
+  pageId?: string        // when importing INTO an existing page (collaboration)
 }
 
 async function fetchAcuityTypes(userId: string, apiKey: string): Promise<OfferItem[] | null> {
@@ -77,19 +80,15 @@ function sampleOffers(): OfferItem[] {
 }
 
 export async function POST(request: Request) {
-  // Require auth + `integrations` (Pro): authenticated outbound call with a
-  // caller-supplied API key — not anonymously abusable, and live sync is Pro.
+  // Require auth + `integrations` (Pro) ON THE EFFECTIVE OWNER: authenticated outbound
+  // call with a caller-supplied API key — not anonymously abusable, and live sync is
+  // Pro. A `pageId` lets an editor-collaborator import into the owner's page (gate on
+  // the owner's plan); the page-less create flow self-gates.
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Sign in to import from Acuity.' }, { status: 401 })
-  }
-  if (!(await ownerAllows(supabase, user.id, 'integrations'))) {
-    return NextResponse.json(
-      { error: 'Connecting Acuity is a Pro feature. Upgrade to sync appointment types, or add offers manually / upload a CSV (free).' },
-      { status: 402 },
-    )
   }
 
   let body: AcuityImportRequest
@@ -97,6 +96,25 @@ export async function POST(request: Request) {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
+  const access = await resolveFeatureOwner({
+    pageId: body.pageId,
+    userId: user.id,
+    userEmail: user.email,
+    userEmailConfirmedAt: user.email_confirmed_at,
+  })
+  if (!access.ok) {
+    return NextResponse.json(
+      { error: access.status === 503 ? 'Server is not configured for this action.' : 'You do not have edit access to this page.' },
+      { status: access.status },
+    )
+  }
+  if (!(await ownerAllows(access.scoped ? createAdminClient() : supabase, access.ownerId, 'integrations'))) {
+    return NextResponse.json(
+      { error: 'Connecting Acuity is a Pro feature. Upgrade to sync appointment types, or add offers manually / upload a CSV (free).' },
+      { status: 402 },
+    )
   }
 
   const userId = (body?.userId || '').trim()

@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../../utils/supabase/server'
+import { createAdminClient } from '../../../../../utils/supabase/admin'
 import { ownerAllows } from '../../../../../lib/server/plan'
+import { resolveFeatureOwner } from '../../../../../lib/server/page-access'
 
 /**
  * Calendly Integration for Nexez
@@ -27,24 +29,47 @@ type CalendlyEventType = {
 }
 
 export async function POST(request: Request) {
-  // Require auth + the `integrations` (Pro) capability: this route makes an
-  // authenticated outbound call with a caller-supplied token, so it must not be
-  // anonymously abusable, and live third-party sync is a Pro feature. Free/Launch
-  // owners can still add offers manually or upload a CSV (both client-side, free).
+  // Require auth + the `integrations` (Pro) capability ON THE EFFECTIVE OWNER: this
+  // route makes an authenticated outbound call with a caller-supplied token, so it
+  // must not be anonymously abusable, and live third-party sync is a Pro feature.
+  // When a `pageId` is supplied (importing INTO an existing page) an editor-
+  // collaborator may call it and the gate is decided on the PAGE OWNER's plan; in the
+  // page-less create flow the caller self-gates. Free/Launch owners can still add
+  // offers manually or upload a CSV (both client-side, free).
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Sign in to import from Calendly.' }, { status: 401 })
   }
-  if (!(await ownerAllows(supabase, user.id, 'integrations'))) {
+
+  let body: { token?: string; pageId?: string }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
+  const access = await resolveFeatureOwner({
+    pageId: body.pageId,
+    userId: user.id,
+    userEmail: user.email,
+    userEmailConfirmedAt: user.email_confirmed_at,
+  })
+  if (!access.ok) {
+    return NextResponse.json(
+      { error: access.status === 503 ? 'Server is not configured for this action.' : 'You do not have edit access to this page.' },
+      { status: access.status },
+    )
+  }
+  if (!(await ownerAllows(access.scoped ? createAdminClient() : supabase, access.ownerId, 'integrations'))) {
     return NextResponse.json(
       { error: 'Connecting Calendly is a Pro feature. Upgrade to sync live event types, or add offers manually / upload a CSV (free).' },
       { status: 402 },
     )
   }
 
-  const { token } = await request.json()
+  const { token } = body
 
   if (!token) {
     return NextResponse.json({ error: 'Calendly Personal Access Token is required' }, { status: 400 })

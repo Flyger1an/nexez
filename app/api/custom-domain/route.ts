@@ -91,6 +91,7 @@ export async function POST(request: Request) {
     pageId: page.id,
     userId: user.id,
     userEmail: user.email,
+    userEmailConfirmedAt: user.email_confirmed_at,
     requireEditor: true,
   })
   if (!access) {

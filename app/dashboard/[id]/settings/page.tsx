@@ -569,6 +569,11 @@ export default function PageSettings({ params }: PageProps) {
                 Page Settings
               </p>
               <h1 className="mt-3 text-4xl font-semibold tracking-tight">{page.name}</h1>
+              {pageRole !== 'owner' && (
+                <span className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-[var(--signal)]/30 bg-[var(--signal)]/10 px-2.5 py-1 text-xs font-medium text-[var(--signal)]">
+                  {pageRole === 'editor' ? 'Editing as collaborator' : 'View-only access'}
+                </span>
+              )}
             </div>
 
             <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
@@ -1223,7 +1228,7 @@ export default function PageSettings({ params }: PageProps) {
                         const res = await fetch('/api/integrations/calendly/import', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ token: reSyncInput.trim() }),
+                          body: JSON.stringify({ token: reSyncInput.trim(), pageId: id }),
                         });
                         const data = await res.json();
                         if (data.structuredOffers?.length) {
@@ -1293,7 +1298,7 @@ export default function PageSettings({ params }: PageProps) {
                         const res = await fetch('/api/integrations/stripe/import', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ stripeSecretKey: reSyncInput.trim() }),
+                          body: JSON.stringify({ stripeSecretKey: reSyncInput.trim(), pageId: id }),
                         });
                         const data = await res.json();
                         if (data.structuredOffers?.length) {
@@ -1357,9 +1362,10 @@ export default function PageSettings({ params }: PageProps) {
                         const res = await fetch('/api/integrations/shopify/import', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ 
-                            shop: reSyncInput.trim(), 
-                            accessToken: reSyncInput2.trim() 
+                          body: JSON.stringify({
+                            shop: reSyncInput.trim(),
+                            accessToken: reSyncInput2.trim(),
+                            pageId: id,
                           }),
                         });
                         const data = await res.json();

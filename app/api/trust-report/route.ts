@@ -3,7 +3,9 @@ import { cookies } from 'next/headers'
 import { isLlmConfigured, llmComplete } from '../../../lib/llm'
 import { getTrustScore } from '../../../lib/agent-page'
 import { createClient } from '../../../utils/supabase/server'
+import { createAdminClient } from '../../../utils/supabase/admin'
 import { ownerAllows } from '../../../lib/server/plan'
+import { resolveFeatureOwner } from '../../../lib/server/page-access'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 
 export async function POST(request: Request) {
@@ -19,19 +21,35 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   try {
-    const { page, events } = await request.json()
+    const { page, events, pageId } = await request.json()
 
     if (!page) {
       return NextResponse.json({ error: 'page data required' }, { status: 400 })
     }
 
+    // Authorize: a `pageId` lets an editor-collaborator run the report on the page
+    // OWNER's behalf (the AI gate is then decided on the OWNER's plan); the page-less /
+    // sandbox flow self-gates on the caller. A stranger/viewer with a pageId is denied.
+    const access = await resolveFeatureOwner({
+      pageId,
+      userId: user.id,
+      userEmail: user.email,
+      userEmailConfirmedAt: user.email_confirmed_at,
+    })
+    if (!access.ok) {
+      return NextResponse.json(
+        { error: access.status === 503 ? 'Server is not configured for this action.' : 'You do not have edit access to this page.' },
+        { status: access.status },
+      )
+    }
+
     const score = getTrustScore(page, events || [])
     const verification = (page as any).verification_details || {}
 
-    // The LLM-written report is an `aiFeatures` (Launch+) capability. Below that,
-    // fall back to the deterministic score-only report (same fail-soft shape as
+    // The LLM-written report is an `aiFeatures` (Launch+) capability OF THE OWNER. Below
+    // that, fall back to the deterministic score-only report (same fail-soft shape as
     // the no-LLM branch) so the feature still returns something useful.
-    const aiAllowed = await ownerAllows(supabase, user.id, 'aiFeatures')
+    const aiAllowed = await ownerAllows(access.scoped ? createAdminClient() : supabase, access.ownerId, 'aiFeatures')
     if (!isLlmConfigured() || !aiAllowed) {
       return NextResponse.json({
         success: true,

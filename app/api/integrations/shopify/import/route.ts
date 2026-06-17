@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../../utils/supabase/server'
+import { createAdminClient } from '../../../../../utils/supabase/admin'
 import { ownerAllows } from '../../../../../lib/server/plan'
+import { resolveFeatureOwner } from '../../../../../lib/server/page-access'
 
 /**
  * Shopify Integration for Nexez (Phase 3)
@@ -17,6 +19,7 @@ type ShopifyImportRequest = {
   shop: string           // e.g. "yourstore.myshopify.com"
   accessToken: string    // Admin API token (shpat_...)
   limit?: number
+  pageId?: string        // when importing INTO an existing page (collaboration)
 }
 
 /**
@@ -46,20 +49,35 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
   }
-  // Live catalog sync is a Pro (`integrations`) capability. Free/Launch owners
-  // build manually or via CSV (free).
-  if (!(await ownerAllows(supabase, user.id, 'integrations'))) {
-    return NextResponse.json(
-      { error: 'Connecting Shopify is a Pro feature. Upgrade to import your catalog, or add offers manually / upload a CSV (free).' },
-      { status: 402 },
-    )
-  }
 
   let body: ShopifyImportRequest
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  // Live catalog sync is a Pro (`integrations`) capability, gated on the EFFECTIVE
+  // OWNER: a `pageId` lets an editor-collaborator import into the owner's page (gate on
+  // the owner's plan); the page-less create flow self-gates. Free/Launch owners build
+  // manually or via CSV (free).
+  const access = await resolveFeatureOwner({
+    pageId: body.pageId,
+    userId: user.id,
+    userEmail: user.email,
+    userEmailConfirmedAt: user.email_confirmed_at,
+  })
+  if (!access.ok) {
+    return NextResponse.json(
+      { error: access.status === 503 ? 'Server is not configured for this action.' : 'You do not have edit access to this page.' },
+      { status: access.status },
+    )
+  }
+  if (!(await ownerAllows(access.scoped ? createAdminClient() : supabase, access.ownerId, 'integrations'))) {
+    return NextResponse.json(
+      { error: 'Connecting Shopify is a Pro feature. Upgrade to import your catalog, or add offers manually / upload a CSV (free).' },
+      { status: 402 },
+    )
   }
 
   const { shop, accessToken, limit = 50 } = body

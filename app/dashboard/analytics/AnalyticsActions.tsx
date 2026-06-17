@@ -36,7 +36,9 @@ export default function AnalyticsActions({
       const res = await fetch('/api/trust-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ page: selectedPage, events: filteredEvents }),
+        // Scope to the page so the AI trust-report gates on the page OWNER's plan
+        // (an editor-collaborator inherits it); page-less callers self-gate.
+        body: JSON.stringify({ page: selectedPage, events: filteredEvents, pageId: selectedPage?.id }),
       })
       const data = await res.json()
       alert(`Trust Report (${data.score || 'N/A'}/100): ${data.report || 'Generated.'}`)

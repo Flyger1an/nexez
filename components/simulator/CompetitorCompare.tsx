@@ -72,8 +72,14 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
     setMarkdown('')
     setMessage('')
     try {
-      const body: { url: string; userPageSlug?: string } = { url: url.trim() }
-      if (sideSlug.trim()) body.userPageSlug = sideSlug.trim()
+      const body: { url: string; userPageSlug?: string; pageId?: string } = { url: url.trim() }
+      if (sideSlug.trim()) {
+        body.userPageSlug = sideSlug.trim()
+        // Attribute the AI gate to the compared page's owner (lets an editor run it on
+        // the owner's plan); the page-less lens self-gates on the caller.
+        const matched = myPages.find((p) => p.slug === sideSlug.trim())
+        if (matched?.id) body.pageId = matched.id
+      }
       const res = await fetch('/api/analyze-competitor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

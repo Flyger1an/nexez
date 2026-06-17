@@ -571,7 +571,9 @@ export function usePageEditor(initial: EditorInitial) {
       const res = await fetch(RESYNC_ENDPOINTS[provider], {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        // Scope the re-sync to THIS page so the import gates on the page OWNER's plan —
+        // an editor-collaborator inherits the owner's `integrations` entitlement.
+        body: JSON.stringify({ ...body, pageId: id }),
       })
       const data = await res.json()
       if (data.structuredOffers?.length) {

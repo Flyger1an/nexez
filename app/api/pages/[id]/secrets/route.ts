@@ -27,7 +27,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   if (!hasSupabaseAdminEnv()) return NextResponse.json({ error: 'Not available.' }, { status: 503 })
 
-  const access = await resolvePageAccess({ pageId, userId: user.id, userEmail: user.email, requireEditor: true })
+  const access = await resolvePageAccess({ pageId, userId: user.id, userEmail: user.email, userEmailConfirmedAt: user.email_confirmed_at, requireEditor: true })
   if (!access) return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>

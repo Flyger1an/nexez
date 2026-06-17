@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   const pageId = String(body.pageId || '').trim()
   if (!pageId) return NextResponse.json({ error: 'pageId is required.' }, { status: 400 })
 
-  const access = await resolvePageAccess({ pageId, userId: user.id, userEmail: user.email, requireEditor: true })
+  const access = await resolvePageAccess({ pageId, userId: user.id, userEmail: user.email, userEmailConfirmedAt: user.email_confirmed_at, requireEditor: true })
   if (!access) return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
 
   // Per-OWNER cap (on top of the per-IP limit) so an editor-collaborator can't inflate
