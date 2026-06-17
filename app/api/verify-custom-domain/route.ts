@@ -5,6 +5,8 @@ import { promisify } from 'util'
 import { createClient } from '../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 import { ownerAllows } from '../../../lib/server/plan'
+import { resolvePageAccess } from '../../../lib/server/page-access'
+import { enforceRateLimit } from '../../../lib/rate-limit'
 
 const resolveTxt = promisify(dns.resolveTxt)
 
@@ -23,8 +25,12 @@ const resolveTxt = promisify(dns.resolveTxt)
  *    If the token value is present in any TXT record, returns { verified: true }.
  * 5. This route updates `custom_domain_verified` and clears the temp token.
  *
- * Security: this route is owner-authenticated. The browser never marks a domain
- * verified directly; it only asks the server to verify DNS and persist the result.
+ * Security: this route is owner-OR-editor-authenticated via resolvePageAccess
+ * (requireEditor) — the logged-in user may be the page owner or a non-revoked
+ * editor-collaborator invited by that owner. Plan gate + all owner-scoped reads/
+ * writes target the resolved PAGE OWNER (service-role), never the caller's id.
+ * The browser never marks a domain verified directly; it only asks the server to
+ * verify DNS and persist the result.
  *
  * Supports both full domain and subdomain. Strips protocol if pasted.
  */
@@ -47,6 +53,9 @@ function getVerifyHost(domain: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = await enforceRateLimit(request, 'verify-custom-domain', 20, 60_000)
+  if (limited) return limited
+
   let body: any
   try {
     body = await request.json()
@@ -79,17 +88,33 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  // Plan gate: verifying (enabling) a custom domain requires Launch+.
-  if (!(await ownerAllows(supabase, user.id, 'customDomain'))) {
-    return NextResponse.json({ error: 'Custom domains are available on the Launch plan and up.', upgrade: 'launch' }, { status: 402 })
+  // Authorize the caller against THIS page as owner OR a non-revoked editor-collaborator.
+  // resolvePageAccess decides authoritatively via the service-role client and returns the
+  // page's real owner; everything below acts as that owner. (Returns null without admin env,
+  // which is already guarded above with a 503.)
+  const access = await resolvePageAccess({
+    pageId,
+    userId: user.id,
+    userEmail: user.email,
+    requireEditor: true,
+  })
+  if (!access) {
+    return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
   }
 
   const admin = createAdminClient()
+
+  // Plan gate: verifying (enabling) a custom domain requires Launch+ — gated on the
+  // PAGE OWNER's plan (the collaborator inherits it), not the logged-in caller.
+  if (!(await ownerAllows(admin, access.ownerId, 'customDomain'))) {
+    return NextResponse.json({ error: 'Custom domains are available on the Launch plan and up.', upgrade: 'launch' }, { status: 402 })
+  }
+
   const { data: page, error: pageError } = await admin
     .from('pages')
     .select('id, owner_id, custom_domain')
-    .eq('id', pageId)
-    .eq('owner_id', user.id)
+    .eq('id', access.pageId)
+    .eq('owner_id', access.ownerId)
     .eq('custom_domain', domain)
     .maybeSingle<{ id: string; owner_id: string; custom_domain: string | null }>()
 
@@ -104,7 +129,7 @@ export async function POST(request: NextRequest) {
     .from('page_secrets')
     .select('domain_verification_token')
     .eq('page_id', page.id)
-    .eq('owner_id', user.id)
+    .eq('owner_id', access.ownerId)
     .maybeSingle<{ domain_verification_token: string | null }>()
 
   const expected = String(secrets?.domain_verification_token || '').trim()
@@ -131,7 +156,7 @@ export async function POST(request: NextRequest) {
         .from('pages')
         .update({ custom_domain_verified: verifiedAt })
         .eq('id', page.id)
-        .eq('owner_id', user.id)
+        .eq('owner_id', access.ownerId)
         .eq('custom_domain', domain)
 
       if (verifyError) {
@@ -142,7 +167,7 @@ export async function POST(request: NextRequest) {
         .from('page_secrets')
         .update({ domain_verification_token: null, updated_at: verifiedAt })
         .eq('page_id', page.id)
-        .eq('owner_id', user.id)
+        .eq('owner_id', access.ownerId)
 
       return NextResponse.json({
         verified: true,

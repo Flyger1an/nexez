@@ -3,6 +3,8 @@ import { cookies } from 'next/headers'
 import { createClient } from '../../../../utils/supabase/server'
 import { isLlmConfigured, llmComplete } from '../../../../lib/llm'
 import { ownerAllows } from '../../../../lib/server/plan'
+import { resolvePageAccess } from '../../../../lib/server/page-access'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { captureError } from '../../../../lib/observability'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 
@@ -14,6 +16,11 @@ import { enforceRateLimit } from '../../../../lib/rate-limit'
  * gate — auth + `aiFeatures` (Launch+) + the page's `llm_opt_in` consent — and
  * makes the feature actually work. The page is loaded scoped to the owner so the
  * prompt is built from trusted server data, never client-supplied page content.
+ *
+ * Collaboration: authorization runs through `resolvePageAccess` (owner OR a
+ * non-revoked editor invitee), and the plan gate + page read act as the PAGE
+ * OWNER via the service-role client — so an editor-collaborator inherits the
+ * owner's plan and works against the owner's data, while a non-editor still 403s.
  */
 type SuggestKind = 'memory' | 'approval-note'
 
@@ -39,13 +46,33 @@ export async function POST(request: Request) {
   const kind: SuggestKind = body.kind === 'approval-note' ? 'approval-note' : 'memory'
   if (!pageId) return NextResponse.json({ error: 'pageId is required' }, { status: 400 })
 
-  // Load the page scoped to the owner — enforces ownership and gives us trusted
-  // data to build the prompt from (never trust client-supplied page content).
-  const { data: page } = await supabase
+  // Authorize as owner OR a non-revoked editor-collaborator. This is the ONLY
+  // authorization — trust its result. Needs the service-role env to read the
+  // page/invite authoritatively.
+  if (!hasSupabaseAdminEnv()) {
+    return NextResponse.json({ error: 'AI is not configured.' }, { status: 503 })
+  }
+  const access = await resolvePageAccess({
+    pageId,
+    userId: user.id,
+    userEmail: user.email,
+    requireEditor: true,
+  })
+  if (!access) {
+    return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
+  }
+
+  const admin = createAdminClient()
+
+  // Load the page scoped to the OWNER via the admin client — ownership is already
+  // proven by resolvePageAccess (look it up by id), and the service-role read sees
+  // the owner's row regardless of the collaborator's RLS. Trusted server data to
+  // build the prompt from (never trust client-supplied page content).
+  const { data: page } = await admin
     .from('pages')
     .select('name, description, audience, services, products, llm_opt_in')
-    .eq('id', pageId)
-    .eq('owner_id', user.id)
+    .eq('id', access.pageId)
+    .eq('owner_id', access.ownerId)
     .maybeSingle<{
       name?: string | null
       description?: string | null
@@ -57,8 +84,9 @@ export async function POST(request: Request) {
 
   if (!page) return NextResponse.json({ error: 'Page not found' }, { status: 404 })
 
-  // Plan gate: AI suggestions unlock on Launch+ (aiFeatures).
-  if (!(await ownerAllows(supabase, user.id, 'aiFeatures'))) {
+  // Plan gate on the OWNER (not the logged-in collaborator): AI suggestions
+  // unlock on Launch+ (aiFeatures).
+  if (!(await ownerAllows(admin, access.ownerId, 'aiFeatures'))) {
     return NextResponse.json(
       { error: 'AI suggestions are a Launch feature. Upgrade to use AI, or write the note manually.' },
       { status: 402 },

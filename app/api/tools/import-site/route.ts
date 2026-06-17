@@ -5,6 +5,8 @@ import { isLlmConfigured, llmComplete } from '../../../../lib/llm'
 import { captureError } from '../../../../lib/observability'
 import { createClient } from '../../../../utils/supabase/server'
 import { ownerAllows } from '../../../../lib/server/plan'
+import { resolvePageAccess } from '../../../../lib/server/page-access'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 
 // Multi-page crawl (+ optional LLM extraction); allow headroom.
 export const maxDuration = 45
@@ -24,6 +26,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({} as any))
   const {
     url,
+    pageId,
     industry,
     targetBuyer,
     desiredAction,
@@ -33,6 +36,7 @@ export async function POST(request: Request) {
     clarifyingAnswers,
   } = body as {
     url?: string
+    pageId?: string
     industry?: string
     targetBuyer?: string
     desiredAction?: string
@@ -51,10 +55,35 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Website URL is required' }, { status: 400 })
   }
 
-  // LLM-assisted extraction + the auto agent-memory suggestion are `aiFeatures`
-  // (Launch+). Below that, run the deterministic crawl only (still a real,
-  // structured import) so Free users keep a working importer without the paid LLM.
-  const aiAllowed = await ownerAllows(supabase, user.id, 'aiFeatures')
+  // Collaboration: when a pageId is supplied, the action runs in the context of that
+  // page — an editor-collaborator inherits the PAGE OWNER's plan (so the AI path is
+  // gated on the owner's entitlement, not the logged-in collaborator's). When no
+  // pageId is supplied (e.g. the create flow before a page exists, or the standalone
+  // tools sandbox), keep the legacy self-gate. This route is stateless: it never
+  // reads or writes the owner's data, so no admin-scoped DB I/O beyond the gate.
+  let aiAllowed: boolean
+  if (pageId !== undefined && pageId !== null && String(pageId).trim() !== '') {
+    if (!hasSupabaseAdminEnv()) {
+      return NextResponse.json({ error: 'Server is not configured for this action.' }, { status: 503 })
+    }
+    const access = await resolvePageAccess({
+      pageId,
+      userId: user.id,
+      userEmail: user.email,
+      requireEditor: true,
+    })
+    if (!access) {
+      return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
+    }
+    // Gate on the OWNER's plan via the service-role client (the collaborator's
+    // session client cannot read the owner's billing_subscriptions row under RLS).
+    aiAllowed = await ownerAllows(createAdminClient(), access.ownerId, 'aiFeatures')
+  } else {
+    // LLM-assisted extraction + the auto agent-memory suggestion are `aiFeatures`
+    // (Launch+). Below that, run the deterministic crawl only (still a real,
+    // structured import) so Free users keep a working importer without the paid LLM.
+    aiAllowed = await ownerAllows(supabase, user.id, 'aiFeatures')
+  }
   const llmEnabled = isLlmConfigured() && aiAllowed
 
   // Phase 5 robustness: overall timeout guard so importer never hangs the request (per-fetch already timeout'd).

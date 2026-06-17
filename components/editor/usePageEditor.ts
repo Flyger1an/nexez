@@ -18,7 +18,6 @@ import {
   buildDraftContent,
   type EditorSaveInput,
 } from '../../lib/editor-merge'
-import { buildDuplicatePayload } from '../../lib/duplicate-page'
 import { draftToLiveUpdate } from '../../lib/draft'
 import { publishErrorMessage } from '../../lib/publish-error'
 import { optimizeAllOffersForAgents, enhanceDescriptionForAgents } from '../../lib/ai-optimize'
@@ -296,7 +295,7 @@ export function usePageEditor(initial: EditorInitial) {
       const res = await fetch('/api/tools/import-site', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: websiteUrl, industry }),
+        body: JSON.stringify({ url: websiteUrl, industry, pageId: page.id }),
       })
       const data = await res.json()
       if (!res.ok || !data.suggestedPage) {
@@ -334,7 +333,7 @@ export function usePageEditor(initial: EditorInitial) {
       const res = await fetch('/api/tools/import-site', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: websiteUrl, industry }),
+        body: JSON.stringify({ url: websiteUrl, industry, pageId: page.id }),
       })
       const data = await res.json()
       if (!res.ok || !data.structuredOffers) {
@@ -474,23 +473,23 @@ export function usePageEditor(initial: EditorInitial) {
   async function duplicateThisPage() {
     if (!page) return
     setMessage('Duplicating…')
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return
-    const { data: owned } = await supabase.from('pages').select('slug').eq('owner_id', user.id)
-    const slugs = (owned ?? []).map((p: { slug: string }) => p.slug)
-    const { data, error } = await supabase
-      .from('pages')
-      .insert(buildDuplicatePayload(page, user.id, slugs))
-      .select('id')
-      .single<{ id: string }>()
-    if (error || !data) {
-      setMessage(`Could not duplicate: ${error?.message ?? 'unknown error'}`)
-      return
+    // Server route: clones under the PAGE OWNER (so an editor-collaborator's copy lands
+    // in the owner's workspace, not the editor's own account). Authorizes owner/editor.
+    try {
+      const res = await fetch('/api/pages/duplicate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ pageId: page.id }),
+      })
+      const data = (await res.json().catch(() => ({}))) as { id?: string; error?: string }
+      if (!res.ok || !data.id) {
+        setMessage(`Could not duplicate: ${data.error ?? 'unknown error'}`)
+        return
+      }
+      window.location.href = `/dashboard/${data.id}`
+    } catch {
+      setMessage('Could not duplicate — try again.')
     }
-    window.location.href = `/dashboard/${data.id}`
   }
 
   // Gather per-provider request body, prompting for credentials when needed.

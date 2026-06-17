@@ -11,12 +11,17 @@ import {
 } from '../../../lib/vercel-domains'
 import { getOwnerPlanId } from '../../../lib/server/plan'
 import { getPlanLimits, planAllows } from '../../../lib/billing'
+import { resolvePageAccess } from '../../../lib/server/page-access'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 
 /**
- * A2 — Custom domain provisioning (owner-authed).
+ * A2 — Custom domain provisioning (owner OR editor-collaborator).
  *
  * POST { action: 'attach' | 'status' | 'remove', domain }
- * - Verifies the caller owns a page whose custom_domain === domain.
+ * - Resolves the page that uses this domain (service-role, by custom_domain) and
+ *   authorizes the caller as the page OWNER or a non-revoked EDITOR invitee via
+ *   resolvePageAccess. A collaborator inherits the page OWNER's plan + acts on the
+ *   OWNER's data.
  * - Attaches/inspects/removes the domain on the hosting provider (Vercel).
  * - Returns the derived connection-wizard state (Pending DNS → Verifying →
  *   SSL Issuing → Live), combining provider status + our DNS ownership proof.
@@ -55,17 +60,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  // Authorize: the user must own at least one page that uses this domain.
-  // (A domain may host several pages, so take the first match.)
-  const { data: pages } = await supabase
+  // All owner-scoped reads/writes go through the service-role client: a collaborator's
+  // session client cannot see the owner's rows under RLS, and resolvePageAccess is the
+  // authoritative (and only) authorization here.
+  if (!hasSupabaseAdminEnv()) {
+    return NextResponse.json({ error: 'Service unavailable' }, { status: 503 })
+  }
+  const admin = createAdminClient()
+
+  // Find the page that uses this domain authoritatively (service-role), by domain only —
+  // we NEVER trust an owner_id from the client. The resolved page id is then handed to
+  // resolvePageAccess, which authorizes the caller as the page's OWNER or a non-revoked
+  // EDITOR invitee. (A domain may host several pages, so take the first match.)
+  const { data: domainPages } = await admin
     .from('pages')
     .select('id, custom_domain, custom_domain_verified')
-    .eq('owner_id', user.id)
     .eq('custom_domain', domain)
     .limit(1)
     .returns<Array<{ id: string; custom_domain: string; custom_domain_verified: string | null }>>()
 
-  const page = pages?.[0]
+  const page = domainPages?.[0]
   if (!page) {
     return NextResponse.json(
       { error: 'No page you own uses this domain. Save the custom domain on the page first.' },
@@ -73,21 +87,31 @@ export async function POST(request: Request) {
     )
   }
 
-  // Plan gate: attaching a NEW custom domain requires Launch+ AND must stay within
-  // the plan's customDomains count. Status checks and removal stay open so a
-  // downgraded owner can still inspect/detach. (Free is already blocked by the
-  // boolean; the count caps Launch=1 / Pro=5 / Scale=25 / Enterprise=∞.)
+  const access = await resolvePageAccess({
+    pageId: page.id,
+    userId: user.id,
+    userEmail: user.email,
+    requireEditor: true,
+  })
+  if (!access) {
+    return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
+  }
+
+  // Plan gate ON THE OWNER (not the logged-in collaborator): attaching a NEW custom domain
+  // requires Launch+ AND must stay within the OWNER's plan customDomains count. Status
+  // checks and removal stay open so a downgraded owner can still inspect/detach. (Free is
+  // already blocked by the boolean; the count caps Launch=1 / Pro=5 / Scale=25 / Enterprise=∞.)
   if (action === 'attach') {
-    const planId = await getOwnerPlanId(supabase, user.id)
+    const planId = await getOwnerPlanId(admin, access.ownerId)
     if (!planAllows(planId, 'customDomain')) {
       return NextResponse.json({ error: 'Custom domains are available on the Launch plan and up.', upgrade: 'launch' }, { status: 402 })
     }
     const limit = getPlanLimits(planId).customDomains
     if (Number.isFinite(limit)) {
-      const { data: owned } = await supabase
+      const { data: owned } = await admin
         .from('pages')
         .select('custom_domain')
-        .eq('owner_id', user.id)
+        .eq('owner_id', access.ownerId)
         .not('custom_domain', 'is', null)
         .neq('custom_domain', domain)
         .returns<Array<{ custom_domain: string | null }>>()

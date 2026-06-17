@@ -5,31 +5,55 @@ import { createClient } from '../../../utils/supabase/server'
 import { reviewCredential } from '../../../lib/credential-review'
 import type { CredentialRecord } from '../../../lib/agent-page'
 import { ownerAllows } from '../../../lib/server/plan'
+import { resolvePageAccess } from '../../../lib/server/page-access'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 
 // Owner-managed, LLM-reviewed credentials for a page. Files live in the private
 // `credentials` bucket; the record (with the review verdict) is stored in
 // pages.verification_details.docs_provided. Only status 'verified' boosts the
-// trust score (see getTrustScore). All actions are gated to the page owner.
+// trust score (see getTrustScore). All actions are authorized for the page OWNER
+// OR a non-revoked editor-collaborator (via resolvePageAccess), and then act AS the
+// owner (owner's plan + owner's data) using the service-role client.
 
 const BUCKET = 'credentials'
 const MAX_BYTES = 8 * 1024 * 1024
 const ALLOWED = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'application/pdf'])
 
-async function authedOwner(pageId: string) {
+type AuthedOwner =
+  | { error: NextResponse }
+  | { admin: any; user: any; access: { pageId: string; ownerId: string }; page: any }
+
+// Authorize the caller as owner-or-editor for `pageId`, then hand back the
+// service-role client + the resolved OWNER id + the owner's page row. A
+// collaborator's session client cannot read/write the owner's rows under RLS,
+// so every owner-scoped read/write below goes through `admin`.
+async function authedOwner(pageId: string): Promise<AuthedOwner> {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: NextResponse.json({ error: 'Not authenticated' }, { status: 401 }) }
-  const { data: page } = await supabase
+  if (!hasSupabaseAdminEnv()) return { error: NextResponse.json({ error: 'unavailable' }, { status: 503 }) }
+
+  const access = await resolvePageAccess({
+    pageId,
+    userId: user.id,
+    userEmail: user.email,
+    requireEditor: true,
+  })
+  if (!access) return { error: NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 }) }
+
+  const admin = createAdminClient()
+  // Ownership already proven by resolvePageAccess — load the trusted page row by id
+  // (service-role, no owner_id filter needed since access.pageId is authoritative).
+  const { data: page } = await admin
     .from('pages')
     .select('id, owner_id, name, industry, location, verification_details')
-    .eq('id', pageId)
-    .eq('owner_id', user.id)
+    .eq('id', access.pageId)
     .maybeSingle()
   if (!page) return { error: NextResponse.json({ error: 'Page not found, or you do not own it.' }, { status: 403 }) }
-  return { supabase, user, page: page as any }
+  return { admin, user, access, page: page as any }
 }
 
 function docsOf(page: any): Array<string | CredentialRecord> {
@@ -37,12 +61,12 @@ function docsOf(page: any): Array<string | CredentialRecord> {
   return Array.isArray(docs) ? docs : []
 }
 
-async function saveDocs(supabase: any, pageId: string, ownerId: string, page: any, docs: Array<string | CredentialRecord>) {
+async function saveDocs(admin: any, pageId: string, ownerId: string, page: any, docs: Array<string | CredentialRecord>) {
   const updated = { ...(page.verification_details || {}), docs_provided: docs, last_updated: new Date().toISOString() }
-  return supabase.from('pages').update({ verification_details: updated }).eq('id', pageId).eq('owner_id', ownerId)
+  return admin.from('pages').update({ verification_details: updated }).eq('id', pageId).eq('owner_id', ownerId)
 }
 
-export async function POST(request: Request) {
+export async function POST(request: Request): Promise<NextResponse> {
   let form: FormData
   try {
     form = await request.formData()
@@ -57,20 +81,23 @@ export async function POST(request: Request) {
 
   const ctx = await authedOwner(pageId)
   if ('error' in ctx) return ctx.error
-  const { supabase, user, page } = ctx
+  const { admin, access, page } = ctx
 
   const bytes = new Uint8Array(await file.arrayBuffer())
   const id = crypto.randomUUID()
   const ext = file.type === 'application/pdf' ? 'pdf' : file.type.split('/')[1] === 'jpeg' ? 'jpg' : file.type.split('/')[1] || 'bin'
-  const path = `${user.id}/${pageId}/${id}.${ext}`
+  // Group the stored file under the OWNER (whose data this is), not the acting
+  // collaborator, so the file lives with the page it belongs to.
+  const path = `${access.ownerId}/${access.pageId}/${id}.${ext}`
 
-  const up = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type, upsert: false })
+  const up = await admin.storage.from(BUCKET).upload(path, file, { contentType: file.type, upsert: false })
   if (up.error) return NextResponse.json({ error: `Upload failed: ${up.error.message}` }, { status: 500 })
 
-  // Plan gate: LLM credential review is an AI feature (Launch+). Below that the file
-  // is still stored + listed, but stays 'pending' (no trust boost) — same fail-safe
-  // shape as a failed review, with a reason that nudges the upgrade.
-  const aiAllowed = await ownerAllows(supabase, user.id, 'aiFeatures')
+  // Plan gate (on the OWNER, not the acting collaborator): LLM credential review is
+  // an AI feature (Launch+). Below that the file is still stored + listed, but stays
+  // 'pending' (no trust boost) — same fail-safe shape as a failed review, with a
+  // reason that nudges the upgrade.
+  const aiAllowed = await ownerAllows(admin, access.ownerId, 'aiFeatures')
   // Fail-safe: any review failure → pending (never verified), so the file is
   // stored + listed but does not boost trust until it actually passes review.
   const review = aiAllowed
@@ -94,15 +121,15 @@ export async function POST(request: Request) {
     reviewed_at: new Date().toISOString(),
   }
 
-  const { error } = await saveDocs(supabase, pageId, user.id, page, [...docsOf(page), record])
+  const { error } = await saveDocs(admin, access.pageId, access.ownerId, page, [...docsOf(page), record])
   if (error) {
-    await supabase.storage.from(BUCKET).remove([path]).catch(() => {})
+    await admin.storage.from(BUCKET).remove([path]).catch(() => {})
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
   return NextResponse.json({ credential: record }, { status: 201 })
 }
 
-export async function PATCH(request: Request) {
+export async function PATCH(request: Request): Promise<NextResponse> {
   let body: { pageId?: string; id?: string; public?: boolean }
   try {
     body = await request.json()
@@ -112,29 +139,29 @@ export async function PATCH(request: Request) {
   if (!body.pageId || !body.id) return NextResponse.json({ error: 'pageId and id are required.' }, { status: 400 })
   const ctx = await authedOwner(body.pageId)
   if ('error' in ctx) return ctx.error
-  const { supabase, user, page } = ctx
+  const { admin, access, page } = ctx
 
   const docs = docsOf(page).map((d) =>
     typeof d === 'object' && d?.id === body.id ? { ...d, public: Boolean(body.public) } : d,
   )
-  const { error } = await saveDocs(supabase, body.pageId, user.id, page, docs)
+  const { error } = await saveDocs(admin, access.pageId, access.ownerId, page, docs)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }
 
-export async function DELETE(request: Request) {
+export async function DELETE(request: Request): Promise<NextResponse> {
   const url = new URL(request.url)
   const pageId = url.searchParams.get('pageId') || ''
   const id = url.searchParams.get('id') || ''
   if (!pageId || !id) return NextResponse.json({ error: 'pageId and id are required.' }, { status: 400 })
   const ctx = await authedOwner(pageId)
   if ('error' in ctx) return ctx.error
-  const { supabase, user, page } = ctx
+  const { admin, access, page } = ctx
 
   const target = docsOf(page).find((d) => typeof d === 'object' && d?.id === id) as CredentialRecord | undefined
   const remaining = docsOf(page).filter((d) => !(typeof d === 'object' && d?.id === id))
-  const { error } = await saveDocs(supabase, pageId, user.id, page, remaining)
+  const { error } = await saveDocs(admin, access.pageId, access.ownerId, page, remaining)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (target?.file_path) await supabase.storage.from(BUCKET).remove([target.file_path]).catch(() => {})
+  if (target?.file_path) await admin.storage.from(BUCKET).remove([target.file_path]).catch(() => {})
   return NextResponse.json({ ok: true })
 }
