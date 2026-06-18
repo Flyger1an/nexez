@@ -5,6 +5,7 @@ import {
   PUBLIC_PAGE_SELECT,
   getCheckoutOffer,
   getCheckoutOfferKey,
+  getBaseUrl,
   getRequestBaseUrl,
 } from '../../../lib/agent-page'
 import { parseMoneyCents } from '../../../lib/checkout'
@@ -70,13 +71,14 @@ async function getPublishedPage(slug: string) {
 export async function POST(request: Request) {
   const wantsJson = request.headers.get('accept')?.includes('application/json')
   const input = await readNegotiationInput(request)
-  const baseUrl = getRequestBaseUrl(request)
 
   // Cap untrusted buyer fields at the single entry point — this bounds both the
   // persisted message log and the LLM prompt (prompt-stuffing / cost guard, and
   // limits what an injection payload can carry). Done before rate limiting so the
   // per-agent key uses the capped buyerAgent.
   Object.assign(input, sanitizeBuyerInput(input))
+
+  let baseUrl = getBaseUrl();
 
   // Layered quotas (per IP + per page + per agent) — keyed on the parsed input so
   // one page or one named agent can't dominate. Done after parsing so we have slug.
@@ -92,9 +94,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Negotiation page not found.' }, { status: 404 })
   }
 
+  // Prefer verified custom domain base when the request host matches (for branding in agent contract), else the hardened canonical.
+  if (page.custom_domain && page.custom_domain_verified) {
+    const reqHost = (request.headers.get('host') || '').split(':')[0]
+    if (reqHost === page.custom_domain || reqHost === `www.${page.custom_domain}`) {
+      // re-assign for this response; note: getRequestBaseUrl already sanitized the host
+    }
+  }
+
   const offer = getCheckoutOffer(page, input.offer)
   if (!offer) {
     return NextResponse.json({ error: 'Negotiation offer not found.' }, { status: 404 })
+  }
+
+  // Custom domain preference for response URLs (after page is fetched so we have verified domain).
+  // Use verified custom when the request arrived on it; otherwise the hardened canonical.
+  if (page.custom_domain && page.custom_domain_verified) {
+    const reqHost = (request.headers.get('host') || '').split(':')[0]
+    if (reqHost === page.custom_domain || reqHost === `www.${page.custom_domain}`) {
+      baseUrl = `https://${page.custom_domain}${page.domain_path || ''}`.replace(/\/$/, '')
+    }
   }
 
   // Plan gate: negotiation (make-an-offer + smart-pricing rules) is a Pro feature.

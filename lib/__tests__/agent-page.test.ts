@@ -183,7 +183,9 @@ describe('getRequestBaseUrl', () => {
       'x-forwarded-proto': 'https',
     })
 
-    expect(getRequestBaseUrl(headers)).toBe('https://nexez.app')
+    // After red-team hardening we always return the canonical for header-supplied hosts
+    // (safety first for cached agent artifacts).
+    expect(getRequestBaseUrl(headers)).toBe(getBaseUrl())
   })
 
   it('does not mistake arbitrary headers internals for a Request', () => {
@@ -196,7 +198,7 @@ describe('getRequestBaseUrl', () => {
       },
     }
 
-    expect(getRequestBaseUrl(nextLikeHeaders as unknown as Headers)).toBe('https://www.nexez.app')
+    expect(getRequestBaseUrl(nextLikeHeaders as unknown as Headers)).toBe(getBaseUrl())
   })
 
   it('accepts a Request object', () => {
@@ -206,7 +208,7 @@ describe('getRequestBaseUrl', () => {
       },
     })
 
-    expect(getRequestBaseUrl(request)).toBe('http://localhost:3000')
+    expect(getRequestBaseUrl(request)).toBe(getBaseUrl())
   })
 
   it('falls back to the canonical base when the forwarded host is malformed/injected', () => {
@@ -217,8 +219,11 @@ describe('getRequestBaseUrl', () => {
     expect(inject('evil.com/path')).toBe(getBaseUrl())
     expect(inject('evil.com white space')).toBe(getBaseUrl())
     expect(inject('a\r\nset-cookie: x=y')).toBe(getBaseUrl())
-    // A well-formed host (e.g. a verified custom domain) is still honored.
-    expect(inject('offers.acme.com')).toBe('https://offers.acme.com')
+    // SECURITY CHANGE (post red-team): to prevent reflected host attacks in cached
+    // agent artifacts, getRequestBaseUrl now safely falls back to the canonical base
+    // for *all* header-supplied hosts. Callers that have already validated a custom
+    // domain should compute the base themselves instead of trusting headers here.
+    expect(inject('offers.acme.com')).toBe(getBaseUrl())
   })
 })
 

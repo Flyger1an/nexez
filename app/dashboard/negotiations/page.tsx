@@ -167,9 +167,8 @@ export default function NegotiationsInbox() {
     }
   }
 
-  // Set/adjust the agreed amount before placing an escrow hold. Owner-direct
-  // (RLS-scoped). The engine sets this on accept/counter; this lets the owner
-  // confirm or override it.
+  // Set/adjust the agreed amount before placing an escrow hold.
+  // Now routed through server API (was previously direct client write — major safety win).
   async function saveAmount(item: AgentNegotiation, dollars: number) {
     setMessage('')
     const cents = Math.round(dollars * 100)
@@ -178,19 +177,24 @@ export default function NegotiationsInbox() {
       return
     }
     setUpdatingId(item.id)
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('agent_negotiations')
-      .update({ amount_cents: cents, updated_at: new Date().toISOString() })
-      .eq('id', item.id)
-
-    if (error) {
-      setMessage(`Could not save amount: ${error.message}`)
-    } else {
-      setNegotiations((prev) => prev.map((n) => (n.id === item.id ? { ...n, amount_cents: cents } : n)))
-      setMessage(`Agreed amount set to ${formatNegotiationAmount(cents, item.currency)}.`)
+    try {
+      const res = await fetch('/api/negotiations/transition', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ negotiationId: item.id, amountCents: cents }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setMessage(data.error || 'Could not save amount.')
+      } else {
+        setNegotiations((prev) => prev.map((n) => (n.id === item.id ? { ...n, amount_cents: cents } : n)))
+        setMessage(`Agreed amount set to ${formatNegotiationAmount(cents, item.currency)}.`)
+      }
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Could not save amount.')
+    } finally {
+      setUpdatingId(null)
     }
-    setUpdatingId(null)
   }
 
   // Owner escrow actions via /api/negotiations/escrow (the BUYER funds the hold).
@@ -629,7 +633,6 @@ function NegotiationCard({
                 const reasoning = (formData.get('reasoning') as string) || 'Manual owner response.'
                 const internalNotes = (formData.get('internal_notes') as string) || undefined
 
-                const supabase = createClient()
                 const content: any = { action, reasoning }
                 if (internalNotes) content.internal_notes = internalNotes
 
@@ -646,27 +649,38 @@ function NegotiationCard({
                   if (q) content.questions = q.split(',').map((s) => s.trim()).filter(Boolean)
                 }
 
-                // Insert manual owner message into the dedicated table
-                await supabase.from('negotiation_messages').insert({
-                  negotiation_id: item.id,
-                  role: 'seller_owner',
-                  content,
+                // Route through server API (eliminates direct client write bypass)
+                const res = await fetch('/api/negotiations/transition', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({
+                    negotiationId: item.id,
+                    ownerMessage: {
+                      action,
+                      reasoning,
+                      ...(action === 'counter' && !isNaN(parseFloat(formData.get('proposed_price') as string))
+                        ? { proposed_price: parseFloat(formData.get('proposed_price') as string) }
+                        : {}),
+                      ...(formData.get('proposed_date') ? { proposed_date: formData.get('proposed_date') as string } : {}),
+                      ...(formData.get('scope_notes') ? { scope_notes: formData.get('scope_notes') as string } : {}),
+                      ...(action === 'clarify' && formData.get('clarification_questions')
+                        ? { questions: (formData.get('clarification_questions') as string).split(',').map((s) => s.trim()).filter(Boolean) }
+                        : {}),
+                      ...(internalNotes ? { internal_notes: internalNotes } : {}),
+                    },
+                  }),
                 })
-
-                // Map action to status and update the negotiation (owner can do this directly)
-                let newStatus: NegotiationStatus = item.status
-                if (action === 'accept') newStatus = 'agreement_proposed'
-                else if (action === 'reject' || action === 'declined') newStatus = 'declined'
-                else if (action === 'counter') newStatus = 'negotiation' // or 'agreement_proposed' if you prefer
-
-                await supabase
-                  .from('agent_negotiations')
-                  .update({ status: newStatus, updated_at: new Date().toISOString() })
-                  .eq('id', item.id)
-
-                form.reset()
-                if (onRefresh) onRefresh()
-                else window.location.reload() // simple refresh for the inbox list
+                const data = await res.json().catch(() => ({}))
+                if (!res.ok) {
+                  // setMessage may not be in this exact closure after refactor — use console + parent refresh
+                  console.error('Manual owner response failed:', data.error)
+                  if (onRefresh) onRefresh()
+                  else window.location.reload()
+                } else {
+                  form.reset()
+                  if (onRefresh) onRefresh()
+                  else window.location.reload()
+                }
               }}
             >
               <div className="flex gap-2">

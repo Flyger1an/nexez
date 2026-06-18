@@ -40,8 +40,16 @@ export type CurrencyFinanceRow = {
 /**
  * Per-currency financial roll-up: GMV, order count, Nexez commission (derived
  * from the current plan rate), net-to-seller, and AOV. Sorted by GMV desc.
- * NOTE: the commission is DERIVED (gmv × current rate), not the historical
- * application_fee charged at the time of sale (which isn't stored on events).
+ *
+ * SECURITY / AUDIT NOTE (red-team finding):
+ * Commission is currently **derived from the owner's *current* plan** at read time.
+ * Historical `application_fee` that was actually charged is only partially stored
+ * (on checkout_orders via metadata in some paths). This can make past periods
+ * look better/worse after plan changes.
+ *
+ * TODO (post-audit): Snapshot commission_percent + application_fee_cents at charge
+ * time into checkout_events and agent_negotiations. Use the snapshot for historical
+ * reporting. See 2026-06 red-team audit.
  */
 export function rollupFinanceByCurrency(events: CheckoutEvent[], commissionPct: number): CurrencyFinanceRow[] {
   const map = new Map<string, { gmvCents: number; orders: number }>()

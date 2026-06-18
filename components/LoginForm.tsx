@@ -387,7 +387,7 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
                     checked={agree}
                     onChange={(e) => setAgree(e.target.checked)}
                     disabled={!hydrated || loading}
-                    className="mt-0.5 size-4 rounded border-border bg-black accent-white"
+                    className="mt-0.5 size-4 rounded border-border bg-[var(--fill-1)] accent-[var(--signal)]"
                   />
                   <span>
                     I agree to the <a href="/terms" className="text-white underline decoration-white/30 underline-offset-4 hover:decoration-white">Terms of Service</a> and{' '}
@@ -490,4 +490,4 @@ function Benefit({ icon, title, text }: { icon: React.ReactNode; title: string; 
 }
 
 const inputClass =
-  'w-full rounded-md border border-border bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-zinc-500'
+  'w-full rounded-md border border-border bg-[var(--fill-1)] px-3 py-2.5 text-sm text-[var(--fg)] placeholder:text-[var(--fg-muted)] outline-none transition focus:border-[var(--signal)]'

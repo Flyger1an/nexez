@@ -44,7 +44,14 @@ export async function GET(
   // Log the MCP manifest fetch as agent traffic (non-blocking).
   after(() => logAgentPageView({ page, requestHeaders: request.headers, url: request.url }))
 
-  const base = getRequestBaseUrl(request)
+  // Prefer verified custom domain base when request host matches, else hardened canonical (prevents arbitrary reflection).
+  let base = getRequestBaseUrl(request)
+  if (page.custom_domain && page.custom_domain_verified) {
+    const reqHost = (request.headers.get('host') || '').split(':')[0]
+    if (reqHost === page.custom_domain || reqHost === `www.${page.custom_domain}`) {
+      base = `https://${page.custom_domain}${page.domain_path || ''}`.replace(/\/$/, '')
+    }
+  }
   const negotiationAllowed = await resolveNegotiationAllowed(page)
   const payload = buildAgentPagePayload(page, base, { negotiationAllowed })
 

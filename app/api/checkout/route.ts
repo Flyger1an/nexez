@@ -98,7 +98,12 @@ export async function POST(request: Request) {
     }
   }
 
-  const baseUrl = getRequestBaseUrl(request)
+  // Prefer verified custom domain base when the request host matches, else hardened canonical (prevents arbitrary XFH reflection).
+  // Prefer verified custom domain base when the request host matches, else hardened canonical (prevents arbitrary XFH reflection).
+  let baseUrl = getRequestBaseUrl(request)
+  // Note: page not yet fetched here; custom base resolved post-fetch in artifact routes where branding matters most.
+  // Note: page not yet fetched here; custom base would be resolved in caller if needed for per-page branding.
+  // For now, canonical is safe default for transactional URLs.
   const checkoutUrl = `${baseUrl}/checkout/${page.slug}?offer=${offerKey}`
   const successUrl = `${baseUrl}/checkout/${page.slug}/success?session_id={CHECKOUT_SESSION_ID}&offer=${offerKey}`
   const destination = getOfferDestination(page, offer)

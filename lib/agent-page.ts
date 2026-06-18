@@ -597,15 +597,21 @@ export function getRequestBaseUrl(input: Request | HeaderGetter) {
     maybeHeaders && typeof (maybeHeaders as HeaderGetter).get === 'function'
       ? (maybeHeaders as HeaderGetter)
       : (input as HeaderGetter)
+
   const forwardedHost = source.get('x-forwarded-host')?.split(',')[0]?.trim()
   const host = forwardedHost || source.get('host')?.split(',')[0]?.trim()
 
+  // SECURITY: Never reflect an arbitrary or unverified host into agent-facing URLs
+  // (agent.json, mcp.json, llms.txt, status links, checkout, etc.).
+  // Only accept hosts that are explicitly first-party platform hosts or a page's
+  // verified custom domain (caller must have already validated that).
   if (!host || !VALID_HOST_RE.test(host)) return getBaseUrl()
 
-  const forwardedProto = source.get('x-forwarded-proto')?.split(',')[0]?.trim()
-  const proto = forwardedProto || (host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https')
-
-  return `${proto}://${host}`
+  // For safety, default to the canonical runtime base for any host we don't
+  // explicitly recognize as safe in this context. Callers that have a verified
+  // custom domain should pass a pre-resolved base instead of relying on headers.
+  // This prevents cache poisoning and phishing via reflected X-Forwarded-Host.
+  return getBaseUrl()
 }
 
 /**

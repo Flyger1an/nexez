@@ -190,7 +190,7 @@ export function SupportDesk() {
             <select
               value={target}
               onChange={(event) => setTarget(event.target.value)}
-              className="h-11 w-full rounded-md border border-border bg-black/40 px-3 text-sm text-white outline-none focus:border-zinc-500"
+              className="h-11 w-full rounded-md border border-border bg-[var(--fill-1)] px-3 text-sm text-white outline-none focus:border-zinc-500"
             >
               <option value="workspace">Workspace / account</option>
               {pages.map((page) => (
@@ -207,7 +207,7 @@ export function SupportDesk() {
             <select
               value={category}
               onChange={(event) => setCategory(event.target.value)}
-              className="h-11 w-full rounded-md border border-border bg-black/40 px-3 text-sm text-white outline-none focus:border-zinc-500"
+              className="h-11 w-full rounded-md border border-border bg-[var(--fill-1)] px-3 text-sm text-white outline-none focus:border-zinc-500"
             >
               {categories.map((item) => (
                 <option key={item.value} value={item.value}>
@@ -223,7 +223,7 @@ export function SupportDesk() {
               <input
                 value={reference}
                 onChange={(event) => setReference(event.target.value)}
-                className="h-11 w-full rounded-md border border-border bg-black/40 px-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500"
+                className="h-11 w-full rounded-md border border-border bg-[var(--fill-1)] px-3 text-sm text-white outline-none placeholder:text-[var(--fg-muted)] focus:border-zinc-500"
                 placeholder="Negotiation/order id or Stripe session — helps us trace it"
               />
             </label>
@@ -234,7 +234,7 @@ export function SupportDesk() {
             <input
               value={subject}
               onChange={(event) => setSubject(event.target.value)}
-              className="h-11 w-full rounded-md border border-border bg-black/40 px-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500"
+              className="h-11 w-full rounded-md border border-border bg-[var(--fill-1)] px-3 text-sm text-white outline-none placeholder:text-[var(--fg-muted)] focus:border-zinc-500"
               placeholder="Short issue title"
             />
           </label>
@@ -244,7 +244,7 @@ export function SupportDesk() {
             <select
               value={priority}
               onChange={(event) => setPriority(event.target.value)}
-              className="h-11 w-full rounded-md border border-border bg-black/40 px-3 text-sm text-white outline-none focus:border-zinc-500"
+              className="h-11 w-full rounded-md border border-border bg-[var(--fill-1)] px-3 text-sm text-white outline-none focus:border-zinc-500"
             >
               <option value="low">Low</option>
               <option value="normal">Normal</option>
@@ -259,7 +259,7 @@ export function SupportDesk() {
           <textarea
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="min-h-36 w-full rounded-md border border-border bg-black/40 px-3 py-3 text-sm leading-6 text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500"
+            className="min-h-36 w-full rounded-md border border-border bg-[var(--fill-1)] px-3 py-3 text-sm leading-6 text-white outline-none placeholder:text-[var(--fg-muted)] focus:border-zinc-500"
             placeholder="Example: Claude can open my page but does not see the booking link for my strategy session."
           />
         </label>

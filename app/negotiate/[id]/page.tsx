@@ -5,7 +5,7 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/
 import { Handshake, Clock, Bot, User } from 'lucide-react'
 import { formatNegotiationAmount } from '../../../lib/negotiations'
 import { isPayable } from '../../../lib/settlement'
-import { sanitizeAgentDecision } from '../../../lib/negotiation-sanitize'
+import { sanitizeAgentDecision, sanitizeNegotiationMessageContent } from '../../../lib/negotiation-sanitize'
 import PendingPoller from './PendingPoller'
 
 /**
@@ -63,6 +63,7 @@ function sanitizeTurn(turn: any, isOwner: boolean) {
     const { rules: _rules, ...proposalSafe } = content.proposal
     content = { ...content, proposal: proposalSafe }
   }
+  if (content && !isOwner) content = sanitizeNegotiationMessageContent(content)
   return { ...turn, content, decision: sanitizeDecision(turn.decision, isOwner) }
 }
 

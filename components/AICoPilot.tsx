@@ -162,7 +162,7 @@ export function AICoPilot({
   }
 
   return (
-    <div className="rounded-xl border border-[var(--signal)]/30 bg-[#1A1625] p-4">
+    <div className="rounded-xl border border-[var(--signal)]/30 bg-[var(--panel)] p-4">
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="size-4 text-[var(--signal)]" />
         <span className="font-semibold text-[var(--signal)]">AI Co-Pilot</span>
@@ -183,7 +183,7 @@ export function AICoPilot({
         <div className="grid md:grid-cols-2 gap-4 text-sm">
           <div>
             <div className="uppercase tracking-widest text-xs text-zinc-400 mb-1">Current (first few)</div>
-            <div className="bg-black/40 p-2 rounded text-xs overflow-auto max-h-28 space-y-1">
+            <div className="bg-[var(--fill-1)] p-2 rounded text-xs overflow-auto max-h-28 space-y-1">
               {servicesOffers.slice(0,2).map((o,i) => <div key={i}><span className="text-zinc-500">{o.name}:</span> {o.description}</div>)}
               {productsOffers.slice(0,1).map((o,i) => <div key={'p'+i}><span className="text-zinc-500">{o.name}:</span> {o.description}</div>)}
             </div>
@@ -202,7 +202,7 @@ export function AICoPilot({
       {activeTab === 'pricing' && (
         <div>
           <div className="text-sm">{pricingSuggestion.suggestion}</div>
-          <pre className="mt-2 bg-black/40 p-2 text-xs overflow-auto">{JSON.stringify(pricingSuggestion.exampleTiers, null, 2)}</pre>
+          <pre className="mt-2 bg-[var(--fill-1)] p-2 text-xs overflow-auto">{JSON.stringify(pricingSuggestion.exampleTiers, null, 2)}</pre>
           <button onClick={applyPricingTiers} className="mt-2 text-xs rounded bg-[var(--ready)] px-3 py-1 text-zinc-950">Apply tiers</button>
           <div className="mt-1 text-[10px] text-zinc-500">Edit further in builder.</div>
         </div>

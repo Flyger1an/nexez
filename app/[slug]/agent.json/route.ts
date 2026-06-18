@@ -27,8 +27,19 @@ export async function GET(request: Request, { params }: RouteProps) {
   // HTML page). Log the visit non-blocking so it counts toward agent traffic.
   after(() => logAgentPageView({ page, requestHeaders: request.headers, url: request.url }))
 
+  // Compute base preferring the page's verified custom domain when the request
+  // is arriving on it (for brand-correct identity in the agent contract), falling
+  // back to the hardened canonical base otherwise (prevents arbitrary XFH reflection).
+  let baseForPayload = getRequestBaseUrl(request)
+  if (page.custom_domain && page.custom_domain_verified) {
+    const reqHost = (request.headers.get('host') || '').split(':')[0]
+    if (reqHost === page.custom_domain || reqHost === `www.${page.custom_domain}`) {
+      baseForPayload = `https://${page.custom_domain}${page.domain_path || ''}`.replace(/\/$/, '')
+    }
+  }
+
   const negotiationAllowed = await resolveNegotiationAllowed(page)
-  const payload = buildAgentPagePayload(page, getRequestBaseUrl(request), { negotiationAllowed })
+  const payload = buildAgentPagePayload(page, baseForPayload, { negotiationAllowed })
   return Response.json(payload, {
     headers: {
       'Cache-Control': 'public, max-age=120, s-maxage=300',

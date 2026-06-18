@@ -122,7 +122,7 @@ export default function EmbeddedPlanSelector({ activePlanId, stripeReady, initia
           return (
             <div 
               key={plan.id} 
-              className={`group relative rounded-2xl border p-6 transition-all ${isSelected ? 'border-[var(--signal)] bg-[#1A1625] ring-1 ring-[var(--signal)]/30' : 'border-white/10 bg-[#12101B] hover:border-white/20'}`}
+              className={`group relative rounded-2xl border p-6 transition-all ${isSelected ? 'border-[var(--signal)] bg-[var(--panel)] ring-1 ring-[var(--signal)]/30' : 'border-white/10 bg-[#12101B] hover:border-white/20'}`}
             >
               <div>
                 <div className="flex items-center justify-between">
