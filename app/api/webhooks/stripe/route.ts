@@ -17,6 +17,7 @@ import {
   hasEmailEnv,
   sendEmail,
 } from '../../../../lib/email'
+import { sendPushToEmail } from '../../../../lib/push'
 import { resolveOwnerNotifyEmail } from '../../../../lib/server/owner-email'
 import { sendOnceSystemEmail } from '../../../../lib/server/system-email'
 
@@ -196,6 +197,11 @@ export async function POST(request: NextRequest) {
             manageUrl: `${getBaseUrl()}/orders/${token}`,
           })
           await sendEmail({ to: buyerEmail, subject: mail.subject, html: mail.html, text: mail.text })
+          await sendPushToEmail(buyerEmail, {
+            title: 'Payment confirmed',
+            body: `Your payment to ${page?.name || negotiation.slug || 'the seller'} is confirmed.`,
+            data: { type: 'negotiation', token, status: 'paid' },
+          })
         })
       }
       return NextResponse.json({ received: true, type: event.type, negotiation: session.metadata.nexez_negotiation_id, status: nextStatus, ok: true }, { status: 200 })
@@ -271,6 +277,11 @@ export async function POST(request: NextRequest) {
             manageUrl: `${getBaseUrl()}/orders/${row.access_token}`,
           })
           await sendEmail({ to: buyerEmail, subject: mail.subject, html: mail.html, text: mail.text })
+          await sendPushToEmail(buyerEmail, {
+            title: 'Booking confirmed',
+            body: `Your purchase from ${page?.name || orderRow.slug || 'the seller'} is confirmed.`,
+            data: { type: 'order', token: row.access_token, status: 'paid' },
+          })
         })
       }
       if (hasEmailEnv() && orderRow.page_id) {
@@ -462,6 +473,11 @@ export async function POST(request: NextRequest) {
             manageUrl: `${getBaseUrl()}/orders/${token}`,
           })
           await sendEmail({ to: buyerTo, subject: mail.subject, html: mail.html, text: mail.text })
+          await sendPushToEmail(buyerTo, {
+            title: bn.kind === 'partial_refund' ? 'Partial refund' : bn.kind === 'dispute_update' ? 'Order update' : 'Refund processed',
+            body: `Update on your purchase from ${page?.name || order.slug || 'the seller'}.`,
+            data: { type: 'order', token, status: bn.kind },
+          })
         })
       }
       return NextResponse.json({ received: true, type: event.type, order: order.id, status: oUpdate.status }, { status: 200 })
@@ -562,6 +578,11 @@ export async function POST(request: NextRequest) {
           manageUrl: `${getBaseUrl()}/orders/${token}`,
         })
         await sendEmail({ to: buyerTo, subject: mail.subject, html: mail.html, text: mail.text })
+        await sendPushToEmail(buyerTo, {
+          title: bn.kind === 'partial_refund' ? 'Partial refund' : bn.kind === 'dispute_update' ? 'Deal update' : 'Refund processed',
+          body: `Update on your agreement with ${page?.name || neg.slug || 'the seller'}.`,
+          data: { type: 'negotiation', token, status: bn.kind },
+        })
       })
     }
     return NextResponse.json({ received: true, type: event.type, negotiation: neg.id, status: update.status }, { status: 200 })

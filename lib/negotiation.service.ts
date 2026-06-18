@@ -12,6 +12,7 @@ import { isTerminalNegotiationStatus, type NegotiationStatus } from './negotiati
 import { parseMoney } from './checkout';
 import { normalizeCurrency } from './currency';
 import { parseBuyerIdentity } from './buyer-identity';
+import { sendPushToEmail } from './push';
 
 /**
  * Core Negotiation Service - the brain of the Intelligent Negotiation Engine.
@@ -206,7 +207,7 @@ export class NegotiationService {
       .eq('id', id)
       .eq('decision_pending', true)
       .or(`decision_claimed_at.is.null,decision_claimed_at.lt.${leaseCutoff}`)
-      .select('id, slug, offer_key, status, status_token, amount_cents, decision_seq, metadata');
+      .select('id, slug, offer_key, status, status_token, amount_cents, decision_seq, metadata, buyer_email, offer_name');
 
     if (error) {
       captureError(new Error('claim decision failed'), { negotiationId: id, dbError: (error as { message?: string }).message });
@@ -302,6 +303,33 @@ export class NegotiationService {
 
     const nextSeq = (Number(negotiation.decision_seq) || 0) + 1;
     await this.persistDecision(negotiation.id, newStatus, sellerTurn, llmDecision, rulesEval, agreedAmountCents, settlementState, nextSeq);
+
+    // Push the buyer's device(s) that the seller responded — the async loop that
+    // makes Nexie useful. Best-effort + isolated: a push failure must never affect
+    // the decision that just persisted.
+    try {
+      await this.notifyBuyerDecision(negotiation, llmDecision.action);
+    } catch (e) {
+      captureError(e instanceof Error ? e : new Error(String(e)), { negotiationId: negotiation.id, phase: 'notifyBuyerDecision' });
+    }
+  }
+
+  /** Best-effort push to the buyer when the seller accepts / counters / declines. */
+  private async notifyBuyerDecision(negotiation: any, action: string): Promise<void> {
+    const email: string | null = negotiation.buyer_email || null;
+    if (!email) return;
+    const what = negotiation.offer_name || negotiation.slug || 'your request';
+    const messages: Record<string, { title: string; body: string }> = {
+      accept: { title: 'Offer accepted', body: `The seller accepted your offer on ${what}.` },
+      counter: { title: 'New counter-offer', body: `The seller countered your offer on ${what}.` },
+      decline: { title: 'Offer declined', body: `The seller declined your offer on ${what}.` },
+    };
+    const msg = messages[action];
+    if (!msg) return; // 'review' / other non-buyer-actionable outcomes: no push
+    await sendPushToEmail(email, {
+      ...msg,
+      data: { type: 'negotiation', negotiationId: negotiation.id, token: negotiation.status_token, status: action },
+    });
   }
 
   /** Last-resort seller turn when the decision couldn't be produced at all. */
