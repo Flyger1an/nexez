@@ -20,6 +20,15 @@ describe('buildAgentPagePayload', () => {
     expect(payload.page.slug).toBe('acme')
   })
 
+  it('surfaces a resolved preferred-contact block (derived) on the page', () => {
+    // fixture has only website_url → derived channel is website
+    expect(payload.page.contact).toEqual({ preferred: 'website', value: 'https://acme.com', channels: ['website'] })
+    // a stored preference that is configured wins and leads the channel list
+    const pref = buildAgentPagePayload({ ...page, contact_email: 'hi@acme.com', preferred_contact: 'email' } as unknown as AgentPage) as any
+    expect(pref.page.contact.preferred).toBe('email')
+    expect(pref.page.contact.value).toBe('hi@acme.com')
+  })
+
   it('includes offers with availability + checkout action', () => {
     expect(payload.offers.length).toBe(1)
     expect(payload.offers[0].availability).toBe('limited')

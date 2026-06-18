@@ -36,6 +36,7 @@ export const PUBLIC_PAGE_SELECT = [
   'last_booking',
   'llm_opt_in',
   'currency',
+  'preferred_contact',
 ].join(', ')
 
 export const OWNER_PAGE_SELECT = [
@@ -196,6 +197,40 @@ export type CredentialRecord = {
   reviewed_at?: string
 }
 
+/** Page-level contact channels an agent can use to reach a human, in default preference order. */
+export type PreferredContact = 'email' | 'cta' | 'website'
+export const PREFERRED_CONTACT_ORDER: PreferredContact[] = ['email', 'cta', 'website']
+
+export type ResolvedContact = {
+  preferred: PreferredContact | null
+  value: string | null
+  channels: PreferredContact[]
+}
+
+/**
+ * Resolve which contact channel an agent should use first, so it never has to guess
+ * email vs the primary CTA vs the website. Honors the owner's stored `preferred_contact`
+ * when that channel is actually configured; otherwise derives it from the channels the
+ * page has (email -> cta -> website). Returns the resolved channel, its actionable value
+ * (email address / URL), and every available channel with the preferred one first.
+ */
+export function resolvePreferredContact(
+  page: Pick<AgentPage, 'contact_email' | 'cta_url' | 'website_url' | 'preferred_contact'>,
+): ResolvedContact {
+  const available: { channel: PreferredContact; value: string }[] = []
+  const email = page.contact_email?.trim()
+  const cta = page.cta_url?.trim()
+  const website = page.website_url?.trim()
+  // Built in PREFERRED_CONTACT_ORDER so the derived fallback is email-first.
+  if (email) available.push({ channel: 'email', value: email })
+  if (cta) available.push({ channel: 'cta', value: cta })
+  if (website) available.push({ channel: 'website', value: website })
+  if (available.length === 0) return { preferred: null, value: null, channels: [] }
+  const chosen = available.find((c) => c.channel === page.preferred_contact) || available[0]
+  const channels = [chosen.channel, ...available.filter((c) => c.channel !== chosen.channel).map((c) => c.channel)]
+  return { preferred: chosen.channel, value: chosen.value, channels }
+}
+
 export type AgentPage = {
   id: string
   owner_id: string | null
@@ -208,6 +243,7 @@ export type AgentPage = {
   audience: string | null
   location: string | null
   contact_email: string | null
+  preferred_contact?: PreferredContact | null   // Which channel agents should use first to reach a human; null = auto (derive)
   industry?: string | null          // NEW: Helps with templates & AI copy for consumer vs professional services
   prefer_original_site?: boolean    // NEW: When true, booking CTAs link to the original website instead of Nexez checkout
   products: OfferItem[] | null

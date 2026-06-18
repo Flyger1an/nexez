@@ -1,5 +1,35 @@
 import { describe, it, expect } from 'vitest'
-import { parseOfferLines, formatOfferLines, getCheckoutOffer, getRequestBaseUrl, getBaseUrl, type OfferItem } from '../agent-page'
+import { parseOfferLines, formatOfferLines, getCheckoutOffer, getRequestBaseUrl, getBaseUrl, resolvePreferredContact, type OfferItem } from '../agent-page'
+
+describe('resolvePreferredContact', () => {
+  const base = { contact_email: 'hi@acme.com', cta_url: 'https://acme.com/book', website_url: 'https://acme.com', preferred_contact: null }
+
+  it('derives email-first when no stored preference', () => {
+    const r = resolvePreferredContact(base)
+    expect(r.preferred).toBe('email')
+    expect(r.value).toBe('hi@acme.com')
+    expect(r.channels).toEqual(['email', 'cta', 'website'])
+  })
+
+  it('honors a stored preference and lists it first', () => {
+    const r = resolvePreferredContact({ ...base, preferred_contact: 'cta' })
+    expect(r.preferred).toBe('cta')
+    expect(r.value).toBe('https://acme.com/book')
+    expect(r.channels).toEqual(['cta', 'email', 'website'])
+  })
+
+  it('falls back to the next available channel when the stored one is not configured', () => {
+    const r = resolvePreferredContact({ contact_email: null, cta_url: null, website_url: 'https://acme.com', preferred_contact: 'email' })
+    expect(r.preferred).toBe('website')
+    expect(r.value).toBe('https://acme.com')
+    expect(r.channels).toEqual(['website'])
+  })
+
+  it('returns nulls when the page has no contact channels', () => {
+    const r = resolvePreferredContact({ contact_email: '  ', cta_url: null, website_url: null, preferred_contact: null })
+    expect(r).toEqual({ preferred: null, value: null, channels: [] })
+  })
+})
 
 describe('agent-page offer parse/format roundtrip (Phase 1 A fidelity)', () => {
   it('roundtrips basic offers', () => {

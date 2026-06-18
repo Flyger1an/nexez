@@ -1,6 +1,6 @@
-import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getCheckoutOffers, getCheckoutPath, sanitizePublicUrl } from '../../../lib/agent-page'
+import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getCheckoutOffers, getCheckoutPath, resolvePreferredContact, sanitizePublicUrl } from '../../../lib/agent-page'
 import { getAgentJsonPath } from '../../../lib/agent-manifest'
-import { markdownText } from '../../../lib/agent-text'
+import { markdownText, plainAgentText } from '../../../lib/agent-text'
 import { agentArtifactHref, getEffectiveBaseUrl, isCustomHost, normalizeDomainPath } from '../../../lib/custom-domain'
 import { resolveNegotiationAllowed } from '../../../lib/server/negotiation-visibility'
 import { supabase } from '../../../lib/supabase'
@@ -36,6 +36,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   const offers = getCheckoutOffers(page)
   const negotiationAllowed = await resolveNegotiationAllowed(page)
   const primaryActionUrl = sanitizePublicUrl(page.cta_url) || sanitizePublicUrl(page.website_url) || self
+  const contact = resolvePreferredContact(page)
 
   const body = [
     `# ${markdownText(page.name, 'Agent page', 120)}`,
@@ -50,6 +51,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     `Location: ${markdownText(page.location, 'Not specified', 160)}`,
     `Best-fit buyer: ${markdownText(page.audience, 'Not specified', 180)}`,
     `Primary action: ${markdownText(page.cta_label, 'Visit website', 80)} -> ${primaryActionUrl}`,
+    ...(contact.preferred ? [`Preferred contact: ${contact.preferred} -> ${plainAgentText(contact.value, '', 200)}`] : []),
     '',
     '## Offers',
     '',

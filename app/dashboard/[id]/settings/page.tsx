@@ -14,7 +14,7 @@ import {
   Settings,
   ShieldCheck,
 } from 'lucide-react'
-import { AgentPage, OWNER_PAGE_SELECT, getBaseUrl, normalizeSlug } from '../../../../lib/agent-page'
+import { AgentPage, OWNER_PAGE_SELECT, PreferredContact, getBaseUrl, normalizeSlug } from '../../../../lib/agent-page'
 import { normalizeDomainPath } from '../../../../lib/custom-domain'
 import { normalizeBranding } from '../../../../lib/branding'
 import { deploymentChangeAt, summarizeDeployments } from '../../../../lib/deployments'
@@ -49,6 +49,7 @@ export default function PageSettings({ params }: PageProps) {
   const [ctaUrl, setCtaUrl] = useState('')
   const [ctaLabel, setCtaLabel] = useState('')
   const [contactEmail, setContactEmail] = useState('')
+  const [preferredContact, setPreferredContact] = useState<'' | PreferredContact>('')
   const [isPublished, setIsPublished] = useState(false)
   const [customDomain, setCustomDomain] = useState('')
   const [domainPath, setDomainPath] = useState('/')
@@ -264,6 +265,7 @@ export default function PageSettings({ params }: PageProps) {
 	    setCtaUrl(activePage.cta_url ?? '')
 	    setCtaLabel(activePage.cta_label ?? 'Visit website')
 	    setContactEmail(activePage.contact_email ?? '')
+	    setPreferredContact((activePage.preferred_contact as PreferredContact | null) ?? '')
 	    setIsPublished(activePage.is_published)
 	    setCustomDomain(activePage.custom_domain ?? '')
 	    setDomainPath(activePage.domain_path ?? '/')
@@ -451,6 +453,7 @@ export default function PageSettings({ params }: PageProps) {
         cta_url: ctaUrl || websiteUrl,
         cta_label: ctaLabel || 'Visit website',
         contact_email: contactEmail,
+        preferred_contact: preferredContact || null,
         is_published: isPublished,
         custom_domain: customDomain || null,
 	        domain_path: normalizeDomainPath(domainPath),
@@ -1018,6 +1021,24 @@ export default function PageSettings({ params }: PageProps) {
                 <Field label="Contact email">
                   <input type="email" value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} className={inputClass} />
                 </Field>
+              </div>
+
+              <div className="mt-5">
+                <Field label="Preferred contact for agents">
+                  <select
+                    value={preferredContact}
+                    onChange={(event) => setPreferredContact(event.target.value as '' | PreferredContact)}
+                    className={`${inputClass} [color-scheme:dark]`}
+                  >
+                    <option value="">Auto (recommended)</option>
+                    {contactEmail.trim() ? <option value="email">{`Email - ${contactEmail.trim()}`}</option> : null}
+                    {ctaUrl.trim() ? <option value="cta">{`Primary action${ctaLabel.trim() ? ` - ${ctaLabel.trim()}` : ''}`}</option> : null}
+                    {websiteUrl.trim() ? <option value="website">Website</option> : null}
+                  </select>
+                </Field>
+                <p className="mt-1 text-[11px] text-zinc-500">
+                  Which channel AI agents use first to reach you. Auto picks email, then your action button, then your website. Surfaced in this page&apos;s agent.json and llms.txt.
+                </p>
               </div>
 
               {/* Phase 4: Enhanced Embed & Per-Offer Original Site Linking */}

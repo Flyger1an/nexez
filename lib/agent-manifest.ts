@@ -8,6 +8,7 @@ import {
   getCertification,
   getOfferDestination,
   parseAvailabilityWindows,
+  resolvePreferredContact,
 } from './agent-page'
 import { buildNegotiationAction } from './negotiations'
 import { publicBookingConstraints } from './offer-rules'
@@ -52,6 +53,10 @@ export function buildAgentPagePayload(
       audience: page.audience,
       location: page.location,
       contact_email: page.contact_email,
+      // Which channel to use first to reach a human (so an agent never has to guess
+      // email vs the primary action vs the website). `value` is directly actionable;
+      // `channels` lists every available channel, preferred first.
+      contact: resolvePreferredContact(page),
       availability: {
         next_available: (page as any).next_available || null,
         last_booking: page.last_booking || null,
