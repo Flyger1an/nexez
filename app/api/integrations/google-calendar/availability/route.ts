@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { deriveAvailabilityWindows, type BusyPeriod } from '../../../../../lib/integrations'
+import { createClient } from '../../../../../utils/supabase/server'
+import { ownerAllows } from '../../../../../lib/server/plan'
 
 /**
  * Google Calendar Availability Import.
@@ -141,6 +144,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
+  // Require auth: the live path relays a caller-supplied Google token through our
+  // egress, so this must not be anonymously reachable (parity with square/acuity/etc.).
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+  }
+
   const calendarId = (body?.calendarId || body?.calendar_id || '').trim()
   if (!calendarId) {
     return NextResponse.json({ error: 'calendarId is required' }, { status: 400 })
@@ -149,6 +163,10 @@ export async function POST(request: NextRequest) {
   const accessToken = (body?.accessToken || body?.access_token || '').trim()
 
   if (accessToken) {
+    // Live free/busy sync is a paid integration — gate it (the stub stays available).
+    if (!(await ownerAllows(supabase, user.id, 'integrations'))) {
+      return NextResponse.json({ error: 'Live Google Calendar sync requires a plan with integrations.' }, { status: 402 })
+    }
     const live = await fetchGoogleAvailability(calendarId, accessToken)
     if (live) {
       return NextResponse.json({ success: true, connected: true, availability: live, next_available: live.summary_note })

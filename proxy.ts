@@ -41,6 +41,9 @@ function persistAbBucket(response: NextResponse, value: string | null): NextResp
       maxAge: AB_BUCKET_MAX_AGE,
       sameSite: 'lax',
       httpOnly: true,
+      // Secure in prod (always HTTPS on Vercel); left off in local http dev so the
+      // cookie is still set. The value is a non-sensitive sticky-bucket integer.
+      secure: process.env.NODE_ENV === 'production',
       path: '/',
     })
   }

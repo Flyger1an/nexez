@@ -6,6 +6,8 @@ const nextConfig: NextConfig = {
   // allow it as a dev origin — otherwise Next blocks HMR/client dev resources
   // and client components never hydrate locally. Dev-only; no production impact.
   allowedDevOrigins: ["127.0.0.1"],
+  // Don't advertise the framework version in responses.
+  poweredByHeader: false,
   // Keep react-email out of the server bundle so its transitive deps are present at
   // runtime in the Vercel serverless function. Bundling it dropped a dependency under
   // Next's output tracing, so render() threw at runtime (passed locally + in the build
@@ -37,6 +39,33 @@ const nextConfig: NextConfig = {
       // Agent Lab consolidation: the standalone Competitors dashboard page folded
       // into the simulator as its signed-in "Compare a competitor" lens.
       { source: "/dashboard/competitors", destination: "/simulator?mode=compare", permanent: true },
+    ];
+  },
+  async headers() {
+    // Safe on every route, every host (no behavior change).
+    const baseline = [
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+      { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), browsing-topics=()" },
+    ];
+    // Clickjacking protection for the authed/app surfaces. Deliberately NOT applied to
+    // the public agent pages ([slug]) or marketing: the dashboard's "test" preview
+    // iframes /<slug> (which redirects cross-origin to the agent runtime), so a blanket
+    // SAMEORIGIN would break that preview. frame-ancestors here governs who may frame
+    // THESE pages, not what they embed (Stripe Elements / the preview iframe are fine).
+    const frame = [
+      ...baseline,
+      { key: "X-Frame-Options", value: "SAMEORIGIN" },
+      { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+    ];
+    return [
+      { source: "/:path*", headers: baseline },
+      { source: "/dashboard/:path*", headers: frame },
+      { source: "/login", headers: frame },
+      { source: "/auth/:path*", headers: frame },
+      { source: "/onboard", headers: frame },
+      { source: "/create", headers: frame },
+      { source: "/create/:path*", headers: frame },
     ];
   },
 };
