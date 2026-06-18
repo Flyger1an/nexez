@@ -51,10 +51,12 @@ export async function resolvePageAccess(opts: {
   // The page's own owner always has full access.
   if (page.owner_id === userId) return { pageId: page.id, ownerId: page.owner_id, role: 'owner' }
 
-  // Otherwise: a non-revoked invite to THIS owner under the requester's verified email.
-  // Emails are stored lowercased (insert path + client); compare on the lowercased
-  // value with `.eq` (exact, no wildcards) — a mixed-case legacy row would simply
-  // fail to match, i.e. deny, which is the safe direction.
+  // Otherwise: an ACCEPTED invite to THIS owner under the requester's verified email.
+  // A merely-`pending` invite does NOT grant access — the invitee must explicitly accept
+  // (POST /api/team/accept) first; this mirrors the `status = 'accepted'` RLS gate so the
+  // app-layer act-as-owner path can't out-grant the database. Emails are stored lowercased
+  // (insert path + client); compare on the lowercased value with `.eq` (exact, no
+  // wildcards) — a mixed-case legacy row would simply fail to match, i.e. deny.
   const email = (opts.userEmail || '').trim().toLowerCase()
   if (!email) return null
   // Defense-in-depth (deferred-hardening a): the act-as-owner collaborator grant is
@@ -66,7 +68,7 @@ export async function resolvePageAccess(opts: {
     .select('role, status')
     .eq('owner_id', page.owner_id)
     .eq('email', email)
-    .neq('status', 'revoked')
+    .eq('status', 'accepted')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle<{ role: string; status: string }>()

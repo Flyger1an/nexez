@@ -36,8 +36,8 @@ describe('resolvePageAccess', () => {
     expect(a).toEqual({ pageId: 'p1', ownerId: 'owner-1', role: 'owner' })
   })
 
-  it('grants a non-revoked EDITOR collaborator (confirmed email)', async () => {
-    refs.invite = { role: 'editor', status: 'pending' }
+  it('grants an ACCEPTED EDITOR collaborator (confirmed email)', async () => {
+    refs.invite = { role: 'editor', status: 'accepted' }
     const a = await resolvePageAccess({ pageId: 'p1', userId: 'mate-2', userEmail: 'Mate@X.com', userEmailConfirmedAt: CONFIRMED, requireEditor: true })
     expect(a).toEqual({ pageId: 'p1', ownerId: 'owner-1', role: 'editor' })
   })
@@ -77,8 +77,8 @@ describe('resolvePageAccess', () => {
     expect(await resolvePageAccess({ pageId: 'p1', userId: 'owner-1', userEmail: 'o@x.com' })).toBeNull()
   })
 
-  it('queries team_invites by owner + lowercased email + non-revoked', async () => {
-    refs.invite = { role: 'editor', status: 'pending' }
+  it('queries team_invites by owner + lowercased email + accepted-only', async () => {
+    refs.invite = { role: 'editor', status: 'accepted' }
     let captured: QueryContext | null = null
     const { createAdminClient } = await import('../../utils/supabase/admin')
     vi.mocked(createAdminClient).mockReturnValueOnce(
@@ -94,7 +94,7 @@ describe('resolvePageAccess', () => {
     await resolvePageAccess({ pageId: 'p1', userId: 'mate-2', userEmail: '  MATE@X.com ', userEmailConfirmedAt: CONFIRMED, requireEditor: true })
     expect(captured!.eqs.owner_id).toBe('owner-1')
     expect(captured!.eqs.email).toBe('mate@x.com') // trimmed + lowercased
-    expect(captured!.calls.some((c) => c[0] === 'neq' && c[1] === 'status' && c[2] === 'revoked')).toBe(true)
+    expect(captured!.eqs.status).toBe('accepted') // pending no longer grants access
   })
 })
 
@@ -111,7 +111,7 @@ describe('resolveFeatureOwner', () => {
   })
 
   it('scopes to the page OWNER for a confirmed editor collaborator (gate runs as the owner)', async () => {
-    refs.invite = { role: 'editor', status: 'pending' }
+    refs.invite = { role: 'editor', status: 'accepted' }
     const r = await resolveFeatureOwner({ pageId: 'p1', userId: 'mate-2', userEmail: 'mate@x.com', userEmailConfirmedAt: CONFIRMED })
     expect(r).toEqual({ ok: true, ownerId: 'owner-1', pageId: 'p1', scoped: true, role: 'editor' })
   })

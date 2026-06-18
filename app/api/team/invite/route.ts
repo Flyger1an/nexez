@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       inviterEmail: user.email || 'A Nexez user',
       inviteeEmail: email,
       role,
-      acceptUrl: appUrl('/login?next=/dashboard'),
+      acceptUrl: appUrl('/team/accept'),
     })
     const sent = await sendEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text })
     emailed = sent.ok
