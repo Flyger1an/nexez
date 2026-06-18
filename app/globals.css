@@ -1228,3 +1228,18 @@ html.light { --signal-solid: #4f46e5; }
   .nx-pulsedot { animation: nx-pulsedot 1.6s ease-in-out infinite; }
   .nx-xray-grip { animation: nx-handle-pulse 2.2s ease-out infinite; }
 }
+
+/* ===========================================================================
+   X-Ray hero — mobile "derive" scan beam. One-shot periwinkle sweep that plays
+   once when the mobile frame scrolls into view, so the x-ray reads as a verb on
+   touch (where there's no drag). Width-agnostic (translateX % is relative to the
+   beam's own 1/3-stage width), reduced-motion safe.
+   ============================================================================ */
+@keyframes nx-derive-sweep {
+  0% { transform: translateX(-120%); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateX(360%); opacity: 0; }
+}
+.nx-derive-beam { animation: nx-derive-sweep 820ms cubic-bezier(.4, 0, .2, 1) both; }
+@media (prefers-reduced-motion: reduce) { .nx-derive-beam { display: none; } }

@@ -102,7 +102,7 @@ export default async function NexezHome() {
 
   return (
     <main>
-      {/* HERO + AGENT X-RAY */}
+      {/* HERO — text + CTAs on the left, the draggable Agent X-Ray prominent on the right */}
       <section
         className="relative overflow-hidden border-b border-border"
         style={{
@@ -111,7 +111,8 @@ export default async function NexezHome() {
         }}
       >
         <div className="relative z-10 mx-auto max-w-7xl px-5 py-16 lg:py-20">
-          <div className="mb-10 grid items-end gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:gap-12">
+          <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(440px,0.9fr)] lg:gap-12">
+            {/* LEFT — eyebrow, h1, copy, CTAs */}
             <div>
               <div
                 className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--signal)]"
@@ -123,29 +124,27 @@ export default async function NexezHome() {
                 <span className="nx-pulsedot size-1.5 rounded-full" style={{ background: 'var(--signal)' }} />
                 The web has a second audience now
               </div>
-              <h1 className="mt-6 max-w-4xl text-balance text-5xl font-semibold leading-[0.95] tracking-[-0.045em] sm:text-6xl lg:text-[5rem]">
+              <h1 className="mt-6 text-balance text-5xl font-semibold leading-[0.95] tracking-[-0.045em] sm:text-6xl lg:text-7xl">
                 Where AI agents <span className="nx-accent-text">buy from you.</span>
               </h1>
-            </div>
-            <div className="lg:pb-2">
-              <p className="max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
+              <p className="mt-6 max-w-xl text-base leading-7 text-muted-foreground md:text-lg">
                 Your site is built for humans. Agents see something else entirely. Nexez derives the structured layer
-                they read — so they can find, understand, and <span className="text-white">buy</span> from you. Drag
-                the scanner below to x-ray a live page.
+                they read, so they can find, understand, and <span className="text-white">buy from you</span>.
               </p>
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <a href={appUrl('/create')} className="btn-primary h-11 px-5">
                   Get started free
                 </a>
                 <a href="/discovery" className="btn-secondary h-11 px-5">See live examples</a>
               </div>
             </div>
+
+            {/* RIGHT — the draggable X-Ray gets its own prominent space */}
+            <AgentXray />
           </div>
 
-          <AgentXray />
-
-          {/* stat ticker */}
-          <div className="mt-[18px] flex overflow-hidden rounded-[13px] border border-border" style={{ background: 'var(--ov-02)' }}>
+          {/* stat ticker — full width below the hero */}
+          <div className="mt-12 flex overflow-hidden rounded-[13px] border border-border" style={{ background: 'var(--ov-02)' }}>
             {stats.map((s, i) => (
               <div key={s.label} className={`flex-1 px-4 py-[18px] sm:px-5 ${i < stats.length - 1 ? 'border-r border-border' : ''}`}>
                 <div className="font-display text-xl font-bold tracking-[-0.02em] sm:text-[26px]">{s.value}</div>
