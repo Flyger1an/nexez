@@ -1,0 +1,15 @@
+-- Default MCP structured data ON for newly-created pages.
+--
+-- MCP is the richest agent interface Nexez exposes (a live JSON-RPC endpoint with
+-- book_offer + the plan-gated negotiate_offer tool, plus the static mcp.json manifest
+-- and the /.well-known/mcp.json discovery catalog). The whole premise is agent
+-- commerce, yet mcp_enabled shipped defaulting to false (20260613000000) — so most
+-- published pages expose no MCP at all unless the owner finds the Settings toggle.
+-- Flip the default so a new page is MCP-ready out of the box.
+--
+-- Scope: NEW pages only. Existing rows are intentionally left exactly as their owners
+-- left them (no backfill) — this changes only the default applied to future inserts
+-- that omit mcp_enabled (both /create and the v1 API rely on the DB default). Owners
+-- can still toggle MCP off in Settings, and negotiate_offer stays plan-gated, so a
+-- Free-plan page never hits a 403 dead-end.
+alter table public.pages alter column mcp_enabled set default true;
