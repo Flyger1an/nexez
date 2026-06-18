@@ -72,7 +72,7 @@ export function EditorFields({ e }: { e: PageEditor }) {
         </Field>
       </div>
 
-      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
+      <div className="rounded-lg border border-[var(--bd-10)] bg-[var(--ov-02)] p-4">
         <label className="flex items-center gap-3 text-sm">
           <input
             type="checkbox"
@@ -82,7 +82,7 @@ export function EditorFields({ e }: { e: PageEditor }) {
           />
           <span>Prefer linking bookings to my original website</span>
         </label>
-        <p className="mt-1.5 text-xs text-[#9CA3AF]">
+        <p className="mt-1.5 text-xs text-[var(--fg-muted)]">
           When enabled, "Book Now" buttons will direct agents and customers to your main site instead of Nexez checkout.
         </p>
       </div>

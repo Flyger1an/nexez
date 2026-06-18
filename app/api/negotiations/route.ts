@@ -78,7 +78,8 @@ export async function POST(request: Request) {
   // per-agent key uses the capped buyerAgent.
   Object.assign(input, sanitizeBuyerInput(input))
 
-  let baseUrl = getBaseUrl();
+  const platformBase = getBaseUrl()
+  let baseUrl = platformBase;
 
   // Layered quotas (per IP + per page + per agent) — keyed on the parsed input so
   // one page or one named agent can't dominate. Done after parsing so we have slug.
@@ -208,7 +209,7 @@ export async function POST(request: Request) {
     }
 
     const statusUrl = result.statusToken
-      ? `${baseUrl}/api/negotiations/status?id=${result.negotiationId}&token=${result.statusToken}`
+      ? `${platformBase}/api/negotiations/status?id=${result.negotiationId}&token=${result.statusToken}`
       : undefined
 
     if (!wantsJson) {

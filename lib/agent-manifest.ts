@@ -14,6 +14,7 @@ import { buildNegotiationAction } from './negotiations'
 import { publicBookingConstraints } from './offer-rules'
 import { rewriteForVoiceSync } from './ai-optimize'
 import { normalizeCurrency } from './currency'
+import { agentArtifactHref, normalizeDomainPath } from './custom-domain'
 
 export function getAgentJsonPath(slug: string) {
   return `/${slug}/agent.json`
@@ -29,10 +30,15 @@ export function buildAgentPagePayload(
   // builder shared by bulk endpoints, so the caller threads the resolved plan
   // entitlement explicitly (default false = omit, never a DB read in here).
   const negotiationAllowed = opts.negotiationAllowed === true
-  const publicUrl = `${baseUrl}/${page.slug}`
-  const agentJsonUrl = `${baseUrl}${getAgentJsonPath(page.slug)}`
+  const dp = normalizeDomainPath((page as any).domain_path)
+  const platformBase = getBaseUrl()
+  // identityBase for page self, agent.json, llms.txt, etc. (custom root + domain_path when applicable)
+  const identityBase = baseUrl
+  const publicUrl = dp === '/' ? identityBase : `${identityBase.replace(/\/$/, '')}${dp}/${page.slug}`.replace(/\/+/g, '/').replace(/\/$/, '')
+  const agentJsonUrl = `${identityBase}${agentArtifactHref('agent.json', page.slug, dp !== '/' || !identityBase.includes('nexez'), dp)}`
+  const llmsUrl = `${identityBase}${agentArtifactHref('llms.txt' as any, page.slug, dp !== '/' || !identityBase.includes('nexez'), dp)}`
   const checkoutOffers = getCheckoutOffers(page)
-  const offers = checkoutOffers.map((offer) => buildOfferPayload(page, offer, baseUrl, negotiationAllowed))
+  const offers = checkoutOffers.map((offer) => buildOfferPayload(page, offer, identityBase, platformBase, negotiationAllowed))
 
   return {
     schema_version: 'nexez.agent-page.v1',
@@ -69,7 +75,7 @@ export function buildAgentPagePayload(
         // Agents get a machine-readable list of upcoming slots in addition to the human note.
         windows: parseAvailabilityWindows((page as any).next_available),
       },
-      llms_url: `${baseUrl}/llms.txt`,
+      llms_url: llmsUrl,
     },
     offers,
     faqs: page.faqs ?? [],
@@ -78,7 +84,7 @@ export function buildAgentPagePayload(
       page.contact_email ? 'Use contact_email for human review or custom requests.' : 'Use the public page for seller context.',
       'Quote the source page URL when summarizing this offer for a buyer.',
     ],
-    plain_text: buildPlainText(page, offers, baseUrl),
+    plain_text: buildPlainText(page, offers, identityBase),
     // Agent memory/context (if present on page)
     memory_context: (page as any).agent_memory || null,
     // "Nexez Certified Agent-Ready" trust signal (published + 95%+ readiness).
@@ -86,12 +92,12 @@ export function buildAgentPagePayload(
   }
 }
 
-function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, baseUrl: string, negotiationAllowed = false) {
+function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: string, platformBase: string, negotiationAllowed = false) {
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
   // Only advertise negotiation when the owner's plan allows it AND this offer is
   // negotiable — otherwise an agent would POST /api/negotiations and get a 403.
   const isNegotiable = (offer as { offerType?: string }).offerType === 'negotiable'
-  const checkoutUrl = `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`
+  const checkoutUrl = `${identityBase}${getCheckoutPath(page.slug, offer.kind, offer.index)}`
   const providerUrl = getOfferDestination(page, offer) || null
 
   return {
@@ -122,7 +128,7 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, baseUrl: strin
     },
     action: {
       method: 'POST',
-      endpoint: `${baseUrl}/api/checkout`,
+      endpoint: `${platformBase}/api/checkout`,
       content_type: 'application/json',
       body: {
         slug: page.slug,
@@ -142,19 +148,22 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, baseUrl: strin
         dryRun: true,
       },
     },
-    negotiation_action: negotiationAllowed && isNegotiable ? buildNegotiationAction(page, offer, baseUrl) : undefined,
+    negotiation_action: negotiationAllowed && isNegotiable ? buildNegotiationAction(page, offer, platformBase) : undefined,
   }
 }
 
-function buildPlainText(page: AgentPage, offers: ReturnType<typeof buildOfferPayload>[], baseUrl: string) {
+function buildPlainText(page: AgentPage, offers: ReturnType<typeof buildOfferPayload>[], identityBase: string) {
   const consumerNotes = offers.some((o: any) => o.duration || o.isMobile || o.serviceArea)
     ? ' | Consumer/local services supported (duration, mobile, travelFee, serviceArea)'
     : ''
+  const dp = normalizeDomainPath((page as any).domain_path)
+  const pageUrl = dp === '/' ? identityBase : `${identityBase.replace(/\/$/, '')}${dp}/${page.slug}`.replace(/\/+/g, '/').replace(/\/$/, '')
+  const agentJson = `${identityBase}${agentArtifactHref('agent.json', page.slug, dp !== '/' || !identityBase.includes('nexez'), dp)}`
 
   return [
     `Name: ${page.name}`,
-    `URL: ${baseUrl}/${page.slug}`,
-    `Agent JSON: ${baseUrl}${getAgentJsonPath(page.slug)}`,
+    `URL: ${pageUrl}`,
+    `Agent JSON: ${agentJson}`,
     `Summary: ${page.description ?? ''}`,
     `Best-fit buyer: ${page.audience ?? ''}`,
     `Location: ${page.location ?? ''}`,

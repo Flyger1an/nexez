@@ -50,7 +50,7 @@ export function PublishCelebration() {
         onClick={() => setShow(false)}
         aria-label="Dismiss"
         title="Dismiss"
-        className="absolute right-3 top-3 text-zinc-400 transition-colors hover:text-white"
+        className="absolute right-3 top-3 text-[var(--fg-muted)] transition-colors hover:text-white"
       >
         <X className="size-4" />
       </button>
@@ -60,7 +60,7 @@ export function PublishCelebration() {
         </span>
         <div className="min-w-0">
           <p className="text-lg font-semibold text-white">🎉 Your page is live</p>
-          <p className="mt-1 max-w-xl text-sm leading-6 text-zinc-300">
+          <p className="mt-1 max-w-xl text-sm leading-6 text-[var(--fg-muted)]">
             Agents can now discover and buy from this page. Share the link to start driving traffic — and connect payouts
             so you get paid the moment a deal closes.
           </p>
@@ -79,14 +79,14 @@ export function PublishCelebration() {
               <button
                 type="button"
                 onClick={copyLink}
-                className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm text-zinc-200 transition-colors hover:bg-white/5"
+                className="inline-flex items-center gap-2 rounded-lg border border-[var(--bd-15)] px-4 py-2 text-sm text-zinc-200 transition-colors hover:bg-white/5"
               >
                 <Link2 className="size-3.5" /> {copied ? 'Link copied!' : 'Copy link'}
               </button>
             ) : null}
             <a
               href="/dashboard/billing?tab=fees"
-              className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm text-zinc-200 transition-colors hover:bg-white/5"
+              className="inline-flex items-center gap-2 rounded-lg border border-[var(--bd-15)] px-4 py-2 text-sm text-zinc-200 transition-colors hover:bg-white/5"
             >
               <Wallet className="size-3.5" /> Set up payouts
             </a>

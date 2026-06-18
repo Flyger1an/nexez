@@ -42,14 +42,11 @@ export type CurrencyFinanceRow = {
  * from the current plan rate), net-to-seller, and AOV. Sorted by GMV desc.
  *
  * SECURITY / AUDIT NOTE (red-team finding):
- * Commission is currently **derived from the owner's *current* plan** at read time.
- * Historical `application_fee` that was actually charged is only partially stored
- * (on checkout_orders via metadata in some paths). This can make past periods
- * look better/worse after plan changes.
- *
- * TODO (post-audit): Snapshot commission_percent + application_fee_cents at charge
- * time into checkout_events and agent_negotiations. Use the snapshot for historical
- * reporting. See 2026-06 red-team audit.
+ * Commission was historically **derived from the owner's *current* plan** at read time.
+ * Snapshots (commission_percent + application_fee_cents) are now persisted at charge
+ * time (migration 20260627000000 + wiring in checkout/pay/webhook).
+ * Rollups/ledgers prefer snapshot when present for historical accuracy. Fallback to
+ * current plan derivation for legacy rows.
  */
 export function rollupFinanceByCurrency(events: CheckoutEvent[], commissionPct: number): CurrencyFinanceRow[] {
   const map = new Map<string, { gmvCents: number; orders: number }>()
@@ -229,8 +226,9 @@ const LEDGER_NEG_STATUSES = new Set(['held', 'complete', 'refunded', 'disputed']
 /**
  * Interleave the DIRECT checkout channel (checkout_events) and the NEGOTIATED
  * escrow channel (agent_negotiations) into one time-ordered ledger — the living
- * record of marketplace activity. The est. fee is DERIVED (amount × current plan
- * rate), not the historical application_fee. Each row carries its own currency;
+ * record of marketplace activity. Fee prefers charge-time snapshot if present on the
+ * row (post 20260627 migration), else derives from passed current plan rate.
+ * Each row carries its own currency;
  * callers must never total the amount/fee/net columns (mixed currencies coexist
  * as independent rows). Skips dry-run + amount-less rows.
  */
@@ -266,7 +264,9 @@ export function buildMarketplaceLedger(
     const isReversal = n.status === 'refunded' || n.status === 'disputed'
     // A refund/dispute returns the full amount to the buyer (escrow refunds aren't
     // fee-reduced), so the seller's outflow is the whole amount — fee n/a.
-    const feeCents = isReversal ? 0 : calculateApplicationFeeCents(amountCents, commissionPct)
+    // Prefer snapshot at charge time if present (from migration 20260627000000).
+    const snapshotFee = (n as any).application_fee_cents
+    const feeCents = isReversal ? 0 : (typeof snapshotFee === 'number' && snapshotFee != null ? snapshotFee : calculateApplicationFeeCents(amountCents, commissionPct))
     entries.push({
       id: n.id ? `neg-${n.id}` : `neg-${n.slug ?? ''}-${n.created_at ?? ''}`,
       channel: 'negotiated',

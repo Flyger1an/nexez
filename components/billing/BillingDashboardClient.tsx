@@ -252,7 +252,7 @@ export default function BillingDashboardClient({
         ? 'border-[var(--ready)]/40 bg-[var(--ready)]/10 text-[var(--ready)]'
         : status.tone === 'warn'
           ? 'border-[var(--amber)]/40 bg-[var(--amber)]/10 text-[var(--amber)]'
-          : 'border-white/20 bg-white/5 text-[#9CA3AF]'
+          : 'border-[var(--bd-20)] bg-white/5 text-[var(--fg-muted)]'
     // Recovery banner for states that need the user to act (past_due/unpaid →
     // update payment; incomplete → finish checkout). Drives the dead-until-now
     // billingStatusCopy helper.
@@ -274,7 +274,7 @@ export default function BillingDashboardClient({
                 <p className="font-medium text-white">
                   {isIncomplete ? 'Your checkout is unfinished' : 'Your payment needs attention'}
                 </p>
-                <p className="mt-1 text-sm text-[#9CA3AF]">
+                <p className="mt-1 text-sm text-[var(--fg-muted)]">
                   {isIncomplete
                     ? 'Complete payment to activate your subscription.'
                     : 'We couldn’t process your latest payment. Update your payment method to keep your plan active.'}
@@ -308,14 +308,14 @@ export default function BillingDashboardClient({
                   {status.label}
                 </span>
               </div>
-              <div className="mt-2 text-3xl text-[#9CA3AF] tracking-tight">{priceLine}</div>
+              <div className="mt-2 text-3xl text-[var(--fg-muted)] tracking-tight">{priceLine}</div>
               {periodEnd && (
-                <p className="mt-3 flex items-center gap-2 text-sm text-[#9CA3AF]">
+                <p className="mt-3 flex items-center gap-2 text-sm text-[var(--fg-muted)]">
                   <Calendar className="size-4" />
                   {billingState?.cancel_at_period_end ? 'Cancels' : 'Renews'} on {periodEnd}
                 </p>
               )}
-              <p className="mt-1 text-sm text-[#9CA3AF]">
+              <p className="mt-1 text-sm text-[var(--fg-muted)]">
                 {activePlan?.cadence ? `Billed ${activePlan.cadence} • Cancel anytime via Stripe portal` : 'No active subscription • Upgrade anytime'}
               </p>
             </div>
@@ -329,14 +329,14 @@ export default function BillingDashboardClient({
               </button>
               {billingState?.stripe_subscription_id && (
                 <form action="/api/billing/portal" method="post">
-                  <button className="rounded-2xl border border-white/15 px-6 py-3 text-sm hover:bg-white/5 transition">
+                  <button className="rounded-2xl border border-[var(--bd-15)] px-6 py-3 text-sm hover:bg-white/5 transition">
                     Manage subscription
                   </button>
                 </form>
               )}
               <a
                 href="/pricing"
-                className="rounded-2xl border border-white/15 px-6 py-3 text-sm hover:bg-white/5 transition inline-flex items-center"
+                className="rounded-2xl border border-[var(--bd-15)] px-6 py-3 text-sm hover:bg-white/5 transition inline-flex items-center"
               >
                 Full comparison
               </a>
@@ -353,7 +353,7 @@ export default function BillingDashboardClient({
             <FlowArrow />
             <MoneyFlowStep label="Net to you" value={formatCurrencyAmount(Math.max(0, agentRevenueCents - platformFeesCents), revenueCurrency)} sub="paid out to your Stripe" tone="ready" />
           </div>
-          <p className="mt-4 border-t border-white/10 pt-3 text-xs text-[#9CA3AF]">
+          <p className="mt-4 border-t border-[var(--bd-10)] pt-3 text-xs text-[var(--fg-muted)]">
             Transaction fees are separate from your <span className="text-white">{activePlan?.name ?? 'Free'}</span> subscription
             {activePlan?.cadence ? ` (${activePlan.price}/${activePlan.cadence})` : ''} — that’s what you pay Nexez to run your pages.
           </p>
@@ -368,11 +368,11 @@ export default function BillingDashboardClient({
                 const capped = m.limit != null
                 const pct = capped ? Math.min(100, Math.round((m.current / (m.limit || 1)) * 100)) : 0
                 return (
-                  <div key={idx} className="rounded-2xl border border-white/10 bg-white/[0.015] p-4">
-                    <div className="text-sm text-[#9CA3AF]">{m.label}</div>
+                  <div key={idx} className="rounded-2xl border border-[var(--bd-10)] bg-[var(--ov-015)] p-4">
+                    <div className="text-sm text-[var(--fg-muted)]">{m.label}</div>
                     <div className="mt-3 text-3xl font-semibold tracking-tighter">
                       {m.current}
-                      {capped && <span className="text-base font-normal text-[#9CA3AF]"> / {m.limit === 999 ? '∞' : m.limit}</span>}
+                      {capped && <span className="text-base font-normal text-[var(--fg-muted)]"> / {m.limit === 999 ? '∞' : m.limit}</span>}
                     </div>
                     {capped && (
                       <div className="mt-3 h-1.5 rounded bg-white/10 overflow-hidden">
@@ -389,9 +389,9 @@ export default function BillingDashboardClient({
             <SectionHeader icon={Percent} title="Platform fees this month" subtitle="Transaction commissions" />
             <div className="flex items-baseline gap-2">
               <span className="text-5xl font-semibold tracking-tighter text-[var(--ready)]">${(platformFeesCents / 100).toFixed(2)}</span>
-              <span className="text-[#9CA3AF]">this month</span>
+              <span className="text-[var(--fg-muted)]">this month</span>
             </div>
-            <div className="mt-4 text-sm text-[#9CA3AF]">
+            <div className="mt-4 text-sm text-[var(--fg-muted)]">
               You keep 85–96% of every transaction depending on plan. Connect your Stripe account in the
               <span className="text-white"> Platform Fees</span> tab to receive payouts directly.
             </div>
@@ -408,12 +408,12 @@ export default function BillingDashboardClient({
         <GlassCard className="p-7">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] font-mono text-xs text-zinc-400">
+              <div className="flex h-12 w-16 items-center justify-center rounded-2xl border border-[var(--bd-10)] bg-[var(--ov-04)] font-mono text-xs text-[var(--fg-muted)]">
                 {billingState?.stripe_customer_id ? '••••' : '—'}
               </div>
               <div>
                 <div className="font-medium">Payment method</div>
-                <div className="text-sm text-[#9CA3AF] mt-0.5">
+                <div className="text-sm text-[var(--fg-muted)] mt-0.5">
                   {billingState?.stripe_customer_id
                     ? 'Card on file is stored and managed securely by Stripe.'
                     : 'No payment method is attached yet.'}
@@ -421,7 +421,7 @@ export default function BillingDashboardClient({
               </div>
             </div>
             <form action="/api/billing/portal" method="post">
-              <button className="rounded-2xl border border-white/15 px-5 py-2.5 text-sm hover:bg-white/5 transition">
+              <button className="rounded-2xl border border-[var(--bd-15)] px-5 py-2.5 text-sm hover:bg-white/5 transition">
                 Update payment method →
               </button>
             </form>
@@ -447,27 +447,27 @@ export default function BillingDashboardClient({
           const pct = capped ? Math.min(100, Math.round((metric.current / (metric.limit || 1)) * 100)) : 0
           return (
             <GlassCard key={index} className="p-6 flex flex-col">
-              <div className="text-sm text-[#9CA3AF] mb-4">{metric.label}</div>
+              <div className="text-sm text-[var(--fg-muted)] mb-4">{metric.label}</div>
 
               <div className="flex items-end justify-between mt-auto">
                 <div>
                   <div className="text-4xl font-semibold tracking-tighter tabular-nums">
                     {metric.current}
-                    {capped && <span className="text-lg font-normal text-[#9CA3AF]"> / {metric.limit === 999 ? '∞' : metric.limit}</span>}
+                    {capped && <span className="text-lg font-normal text-[var(--fg-muted)]"> / {metric.limit === 999 ? '∞' : metric.limit}</span>}
                   </div>
-                  <div className="text-[10px] uppercase tracking-[1px] text-[#9CA3AF] mt-1">{capped ? `${pct}% used` : 'this month'}</div>
+                  <div className="text-[10px] uppercase tracking-[1px] text-[var(--fg-muted)] mt-1">{capped ? `${pct}% used` : 'this month'}</div>
                 </div>
                 {capped && <ProgressRing current={metric.current} limit={metric.limit ?? 0} />}
               </div>
 
               <div className="mt-5 h-px bg-white/10" />
-              <div className="mt-3 text-xs text-[#9CA3AF]">{capped ? 'Resets with your billing cycle' : 'Live engagement'}</div>
+              <div className="mt-3 text-xs text-[var(--fg-muted)]">{capped ? 'Resets with your billing cycle' : 'Live engagement'}</div>
             </GlassCard>
           )
         })}
       </div>
 
-      <div className="text-xs text-[#9CA3AF] px-1">
+      <div className="text-xs text-[var(--fg-muted)] px-1">
         Usage data powers your agent limits and is reset on each renewal date. Enterprise plans have higher or custom limits.
       </div>
     </div>
@@ -488,7 +488,7 @@ export default function BillingDashboardClient({
         <div className="overflow-x-auto">
           <table className="min-w-[760px] w-full text-sm">
             <thead>
-              <tr className="border-b border-white/10 text-left text-[#9CA3AF] uppercase tracking-[1px] text-xs">
+              <tr className="border-b border-[var(--bd-10)] text-left text-[var(--fg-muted)] uppercase tracking-[1px] text-xs">
                 <th className="px-6 py-4 font-medium cursor-pointer select-none" onClick={() => toggleSort('date')}>
                   Date {sortKey === 'date' && (sortDir === 'desc' ? '↓' : '↑')}
                 </th>
@@ -503,14 +503,14 @@ export default function BillingDashboardClient({
             <tbody className="divide-y divide-white/10">
               {sortedInvoices.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-sm text-[#9CA3AF]">
+                  <td colSpan={5} className="px-6 py-10 text-center text-sm text-[var(--fg-muted)]">
                     No invoices yet. Paid-subscription invoices appear here (and in your Stripe portal) after your first payment.
                   </td>
                 </tr>
               )}
               {sortedInvoices.map((inv) => (
-                <tr key={inv.id} className="hover:bg-white/[0.015] transition">
-                  <td className="px-6 py-4 font-mono text-xs text-[#9CA3AF]">{inv.date}</td>
+                <tr key={inv.id} className="hover:bg-[var(--ov-015)] transition">
+                  <td className="px-6 py-4 font-mono text-xs text-[var(--fg-muted)]">{inv.date}</td>
                   <td className="px-6 py-4">{inv.description}</td>
                   <td className="px-6 py-4 text-right tabular-nums">${inv.amount.toFixed(2)}</td>
                   <td className="px-6 py-4">
@@ -529,7 +529,7 @@ export default function BillingDashboardClient({
                   <td className="px-6 py-4 text-right">
                     <button
                       onClick={() => handleInvoiceDownload(inv)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1 text-xs hover:bg-white/5 transition"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--bd-15)] px-3 py-1 text-xs hover:bg-white/5 transition"
                     >
                       {inv.hostedUrl
                         ? <><Download className="size-3.5" /> Download</>
@@ -543,7 +543,7 @@ export default function BillingDashboardClient({
         </div>
       </GlassCard>
 
-      <p className="text-center text-xs text-[#9CA3AF]">
+      <p className="text-center text-xs text-[var(--fg-muted)]">
         All invoices and receipts are also available in your Stripe customer portal.
       </p>
     </div>
@@ -561,14 +561,14 @@ export default function BillingDashboardClient({
           <div className="grid md:grid-cols-2 gap-8">
             <div>
               <div className="text-5xl font-semibold tracking-tighter text-[var(--ready)]">${(platformFeesCents / 100).toFixed(2)}</div>
-              <div className="text-[#9CA3AF] mt-1">Platform fees collected this month</div>
-              <ul className="mt-6 space-y-2 text-sm text-[#9CA3AF]">
+              <div className="text-[var(--fg-muted)] mt-1">Platform fees collected this month</div>
+              <ul className="mt-6 space-y-2 text-sm text-[var(--fg-muted)]">
                 {billingPlans.map((p) => (
                   <li key={p.id} className="flex gap-2">• {p.name}: {p.commissionPercent}% commission</li>
                 ))}
               </ul>
             </div>
-            <div className="text-sm text-[#9CA3AF] border-l border-white/10 pl-8">
+            <div className="text-sm text-[var(--fg-muted)] border-l border-[var(--bd-10)] pl-8">
               Nexez takes a small platform fee only on transactions driven through your agent pages.
               You keep the rest. Fees are automatically applied via Stripe when using the embedded checkout on public pages.
               <div className="mt-4 text-xs">Connect your own Stripe account below to receive the net earnings directly into your bank account.</div>
@@ -580,12 +580,12 @@ export default function BillingDashboardClient({
         <GlassCard className="p-8">
           <div className="mb-6">
             <div className="text-lg font-semibold tracking-tight">Payout account (Stripe Connect)</div>
-            <div className="text-sm text-[#9CA3AF]">Receive earnings from transactions (you are the merchant of record for customer payments).</div>
+            <div className="text-sm text-[var(--fg-muted)]">Receive earnings from transactions (you are the merchant of record for customer payments).</div>
           </div>
 
           {billingState?.stripe_connect_account_id ? (
             <div className="space-y-4">
-              <div className="font-mono text-xs text-[#9CA3AF] break-all">{billingState.stripe_connect_account_id}</div>
+              <div className="font-mono text-xs text-[var(--fg-muted)] break-all">{billingState.stripe_connect_account_id}</div>
               <div className="flex flex-wrap gap-2">
                 {[
                   { label: 'Details submitted', ok: billingState.stripe_connect_details_submitted },
@@ -607,7 +607,7 @@ export default function BillingDashboardClient({
             </div>
           ) : (
             <div>
-              <p className="text-sm text-[#9CA3AF] max-w-prose">
+              <p className="text-sm text-[var(--fg-muted)] max-w-prose">
                 Connect your Stripe account (Express) so Nexez can pay out your agent-driven earnings directly to your bank.
               </p>
               <div className="mt-5">
@@ -616,7 +616,7 @@ export default function BillingDashboardClient({
             </div>
           )}
 
-          <div className="mt-8 text-[10px] text-[#9CA3AF]">
+          <div className="mt-8 text-[10px] text-[var(--fg-muted)]">
             Separate from your Nexez subscription billing. Transaction revenue uses Stripe Connect + application fees.
           </div>
         </GlassCard>
@@ -631,7 +631,7 @@ export default function BillingDashboardClient({
       <div className="space-y-8">
         <div>
           <SectionHeader icon={Sparkles} title="Plans & Pricing" subtitle="Switch plans anytime. Billed monthly. Cancel via Stripe portal." />
-          <p className="text-sm text-[#9CA3AF] max-w-prose">
+          <p className="text-sm text-[var(--fg-muted)] max-w-prose">
             Paid plans include lower platform fees on transactions. All plans (including Free) allow you to earn through your published agents.
           </p>
         </div>
@@ -646,27 +646,27 @@ export default function BillingDashboardClient({
             return (
               <GlassCard
                 key={plan.id}
-                className={`p-7 flex flex-col transition-all ${isSelected ? 'ring-1 ring-[var(--signal)]/60 border-[var(--signal)]/50' : 'hover:border-white/25'} ${isCurrent ? 'border-[var(--signal)]/30' : ''}`}
+                className={`p-7 flex flex-col transition-all ${isSelected ? 'ring-1 ring-[var(--signal)]/60 border-[var(--signal)]/50' : 'hover:border-[var(--bd-20)]'} ${isCurrent ? 'border-[var(--signal)]/30' : ''}`}
               >
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="text-2xl font-semibold tracking-tight">{plan.name}</div>
-                    <div className="text-xs text-[#9CA3AF] mt-0.5">{plan.blurb}</div>
+                    <div className="text-xs text-[var(--fg-muted)] mt-0.5">{plan.blurb}</div>
                   </div>
                   {plan.id === 'pro' && (
                     <span className="rounded-full bg-[var(--signal-solid)] px-2.5 py-px text-[10px] font-medium tracking-widest text-white">POPULAR</span>
                   )}
                   {isCurrent && (
-                    <span className="rounded-full border border-white/20 px-2.5 py-px text-[10px] text-[#9CA3AF]">CURRENT</span>
+                    <span className="rounded-full border border-[var(--bd-20)] px-2.5 py-px text-[10px] text-[var(--fg-muted)]">CURRENT</span>
                   )}
                 </div>
 
                 <div className="mt-6">
                   <span className="text-5xl font-semibold tracking-tighter">{plan.price}</span>
-                  {plan.price !== 'Custom' && <span className="text-[#9CA3AF] text-sm ml-1">/{plan.cadence}</span>}
+                  {plan.price !== 'Custom' && <span className="text-[var(--fg-muted)] text-sm ml-1">/{plan.cadence}</span>}
                 </div>
 
-                <div className="text-xs text-[#9CA3AF] mt-1">{plan.commissionPercent}% platform fee on transactions</div>
+                <div className="text-xs text-[var(--fg-muted)] mt-1">{plan.commissionPercent}% platform fee on transactions</div>
                 {!isCurrent && plan.commissionPercent < commissionPct && (
                   <div className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md bg-[var(--ready)]/10 px-2 py-1 text-xs font-medium text-[var(--ready)]">
                     Lower fee: {commissionPct}% → {plan.commissionPercent}%
@@ -676,7 +676,7 @@ export default function BillingDashboardClient({
                   </div>
                 )}
 
-                <ul className="mt-6 space-y-2.5 text-sm flex-1 text-[#9CA3AF]">
+                <ul className="mt-6 space-y-2.5 text-sm flex-1 text-[var(--fg-muted)]">
                   {plan.features.map((f, idx) => (
                     <li key={idx} className="flex items-start gap-2.5">
                       <Check className="mt-1 size-3.5 text-[var(--ready)]/90 shrink-0" />
@@ -689,14 +689,14 @@ export default function BillingDashboardClient({
                   {isCurrent ? (
                     <button
                       onClick={() => setActiveTab('overview')}
-                      className="w-full rounded-2xl border border-white/15 py-3 text-sm hover:bg-white/5 transition"
+                      className="w-full rounded-2xl border border-[var(--bd-15)] py-3 text-sm hover:bg-white/5 transition"
                     >
                       Manage current plan
                     </button>
                   ) : plan.id === 'enterprise' ? (
                     <a
                       href="/support"
-                      className="block w-full text-center rounded-2xl border border-white/15 py-3 text-sm hover:bg-white/5 transition"
+                      className="block w-full text-center rounded-2xl border border-[var(--bd-15)] py-3 text-sm hover:bg-white/5 transition"
                     >
                       Contact sales
                     </a>
@@ -726,12 +726,12 @@ export default function BillingDashboardClient({
           <GlassCard className="p-8 border-[var(--signal)]/40">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <div className="uppercase tracking-[2px] text-xs text-[#9CA3AF]">Secure checkout</div>
+                <div className="uppercase tracking-[2px] text-xs text-[var(--fg-muted)]">Secure checkout</div>
                 <div className="text-xl font-semibold tracking-tight mt-1">
                   {selectedPlanId ? `Upgrade to ${billingPlans.find(p => p.id === selectedPlanId)?.name}` : 'Complete your subscription'}
                 </div>
               </div>
-              <button onClick={resetCheckout} className="text-sm text-[#9CA3AF] hover:text-white">Close</button>
+              <button onClick={resetCheckout} className="text-sm text-[var(--fg-muted)] hover:text-white">Close</button>
             </div>
 
             {checkoutSuccess && (
@@ -757,12 +757,12 @@ export default function BillingDashboardClient({
             )}
 
             {!clientSecret && !checkoutError && !checkoutSuccess && (
-              <p className="text-sm text-[#9CA3AF]">Select a plan above to begin the secure embedded checkout flow.</p>
+              <p className="text-sm text-[var(--fg-muted)]">Select a plan above to begin the secure embedded checkout flow.</p>
             )}
           </GlassCard>
         )}
 
-        <p className="text-center text-[10px] text-[#9CA3AF]">
+        <p className="text-center text-[10px] text-[var(--fg-muted)]">
           Subscriptions are processed by Stripe. Transaction commissions are handled separately via your connected account.
         </p>
       </div>
@@ -773,8 +773,8 @@ export default function BillingDashboardClient({
   return (
     <div className="space-y-8">
       {/* Glassmorphic segmented tab bar */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-white/10 pb-1">
-        <div className="flex max-w-full overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.03] p-1 backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--bd-10)] pb-1">
+        <div className="flex max-w-full overflow-x-auto rounded-2xl border border-[var(--bd-10)] bg-[var(--ov-03)] p-1 backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TABS.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
@@ -785,7 +785,7 @@ export default function BillingDashboardClient({
                 className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[14px] px-3.5 sm:px-5 py-2 text-sm font-medium transition-all ${
                   isActive
                     ? 'bg-white/10 text-white shadow-inner'
-                    : 'text-[#9CA3AF] hover:text-white hover:bg-white/5'
+                    : 'text-[var(--fg-muted)] hover:text-white hover:bg-white/5'
                 }`}
               >
                 <Icon className="size-4" />
@@ -794,7 +794,7 @@ export default function BillingDashboardClient({
             )
           })}
         </div>
-        <div className="ml-auto text-xs text-[#9CA3AF] hidden md:block">All changes sync via Stripe webhooks</div>
+        <div className="ml-auto text-xs text-[var(--fg-muted)] hidden md:block">All changes sync via Stripe webhooks</div>
       </div>
 
       {/* Active tab content — called as functions (not <Capitalized /> JSX) to satisfy react-hooks/static-components lint */}
@@ -807,7 +807,7 @@ export default function BillingDashboardClient({
       </div>
 
       {/* Subtle footer note */}
-      <div className="pt-4 text-center text-[10px] text-[#9CA3AF]">
+      <div className="pt-4 text-center text-[10px] text-[var(--fg-muted)]">
         Questions? <a href="/support" className="underline hover:text-white">Contact support</a> — we usually reply within a few hours.
       </div>
     </div>
@@ -815,12 +815,12 @@ export default function BillingDashboardClient({
 }
 
 function MoneyFlowStep({ label, value, sub, tone }: { label: string; value: string; sub: string; tone: 'white' | 'muted' | 'ready' }) {
-  const valueClass = tone === 'ready' ? 'text-[var(--ready)]' : tone === 'muted' ? 'text-[#9CA3AF]' : 'text-white'
+  const valueClass = tone === 'ready' ? 'text-[var(--ready)]' : tone === 'muted' ? 'text-[var(--fg-muted)]' : 'text-white'
   return (
     <div className="flex-1">
-      <p className="text-xs uppercase tracking-wide text-[#9CA3AF]">{label}</p>
+      <p className="text-xs uppercase tracking-wide text-[var(--fg-muted)]">{label}</p>
       <p className={`mt-1 text-2xl font-semibold tracking-tight ${valueClass}`}>{value}</p>
-      <p className="mt-0.5 text-xs text-[#9CA3AF]">{sub}</p>
+      <p className="mt-0.5 text-xs text-[var(--fg-muted)]">{sub}</p>
     </div>
   )
 }

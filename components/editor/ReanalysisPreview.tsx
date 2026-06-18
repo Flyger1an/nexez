@@ -12,7 +12,7 @@ export function ReanalysisPreview({ e }: { e: PageEditor }) {
       <div className="flex items-center justify-between">
         <div>
           <p className="font-medium text-[var(--signal)]">Re-analysis Preview</p>
-          <p className="text-sm text-zinc-400">{pending.summary}</p>
+          <p className="text-sm text-[var(--fg-muted)]">{pending.summary}</p>
           {pending.incomingServices?.some((o: any) => o.source) && (
             <p className="mt-1 text-[10px] text-[var(--signal)]">
               Includes offers from connected tools.
@@ -47,13 +47,13 @@ export function ReanalysisPreview({ e }: { e: PageEditor }) {
           <button
             type="button"
             onClick={e.cancelPendingReanalysis}
-            className="rounded-lg border border-white/10 px-4 py-1.5 text-sm text-zinc-300 hover:bg-white/5"
+            className="rounded-lg border border-[var(--bd-10)] px-4 py-1.5 text-sm text-[var(--fg-muted)] hover:bg-[var(--ov-05)]"
           >
             Cancel
           </button>
         </div>
       </div>
-      <p className="mt-3 text-xs text-zinc-500">
+      <p className="mt-3 text-xs text-[var(--fg-muted-2)]">
         Smart merge protects edited descriptions, tiers, and per-offer "Book on original site" preferences while adding new fields and prices from connected tools.
       </p>
     </div>

@@ -26,7 +26,7 @@ export function OnboardingChecklist({ pages }: { pages: AgentPage[] }) {
         <div className="flex items-center gap-2">
           <Rocket className="size-5 text-[var(--signal)]" />
           <h2 className="text-lg font-semibold">Get set up</h2>
-          <span className="text-xs text-zinc-400">
+          <span className="text-xs text-[var(--fg-muted)]">
             {progress.done}/{progress.total} done
           </span>
         </div>
@@ -36,7 +36,7 @@ export function OnboardingChecklist({ pages }: { pages: AgentPage[] }) {
             localStorage.setItem(DISMISS_KEY, '1')
             setDismissed(true)
           }}
-          className="text-zinc-400 hover:text-white"
+          className="text-[var(--fg-muted)] hover:text-white"
           aria-label="Dismiss"
           title="Dismiss"
         >
@@ -56,20 +56,20 @@ export function OnboardingChecklist({ pages }: { pages: AgentPage[] }) {
           <li
             key={step.id}
             className={`flex items-start justify-between gap-3 rounded-lg border p-3 ${
-              step.done ? 'border-[var(--ready)]/20 bg-[var(--ready)]/5' : 'border-white/10 bg-white/[0.03]'
+              step.done ? 'border-[var(--ready)]/20 bg-[var(--ready)]/5' : 'border-[var(--bd-10)] bg-[var(--ov-03)]'
             }`}
           >
             <div className="flex min-w-0 items-start gap-2">
               {step.done ? (
                 <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[var(--ready)]" />
               ) : (
-                <Circle className="mt-0.5 size-4 shrink-0 text-zinc-500" />
+                <Circle className="mt-0.5 size-4 shrink-0 text-[var(--fg-muted-2)]" />
               )}
               <div className="min-w-0">
-                <p className={`text-sm ${step.done ? 'text-zinc-400 line-through' : 'text-zinc-100'}`}>
+                <p className={`text-sm ${step.done ? 'text-[var(--fg-muted)] line-through' : 'text-zinc-100'}`}>
                   {step.title}
                 </p>
-                {!step.done && <p className="mt-0.5 text-xs text-zinc-500">{step.description}</p>}
+                {!step.done && <p className="mt-0.5 text-xs text-[var(--fg-muted-2)]">{step.description}</p>}
               </div>
             </div>
             {!step.done && (

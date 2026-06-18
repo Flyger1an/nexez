@@ -24,7 +24,7 @@ export function ConversionFunnel({ views, attempts, conversions }: FunnelProps) 
 
         return (
           <div key={index} className="flex items-center gap-3 text-sm">
-            <div className="w-28 shrink-0 text-right text-zinc-400">{stage.label}</div>
+            <div className="w-28 shrink-0 text-right text-[var(--fg-muted)]">{stage.label}</div>
             <div className="flex-1">
               <div className="h-6 rounded-full bg-white/10 overflow-hidden">
                 <div 
@@ -40,7 +40,7 @@ export function ConversionFunnel({ views, attempts, conversions }: FunnelProps) 
               </div>
             </div>
             {index > 0 && (
-              <div className="w-14 text-right text-xs text-zinc-500">
+              <div className="w-14 text-right text-xs text-[var(--fg-muted-2)]">
                 {rate}%
               </div>
             )}

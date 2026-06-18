@@ -23,7 +23,7 @@ const STATUS_STYLE: Record<string, string> = {
   open: 'text-[var(--amber)] border-[var(--amber)]/30 bg-[var(--amber)]/10',
   acknowledged: 'text-[var(--signal)] border-[var(--signal)]/30 bg-[var(--signal)]/10',
   resolved: 'text-[var(--ready)] border-[var(--ready)]/30 bg-[var(--ready)]/10',
-  declined: 'text-zinc-400 border-white/15 bg-white/5',
+  declined: 'text-zinc-400 border-[var(--bd-15)] bg-[var(--ov-05)]',
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -69,7 +69,7 @@ export function BuyerRequestsPanel({ requests }: { requests: BuyerRequestRow[] }
       <h2 className="flex items-center gap-2 text-lg font-semibold">
         <MessageSquareWarning className="size-4 text-[var(--amber)]" /> Buyer requests
       </h2>
-      <p className="mt-1 text-sm text-zinc-500">
+      <p className="mt-1 text-sm text-[var(--fg-muted-2)]">
         Refund requests and problem reports buyers filed from their order page. Refund from the Direct orders table below;
         use these to track and respond.
       </p>
@@ -78,22 +78,22 @@ export function BuyerRequestsPanel({ requests }: { requests: BuyerRequestRow[] }
         {rows.map((r) => {
           const closed = r.status === 'resolved' || r.status === 'declined'
           return (
-            <div key={r.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+            <div key={r.id} className="rounded-xl border border-[var(--bd-10)] bg-[var(--ov-02)] p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span className="flex items-center gap-1.5 text-sm font-medium text-zinc-100">
                     {r.kind === 'refund_request' ? <RotateCcw className="size-3.5" /> : <MessageSquareWarning className="size-3.5" />}
                     {KIND_LABEL[r.kind] || r.kind}
                   </span>
-                  {r.slug ? <span className="text-xs text-zinc-500">/{r.slug}</span> : null}
+                  {r.slug ? <span className="text-xs text-[var(--fg-muted-2)]">/{r.slug}</span> : null}
                   <span className="text-xs text-zinc-600">· {new Date(r.created_at).toLocaleDateString()}</span>
                 </div>
-                <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs ${STATUS_STYLE[r.status] || 'border-white/15 text-zinc-400'}`}>
+                <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs ${STATUS_STYLE[r.status] || 'border-[var(--bd-15)] text-[var(--fg-muted)]'}`}>
                   {STATUS_LABEL[r.status] || r.status}
                 </span>
               </div>
-              {r.buyer_email ? <p className="mt-2 text-xs text-zinc-500">From {r.buyer_email}</p> : null}
-              {r.message ? <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-300">{r.message}</p> : null}
+              {r.buyer_email ? <p className="mt-2 text-xs text-[var(--fg-muted-2)]">From {r.buyer_email}</p> : null}
+              {r.message ? <p className="mt-2 whitespace-pre-wrap text-sm text-[var(--fg-muted)]">{r.message}</p> : null}
               {!closed ? (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   {r.status === 'open' ? (
@@ -101,7 +101,7 @@ export function BuyerRequestsPanel({ requests }: { requests: BuyerRequestRow[] }
                       type="button"
                       onClick={() => setStatus(r.id, 'acknowledged')}
                       disabled={busyId === r.id}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs text-zinc-200 hover:bg-white/5 disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--bd-15)] px-3 py-1.5 text-xs text-[var(--fg)] hover:bg-[var(--ov-05)] disabled:opacity-50"
                     >
                       {busyId === r.id ? <Loader2 className="size-3.5 animate-spin" /> : null} Mark reviewing
                     </button>
@@ -118,7 +118,7 @@ export function BuyerRequestsPanel({ requests }: { requests: BuyerRequestRow[] }
                     type="button"
                     onClick={() => setStatus(r.id, 'declined')}
                     disabled={busyId === r.id}
-                    className="text-xs text-zinc-500 hover:text-zinc-300 disabled:opacity-50"
+                    className="text-xs text-[var(--fg-muted-2)] hover:text-[var(--fg-muted)] disabled:opacity-50"
                   >
                     Decline
                   </button>

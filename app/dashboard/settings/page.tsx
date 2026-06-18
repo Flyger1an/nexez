@@ -82,7 +82,7 @@ export default async function AccountSettingsPage() {
                 Advanced Config
               </p>
               <h1 className="mt-3 text-4xl font-semibold tracking-tight">Your agent surface.</h1>
-              <p className="mt-4 text-sm leading-6 text-zinc-400">
+              <p className="mt-4 text-sm leading-6 text-[var(--fg-muted)]">
                 Separate human site. Structured agent layer.
               </p>
             </div>
@@ -158,12 +158,12 @@ export default async function AccountSettingsPage() {
               </div>
               <div className="mt-5 grid gap-3 md:grid-cols-2">
                 {schemaSignals.map(([label, description]) => (
-                  <div key={label} className="rounded-lg border border-white/10 bg-black/20 p-4">
+                  <div key={label} className="rounded-lg border border-[var(--bd-10)] bg-[var(--panel)]/50 p-4">
                     <div className="flex items-center gap-2">
                       <BadgeCheck className="size-4 text-[var(--ready)]" />
                       <p className="font-medium">{label}</p>
                     </div>
-                    <p className="mt-2 text-sm leading-6 text-zinc-500">{description}</p>
+                    <p className="mt-2 text-sm leading-6 text-[var(--fg-muted-2)]">{description}</p>
                   </div>
                 ))}
               </div>
@@ -176,7 +176,7 @@ export default async function AccountSettingsPage() {
               </div>
               <div className="mt-5 overflow-x-auto">
                 <table className="w-full min-w-[720px] text-left text-sm">
-                  <thead className="text-zinc-500">
+                  <thead className="text-[var(--fg-muted-2)]">
                     <tr>
                       <th className="py-3 font-medium">Page</th>
                       <th className="py-3 font-medium">Public</th>
@@ -187,10 +187,10 @@ export default async function AccountSettingsPage() {
                   </thead>
                   <tbody>
                     {ownedPages.map((page) => (
-                      <tr key={page.id} className="border-t border-white/10">
+                      <tr key={page.id} className="border-t border-[var(--bd-10)]">
                         <td className="py-4">
                           <p className="font-medium">{page.name}</p>
-                          <p className="font-mono text-xs text-zinc-500">/{page.slug}</p>
+                          <p className="font-mono text-xs text-[var(--fg-muted-2)]">/{page.slug}</p>
                         </td>
                         <td className="py-4 text-zinc-300">{page.is_published ? 'Published' : 'Draft'}</td>
                         <td className="py-4 text-zinc-300">{getOfferCount(page)}</td>
@@ -205,7 +205,7 @@ export default async function AccountSettingsPage() {
                   </tbody>
                 </table>
                 {!ownedPages.length ? (
-                  <div className="rounded-lg border border-dashed border-white/10 p-8 text-center text-sm text-zinc-500">
+                  <div className="rounded-lg border border-dashed border-[var(--bd-10)] p-8 text-center text-sm text-[var(--fg-muted-2)]">
                     Create a page first.
                   </div>
                 ) : null}
@@ -220,7 +220,7 @@ export default async function AccountSettingsPage() {
 
 function Endpoint({ label, value }: { label: string; value: string }) {
   return (
-    <a href={value} className="block min-w-0 rounded-lg border border-white/10 bg-black/20 p-4 hover:bg-white/10">
+    <a href={value} className="block min-w-0 rounded-lg border border-[var(--bd-10)] bg-[var(--panel)]/50 p-4 hover:bg-white/10">
       <p className="text-sm font-medium text-zinc-200">{label}</p>
       <p className="mt-2 truncate font-mono text-xs text-[var(--signal)]">{value}</p>
     </a>
@@ -229,8 +229,8 @@ function Endpoint({ label, value }: { label: string; value: string }) {
 
 function ConfigRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-4 rounded-lg border border-white/10 bg-black/20 px-3 py-3">
-      <span className="text-zinc-500">{label}</span>
+    <div className="flex items-start justify-between gap-4 rounded-lg border border-[var(--bd-10)] bg-[var(--panel)]/50 px-3 py-3">
+      <span className="text-[var(--fg-muted-2)]">{label}</span>
       <span className="max-w-[62%] text-right text-zinc-200">{value}</span>
     </div>
   )
@@ -239,11 +239,11 @@ function ConfigRow({ label, value }: { label: string; value: string }) {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="card !p-5">
-      <p className="text-sm text-zinc-500">{label}</p>
+      <p className="text-sm text-[var(--fg-muted-2)]">{label}</p>
       <p className="mt-2 text-4xl font-semibold tracking-tight">{value}</p>
     </div>
   )
 }
 
 const topButtonClass =
-  'inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm text-zinc-300 hover:bg-white/10'
+  'inline-flex items-center gap-2 rounded-lg border border-[var(--bd-10)] px-4 py-2 text-sm text-zinc-300 hover:bg-white/10'

@@ -88,7 +88,7 @@ function CheckoutFormInner({ clientSecret, onSuccess, onCancel }: { clientSecret
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="rounded-lg border border-white/10 bg-black/20 p-4">
+      <div className="rounded-lg border border-[var(--bd-10)] bg-[var(--panel)]/60 p-4">
         <PaymentElement
           options={{
             layout: 'tabs',
@@ -115,14 +115,14 @@ function CheckoutFormInner({ clientSecret, onSuccess, onCancel }: { clientSecret
             type="button"
             onClick={onCancel}
             disabled={isLoading}
-            className="rounded-lg border border-white/15 px-5 py-3 text-sm hover:bg-white/5"
+            className="rounded-lg border border-[var(--bd-15)] px-5 py-3 text-sm hover:bg-white/5"
           >
             Cancel
           </button>
         )}
       </div>
 
-      <p className="text-center text-[10px] text-zinc-500">
+      <p className="text-center text-[10px] text-[var(--fg-muted-2)]">
         Secured by Stripe. Card details never touch our servers.
       </p>
     </form>
@@ -139,10 +139,10 @@ export default function EmbeddedSubscriptionForm({ plan, clientSecret, onSuccess
   }
 
   return (
-    <div className="mt-2 rounded-3xl border border-white/15 bg-white/[0.025] backdrop-blur-2xl p-6 shadow-[0_10px_40px_rgb(0,0,0,0.45)]">
+    <div className="mt-2 rounded-3xl border border-[var(--bd-15)] bg-[var(--glass)] backdrop-blur-2xl p-6 shadow-[0_10px_40px_rgb(0,0,0,0.45)]">
       <div className="mb-5">
         <div className="text-sm font-medium tracking-tight">Complete your {plan.name} subscription</div>
-        <div className="text-xs text-[#9CA3AF] mt-0.5">{plan.price}/{plan.cadence} • Cancel anytime via Stripe portal</div>
+        <div className="text-xs text-[var(--fg-muted)] mt-0.5">{plan.price}/{plan.cadence} • Cancel anytime via Stripe portal</div>
       </div>
 
       <Elements

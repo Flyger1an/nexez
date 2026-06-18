@@ -94,7 +94,7 @@ export default function EmbeddedPlanSelector({ activePlanId, stripeReady, initia
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-xl font-semibold tracking-tight">Choose a plan</h2>
-          <p className="text-sm text-[#9CA3AF] mt-0.5">Switch anytime. Billed monthly. Cancel anytime via Stripe portal.</p>
+          <p className="text-sm text-[var(--fg-muted)] mt-0.5">Switch anytime. Billed monthly. Cancel anytime via Stripe portal.</p>
         </div>
         <a href="/pricing" className="text-sm text-[var(--signal)] hover:underline">View full comparison →</a>
       </div>
@@ -122,22 +122,22 @@ export default function EmbeddedPlanSelector({ activePlanId, stripeReady, initia
           return (
             <div 
               key={plan.id} 
-              className={`group relative rounded-2xl border p-6 transition-all ${isSelected ? 'border-[var(--signal)] bg-[var(--panel)] ring-1 ring-[var(--signal)]/30' : 'border-white/10 bg-[#12101B] hover:border-white/20'}`}
+              className={`group relative rounded-2xl border p-6 transition-all ${isSelected ? 'border-[var(--signal)] bg-[var(--panel)] ring-1 ring-[var(--signal)]/30' : 'border-[var(--bd-10)] bg-[var(--panel)] hover:border-white/20'}`}
             >
               <div>
                 <div className="flex items-center justify-between">
                   <div className="text-2xl font-semibold tracking-tight">{plan.name}</div>
                   {plan.id === 'pro' && <span className="rounded-full bg-[var(--signal-solid)] px-2.5 py-0.5 text-[10px] font-medium tracking-wider text-white">POPULAR</span>}
                 </div>
-                <div className="mt-1 text-sm text-[#9CA3AF]">{plan.blurb}</div>
+                <div className="mt-1 text-sm text-[var(--fg-muted)]">{plan.blurb}</div>
 
                 <div className="mt-6 flex items-baseline gap-1">
                   <span className="text-5xl font-semibold tracking-tighter">{plan.price}</span>
-                  <span className="text-[#9CA3AF] text-sm">/{plan.cadence}</span>
+                  <span className="text-[var(--fg-muted)] text-sm">/{plan.cadence}</span>
                 </div>
               </div>
 
-              <ul className="mt-6 space-y-2 text-sm text-[#9CA3AF]">
+              <ul className="mt-6 space-y-2 text-sm text-[var(--fg-muted)]">
                 {plan.features.map((feature, idx) => (
                   <li key={idx} className="flex items-start gap-2">
                     <span className="mt-1 inline-block size-1.5 rounded-full bg-[var(--ready)]/70" />
@@ -160,7 +160,7 @@ export default function EmbeddedPlanSelector({ activePlanId, stripeReady, initia
                   <button
                     type="submit"
                     disabled={!hasPriceForPlan}
-                    className="w-full rounded-xl border border-white/15 py-2.5 text-sm text-zinc-200 transition hover:bg-white/5 disabled:opacity-50"
+                    className="w-full rounded-xl border border-[var(--bd-15)] py-2.5 text-sm text-[var(--fg)] transition hover:bg-white/5 disabled:opacity-50"
                   >
                     Or use hosted Stripe checkout
                   </button>
@@ -168,8 +168,8 @@ export default function EmbeddedPlanSelector({ activePlanId, stripeReady, initia
               </div>
 
               {isSelected && clientSecret && (
-                <div className="mt-6 border-t border-white/10 pt-6">
-                  <div className="mb-3 text-xs uppercase tracking-[1px] text-[#9CA3AF]">Complete payment</div>
+                <div className="mt-6 border-t border-[var(--bd-10)] pt-6">
+                  <div className="mb-3 text-xs uppercase tracking-[1px] text-[var(--fg-muted)]">Complete payment</div>
                   <EmbeddedSubscriptionForm
                     plan={plan}
                     clientSecret={clientSecret}
@@ -183,7 +183,7 @@ export default function EmbeddedPlanSelector({ activePlanId, stripeReady, initia
         })}
       </div>
 
-      <p className="mt-4 text-center text-[10px] text-zinc-500">
+      <p className="mt-4 text-center text-[10px] text-[var(--fg-muted-2)]">
         Subscriptions billed via Stripe. Transaction commissions (on every plan, including Free) are handled separately via your connected Stripe account.
       </p>
     </div>

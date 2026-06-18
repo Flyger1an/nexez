@@ -33,7 +33,7 @@ export default function RefreshConnectButton() {
     <button
       onClick={handleRefresh}
       disabled={loading}
-      className="rounded-lg border border-white/15 px-3 py-2 text-xs hover:bg-white/5 disabled:opacity-50"
+      className="rounded-lg border border-[var(--bd-15)] px-3 py-2 text-xs hover:bg-white/5 disabled:opacity-50"
     >
       {loading ? 'Refreshing...' : 'Refresh status'}
     </button>

@@ -162,19 +162,19 @@ export default async function PersistentNegotiationPage({ params, searchParams }
           <Handshake className="size-8 text-[var(--signal)]" />
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">Negotiation</h1>
-            <p className="text-sm text-zinc-400 font-mono">{id}</p>
+            <p className="text-sm text-[var(--fg-muted)] font-mono">{id}</p>
           </div>
         </div>
 
         <div className="card mb-8">
           <div className="flex justify-between items-start">
             <div>
-              <div className="text-sm text-zinc-400">For offer</div>
+              <div className="text-sm text-[var(--fg-muted)]">For offer</div>
               <div className="text-xl font-medium">{negotiation.offer_name}</div>
-              <div className="text-sm text-zinc-500">/{negotiation.slug}</div>
+              <div className="text-sm text-[var(--fg-muted-2)]">/{negotiation.slug}</div>
             </div>
             <div className="text-right">
-              <div className="uppercase text-[10px] tracking-[2px] text-zinc-500">Current Status</div>
+              <div className="uppercase text-[10px] tracking-[2px] text-[var(--fg-muted-2)]">Current Status</div>
               <div className="text-lg font-semibold text-[var(--ready)]">{negotiation.status}</div>
               {negotiation.amount_cents && (
                 <div className="text-sm">{formatNegotiationAmount(negotiation.amount_cents)}</div>
@@ -192,7 +192,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
         {justPaid && (
           <div className="card mb-6 border border-[var(--ready)]/40 bg-[var(--ready)]/10">
             <div className="text-sm font-medium text-[var(--ready)]">Payment received — your agreement is secured.</div>
-            <div className="text-xs text-zinc-400 mt-1">The seller has been notified. This thread reflects the final status above.</div>
+            <div className="text-xs text-[var(--fg-muted)] mt-1">The seller has been notified. This thread reflects the final status above.</div>
           </div>
         )}
         {!justPaid && payError && (
@@ -215,7 +215,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
                 Pay {formatNegotiationAmount(negotiation.amount_cents)} to secure
               </button>
             </form>
-            <p className="text-[10px] text-zinc-500 mt-2">Secure Stripe Checkout. Funds go to the seller.</p>
+            <p className="text-[10px] text-[var(--fg-muted-2)] mt-2">Secure Stripe Checkout. Funds go to the seller.</p>
           </div>
         )}
         {!justPaid && awaitingApproval && (
@@ -237,18 +237,18 @@ export default async function PersistentNegotiationPage({ params, searchParams }
               <a href={lastDecision.schedulingLink} target="_blank" rel="noreferrer" className="text-sm underline text-[var(--ready)]">Reserve this via Calendly/scheduling link →</a>
             )}
             {(lastDecision.scope || lastDecision.counter?.scope) && (
-              <div className="text-xs text-zinc-400 mt-1">Scope adjustments active in thread (see history for details).</div>
+              <div className="text-xs text-[var(--fg-muted)] mt-1">Scope adjustments active in thread (see history for details).</div>
             )}
           </div>
         )}
 
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
           <Clock className="size-5" /> Full Conversation History
-          <span className="text-xs text-zinc-500 font-normal">(persistent &amp; resumable)</span>
+          <span className="text-xs text-[var(--fg-muted-2)] font-normal">(persistent &amp; resumable)</span>
         </h2>
 
         {history.length === 0 && (
-          <div className="card text-zinc-400">No turns recorded yet. Submit a proposal to start the intelligent negotiation.</div>
+          <div className="card text-[var(--fg-muted)]">No turns recorded yet. Submit a proposal to start the intelligent negotiation.</div>
         )}
 
         <div className="space-y-4">
@@ -264,7 +264,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline justify-between text-sm mb-1">
                   <span className="font-medium">{turn.role === 'buyer' ? 'Buying Agent' : 'Nexez Negotiation Assistant (LLM)'}</span>
-                  <span className="text-[10px] text-zinc-500 font-mono">{new Date(turn.timestamp).toLocaleString()}</span>
+                  <span className="text-[10px] text-[var(--fg-muted-2)] font-mono">{new Date(turn.timestamp).toLocaleString()}</span>
                 </div>
 
                 {turn.content?.query && <p className="text-sm mb-2">{turn.content.query}</p>}
@@ -282,7 +282,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
                         {turn.decision.counter.proposedDate && ` · ${turn.decision.counter.proposedDate}`}
                         {turn.decision.counter.scopeNotes && <div className="mt-1">Scope: {turn.decision.counter.scopeNotes}</div>}
                         {turn.decision.counter.scope && (
-                          <div className="mt-1 text-[10px] text-zinc-400">
+                          <div className="mt-1 text-[10px] text-[var(--fg-muted)]">
                             {turn.decision.counter.scope.included && <div>Incl: {turn.decision.counter.scope.included}</div>}
                             {turn.decision.counter.scope.excluded && <div>Excl: {turn.decision.counter.scope.excluded}</div>}
                             {(turn.decision.counter.scope.maxRevisions != null || turn.decision.counter.scope.maxProjectWeeks != null) && (
@@ -312,7 +312,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
         {/* Continuation form for the agent to keep the conversation going */}
         <div className="mt-12 card">
           <h3 className="font-semibold mb-2">Continue this negotiation</h3>
-          <p className="text-sm text-zinc-400 mb-4">Submit a follow-up proposal, counter, or clarification. The LLM will remember the entire history.</p>
+          <p className="text-sm text-[var(--fg-muted)] mb-4">Submit a follow-up proposal, counter, or clarification. The LLM will remember the entire history.</p>
 
           <form method="post" action="/api/negotiations" className="grid gap-4">
             <input type="hidden" name="slug" value={negotiation.slug} />
@@ -328,11 +328,11 @@ export default async function PersistentNegotiationPage({ params, searchParams }
             <input name="contact" className="input" placeholder="Your contact (optional)" />
 
             <button type="submit" className="btn-primary">Submit follow-up to the negotiation engine</button>
-            <p className="text-[10px] text-zinc-500">This will append to the history above and invoke the intelligent LLM with full context.</p>
+            <p className="text-[10px] text-[var(--fg-muted-2)]">This will append to the history above and invoke the intelligent LLM with full context.</p>
           </form>
         </div>
 
-        <div className="mt-8 text-xs text-zinc-500">
+        <div className="mt-8 text-xs text-[var(--fg-muted-2)]">
           This link is your persistent negotiation thread. Bookmark it. The seller will also see the full history in their dashboard.
         </div>
       </div>

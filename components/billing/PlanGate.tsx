@@ -61,7 +61,7 @@ export function PlanGate({ feature, currentPlan, children, title, description, v
     return (
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--signal)]/25 bg-[var(--signal)]/[0.06] px-4 py-3">
         <Lock className="size-4 shrink-0 text-[var(--signal)]" />
-        <span className="min-w-0 flex-1 text-sm text-zinc-300">
+        <span className="min-w-0 flex-1 text-sm text-[var(--fg-muted)]">
           <span className="font-medium text-white">{heading}</span> — {body}
         </span>
         <a href={href} className="btn-primary btn-sm inline-flex shrink-0 items-center gap-1.5">
@@ -78,7 +78,7 @@ export function PlanGate({ feature, currentPlan, children, title, description, v
         <Lock className="size-5 text-[var(--signal)]" />
       </div>
       <h3 className="text-xl font-semibold">{heading}</h3>
-      <p className="max-w-md text-sm text-zinc-400">{body}</p>
+      <p className="max-w-md text-sm text-[var(--fg-muted)]">{body}</p>
       <a href={href} className="btn-primary mt-1 inline-flex items-center gap-1.5 text-sm">
         <Sparkles className="size-4" /> {cta}
       </a>
@@ -109,7 +109,7 @@ export function UpgradeBanner({
   return (
     <div className={`flex flex-wrap items-center gap-3 rounded-xl border border-[var(--signal)]/25 bg-[var(--signal)]/[0.06] px-4 py-3 ${className}`}>
       <Sparkles className="size-4 shrink-0 text-[var(--signal)]" />
-      <span className="min-w-0 flex-1 text-sm text-zinc-300">
+      <span className="min-w-0 flex-1 text-sm text-[var(--fg-muted)]">
         <span className="font-medium text-white">{title ?? FEATURE_LABELS[feature]}</span> — {description ?? upgradeBody(plan, { short: true })}
       </span>
       <a href={upgradeHref(plan.id)} className="btn-primary btn-sm inline-flex shrink-0 items-center gap-1.5">

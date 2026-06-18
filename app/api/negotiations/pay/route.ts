@@ -206,6 +206,7 @@ export async function POST(request: Request) {
         nexez_currency: currency,
         nexez_connect_account: connectAccountId || '',
         nexez_application_fee_cents: String(applicationFeeAmount ?? 0),
+        nexez_commission_percent: String(commissionPercent),
         nexez_payment_fingerprint: fingerprint,
       },
     }

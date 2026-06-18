@@ -27,7 +27,7 @@ export function DiscoveryTabs() {
               className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-sm font-medium transition ${
                 active
                   ? 'bg-[var(--signal)]/15 text-[var(--signal)]'
-                  : 'text-[#9CA3AF] hover:bg-white/5 hover:text-white'
+                  : 'text-[var(--fg-muted)] hover:bg-white/5 hover:text-white'
               }`}
             >
               <Icon className="size-4" />

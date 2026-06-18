@@ -35,7 +35,7 @@ export function EmptyState({
       className={`nx-rise rounded-2xl border p-8 text-center ${
         highlight
           ? 'border-[var(--signal)]/30 bg-gradient-to-br from-[var(--signal)]/10 to-[var(--ready)]/5'
-          : 'border-dashed border-white/10 bg-white/[0.02]'
+          : 'border-dashed border-[var(--bd-10)] bg-[var(--ov-02)]'
       } ${className}`}
     >
       {Icon ? (
@@ -44,7 +44,7 @@ export function EmptyState({
         </span>
       ) : null}
       <p className="text-base font-medium text-white">{title}</p>
-      {children ? <div className="mx-auto mt-2 max-w-md text-sm leading-6 text-zinc-400">{children}</div> : null}
+      {children ? <div className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--fg-muted)]">{children}</div> : null}
       {ctas.length ? (
         <div className="mt-5 flex flex-wrap justify-center gap-3">
           {ctas.map((cta) => (
@@ -54,7 +54,7 @@ export function EmptyState({
               {...(cta.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
               className={
                 cta.variant === 'secondary'
-                  ? 'inline-flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm text-zinc-200 transition-colors hover:bg-white/5'
+                  ? 'inline-flex items-center gap-2 rounded-lg border border-[var(--bd-15)] px-4 py-2 text-sm text-zinc-200 transition-colors hover:bg-white/5'
                   : 'inline-flex items-center gap-2 rounded-lg border border-[var(--signal)]/40 bg-[var(--signal)]/10 px-4 py-2 text-sm font-semibold text-[var(--signal)] transition-colors hover:bg-[var(--signal)]/20'
               }
             >

@@ -74,11 +74,11 @@ export default function TermsPage() {
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="mx-auto max-w-3xl px-6 py-12">
-        <a href="/" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
+        <a href="/" className="inline-flex items-center gap-2 text-sm text-[var(--fg-muted)] hover:text-white">
           <ArrowLeft className="size-4" /> Home
         </a>
         <h1 className="mt-8 text-4xl font-semibold tracking-tight">Terms of Service</h1>
-        <p className="mt-2 text-sm text-zinc-400">Last updated: {LAST_UPDATED}</p>
+        <p className="mt-2 text-sm text-[var(--fg-muted)]">Last updated: {LAST_UPDATED}</p>
 
         <div className="mt-6 rounded-lg border border-[var(--amber)]/20 bg-[var(--amber)]/5 p-4 text-xs text-[var(--amber)]/90">
           This is a general template provided for convenience and is not legal advice. Have it reviewed by counsel

@@ -211,6 +211,7 @@ export async function POST(request: Request) {
           nexez_offer_name: offer.name,
           nexez_source: 'agent_checkout',
           nexez_owner_plan: ownerPlanId,
+          nexez_commission_percent: String(commissionPercent),
           // For the checkout_orders record the webhook persists on completion (so a
           // direct sale can be refunded / dispute-tracked in-app).
           nexez_owner_id: page.owner_id ?? '',

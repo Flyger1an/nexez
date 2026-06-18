@@ -77,6 +77,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
       'Cache-Control': 'public, max-age=300, s-maxage=300',
+      'Vary': 'x-forwarded-host',
     },
   })
 }

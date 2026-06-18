@@ -7,9 +7,9 @@ export function AvailabilityCard({ e }: { e: PageEditor }) {
   const wins = parseAvailabilityWindows(nextAvailable)
 
   return (
-    <div className="mb-4 rounded-lg border border-white/10 bg-white/[0.02] p-4">
+    <div className="mb-4 rounded-lg border border-[var(--bd-10)] bg-[var(--ov-02)] p-4">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-sm font-medium text-zinc-300">Availability for agents</span>
+        <span className="text-sm font-medium text-[var(--fg-muted)]">Availability for agents</span>
         <a href="#next-available" className="text-[10px] text-[var(--signal)] hover:text-[var(--signal)]">Edit →</a>
       </div>
       <div className="text-sm text-[var(--ready)]">
@@ -26,20 +26,20 @@ export function AvailabilityCard({ e }: { e: PageEditor }) {
           Upcoming preview: {wins.slice(0, 3).map((w: any) => w.label || `${w.start}`).join(' • ')}
         </div>
       )}
-      <p className="mt-1 text-[10px] text-zinc-500">
+      <p className="mt-1 text-[10px] text-[var(--fg-muted-2)]">
         Import availability in Settings to show upcoming windows on the public page and in agent data.
         Booking webhooks fire automatically when configured.
       </p>
       {nextAvailable && (
         <div className="mt-1 text-[10px] text-[var(--ready)]">Availability data live for agents</div>
       )}
-      <div className="mt-1 text-[10px] text-zinc-400">Google Calendar import adds upcoming slots for agents.</div>
+      <div className="mt-1 text-[10px] text-[var(--fg-muted)]">Google Calendar import adds upcoming slots for agents.</div>
       <div className="mt-1 text-[10px] text-[var(--ready)]">
         {page.outbound_webhooks?.length
           ? `${page.outbound_webhooks.length} webhook URL${page.outbound_webhooks.length === 1 ? '' : 's'} configured`
           : 'No booking webhooks yet — configure in Settings'}
       </div>
-      <div className="mt-1 text-[9px] text-zinc-500">Test events and signing protection are available in Settings.</div>
+      <div className="mt-1 text-[9px] text-[var(--fg-muted-2)]">Test events and signing protection are available in Settings.</div>
       {typeof window !== 'undefined' && localStorage.getItem('nexez_last_outbound_fired') && (
         <div className="mt-1 text-[9px] text-[var(--ready)]">Last webhook update: {new Date(localStorage.getItem('nexez_last_outbound_fired')!).toLocaleString()}</div>
       )}

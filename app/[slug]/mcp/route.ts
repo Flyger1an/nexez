@@ -4,6 +4,7 @@ import { MCP_PROTOCOL_VERSION, handleMcpRequest } from '../../../lib/mcp-server'
 import { resolveNegotiationAllowed } from '../../../lib/server/negotiation-visibility'
 import { supabase } from '../../../lib/supabase'
 import { enforceRateLimit } from '../../../lib/rate-limit'
+import { agentArtifactHref, normalizeDomainPath } from '../../../lib/custom-domain'
 
 // Cap on JSON-RPC batch size — an unbounded array was a single-request
 // amplification DoS (~194x) on this unauthenticated endpoint (red-team gauntlet).
@@ -30,11 +31,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   if (!page || !(page as { mcp_enabled?: boolean }).mcp_enabled) {
     return NextResponse.json({ error: 'MCP not enabled for this page.' }, { status: 404 })
   }
+  const base = getRequestBaseUrl(request)
+  const onCustom = !!(page.custom_domain && page.custom_domain_verified)
+  const reqHost = (request.headers.get('host') || '').split(':')[0]
+  const isOnCustom = onCustom && (reqHost === page.custom_domain || reqHost === `www.${page.custom_domain}`)
+  const manifestBase = isOnCustom ? `https://${page.custom_domain}${normalizeDomainPath((page as any).domain_path)}`.replace(/\/$/, '') : base
+  const staticManifest = `${manifestBase}${agentArtifactHref('mcp.json', slug, isOnCustom, normalizeDomainPath((page as any).domain_path))}`
   return NextResponse.json({
     transport: 'http-jsonrpc',
     protocolVersion: MCP_PROTOCOL_VERSION,
     hint: 'POST JSON-RPC 2.0 requests here: initialize, tools/list, tools/call, resources/list, resources/read.',
-    static_manifest: `${getRequestBaseUrl(request)}/${slug}/mcp.json`,
+    static_manifest: staticManifest,
   })
 }
 

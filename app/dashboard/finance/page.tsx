@@ -117,7 +117,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
   // escrow-lifecycle strip, AND the recent-activity ledger.
   const { data: negRowsRaw } = await supabase
     .from('agent_negotiations')
-    .select('id, status, amount_cents, currency, slug, offer_name, buyer_agent, created_at')
+    .select('id, status, amount_cents, currency, slug, offer_name, buyer_agent, created_at, commission_percent, application_fee_cents')
     .eq('owner_id', user.id)
     .order('created_at', { ascending: false })
     .limit(500)
@@ -128,7 +128,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
   // Direct-checkout orders (refundable in-app via the panel below).
   const { data: orderRows } = await supabase
     .from('checkout_orders')
-    .select('id, offer_name, amount_cents, currency, status, slug, refunded_cents, buyer_email, buyer_name, buyer_reference')
+    .select('id, offer_name, amount_cents, currency, status, slug, refunded_cents, buyer_email, buyer_name, buyer_reference, commission_percent, application_fee_cents')
     .eq('owner_id', user.id)
     .order('created_at', { ascending: false })
     .limit(100)
@@ -237,14 +237,14 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                 <Wallet className="size-4" /> Finance
               </p>
               <h1 className="mt-2 text-4xl font-semibold tracking-tight">Money in &amp; out</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">
                 Real agent-driven sales, what you keep after the {commissionPct}% platform fee, payouts to your bank, and
                 escrow held — separate from your own Nexez subscription.
               </p>
             </div>
             <a
               href="/dashboard/billing"
-              className="inline-flex h-10 shrink-0 items-center gap-2 self-start rounded-lg border border-white/10 px-4 text-sm text-zinc-200 hover:bg-white/10 sm:self-auto"
+              className="inline-flex h-10 shrink-0 items-center gap-2 self-start rounded-lg border border-[var(--bd-10)] px-4 text-sm text-zinc-200 hover:bg-white/10 sm:self-auto"
             >
               <Receipt className="size-4" /> Your plan &amp; invoices
             </a>
@@ -261,7 +261,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                       key={r.value}
                       href={appUrl('/dashboard/billing?plan=pro')}
                       title="All-time history is on the Pro plan"
-                      className="inline-flex items-center gap-1 rounded-md border border-[var(--signal)]/30 bg-[var(--signal)]/[0.06] px-3 py-1.5 text-sm text-zinc-400 hover:bg-[var(--signal)]/15"
+                      className="inline-flex items-center gap-1 rounded-md border border-[var(--signal)]/30 bg-[var(--signal)]/[0.06] px-3 py-1.5 text-sm text-[var(--fg-muted)] hover:bg-[var(--signal)]/15"
                     >
                       <Lock className="size-3.5 text-[var(--signal)]" /> All
                     </a>
@@ -272,7 +272,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                     key={r.value}
                     href={href({ range: r.value })}
                     className={`rounded-md border px-3 py-1.5 text-sm transition ${
-                      range === r.value ? 'border-white bg-white text-black' : 'border-white/10 text-zinc-300 hover:bg-white/10'
+                      range === r.value ? 'border-white bg-white text-black' : 'border-[var(--bd-10)] text-zinc-300 hover:bg-white/10'
                     }`}
                   >
                     {r.label}
@@ -289,7 +289,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                     key={c}
                     href={href({ currency: c })}
                     className={`rounded-md border px-3 py-1.5 text-sm uppercase transition ${
-                      selectedCurrency === c ? 'border-white bg-white text-black' : 'border-white/10 text-zinc-300 hover:bg-white/10'
+                      selectedCurrency === c ? 'border-white bg-white text-black' : 'border-[var(--bd-10)] text-zinc-300 hover:bg-white/10'
                     }`}
                   >
                     {c}
@@ -327,7 +327,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                 <h2 className="flex items-center gap-2 text-lg font-semibold">
                   <ArrowLeftRight className="size-4 text-[var(--signal)]" /> Where the money goes
                 </h2>
-                <span className="text-sm text-zinc-400">
+                <span className="text-sm text-[var(--fg-muted)]">
                   {money(sel.gmvCents)} GMV · {selectedCurrency.toUpperCase()}
                 </span>
               </div>
@@ -367,7 +367,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
               </GlassCard>
               {channelTotal > 0 && (
                 <div className="lg:col-span-2">
-                  <div className="flex h-2.5 overflow-hidden rounded-full border border-white/10">
+                  <div className="flex h-2.5 overflow-hidden rounded-full border border-[var(--bd-10)]">
                     <div className="bg-[var(--ready)]" style={{ width: `${directShare}%` }} title={`Direct ${directShare}%`} />
                     <div className="bg-[var(--signal)]" style={{ width: `${100 - directShare}%` }} title={`Negotiated ${100 - directShare}%`} />
                   </div>
@@ -415,13 +415,13 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                 <span className="text-sm font-normal text-zinc-500">· {selectedCurrency.toUpperCase()}</span>
               </h2>
               {gmvDelta && hasRevenue && (
-                <span className="text-xs text-zinc-400">Trending {deltaPhrase(gmvDelta)} vs {periodHuman}</span>
+                <span className="text-xs text-[var(--fg-muted)]">Trending {deltaPhrase(gmvDelta)} vs {periodHuman}</span>
               )}
             </div>
             {hasRevenue ? (
               <RevenueChart data={trend} currency={selectedCurrency} />
             ) : hasNegWindow || hasEscrowActivity ? (
-              <p className="rounded-xl border border-dashed border-white/10 p-8 text-center text-sm text-zinc-500">
+              <p className="rounded-xl border border-dashed border-[var(--bd-10)] p-8 text-center text-sm text-zinc-500">
                 No direct checkout sales in this window — your negotiated/escrow activity is shown above.
               </p>
             ) : (
@@ -439,7 +439,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
               <div className="mt-4 overflow-x-auto">
                 <table className="w-full min-w-[680px] text-left text-sm">
                   <thead className="text-xs uppercase tracking-wide text-zinc-500">
-                    <tr className="border-b border-white/10">
+                    <tr className="border-b border-[var(--bd-10)]">
                       <th className="py-2 font-medium">When</th>
                       <th className="py-2 font-medium">Offer</th>
                       <th className="py-2 font-medium">Channel</th>
@@ -479,13 +479,13 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
               {!connectAccountId ? (
                 <div className="mt-4 rounded-xl border border-[var(--signal)]/25 bg-[var(--signal)]/[0.06] p-4 text-sm text-zinc-300">
                   <p className="font-medium text-white">Connect Stripe to get paid</p>
-                  <p className="mt-1 text-zinc-400">
+                  <p className="mt-1 text-[var(--fg-muted)]">
                     Agents pay you directly. You need a connected account to accept card payments and receive payouts.
                   </p>
                   <a href="/dashboard/billing?tab=fees" className="btn-primary btn-sm mt-3 inline-flex">Set up payouts</a>
                 </div>
               ) : !payouts ? (
-                <p className="mt-4 text-sm text-zinc-400">
+                <p className="mt-4 text-sm text-[var(--fg-muted)]">
                   {payoutsReady ? 'Payout details are syncing from Stripe — refresh shortly.' : 'Finish Stripe verification to enable payouts.'}
                   <a href="/dashboard/billing?tab=fees" className="ml-2 text-[var(--signal)] hover:underline">Manage</a>
                 </p>
@@ -497,7 +497,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                       <span className="text-sm font-semibold">
                         {formatCurrencyAmount(nextPayout.amountCents, nextPayout.currency)}
                         {nextPayout.arrivalDate ? (
-                          <span className="ml-2 font-normal text-zinc-400">
+                          <span className="ml-2 font-normal text-[var(--fg-muted)]">
                             ~{new Date(nextPayout.arrivalDate * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </span>
                         ) : null}
@@ -508,7 +508,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                     <Balance label="Available" lines={payouts.available} />
                     <Balance label="Pending" lines={payouts.pending} />
                   </div>
-                  <div className="border-t border-white/10 pt-3">
+                  <div className="border-t border-[var(--bd-10)] pt-3">
                     <p className="mb-2 text-xs uppercase tracking-widest text-zinc-500">Recent payouts</p>
                     {payouts.payouts.length ? (
                       <ul className="space-y-1.5 text-sm">
@@ -539,7 +539,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
               {topOffers.length ? (
                 <ul className="mt-4 space-y-2">
                   {topOffers.map((o, i) => (
-                    <li key={`${o.pageSlug}-${o.offerKey}`} className="flex items-center justify-between gap-4 rounded-lg border border-white/10 bg-black/20 px-4 py-3">
+                    <li key={`${o.pageSlug}-${o.offerKey}`} className="flex items-center justify-between gap-4 rounded-lg border border-[var(--bd-10)] bg-black/20 px-4 py-3">
                       <div className="flex min-w-0 items-center gap-3">
                         <span className="text-xs text-zinc-500">#{i + 1}</span>
                         <div className="min-w-0">
@@ -578,10 +578,10 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                   </thead>
                   <tbody>
                     {byCurrency.map((r) => (
-                      <tr key={r.currency} className={`border-t border-white/10 ${r.currency === selectedCurrency ? 'text-white' : 'text-zinc-300'}`}>
+                      <tr key={r.currency} className={`border-t border-[var(--bd-10)] ${r.currency === selectedCurrency ? 'text-white' : 'text-zinc-300'}`}>
                         <td className="py-2.5 font-medium uppercase">{r.currency}</td>
                         <td className="py-2.5 text-right">{formatCurrencyAmount(r.gmvCents, r.currency)}</td>
-                        <td className="py-2.5 text-right text-zinc-400">{formatCurrencyAmount(r.nexezFeeCents, r.currency)}</td>
+                        <td className="py-2.5 text-right text-[var(--fg-muted)]">{formatCurrencyAmount(r.nexezFeeCents, r.currency)}</td>
                         <td className="py-2.5 text-right text-[var(--ready)]">{formatCurrencyAmount(r.netCents, r.currency)}</td>
                       </tr>
                     ))}
@@ -597,9 +597,9 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
             <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
               <div>
                 <h2 className="flex items-center gap-2 text-lg font-semibold">
-                  <Receipt className="size-4 text-zinc-400" /> Your Nexez subscription
+                  <Receipt className="size-4 text-[var(--fg-muted)]" /> Your Nexez subscription
                 </h2>
-                <p className="mt-1 text-sm text-zinc-400">
+                <p className="mt-1 text-sm text-[var(--fg-muted)]">
                   What you pay Nexez (separate from your earnings above). You’re on{' '}
                   <span className="font-medium text-white">{activePlan?.name ?? 'Free'}</span>
                   {activePlan?.cadence ? ` · ${activePlan.price}/${activePlan.cadence}` : ''} ·{' '}
@@ -660,7 +660,7 @@ function KpiTile({
       {delta ? (
         <p
           className={`mt-1.5 inline-flex items-center gap-1 text-xs ${
-            delta.dir === 'up' ? 'text-[var(--ready)]' : delta.dir === 'down' ? 'text-red-300' : 'text-zinc-400'
+            delta.dir === 'up' ? 'text-[var(--ready)]' : delta.dir === 'down' ? 'text-red-300' : 'text-[var(--fg-muted)]'
           }`}
         >
           {delta.dir === 'up' ? <ArrowUpRight className="size-3.5" /> : delta.dir === 'down' ? <ArrowDownRight className="size-3.5" /> : <Minus className="size-3.5" />}
@@ -678,7 +678,7 @@ function MoneyFlowBar({ netCents, gmvCents }: { netCents: number; gmvCents: numb
   const netPct = pct(netCents, gmvCents)
   const feePct = Math.max(0, 100 - netPct)
   return (
-    <div className="mt-4 flex h-9 overflow-hidden rounded-lg border border-white/10">
+    <div className="mt-4 flex h-9 overflow-hidden rounded-lg border border-[var(--bd-10)]">
       <div className="bg-[var(--ready)]/80" style={{ width: `${netPct}%` }} title={`Net to you · ${netPct}%`} />
       <div className="bg-[var(--signal)]/80" style={{ width: `${feePct}%` }} title={`Nexez commission · ${feePct}%`} />
     </div>
@@ -697,7 +697,7 @@ function FlowLegend({ swatch, label, value, pct: p }: { swatch: string; label: s
 function EscrowStat({ label, value, tone }: { label: string; value: string; tone?: 'ready' | 'amber' }) {
   const cls = tone === 'ready' ? 'text-[var(--ready)]' : tone === 'amber' ? 'text-[var(--amber)]' : 'text-white'
   return (
-    <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+    <div className="rounded-lg border border-[var(--bd-10)] bg-black/20 p-3">
       <p className="text-xs uppercase tracking-widest text-zinc-500">{label}</p>
       <p className={`mt-1 text-xl font-semibold ${cls}`}>{value}</p>
     </div>
@@ -714,8 +714,8 @@ const LEDGER_TONE: Record<'open' | 'progress' | 'success' | 'muted', string> = {
 function LedgerRow({ entry }: { entry: LedgerEntry }) {
   const when = entry.timestamp ? new Date(entry.timestamp) : null
   return (
-    <tr className="border-b border-white/5 last:border-b-0 hover:bg-white/[0.03]">
-      <td className="py-2.5 pr-3 text-xs text-zinc-400 whitespace-nowrap">
+    <tr className="border-b border-[var(--bd-05)] last:border-b-0 hover:bg-[var(--ov-03)]">
+      <td className="py-2.5 pr-3 text-xs text-[var(--fg-muted)] whitespace-nowrap">
         {when ? when.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
         {when ? <span className="ml-1 text-zinc-600">{when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span> : null}
       </td>
@@ -750,7 +750,7 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
 
 function Balance({ label, lines }: { label: string; lines: { amountCents: number; currency: string }[] }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+    <div className="rounded-lg border border-[var(--bd-10)] bg-black/20 p-3">
       <p className="text-xs uppercase tracking-widest text-zinc-500">{label}</p>
       {lines.length ? (
         lines.map((l) => (

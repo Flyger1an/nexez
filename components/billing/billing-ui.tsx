@@ -8,7 +8,7 @@ import React from 'react'
  */
 export function GlassCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`rounded-3xl border border-white/15 bg-white/[0.025] backdrop-blur-2xl shadow-[0_8px_30px_rgb(0,0,0,0.35)] ${className}`}>
+    <div className={`rounded-3xl border border-[var(--bd-15)] bg-[var(--glass)] backdrop-blur-2xl shadow-[0_8px_30px_rgb(0,0,0,0.35)] ${className}`}>
       {children}
     </div>
   )
@@ -18,11 +18,11 @@ export function SectionHeader({ icon: Icon, title, subtitle }: { icon: any; titl
   return (
     <div className="mb-4 flex items-center gap-3">
       <div className="rounded-xl bg-white/5 p-2">
-        <Icon className="size-4 text-[#9CA3AF]" />
+        <Icon className="size-4 text-[var(--fg-muted)]" />
       </div>
       <div>
         <div className="text-lg font-semibold tracking-[-0.3px]">{title}</div>
-        {subtitle && <div className="text-sm text-[#9CA3AF]">{subtitle}</div>}
+        {subtitle && <div className="text-sm text-[var(--fg-muted)]">{subtitle}</div>}
       </div>
     </div>
   )
@@ -58,7 +58,7 @@ export function ProgressRing({ current, limit, size = 64 }: { current: number; l
       </svg>
       <div className="absolute text-center">
         <div className="text-lg font-semibold tracking-tighter">{pct}</div>
-        <div className="text-[9px] -mt-1 text-[#9CA3AF]">%</div>
+        <div className="text-[9px] -mt-1 text-[var(--fg-muted)]">%</div>
       </div>
     </div>
   )

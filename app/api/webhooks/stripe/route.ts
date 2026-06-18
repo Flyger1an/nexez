@@ -146,6 +146,8 @@ export async function POST(request: NextRequest) {
           escrow_mode: nextEscrowMode,
           stripe_payment_intent_id: piId,
           ...(buyerEmail ? { buyer_email: buyerEmail } : {}),
+          commission_percent: Number(session.metadata?.nexez_commission_percent || 0) || null,
+          application_fee_cents: Number(session.metadata?.nexez_application_fee_cents || 0) || null,
         })
         .eq('id', session.metadata.nexez_negotiation_id)
         .eq('stripe_checkout_session_id', session.id)
@@ -244,6 +246,7 @@ export async function POST(request: NextRequest) {
         amount_cents: session.amount_total,
         currency: (session.currency || 'usd').toLowerCase(),
         application_fee_cents: Number(session.metadata.nexez_application_fee_cents || 0) || null,
+        commission_percent: Number(session.metadata.nexez_commission_percent || 0) || null,
         status: 'paid',
         ...(buyerEmail ? { buyer_email: buyerEmail } : {}),
         ...(session.metadata.nexez_buyer_name ? { buyer_name: session.metadata.nexez_buyer_name } : {}),

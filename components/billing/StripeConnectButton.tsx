@@ -42,7 +42,7 @@ export default function StripeConnectButton({ isConnected = false }: { isConnect
       <button
         onClick={handleConnect}
         disabled={loading}
-        className="rounded-lg border border-white/15 px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-50"
+        className="rounded-lg border border-[var(--bd-15)] px-4 py-2 text-sm hover:bg-white/5 disabled:opacity-50"
       >
         {loading ? 'Connecting...' : buttonLabel}
       </button>

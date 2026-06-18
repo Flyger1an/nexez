@@ -83,25 +83,25 @@ export function TeamInvites() {
         <Users className="size-5 text-[var(--signal)]" />
         <h2 className="text-xl font-semibold">Team</h2>
       </div>
-      <p className="mt-1 text-sm text-zinc-400">
+      <p className="mt-1 text-sm text-[var(--fg-muted)]">
         Invite teammates by email — they get role-based access to your pages and negotiations. We email them a link to
         join; they sign in with that same email to get access.
       </p>
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1">
-          <Mail className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
+          <Mail className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted-2)]" />
           <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="teammate@company.com"
-            className="w-full rounded-lg border border-white/15 bg-black/30 pl-9 pr-3 py-2 text-sm"
+            className="w-full rounded-lg border border-[var(--bd-15)] bg-[var(--panel)]/70 pl-9 pr-3 py-2 text-sm"
           />
         </div>
         <select
           value={role}
           onChange={(e) => setRole(e.target.value as TeamRole)}
-          className="rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm text-white"
+          className="rounded-lg border border-[var(--bd-15)] bg-[var(--panel)]/70 px-3 py-2 text-sm text-white"
         >
           {TEAM_ROLES.map((r) => (
             <option key={r} value={r}>
@@ -123,7 +123,7 @@ export function TeamInvites() {
 
       <div className="mt-4 space-y-2">
         {loading ? (
-          <div className="flex items-center gap-2 text-sm text-zinc-400">
+          <div className="flex items-center gap-2 text-sm text-[var(--fg-muted)]">
             <Loader2 className="size-4 animate-spin" /> Loading…
           </div>
         ) : invites.length === 0 ? (
@@ -133,10 +133,10 @@ export function TeamInvites() {
           </EmptyState>
         ) : (
           invites.map((inv) => (
-            <div key={inv.id} className="flex items-center justify-between rounded-lg border border-white/10 bg-black/20 p-2 text-sm">
+            <div key={inv.id} className="flex items-center justify-between rounded-lg border border-[var(--bd-10)] bg-[var(--panel)]/50 p-2 text-sm">
               <div className="min-w-0">
                 <span className="truncate text-zinc-200">{inv.email}</span>
-                <span className="ml-2 text-[10px] text-zinc-500">
+                <span className="ml-2 text-[10px] text-[var(--fg-muted-2)]">
                   {inv.role} · {inv.status}
                 </span>
               </div>

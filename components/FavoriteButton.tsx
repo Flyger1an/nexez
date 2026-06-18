@@ -72,7 +72,7 @@ export function FavoriteButton({ slug, initialIsFav = false }: { slug: string; i
       title={isFav ? 'Remove from favorites' : 'Add to favorites'}
     >
       {isFav ? '★' : '☆'}
-      {message && <span className="ml-1 text-[10px] text-zinc-500">{message}</span>}
+      {message && <span className="ml-1 text-[10px] text-[var(--fg-muted-2)]">{message}</span>}
     </button>
   )
 }

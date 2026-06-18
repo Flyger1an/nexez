@@ -22,15 +22,15 @@ export function CalendlyBookingsCard({ e }: { e: PageEditor }) {
       {lastBooking && (
         <div className="mb-2 text-sm">
           <span className="font-medium text-[var(--ready)]">Last:</span> {lastBooking.event_name} with {lastBooking.invitee_name}
-          <span className="ml-2 text-xs text-zinc-500">({new Date(lastBooking.at).toLocaleString()})</span>
+          <span className="ml-2 text-xs text-[var(--fg-muted-2)]">({new Date(lastBooking.at).toLocaleString()})</span>
         </div>
       )}
       {recentCalendlyBookings.length > 0 && (
         <div className="space-y-1 text-xs">
           {recentCalendlyBookings.slice(0, lastBooking ? 2 : 3).map((evt: any, idx: number) => (
-            <div key={idx} className="flex justify-between text-zinc-300">
+            <div key={idx} className="flex justify-between text-[var(--fg-muted)]">
               <span>{evt.offer_name} — {evt.metadata?.invitee_name || 'Guest'}</span>
-              <span className="text-zinc-500">{new Date(evt.created_at).toLocaleDateString()}</span>
+              <span className="text-[var(--fg-muted-2)]">{new Date(evt.created_at).toLocaleDateString()}</span>
             </div>
           ))}
         </div>

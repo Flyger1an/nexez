@@ -27,7 +27,7 @@ export function AgentBreakdown({ events }: { events: any[] }) {
     .sort((a, b) => b.value - a.value)
     .slice(0, 6)
 
-  if (data.length === 0) return <div className="text-sm text-zinc-500">No agent data yet.</div>
+  if (data.length === 0) return <div className="text-sm text-[var(--fg-muted-2)]">No agent data yet.</div>
 
   return (
     <MeasuredChartFrame className="h-48">

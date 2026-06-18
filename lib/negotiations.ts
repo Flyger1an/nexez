@@ -248,12 +248,12 @@ export function formatNegotiationAmount(
   }
 }
 
-export function buildNegotiationAction(page: AgentPage, offer: CheckoutOffer, baseUrl = getBaseUrl()) {
+export function buildNegotiationAction(page: AgentPage, offer: CheckoutOffer, platformBase = getBaseUrl()) {
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
 
   return {
     method: 'POST',
-    endpoint: `${baseUrl}/api/negotiations`,
+    endpoint: `${platformBase}/api/negotiations`,
     content_type: 'application/json',
     body: {
       slug: page.slug,
@@ -279,7 +279,7 @@ export function buildNegotiationAction(page: AgentPage, offer: CheckoutOffer, ba
     // statusUrl. Poll this endpoint for "under review" → "agreement proposed" → … updates.
     status_check: {
       method: 'GET',
-      endpoint: `${baseUrl}/api/negotiations/status?id={negotiation_id}&token={status_token}`,
+      endpoint: `${platformBase}/api/negotiations/status?id={negotiation_id}&token={status_token}`,
       note: 'id and token are returned once in the create response (statusUrl is pre-built). Proposals matching the seller\'s rules may auto-accept to agreement_proposed.',
     },
   }

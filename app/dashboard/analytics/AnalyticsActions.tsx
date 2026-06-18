@@ -58,13 +58,13 @@ export default function AnalyticsActions({
       {/* Advanced: LLM Trust Report */}
       {selectedPage && (
         <section className="mt-6">
-          <div className="min-w-0 rounded-lg border border-white/10 bg-white/[0.04] p-5">
+          <div className="min-w-0 rounded-lg border border-[var(--bd-10)] bg-[var(--ov-04)] p-5">
             <h2 className="text-xl font-semibold">LLM Trust Report (AI-powered insights)</h2>
             <div className="mt-4">
               <button onClick={handleGenerateTrust} className="btn-secondary text-xs">
                 Generate LLM Trust Insights
               </button>
-              <p className="mt-2 text-[10px] text-zinc-500">
+              <p className="mt-2 text-[10px] text-[var(--fg-muted-2)]">
                 Uses configured LLM for actionable trust analysis based on score, signals, and activity. Improves with more events.
               </p>
             </div>

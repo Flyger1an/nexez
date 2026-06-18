@@ -18,9 +18,9 @@ export function IntegrationsHealthPanel({ e }: { e: PageEditor }) {
   const busy = !!integrationResyncing
 
   return (
-    <div className="mb-4 rounded-lg border border-white/10 bg-white/[0.02] p-4">
+    <div className="mb-4 rounded-lg border border-[var(--bd-10)] bg-[var(--ov-02)] p-4">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-zinc-300">Connected Tools</span>
+        <span className="text-sm font-medium text-[var(--fg-muted)]">Connected Tools</span>
         <a href="/dashboard/integrations" className="text-[10px] text-[var(--signal)] hover:text-[var(--signal)]">Full status →</a>
       </div>
 
@@ -37,7 +37,7 @@ export function IntegrationsHealthPanel({ e }: { e: PageEditor }) {
           </span>
         )}
         {page?.team_collaboration?.approvals?.some((a: any) => a.status === 'pending') && (
-          <span className="rounded border border-zinc-300/30 bg-zinc-400/5 px-2 py-1 text-xs text-zinc-300">
+          <span className="rounded border border-zinc-300/30 bg-zinc-400/5 px-2 py-1 text-xs text-[var(--fg-muted)]">
             Team: {page.team_collaboration.approvals.filter((a: any) => a.status === 'pending').length} pending
           </span>
         )}
@@ -49,7 +49,7 @@ export function IntegrationsHealthPanel({ e }: { e: PageEditor }) {
       <div className="flex flex-wrap gap-2 text-xs">
         {s.calendly && (
           <div className="flex items-center gap-2 rounded border border-[var(--signal)]/30 bg-[var(--signal)]/5 px-2 py-1 text-[var(--signal)]">
-            Calendly ✓ <span className="text-[10px] text-zinc-400">({new Date(s.calendly.lastSync).toLocaleDateString()})</span>
+            Calendly ✓ <span className="text-[10px] text-[var(--fg-muted)]">({new Date(s.calendly.lastSync).toLocaleDateString()})</span>
             <button
               type="button"
               disabled={busy}
@@ -62,7 +62,7 @@ export function IntegrationsHealthPanel({ e }: { e: PageEditor }) {
         )}
         {s.stripe && (
           <div className="flex items-center gap-2 rounded border border-[var(--signal)]/30 bg-[var(--signal)]/5 px-2 py-1 text-[var(--signal)]">
-            Stripe ✓ <span className="text-[10px] text-zinc-400">({new Date(s.stripe.lastImport).toLocaleDateString()})</span>
+            Stripe ✓ <span className="text-[10px] text-[var(--fg-muted)]">({new Date(s.stripe.lastImport).toLocaleDateString()})</span>
             <button
               type="button"
               disabled={busy}
@@ -75,7 +75,7 @@ export function IntegrationsHealthPanel({ e }: { e: PageEditor }) {
         )}
         {s.shopify && (
           <div className="flex items-center gap-2 rounded border border-[var(--signal)]/30 bg-[var(--signal)]/5 px-2 py-1 text-[var(--signal)]">
-            Shopify ✓ <span className="text-[10px] text-zinc-400">({new Date(s.shopify.lastImport).toLocaleDateString()})</span>
+            Shopify ✓ <span className="text-[10px] text-[var(--fg-muted)]">({new Date(s.shopify.lastImport).toLocaleDateString()})</span>
             <button
               type="button"
               disabled={busy}
@@ -88,7 +88,7 @@ export function IntegrationsHealthPanel({ e }: { e: PageEditor }) {
         )}
         {s.square && (
           <div className="flex items-center gap-2 rounded border border-[var(--signal)]/30 bg-[var(--signal)]/5 px-2 py-1 text-[var(--signal)]">
-            Square ✓ <span className="text-[10px] text-zinc-400">({new Date(s.square.lastImport).toLocaleDateString()})</span>
+            Square ✓ <span className="text-[10px] text-[var(--fg-muted)]">({new Date(s.square.lastImport).toLocaleDateString()})</span>
             <button
               type="button"
               disabled={busy}
@@ -101,7 +101,7 @@ export function IntegrationsHealthPanel({ e }: { e: PageEditor }) {
         )}
         {s.acuity && (
           <div className="flex items-center gap-2 rounded border border-[var(--amber)]/30 bg-[var(--amber)]/5 px-2 py-1 text-[var(--amber)]">
-            Acuity ✓ <span className="text-[10px] text-zinc-400">({new Date(s.acuity.lastImport).toLocaleDateString()})</span>
+            Acuity ✓ <span className="text-[10px] text-[var(--fg-muted)]">({new Date(s.acuity.lastImport).toLocaleDateString()})</span>
             <button
               type="button"
               disabled={busy}
@@ -114,15 +114,15 @@ export function IntegrationsHealthPanel({ e }: { e: PageEditor }) {
         )}
         {googleCalendarId && (
           <div className="flex items-center gap-2 rounded border border-[var(--ready)]/30 bg-[var(--ready)]/5 px-2 py-1 text-[var(--ready)]">
-            Google Calendar ✓ <span className="text-[10px] text-zinc-400">({googleCalendarId.includes('@') ? googleCalendarId.split('@')[0] + '...' : googleCalendarId.slice(0, 10) + '...'})</span>
+            Google Calendar ✓ <span className="text-[10px] text-[var(--fg-muted)]">({googleCalendarId.includes('@') ? googleCalendarId.split('@')[0] + '...' : googleCalendarId.slice(0, 10) + '...'})</span>
           </div>
         )}
       </div>
-      <p className="mt-2 text-[10px] text-zinc-500">
+      <p className="mt-2 text-[10px] text-[var(--fg-muted-2)]">
         Re-sync refreshes imported offers and shows a merge preview before changes are applied. Stripe price updates can keep matching offers current. Manage connections in <a href={`/dashboard/${id}/settings`} className="underline">Settings</a> or <a href="/dashboard/tools" className="underline">Tools</a>.
       </p>
       <div className="mt-2 text-[10px] text-[var(--ready)]">Webhooks and Google Calendar availability are managed in Settings.</div>
-      <div className="mt-1 text-[10px] text-zinc-400">Last sync times appear in the badges.</div>
+      <div className="mt-1 text-[10px] text-[var(--fg-muted)]">Last sync times appear in the badges.</div>
     </div>
   )
 }
