@@ -8,6 +8,7 @@ import { applyDraftOverlay } from '../../lib/draft'
 import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, Handshake, LockKeyhole, Mail, MapPin } from 'lucide-react'
 import { AgentPage, CredentialRecord, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, availabilityLabel, getBaseUrl, getCertification, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows, sanitizePublicUrl, schemaAvailability } from '../../lib/agent-page'
 import { normalizeCurrency } from '../../lib/currency'
+import { priceValidUntil } from '../../lib/freshness'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { agentArtifactHref, getEffectiveBaseUrl, isCustomHost, normalizeDomainPath } from '../../lib/custom-domain'
 import { hasBranding, normalizeBranding } from '../../lib/branding'
@@ -750,6 +751,8 @@ function buildJsonLd(
 ) {
   const url = `${baseUrl}/${page.slug}`
   const pagePrefer = !!page.prefer_original_site
+  // Freshness-anchored price validity so agents don't treat the price as permanent.
+  const validUntil = priceValidUntil(page) || undefined
   const offers = [
     ...(page.services ?? []).map((item, index) => ({ item, kind: 'services' as const, index })),
     ...(page.products ?? []).map((item, index) => ({ item, kind: 'products' as const, index })),
@@ -765,6 +768,7 @@ function buildJsonLd(
       // schema.org Offer.price is ambiguous without priceCurrency — surface the page
       // settlement currency (matches the checkout page's JSON-LD).
       priceCurrency: item.price ? normalizeCurrency((page as { currency?: string | null }).currency).toUpperCase() : undefined,
+      priceValidUntil: item.price ? validUntil : undefined,
       availability: schemaAvailability(item.availability),
       url: effectiveUrl,
       potentialAction: {

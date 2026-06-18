@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { daysSince, freshnessLabel, isStale } from '../freshness'
+import { daysSince, freshnessLabel, isStale, priceValidUntil } from '../freshness'
 
 const now = new Date('2026-06-03T00:00:00Z')
 const daysAgo = (n: number) => new Date(now.getTime() - n * 86400000).toISOString()
@@ -20,6 +20,21 @@ describe('isStale', () => {
   })
   it('falls back to created_at', () => {
     expect(isStale({ is_published: true, created_at: daysAgo(200) }, 90, now)).toBe(true)
+  })
+})
+
+describe('priceValidUntil', () => {
+  it('rolls a fresh window forward from the last update', () => {
+    // updated 10 days ago + 90-day window = 80 days ahead of `now`
+    expect(priceValidUntil({ updated_at: daysAgo(10) }, 90, now)).toBe('2026-08-22')
+  })
+  it('never emits a past date for a stale page (reports through today)', () => {
+    expect(priceValidUntil({ updated_at: daysAgo(120) }, 90, now)).toBe('2026-06-03')
+  })
+  it('falls back to created_at, returns null when absent or invalid', () => {
+    expect(priceValidUntil({ created_at: daysAgo(0) }, 90, now)).toBe('2026-09-01')
+    expect(priceValidUntil({}, 90, now)).toBeNull()
+    expect(priceValidUntil({ updated_at: 'not-a-date' }, 90, now)).toBeNull()
   })
 })
 

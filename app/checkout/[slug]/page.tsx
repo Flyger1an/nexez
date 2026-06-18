@@ -25,6 +25,7 @@ import {
 } from '../../../lib/agent-page'
 import { parseMoney } from '../../../lib/checkout'
 import { normalizeCurrency, toStripeAmount, formatCurrencyAmount, toMajorAmount } from '../../../lib/currency'
+import { priceValidUntil } from '../../../lib/freshness'
 import { logCheckoutEvent } from '../../../lib/server/log-checkout-event'
 import { safeJsonScript } from '../../../lib/safe-json'
 import { supabase } from '../../../lib/supabase'
@@ -358,6 +359,7 @@ function buildCheckoutJsonLd(
       description: offer.description || undefined,
       price: priceCents ? toMajorAmount(priceCents, currency) : undefined,
       priceCurrency: priceCents ? currency.toUpperCase() : undefined,
+      priceValidUntil: priceCents ? priceValidUntil(page) || undefined : undefined,
       url: checkoutUrl,
       seller: {
         '@type': 'Organization',

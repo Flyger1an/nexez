@@ -21,6 +21,28 @@ export function isStale(
   return days != null && days >= thresholdDays
 }
 
+/**
+ * schema.org `Offer.priceValidUntil` — the date a listed price should no longer be
+ * assumed current. Tied to the same freshness contract as {@link isStale}: a price is
+ * good for `thresholdDays` past the page's last update and rolls forward whenever the
+ * owner edits. Always emits a date (so agents never treat the price as permanent) and
+ * never a past one — a page already beyond its window reports "valid through today"
+ * (re-verify) rather than an expired date that agents/crawlers would treat as a
+ * withdrawn offer. Returns a `YYYY-MM-DD` string, or null when the page has no timestamp.
+ */
+export function priceValidUntil(
+  page: { updated_at?: string | null; created_at?: string | null },
+  thresholdDays: number = DEFAULT_STALE_DAYS,
+  now: Date = new Date(),
+): string | null {
+  const base = page.updated_at || page.created_at
+  if (!base) return null
+  const t = new Date(base).getTime()
+  if (Number.isNaN(t)) return null
+  const untilMs = Math.max(t + thresholdDays * 86400000, now.getTime())
+  return new Date(untilMs).toISOString().slice(0, 10)
+}
+
 export function freshnessLabel(
   page: { updated_at?: string | null; created_at?: string | null },
   now: Date = new Date(),
