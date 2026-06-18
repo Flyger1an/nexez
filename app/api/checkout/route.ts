@@ -10,6 +10,7 @@ import {
   getRequestBaseUrl,
 } from '../../../lib/agent-page'
 import { parseMoney, toStripeDescription } from '../../../lib/checkout'
+import { parseBuyerIdentity, buyerMetadata } from '../../../lib/buyer-identity'
 import { normalizeCurrency, toStripeAmount } from '../../../lib/currency'
 import { getBookingRuleError } from '../../../lib/offer-rules'
 import { logCheckoutEvent } from '../../../lib/server/log-checkout-event'
@@ -25,6 +26,12 @@ type CheckoutInput = {
   offer: string
   query?: string
   dryRun?: boolean
+  // Optional buyer identity an agent (or the on-page form) can declare so the seller
+  // knows who is buying and the buyer gets a receipt + order-portal access.
+  buyerEmail?: string
+  buyerName?: string
+  buyerReference?: string
+  buyerAgent?: string
 }
 
 async function getPublishedPage(slug: string) {
@@ -49,6 +56,7 @@ export async function POST(request: Request) {
   const contentType = request.headers.get('content-type') || ''
   const wantsJson = contentType.includes('application/json') || request.headers.get('accept')?.includes('application/json')
   const input = await readCheckoutInput(request)
+  const buyer = parseBuyerIdentity(input)
 
   if (!input.slug || !input.offer) {
     return NextResponse.json({ error: 'Missing checkout page or offer.' }, { status: 400 })
@@ -209,6 +217,13 @@ export async function POST(request: Request) {
         sessionParams.application_fee_amount = applicationFeeAmount
       }
 
+      // Declared buyer identity (all optional): prefill + lock Stripe's email field,
+      // stamp the buyer-side reference on Stripe's native field, and carry every field
+      // in metadata so the webhook can persist it onto the order record.
+      if (buyer.email) sessionParams.customer_email = buyer.email
+      if (buyer.reference) sessionParams.client_reference_id = buyer.reference
+      Object.assign(sessionParams.metadata, buyerMetadata(buyer))
+
       const session = await stripe.checkout.sessions.create(sessionParams, { stripeAccount: connectAccountId })
 
       const sessionLog = await logCheckoutEvent({
@@ -315,6 +330,7 @@ export async function POST(request: Request) {
 
 async function readCheckoutInput(request: Request): Promise<CheckoutInput> {
   const contentType = request.headers.get('content-type') || ''
+  const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined)
 
   if (contentType.includes('application/json')) {
     const body = await request.json().catch(() => ({}))
@@ -323,6 +339,10 @@ async function readCheckoutInput(request: Request): Promise<CheckoutInput> {
       offer: String(body.offer || ''),
       query: body.query ? String(body.query) : undefined,
       dryRun: Boolean(body.dryRun),
+      buyerEmail: str(body.buyerEmail),
+      buyerName: str(body.buyerName),
+      buyerReference: str(body.buyerReference),
+      buyerAgent: str(body.buyerAgent),
     }
   }
 
@@ -333,6 +353,10 @@ async function readCheckoutInput(request: Request): Promise<CheckoutInput> {
     offer: String(formData.get('offer') || ''),
     query: formData.get('query') ? String(formData.get('query')) : undefined,
     dryRun: formData.get('dryRun') === 'true',
+    buyerEmail: str(formData.get('buyerEmail')),
+    buyerName: str(formData.get('buyerName')),
+    buyerReference: str(formData.get('buyerReference')),
+    buyerAgent: str(formData.get('buyerAgent')),
   }
 }
 

@@ -134,9 +134,10 @@ export async function POST(request: NextRequest) {
 
       const nextStatus = autoSettle ? 'complete' : 'held'
       const nextEscrowMode = autoSettle ? 'captured' : 'manual_capture_created'
-      // Capture the buyer's email (Stripe collected it) so we can email a receipt +
-      // future status updates. Only ever ADDED — never overwritten with null.
-      const buyerEmail = session.customer_details?.email || session.customer_email || null
+      // Capture the buyer's email (Stripe collected it, or the pay route prefilled +
+      // stamped it in metadata) so we can email a receipt + future status updates.
+      // Only ever ADDED — never overwritten with null.
+      const buyerEmail = session.customer_details?.email || session.customer_email || session.metadata?.nexez_buyer_email || null
       const { error: settleErr } = await admin
         .from('agent_negotiations')
         .update({
@@ -219,10 +220,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ received: true, type: event.type, order: false, reason: 'unpaid or missing owner/amount' }, { status: 200 })
       }
       const admin = createAdminClient()
-      // Capture the buyer email (Stripe collected it) — added, never nulled, so a
-      // re-delivery without customer_details can't wipe it. access_token is minted by
-      // the column DEFAULT (so this upsert can't clobber it on a re-delivery).
-      const buyerEmail = session.customer_details?.email || session.customer_email || null
+      // Capture buyer identity. Stripe's collected email wins; the agent-declared
+      // email (carried in metadata) fills the gap for a headless purchase where Stripe
+      // collected none. All buyer fields are added, never nulled, so a re-delivery
+      // without them can't wipe a value. access_token is minted by the column DEFAULT
+      // (so this upsert can't clobber it on a re-delivery).
+      const buyerEmail = session.customer_details?.email || session.customer_email || session.metadata.nexez_buyer_email || null
       const orderRow = {
         owner_id: ownerId,
         page_id: session.metadata.nexez_page_id || null,
@@ -237,6 +240,9 @@ export async function POST(request: NextRequest) {
         application_fee_cents: Number(session.metadata.nexez_application_fee_cents || 0) || null,
         status: 'paid',
         ...(buyerEmail ? { buyer_email: buyerEmail } : {}),
+        ...(session.metadata.nexez_buyer_name ? { buyer_name: session.metadata.nexez_buyer_name } : {}),
+        ...(session.metadata.nexez_buyer_reference ? { buyer_reference: session.metadata.nexez_buyer_reference } : {}),
+        ...(session.metadata.nexez_buyer_agent ? { buyer_agent: session.metadata.nexez_buyer_agent } : {}),
       }
       const { error: orderErr } = await admin.from('checkout_orders').upsert(orderRow, { onConflict: 'stripe_session_id' })
       if (orderErr) {

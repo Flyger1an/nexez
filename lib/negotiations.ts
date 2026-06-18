@@ -36,6 +36,7 @@ export type AgentNegotiation = {
   budget_text: string | null
   timeline_text: string | null
   contact: string | null
+  buyer_email: string | null
   status: NegotiationStatus
   escrow_mode: NegotiationEscrowMode
   amount_cents: number | null

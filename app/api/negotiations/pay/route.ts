@@ -5,6 +5,7 @@ import { enforceRateLimit } from '../../../../lib/rate-limit'
 import { isPayable } from '../../../../lib/settlement'
 import { getCommissionPercentForPlan, calculateApplicationFeeCents } from '../../../../lib/stripe-billing'
 import { minorToStripeAmount } from '../../../../lib/currency'
+import { parseBuyerIdentity } from '../../../../lib/buyer-identity'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { getOwnerPlanId } from '../../../../lib/server/plan'
 import type { AgentNegotiation } from '../../../../lib/negotiations'
@@ -207,6 +208,15 @@ export async function POST(request: Request) {
         nexez_application_fee_cents: String(applicationFeeAmount ?? 0),
         nexez_payment_fingerprint: fingerprint,
       },
+    }
+
+    // Parity with direct checkout: prefill + lock Stripe's email field from the buyer
+    // identity the negotiation already carries (buyer_email, else the contact field if
+    // it's email-shaped). Improves buyer-email capture on funding + the receipt/portal.
+    const buyerEmail = parseBuyerIdentity({ buyerEmail: negotiation.buyer_email || negotiation.contact }).email
+    if (buyerEmail) {
+      sessionParams.customer_email = buyerEmail
+      sessionParams.metadata = { ...sessionParams.metadata, nexez_buyer_email: buyerEmail }
     }
 
     const session = await stripe.checkout.sessions.create(sessionParams, {

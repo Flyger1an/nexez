@@ -12,6 +12,9 @@ export type OrderRow = {
   status: string
   slug: string | null
   refunded_cents?: number | null
+  buyer_email?: string | null
+  buyer_name?: string | null
+  buyer_reference?: string | null
 }
 
 const STATUS_STYLE: Record<string, string> = {
@@ -98,6 +101,7 @@ export function OrdersPanel({ orders }: { orders: OrderRow[] }) {
           <thead className="text-left text-xs uppercase tracking-wide text-zinc-500">
             <tr className="border-b border-white/10">
               <th className="px-4 py-2 font-medium">Offer</th>
+              <th className="px-4 py-2 font-medium">Buyer</th>
               <th className="px-4 py-2 font-medium">Amount</th>
               <th className="px-4 py-2 font-medium">Status</th>
               <th className="px-4 py-2 text-right font-medium">Action</th>
@@ -112,6 +116,17 @@ export function OrdersPanel({ orders }: { orders: OrderRow[] }) {
                   <td className="px-4 py-3">
                     <span className="text-zinc-200">{o.offer_name || 'Offer'}</span>
                     {o.slug ? <span className="ml-2 text-xs text-zinc-500">/{o.slug}</span> : null}
+                  </td>
+                  <td className="px-4 py-3">
+                    {o.buyer_name || o.buyer_email ? (
+                      <span className="flex flex-col">
+                        {o.buyer_name ? <span className="text-zinc-200">{o.buyer_name}</span> : null}
+                        {o.buyer_email ? <span className="text-xs text-zinc-500">{o.buyer_email}</span> : null}
+                        {o.buyer_reference ? <span className="text-[11px] text-zinc-600">ref: {o.buyer_reference}</span> : null}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-zinc-600">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-zinc-200">
                     {formatCurrencyAmount(o.amount_cents, o.currency)}

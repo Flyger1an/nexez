@@ -128,6 +128,14 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, baseUrl: strin
         slug: page.slug,
         offer: offerKey,
       },
+      // Optional buyer identity an agent can include so the seller knows who is buying
+      // and the buyer gets a receipt + order-portal access. All optional.
+      optional_fields: {
+        buyerEmail: 'Buyer email — prefills checkout and enables the receipt + order portal.',
+        buyerName: 'Buyer or business name.',
+        buyerReference: 'Your buyer-side reference / order id (also stamped on the Stripe session).',
+        buyerAgent: 'Identifier for the buying agent.',
+      },
       dry_run_body: {
         slug: page.slug,
         offer: offerKey,

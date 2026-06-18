@@ -1,9 +1,23 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { QueryContext } from '../../../test/supabase-mock'
 
-const { dbRef, adminRef } = vi.hoisted(() => ({
+const { dbRef, adminRef, stripeCalls } = vi.hoisted(() => ({
   dbRef: { handler: (_c: any) => ({ data: null, error: null }) as { data?: any; error?: any; count?: number | null } },
   adminRef: { handler: (_c: any) => ({ data: null, error: null }) as { data?: any; error?: any; count?: number | null } },
+  stripeCalls: [] as Array<{ params: any; opts: any }>,
+}))
+
+vi.mock('stripe', () => ({
+  default: class {
+    checkout = {
+      sessions: {
+        create: async (params: any, opts: any) => {
+          stripeCalls.push({ params, opts })
+          return { id: 'cs_test_1', url: 'https://stripe.test/cs_test_1' }
+        },
+      },
+    }
+  },
 }))
 
 vi.mock('../../../lib/supabase', async () => {
@@ -108,5 +122,54 @@ describe('POST /api/checkout — Smart Rules calendar protection', () => {
     expect(res.status).toBe(200)
     // No rules + no service role → neither the page read nor a booking-count query touches admin.
     expect(vi.mocked(createAdminClient)).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /api/checkout — buyer identity propagation', () => {
+  // Connect-ready seller so the live Stripe branch runs (page + a charges-enabled
+  // billing_subscriptions row, both on the service-role client).
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    stripeCalls.length = 0
+    const { hasSupabaseAdminEnv } = await import('../../../utils/supabase/admin')
+    vi.mocked(hasSupabaseAdminEnv).mockReturnValue(true)
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_x')
+    adminRef.handler = (c: QueryContext) => {
+      if (c.table === 'pages') return { data: fixedPage(), error: null }
+      if (c.table === 'billing_subscriptions')
+        return { data: { plan_id: 'free', status: 'active', stripe_connect_account_id: 'acct_test', stripe_connect_charges_enabled: true }, error: null }
+      return { data: null, error: null, count: 0 }
+    }
+  })
+  afterEach(() => vi.unstubAllEnvs())
+
+  it('forwards declared buyer identity to the Stripe session (email lowercased, ref + metadata)', async () => {
+    const res = await POST(
+      post({ slug: 'demo', offer: 'services-0', buyerEmail: 'Buyer@Example.com', buyerName: 'Acme Buyer', buyerReference: 'PO-9', buyerAgent: 'shopbot/2' }),
+    )
+    expect(res.status).toBe(200)
+    expect(stripeCalls).toHaveLength(1)
+    const { params, opts } = stripeCalls[0]
+    expect(opts.stripeAccount).toBe('acct_test')
+    expect(params.customer_email).toBe('buyer@example.com')
+    expect(params.client_reference_id).toBe('PO-9')
+    expect(params.metadata.nexez_buyer_email).toBe('buyer@example.com')
+    expect(params.metadata.nexez_buyer_name).toBe('Acme Buyer')
+    expect(params.metadata.nexez_buyer_reference).toBe('PO-9')
+    expect(params.metadata.nexez_buyer_agent).toBe('shopbot/2')
+  })
+
+  it('omits buyer fields when none are provided', async () => {
+    const res = await POST(post({ slug: 'demo', offer: 'services-0' }))
+    expect(res.status).toBe(200)
+    expect(stripeCalls).toHaveLength(1)
+    expect(stripeCalls[0].params.customer_email).toBeUndefined()
+    expect(stripeCalls[0].params.metadata.nexez_buyer_email).toBeUndefined()
+  })
+
+  it('drops a malformed buyer email (no customer_email)', async () => {
+    const res = await POST(post({ slug: 'demo', offer: 'services-0', buyerEmail: 'nope' }))
+    expect(res.status).toBe(200)
+    expect(stripeCalls[0].params.customer_email).toBeUndefined()
   })
 })

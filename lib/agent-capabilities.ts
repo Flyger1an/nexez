@@ -175,6 +175,10 @@ export function buildOpenApiSpec() {
                     slug: { type: 'string' },
                     offer: { type: 'string', description: 'Offer key such as services-0 or products-0.' },
                     query: { type: 'string', description: 'Optional buyer request or agent context.' },
+                    buyerEmail: { type: 'string', description: 'Optional buyer email. Prefills Stripe checkout and enables the buyer receipt + order portal.' },
+                    buyerName: { type: 'string', description: 'Optional buyer or business name recorded on the order.' },
+                    buyerReference: { type: 'string', description: 'Optional buyer-side reference / order id; also stamped on the Stripe session (client_reference_id).' },
+                    buyerAgent: { type: 'string', description: 'Optional identifier for the buying agent.' },
                     dryRun: {
                       type: 'boolean',
                       description: 'When true, validate and log checkout intent without creating a Stripe session or redirecting.',

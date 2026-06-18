@@ -128,7 +128,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
   // Direct-checkout orders (refundable in-app via the panel below).
   const { data: orderRows } = await supabase
     .from('checkout_orders')
-    .select('id, offer_name, amount_cents, currency, status, slug, refunded_cents')
+    .select('id, offer_name, amount_cents, currency, status, slug, refunded_cents, buyer_email, buyer_name, buyer_reference')
     .eq('owner_id', user.id)
     .order('created_at', { ascending: false })
     .limit(100)
