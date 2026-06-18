@@ -32,11 +32,15 @@ export function buildAgentPagePayload(
   const negotiationAllowed = opts.negotiationAllowed === true
   const dp = normalizeDomainPath((page as any).domain_path)
   const platformBase = getBaseUrl()
-  // identityBase for page self, agent.json, llms.txt, etc. (custom root + domain_path when applicable)
+  // identityBase: the effective root for this page's identity (already adjusted by caller for custom+dp)
   const identityBase = baseUrl
-  const publicUrl = dp === '/' ? identityBase : `${identityBase.replace(/\/$/, '')}${dp}/${page.slug}`.replace(/\/+/g, '/').replace(/\/$/, '')
-  const agentJsonUrl = `${identityBase}${agentArtifactHref('agent.json', page.slug, dp !== '/' || !identityBase.includes('nexez'), dp)}`
-  const llmsUrl = `${identityBase}${agentArtifactHref('llms.txt' as any, page.slug, dp !== '/' || !identityBase.includes('nexez'), dp)}`
+  // For custom root: self URL = identityBase (e.g. https://acme.com)
+  // For subpath: self URL = identityBase (caller includes dp) , e.g. https://acme.com/pricing
+  // Never append slug to identity URLs on custom (slug is internal; domainPath maps it)
+  const isCustomRootOrSub = dp !== '/' || !identityBase.includes('nexez.')
+  const publicUrl = isCustomRootOrSub ? identityBase : `${identityBase}/${page.slug}`.replace(/\/+/g, '/').replace(/\/$/, '')
+  const agentJsonUrl = `${identityBase}${agentArtifactHref('agent.json', page.slug, isCustomRootOrSub, dp)}`
+  const llmsUrl = `${identityBase}${agentArtifactHref('llms.txt' as any, page.slug, isCustomRootOrSub, dp)}`
   const checkoutOffers = getCheckoutOffers(page)
   const offers = checkoutOffers.map((offer) => buildOfferPayload(page, offer, identityBase, platformBase, negotiationAllowed))
 
@@ -97,7 +101,7 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: 
   // Only advertise negotiation when the owner's plan allows it AND this offer is
   // negotiable — otherwise an agent would POST /api/negotiations and get a 403.
   const isNegotiable = (offer as { offerType?: string }).offerType === 'negotiable'
-  const checkoutUrl = `${identityBase}${getCheckoutPath(page.slug, offer.kind, offer.index)}`
+  const checkoutUrl = `${platformBase}${getCheckoutPath(page.slug, offer.kind, offer.index)}`
   const providerUrl = getOfferDestination(page, offer) || null
 
   return {

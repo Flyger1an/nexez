@@ -194,7 +194,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
     : products.length && !preferOriginal
       ? getCheckoutPath(page.slug, 'products', 0)
       : ''
-  const jsonLd = buildJsonLd(page, effectiveBase, { services: hiddenServices, products: hiddenProducts })
+  const jsonLd = buildJsonLd(page, effectiveBase, domainPath, { services: hiddenServices, products: hiddenProducts })
   const branding = await resolveBranding(page, onCustomHost, domainPath)
   const accentStyle = branding.accent_color
     ? ({ '--brand-accent': branding.accent_color } as CSSProperties)
@@ -747,9 +747,11 @@ function OfferSection({
 function buildJsonLd(
   page: AgentPage,
   baseUrl: string = getBaseUrl(),
+  domainPath: string = '/',
   hidden?: { services: Set<number>; products: Set<number> },
 ) {
-  const url = `${baseUrl}/${page.slug}`
+  const dp = normalizeDomainPath(domainPath)
+  const url = dp === '/' && !baseUrl.includes('/nexez') ? baseUrl : `${baseUrl.replace(/\/$/, '')}${dp}/${page.slug}`.replace(/\/+/g,'/').replace(/\/$/,'')
   const pagePrefer = !!page.prefer_original_site
   // Freshness-anchored price validity so agents don't treat the price as permanent.
   const validUntil = priceValidUntil(page) || undefined

@@ -110,17 +110,15 @@ export function handleMcpRequest(
       const offer = getCheckoutOffers(page).find((o) => getCheckoutOfferKey(o.kind, o.index) === offerKey)
       if (name === 'book_offer') {
         if (!offer) return err(id, -32602, `Unknown offer: ${offerKey}`)
-        const platformBase = getBaseUrl()
         const useOriginal = offer.prefer_original_for_this || (page.prefer_original_site && !!offer.url)
-        const target = useOriginal && offer.url ? offer.url : `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`
+        const target = useOriginal && offer.url ? offer.url : `${getBaseUrl()}${getCheckoutPath(page.slug, offer.kind, offer.index)}`
         return ok(id, { content: [{ type: 'text', text: `Booking target for "${offer.name}": ${target}` }] })
       }
       if (name === 'negotiate_offer') {
         // Gate to match the advertised tool list + the gated POST endpoint.
         if (!negotiationAllowed) return err(id, -32601, 'negotiate_offer is not available for this page.')
-        const platformBase = getBaseUrl()
         return ok(id, {
-          content: [{ type: 'text', text: `POST ${platformBase}/api/negotiations with slug="${page.slug}", offer="${offerKey || 'services-0'}", plus query/budget/timeline.` }],
+          content: [{ type: 'text', text: `POST ${getBaseUrl()}/api/negotiations with slug="${page.slug}", offer="${offerKey || 'services-0'}", plus query/budget/timeline.` }],
         })
       }
       return err(id, -32601, `Unknown tool: ${name}`)
