@@ -1211,3 +1211,20 @@ html.light { --signal-solid: #4f46e5; }
   .nx-celebrate { animation: nx-celebrate .5s cubic-bezier(.22,1,.36,1) both; }
   .nx-celebrate-pop { animation: nx-celebrate-pop .6s cubic-bezier(.34,1.56,.5,1) both; }
 }
+
+/* ===========================================================================
+   Homepage signature interactions — Agent X-Ray, Readiness Lab, Live feed.
+   Accent glow uses var(--signal) so it stays on-palette in both themes.
+   ============================================================================ */
+@keyframes nx-pulsedot { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@keyframes nx-handle-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--signal) 55%, transparent); }
+  50% { box-shadow: 0 0 0 8px transparent; }
+}
+@keyframes nx-log-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+/* one-shot entrance for appended feed rows (lands at end state via fill-mode) */
+.nx-log-row { animation: nx-log-in .35s ease both; }
+@media (prefers-reduced-motion: no-preference) {
+  .nx-pulsedot { animation: nx-pulsedot 1.6s ease-in-out infinite; }
+  .nx-xray-grip { animation: nx-handle-pulse 2.2s ease-out infinite; }
+}

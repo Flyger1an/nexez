@@ -1,0 +1,155 @@
+'use client'
+
+import { useState } from 'react'
+
+/**
+ * Interactive Readiness Lab: flip structured signals on/off; each adds its weight to
+ * a 0–100 readiness score that drives an animated ring gauge, a verdict, and the list
+ * of actions agents can take. Theme-aware (lives on the page surface) — accents use
+ * the design tokens so it flips cleanly in light + dark.
+ */
+type Signal = { key: string; label: string; weight: number; unlock: string }
+
+const SIGNALS: Signal[] = [
+  { key: 'offers', label: 'Offers + pricing', weight: 24, unlock: 'compare price' },
+  { key: 'actions', label: 'Action endpoints', weight: 22, unlock: 'book & buy' },
+  { key: 'schema', label: 'schema.org / JSON-LD', weight: 18, unlock: 'identify your business' },
+  { key: 'mcp', label: 'MCP endpoint', weight: 14, unlock: 'transact live' },
+  { key: 'llms', label: 'llms.txt', weight: 12, unlock: 'crawl efficiently' },
+  { key: 'fresh', label: 'Freshness signals', weight: 10, unlock: 'trust your data' },
+]
+
+const R = 76
+const C = 2 * Math.PI * R // ≈ 477.5
+
+export function ReadinessLab() {
+  const [on, setOn] = useState<Record<string, boolean>>({
+    offers: true,
+    actions: true,
+    schema: true,
+    mcp: false,
+    llms: false,
+    fresh: false,
+  })
+
+  const score = SIGNALS.reduce((s, f) => s + (on[f.key] ? f.weight : 0), 0)
+  const dashOffset = C * (1 - score / 100)
+  const verdict =
+    score >= 80
+      ? { text: 'Fully agent-ready', color: 'var(--ready)' }
+      : score >= 50
+        ? { text: 'Partially readable', color: 'var(--amber)' }
+        : { text: 'Mostly invisible to agents', color: '#E5635A' }
+
+  return (
+    <div className="grid items-stretch gap-5 lg:grid-cols-[1fr_0.85fr]">
+      {/* toggles */}
+      <div className="card !p-6">
+        <div className="mb-4 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
+          structured signals
+        </div>
+        <div className="flex flex-col gap-2.5">
+          {SIGNALS.map((f) => {
+            const isOn = !!on[f.key]
+            return (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setOn((p) => ({ ...p, [f.key]: !p[f.key] }))}
+                aria-pressed={isOn}
+                className="flex w-full items-center gap-3.5 rounded-xl px-4 py-3.5 text-left transition-colors"
+                style={{
+                  background: isOn ? 'color-mix(in srgb, var(--signal) 12%, transparent)' : 'var(--ov-03)',
+                  border: `1px solid ${isOn ? 'color-mix(in srgb, var(--signal) 45%, transparent)' : 'var(--border)'}`,
+                }}
+              >
+                <span
+                  className="relative h-[22px] w-[38px] flex-none rounded-full transition-colors"
+                  style={{ background: isOn ? 'var(--signal)' : 'var(--ov-15)' }}
+                >
+                  <span
+                    className="absolute top-[3px] size-4 rounded-full bg-white transition-all"
+                    style={{ left: isOn ? 19 : 3 }}
+                  />
+                </span>
+                <span className="flex-1">
+                  <span className="block text-[15px] font-semibold" style={{ color: isOn ? 'var(--fg)' : 'var(--fg-muted)' }}>
+                    {f.label}
+                  </span>
+                  <span className="mt-0.5 block font-mono text-[11.5px] text-muted-foreground">unlocks: {f.unlock}</span>
+                </span>
+                <span className="font-mono text-[12px]" style={{ color: isOn ? 'var(--signal)' : 'var(--fg-muted-2)' }}>
+                  +{f.weight}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* gauge + verdict */}
+      <div
+        className="flex flex-col rounded-[18px] p-6"
+        style={{
+          background: 'color-mix(in srgb, var(--signal) 5%, transparent)',
+          border: '1px solid color-mix(in srgb, var(--signal) 22%, transparent)',
+        }}
+      >
+        <div className="relative my-1.5 mb-3.5 flex items-center justify-center">
+          <svg width="180" height="180" viewBox="0 0 180 180" className="-rotate-90">
+            <defs>
+              <linearGradient id="nx-lab-grad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="var(--signal)" />
+                <stop offset="100%" stopColor="var(--ready)" />
+              </linearGradient>
+            </defs>
+            <circle cx="90" cy="90" r={R} fill="none" stroke="var(--ov-10)" strokeWidth="13" />
+            <circle
+              cx="90"
+              cy="90"
+              r={R}
+              fill="none"
+              stroke="url(#nx-lab-grad)"
+              strokeWidth="13"
+              strokeLinecap="round"
+              strokeDasharray={C.toFixed(1)}
+              strokeDashoffset={dashOffset.toFixed(1)}
+              style={{ transition: 'stroke-dashoffset .6s cubic-bezier(.2,.8,.2,1)' }}
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="font-display text-[52px] font-extrabold leading-none tracking-[-0.03em] tabular-nums text-white">
+              {score}
+            </span>
+            <span className="mt-1 font-mono text-[11px] text-muted-foreground">readiness / 100</span>
+          </div>
+        </div>
+        <div className="mb-4 text-center font-display text-[20px] font-bold tracking-[-0.01em]" style={{ color: verdict.color }}>
+          {verdict.text}
+        </div>
+        <div className="border-t border-border pt-4">
+          <div className="mb-3 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
+            agent capabilities
+          </div>
+          <div className="flex flex-col gap-2">
+            {SIGNALS.map((f) => {
+              const isOn = !!on[f.key]
+              return (
+                <div
+                  key={f.key}
+                  className="flex items-center gap-2.5 text-[13.5px]"
+                  style={{ color: isOn ? 'var(--fg-soft)' : 'var(--fg-muted-2)' }}
+                >
+                  <span className="font-mono text-[13px]" style={{ color: isOn ? 'var(--ready)' : 'var(--fg-muted-2)' }}>
+                    {isOn ? '✓' : '✗'}
+                  </span>
+                  {isOn ? `Agents can ${f.unlock}` : `Cannot ${f.unlock}`}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

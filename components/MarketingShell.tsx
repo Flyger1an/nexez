@@ -1,7 +1,6 @@
 'use client'
 
 import { ReactNode, useEffect, useRef, useState } from 'react'
-import { ArrowRight } from 'lucide-react'
 import { NexezLogo } from './NexezLogo'
 import { ThemeToggle } from './ThemeToggle'
 import { appUrl } from '../lib/site'
@@ -121,12 +120,10 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           {authed === null ? (
             <span aria-hidden="true" className="btn-primary btn-sm" style={{ opacity: 0, pointerEvents: 'none' }}>
               Get started
-              <ArrowRight className="size-4 arr" />
             </span>
           ) : (
             <a href={appUrl(authed ? '/dashboard' : '/create')} className="btn-primary btn-sm">
               {authed ? 'Dashboard' : 'Get started'}
-              <ArrowRight className="size-4 arr" />
             </a>
           )}
         </div>
