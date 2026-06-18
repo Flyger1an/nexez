@@ -20,6 +20,7 @@ import {
 } from '../../lib/analytics'
 import { CheckoutEvent, getEventActionLabel } from '../../lib/checkout-events'
 import { createClient } from '../../utils/supabase/client'
+import { PendingInvitesBanner } from './PendingInvitesBanner'
 import { PageCard } from '../../components/dashboard/PageCard'
 import { OnboardingChecklist } from '../../components/OnboardingChecklist'
 import { buildNotifications } from '../../lib/notifications'
@@ -135,7 +136,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
         .limit(100)
         .returns<CheckoutEvent[]>(),
       fetchAgentVisits(supabase, user.id),
-      supabase.from('team_invites').select('owner_id').ilike('email', user.email ?? '').neq('status', 'revoked'),
+      supabase.from('team_invites').select('owner_id').eq('email', (user.email ?? '').toLowerCase()).eq('status', 'accepted'),
       supabase
         .from('agent_negotiations')
         .select('id', { count: 'exact', head: true })
@@ -290,6 +291,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
   return (
     <main className="min-h-screen bg-background text-white">
       <div className="mx-auto max-w-7xl px-5 py-6 md:px-8">
+        <PendingInvitesBanner />
         <section className="rounded-lg border border-border bg-white/[0.03] p-5 md:p-6">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div className="max-w-2xl">

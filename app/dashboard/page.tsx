@@ -27,7 +27,7 @@ export default async function DashboardPage() {
     supabase.from('pages').select(OWNER_PAGE_SELECT).eq('owner_id', user.id).order('created_at', { ascending: false }).returns<AgentPage[]>(),
     supabase.from('checkout_events').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(100).returns<CheckoutEvent[]>(),
     supabase.from('agent_visits').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1000).returns<AgentVisit[]>(),
-    supabase.from('team_invites').select('owner_id').ilike('email', user.email ?? '').neq('status', 'revoked'),
+    supabase.from('team_invites').select('owner_id').eq('email', (user.email ?? '').toLowerCase()).eq('status', 'accepted'),
     supabase.from('agent_negotiations').select('id', { count: 'exact', head: true }).eq('owner_id', user.id).in('status', ['negotiation', 'agreement_proposed', 'held']),
   ])
 
