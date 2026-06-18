@@ -445,7 +445,7 @@ function NexieCardView({
     <article
       className={`rounded-3xl border p-4 shadow-xl ${
         card.status === 'success'
-          ? 'border-emerald-400/20 bg-emerald-400/10'
+          ? 'border-[var(--ready)]/20 bg-[var(--ready)]/10'
           : 'border-red-400/20 bg-red-400/10'
       }`}
     >

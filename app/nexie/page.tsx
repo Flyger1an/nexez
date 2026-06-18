@@ -11,7 +11,7 @@ export default function NexiePage() {
     <main className="min-h-dvh overflow-hidden bg-[#050507] text-white">
       <div className="pointer-events-none fixed inset-0">
         <div className="absolute left-1/2 top-[-18rem] h-[34rem] w-[34rem] -translate-x-1/2 rounded-full bg-[var(--signal)]/15 blur-3xl" />
-        <div className="absolute bottom-[-16rem] right-[-12rem] h-[28rem] w-[28rem] rounded-full bg-fuchsia-500/10 blur-3xl" />
+        <div className="absolute bottom-[-16rem] right-[-12rem] h-[28rem] w-[28rem] rounded-full bg-[var(--signal)]/10 blur-3xl" />
       </div>
 
       <div className="relative mx-auto grid min-h-dvh w-full max-w-6xl items-center gap-8 px-4 py-6 md:grid-cols-[0.9fr_1fr] md:px-8">
