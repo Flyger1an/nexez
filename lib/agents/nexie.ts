@@ -19,11 +19,16 @@ export type NexieApprovalInput = {
 export type NexieTurnInput = {
   db: Db
   userId: string
+  /** Authenticated buyer email (from the session) — links Nexie purchases to this account. */
+  userEmail?: string | null
   message?: string
   threadId?: string | null
   mode?: NexieMode
   approval?: NexieApprovalInput | null
 }
+
+/** Authenticated buyer identity injected into money-path actions (never from the LLM). */
+type NexieBuyer = { email: string | null; userId: string }
 
 export type NexieCard =
   | {
@@ -219,6 +224,7 @@ export async function handleNexieTurn(input: NexieTurnInput): Promise<NexieTurnR
   if (input.approval) {
     return handleApprovalDecision(input.db, {
       userId: input.userId,
+      userEmail: input.userEmail ?? null,
       agent,
       thread,
       approval: input.approval,
@@ -415,7 +421,7 @@ async function runDeterministicAgent(
 
 async function handleApprovalDecision(
   db: Db,
-  ctx: { userId: string; agent: UserAgentRow; thread: AgentThreadRow; approval: NexieApprovalInput },
+  ctx: { userId: string; userEmail: string | null; agent: UserAgentRow; thread: AgentThreadRow; approval: NexieApprovalInput },
 ): Promise<NexieTurnResult> {
   const { data: approval, error } = await db
     .from('agent_action_approvals')
@@ -460,10 +466,14 @@ async function handleApprovalDecision(
     .eq('id', approval.id)
     .eq('user_id', ctx.userId)
 
+  // Buyer identity is taken from the authenticated session here — NOT from the
+  // approval payload (which originated with the LLM) — so a buyer can only ever
+  // transact as themselves.
+  const buyer: NexieBuyer = { email: ctx.userEmail, userId: ctx.userId }
   try {
     const actionResult = approval.tool_name === 'initiate_negotiation'
-      ? await executeNegotiation(approval.payload)
-      : await executeBooking(approval.payload)
+      ? await executeNegotiation(approval.payload, buyer)
+      : await executeBooking(approval.payload, buyer)
 
     await db
       .from('agent_action_approvals')
@@ -660,7 +670,7 @@ async function createApproval(
   return approvalToCard(data)
 }
 
-async function executeNegotiation(payload: Record<string, unknown>) {
+async function executeNegotiation(payload: Record<string, unknown>, buyer: NexieBuyer) {
   const res = await fetch(`${agentRuntimeBaseUrl()}/api/negotiations`, {
     method: 'POST',
     headers: {
@@ -676,7 +686,9 @@ async function executeNegotiation(payload: Record<string, unknown>) {
       requestedTerms: objectValue(payload.requestedTerms),
       budget: stringValue(payload.budget),
       timeline: stringValue(payload.timeline),
-      contact: stringValue(payload.contact),
+      // The authenticated buyer's account email is the contact of record (not the
+      // LLM payload), so the negotiation is attributable and the buyer gets updates.
+      contact: buyer.email || stringValue(payload.contact),
     }),
   })
   const json = await safeJson(res)
@@ -688,7 +700,7 @@ async function executeNegotiation(payload: Record<string, unknown>) {
   }
 }
 
-async function executeBooking(payload: Record<string, unknown>) {
+async function executeBooking(payload: Record<string, unknown>, buyer: NexieBuyer) {
   const res = await fetch(`${agentRuntimeBaseUrl()}/api/checkout`, {
     method: 'POST',
     headers: {
@@ -700,6 +712,12 @@ async function executeBooking(payload: Record<string, unknown>) {
       slug: stringValue(payload.slug),
       offer: stringValue(payload.offer),
       query: stringValue(payload.query) || 'Buyer booking via Nexie',
+      // Authenticated buyer identity (from the session, not the LLM payload) → Stripe
+      // customer_email + nexez_buyer_* metadata, so the order links to this account
+      // and surfaces in the buyer's Nexie Orders.
+      buyerEmail: buyer.email || undefined,
+      buyerReference: buyer.userId,
+      buyerAgent: 'Nexie',
     }),
   })
   const json = await safeJson(res)

@@ -11,6 +11,7 @@ import { sanitizeSchedulingLink } from './scheduling-allowlist';
 import { isTerminalNegotiationStatus, type NegotiationStatus } from './negotiations';
 import { parseMoney } from './checkout';
 import { normalizeCurrency } from './currency';
+import { parseBuyerIdentity } from './buyer-identity';
 
 /**
  * Core Negotiation Service - the brain of the Intelligent Negotiation Engine.
@@ -483,6 +484,12 @@ export class NegotiationService {
       budget_text: proposal.budget || proposal.proposedPrice || null,
       timeline_text: proposal.timeline || null,
       contact: proposal.contact || null,
+      // Persist the buyer email at CREATE when the contact is email-shaped (normalized +
+      // lowercased via parseBuyerIdentity), so a pending/unfunded negotiation is already
+      // linkable by the buyer's account email (findOrdersByEmail → "find my orders" +
+      // the Nexie Orders endpoint). The funding webhook later sets the Stripe-verified
+      // email if one is collected.
+      buyer_email: parseBuyerIdentity({ buyerEmail: proposal.contact }).email,
       status: 'negotiation',
       escrow_mode: process.env.STRIPE_SECRET_KEY ? 'manual_capture_ready' : 'not_configured',
       amount_cents: null,
