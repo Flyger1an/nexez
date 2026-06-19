@@ -1,11 +1,10 @@
 import 'server-only'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { AgentPage, PUBLIC_PAGE_SELECT } from '../agent-page'
-import { searchAgentPages, type AgentSearchResult } from '../agent-search'
+import { type AgentSearchResult } from '../agent-search'
 import { isLlmConfigured, llmModel, llmProviderName } from '../llm'
-import { publicLaunchVisiblePages } from '../public-page-visibility'
 import { normalizePreferences, preferencesPromptBlock } from './nexie-preferences'
+import { searchAllSources } from './source-adapters'
 import { agentRuntimeUrl } from '../site'
 
 type Db = SupabaseClient
@@ -631,20 +630,9 @@ async function updateAgentMemory(
 }
 
 async function searchPages(db: Db, input: { query: string; limit: number }): Promise<{ results: AgentSearchResult[] }> {
-  const { data, error } = await db
-    .from('pages_public')
-    .select(PUBLIC_PAGE_SELECT)
-    .eq('is_published', true)
-    .order('created_at', { ascending: false })
-    .limit(150)
-    .returns<AgentPage[]>()
-
-  if (error) throw new Error(`Nexez search is temporarily unavailable: ${error.message}`)
-
-  const baseUrl = agentRuntimeBaseUrl()
-  return {
-    results: searchAgentPages(publicLaunchVisiblePages(data), input.query, input.limit, baseUrl),
-  }
+  // Delegates to the source-adapter registry (nexez today; more sources later without
+  // touching this agent loop). See lib/agents/source-adapters.ts.
+  return { results: await searchAllSources(input.query, input.limit, { db, baseUrl: agentRuntimeBaseUrl() }) }
 }
 
 async function createApproval(
