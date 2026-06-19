@@ -1,0 +1,102 @@
+// Buyer "standing preferences" for the Nexxi agent — budget, interests, timing, and
+// location that persist on the user_agents.preferences JSONB and steer every turn (and
+// a voice-replies default the mobile app reads). Pure + validated so the route, the
+// agent prompt, and tests all share one shape. No secrets, no DB access here.
+
+export type NexieTiming = 'flexible' | 'this_week' | 'asap'
+
+export type NexiePreferences = {
+  /** Soft budget ceiling in MAJOR currency units (e.g. dollars), or null for none. */
+  budgetMax: number | null
+  /** ISO-4217-ish 3-letter code, upper-cased. Pairs with budgetMax. */
+  currency: string
+  /** Service/product interests, e.g. ['cleaning', 'web design']. */
+  categories: string[]
+  timing: NexieTiming | null
+  location: string | null
+  /** When true, the app defaults spoken replies on. */
+  voiceRepliesDefault: boolean
+}
+
+export const NEXIE_TIMINGS: NexieTiming[] = ['flexible', 'this_week', 'asap']
+
+const MAX_CATEGORIES = 12
+const MAX_CATEGORY_LEN = 40
+const MAX_LOCATION_LEN = 80
+const MAX_BUDGET = 100_000_000 // sanity ceiling on the soft hint
+
+export const DEFAULT_PREFERENCES: NexiePreferences = {
+  budgetMax: null,
+  currency: 'USD',
+  categories: [],
+  timing: null,
+  location: null,
+  voiceRepliesDefault: false,
+}
+
+/** Coerce arbitrary stored/posted JSON into a complete, safe NexiePreferences. */
+export function normalizePreferences(input: unknown): NexiePreferences {
+  const o = input && typeof input === 'object' ? (input as Record<string, unknown>) : {}
+
+  let budgetMax: number | null = null
+  if (typeof o.budgetMax === 'number' && Number.isFinite(o.budgetMax) && o.budgetMax > 0) {
+    budgetMax = Math.min(Math.round(o.budgetMax), MAX_BUDGET)
+  }
+
+  const currency =
+    typeof o.currency === 'string' && /^[a-z]{3}$/i.test(o.currency.trim())
+      ? o.currency.trim().toUpperCase()
+      : 'USD'
+
+  const categories: string[] = []
+  const seen = new Set<string>()
+  if (Array.isArray(o.categories)) {
+    for (const raw of o.categories) {
+      if (typeof raw !== 'string') continue
+      const value = raw.trim().replace(/\s+/g, ' ').slice(0, MAX_CATEGORY_LEN)
+      const key = value.toLowerCase()
+      if (!value || seen.has(key)) continue
+      seen.add(key)
+      categories.push(value)
+      if (categories.length >= MAX_CATEGORIES) break
+    }
+  }
+
+  const timing = NEXIE_TIMINGS.includes(o.timing as NexieTiming) ? (o.timing as NexieTiming) : null
+
+  const location =
+    typeof o.location === 'string' && o.location.trim()
+      ? o.location.trim().replace(/\s+/g, ' ').slice(0, MAX_LOCATION_LEN)
+      : null
+
+  return {
+    budgetMax,
+    currency,
+    categories,
+    timing,
+    location,
+    voiceRepliesDefault: o.voiceRepliesDefault === true,
+  }
+}
+
+const TIMING_LABEL: Record<NexieTiming, string> = {
+  flexible: 'flexible / no rush',
+  this_week: 'within this week',
+  asap: 'as soon as possible',
+}
+
+/**
+ * A compact, model-readable block of the buyer's standing preferences for the system
+ * prompt — or '' when nothing agent-relevant is set (voiceRepliesDefault is UI-only).
+ */
+export function preferencesPromptBlock(prefs: NexiePreferences): string {
+  const lines: string[] = []
+  if (prefs.budgetMax != null) {
+    lines.push(`- Budget ceiling: up to ${prefs.budgetMax} ${prefs.currency} (soft guidance; confirm before exceeding).`)
+  }
+  if (prefs.categories.length) lines.push(`- Interested in: ${prefs.categories.join(', ')}.`)
+  if (prefs.timing) lines.push(`- Timing: ${TIMING_LABEL[prefs.timing]}.`)
+  if (prefs.location) lines.push(`- Location: ${prefs.location}.`)
+  if (!lines.length) return ''
+  return `Buyer standing preferences (honor these unless the buyer overrides them this turn):\n${lines.join('\n')}`
+}

@@ -5,6 +5,7 @@ import { AgentPage, PUBLIC_PAGE_SELECT } from '../agent-page'
 import { searchAgentPages, type AgentSearchResult } from '../agent-search'
 import { isLlmConfigured, llmModel, llmProviderName } from '../llm'
 import { publicLaunchVisiblePages } from '../public-page-visibility'
+import { normalizePreferences, preferencesPromptBlock } from './nexie-preferences'
 import { agentRuntimeUrl } from '../site'
 
 type Db = SupabaseClient
@@ -297,10 +298,11 @@ async function runLlmAgent(
     mode: NexieMode
   },
 ): Promise<Omit<NexieTurnResult, 'threadId' | 'agentId' | 'memory' | 'model'>> {
+  const preferencesBlock = preferencesPromptBlock(normalizePreferences(ctx.agent.preferences))
   const messages: OpenAiMessage[] = [
     {
       role: 'system',
-      content: `${NEXIE_SYSTEM_PROMPT}
+      content: `${NEXIE_SYSTEM_PROMPT}${preferencesBlock ? `\n\n${preferencesBlock}` : ''}
 
 Current buyer memory:
 ${JSON.stringify(ctx.agent.memory ?? {}, null, 2)}
@@ -518,7 +520,7 @@ async function handleApprovalDecision(
   }
 }
 
-async function ensureUserAgent(db: Db, userId: string): Promise<UserAgentRow> {
+export async function ensureUserAgent(db: Db, userId: string): Promise<UserAgentRow> {
   const { data: existing, error } = await db
     .from('user_agents')
     .select('id, user_id, name, preferences, memory')
