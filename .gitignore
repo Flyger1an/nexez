@@ -47,5 +47,8 @@ next-env.d.ts
 # local Supabase CLI metadata
 supabase/.temp/
 
+# local OpenClaw plugin inspection output
+plugins/openclaw-nexez/reports/
+
 # local Claude Code config (personal permission allowlist + launch settings)
 .claude/
