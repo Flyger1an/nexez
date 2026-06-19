@@ -1,6 +1,7 @@
 import { AgentPage, getCertification, getCheckoutOffers, getCheckoutPath, getOfferCount, getRequestBaseUrl } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { normalizeCurrency } from '../../lib/currency'
+import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
 import { supabase } from '../../lib/supabase'
 
 export async function GET(request: Request) {
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
       openapi_url: `${baseUrl}/openapi.json`,
       capabilities_url: `${baseUrl}/.well-known/nexez.json`,
       search_url: `${baseUrl}/api/agent-search?q={query}`,
-      pages: (pages ?? []).map((page) => {
+      pages: publicLaunchVisiblePages(pages).map((page) => {
         const cert = getCertification(page)
         const currency = normalizeCurrency(page.currency)
         return {

@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { AgentPage, getCheckoutOffers, getCheckoutPath } from '../lib/agent-page'
 import { getAgentJsonPath } from '../lib/agent-manifest'
 import { useCases } from '../lib/marketing-content'
+import { publicLaunchVisiblePages } from '../lib/public-page-visibility'
 import { supabase } from '../lib/supabase'
 import { AGENT_RUNTIME_HOST, APP_HOST, MARKETING_HOST, agentRuntimeUrl, marketingUrl } from '../lib/site'
 
@@ -55,24 +56,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const lastMod = (page: { updated_at?: string | null; created_at?: string | null }) =>
     page.updated_at ? new Date(page.updated_at) : page.created_at ? new Date(page.created_at) : new Date()
 
+  const visiblePages = publicLaunchVisiblePages(pages)
+
   return [
     { url: `${baseUrl}/agent-pages.json`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.7 },
     { url: `${baseUrl}/openapi.json`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.6 },
     { url: `${baseUrl}/.well-known/nexez.json`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.6 },
     { url: `${baseUrl}/api/agent-search`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.6 },
-    ...(pages ?? []).map((page) => ({
+    ...visiblePages.map((page) => ({
       url: `${baseUrl}/${page.slug}`,
       lastModified: lastMod(page),
       changeFrequency: 'weekly' as const,
       priority: 0.8,
     })),
-    ...(pages ?? []).map((page) => ({
+    ...visiblePages.map((page) => ({
       url: `${baseUrl}${getAgentJsonPath(page.slug)}`,
       lastModified: lastMod(page),
       changeFrequency: 'weekly' as const,
       priority: 0.6,
     })),
-    ...(pages ?? []).flatMap((page) =>
+    ...visiblePages.flatMap((page) =>
       getCheckoutOffers(page).map((offer) => ({
         url: `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
         lastModified: lastMod(page),

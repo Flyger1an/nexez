@@ -756,10 +756,7 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     status: 'ok',
-    message: 'Stripe webhook receiver is live. POST signed Stripe events here.',
-    configured: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
-    secretKeyConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
-    serviceRoleConfigured: hasSupabaseAdminEnv(),
+    service: 'stripe-webhook',
   })
 }
 

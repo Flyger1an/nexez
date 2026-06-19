@@ -2,6 +2,7 @@ import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '../../../lib/a
 import { searchAgentPages } from '../../../lib/agent-search'
 import { supabase } from '../../../lib/supabase'
 import { enforceRateLimit } from '../../../lib/rate-limit'
+import { publicLaunchVisiblePages } from '../../../lib/public-page-visibility'
 
 export async function GET(request: Request) {
   // Public agent-facing search — throttle to blunt scraping/DB abuse.
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
   }
 
   const baseUrl = getRequestBaseUrl(request)
-  const results = searchAgentPages(pages ?? [], query, Number.isFinite(limit) ? limit : 10, baseUrl)
+  const results = searchAgentPages(publicLaunchVisiblePages(pages), query, Number.isFinite(limit) ? limit : 10, baseUrl)
 
   return Response.json(
     {

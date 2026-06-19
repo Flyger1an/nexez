@@ -4,9 +4,8 @@ export type PricingTier = {
   description?: string
 }
 
-export const PUBLIC_PAGE_SELECT = [
+const PUBLIC_PAGE_COLUMNS = [
   'id',
-  'owner_id',
   'name',
   'slug',
   'description',
@@ -31,16 +30,26 @@ export const PUBLIC_PAGE_SELECT = [
   'mcp_enabled',
   'verification_details',
   'agent_memory',
-  'google_calendar_id',
   'next_available',
   'last_booking',
   'llm_opt_in',
   'currency',
   'preferred_contact',
+]
+
+// Public/agent-facing columns only. Owner-private routing, billing, and
+// integration identifiers should be fetched from the base pages table with the
+// service-role client when needed.
+export const PUBLIC_PAGE_SELECT = PUBLIC_PAGE_COLUMNS.join(', ')
+
+export const SERVER_PAGE_SELECT = [
+  'owner_id',
+  'google_calendar_id',
+  ...PUBLIC_PAGE_COLUMNS,
 ].join(', ')
 
 export const OWNER_PAGE_SELECT = [
-  PUBLIC_PAGE_SELECT,
+  SERVER_PAGE_SELECT,
   'simulations',
   'team_collaboration',
   'versions',
@@ -233,7 +242,7 @@ export function resolvePreferredContact(
 
 export type AgentPage = {
   id: string
-  owner_id: string | null
+  owner_id?: string | null
   name: string
   slug: string
   description: string | null

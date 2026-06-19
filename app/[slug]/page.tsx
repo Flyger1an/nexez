@@ -21,6 +21,7 @@ import { supabase } from '../../lib/supabase'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 import { getOwnerPlanId } from '../../lib/server/plan'
 import { planAllows } from '../../lib/billing'
+import { getPagePrivateMeta } from '../../lib/server/page-private-meta'
 
 type PageProps = {
   params: Promise<{ slug: string }>
@@ -212,8 +213,12 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
   )
   // Resolve the owner's plan only when the page uses a plan-gated surface (custom
   // branding OR a negotiable offer); ordinary pages stay read-free on this hot path.
-  const ownerPlan = (brandingCustomized || hasNegotiableOffer) && hasSupabaseAdminEnv()
-    ? await getOwnerPlanId(createAdminClient(), (page as { owner_id?: string }).owner_id)
+  const needsOwnerPlan = brandingCustomized || hasNegotiableOffer
+  const privateMeta = needsOwnerPlan && hasSupabaseAdminEnv()
+    ? await getPagePrivateMeta(page.id)
+    : { ownerId: null }
+  const ownerPlan = needsOwnerPlan && hasSupabaseAdminEnv()
+    ? (privateMeta.ownerId ? await getOwnerPlanId(createAdminClient(), privateMeta.ownerId) : 'free')
     : 'enterprise'
   const showBrand = Boolean(branding.logo_url || branding.brand_name) && planAllows(ownerPlan, 'whiteLabel')
   const hideBadge = Boolean(branding.hide_nexez_badge) && planAllows(ownerPlan, 'removeBadge')
@@ -378,7 +383,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
               <SummaryRow label="Location" value={page.location || 'Available online or by request'} />
               {(page as any).next_available && (
                 <SummaryRow 
-                  label={(page as any).google_calendar_id ? "Availability (Google Calendar)" : "Next available"} 
+                  label="Next available"
                   value={(page as any).next_available.split(' ||WINDOWS||')[0]} 
                 />
               )}
@@ -387,7 +392,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
                 if (!windows || windows.length === 0) return null
                 return (
                   <div className="mt-2 rounded border border-[var(--signal)]/20 bg-[#1A1625] p-2 text-[11px]">
-                    <div className="mb-1 text-[var(--signal)] text-[10px] font-medium">Next available slots (Google Calendar)</div>
+                    <div className="mb-1 text-[var(--signal)] text-[10px] font-medium">Next available slots</div>
                     <div className="grid grid-cols-1 gap-y-0.5 text-zinc-300">
                       {windows.slice(0, 4).map((w: any, idx: number) => (
                         <div key={idx}>{w.label || `${w.date} ${w.start}–${w.end}`}</div>

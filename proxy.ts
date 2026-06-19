@@ -118,7 +118,14 @@ export async function proxy(request: NextRequest) {
         return persistAbBucket(NextResponse.rewrite(url), abBucket)
       }
     }
-    // Unknown/unverified custom domain → fall through to normal handling.
+    // Unknown/unmapped custom-domain path → leave the arbitrary host and serve
+    // the route from its canonical Nexez host instead of reflecting platform
+    // content under a random Host header.
+    const url = request.nextUrl.clone()
+    url.host = canonicalHostFor(request.nextUrl.pathname)
+    url.protocol = 'https'
+    url.port = ''
+    return persistAbBucket(NextResponse.redirect(url, 308), abBucket)
   }
 
   // Canonical-host split: marketing routes live on nexez.ai, the app lives on

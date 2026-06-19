@@ -12,6 +12,7 @@ import type { ComponentType } from 'react'
 import { AgentPage, PUBLIC_PAGE_SELECT, getOfferCount, getReadinessScore } from '../lib/agent-page'
 import { supabase } from '../lib/supabase'
 import { agentRuntimeUrl, appUrl } from '../lib/site'
+import { publicLaunchVisiblePages } from '../lib/public-page-visibility'
 import { SimulatorTeaser } from '../components/SimulatorTeaser'
 import { AgentXray } from '../components/home/AgentXray'
 import { ReadinessLab } from '../components/home/ReadinessLab'
@@ -99,6 +100,7 @@ export default async function NexezHome() {
     .eq('is_published', true)
     .order('created_at', { ascending: false })
     .returns<AgentPage[]>()
+  const visiblePages = publicLaunchVisiblePages(pages)
 
   return (
     <main>
@@ -296,7 +298,7 @@ export default async function NexezHome() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {pages?.slice(0, 6).map((page) => (
+            {visiblePages.slice(0, 6).map((page) => (
               <a key={page.id} href={agentRuntimeUrl(`/${page.slug}`)} className="nx-tile group block p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
@@ -319,7 +321,7 @@ export default async function NexezHome() {
             ))}
           </div>
 
-          {!pages?.length ? (
+          {!visiblePages.length ? (
             <div className="rounded-lg border border-dashed border-border p-12 text-center">
               <p className="text-sm text-muted-foreground">No published pages yet. Be the first.</p>
             </div>

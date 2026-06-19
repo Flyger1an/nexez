@@ -14,8 +14,15 @@ export async function POST(request: Request) {
   const limited = await enforceRateLimit(request, 'public-simulate', 20, 60_000)
   if (limited) return limited
 
+  let body: { query?: unknown }
   try {
-    const { query } = await request.json()
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  try {
+    const { query } = body
 
     if (!query || typeof query !== 'string' || !query.trim()) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 })

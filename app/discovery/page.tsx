@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { ArrowRight, Bot, Code2, ExternalLink, Search, Sparkles } from 'lucide-react'
 import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getOfferCount, getReadinessScore, getTrustScore } from '../../lib/agent-page'
 import { AgentSearchResult, searchAgentPages } from '../../lib/agent-search'
+import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
 import { supabase } from '../../lib/supabase'
 import { CopyButton } from './CopyButton'
 import { FavoriteButton } from '../../components/FavoriteButton'
@@ -48,7 +49,8 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
     .order('created_at', { ascending: false })
     .returns<AgentPage[]>()
 
-  let filteredPages = pages ?? []
+  const visiblePages = publicLaunchVisiblePages(pages)
+  let filteredPages = visiblePages
   if (categoryFilter !== 'all') {
     filteredPages = filteredPages.filter(p => {
       const ind = (p.industry || '').toLowerCase()
@@ -86,8 +88,8 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
         new Date((a.page as unknown as { created_at?: string }).created_at ?? 0).getTime(),
     )
   }
-  const pageCount = pages?.length ?? 0
-  const offerCount = pages?.reduce((sum, page) => sum + getOfferCount(page), 0) ?? 0
+  const pageCount = visiblePages.length
+  const offerCount = visiblePages.reduce((sum, page) => sum + getOfferCount(page), 0)
 
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
@@ -311,7 +313,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
             <div className="mt-10">
               <h3 className="text-lg font-semibold tracking-tight mb-4 text-white">Agents also viewed</h3>
               <div className="grid gap-4 md:grid-cols-2">
-                {(pages ?? [])
+                {visiblePages
                   .filter(p => p.is_published && ((p.services?.length ?? 0) + (p.products?.length ?? 0) > 0))
                   .filter(p => {
                     const inCurrentResults = results.some(r => r.page.slug === p.slug)

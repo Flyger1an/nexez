@@ -1,6 +1,7 @@
 import { AgentPage, PUBLIC_PAGE_SELECT, getCheckoutOffers, getCheckoutPath, getOfferCount, getRequestBaseUrl, sanitizePublicUrl } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { markdownLinkLabel, markdownText } from '../../lib/agent-text'
+import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
 import { supabase } from '../../lib/supabase'
 
 const GLOBAL_LLMS_OFFERS_PER_PAGE = 12
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
     '',
     '## Published Agent Pages',
     '',
-    ...(pages ?? []).map((page) => {
+    ...publicLaunchVisiblePages(pages).map((page) => {
       const offers = getCheckoutOffers(page)
       const shownOffers = offers.slice(0, GLOBAL_LLMS_OFFERS_PER_PAGE)
       const omitted = Math.max(0, offers.length - shownOffers.length)

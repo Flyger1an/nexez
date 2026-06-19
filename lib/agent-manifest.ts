@@ -70,8 +70,7 @@ export function buildAgentPagePayload(
       availability: {
         next_available: (page as any).next_available || null,
         last_booking: page.last_booking || null,
-        source: (page as any).google_calendar_id ? 'google_calendar' : (page as any).next_available ? 'manual' : null,
-        calendar_id: (page as any).google_calendar_id || null,
+        source: (page as any).next_available ? 'published_availability' : null,
         note: (page as any).next_available 
           ? 'Availability imported or set manually. Agents can use this for scheduling.'
           : 'Contact for current availability. Recent booking activity may indicate current slots.',
@@ -171,7 +170,7 @@ function buildPlainText(page: AgentPage, offers: ReturnType<typeof buildOfferPay
     `Summary: ${page.description ?? ''}`,
     `Best-fit buyer: ${page.audience ?? ''}`,
     `Location: ${page.location ?? ''}`,
-    `Availability: ${(page as any).next_available ?? 'Contact for current availability'}${ (page as any).google_calendar_id ? ' (Google Calendar synced)' : '' }`,
+    `Availability: ${(page as any).next_available ?? 'Contact for current availability'}`,
     ...(parseAvailabilityWindows((page as any).next_available)?.length
       ? [`Upcoming windows (for agents): ${parseAvailabilityWindows((page as any).next_available)!.slice(0,3).map((w:any)=>w.label||w.start).join(', ')}`]
       : []),

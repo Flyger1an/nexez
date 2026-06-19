@@ -2,11 +2,10 @@ import { NextResponse, after } from 'next/server'
 import {
   AgentPage,
   BASIC_OWNER_PAGE_SELECT,
-  PUBLIC_PAGE_SELECT,
+  SERVER_PAGE_SELECT,
   getCheckoutOffer,
   getCheckoutOfferKey,
   getBaseUrl,
-  getRequestBaseUrl,
 } from '../../../lib/agent-page'
 import { parseMoneyCents } from '../../../lib/checkout'
 import { appUrl } from '../../../lib/site'
@@ -51,7 +50,7 @@ async function getPublishedPage(slug: string) {
 
   const { data, error } = await db
     .from('pages')
-    .select(PUBLIC_PAGE_SELECT)
+    .select(SERVER_PAGE_SELECT)
     .eq('slug', slug)
     .eq('is_published', true)
     .single<AgentPage>()
@@ -70,7 +69,12 @@ async function getPublishedPage(slug: string) {
 
 export async function POST(request: Request) {
   const wantsJson = request.headers.get('accept')?.includes('application/json')
-  const input = await readNegotiationInput(request)
+  let input: NegotiationInput
+  try {
+    input = await readNegotiationInput(request)
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
+  }
 
   // Cap untrusted buyer fields at the single entry point — this bounds both the
   // persisted message log and the LLM prompt (prompt-stuffing / cost guard, and
@@ -79,7 +83,7 @@ export async function POST(request: Request) {
   Object.assign(input, sanitizeBuyerInput(input))
 
   const platformBase = getBaseUrl()
-  let baseUrl = platformBase;
+  let baseUrl = platformBase
 
   // Layered quotas (per IP + per page + per agent) — keyed on the parsed input so
   // one page or one named agent can't dominate. Done after parsing so we have slug.
@@ -93,14 +97,6 @@ export async function POST(request: Request) {
   const page = await getPublishedPage(input.slug)
   if (!page) {
     return NextResponse.json({ error: 'Negotiation page not found.' }, { status: 404 })
-  }
-
-  // Prefer verified custom domain base when the request host matches (for branding in agent contract), else the hardened canonical.
-  if (page.custom_domain && page.custom_domain_verified) {
-    const reqHost = (request.headers.get('host') || '').split(':')[0]
-    if (reqHost === page.custom_domain || reqHost === `www.${page.custom_domain}`) {
-      // re-assign for this response; note: getRequestBaseUrl already sanitized the host
-    }
   }
 
   const offer = getCheckoutOffer(page, input.offer)
@@ -120,8 +116,9 @@ export async function POST(request: Request) {
   // Plan gate: negotiation (make-an-offer + smart-pricing rules) is a Pro feature.
   // If the page owner isn't on Pro+, the page doesn't accept offers (resolved with
   // the admin client since this is a public, buyer-facing route).
+  const ownerId = (page as { owner_id?: string | null }).owner_id ?? null
   const ownerNegotiationAllowed = hasSupabaseAdminEnv()
-    ? await ownerAllows(createAdminClient(), (page as { owner_id?: string }).owner_id, 'negotiation')
+    ? (ownerId ? await ownerAllows(createAdminClient(), ownerId, 'negotiation') : false)
     : true
   if (!ownerNegotiationAllowed) {
     return NextResponse.json({ error: 'This page is not accepting offers — use the listed price to book or buy.' }, { status: 403 })
@@ -186,10 +183,10 @@ export async function POST(request: Request) {
     // submission. (First-proposal only, so the latency cost is bounded.)
     if (!input.negotiationId) {
       try {
-        const ownerEmail = await resolveOwnerNotifyEmail({
-          contactEmail: (page as { contact_email?: string | null }).contact_email,
-          ownerId: (page as { owner_id?: string | null }).owner_id,
-        })
+          const ownerEmail = await resolveOwnerNotifyEmail({
+            contactEmail: (page as { contact_email?: string | null }).contact_email,
+            ownerId,
+          })
         if (ownerEmail) {
           const mail = await buildNegotiationEmail({
             businessName: page.name || page.slug,

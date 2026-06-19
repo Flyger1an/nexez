@@ -4,6 +4,7 @@ import { fireOutboundWebhook, OutboundWebhookPayload } from '../webhooks'
 import { fireOwnerOutboundWebhooks } from './outbound-webhooks'
 import { ownerAllows } from './plan'
 import type { CheckoutEventType } from '../checkout-events'
+import { getPagePrivateMeta } from './page-private-meta'
 
 type LogCheckoutEventInput = {
   page: AgentPage
@@ -35,11 +36,13 @@ export async function logCheckoutEvent({
   // without touching each call site. Explicit metadata still wins.
   const abMeta = offer.ab_test ? { ab_test: offer.ab_test, ab_label: offer.ab_label || '' } : {}
   const mergedMetadata = { ...abMeta, ...(metadata ?? {}) }
+  const privateMeta = await getPagePrivateMeta(page.id)
+  const ownerId = (page as { owner_id?: string | null }).owner_id ?? privateMeta.ownerId
 
   try {
     const { error } = await supabase.from('checkout_events').insert({
       page_id: page.id,
-      owner_id: page.owner_id,
+      owner_id: ownerId,
       slug: page.slug,
       offer_key: getCheckoutOfferKey(offer.kind, offer.index),
       offer_name: offer.name,
@@ -67,7 +70,7 @@ export async function logCheckoutEvent({
           // Outbound webhooks are Pro+ — re-check at dispatch time (not just at
           // create time) so a downgraded owner stops receiving BOTH per-page and
           // account-level deliveries. (fireOwnerOutboundWebhooks self-gates too.)
-          if (!(await ownerAllows(admin, page.owner_id, 'outboundWebhooks'))) return { ok: !error, error }
+          if (!ownerId || !(await ownerAllows(admin, ownerId, 'outboundWebhooks'))) return { ok: !error, error }
 
           const obPayload: OutboundWebhookPayload = {
             event: eventType === 'provider_redirect' ? 'booking.provider_redirect' : 'booking.checkout_initiated',
@@ -112,7 +115,7 @@ export async function logCheckoutEvent({
 
           // Account-level webhooks (Tools → Developer platform): fire for every
           // valuable event across all of the owner's pages, page-config or not.
-          await fireOwnerOutboundWebhooks(admin, page.owner_id, obPayload)
+          await fireOwnerOutboundWebhooks(admin, ownerId, obPayload)
         } catch (e) {
           console.warn('[Checkout Events] Outbound firing error (non-blocking):', e)
         }

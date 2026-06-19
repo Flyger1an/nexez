@@ -67,6 +67,13 @@ const post = (body: unknown) =>
     body: JSON.stringify(body),
   })
 
+const badJsonPost = () =>
+  new Request('https://nexez.test/api/negotiations', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'application/json' },
+    body: '{',
+  })
+
 describe('POST /api/negotiations', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -77,6 +84,10 @@ describe('POST /api/negotiations', () => {
   it('400 when slug or offer is missing', async () => {
     expect((await POST(post({ slug: '', offer: '' }))).status).toBe(400)
     expect((await POST(post({ slug: 'demo' }))).status).toBe(400)
+  })
+
+  it('400 for malformed JSON', async () => {
+    expect((await POST(badJsonPost())).status).toBe(400)
   })
 
   it('404 when the published page is not found', async () => {

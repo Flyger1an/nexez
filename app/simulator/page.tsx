@@ -36,6 +36,7 @@ import {
   type AgentVerdict,
 } from '../../lib/agent-simulator'
 import { analyzeQueryRank, type QueryRankAnalysis } from '../../lib/agent-search'
+import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
 import type { UrlSimComparison } from '../../lib/url-simulation'
 import {
   SimulationHistoryEntry,
@@ -174,7 +175,7 @@ export default function GlobalAgentSimulator() {
         .order('created_at', { ascending: false })
         .limit(100)
         .returns<AgentPage[]>()
-      const field = error ? [] : data ?? []
+      const field = error ? [] : publicLaunchVisiblePages(data)
       setRankAnalysis(analyzeQueryRank(field, page, q))
     } catch {
       setRankAnalysis(null)

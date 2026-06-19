@@ -3,6 +3,7 @@ import { AgentPage } from '../agent-page'
 import { detectAgentVisit } from '../agent-detection'
 import { supabase } from '../supabase'
 import { createHash } from 'crypto'
+import { getPagePrivateMeta } from './page-private-meta'
 
 type LogAgentPageViewInput = {
   page: AgentPage
@@ -16,6 +17,8 @@ export async function logAgentPageView({ page, requestHeaders, userAgent, referr
   const resolvedUserAgent = userAgent ?? requestHeaders?.get('user-agent') ?? null
   const resolvedReferrer = referrer ?? requestHeaders?.get('referer') ?? null
   const ipSignal = getPrivacySafeIpSignal(requestHeaders)
+  const privateMeta = await getPagePrivateMeta(page.id)
+  const ownerId = (page as { owner_id?: string | null }).owner_id ?? privateMeta.ownerId
   const detection = detectAgentVisit({
     userAgent: resolvedUserAgent,
     referrer: resolvedReferrer,
@@ -26,7 +29,7 @@ export async function logAgentPageView({ page, requestHeaders, userAgent, referr
   try {
     const { error: visitError } = await supabase.from('agent_visits').insert({
       page_id: page.id,
-      owner_id: page.owner_id,
+      owner_id: ownerId,
       slug: page.slug,
       path,
       referrer: resolvedReferrer,
@@ -48,7 +51,7 @@ export async function logAgentPageView({ page, requestHeaders, userAgent, referr
     if (detection.is_ai_agent) {
       const { error } = await supabase.from('checkout_events').insert({
         page_id: page.id,
-        owner_id: page.owner_id,
+        owner_id: ownerId,
         slug: page.slug,
         offer_key: 'page',
         offer_name: page.name,

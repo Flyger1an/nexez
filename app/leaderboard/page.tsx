@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Trophy } from 'lucide-react'
 import { AgentPage, PUBLIC_PAGE_SELECT, getOfferCount, getReadinessScore, getTrustScore } from '../../lib/agent-page'
+import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
 import { supabase } from '../../lib/supabase'
 import { agentRuntimeUrl, appUrl } from '../../lib/site'
 import { DiscoveryTabs } from '../../components/DiscoveryTabs'
@@ -22,7 +23,7 @@ export default async function LeaderboardPage({ searchParams }: Props) {
     .limit(500)
     .returns<AgentPage[]>()
 
-  const all = (data ?? []).map((p) => ({ ...p, products: p.products ?? [], services: p.services ?? [], faqs: p.faqs ?? [] }))
+  const all = publicLaunchVisiblePages(data).map((p) => ({ ...p, products: p.products ?? [], services: p.services ?? [], faqs: p.faqs ?? [] }))
   const industries = Array.from(new Set(all.map((p) => (p.industry || '').trim()).filter(Boolean))).sort()
 
   const ranked = all

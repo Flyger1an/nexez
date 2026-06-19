@@ -29,7 +29,7 @@ type CalendlyPayload = {
   }
 }
 
-type WebhookPage = Pick<AgentPage, 'id' | 'owner_id' | 'slug' | 'name' | 'contact_email'>
+type WebhookPage = Pick<AgentPage, 'id' | 'slug' | 'name' | 'contact_email'> & { owner_id: string | null }
 
 export async function POST(request: NextRequest) {
   if (!hasSupabaseAdminEnv()) {

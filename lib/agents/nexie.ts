@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { AgentPage, PUBLIC_PAGE_SELECT } from '../agent-page'
 import { searchAgentPages, type AgentSearchResult } from '../agent-search'
 import { isLlmConfigured, llmModel, llmProviderName } from '../llm'
+import { publicLaunchVisiblePages } from '../public-page-visibility'
 import { agentRuntimeUrl } from '../site'
 
 type Db = SupabaseClient
@@ -640,7 +641,7 @@ async function searchPages(db: Db, input: { query: string; limit: number }): Pro
 
   const baseUrl = agentRuntimeBaseUrl()
   return {
-    results: searchAgentPages(data ?? [], input.query, input.limit, baseUrl),
+    results: searchAgentPages(publicLaunchVisiblePages(data), input.query, input.limit, baseUrl),
   }
 }
 

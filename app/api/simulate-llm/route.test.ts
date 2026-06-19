@@ -22,6 +22,13 @@ const post = (body: unknown) =>
     body: JSON.stringify(body),
   })
 
+const badJsonPost = () =>
+  new Request('https://nexez.test/api/simulate-llm', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{',
+  })
+
 describe('POST /api/simulate-llm (llm_opt_in consent gate)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -31,6 +38,10 @@ describe('POST /api/simulate-llm (llm_opt_in consent gate)', () => {
   it('404 when the slug is not a published page', async () => {
     pageRow = null
     expect((await POST(post({ slug: 'nope', query: 'hi' }))).status).toBe(404)
+  })
+
+  it('400 for malformed JSON', async () => {
+    expect((await POST(badJsonPost())).status).toBe(400)
   })
 
   it('does NOT invoke the LLM when the page has not opted in (deterministic)', async () => {

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '../../../../../utils/supabase/admin'
 import { authenticateApiKey } from '../../../../../lib/server/api-auth'
-import { PUBLIC_PAGE_SELECT, getBaseUrl, normalizeSlug } from '../../../../../lib/agent-page'
+import { SERVER_PAGE_SELECT, getBaseUrl, normalizeSlug } from '../../../../../lib/agent-page'
 import { isPageLimitError, pickWritablePageFields, wantsCustomDomain } from '../../../../../lib/api-pages'
 import { ownerAllows } from '../../../../../lib/server/plan'
 
@@ -13,7 +13,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const admin = createAdminClient()
   const { data, error } = await admin
     .from('pages')
-    .select(PUBLIC_PAGE_SELECT)
+    .select(SERVER_PAGE_SELECT)
     .eq('id', id)
     .eq('owner_id', auth.ownerId) // tenancy enforced in code (admin bypasses RLS)
     .maybeSingle()
@@ -61,7 +61,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .update(update)
     .eq('id', id)
     .eq('owner_id', auth.ownerId)
-    .select(PUBLIC_PAGE_SELECT)
+    .select(SERVER_PAGE_SELECT)
     .maybeSingle()
 
   if (error) {

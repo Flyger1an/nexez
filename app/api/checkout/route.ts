@@ -2,7 +2,7 @@ import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 import {
   AgentPage,
-  PUBLIC_PAGE_SELECT,
+  SERVER_PAGE_SELECT,
   getBaseUrl,
   getCheckoutOffer,
   getCheckoutOfferKey,
@@ -41,7 +41,7 @@ async function getPublishedPage(slug: string) {
   const db = hasSupabaseAdminEnv() ? createAdminClient() : supabase
   const { data } = await db
     .from('pages')
-    .select(PUBLIC_PAGE_SELECT)
+    .select(SERVER_PAGE_SELECT)
     .eq('slug', slug)
     .eq('is_published', true)
     .single<AgentPage>()

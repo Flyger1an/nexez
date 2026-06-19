@@ -11,6 +11,7 @@ import 'server-only'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 import { ownerAllows } from './plan'
 import { getCheckoutOffers, type AgentPage } from '../agent-page'
+import { getPagePrivateMeta } from './page-private-meta'
 
 export async function resolveNegotiationAllowed(page: AgentPage): Promise<boolean> {
   const hasNegotiableOffer = getCheckoutOffers(page).some(
@@ -18,5 +19,6 @@ export async function resolveNegotiationAllowed(page: AgentPage): Promise<boolea
   )
   if (!hasNegotiableOffer) return false
   if (!hasSupabaseAdminEnv()) return true
-  return ownerAllows(createAdminClient(), (page as { owner_id?: string }).owner_id, 'negotiation')
+  const privateMeta = await getPagePrivateMeta(page.id)
+  return privateMeta.ownerId ? ownerAllows(createAdminClient(), privateMeta.ownerId, 'negotiation') : false
 }

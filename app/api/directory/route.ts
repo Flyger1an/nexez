@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getReadinessScore, getTrustScore } from '../../../lib/agent-page'
 import { supabase } from '../../../lib/supabase'
+import { publicLaunchVisiblePages } from '../../../lib/public-page-visibility'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -15,7 +16,7 @@ export async function GET(request: Request) {
     .order('created_at', { ascending: false })
     .returns<AgentPage[]>()
 
-  let filtered = (pages ?? []).filter(p => {
+  let filtered = publicLaunchVisiblePages(pages).filter(p => {
     if (category === 'all') return true
 
     const ind = (p.industry || '').toLowerCase()

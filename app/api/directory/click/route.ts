@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '../../../../lib/supabase'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
+import { getPagePrivateMeta } from '../../../../lib/server/page-private-meta'
 
 type ClickPayload = {
   slug?: string
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
 
   const { data: page, error: pageError } = await supabase
     .from('pages_public')
-    .select('id, owner_id, slug, name, is_published')
+    .select('id, slug, name, is_published')
     .eq('slug', slug)
     .eq('is_published', true)
     .single()
@@ -43,10 +44,11 @@ export async function POST(request: Request) {
   if (pageError || !page) {
     return NextResponse.json({ error: 'Published page not found.' }, { status: 404 })
   }
+  const privateMeta = await getPagePrivateMeta(page.id)
 
   const { error } = await supabase.from('checkout_events').insert({
     page_id: page.id,
-    owner_id: page.owner_id,
+    owner_id: privateMeta.ownerId,
     slug: page.slug,
     offer_key: payload.offerKey || 'page',
     offer_name: payload.offerName || page.name,

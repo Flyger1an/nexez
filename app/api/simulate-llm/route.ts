@@ -1,31 +1,39 @@
 import { NextResponse } from 'next/server'
 import { isLlmConfigured, llmComplete } from '../../../lib/llm'
 import { buildParsedSchema } from '../../../lib/agent-simulator'
-import { getRequestBaseUrl } from '../../../lib/agent-page'
+import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '../../../lib/agent-page'
 import { supabase } from '../../../lib/supabase'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 import { ownerAllows } from '../../../lib/server/plan'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
+import { getPagePrivateMeta } from '../../../lib/server/page-private-meta'
 
 export async function POST(request: Request) {
   // Public endpoint that runs a paid LLM against any published slug — throttle it.
   const limited = await enforceRateLimit(request, 'simulate-llm', 20, 60_000)
   if (limited) return limited
 
+  let body: { slug?: unknown; query?: unknown; pageId?: unknown }
   try {
-    const { slug, query, pageId } = await request.json()
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
 
+  try {
+    const slug = typeof body.slug === 'string' ? body.slug.trim() : ''
+    const query = typeof body.query === 'string' ? body.query.trim() : ''
     if (!slug || !query) {
       return NextResponse.json({ error: 'slug and query required' }, { status: 400 })
     }
 
     const { data: pageData } = await supabase
       .from('pages_public')
-      .select('*')
+      .select(PUBLIC_PAGE_SELECT)
       .eq('slug', slug)
       .eq('is_published', true)
       .single()
-    const page = pageData as any
+    const page = pageData as AgentPage | null
     if (!page) {
       return NextResponse.json({ error: 'Page not found or not published' }, { status: 404 })
     }
@@ -36,8 +44,9 @@ export async function POST(request: Request) {
     // Plan gate: AI features unlock on Launch+. Resolve the owner's plan with the
     // admin client (this is a public route; the anon client can't read another
     // owner's billing row). If admin isn't configured, fall back to the opt-in gate.
+    const privateMeta = hasSupabaseAdminEnv() ? await getPagePrivateMeta(page.id) : { ownerId: null }
     const planAllowsAi = hasSupabaseAdminEnv()
-      ? await ownerAllows(createAdminClient(), page.owner_id, 'aiFeatures')
+      ? (privateMeta.ownerId ? await ownerAllows(createAdminClient(), privateMeta.ownerId, 'aiFeatures') : false)
       : true
     const llmEnabled = isLlmConfigured() && page.llm_opt_in === true && planAllowsAi
     if (!llmEnabled) {
