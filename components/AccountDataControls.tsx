@@ -16,7 +16,11 @@ export function AccountDataControls({ email }: { email: string }) {
     setDeleting(true)
     setMessage('')
     try {
-      const res = await fetch('/api/account/delete', { method: 'POST' })
+      const res = await fetch('/api/account/delete', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ confirm: true }),
+      })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         setMessage(data.error || 'Could not delete account.')
