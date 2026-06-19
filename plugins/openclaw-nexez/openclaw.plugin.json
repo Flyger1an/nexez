@@ -1,0 +1,48 @@
+{
+  "id": "nexez",
+  "name": "Nexez",
+  "description": "Discover AI-ready Nexez pages, inspect structured offers, and safely hand off checkout or negotiation intent.",
+  "version": "0.1.0",
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "baseUrl": {
+        "type": "string",
+        "description": "Optional Nexez API base URL. Defaults to https://nexez.app."
+      },
+      "userAgent": {
+        "type": "string",
+        "description": "Optional User-Agent sent to Nexez public endpoints."
+      }
+    },
+    "additionalProperties": false
+  },
+  "activation": {
+    "onStartup": true
+  },
+  "contracts": {
+    "tools": [
+      "nexez_search",
+      "nexez_get_page",
+      "nexez_directory",
+      "nexez_validate_checkout",
+      "nexez_validate_negotiation",
+      "nexez_start_checkout",
+      "nexez_submit_negotiation"
+    ]
+  },
+  "toolMetadata": {
+    "nexez_validate_checkout": {
+      "optional": true
+    },
+    "nexez_validate_negotiation": {
+      "optional": true
+    },
+    "nexez_start_checkout": {
+      "optional": true
+    },
+    "nexez_submit_negotiation": {
+      "optional": true
+    }
+  }
+}

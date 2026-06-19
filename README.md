@@ -38,6 +38,8 @@ One source of truth. Two audiences: beautiful for humans, brutally structured fo
 - Persistent state for all negotiations
 - Supabase backend with clean schema
 - Production-ready error handling, logging, and webhooks
+- OpenClaw-ready agent discovery skill in `skills/nexez-agent-discovery`
+- Native OpenClaw tool plugin scaffold in `plugins/openclaw-nexez`
 
 ---
 
@@ -88,6 +90,7 @@ Business owners are the Merchant of Record for transactions
  Persistent negotiation UI + structured JSON for agents
  Advanced escrow & dispute handling
  Marketplace directory of agent pages
+ OpenClaw / autonomous agent workflow distribution
 
 
 🤝 Contributing

@@ -1,0 +1,31 @@
+{
+  "name": "@nexez/openclaw-nexez",
+  "version": "0.1.0",
+  "description": "OpenClaw tool plugin for discovering Nexez agent pages and safely handing off checkout or negotiation intent.",
+  "type": "module",
+  "files": [
+    "dist",
+    "openclaw.plugin.json",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node scripts/validate-metadata.mjs",
+    "plugin:build": "npm run build && openclaw plugins build --entry ./dist/index.js",
+    "plugin:validate": "openclaw plugins validate --root . --entry ./dist/index.js"
+  },
+  "dependencies": {
+    "typebox": "^1.1.38"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.5.17"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  }
+}
