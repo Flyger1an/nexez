@@ -86,7 +86,17 @@ function yelpToResult(b: YelpBusiness, index: number, count: number): AgentSearc
   })
 }
 
-/** Yelp Fusion business search. Requires a buyer location (Yelp's API mandates location/lat-long). */
+/**
+ * Yelp Fusion business search. Requires a buyer location (Yelp's API mandates location/lat-long).
+ *
+ * ⚠️ COMPLIANCE — DO NOT set YELP_API_KEY without resolving this first. Yelp's API Terms (Jan 2025,
+ * §9) prohibit ingesting Yelp Content into a generative-AI model — but our agent feeds search
+ * results to the LLM (the search tool result is added to the chat completion). The terms also bar
+ * commercial use without Yelp's written consent, cap caching at 24h, and forbid blending Yelp
+ * ratings with other sources. Treat Yelp as blocked for the LLM path absent written consent from
+ * api@yelp.com (or a redesign that keeps Yelp results out of the model prompt). Adapter kept here,
+ * dormant (no key), so it can be enabled cleanly once a compliant path exists.
+ */
 export const yelpAdapter: SourceAdapter = {
   id: YELP_SOURCE.id,
   label: YELP_SOURCE.label,
