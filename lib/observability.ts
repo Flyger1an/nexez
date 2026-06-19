@@ -11,6 +11,36 @@ export function isObservabilityConfigured(): boolean {
   return Boolean(process.env.OBSERVABILITY_WEBHOOK_URL)
 }
 
+export function captureEvent(name: string, data: Record<string, unknown> = {}): void {
+  // Info-level telemetry (agent-turn + tool latency/outcome). Local log always; POSTed to
+  // the same sink as errors when configured. Fire-and-forget — never throws into the caller.
+  console.info('[nexez:event]', name, data)
+
+  const url = process.env.OBSERVABILITY_WEBHOOK_URL
+  if (!url) return
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const token = process.env.OBSERVABILITY_WEBHOOK_TOKEN
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  try {
+    void fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ service: 'nexez', level: 'info', event: name, context: data, ts: new Date().toISOString() }),
+      signal: AbortSignal.timeout(4000),
+    })
+      .then((res) => {
+        if (!res.ok) console.warn(`[nexez] observability sink rejected the event: ${res.status} ${res.statusText}`)
+      })
+      .catch((err) => {
+        console.warn('[nexez] observability sink unreachable:', err instanceof Error ? err.message : String(err))
+      })
+  } catch {
+    // ignore — never let observability break the caller
+  }
+}
+
 export function captureError(error: unknown, context: Record<string, unknown> = {}): void {
   const message = error instanceof Error ? error.message : String(error)
   const stack = error instanceof Error ? error.stack : undefined

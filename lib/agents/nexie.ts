@@ -3,6 +3,7 @@ import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { type AgentSearchResult } from '../agent-search'
 import { isLlmConfigured, llmModel, llmProviderName } from '../llm'
+import { captureError, captureEvent } from '../observability'
 import { extractMemorySignals, mergeMemorySignals } from './nexie-memory'
 import { normalizePreferences, preferencesPromptBlock } from './nexie-preferences'
 import { searchAllSources } from './source-adapters'
@@ -257,17 +258,29 @@ export async function handleNexieTurn(input: NexieTurnInput): Promise<NexieTurnR
 
   const recentMessages = await loadRecentMessages(input.db, thread.id, input.userId)
   let result: Omit<NexieTurnResult, 'threadId' | 'agentId' | 'memory' | 'model'>
+  const turnStartedAt = Date.now()
+  let fellBack = false
   if (isLlmConfigured()) {
     try {
       result = await runLlmAgent(input.db, { userId: input.userId, agent, thread, message: cleanMessage, recentMessages, mode })
     } catch (error) {
-      console.warn('[Nexie] LLM turn failed, falling back to deterministic search', error)
+      fellBack = true
+      // The fallback rate + model errors are the key agent-health signal.
+      captureError(error, { scope: 'nexie.llm_turn', model: llmModel() })
       result = await runDeterministicAgent(input.db, { userId: input.userId, agent, thread, message: cleanMessage, mode })
       result.message = `I had trouble reaching the model, so I used Nexez search directly. ${result.message}`
     }
   } else {
     result = await runDeterministicAgent(input.db, { userId: input.userId, agent, thread, message: cleanMessage, mode })
   }
+  captureEvent('nexie.turn', {
+    latencyMs: Date.now() - turnStartedAt,
+    mode,
+    llm: isLlmConfigured(),
+    fellBack,
+    toolsUsed: result.toolsUsed,
+    model: llmModel(),
+  })
 
   await appendMessage(input.db, {
     threadId: thread.id,
@@ -473,10 +486,12 @@ async function handleApprovalDecision(
   // approval payload (which originated with the LLM) — so a buyer can only ever
   // transact as themselves.
   const buyer: NexieBuyer = { email: ctx.userEmail, userId: ctx.userId }
+  const actionStartedAt = Date.now()
   try {
     const actionResult = approval.tool_name === 'initiate_negotiation'
       ? await executeNegotiation(approval.payload, buyer)
       : await executeBooking(approval.payload, buyer)
+    captureEvent('nexie.action', { tool: approval.tool_name, ok: true, latencyMs: Date.now() - actionStartedAt })
 
     await db
       .from('agent_action_approvals')
@@ -503,6 +518,8 @@ async function handleApprovalDecision(
     return baseResult(ctx, message, [card], [approval.tool_name])
   } catch (err) {
     const description = err instanceof Error ? err.message : 'The action failed.'
+    captureError(err, { scope: 'nexie.action', tool: approval.tool_name })
+    captureEvent('nexie.action', { tool: approval.tool_name, ok: false, latencyMs: Date.now() - actionStartedAt })
     await db
       .from('agent_action_approvals')
       .update({ status: 'FAILED', error: description, completed_at: new Date().toISOString() })
