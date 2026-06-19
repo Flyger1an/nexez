@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { AgentPage, PUBLIC_PAGE_SELECT } from '../agent-page'
 import { searchAgentPages, type AgentSearchResult } from '../agent-search'
 import { publicLaunchVisiblePages } from '../public-page-visibility'
+import { mergeRankedResults, semanticSearch } from './semantic-search'
 
 // Source adapters are the multi-platform seam: each is a place Nexxi can shop. v1 ships
 // only the `nexez` adapter; v2 adds others (recommendations, other marketplaces) by
@@ -32,7 +33,12 @@ export const nexezAdapter: SourceAdapter = {
       .limit(150)
       .returns<AgentPage[]>()
     if (error) throw new Error(`Nexez search is temporarily unavailable: ${error.message}`)
-    return searchAgentPages(publicLaunchVisiblePages(data), query, limit, ctx.baseUrl)
+    const lexical = searchAgentPages(publicLaunchVisiblePages(data), query, limit, ctx.baseUrl)
+    // Semantic retrieval widens recall to lexically-different-but-similar pages. It's a no-op
+    // (→ lexical only) until the embeddings key + page backfill are in place, so prod search is
+    // unaffected today; best-effort, never breaks the lexical floor.
+    const semantic = await semanticSearch(ctx.db, query, limit, ctx.baseUrl).catch(() => [])
+    return semantic.length ? mergeRankedResults(semantic, lexical, limit) : lexical
   },
 }
 

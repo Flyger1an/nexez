@@ -93,7 +93,7 @@ export function searchAgentPages(pages: AgentPage[], query: string, limit = 10, 
     .map((s) => s.result)
 }
 
-function buildResult(page: AgentPage, offer: CheckoutOffer | null, score: number, baseUrl: string): AgentSearchResult {
+export function buildResult(page: AgentPage, offer: CheckoutOffer | null, score: number, baseUrl: string): AgentSearchResult {
   const offerKey = offer ? getCheckoutOfferKey(offer.kind, offer.index) : ''
 
   return {
