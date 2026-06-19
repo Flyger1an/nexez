@@ -167,6 +167,17 @@ describe('POST /api/checkout — buyer identity propagation', () => {
     expect(stripeCalls[0].params.metadata.nexez_buyer_email).toBeUndefined()
   })
 
+  it('puts the Connect platform fee under payment_intent_data, not the session top level', async () => {
+    // Top-level application_fee_amount is rejected by Stripe for Checkout Sessions ("unknown
+    // parameter"), which silently fell back to the provider URL — no real charge. It must live
+    // under payment_intent_data for a direct charge on the connected account.
+    const res = await POST(post({ slug: 'demo', offer: 'services-0' }))
+    expect(res.status).toBe(200)
+    const { params } = stripeCalls[0]
+    expect(params.application_fee_amount).toBeUndefined()
+    expect(params.payment_intent_data?.application_fee_amount).toBe(2250) // $150 × 15% (free plan)
+  })
+
   it('drops a malformed buyer email (no customer_email)', async () => {
     const res = await POST(post({ slug: 'demo', offer: 'services-0', buyerEmail: 'nope' }))
     expect(res.status).toBe(200)

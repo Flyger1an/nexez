@@ -220,7 +220,13 @@ export async function POST(request: Request) {
       }
 
       if (applicationFeeAmount && applicationFeeAmount > 0) {
-        sessionParams.application_fee_amount = applicationFeeAmount
+        // Checkout Sessions take the Connect platform fee under payment_intent_data — NOT at the
+        // session top level (top-level application_fee_amount → Stripe "unknown parameter" error,
+        // which silently fell back to the provider URL, so no real charge ever happened).
+        sessionParams.payment_intent_data = {
+          ...(sessionParams.payment_intent_data || {}),
+          application_fee_amount: applicationFeeAmount,
+        }
       }
 
       // Declared buyer identity (all optional): prefill + lock Stripe's email field,
