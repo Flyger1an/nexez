@@ -55,6 +55,8 @@ export type NexieCard =
       offerName: string | null
       checkoutUrl: string | null
       score: number
+      /** Which source surfaced this (absent/`nexez` = the marketplace; others are discovery-only). */
+      source?: { id: string; label: string }
     }
   | {
       type: 'approval'
@@ -902,6 +904,7 @@ function resultToCard(result: AgentSearchResult): Extract<NexieCard, { type: 'pa
     offerName: result.offer?.name || null,
     checkoutUrl: result.offer?.checkout_url || null,
     score: result.score,
+    source: result.source,
   }
 }
 
