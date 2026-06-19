@@ -174,6 +174,13 @@ describe('getCheckoutOffer', () => {
     expect(getCheckoutOffer(page, 'products-nope')).toBeNull()
     expect(getCheckoutOffer(page, 'services--1')).toBeNull()
   })
+
+  it('resolves a non-key string by offer name (case-insensitive) — natural-language bookings', () => {
+    expect(getCheckoutOffer(page, 'Strategy')?.name).toBe('Strategy')
+    expect(getCheckoutOffer(page, 'audit')?.name).toBe('Audit') // case-insensitive
+    expect(getCheckoutOffer(page, '  Template  ')?.name).toBe('Template') // trimmed; products too
+    expect(getCheckoutOffer(page, 'nonexistent service')).toBeNull()
+  })
 })
 
 describe('getRequestBaseUrl', () => {

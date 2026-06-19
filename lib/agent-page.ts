@@ -489,14 +489,18 @@ export function getCheckoutOffer(page: Pick<AgentPage, 'products' | 'services'>,
   }
 
   const match = key.match(/^(services|products)-(\d+)$/)
-  if (!match) {
-    return null
+  if (match) {
+    const [, kind, indexValue] = match
+    const index = Number(indexValue)
+    return allOffers.find((offer) => offer.kind === kind && offer.index === index) ?? null
   }
 
-  const [, kind, indexValue] = match
-  const index = Number(indexValue)
-
-  return allOffers.find((offer) => offer.kind === kind && offer.index === index) ?? null
+  // Fallback: resolve by offer NAME (case-insensitive). Natural-language bookings — e.g. a buyer
+  // (or an external agent) saying "book the standard service call" — pass the offer's name, not its
+  // structured key ("services-0"). Match by name so those resolve instead of 404-ing; structured
+  // keys still take priority above. Returns the first match if offer names collide.
+  const normalized = key.trim().toLowerCase()
+  return allOffers.find((offer) => (offer.name || '').trim().toLowerCase() === normalized) ?? null
 }
 
 export function sanitizePublicUrl(value: string | null | undefined, opts: { allowRelative?: boolean } = {}): string {
