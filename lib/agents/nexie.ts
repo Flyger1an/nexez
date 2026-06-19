@@ -28,6 +28,13 @@ export type NexieTurnInput = {
   threadId?: string | null
   mode?: NexieMode
   approval?: NexieApprovalInput | null
+  /**
+   * When provided, the user-facing reply is streamed token-by-token as the model generates it
+   * (true streaming through the tool-call loop). Absent → the existing non-streaming path runs
+   * unchanged. The persisted message + returned result are identical either way; `onToken` is a
+   * progressive preview, and the final returned `message` is authoritative.
+   */
+  onToken?: (delta: string) => void
 }
 
 /** Authenticated buyer identity injected into money-path actions (never from the LLM). */
@@ -262,7 +269,7 @@ export async function handleNexieTurn(input: NexieTurnInput): Promise<NexieTurnR
   let fellBack = false
   if (isLlmConfigured()) {
     try {
-      result = await runLlmAgent(input.db, { userId: input.userId, agent, thread, message: cleanMessage, recentMessages, mode })
+      result = await runLlmAgent(input.db, { userId: input.userId, agent, thread, message: cleanMessage, recentMessages, mode, onToken: input.onToken })
     } catch (error) {
       fellBack = true
       // The fallback rate + model errors are the key agent-health signal.
@@ -309,8 +316,13 @@ async function runLlmAgent(
     message: string
     recentMessages: AgentMessageRow[]
     mode: NexieMode
+    onToken?: (delta: string) => void
   },
 ): Promise<Omit<NexieTurnResult, 'threadId' | 'agentId' | 'memory' | 'model'>> {
+  // Stream the LLM through the tool-call loop when a token sink is wired; otherwise the proven
+  // non-streaming path runs unchanged. Both return the identical response shape downstream.
+  const complete = (msgs: OpenAiMessage[], withTools: boolean) =>
+    ctx.onToken ? chatCompletionStream(msgs, withTools, ctx.onToken) : chatCompletion(msgs, withTools)
   const preferencesBlock = preferencesPromptBlock(normalizePreferences(ctx.agent.preferences))
   const messages: OpenAiMessage[] = [
     {
@@ -326,7 +338,7 @@ Current mode: ${ctx.mode}.`,
     { role: 'user', content: ctx.message },
   ]
 
-  const first = await chatCompletion(messages, true)
+  const first = await complete(messages, true)
   const assistantMessage = first?.choices?.[0]?.message
   const toolCalls = Array.isArray(assistantMessage?.tool_calls) ? assistantMessage.tool_calls as ToolCall[] : []
 
@@ -389,7 +401,7 @@ Current mode: ${ctx.mode}.`,
     }
   }
 
-  const second = await chatCompletion(
+  const second = await complete(
     [
       ...messages,
       {
@@ -750,6 +762,109 @@ async function chatCompletion(messages: OpenAiMessage[], withTools: boolean) {
   })
   if (!res.ok) throw new Error(`Nexxi model request failed with HTTP ${res.status}`)
   return res.json()
+}
+
+type SseState = { content: string; toolAcc: Map<number, ToolCall> }
+
+function newSseState(): SseState {
+  return { content: '', toolAcc: new Map() }
+}
+
+/**
+ * Fold one SSE line from an OpenAI-compatible streaming completion into the accumulator.
+ * Forwards content deltas to `onToken` live and stitches tool-call fragments (which arrive split
+ * across chunks: id+name first, then `arguments` appended) back into whole calls. Returns true on
+ * the terminal `[DONE]`. Tolerant of partial/garbage lines so a malformed chunk never throws.
+ */
+function foldSseLine(line: string, state: SseState, onToken: (delta: string) => void): boolean {
+  const trimmed = line.trim()
+  if (!trimmed.startsWith('data:')) return false
+  const data = trimmed.slice(5).trim()
+  if (data === '[DONE]') return true
+  let parsed: { choices?: Array<{ delta?: { content?: unknown; tool_calls?: unknown } }> }
+  try {
+    parsed = JSON.parse(data)
+  } catch {
+    return false
+  }
+  const delta = parsed?.choices?.[0]?.delta
+  if (!delta) return false
+  if (typeof delta.content === 'string' && delta.content) {
+    state.content += delta.content
+    onToken(delta.content)
+  }
+  if (Array.isArray(delta.tool_calls)) {
+    for (const tc of delta.tool_calls as Array<Record<string, any>>) {
+      const idx = typeof tc.index === 'number' ? tc.index : 0
+      const acc = state.toolAcc.get(idx) ?? { id: '', type: 'function' as const, function: { name: '' as ToolCall['function']['name'], arguments: '' } }
+      if (typeof tc.id === 'string' && tc.id) acc.id = tc.id
+      if (typeof tc.function?.name === 'string' && tc.function.name) acc.function.name = tc.function.name
+      if (typeof tc.function?.arguments === 'string') acc.function.arguments += tc.function.arguments
+      state.toolAcc.set(idx, acc)
+    }
+  }
+  return false
+}
+
+function sseStateToMessage(state: SseState): { content: string | null; tool_calls?: ToolCall[] } {
+  const tool_calls = [...state.toolAcc.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v)
+  return { content: state.content || null, tool_calls: tool_calls.length ? tool_calls : undefined }
+}
+
+/** Pure SSE-text parser (exported for tests) — same folding the streaming reader uses per chunk. */
+export function parseNexieSse(sseText: string, onToken: (delta: string) => void) {
+  const state = newSseState()
+  for (const line of sseText.split('\n')) foldSseLine(line, state, onToken)
+  return sseStateToMessage(state)
+}
+
+/**
+ * Streaming twin of {@link chatCompletion}: same request with `stream: true`, parses the SSE,
+ * forwards content tokens to `onToken` as they arrive, and returns the SAME response shape
+ * (`{ choices: [{ message }] }`) so the tool-call loop is identical to the non-streaming path.
+ */
+async function chatCompletionStream(
+  messages: OpenAiMessage[],
+  withTools: boolean,
+  onToken: (delta: string) => void,
+) {
+  const base = (process.env.LLM_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '')
+  const res = await fetch(`${base}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.LLM_API_KEY}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: llmModel(),
+      messages,
+      ...(withTools ? { tools: NEXIE_TOOLS, tool_choice: 'auto' } : {}),
+      temperature: 0.35,
+      max_tokens: withTools ? 700 : 450,
+      stream: true,
+    }),
+    signal: AbortSignal.timeout(30_000),
+  })
+  if (!res.ok || !res.body) throw new Error(`Nexxi model stream failed with HTTP ${res.status}`)
+
+  const state = newSseState()
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let nl: number
+    while ((nl = buffer.indexOf('\n')) !== -1) {
+      const line = buffer.slice(0, nl)
+      buffer = buffer.slice(nl + 1)
+      foldSseLine(line, state, onToken)
+    }
+  }
+  if (buffer.trim()) foldSseLine(buffer, state, onToken)
+
+  return { choices: [{ message: sseStateToMessage(state) }] }
 }
 
 function toOpenAiMessage(row: AgentMessageRow): OpenAiMessage {
