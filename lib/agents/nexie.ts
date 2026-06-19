@@ -672,7 +672,7 @@ async function createApproval(
   return approvalToCard(data)
 }
 
-async function executeNegotiation(payload: Record<string, unknown>, buyer: NexieBuyer) {
+export async function executeNegotiation(payload: Record<string, unknown>, buyer: NexieBuyer) {
   const res = await fetch(`${agentRuntimeBaseUrl()}/api/negotiations`, {
     method: 'POST',
     headers: {
@@ -702,7 +702,7 @@ async function executeNegotiation(payload: Record<string, unknown>, buyer: Nexie
   }
 }
 
-async function executeBooking(payload: Record<string, unknown>, buyer: NexieBuyer) {
+export async function executeBooking(payload: Record<string, unknown>, buyer: NexieBuyer) {
   const res = await fetch(`${agentRuntimeBaseUrl()}/api/checkout`, {
     method: 'POST',
     headers: {
