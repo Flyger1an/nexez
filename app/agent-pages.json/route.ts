@@ -33,6 +33,7 @@ export async function GET(request: Request) {
         agent_json_url: `${baseUrl}${getAgentJsonPath(page.slug)}`,
         description: page.description,
         location: page.location,
+        industry: page.industry ?? null,
         currency,
         readiness: cert.readiness,
         certified: cert.certified,
