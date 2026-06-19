@@ -74,6 +74,19 @@ describe('source adapters', () => {
     expect(out.map((r) => r.page.slug).sort()).toEqual(['n1', 'y1']) // nexez forced in, google excluded
   })
 
+  it('ranks the core Nexez source above discovery sources regardless of score (transactable-first)', async () => {
+    const nexez = stub('nexez', [result(0.2, 'n1')]) // low score, but bookable
+    const web = stub('brave', [result(0.95, 'w1'), result(0.9, 'w2')]) // higher discovery scores
+    const out = await searchAllSources('q', 5, ctx, {}, [nexez, web])
+    expect(out.map((r) => r.page.slug)).toEqual(['n1', 'w1', 'w2']) // Nexez leads despite 0.2
+  })
+
+  it('discovery sources fill remaining slots only when Nexez has matches; take all when it has none', async () => {
+    const web = stub('brave', [result(0.95, 'w1'), result(0.9, 'w2')])
+    const out = await searchAllSources('q', 5, ctx, {}, [stub('nexez', []), web])
+    expect(out.map((r) => r.page.slug)).toEqual(['w1', 'w2']) // Nexez empty → discovery fills
+  })
+
   it('enabledIds: [] means Nexez only (explicit opt-out of all external sources)', async () => {
     const nexez = stub('nexez', [result(0.5, 'n1')])
     const yelp = stub('yelp', [result(0.9, 'y1')])

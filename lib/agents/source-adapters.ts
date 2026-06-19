@@ -115,5 +115,9 @@ export async function searchAllSources(
       ? s.value.map((r) => ({ ...r, source: r.source ?? { id: active[i].id, label: active[i].label } }))
       : [],
   )
-  return results.sort((a, b) => b.score - a.score).slice(0, limit)
+  // Transactable-first ranking: the core Nexez marketplace (bookable offers) always ranks above
+  // discovery-only sources, then by score within each tier. So Nexez leads whenever it matches, and
+  // external discovery fills the remaining slots — taking all of them only when Nexez has no match.
+  const tier = (r: AgentSearchResult) => (!r.source || r.source.id === CORE_SOURCE_ID ? 0 : 1)
+  return results.sort((a, b) => tier(a) - tier(b) || b.score - a.score).slice(0, limit)
 }
