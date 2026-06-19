@@ -90,6 +90,27 @@ export function buildOpenApiSpec() {
               required: false,
               schema: { type: 'integer', minimum: 1, maximum: 50, default: 10 },
             },
+            {
+              name: 'location',
+              in: 'query',
+              required: false,
+              schema: { type: 'string' },
+              description: 'City, region, or service area to filter results, such as Chicago, IL or Austin, TX.',
+            },
+            {
+              name: 'lat',
+              in: 'query',
+              required: false,
+              schema: { type: 'number' },
+              description: 'Optional buyer latitude for future location-aware clients. Use with location when available.',
+            },
+            {
+              name: 'lng',
+              in: 'query',
+              required: false,
+              schema: { type: 'number' },
+              description: 'Optional buyer longitude for future location-aware clients. Use with location when available.',
+            },
           ],
           responses: {
             '200': {

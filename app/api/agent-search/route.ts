@@ -3,6 +3,7 @@ import { searchAgentPages } from '../../../lib/agent-search'
 import { supabase } from '../../../lib/supabase'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 import { publicLaunchVisiblePages } from '../../../lib/public-page-visibility'
+import { cleanLocationQuery, filterPagesByLocation, locationFilterMeta } from '../../../lib/location-filter'
 
 export async function GET(request: Request) {
   // Public agent-facing search — throttle to blunt scraping/DB abuse.
@@ -12,6 +13,9 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const query = url.searchParams.get('q') || ''
   const limit = Number(url.searchParams.get('limit') || 10)
+  const location = cleanLocationQuery(url.searchParams.get('location'))
+  const lat = optionalNumber(url.searchParams.get('lat'))
+  const lng = optionalNumber(url.searchParams.get('lng'))
 
   const { data: pages, error } = await supabase
     .from('pages_public')
@@ -32,20 +36,28 @@ export async function GET(request: Request) {
   }
 
   const baseUrl = getRequestBaseUrl(request)
-  const results = searchAgentPages(publicLaunchVisiblePages(pages), query, Number.isFinite(limit) ? limit : 10, baseUrl)
+  const visiblePages = publicLaunchVisiblePages(pages)
+  const locationFilteredPages = filterPagesByLocation(visiblePages, location)
+  const results = searchAgentPages(locationFilteredPages, query, Number.isFinite(limit) ? limit : 10, baseUrl, { location })
+  const searchParams = new URLSearchParams({ q: query })
+  if (location) searchParams.set('location', location)
 
   return Response.json(
     {
       schema_version: 'nexez.agent-search.v1',
       generated_at: new Date().toISOString(),
       query,
+      location_filter: locationFilterMeta(location, {
+        lat,
+        lng,
+      }),
       result_count: results.length,
-      search_url: `${baseUrl}/api/agent-search?q=${encodeURIComponent(query)}`,
+      search_url: `${baseUrl}/api/agent-search?${searchParams.toString()}`,
       results,
       usage: {
         method: 'GET',
-        example: `${baseUrl}/api/agent-search?q=consulting`,
-        note: 'Returns published AI-readable pages and offer-level checkout actions. Use agent_json_url for full seller context.',
+        example: `${baseUrl}/api/agent-search?q=plumbing&location=Chicago%2C%20IL`,
+        note: 'Returns published AI-readable pages and offer-level checkout actions. Pass location to filter by page location and offer service areas.',
       },
     },
     {
@@ -54,4 +66,10 @@ export async function GET(request: Request) {
       },
     },
   )
+}
+
+function optionalNumber(value: string | null) {
+  if (value === null || value.trim() === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
 }

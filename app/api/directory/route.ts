@@ -3,12 +3,16 @@ import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getReadinessScore, getTrustS
 import { buildMarketplaceInsights, classifyMarketplaceCategory, summarizeMarketplacePage } from '../../../lib/marketplace'
 import { supabase } from '../../../lib/supabase'
 import { publicLaunchVisiblePages } from '../../../lib/public-page-visibility'
+import { cleanLocationQuery, filterPagesByLocation, getPageLocationMatch, locationFilterMeta } from '../../../lib/location-filter'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const category = searchParams.get('category') || 'all'
   const q = (searchParams.get('q') || '').toLowerCase().trim()
   const minReadiness = Math.max(0, parseInt(searchParams.get('min_readiness') || '0', 10) || 0)
+  const location = cleanLocationQuery(searchParams.get('location'))
+  const lat = optionalNumber(searchParams.get('lat'))
+  const lng = optionalNumber(searchParams.get('lng'))
 
   const { data: pages } = await supabase
     .from('pages_public')
@@ -26,6 +30,7 @@ export async function GET(request: Request) {
     if (category === 'professional') return !isConsumer
     return true
   })
+  filtered = filterPagesByLocation(filtered, location)
 
   if (q) {
     filtered = filtered.filter(p =>
@@ -53,6 +58,7 @@ export async function GET(request: Request) {
     const hasLastBooking = !!p.last_booking
     const verifiedCustom = !!(p as any).custom_domain_verified && !!(p as any).custom_domain
     const marketplace = summarizeMarketplacePage(p)
+    const locationMatch = location ? getPageLocationMatch(p, location) : null
 
     return {
       name: p.name,
@@ -75,14 +81,19 @@ export async function GET(request: Request) {
       verified: !!( (p as any).verification_details?.domain_verified || (p as any).custom_domain_verified ),
       has_credentials: Array.isArray((p as any).verification_details?.docs_provided) && (p as any).verification_details.docs_provided.length > 0,
       marketplace,
+      location_match: locationMatch,
     }
   })
 
   return NextResponse.json({
     schema_version: 'nexez.directory.v2',
     count: results.length,
-    filters: { category, q: q || null, min_readiness: minReadiness || null },
-    marketplace: buildMarketplaceInsights(publicLaunchVisiblePages(pages), {
+    filters: { category, q: q || null, min_readiness: minReadiness || null, location: location || null },
+    location_filter: locationFilterMeta(location, {
+      lat,
+      lng,
+    }),
+    marketplace: buildMarketplaceInsights(ready.map(({ p }) => p), {
       query: q || undefined,
       category,
       minReadiness,
@@ -91,4 +102,10 @@ export async function GET(request: Request) {
     // Helpful for agents consuming the directory
     note: 'All results are published agent-optimized pages. Use /<slug>/agent.json or /<slug> for full context.',
   })
+}
+
+function optionalNumber(value: string | null) {
+  if (value === null || value.trim() === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
 }

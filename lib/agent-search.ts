@@ -10,6 +10,7 @@ import {
 } from './agent-page'
 import { getAgentJsonPath } from './agent-manifest'
 import { summarizeMarketplacePage, type MarketplaceSummary } from './marketplace'
+import { getPageLocationMatch, type LocationMatch } from './location-filter'
 
 export type AgentSearchResult = {
   score: number
@@ -27,6 +28,7 @@ export type AgentSearchResult = {
     cta_url?: string | null
   }
   marketplace?: MarketplaceSummary
+  location_match?: LocationMatch | null
   offer: {
     key: string
     type: 'service' | 'product'
@@ -52,7 +54,11 @@ export type AgentSearchResult = {
   } | null
 }
 
-export function searchAgentPages(pages: AgentPage[], query: string, limit = 10, baseUrl = getBaseUrl()) {
+type AgentSearchOptions = {
+  location?: string | null
+}
+
+export function searchAgentPages(pages: AgentPage[], query: string, limit = 10, baseUrl = getBaseUrl(), options: AgentSearchOptions = {}) {
   const tokens = tokenize(query)
   // Track readiness alongside each result so ties break toward higher-quality
   // pages (quality-aware discovery) without distorting the relevance score.
@@ -68,7 +74,7 @@ export function searchAgentPages(pages: AgentPage[], query: string, limit = 10, 
 
     if (!offers.length) {
       if (pageScore > 0 || !tokens.length) {
-        scored.push({ result: buildResult(page, null, pageScore || 1, baseUrl), readiness })
+        scored.push({ result: buildResult(page, null, pageScore || 1, baseUrl, options), readiness })
       }
       continue
     }
@@ -77,7 +83,7 @@ export function searchAgentPages(pages: AgentPage[], query: string, limit = 10, 
       const offerScore = scoreOffer(tokens, page, offer)
 
       if (offerScore > 0 || !tokens.length) {
-        scored.push({ result: buildResult(page, offer, offerScore || pageScore || 1, baseUrl), readiness })
+        scored.push({ result: buildResult(page, offer, offerScore || pageScore || 1, baseUrl, options), readiness })
       }
     }
   }
@@ -93,8 +99,9 @@ export function searchAgentPages(pages: AgentPage[], query: string, limit = 10, 
     .map((s) => s.result)
 }
 
-export function buildResult(page: AgentPage, offer: CheckoutOffer | null, score: number, baseUrl: string): AgentSearchResult {
+export function buildResult(page: AgentPage, offer: CheckoutOffer | null, score: number, baseUrl: string, options: AgentSearchOptions = {}): AgentSearchResult {
   const offerKey = offer ? getCheckoutOfferKey(offer.kind, offer.index) : ''
+  const locationMatch = options.location ? getPageLocationMatch(page, options.location) : null
 
   return {
     score,
@@ -112,6 +119,7 @@ export function buildResult(page: AgentPage, offer: CheckoutOffer | null, score:
       cta_url: page.cta_url ?? null,
     },
     marketplace: summarizeMarketplacePage(page),
+    location_match: locationMatch,
     offer: offer
       ? {
           key: offerKey,

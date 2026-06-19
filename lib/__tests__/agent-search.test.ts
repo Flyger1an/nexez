@@ -35,6 +35,16 @@ describe('searchAgentPages', () => {
     const many = Array.from({ length: 30 }, (_, i) => mk({ slug: `p${i}`, name: `P${i}` }))
     expect(searchAgentPages(many, '', 5)).toHaveLength(5)
   })
+
+  it('adds location match metadata when a location filter is supplied', () => {
+    const res = searchAgentPages([plumber], 'drain cleaning', 10, 'https://nexez.test', { location: 'NYC' })
+    expect(res[0].location_match?.active).toBe(true)
+    expect(res[0].location_match?.matched).toBe(false)
+
+    const ny = mk({ slug: 'ny-page', name: 'NY Page', location: 'New York, NY', services: [{ name: 'Strategy', description: 'planning', price: '$200', url: '' }] })
+    const nyRes = searchAgentPages([ny], 'strategy', 10, 'https://nexez.test', { location: 'NYC' })
+    expect(nyRes[0].location_match?.matched).toBe(true)
+  })
 })
 
 describe('analyzeQueryRank (win-the-query)', () => {

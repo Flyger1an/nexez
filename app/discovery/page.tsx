@@ -1,18 +1,20 @@
 import type { Metadata } from 'next'
-import { ArrowRight, BadgeCheck, Bot, Code2, ExternalLink, Search, ShieldCheck, Sparkles, Store, TrendingUp } from 'lucide-react'
+import { ArrowRight, Bot, Code2, ExternalLink, Search, Sparkles } from 'lucide-react'
 import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getOfferCount, getReadinessScore, getTrustScore } from '../../lib/agent-page'
 import { AgentSearchResult, searchAgentPages } from '../../lib/agent-search'
-import { buildMarketplaceInsights, classifyMarketplaceCategory } from '../../lib/marketplace'
+import { classifyMarketplaceCategory } from '../../lib/marketplace'
+import { cleanLocationQuery, filterPagesByLocation } from '../../lib/location-filter'
 import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
 import { supabase } from '../../lib/supabase'
 import { CopyButton } from './CopyButton'
+import { LocationFilter } from './LocationFilter'
 import { FavoriteButton } from '../../components/FavoriteButton'
 import { TrackedDirectoryLink } from '../../components/TrackedDirectoryLink'
 import { DiscoveryTabs } from '../../components/DiscoveryTabs'
 import { agentRuntimeUrl, appUrl } from '../../lib/site'
 
 type DirectoryProps = {
-  searchParams: Promise<{ q?: string; type?: string; category?: string; min_readiness?: string; sort?: string }>
+  searchParams: Promise<{ q?: string; type?: string; category?: string; min_readiness?: string; sort?: string; location?: string }>
 }
 
 const quickFilters = ['consulting', 'strategy session', 'bookings', 'products', 'retainers']
@@ -37,9 +39,10 @@ export const metadata: Metadata = {
 }
 
 export default async function DirectoryPage({ searchParams }: DirectoryProps) {
-  const { q = '', type = 'all', category: rawCategory = 'all', min_readiness: rawMin = '0', sort: rawSort = '' } = await searchParams
+  const { q = '', type = 'all', category: rawCategory = 'all', min_readiness: rawMin = '0', sort: rawSort = '', location: rawLocation = '' } = await searchParams
   const sortMode: 'relevant' | 'trending' | 'new' = rawSort === 'trending' || rawSort === 'new' ? rawSort : 'relevant'
   const cleanQuery = q.trim()
+  const cleanLocation = cleanLocationQuery(rawLocation)
   const categoryFilter = (rawCategory === 'professional' || rawCategory === 'consumer') ? rawCategory : 'all'
   const minReadiness = Math.max(0, parseInt(rawMin, 10) || 0)
   const baseUrl = getBaseUrl()
@@ -58,6 +61,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
       return categoryFilter === 'consumer' ? isConsumer : !isConsumer
     })
   }
+  filteredPages = filterPagesByLocation(filteredPages, cleanLocation)
 
   // Apply minimum readiness filter
   if (minReadiness > 0) {
@@ -73,7 +77,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
     })
   }
 
-  const allResults = searchAgentPages(filteredPages, cleanQuery, 50)
+  const allResults = searchAgentPages(filteredPages, cleanQuery, 50, baseUrl, { location: cleanLocation })
 
   const results = allResults.filter((result) => {
     if (type === 'all') return true
@@ -90,12 +94,6 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
   }
   const pageCount = visiblePages.length
   const offerCount = visiblePages.reduce((sum, page) => sum + getOfferCount(page), 0)
-  const marketplaceInsights = buildMarketplaceInsights(visiblePages, {
-    query: cleanQuery,
-    type,
-    category: categoryFilter,
-    minReadiness,
-  })
 
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
@@ -123,11 +121,6 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
               <p className="mt-5 max-w-2xl text-base leading-7 text-[#9CA3AF]">
                 Search published Nexez agent pages by buyer intent, then open the public page, agent manifest, or checkout handoff.
               </p>
-              <div className="mt-6 grid max-w-2xl grid-cols-3 gap-3">
-                <HeroMetric label="Sellers" value={String(marketplaceInsights.totals.pages)} />
-                <HeroMetric label="Offers" value={String(marketplaceInsights.totals.offers)} />
-                <HeroMetric label="Checkout-ready" value={String(marketplaceInsights.totals.checkoutReady)} />
-              </div>
               <a
                 href="/leaderboard"
                 className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[var(--amber)]/30 bg-[var(--amber)]/10 px-3 py-1.5 text-sm text-[var(--amber)] hover:bg-[var(--amber)]/20"
@@ -149,6 +142,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
               <input type="hidden" name="type" value={type} />
               <input type="hidden" name="category" value={categoryFilter} />
               {minReadiness > 0 && <input type="hidden" name="min_readiness" value={String(minReadiness)} />}
+              <LocationFilter defaultValue={cleanLocation} />
               <div className="mt-3 flex flex-wrap gap-2">
                 <button className="btn-primary px-5 py-2.5 text-sm">
                   Search
@@ -156,7 +150,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                 {quickFilters.map((filter) => (
                   <a
                     key={filter}
-                    href={`/discovery?q=${encodeURIComponent(filter)}&type=${type}`}
+                    href={discoveryHref({ q: filter, type, category: categoryFilter, minReadiness, location: cleanLocation })}
                     className="rounded-lg border border-white/10 bg-[#1A1625] px-3 py-2 text-sm text-[#9CA3AF] hover:border-[var(--signal)]/30 hover:text-white"
                   >
                     {filter}
@@ -178,23 +172,21 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
             </div>
           </div>
 
-          <MarketplacePulse insights={marketplaceInsights} />
-
           <div className="card !p-5">
             <p className="text-sm font-semibold text-[#9CA3AF]">Offer type</p>
             <div className="mt-4 grid gap-2">
-              <FilterLink label="All" value="all" active={type === 'all'} query={cleanQuery} currentOther={categoryFilter} />
-              <FilterLink label="Services" value="service" active={type === 'service'} query={cleanQuery} currentOther={categoryFilter} />
-              <FilterLink label="Products" value="product" active={type === 'product'} query={cleanQuery} currentOther={categoryFilter} />
+              <FilterLink label="All" value="all" active={type === 'all'} query={cleanQuery} currentOther={categoryFilter} location={cleanLocation} />
+              <FilterLink label="Services" value="service" active={type === 'service'} query={cleanQuery} currentOther={categoryFilter} location={cleanLocation} />
+              <FilterLink label="Products" value="product" active={type === 'product'} query={cleanQuery} currentOther={categoryFilter} location={cleanLocation} />
             </div>
           </div>
 
           <div className="card !p-5">
             <p className="text-sm font-semibold text-[#9CA3AF]">Category</p>
             <div className="mt-4 grid gap-2">
-              <FilterLink label="All" value="all" active={categoryFilter === 'all'} query={cleanQuery} param="category" currentOther={type} />
-              <FilterLink label="Professional" value="professional" active={categoryFilter === 'professional'} query={cleanQuery} param="category" currentOther={type} />
-              <FilterLink label="Consumer / Local" value="consumer" active={categoryFilter === 'consumer'} query={cleanQuery} param="category" currentOther={type} />
+              <FilterLink label="All" value="all" active={categoryFilter === 'all'} query={cleanQuery} param="category" currentOther={type} location={cleanLocation} />
+              <FilterLink label="Professional" value="professional" active={categoryFilter === 'professional'} query={cleanQuery} param="category" currentOther={type} location={cleanLocation} />
+              <FilterLink label="Consumer / Local" value="consumer" active={categoryFilter === 'consumer'} query={cleanQuery} param="category" currentOther={type} location={cleanLocation} />
             </div>
           </div>
 
@@ -207,19 +199,19 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
               <div>
                 <div className="flex items-center justify-between text-[#9CA3AF] mb-1">
                   <span>Agent search</span>
-                  <CopyButton text={`${baseUrl}/api/agent-search?q=${encodeURIComponent(cleanQuery || 'consulting')}`} />
+                  <CopyButton text={`${baseUrl}/api/agent-search?q=${encodeURIComponent(cleanQuery || 'consulting')}${cleanLocation ? `&location=${encodeURIComponent(cleanLocation)}` : ''}`} />
                 </div>
                 <code className="block break-all rounded bg-[#0A0A0F] p-2 text-[var(--signal)] font-mono text-[10px]">
-                  {`${baseUrl}/api/agent-search?q=${encodeURIComponent(cleanQuery || 'consulting')}`}
+                  {`${baseUrl}/api/agent-search?q=${encodeURIComponent(cleanQuery || 'consulting')}${cleanLocation ? `&location=${encodeURIComponent(cleanLocation)}` : ''}`}
                 </code>
               </div>
               <div>
                 <div className="flex items-center justify-between text-[#9CA3AF] mb-1">
                   <span>Directory API</span>
-                  <CopyButton text={`${baseUrl}/api/directory?category=consumer`} />
+                  <CopyButton text={`${baseUrl}/api/directory?category=consumer${cleanLocation ? `&location=${encodeURIComponent(cleanLocation)}` : ''}`} />
                 </div>
                 <code className="block break-all rounded bg-[#0A0A0F] p-2 text-[var(--signal)] font-mono text-[10px]">
-                  {`${baseUrl}/api/directory?category=consumer`}
+                  {`${baseUrl}/api/directory?category=consumer${cleanLocation ? `&location=${encodeURIComponent(cleanLocation)}` : ''}`}
                 </code>
               </div>
             </div>
@@ -240,30 +232,12 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                         ? 'Consumer & Local Services' 
                         : 'All agent-ready offers'}
                 </h2>
+                {cleanLocation ? <p className="mt-1 text-sm text-[#9CA3AF]">Filtered near {cleanLocation}</p> : null}
               </div>
               <a href={agentRuntimeUrl('/openapi.json')} className="inline-flex items-center gap-2 text-sm font-medium text-[var(--signal)] hover:text-[var(--signal)]">
                 OpenAPI
                 <ExternalLink className="size-4" />
               </a>
-            </div>
-
-            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {marketplaceInsights.intentPresets.map((preset) => (
-                <a
-                  key={preset.id}
-                  href={preset.href}
-                  className="group rounded-lg border border-white/10 bg-[#1A1625] p-4 transition hover:border-[var(--signal)]/40 hover:bg-[#201B2D]"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                      <Store className="size-4 text-[var(--signal)]" />
-                      {preset.label}
-                    </div>
-                    <ArrowRight className="size-4 text-[#9CA3AF] transition group-hover:translate-x-0.5 group-hover:text-white" />
-                  </div>
-                  <p className="mt-2 text-xs leading-5 text-[#9CA3AF]">{preset.description}</p>
-                </a>
-              ))}
             </div>
 
             {/* Phase 2 Directory polish: Category tabs + Quality filter */}
@@ -277,7 +251,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                 return (
                   <a
                     key={tab.value}
-                    href={`/discovery?q=${encodeURIComponent(cleanQuery)}&type=${type}&category=${tab.value}`}
+                    href={discoveryHref({ q: cleanQuery, type, category: tab.value, minReadiness, location: cleanLocation })}
                     className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                       isActive
                         ? 'bg-[var(--signal-solid)] text-white'
@@ -291,13 +265,13 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
 
               {/* Quick high-quality filter (Phase 2) */}
               <a
-                href={`/discovery?q=${encodeURIComponent(cleanQuery)}&type=${type}&category=${categoryFilter}&min_readiness=80`}
+                href={discoveryHref({ q: cleanQuery, type, category: categoryFilter, minReadiness: 80, location: cleanLocation })}
                 className="rounded-full border border-[var(--ready)]/50 bg-[var(--ready)]/10 px-4 py-1.5 text-sm font-medium text-[var(--ready)] hover:bg-[var(--ready)]/20"
               >
                 High Quality (80%+)
               </a>
               <a
-                href={`/discovery?q=${encodeURIComponent(cleanQuery)}&type=${type}&category=${categoryFilter}&min_readiness=90`}
+                href={discoveryHref({ q: cleanQuery, type, category: categoryFilter, minReadiness: 90, location: cleanLocation })}
                 className="rounded-full border border-[var(--ready)]/50 bg-[var(--ready)]/10 px-4 py-1.5 text-sm font-medium text-[var(--ready)] hover:bg-[var(--ready)]/20"
               >
                 Elite (90%+)
@@ -318,6 +292,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
               if (type !== 'all') params.set('type', type)
               if (categoryFilter !== 'all') params.set('category', categoryFilter)
               if (minReadiness > 0) params.set('min_readiness', String(minReadiness))
+              if (cleanLocation) params.set('location', cleanLocation)
               if (s.value !== 'relevant') params.set('sort', s.value)
               const qs = params.toString()
               return (
@@ -387,9 +362,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                           </TrackedDirectoryLink>
                           <FavoriteButton slug={p.slug} />
                           <span className="text-[10px] rounded bg-[var(--ready)]/10 px-1.5 py-0.5 text-[var(--ready)] font-medium">
-                            {readiness}% ready • Trust {getTrustScore(p)}/100
-                            {(p as any).verification_details?.domain_verified || (p as any).custom_domain_verified ? ' ✓' : ''}
-                            {Array.isArray((p as any).verification_details?.docs_provided) && (p as any).verification_details.docs_provided.length > 0 ? ' 📜' : ''}
+                            {readiness}% ready
                           </span>
                         </div>
                         <div className="text-xs text-[#9CA3AF] mt-1">/{p.slug}</div>
@@ -398,7 +371,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                   })}
               </div>
               <a 
-                href={`/discovery?category=${categoryFilter}&type=${type}&min_readiness=80`}
+                href={discoveryHref({ type, category: categoryFilter, minReadiness: 80, location: cleanLocation })}
                 className="mt-3 inline-block text-sm text-[var(--signal)] hover:text-[var(--signal)]"
               >
                 View all high readiness pages in this category →
@@ -430,7 +403,6 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
   const offer = result.offer
   const marketplace = result.marketplace
   const readiness = marketplace?.readiness ?? 0
-  const trustScore = marketplace?.trust_score ?? 0
 
   return (
     <article className="card !p-5 transition hover:border-[var(--signal)]/30">
@@ -448,11 +420,6 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
           <div className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${readiness >= 75 ? 'bg-[var(--ready)]/10 text-[var(--ready)]' : readiness >= 55 ? 'bg-[var(--amber)]/10 text-[var(--amber)]' : 'bg-white/10 text-[#9CA3AF]'}`}>
             {readiness}% ready
           </div>
-          {trustScore > 0 ? (
-            <div className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-[#D1D5DB]">
-              Trust {trustScore}
-            </div>
-          ) : null}
         </div>
       </div>
 
@@ -464,11 +431,6 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
         {offer?.price ? <span className="rounded-md bg-[var(--signal)]/10 px-2 py-1 text-[var(--signal)]">{offer.price}</span> : null}
         {result.page.location ? <span className="rounded-md bg-white/10 px-2 py-1">{result.page.location}</span> : null}
         {result.page.audience ? <span className="rounded-md bg-white/10 px-2 py-1">{result.page.audience}</span> : null}
-        {result.page.industry ? <span className="rounded-md bg-white/10 px-2 py-1">{result.page.industry}</span> : null}
-        {marketplace?.offer_count ? <span className="rounded-md bg-white/10 px-2 py-1">{marketplace.offer_count} offers</span> : null}
-        {marketplace?.has_recent_activity && <span className="rounded-md bg-[var(--ready)]/10 px-2 py-1 text-[var(--ready)]">recent activity</span>}
-        {marketplace?.supports_negotiation && <span className="rounded-md bg-[var(--amber)]/10 px-2 py-1 text-[var(--amber)]">negotiable</span>}
-        {marketplace?.certified && <span className="rounded-md bg-[var(--ready)]/10 px-2 py-1 text-[var(--ready)]">certified</span>}
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
@@ -515,74 +477,6 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
   )
 }
 
-function MarketplacePulse({ insights }: { insights: ReturnType<typeof buildMarketplaceInsights> }) {
-  const topTrust = insights.trustSegments.slice(0, 3)
-  const activePriceBands = insights.priceBands.filter((band) => band.count > 0).slice(0, 4)
-
-  return (
-    <div className="card !p-5">
-      <div className="flex items-center gap-2 text-[var(--signal)]">
-        <TrendingUp className="size-4" />
-        <p className="text-sm font-semibold">Marketplace pulse</p>
-      </div>
-      <div className="mt-4 grid gap-2 text-xs">
-        <PulseRow icon={BadgeCheck} label="Certified sellers" value={String(insights.totals.certified)} />
-        <PulseRow icon={ShieldCheck} label="High-trust sellers" value={String(insights.totals.highTrust)} />
-        <PulseRow icon={Sparkles} label="Negotiable offers" value={String(insights.totals.negotiable)} />
-      </div>
-
-      <div className="mt-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">Trust segments</p>
-        <div className="mt-2 space-y-2">
-          {topTrust.map((segment) => (
-            <div key={segment.id} className="rounded-lg border border-white/10 bg-[#0A0A0F] p-2">
-              <div className="flex items-center justify-between gap-3 text-xs">
-                <span className="font-medium text-white">{segment.label}</span>
-                <span className="text-[var(--signal)]">{segment.count}</span>
-              </div>
-              <p className="mt-1 text-[10px] leading-4 text-[#9CA3AF]">{segment.description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {activePriceBands.length ? (
-        <div className="mt-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">Price bands</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {activePriceBands.map((band) => (
-              <span key={band.id} className="rounded-md bg-white/10 px-2 py-1 text-[10px] text-[#D1D5DB]">
-                {band.label}: {band.count}
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
-function PulseRow({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-[#0A0A0F] px-3 py-2">
-      <span className="inline-flex items-center gap-2 text-[#D1D5DB]">
-        <Icon className="size-3.5 text-[var(--signal)]" />
-        {label}
-      </span>
-      <span className="font-mono text-[var(--signal)]">{value}</span>
-    </div>
-  )
-}
-
-function HeroMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-      <p className="text-[10px] uppercase tracking-wide text-[#9CA3AF]">{label}</p>
-      <p className="mt-1 text-xl font-semibold tracking-tight text-white">{value}</p>
-    </div>
-  )
-}
-
 function FilterLink({
   label,
   value,
@@ -590,6 +484,7 @@ function FilterLink({
   query,
   param = 'type',
   currentOther,
+  location,
 }: {
   label: string
   value: string
@@ -597,13 +492,14 @@ function FilterLink({
   query: string
   param?: string
   currentOther?: string
+  location?: string
 }) {
   const otherParam = param === 'type' ? 'category' : 'type'
   const otherValue = currentOther || 'all'
 
   return (
     <a
-      href={`/discovery?q=${encodeURIComponent(query)}&${param}=${value}&${otherParam}=${otherValue}`}
+      href={discoveryHref({ q: query, [param]: value, [otherParam]: otherValue, location })}
       className={`rounded-lg px-3 py-2 text-sm font-medium ${
         active ? 'bg-[var(--signal-solid)] text-white' : 'border border-white/10 bg-[#1A1625] text-[#9CA3AF] hover:border-[var(--signal)]/30'
       }`}
@@ -611,6 +507,18 @@ function FilterLink({
       {label}
     </a>
   )
+}
+
+function discoveryHref(opts: { q?: string; type?: string; category?: string; minReadiness?: number; sort?: string; location?: string; [key: string]: string | number | undefined }) {
+  const params = new URLSearchParams()
+  if (opts.q) params.set('q', String(opts.q))
+  if (opts.type && opts.type !== 'all') params.set('type', String(opts.type))
+  if (opts.category && opts.category !== 'all') params.set('category', String(opts.category))
+  if (opts.minReadiness && opts.minReadiness > 0) params.set('min_readiness', String(opts.minReadiness))
+  if (opts.sort && opts.sort !== 'relevant') params.set('sort', String(opts.sort))
+  if (opts.location) params.set('location', String(opts.location))
+  const qs = params.toString()
+  return `/discovery${qs ? `?${qs}` : ''}`
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
