@@ -89,3 +89,23 @@ describe('preferencesPromptBlock', () => {
     expect(block.toLowerCase()).not.toContain('notif')
   })
 })
+
+describe('normalizePreferences — sources selection', () => {
+  it('defaults to null (= all available sources) when absent or not an array', () => {
+    expect(normalizePreferences({}).sources).toBeNull()
+    expect(normalizePreferences({ sources: 'nope' }).sources).toBeNull()
+    expect(normalizePreferences({ sources: null }).sources).toBeNull()
+  })
+
+  it('treats an empty array as an explicit selection (Nexez only)', () => {
+    expect(normalizePreferences({ sources: [] }).sources).toEqual([])
+  })
+
+  it('cleans, lowercases, and dedupes source ids; drops junk', () => {
+    expect(normalizePreferences({ sources: ['Yelp', 'google_places', 'yelp', 42, '', 'a b!c'] }).sources).toEqual([
+      'yelp',
+      'google_places',
+      'abc',
+    ])
+  })
+})

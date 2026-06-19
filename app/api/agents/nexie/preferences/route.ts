@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { authenticateNexieRequest } from '../../../../../lib/agents/nexie-auth'
 import { ensureUserAgent } from '../../../../../lib/agents/nexie'
 import { normalizePreferences } from '../../../../../lib/agents/nexie-preferences'
+import { getAvailableSources } from '../../../../../lib/agents/source-adapters'
 import { enforceRateLimit } from '../../../../../lib/rate-limit'
 
 export const maxDuration = 30
@@ -20,7 +21,13 @@ export async function GET(request: NextRequest) {
 
   try {
     const agent = await ensureUserAgent(auth.db, auth.user.id)
-    return NextResponse.json({ ok: true, preferences: normalizePreferences(agent.preferences) })
+    // availableSources lets the app render only the sources that are actually configured (the
+    // core Nexez source is always present; external ones appear once their API key is set).
+    return NextResponse.json({
+      ok: true,
+      preferences: normalizePreferences(agent.preferences),
+      availableSources: getAvailableSources(),
+    })
   } catch (error) {
     console.error('[Nexie] preferences load failed', error)
     return NextResponse.json({ error: 'Could not load your preferences.' }, { status: 500 })

@@ -14,6 +14,8 @@ import { getPageLocationMatch, type LocationMatch } from './location-filter'
 
 export type AgentSearchResult = {
   score: number
+  /** Which source surfaced this result (set by searchAllSources). Absent = the Nexez marketplace. */
+  source?: { id: string; label: string }
   page: {
     name: string
     slug: string

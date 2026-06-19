@@ -4,18 +4,29 @@ import { AgentPage, PUBLIC_PAGE_SELECT } from '../agent-page'
 import { searchAgentPages, type AgentSearchResult } from '../agent-search'
 import { publicLaunchVisiblePages } from '../public-page-visibility'
 import { mergeRankedResults, semanticSearch } from './semantic-search'
+import { googlePlacesAdapter, yelpAdapter } from './external-sources'
 
 // Source adapters are the multi-platform seam: each is a place Nexxi can shop. v1 ships
 // only the `nexez` adapter; v2 adds others (recommendations, other marketplaces) by
 // registering them here — the agent loop never changes, it just calls searchAllSources().
 
-export type SourceAdapterContext = { db: SupabaseClient; baseUrl: string }
+export type SourceAdapterContext = {
+  db: SupabaseClient
+  baseUrl: string
+  /** Buyer location (from preferences) — some sources (e.g. Yelp) require it to search. */
+  location?: string | null
+}
 
 export type SourceAdapter = {
   /** Stable id, e.g. 'nexez'. */
   id: string
   /** Human label for attribution/UX. */
   label: string
+  /**
+   * Whether this source can be used right now (e.g. its API key is configured). Default true.
+   * The user-facing source picker only offers adapters that report available().
+   */
+  available?: () => boolean
   /** Return ranked results (each carries a `score`) for the query. */
   search(query: string, limit: number, ctx: SourceAdapterContext): Promise<AgentSearchResult[]>
 }
@@ -42,7 +53,11 @@ export const nexezAdapter: SourceAdapter = {
   },
 }
 
-const registry = new Map<string, SourceAdapter>([[nexezAdapter.id, nexezAdapter]])
+const registry = new Map<string, SourceAdapter>([
+  [nexezAdapter.id, nexezAdapter],
+  [yelpAdapter.id, yelpAdapter],
+  [googlePlacesAdapter.id, googlePlacesAdapter],
+])
 
 /** Register (or replace, by id) a source adapter. Idempotent; never touches the agent loop. */
 export function registerSourceAdapter(adapter: SourceAdapter): void {
@@ -53,28 +68,51 @@ export function getSourceAdapters(): SourceAdapter[] {
   return [...registry.values()]
 }
 
+/** The Nexez marketplace is the core transactable source — always searched, never opt-out. */
+export const CORE_SOURCE_ID = 'nexez'
+
 /**
- * Fan out the query across every registered source, merge, rank by score, cap to `limit`.
- * A single failing source is isolated (best-effort) so it can't take down the others — but
- * if EVERY source fails, the error is surfaced so the caller's deterministic-fallback path
- * still kicks in (matching the pre-adapter behavior when nexez was the only source).
+ * Sources usable right now (key configured) for the user-facing picker. Nexez is always first.
+ */
+export function getAvailableSources(): { id: string; label: string; core: boolean }[] {
+  return getSourceAdapters()
+    .filter((a) => !a.available || a.available())
+    .map((a) => ({ id: a.id, label: a.label, core: a.id === CORE_SOURCE_ID }))
+}
+
+/**
+ * Fan out the query across the selected, available sources, stamp each result with its source,
+ * merge, rank by score, cap to `limit`. A single failing source is isolated (best-effort) so it
+ * can't take down the others — but if EVERY active source fails, the error is surfaced so the
+ * caller's deterministic-fallback path still kicks in (matching the original nexez-only behavior).
+ *
+ * `enabledIds` is the buyer's source selection: the core Nexez source is always included; any
+ * other source must be both available (configured) and present in `enabledIds`. When `enabledIds`
+ * is omitted, every available source is searched.
  */
 export async function searchAllSources(
   query: string,
   limit: number,
   ctx: SourceAdapterContext,
+  options: { enabledIds?: string[] } = {},
   adapters: SourceAdapter[] = getSourceAdapters(),
 ): Promise<AgentSearchResult[]> {
-  const settled = await Promise.allSettled(adapters.map((a) => a.search(query, limit, ctx)))
-  const fulfilled = settled.filter(
-    (s): s is PromiseFulfilledResult<AgentSearchResult[]> => s.status === 'fulfilled',
-  )
+  const active = adapters.filter((a) => {
+    if (a.available && !a.available()) return false
+    if (a.id === CORE_SOURCE_ID) return true
+    return options.enabledIds ? options.enabledIds.includes(a.id) : true
+  })
+
+  const settled = await Promise.allSettled(active.map((a) => a.search(query, limit, ctx)))
+  const fulfilledCount = settled.filter((s) => s.status === 'fulfilled').length
   const rejected = settled.filter((s): s is PromiseRejectedResult => s.status === 'rejected')
 
-  if (fulfilled.length === 0 && rejected.length > 0) throw rejected[0].reason
+  if (fulfilledCount === 0 && rejected.length > 0) throw rejected[0].reason
 
-  return fulfilled
-    .flatMap((s) => s.value)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
+  const results = settled.flatMap((s, i) =>
+    s.status === 'fulfilled'
+      ? s.value.map((r) => ({ ...r, source: r.source ?? { id: active[i].id, label: active[i].label } }))
+      : [],
+  )
+  return results.sort((a, b) => b.score - a.score).slice(0, limit)
 }

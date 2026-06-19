@@ -323,7 +323,8 @@ async function runLlmAgent(
   // non-streaming path runs unchanged. Both return the identical response shape downstream.
   const complete = (msgs: OpenAiMessage[], withTools: boolean) =>
     ctx.onToken ? chatCompletionStream(msgs, withTools, ctx.onToken) : chatCompletion(msgs, withTools)
-  const preferencesBlock = preferencesPromptBlock(normalizePreferences(ctx.agent.preferences))
+  const prefs = normalizePreferences(ctx.agent.preferences)
+  const preferencesBlock = preferencesPromptBlock(prefs)
   const messages: OpenAiMessage[] = [
     {
       role: 'system',
@@ -364,6 +365,8 @@ Current mode: ${ctx.mode}.`,
       const search = await searchPages(db, {
         query: String(args.query || ctx.message),
         limit: clampLimit(Number(args.limit || 5)),
+        sources: prefs.sources,
+        location: prefs.location,
       })
       cards.push(...search.results.map(resultToCard))
       toolMessages.push({
@@ -427,7 +430,8 @@ async function runDeterministicAgent(
   db: Db,
   ctx: { userId: string; agent: UserAgentRow; thread: AgentThreadRow; message: string; mode: NexieMode },
 ): Promise<Omit<NexieTurnResult, 'threadId' | 'agentId' | 'memory' | 'model'>> {
-  const search = await searchPages(db, { query: ctx.message, limit: 5 })
+  const prefs = normalizePreferences(ctx.agent.preferences)
+  const search = await searchPages(db, { query: ctx.message, limit: 5, sources: prefs.sources, location: prefs.location })
   const cards = search.results.map(resultToCard)
   if (!cards.length) {
     return {
@@ -652,10 +656,20 @@ async function updateAgentMemory(
   await db.from('user_agents').update({ memory: nextMemory }).eq('id', agent.id).eq('user_id', agent.user_id)
 }
 
-async function searchPages(db: Db, input: { query: string; limit: number }): Promise<{ results: AgentSearchResult[] }> {
-  // Delegates to the source-adapter registry (nexez today; more sources later without
-  // touching this agent loop). See lib/agents/source-adapters.ts.
-  return { results: await searchAllSources(input.query, input.limit, { db, baseUrl: agentRuntimeBaseUrl() }) }
+async function searchPages(
+  db: Db,
+  input: { query: string; limit: number; sources?: string[] | null; location?: string | null },
+): Promise<{ results: AgentSearchResult[] }> {
+  // Delegates to the source-adapter registry. `sources` is the buyer's source selection (null =
+  // all available; Nexez is always included); `location` lets location-bound sources (Yelp) search.
+  return {
+    results: await searchAllSources(
+      input.query,
+      input.limit,
+      { db, baseUrl: agentRuntimeBaseUrl(), location: input.location ?? null },
+      { enabledIds: input.sources ?? undefined },
+    ),
+  }
 }
 
 async function createApproval(

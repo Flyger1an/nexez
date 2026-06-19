@@ -18,6 +18,12 @@ export type NexiePreferences = {
   voiceRepliesDefault: boolean
   /** Push opt-in (default true; false = the server skips sending to this buyer). */
   notificationsEnabled: boolean
+  /**
+   * Which search sources to include, by adapter id. `null` = all available sources (the default);
+   * `[]` = Nexez only. The Nexez marketplace is always searched regardless (core/transactable);
+   * this list governs the optional external discovery sources (e.g. 'yelp', 'google_places').
+   */
+  sources: string[] | null
 }
 
 export const NEXIE_TIMINGS: NexieTiming[] = ['flexible', 'this_week', 'asap']
@@ -35,7 +41,11 @@ export const DEFAULT_PREFERENCES: NexiePreferences = {
   location: null,
   voiceRepliesDefault: false,
   notificationsEnabled: true,
+  sources: null,
 }
+
+const MAX_SOURCES = 12
+const MAX_SOURCE_ID_LEN = 32
 
 /** Coerce arbitrary stored/posted JSON into a complete, safe NexiePreferences. */
 export function normalizePreferences(input: unknown): NexiePreferences {
@@ -72,6 +82,22 @@ export function normalizePreferences(input: unknown): NexiePreferences {
       ? o.location.trim().replace(/\s+/g, ' ').slice(0, MAX_LOCATION_LEN)
       : null
 
+  // null/absent → all sources (default). An array (even empty) is an explicit selection.
+  let sources: string[] | null = null
+  if (Array.isArray(o.sources)) {
+    const ids: string[] = []
+    const seenIds = new Set<string>()
+    for (const raw of o.sources) {
+      if (typeof raw !== 'string') continue
+      const id = raw.trim().toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, MAX_SOURCE_ID_LEN)
+      if (!id || seenIds.has(id)) continue
+      seenIds.add(id)
+      ids.push(id)
+      if (ids.length >= MAX_SOURCES) break
+    }
+    sources = ids
+  }
+
   return {
     budgetMax,
     currency,
@@ -80,6 +106,7 @@ export function normalizePreferences(input: unknown): NexiePreferences {
     location,
     voiceRepliesDefault: o.voiceRepliesDefault === true,
     notificationsEnabled: o.notificationsEnabled !== false,
+    sources,
   }
 }
 
