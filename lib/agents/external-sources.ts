@@ -7,10 +7,21 @@ import type { SourceAdapter } from './source-adapters'
 // never enter the money path (Book/Negotiate + escrow stay Nexez-backed). Each is env-gated — with
 // no API key the adapter reports unavailable and returns nothing, so prod is unaffected until the
 // owner sets the key. A failing call throws and is isolated by searchAllSources' fan-out.
+//
+// ACTIVE source = Brave Search (AI-friendly: explicit AI-inference rights, transient use permitted).
+// The Yelp + Google Places adapters below are RETAINED but NOT REGISTERED (see source-adapters.ts):
+// Yelp's terms forbid feeding content to a generative-AI model and bar commercial use without
+// consent; Google needs map/logo attribution + a master-ToS check. Kept for reference / a future
+// compliant path; unregistered so neither can be accidentally key-activated.
 
+const BRAVE_ENDPOINT = 'https://api.search.brave.com/res/v1/web/search'
 const YELP_ENDPOINT = 'https://api.yelp.com/v3/businesses/search'
 const PLACES_ENDPOINT = 'https://places.googleapis.com/v1/places:searchText'
 const TIMEOUT_MS = 8_000
+
+function stripHtml(value: string): string {
+  return value.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+}
 
 function clamp(limit: number, max: number): number {
   return Math.min(Math.max(Math.floor(limit) || 1, 1), max)
@@ -178,5 +189,53 @@ export const googlePlacesAdapter: SourceAdapter = {
     const json = (await res.json().catch(() => ({}))) as { places?: GooglePlace[] }
     const places = Array.isArray(json.places) ? json.places : []
     return places.slice(0, clamp(limit, 20)).map((p, i) => placeToResult(p, i, places.length))
+  },
+}
+
+const BRAVE_SOURCE = { id: 'brave', label: 'Web' }
+
+type BraveWebResult = {
+  title?: string
+  url?: string
+  description?: string
+}
+
+function braveToResult(r: BraveWebResult, index: number, count: number): AgentSearchResult {
+  return externalResult({
+    source: BRAVE_SOURCE,
+    name: r.title ? stripHtml(r.title) : 'Web result',
+    // Web results have no stable id; the index is unique within a result set (slug isn't used for
+    // any action — these are discovery-only).
+    slug: `brave:${index}`,
+    url: r.url || 'https://search.brave.com',
+    description: r.description ? stripHtml(r.description) : null,
+    location: null,
+    industry: null,
+    score: externalScore(null, index, count),
+  })
+}
+
+/**
+ * Brave Search (web). AI-friendly: the Search plan grants AI-inference rights and permits transient
+ * use, so feeding results to the LLM is allowed (we never persist them). The buyer location, when
+ * set, is folded into the query. This is the ACTIVE external discovery source.
+ */
+export const braveAdapter: SourceAdapter = {
+  id: BRAVE_SOURCE.id,
+  label: BRAVE_SOURCE.label,
+  available: () => Boolean(process.env.BRAVE_API_KEY),
+  async search(query, limit, ctx) {
+    const key = process.env.BRAVE_API_KEY
+    if (!key) return []
+    const q = ctx.location ? `${query} in ${ctx.location}` : query
+    const params = new URLSearchParams({ q, count: String(clamp(limit, 20)) })
+    const res = await fetch(`${BRAVE_ENDPOINT}?${params.toString()}`, {
+      headers: { 'X-Subscription-Token': key, Accept: 'application/json' },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    })
+    if (!res.ok) throw new Error(`Brave search failed with HTTP ${res.status}`)
+    const json = (await res.json().catch(() => ({}))) as { web?: { results?: BraveWebResult[] } }
+    const results = Array.isArray(json.web?.results) ? json.web!.results! : []
+    return results.slice(0, clamp(limit, 20)).map((r, i) => braveToResult(r, i, results.length))
   },
 }

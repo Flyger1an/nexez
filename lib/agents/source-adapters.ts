@@ -4,7 +4,9 @@ import { AgentPage, PUBLIC_PAGE_SELECT } from '../agent-page'
 import { searchAgentPages, type AgentSearchResult } from '../agent-search'
 import { publicLaunchVisiblePages } from '../public-page-visibility'
 import { mergeRankedResults, semanticSearch } from './semantic-search'
-import { googlePlacesAdapter, yelpAdapter } from './external-sources'
+// Brave is the active external discovery source (AI-friendly terms). The Yelp + Google adapters are
+// intentionally NOT imported/registered here — see external-sources.ts for the ToS rationale.
+import { braveAdapter } from './external-sources'
 
 // Source adapters are the multi-platform seam: each is a place Nexxi can shop. v1 ships
 // only the `nexez` adapter; v2 adds others (recommendations, other marketplaces) by
@@ -55,8 +57,7 @@ export const nexezAdapter: SourceAdapter = {
 
 const registry = new Map<string, SourceAdapter>([
   [nexezAdapter.id, nexezAdapter],
-  [yelpAdapter.id, yelpAdapter],
-  [googlePlacesAdapter.id, googlePlacesAdapter],
+  [braveAdapter.id, braveAdapter],
 ])
 
 /** Register (or replace, by id) a source adapter. Idempotent; never touches the agent loop. */

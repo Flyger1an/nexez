@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { yelpAdapter, googlePlacesAdapter } from './external-sources'
+import { yelpAdapter, googlePlacesAdapter, braveAdapter } from './external-sources'
 import type { SourceAdapterContext } from './source-adapters'
 
 const ctx = (location?: string): SourceAdapterContext => ({ db: {} as never, baseUrl: 'https://nexez.app', location })
@@ -11,11 +11,13 @@ function jsonResponse(body: unknown, status = 200) {
 beforeEach(() => {
   delete process.env.YELP_API_KEY
   delete process.env.GOOGLE_PLACES_API_KEY
+  delete process.env.BRAVE_API_KEY
 })
 afterEach(() => {
   vi.unstubAllGlobals()
   delete process.env.YELP_API_KEY
   delete process.env.GOOGLE_PLACES_API_KEY
+  delete process.env.BRAVE_API_KEY
 })
 
 describe('yelpAdapter', () => {
@@ -93,5 +95,42 @@ describe('googlePlacesAdapter', () => {
     process.env.GOOGLE_PLACES_API_KEY = 'k'
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({}, 500)))
     await expect(googlePlacesAdapter.search('coffee', 5, ctx())).rejects.toThrow(/Google Places/)
+  })
+})
+
+describe('braveAdapter (active external source)', () => {
+  it('is unavailable + returns nothing without an API key', async () => {
+    expect(braveAdapter.available?.()).toBe(false)
+    expect(await braveAdapter.search('plumber austin', 5, ctx())).toEqual([])
+  })
+
+  it('maps web results to discovery-only results and strips HTML highlighting', async () => {
+    process.env.BRAVE_API_KEY = 'k'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse({
+          web: {
+            results: [
+              { title: 'Best <strong>Plumbers</strong> in Austin', url: 'https://acme-plumbing.com', description: 'Top-rated <strong>plumbing</strong> service.' },
+            ],
+          },
+        }),
+      ),
+    )
+    const out = await braveAdapter.search('plumber', 5, ctx('Austin'))
+    expect(out).toHaveLength(1)
+    expect(out[0].offer).toBeNull() // discovery-only
+    expect(out[0].source).toEqual({ id: 'brave', label: 'Web' })
+    expect(out[0].page.name).toBe('Best Plumbers in Austin') // tags stripped
+    expect(out[0].page.description).toBe('Top-rated plumbing service.')
+    expect(out[0].page.url).toBe('https://acme-plumbing.com')
+    expect(out[0].score).toBeGreaterThan(0)
+  })
+
+  it('throws on a non-200 (isolated by the fan-out)', async () => {
+    process.env.BRAVE_API_KEY = 'k'
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({}, 422)))
+    await expect(braveAdapter.search('plumber', 5, ctx())).rejects.toThrow(/Brave/)
   })
 })
