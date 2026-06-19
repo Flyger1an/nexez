@@ -24,6 +24,9 @@
     "typescript": "^5.8.3"
   },
   "openclaw": {
+    "compat": {
+      "pluginApi": ">=2026.6.8 <2027.0.0"
+    },
     "extensions": [
       "./dist/index.js"
     ]
