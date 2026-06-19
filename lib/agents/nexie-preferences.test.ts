@@ -56,6 +56,12 @@ describe('normalizePreferences', () => {
     expect(normalizePreferences({ voiceRepliesDefault: 'true' }).voiceRepliesDefault).toBe(false)
     expect(normalizePreferences({ voiceRepliesDefault: 1 }).voiceRepliesDefault).toBe(false)
   })
+
+  it('defaults notifications ON; only an explicit false opts out', () => {
+    expect(normalizePreferences({}).notificationsEnabled).toBe(true)
+    expect(normalizePreferences({ notificationsEnabled: false }).notificationsEnabled).toBe(false)
+    expect(normalizePreferences({ notificationsEnabled: 'no' }).notificationsEnabled).toBe(true)
+  })
 })
 
 describe('preferencesPromptBlock', () => {
@@ -80,5 +86,6 @@ describe('preferencesPromptBlock', () => {
     expect(block).toContain('within this week')
     expect(block).toContain('Dallas')
     expect(block.toLowerCase()).not.toContain('voice')
+    expect(block.toLowerCase()).not.toContain('notif')
   })
 })

@@ -72,15 +72,34 @@ export async function sendPushToTokens(tokens: string[], message: PushMessage): 
   return { sent }
 }
 
+/** User ids who turned notifications OFF (preferences.notificationsEnabled === false). */
+async function pushOptedOutUserIds(admin: SupabaseClient, userIds: string[]): Promise<Set<string>> {
+  const out = new Set<string>()
+  if (!userIds.length) return out
+  const { data } = await admin
+    .from('user_agents')
+    .select('user_id, preferences')
+    .in('user_id', userIds)
+    .returns<{ user_id: string; preferences: Record<string, unknown> | null }[]>()
+  for (const row of data ?? []) {
+    if (row.preferences && row.preferences.notificationsEnabled === false) out.add(row.user_id)
+  }
+  return out
+}
+
 async function tokensBy(column: 'user_id' | 'email', value: string): Promise<string[]> {
   if (!hasSupabaseAdminEnv()) return []
   const admin = createAdminClient()
-  const base = admin.from('user_push_tokens').select('token')
+  const base = admin.from('user_push_tokens').select('token, user_id')
   const { data } =
     column === 'email'
-      ? await base.eq('email', value.toLowerCase()).returns<{ token: string }[]>()
-      : await base.eq('user_id', value).returns<{ token: string }[]>()
-  return (data ?? []).map((r) => r.token)
+      ? await base.eq('email', value.toLowerCase()).returns<{ token: string; user_id: string }[]>()
+      : await base.eq('user_id', value).returns<{ token: string; user_id: string }[]>()
+  const rows = data ?? []
+  if (!rows.length) return []
+  // Respect each owner's notifications pref (default ON; fail-open if the lookup fails).
+  const optedOut = await pushOptedOutUserIds(createAdminClient(), [...new Set(rows.map((r) => r.user_id).filter(Boolean))])
+  return rows.filter((r) => !optedOut.has(r.user_id)).map((r) => r.token)
 }
 
 /** Push to all of a user's devices (by user id). Service-role; safe from webhooks/cron. */

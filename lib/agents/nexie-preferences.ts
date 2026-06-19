@@ -16,6 +16,8 @@ export type NexiePreferences = {
   location: string | null
   /** When true, the app defaults spoken replies on. */
   voiceRepliesDefault: boolean
+  /** Push opt-in (default true; false = the server skips sending to this buyer). */
+  notificationsEnabled: boolean
 }
 
 export const NEXIE_TIMINGS: NexieTiming[] = ['flexible', 'this_week', 'asap']
@@ -32,6 +34,7 @@ export const DEFAULT_PREFERENCES: NexiePreferences = {
   timing: null,
   location: null,
   voiceRepliesDefault: false,
+  notificationsEnabled: true,
 }
 
 /** Coerce arbitrary stored/posted JSON into a complete, safe NexiePreferences. */
@@ -76,6 +79,7 @@ export function normalizePreferences(input: unknown): NexiePreferences {
     timing,
     location,
     voiceRepliesDefault: o.voiceRepliesDefault === true,
+    notificationsEnabled: o.notificationsEnabled !== false,
   }
 }
 
