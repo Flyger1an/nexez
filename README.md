@@ -38,8 +38,9 @@ One source of truth. Two audiences: beautiful for humans, brutally structured fo
 - Persistent state for all negotiations
 - Supabase backend with clean schema
 - Production-ready error handling, logging, and webhooks
-- OpenClaw-ready agent discovery skill in `skills/nexez-agent-discovery`
-- Native OpenClaw tool plugin scaffold in `plugins/openclaw-nexez`
+- Published OpenClaw agent discovery skill: `openclaw skills install nexez-agent-discovery`
+- Published OpenClaw tool plugin: `openclaw plugins install clawhub:@nexez/openclaw-nexez`
+- Public agent access docs at `/agents`, linked from agent metadata
 
 ---
 

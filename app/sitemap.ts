@@ -23,6 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ): MetadataRoute.Sitemap[number] => ({ url: marketingUrl(path), lastModified: new Date(), changeFrequency, priority })
     return [
       entry('/', 1, 'daily'),
+      entry('/agents', 0.9, 'weekly'),
       entry('/how-it-works', 0.9, 'weekly'),
       entry('/use-cases', 0.85, 'weekly'),
       ...useCases.map((useCase) => entry(`/use-cases/${useCase.slug}`, 0.75, 'monthly')),

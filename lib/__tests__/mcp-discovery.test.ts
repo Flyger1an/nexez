@@ -41,5 +41,7 @@ describe('MCP discovery helpers', () => {
     expect(catalog.pages).toHaveLength(1)
     expect(catalog.pages[0].slug).toBe('acme')
     expect(catalog.llms_url).toBe('https://nexez.test/llms.txt')
+    expect(catalog.agent_access_url).toBe('https://nexez.ai/agents')
+    expect(catalog.openclaw.skill.slug).toBe('nexez-agent-discovery')
   })
 })

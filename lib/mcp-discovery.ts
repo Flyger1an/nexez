@@ -1,4 +1,5 @@
 import { AgentPage, getBaseUrl, getCheckoutOffers, getCheckoutPath, getOfferCount } from './agent-page'
+import { buildAgentDistributionLinks } from './agent-distribution'
 import { getAgentJsonPath } from './agent-manifest'
 
 export type McpDiscoveryPage = Pick<
@@ -40,6 +41,7 @@ export function buildMcpDiscoveryCatalog(
   generatedAt = new Date().toISOString(),
 ) {
   const mcpEnabledPages = pages.filter((page) => page.mcp_enabled)
+  const distribution = buildAgentDistributionLinks(baseUrl)
 
   return {
     schema_version: 'nexez.mcp-discovery.v1',
@@ -47,9 +49,11 @@ export function buildMcpDiscoveryCatalog(
     protocol_note:
       'Discovery catalog for Nexez pages that expose MCP-compatible JSON resources. Per-page manifests are data-only resources, not a streaming MCP transport.',
     homepage_url: baseUrl,
+    agent_access_url: distribution.docs_url,
     llms_url: `${baseUrl}/llms.txt`,
     capabilities_url: `${baseUrl}/.well-known/nexez.json`,
     agent_index_url: `${baseUrl}/agent-pages.json`,
+    openclaw: distribution.openclaw,
     page_count: mcpEnabledPages.length,
     pages: mcpEnabledPages.map((page) => buildMcpDiscoveryPage(page, baseUrl)),
   }

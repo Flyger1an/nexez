@@ -43,6 +43,7 @@ function useAuthedUser(): boolean | null {
 const navLinks = [
   { label: 'How it works', href: '/how-it-works' },
   { label: 'Use cases', href: '/use-cases' },
+  { label: 'Agents', href: '/agents' },
   { label: 'Examples', href: '/examples' },
   { label: 'Discovery', href: '/discovery' },
   { label: 'Pricing', href: '/pricing' },
@@ -207,6 +208,7 @@ function MarketingFooter({ authed }: { authed: boolean | null }) {
             ['Discovery', '/discovery'],
             ['Leaderboard', '/leaderboard'],
             ['Simulator', '/simulator'],
+            ['Agent access', '/agents'],
             ['Pricing', '/pricing'],
           ]}
         />
@@ -218,6 +220,7 @@ function MarketingFooter({ authed }: { authed: boolean | null }) {
           title="Trust"
           links={[
             ['Agent readiness', '/agent-readiness'],
+            ['Agent access', '/agents'],
             ['Integrations', '/integrations'],
             ['Developers', '/developers'],
             ['Security', '/security'],

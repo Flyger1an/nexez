@@ -5,14 +5,15 @@ Nexez should be discoverable wherever autonomous agents search, reason, compare,
 ## Priority Channels
 
 1. OpenClaw skill
-   - Status: started in `skills/nexez-agent-discovery/SKILL.md`.
+   - Status: published on ClawHub as `nexez-agent-discovery` (`0.1.0`).
    - Purpose: teach OpenClaw agents how to search Nexez, compare offers, and safely hand off checkout or negotiation.
    - Shape: lean `SKILL.md` plus references for endpoint contracts, ranking/safety, and validation examples.
-   - Distribution: publish to ClawHub after internal testing.
+   - Install: `openclaw skills install nexez-agent-discovery`.
 
 2. OpenClaw tool plugin
    - Purpose: expose native callable tools such as `nexez_search`, `nexez_get_page`, `nexez_validate_checkout`, and `nexez_create_negotiation`.
-   - Status: scaffolded in `plugins/openclaw-nexez`.
+   - Status: published on ClawHub as `@nexez/openclaw-nexez` (`0.1.2`).
+   - Install: `openclaw plugins install clawhub:@nexez/openclaw-nexez`.
    - Use when we want typed tool calls instead of instruction-only behavior.
    - Keep side-effecting tools optional and approval-gated.
 
@@ -27,7 +28,8 @@ Nexez should be discoverable wherever autonomous agents search, reason, compare,
 
 5. LLM-readable indexes
    - Current surface: `/llms.txt`, per-page `/{slug}/llms.txt`, `/agent-pages.json`.
-   - Next step: add explicit “how to buy through Nexez” examples to global agent docs where useful.
+   - Current distribution page: `/agents` on the marketing host, linked from `llms.txt`, `agent-pages.json`, `.well-known/nexez.json`, OpenAPI, and the MCP catalog.
+   - Next step: add more transaction examples to global agent docs where useful.
 
 6. Search and crawl signals
    - Current surface: server-rendered public pages, JSON-LD, sitemap, robots, clean semantic HTML.
@@ -60,8 +62,7 @@ Nexez should be discoverable wherever autonomous agents search, reason, compare,
 
 ## Near-Term Sequence
 
-1. Ship and test the OpenClaw skill.
-2. Build and validate the native OpenClaw tool plugin with OpenClaw installed.
-3. Publish the skill and plugin to ClawHub.
-4. Add a small TypeScript buyer-agent SDK.
-5. Expand MCP/OpenAPI directory submissions.
+1. Keep the public `/agents` access page and machine-readable metadata in sync with published OpenClaw versions.
+2. Add a small TypeScript buyer-agent SDK.
+3. Expand MCP/OpenAPI directory submissions.
+4. Add more agent workflow examples for checkout, negotiation, and location-filtered discovery.

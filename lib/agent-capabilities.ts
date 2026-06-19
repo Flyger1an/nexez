@@ -1,18 +1,22 @@
 import { getBaseUrl } from './agent-page'
+import { buildAgentDistributionLinks } from './agent-distribution'
 
 export function buildNexezCapabilities() {
   const baseUrl = getBaseUrl()
+  const distribution = buildAgentDistributionLinks(baseUrl)
 
   return {
     schema_version: 'nexez.capabilities.v1',
     name: 'Nexez',
     description: 'AI-readable discovery, offer manifests, and checkout handoff for published business pages.',
     homepage_url: baseUrl,
+    agent_access_url: distribution.docs_url,
     llms_url: `${baseUrl}/llms.txt`,
     openapi_url: `${baseUrl}/openapi.json`,
     agent_index_url: `${baseUrl}/agent-pages.json`,
     mcp_discovery_url: `${baseUrl}/.well-known/mcp.json`,
     search_url_template: `${baseUrl}/api/agent-search?q={query}`,
+    openclaw: distribution.openclaw,
     endpoints: [
       {
         name: 'Agent search',
@@ -62,6 +66,7 @@ export function buildNexezCapabilities() {
 
 export function buildOpenApiSpec() {
   const baseUrl = getBaseUrl()
+  const distribution = buildAgentDistributionLinks(baseUrl)
 
   return {
     openapi: '3.1.0',
@@ -69,6 +74,7 @@ export function buildOpenApiSpec() {
       title: 'Nexez Agent API',
       version: '0.1.0',
       description: 'Discovery and checkout handoff API for AI-readable product and service pages.',
+      'x-nexez-agent-distribution': distribution,
     },
     servers: [{ url: baseUrl }],
     paths: {

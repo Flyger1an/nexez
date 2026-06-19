@@ -65,7 +65,7 @@ export function MarketingContentPage({
           <div className="mx-auto max-w-7xl px-5 py-16 md:py-20">
             <div className="mb-8 max-w-2xl">
               <p className="text-sm font-medium" style={{ color: tone(accent) }}>Questions</p>
-              <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">What buyers ask next.</h2>
+              <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">FAQ</h2>
             </div>
             <div className="grid gap-4 md:grid-cols-3">
               {content.faq.map((item) => (

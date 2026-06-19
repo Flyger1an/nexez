@@ -3,6 +3,7 @@ import { buildOpenApiSpec } from '../agent-capabilities'
 
 describe('buildOpenApiSpec — programmatic API (G21)', () => {
   const spec = buildOpenApiSpec() as {
+    info: Record<string, unknown>
     paths: Record<string, Record<string, { security?: unknown[]; operationId?: string }>>
     components: { securitySchemes?: Record<string, { type: string; scheme?: string }> }
   }
@@ -25,5 +26,19 @@ describe('buildOpenApiSpec — programmatic API (G21)', () => {
   it('keeps the existing public endpoints', () => {
     expect(spec.paths['/api/agent-search']).toBeDefined()
     expect(spec.paths['/api/checkout']).toBeDefined()
+  })
+
+  it('advertises OpenClaw distribution metadata', () => {
+    const distribution = spec.info['x-nexez-agent-distribution'] as {
+      docs_url: string
+      openclaw: {
+        plugin: { name: string }
+        skill: { slug: string }
+      }
+    }
+
+    expect(distribution.docs_url).toBe('https://nexez.ai/agents')
+    expect(distribution.openclaw.plugin.name).toBe('@nexez/openclaw-nexez')
+    expect(distribution.openclaw.skill.slug).toBe('nexez-agent-discovery')
   })
 })

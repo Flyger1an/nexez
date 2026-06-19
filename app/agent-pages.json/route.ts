@@ -1,11 +1,13 @@
 import { AgentPage, getCertification, getCheckoutOffers, getCheckoutPath, getOfferCount, getRequestBaseUrl } from '../../lib/agent-page'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
+import { buildAgentDistributionLinks } from '../../lib/agent-distribution'
 import { normalizeCurrency } from '../../lib/currency'
 import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
 import { supabase } from '../../lib/supabase'
 
 export async function GET(request: Request) {
   const baseUrl = getRequestBaseUrl(request)
+  const distribution = buildAgentDistributionLinks(baseUrl)
   // Select enough to compute price/currency + an accurate readiness/trust signal,
   // so agents can shortlist from the index without fetching every per-page manifest.
   const { data: pages } = await supabase
@@ -19,10 +21,12 @@ export async function GET(request: Request) {
     {
       schema_version: 'nexez.agent-index.v1',
       generated_at: new Date().toISOString(),
+      agent_access_url: distribution.docs_url,
       llms_url: `${baseUrl}/llms.txt`,
       openapi_url: `${baseUrl}/openapi.json`,
       capabilities_url: `${baseUrl}/.well-known/nexez.json`,
       search_url: `${baseUrl}/api/agent-search?q={query}`,
+      openclaw: distribution.openclaw,
       pages: publicLaunchVisiblePages(pages).map((page) => {
         const cert = getCertification(page)
         const currency = normalizeCurrency(page.currency)

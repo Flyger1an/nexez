@@ -29,6 +29,7 @@ export const AGENT_RUNTIME_HOST = hostOf(
 // Routes that belong on the marketing host (nexez.ai): the exact homepage plus a
 // set of discovery/education prefixes.
 const MARKETING_PREFIXES = [
+  '/agents',
   '/agent-readiness',
   '/compare',
   '/developers',

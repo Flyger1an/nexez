@@ -1,4 +1,5 @@
 import { AgentPage, PUBLIC_PAGE_SELECT, getCheckoutOffers, getCheckoutPath, getOfferCount, getRequestBaseUrl, sanitizePublicUrl } from '../../lib/agent-page'
+import { NEXEZ_OPENCLAW_PLUGIN, NEXEZ_OPENCLAW_SKILL, buildAgentDistributionLinks } from '../../lib/agent-distribution'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { markdownLinkLabel, markdownText } from '../../lib/agent-text'
 import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
@@ -8,6 +9,7 @@ const GLOBAL_LLMS_OFFERS_PER_PAGE = 12
 
 export async function GET(request: Request) {
   const baseUrl = getRequestBaseUrl(request)
+  const distribution = buildAgentDistributionLinks(baseUrl)
   const { data: pages } = await supabase
     .from('pages_public')
     .select(PUBLIC_PAGE_SELECT)
@@ -25,6 +27,14 @@ export async function GET(request: Request) {
     `OpenAPI spec: ${baseUrl}/openapi.json`,
     `Capabilities manifest: ${baseUrl}/.well-known/nexez.json`,
     `MCP discovery catalog: ${baseUrl}/.well-known/mcp.json`,
+    `Agent access docs: ${distribution.docs_url}`,
+    '',
+    '## OpenClaw Access',
+    '',
+    `Plugin: ${NEXEZ_OPENCLAW_PLUGIN.name} (${NEXEZ_OPENCLAW_PLUGIN.version})`,
+    `Install plugin: ${NEXEZ_OPENCLAW_PLUGIN.installCommand}`,
+    `Skill: ${NEXEZ_OPENCLAW_SKILL.slug} (${NEXEZ_OPENCLAW_SKILL.version})`,
+    `Install skill: ${NEXEZ_OPENCLAW_SKILL.installCommand}`,
     '',
     '## Published Agent Pages',
     '',
