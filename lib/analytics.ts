@@ -229,6 +229,7 @@ export function getAgentName(userAgent: string | null) {
   if (normalized.includes('claude') || normalized.includes('anthropic')) return 'Claude-Agent'
   if (normalized.includes('perplexity')) return 'PerplexityBot'
   if (normalized.includes('grok') || normalized.includes('xai')) return 'Grok-Agent'
+  if (normalized.includes('openclaw')) return 'OpenClaw-Agent'
   if (normalized.includes('bot') || normalized.includes('crawler') || normalized.includes('spider')) return 'Generic Agent'
 
   return userAgent.length > 72 ? `${userAgent.slice(0, 69)}...` : userAgent

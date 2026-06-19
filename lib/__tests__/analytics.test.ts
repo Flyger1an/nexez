@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   filterAnalyticsEvents,
+  getAgentName,
   getAgentPageVisitCount,
   getDailyEventSeries,
   getDiscoveryActionStats,
@@ -121,5 +122,22 @@ describe('getReadinessInsight', () => {
   it('returns zeroes when there is no activity', () => {
     const insight = getReadinessInsight([makePage('alpha', true)], [], [])
     expect(insight).toEqual({ avgAll: expect.any(Number), avgActive: 0, activeCount: 0, lift: expect.any(Number) })
+  })
+})
+
+describe('getAgentName', () => {
+  it('recognizes the OpenClaw plugin as a first-class agent channel', () => {
+    // The OpenClaw Nexez plugin sends this User-Agent on public checkout/search calls.
+    expect(getAgentName('OpenClaw Nexez Plugin')).toBe('OpenClaw-Agent')
+    expect(getAgentName('openclaw/2026.5.17')).toBe('OpenClaw-Agent')
+  })
+
+  it('still normalizes the other known agents and falls back otherwise', () => {
+    expect(getAgentName('ChatGPT-User/1.0')).toBe('ChatGPT-Agent')
+    expect(getAgentName('Claude-Web')).toBe('Claude-Agent')
+    expect(getAgentName('Grok')).toBe('Grok-Agent')
+    expect(getAgentName('SomeRandomBot/2')).toBe('Generic Agent')
+    expect(getAgentName(null)).toBe('Unknown agent')
+    expect(getAgentName('CustomThing/1.0')).toBe('CustomThing/1.0')
   })
 })
