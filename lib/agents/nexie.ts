@@ -3,6 +3,7 @@ import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { type AgentSearchResult } from '../agent-search'
 import { isLlmConfigured, llmModel, llmProviderName } from '../llm'
+import { extractMemorySignals, mergeMemorySignals } from './nexie-memory'
 import { normalizePreferences, preferencesPromptBlock } from './nexie-preferences'
 import { searchAllSources } from './source-adapters'
 import { agentRuntimeUrl } from '../site'
@@ -617,15 +618,8 @@ async function updateAgentMemory(
   userMessage: string,
   result: Pick<NexieTurnResult, 'toolsUsed'>,
 ) {
-  const memory = agent.memory ?? {}
-  const interests = Array.isArray(memory.interests) ? memory.interests.slice(0, 8) : []
-  const nextMemory = {
-    ...memory,
-    last_intent: userMessage.slice(0, 240),
-    last_tools: result.toolsUsed,
-    interests: [extractInterest(userMessage), ...interests].filter(Boolean).slice(0, 8),
-    updated_at: new Date().toISOString(),
-  }
+  const signals = extractMemorySignals(userMessage)
+  const nextMemory = mergeMemorySignals(agent.memory ?? {}, signals, userMessage, result.toolsUsed, new Date().toISOString())
   await db.from('user_agents').update({ memory: nextMemory }).eq('id', agent.id).eq('user_id', agent.user_id)
 }
 
@@ -844,10 +838,6 @@ function textOrFallback(value: unknown, query: string) {
 function titleFromMessage(value?: string) {
   const text = (value || 'New Nexxi chat').replace(/\s+/g, ' ').trim()
   return text.length > 54 ? `${text.slice(0, 51)}...` : text
-}
-
-function extractInterest(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9$ ]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90)
 }
 
 function searchSuggestions(cards: NexieCard[]) {
