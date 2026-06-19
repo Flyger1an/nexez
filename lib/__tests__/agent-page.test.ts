@@ -161,6 +161,7 @@ describe('getCheckoutOffer', () => {
     services: [
       { name: 'Strategy', price: '$100', description: '', url: '' },
       { name: 'Audit', price: '$200', description: '', url: '' },
+      { name: 'Standard Service Call', price: '$1', description: '', url: '' },
     ],
     products: [{ name: 'Template', price: '$50', description: '', url: '' }],
   }
@@ -175,10 +176,15 @@ describe('getCheckoutOffer', () => {
     expect(getCheckoutOffer(page, 'services--1')).toBeNull()
   })
 
-  it('resolves a non-key string by offer name (case-insensitive) — natural-language bookings', () => {
+  it('resolves a non-key string by offer name (case/separator-insensitive) — natural-language bookings', () => {
     expect(getCheckoutOffer(page, 'Strategy')?.name).toBe('Strategy')
     expect(getCheckoutOffer(page, 'audit')?.name).toBe('Audit') // case-insensitive
     expect(getCheckoutOffer(page, '  Template  ')?.name).toBe('Template') // trimmed; products too
+    // Separator/case variants an LLM emits all collapse to the same offer:
+    expect(getCheckoutOffer(page, 'Standard Service Call')?.name).toBe('Standard Service Call')
+    expect(getCheckoutOffer(page, 'standard service call')?.name).toBe('Standard Service Call')
+    expect(getCheckoutOffer(page, 'standard-service-call')?.name).toBe('Standard Service Call') // hyphens
+    expect(getCheckoutOffer(page, 'the standard service call')?.name).toBe('Standard Service Call') // containment
     expect(getCheckoutOffer(page, 'nonexistent service')).toBeNull()
   })
 })
