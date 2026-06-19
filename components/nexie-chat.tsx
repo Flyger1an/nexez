@@ -76,7 +76,7 @@ export function NexieChat({ initialThreadId, className = '' }: NexieChatProps) {
       id: 'welcome',
       role: 'assistant',
       content:
-        'I am Nexie, your buyer agent for Nexez. Tell me what you want to find, book, or negotiate and I will help you move.',
+        'I am Nexxi, your buyer agent for Nexez. Tell me what you want to find, book, or negotiate and I will help you move.',
     },
   ])
   const [busy, setBusy] = useState(false)
@@ -117,7 +117,7 @@ export function NexieChat({ initialThreadId, className = '' }: NexieChatProps) {
         body: JSON.stringify({ message: text, threadId, mode }),
       })
       const json = await response.json()
-      if (!response.ok) throw new Error(json.error || 'Nexie could not answer.')
+      if (!response.ok) throw new Error(json.error || 'Nexxi could not answer.')
       setThreadId(json.threadId)
       setMessages((current) => [
         ...current,
@@ -134,7 +134,7 @@ export function NexieChat({ initialThreadId, className = '' }: NexieChatProps) {
         {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: error instanceof Error ? error.message : 'Nexie could not answer.',
+          content: error instanceof Error ? error.message : 'Nexxi could not answer.',
         },
       ])
     } finally {
@@ -154,7 +154,7 @@ export function NexieChat({ initialThreadId, className = '' }: NexieChatProps) {
         body: JSON.stringify({ threadId, approval: { id: card.id, decision } }),
       })
       const json = await response.json()
-      if (!response.ok) throw new Error(json.error || 'Nexie could not update the action.')
+      if (!response.ok) throw new Error(json.error || 'Nexxi could not update the action.')
       setThreadId(json.threadId)
       setMessages((current) => [
         ...current,
@@ -171,7 +171,7 @@ export function NexieChat({ initialThreadId, className = '' }: NexieChatProps) {
         {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: error instanceof Error ? error.message : 'Nexie could not update the action.',
+          content: error instanceof Error ? error.message : 'Nexxi could not update the action.',
         },
       ])
     } finally {
@@ -241,7 +241,7 @@ export function NexieChat({ initialThreadId, className = '' }: NexieChatProps) {
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold tracking-[-0.04em]">Nexie</h1>
+              <h1 className="text-xl font-semibold tracking-[-0.04em]">Nexxi</h1>
               <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] text-white/55">
                 buyer agent
               </span>
@@ -265,7 +265,7 @@ export function NexieChat({ initialThreadId, className = '' }: NexieChatProps) {
                 {message.role === 'assistant' ? (
                   <div className="mb-2 flex items-center gap-2 text-xs text-[var(--signal)]">
                     <Bot className="size-3.5" />
-                    Nexie
+                    Nexxi
                   </div>
                 ) : null}
                 {message.content}
@@ -284,7 +284,7 @@ export function NexieChat({ initialThreadId, className = '' }: NexieChatProps) {
         {busy ? (
           <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-white/60">
             <Loader2 className="size-4 animate-spin text-[var(--signal)]" />
-            {notice || 'Nexie is thinking...'}
+            {notice || 'Nexxi is thinking...'}
           </div>
         ) : null}
       </div>
@@ -324,7 +324,7 @@ export function NexieChat({ initialThreadId, className = '' }: NexieChatProps) {
             value={input}
             onChange={(event) => setInput(event.target.value)}
             rows={1}
-            placeholder="Ask Nexie to find, compare, negotiate, or book..."
+            placeholder="Ask Nexxi to find, compare, negotiate, or book..."
             className="max-h-28 min-h-11 flex-1 resize-none bg-transparent px-2 py-3 text-sm leading-5 text-white outline-none placeholder:text-white/35"
           />
           <button
@@ -337,7 +337,7 @@ export function NexieChat({ initialThreadId, className = '' }: NexieChatProps) {
           </button>
         </div>
         <p className="mt-2 px-2 text-[11px] leading-5 text-white/35">
-          Nexie asks before submitting offers or opening checkout. You stay in control.
+          Nexxi asks before submitting offers or opening checkout. You stay in control.
         </p>
       </form>
     </section>
@@ -389,7 +389,7 @@ function NexieCardView({
                     window.dispatchEvent(new CustomEvent('nexie:quick-prompt', { detail: prompt }))
                   }}
                 >
-                  Ask Nexie to book
+                  Ask Nexxi to book
                 </button>
               ) : null}
             </div>

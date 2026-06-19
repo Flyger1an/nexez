@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     console.error('[Nexie] agent turn failed', error)
     return NextResponse.json(
       {
-        error: 'Nexie hit a snag before completing that turn.',
+        error: 'Nexxi hit a snag before completing that turn.',
         detail: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 },

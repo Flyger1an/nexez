@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import { NexieChat } from '../../components/nexie-chat'
 
 export const metadata: Metadata = {
-  title: 'Nexie | Personal buyer agent',
-  description: 'Talk to Nexie to search Nexez pages, negotiate offers, and start bookings with approval.',
+  title: 'Nexxi | Personal buyer agent',
+  description: 'Talk to Nexxi to search Nexez pages, negotiate offers, and start bookings with approval.',
 }
 
 export default function NexiePage() {
@@ -23,7 +23,7 @@ export default function NexiePage() {
             Your personal agent for buying through the agentic web.
           </h1>
           <p className="mt-5 max-w-lg text-base leading-7 text-white/58">
-            Nexie searches AI-ready Nexez pages, compares offers, negotiates on your behalf, and asks before taking action.
+            Nexxi searches AI-ready Nexez pages, compares offers, negotiates on your behalf, and asks before taking action.
           </p>
           <div className="mt-8 grid max-w-lg gap-3">
             {[
