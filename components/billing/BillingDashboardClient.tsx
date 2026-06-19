@@ -94,6 +94,7 @@ interface BillingDashboardClientProps {
   revenueCurrency?: string
   commissionPct?: number
   stripeReady: boolean
+  configuredPlanIds: string[]
   initialPlanId?: string | null
   connectSuccess?: boolean
 }
@@ -108,6 +109,7 @@ export default function BillingDashboardClient({
   revenueCurrency = 'usd',
   commissionPct = 15,
   stripeReady,
+  configuredPlanIds,
   initialPlanId,
   connectSuccess,
 }: BillingDashboardClientProps) {
@@ -154,6 +156,11 @@ export default function BillingDashboardClient({
 
     if (!stripeReady) {
       setCheckoutError('Stripe is not fully configured yet. Add your Stripe keys to enable subscriptions.')
+      return
+    }
+    if (!configuredPlanIds.includes(planId)) {
+      setSelectedPlanId(planId)
+      setCheckoutError(`${plan.name} checkout is not ready yet. Add this plan's Stripe Price ID and redeploy.`)
       return
     }
 
@@ -642,6 +649,7 @@ export default function BillingDashboardClient({
             const isCurrent = plan.id === currentId
             const isLoadingThis = checkoutLoading === plan.id
             const isSelected = selectedPlanId === plan.id
+            const planCheckoutReady = plan.id === 'free' || plan.id === 'enterprise' || configuredPlanIds.includes(plan.id)
 
             return (
               <GlassCard
@@ -703,17 +711,22 @@ export default function BillingDashboardClient({
                   ) : (
                     <button
                       onClick={() => startEmbeddedCheckout(plan.id)}
-                      disabled={!stripeReady || !!isLoadingThis || !!clientSecret}
+                      disabled={!stripeReady || !planCheckoutReady || !!isLoadingThis || !!clientSecret}
                       className="w-full rounded-2xl bg-[var(--signal-solid)] py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60 active:opacity-80"
                     >
                       {isLoadingThis ? (
                         <span className="inline-flex items-center gap-2">
                           <Loader2 className="size-4 animate-spin" /> Starting checkout…
                         </span>
+                      ) : !stripeReady || !planCheckoutReady ? (
+                        'Checkout not ready'
                       ) : (
                         'Select & pay with card'
                       )}
                     </button>
+                  )}
+                  {!isCurrent && plan.id !== 'enterprise' && !planCheckoutReady && (
+                    <p className="mt-2 text-center text-xs text-[var(--amber)]">Price ID missing or invalid.</p>
                   )}
                 </div>
               </GlassCard>

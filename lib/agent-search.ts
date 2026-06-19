@@ -9,6 +9,7 @@ import {
   getReadinessScore,
 } from './agent-page'
 import { getAgentJsonPath } from './agent-manifest'
+import { summarizeMarketplacePage, type MarketplaceSummary } from './marketplace'
 
 export type AgentSearchResult = {
   score: number
@@ -21,7 +22,11 @@ export type AgentSearchResult = {
     audience: string | null
     location: string | null
     contact_email: string | null
+    industry?: string | null
+    website_url?: string | null
+    cta_url?: string | null
   }
+  marketplace?: MarketplaceSummary
   offer: {
     key: string
     type: 'service' | 'product'
@@ -102,7 +107,11 @@ function buildResult(page: AgentPage, offer: CheckoutOffer | null, score: number
       audience: page.audience,
       location: page.location,
       contact_email: page.contact_email,
+      industry: page.industry ?? null,
+      website_url: page.website_url ?? null,
+      cta_url: page.cta_url ?? null,
     },
+    marketplace: summarizeMarketplacePage(page),
     offer: offer
       ? {
           key: offerKey,

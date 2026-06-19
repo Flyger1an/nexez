@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
-import { ArrowRight, Bot, Code2, ExternalLink, Search, Sparkles } from 'lucide-react'
+import { ArrowRight, BadgeCheck, Bot, Code2, ExternalLink, Search, ShieldCheck, Sparkles, Store, TrendingUp } from 'lucide-react'
 import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getOfferCount, getReadinessScore, getTrustScore } from '../../lib/agent-page'
 import { AgentSearchResult, searchAgentPages } from '../../lib/agent-search'
+import { buildMarketplaceInsights, classifyMarketplaceCategory } from '../../lib/marketplace'
 import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
 import { supabase } from '../../lib/supabase'
 import { CopyButton } from './CopyButton'
@@ -53,8 +54,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
   let filteredPages = visiblePages
   if (categoryFilter !== 'all') {
     filteredPages = filteredPages.filter(p => {
-      const ind = (p.industry || '').toLowerCase()
-      const isConsumer = ['home', 'plumbing', 'cleaning', 'massage', 'fitness', 'wellness', 'pet', 'grooming', 'auto', 'detailing', 'beauty', 'medical', 'health', 'events'].some(k => ind.includes(k))
+      const isConsumer = classifyMarketplaceCategory(p) === 'consumer'
       return categoryFilter === 'consumer' ? isConsumer : !isConsumer
     })
   }
@@ -90,6 +90,12 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
   }
   const pageCount = visiblePages.length
   const offerCount = visiblePages.reduce((sum, page) => sum + getOfferCount(page), 0)
+  const marketplaceInsights = buildMarketplaceInsights(visiblePages, {
+    query: cleanQuery,
+    type,
+    category: categoryFilter,
+    minReadiness,
+  })
 
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
@@ -117,6 +123,11 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
               <p className="mt-5 max-w-2xl text-base leading-7 text-[#9CA3AF]">
                 Search published Nexez agent pages by buyer intent, then open the public page, agent manifest, or checkout handoff.
               </p>
+              <div className="mt-6 grid max-w-2xl grid-cols-3 gap-3">
+                <HeroMetric label="Sellers" value={String(marketplaceInsights.totals.pages)} />
+                <HeroMetric label="Offers" value={String(marketplaceInsights.totals.offers)} />
+                <HeroMetric label="Checkout-ready" value={String(marketplaceInsights.totals.checkoutReady)} />
+              </div>
               <a
                 href="/leaderboard"
                 className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[var(--amber)]/30 bg-[var(--amber)]/10 px-3 py-1.5 text-sm text-[var(--amber)] hover:bg-[var(--amber)]/20"
@@ -166,6 +177,8 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
               <Stat label="Offers" value={String(offerCount)} />
             </div>
           </div>
+
+          <MarketplacePulse insights={marketplaceInsights} />
 
           <div className="card !p-5">
             <p className="text-sm font-semibold text-[#9CA3AF]">Offer type</p>
@@ -232,6 +245,25 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                 OpenAPI
                 <ExternalLink className="size-4" />
               </a>
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {marketplaceInsights.intentPresets.map((preset) => (
+                <a
+                  key={preset.id}
+                  href={preset.href}
+                  className="group rounded-lg border border-white/10 bg-[#1A1625] p-4 transition hover:border-[var(--signal)]/40 hover:bg-[#201B2D]"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                      <Store className="size-4 text-[var(--signal)]" />
+                      {preset.label}
+                    </div>
+                    <ArrowRight className="size-4 text-[#9CA3AF] transition group-hover:translate-x-0.5 group-hover:text-white" />
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-[#9CA3AF]">{preset.description}</p>
+                </a>
+              ))}
             </div>
 
             {/* Phase 2 Directory polish: Category tabs + Quality filter */}
@@ -320,8 +352,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                     if (inCurrentResults) return false
 
                     // Same broad category
-                    const ind = (p.industry || '').toLowerCase()
-                    const isConsumer = ['home', 'plumbing', 'cleaning', 'massage', 'fitness', 'wellness', 'pet', 'grooming', 'auto', 'detailing', 'beauty', 'medical', 'health', 'events'].some(k => ind.includes(k))
+                    const isConsumer = classifyMarketplaceCategory(p) === 'consumer'
                     const wantConsumer = categoryFilter === 'consumer'
                     const wantProfessional = categoryFilter === 'professional'
 
@@ -397,23 +428,9 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
 
 function DirectoryCard({ result }: { result: AgentSearchResult }) {
   const offer = result.offer
-  const page = result.page as any
-
-  const readiness = getReadinessScore({
-    name: page.name,
-    slug: page.slug,
-    description: page.description,
-    website_url: page.website_url,
-    cta_url: page.cta_url,
-    audience: page.audience,
-    location: page.location,
-    contact_email: page.contact_email,
-    industry: page.industry,
-    products: page.products,
-    services: page.services,
-    faqs: page.faqs,
-    is_published: true,
-  })
+  const marketplace = result.marketplace
+  const readiness = marketplace?.readiness ?? 0
+  const trustScore = marketplace?.trust_score ?? 0
 
   return (
     <article className="card !p-5 transition hover:border-[var(--signal)]/30">
@@ -431,6 +448,11 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
           <div className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${readiness >= 75 ? 'bg-[var(--ready)]/10 text-[var(--ready)]' : readiness >= 55 ? 'bg-[var(--amber)]/10 text-[var(--amber)]' : 'bg-white/10 text-[#9CA3AF]'}`}>
             {readiness}% ready
           </div>
+          {trustScore > 0 ? (
+            <div className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-[#D1D5DB]">
+              Trust {trustScore}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -442,11 +464,11 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
         {offer?.price ? <span className="rounded-md bg-[var(--signal)]/10 px-2 py-1 text-[var(--signal)]">{offer.price}</span> : null}
         {result.page.location ? <span className="rounded-md bg-white/10 px-2 py-1">{result.page.location}</span> : null}
         {result.page.audience ? <span className="rounded-md bg-white/10 px-2 py-1">{result.page.audience}</span> : null}
-        {/* Phase 5 signals */}
-        {((result.page as any).services?.length || 0) + ((result.page as any).products?.length || 0) > 0 && (
-          <span className="rounded-md bg-white/10 px-2 py-1">{((result.page as any).services?.length || 0) + ((result.page as any).products?.length || 0)} offers</span>
-        )}
-        {(result.page as any).last_booking && <span className="rounded-md bg-[var(--ready)]/10 px-2 py-1 text-[var(--ready)]">recent activity</span>}
+        {result.page.industry ? <span className="rounded-md bg-white/10 px-2 py-1">{result.page.industry}</span> : null}
+        {marketplace?.offer_count ? <span className="rounded-md bg-white/10 px-2 py-1">{marketplace.offer_count} offers</span> : null}
+        {marketplace?.has_recent_activity && <span className="rounded-md bg-[var(--ready)]/10 px-2 py-1 text-[var(--ready)]">recent activity</span>}
+        {marketplace?.supports_negotiation && <span className="rounded-md bg-[var(--amber)]/10 px-2 py-1 text-[var(--amber)]">negotiable</span>}
+        {marketplace?.certified && <span className="rounded-md bg-[var(--ready)]/10 px-2 py-1 text-[var(--ready)]">certified</span>}
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
@@ -490,6 +512,74 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
         ) : null}
       </div>
     </article>
+  )
+}
+
+function MarketplacePulse({ insights }: { insights: ReturnType<typeof buildMarketplaceInsights> }) {
+  const topTrust = insights.trustSegments.slice(0, 3)
+  const activePriceBands = insights.priceBands.filter((band) => band.count > 0).slice(0, 4)
+
+  return (
+    <div className="card !p-5">
+      <div className="flex items-center gap-2 text-[var(--signal)]">
+        <TrendingUp className="size-4" />
+        <p className="text-sm font-semibold">Marketplace pulse</p>
+      </div>
+      <div className="mt-4 grid gap-2 text-xs">
+        <PulseRow icon={BadgeCheck} label="Certified sellers" value={String(insights.totals.certified)} />
+        <PulseRow icon={ShieldCheck} label="High-trust sellers" value={String(insights.totals.highTrust)} />
+        <PulseRow icon={Sparkles} label="Negotiable offers" value={String(insights.totals.negotiable)} />
+      </div>
+
+      <div className="mt-5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">Trust segments</p>
+        <div className="mt-2 space-y-2">
+          {topTrust.map((segment) => (
+            <div key={segment.id} className="rounded-lg border border-white/10 bg-[#0A0A0F] p-2">
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <span className="font-medium text-white">{segment.label}</span>
+                <span className="text-[var(--signal)]">{segment.count}</span>
+              </div>
+              <p className="mt-1 text-[10px] leading-4 text-[#9CA3AF]">{segment.description}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {activePriceBands.length ? (
+        <div className="mt-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">Price bands</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {activePriceBands.map((band) => (
+              <span key={band.id} className="rounded-md bg-white/10 px-2 py-1 text-[10px] text-[#D1D5DB]">
+                {band.label}: {band.count}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function PulseRow({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-[#0A0A0F] px-3 py-2">
+      <span className="inline-flex items-center gap-2 text-[#D1D5DB]">
+        <Icon className="size-3.5 text-[var(--signal)]" />
+        {label}
+      </span>
+      <span className="font-mono text-[var(--signal)]">{value}</span>
+    </div>
+  )
+}
+
+function HeroMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+      <p className="text-[10px] uppercase tracking-wide text-[#9CA3AF]">{label}</p>
+      <p className="mt-1 text-xl font-semibold tracking-tight text-white">{value}</p>
+    </div>
   )
 }
 

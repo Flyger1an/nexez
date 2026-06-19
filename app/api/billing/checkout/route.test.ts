@@ -9,7 +9,11 @@ vi.mock('stripe', () => ({
 }))
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ getAll: () => [], set: () => {} })) }))
 vi.mock('../../../../utils/supabase/server', () => ({ createClient: vi.fn() }))
-vi.mock('../../../../lib/billing', () => ({ getBillingPlan: vi.fn(), getPlanPriceId: vi.fn() }))
+vi.mock('../../../../lib/billing', () => ({
+  getBillingPlan: vi.fn(),
+  getPlanPriceId: vi.fn(),
+  isStripePriceId: (value: string | null | undefined) => typeof value === 'string' && value.trim().startsWith('price_'),
+}))
 
 import { POST } from './route'
 import { createClient } from '../../../../utils/supabase/server'
@@ -48,6 +52,19 @@ describe('POST /api/billing/checkout', () => {
     const res = await POST(form('pro'))
     expect(res.status).toBe(303)
     expect(res.headers.get('location')).toContain('setup=stripe')
+  })
+
+  it('redirects to bad_price_id before contacting Stripe when a product id is configured', async () => {
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_ready')
+    vi.mocked(getBillingPlan).mockReturnValue({ id: 'pro', name: 'Pro' } as any)
+    vi.mocked(getPlanPriceId).mockReturnValue('prod_wrong' as any)
+    vi.mocked(createClient).mockReturnValue(createSupabaseMock(() => ({ data: null }), { user: { id: 'u1', email: 'a@b.c' } }) as any)
+
+    const res = await POST(form('pro'))
+
+    expect(res.status).toBe(303)
+    expect(res.headers.get('location')).toContain('error=bad_price_id')
+    expect(checkoutSessionsCreate).not.toHaveBeenCalled()
   })
 
   it('creates a Stripe subscription checkout session and reuses a stored customer', async () => {

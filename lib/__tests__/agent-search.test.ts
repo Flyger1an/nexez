@@ -19,6 +19,8 @@ describe('searchAgentPages', () => {
     const res = searchAgentPages([plumber], 'plumbing')
     expect(res[0].offer?.checkout_url).toContain('/checkout/acme-plumb')
     expect(res[0].offer?.action.endpoint).toContain('/api/checkout')
+    expect(res[0].marketplace?.offer_count).toBe(1)
+    expect(res[0].marketplace?.supports_checkout).toBe(true)
   })
 
   it('breaks ties toward higher readiness (quality-aware)', () => {

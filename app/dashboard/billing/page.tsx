@@ -70,6 +70,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
   const events = monthEvents ?? []
   const stripeReadiness = getStripeBillingReadiness()
   const stripeReady = stripeReadiness.subscriptionCheckoutReady
+  const configuredPlanIds = stripeReadiness.configuredPlans.map((plan) => plan.id)
   // Only treat the stored plan as ACTIVE when the subscription is in a live state.
   // An abandoned/incomplete or canceled row must not show a plan the user isn't on
   // (it would otherwise inherit the plan_id written during checkout creation).
@@ -165,6 +166,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
           revenueCurrency={revenueCurrency}
           commissionPct={commissionPct}
           stripeReady={stripeReady}
+          configuredPlanIds={configuredPlanIds}
           initialPlanId={initialPlanFromQuery}
           connectSuccess={connectSuccess}
         />

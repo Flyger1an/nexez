@@ -183,7 +183,11 @@ export function getPlanPriceId(plan: BillingPlan) {
   // Support both private (STRIPE_PRICE_*) and public (NEXT_PUBLIC_STRIPE_PRICE_*) for client-side use in embedded UI.
   // Price IDs are safe to expose publicly (they are not secret keys).
   const publicEnvVar = plan.envVar.replace(/^STRIPE_PRICE_/, 'NEXT_PUBLIC_STRIPE_PRICE_');
-  return process.env[plan.envVar] || process.env[publicEnvVar] || '';
+  return (process.env[plan.envVar] || process.env[publicEnvVar] || '').trim();
+}
+
+export function isStripePriceId(value: string | null | undefined) {
+  return typeof value === 'string' && value.trim().startsWith('price_')
 }
 
 // NOTE: Stripe billing READINESS checks (which read the secret env vars) live in

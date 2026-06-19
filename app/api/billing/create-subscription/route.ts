@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
-import { getBillingPlan, getPlanPriceId } from '../../../../lib/billing'
+import { getBillingPlan, getPlanPriceId, isStripePriceId } from '../../../../lib/billing'
 
 /**
  * Creates a Stripe Subscription for recurring paid plans using Embedded Components flow.
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     // (e.g. a "prod_…" product id pasted by mistake) would otherwise reach Stripe and
     // 500. A TEST price id under LIVE keys still passes this check — Stripe's "no such
     // price" path below catches that and returns the same actionable guidance.
-    if (!/^price_/.test(priceId)) {
+    if (!isStripePriceId(priceId)) {
       console.error('[billing/create-subscription] plan price id is not a Stripe Price id', { plan: plan.id, priceId })
       return NextResponse.json(
         { error: 'Stripe Billing for this plan is misconfigured: the configured value is not a Stripe Price ID (it must start with "price_"). Set the plan’s STRIPE_PRICE_… env var to the live Price ID and redeploy.' },
@@ -139,14 +139,24 @@ export async function POST(request: Request) {
   } catch (err: any) {
     console.error('[billing/create-subscription] Error creating embedded subscription', err)
 
-    let friendlyError = 'Failed to create subscription: ' + (err.message || 'Unknown error')
-
-    // Helpful message for the common misconfiguration (using prod_ instead of price_)
-    if (err.message && err.message.toLowerCase().includes('no such price')) {
-      friendlyError = 'Failed to create subscription: The price ID configured for this plan is invalid. ' +
-        'Open the plan in Stripe, copy the actual Price ID from the pricing section, update this plan in your project settings, then redeploy.'
+    if (isStripePriceMisconfigurationError(err)) {
+      return NextResponse.json(
+        {
+          error:
+            'Stripe Billing for this plan is misconfigured. Open the plan in Stripe, copy the live Price ID from the pricing section, update STRIPE_PRICE_…, then redeploy.',
+        },
+        { status: 412 },
+      )
     }
 
-    return NextResponse.json({ error: friendlyError }, { status: 500 })
+    return NextResponse.json({ error: 'Could not start secure checkout. Please try again or contact support if this continues.' }, { status: 500 })
   }
+}
+
+function isStripePriceMisconfigurationError(err: any) {
+  const message = String(err?.message || '').toLowerCase()
+  const code = String(err?.code || '')
+  const param = String(err?.param || '')
+
+  return message.includes('no such price') || (code === 'resource_missing' && param.includes('price'))
 }

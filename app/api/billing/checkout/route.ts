@@ -2,7 +2,7 @@ import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { appUrl } from '../../../../lib/site'
-import { getBillingPlan, getPlanPriceId } from '../../../../lib/billing'
+import { getBillingPlan, getPlanPriceId, isStripePriceId } from '../../../../lib/billing'
 import { createClient } from '../../../../utils/supabase/server'
 
 // /login and /dashboard/billing live on the APP host (app.nexez.ai), so build
@@ -31,6 +31,10 @@ export async function POST(request: Request) {
 
   if (!process.env.STRIPE_SECRET_KEY || !priceId) {
     return NextResponse.redirect(appUrl('/dashboard/billing?setup=stripe'), 303)
+  }
+
+  if (!isStripePriceId(priceId)) {
+    return NextResponse.redirect(appUrl('/dashboard/billing?error=bad_price_id'), 303)
   }
 
   const { data: billingState } = await supabase

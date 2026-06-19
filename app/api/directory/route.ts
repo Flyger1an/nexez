@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getReadinessScore, getTrustScore } from '../../../lib/agent-page'
+import { buildMarketplaceInsights, classifyMarketplaceCategory, summarizeMarketplacePage } from '../../../lib/marketplace'
 import { supabase } from '../../../lib/supabase'
 import { publicLaunchVisiblePages } from '../../../lib/public-page-visibility'
 
@@ -19,8 +20,7 @@ export async function GET(request: Request) {
   let filtered = publicLaunchVisiblePages(pages).filter(p => {
     if (category === 'all') return true
 
-    const ind = (p.industry || '').toLowerCase()
-    const isConsumer = ['home', 'plumbing', 'cleaning', 'massage', 'fitness', 'wellness', 'pet', 'grooming', 'auto', 'detailing', 'beauty', 'medical', 'health', 'events'].some(k => ind.includes(k))
+    const isConsumer = classifyMarketplaceCategory(p) === 'consumer'
 
     if (category === 'consumer') return isConsumer
     if (category === 'professional') return !isConsumer
@@ -52,6 +52,7 @@ export async function GET(request: Request) {
     const offerCount = (p.services?.length || 0) + (p.products?.length || 0)
     const hasLastBooking = !!p.last_booking
     const verifiedCustom = !!(p as any).custom_domain_verified && !!(p as any).custom_domain
+    const marketplace = summarizeMarketplacePage(p)
 
     return {
       name: p.name,
@@ -73,12 +74,19 @@ export async function GET(request: Request) {
       trust_score: getTrustScore(p),
       verified: !!( (p as any).verification_details?.domain_verified || (p as any).custom_domain_verified ),
       has_credentials: Array.isArray((p as any).verification_details?.docs_provided) && (p as any).verification_details.docs_provided.length > 0,
+      marketplace,
     }
   })
 
   return NextResponse.json({
+    schema_version: 'nexez.directory.v2',
     count: results.length,
     filters: { category, q: q || null, min_readiness: minReadiness || null },
+    marketplace: buildMarketplaceInsights(publicLaunchVisiblePages(pages), {
+      query: q || undefined,
+      category,
+      minReadiness,
+    }),
     results,
     // Helpful for agents consuming the directory
     note: 'All results are published agent-optimized pages. Use /<slug>/agent.json or /<slug> for full context.',
