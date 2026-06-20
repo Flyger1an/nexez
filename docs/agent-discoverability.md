@@ -38,7 +38,7 @@ Nexez should be discoverable wherever autonomous agents search, reason, compare,
 7. Buyer-agent SDKs
    - Purpose: simple wrappers for agent developers.
    - Current surface: published TypeScript package `@nexez/agent-sdk` (`npm install @nexez/agent-sdk`) plus source in `sdk/typescript`.
-   - Python parity: source-ready package in `sdk/python` as `nexez-agent-sdk`, with no runtime dependencies and the same search / manifest / validation / negotiation helpers.
+   - Python parity: published PyPI package `nexez-agent-sdk` (`python -m pip install nexez-agent-sdk`) plus source in `sdk/python`.
    - Minimal functions shipped: search, get manifest, validate checkout, validate negotiation, submit negotiation.
 
 8. Agent workflow examples
@@ -69,6 +69,6 @@ Nexez should be discoverable wherever autonomous agents search, reason, compare,
 
 1. Keep the public `/agents` access page and machine-readable metadata in sync with published OpenClaw versions.
 2. Keep the published `@nexez/agent-sdk` install path visible in `/agents`, `/llms.txt`, OpenAPI, MCP, and capabilities manifests.
-3. Publish the Python SDK to PyPI after package-name/access confirmation.
+3. Keep the published `nexez-agent-sdk` PyPI install path visible in `/agents`, `/llms.txt`, OpenAPI, MCP, and capabilities manifests.
 4. Expand MCP/OpenAPI directory submissions.
 5. Add more agent workflow examples for checkout, negotiation, status polling, and location-filtered discovery.

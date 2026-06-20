@@ -113,7 +113,7 @@ Find a negotiable B2B service on Nexez, validate the handoff with dryRun, and as
 ## SDK Starting Points
 
 - TypeScript: `npm install @nexez/agent-sdk`
-- Python source: `python -m pip install -e sdk/python`
+- Python: `python -m pip install nexez-agent-sdk`
 - Copy-paste workflows: `examples/agents`
 
 ## Expected Quality Bar

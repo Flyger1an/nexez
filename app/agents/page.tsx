@@ -60,12 +60,12 @@ const sdkCards = [
     copy: NEXEZ_TYPESCRIPT_SDK.purpose,
   },
   {
-    label: 'Source-ready Python',
+    label: 'Published PyPI',
     title: NEXEZ_PYTHON_SDK.displayName,
     version: NEXEZ_PYTHON_SDK.version,
-    command: NEXEZ_PYTHON_SDK.localInstallCommand,
-    href: NEXEZ_PYTHON_SDK.sourceUrl,
-    hrefLabel: 'Source',
+    command: NEXEZ_PYTHON_SDK.installCommand,
+    href: NEXEZ_PYTHON_SDK.pypiUrl,
+    hrefLabel: 'PyPI',
     copy: NEXEZ_PYTHON_SDK.purpose,
   },
 ]
@@ -187,7 +187,8 @@ const manifestPreview = {
       module: NEXEZ_PYTHON_SDK.moduleName,
       version: NEXEZ_PYTHON_SDK.version,
       status: NEXEZ_PYTHON_SDK.status,
-      local_install: NEXEZ_PYTHON_SDK.localInstallCommand,
+      install: NEXEZ_PYTHON_SDK.installCommand,
+      package: NEXEZ_PYTHON_SDK.pypiUrl,
       source: NEXEZ_PYTHON_SDK.sourceUrl,
     },
   },
@@ -389,7 +390,7 @@ export default function AgentAccessPage() {
               Helpers for agent builders.
             </h2>
             <p className="mt-4 text-sm leading-6 text-muted-foreground md:text-base">
-              The TypeScript SDK is live on npm, and Python parity is source-ready for agent runtimes that prefer
+              The TypeScript SDK is live on npm, and the Python SDK is live on PyPI for agent runtimes that prefer
               scripts, workers, notebooks, or server automation.
             </p>
             <div className="mt-5 grid gap-3">

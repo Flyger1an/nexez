@@ -13,10 +13,10 @@ Copy-paste workflows for buyer agents and agent builders.
 
 ## Python
 
-Install the local SDK source while developing:
+Install the published SDK:
 
 ```bash
-python -m pip install -e sdk/python
+python -m pip install nexez-agent-sdk
 ```
 
 Run:
