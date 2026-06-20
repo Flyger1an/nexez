@@ -70,6 +70,27 @@ describe('buildAgentPagePayload', () => {
     })
     expect(storefrontPayload.plain_text).toContain('Storefront: https://nexez.app/store/acme-store')
   })
+
+  it('can include verified purchase rating summaries', () => {
+    const ratedPayload = buildAgentPagePayload(page, 'https://nexez.app', {
+      reviewSummary: {
+        average: 4.8,
+        count: 12,
+        verified_count: 12,
+        reputation_score: 4.62,
+        distribution: { '1': 0, '2': 0, '3': 1, '4': 2, '5': 9 },
+        recent_positive_tags: [{ label: 'Fast response', count: 6 }],
+        recent_reviews: [{ id: 'r1', rating: 5, title: 'Great', body: 'Clear.', tags: [], createdAt: '2026-06-20T00:00:00Z' }],
+      },
+    }) as any
+
+    expect(ratedPayload.page.rating_summary).toMatchObject({
+      average: 4.8,
+      count: 12,
+      reputation_score: 4.62,
+    })
+    expect(ratedPayload.plain_text).toContain('Verified rating: 4.8/5 from 12 purchase reviews')
+  })
 })
 
 describe('getAgentJsonPath', () => {

@@ -5,6 +5,7 @@ import { buildMarketplaceInsights, classifyMarketplaceCategory, summarizeMarketp
 import { supabase } from '../../../lib/supabase'
 import { publicLaunchVisiblePages } from '../../../lib/public-page-visibility'
 import { cleanLocationQuery, filterPagesByLocation, getPageLocationMatch, locationFilterMeta } from '../../../lib/location-filter'
+import { loadReviewSummariesForSlugs } from '../../../lib/server/reviews'
 import { loadStorefrontHandlesForSlugs } from '../../../lib/server/storefront'
 
 export async function GET(request: Request) {
@@ -55,7 +56,11 @@ export async function GET(request: Request) {
   const ready = minReadiness > 0 ? withReadiness.filter(r => r.readiness >= minReadiness) : withReadiness
 
   const base = getBaseUrl()
-  const storefrontHandles = await loadStorefrontHandlesForSlugs(ready.map(({ p }) => p.slug))
+  const readySlugs = ready.map(({ p }) => p.slug)
+  const [storefrontHandles, reviewSummaries] = await Promise.all([
+    loadStorefrontHandlesForSlugs(readySlugs),
+    loadReviewSummariesForSlugs(readySlugs, 0),
+  ])
   const results = ready.map(({ p, readiness }) => {
     const offerCount = (p.services?.length || 0) + (p.products?.length || 0)
     const hasLastBooking = !!p.last_booking
@@ -64,6 +69,7 @@ export async function GET(request: Request) {
     const locationMatch = location ? getPageLocationMatch(p, location) : null
     const storefrontHandle = storefrontHandles.get(p.slug)
     const storefront = storefrontHandle ? buildAgentStorefrontRef(storefrontHandle, base) : null
+    const reviewSummary = reviewSummaries.get(p.slug)
 
     return {
       name: p.name,
@@ -85,6 +91,16 @@ export async function GET(request: Request) {
       trust_score: getTrustScore(p),
       verified: !!( (p as any).verification_details?.domain_verified || (p as any).custom_domain_verified ),
       has_credentials: Array.isArray((p as any).verification_details?.docs_provided) && (p as any).verification_details.docs_provided.length > 0,
+      rating_summary: reviewSummary?.count
+        ? {
+            average: reviewSummary.average,
+            count: reviewSummary.count,
+            verified_count: reviewSummary.verified_count,
+            reputation_score: reviewSummary.reputation_score,
+            distribution: reviewSummary.distribution,
+            recent_positive_tags: reviewSummary.recent_positive_tags,
+          }
+        : null,
       marketplace,
       location_match: locationMatch,
       ...(storefront ? { storefront } : {}),

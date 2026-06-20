@@ -11,6 +11,7 @@ import {
 import { buildAgentStorefrontRef, getAgentJsonPath, type AgentStorefrontRef } from './agent-manifest'
 import { summarizeMarketplacePage, type MarketplaceSummary } from './marketplace'
 import { getPageLocationMatch, type LocationMatch } from './location-filter'
+import type { ReviewSummary } from './reviews'
 
 export type AgentSearchResult = {
   score: number
@@ -29,6 +30,7 @@ export type AgentSearchResult = {
     website_url?: string | null
     cta_url?: string | null
     storefront?: AgentStorefrontRef
+    rating_summary?: ReviewSummary | null
   }
   marketplace?: MarketplaceSummary
   location_match?: LocationMatch | null
@@ -60,17 +62,19 @@ export type AgentSearchResult = {
 type AgentSearchOptions = {
   location?: string | null
   storefrontHandles?: Map<string, string>
+  reviewSummaries?: Map<string, ReviewSummary>
 }
 
 export function searchAgentPages(pages: AgentPage[], query: string, limit = 10, baseUrl = getBaseUrl(), options: AgentSearchOptions = {}) {
   const tokens = tokenize(query)
   // Track readiness alongside each result so ties break toward higher-quality
   // pages (quality-aware discovery) without distorting the relevance score.
-  const scored: { result: AgentSearchResult; readiness: number }[] = []
+  const scored: { result: AgentSearchResult; readiness: number; reputation: number }[] = []
 
   for (const page of pages) {
     const offers = getCheckoutOffers(page)
     const readiness = getReadinessScore(page)
+    const reputation = options.reviewSummaries?.get(page.slug)?.reputation_score ?? 0
     const pageScore = scoreText(
       tokens,
       [page.name, page.slug, page.description, page.audience, page.location, page.contact_email].join(' '),
@@ -78,7 +82,7 @@ export function searchAgentPages(pages: AgentPage[], query: string, limit = 10, 
 
     if (!offers.length) {
       if (pageScore > 0 || !tokens.length) {
-        scored.push({ result: buildResult(page, null, pageScore || 1, baseUrl, options), readiness })
+        scored.push({ result: buildResult(page, null, pageScore || 1, baseUrl, options), readiness, reputation })
       }
       continue
     }
@@ -87,7 +91,7 @@ export function searchAgentPages(pages: AgentPage[], query: string, limit = 10, 
       const offerScore = scoreOffer(tokens, page, offer)
 
       if (offerScore > 0 || !tokens.length) {
-        scored.push({ result: buildResult(page, offer, offerScore || pageScore || 1, baseUrl, options), readiness })
+        scored.push({ result: buildResult(page, offer, offerScore || pageScore || 1, baseUrl, options), readiness, reputation })
       }
     }
   }
@@ -96,6 +100,7 @@ export function searchAgentPages(pages: AgentPage[], query: string, limit = 10, 
     .sort(
       (a, b) =>
         b.result.score - a.result.score ||
+        b.reputation - a.reputation ||
         b.readiness - a.readiness ||
         a.result.page.name.localeCompare(b.result.page.name),
     )
@@ -108,6 +113,7 @@ export function buildResult(page: AgentPage, offer: CheckoutOffer | null, score:
   const locationMatch = options.location ? getPageLocationMatch(page, options.location) : null
   const storefrontHandle = options.storefrontHandles?.get(page.slug)
   const storefront = storefrontHandle ? buildAgentStorefrontRef(storefrontHandle, baseUrl) : null
+  const reviewSummary = options.reviewSummaries?.get(page.slug) ?? null
 
   return {
     score,
@@ -124,6 +130,7 @@ export function buildResult(page: AgentPage, offer: CheckoutOffer | null, score:
       website_url: page.website_url ?? null,
       cta_url: page.cta_url ?? null,
       ...(storefront ? { storefront } : {}),
+      rating_summary: reviewSummary?.count ? reviewSummary : null,
     },
     marketplace: summarizeMarketplacePage(page),
     location_match: locationMatch,

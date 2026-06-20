@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation'
 import { headers, cookies } from 'next/headers'
 import { createClient as createServerClient } from '../../utils/supabase/server'
 import { applyDraftOverlay } from '../../lib/draft'
-import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, Handshake, LockKeyhole, Mail, MapPin } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, Handshake, LockKeyhole, Mail, MapPin, Star } from 'lucide-react'
 import { AgentPage, CredentialRecord, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, availabilityLabel, getBaseUrl, getCertification, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows, sanitizePublicUrl, schemaAvailability } from '../../lib/agent-page'
 import { normalizeCurrency } from '../../lib/currency'
 import { priceValidUntil } from '../../lib/freshness'
@@ -23,6 +23,8 @@ import { loadStorefrontHandleForSlug } from '../../lib/server/storefront'
 import { getOwnerPlanId } from '../../lib/server/plan'
 import { planAllows } from '../../lib/billing'
 import { getPagePrivateMeta } from '../../lib/server/page-private-meta'
+import { loadReviewSummaryForSlug } from '../../lib/server/reviews'
+import type { ReviewSummary } from '../../lib/reviews'
 
 type PageProps = {
   params: Promise<{ slug: string }>
@@ -196,7 +198,8 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
     : products.length && !preferOriginal
       ? getCheckoutPath(page.slug, 'products', 0)
       : ''
-  const jsonLd = buildJsonLd(page, effectiveBase, domainPath, { services: hiddenServices, products: hiddenProducts })
+  const reviewSummary = await loadReviewSummaryForSlug(page.slug, 3)
+  const jsonLd = buildJsonLd(page, effectiveBase, domainPath, { services: hiddenServices, products: hiddenProducts }, reviewSummary)
   const branding = await resolveBranding(page, onCustomHost, domainPath)
   const accentStyle = branding.accent_color
     ? ({ '--brand-accent': branding.accent_color } as CSSProperties)
@@ -302,6 +305,12 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
                   ✅ Nexez Certified Agent-Ready
                 </span>
               )}
+              {reviewSummary.count && reviewSummary.average != null ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--amber)]/30 bg-[var(--amber)]/10 px-3 py-0.5 text-xs text-[var(--amber)]">
+                  <Star className="size-3.5" fill="currentColor" />
+                  {reviewSummary.average}/5 from {reviewSummary.count} verified review{reviewSummary.count === 1 ? '' : 's'}
+                </span>
+              ) : null}
             </div>
             {(() => {
               const docs = ((page as any).verification_details?.docs_provided ?? []) as Array<string | CredentialRecord>
@@ -393,6 +402,9 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
               <SummaryRow label="Best for" value={page.audience || 'Buyers evaluating this offer'} />
               <SummaryRow label="Offer count" value={`${getOfferCount(page)} products or services`} />
               <SummaryRow label="Location" value={page.location || 'Available online or by request'} />
+              {reviewSummary.count && reviewSummary.average != null ? (
+                <SummaryRow label="Verified rating" value={`${reviewSummary.average}/5 from ${reviewSummary.count} purchase review${reviewSummary.count === 1 ? '' : 's'}`} />
+              ) : null}
               {(page as any).next_available && (
                 <SummaryRow 
                   label="Next available"
@@ -450,6 +462,8 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
 
         <OfferSection title="Products" items={products} kind="products" pageSlug={page.slug} preferOriginal={preferOriginal} hiddenIndices={hiddenProducts} allowNegotiation={negotiationAllowed} />
         <OfferSection title="Services" items={services} kind="services" pageSlug={page.slug} preferOriginal={preferOriginal} hiddenIndices={hiddenServices} allowNegotiation={negotiationAllowed} />
+
+        <ReviewSection summary={reviewSummary} />
 
         {faqs.length ? (
           <section className="border-t border-white/10 py-12">
@@ -581,6 +595,7 @@ Agent JSON: ${effectiveBase}${agentJsonHref}
 Summary: ${page.description ?? ''}
 Best-fit buyer: ${page.audience ?? ''}
 Location: ${page.location ?? ''}
+Verified rating: ${reviewSummary.count && reviewSummary.average != null ? `${reviewSummary.average}/5 from ${reviewSummary.count} purchase review${reviewSummary.count === 1 ? '' : 's'}` : 'No verified purchase reviews yet'}
 Website: ${page.website_url ?? ''}
 Primary action: ${page.cta_label ?? 'Visit website'} -> ${ctaUrl}
 Products: ${products.filter((_, i) => !hiddenProducts.has(i)).map((item) => item.name).join(', ') || 'None listed'}
@@ -612,6 +627,61 @@ function InfoTile({ icon, label, value }: { icon: React.ReactNode; label: string
       <div className="text-[var(--signal)]">{icon}</div>
       <p className="mt-4 text-sm text-zinc-500">{label}</p>
       <p className="mt-1 font-medium text-white">{value}</p>
+    </div>
+  )
+}
+
+function ReviewSection({ summary }: { summary: ReviewSummary }) {
+  if (!summary.count || summary.average == null) return null
+
+  return (
+    <section className="border-t border-white/10 py-12">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-[var(--amber)]">Verified purchase reviews</p>
+          <h2 className="mt-2 text-2xl font-semibold">Buyer experience signal</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
+            Reviews are only accepted from completed Nexez checkout or negotiation orders.
+          </p>
+        </div>
+        <div className="rounded-xl border border-[var(--amber)]/20 bg-[var(--amber)]/10 px-4 py-3 text-right">
+          <ReviewStars value={summary.average} />
+          <p className="mt-1 text-2xl font-semibold text-white">{summary.average}/5</p>
+          <p className="text-xs text-zinc-400">{summary.count} verified</p>
+        </div>
+      </div>
+
+      {summary.recent_positive_tags.length ? (
+        <div className="mt-5 flex flex-wrap gap-2">
+          {summary.recent_positive_tags.map((tag) => (
+            <span key={tag.label} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-zinc-300">
+              {tag.label} · {tag.count}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {summary.recent_reviews.length ? (
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          {summary.recent_reviews.map((review) => (
+            <article key={review.id} className="card !p-5">
+              <ReviewStars value={review.rating} small />
+              {review.title ? <h3 className="mt-3 font-semibold text-white">{review.title}</h3> : null}
+              {review.body ? <p className="mt-2 line-clamp-5 text-sm leading-6 text-zinc-400">{review.body}</p> : null}
+            </article>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
+function ReviewStars({ value, small = false }: { value: number; small?: boolean }) {
+  return (
+    <div className="flex items-center gap-1 text-[var(--amber)]" aria-label={`${value} out of 5 stars`}>
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star key={star} className={small ? 'size-3.5' : 'size-4'} fill={star <= Math.round(value) ? 'currentColor' : 'none'} />
+      ))}
     </div>
   )
 }
@@ -766,6 +836,7 @@ function buildJsonLd(
   baseUrl: string = getBaseUrl(),
   domainPath: string = '/',
   hidden?: { services: Set<number>; products: Set<number> },
+  reviewSummary?: ReviewSummary,
 ) {
   const dp = normalizeDomainPath(domainPath)
   const url = dp === '/' && !baseUrl.includes('/nexez') ? baseUrl : `${baseUrl.replace(/\/$/, '')}${dp}/${page.slug}`.replace(/\/+/g,'/').replace(/\/$/,'')
@@ -814,6 +885,26 @@ function buildJsonLd(
       url: page.website_url || url,
       areaServed: page.location || undefined,
       email: page.contact_email || undefined,
+      aggregateRating: reviewSummary?.count && reviewSummary.average != null
+        ? {
+            '@type': 'AggregateRating',
+            ratingValue: reviewSummary.average,
+            reviewCount: reviewSummary.count,
+            bestRating: 5,
+            worstRating: 1,
+          }
+        : undefined,
+      review: reviewSummary?.recent_reviews?.filter((review) => review.title || review.body).slice(0, 3).map((review) => ({
+        '@type': 'Review',
+        name: review.title || undefined,
+        reviewBody: review.body || undefined,
+        reviewRating: {
+          '@type': 'Rating',
+          ratingValue: review.rating,
+          bestRating: 5,
+          worstRating: 1,
+        },
+      })),
       makesOffer: offers,
     },
   }

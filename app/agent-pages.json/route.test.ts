@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { dbRef, storefrontRef } = vi.hoisted(() => ({
+const { dbRef, storefrontRef, reviewRef } = vi.hoisted(() => ({
   dbRef: {
     pages: [] as any[],
     handler: (_c: any) => ({ data: [] as any[], error: null }) as { data?: any; error?: any },
   },
   storefrontRef: { handles: new Map<string, string>() },
+  reviewRef: { summaries: new Map<string, any>() },
 }))
 
 vi.mock('../../lib/supabase', async () => {
@@ -16,8 +17,12 @@ vi.mock('../../lib/supabase', async () => {
 vi.mock('../../lib/server/storefront', () => ({
   loadStorefrontHandlesForSlugs: vi.fn(async () => storefrontRef.handles),
 }))
+vi.mock('../../lib/server/reviews', () => ({
+  loadReviewSummariesForSlugs: vi.fn(async () => reviewRef.summaries),
+}))
 
 import { loadStorefrontHandlesForSlugs } from '../../lib/server/storefront'
+import { loadReviewSummariesForSlugs } from '../../lib/server/reviews'
 import { GET } from './route'
 
 const pages = [
@@ -61,6 +66,7 @@ describe('GET /agent-pages.json', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     storefrontRef.handles = new Map()
+    reviewRef.summaries = new Map()
     dbRef.pages = pages
     dbRef.handler = (ctx: any) => (ctx.table === 'pages_public' ? { data: dbRef.pages, error: null } : { data: null, error: null })
   })
@@ -78,5 +84,30 @@ describe('GET /agent-pages.json', () => {
     expect(body.pages[0].storefront_url).toMatch(/^https:\/\/.+\/store\/demo-store$/)
     expect(body.pages[0].storefront_agent_json_url).toMatch(/^https:\/\/.+\/store\/demo-store\/agent\.json$/)
     expect(body.pages[1].storefront_handle).toBeUndefined()
+  })
+
+  it('adds rating summaries when verified reviews exist', async () => {
+    reviewRef.summaries = new Map([
+      ['demo', {
+        average: 4.8,
+        count: 12,
+        verified_count: 12,
+        reputation_score: 4.62,
+        distribution: { '1': 0, '2': 0, '3': 1, '4': 2, '5': 9 },
+        recent_positive_tags: [{ label: 'Fast response', count: 6 }],
+        recent_reviews: [],
+      }],
+    ])
+
+    const res = await GET(new Request('https://nexez.app/agent-pages.json'))
+    const body = await res.json()
+
+    expect(loadReviewSummariesForSlugs).toHaveBeenCalledWith(['demo', 'solo'], 0)
+    expect(body.pages[0].rating_summary).toMatchObject({
+      average: 4.8,
+      count: 12,
+      reputation_score: 4.62,
+    })
+    expect(body.pages[1].rating_summary).toBeNull()
   })
 })

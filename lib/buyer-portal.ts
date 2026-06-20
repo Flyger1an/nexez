@@ -15,6 +15,16 @@ export type BuyerOrderRequest = {
   createdAt: string
 }
 
+export type BuyerOrderReview = {
+  id: string
+  rating: number
+  title: string | null
+  body: string | null
+  tags: string[]
+  status: string
+  createdAt: string
+}
+
 // Normalized, buyer-safe view of an order/negotiation (no owner_id, no offer rules,
 // no internal notes — the server resolver strips those before building this).
 export type BuyerOrderView = {
@@ -32,6 +42,8 @@ export type BuyerOrderView = {
   slug: string | null
   createdAt: string
   requests: BuyerOrderRequest[]
+  review: BuyerOrderReview | null
+  canReview: boolean
 }
 
 // Lightweight summary for the "find my orders" list (one row per order). Each carries

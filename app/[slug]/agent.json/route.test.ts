@@ -1,8 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { dbRef, storefrontRef } = vi.hoisted(() => ({
+const { dbRef, storefrontRef, reviewRef } = vi.hoisted(() => ({
   dbRef: { handler: (_c: any) => ({ data: null, error: null }) as { data?: any; error?: any } },
   storefrontRef: { handle: null as string | null },
+  reviewRef: {
+    summary: {
+      average: null,
+      count: 0,
+      verified_count: 0,
+      reputation_score: 0,
+      distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
+      recent_positive_tags: [],
+      recent_reviews: [],
+    } as any,
+  },
 }))
 
 vi.mock('../../../lib/supabase', async () => {
@@ -14,6 +25,9 @@ vi.mock('next/navigation', () => ({ notFound: () => { throw new Error('NEXT_NOT_
 vi.mock('../../../lib/server/log-agent-page-view', () => ({ logAgentPageView: vi.fn() }))
 vi.mock('../../../lib/server/storefront', () => ({
   loadStorefrontHandleForSlug: vi.fn(async () => storefrontRef.handle),
+}))
+vi.mock('../../../lib/server/reviews', () => ({
+  loadReviewSummaryForSlug: vi.fn(async () => reviewRef.summary),
 }))
 
 import { GET } from './route'
@@ -47,6 +61,15 @@ describe('GET /[slug]/agent.json', () => {
   beforeEach(() => {
     dbRef.handler = () => ({ data: null, error: null })
     storefrontRef.handle = null
+    reviewRef.summary = {
+      average: null,
+      count: 0,
+      verified_count: 0,
+      reputation_score: 0,
+      distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
+      recent_positive_tags: [],
+      recent_reviews: [],
+    }
   })
 
   it('returns the agent manifest JSON for a published page', async () => {
@@ -67,6 +90,29 @@ describe('GET /[slug]/agent.json', () => {
     expect(body.storefront.url).toMatch(/^https:\/\/.+\/store\/demo-store$/)
     expect(body.storefront.agent_json_url).toMatch(/^https:\/\/.+\/store\/demo-store\/agent\.json$/)
     expect(body.plain_text).toContain(`Storefront: ${body.storefront.url}`)
+  })
+
+  it('includes verified review summaries when present', async () => {
+    dbRef.handler = () => ({ data: demoPage, error: null })
+    reviewRef.summary = {
+      average: 4.9,
+      count: 7,
+      verified_count: 7,
+      reputation_score: 4.55,
+      distribution: { '1': 0, '2': 0, '3': 0, '4': 1, '5': 6 },
+      recent_positive_tags: [{ label: 'Agent-friendly', count: 5 }],
+      recent_reviews: [{ id: 'r1', rating: 5, title: 'Great', body: 'Clear.', tags: [], createdAt: '2026-06-20T00:00:00Z' }],
+    }
+
+    const res = await GET(req(), ctx('demo'))
+    const body = await res.json()
+
+    expect(body.page.rating_summary).toMatchObject({
+      average: 4.9,
+      count: 7,
+      reputation_score: 4.55,
+    })
+    expect(body.plain_text).toContain('Verified rating: 4.9/5 from 7 purchase reviews')
   })
 
   it('calls notFound() for a missing/unpublished page', async () => {

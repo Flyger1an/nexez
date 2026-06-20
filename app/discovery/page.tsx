@@ -1,11 +1,12 @@
 import type { Metadata } from 'next'
-import { ArrowRight, Bot, Code2, ExternalLink, Search, Sparkles, Store } from 'lucide-react'
+import { ArrowRight, Bot, Code2, ExternalLink, Search, Sparkles, Star, Store } from 'lucide-react'
 import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getOfferCount, getReadinessScore, getTrustScore } from '../../lib/agent-page'
 import { AgentSearchResult, searchAgentPages } from '../../lib/agent-search'
 import { classifyMarketplaceCategory } from '../../lib/marketplace'
 import { cleanLocationQuery, filterPagesByLocation } from '../../lib/location-filter'
 import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
 import { supabase } from '../../lib/supabase'
+import { loadReviewSummariesForSlugs } from '../../lib/server/reviews'
 import { loadPublicStorefronts, loadStorefrontHandlesForSlugs } from '../../lib/server/storefront'
 import { CopyButton } from './CopyButton'
 import { LocationFilter } from './LocationFilter'
@@ -55,8 +56,12 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
     .returns<AgentPage[]>()
 
   const visiblePages = publicLaunchVisiblePages(pages)
-  const storefronts = await loadPublicStorefronts(8)
-  const storefrontHandles = await loadStorefrontHandlesForSlugs(visiblePages.map((page) => page.slug))
+  const visibleSlugs = visiblePages.map((page) => page.slug)
+  const [storefronts, storefrontHandles, reviewSummaries] = await Promise.all([
+    loadPublicStorefronts(8),
+    loadStorefrontHandlesForSlugs(visibleSlugs),
+    loadReviewSummariesForSlugs(visibleSlugs, 0),
+  ])
   let filteredPages = visiblePages
   if (categoryFilter !== 'all') {
     filteredPages = filteredPages.filter(p => {
@@ -83,6 +88,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
   const allResults = searchAgentPages(filteredPages, cleanQuery, 50, baseUrl, {
     location: cleanLocation,
     storefrontHandles,
+    reviewSummaries,
   })
 
   const results = allResults.filter((result) => {
@@ -438,6 +444,7 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
   const marketplace = result.marketplace
   const readiness = marketplace?.readiness ?? 0
   const storefront = result.page.storefront
+  const rating = result.page.rating_summary
 
   return (
     <article className="card !p-5 transition hover:border-[var(--signal)]/30">
@@ -458,6 +465,12 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
               <Store className="size-3.5" />
               {storefront.handle}
             </a>
+          ) : null}
+          {rating?.count ? (
+            <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--amber)]/20 bg-[var(--amber)]/10 px-2.5 py-1 text-xs font-medium text-[var(--amber)]">
+              <Star className="size-3.5" fill="currentColor" />
+              {rating.average}/5 · {rating.count} verified
+            </div>
           ) : null}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">

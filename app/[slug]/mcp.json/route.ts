@@ -3,6 +3,7 @@ import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '../../../lib/a
 import { buildAgentPagePayload, buildAgentStorefrontRef } from '../../../lib/agent-manifest'
 import { logAgentPageView } from '../../../lib/server/log-agent-page-view'
 import { resolveNegotiationAllowed } from '../../../lib/server/negotiation-visibility'
+import { loadReviewSummaryForSlug } from '../../../lib/server/reviews'
 import { loadStorefrontHandleForSlug } from '../../../lib/server/storefront'
 import { supabase } from '../../../lib/supabase'
 
@@ -54,10 +55,14 @@ export async function GET(
     }
   }
   const negotiationAllowed = await resolveNegotiationAllowed(page)
-  const storefrontHandle = await loadStorefrontHandleForSlug(slug)
+  const [storefrontHandle, reviewSummary] = await Promise.all([
+    loadStorefrontHandleForSlug(slug),
+    loadReviewSummaryForSlug(slug, 3),
+  ])
   const payload = buildAgentPagePayload(page, base, {
     negotiationAllowed,
     storefront: storefrontHandle ? buildAgentStorefrontRef(storefrontHandle) : null,
+    reviewSummary,
   })
 
   // MCP-flavored wrapper: resources for offers + context, tools for actions.

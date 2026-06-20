@@ -3,6 +3,7 @@ import { buildAgentStorefrontRef, getAgentJsonPath } from '../../lib/agent-manif
 import { buildAgentDistributionLinks } from '../../lib/agent-distribution'
 import { normalizeCurrency } from '../../lib/currency'
 import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
+import { loadReviewSummariesForSlugs } from '../../lib/server/reviews'
 import { loadStorefrontHandlesForSlugs } from '../../lib/server/storefront'
 import { supabase } from '../../lib/supabase'
 
@@ -19,7 +20,11 @@ export async function GET(request: Request) {
     .returns<AgentPage[]>()
 
   const visiblePages = publicLaunchVisiblePages(pages)
-  const storefrontHandles = await loadStorefrontHandlesForSlugs(visiblePages.map((page) => page.slug))
+  const visibleSlugs = visiblePages.map((page) => page.slug)
+  const [storefrontHandles, reviewSummaries] = await Promise.all([
+    loadStorefrontHandlesForSlugs(visibleSlugs),
+    loadReviewSummariesForSlugs(visibleSlugs, 0),
+  ])
 
   return Response.json(
     {
@@ -38,6 +43,7 @@ export async function GET(request: Request) {
         const currency = normalizeCurrency(page.currency)
         const storefrontHandle = storefrontHandles.get(page.slug)
         const storefront = storefrontHandle ? buildAgentStorefrontRef(storefrontHandle, baseUrl) : null
+        const reviewSummary = reviewSummaries.get(page.slug)
         return {
           name: page.name,
           slug: page.slug,
@@ -56,6 +62,16 @@ export async function GET(request: Request) {
           currency,
           readiness: cert.readiness,
           certified: cert.certified,
+          rating_summary: reviewSummary?.count
+            ? {
+                average: reviewSummary.average,
+                count: reviewSummary.count,
+                verified_count: reviewSummary.verified_count,
+                reputation_score: reviewSummary.reputation_score,
+                distribution: reviewSummary.distribution,
+                recent_positive_tags: reviewSummary.recent_positive_tags,
+              }
+            : null,
           offer_count: getOfferCount(page),
           checkout_urls: getCheckoutOffers(page).map((offer) => ({
             offer: offer.name,

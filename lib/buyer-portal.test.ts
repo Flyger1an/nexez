@@ -23,6 +23,8 @@ function view(partial: Partial<BuyerOrderView>): BuyerOrderView {
     slug: 'acme',
     createdAt: '2026-06-16T00:00:00.000Z',
     requests: [],
+    review: null,
+    canReview: true,
     ...partial,
   }
 }

@@ -56,6 +56,27 @@ describe('searchAgentPages', () => {
       agent_json_url: 'https://nexez.test/store/acme-store/agent.json',
     })
   })
+
+  it('adds rating summaries and uses reputation as a quality tie-breaker', () => {
+    const trusted = mk({ slug: 'trusted', name: 'Trusted', services: [{ name: 'Strategy', description: 'planning', price: '$200', url: '' }] })
+    const unrated = mk({ slug: 'unrated', name: 'Unrated', services: [{ name: 'Strategy', description: 'planning', price: '$200', url: '' }] })
+    const res = searchAgentPages([unrated, trusted], '', 10, 'https://nexez.test', {
+      reviewSummaries: new Map([
+        ['trusted', {
+          average: 4.9,
+          count: 20,
+          verified_count: 20,
+          reputation_score: 4.75,
+          distribution: { '1': 0, '2': 0, '3': 0, '4': 2, '5': 18 },
+          recent_positive_tags: [],
+          recent_reviews: [],
+        }],
+      ]),
+    })
+
+    expect(res[0].page.slug).toBe('trusted')
+    expect(res[0].page.rating_summary?.count).toBe(20)
+  })
 })
 
 describe('analyzeQueryRank (win-the-query)', () => {

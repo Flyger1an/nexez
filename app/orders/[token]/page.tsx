@@ -12,6 +12,7 @@ import {
 } from '../../../lib/buyer-portal'
 import { formatCurrencyAmount } from '../../../lib/currency'
 import { BuyerOrderActions } from './BuyerOrderActions'
+import { BuyerReviewCard } from './BuyerReviewCard'
 
 // Private, per-buyer page keyed by an unguessable token — never index, never cache.
 export const dynamic = 'force-dynamic'
@@ -121,6 +122,13 @@ export default async function OrderPortalPage({ params }: PageProps) {
             </ul>
           </section>
         ) : null}
+
+        <BuyerReviewCard
+          token={order.token}
+          canReview={order.canReview}
+          review={order.review}
+          sellerName={order.sellerName}
+        />
 
         {/* Recourse */}
         <section className="mt-6">

@@ -1,7 +1,8 @@
 import 'server-only'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 import { minorToStripeAmount } from '../currency'
-import type { BuyerOrderRequest, BuyerOrderView, BuyerRequestKind } from '../buyer-portal'
+import { canReviewOrderStatus, normalizeReviewTags } from '../reviews'
+import type { BuyerOrderRequest, BuyerOrderReview, BuyerOrderView, BuyerRequestKind } from '../buyer-portal'
 
 // Server-side resolver for the buyer order portal. The buyer's token IS the
 // authorization (mirrors loadNegotiation): checkout_orders/agent_negotiations are
@@ -74,6 +75,29 @@ async function loadRequests(
   }))
 }
 
+async function loadReview(
+  admin: ReturnType<typeof createAdminClient>,
+  orderKind: 'checkout' | 'negotiation',
+  orderId: string,
+): Promise<BuyerOrderReview | null> {
+  const { data } = await admin
+    .from('order_reviews')
+    .select('id, rating, title, body, tags, status, created_at')
+    .eq('order_kind', orderKind)
+    .eq('order_id', orderId)
+    .maybeSingle<{ id: string; rating: number; title: string | null; body: string | null; tags: unknown; status: string; created_at: string }>()
+  if (!data) return null
+  return {
+    id: data.id,
+    rating: data.rating,
+    title: data.title,
+    body: data.body,
+    tags: normalizeReviewTags(data.tags),
+    status: data.status,
+    createdAt: data.created_at,
+  }
+}
+
 type CheckoutRow = {
   id: string
   slug: string | null
@@ -116,7 +140,12 @@ export async function loadOrderByToken(token: string): Promise<BuyerOrderView | 
     .eq('access_token', clean)
     .maybeSingle<CheckoutRow>()
   if (order) {
-    const [seller, requests] = await Promise.all([loadSeller(admin, order.slug), loadRequests(admin, 'checkout', order.id)])
+    const [seller, requests, review] = await Promise.all([
+      loadSeller(admin, order.slug),
+      loadRequests(admin, 'checkout', order.id),
+      loadReview(admin, 'checkout', order.id),
+    ])
+    const status = deriveOrderStatus(order.status, order.metadata)
     return {
       kind: 'checkout',
       token: clean,
@@ -124,13 +153,15 @@ export async function loadOrderByToken(token: string): Promise<BuyerOrderView | 
       offerName: order.offer_name,
       amountCents: order.amount_cents,
       currency: order.currency || 'usd',
-      status: deriveOrderStatus(order.status, order.metadata),
+      status,
       sellerName: seller.name,
       sellerEmail: seller.contact_email,
       buyerEmail: order.buyer_email,
       slug: order.slug,
       createdAt: order.created_at,
       requests,
+      review,
+      canReview: !review && canReviewOrderStatus(status),
     }
   }
 
@@ -141,7 +172,12 @@ export async function loadOrderByToken(token: string): Promise<BuyerOrderView | 
     .eq('status_token', clean)
     .maybeSingle<NegotiationRow>()
   if (neg) {
-    const [seller, requests] = await Promise.all([loadSeller(admin, neg.slug), loadRequests(admin, 'negotiation', neg.id)])
+    const [seller, requests, review] = await Promise.all([
+      loadSeller(admin, neg.slug),
+      loadRequests(admin, 'negotiation', neg.id),
+      loadReview(admin, 'negotiation', neg.id),
+    ])
+    const status = deriveOrderStatus(neg.status, neg.metadata)
     return {
       kind: 'negotiation',
       token: clean,
@@ -149,7 +185,7 @@ export async function loadOrderByToken(token: string): Promise<BuyerOrderView | 
       offerName: neg.offer_name,
       amountCents: negotiationDisplayCents(neg.amount_cents, neg.currency || 'usd'),
       currency: neg.currency || 'usd',
-      status: deriveOrderStatus(neg.status, neg.metadata),
+      status,
       settlementState: neg.settlement_state,
       sellerName: seller.name,
       sellerEmail: seller.contact_email,
@@ -159,6 +195,8 @@ export async function loadOrderByToken(token: string): Promise<BuyerOrderView | 
       slug: neg.slug,
       createdAt: neg.created_at,
       requests,
+      review,
+      canReview: !review && canReviewOrderStatus(status),
     }
   }
 
@@ -175,6 +213,7 @@ export type OrderRequestTarget = {
   pageId: string | null
   slug: string | null
   offerName: string | null
+  offerKey: string | null
   amountCents: number | null
   currency: string
   status: string
@@ -220,7 +259,7 @@ export async function resolveOrderForRequest(token: string): Promise<OrderReques
 
   const { data: order } = await admin
     .from('checkout_orders')
-    .select('id, owner_id, page_id, slug, offer_name, amount_cents, currency, status, buyer_email, metadata')
+    .select('id, owner_id, page_id, slug, offer_name, offer_key, amount_cents, currency, status, buyer_email, metadata')
     .eq('access_token', clean)
     .maybeSingle<{
       id: string
@@ -228,6 +267,7 @@ export async function resolveOrderForRequest(token: string): Promise<OrderReques
       page_id: string | null
       slug: string | null
       offer_name: string | null
+      offer_key: string | null
       amount_cents: number
       currency: string
       status: string
@@ -243,6 +283,7 @@ export async function resolveOrderForRequest(token: string): Promise<OrderReques
       pageId: order.page_id,
       slug: order.slug,
       offerName: order.offer_name,
+      offerKey: order.offer_key,
       amountCents: order.amount_cents,
       currency: order.currency || 'usd',
       status: deriveOrderStatus(order.status, order.metadata),
@@ -256,7 +297,7 @@ export async function resolveOrderForRequest(token: string): Promise<OrderReques
 
   const { data: neg } = await admin
     .from('agent_negotiations')
-    .select('id, owner_id, page_id, slug, offer_name, amount_cents, currency, status, buyer_email, contact, metadata')
+    .select('id, owner_id, page_id, slug, offer_name, offer_key, amount_cents, currency, status, buyer_email, contact, metadata')
     .eq('status_token', clean)
     .maybeSingle<{
       id: string
@@ -264,6 +305,7 @@ export async function resolveOrderForRequest(token: string): Promise<OrderReques
       page_id: string | null
       slug: string | null
       offer_name: string | null
+      offer_key: string | null
       amount_cents: number | null
       currency: string
       status: string
@@ -280,6 +322,7 @@ export async function resolveOrderForRequest(token: string): Promise<OrderReques
       pageId: neg.page_id,
       slug: neg.slug,
       offerName: neg.offer_name,
+      offerKey: neg.offer_key,
       amountCents: negotiationDisplayCents(neg.amount_cents, neg.currency || 'usd'),
       currency: neg.currency || 'usd',
       status: deriveOrderStatus(neg.status, neg.metadata),

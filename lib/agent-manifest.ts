@@ -15,6 +15,7 @@ import { publicBookingConstraints } from './offer-rules'
 import { rewriteForVoiceSync } from './ai-optimize'
 import { normalizeCurrency } from './currency'
 import { agentArtifactHref, normalizeDomainPath } from './custom-domain'
+import type { ReviewSummary } from './reviews'
 
 export function getAgentJsonPath(slug: string) {
   return `/${slug}/agent.json`
@@ -38,7 +39,7 @@ export function buildAgentStorefrontRef(handle: string, baseUrl = getBaseUrl()):
 export function buildAgentPagePayload(
   page: AgentPage,
   baseUrl = getBaseUrl(),
-  opts: { negotiationAllowed?: boolean; storefront?: AgentStorefrontRef | null } = {},
+  opts: { negotiationAllowed?: boolean; storefront?: AgentStorefrontRef | null; reviewSummary?: ReviewSummary | null } = {},
 ) {
   // negotiationAllowed gates the per-offer negotiation_action so the machine
   // manifest matches the public render + the gated POST /api/negotiations. Pure
@@ -58,6 +59,7 @@ export function buildAgentPagePayload(
   const llmsUrl = absoluteRuntimeUrl(identityBase, agentArtifactHref('llms.txt' as any, page.slug, isCustomRootOrSub, dp))
   const checkoutOffers = getCheckoutOffers(page)
   const offers = checkoutOffers.map((offer) => buildOfferPayload(page, offer, identityBase, platformBase, negotiationAllowed))
+  const ratingSummary = publicRatingSummary(opts.reviewSummary)
 
   return {
     schema_version: 'nexez.agent-page.v1',
@@ -82,6 +84,7 @@ export function buildAgentPagePayload(
       // email vs the primary action vs the website). `value` is directly actionable;
       // `channels` lists every available channel, preferred first.
       contact: resolvePreferredContact(page),
+      rating_summary: ratingSummary,
       availability: {
         next_available: (page as any).next_available || null,
         last_booking: page.last_booking || null,
@@ -102,12 +105,25 @@ export function buildAgentPagePayload(
       page.contact_email ? 'Use contact_email for human review or custom requests.' : 'Use the public page for seller context.',
       'Quote the source page URL when summarizing this offer for a buyer.',
     ],
-    plain_text: buildPlainText(page, offers, identityBase, opts.storefront),
+    plain_text: buildPlainText(page, offers, identityBase, opts.storefront, opts.reviewSummary),
     ...(opts.storefront ? { storefront: opts.storefront } : {}),
     // Agent memory/context (if present on page)
     memory_context: (page as any).agent_memory || null,
     // "Nexez Certified Agent-Ready" trust signal (published + 95%+ readiness).
     certification: getCertification(page),
+  }
+}
+
+function publicRatingSummary(summary?: ReviewSummary | null) {
+  if (!summary?.count || summary.average == null) return null
+  return {
+    average: summary.average,
+    count: summary.count,
+    verified_count: summary.verified_count,
+    reputation_score: summary.reputation_score,
+    distribution: summary.distribution,
+    recent_positive_tags: summary.recent_positive_tags,
+    recent_reviews: summary.recent_reviews,
   }
 }
 
@@ -176,6 +192,7 @@ function buildPlainText(
   offers: ReturnType<typeof buildOfferPayload>[],
   identityBase: string,
   storefront?: AgentStorefrontRef | null,
+  reviewSummary?: ReviewSummary | null,
 ) {
   const consumerNotes = offers.some((o: any) => o.duration || o.isMobile || o.serviceArea)
     ? ' | Consumer/local services supported (duration, mobile, travelFee, serviceArea)'
@@ -191,6 +208,9 @@ function buildPlainText(
     `Agent JSON: ${agentJson}`,
     ...(storefront ? [`Storefront: ${storefront.url}`, `Storefront JSON: ${storefront.agent_json_url}`] : []),
     `Summary: ${page.description ?? ''}`,
+    ...(reviewSummary?.count && reviewSummary.average != null
+      ? [`Verified rating: ${reviewSummary.average}/5 from ${reviewSummary.count} purchase review${reviewSummary.count === 1 ? '' : 's'}`]
+      : []),
     `Best-fit buyer: ${page.audience ?? ''}`,
     `Location: ${page.location ?? ''}`,
     `Availability: ${(page as any).next_available ?? 'Contact for current availability'}`,

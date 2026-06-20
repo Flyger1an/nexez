@@ -4,6 +4,7 @@ import { supabase } from '../../../lib/supabase'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 import { publicLaunchVisiblePages } from '../../../lib/public-page-visibility'
 import { cleanLocationQuery, filterPagesByLocation, locationFilterMeta } from '../../../lib/location-filter'
+import { loadReviewSummariesForSlugs } from '../../../lib/server/reviews'
 import { loadStorefrontHandlesForSlugs } from '../../../lib/server/storefront'
 
 export async function GET(request: Request) {
@@ -38,11 +39,16 @@ export async function GET(request: Request) {
 
   const baseUrl = getRequestBaseUrl(request)
   const visiblePages = publicLaunchVisiblePages(pages)
-  const storefrontHandles = await loadStorefrontHandlesForSlugs(visiblePages.map((page) => page.slug))
+  const visibleSlugs = visiblePages.map((page) => page.slug)
+  const [storefrontHandles, reviewSummaries] = await Promise.all([
+    loadStorefrontHandlesForSlugs(visibleSlugs),
+    loadReviewSummariesForSlugs(visibleSlugs, 0),
+  ])
   const locationFilteredPages = filterPagesByLocation(visiblePages, location)
   const results = searchAgentPages(locationFilteredPages, query, Number.isFinite(limit) ? limit : 10, baseUrl, {
     location,
     storefrontHandles,
+    reviewSummaries,
   })
   const searchParams = new URLSearchParams({ q: query })
   if (location) searchParams.set('location', location)

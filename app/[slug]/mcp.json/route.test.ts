@@ -1,8 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { dbRef, storefrontRef } = vi.hoisted(() => ({
+const { dbRef, storefrontRef, reviewRef } = vi.hoisted(() => ({
   dbRef: { handler: (_c: any) => ({ data: null, error: null }) as { data?: any; error?: any } },
   storefrontRef: { handle: null as string | null },
+  reviewRef: {
+    summary: {
+      average: null,
+      count: 0,
+      verified_count: 0,
+      reputation_score: 0,
+      distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
+      recent_positive_tags: [],
+      recent_reviews: [],
+    } as any,
+  },
 }))
 vi.mock('../../../lib/supabase', async () => {
   const { createSupabaseMock } = await import('../../../test/supabase-mock')
@@ -12,6 +23,9 @@ vi.mock('next/server', async (importOriginal) => ({ ...(await importOriginal<typ
 vi.mock('../../../lib/server/log-agent-page-view', () => ({ logAgentPageView: vi.fn() }))
 vi.mock('../../../lib/server/storefront', () => ({
   loadStorefrontHandleForSlug: vi.fn(async () => storefrontRef.handle),
+}))
+vi.mock('../../../lib/server/reviews', () => ({
+  loadReviewSummaryForSlug: vi.fn(async () => reviewRef.summary),
 }))
 
 import { GET } from './route'
@@ -37,6 +51,15 @@ describe('GET /[slug]/mcp.json', () => {
   beforeEach(() => {
     dbRef.handler = () => ({ data: null, error: null })
     storefrontRef.handle = null
+    reviewRef.summary = {
+      average: null,
+      count: 0,
+      verified_count: 0,
+      reputation_score: 0,
+      distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
+      recent_positive_tags: [],
+      recent_reviews: [],
+    }
   })
 
   it('404 when MCP is not enabled for the page', async () => {
@@ -68,5 +91,26 @@ describe('GET /[slug]/mcp.json', () => {
       ]),
     )
     expect(body._nexez.nexez_payload.storefront.handle).toBe('demo-store')
+  })
+
+  it('passes rating summaries through the wrapped Nexez payload', async () => {
+    dbRef.handler = () => ({ data: { ...basePage, mcp_enabled: true }, error: null })
+    reviewRef.summary = {
+      average: 4.7,
+      count: 9,
+      verified_count: 9,
+      reputation_score: 4.5,
+      distribution: { '1': 0, '2': 0, '3': 1, '4': 1, '5': 7 },
+      recent_positive_tags: [],
+      recent_reviews: [],
+    }
+
+    const res = await GET(req(), ctx('demo'))
+    const body = await res.json()
+
+    expect(body._nexez.nexez_payload.page.rating_summary).toMatchObject({
+      average: 4.7,
+      count: 9,
+    })
   })
 })
