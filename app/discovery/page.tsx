@@ -119,7 +119,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                 Discover AI-ready services and products.
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-7 text-[#9CA3AF]">
-                Search published Nexez agent pages by buyer intent, then open the public page, agent manifest, or checkout handoff.
+                Search published Nexez listings by buyer intent, then open the public listing, agent manifest, or checkout handoff.
               </p>
               <a
                 href="/leaderboard"
@@ -167,7 +167,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
           <div className="card !p-5">
             <p className="text-sm font-semibold text-[#9CA3AF]">Directory stats</p>
             <div className="mt-4 grid grid-cols-2 gap-3">
-              <Stat label="Pages" value={String(pageCount)} />
+              <Stat label="Listings" value={String(pageCount)} />
               <Stat label="Offers" value={String(offerCount)} />
             </div>
           </div>
@@ -374,7 +374,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                 href={discoveryHref({ type, category: categoryFilter, minReadiness: 80, location: cleanLocation })}
                 className="mt-3 inline-block text-sm text-[var(--signal)] hover:text-[var(--signal)]"
               >
-                View all high readiness pages in this category →
+                View all high readiness listings in this category →
               </a>
             </div>
           )}
@@ -390,7 +390,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
           ) : null}
 
           <div className="mt-8 text-xs text-[#9CA3AF]">
-            Favorite pages, track popular agent-ready offers, and sort by what is trending right now.
+            Favorite listings, track popular agent-ready offers, and sort by what is trending right now.
             <a href="/discovery?sort=trending" className="ml-2 underline">See trending →</a>
           </div>
         </div>
@@ -409,7 +409,7 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-[var(--signal)]">
-            {offer?.type ?? 'page'} match
+            {offer?.type ?? 'listing'} match
           </p>
           <h3 className="mt-2 text-xl font-semibold text-white">{offer?.name || result.page.name}</h3>
           <a href={result.page.url} className="mt-1 inline-block font-mono text-sm text-[#9CA3AF] hover:text-white">
@@ -443,7 +443,7 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
           offerKind={offer?.type === 'product' ? 'products' : 'services'}
           className="btn-secondary inline-flex items-center gap-2 text-sm"
         >
-          Public page
+          Public listing
           <ExternalLink className="size-4" />
         </TrackedDirectoryLink>
         <TrackedDirectoryLink

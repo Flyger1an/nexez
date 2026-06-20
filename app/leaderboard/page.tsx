@@ -74,7 +74,7 @@ export default async function LeaderboardPage({ searchParams }: Props) {
         <ol className="mt-8 space-y-2">
           {ranked.length === 0 ? (
             <li className="rounded-lg border border-dashed border-white/15 p-10 text-center text-sm text-zinc-500">
-              No published pages yet{industry ? ` in ${industry}` : ''}.
+              No published listings yet{industry ? ` in ${industry}` : ''}.
             </li>
           ) : (
             ranked.map((row, i) => (
@@ -113,7 +113,7 @@ export default async function LeaderboardPage({ searchParams }: Props) {
 
         <p className="mt-8 text-xs text-zinc-500">
           Want to climb? Improve your readiness in the editor and verify your custom domain.{' '}
-          <a href={appUrl('/create')} className="text-[var(--signal)] hover:underline">Create a page →</a>
+          <a href={appUrl('/create')} className="text-[var(--signal)] hover:underline">Create a listing →</a>
         </p>
       </div>
     </main>

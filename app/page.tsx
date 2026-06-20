@@ -44,7 +44,7 @@ const keyFeatures: Feature[] = [
   },
   {
     title: 'Agent Simulator',
-    copy: 'See how ChatGPT, Claude, Grok, and Perplexity interpret your page before you publish.',
+    copy: 'See how ChatGPT, Claude, Grok, and Perplexity interpret your listing before you publish.',
     Icon: Bot,
   },
   {
@@ -59,7 +59,7 @@ const keyFeatures: Feature[] = [
   },
   {
     title: 'Custom Domains',
-    copy: 'Host your agent page on your own domain, with SSL and brand root artifacts.',
+    copy: 'Host your listing on your own domain, with SSL and brand root artifacts.',
     Icon: Globe2,
   },
   {
@@ -71,9 +71,9 @@ const keyFeatures: Feature[] = [
 
 // Hero stat ticker (the X-Ray instrument's "instrument readout" framing).
 const stats = [
-  { value: '<200ms', label: 'Agent page load' },
+  { value: '<200ms', label: 'Agent listing load' },
   { value: '19+', label: 'AI crawlers welcomed' },
-  { value: '5', label: 'Formats per page' },
+  { value: '5', label: 'Formats per listing' },
   { value: '0%', label: 'Fee until you get paid' },
 ]
 
@@ -274,7 +274,7 @@ export default async function NexezHome() {
             Agents pick one answer. <span className="nx-accent-text">Win the query.</span>
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-            Ask a real buyer question and watch a structured page resolve it into the exact offers, prices, and next
+            Ask a real buyer question and watch a structured listing resolve it into the exact offers, prices, and next
             actions an AI agent would use — then see what it takes to be the one it picks. Instantly, no signup.
           </p>
           <div className="mt-8">
@@ -289,7 +289,7 @@ export default async function NexezHome() {
           <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Public examples</p>
-              <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">Pages agents can discover now.</h2>
+              <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">Listings agents can discover now.</h2>
             </div>
             <a href="/discovery" className="btn-secondary h-10 px-4">
               Browse directory
@@ -311,7 +311,7 @@ export default async function NexezHome() {
                   </div>
                 </div>
                 <p className="mt-4 line-clamp-3 text-sm leading-6 text-muted-foreground">
-                  {page.description || 'A structured offer page built for AI agents.'}
+                  {page.description || 'A structured offer listing built for AI agents.'}
                 </p>
                 <div className="mt-5 flex flex-wrap gap-2 text-xs text-muted-foreground">
                   <span className="rounded-full border border-border px-2 py-1">{getOfferCount(page)} offers</span>
@@ -323,7 +323,7 @@ export default async function NexezHome() {
 
           {!visiblePages.length ? (
             <div className="rounded-lg border border-dashed border-border p-12 text-center">
-              <p className="text-sm text-muted-foreground">No published pages yet. Be the first.</p>
+              <p className="text-sm text-muted-foreground">No published listings yet. Be the first.</p>
             </div>
           ) : null}
         </div>
@@ -339,12 +339,12 @@ export default async function NexezHome() {
             Be the answer <span className="nx-accent-text">agents pick.</span>
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-            Deploy a crawlable, structured agent page in minutes, on a Nexez link or your own domain, and start
+            Deploy a crawlable, structured listing in minutes, on a Nexez link or your own domain, and start
             measuring real discovery signals.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a href={appUrl('/create')} className="btn-primary h-11 px-5">
-              Deploy your agent page
+              Deploy your listing
             </a>
             <a href="/discovery" className="btn-secondary h-11 px-5">See live examples</a>
           </div>
