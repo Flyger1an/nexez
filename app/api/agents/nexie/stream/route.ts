@@ -28,6 +28,11 @@ export async function POST(request: NextRequest) {
   const limited = await enforceRateLimit(request, 'agents:nexie', 40, 60_000)
   if (limited) return limited
 
+  // Reject oversized bodies before buffering/parsing (cheap DoS guard; the message is also capped).
+  if (Number(request.headers.get('content-length') || 0) > 32_000) {
+    return NextResponse.json({ error: 'Request body too large.' }, { status: 413 })
+  }
+
   let body: NexieStreamBody
   try {
     body = await request.json()
@@ -52,7 +57,8 @@ export async function POST(request: NextRequest) {
         const result = await handleNexieTurn({
           db,
           userId: user.id,
-          userEmail: user.email ?? null,
+          // Confirmed-email gate (see the JSON route): never stamp an unverified address onto orders.
+          userEmail: user.email_confirmed_at ? (user.email ?? null) : null,
           message: body.message,
           threadId: body.threadId,
           mode: body.mode === 'voice' ? 'voice' : 'text',

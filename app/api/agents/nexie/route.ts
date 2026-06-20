@@ -16,6 +16,12 @@ export async function POST(request: NextRequest) {
   const limited = await enforceRateLimit(request, 'agents:nexie', 40, 60_000)
   if (limited) return limited
 
+  // Reject oversized bodies before buffering/parsing (cheap DoS guard; the message itself is also
+  // capped server-side). 32 KB is ample for a turn payload.
+  if (Number(request.headers.get('content-length') || 0) > 32_000) {
+    return NextResponse.json({ error: 'Request body too large.' }, { status: 413 })
+  }
+
   let body: NexieRequestBody
   try {
     body = await request.json()
@@ -35,7 +41,11 @@ export async function POST(request: NextRequest) {
     const result = await handleNexieTurn({
       db,
       userId: user.id,
-      userEmail: user.email ?? null,
+      // Only carry the buyer email into the transact path if it's CONFIRMED. An unconfirmed (or
+      // attacker-chosen) address must never be stamped onto orders/negotiations — mirrors the
+      // orders endpoint + push-token trigger. Unconfirmed users can still chat/search; their
+      // bookings just go through unattributed rather than linked to an unverified email.
+      userEmail: user.email_confirmed_at ? (user.email ?? null) : null,
       message: body.message,
       threadId: body.threadId,
       mode: body.mode === 'voice' ? 'voice' : 'text',

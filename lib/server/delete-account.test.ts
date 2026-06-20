@@ -18,6 +18,7 @@ vi.mock('../../utils/supabase/admin', () => ({
           ilike: (by: string, val: unknown) => done({ op: 'delete', table, by, val }),
         }),
         update: (patch: Record<string, unknown>) => ({
+          eq: (by: string, val: unknown) => done({ op: 'update', table, patch, by, val }),
           ilike: (by: string, val: unknown) => done({ op: 'update', table, patch, by, val }),
         }),
       }),
@@ -57,15 +58,18 @@ describe('deleteUserAccount', () => {
     for (const t of __DELETE_ACCOUNT_TABLES.OWNER_ID_TABLES) {
       expect(adminRef.ops).toContainEqual({ op: 'delete', table: t, by: 'owner_id', val: 'user-1' })
     }
-    // Buyer PII anonymized (nulled) on sellers' records, matched case-insensitively by email.
-    expect(adminRef.ops).toContainEqual({
-      op: 'update',
-      table: 'checkout_orders',
-      patch: { buyer_email: null, buyer_reference: null },
-      by: 'buyer_email',
-      val: 'Buyer@Acme.com',
-    })
-    expect(adminRef.ops).toContainEqual({ op: 'update', table: 'order_requests', patch: { buyer_email: null }, by: 'buyer_email', val: 'Buyer@Acme.com' })
+    // Buyer PII anonymized (nulled) on sellers' records. checkout_orders includes buyer_name and is
+    // matched by BOTH the strong reference (buyer_reference == userId) and the email.
+    const ordersPatch = { buyer_email: null, buyer_name: null, buyer_reference: null }
+    expect(adminRef.ops).toContainEqual({ op: 'update', table: 'checkout_orders', patch: ordersPatch, by: 'buyer_reference', val: 'user-1' })
+    expect(adminRef.ops).toContainEqual({ op: 'update', table: 'checkout_orders', patch: ordersPatch, by: 'buyer_email', val: 'Buyer@Acme.com' })
+    // agent_negotiations erases free-form buyer text (contact/buyer_query/...) and matches by both
+    // buyer_email AND contact, so non-email contacts are still caught.
+    const negPatch = { buyer_email: null, contact: null, buyer_query: null, budget_text: null, timeline_text: null }
+    expect(adminRef.ops).toContainEqual({ op: 'update', table: 'agent_negotiations', patch: negPatch, by: 'buyer_email', val: 'Buyer@Acme.com' })
+    expect(adminRef.ops).toContainEqual({ op: 'update', table: 'agent_negotiations', patch: negPatch, by: 'contact', val: 'Buyer@Acme.com' })
+    // order_requests nulls the free-text message too.
+    expect(adminRef.ops).toContainEqual({ op: 'update', table: 'order_requests', patch: { buyer_email: null, message: null }, by: 'buyer_email', val: 'Buyer@Acme.com' })
     // Received invites (keyed by email) removed too.
     expect(adminRef.ops).toContainEqual({ op: 'delete', table: 'team_invites', by: 'email', val: 'Buyer@Acme.com' })
   })
