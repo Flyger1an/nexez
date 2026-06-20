@@ -35,10 +35,12 @@ describe('buildOpenApiSpec — programmatic API (G21)', () => {
         plugin: { name: string }
         skill: { slug: string }
       }
+      sdks: { typescript: { name: string } }
     }
 
     expect(distribution.docs_url).toBe('https://nexez.ai/agents')
     expect(distribution.openclaw.plugin.name).toBe('@nexez/openclaw-nexez')
     expect(distribution.openclaw.skill.slug).toBe('nexez-agent-discovery')
+    expect(distribution.sdks.typescript.name).toBe('@nexez/agent-sdk')
   })
 })

@@ -1,5 +1,5 @@
 import { AgentPage, PUBLIC_PAGE_SELECT, getCheckoutOffers, getCheckoutPath, getOfferCount, getRequestBaseUrl, sanitizePublicUrl } from '../../lib/agent-page'
-import { NEXEZ_OPENCLAW_PLUGIN, NEXEZ_OPENCLAW_SKILL, buildAgentDistributionLinks } from '../../lib/agent-distribution'
+import { NEXEZ_OPENCLAW_PLUGIN, NEXEZ_OPENCLAW_SKILL, NEXEZ_TYPESCRIPT_SDK, buildAgentDistributionLinks } from '../../lib/agent-distribution'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { markdownLinkLabel, markdownText } from '../../lib/agent-text'
 import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
@@ -35,6 +35,7 @@ export async function GET(request: Request) {
     `Install plugin: ${NEXEZ_OPENCLAW_PLUGIN.installCommand}`,
     `Skill: ${NEXEZ_OPENCLAW_SKILL.slug} (${NEXEZ_OPENCLAW_SKILL.version})`,
     `Install skill: ${NEXEZ_OPENCLAW_SKILL.installCommand}`,
+    `TypeScript SDK source: ${NEXEZ_TYPESCRIPT_SDK.name} (${NEXEZ_TYPESCRIPT_SDK.version}) at ${NEXEZ_TYPESCRIPT_SDK.sourcePath}`,
     '',
     '## Published Agent Pages',
     '',

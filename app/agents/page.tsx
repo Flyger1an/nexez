@@ -14,6 +14,7 @@ import { CodeCopyButton } from '../../components/CodeCopyButton'
 import {
   NEXEZ_OPENCLAW_PLUGIN,
   NEXEZ_OPENCLAW_SKILL,
+  NEXEZ_TYPESCRIPT_SDK,
   buildAgentDistributionLinks,
 } from '../../lib/agent-distribution'
 import { agentRuntimeUrl, appUrl, marketingUrl } from '../../lib/site'
@@ -131,6 +132,14 @@ const manifestPreview = {
       install: NEXEZ_OPENCLAW_SKILL.installCommand,
     },
   },
+  sdks: {
+    typescript: {
+      name: NEXEZ_TYPESCRIPT_SDK.name,
+      version: NEXEZ_TYPESCRIPT_SDK.version,
+      status: NEXEZ_TYPESCRIPT_SDK.status,
+      source: NEXEZ_TYPESCRIPT_SDK.sourcePath,
+    },
+  },
   endpoints: {
     search: distribution.agent_search_url_template,
     index: distribution.agent_index_url,
@@ -141,6 +150,24 @@ const manifestPreview = {
 }
 
 const manifestText = JSON.stringify(manifestPreview, null, 2)
+const sdkExample = `import { createNexezClient } from '@nexez/agent-sdk'
+
+const nexez = createNexezClient()
+
+const matches = await nexez.search('book a strategy session next week', {
+  location: 'Chicago, IL',
+  limit: 5,
+})
+
+const first = matches.results[0]
+const page = await nexez.getAgentPage(first.page.slug)
+
+await nexez.validateCheckout({
+  slug: first.page.slug,
+  offer: first.offer?.key ?? 'services-0',
+  query: 'Buyer wants a strategy session next week.',
+  buyerAgent: 'buyer-agent',
+})`
 
 export default function AgentAccessPage() {
   return (
@@ -278,6 +305,45 @@ export default function AgentAccessPage() {
             {endpoints.map((endpoint) => (
               <EndpointCard key={endpoint.label} {...endpoint} />
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-border bg-white/[0.015]">
+        <div className="mx-auto grid max-w-7xl gap-8 px-5 py-16 md:py-20 lg:grid-cols-[0.76fr_1.24fr] lg:items-start">
+          <div>
+            <p className="text-sm font-medium text-[var(--signal)]">SDK preview</p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">
+              Typed helpers for agent builders.
+            </h2>
+            <p className="mt-4 text-sm leading-6 text-muted-foreground md:text-base">
+              The TypeScript SDK source is in the Nexez repo today. It wraps search, manifest reads, checkout dry-runs,
+              and negotiation handoffs so agent apps do not need to hand-roll endpoint plumbing.
+            </p>
+            <div className="mt-5 rounded-lg border border-border bg-white/[0.03] p-4">
+              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                {NEXEZ_TYPESCRIPT_SDK.name} · v{NEXEZ_TYPESCRIPT_SDK.version}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">{NEXEZ_TYPESCRIPT_SDK.purpose}</p>
+            </div>
+          </div>
+
+          <div className="nx-glass-panel overflow-hidden p-0">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div className="flex items-center gap-2">
+                <div className="flex size-8 items-center justify-center rounded-md border border-border bg-black/40">
+                  <Code2 className="size-4 text-[var(--signal)]" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">agent-sdk.ts</p>
+                  <p className="font-mono text-xs text-muted-foreground">search · manifest · dry-run</p>
+                </div>
+              </div>
+              <CodeCopyButton text={sdkExample} />
+            </div>
+            <pre className="max-w-full overflow-auto p-5 text-left font-mono text-[11px] leading-5 text-[var(--fg-muted-2)]">
+              <code>{sdkExample}</code>
+            </pre>
           </div>
         </div>
       </section>

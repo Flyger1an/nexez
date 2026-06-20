@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   NEXEZ_OPENCLAW_PLUGIN,
   NEXEZ_OPENCLAW_SKILL,
+  NEXEZ_TYPESCRIPT_SDK,
   buildAgentDistributionLinks,
 } from '../agent-distribution'
 
@@ -11,6 +12,7 @@ describe('agent distribution metadata', () => {
       'openclaw plugins install clawhub:@nexez/openclaw-nexez',
     )
     expect(NEXEZ_OPENCLAW_SKILL.installCommand).toBe('openclaw skills install nexez-agent-discovery')
+    expect(NEXEZ_TYPESCRIPT_SDK.name).toBe('@nexez/agent-sdk')
   })
 
   it('builds public agent links from the supplied runtime base', () => {
@@ -21,5 +23,6 @@ describe('agent distribution metadata', () => {
     expect(links.agent_search_url_template).toBe('https://agent.nexez.test/api/agent-search?q={query}')
     expect(links.openclaw.plugin.name).toBe('@nexez/openclaw-nexez')
     expect(links.openclaw.skill.slug).toBe('nexez-agent-discovery')
+    expect(links.sdks.typescript.sourcePath).toBe('sdk/typescript')
   })
 })

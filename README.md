@@ -40,6 +40,7 @@ One source of truth. Two audiences: beautiful for humans, brutally structured fo
 - Production-ready error handling, logging, and webhooks
 - Published OpenClaw agent discovery skill: `openclaw skills install nexez-agent-discovery`
 - Published OpenClaw tool plugin: `openclaw plugins install clawhub:@nexez/openclaw-nexez`
+- TypeScript buyer-agent SDK source in `sdk/typescript`
 - Public agent access docs at `/agents`, linked from agent metadata
 
 ---

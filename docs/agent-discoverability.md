@@ -38,7 +38,8 @@ Nexez should be discoverable wherever autonomous agents search, reason, compare,
 7. Buyer-agent SDKs
    - Purpose: simple wrappers for agent developers.
    - Candidate packages: TypeScript SDK first, then Python.
-   - Minimal functions: search, get manifest, validate handoff, create negotiation.
+   - Current surface: TypeScript source package in `sdk/typescript` as `@nexez/agent-sdk`.
+   - Minimal functions shipped: search, get manifest, validate checkout, validate negotiation, submit negotiation.
 
 8. Workflow platform connectors
    - Candidate surfaces: Zapier, Make, Pipedream, n8n, Slack apps, Discord bots.
@@ -63,6 +64,7 @@ Nexez should be discoverable wherever autonomous agents search, reason, compare,
 ## Near-Term Sequence
 
 1. Keep the public `/agents` access page and machine-readable metadata in sync with published OpenClaw versions.
-2. Add a small TypeScript buyer-agent SDK.
-3. Expand MCP/OpenAPI directory submissions.
-4. Add more agent workflow examples for checkout, negotiation, and location-filtered discovery.
+2. Publish `@nexez/agent-sdk` after package naming / npm access is confirmed.
+3. Add Python SDK parity for buyer agents that run outside TypeScript.
+4. Expand MCP/OpenAPI directory submissions.
+5. Add more agent workflow examples for checkout, negotiation, and location-filtered discovery.

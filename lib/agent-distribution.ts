@@ -25,6 +25,15 @@ export const NEXEZ_OPENCLAW_SKILL = {
   purpose: 'Instructions and rubrics for discovering, comparing, and safely acting on Nexez agent pages.',
 } as const
 
+export const NEXEZ_TYPESCRIPT_SDK = {
+  name: '@nexez/agent-sdk',
+  displayName: 'Nexez Agent SDK',
+  version: '0.1.0',
+  status: 'source_available',
+  sourcePath: 'sdk/typescript',
+  purpose: 'Typed client helpers for agent search, manifest fetch, checkout dry-run, and negotiation handoff.',
+} as const
+
 export function buildAgentDistributionLinks(baseUrl = agentRuntimeUrl('/').replace(/\/$/, '')) {
   return {
     docs_url: marketingUrl('/agents'),
@@ -38,6 +47,9 @@ export function buildAgentDistributionLinks(baseUrl = agentRuntimeUrl('/').repla
     openclaw: {
       plugin: NEXEZ_OPENCLAW_PLUGIN,
       skill: NEXEZ_OPENCLAW_SKILL,
+    },
+    sdks: {
+      typescript: NEXEZ_TYPESCRIPT_SDK,
     },
   }
 }
