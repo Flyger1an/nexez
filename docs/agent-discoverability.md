@@ -46,7 +46,7 @@ Nexez should be discoverable wherever autonomous agents search, reason, compare,
    - Minimal functions shipped: search, get manifest, validate checkout, validate negotiation, submit negotiation.
 
 9. Agent workflow examples
-   - Current surface: `examples/agents` with Python and TypeScript examples for search, location-aware shortlisting, dry-run validation, negotiation submission, and status polling.
+   - Current surface: `examples/agents` with Python and TypeScript examples for search, location-aware shortlisting, buyer approval UX, dry-run validation, negotiation submission, and status polling.
    - Purpose: give buyer-agent builders a copy-paste path from intent to safe handoff.
 
 10. Workflow platform connectors
@@ -75,4 +75,4 @@ Nexez should be discoverable wherever autonomous agents search, reason, compare,
 2. Keep the published `@nexez/agent-sdk` install path visible in `/agents`, `/llms.txt`, OpenAPI, MCP, and capabilities manifests.
 3. Keep the published `nexez-agent-sdk` PyPI install path visible in `/agents`, `/llms.txt`, OpenAPI, MCP, and capabilities manifests.
 4. Expand MCP/OpenAPI directory submissions.
-5. Add more agent workflow examples for checkout, negotiation, status polling, and buyer approval UX.
+5. Add more agent workflow examples for checkout, negotiation, status polling, and buyer-facing approval UI patterns.

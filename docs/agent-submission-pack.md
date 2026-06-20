@@ -44,6 +44,7 @@ python -m pip install nexez-agent-sdk
 - Source repository: https://github.com/Flyger1an/nexez
 - Agent examples: https://github.com/Flyger1an/nexez/tree/main/examples/agents
 - Location-aware shortlist examples: `examples/agents/typescript/location-shortlist.ts` and `examples/agents/python/location_shortlist.py`
+- Buyer approval examples: `examples/agents/typescript/buyer-approval.ts` and `examples/agents/python/buyer_approval.py`
 
 ## Agent Workflow
 
@@ -51,7 +52,7 @@ python -m pip install nexez-agent-sdk
 2. Fetch the selected page's `/{slug}/agent.json`.
 3. Compare offers, price, location, FAQs, policies, readiness, and contact channels.
 4. Dry-run checkout or negotiation before any side effect.
-5. Ask the buyer for explicit approval before spending money or sending contact details.
+5. Render a `nexez.buyer-approval.v1` summary before spending money, sending contact details, opening checkout, booking, or submitting a proposal.
 6. Submit checkout or negotiation only after approval.
 7. Poll negotiation `statusUrl` when returned.
 
@@ -61,6 +62,7 @@ python -m pip install nexez-agent-sdk
 - Checkout and negotiation support dry-run validation.
 - Seller-private pricing rules are never exposed in public agent manifests.
 - Agents should ask for buyer approval before spending money, contacting sellers, or submitting proposal terms.
+- Buyer approval copy should include seller, offer, price, proposal terms, contact-sharing status, risk notes, and the exact next action.
 - Public agent pages are built for speed, semantic HTML, JSON-LD, `agent.json`, `llms.txt`, and MCP-compatible discovery.
 
 ## Test Prompts
@@ -79,6 +81,10 @@ Find AI-ready services near Chicago, compare top matches, and explain which publ
 
 ```text
 Find three nearby providers for a buyer in Austin, validate the top offer as a dry run, and stop before submitting anything real.
+```
+
+```text
+Prepare a buyer approval card for the selected Nexez offer, including price, terms, risk notes, and the exact action I would approve.
 ```
 
 ## Smoke Command

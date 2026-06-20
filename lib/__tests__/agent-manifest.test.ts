@@ -20,6 +20,16 @@ describe('buildAgentPagePayload', () => {
     expect(payload.page.slug).toBe('acme')
   })
 
+  it('keeps canonical manifest URLs protocol-safe', () => {
+    const urlPayload = buildAgentPagePayload(page, 'https://nexez.app') as any
+    expect(urlPayload.page.url).toBe('https://nexez.app/acme')
+    expect(urlPayload.page.agent_json_url).toBe('https://nexez.app/acme/agent.json')
+    expect(urlPayload.page.llms_url).toBe('https://nexez.app/acme/llms.txt')
+    expect(urlPayload.offers[0].checkout_url).toMatch(/^https:\/\/.+\/checkout\/acme\?offer=services-0$/)
+    expect(urlPayload.plain_text).toContain('URL: https://nexez.app/acme')
+    expect(urlPayload.plain_text).toContain('Agent JSON: https://nexez.app/acme/agent.json')
+  })
+
   it('surfaces a resolved preferred-contact block (derived) on the page', () => {
     // fixture has only website_url → derived channel is website
     expect(payload.page.contact).toEqual({ preferred: 'website', value: 'https://acme.com', channels: ['website'] })

@@ -72,6 +72,11 @@ const sdkCards = [
 
 const exampleCards = [
   {
+    title: 'Buyer approval',
+    path: 'examples/agents/python/buyer_approval.py',
+    copy: 'Build a consent card with seller, offer, terms, risk notes, dry-run result, and explicit approval copy.',
+  },
+  {
     title: 'Find and validate',
     path: 'examples/agents/python/find_and_validate.py',
     copy: 'Search by buyer intent, fetch the page manifest, then dry-run checkout or negotiation before any action.',

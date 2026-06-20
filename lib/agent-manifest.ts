@@ -38,9 +38,9 @@ export function buildAgentPagePayload(
   // For subpath: self URL = identityBase (caller includes dp) , e.g. https://acme.com/pricing
   // Never append slug to identity URLs on custom (slug is internal; domainPath maps it)
   const isCustomRootOrSub = dp !== '/' || !identityBase.includes('nexez.')
-  const publicUrl = isCustomRootOrSub ? identityBase : `${identityBase}/${page.slug}`.replace(/\/+/g, '/').replace(/\/$/, '')
-  const agentJsonUrl = `${identityBase}${agentArtifactHref('agent.json', page.slug, isCustomRootOrSub, dp)}`
-  const llmsUrl = `${identityBase}${agentArtifactHref('llms.txt' as any, page.slug, isCustomRootOrSub, dp)}`
+  const publicUrl = buildPublicPageUrl(page.slug, identityBase, isCustomRootOrSub)
+  const agentJsonUrl = absoluteRuntimeUrl(identityBase, agentArtifactHref('agent.json', page.slug, isCustomRootOrSub, dp))
+  const llmsUrl = absoluteRuntimeUrl(identityBase, agentArtifactHref('llms.txt' as any, page.slug, isCustomRootOrSub, dp))
   const checkoutOffers = getCheckoutOffers(page)
   const offers = checkoutOffers.map((offer) => buildOfferPayload(page, offer, identityBase, platformBase, negotiationAllowed))
 
@@ -100,7 +100,7 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: 
   // Only advertise negotiation when the owner's plan allows it AND this offer is
   // negotiable — otherwise an agent would POST /api/negotiations and get a 403.
   const isNegotiable = (offer as { offerType?: string }).offerType === 'negotiable'
-  const checkoutUrl = `${platformBase}${getCheckoutPath(page.slug, offer.kind, offer.index)}`
+  const checkoutUrl = absoluteRuntimeUrl(platformBase, getCheckoutPath(page.slug, offer.kind, offer.index))
   const providerUrl = getOfferDestination(page, offer) || null
 
   return {
@@ -160,8 +160,9 @@ function buildPlainText(page: AgentPage, offers: ReturnType<typeof buildOfferPay
     ? ' | Consumer/local services supported (duration, mobile, travelFee, serviceArea)'
     : ''
   const dp = normalizeDomainPath((page as any).domain_path)
-  const pageUrl = dp === '/' ? identityBase : `${identityBase.replace(/\/$/, '')}${dp}/${page.slug}`.replace(/\/+/g, '/').replace(/\/$/, '')
-  const agentJson = `${identityBase}${agentArtifactHref('agent.json', page.slug, dp !== '/' || !identityBase.includes('nexez'), dp)}`
+  const isCustomRootOrSub = dp !== '/' || !identityBase.includes('nexez.')
+  const pageUrl = buildPublicPageUrl(page.slug, identityBase, isCustomRootOrSub)
+  const agentJson = absoluteRuntimeUrl(identityBase, agentArtifactHref('agent.json', page.slug, isCustomRootOrSub, dp))
 
   return [
     `Name: ${page.name}`,
@@ -181,4 +182,21 @@ function buildPlainText(page: AgentPage, offers: ReturnType<typeof buildOfferPay
       return `${offer.name} (${offer.type})${pref} ${offer.checkout_url}`
     }).join('; ') || 'None listed'}${consumerNotes}`,
   ].join('\n')
+}
+
+function buildPublicPageUrl(slug: string, identityBase: string, isCustomRootOrSub: boolean) {
+  return isCustomRootOrSub ? trimTrailingSlash(identityBase) : absoluteRuntimeUrl(identityBase, `/${slug}`)
+}
+
+function absoluteRuntimeUrl(baseUrl: string, path: string) {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  return trimTrailingSlash(new URL(normalizedPath, ensureTrailingSlash(baseUrl)).toString())
+}
+
+function ensureTrailingSlash(value: string) {
+  return value.endsWith('/') ? value : `${value}/`
+}
+
+function trimTrailingSlash(value: string) {
+  return value.replace(/\/+$/, '')
 }
