@@ -148,7 +148,7 @@ export default function OnboardPage() {
             {step === 1 && (
               <div>
                 <h1 className="text-4xl font-semibold tracking-tight">Choose your plan</h1>
-                <p className="mt-2 text-[#9CA3AF]">Start free or pick the plan that matches your volume of agent pages and offers.</p>
+                <p className="mt-2 text-[#9CA3AF]">Start free or pick the plan that matches your volume of listings and offers.</p>
 
                 <div className="mt-8 grid gap-4 sm:grid-cols-2">
                   {billingPlans.map(plan => {
@@ -281,7 +281,7 @@ export default function OnboardPage() {
                 <p className="mt-3 text-[#9CA3AF]">
                   {isPaidPlan
                     ? `Confirm your ${selectedPlan.name} subscription to activate it — secure checkout, cancel anytime.`
-                    : 'Your Free workspace is ready. Create your first agent-optimized page whenever you like.'}
+                    : 'Your Free workspace is ready. Create your first listing whenever you like.'}
                 </p>
 
                 <div className="mt-8 inline-block rounded-2xl border border-white/10 bg-[#12101B] p-6 text-left text-sm">
@@ -289,7 +289,7 @@ export default function OnboardPage() {
                   <div className="mt-2 space-y-1 text-[#9CA3AF]">
                     <div>• Plan: {selectedPlan.name} {selectedPlan.cadence ? `(${selectedPlan.price}/${selectedPlan.cadence})` : `(${selectedPlan.price})`}{isPaidPlan ? ' — confirm at checkout' : ''}</div>
                     <div>• Stripe payouts: connect anytime from Billing or Integrations</div>
-                    <div>• Next: Create your first agent-optimized page</div>
+                    <div>• Next: Create your first listing</div>
                   </div>
                 </div>
 
@@ -297,7 +297,7 @@ export default function OnboardPage() {
                   <button onClick={finishOnboarding} className="rounded-lg bg-white px-8 py-3 font-medium text-zinc-950 hover:bg-zinc-200">
                     {isPaidPlan ? `Confirm your ${selectedPlan.name} subscription` : 'Go to Dashboard'}
                   </button>
-                  <a href="/create" className="rounded-lg border border-white/15 px-8 py-3 hover:bg-white/5">Create your first page</a>
+                  <a href="/create" className="rounded-lg border border-white/15 px-8 py-3 hover:bg-white/5">Create your first listing</a>
                 </div>
               </div>
             )}

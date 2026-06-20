@@ -354,7 +354,7 @@ export default function BillingDashboardClient({
         {/* How money flows — the dual-revenue model in one glance */}
         <GlassCard className="p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-stretch sm:justify-between">
-            <MoneyFlowStep label="Agents buy through your pages" value={formatCurrencyAmount(agentRevenueCents, revenueCurrency)} sub="gross sales this month" tone="white" />
+            <MoneyFlowStep label="Agents buy through your listings" value={formatCurrencyAmount(agentRevenueCents, revenueCurrency)} sub="gross sales this month" tone="white" />
             <FlowArrow />
             <MoneyFlowStep label={`Nexez fee (${commissionPct}%)`} value={`– ${formatCurrencyAmount(platformFeesCents, revenueCurrency)}`} sub="only when you get paid" tone="muted" />
             <FlowArrow />

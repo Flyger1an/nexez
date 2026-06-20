@@ -92,7 +92,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
   // Usage: pages metered against the plan limit; the rest are real this-month
   // engagement counts (limit: null → shown as a plain count, not a fake cap).
   const usage = {
-    pages: { label: 'Published Pages', current: pageCount, limit: pageLimit },
+    pages: { label: 'Published Listings', current: pageCount, limit: pageLimit },
     offers: { label: 'Total Offers', current: offerCount, limit: null },
     aiOptimizations: { label: 'Agent visits (mo)', current: getAgentPageVisitCount(events), limit: null },
     simulations: { label: 'Discovery clicks (mo)', current: getDiscoveryClickCount(events), limit: null },

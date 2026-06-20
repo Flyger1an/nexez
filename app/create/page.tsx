@@ -336,8 +336,8 @@ export default function CreatePage() {
       const isSlugTaken = (error as { code?: string }).code === '23505' || /duplicate|unique|already exists/i.test(error.message)
       setPublishError(
         isSlugTaken
-          ? `The link “/${cleanSlug}” is already taken. Try a different page name or edit the slug, then publish again.`
-          : `Couldn’t publish your page: ${error.message}. Your work is saved — try again.`,
+          ? `The link “/${cleanSlug}” is already taken. Try a different listing name or edit the slug, then publish again.`
+          : `Couldn’t publish your listing: ${error.message}. Your work is saved — try again.`,
       )
       return
     }
@@ -695,14 +695,14 @@ export default function CreatePage() {
           <div className="mb-6 flex size-14 items-center justify-center rounded-lg bg-[var(--ready)] text-zinc-950">
             <Check className="size-7" />
           </div>
-          <h1 className="text-4xl font-semibold tracking-tight">Agent page is live</h1>
+          <h1 className="text-4xl font-semibold tracking-tight">Your listing is live</h1>
           <p className="mt-4 max-w-xl text-zinc-300">
-            Nexez opened the live agent page in a separate tab and kept your workspace here
+            Nexez opened the live listing in a separate tab and kept your workspace here
             so you can continue editing, test it with agents, or configure settings.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <a href={agentRuntimeUrl(`/${publishedSlug}`)} target="_blank" rel="noreferrer" className="rounded-lg bg-white px-5 py-3 text-sm font-medium text-zinc-950 hover:bg-zinc-200">
-              Open public page
+              Open public listing
             </a>
             <a href={appUrl('/dashboard')} className="rounded-lg border border-white/15 px-5 py-3 text-sm font-medium text-white hover:bg-white/10">
               Continue in dashboard
@@ -722,7 +722,7 @@ export default function CreatePage() {
             <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--signal)] to-[var(--ready)] text-lg font-bold text-[#0A0A0F]">N</div>
             <h2 className="mt-4 text-2xl font-semibold">Create a free account to publish</h2>
             <p className="mt-2 text-sm leading-6 text-zinc-400">
-              Your page is saved. Sign in or create an account to publish it and unlock your dashboard, analytics, and custom domains.
+              Your listing is saved. Sign in or create an account to publish it and unlock your dashboard, analytics, and custom domains.
             </p>
             <div className="mt-6 flex flex-col gap-2">
               <a href="/login?mode=signup&next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-gradient-to-r from-[var(--signal)] to-[var(--ready)] px-5 font-medium text-[#0A0A0F] hover:opacity-90">
@@ -1045,8 +1045,8 @@ export default function CreatePage() {
         </div>
 
         <section className="mx-auto mt-10 max-w-4xl text-center">
-          <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight">Build your Nexez Agent Page</h1>
-          <p className="mt-4 text-zinc-400">Create a clean, AI-optimized page for your products and services — designed so agents can discover, understand, and buy.</p>
+          <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight">Build your Nexez listing</h1>
+          <p className="mt-4 text-zinc-400">Create a clean, AI-optimized listing for your products and services — designed so agents can discover, understand, and buy.</p>
         </section>
 
         <div className="card mt-10 max-w-5xl overflow-hidden">
@@ -1425,7 +1425,7 @@ Action: ${ctaLabel || 'Visit website'}`}
             ) : (
               <button onClick={() => handleSubmit()} disabled={loading || !name || !previewSlug || !description || !websiteUrl} className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 font-semibold text-zinc-950 hover:bg-zinc-200 disabled:opacity-60" type="button">
                 {loading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-                {loading ? 'Publishing...' : 'Publish agent page'}
+                {loading ? 'Publishing...' : 'Publish listing'}
               </button>
             )}
           </div>
@@ -1524,7 +1524,7 @@ function openPendingPublicPageTab(): Window | null {
   try {
     tab.opener = null
     tab.document.title = 'Publishing Nexez page...'
-    tab.document.body.innerHTML = '<main style="min-height:100vh;display:grid;place-items:center;background:#090b10;color:white;font-family:system-ui,sans-serif"><p>Publishing your Nexez agent page...</p></main>'
+    tab.document.body.innerHTML = '<main style="min-height:100vh;display:grid;place-items:center;background:#090b10;color:white;font-family:system-ui,sans-serif"><p>Publishing your Nexez listing...</p></main>'
   } catch {
     // Some browsers restrict access to the blank tab. It can still be redirected.
   }

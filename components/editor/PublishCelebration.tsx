@@ -59,9 +59,9 @@ export function PublishCelebration() {
           <CheckCircle2 className="size-6" aria-hidden />
         </span>
         <div className="min-w-0">
-          <p className="text-lg font-semibold text-white">🎉 Your page is live</p>
+          <p className="text-lg font-semibold text-white">🎉 Your listing is live</p>
           <p className="mt-1 max-w-xl text-sm leading-6 text-[var(--fg-muted)]">
-            Agents can now discover and buy from this page. Share the link to start driving traffic — and connect payouts
+            Agents can now discover and buy from this listing. Share the link to start driving traffic — and connect payouts
             so you get paid the moment a deal closes.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
@@ -72,7 +72,7 @@ export function PublishCelebration() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-lg border border-[var(--ready)]/40 bg-[var(--ready)]/10 px-4 py-2 text-sm font-semibold text-[var(--ready)] transition-colors hover:bg-[var(--ready)]/20"
               >
-                View live page <ExternalLink className="size-3.5" />
+                View live listing <ExternalLink className="size-3.5" />
               </a>
             ) : null}
             {liveUrl ? (

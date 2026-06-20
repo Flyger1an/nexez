@@ -356,7 +356,7 @@ describe('CreatePage guided import review', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     fireEvent.change(screen.getByLabelText('Main website'), { target: { value: 'https://acme.example.com' } })
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Publish agent page' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Publish listing' }))
 
     await waitFor(() => expect(routerMock.push).toHaveBeenCalledWith('/dashboard/page-123?created=1&public=acme-agent-page'))
 
@@ -391,7 +391,7 @@ describe('CreatePage guided import review', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     fireEvent.change(screen.getByLabelText('Main website'), { target: { value: 'https://acme.example.com' } })
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Publish agent page' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Publish listing' }))
 
     // Limit surfaces inline with a "Save as draft" action (no native confirm/alert).
     const draftButton = await screen.findByRole('button', { name: 'Save as draft' })
@@ -422,7 +422,7 @@ describe('CreatePage guided import review', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     fireEvent.change(screen.getByLabelText('Main website'), { target: { value: 'https://acme.example.com' } })
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Publish agent page' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Publish listing' }))
 
     // The limit is inline (not via alert); the page is only created on the user's
     // explicit "Save as draft" choice — which we don't make here.
