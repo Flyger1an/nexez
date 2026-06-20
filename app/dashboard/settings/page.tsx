@@ -14,6 +14,8 @@ import { createClient } from '../../../utils/supabase/server'
 import { ProfileSettings } from '../../../components/ProfileSettings'
 import { AccountDataControls } from '../../../components/AccountDataControls'
 import { TeamInvites } from '../../../components/TeamInvites'
+import { StorefrontSettings } from '../../../components/StorefrontSettings'
+import type { Storefront } from '../../../lib/storefront'
 import { PlanGate } from '../../../components/billing/PlanGate'
 import { getOwnerPlanId } from '../../../lib/server/plan'
 
@@ -49,6 +51,14 @@ export default async function AccountSettingsPage() {
     .eq('owner_id', user.id)
     .order('created_at', { ascending: false })
     .returns<AgentPage[]>()
+
+  // The owner's storefront (RLS grants the owner SELECT on their own row); null until
+  // they create one. Powers the StorefrontSettings editor.
+  const { data: storefront } = await supabase
+    .from('storefronts')
+    .select('handle, display_name, description, logo_url, accent_color')
+    .eq('owner_id', user.id)
+    .maybeSingle<Storefront>()
 
   const ownedPages = pages ?? []
   const publishedPages = ownedPages.filter((page) => page.is_published)
@@ -95,6 +105,7 @@ export default async function AccountSettingsPage() {
           </aside>
 
           <div className="space-y-5 min-w-0">
+            <StorefrontSettings initial={storefront ?? null} />
             <ProfileSettings
               email={user.email ?? ''}
               initialFullName={(user.user_metadata?.full_name as string) ?? ''}
