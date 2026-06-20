@@ -17,6 +17,7 @@ export function buildNexezCapabilities() {
     mcp_discovery_url: `${baseUrl}/.well-known/mcp.json`,
     search_url_template: `${baseUrl}/api/agent-search?q={query}`,
     openclaw: distribution.openclaw,
+    sdks: distribution.sdks,
     endpoints: [
       {
         name: 'Agent search',

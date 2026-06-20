@@ -54,6 +54,7 @@ export function buildMcpDiscoveryCatalog(
     capabilities_url: `${baseUrl}/.well-known/nexez.json`,
     agent_index_url: `${baseUrl}/agent-pages.json`,
     openclaw: distribution.openclaw,
+    sdks: distribution.sdks,
     page_count: mcpEnabledPages.length,
     pages: mcpEnabledPages.map((page) => buildMcpDiscoveryPage(page, baseUrl)),
   }
