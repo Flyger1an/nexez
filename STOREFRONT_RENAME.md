@@ -1,6 +1,6 @@
 # Agent Storefront / Agent Listing — labeling + multi-storefront foundation
 
-_Status: ACTIVE ARCHITECTURE NOTE. The initial human-facing rename and storefront foundation have started shipping: dashboard copy now uses "listings," storefront settings exist, `/store/<handle>` and `/store/<handle>/agent.json` exist, and the `storefronts` migration has landed. This doc is now the platform-labeling guide plus the remaining multi-storefront roadmap._
+_Status: SHIPPED THROUGH PHASE 3b (all deploy-verified on prod). The human-facing rename is platform-wide — dashboard, create/onboard/billing, the marketing site, the route (`/dashboard/listings` + 308 redirect), and the long tail (editor, settings, analytics, components, transactional emails) via a multi-agent sweep. The storefront exists end-to-end: `storefronts` table + one-per-account backfill, the public `/store/<handle>` landing + `/store/<handle>/agent.json` manifest, the Storefront-settings editor, listing→storefront backlinks, storefront-level aggregate signals, and storefront browsing in `/discovery`. **Deferred:** Phase 3c (custom-domain root → storefront). **Remaining:** Phase 4 (multi-storefront foundation). This doc is now the labeling guide + the Phase 4 roadmap; §6 has the authoritative per-phase status + commits._
 
 **Decision:** adopt Nexez-native vocabulary **Agent Storefront → Agent Listing → Offer**:
 
@@ -85,16 +85,29 @@ The model promises "your account *is* a storefront," so a storefront must **exis
 - `GET /store/<handle>` — HTML landing: brand header (name/logo/accent), description, aggregate trust/certification + preferred contact, and a **grid of the storefront's published listings** (each → its `/[slug]`). Data = `pages_public` filtered by storefront (owner_id in 1:1 mode, `storefront_id` in multi).
 - `GET /store/<handle>/agent.json` — **storefront manifest**: brand + an array of the listings' `agent.json` URLs (a per-seller mini-`agent-pages.json`). **Additive** to the contract — an agent discovers a whole seller at once. `/store/` prefix avoids collision with listing `/[slug]`.
 
-**Remaining wire-ups:** each listing `/[slug]` should get a "part of **{Storefront}**" backlink once the public projection includes the storefront reference everywhere it is needed; discovery can group by storefront; a custom-domain root can map to the storefront landing.
+**Shipped wire-ups:** each listing `/[slug]` has a "Browse the full storefront →" backlink (`a696fb0`) — resolved via a service-role `slug → owner → handle` lookup, because the launch-hardening migration stripped `owner_id` from `pages_public`, so the view can't be filtered by owner; `/discovery` surfaces storefronts in the sidebar (`471f549`); and storefront-level aggregates (offers / avg readiness / "Nexez Certified") show on the landing + manifest (`acb7cac`). **Deferred — custom-domain root → storefront (Phase 3c):** blocked by that same `owner_id` strip — the `proxy.ts` middleware can't resolve host→storefront without re-exposing `owner_id` (undoes the security fix) or a service-role read on the edge hot path, and it would change the existing custom-domain agent contract. Poor risk/reward; see §6.
 
 ---
 
 ## 6. Phasing
 
-- **Phase 1 — rename (mostly shipped):** the §3 copy sweep + §4 "Storefront" on account surfaces + limit copy. Pure UI, above the contract line.
-- **Phase 2 — landing foundation (shipped, needs polish):** `storefronts` table + `/store/<handle>` HTML + `/store/<handle>/agent.json` + Storefront-settings editor. Remaining polish: listing→storefront backlinks, discovery grouping, and custom-domain root mapping.
-- **Phase 3 — optional polish:** storefront-level discovery/trust aggregate; custom-domain root = storefront landing.
-- **Phase 4 — multi-storefront foundation (§7):** make one account able to own many storefronts.
+- **Phase 1 — rename ✅ COMPLETE** (all above the contract line, human copy only):
+  - 1.1 dashboard (nav · Listings manager · card · overview · account "Storefront") — `aa379c9`
+  - 1.2 create · onboarding · billing · publish celebration — `af1944b`
+  - 1.3a live marketing (homepage · discovery · leaderboard) — `92ba3e5`
+  - 1.3b marketing route prose (`marketing-content.ts`, 8 pages + use-cases) — `9cedfe6`
+  - 1.4 route `/dashboard/pages` → `/dashboard/listings` + 308 redirect — `9da9fa5`
+  - 1.5 long tail via a multi-agent sweep (editor · settings · analytics · ~12 components · public routes · transactional emails; ~142 renames, false-positives filtered) — `e340440`
+- **Phase 2 — storefront ✅ COMPLETE:**
+  - 2.1 `storefronts` table + RLS + backfill + `normalizeHandle` — `b0577e6`
+  - 2.2 public `/store/<handle>` landing + storefront `agent.json` + host routing — `9b2c852` (+ fix `9a5af09`: read listings from base `pages`, since `pages_public` dropped `owner_id`)
+  - 2.3 Storefront-settings editor (`/api/storefront` + UI) — `5b9f7b0`
+  - 2.4 listing → storefront backlink — `a696fb0`
+- **Phase 3 — polish:**
+  - 3a storefront-level aggregate (offers / avg readiness / Certified, landing + manifest) — ✅ `acb7cac`
+  - 3b browse storefronts in `/discovery` — ✅ `471f549`
+  - 3c custom-domain root = storefront — ⏸ **DEFERRED.** Blocked by the launch-hardening `owner_id` strip from `pages_public`: the `proxy.ts` middleware can't resolve host→storefront without re-exposing `owner_id` (a security regression) or a service-role read on the edge hot path, and it changes the existing custom-domain agent contract for live domains. Niche reward (~few custom domains); revisit only with a dedicated host→storefront mapping mechanism.
+- **Phase 4 — multi-storefront foundation (§7):** the only remaining item — make one account able to own many storefronts. Optional; a real schema + money-path effort.
 
 ---
 
@@ -158,8 +171,9 @@ Keep `pages.owner_id` denormalized (= `storefronts.owner_id`) so existing `owner
 
 1. **Marketing tone:** use **agent listing** as the primary product noun. Keep "agent page" only for legacy/contract/API explanation.
 2. **Storefront tone:** say **agent storefront** in strategic copy when needed; say **storefront** in dashboard labels where brevity matters.
-3. **`1 account = 1 storefront` for v1** (Phase 1–3), with the Phase 4 foundation shaped for many — confirm.
-4. **Billing/payout scope** for Phase 4 — account-pooled with nullable per-storefront seams (recommended), confirm.
+3. **`1 account = 1 storefront` for v1** (Phases 1–3) — ✅ CONFIRMED. Enforced by `storefronts.owner_id UNIQUE`; Phase 4 drops that constraint.
+4. **Billing/payout scope** for Phase 4 — ✅ CONFIRMED: account-pooled, with nullable per-storefront `stripe_connect_account_id`/`plan_id` seams + `storefront ?? account` resolver fallback (re-key only when a storefront opts into its own payout/plan).
+5. **Route rename** `/dashboard/pages` → `/dashboard/listings` (+308 redirect) — ✅ DONE (1.4, `9da9fa5`).
 
 ---
 
