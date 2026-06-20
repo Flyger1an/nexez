@@ -64,3 +64,35 @@ export async function loadStorefrontHandleForSlug(slug: string): Promise<string 
     .maybeSingle<{ handle: string }>()
   return sf?.handle ?? null
 }
+
+export type StorefrontSummary = Pick<Storefront, 'handle' | 'display_name' | 'logo_url'> & { listing_count: number }
+
+/**
+ * Public storefronts (those with ≥1 published listing) + their listing counts, for the
+ * discovery directory. Service-role (storefronts has no anon grant). Two small reads
+ * (all storefronts; published-listing owner_ids) joined + counted in memory — fine for a
+ * cached directory; returns [] in dev. Sorted by listing count, capped.
+ */
+export async function loadPublicStorefronts(limit = 60): Promise<StorefrontSummary[]> {
+  if (!hasSupabaseAdminEnv()) return []
+  const admin = createAdminClient()
+  const { data: storefronts } = await admin
+    .from('storefronts')
+    .select('owner_id, handle, display_name, logo_url')
+    .returns<Array<Pick<Storefront, 'owner_id' | 'handle' | 'display_name' | 'logo_url'>>>()
+  if (!storefronts?.length) return []
+  const { data: pubPages } = await admin
+    .from('pages')
+    .select('owner_id')
+    .eq('is_published', true)
+    .returns<Array<{ owner_id: string | null }>>()
+  const counts = new Map<string, number>()
+  for (const p of pubPages ?? []) {
+    if (p.owner_id) counts.set(p.owner_id, (counts.get(p.owner_id) ?? 0) + 1)
+  }
+  return storefronts
+    .map((s) => ({ handle: s.handle, display_name: s.display_name, logo_url: s.logo_url, listing_count: counts.get(s.owner_id) ?? 0 }))
+    .filter((s) => s.listing_count > 0)
+    .sort((a, b) => b.listing_count - a.listing_count)
+    .slice(0, limit)
+}

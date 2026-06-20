@@ -6,6 +6,7 @@ import { classifyMarketplaceCategory } from '../../lib/marketplace'
 import { cleanLocationQuery, filterPagesByLocation } from '../../lib/location-filter'
 import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
 import { supabase } from '../../lib/supabase'
+import { loadPublicStorefronts } from '../../lib/server/storefront'
 import { CopyButton } from './CopyButton'
 import { LocationFilter } from './LocationFilter'
 import { FavoriteButton } from '../../components/FavoriteButton'
@@ -54,6 +55,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
     .returns<AgentPage[]>()
 
   const visiblePages = publicLaunchVisiblePages(pages)
+  const storefronts = await loadPublicStorefronts(8)
   let filteredPages = visiblePages
   if (categoryFilter !== 'all') {
     filteredPages = filteredPages.filter(p => {
@@ -171,6 +173,24 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
               <Stat label="Offers" value={String(offerCount)} />
             </div>
           </div>
+
+          {storefronts.length > 0 ? (
+            <div className="card !p-5">
+              <p className="text-sm font-semibold text-[#9CA3AF]">Storefronts</p>
+              <div className="mt-3 grid gap-1">
+                {storefronts.map((s) => (
+                  <a
+                    key={s.handle}
+                    href={agentRuntimeUrl(`/store/${s.handle}`)}
+                    className="flex items-center justify-between rounded-lg px-2 py-1.5 text-sm text-[#9CA3AF] transition hover:bg-white/5 hover:text-white"
+                  >
+                    <span className="min-w-0 truncate">{s.display_name || s.handle}</span>
+                    <span className="ml-2 shrink-0 text-xs text-[#9CA3AF]">{s.listing_count}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div className="card !p-5">
             <p className="text-sm font-semibold text-[#9CA3AF]">Offer type</p>
