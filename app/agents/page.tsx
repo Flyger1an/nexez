@@ -74,6 +74,7 @@ const exampleCards = [
   {
     title: 'Buyer approval',
     path: 'examples/agents/python/buyer_approval.py',
+    href: '/developers/buyer-approval',
     copy: 'Build a consent card with seller, offer, terms, risk notes, dry-run result, and explicit approval copy.',
   },
   {
@@ -470,7 +471,7 @@ export default function AgentAccessPage() {
               {exampleCards.map((example) => (
                 <a
                   key={example.path}
-                  href={`${NEXEZ_AGENT_EXAMPLES.sourceUrl}/${example.path.replace('examples/agents/', '')}`}
+                  href={example.href ?? `${NEXEZ_AGENT_EXAMPLES.sourceUrl}/${example.path.replace('examples/agents/', '')}`}
                   className="rounded-lg border border-border bg-white/[0.03] p-4 transition hover:border-[var(--signal)]/40 hover:bg-white/[0.055]"
                 >
                   <p className="text-sm font-medium">{example.title}</p>

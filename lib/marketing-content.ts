@@ -407,13 +407,14 @@ export const marketingPages: Record<string, MarketingPageContent> = {
         cards: [
           { title: 'Checkout links', copy: 'Offer-specific checkout paths make the selected action explicit.' },
           { title: 'Dry-run validation', copy: 'Agents can verify a checkout path before starting a real purchase flow.' },
-          { title: 'Programmatic API', copy: 'Authenticated endpoints support deeper platform workflows for account owners.' },
+          { title: 'Buyer approval UX', copy: 'Render clear consent before checkout, booking, contact sharing, or negotiation submission.' },
         ],
       },
     ],
     faq: [
       { title: 'Are public APIs authenticated?', copy: 'Public discovery APIs are open by design. Account and management APIs require authentication.' },
       { title: 'Can I build an agent on top of Nexez?', copy: 'Yes. Nexez is designed to be a clean offer source for agents, search tools, and buying assistants.' },
+      { title: 'How should agents ask for approval?', copy: 'Use the buyer approval pattern to show seller, offer, price, terms, risk notes, and the exact next action before side effects.' },
       { title: 'Where should crawlers start?', copy: 'Start with https://nexez.app/llms.txt, /agent-pages.json, and /openapi.json.' },
     ],
     finalCtaTitle: 'Stop scraping. Start with structured intent.',

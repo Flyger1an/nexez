@@ -223,6 +223,7 @@ function MarketingFooter({ authed }: { authed: boolean | null }) {
             ['Agent access', '/agents'],
             ['Integrations', '/integrations'],
             ['Developers', '/developers'],
+            ['Buyer approval UX', '/developers/buyer-approval'],
             ['Security', '/security'],
             ['Compare', '/compare'],
             ['Enterprise', '/enterprise'],

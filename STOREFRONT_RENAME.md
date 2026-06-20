@@ -1,8 +1,14 @@
-# Storefront / Listing — rename + multi-storefront foundation (plan)
+# Agent Storefront / Agent Listing — labeling + multi-storefront foundation
 
-_Status: PLAN (nothing shipped yet). Author: gauntlet/architecture session. Supersedes the ad-hoc "rename pages → storefront" idea._
+_Status: ACTIVE ARCHITECTURE NOTE. The initial human-facing rename and storefront foundation have started shipping: dashboard copy now uses "listings," storefront settings exist, `/store/<handle>` and `/store/<handle>/agent.json` exist, and the `storefronts` migration has landed. This doc is now the platform-labeling guide plus the remaining multi-storefront roadmap._
 
-**Decision:** adopt the marketplace vocabulary **Storefront → Listing → Offer**, where today's account is the storefront and today's `pages` row is a listing. Implement as a UI/brand layer first (no schema change), then add a public storefront landing, then — if/when wanted — a foundation that lets one account own **multiple** storefronts.
+**Decision:** adopt Nexez-native vocabulary **Agent Storefront → Agent Listing → Offer**:
+
+- **Agent Storefront**: the seller/account-level AI-readable commerce identity.
+- **Agent Listing**: the individual crawlable offer page formerly called an agent page in the human UI.
+- **Offer**: a product, service, package, booking, retainer, or negotiation target inside a listing.
+
+This is not meant to position Nexez as a generic website/storefront builder. A Nexez storefront is the structured identity layer that groups AI-ready listings for agents and buyer workflows. The main website can stay human-first; Nexez remains the clean buying surface for agents.
 
 The whole rename stays **above the agent-contract line**: external agents consume `page`-named artifacts as a public API; those identifiers never change.
 
@@ -10,11 +16,11 @@ The whole rename stays **above the agent-contract line**: external agents consum
 
 ## 1. The model
 
-| Tier | = today | Public/human noun | Schema change for the rename? |
+| Tier | = today | Public/human noun | Platform meaning |
 |---|---|---|---|
-| **Storefront** | the account (`auth.users` / `owner_id`) | new account-level brand | none for the rename; one table for the landing (§5) and for multi (§7) |
-| **Listing** | a published `pages` row | replaces "page" everywhere a human sees it | none |
-| **Offer** | a service/product on a listing | unchanged | none |
+| **Agent Storefront** | the account-level seller identity (`storefronts.owner_id`) | storefront | seller/brand hub that groups agent listings |
+| **Agent Listing** | a published `pages` row | listing | crawlable AI-ready buying page |
+| **Offer** | a service/product on a listing | offer | actionable thing an agent can compare, book, buy, or negotiate |
 
 Default is `1 account = 1 storefront`. Multi-storefront is a **foundation** (§7) that makes "many" a data operation, not a re-architecture.
 
@@ -30,11 +36,11 @@ These are a public API external AI agents fetch + parse. Renaming = a breaking c
 - `/api/v1/pages` + `/api/v1/pages/[id]`; `/openapi.json`; `/.well-known/nexez.json` (`lib/agent-capabilities.ts`)
 - Limit internals (DB identifiers only — the *copy* changes): `trg_enforce_published_page_limit`, `published_page_grandfather`, `plan_published_page_limit()`
 
-Rule of thumb: **humans never see `pages_public`; agents never see "Listings."** Keep the two vocabularies on their own sides.
+Rule of thumb: **humans see storefronts and listings; individual agent contracts keep `page` naming.** Agents may see a storefront-level `listings` array in `/store/<handle>/agent.json`, but per-listing artifacts stay `nexez.agent-page.v1`.
 
 ---
 
-## 3. Rename surface: `page` → `listing` (human copy only, ~85 strings)
+## 3. Rename surface: `page` → `listing` (human copy only)
 
 ### App (~27 spots, ~9 files)
 - **Nav / shell** — `components/PlatformShell.tsx`: "Pages" → **Listings**; "Create Page" → **New Listing**; "All pages / Published / Drafts" submenu; "Search pages…" → "Search listings…"; "No matching pages."
@@ -47,30 +53,30 @@ Rule of thumb: **humans never see `pages_public`; agents never see "Listings."**
 - **Billing** — `app/dashboard/billing/page.tsx` + `components/billing/BillingDashboardClient.tsx`: "Published Pages" usage label, "Agents buy through your pages".
 - **Empty/celebrate** — `components/editor/PublishCelebration.tsx` ("🎉 Your page is live" → "Your listing is live"); `components/ReadinessChecklist.tsx` publish copy.
 
-### Marketing (~60 spots, mostly `lib/marketing-content.ts`)
+### Marketing
 - `app/page.tsx`: "Pages agents can discover now", "No published pages yet".
 - `app/discovery/page.tsx`: "Pages" directory stat, "search published Nexez agent pages", "Public page" button, "View all high readiness pages".
 - `app/leaderboard/page.tsx`: "No published pages yet".
-- `lib/marketing-content.ts` — the product-noun "agent page" throughout: how-it-works, examples ("Can I create multiple pages?"), security, integrations, agent-readiness, developers, compare, enterprise.
-- **Judgment:** replace the **product noun** "page" → "listing". Keep generic "page" where it literally means a web document (the survey flagged the ambiguous ones). Optionally keep "agent page" as a marketing *hero* term — see §8 decision 2.
+- `lib/marketing-content.ts` — the product noun should mostly be **agent listing**. Keep generic "page" only when it literally means a web document or when explaining the historical agent-page contract.
+- **Positioning rule:** "Agent listing" is the product/dashboard noun. "Agent page" can appear only as explanatory bridge copy, API/contract copy, or legacy SEO phrasing. Do not let "storefront" make the platform sound like a generic e-commerce storefront builder.
 
 ### Route decision
 `/dashboard/pages` → recommend **rename to `/dashboard/listings` + a redirect** from the old path (it's a bookmark, not a contract surface). Alternative: labels-only, keep the URL. (§8 decision 1.)
 
 ---
 
-## 4. "Storefront" — the new account-level noun
+## 4. "Agent storefront" — the account-level noun
 
-- **Account settings** `app/dashboard/settings/page.tsx`: "Your agent surface." → **"Your storefront."**; this page becomes **Storefront settings** (handle, brand, description, discovery endpoints).
+- **Account settings** `app/dashboard/settings/page.tsx`: **"Your storefront."**; this page is Storefront settings (handle, brand, description, discovery endpoints).
 - **Dashboard welcome** header + **billing identity** ("Your storefront's plan").
 - **Plan-limit copy**: "Published page limit reached for your plan" → **"Your storefront can publish N listings on the {plan} plan."**
 - The public **storefront landing** (§5).
 
 ---
 
-## 5. Storefront landing page — spec (the first net-new build)
+## 5. Storefront landing page — shipped foundation
 
-The model promises "your account *is* a storefront," so a storefront must **exist as a place**. Today nothing aggregates a seller's listings (confirmed: discovery + leaderboard are global/flat, no per-owner view, no `/store|/seller` route).
+The model promises "your account *is* a storefront," so a storefront must **exist as a place**. The first version now exists as `/store/<handle>` plus `/store/<handle>/agent.json`.
 
 **Prerequisite — a `storefronts` table** (1 row per account in 1:1 mode; see §7 for many):
 `id, owner_id (unique in 1:1 mode), handle (public slug, unique), display_name, description, logo_url, accent_color, created_at, updated_at`. RLS: owner-scoped writes; public read of storefronts that have ≥1 published listing.
@@ -79,14 +85,14 @@ The model promises "your account *is* a storefront," so a storefront must **exis
 - `GET /store/<handle>` — HTML landing: brand header (name/logo/accent), description, aggregate trust/certification + preferred contact, and a **grid of the storefront's published listings** (each → its `/[slug]`). Data = `pages_public` filtered by storefront (owner_id in 1:1 mode, `storefront_id` in multi).
 - `GET /store/<handle>/agent.json` — **storefront manifest**: brand + an array of the listings' `agent.json` URLs (a per-seller mini-`agent-pages.json`). **Additive** to the contract — an agent discovers a whole seller at once. `/store/` prefix avoids collision with listing `/[slug]`.
 
-**Wire-ups:** each listing `/[slug]` gets a "part of **{Storefront}**" backlink; discovery can later group by storefront; a custom-domain root can map to the storefront landing.
+**Remaining wire-ups:** each listing `/[slug]` should get a "part of **{Storefront}**" backlink once the public projection includes the storefront reference everywhere it is needed; discovery can group by storefront; a custom-domain root can map to the storefront landing.
 
 ---
 
 ## 6. Phasing
 
-- **Phase 1 — rename (cheap, reversible, no schema):** the §3 copy sweep + §4 "Storefront" on account surfaces + limit copy. ~9 app files + `lib/marketing-content.ts`. Pure UI, above the contract line. Most of the perceived value.
-- **Phase 2 — the landing:** `storefronts` table + `/store/<handle>` HTML + `/store/<handle>/agent.json` + Storefront-settings editor + listing→storefront backlinks.
+- **Phase 1 — rename (mostly shipped):** the §3 copy sweep + §4 "Storefront" on account surfaces + limit copy. Pure UI, above the contract line.
+- **Phase 2 — landing foundation (shipped, needs polish):** `storefronts` table + `/store/<handle>` HTML + `/store/<handle>/agent.json` + Storefront-settings editor. Remaining polish: listing→storefront backlinks, discovery grouping, and custom-domain root mapping.
 - **Phase 3 — optional polish:** storefront-level discovery/trust aggregate; custom-domain root = storefront landing.
 - **Phase 4 — multi-storefront foundation (§7):** make one account able to own many storefronts.
 
@@ -134,7 +140,7 @@ Keep `pages.owner_id` denormalized (= `storefronts.owner_id`) so existing `owner
 - **Stay account-keyed (behind the seam):** `billing_subscriptions`, the publish-limit trigger (pooled), Connect/commission resolution — unchanged until a storefront opts into its own plan/payout.
 - **Money-path threading (the one forward-looking plumbing worth doing now):** pass `storefront_id` from page → checkout/pay/webhook and resolve `connect = storefront.connect ?? account.connect`, `commission = storefront.plan ?? account.plan`. That single indirection is the difference between "easy later" and "re-migrate later."
 
-### Agent contract (additive — never rename `page`)
+### Agent contract (additive — never rename individual `page` artifacts)
 - `/store/<handle>` + `/store/<handle>/agent.json` per storefront.
 - `agent-pages.json` gains an optional `storefront_handle` per entry so the global catalog can group by seller.
 - Each listing's `agent.json` can include a `storefront` ref. All additive.
@@ -148,10 +154,10 @@ Keep `pages.owner_id` denormalized (= `storefronts.owner_id`) so existing `owner
 
 ---
 
-## 8. Decisions to lock before Phase 1
+## 8. Labeling decisions now locked
 
-1. **`/dashboard/pages` route** — rename to `/dashboard/listings` (+redirect), or labels-only?
-2. **Marketing tone** — go all-in "listing", or keep "agent page" as the marketing hero term and use "listing" only in product/dashboard?
+1. **Marketing tone:** use **agent listing** as the primary product noun. Keep "agent page" only for legacy/contract/API explanation.
+2. **Storefront tone:** say **agent storefront** in strategic copy when needed; say **storefront** in dashboard labels where brevity matters.
 3. **`1 account = 1 storefront` for v1** (Phase 1–3), with the Phase 4 foundation shaped for many — confirm.
 4. **Billing/payout scope** for Phase 4 — account-pooled with nullable per-storefront seams (recommended), confirm.
 
