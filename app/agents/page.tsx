@@ -77,6 +77,11 @@ const exampleCards = [
     copy: 'Search by buyer intent, fetch the page manifest, then dry-run checkout or negotiation before any action.',
   },
   {
+    title: 'Location shortlist',
+    path: 'examples/agents/python/location_shortlist.py',
+    copy: 'Rank nearby or remote matches, compare actionability, validate the top offer, and stop for buyer approval.',
+  },
+  {
     title: 'Submit negotiation',
     path: 'examples/agents/python/submit_negotiation.py',
     copy: 'Prepare terms, validate rules, stop for buyer approval, submit, then poll the returned status URL.',

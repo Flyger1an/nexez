@@ -43,6 +43,7 @@ python -m pip install nexez-agent-sdk
 - Python SDK: https://pypi.org/project/nexez-agent-sdk/
 - Source repository: https://github.com/Flyger1an/nexez
 - Agent examples: https://github.com/Flyger1an/nexez/tree/main/examples/agents
+- Location-aware shortlist examples: `examples/agents/typescript/location-shortlist.ts` and `examples/agents/python/location_shortlist.py`
 
 ## Agent Workflow
 
@@ -74,6 +75,10 @@ Search Nexez for a negotiable B2B service, dry-run the proposal, and ask me befo
 
 ```text
 Find AI-ready services near Chicago, compare top matches, and explain which public page is easiest for an agent to act on.
+```
+
+```text
+Find three nearby providers for a buyer in Austin, validate the top offer as a dry run, and stop before submitting anything real.
 ```
 
 ## Smoke Command
