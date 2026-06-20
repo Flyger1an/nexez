@@ -1,60 +1,36 @@
-import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createClient } from '../../../../utils/supabase/server'
+import { NextResponse, type NextRequest } from 'next/server'
+import { authenticateNexieRequest } from '../../../../lib/agents/nexie-auth'
+import { exportUserAccount } from '../../../../lib/server/export-account'
+import { enforceRateLimit } from '../../../../lib/rate-limit'
+
+export const maxDuration = 30
 
 /**
- * Data export (GDPR/CCPA hygiene): returns everything we hold for the
- * authenticated user as a JSON download. Uses the session (RLS-scoped) client,
- * so only the caller's own rows are returned. Secrets (API key hashes, webhook
- * secrets) are intentionally excluded.
+ * GET /api/account/export — download the authenticated user's personal data as JSON (GDPR/CCPA).
+ * Targets the session user only (cookie on web, bearer token in the Nxxi app — never the body),
+ * so a session can only export itself. Returns an attachment so a browser saves a file; the Nxxi
+ * app fetches the JSON and shares it. Covers agent/buyer data + owned seller data; secrets
+ * (api_key hashes, page_secrets) are excluded.
  */
-export async function GET() {
-  const cookieStore = await cookies()
-  const supabase = createClient(cookieStore)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+export async function GET(request: NextRequest) {
+  const limited = await enforceRateLimit(request, 'account:export', 6, 60_000)
+  if (limited) return limited
 
-  // RLS limits each of these to the caller's own rows.
-  const safe = async <T>(p: PromiseLike<{ data: T | null }>): Promise<T | []> => {
-    try {
-      const { data } = await p
-      return (data ?? []) as T
-    } catch {
-      return []
-    }
+  const auth = await authenticateNexieRequest(request)
+  if (!auth.ok) return auth.response
+
+  const exportedAt = new Date().toISOString()
+  const result = await exportUserAccount(auth.user.id, auth.user.email ?? null, exportedAt)
+  if (!result) {
+    return NextResponse.json({ error: 'Data export is not available on this deployment.' }, { status: 503 })
   }
 
-  const [pages, events, visits, negotiations, apiKeys] = await Promise.all([
-    safe(supabase.from('pages').select('*').eq('owner_id', user.id)),
-    safe(supabase.from('checkout_events').select('*').eq('owner_id', user.id).limit(5000)),
-    safe(supabase.from('agent_visits').select('*').eq('owner_id', user.id).limit(5000)),
-    safe(supabase.from('agent_negotiations').select('*').eq('owner_id', user.id)),
-    // Never export key_hash.
-    safe(supabase.from('api_keys').select('id, name, prefix, last_used_at, revoked_at, created_at').eq('owner_id', user.id)),
-  ])
-
-  const payload = {
-    exported_at: new Date().toISOString(),
-    account: {
-      id: user.id,
-      email: user.email,
-      created_at: user.created_at,
-      profile: user.user_metadata ?? {},
-    },
-    pages,
-    checkout_events: events,
-    agent_visits: visits,
-    negotiations,
-    api_keys: apiKeys,
-  }
-
-  return new NextResponse(JSON.stringify(payload, null, 2), {
+  return new NextResponse(JSON.stringify(result, null, 2), {
+    status: 200,
     headers: {
-      'Content-Type': 'application/json',
-      'Content-Disposition': `attachment; filename="nexez-export-${user.id}.json"`,
-      'Cache-Control': 'no-store',
+      'content-type': 'application/json; charset=utf-8',
+      'content-disposition': 'attachment; filename="nexez-data-export.json"',
+      'cache-control': 'no-store',
     },
   })
 }
