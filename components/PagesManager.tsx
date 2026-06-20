@@ -114,7 +114,7 @@ export function PagesManager({
   }
 
   async function deletePage(id: string) {
-    if (!confirm('Delete this agent page?')) return
+    if (!confirm('Delete this listing?')) return
     const supabase = createClient()
     await supabase.from('pages').delete().eq('id', id)
     reload()
@@ -136,7 +136,7 @@ export function PagesManager({
       .from('pages')
       .insert(buildDuplicatePayload(page, user.id, pages.map((p) => p.slug)))
     if (error) {
-      alert(`Could not duplicate this page: ${error.message}`)
+      alert(`Could not duplicate this listing: ${error.message}`)
       return
     }
     reload()
@@ -165,7 +165,7 @@ export function PagesManager({
       })
     if (payloads.length) {
       const { error } = await supabase.from('pages').insert(payloads)
-      if (error) alert(`Could not duplicate selected pages: ${error.message}`)
+      if (error) alert(`Could not duplicate selected listings: ${error.message}`)
     }
     setBusy(false)
     reload()
@@ -203,7 +203,7 @@ export function PagesManager({
 
   async function bulkDelete() {
     if (!selectedIds.size) return
-    if (!confirm(`Delete ${selectedIds.size} selected page(s)? This cannot be undone.`)) return
+    if (!confirm(`Delete ${selectedIds.size} selected listing(s)? This cannot be undone.`)) return
     setBusy(true)
     const supabase = createClient()
     await Promise.all([...selectedIds].map((id) => supabase.from('pages').delete().eq('id', id)))
@@ -229,14 +229,14 @@ export function PagesManager({
         <div className="flex flex-col gap-4 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm text-[var(--signal)]">Manage</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">Pages</h1>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">Listings</h1>
             <p className="mt-2 text-sm text-zinc-400">
-              Create, publish, duplicate, and organize every agent page from one place.
+              Create, publish, duplicate, and organize every listing from one place.
             </p>
           </div>
           <a href="/create" className="btn-primary h-10 self-start px-4 sm:self-auto">
             <Plus className="size-4" />
-            New page
+            New listing
           </a>
         </div>
 
@@ -280,8 +280,8 @@ export function PagesManager({
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search pages by name or slug…"
-              aria-label="Search pages"
+              placeholder="Search listings by name or slug…"
+              aria-label="Search listings"
               className="h-10 w-full rounded-lg border border-white/10 bg-white/[0.03] pl-9 pr-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[var(--signal)]/50"
             />
           </div>
@@ -290,7 +290,7 @@ export function PagesManager({
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortBy)}
-              aria-label="Sort pages"
+              aria-label="Sort listings"
               className="h-10 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-sm text-white outline-none focus:border-[var(--signal)]/50"
             >
               <option value="newest">Newest first</option>
@@ -346,7 +346,7 @@ export function PagesManager({
           <div className="mt-5 flex items-center justify-between">
             <span className="text-xs text-muted-foreground">
               {filtered.length <= PER_PAGE
-                ? `${filtered.length} page${filtered.length === 1 ? '' : 's'}`
+                ? `${filtered.length} listing${filtered.length === 1 ? '' : 's'}`
                 : `Showing ${pageStart + 1}–${Math.min(pageStart + PER_PAGE, filtered.length)} of ${filtered.length}`}
             </span>
             <button onClick={selectAllVisible} className="text-xs text-zinc-400 hover:text-white">
@@ -397,12 +397,12 @@ export function PagesManager({
           <div className="mt-6 rounded-lg border border-dashed border-white/15 p-12 text-center">
             <p className="text-zinc-400">
               {query.trim()
-                ? `No pages match “${query.trim()}”.`
+                ? `No listings match “${query.trim()}”.`
                 : status === 'published'
-                  ? 'No published pages yet — publish a draft to make it discoverable by agents.'
+                  ? 'No published listings yet — publish a draft to make it discoverable by agents.'
                   : status === 'draft'
-                    ? 'No drafts. Pages you create or duplicate land here until you publish them.'
-                    : 'No pages yet — create your first agent page to get started.'}
+                    ? 'No drafts. Listings you create or duplicate land here until you publish them.'
+                    : 'No listings yet — create your first listing to get started.'}
             </p>
             {query.trim() ? (
               <button onClick={() => setQuery('')} className="btn-secondary mt-4 inline-flex h-10 px-4">
@@ -410,7 +410,7 @@ export function PagesManager({
               </button>
             ) : (
               <a href="/create" className="btn-secondary mt-4 inline-flex h-10 px-4">
-                <Plus className="size-4" /> Create a page
+                <Plus className="size-4" /> Create a listing
               </a>
             )}
           </div>

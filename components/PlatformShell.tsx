@@ -38,16 +38,16 @@ const navItems = [
   { href: '/dashboard', label: 'Overview', icon: Grid2X2, mobile: true },
   {
     href: '/dashboard/pages',
-    label: 'Pages',
+    label: 'Listings',
     icon: FileText,
     mobile: true,
     subItems: [
-      { href: '/dashboard/pages', label: 'All pages' },
+      { href: '/dashboard/pages', label: 'All listings' },
       { href: '/dashboard/pages?status=published', label: 'Published' },
       { href: '/dashboard/pages?status=draft', label: 'Drafts' },
     ],
   },
-  { href: '/create', label: 'Create Page', icon: Plus, mobile: true },
+  { href: '/create', label: 'New Listing', icon: Plus, mobile: true },
   { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3, mobile: true },
   { href: '/simulator', label: 'Agent Lab', icon: Bot, mobile: true },
   { href: '/discovery', label: 'Discovery', icon: Compass, match: ['/discovery', '/leaderboard'] },
@@ -271,7 +271,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
                 <ThemeToggle />
                 <a href="/create" className="inline-flex h-9 items-center gap-2 rounded-md bg-white px-3 text-sm font-medium text-black hover:bg-zinc-200">
                   <Plus className="size-4" />
-                  New Page
+                  New Listing
                 </a>
                 {authed ? (
                   <form action="/auth/signout" method="post">
@@ -437,7 +437,7 @@ function QuickPageSearch() {
   return (
     <form onSubmit={handleSubmit} className="relative w-full max-w-2xl">
       <label htmlFor="platform-page-search" className="mb-1 block text-xs font-medium text-muted-foreground">
-        Search pages
+        Search listings
       </label>
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
@@ -457,7 +457,7 @@ function QuickPageSearch() {
               setFocused(false)
             }
           }}
-          placeholder="Find a page by name or slug..."
+          placeholder="Find a listing by name or slug..."
           className="h-10 w-full rounded-md border border-border bg-black/30 pl-9 pr-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-zinc-500"
           aria-describedby="platform-page-search-hint"
         />
@@ -503,7 +503,7 @@ function QuickPageSearch() {
               </div>
             ))
           ) : (
-            <div className="px-3 py-3 text-sm text-muted-foreground">No matching pages.</div>
+            <div className="px-3 py-3 text-sm text-muted-foreground">No matching listings.</div>
           )}
         </div>
       ) : null}

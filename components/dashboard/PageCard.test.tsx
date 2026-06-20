@@ -35,10 +35,10 @@ describe('PageCard', () => {
   it('exposes a bulk-select checkbox only when onSelectToggle is provided', () => {
     const onSelectToggle = vi.fn()
     const { rerender } = render(<PageCard page={page} eventCount={0} {...handlers()} />)
-    expect(screen.queryByRole('checkbox', { name: /select page/i })).toBeNull()
+    expect(screen.queryByRole('checkbox', { name: /select listing/i })).toBeNull()
 
     rerender(<PageCard page={page} eventCount={0} {...handlers()} onSelectToggle={onSelectToggle} selected={false} />)
-    fireEvent.click(screen.getByRole('checkbox', { name: /select page/i }))
+    fireEvent.click(screen.getByRole('checkbox', { name: /select listing/i }))
     expect(onSelectToggle).toHaveBeenCalledTimes(1)
   })
 })

@@ -38,7 +38,7 @@ export function PageCard({
               checked={!!selected}
               onChange={onSelectToggle}
               className="size-4 accent-[var(--signal)]"
-              aria-label="Select page for bulk actions"
+              aria-label="Select listing for bulk actions"
             />
           )}
           <div className="flex size-10 items-center justify-center rounded-2xl bg-white/5">
@@ -76,28 +76,28 @@ export function PageCard({
         </div>
 
         <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-8">
-          <a href={`/dashboard/${page.id}`} className={pageActionClass} aria-label="Edit page" title="Edit page">
+          <a href={`/dashboard/${page.id}`} className={pageActionClass} aria-label="Edit listing" title="Edit listing">
             <Pencil className="size-4" />
           </a>
-          <a href={`/dashboard/${page.id}/settings`} className={pageActionClass} aria-label="Page settings" title="Page settings">
+          <a href={`/dashboard/${page.id}/settings`} className={pageActionClass} aria-label="Listing settings" title="Listing settings">
             <Settings className="size-4" />
           </a>
-          <a href={`/dashboard/${page.id}/test`} className={pageActionClass} aria-label="Test page with AI agents" title="Test page with AI agents">
+          <a href={`/dashboard/${page.id}/test`} className={pageActionClass} aria-label="Test listing with AI agents" title="Test listing with AI agents">
             <Play className="size-4" />
           </a>
-          <a href={`/dashboard/analytics?page=${encodeURIComponent(page.id)}`} className={pageActionClass} aria-label="View page analytics" title="View page analytics">
+          <a href={`/dashboard/analytics?page=${encodeURIComponent(page.id)}`} className={pageActionClass} aria-label="View listing analytics" title="View listing analytics">
             <BarChart3 className="size-4" />
           </a>
-          <a href={agentRuntimeUrl(`/${page.slug}`)} className={pageActionClass} aria-label="Preview page" title="Preview live page">
+          <a href={agentRuntimeUrl(`/${page.slug}`)} className={pageActionClass} aria-label="Preview listing" title="Preview live listing">
             <ExternalLink className="size-4" />
           </a>
-          <button onClick={onCopy} className={pageActionClass} aria-label="Copy page URL" title="Copy page URL">
+          <button onClick={onCopy} className={pageActionClass} aria-label="Copy listing URL" title="Copy listing URL">
             <Copy className="size-4" />
           </button>
-          <button onClick={onDuplicate} className={pageActionClass} aria-label="Duplicate page" title="Duplicate as draft">
+          <button onClick={onDuplicate} className={pageActionClass} aria-label="Duplicate listing" title="Duplicate as draft">
             <CopyPlus className="size-4" />
           </button>
-          <button onClick={onDelete} className={`${pageActionClass} text-red-300`} aria-label="Delete page" title="Delete page">
+          <button onClick={onDelete} className={`${pageActionClass} text-red-300`} aria-label="Delete listing" title="Delete listing">
             <Trash2 className="size-4" />
           </button>
         </div>

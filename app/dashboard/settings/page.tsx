@@ -81,14 +81,14 @@ export default async function AccountSettingsPage() {
                 <ShieldCheck className="size-4" />
                 Advanced Config
               </p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight">Your agent surface.</h1>
+              <h1 className="mt-3 text-4xl font-semibold tracking-tight">Your storefront.</h1>
               <p className="mt-4 text-sm leading-6 text-[var(--fg-muted)]">
                 Separate human site. Structured agent layer.
               </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-              <Stat label="Published pages" value={String(publishedPages.length)} />
+              <Stat label="Published listings" value={String(publishedPages.length)} />
               <Stat label="Listed offers" value={String(offerCount)} />
               <Stat label="Avg readiness" value={`${averageReadiness}%`} />
             </div>
@@ -105,7 +105,7 @@ export default async function AccountSettingsPage() {
               feature="teamCollaboration"
               currentPlan={currentPlan}
               title="Team collaboration"
-              description="Invite editors and reviewers and run approval workflows on your pages — available on the Scale plan and up."
+              description="Invite editors and reviewers and run approval workflows on your listings — available on the Scale plan and up."
             >
               <TeamInvites />
             </PlanGate>
@@ -178,7 +178,7 @@ export default async function AccountSettingsPage() {
                 <table className="w-full min-w-[720px] text-left text-sm">
                   <thead className="text-[var(--fg-muted-2)]">
                     <tr>
-                      <th className="py-3 font-medium">Page</th>
+                      <th className="py-3 font-medium">Listing</th>
                       <th className="py-3 font-medium">Public</th>
                       <th className="py-3 font-medium">Offers</th>
                       <th className="py-3 font-medium">Readiness</th>
@@ -206,7 +206,7 @@ export default async function AccountSettingsPage() {
                 </table>
                 {!ownedPages.length ? (
                   <div className="rounded-lg border border-dashed border-[var(--bd-10)] p-8 text-center text-sm text-[var(--fg-muted-2)]">
-                    Create a page first.
+                    Create a listing first.
                   </div>
                 ) : null}
               </div>

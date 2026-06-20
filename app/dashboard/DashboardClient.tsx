@@ -210,7 +210,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
   }
 
   async function deletePage(id: string) {
-    if (!confirm('Delete this agent page?')) return
+    if (!confirm('Delete this listing?')) return
 
     const supabase = createClient()
     await supabase.from('pages').delete().eq('id', id)
@@ -230,7 +230,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
       .insert(buildDuplicatePayload(page, user.id, pages.map((p) => p.slug)))
 
     if (error) {
-      alert(`Could not duplicate this page: ${error.message}`)
+      alert(`Could not duplicate this listing: ${error.message}`)
       return
     }
     loadPages()
@@ -280,7 +280,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
           <p className="text-sm text-muted-foreground">Nexez dashboard</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] md:text-4xl">Overview</h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            Loading your pages and agent signals. If this does not finish, sign in again to refresh your session.
+            Loading your listings and agent signals. If this does not finish, sign in again to refresh your session.
           </p>
           <a href="/login?next=/dashboard" className="btn-secondary mt-5 h-10 px-4">Sign in</a>
         </div>
@@ -298,12 +298,12 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
               <p className="text-sm text-muted-foreground">{displayName ? `Welcome back, ${displayName}` : 'Nexez dashboard'}</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] md:text-4xl">Overview</h1>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Monitor your agent pages, traffic signals, readiness, and conversion actions from one place.
+                Monitor your listings, traffic signals, readiness, and conversion actions from one place.
               </p>
             </div>
             <a href="/create" className="btn-primary h-10 px-4 text-sm">
               <Plus className="size-4" />
-              New Agent Page
+              New Listing
             </a>
           </div>
 
@@ -328,14 +328,14 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                   <div className="absolute right-8 top-8 hidden size-32 rounded-full bg-[var(--signal)]/25 blur-3xl md:block" />
                   {totalTrackedSignals === 0 ? (
                     <>
-                      <p className="text-sm text-[var(--signal)]">Today on your agent pages</p>
+                      <p className="text-sm text-[var(--signal)]">Today on your listings</p>
                       <h2 className="mt-2 text-3xl font-semibold tracking-tight">
                         {publishedCount > 0
-                          ? `All quiet so far — your ${publishedCount} published page${publishedCount === 1 ? '' : 's'} ${publishedCount === 1 ? 'is' : 'are'} live and crawlable.`
-                          : 'Publish a page to start appearing to AI agents.'}
+                          ? `All quiet so far — your ${publishedCount} published listing${publishedCount === 1 ? '' : 's'} ${publishedCount === 1 ? 'is' : 'are'} live and crawlable.`
+                          : 'Publish a listing to start appearing to AI agents.'}
                       </h2>
                       <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">
-                        Agent discovery builds over time. {publishedCount > 0 ? 'Share your page link and ' : 'Publish your first page, then '}
+                        Agent discovery builds over time. {publishedCount > 0 ? 'Share your listing link and ' : 'Publish your first listing, then '}
                         connect Stripe to accept payments, or see how agents rank you in the{' '}
                         <a href="/simulator" className="text-[var(--signal)] hover:underline">Agent Lab</a>. History lives in{' '}
                         <a href="/dashboard/analytics" className="text-[var(--signal)] hover:underline">Analytics</a>.
@@ -343,12 +343,12 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                     </>
                   ) : (
                     <>
-                      <p className="text-sm text-[var(--signal)]">Today, your Nexez agent pages received</p>
+                      <p className="text-sm text-[var(--signal)]">Today, your Nexez listings received</p>
                       <h2 className="mt-2 text-3xl font-semibold tracking-tight">
                         {agentPageVisits} AI agent visits, {trafficSplit.human} human visits, {discoveryClicks} discovery clicks, and {conversionActions} conversion actions
                       </h2>
                       <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">
-                        {totalTrackedSignals} tracked signals today across {publishedCount} published pages and {totalOffers} listed offers —
+                        {totalTrackedSignals} tracked signals today across {publishedCount} published listings and {totalOffers} listed offers —
                         a live view of how AI agents are discovering and acting on your business. See full history in{' '}
                         <a href="/dashboard/analytics" className="text-[var(--signal)] hover:underline">Analytics</a>.
                       </p>
@@ -421,7 +421,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
               <div className="kpi-card">
                 <p className="text-sm text-[var(--fg-muted)]">Avg readiness</p>
                 <p className="mt-2 text-4xl font-semibold tracking-tighter">{averageReadiness}%</p>
-                <p className="mt-1 text-[11px] text-[var(--fg-muted-2)]">all pages</p>
+                <p className="mt-1 text-[11px] text-[var(--fg-muted-2)]">all listings</p>
               </div>
             </section>
 
@@ -442,7 +442,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
             )}
 
             <div className="mt-5 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Pages</h2>
+              <h2 className="text-lg font-semibold text-white">Listings</h2>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-muted-foreground">{pages.length} total</span>
                 {pages.length > OVERVIEW_PAGE_LIMIT ? (
@@ -470,21 +470,21 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
             {pages.length > OVERVIEW_PAGE_LIMIT ? (
               <div className="mt-4 text-center">
                 <a href="/dashboard/pages" className="btn-secondary inline-flex h-10 px-4 text-sm">
-                  Manage all {pages.length} pages →
+                  Manage all {pages.length} listings →
                 </a>
               </div>
             ) : null}
 
             {!pages.length ? (
               <div className="mt-5 rounded-lg border border-dashed border-[var(--bd-15)] p-12 text-center">
-                <p className="text-[var(--fg-muted)]">No pages yet — create your first agent page to start showing up for AI agents.</p>
+                <p className="text-[var(--fg-muted)]">No listings yet — create your first listing to start showing up for AI agents.</p>
               </div>
             ) : null}
 
             {sharedPages.length > 0 && (
               <div className="mt-10">
                 <h2 className="text-lg font-semibold text-[var(--signal)]">Shared with me</h2>
-                <p className="mt-1 text-xs text-[var(--fg-muted-2)]">Pages your teammates have shared with you.</p>
+                <p className="mt-1 text-xs text-[var(--fg-muted-2)]">Listings your teammates have shared with you.</p>
                 <section className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {sharedPages.map((sp) => (
                     <div key={sp.id} className="card !p-5">
