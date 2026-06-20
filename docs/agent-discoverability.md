@@ -32,7 +32,7 @@ Nexez should be discoverable wherever autonomous agents search, reason, compare,
    - Next step: add more transaction examples to global agent docs where useful.
 
 6. Submission pack and live smoke checks
-   - Current surface: `docs/agent-submission-pack.md` and `npm run smoke:agent-access`.
+   - Current surface: `docs/agent-submission-pack.md`, `npm run smoke:agent-access`, and the scheduled `Agent Access Smoke` GitHub workflow.
    - Purpose: keep external submissions, partner demos, SDK registry checks, and live agent runtime health repeatable.
 
 7. Search and crawl signals

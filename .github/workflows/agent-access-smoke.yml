@@ -1,0 +1,27 @@
+name: Agent Access Smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Keep the public agent distribution surface honest without requiring secrets.
+    - cron: '17 */6 * * *'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      NEXEZ_MARKETING_BASE: https://nexez.ai
+      NEXEZ_AGENT_BASE: https://nexez.app
+      NEXEZ_AGENT_SMOKE_SLUG: nexez-agent-negotiation-lab
+      NEXEZ_AGENT_SMOKE_OFFER: services-0
+      NEXEZ_AGENT_SMOKE_TIMEOUT_MS: 15000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Smoke public agent access
+        run: npm run smoke:agent-access

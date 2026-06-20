@@ -84,6 +84,8 @@ Run this before submissions or partner demos:
 npm run smoke:agent-access
 ```
 
+The same check also runs on the scheduled `Agent Access Smoke` GitHub workflow so registry, metadata, discovery, search, and dry-run negotiation regressions are visible between releases.
+
 Optional overrides:
 
 ```bash
