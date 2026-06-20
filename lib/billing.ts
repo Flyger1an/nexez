@@ -53,7 +53,7 @@ export const FEATURE_LABELS: Record<PlanFeature, string> = {
 }
 
 export type PlanLimits = {
-  /** Max published pages. Use Number.POSITIVE_INFINITY for unlimited. */
+  /** Max published listings. Use Number.POSITIVE_INFINITY for unlimited. */
   pages: number
   /** Max verified custom domains. */
   customDomains: number
@@ -91,8 +91,8 @@ export const billingPlans: BillingPlan[] = [
     price: '$0',
     cadence: 'month',
     envVar: '', // no price for free
-    blurb: 'Try Nexez with one agent page and the core toolkit.',
-    features: ['1 published page', 'agent.json · llms.txt · MCP', 'Directory listing', 'Deterministic simulator'],
+    blurb: 'Try Nexez with one agent listing and the core toolkit.',
+    features: ['1 published listing', 'agent.json · llms.txt · MCP', 'Directory listing', 'Deterministic simulator'],
     limits: { pages: 1, customDomains: 0 },
     commissionPercent: 15, // Free pays the highest commission, no subscription fee
   },
@@ -104,7 +104,7 @@ export const billingPlans: BillingPlan[] = [
     cadence: 'month',
     envVar: 'STRIPE_PRICE_LAUNCH',
     blurb: 'For a solo pro turning agent traffic into bookings.',
-    features: ['3 published pages', 'Custom domain', 'AI simulator & optimize', 'Remove Nexez badge'],
+    features: ['3 published listings', 'Custom domain', 'AI simulator & optimize', 'Remove Nexez badge'],
     limits: { pages: 3, customDomains: 1 },
     commissionPercent: 8,
   },
@@ -116,7 +116,7 @@ export const billingPlans: BillingPlan[] = [
     cadence: 'month',
     envVar: 'STRIPE_PRICE_PRO',
     blurb: 'For teams running services, bookings, and paid offers.',
-    features: ['25 published pages', 'Integrations & webhooks', 'API access', 'Negotiation & smart pricing'],
+    features: ['25 published listings', 'Integrations & webhooks', 'API access', 'Negotiation & smart pricing'],
     limits: { pages: 25, customDomains: 5 },
     commissionPercent: 6,
   },
@@ -127,8 +127,8 @@ export const billingPlans: BillingPlan[] = [
     price: '$149',
     cadence: 'month',
     envVar: 'STRIPE_PRICE_SCALE',
-    blurb: 'For agencies and operators managing many agent pages.',
-    features: ['100 published pages', 'Team collaboration', 'White-label branding', 'Priority support'],
+    blurb: 'For agencies and operators managing many agent listings.',
+    features: ['100 published listings', 'Team collaboration', 'White-label branding', 'Priority support'],
     limits: { pages: 100, customDomains: 25 },
     commissionPercent: 4,
   },
@@ -140,7 +140,7 @@ export const billingPlans: BillingPlan[] = [
     cadence: 'month',
     envVar: 'STRIPE_PRICE_ENTERPRISE',
     blurb: 'For large organizations with custom needs and SLAs.',
-    features: ['Unlimited pages', 'SSO / SAML', 'Dedicated support & SLAs', 'Volume discounts'],
+    features: ['Unlimited listings', 'SSO / SAML', 'Dedicated support & SLAs', 'Volume discounts'],
     limits: { pages: UNLIMITED, customDomains: UNLIMITED },
     commissionPercent: 2, // custom in practice
   },
@@ -174,7 +174,7 @@ export function minPlanForFeature(feature: PlanFeature): BillingPlan {
   return billingPlans.find((p) => p.rank >= minRank) ?? billingPlans[billingPlans.length - 1]
 }
 
-/** Human label for a page limit (handles the unlimited sentinel). */
+/** Human label for a listing limit (handles the unlimited sentinel). */
 export function formatLimit(value: number): string {
   return Number.isFinite(value) ? String(value) : 'Unlimited'
 }
