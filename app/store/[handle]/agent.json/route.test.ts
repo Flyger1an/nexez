@@ -40,7 +40,10 @@ describe('GET /store/[handle]/agent.json', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.schema_version).toBe('nexez.storefront.v1')
-    expect(body.storefront).toMatchObject({ handle: 'acme', name: 'Acme Co', url: 'https://nexez.app/store/acme', listings_count: 1 })
+    expect(body.storefront).toMatchObject({
+      handle: 'acme', name: 'Acme Co', url: 'https://nexez.app/store/acme',
+      listings_count: 1, total_offers: 2, avg_readiness: 85, certified_listings: 1,
+    })
     expect(body.listings[0]).toMatchObject({
       name: 'Deep Clean',
       slug: 'acme-deep-clean',

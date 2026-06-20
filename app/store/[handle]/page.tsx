@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { Bot, Gauge, ArrowUpRight } from 'lucide-react'
-import { getOfferCount, getReadinessScore } from '../../../lib/agent-page'
+import { Bot, Gauge, ArrowUpRight, BadgeCheck } from 'lucide-react'
+import { getOfferCount, getReadinessScore, getCertification } from '../../../lib/agent-page'
 import { loadStorefrontByHandle } from '../../../lib/server/storefront'
 
 type PageProps = { params: Promise<{ handle: string }> }
@@ -27,6 +27,11 @@ export default async function StorefrontPage({ params }: PageProps) {
   const name = storefront.display_name || storefront.handle
   const accent = storefront.accent_color || 'var(--signal)'
 
+  // Storefront-level aggregate across its listings.
+  const totalOffers = listings.reduce((sum, p) => sum + getOfferCount(p), 0)
+  const avgReadiness = Math.round(listings.reduce((sum, p) => sum + getReadinessScore(p), 0) / listings.length)
+  const certifiedCount = listings.filter((p) => getCertification(p).certified).length
+
   return (
     <main className="min-h-dvh bg-background text-white">
       <div className="mx-auto max-w-6xl px-5 py-12 md:px-8 md:py-16">
@@ -44,8 +49,15 @@ export default async function StorefrontPage({ params }: PageProps) {
           {storefront.description ? (
             <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground">{storefront.description}</p>
           ) : null}
+          <div className="mt-5 flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-full border border-border px-3 py-1 text-muted-foreground">{listings.length} {listings.length === 1 ? 'listing' : 'listings'}</span>
+            <span className="rounded-full border border-border px-3 py-1 text-muted-foreground">{totalOffers} offers</span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-muted-foreground"><Gauge className="size-3" /> {avgReadiness}% avg readiness</span>
+            {certifiedCount > 0 ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-3 py-1 text-[var(--ready)]"><BadgeCheck className="size-3" /> Nexez Certified</span>
+            ) : null}
+          </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            {listings.length} {listings.length === 1 ? 'listing' : 'listings'} ·{' '}
             <a href={`/store/${storefront.handle}/agent.json`} className="font-mono underline hover:text-white">agent.json</a>
           </p>
         </header>

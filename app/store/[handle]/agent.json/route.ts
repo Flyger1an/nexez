@@ -18,6 +18,13 @@ export async function GET(_request: Request, { params }: RouteProps) {
   const base = getBaseUrl()
   const storefrontUrl = `${base}/store/${storefront.handle}`
 
+  // Storefront-level aggregate signals across the seller's listings.
+  const totalOffers = listings.reduce((sum, p) => sum + getOfferCount(p), 0)
+  const avgReadiness = listings.length
+    ? Math.round(listings.reduce((sum, p) => sum + getReadinessScore(p), 0) / listings.length)
+    : 0
+  const certifiedListings = listings.filter((p) => getCertification(p).certified).length
+
   const payload = {
     schema_version: 'nexez.storefront.v1',
     generated_at: new Date().toISOString(),
@@ -28,6 +35,9 @@ export async function GET(_request: Request, { params }: RouteProps) {
       url: storefrontUrl,
       logo_url: storefront.logo_url || null,
       listings_count: listings.length,
+      total_offers: totalOffers,
+      avg_readiness: avgReadiness,
+      certified_listings: certifiedListings,
     },
     listings: listings.map((page) => ({
       name: page.name,
