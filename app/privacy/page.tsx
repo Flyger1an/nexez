@@ -12,14 +12,14 @@ const sections: { heading: string; body: string[] }[] = [
   {
     heading: '1. Overview',
     body: [
-      'This Privacy Policy explains what information Nexez collects, how we use it, and the choices you have. It applies to the Nexez dashboard, page builder, custom-domain hosting, APIs, and the Nxxi mobile buyer-agent app (together, the "Service").',
+      'This Privacy Policy explains what information Nexez collects, how we use it, and the choices you have. It applies to the Nexez dashboard, page builder, custom-domain hosting, APIs, and the Nexxi mobile buyer-agent app (together, the "Service").',
     ],
   },
   {
     heading: '2. Information You Provide',
     body: [
       'Account details: your name, company/business name, industry, and email when you sign up (including via Sign in with Apple or Google, which share your email and basic profile). Business content: the offers, descriptions, FAQs, and other information you publish. Configuration: custom domains, integration settings, and API key names.',
-      'Buyer activity (Nxxi app): the messages you send your buyer agent, your standing preferences (budget, interests, timing, location), and the buyer details you approve for a purchase or negotiation (such as your email and order references).',
+      'Buyer activity (Nexxi app): the messages you send your buyer agent, your standing preferences (budget, interests, timing, location), and the buyer details you approve for a purchase or negotiation (such as your email and order references).',
     ],
   },
   {
@@ -31,7 +31,7 @@ const sections: { heading: string; body: string[] }[] = [
     ],
   },
   {
-    heading: '4. Voice & Microphone (Nxxi app)',
+    heading: '4. Voice & Microphone (Nexxi app)',
     body: [
       'When you use voice input, your device’s speech-recognition service converts your speech to text so the agent can act on it. We process the resulting text like any other message; we do not store raw audio recordings. Microphone access is used only while you are actively dictating, and you can use the app entirely by typing instead.',
     ],
@@ -63,7 +63,7 @@ const sections: { heading: string; body: string[] }[] = [
   {
     heading: '9. Data Retention & Deletion',
     body: [
-      'We retain account and content data for as long as your account is active. You can delete pages at any time. You can permanently delete your account in the Nxxi app (Profile → Delete account) or via the dashboard — this removes your account, agent data, preferences, and any pages you own, and anonymizes your buyer details on past transaction records, except where retention is required by law.',
+      'We retain account and content data for as long as your account is active. You can delete pages at any time. You can permanently delete your account in the Nexxi app (Profile → Delete account) or via the dashboard — this removes your account, agent data, preferences, and any pages you own, and anonymizes your buyer details on past transaction records, except where retention is required by law.',
     ],
   },
   {

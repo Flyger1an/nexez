@@ -8,7 +8,7 @@ export const maxDuration = 30
 /**
  * POST /api/account/delete — permanently delete the authenticated user's account + ALL associated
  * data (App Store Guideline 5.1.1(v) + GDPR/CCPA). The target is ALWAYS the session user (cookie
- * on web, bearer token in the Nxxi app — never from the body), so a session can only delete itself.
+ * on web, bearer token in the Nexxi app — never from the body), so a session can only delete itself.
  * Requires `{ confirm: true }` so it can't fire by accident; clients gate it behind a re-auth /
  * explicit confirmation step. Hard-deletes the auth user, so the session is invalid afterward.
  */

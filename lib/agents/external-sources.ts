@@ -2,7 +2,7 @@ import 'server-only'
 import type { AgentSearchResult } from '../agent-search'
 import type { SourceAdapter } from './source-adapters'
 
-// External discovery sources. These broaden what Nxxi can *find* beyond the Nezez marketplace,
+// External discovery sources. These broaden what Nexxi can *find* beyond the Nezez marketplace,
 // but their results are DISCOVERY-ONLY: `offer: null` means no checkout/negotiate action, so they
 // never enter the money path (Book/Negotiate + escrow stay Nexez-backed). Each is env-gated — with
 // no API key the adapter reports unavailable and returns nothing, so prod is unaffected until the

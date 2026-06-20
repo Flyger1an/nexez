@@ -7,8 +7,8 @@ export const maxDuration = 30
 
 /**
  * GET /api/account/export — download the authenticated user's personal data as JSON (GDPR/CCPA).
- * Targets the session user only (cookie on web, bearer token in the Nxxi app — never the body),
- * so a session can only export itself. Returns an attachment so a browser saves a file; the Nxxi
+ * Targets the session user only (cookie on web, bearer token in the Nexxi app — never the body),
+ * so a session can only export itself. Returns an attachment so a browser saves a file; the Nexxi
  * app fetches the JSON and shares it. Covers agent/buyer data + owned seller data; secrets
  * (api_key hashes, page_secrets) are excluded.
  */

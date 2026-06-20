@@ -2,7 +2,7 @@ import 'server-only'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 
 // GDPR/CCPA data export: gather the personal data we hold about a user into one JSON object.
-// Service-role reads (so it works for both the web cookie session and the Nxxi bearer token);
+// Service-role reads (so it works for both the web cookie session and the Nexxi bearer token);
 // callers MUST authenticate + authorize the user first. Secrets are excluded — api_keys are
 // exported as metadata only (never key_hash) and page_secrets are omitted entirely.
 

@@ -5,7 +5,7 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/adm
 // Full account deletion (App Store Guideline 5.1.1(v) + GDPR/CCPA erasure). There are NO FK
 // cascades to auth.users in this schema, so every owned table is cleared explicitly, then the
 // Supabase auth user is deleted last (so "can't sign back in" holds even if a data delete failed).
-// The Nexez account is shared between the seller dashboard and the Nxxi buyer app, so deletion
+// The Nexez account is shared between the seller dashboard and the Nexxi buyer app, so deletion
 // removes BOTH the buyer/agent data AND any seller pages the account owns.
 
 /** Tables keyed by the auth user id — the user's agent + personal data. */
