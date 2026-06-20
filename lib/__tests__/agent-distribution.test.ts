@@ -13,6 +13,9 @@ describe('agent distribution metadata', () => {
     )
     expect(NEXEZ_OPENCLAW_SKILL.installCommand).toBe('openclaw skills install nexez-agent-discovery')
     expect(NEXEZ_TYPESCRIPT_SDK.name).toBe('@nexez/agent-sdk')
+    expect(NEXEZ_TYPESCRIPT_SDK.status).toBe('published')
+    expect(NEXEZ_TYPESCRIPT_SDK.installCommand).toBe('npm install @nexez/agent-sdk')
+    expect(NEXEZ_TYPESCRIPT_SDK.npmUrl).toBe('https://www.npmjs.com/package/@nexez/agent-sdk')
   })
 
   it('builds public agent links from the supplied runtime base', () => {
@@ -24,5 +27,6 @@ describe('agent distribution metadata', () => {
     expect(links.openclaw.plugin.name).toBe('@nexez/openclaw-nexez')
     expect(links.openclaw.skill.slug).toBe('nexez-agent-discovery')
     expect(links.sdks.typescript.sourcePath).toBe('sdk/typescript')
+    expect(links.sdks.typescript.installCommand).toBe('npm install @nexez/agent-sdk')
   })
 })

@@ -2,6 +2,10 @@
 
 Tiny TypeScript client for buyer agents and agent builders that need to discover Nexez pages, read structured seller context, validate checkout, or submit negotiation intent.
 
+```bash
+npm install @nexez/agent-sdk
+```
+
 ```ts
 import { createNexezClient } from '@nexez/agent-sdk'
 

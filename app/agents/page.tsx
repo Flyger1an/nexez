@@ -137,6 +137,8 @@ const manifestPreview = {
       name: NEXEZ_TYPESCRIPT_SDK.name,
       version: NEXEZ_TYPESCRIPT_SDK.version,
       status: NEXEZ_TYPESCRIPT_SDK.status,
+      install: NEXEZ_TYPESCRIPT_SDK.installCommand,
+      package: NEXEZ_TYPESCRIPT_SDK.npmUrl,
       source: NEXEZ_TYPESCRIPT_SDK.sourcePath,
     },
   },
@@ -312,19 +314,36 @@ export default function AgentAccessPage() {
       <section className="border-b border-border bg-white/[0.015]">
         <div className="mx-auto grid max-w-7xl gap-8 px-5 py-16 md:py-20 lg:grid-cols-[0.76fr_1.24fr] lg:items-start">
           <div>
-            <p className="text-sm font-medium text-[var(--signal)]">SDK preview</p>
+            <p className="text-sm font-medium text-[var(--signal)]">TypeScript SDK</p>
             <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">
               Typed helpers for agent builders.
             </h2>
             <p className="mt-4 text-sm leading-6 text-muted-foreground md:text-base">
-              The TypeScript SDK source is in the Nexez repo today. It wraps search, manifest reads, checkout dry-runs,
-              and negotiation handoffs so agent apps do not need to hand-roll endpoint plumbing.
+              The Nexez Agent SDK is live on npm. It wraps search, manifest reads, checkout dry-runs, and negotiation
+              handoffs so agent apps do not need to hand-roll endpoint plumbing.
             </p>
-            <div className="mt-5 rounded-lg border border-border bg-white/[0.03] p-4">
-              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                {NEXEZ_TYPESCRIPT_SDK.name} · v{NEXEZ_TYPESCRIPT_SDK.version}
+            <div className="mt-5 overflow-hidden rounded-lg border border-border bg-white/[0.03]">
+              <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+                <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                  {NEXEZ_TYPESCRIPT_SDK.name} · v{NEXEZ_TYPESCRIPT_SDK.version}
+                </p>
+                <a
+                  href={NEXEZ_TYPESCRIPT_SDK.npmUrl}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--signal)] hover:text-[var(--signal-2)]"
+                >
+                  npm
+                  <ExternalLink className="size-3" />
+                </a>
+              </div>
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <code className="min-w-0 overflow-x-auto whitespace-nowrap font-mono text-xs text-[var(--fg-muted-2)]">
+                  {NEXEZ_TYPESCRIPT_SDK.installCommand}
+                </code>
+                <CodeCopyButton text={NEXEZ_TYPESCRIPT_SDK.installCommand} />
+              </div>
+              <p className="border-t border-border px-4 py-3 text-sm leading-6 text-muted-foreground">
+                {NEXEZ_TYPESCRIPT_SDK.purpose}
               </p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">{NEXEZ_TYPESCRIPT_SDK.purpose}</p>
             </div>
           </div>
 
