@@ -8,7 +8,7 @@
 // meaningless. Everything here buckets BY currency.
 import type { CheckoutEvent } from './checkout-events'
 import { getAgentName, getAmountCents, isDryRunEvent } from './analytics'
-import { normalizeCurrency } from './currency'
+import { normalizeCurrency, minorToStripeAmount } from './currency'
 import { calculateApplicationFeeCents } from './stripe-billing'
 
 /** A created Stripe checkout session for a real (non-simulator) purchase. */
@@ -179,7 +179,10 @@ export function rollupNegotiationsByCurrency(negs: NegotiationFinanceRow[]): Neg
     const row =
       map.get(currency) ??
       { currency, agreedCents: 0, deals: 0, heldCents: 0, completeCents: 0, reversedCents: 0 }
-    const cents = n.amount_cents
+    // negotiation amount_cents is stored major×100; convert to the Stripe smallest unit
+    // the rest of finance (formatCurrencyAmount) displays, so zero-decimal (JPY/KRW)
+    // deals aren't shown 100× too large.
+    const cents = minorToStripeAmount(n.amount_cents, currency)
     if (AGREED_STATUSES.has(n.status)) {
       row.agreedCents += cents
       row.deals += 1
@@ -260,7 +263,10 @@ export function buildMarketplaceLedger(
   }
   for (const n of negs) {
     if (!n.amount_cents || !LEDGER_NEG_STATUSES.has(n.status)) continue
-    const amountCents = n.amount_cents
+    // Convert the app's major×100 amount to the Stripe smallest unit so it lines up
+    // with the (already smallest-unit) application_fee_cents snapshot + the display
+    // formatter; otherwise zero-decimal currencies mis-state amount/fee/net.
+    const amountCents = minorToStripeAmount(n.amount_cents, normalizeCurrency(n.currency))
     const isReversal = n.status === 'refunded' || n.status === 'disputed'
     // A refund/dispute returns the full amount to the buyer (escrow refunds aren't
     // fee-reduced), so the seller's outflow is the whole amount — fee n/a.

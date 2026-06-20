@@ -101,6 +101,19 @@ describe('rollupNegotiationsByCurrency', () => {
     expect(gbp.agreedCents).toBe(2000)
     expect(gbp.heldCents).toBe(0)
   })
+
+  it('converts the app major×100 amount to the smallest unit for zero-decimal currencies (JPY)', () => {
+    // ¥1,000 / ¥500 deals are stored as 100000 / 50000 (major×100) but must roll up as
+    // 1000 / 500 (Stripe smallest unit) so the dashboard doesn't show them 100× too large.
+    const rows = rollupNegotiationsByCurrency([
+      neg({ status: 'complete', amount_cents: 100000, currency: 'jpy' }),
+      neg({ status: 'held', amount_cents: 50000, currency: 'jpy' }),
+    ])
+    const jpy = rows.find((r) => r.currency === 'jpy')!
+    expect(jpy.completeCents).toBe(1000)
+    expect(jpy.heldCents).toBe(500)
+    expect(jpy.agreedCents).toBe(1500)
+  })
 })
 
 describe('getReversalRate', () => {
@@ -133,6 +146,19 @@ describe('buildMarketplaceLedger', () => {
     expect(reversal.buyerLabel).toBe('Agent') // fallback when buyer_agent unset
     expect(reversal.feeCents).toBe(0) // full refund — no fee reduction
     expect(reversal.netCents).toBe(2000) // whole amount is the outflow
+  })
+
+  it('keeps amount/fee/net consistent in the smallest unit for zero-decimal currencies', () => {
+    // ¥1,000 deal (amount_cents 100000, major×100) with a ¥60 Stripe fee snapshot (60,
+    // smallest unit). Amount must convert to 1000 so it lines up with the snapshot fee.
+    const negs = [
+      { ...neg({ id: 'jn1', status: 'complete', amount_cents: 100000, currency: 'jpy' }), application_fee_cents: 60 } as NegotiationFinanceRow,
+    ]
+    const [row] = buildMarketplaceLedger([], negs, 6)
+    expect(row.currency).toBe('jpy')
+    expect(row.amountCents).toBe(1000) // ¥1,000 smallest unit, not 100000
+    expect(row.feeCents).toBe(60) // snapshot fee, already smallest unit
+    expect(row.netCents).toBe(940) // 1000 − 60, both smallest unit
   })
 
   it('respects the limit (most recent first)', () => {
