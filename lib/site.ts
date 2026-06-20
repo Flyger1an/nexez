@@ -99,7 +99,7 @@ const APP_API_PREFIXES = [
 
 // `/orders` is the public buyer order portal — buyer-facing, cookie-isolated, lives
 // on the agent runtime next to `/checkout` (where the buyer already is).
-const AGENT_RUNTIME_PREFIXES = ['/checkout', '/negotiate', '/orders', '/.well-known'] as const
+const AGENT_RUNTIME_PREFIXES = ['/checkout', '/negotiate', '/orders', '/store', '/.well-known'] as const
 
 const AGENT_RUNTIME_API_PREFIXES = [
   '/api/agent-search',
