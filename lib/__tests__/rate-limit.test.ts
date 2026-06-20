@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from 'vitest'
-import { rateLimit, rateLimitShared, enforceNegotiationRateLimit, NEGOTIATION_RATE_LIMITS } from '../rate-limit'
+import { rateLimit, rateLimitShared, enforceRateLimit, enforceNegotiationRateLimit, NEGOTIATION_RATE_LIMITS } from '../rate-limit'
 
 const reqFrom = (ip: string) =>
   new Request('https://nexez.test/api/negotiations', { headers: { 'x-forwarded-for': ip } })
@@ -117,5 +117,42 @@ describe('rateLimitShared (Redis/KV REST backend, with in-memory fallback)', () 
     }) as any
     const res = await rateLimitShared(`failopen-${Math.random()}`, 1, 1000, 10_000_000)
     expect(res.ok).toBe(true) // first hit allowed by the in-memory fallback
+  })
+
+  it('fails CLOSED (denies) when the store errors and failClosed is set', async () => {
+    vi.stubEnv('UPSTASH_REDIS_REST_URL', 'https://example.upstash.io')
+    vi.stubEnv('UPSTASH_REDIS_REST_TOKEN', 'tok')
+    global.fetch = vi.fn(async () => {
+      throw new Error('network down')
+    }) as any
+    const res = await rateLimitShared(`failclosed-${Math.random()}`, 1, 1000, 10_500_000, { failClosed: true })
+    expect(res.ok).toBe(false)
+    expect(res.retryAfter).toBeGreaterThanOrEqual(1)
+  })
+
+  it('failClosed does NOT deny when no store is configured (in-memory path)', async () => {
+    vi.stubEnv('UPSTASH_REDIS_REST_URL', '')
+    vi.stubEnv('UPSTASH_REDIS_REST_TOKEN', '')
+    vi.stubEnv('KV_REST_API_URL', '')
+    vi.stubEnv('KV_REST_API_TOKEN', '')
+    const res = await rateLimitShared(`fc-noconfig-${Math.random()}`, 2, 1000, 10_700_000, { failClosed: true })
+    expect(res.ok).toBe(true) // unconfigured is not an outage — must stay available
+  })
+})
+
+describe('enforceRateLimit (per-subject keying)', () => {
+  afterEach(() => vi.unstubAllEnvs())
+  it('keys by subject so distinct identities get independent buckets (not the shared IP)', async () => {
+    vi.stubEnv('UPSTASH_REDIS_REST_URL', '') // force in-memory
+    vi.stubEnv('UPSTASH_REDIS_REST_TOKEN', '')
+    const route = `r-${Math.random()}`
+    const sameIp = new Request('https://nexez.test/x', { headers: { 'x-forwarded-for': 'shared-ip' } })
+    // limit 1/window: two DIFFERENT subjects from the same IP both pass (separate buckets).
+    expect(await enforceRateLimit(sameIp, route, 1, 60_000, { subject: `userA-${Math.random()}` })).toBeNull()
+    expect(await enforceRateLimit(sameIp, route, 1, 60_000, { subject: `userB-${Math.random()}` })).toBeNull()
+    // the SAME subject's second hit trips the limit.
+    const subj = `userC-${Math.random()}`
+    expect(await enforceRateLimit(sameIp, route, 1, 60_000, { subject: subj })).toBeNull()
+    expect((await enforceRateLimit(sameIp, route, 1, 60_000, { subject: subj }))?.status).toBe(429)
   })
 })

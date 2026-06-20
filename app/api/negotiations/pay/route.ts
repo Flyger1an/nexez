@@ -46,7 +46,7 @@ function paymentFingerprint(input: {
  * creating duplicates, and uses a Stripe idempotency key on creation.
  */
 export async function POST(request: Request) {
-  const limited = await enforceRateLimit(request, 'negotiation-pay', 30, 60_000)
+  const limited = await enforceRateLimit(request, 'negotiation-pay', 30, 60_000, { failClosed: true })
   if (limited) return limited
 
   const secret = process.env.STRIPE_SECRET_KEY

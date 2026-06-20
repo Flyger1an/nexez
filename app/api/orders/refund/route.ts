@@ -23,7 +23,7 @@ import { planRefund, refundIdempotencyKey } from '../../../../lib/refunds'
  * owner session.
  */
 export async function POST(request: Request) {
-  const limited = await enforceRateLimit(request, 'order-refund', 20, 60_000)
+  const limited = await enforceRateLimit(request, 'order-refund', 20, 60_000, { failClosed: true })
   if (limited) return limited
 
   const secret = process.env.STRIPE_SECRET_KEY

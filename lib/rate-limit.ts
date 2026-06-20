@@ -72,9 +72,19 @@ export async function rateLimitShared(
   limit: number,
   windowMs: number,
   now: number = Date.now(),
+  opts?: { failClosed?: boolean },
 ): Promise<RateResult> {
   const cfg = redisRestConfig()
+  // No shared store configured → in-memory limiter (NOT a failure; failClosed must not deny here,
+  // or unprovisioned/dev deploys would 429 everything).
   if (!cfg) return rateLimit(key, limit, windowMs, now)
+  // The store IS configured but errored. Default: fall open to the in-memory limiter (availability
+  // over strictness). For money/expensive routes, opt into failClosed so a store OUTAGE denies
+  // rather than silently degrading to weak per-instance counts (the bypass the store exists to close).
+  const onError = (): RateResult =>
+    opts?.failClosed
+      ? { ok: false, remaining: 0, retryAfter: Math.ceil(windowMs / 1000), limit }
+      : rateLimit(key, limit, windowMs, now)
   const rk = `rl:${key}`
   try {
     const res = await fetch(`${cfg.url}/pipeline`, {
@@ -87,10 +97,10 @@ export async function rateLimitShared(
       ]),
       cache: 'no-store',
     })
-    if (!res.ok) return rateLimit(key, limit, windowMs, now)
+    if (!res.ok) return onError()
     const data = (await res.json()) as unknown[]
     const count = numResult(data?.[0])
-    if (count === null) return rateLimit(key, limit, windowMs, now)
+    if (count === null) return onError()
     if (count > limit) {
       const pttl = numResult(data?.[2])
       const retryAfter = pttl && pttl > 0 ? Math.ceil(pttl / 1000) : Math.ceil(windowMs / 1000)
@@ -98,7 +108,7 @@ export async function rateLimitShared(
     }
     return { ok: true, remaining: Math.max(0, limit - count), retryAfter: 0, limit }
   } catch {
-    return rateLimit(key, limit, windowMs, now) // fail open to the in-memory limiter
+    return onError()
   }
 }
 
@@ -118,8 +128,13 @@ export async function enforceRateLimit(
   route: string,
   limit: number,
   windowMs: number,
+  opts?: { subject?: string; failClosed?: boolean },
 ): Promise<NextResponse | null> {
-  const res = await rateLimitShared(`${route}:${clientIp(request)}`, limit, windowMs)
+  // `subject` keys the bucket by a stable identity (e.g. the authed user id) instead of the client
+  // IP — so one account can't multiply its quota by rotating IPs. `failClosed` denies on a shared-
+  // store OUTAGE (money/expensive routes). Both default off → existing callers are unchanged.
+  const id = opts?.subject ? `u:${opts.subject}` : clientIp(request)
+  const res = await rateLimitShared(`${route}:${id}`, limit, windowMs, Date.now(), { failClosed: opts?.failClosed })
   return res.ok ? null : tooManyRequests(res.retryAfter)
 }
 
@@ -151,7 +166,9 @@ export async function enforceNegotiationRateLimit(
   const agent = (ctx.buyerAgent || 'anonymous').toLowerCase().slice(0, 120)
 
   const results = await Promise.all([
-    rateLimitShared(`neg:ip:${ip}`, NEGOTIATION_RATE_LIMITS.ip.limit, NEGOTIATION_RATE_LIMITS.ip.windowMs, now),
+    // Negotiation create writes persistent state + sends seller email — the IP guard fails CLOSED on
+    // a shared-store outage so the abuse window can't be re-opened by knocking the store over.
+    rateLimitShared(`neg:ip:${ip}`, NEGOTIATION_RATE_LIMITS.ip.limit, NEGOTIATION_RATE_LIMITS.ip.windowMs, now, { failClosed: true }),
     rateLimitShared(`neg:page:${slug}`, NEGOTIATION_RATE_LIMITS.page.limit, NEGOTIATION_RATE_LIMITS.page.windowMs, now),
     rateLimitShared(`neg:agent:${slug}:${agent}`, NEGOTIATION_RATE_LIMITS.agent.limit, NEGOTIATION_RATE_LIMITS.agent.windowMs, now),
   ])

@@ -44,6 +44,10 @@ export async function POST(request: NextRequest) {
   if (!auth.ok) return auth.response
   const { user, db } = auth
 
+  // Per-user cap (see the JSON route): one account can't multiply its expensive-turn quota across IPs.
+  const userLimited = await enforceRateLimit(request, 'agents:nexie:user', 20, 60_000, { subject: user.id, failClosed: true })
+  if (userLimited) return userLimited
+
   if (!body.approval && (!body.message || body.message.trim().length === 0)) {
     return NextResponse.json({ error: 'Message is required unless approving an action.' }, { status: 400 })
   }

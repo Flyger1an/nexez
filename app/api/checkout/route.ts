@@ -50,7 +50,7 @@ async function getPublishedPage(slug: string) {
 }
 
 export async function POST(request: Request) {
-  const limited = await enforceRateLimit(request, 'checkout', 30, 60_000)
+  const limited = await enforceRateLimit(request, 'checkout', 30, 60_000, { failClosed: true })
   if (limited) return limited
 
   const contentType = request.headers.get('content-type') || ''

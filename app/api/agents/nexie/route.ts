@@ -33,6 +33,12 @@ export async function POST(request: NextRequest) {
   if (!auth.ok) return auth.response
   const { user, db } = auth
 
+  // Per-user cap on top of the per-IP gate above: an account can't multiply its expensive-turn quota
+  // by rotating IPs. Fails closed on a shared-store outage (each turn is an LLM call + can trigger a
+  // money action). No-op until a Redis/KV store is provisioned.
+  const userLimited = await enforceRateLimit(request, 'agents:nexie:user', 20, 60_000, { subject: user.id, failClosed: true })
+  if (userLimited) return userLimited
+
   if (!body.approval && (!body.message || body.message.trim().length === 0)) {
     return NextResponse.json({ error: 'Message is required unless approving an action.' }, { status: 400 })
   }
