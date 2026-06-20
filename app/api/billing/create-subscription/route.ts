@@ -109,7 +109,13 @@ export async function POST(request: Request) {
       payment_settings: {
         save_default_payment_method: 'on_subscription',
       },
-      expand: ['latest_invoice.payment_intent'],
+      // Stripe API 2025-Basil+ moved the invoice's client secret off
+      // latest_invoice.payment_intent onto latest_invoice.confirmation_secret. The pinned
+      // SDK (v22 → API 2026-05-27.dahlia) no longer populates payment_intent at all, so
+      // expanding/reading the old field returned nothing → "Failed to initialize payment"
+      // 500s. Expand confirmation_secret and read its client_secret (still a PaymentIntent
+      // client secret, so <PaymentElement> + confirmPayment on the client is unchanged).
+      expand: ['latest_invoice.confirmation_secret'],
       metadata: {
         nexez_user_id: user.id,
         nexez_plan: plan.id,
@@ -118,11 +124,15 @@ export async function POST(request: Request) {
       },
     })
 
-    const invoice = subscription.latest_invoice as any
-    const paymentIntent = (invoice?.payment_intent || (invoice as any)?.payment_intent) as Stripe.PaymentIntent | null
+    const invoice = subscription.latest_invoice as
+      | { confirmation_secret?: { client_secret?: string | null } | null; payment_intent?: { client_secret?: string | null } | null }
+      | null
+    // confirmation_secret is the current shape; payment_intent is the pre-Basil fallback
+    // (kept so the route still works if a deployment ever pins an older API version).
+    const clientSecret = invoice?.confirmation_secret?.client_secret ?? invoice?.payment_intent?.client_secret ?? null
 
-    if (!paymentIntent?.client_secret) {
-      console.error('[billing/create-subscription] No client_secret returned', { subId: subscription.id })
+    if (!clientSecret) {
+      console.error('[billing/create-subscription] No client_secret on invoice', { subId: subscription.id })
       return NextResponse.json({ error: 'Failed to initialize payment for subscription.' }, { status: 500 })
     }
 
@@ -130,7 +140,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       subscriptionId: subscription.id,
-      clientSecret: paymentIntent.client_secret,
+      clientSecret,
       customerId,
       planId: plan.id,
       priceId,

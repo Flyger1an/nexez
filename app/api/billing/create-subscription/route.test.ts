@@ -84,7 +84,7 @@ describe('POST /api/billing/create-subscription', () => {
     expect(subscriptionsCreate).not.toHaveBeenCalled()
   })
 
-  it('creates an incomplete subscription and returns a client secret', async () => {
+  it('creates an incomplete subscription and returns the invoice confirmation_secret', async () => {
     vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_ready')
     vi.mocked(getBillingPlan).mockReturnValue({ id: 'pro', name: 'Pro' } as any)
     vi.mocked(getPlanPriceId).mockReturnValue('price_pro')
@@ -94,9 +94,10 @@ describe('POST /api/billing/create-subscription', () => {
         { user: { id: 'u1', email: 'a@b.c' } },
       ) as any,
     )
+    // Stripe API 2025-Basil+ shape: client secret lives on latest_invoice.confirmation_secret.
     subscriptionsCreate.mockResolvedValue({
       id: 'sub_1',
-      latest_invoice: { payment_intent: { client_secret: 'pi_secret_123' } },
+      latest_invoice: { confirmation_secret: { client_secret: 'pi_secret_123' } },
     })
 
     const res = await POST(jsonRequest({ plan: 'pro' }))
@@ -109,6 +110,7 @@ describe('POST /api/billing/create-subscription', () => {
         customer: 'cus_existing',
         items: [{ price: 'price_pro' }],
         payment_behavior: 'default_incomplete',
+        expand: ['latest_invoice.confirmation_secret'],
         metadata: expect.objectContaining({
           nexez_user_id: 'u1',
           nexez_plan: 'pro',
@@ -117,6 +119,44 @@ describe('POST /api/billing/create-subscription', () => {
         }),
       }),
     )
+  })
+
+  it('falls back to latest_invoice.payment_intent for older Stripe API versions', async () => {
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_ready')
+    vi.mocked(getBillingPlan).mockReturnValue({ id: 'pro', name: 'Pro' } as any)
+    vi.mocked(getPlanPriceId).mockReturnValue('price_pro')
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock(
+        (ctx) => (ctx.table === 'billing_subscriptions' ? { data: { stripe_customer_id: 'cus_existing' } } : { data: null }),
+        { user: { id: 'u1', email: 'a@b.c' } },
+      ) as any,
+    )
+    subscriptionsCreate.mockResolvedValue({
+      id: 'sub_1',
+      latest_invoice: { payment_intent: { client_secret: 'pi_legacy_456' } },
+    })
+
+    const res = await POST(jsonRequest({ plan: 'pro' }))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.clientSecret).toBe('pi_legacy_456')
+  })
+
+  it('500s with actionable copy when the invoice carries no client secret', async () => {
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_ready')
+    vi.mocked(getBillingPlan).mockReturnValue({ id: 'pro', name: 'Pro' } as any)
+    vi.mocked(getPlanPriceId).mockReturnValue('price_pro')
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock(
+        (ctx) => (ctx.table === 'billing_subscriptions' ? { data: { stripe_customer_id: 'cus_existing' } } : { data: null }),
+        { user: { id: 'u1', email: 'a@b.c' } },
+      ) as any,
+    )
+    subscriptionsCreate.mockResolvedValue({ id: 'sub_1', latest_invoice: {} })
+
+    const res = await POST(jsonRequest({ plan: 'pro' }))
+    expect(res.status).toBe(500)
   })
 
   it('returns setup guidance instead of a 500 when Stripe cannot find the configured price', async () => {
