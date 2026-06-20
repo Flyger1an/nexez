@@ -362,7 +362,7 @@ export default function BillingDashboardClient({
           </div>
           <p className="mt-4 border-t border-[var(--bd-10)] pt-3 text-xs text-[var(--fg-muted)]">
             Transaction fees are separate from your <span className="text-white">{activePlan?.name ?? 'Free'}</span> subscription
-            {activePlan?.cadence ? ` (${activePlan.price}/${activePlan.cadence})` : ''} — that’s what you pay Nexez to run your pages.
+            {activePlan?.cadence ? ` (${activePlan.price}/${activePlan.cadence})` : ''} — that’s what you pay Nexez to run your listings.
           </p>
         </GlassCard>
 
@@ -576,8 +576,8 @@ export default function BillingDashboardClient({
               </ul>
             </div>
             <div className="text-sm text-[var(--fg-muted)] border-l border-[var(--bd-10)] pl-8">
-              Nexez takes a small platform fee only on transactions driven through your agent pages.
-              You keep the rest. Fees are automatically applied via Stripe when using the embedded checkout on public pages.
+              Nexez takes a small platform fee only on transactions driven through your agent listings.
+              You keep the rest. Fees are automatically applied via Stripe when using the embedded checkout on public listings.
               <div className="mt-4 text-xs">Connect your own Stripe account below to receive the net earnings directly into your bank account.</div>
             </div>
           </div>

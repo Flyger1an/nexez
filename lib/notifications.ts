@@ -34,7 +34,7 @@ export function buildNotifications(input: {
     notifications.push({
       id: 'stale',
       severity: 'action',
-      message: `${stale.length} published page${stale.length === 1 ? '' : 's'} may be stale — consider re-syncing`,
+      message: `${stale.length} published listing${stale.length === 1 ? '' : 's'} may be stale — consider re-syncing`,
       cta: 'Review',
       href: stale[0]?.id ? `/dashboard/${stale[0].id}/settings` : '/dashboard',
     })
@@ -47,7 +47,7 @@ export function buildNotifications(input: {
     notifications.push({
       id: 'unpublished',
       severity: 'info',
-      message: `${unpublishedWithOffers.length} page${unpublishedWithOffers.length === 1 ? '' : 's'} with offers ${unpublishedWithOffers.length === 1 ? 'is' : 'are'} still in draft`,
+      message: `${unpublishedWithOffers.length} listing${unpublishedWithOffers.length === 1 ? '' : 's'} with offers ${unpublishedWithOffers.length === 1 ? 'is' : 'are'} still in draft`,
       cta: 'Publish',
       href: unpublishedWithOffers[0]?.id ? `/dashboard/${unpublishedWithOffers[0].id}` : '/dashboard',
     })
