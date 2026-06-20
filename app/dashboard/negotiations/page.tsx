@@ -320,7 +320,7 @@ export default function NegotiationsInbox() {
                   on agreed deals. Mark an offer “negotiable” in the page editor to invite proposals.
                 </p>
                 <div className="mt-5 flex flex-wrap justify-center gap-3">
-                  <a href="/dashboard/pages" className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20">
+                  <a href="/dashboard/listings" className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20">
                     Set an offer to negotiable
                   </a>
                   <a href="/dashboard/finance" className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm text-zinc-200 hover:bg-white/5">

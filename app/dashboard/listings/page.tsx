@@ -20,7 +20,7 @@ export default async function PagesRoute({
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) redirect('/login?next=/dashboard/pages')
+  if (!user) redirect('/login?next=/dashboard/listings')
 
   const sp = await searchParams
   const status: Status = sp.status === 'published' ? 'published' : sp.status === 'draft' ? 'draft' : 'all'

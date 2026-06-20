@@ -40,7 +40,7 @@ export type DashboardInitial = {
 }
 
 // Overview shows a bounded recent set; full management (with pagination) lives
-// in /dashboard/pages so the dashboard stays fast for accounts with many pages.
+// in /dashboard/listings so the dashboard stays fast for accounts with many pages.
 const OVERVIEW_PAGE_LIMIT = 9
 
 export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
@@ -446,7 +446,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
               <div className="flex items-center gap-3">
                 <span className="text-xs text-muted-foreground">{pages.length} total</span>
                 {pages.length > OVERVIEW_PAGE_LIMIT ? (
-                  <a href="/dashboard/pages" className="text-xs text-[var(--signal)] hover:underline">Manage all →</a>
+                  <a href="/dashboard/listings" className="text-xs text-[var(--signal)] hover:underline">Manage all →</a>
                 ) : null}
               </div>
             </div>
@@ -469,7 +469,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
 
             {pages.length > OVERVIEW_PAGE_LIMIT ? (
               <div className="mt-4 text-center">
-                <a href="/dashboard/pages" className="btn-secondary inline-flex h-10 px-4 text-sm">
+                <a href="/dashboard/listings" className="btn-secondary inline-flex h-10 px-4 text-sm">
                   Manage all {pages.length} listings →
                 </a>
               </div>

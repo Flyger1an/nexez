@@ -37,14 +37,14 @@ type PageHit = {
 const navItems = [
   { href: '/dashboard', label: 'Overview', icon: Grid2X2, mobile: true },
   {
-    href: '/dashboard/pages',
+    href: '/dashboard/listings',
     label: 'Listings',
     icon: FileText,
     mobile: true,
     subItems: [
-      { href: '/dashboard/pages', label: 'All listings' },
-      { href: '/dashboard/pages?status=published', label: 'Published' },
-      { href: '/dashboard/pages?status=draft', label: 'Drafts' },
+      { href: '/dashboard/listings', label: 'All listings' },
+      { href: '/dashboard/listings?status=published', label: 'Published' },
+      { href: '/dashboard/listings?status=draft', label: 'Drafts' },
     ],
   },
   { href: '/create', label: 'New Listing', icon: Plus, mobile: true },
@@ -191,7 +191,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
                   badge={item.href === '/dashboard/negotiations' ? openNegotiations : 0}
                   mobileFirst={'mobile' in item && item.mobile === true}
                 />
-                {'subItems' in item && item.subItems && pathname.startsWith('/dashboard/pages') && pinned ? (
+                {'subItems' in item && item.subItems && pathname.startsWith('/dashboard/listings') && pinned ? (
                   <div className="ml-7 hidden space-y-0.5 md:block">
                     {item.subItems.map((sub) => (
                       <a

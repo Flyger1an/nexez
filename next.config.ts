@@ -39,6 +39,9 @@ const nextConfig: NextConfig = {
       // Agent Lab consolidation: the standalone Competitors dashboard page folded
       // into the simulator as its signed-in "Compare a competitor" lens.
       { source: "/dashboard/competitors", destination: "/simulator?mode=compare", permanent: true },
+      // Storefront/Listing rename: the seller's "Pages" manager is now "Listings"
+      // at /dashboard/listings. 308 preserves bookmarks + the incoming ?status query.
+      { source: "/dashboard/pages", destination: "/dashboard/listings", permanent: true },
     ];
   },
   async headers() {

@@ -779,7 +779,7 @@ function PayoutStatus({ status }: { status: string }) {
 function EmptyFinance({ payoutsReady, connectAccountId }: { payoutsReady: boolean; connectAccountId: string | null }) {
   const ctas: EmptyStateCta[] = []
   if (!connectAccountId) ctas.push({ label: 'Connect Stripe', href: '/dashboard/billing?tab=fees' })
-  ctas.push({ label: 'View your pages', href: '/dashboard/pages', variant: 'secondary' })
+  ctas.push({ label: 'View your listings', href: '/dashboard/listings', variant: 'secondary' })
   return (
     <EmptyState icon={Wallet} title="Your first sale lands here" ctas={ctas}>
       When an agent buys through one of your pages, the revenue, Nexez fee, net-to-you, and payouts all show up here —

@@ -212,9 +212,9 @@ export function PagesManager({
   }
 
   const tabs: { id: Status; label: string; href: string; count: number }[] = [
-    { id: 'all', label: 'All', href: '/dashboard/pages', count: counts.all },
-    { id: 'published', label: 'Published', href: '/dashboard/pages?status=published', count: counts.published },
-    { id: 'draft', label: 'Drafts', href: '/dashboard/pages?status=draft', count: counts.draft },
+    { id: 'all', label: 'All', href: '/dashboard/listings', count: counts.all },
+    { id: 'published', label: 'Published', href: '/dashboard/listings?status=published', count: counts.published },
+    { id: 'draft', label: 'Drafts', href: '/dashboard/listings?status=draft', count: counts.draft },
   ]
 
   return (
