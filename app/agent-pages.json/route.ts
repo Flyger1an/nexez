@@ -28,6 +28,7 @@ export async function GET(request: Request) {
       search_url: `${baseUrl}/api/agent-search?q={query}`,
       openclaw: distribution.openclaw,
       sdks: distribution.sdks,
+      examples: distribution.examples,
       pages: publicLaunchVisiblePages(pages).map((page) => {
         const cert = getCertification(page)
         const currency = normalizeCurrency(page.currency)

@@ -43,6 +43,7 @@ One source of truth. Two audiences: beautiful for humans, brutally structured fo
 - Published TypeScript buyer-agent SDK: `npm install @nexez/agent-sdk`
 - Published Python buyer-agent SDK: `python -m pip install nexez-agent-sdk`
 - Copy-paste buyer-agent examples in `examples/agents`
+- Agent submission pack in `docs/agent-submission-pack.md`
 - Public agent access docs at `/agents`, linked from agent metadata
 
 ---

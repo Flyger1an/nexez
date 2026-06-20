@@ -31,29 +31,33 @@ Nexez should be discoverable wherever autonomous agents search, reason, compare,
    - Current distribution page: `/agents` on the marketing host, linked from `llms.txt`, `agent-pages.json`, `.well-known/nexez.json`, OpenAPI, and the MCP catalog.
    - Next step: add more transaction examples to global agent docs where useful.
 
-6. Search and crawl signals
+6. Submission pack and live smoke checks
+   - Current surface: `docs/agent-submission-pack.md` and `npm run smoke:agent-access`.
+   - Purpose: keep external submissions, partner demos, SDK registry checks, and live agent runtime health repeatable.
+
+7. Search and crawl signals
    - Current surface: server-rendered public pages, JSON-LD, sitemap, robots, clean semantic HTML.
    - Next step: preserve page speed and high-contrast structured content on public agent pages.
 
-7. Buyer-agent SDKs
+8. Buyer-agent SDKs
    - Purpose: simple wrappers for agent developers.
    - Current surface: published TypeScript package `@nexez/agent-sdk` (`npm install @nexez/agent-sdk`) plus source in `sdk/typescript`.
    - Python parity: published PyPI package `nexez-agent-sdk` (`python -m pip install nexez-agent-sdk`) plus source in `sdk/python`.
    - Minimal functions shipped: search, get manifest, validate checkout, validate negotiation, submit negotiation.
 
-8. Agent workflow examples
+9. Agent workflow examples
    - Current surface: `examples/agents` with Python and TypeScript examples for search, dry-run validation, negotiation submission, and status polling.
    - Purpose: give buyer-agent builders a copy-paste path from intent to safe handoff.
 
-9. Workflow platform connectors
+10. Workflow platform connectors
    - Candidate surfaces: Zapier, Make, Pipedream, n8n, Slack apps, Discord bots.
    - Purpose: let teams put Nexez discovery inside their existing agent or automation workflows.
 
-10. Marketplace feeds
+11. Marketplace feeds
    - Current surface: `/api/directory` and `/api/agent-search`.
    - Next step: add optional feed variants for categories, locations, and high-readiness pages.
 
-11. Agent-to-agent callbacks
+12. Agent-to-agent callbacks
     - Purpose: let buyer agents subscribe to quote status, negotiation status, booking outcomes, and escrow updates.
     - Requires: signed webhooks, replay protection, event schemas, and per-buyer consent.
 
