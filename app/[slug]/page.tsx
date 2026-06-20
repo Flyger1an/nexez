@@ -19,6 +19,7 @@ import { logAbImpressions } from '../../lib/server/log-ab-impressions'
 import { AB_BUCKET_COOKIE, parseBucket, hiddenVariantIndices } from '../../lib/ab-testing'
 import { supabase } from '../../lib/supabase'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
+import { loadStorefrontHandleForSlug } from '../../lib/server/storefront'
 import { getOwnerPlanId } from '../../lib/server/plan'
 import { planAllows } from '../../lib/billing'
 import { getPagePrivateMeta } from '../../lib/server/page-private-meta'
@@ -226,6 +227,8 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
   // Gate the buyer-facing render to match so sub-Pro pages fall back to direct
   // booking instead of showing an offer form / agent block the API will reject.
   const negotiationAllowed = hasNegotiableOffer && planAllows(ownerPlan, 'negotiation')
+  // Best-effort listing→storefront backlink (service-role; null in dev / no storefront).
+  const storefrontHandle = await loadStorefrontHandleForSlug(page.slug)
 
   return (
     <main className="public-agent-page min-h-screen bg-[#0A0A0F] text-white" style={accentStyle}>
@@ -273,6 +276,15 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
           <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-[var(--ready)]/10 px-3 py-0.5 text-xs text-[var(--ready)]">
             MCP Ready — structured context for Model Context Protocol agents
             <a href={mcpJsonHref} className="underline">mcp.json</a>
+          </div>
+        )}
+
+        {storefrontHandle && (
+          <div className="mt-3">
+            <a href={`/store/${storefrontHandle}`} className="inline-flex items-center gap-1.5 text-sm text-[#9CA3AF] hover:text-white">
+              Browse the full storefront
+              <ArrowUpRight className="size-4" />
+            </a>
           </div>
         )}
 

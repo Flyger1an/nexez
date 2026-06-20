@@ -41,3 +41,26 @@ export async function loadStorefrontByHandle(
 
   return { storefront, listings: listings ?? [] }
 }
+
+/**
+ * The storefront handle for a published listing's owner, for the listing→storefront
+ * backlink. Service-role (slug → owner → handle, both indexed); null in dev or when the
+ * owner has no storefront. Avoids touching the SEV1 pages_public projection.
+ */
+export async function loadStorefrontHandleForSlug(slug: string): Promise<string | null> {
+  const clean = (slug || '').trim()
+  if (!clean || !hasSupabaseAdminEnv()) return null
+  const admin = createAdminClient()
+  const { data: page } = await admin
+    .from('pages')
+    .select('owner_id')
+    .eq('slug', clean)
+    .maybeSingle<{ owner_id: string | null }>()
+  if (!page?.owner_id) return null
+  const { data: sf } = await admin
+    .from('storefronts')
+    .select('handle')
+    .eq('owner_id', page.owner_id)
+    .maybeSingle<{ handle: string }>()
+  return sf?.handle ?? null
+}
