@@ -1,8 +1,9 @@
 import { AgentPage, getCertification, getCheckoutOffers, getCheckoutPath, getOfferCount, getRequestBaseUrl } from '../../lib/agent-page'
-import { getAgentJsonPath } from '../../lib/agent-manifest'
+import { buildAgentStorefrontRef, getAgentJsonPath } from '../../lib/agent-manifest'
 import { buildAgentDistributionLinks } from '../../lib/agent-distribution'
 import { normalizeCurrency } from '../../lib/currency'
 import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
+import { loadStorefrontHandlesForSlugs } from '../../lib/server/storefront'
 import { supabase } from '../../lib/supabase'
 
 export async function GET(request: Request) {
@@ -17,6 +18,9 @@ export async function GET(request: Request) {
     .order('created_at', { ascending: false })
     .returns<AgentPage[]>()
 
+  const visiblePages = publicLaunchVisiblePages(pages)
+  const storefrontHandles = await loadStorefrontHandlesForSlugs(visiblePages.map((page) => page.slug))
+
   return Response.json(
     {
       schema_version: 'nexez.agent-index.v1',
@@ -29,41 +33,50 @@ export async function GET(request: Request) {
       openclaw: distribution.openclaw,
       sdks: distribution.sdks,
       examples: distribution.examples,
-      pages: publicLaunchVisiblePages(pages).map((page) => {
+      pages: visiblePages.map((page) => {
         const cert = getCertification(page)
         const currency = normalizeCurrency(page.currency)
+        const storefrontHandle = storefrontHandles.get(page.slug)
+        const storefront = storefrontHandle ? buildAgentStorefrontRef(storefrontHandle, baseUrl) : null
         return {
-        name: page.name,
-        slug: page.slug,
-        url: `${baseUrl}/${page.slug}`,
-        agent_json_url: `${baseUrl}${getAgentJsonPath(page.slug)}`,
-        description: page.description,
-        location: page.location,
-        industry: page.industry ?? null,
-        currency,
-        readiness: cert.readiness,
-        certified: cert.certified,
-        offer_count: getOfferCount(page),
-        checkout_urls: getCheckoutOffers(page).map((offer) => ({
-          offer: offer.name,
-          type: offer.kind === 'services' ? 'service' : 'product',
-          price: offer.price || null,
+          name: page.name,
+          slug: page.slug,
+          url: `${baseUrl}/${page.slug}`,
+          agent_json_url: `${baseUrl}${getAgentJsonPath(page.slug)}`,
+          ...(storefront
+            ? {
+                storefront_handle: storefront.handle,
+                storefront_url: storefront.url,
+                storefront_agent_json_url: storefront.agent_json_url,
+              }
+            : {}),
+          description: page.description,
+          location: page.location,
+          industry: page.industry ?? null,
           currency,
-          url: `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
-          action: {
-            method: 'POST',
-            endpoint: `${baseUrl}/api/checkout`,
-            body: {
-              slug: page.slug,
-              offer: `${offer.kind}-${offer.index}`,
+          readiness: cert.readiness,
+          certified: cert.certified,
+          offer_count: getOfferCount(page),
+          checkout_urls: getCheckoutOffers(page).map((offer) => ({
+            offer: offer.name,
+            type: offer.kind === 'services' ? 'service' : 'product',
+            price: offer.price || null,
+            currency,
+            url: `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
+            action: {
+              method: 'POST',
+              endpoint: `${baseUrl}/api/checkout`,
+              body: {
+                slug: page.slug,
+                offer: `${offer.kind}-${offer.index}`,
+              },
+              dry_run_body: {
+                slug: page.slug,
+                offer: `${offer.kind}-${offer.index}`,
+                dryRun: true,
+              },
             },
-            dry_run_body: {
-              slug: page.slug,
-              offer: `${offer.kind}-${offer.index}`,
-              dryRun: true,
-            },
-          },
-        })),
+          })),
         }
       }),
     },

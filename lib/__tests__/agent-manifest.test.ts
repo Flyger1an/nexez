@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildAgentPagePayload, getAgentJsonPath } from '../agent-manifest'
+import { buildAgentPagePayload, buildAgentStorefrontRef, getAgentJsonPath } from '../agent-manifest'
 import { rewriteForVoiceSync } from '../ai-optimize'
 import type { AgentPage } from '../agent-page'
 
@@ -58,6 +58,17 @@ describe('buildAgentPagePayload', () => {
   it('includes a plain_text block for LLMs', () => {
     expect(typeof payload.plain_text).toBe('string')
     expect(payload.plain_text).toContain('Acme')
+  })
+
+  it('can include an additive storefront reference', () => {
+    const storefront = buildAgentStorefrontRef('acme-store', 'https://nexez.app')
+    const storefrontPayload = buildAgentPagePayload(page, 'https://nexez.app', { storefront }) as any
+    expect(storefrontPayload.storefront).toEqual({
+      handle: 'acme-store',
+      url: 'https://nexez.app/store/acme-store',
+      agent_json_url: 'https://nexez.app/store/acme-store/agent.json',
+    })
+    expect(storefrontPayload.plain_text).toContain('Storefront: https://nexez.app/store/acme-store')
   })
 })
 

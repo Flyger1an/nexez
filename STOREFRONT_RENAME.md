@@ -1,6 +1,6 @@
 # Agent Storefront / Agent Listing — labeling + multi-storefront foundation
 
-_Status: SHIPPED THROUGH PHASE 3b (all deploy-verified on prod). The human-facing rename is platform-wide — dashboard, create/onboard/billing, the marketing site, the route (`/dashboard/listings` + 308 redirect), and the long tail (editor, settings, analytics, components, transactional emails) via a multi-agent sweep. The storefront exists end-to-end: `storefronts` table + one-per-account backfill, the public `/store/<handle>` landing + `/store/<handle>/agent.json` manifest, the Storefront-settings editor, listing→storefront backlinks, storefront-level aggregate signals, and storefront browsing in `/discovery`. **Deferred:** Phase 3c (custom-domain root → storefront). **Remaining:** Phase 4 (multi-storefront foundation). This doc is now the labeling guide + the Phase 4 roadmap; §6 has the authoritative per-phase status + commits._
+_Status: SHIPPED THROUGH PHASE 3b (all deploy-verified on prod). The human-facing rename is platform-wide — dashboard, create/onboard/billing, the marketing site, the route (`/dashboard/listings` + 308 redirect), and the long tail (editor, settings, analytics, components, transactional emails) via a multi-agent sweep. The storefront exists end-to-end: `storefronts` table + one-per-account backfill, the public `/store/<handle>` landing + `/store/<handle>/agent.json` manifest, the Storefront-settings editor, listing→storefront backlinks, storefront-level aggregate signals, and storefront browsing in `/discovery`. Current follow-up: agent-readable storefront refs across listing manifests, `agent-pages.json`, search, and directory responses. **Deferred:** Phase 3c (custom-domain root → storefront). **Remaining:** Phase 4 (multi-storefront foundation). This doc is now the labeling guide + the Phase 4 roadmap; §6 has the authoritative per-phase status + commits._
 
 **Decision:** adopt Nexez-native vocabulary **Agent Storefront → Agent Listing → Offer**:
 
@@ -85,7 +85,9 @@ The model promises "your account *is* a storefront," so a storefront must **exis
 - `GET /store/<handle>` — HTML landing: brand header (name/logo/accent), description, aggregate trust/certification + preferred contact, and a **grid of the storefront's published listings** (each → its `/[slug]`). Data = `pages_public` filtered by storefront (owner_id in 1:1 mode, `storefront_id` in multi).
 - `GET /store/<handle>/agent.json` — **storefront manifest**: brand + an array of the listings' `agent.json` URLs (a per-seller mini-`agent-pages.json`). **Additive** to the contract — an agent discovers a whole seller at once. `/store/` prefix avoids collision with listing `/[slug]`.
 
-**Shipped wire-ups:** each listing `/[slug]` has a "Browse the full storefront →" backlink (`a696fb0`) — resolved via a service-role `slug → owner → handle` lookup, because the launch-hardening migration stripped `owner_id` from `pages_public`, so the view can't be filtered by owner; `/discovery` surfaces storefronts in the sidebar (`471f549`); and storefront-level aggregates (offers / avg readiness / "Nexez Certified") show on the landing + manifest (`acb7cac`). **Deferred — custom-domain root → storefront (Phase 3c):** blocked by that same `owner_id` strip — the `proxy.ts` middleware can't resolve host→storefront without re-exposing `owner_id` (undoes the security fix) or a service-role read on the edge hot path, and it would change the existing custom-domain agent contract. Poor risk/reward; see §6.
+**Shipped wire-ups:** each listing `/[slug]` has a "Browse the full storefront →" backlink (`a696fb0`) — resolved via a service-role `slug → owner → handle` lookup, because the launch-hardening migration stripped `owner_id` from `pages_public`, so the view can't be filtered by owner; `/discovery` surfaces storefronts in the sidebar (`471f549`); and storefront-level aggregates (offers / avg readiness / "Nexez Certified") show on the landing + manifest (`acb7cac`). This follow-up extends the additive agent contract so each listing `agent.json`/`mcp.json` can include a storefront reference, `agent-pages.json` can emit `storefront_handle` + storefront URLs per listing, and discovery/search results can surface storefront context.
+
+**Remaining wire-ups:** discovery can add dedicated storefront-grouped result sections. **Deferred — custom-domain root → storefront (Phase 3c):** blocked by that same `owner_id` strip — the `proxy.ts` middleware can't resolve host→storefront without re-exposing `owner_id` (undoes the security fix) or a service-role read on the edge hot path, and it would change the existing custom-domain agent contract. Poor risk/reward; see §6.
 
 ---
 
@@ -106,6 +108,7 @@ The model promises "your account *is* a storefront," so a storefront must **exis
 - **Phase 3 — polish:**
   - 3a storefront-level aggregate (offers / avg readiness / Certified, landing + manifest) — ✅ `acb7cac`
   - 3b browse storefronts in `/discovery` — ✅ `471f549`
+  - 3b.1 agent-readable storefront refs in listing `agent.json`/`mcp.json`, `agent-pages.json`, agent search, directory responses, and discovery cards — ✅ this commit
   - 3c custom-domain root = storefront — ⏸ **DEFERRED.** Blocked by the launch-hardening `owner_id` strip from `pages_public`: the `proxy.ts` middleware can't resolve host→storefront without re-exposing `owner_id` (a security regression) or a service-role read on the edge hot path, and it changes the existing custom-domain agent contract for live domains. Niche reward (~few custom domains); revisit only with a dedicated host→storefront mapping mechanism.
 - **Phase 4 — multi-storefront foundation (§7):** the only remaining item — make one account able to own many storefronts. Optional; a real schema + money-path effort.
 
@@ -155,8 +158,8 @@ Keep `pages.owner_id` denormalized (= `storefronts.owner_id`) so existing `owner
 
 ### Agent contract (additive — never rename individual `page` artifacts)
 - `/store/<handle>` + `/store/<handle>/agent.json` per storefront.
-- `agent-pages.json` gains an optional `storefront_handle` per entry so the global catalog can group by seller.
-- Each listing's `agent.json` can include a `storefront` ref. All additive.
+- `agent-pages.json` includes optional `storefront_handle`, `storefront_url`, and `storefront_agent_json_url` per entry so the global catalog can group by seller.
+- Each listing's `agent.json`/`mcp.json` can include a `storefront` ref. All additive.
 
 ### Non-breaking rollout
 1. Ship `storefronts` + `pages.storefront_id` + invariant trigger; **backfill one storefront per account** (handle from the account's primary listing/brand). RLS unchanged.

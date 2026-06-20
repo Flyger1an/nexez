@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 type TrackedDirectoryLinkProps = {
   href: string
   slug: string
-  action: 'public_page' | 'agent_json' | 'checkout' | 'analyze' | 'favorite' | 'similar_page'
+  action: 'public_page' | 'agent_json' | 'checkout' | 'analyze' | 'favorite' | 'similar_page' | 'storefront'
   surface?: 'directory' | 'marketplace'
   offerKey?: string
   offerName?: string

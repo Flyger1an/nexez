@@ -14,7 +14,7 @@ type ClickPayload = {
   query?: string | null
 }
 
-const allowedActions = new Set(['public_page', 'agent_json', 'checkout', 'analyze', 'favorite', 'similar_page'])
+const allowedActions = new Set(['public_page', 'agent_json', 'checkout', 'analyze', 'favorite', 'similar_page', 'storefront'])
 const allowedSurfaces = new Set(['directory', 'marketplace'])
 
 export async function POST(request: Request) {

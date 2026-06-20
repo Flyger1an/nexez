@@ -1,8 +1,9 @@
 import { NextResponse, after } from 'next/server'
 import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '../../../lib/agent-page'
-import { buildAgentPagePayload } from '../../../lib/agent-manifest'
+import { buildAgentPagePayload, buildAgentStorefrontRef } from '../../../lib/agent-manifest'
 import { logAgentPageView } from '../../../lib/server/log-agent-page-view'
 import { resolveNegotiationAllowed } from '../../../lib/server/negotiation-visibility'
+import { loadStorefrontHandleForSlug } from '../../../lib/server/storefront'
 import { supabase } from '../../../lib/supabase'
 
 /**
@@ -53,7 +54,11 @@ export async function GET(
     }
   }
   const negotiationAllowed = await resolveNegotiationAllowed(page)
-  const payload = buildAgentPagePayload(page, base, { negotiationAllowed })
+  const storefrontHandle = await loadStorefrontHandleForSlug(slug)
+  const payload = buildAgentPagePayload(page, base, {
+    negotiationAllowed,
+    storefront: storefrontHandle ? buildAgentStorefrontRef(storefrontHandle) : null,
+  })
 
   // MCP-flavored wrapper: resources for offers + context, tools for actions.
   // Agents supporting MCP can use this as context/resources.
@@ -81,6 +86,16 @@ export async function GET(
         description: 'Plain-text instructions optimized for LLMs/agents.',
         mimeType: 'text/plain',
       },
+      ...(payload.storefront
+        ? [
+            {
+              uri: payload.storefront.agent_json_url,
+              name: 'Agent Storefront Manifest',
+              description: 'Seller-level context and links to every published listing in this storefront.',
+              mimeType: 'application/json',
+            },
+          ]
+        : []),
       ... (payload.offers || []).map((offer: any, idx: number) => ({
         uri: `${base}/${slug}#offer-${idx}`,
         name: offer.name,

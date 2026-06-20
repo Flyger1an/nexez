@@ -1,9 +1,10 @@
 import { after } from 'next/server'
 import { notFound } from 'next/navigation'
 import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '../../../lib/agent-page'
-import { buildAgentPagePayload } from '../../../lib/agent-manifest'
+import { buildAgentPagePayload, buildAgentStorefrontRef } from '../../../lib/agent-manifest'
 import { logAgentPageView } from '../../../lib/server/log-agent-page-view'
 import { resolveNegotiationAllowed } from '../../../lib/server/negotiation-visibility'
+import { loadStorefrontHandleForSlug } from '../../../lib/server/storefront'
 import { supabase } from '../../../lib/supabase'
 
 type RouteProps = {
@@ -39,7 +40,11 @@ export async function GET(request: Request, { params }: RouteProps) {
   }
 
   const negotiationAllowed = await resolveNegotiationAllowed(page)
-  const payload = buildAgentPagePayload(page, baseForPayload, { negotiationAllowed })
+  const storefrontHandle = await loadStorefrontHandleForSlug(slug)
+  const payload = buildAgentPagePayload(page, baseForPayload, {
+    negotiationAllowed,
+    storefront: storefrontHandle ? buildAgentStorefrontRef(storefrontHandle) : null,
+  })
   return Response.json(payload, {
     headers: {
       'Cache-Control': 'public, max-age=120, s-maxage=300',

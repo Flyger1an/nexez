@@ -1,12 +1,12 @@
 import type { Metadata } from 'next'
-import { ArrowRight, Bot, Code2, ExternalLink, Search, Sparkles } from 'lucide-react'
+import { ArrowRight, Bot, Code2, ExternalLink, Search, Sparkles, Store } from 'lucide-react'
 import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getOfferCount, getReadinessScore, getTrustScore } from '../../lib/agent-page'
 import { AgentSearchResult, searchAgentPages } from '../../lib/agent-search'
 import { classifyMarketplaceCategory } from '../../lib/marketplace'
 import { cleanLocationQuery, filterPagesByLocation } from '../../lib/location-filter'
 import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
 import { supabase } from '../../lib/supabase'
-import { loadPublicStorefronts } from '../../lib/server/storefront'
+import { loadPublicStorefronts, loadStorefrontHandlesForSlugs } from '../../lib/server/storefront'
 import { CopyButton } from './CopyButton'
 import { LocationFilter } from './LocationFilter'
 import { FavoriteButton } from '../../components/FavoriteButton'
@@ -56,6 +56,7 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
 
   const visiblePages = publicLaunchVisiblePages(pages)
   const storefronts = await loadPublicStorefronts(8)
+  const storefrontHandles = await loadStorefrontHandlesForSlugs(visiblePages.map((page) => page.slug))
   let filteredPages = visiblePages
   if (categoryFilter !== 'all') {
     filteredPages = filteredPages.filter(p => {
@@ -79,7 +80,10 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
     })
   }
 
-  const allResults = searchAgentPages(filteredPages, cleanQuery, 50, baseUrl, { location: cleanLocation })
+  const allResults = searchAgentPages(filteredPages, cleanQuery, 50, baseUrl, {
+    location: cleanLocation,
+    storefrontHandles,
+  })
 
   const results = allResults.filter((result) => {
     if (type === 'all') return true
@@ -381,9 +385,19 @@ export default async function DirectoryPage({ searchParams }: DirectoryProps) {
                             {p.name}
                           </TrackedDirectoryLink>
                           <FavoriteButton slug={p.slug} />
-                          <span className="text-[10px] rounded bg-[var(--ready)]/10 px-1.5 py-0.5 text-[var(--ready)] font-medium">
-                            {readiness}% ready
-                          </span>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {storefrontHandles.get(p.slug) ? (
+                              <a
+                                href={agentRuntimeUrl(`/store/${storefrontHandles.get(p.slug)}`)}
+                                className="rounded bg-[var(--signal)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--signal)] hover:bg-[var(--signal)]/20"
+                              >
+                                Storefront
+                              </a>
+                            ) : null}
+                            <span className="rounded bg-[var(--ready)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--ready)]">
+                              {readiness}% ready
+                            </span>
+                          </div>
                         </div>
                         <div className="text-xs text-[#9CA3AF] mt-1">/{p.slug}</div>
                       </div>
@@ -423,6 +437,7 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
   const offer = result.offer
   const marketplace = result.marketplace
   const readiness = marketplace?.readiness ?? 0
+  const storefront = result.page.storefront
 
   return (
     <article className="card !p-5 transition hover:border-[var(--signal)]/30">
@@ -435,6 +450,15 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
           <a href={result.page.url} className="mt-1 inline-block font-mono text-sm text-[#9CA3AF] hover:text-white">
             /{result.page.slug}
           </a>
+          {storefront ? (
+            <a
+              href={storefront.url}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--signal)]/20 bg-[var(--signal)]/10 px-2.5 py-1 text-xs font-medium text-[var(--signal)] transition hover:bg-[var(--signal)]/15"
+            >
+              <Store className="size-3.5" />
+              {storefront.handle}
+            </a>
+          ) : null}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           <div className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${readiness >= 75 ? 'bg-[var(--ready)]/10 text-[var(--ready)]' : readiness >= 55 ? 'bg-[var(--amber)]/10 text-[var(--amber)]' : 'bg-white/10 text-[#9CA3AF]'}`}>
@@ -478,6 +502,20 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
           Agent JSON
           <Code2 className="size-4" />
         </TrackedDirectoryLink>
+        {storefront ? (
+          <TrackedDirectoryLink
+            href={storefront.url}
+            slug={result.page.slug}
+            action="storefront"
+            offerKey={offer?.key}
+            offerName={offer?.name || result.page.name}
+            offerKind={offer?.type === 'product' ? 'products' : 'services'}
+            className="btn-secondary inline-flex items-center gap-2 text-sm"
+          >
+            Storefront
+            <Store className="size-4" />
+          </TrackedDirectoryLink>
+        ) : null}
         {offer ? (
           <TrackedDirectoryLink
             href={offer.checkout_url}

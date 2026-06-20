@@ -4,6 +4,7 @@ import { supabase } from '../../../lib/supabase'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 import { publicLaunchVisiblePages } from '../../../lib/public-page-visibility'
 import { cleanLocationQuery, filterPagesByLocation, locationFilterMeta } from '../../../lib/location-filter'
+import { loadStorefrontHandlesForSlugs } from '../../../lib/server/storefront'
 
 export async function GET(request: Request) {
   // Public agent-facing search — throttle to blunt scraping/DB abuse.
@@ -37,8 +38,12 @@ export async function GET(request: Request) {
 
   const baseUrl = getRequestBaseUrl(request)
   const visiblePages = publicLaunchVisiblePages(pages)
+  const storefrontHandles = await loadStorefrontHandlesForSlugs(visiblePages.map((page) => page.slug))
   const locationFilteredPages = filterPagesByLocation(visiblePages, location)
-  const results = searchAgentPages(locationFilteredPages, query, Number.isFinite(limit) ? limit : 10, baseUrl, { location })
+  const results = searchAgentPages(locationFilteredPages, query, Number.isFinite(limit) ? limit : 10, baseUrl, {
+    location,
+    storefrontHandles,
+  })
   const searchParams = new URLSearchParams({ q: query })
   if (location) searchParams.set('location', location)
 

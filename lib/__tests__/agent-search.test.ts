@@ -45,6 +45,17 @@ describe('searchAgentPages', () => {
     const nyRes = searchAgentPages([ny], 'strategy', 10, 'https://nexez.test', { location: 'NYC' })
     expect(nyRes[0].location_match?.matched).toBe(true)
   })
+
+  it('adds storefront context when provided by the caller', () => {
+    const res = searchAgentPages([plumber], 'plumbing', 10, 'https://nexez.test', {
+      storefrontHandles: new Map([['acme-plumb', 'acme-store']]),
+    })
+    expect(res[0].page.storefront).toEqual({
+      handle: 'acme-store',
+      url: 'https://nexez.test/store/acme-store',
+      agent_json_url: 'https://nexez.test/store/acme-store/agent.json',
+    })
+  })
 })
 
 describe('analyzeQueryRank (win-the-query)', () => {

@@ -20,10 +20,25 @@ export function getAgentJsonPath(slug: string) {
   return `/${slug}/agent.json`
 }
 
+export type AgentStorefrontRef = {
+  handle: string
+  url: string
+  agent_json_url: string
+}
+
+export function buildAgentStorefrontRef(handle: string, baseUrl = getBaseUrl()): AgentStorefrontRef {
+  const clean = handle.trim().toLowerCase()
+  return {
+    handle: clean,
+    url: absoluteRuntimeUrl(baseUrl, `/store/${clean}`),
+    agent_json_url: absoluteRuntimeUrl(baseUrl, `/store/${clean}/agent.json`),
+  }
+}
+
 export function buildAgentPagePayload(
   page: AgentPage,
   baseUrl = getBaseUrl(),
-  opts: { negotiationAllowed?: boolean } = {},
+  opts: { negotiationAllowed?: boolean; storefront?: AgentStorefrontRef | null } = {},
 ) {
   // negotiationAllowed gates the per-offer negotiation_action so the machine
   // manifest matches the public render + the gated POST /api/negotiations. Pure
@@ -87,7 +102,8 @@ export function buildAgentPagePayload(
       page.contact_email ? 'Use contact_email for human review or custom requests.' : 'Use the public page for seller context.',
       'Quote the source page URL when summarizing this offer for a buyer.',
     ],
-    plain_text: buildPlainText(page, offers, identityBase),
+    plain_text: buildPlainText(page, offers, identityBase, opts.storefront),
+    ...(opts.storefront ? { storefront: opts.storefront } : {}),
     // Agent memory/context (if present on page)
     memory_context: (page as any).agent_memory || null,
     // "Nexez Certified Agent-Ready" trust signal (published + 95%+ readiness).
@@ -155,7 +171,12 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: 
   }
 }
 
-function buildPlainText(page: AgentPage, offers: ReturnType<typeof buildOfferPayload>[], identityBase: string) {
+function buildPlainText(
+  page: AgentPage,
+  offers: ReturnType<typeof buildOfferPayload>[],
+  identityBase: string,
+  storefront?: AgentStorefrontRef | null,
+) {
   const consumerNotes = offers.some((o: any) => o.duration || o.isMobile || o.serviceArea)
     ? ' | Consumer/local services supported (duration, mobile, travelFee, serviceArea)'
     : ''
@@ -168,6 +189,7 @@ function buildPlainText(page: AgentPage, offers: ReturnType<typeof buildOfferPay
     `Name: ${page.name}`,
     `URL: ${pageUrl}`,
     `Agent JSON: ${agentJson}`,
+    ...(storefront ? [`Storefront: ${storefront.url}`, `Storefront JSON: ${storefront.agent_json_url}`] : []),
     `Summary: ${page.description ?? ''}`,
     `Best-fit buyer: ${page.audience ?? ''}`,
     `Location: ${page.location ?? ''}`,

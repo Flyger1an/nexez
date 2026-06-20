@@ -80,6 +80,43 @@ export async function loadStorefrontHandleForSlug(slug: string): Promise<string 
   return primary?.handle ?? null
 }
 
+/**
+ * Batched listing slug → storefront handle resolver for global agent surfaces.
+ * Keeps `/agent-pages.json` from doing one service-role lookup per listing while
+ * still avoiding owner_id exposure from the public projection.
+ */
+export async function loadStorefrontHandlesForSlugs(slugs: string[]): Promise<Map<string, string>> {
+  const clean = Array.from(new Set(slugs.map((slug) => (slug || '').trim()).filter(Boolean)))
+  const result = new Map<string, string>()
+  if (!clean.length || !hasSupabaseAdminEnv()) return result
+
+  const admin = createAdminClient()
+  const { data: pages } = await admin
+    .from('pages')
+    .select('slug, owner_id')
+    .in('slug', clean)
+    .eq('is_published', true)
+    .returns<Array<{ slug: string; owner_id: string | null }>>()
+
+  const ownerIds = Array.from(new Set((pages ?? []).map((page) => page.owner_id).filter(Boolean))) as string[]
+  if (!ownerIds.length) return result
+
+  const { data: storefronts } = await admin
+    .from('storefronts')
+    .select('owner_id, handle')
+    .in('owner_id', ownerIds)
+    .returns<Array<{ owner_id: string; handle: string }>>()
+
+  const handleByOwner = new Map((storefronts ?? []).map((storefront) => [storefront.owner_id, storefront.handle]))
+  for (const page of pages ?? []) {
+    if (!page.owner_id) continue
+    const handle = handleByOwner.get(page.owner_id)
+    if (handle) result.set(page.slug, handle)
+  }
+
+  return result
+}
+
 export type StorefrontSummary = Pick<Storefront, 'handle' | 'display_name' | 'logo_url'> & { listing_count: number }
 
 /**
