@@ -25,8 +25,14 @@ export async function loadStorefrontByHandle(
     .maybeSingle<Storefront>()
   if (!storefront) return null
 
+  // Read the owner's published listings from the BASE pages table via the service-role
+  // client: pages_public (the anon projection) deliberately no longer exposes owner_id
+  // (launch-hardening), so it can't be filtered by owner. The base rows carry private
+  // offer `rules`; callers MUST only surface the curated fields (name/slug/description/
+  // location + the offer_count/readiness DERIVED server-side) — never serialize the raw
+  // products/services. Mirrors how checkout reads base pages via service-role.
   const { data: listings } = await admin
-    .from('pages_public')
+    .from('pages')
     .select(PUBLIC_PAGE_SELECT)
     .eq('owner_id', storefront.owner_id)
     .eq('is_published', true)
