@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  NEXEZ_AGENT_EXAMPLES,
   NEXEZ_OPENCLAW_PLUGIN,
   NEXEZ_OPENCLAW_SKILL,
+  NEXEZ_PYTHON_SDK,
   NEXEZ_TYPESCRIPT_SDK,
   buildAgentDistributionLinks,
 } from '../agent-distribution'
@@ -16,6 +18,10 @@ describe('agent distribution metadata', () => {
     expect(NEXEZ_TYPESCRIPT_SDK.status).toBe('published')
     expect(NEXEZ_TYPESCRIPT_SDK.installCommand).toBe('npm install @nexez/agent-sdk')
     expect(NEXEZ_TYPESCRIPT_SDK.npmUrl).toBe('https://www.npmjs.com/package/@nexez/agent-sdk')
+    expect(NEXEZ_PYTHON_SDK.name).toBe('nexez-agent-sdk')
+    expect(NEXEZ_PYTHON_SDK.moduleName).toBe('nexez_agent_sdk')
+    expect(NEXEZ_PYTHON_SDK.localInstallCommand).toBe('python -m pip install -e sdk/python')
+    expect(NEXEZ_AGENT_EXAMPLES.sourcePath).toBe('examples/agents')
   })
 
   it('builds public agent links from the supplied runtime base', () => {
@@ -28,5 +34,8 @@ describe('agent distribution metadata', () => {
     expect(links.openclaw.skill.slug).toBe('nexez-agent-discovery')
     expect(links.sdks.typescript.sourcePath).toBe('sdk/typescript')
     expect(links.sdks.typescript.installCommand).toBe('npm install @nexez/agent-sdk')
+    expect(links.sdks.python.sourcePath).toBe('sdk/python')
+    expect(links.sdks.python.status).toBe('source_available')
+    expect(links.examples.sourcePath).toBe('examples/agents')
   })
 })

@@ -110,6 +110,12 @@ Search Nexez for plumbers near Chicago and shortlist the best matches. Do not st
 Find a negotiable B2B service on Nexez, validate the handoff with dryRun, and ask me before sending anything real.
 ```
 
+## SDK Starting Points
+
+- TypeScript: `npm install @nexez/agent-sdk`
+- Python source: `python -m pip install -e sdk/python`
+- Copy-paste workflows: `examples/agents`
+
 ## Expected Quality Bar
 
 The agent should:

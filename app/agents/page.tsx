@@ -12,8 +12,10 @@ import {
 } from 'lucide-react'
 import { CodeCopyButton } from '../../components/CodeCopyButton'
 import {
+  NEXEZ_AGENT_EXAMPLES,
   NEXEZ_OPENCLAW_PLUGIN,
   NEXEZ_OPENCLAW_SKILL,
+  NEXEZ_PYTHON_SDK,
   NEXEZ_TYPESCRIPT_SDK,
   buildAgentDistributionLinks,
 } from '../../lib/agent-distribution'
@@ -44,6 +46,45 @@ const installCards = [
     version: NEXEZ_OPENCLAW_SKILL.version,
     command: NEXEZ_OPENCLAW_SKILL.installCommand,
     copy: NEXEZ_OPENCLAW_SKILL.purpose,
+  },
+]
+
+const sdkCards = [
+  {
+    label: 'Published npm',
+    title: NEXEZ_TYPESCRIPT_SDK.displayName,
+    version: NEXEZ_TYPESCRIPT_SDK.version,
+    command: NEXEZ_TYPESCRIPT_SDK.installCommand,
+    href: NEXEZ_TYPESCRIPT_SDK.npmUrl,
+    hrefLabel: 'npm',
+    copy: NEXEZ_TYPESCRIPT_SDK.purpose,
+  },
+  {
+    label: 'Source-ready Python',
+    title: NEXEZ_PYTHON_SDK.displayName,
+    version: NEXEZ_PYTHON_SDK.version,
+    command: NEXEZ_PYTHON_SDK.localInstallCommand,
+    href: NEXEZ_PYTHON_SDK.sourceUrl,
+    hrefLabel: 'Source',
+    copy: NEXEZ_PYTHON_SDK.purpose,
+  },
+]
+
+const exampleCards = [
+  {
+    title: 'Find and validate',
+    path: 'examples/agents/python/find_and_validate.py',
+    copy: 'Search by buyer intent, fetch the page manifest, then dry-run checkout or negotiation before any action.',
+  },
+  {
+    title: 'Submit negotiation',
+    path: 'examples/agents/python/submit_negotiation.py',
+    copy: 'Prepare terms, validate rules, stop for buyer approval, submit, then poll the returned status URL.',
+  },
+  {
+    title: 'TypeScript parity',
+    path: 'examples/agents/typescript',
+    copy: 'The same agent workflows are mirrored for builders using the published TypeScript SDK.',
   },
 ]
 
@@ -141,7 +182,16 @@ const manifestPreview = {
       package: NEXEZ_TYPESCRIPT_SDK.npmUrl,
       source: NEXEZ_TYPESCRIPT_SDK.sourcePath,
     },
+    python: {
+      name: NEXEZ_PYTHON_SDK.name,
+      module: NEXEZ_PYTHON_SDK.moduleName,
+      version: NEXEZ_PYTHON_SDK.version,
+      status: NEXEZ_PYTHON_SDK.status,
+      local_install: NEXEZ_PYTHON_SDK.localInstallCommand,
+      source: NEXEZ_PYTHON_SDK.sourceUrl,
+    },
   },
+  examples: NEXEZ_AGENT_EXAMPLES.sourceUrl,
   endpoints: {
     search: distribution.agent_search_url_template,
     index: distribution.agent_index_url,
@@ -170,6 +220,26 @@ await nexez.validateCheckout({
   query: 'Buyer wants a strategy session next week.',
   buyerAgent: 'buyer-agent',
 })`
+
+const pythonSdkExample = `from nexez_agent_sdk import create_client
+
+nexez = create_client(buyer_agent="buyer-agent")
+
+matches = nexez.search(
+    "book a strategy session next week",
+    location="Chicago, IL",
+    limit=5,
+)
+
+first = matches["results"][0]
+page = nexez.get_agent_page(first["page"]["slug"])
+
+nexez.validate_negotiation(
+    slug=page["page"]["slug"],
+    offer=first.get("offer", {}).get("key", "services-0"),
+    query="Buyer wants a strategy session next week.",
+    budget="USD 2100",
+)`
 
 export default function AgentAccessPage() {
   return (
@@ -314,36 +384,43 @@ export default function AgentAccessPage() {
       <section className="border-b border-border bg-white/[0.015]">
         <div className="mx-auto grid max-w-7xl gap-8 px-5 py-16 md:py-20 lg:grid-cols-[0.76fr_1.24fr] lg:items-start">
           <div>
-            <p className="text-sm font-medium text-[var(--signal)]">TypeScript SDK</p>
+            <p className="text-sm font-medium text-[var(--signal)]">SDKs</p>
             <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">
-              Typed helpers for agent builders.
+              Helpers for agent builders.
             </h2>
             <p className="mt-4 text-sm leading-6 text-muted-foreground md:text-base">
-              The Nexez Agent SDK is live on npm. It wraps search, manifest reads, checkout dry-runs, and negotiation
-              handoffs so agent apps do not need to hand-roll endpoint plumbing.
+              The TypeScript SDK is live on npm, and Python parity is source-ready for agent runtimes that prefer
+              scripts, workers, notebooks, or server automation.
             </p>
-            <div className="mt-5 overflow-hidden rounded-lg border border-border bg-white/[0.03]">
-              <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-                <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                  {NEXEZ_TYPESCRIPT_SDK.name} · v{NEXEZ_TYPESCRIPT_SDK.version}
-                </p>
-                <a
-                  href={NEXEZ_TYPESCRIPT_SDK.npmUrl}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--signal)] hover:text-[var(--signal-2)]"
-                >
-                  npm
-                  <ExternalLink className="size-3" />
-                </a>
-              </div>
-              <div className="flex items-center justify-between gap-3 px-4 py-3">
-                <code className="min-w-0 overflow-x-auto whitespace-nowrap font-mono text-xs text-[var(--fg-muted-2)]">
-                  {NEXEZ_TYPESCRIPT_SDK.installCommand}
-                </code>
-                <CodeCopyButton text={NEXEZ_TYPESCRIPT_SDK.installCommand} />
-              </div>
-              <p className="border-t border-border px-4 py-3 text-sm leading-6 text-muted-foreground">
-                {NEXEZ_TYPESCRIPT_SDK.purpose}
-              </p>
+            <div className="mt-5 grid gap-3">
+              {sdkCards.map((sdk) => (
+                <div key={sdk.title} className="overflow-hidden rounded-lg border border-border bg-white/[0.03]">
+                  <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+                    <div>
+                      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                        {sdk.label}
+                      </p>
+                      <p className="mt-1 text-sm font-medium">{sdk.title} · v{sdk.version}</p>
+                    </div>
+                    <a
+                      href={sdk.href}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--signal)] hover:text-[var(--signal-2)]"
+                    >
+                      {sdk.hrefLabel}
+                      <ExternalLink className="size-3" />
+                    </a>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 px-4 py-3">
+                    <code className="min-w-0 overflow-x-auto whitespace-nowrap font-mono text-xs text-[var(--fg-muted-2)]">
+                      {sdk.command}
+                    </code>
+                    <CodeCopyButton text={sdk.command} />
+                  </div>
+                  <p className="border-t border-border px-4 py-3 text-sm leading-6 text-muted-foreground">
+                    {sdk.copy}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -362,6 +439,52 @@ export default function AgentAccessPage() {
             </div>
             <pre className="max-w-full overflow-auto p-5 text-left font-mono text-[11px] leading-5 text-[var(--fg-muted-2)]">
               <code>{sdkExample}</code>
+            </pre>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-border">
+        <div className="mx-auto grid max-w-7xl gap-8 px-5 py-16 md:py-20 lg:grid-cols-[0.78fr_1.22fr] lg:items-start">
+          <div>
+            <p className="text-sm font-medium text-[var(--signal)]">Agent examples</p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">
+              Copy the full buyer flow.
+            </h2>
+            <p className="mt-4 text-sm leading-6 text-muted-foreground md:text-base">
+              The examples show agents how to search, fetch structured context, validate handoffs, stop for buyer
+              approval, submit negotiation terms, and poll status.
+            </p>
+            <div className="mt-5 grid gap-3">
+              {exampleCards.map((example) => (
+                <a
+                  key={example.path}
+                  href={`${NEXEZ_AGENT_EXAMPLES.sourceUrl}/${example.path.replace('examples/agents/', '')}`}
+                  className="rounded-lg border border-border bg-white/[0.03] p-4 transition hover:border-[var(--signal)]/40 hover:bg-white/[0.055]"
+                >
+                  <p className="text-sm font-medium">{example.title}</p>
+                  <p className="mt-1 font-mono text-[11px] text-muted-foreground">{example.path}</p>
+                  <p className="mt-3 text-sm leading-6 text-muted-foreground">{example.copy}</p>
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <div className="nx-glass-panel overflow-hidden p-0">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div className="flex items-center gap-2">
+                <div className="flex size-8 items-center justify-center rounded-md border border-border bg-black/40">
+                  <Code2 className="size-4 text-[var(--signal)]" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">agent-sdk.py</p>
+                  <p className="font-mono text-xs text-muted-foreground">search · manifest · negotiation dry-run</p>
+                </div>
+              </div>
+              <CodeCopyButton text={pythonSdkExample} />
+            </div>
+            <pre className="max-w-full overflow-auto p-5 text-left font-mono text-[11px] leading-5 text-[var(--fg-muted-2)]">
+              <code>{pythonSdkExample}</code>
             </pre>
           </div>
         </div>

@@ -25,6 +25,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@nexez/agent-sdk": [
+        "./sdk/typescript/src/index.ts"
       ]
     }
   },

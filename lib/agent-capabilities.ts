@@ -18,6 +18,7 @@ export function buildNexezCapabilities() {
     search_url_template: `${baseUrl}/api/agent-search?q={query}`,
     openclaw: distribution.openclaw,
     sdks: distribution.sdks,
+    examples: distribution.examples,
     endpoints: [
       {
         name: 'Agent search',

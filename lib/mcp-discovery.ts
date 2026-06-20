@@ -55,6 +55,7 @@ export function buildMcpDiscoveryCatalog(
     agent_index_url: `${baseUrl}/agent-pages.json`,
     openclaw: distribution.openclaw,
     sdks: distribution.sdks,
+    examples: distribution.examples,
     page_count: mcpEnabledPages.length,
     pages: mcpEnabledPages.map((page) => buildMcpDiscoveryPage(page, baseUrl)),
   }

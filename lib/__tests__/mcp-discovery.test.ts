@@ -44,5 +44,7 @@ describe('MCP discovery helpers', () => {
     expect(catalog.agent_access_url).toBe('https://nexez.ai/agents')
     expect(catalog.openclaw.skill.slug).toBe('nexez-agent-discovery')
     expect(catalog.sdks.typescript.name).toBe('@nexez/agent-sdk')
+    expect(catalog.sdks.python.name).toBe('nexez-agent-sdk')
+    expect(catalog.examples.sourcePath).toBe('examples/agents')
   })
 })

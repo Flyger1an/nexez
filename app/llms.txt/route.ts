@@ -1,5 +1,12 @@
 import { AgentPage, PUBLIC_PAGE_SELECT, getCheckoutOffers, getCheckoutPath, getOfferCount, getRequestBaseUrl, sanitizePublicUrl } from '../../lib/agent-page'
-import { NEXEZ_OPENCLAW_PLUGIN, NEXEZ_OPENCLAW_SKILL, NEXEZ_TYPESCRIPT_SDK, buildAgentDistributionLinks } from '../../lib/agent-distribution'
+import {
+  NEXEZ_AGENT_EXAMPLES,
+  NEXEZ_OPENCLAW_PLUGIN,
+  NEXEZ_OPENCLAW_SKILL,
+  NEXEZ_PYTHON_SDK,
+  NEXEZ_TYPESCRIPT_SDK,
+  buildAgentDistributionLinks,
+} from '../../lib/agent-distribution'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
 import { markdownLinkLabel, markdownText } from '../../lib/agent-text'
 import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
@@ -38,6 +45,9 @@ export async function GET(request: Request) {
     `TypeScript SDK: ${NEXEZ_TYPESCRIPT_SDK.name} (${NEXEZ_TYPESCRIPT_SDK.version})`,
     `Install TypeScript SDK: ${NEXEZ_TYPESCRIPT_SDK.installCommand}`,
     `SDK package: ${NEXEZ_TYPESCRIPT_SDK.npmUrl}`,
+    `Python SDK source: ${NEXEZ_PYTHON_SDK.name} (${NEXEZ_PYTHON_SDK.version}) at ${NEXEZ_PYTHON_SDK.sourceUrl}`,
+    `Python SDK local install: ${NEXEZ_PYTHON_SDK.localInstallCommand}`,
+    `Agent examples: ${NEXEZ_AGENT_EXAMPLES.sourceUrl}`,
     '',
     '## Published Agent Pages',
     '',

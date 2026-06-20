@@ -1,5 +1,7 @@
 import { agentRuntimeUrl, marketingUrl } from './site'
 
+export const NEXEZ_REPOSITORY_URL = 'https://github.com/Flyger1an/nexez'
+
 export const NEXEZ_OPENCLAW_PLUGIN = {
   name: '@nexez/openclaw-nexez',
   displayName: 'Nexez OpenClaw Plugin',
@@ -33,7 +35,26 @@ export const NEXEZ_TYPESCRIPT_SDK = {
   installCommand: 'npm install @nexez/agent-sdk',
   npmUrl: 'https://www.npmjs.com/package/@nexez/agent-sdk',
   sourcePath: 'sdk/typescript',
+  sourceUrl: `${NEXEZ_REPOSITORY_URL}/tree/main/sdk/typescript`,
   purpose: 'Typed client helpers for agent search, manifest fetch, checkout dry-run, and negotiation handoff.',
+} as const
+
+export const NEXEZ_PYTHON_SDK = {
+  name: 'nexez-agent-sdk',
+  moduleName: 'nexez_agent_sdk',
+  displayName: 'Nexez Python Agent SDK',
+  version: '0.1.0',
+  status: 'source_available',
+  sourcePath: 'sdk/python',
+  sourceUrl: `${NEXEZ_REPOSITORY_URL}/tree/main/sdk/python`,
+  localInstallCommand: 'python -m pip install -e sdk/python',
+  purpose: 'Dependency-free Python helpers for agent search, manifest fetch, checkout dry-run, and negotiation handoff.',
+} as const
+
+export const NEXEZ_AGENT_EXAMPLES = {
+  sourcePath: 'examples/agents',
+  sourceUrl: `${NEXEZ_REPOSITORY_URL}/tree/main/examples/agents`,
+  purpose: 'Copy-paste buyer-agent workflows for search, validation, negotiation submission, and status polling.',
 } as const
 
 export function buildAgentDistributionLinks(baseUrl = agentRuntimeUrl('/').replace(/\/$/, '')) {
@@ -50,8 +71,10 @@ export function buildAgentDistributionLinks(baseUrl = agentRuntimeUrl('/').repla
       plugin: NEXEZ_OPENCLAW_PLUGIN,
       skill: NEXEZ_OPENCLAW_SKILL,
     },
+    examples: NEXEZ_AGENT_EXAMPLES,
     sdks: {
       typescript: NEXEZ_TYPESCRIPT_SDK,
+      python: NEXEZ_PYTHON_SDK,
     },
   }
 }
