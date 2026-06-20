@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeHandle, isValidHandle, HANDLE_MAX } from '../storefront'
+import {
+  normalizeHandle,
+  isValidHandle,
+  HANDLE_MAX,
+  resolveStorefrontConnectAccount,
+  resolveStorefrontPlanId,
+} from '../storefront'
 
 describe('normalizeHandle', () => {
   it('lowercases + collapses non-alphanumerics to single hyphens', () => {
@@ -37,5 +43,20 @@ describe('isValidHandle', () => {
     expect(isValidHandle('Foo')).toBe(false) // uppercase
     expect(isValidHandle('-foo')).toBe(false) // leading hyphen
     expect(isValidHandle('')).toBe(false)
+  })
+})
+
+describe('§7 billing/payout seams (account-pooled v1)', () => {
+  it('falls back to the account when the storefront has no own Connect / plan', () => {
+    // v1: storefront columns are null ⇒ resolve to the account's values (no behavior change).
+    expect(resolveStorefrontConnectAccount(null, 'acct_account')).toBe('acct_account')
+    expect(resolveStorefrontConnectAccount({ stripe_connect_account_id: null }, 'acct_account')).toBe('acct_account')
+    expect(resolveStorefrontPlanId({ plan_id: null }, 'scale')).toBe('scale')
+    expect(resolveStorefrontPlanId(undefined, null)).toBeNull()
+  })
+
+  it('prefers the storefront once it becomes its own merchant', () => {
+    expect(resolveStorefrontConnectAccount({ stripe_connect_account_id: 'acct_store' }, 'acct_account')).toBe('acct_store')
+    expect(resolveStorefrontPlanId({ plan_id: 'growth' }, 'scale')).toBe('growth')
   })
 })

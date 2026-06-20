@@ -14,8 +14,8 @@ import { createClient } from '../../../utils/supabase/server'
 import { ProfileSettings } from '../../../components/ProfileSettings'
 import { AccountDataControls } from '../../../components/AccountDataControls'
 import { TeamInvites } from '../../../components/TeamInvites'
-import { StorefrontSettings } from '../../../components/StorefrontSettings'
-import type { Storefront } from '../../../lib/storefront'
+import { StorefrontSettings, type StorefrontListing } from '../../../components/StorefrontSettings'
+import { loadStorefrontsForOwner } from '../../../lib/server/storefront'
 import { PlanGate } from '../../../components/billing/PlanGate'
 import { getOwnerPlanId } from '../../../lib/server/plan'
 
@@ -52,13 +52,17 @@ export default async function AccountSettingsPage() {
     .order('created_at', { ascending: false })
     .returns<AgentPage[]>()
 
-  // The owner's storefront (RLS grants the owner SELECT on their own row); null until
-  // they create one. Powers the StorefrontSettings editor.
-  const { data: storefront } = await supabase
-    .from('storefronts')
-    .select('handle, display_name, description, logo_url, accent_color')
+  // The owner's storefronts (Phase 4: an account owns 1..N) + each one's published-listing
+  // count, oldest first. Powers the multi-storefront StorefrontSettings editor + picker.
+  const storefronts = await loadStorefrontsForOwner(user.id)
+
+  // Lightweight listing rows (id + which storefront they're in) for the assignment control.
+  const { data: listingRows } = await supabase
+    .from('pages')
+    .select('id, name, slug, is_published, storefront_id')
     .eq('owner_id', user.id)
-    .maybeSingle<Storefront>()
+    .order('created_at', { ascending: false })
+    .returns<StorefrontListing[]>()
 
   const ownedPages = pages ?? []
   const publishedPages = ownedPages.filter((page) => page.is_published)
@@ -105,7 +109,7 @@ export default async function AccountSettingsPage() {
           </aside>
 
           <div className="space-y-5 min-w-0">
-            <StorefrontSettings initial={storefront ?? null} />
+            <StorefrontSettings storefronts={storefronts} listings={listingRows ?? []} />
             <ProfileSettings
               email={user.email ?? ''}
               initialFullName={(user.user_metadata?.full_name as string) ?? ''}

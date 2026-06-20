@@ -216,6 +216,9 @@ export async function POST(request: Request) {
           // direct sale can be refunded / dispute-tracked in-app).
           nexez_owner_id: page.owner_id ?? '',
           nexez_application_fee_cents: String(applicationFeeAmount || 0),
+          // §7 multi-storefront breadcrumb: records which storefront made the sale so
+          // finance can attribute per-storefront later. Resolution stays account-pooled.
+          nexez_storefront_id: (page as { storefront_id?: string | null }).storefront_id ?? '',
         },
       }
 

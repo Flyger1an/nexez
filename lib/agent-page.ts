@@ -44,6 +44,7 @@ export const PUBLIC_PAGE_SELECT = PUBLIC_PAGE_COLUMNS.join(', ')
 
 export const SERVER_PAGE_SELECT = [
   'owner_id',
+  'storefront_id',
   'google_calendar_id',
   ...PUBLIC_PAGE_COLUMNS,
 ].join(', ')
