@@ -55,7 +55,7 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
         <h3 className="text-xl font-semibold">Compare a competitor</h3>
         <p className="max-w-md text-sm text-zinc-400">
           Score any rival site for agent-readiness — trust, parseability, structured data, and clarity — see exactly
-          what it&apos;s missing, and put it side-by-side with your own page. Sign in to unlock.
+          what it&apos;s missing, and put it side-by-side with your own listing. Sign in to unlock.
         </p>
         <div className="mt-1 flex gap-2">
           <a href={appUrl('/login')} className="btn-secondary text-sm">Sign in</a>
@@ -128,7 +128,7 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
         <span className="font-medium">Compare a competitor</span>
         <span className="rounded-full border border-[var(--signal)]/30 bg-[var(--signal)]/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--signal)]">Signed in</span>
       </div>
-      <p className="mb-4 text-sm text-zinc-400">Score any rival site for agent-readiness, see its gaps, and put it head-to-head with your page.</p>
+      <p className="mb-4 text-sm text-zinc-400">Score any rival site for agent-readiness, see its gaps, and put it head-to-head with your listing.</p>
 
       <div className="grid gap-3 md:grid-cols-5">
         <div className="md:col-span-3">
@@ -143,7 +143,7 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
           />
         </div>
         <div className="md:col-span-2">
-          <label className="text-xs text-zinc-400">Your page (optional side-by-side)</label>
+          <label className="text-xs text-zinc-400">Your listing (optional side-by-side)</label>
           {myPages.length > 0 ? (
             <select value={sideSlug} onChange={(e) => setSideSlug(e.target.value)} className="input mt-1 w-full" disabled={loading}>
               <option value="">— none —</option>
@@ -200,7 +200,7 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
 
           {analysis.userComparison && (
             <div className="mt-4 rounded-2xl border border-[var(--ready)]/25 bg-[var(--ready)]/[0.04] p-4">
-              <p className="font-medium">Head-to-head vs your page (/{analysis.userComparison.slug})</p>
+              <p className="font-medium">Head-to-head vs your listing (/{analysis.userComparison.slug})</p>
               <p className="mt-1 text-sm text-zinc-300">
                 Your readiness <span className="font-mono text-[var(--ready)]">{analysis.userComparison.readiness ?? '—'}</span> · trust{' '}
                 <span className="font-mono text-[var(--ready)]">{analysis.userComparison.trust ?? '—'}</span> · {analysis.userComparison.offerCount ?? 0} offers

@@ -31,7 +31,7 @@ export function EditorToolbar({ e }: { e: PageEditor }) {
         <button
           onClick={e.duplicateThisPage}
           className="inline-flex w-fit items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm text-white hover:bg-white/10"
-          title="Clone this page into a new draft"
+          title="Clone this listing into a new draft"
         >
           <CopyPlus className="size-4" />
           Duplicate
@@ -48,7 +48,7 @@ export function EditorToolbar({ e }: { e: PageEditor }) {
           rel="noreferrer"
           className="inline-flex w-fit items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm text-white hover:bg-white/10"
         >
-          View public page
+          View public listing
           <ExternalLink className="size-4" />
         </a>
       </div>

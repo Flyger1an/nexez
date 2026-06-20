@@ -230,14 +230,14 @@ export default function PageSettings({ params }: PageProps) {
       .single<AgentPage>()
 
 	    if (error || !data) {
-	      setMessage('Page not found, or you do not have access to its settings.')
+	      setMessage('Listing not found, or you do not have access to its settings.')
 	      setLoading(false)
 	      return
 	    }
 
 	    const ctxRes = await fetch(`/api/pages/${pageId}/settings-context`)
 	    if (!ctxRes.ok) {
-	      setMessage('You do not have edit access to this page’s settings.')
+	      setMessage('You do not have edit access to this listing’s settings.')
 	      setLoading(false)
 	      return
 	    }
@@ -542,7 +542,7 @@ export default function PageSettings({ params }: PageProps) {
       <main className="min-h-screen bg-[#090b10] px-6 py-12 text-white">
         <div className="mx-auto max-w-2xl">
           <p className="rounded-lg border border-white/10 bg-white/[0.04] p-6 text-zinc-300">
-            {message || 'Page not found.'}
+            {message || 'Listing not found.'}
           </p>
         </div>
       </main>
@@ -555,11 +555,11 @@ export default function PageSettings({ params }: PageProps) {
         <div className="flex justify-end">
           <div className="flex flex-wrap gap-3">
             <a href={`/dashboard/${page.id}`} className={topButtonClass}>
-              Edit Page
+              Edit Listing
             </a>
             <a href={agentRuntimeUrl(`/${page.slug}`)} className={topButtonClass}>
               <ExternalLink className="size-4" />
-              Public Page
+              Public Listing
             </a>
           </div>
         </div>
@@ -569,7 +569,7 @@ export default function PageSettings({ params }: PageProps) {
             <div>
               <p className="flex items-center gap-2 text-sm text-[var(--signal)]">
                 <Settings className="size-4" />
-                Page Settings
+                Listing Settings
               </p>
               <h1 className="mt-3 text-4xl font-semibold tracking-tight">{page.name}</h1>
               {pageRole !== 'owner' && (
@@ -603,7 +603,7 @@ export default function PageSettings({ params }: PageProps) {
 
             <LinkPanel title="Agent links" links={
               ([
-                ['Public page', publicUrl],
+                ['Public listing', publicUrl],
                 ['Agent JSON', agentJsonUrl],
                 ['Search API', searchUrl],
                 ['OpenAPI', `${getBaseUrl()}/openapi.json`],
@@ -622,7 +622,7 @@ export default function PageSettings({ params }: PageProps) {
               <div className="mt-4 space-y-3 text-sm">
                 <div>
                   <p className="text-xs uppercase tracking-widest text-zinc-400">Settlement currency</p>
-                  <p className="mt-0.5 text-[11px] text-zinc-500">The currency buyers are charged in at checkout for this page's offers.</p>
+                  <p className="mt-0.5 text-[11px] text-zinc-500">The currency buyers are charged in at checkout for this listing's offers.</p>
                   <select
                     value={currency}
                     onChange={async (e) => {
@@ -688,7 +688,7 @@ export default function PageSettings({ params }: PageProps) {
                       className="w-40 rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
                     />
                     <span className="text-[10px] text-zinc-500">
-                      e.g. “/” or “/pricing” — host several pages on one domain.
+                      e.g. “/” or “/pricing” — host several listings on one domain.
                     </span>
                   </div>
 
@@ -699,7 +699,7 @@ export default function PageSettings({ params }: PageProps) {
                       {!planAllows(plan, 'whiteLabel') && <ProBadge feature="whiteLabel" />}
                     </p>
                     <p className="mt-0.5 text-[10px] text-zinc-500">
-                      Applied to the public page (especially on your custom domain).
+                      Applied to the public listing (especially on your custom domain).
                     </p>
                     <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <label className="block text-[11px]">
@@ -937,7 +937,7 @@ export default function PageSettings({ params }: PageProps) {
                           </div>
                         ) : (
                           <p className="mt-1 text-[10px] text-zinc-500">
-                            Checks whether agents can reach the page, read the agent files, and access it through robots.txt.
+                            Checks whether agents can reach the listing, read the agent files, and access it through robots.txt.
                           </p>
                         )}
                       </div>
@@ -965,7 +965,7 @@ export default function PageSettings({ params }: PageProps) {
                     />
                     <span>Enable MCP structured data</span>
                   </label>
-                  <p className="text-[10px] text-zinc-500 mt-1">When on, compatible AI agents can discover richer page context and offer actions.</p>
+                  <p className="text-[10px] text-zinc-500 mt-1">When on, compatible AI agents can discover richer listing context and offer actions.</p>
                   {!!(page as any)?.mcp_enabled && (
                     <p className="text-[10px] text-[var(--signal)] mt-1">
                       Global discovery: <a href="/.well-known/mcp.json" className="underline">/.well-known/mcp.json</a>
@@ -986,7 +986,7 @@ export default function PageSettings({ params }: PageProps) {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={`${publicUrl}/badge.svg`} alt="Agent-Ready badge" className="mt-2 h-7" />
                 <pre className="mt-2 overflow-x-auto rounded bg-black/40 p-2 text-[10px] text-zinc-400">{`<a href="${publicUrl}"><img src="${publicUrl}/badge.svg" alt="Agent-Ready" height="28"></a>`}</pre>
-                <p className="mt-1 text-[10px] text-zinc-500">Put this on your human website to show you’re agent-ready and link buyers’ agents to this page.</p>
+                <p className="mt-1 text-[10px] text-zinc-500">Put this on your human website to show you’re agent-ready and link buyers’ agents to this listing.</p>
                 <p className="mt-1 text-[10px] text-zinc-500">
                   Verify authenticity: <a href={`${publicUrl}/badge.json`} className="text-[var(--signal)] hover:underline">{`${publicUrl}/badge.json`}</a> (issuer, live readiness, verified status).
                 </p>
@@ -997,7 +997,7 @@ export default function PageSettings({ params }: PageProps) {
           <div className="space-y-5 min-w-0">
             <form onSubmit={saveSettings} className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
               <div className="grid gap-5 md:grid-cols-2">
-                <Field label="Page name">
+                <Field label="Listing name">
                   <input value={name} onChange={(event) => setName(event.target.value)} className={inputClass} required />
                 </Field>
                 <Field label="Slug">
@@ -1037,7 +1037,7 @@ export default function PageSettings({ params }: PageProps) {
                   </select>
                 </Field>
                 <p className="mt-1 text-[11px] text-zinc-500">
-                  Which channel AI agents use first to reach you. Auto picks email, then your action button, then your website. Surfaced in this page&apos;s agent.json and llms.txt.
+                  Which channel AI agents use first to reach you. Auto picks email, then your action button, then your website. Surfaced in this listing&apos;s agent.json and llms.txt.
                 </p>
               </div>
 
@@ -1057,9 +1057,9 @@ export default function PageSettings({ params }: PageProps) {
                         onChange={(e) => setPreferOriginalSite(e.target.checked)}
                         className="accent-[var(--signal)]"
                       />
-                      Prefer linking bookings to my original website (page default)
+                      Prefer linking bookings to my original website (listing default)
                     </label>
-                    <p className="text-xs text-[#9CA3AF] mt-1">Page-level default. Granular per-offer overrides live in the Visual Offer Builder (higher precedence for agents & visitors).</p>
+                    <p className="text-xs text-[#9CA3AF] mt-1">Listing-level default. Granular per-offer overrides live in the Visual Offer Builder (higher precedence for agents & visitors).</p>
                   </div>
 
                   <div>
@@ -1083,7 +1083,7 @@ export default function PageSettings({ params }: PageProps) {
                     <pre className="text-[10px] bg-black/40 p-3 rounded overflow-x-auto text-[var(--signal)] whitespace-pre-wrap">{`<script>
   (function(){var s=document.createElement('script');s.src='${getBaseUrl()}/widget.js';s.onload=function(){Nexez.init({slug:'${slug}',theme:'light'})};document.head.appendChild(s);})();
 </script>`}</pre>
-                    <p className="text-[10px] text-zinc-500 mt-1">Adds a floating booking button to your site and follows the page and offer settings you already chose.</p>
+                    <p className="text-[10px] text-zinc-500 mt-1">Adds a floating booking button to your site and follows the listing and offer settings you already chose.</p>
                     <button
                       type="button"
                       onClick={() => {
@@ -1098,14 +1098,14 @@ export default function PageSettings({ params }: PageProps) {
                   </div>
 
                   <div className="pt-2 border-t border-white/10 text-[11px] text-[var(--ready)]/80">
-                    Per-offer "Book on original site" toggles in the builder override this page default for individual offers.
+                    Per-offer "Book on original site" toggles in the builder override this listing default for individual offers.
                   </div>
 
                   {/* Live Embed Preview (further enhanced) */}
                   <div className="mt-4 border-t border-white/10 pt-4">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-xs uppercase tracking-widest text-zinc-400">Live Preview (respects current settings)</p>
-                      <a href={publicUrl} target="_blank" className="text-[10px] text-[var(--signal)] hover:underline">Open full page →</a>
+                      <a href={publicUrl} target="_blank" className="text-[10px] text-[var(--signal)] hover:underline">Open full listing →</a>
                     </div>
                     <div className="rounded border border-white/10 overflow-hidden bg-[#0A0A0F]">
                       <iframe
@@ -1116,8 +1116,8 @@ export default function PageSettings({ params }: PageProps) {
                       />
                     </div>
                     <div className="mt-1 text-[10px] text-zinc-500">
-                      Responsive by default (100% width). Per-offer original-site toggles take precedence. 
-                      {preferOriginalSite ? " Page-level original site mode is active." : " Nexez checkout is default unless overridden per offer."}
+                      Responsive by default (100% width). Per-offer original-site toggles take precedence.
+                      {preferOriginalSite ? " Listing-level original site mode is active." : " Nexez checkout is default unless overridden per offer."}
                     </div>
                     <div className="mt-1 text-[9px] text-[var(--ready)]/80">
                       Tip: Use the Visual Offer Builder to set per-offer "Book on original site" for granular control.
@@ -1544,7 +1544,7 @@ export default function PageSettings({ params }: PageProps) {
                 >
                   {outboundSaving ? 'Saving...' : `Save ${outboundEndpoints.length} Webhook URL${outboundEndpoints.length === 1 ? '' : 's'}`}
                 </button>
-                <p className="mt-1 text-[10px] text-zinc-500">Webhook URLs and secrets are stored on this page. Use "Send Test" to confirm delivery.</p>
+                <p className="mt-1 text-[10px] text-zinc-500">Webhook URLs and secrets are stored on this listing. Use "Send Test" to confirm delivery.</p>
 
                 {/* Example payloads for Zapier / Make / generic webhooks */}
                 <details className="mt-3 text-[10px] text-zinc-400">
@@ -1589,7 +1589,7 @@ export default function PageSettings({ params }: PageProps) {
               {/* Google Calendar Availability */}
               <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4" data-testid="availability-panel">
                 <div className="text-sm font-medium text-[var(--ready)] mb-2">Google Calendar Availability</div>
-                <p className="text-[10px] text-zinc-400 mb-3">Enter a Google Calendar ID to create agent-readable availability windows, or leave it blank and save a manual availability note. Both appear on the public page and in agent data.</p>
+                <p className="text-[10px] text-zinc-400 mb-3">Enter a Google Calendar ID to create agent-readable availability windows, or leave it blank and save a manual availability note. Both appear on the public listing and in agent data.</p>
 
                 <div className="space-y-2 mb-3">
                   <label className="block text-[11px] text-zinc-400">
@@ -1670,7 +1670,7 @@ export default function PageSettings({ params }: PageProps) {
 
                       const successMsg = calendarId
                         ? `Availability imported from Google Calendar • ${importedAvailability?.windows?.length || 0} windows • Last synced just now.`
-                        : 'Availability saved. Visible on the public page and in agent data.'
+                        : 'Availability saved. Visible on the public listing and in agent data.'
 
                       setMessage(error ? error.message : successMsg)
                     } catch (e: any) {
@@ -1684,7 +1684,7 @@ export default function PageSettings({ params }: PageProps) {
                 >
                   {availabilitySaving ? 'Saving...' : hasCalendarId ? 'Import Availability from Google Calendar' : 'Save Manual Availability'}
                 </button>
-                <p className="mt-1 text-[10px] text-zinc-500">Calendar ID, imported windows, and manual notes are stored on the page and appear for agents immediately.</p>
+                <p className="mt-1 text-[10px] text-zinc-500">Calendar ID, imported windows, and manual notes are stored on the listing and appear for agents immediately.</p>
               </div>
 
               {/* Get Verified flow for Trust Score (polished) */}
@@ -1693,7 +1693,7 @@ export default function PageSettings({ params }: PageProps) {
                   Get Verified (boosts Trust Score)
                   <span className="text-[10px] text-[var(--amber)]">+ up to +25 from signals</span>
                 </div>
-                <p className="text-[10px] text-zinc-400 mb-3">Add trust signals shown on public pages, the directory, and analyzer comparisons. Booking activity also improves this over time.</p>
+                <p className="text-[10px] text-zinc-400 mb-3">Add trust signals shown on public listings, the directory, and analyzer comparisons. Booking activity also improves this over time.</p>
 
                 {/* Live preview impact */}
                 <div className="mb-3 text-xs bg-black/30 p-2 rounded border border-white/10">
@@ -1744,7 +1744,7 @@ export default function PageSettings({ params }: PageProps) {
               {/* Agent Memory & Context System */}
               <div className="mt-6 rounded-lg border border-zinc-300/30 bg-zinc-400/5 p-4">
                 <div className="font-medium text-zinc-200 mb-1 flex items-center gap-2">Agent Memory & Context <span className="rounded bg-[var(--amber)]/15 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-[var(--amber)]">Public</span></div>
-                <p className="text-[10px] text-zinc-400 mb-2">Notes, buyer preferences, restrictions, common objections, or “always mention X.” <span className="text-[var(--amber)]/90">Public — published in this page’s <code>agent.json</code> and readable by anyone, so keep private pricing strategy and internal notes out.</span></p>
+                <p className="text-[10px] text-zinc-400 mb-2">Notes, buyer preferences, restrictions, common objections, or “always mention X.” <span className="text-[var(--amber)]/90">Public — published in this listing’s <code>agent.json</code> and readable by anyone, so keep private pricing strategy and internal notes out.</span></p>
                 <textarea
                   className="w-full h-20 rounded border border-white/15 bg-black/30 p-2 text-sm font-mono"
                   placeholder="e.g. Prefers async over live calls for first meetings. Common question: turnaround time. Restrictions: no weekends."
@@ -1814,12 +1814,12 @@ export default function PageSettings({ params }: PageProps) {
                       setMessage('AI assist setting could not be saved. Please try again.')
                       return
                     }
-                    setMessage(checked ? 'Advanced AI assist enabled for this page.' : 'Advanced AI assist disabled for this page.')
+                    setMessage(checked ? 'Advanced AI assist enabled for this listing.' : 'Advanced AI assist disabled for this listing.')
                   }} />
                   Enable Advanced AI Assist
                   {!planAllows(plan, 'aiFeatures') && <ProBadge feature="aiFeatures" />}
                 </label>
-                <span className="text-[10px] text-zinc-500">Allow Nexez to use AI to improve page copy, agent summaries, importer results, and simulator responses for this page. You can turn this off anytime.</span>
+                <span className="text-[10px] text-zinc-500">Allow Nexez to use AI to improve listing copy, agent summaries, importer results, and simulator responses for this listing. You can turn this off anytime.</span>
               </div>
 
               {/* Advanced Team Collaboration & Approval Workflows (full) */}
@@ -1905,7 +1905,7 @@ export default function PageSettings({ params }: PageProps) {
               {/* Calendly webhook signature verification */}
               <div className="mt-6 rounded-lg border border-[var(--signal)]/30 bg-[var(--signal)]/5 p-4">
                 <div className="text-sm font-medium text-[var(--signal)] mb-2">Calendly webhook secret</div>
-                <p className="text-[10px] text-zinc-400 mb-2">Paste the signing secret from Calendly so Nexez can verify incoming booking events for this page.</p>
+                <p className="text-[10px] text-zinc-400 mb-2">Paste the signing secret from Calendly so Nexez can verify incoming booking events for this listing.</p>
                 <input
                   type="password"
                   value={calendlyWebhookSecret}
@@ -1913,7 +1913,7 @@ export default function PageSettings({ params }: PageProps) {
 	                  placeholder="Paste Calendly signing secret"
                   className="w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm font-mono"
                 />
-                <p className="mt-1 text-[10px] text-zinc-500">Save settings after pasting the secret. Use your page slug when setting up the Calendly webhook URL.</p>
+                <p className="mt-1 text-[10px] text-zinc-500">Save settings after pasting the secret. Use your listing slug when setting up the Calendly webhook URL.</p>
               </div>
             </form>
 

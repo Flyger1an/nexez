@@ -17,7 +17,7 @@ export function BookingEmail(p: {
     <BrandedEmail preview={`New booking on ${p.businessName}`}>
       <EmailHeading>New booking</EmailHeading>
       <Lead>
-        A new booking came in on your Nexez page <strong>{p.businessName}</strong>.
+        A new booking came in on your Nexez listing <strong>{p.businessName}</strong>.
       </Lead>
       <InfoRows rows={p.rows} />
       <PrimaryButton href={p.inboxUrl}>Open your dashboard</PrimaryButton>
@@ -35,7 +35,7 @@ export function NegotiationEmail(p: {
     <BrandedEmail preview={`New negotiation request on ${p.businessName}`}>
       <EmailHeading>New negotiation request</EmailHeading>
       <Lead>
-        You have a new negotiation request on your Nexez page <strong>{p.businessName}</strong>.
+        You have a new negotiation request on your Nexez listing <strong>{p.businessName}</strong>.
       </Lead>
       <InfoRows rows={p.rows} />
       <PrimaryButton href={p.inboxUrl}>Open your negotiation inbox</PrimaryButton>
@@ -169,13 +169,13 @@ export function TeamInviteEmail(p: { lead: string; inviteeEmail: string; acceptU
 export function WelcomeEmail(p: { name?: string | null; createUrl: string }) {
   const greeting = p.name ? `Welcome to Nexez, ${p.name}.` : 'Welcome to Nexez.'
   return (
-    <BrandedEmail preview="Welcome to Nexez — publish a page agents can buy from.">
+    <BrandedEmail preview="Welcome to Nexez — publish a listing agents can buy from.">
       <EmailHeading tone="positive">{greeting}</EmailHeading>
       <Lead>
-        Publish a page AI agents can read — then let them book and pay through, straight to your own Stripe. You only pay a
+        Publish a listing AI agents can read — then let them book and pay through, straight to your own Stripe. You only pay a
         fee when you get paid.
       </Lead>
-      <PrimaryButton href={p.createUrl}>Create your first agent page</PrimaryButton>
+      <PrimaryButton href={p.createUrl}>Create your first agent listing</PrimaryButton>
       <FinePrint>Need a hand getting started? Just reply to this email.</FinePrint>
     </BrandedEmail>
   )

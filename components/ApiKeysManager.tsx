@@ -93,7 +93,7 @@ export function ApiKeysManager() {
         <h3 className="font-semibold">API Keys</h3>
       </div>
       <p className="mt-1 text-sm text-[#9CA3AF]">
-        Manage pages programmatically via the REST API. Authenticate with{' '}
+        Manage listings programmatically via the REST API. Authenticate with{' '}
         <code className="bg-black/50 px-1">Authorization: Bearer nxz_live_…</code>. Base:{' '}
         <code className="bg-black/50 px-1">/api/v1/pages</code>.
       </p>
@@ -142,7 +142,7 @@ export function ApiKeysManager() {
         ) : keys.length === 0 ? (
           <EmptyState icon={KeyRound} title="No API keys yet">
             Create a key to let your own agents or back-end call the Nexez API on your behalf — programmatic access to your
-            pages, offers, and negotiations.
+            listings, offers, and negotiations.
           </EmptyState>
         ) : (
           keys.map((k) => (
@@ -179,7 +179,7 @@ export function ApiKeysManager() {
       </div>
 
       <p className="mt-3 text-[10px] text-zinc-500">
-        Use these keys for page management through the Nexez API. Server API access must be enabled for this workspace.
+        Use these keys for listing management through the Nexez API. Server API access must be enabled for this workspace.
       </p>
     </div>
   )

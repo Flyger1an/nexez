@@ -19,7 +19,7 @@ export default function PricingPage() {
           <div className="eyebrow justify-center">Plans &amp; pricing</div>
           <h1 className="display mt-4">Simple, transparent pricing.</h1>
           <p className="lede mx-auto mt-4 text-center">
-            Subscribe to manage your agent pages.
+            Subscribe to manage your agent listings.
           </p>
           <div className="mt-4 text-sm" style={{ color: 'var(--ready)' }}>No hidden fees. Cancel anytime.</div>
         </div>
@@ -108,7 +108,7 @@ export default function PricingPage() {
             <div className="chip ready mx-auto">We only make money when you do</div>
             <h2 className="display mt-4">Transparent platform fees</h2>
             <p className="lede mx-auto mt-3 text-center">
-              Nexez takes a small cut only on successful agent-driven transactions through your pages. No monthly fees on top of your plan.
+              Nexez takes a small cut only on successful agent-driven transactions through your listings. No monthly fees on top of your plan.
             </p>
           </div>
 

@@ -215,9 +215,9 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
     mode === 'signin' ? 'Welcome back' : mode === 'signup' ? 'Create your Nexez account' : 'Reset your password'
   const subtitle =
     mode === 'signin'
-      ? 'Sign in to manage your agent-optimized pages and custom domains.'
+      ? 'Sign in to manage your agent-optimized listings and custom domains.'
       : mode === 'signup'
-        ? 'Set up your workspace to publish, host, and monitor pages built for AI agents.'
+        ? 'Set up your workspace to publish, host, and monitor listings built for AI agents.'
         : 'We’ll email you a secure link to set a new password.'
 
   return (
@@ -240,11 +240,11 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
               Manage the business surface AI agents can use.
             </h2>
             <p className="mt-5 max-w-xl text-sm leading-6 text-muted-foreground">
-              Sign in to publish agent pages, inspect readiness, run simulations, and track the signals your main website was never built to expose.
+              Sign in to publish agent listings, inspect readiness, run simulations, and track the signals your main website was never built to expose.
             </p>
             <div className="mt-8 grid max-w-xl gap-3">
-              <Benefit icon={<Bot className="size-4" />} title="Agent-readable pages" text="JSON-LD, llms.txt, agent.json, MCP, and clean public HTML." />
-              <Benefit icon={<ShieldCheck className="size-4" />} title="Controlled workspace" text="Pages, imports, custom domains, support, billing, and analytics in one place." />
+              <Benefit icon={<Bot className="size-4" />} title="Agent-readable listings" text="JSON-LD, llms.txt, agent.json, MCP, and clean public HTML." />
+              <Benefit icon={<ShieldCheck className="size-4" />} title="Controlled workspace" text="Listings, imports, custom domains, support, billing, and analytics in one place." />
               <Benefit icon={<Check className="size-4" />} title="Fast launch path" text="Import offers, polish details, publish, then measure real agent behavior." />
             </div>
           </section>
@@ -455,7 +455,7 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
             </div>
 
             <p className="mt-4 text-center text-xs leading-5 text-muted-foreground">
-              Public agent pages stay crawlable. Account tools stay protected behind your session.
+              Public agent listings stay crawlable. Account tools stay protected behind your session.
             </p>
           </section>
         </div>

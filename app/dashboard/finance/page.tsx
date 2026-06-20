@@ -782,7 +782,7 @@ function EmptyFinance({ payoutsReady, connectAccountId }: { payoutsReady: boolea
   ctas.push({ label: 'View your listings', href: '/dashboard/listings', variant: 'secondary' })
   return (
     <EmptyState icon={Wallet} title="Your first sale lands here" ctas={ctas}>
-      When an agent buys through one of your pages, the revenue, Nexez fee, net-to-you, and payouts all show up here —
+      When an agent buys through one of your listings, the revenue, Nexez fee, net-to-you, and payouts all show up here —
       per currency.
       {!connectAccountId
         ? ' First, connect Stripe so you can accept payments.'

@@ -9,7 +9,7 @@ const editor = (over: Record<string, any> = {}) =>
 describe('ReadinessAside', () => {
   it('renders the heading, version count, trust score, and readiness percent', () => {
     render(<ReadinessAside e={editor()} />)
-    expect(screen.getByRole('heading', { name: /edit agent page/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /edit listing/i })).toBeInTheDocument()
     expect(screen.getByText('2 versions')).toBeInTheDocument()
     expect(screen.getByText(/Trust \d+\/100/)).toBeInTheDocument()
     expect(screen.getByText('73%')).toBeInTheDocument()

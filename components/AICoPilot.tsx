@@ -267,7 +267,7 @@ export function AICoPilot({
       {activeTab === 'trust' && (
         <div>
           <div className="text-xs text-zinc-400 mb-2">Trust score insights.</div>
-          <div className="text-sm bg-black/30 p-2 rounded mb-2">Current: strongest when your page is verified and receiving real activity. See Analytics for the full report.</div>
+          <div className="text-sm bg-black/30 p-2 rounded mb-2">Current: strongest when your listing is verified and receiving real activity. See Analytics for the full report.</div>
           <button onClick={() => {
             onTrackUse()
             setApplied(prev => ({ ...prev, trust: true }))
@@ -278,13 +278,13 @@ export function AICoPilot({
       {activeTab === 'competitor' && (
         <div>
           <div className="text-xs text-zinc-400 mb-2">Competitor analysis.</div>
-          <div className="text-sm bg-black/30 p-2 rounded mb-2">Compare your page against another website for scores and AI recommendations.</div>
+          <div className="text-sm bg-black/30 p-2 rounded mb-2">Compare your listing against another website for scores and AI recommendations.</div>
           <a href="/simulator?mode=compare" className="text-xs rounded bg-[var(--ready)] px-3 py-1 text-zinc-950 inline-block">Open Analyzer →</a>
         </div>
       )}
 
       <div className="mt-3 text-[10px] text-zinc-500">
-        {llmOptIn ? 'Advanced AI assist is enabled for this page.' : 'Advanced AI assist is off for this page.'}
+        {llmOptIn ? 'Advanced AI assist is enabled for this listing.' : 'Advanced AI assist is off for this listing.'}
       </div>
     </div>
   )

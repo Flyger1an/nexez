@@ -57,7 +57,7 @@ export function AccountDataControls({ email }: { email: string }) {
           <h3 className="text-sm font-semibold">Danger zone</h3>
         </div>
         <p className="mt-2 text-xs text-zinc-400">
-          Deleting your account permanently removes your pages, analytics, negotiations, and API keys. This cannot be
+          Deleting your account permanently removes your listings, analytics, negotiations, and API keys. This cannot be
           undone. Type your email <span className="text-zinc-200">{email}</span> to confirm.
         </p>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row">

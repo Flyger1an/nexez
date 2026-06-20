@@ -248,13 +248,13 @@ export default function GlobalAgentSimulator() {
             .eq('id', page.id)
 
           if (error && isMissingColumnError(error)) {
-            setMessage('Analysis complete. Apply the simulations migration to persist history for this page.')
+            setMessage('Analysis complete. Apply the simulations migration to persist history for this listing.')
           } else if (error) {
             setMessage(`Analysis complete, but history could not be saved: ${error.message}`)
           } else {
             setHistory(updated as SimulationHistoryEntry[])
             setSelectedPage({ ...page, simulations: updated } as AgentPage)
-            setMessage('Analysis saved to page history (full multi-agent snapshot for intelligence flywheel).')
+            setMessage('Analysis saved to listing history (full multi-agent snapshot for intelligence flywheel).')
           }
         }
       }
@@ -285,7 +285,7 @@ export default function GlobalAgentSimulator() {
       const slug = normalizeSimulatorTarget(pasteSlug)
       const page = await loadPageBySlug(slug)
       if (!page) {
-        setMessage('Page not found or not published. Try a public Nexez slug.')
+        setMessage('Listing not found or not published. Try a public Nexez slug.')
         setLoading(false)
         return
       }
@@ -297,7 +297,7 @@ export default function GlobalAgentSimulator() {
       setHistoryQuery('')
       await runSimulationForPage(page, nextQuery)
     } catch (e: any) {
-      setMessage('Failed to load page: ' + e.message)
+      setMessage('Failed to load listing: ' + e.message)
     } finally {
       setLoading(false)
     }
@@ -449,7 +449,7 @@ export default function GlobalAgentSimulator() {
               <a href="/discovery" className="btn-secondary text-sm">Browse Discovery</a>
               {mode === 'test' && selectedPage && (
                 <a href={appUrl(`/dashboard/${(selectedPage as any).id || ''}/test`)} className="btn-secondary text-sm">
-                  Per-page simulator →
+                  Per-listing simulator →
                 </a>
               )}
             </div>
@@ -458,7 +458,7 @@ export default function GlobalAgentSimulator() {
           {/* Mode tabs — the three lenses of the Agent Lab */}
           <div className="mb-8 flex flex-wrap gap-2">
             {([
-              { key: 'test', label: 'Test a page', icon: Bot },
+              { key: 'test', label: 'Test a listing', icon: Bot },
               { key: 'url', label: 'Any URL', icon: Globe },
               { key: 'compare', label: 'Compare a competitor', icon: Target },
             ] as const).map((m) => (
@@ -486,7 +486,7 @@ export default function GlobalAgentSimulator() {
             <div className="card">
               <div className="flex items-center gap-2 mb-3">
                 <Bot className="size-4 text-[var(--signal)]" />
-                <span className="font-medium">Analyze my page</span>
+                <span className="font-medium">Analyze my listing</span>
               </div>
               {isLoggedIn && myPages.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
@@ -505,7 +505,7 @@ export default function GlobalAgentSimulator() {
                 <p className="text-sm text-zinc-400">
                   Paste a public slug or URL below to try it now —{' '}
                   <a href={appUrl('/dashboard')} className="underline hover:text-white">
-                    sign in to test your own pages
+                    sign in to test your own listings
                   </a>{' '}
                 </p>
               )}
@@ -526,7 +526,7 @@ export default function GlobalAgentSimulator() {
                   {loading ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />} Analyze
                 </button>
               </div>
-              <p className="text-[10px] text-zinc-500 mt-1">Published pages only.</p>
+              <p className="text-[10px] text-zinc-500 mt-1">Published listings only.</p>
             </div>
           </div>
 
@@ -544,7 +544,7 @@ export default function GlobalAgentSimulator() {
                 <RefreshCw className="size-4" /> Rerun
               </button>
               <a href={agentRuntimeUrl(`/${selectedPage.slug}`)} target="_blank" className="btn-secondary inline-flex items-center gap-1">
-                View public page <ExternalLink className="size-3" />
+                View public listing <ExternalLink className="size-3" />
               </a>
             </div>
           )}
@@ -573,7 +573,7 @@ export default function GlobalAgentSimulator() {
                 <div className="card">
                   <div className="flex justify-between mb-4">
                     <div>
-                      <p className="text-xs uppercase tracking-[2px] text-[#9CA3AF]">Selected Page</p>
+                      <p className="text-xs uppercase tracking-[2px] text-[#9CA3AF]">Selected Listing</p>
                       <h3 className="text-xl font-semibold">{selectedPage.name}</h3>
                     </div>
                     <div className="text-right">
@@ -664,7 +664,7 @@ export default function GlobalAgentSimulator() {
                     ))}
                   </div>
                   {!ownsSelected && (
-                    <p className="mt-3 text-[11px] text-zinc-500">Sign in and select your own page to get one-click fixes for each gap.</p>
+                    <p className="mt-3 text-[11px] text-zinc-500">Sign in and select your own listing to get one-click fixes for each gap.</p>
                   )}
                 </div>
               )}
@@ -707,7 +707,7 @@ export default function GlobalAgentSimulator() {
                       <h3 className="font-semibold flex items-center gap-2">
                         <History className="size-4 text-[var(--signal)]" /> Simulation History
                       </h3>
-                      <p className="mt-1 text-xs text-zinc-500">{history.length} saved runs for this page</p>
+                      <p className="mt-1 text-xs text-zinc-500">{history.length} saved runs for this listing</p>
                     </div>
                     <button
                       onClick={exportHistory}
@@ -764,7 +764,7 @@ export default function GlobalAgentSimulator() {
           {!selectedPage && (
             <div className="card text-center py-12">
               <Bot className="mx-auto size-8 text-[var(--signal)] mb-4" />
-              <p className="text-xl font-medium">Pick one of your pages or paste a public slug.</p>
+              <p className="text-xl font-medium">Pick one of your listings or paste a public slug.</p>
               <p className="mt-2 text-[#9CA3AF]">See it judged by ChatGPT, Claude, Grok, and Perplexity — with a success score and where it ranks.</p>
             </div>
           )}
@@ -970,7 +970,7 @@ function UrlComparisonPanel({ c }: { c: UrlSimComparison }) {
         <div className="rounded-2xl border border-[var(--ready)]/25 bg-[var(--ready)]/[0.04] p-5">
           <div className="mb-2 flex items-center justify-between">
             <p className="flex items-center gap-1.5 text-sm font-medium text-zinc-200">
-              <Sparkles className="size-3.5 text-[var(--ready)]" /> As an agent-ready Nexez page
+              <Sparkles className="size-3.5 text-[var(--ready)]" /> As an agent-ready Nexez listing
             </p>
             <span className="text-2xl font-semibold tabular-nums text-[var(--ready)]">
               {ar.readiness}
@@ -1014,7 +1014,7 @@ function UrlComparisonPanel({ c }: { c: UrlSimComparison }) {
         <div className="flex flex-col justify-center gap-2 rounded-2xl border border-white/10 bg-[#12101B] p-4">
           <p className="text-sm text-zinc-300">Make {c.host} agent-ready</p>
           <a href={appUrl('/create')} className="btn-primary justify-center">
-            Build this page <ArrowRight className="size-4" />
+            Build this listing <ArrowRight className="size-4" />
           </a>
         </div>
       </div>

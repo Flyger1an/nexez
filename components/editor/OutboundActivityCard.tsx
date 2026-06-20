@@ -25,7 +25,7 @@ export function OutboundActivityCard({ e }: { e: PageEditor }) {
         </div>
       )}
       <div className="mt-2 text-[9px] text-[var(--signal)]/70">
-        Configure per-page in Settings. Full history + export in Analytics.
+        Configure per-listing in Settings. Full history + export in Analytics.
       </div>
     </div>
   )

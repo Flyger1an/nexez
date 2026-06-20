@@ -317,7 +317,7 @@ export default function NegotiationsInbox() {
                 <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-zinc-400">
                   When an AI agent or buyer proposes terms on one of your negotiable offers — scope, budget, timeline —
                   it lands here for you to <span className="text-zinc-200">accept, counter, or decline</span>, with escrow
-                  on agreed deals. Mark an offer “negotiable” in the page editor to invite proposals.
+                  on agreed deals. Mark an offer “negotiable” in the listing editor to invite proposals.
                 </p>
                 <div className="mt-5 flex flex-wrap justify-center gap-3">
                   <a href="/dashboard/listings" className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20">

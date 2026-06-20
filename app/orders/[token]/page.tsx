@@ -60,7 +60,7 @@ export default async function OrderPortalPage({ params }: PageProps) {
       <div className="mx-auto max-w-3xl px-6 py-12">
         {order.slug ? (
           <a href={`/${order.slug}`} className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
-            <ArrowLeft className="size-4" /> {order.sellerName || 'Back to seller page'}
+            <ArrowLeft className="size-4" /> {order.sellerName || 'Back to seller listing'}
           </a>
         ) : null}
 

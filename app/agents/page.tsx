@@ -569,7 +569,7 @@ export default function AgentAccessPage() {
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a href={appUrl('/create')} className="btn-primary h-11 px-5">
-              Create a page
+              Create a listing
               <ArrowRight className="size-4" />
             </a>
             <a href="/discovery" className="btn-secondary h-11 px-5">

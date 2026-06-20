@@ -36,7 +36,7 @@ export default async function EditAgentPage({ params }: PageProps) {
       <main className="min-h-screen bg-zinc-950 px-6 py-12 text-white">
         <div className="mx-auto max-w-2xl">
           <p className="rounded-lg border border-white/10 bg-white/[0.04] p-6 text-zinc-300">
-            Page not found, or you do not have access to edit it.
+            Listing not found, or you do not have access to edit it.
           </p>
         </div>
       </main>

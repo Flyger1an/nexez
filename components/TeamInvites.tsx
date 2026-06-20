@@ -84,7 +84,7 @@ export function TeamInvites() {
         <h2 className="text-xl font-semibold">Team</h2>
       </div>
       <p className="mt-1 text-sm text-[var(--fg-muted)]">
-        Invite teammates by email — they get role-based access to your pages and negotiations. We email them a link to
+        Invite teammates by email — they get role-based access to your listings and negotiations. We email them a link to
         join; they sign in with that same email to get access.
       </p>
 
@@ -128,7 +128,7 @@ export function TeamInvites() {
           </div>
         ) : invites.length === 0 ? (
           <EmptyState icon={Users} title="No teammates yet">
-            Invite collaborators to help manage your pages and negotiations — they get scoped, role-based access without
+            Invite collaborators to help manage your listings and negotiations — they get scoped, role-based access without
             sharing your login.
           </EmptyState>
         ) : (

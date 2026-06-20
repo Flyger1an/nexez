@@ -93,7 +93,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
       .single<AgentPage>()
 
     if (error || !data) {
-      setMessage('Page not found, or you do not have access to test it.')
+      setMessage('Listing not found, or you do not have access to test it.')
       setLoading(false)
       return
     }
@@ -164,7 +164,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
       <main className="min-h-screen bg-[#090b10] px-6 py-12 text-white">
         <div className="mx-auto max-w-2xl">
           <p className="rounded-lg border border-white/10 bg-white/[0.04] p-6 text-zinc-300">
-            {message || 'Page not found.'}
+            {message || 'Listing not found.'}
           </p>
         </div>
       </main>
@@ -179,10 +179,10 @@ export default function AgentSimulatorPage({ params }: PageProps) {
         <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm text-[#9CA3AF]">Agent Simulator</p>
-            <h1 className="text-4xl font-semibold tracking-tighter">See exactly how AI agents parse your page</h1>
+            <h1 className="text-4xl font-semibold tracking-tighter">See exactly how AI agents parse your listing</h1>
           </div>
           <div className="flex flex-wrap gap-3">
-            <a href={`/dashboard/${page?.id}`} className="btn-secondary">Edit Page</a>
+            <a href={`/dashboard/${page?.id}`} className="btn-secondary">Edit Listing</a>
             <a href={agentRuntimeUrl(`/${page?.slug}`)} target="_blank" rel="noreferrer" className="btn-secondary inline-flex items-center gap-1.5">
               View Live <ExternalLink className="size-3.5" />
             </a>
@@ -214,7 +214,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
           <div className="card">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <p className="text-xs uppercase tracking-[2px] text-[#9CA3AF]">Original Page</p>
+                <p className="text-xs uppercase tracking-[2px] text-[#9CA3AF]">Original Listing</p>
                 <h3 className="text-xl font-semibold tracking-tight">What agents will see</h3>
               </div>
               <div className="text-right">
@@ -328,7 +328,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
             {recommendations.length ? (
               recommendations.map((rec, i) => <div key={i}>• {rec}</div>)
             ) : (
-              <div className="text-[var(--ready)]">This page is already well-optimized for agents.</div>
+              <div className="text-[var(--ready)]">This listing is already well-optimized for agents.</div>
             )}
           </div>
         </div>
@@ -359,9 +359,9 @@ export default function AgentSimulatorPage({ params }: PageProps) {
                 onChange={(e) => setSimulatePreferOriginal(e.target.checked)}
                 className="accent-[var(--signal)]"
               />
-              Simulate "Prefer original site" (page-level)
+              Simulate "Prefer original site" (listing-level)
             </label>
-            <span className="text-[10px] text-zinc-500">When on, primary CTAs would link to original site (per-offer toggles override in real pages)</span>
+            <span className="text-[10px] text-zinc-500">When on, primary CTAs would link to original site (per-offer toggles override in real listings)</span>
           </div>
 
           <div className="rounded-2xl border border-white/10 overflow-hidden bg-[#0A0A0F]">
@@ -376,10 +376,10 @@ export default function AgentSimulatorPage({ params }: PageProps) {
           <div className="mt-3 grid grid-cols-1 gap-2 text-[10px] text-zinc-400 md:grid-cols-2">
             <div>
               • Iframe is responsive by default (width 100%).
-              <br />• Per-offer "Book on original site" from builder takes precedence over page-level toggle.
+              <br />• Per-offer "Book on original site" from builder takes precedence over listing-level toggle.
             </div>
             <div>
-              • Real embeds inherit the page's <code>prefer_original_site</code> + individual offer flags.
+              • Real embeds inherit the listing's <code>prefer_original_site</code> + individual offer flags.
               <br />• Test with agents using the simulator above.
             </div>
           </div>
@@ -387,7 +387,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
           <p className="mt-2 text-[10px] text-[var(--ready)]/80">
             {simulatePreferOriginal
               ? "Simulation active: In a real embed, booking CTAs would route to the original website for offers without per-offer override."
-              : "Default behavior: Nexez checkout is preferred unless per-offer or page-level original preference is set."}
+              : "Default behavior: Nexez checkout is preferred unless per-offer or listing-level original preference is set."}
           </p>
 
           {/* Interactive simulation panel: shows exactly what the effective targets would be under the toggle */}
@@ -418,7 +418,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
                 <div className="text-zinc-500">Add offers in the editor to see simulated targets.</div>
               )}
             </div>
-            <div className="mt-2 text-[9px] text-zinc-500">Offer-level routing choices override the page-level simulation setting above.</div>
+            <div className="mt-2 text-[9px] text-zinc-500">Offer-level routing choices override the listing-level simulation setting above.</div>
           </div>
         </div>
       </div>

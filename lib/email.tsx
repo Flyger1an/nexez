@@ -111,7 +111,7 @@ export async function buildBookingEmail(opts: {
     ['When', when],
     ['Source', source],
   ]
-  const text = textBody(`You have a new booking on your Nexez page "${businessName}".`, rows, 'Manage it', inboxUrl)
+  const text = textBody(`You have a new booking on your Nexez listing "${businessName}".`, rows, 'Manage it', inboxUrl)
   const html = await renderHtml(<BookingEmail businessName={businessName} rows={rows} inboxUrl={inboxUrl} />, text)
   return { subject, html, text }
 }
@@ -128,8 +128,8 @@ export async function buildEscrowFundedEmail(opts: {
   const { businessName, offerName, amount, held, buyerAgent, inboxUrl } = opts
   const subject = held ? `Payment held in escrow: ${offerName}` : `Payment received: ${offerName}`
   const lead = held
-    ? `A buyer funded an escrow hold on your Nexez page "${businessName}". Capture it from your inbox once you've delivered.`
-    : `A buyer paid for an agreement on your Nexez page "${businessName}".`
+    ? `A buyer funded an escrow hold on your Nexez listing "${businessName}". Capture it from your inbox once you've delivered.`
+    : `A buyer paid for an agreement on your Nexez listing "${businessName}".`
   const rows: Row[] = [
     ['Offer', offerName],
     ['Amount', amount],
@@ -155,19 +155,19 @@ export async function buildMoneyEventEmail(opts: {
     refund: {
       subject: `Refund processed: ${offerName}`,
       heading: 'Refund processed',
-      lead: `A payment on your Nexez page "${businessName}" was refunded to the buyer.`,
+      lead: `A payment on your Nexez listing "${businessName}" was refunded to the buyer.`,
       tone: 'neutral' as const,
     },
     dispute_opened: {
       subject: `⚠️ Payment disputed: ${offerName}`,
       heading: 'A payment is disputed',
-      lead: `A buyer disputed a payment on your Nexez page "${businessName}". Disputes are time-sensitive — respond with evidence in your Stripe dashboard before the deadline, or the dispute is auto-lost.`,
+      lead: `A buyer disputed a payment on your Nexez listing "${businessName}". Disputes are time-sensitive — respond with evidence in your Stripe dashboard before the deadline, or the dispute is auto-lost.`,
       tone: 'danger' as const,
     },
     dispute_closed: {
       subject: `Dispute resolved: ${offerName}`,
       heading: 'Dispute resolved',
-      lead: `A dispute on your Nexez page "${businessName}" has closed.`,
+      lead: `A dispute on your Nexez listing "${businessName}" has closed.`,
       tone: 'neutral' as const,
     },
   }[opts.kind]
@@ -204,7 +204,7 @@ export async function buildNegotiationEmail(opts: {
     ['Message', query],
   ]
   const text = textBody(
-    `You have a new negotiation request on your Nexez page "${businessName}".`,
+    `You have a new negotiation request on your Nexez listing "${businessName}".`,
     rows,
     'Respond in your inbox',
     inboxUrl,
@@ -298,8 +298,8 @@ export async function buildBuyerRequestEmail(opts: {
   const subject = isRefund ? `Refund requested: ${offerName}` : `Buyer reported a problem: ${offerName}`
   const heading = isRefund ? 'A buyer requested a refund' : 'A buyer reported a problem'
   const lead = isRefund
-    ? `A buyer on your Nexez page "${businessName}" requested a refund. Review it and refund from your Finance dashboard if appropriate.`
-    : `A buyer on your Nexez page "${businessName}" reported a problem with their order. Reach out and resolve it from your Finance dashboard.`
+    ? `A buyer on your Nexez listing "${businessName}" requested a refund. Review it and refund from your Finance dashboard if appropriate.`
+    : `A buyer on your Nexez listing "${businessName}" reported a problem with their order. Reach out and resolve it from your Finance dashboard.`
   const rows: Row[] = [
     ['Offer', offerName],
     ['Amount', amount],
@@ -335,7 +335,7 @@ export async function buildTeamInviteEmail(opts: {
   acceptUrl: string
 }): Promise<Built> {
   const { inviterEmail, inviteeEmail, role, acceptUrl } = opts
-  const roleCopy = role === 'editor' ? 'edit their pages and negotiations' : 'view their pages (read-only)'
+  const roleCopy = role === 'editor' ? 'edit their listings and negotiations' : 'view their listings (read-only)'
   const subject = `${inviterEmail} invited you to collaborate on Nexez`
   const lead = `${inviterEmail} invited you to their Nexez workspace as a ${role}. You'll be able to ${roleCopy}.`
   const text = [
@@ -357,9 +357,9 @@ export async function buildWelcomeEmail(opts: { name?: string | null; createUrl:
   const text = [
     greeting,
     '',
-    'Publish a page AI agents can read — then let them book and pay through, straight to your own Stripe. You only pay a fee when you get paid.',
+    'Publish a listing AI agents can read — then let them book and pay through, straight to your own Stripe. You only pay a fee when you get paid.',
     '',
-    `Create your first agent page: ${createUrl}`,
+    `Create your first agent listing: ${createUrl}`,
   ].join('\n')
   const html = await renderHtml(<WelcomeEmail name={name} createUrl={createUrl} />, text)
   return { subject, html, text }

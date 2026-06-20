@@ -27,7 +27,7 @@ export function AvailabilityCard({ e }: { e: PageEditor }) {
         </div>
       )}
       <p className="mt-1 text-[10px] text-[var(--fg-muted-2)]">
-        Import availability in Settings to show upcoming windows on the public page and in agent data.
+        Import availability in Settings to show upcoming windows on the public listing and in agent data.
         Booking webhooks fire automatically when configured.
       </p>
       {nextAvailable && (
@@ -43,7 +43,7 @@ export function AvailabilityCard({ e }: { e: PageEditor }) {
       {typeof window !== 'undefined' && localStorage.getItem('nexez_last_outbound_fired') && (
         <div className="mt-1 text-[9px] text-[var(--ready)]">Last webhook update: {new Date(localStorage.getItem('nexez_last_outbound_fired')!).toLocaleString()}</div>
       )}
-      <div className="mt-1 text-[9px] text-[var(--signal)]/70">Page webhooks configured in Settings notify automatically on booking events.</div>
+      <div className="mt-1 text-[9px] text-[var(--signal)]/70">Listing webhooks configured in Settings notify automatically on booking events.</div>
       <div className="mt-1 text-[9px] text-[var(--ready)]/80">Checkout and Calendly bookings can notify your connected systems.</div>
       <a href={`/dashboard/${id}/settings`} className="mt-1 inline-block text-[9px] text-[var(--signal)] hover:underline">Manage availability and webhook history in Settings →</a>
     </div>

@@ -124,7 +124,7 @@ export function EditorClient({ initial }: { initial: EditorInitial }) {
               <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.02] p-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-xs text-zinc-300">
-                    Staging: save a draft, preview it on your page, then publish to live.
+                    Staging: save a draft, preview it on your listing, then publish to live.
                   </p>
                   <button
                     type="button"

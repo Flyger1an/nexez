@@ -8,7 +8,7 @@ export function ImportResult({
   result,
   onCreate,
   createClass,
-  createLabel = 'Create Page →',
+  createLabel = 'Create Listing →',
   defaultMessage = 'Import complete',
   maxOffers = 5,
   renderOffer,

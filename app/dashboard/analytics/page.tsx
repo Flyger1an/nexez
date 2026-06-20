@@ -81,7 +81,7 @@ const actionOptions = [
   ['stripe_error', 'Stripe errors'],
   ['stripe_price_sync', 'Stripe price syncs'],
   ['directory_click', 'Discovery clicks'],
-  ['agent_page_view', 'AI agent page visits'],
+  ['agent_page_view', 'AI agent listing visits'],
 ]
 
 const trafficOptions: Array<[AgentVisitTrafficFilter, string]> = [
@@ -354,10 +354,10 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   if (selectedTraffic !== 'all') exportParams.set('traffic', selectedTraffic)
 
   const exportHref = `/api/analytics/export${exportParams.toString() ? `?${exportParams}` : ''}`
-  const pageViewTitle = selectedPage ? selectedPage.name : 'All pages'
+  const pageViewTitle = selectedPage ? selectedPage.name : 'All listings'
   const pageViewSubtitle = selectedPage
     ? `Showing only signals for /${selectedPage.slug}.`
-    : 'Showing signals across every page in your workspace.'
+    : 'Showing signals across every listing in your workspace.'
   const selectedPageReadiness = selectedPage ? getReadinessScore(selectedPage) : avgAllReadiness
   const activeFilterCount = [
     filters.q,
@@ -384,7 +384,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                 Filter analytics
               </h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
-                Set the page, action, traffic type, and time window before reading the charts below.
+                Set the listing, action, traffic type, and time window before reading the charts below.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
@@ -418,8 +418,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                   placeholder="Event context..."
                 />
               </label>
-              <Select name="page" label="Page" defaultValue={selectedPageId}>
-                <option value="">All pages</option>
+              <Select name="page" label="Listing" defaultValue={selectedPageId}>
+                <option value="">All listings</option>
                 {pageOptions.map((page) => (
                   <option key={page.id} value={page.id}>
                     {page.label}
@@ -548,27 +548,27 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                     rel="noreferrer"
                     className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-zinc-200 hover:bg-white/10"
                   >
-                    Public page
+                    Public listing
                     <ArrowUpRight className="size-4" />
                   </a>
                   <a
                     href={`/dashboard/${selectedPage.id}`}
                     className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-zinc-200 hover:bg-white/10"
                   >
-                    Edit page
+                    Edit listing
                     <ArrowUpRight className="size-4" />
                   </a>
                   <a
                     href="/dashboard/analytics"
                     className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-zinc-400 hover:bg-white/10 hover:text-white"
                   >
-                    View all pages
+                    View all listings
                   </a>
                 </div>
               ) : null}
             </div>
             <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[420px]">
-              <MiniStat label="Scope" value={selectedPage ? 'Single page' : 'Workspace'} />
+              <MiniStat label="Scope" value={selectedPage ? 'Single listing' : 'Workspace'} />
               <MiniStat label="Offers" value={offerCount.toLocaleString()} />
               <MiniStat label="Readiness" value={`${selectedPageReadiness}%`} />
             </div>
@@ -636,15 +636,15 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             {topOffers.length ? (
               <TopOffersChart offers={topOffers} max={maxOfferEvents} />
             ) : (
-              <EmptyPanel message="No offer signals yet." hint="Publish a page and share its link — as agents discover and act on your offers, the leaders show up here." />
+              <EmptyPanel message="No offer signals yet." hint="Publish a listing and share its link — as agents discover and act on your offers, the leaders show up here." />
             )}
           </Panel>
 
-          <Panel title={selectedPage ? 'Selected Page Agent Activity' : 'Top Pages by Agent Activity'}>
+          <Panel title={selectedPage ? 'Selected Listing Agent Activity' : 'Top Listings by Agent Activity'}>
             {topPages.length ? (
               <TopPagesChart pages={topPages} max={maxPageEvents} />
             ) : (
-              <EmptyPanel message="No page activity yet." />
+              <EmptyPanel message="No listing activity yet." />
             )}
           </Panel>
 
@@ -833,13 +833,13 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             </div>
 
             <Insight
-              title="Agent-engaged pages"
+              title="Agent-engaged listings"
               value={`${agentEngagedPageCount} / ${ownedPages.length}`}
-              detail="Pages with agent traffic"
+              detail="Listings with agent traffic"
             />
 
             <Insight
-              title="AI agent page visits"
+              title="AI agent listing visits"
               value={String(agentPageVisits)}
               detail="Classified AI reads"
             />
@@ -847,7 +847,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             <Insight
               title="Readiness trend"
               value={`${readinessTrend.currentAverage}%`}
-              detail={`${formatTrendDelta(readinessTrend.delta)} from ${readinessTrend.versionSnapshots || ownedPages.length} page snapshots`}
+              detail={`${formatTrendDelta(readinessTrend.delta)} from ${readinessTrend.versionSnapshots || ownedPages.length} listing snapshots`}
             />
 
             <Insight
@@ -875,7 +875,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                 <tr>
                   <th className="px-5 py-3 font-medium">Agent Type</th>
                   <th className="px-5 py-3 font-medium">Query Before Landing</th>
-                  <th className="px-5 py-3 font-medium">Page</th>
+                  <th className="px-5 py-3 font-medium">Listing</th>
                   <th className="px-5 py-3 text-right font-medium">Confidence</th>
                 </tr>
               </thead>

@@ -25,7 +25,7 @@ const sections: { heading: string; body: string[] }[] = [
   {
     heading: '3. Information Collected Automatically',
     body: [
-      'Agent & visitor analytics: when your published pages are viewed, we record events (such as page views, discovery clicks, and checkout intents) and, for AI agents, classification signals derived from the request (e.g., user-agent and referrer).',
+      'Agent & visitor analytics: when your published listings are viewed, we record events (such as page views, discovery clicks, and checkout intents) and, for AI agents, classification signals derived from the request (e.g., user-agent and referrer).',
       'Mobile app: a device push-notification token (so we can notify you about your orders), and — only if you opt in — crash and diagnostic data via our error-monitoring provider to help us fix problems.',
       'Privacy-safe IPs: visitor IP addresses are never stored in raw form — only a salted hash is kept for de-duplication and abuse prevention.',
     ],
@@ -63,7 +63,7 @@ const sections: { heading: string; body: string[] }[] = [
   {
     heading: '9. Data Retention & Deletion',
     body: [
-      'We retain account and content data for as long as your account is active. You can delete pages at any time. You can permanently delete your account in the Nexxi app (Profile → Delete account) or via the dashboard — this removes your account, agent data, preferences, and any pages you own, and anonymizes your buyer details on past transaction records, except where retention is required by law.',
+      'We retain account and content data for as long as your account is active. You can delete listings at any time. You can permanently delete your account in the Nexxi app (Profile → Delete account) or via the dashboard — this removes your account, agent data, preferences, and any listings you own, and anonymizes your buyer details on past transaction records, except where retention is required by law.',
     ],
   },
   {

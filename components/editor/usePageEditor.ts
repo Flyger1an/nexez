@@ -180,8 +180,8 @@ export function usePageEditor(initial: EditorInitial) {
 
     const publicSlug = url.searchParams.get('public')
     setMessage(publicSlug
-      ? `Page published. The public agent page opened in a new tab. If your browser blocked it, use "View public page" here.`
-      : 'Page published. Continue editing here, or use "View public page" to inspect the live agent page.')
+      ? `Listing published. The public listing opened in a new tab. If your browser blocked it, use "View public listing" here.`
+      : 'Listing published. Continue editing here, or use "View public listing" to inspect the live listing.')
 
     url.searchParams.delete('created')
     url.searchParams.delete('public')
@@ -286,7 +286,7 @@ export function usePageEditor(initial: EditorInitial) {
 
   async function handleSyncFromWebsite() {
     if (!websiteUrl) {
-      setMessage('No website URL set on this page.')
+      setMessage('No website URL set on this listing.')
       return
     }
     setSyncing(true)
@@ -323,7 +323,7 @@ export function usePageEditor(initial: EditorInitial) {
 
   async function startReanalysis() {
     if (!websiteUrl) {
-      setMessage('No website URL set on this page.')
+      setMessage('No website URL set on this listing.')
       return
     }
     setSyncing(true)
@@ -442,7 +442,7 @@ export function usePageEditor(initial: EditorInitial) {
       setMessage(publishErrorMessage(error))
     } else {
       setPage((prev) => ({ ...(prev as any), draft, draft_updated_at: draftUpdatedAt }) as AgentPage)
-      setMessage('Draft saved (staged). Preview it on your page, then Publish to go live.')
+      setMessage('Draft saved (staged). Preview it on your listing, then Publish to go live.')
     }
   }
 
@@ -646,7 +646,7 @@ export function usePageEditor(initial: EditorInitial) {
         await supabase.from('pages').update({ team_collaboration: updated }).eq('id', (page as any).id)
         alert('Approval request saved. Manage it in Settings.')
       } else {
-        alert('Save this page before requesting approval.')
+        alert('Save this listing before requesting approval.')
       }
     } catch (e: any) {
       alert('Could not request approval: ' + e.message)

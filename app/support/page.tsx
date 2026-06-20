@@ -2,7 +2,7 @@ import { SupportDesk } from '../../components/SupportDesk'
 
 export const metadata = {
   title: 'Support',
-  description: 'Get AI-assisted Nexez support or create a support ticket with page context attached.',
+  description: 'Get AI-assisted Nexez support or create a support ticket with listing context attached.',
 }
 
 export default function SupportPage() {
@@ -15,7 +15,7 @@ export default function SupportPage() {
             What can we help you with?
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-            Pick the workspace or agent page first. Nexez AI will attempt a fix, then package the context into a ticket if you still need a human.
+            Pick the workspace or agent listing first. Nexez AI will attempt a fix, then package the context into a ticket if you still need a human.
           </p>
         </section>
 

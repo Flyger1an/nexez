@@ -169,7 +169,7 @@ export default function IntegrationsPage() {
           <p className="text-sm text-[var(--signal)]">Integrations &amp; imports</p>
           <h1 className="mt-2 text-4xl font-semibold tracking-tight">Connect your tools. Import your offers.</h1>
           <p className="mt-4 max-w-3xl text-zinc-400">
-            Pull pricing, availability, and booking links from the tools you already use — then keep your agent page in
+            Pull pricing, availability, and booking links from the tools you already use — then keep your agent listing in
             sync automatically.
           </p>
         </div>
@@ -179,7 +179,7 @@ export default function IntegrationsPage() {
             <div>
               <h2 className="font-semibold">Why connect?</h2>
               <p className="mt-3 text-sm leading-6 text-zinc-400">
-                Live pricing and availability keep your page accurate — which raises the trust signals agents use to
+                Live pricing and availability keep your listing accurate — which raises the trust signals agents use to
                 recommend you.
               </p>
             </div>
@@ -253,7 +253,7 @@ export default function IntegrationsPage() {
                   <a href="/dashboard/tools" className="mt-2 inline-block text-[11px] text-[var(--amber)] hover:underline">Import in Tools →</a>
                 </div>
               </div>
-              <p className="mt-3 text-[11px] text-[var(--signal)]/80">Import once, then edit and re-sync from the page editor.</p>
+              <p className="mt-3 text-[11px] text-[var(--signal)]/80">Import once, then edit and re-sync from the listing editor.</p>
             </div>
           </section>
         </div>

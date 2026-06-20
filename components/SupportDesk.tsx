@@ -27,7 +27,7 @@ type TicketResult = {
 }
 
 const categories = [
-  { value: 'page_setup', label: 'Page setup' },
+  { value: 'page_setup', label: 'Listing setup' },
   { value: 'agent_visibility', label: 'Agent visibility' },
   { value: 'integrations', label: 'Integrations' },
   { value: 'billing', label: 'Billing' },
@@ -179,14 +179,14 @@ export function SupportDesk() {
           <div>
             <h2 className="text-xl font-semibold tracking-tight">Tell us what needs help</h2>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Select the workspace or page first. Nexez AI will try to solve it before a ticket is created.
+              Select the workspace or listing first. Nexez AI will try to solve it before a ticket is created.
             </p>
           </div>
         </div>
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-muted-foreground">Project or page</span>
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">Project or listing</span>
             <select
               value={target}
               onChange={(event) => setTarget(event.target.value)}
@@ -199,7 +199,7 @@ export function SupportDesk() {
                 </option>
               ))}
             </select>
-            {loadingPages ? <span className="mt-1 block text-xs text-muted-foreground">Loading pages...</span> : null}
+            {loadingPages ? <span className="mt-1 block text-xs text-muted-foreground">Loading listings...</span> : null}
           </label>
 
           <label className="block">
@@ -293,7 +293,7 @@ export function SupportDesk() {
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Selected context</p>
           <h3 className="mt-3 text-lg font-semibold">{targetName}</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            {selectedPage ? `Public slug: /${selectedPage.slug}` : 'Account, billing, integrations, or cross-page issue.'}
+            {selectedPage ? `Public slug: /${selectedPage.slug}` : 'Account, billing, integrations, or cross-listing issue.'}
           </p>
         </div>
 
@@ -337,7 +337,7 @@ export function SupportDesk() {
           </div>
         ) : (
           <div className="rounded-lg border border-dashed border-border p-5 text-sm leading-6 text-muted-foreground">
-            Ask AI support first. If the answer misses, create a ticket with the selected page, category, question, and AI attempt attached.
+            Ask AI support first. If the answer misses, create a ticket with the selected listing, category, question, and AI attempt attached.
           </div>
         )}
 

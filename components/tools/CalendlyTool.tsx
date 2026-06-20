@@ -262,12 +262,12 @@ export function CalendlyTool() {
               type="text"
               value={webhookTestPageSlug}
               onChange={(e) => setWebhookTestPageSlug(e.target.value)}
-              placeholder="Optional: your-page-slug"
+              placeholder="Optional: your-listing-slug"
               className="flex-1 input text-sm"
             />
           </div>
           <p className="text-[10px] text-zinc-500 -mt-1">
-            If you enter one of your page slugs above, the test event will create a real entry in your Analytics.
+            If you enter one of your listing slugs above, the test event will create a real entry in your Analytics.
           </p>
         </div>
 
@@ -332,7 +332,7 @@ export function CalendlyTool() {
                     onClick={startPageFromCalendly}
                     className="rounded-lg bg-[var(--signal)] px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-[var(--signal)]"
                   >
-                    Create Page from these offers →
+                    Create Listing from these offers →
                   </button>
                 )}
               </div>

@@ -86,7 +86,7 @@ export default async function UseCaseDetailPage({ params }: UseCaseProps) {
           </div>
 
           <div>
-            <p className="text-sm font-medium text-muted-foreground">What the page must prove</p>
+            <p className="text-sm font-medium text-muted-foreground">What the listing must prove</p>
             <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">
               Reduce guessing before the handoff.
             </h2>
@@ -105,10 +105,10 @@ export default async function UseCaseDetailPage({ params }: UseCaseProps) {
       <section className="bg-white/[0.015]">
         <div className="mx-auto max-w-3xl px-5 py-20 text-center">
           <h2 className="text-4xl font-semibold tracking-[-0.055em] md:text-6xl">
-            Build the page an agent can recommend with confidence.
+            Build the listing an agent can recommend with confidence.
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-            Start with this use case, import what you already have, and tighten the page until the buying path is obvious.
+            Start with this use case, import what you already have, and tighten the listing until the buying path is obvious.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <a href={appUrl(`/create?template=${useCase.templateId}`)} className="btn-primary h-11 px-5">

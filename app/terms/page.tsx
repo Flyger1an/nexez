@@ -24,14 +24,14 @@ const sections: { heading: string; body: string[] }[] = [
   {
     heading: '3. Your Content',
     body: [
-      'You retain ownership of the business information, offers, and other content you publish ("Your Content"). You grant Nexez a license to host, process, and display Your Content for the purpose of operating the Service — including generating agent-readable artifacts (such as JSON-LD, llms.txt, and agent manifests) and serving your pages on Nexez subdomains and your connected custom domains.',
+      'You retain ownership of the business information, offers, and other content you publish ("Your Content"). You grant Nexez a license to host, process, and display Your Content for the purpose of operating the Service — including generating agent-readable artifacts (such as JSON-LD, llms.txt, and agent manifests) and serving your listings on Nexez subdomains and your connected custom domains.',
       'You are responsible for the accuracy and legality of Your Content and for having the rights to publish it.',
     ],
   },
   {
     heading: '4. Custom Domains',
     body: [
-      'When you connect a custom domain, you represent that you own or control it. You are responsible for your DNS configuration. Nexez provisions TLS and serves your pages but is not responsible for downtime caused by misconfigured DNS or third-party domain registrars.',
+      'When you connect a custom domain, you represent that you own or control it. You are responsible for your DNS configuration. Nexez provisions TLS and serves your listings but is not responsible for downtime caused by misconfigured DNS or third-party domain registrars.',
     ],
   },
   {
@@ -49,7 +49,7 @@ const sections: { heading: string; body: string[] }[] = [
   {
     heading: '7. Disclaimers',
     body: [
-      'The Service is provided "as is" without warranties of any kind. We do not guarantee that AI agents will discover, rank, or transact with your pages, nor that any particular business outcome will result from using the Service.',
+      'The Service is provided "as is" without warranties of any kind. We do not guarantee that AI agents will discover, rank, or transact with your listings, nor that any particular business outcome will result from using the Service.',
     ],
   },
   {

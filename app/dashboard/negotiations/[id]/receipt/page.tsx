@@ -62,7 +62,7 @@ export default async function NegotiationReceiptPage({ params }: { params: Promi
           <dl className="mt-6 space-y-3 text-sm">
             <Row label="Offer" value={n.offer_name} />
             <Row label="Amount" value={formatNegotiationAmount(n.amount_cents, n.currency)} />
-            <Row label="Page" value={`${getBaseUrl()}/${n.slug}`} />
+            <Row label="Listing" value={`${getBaseUrl()}/${n.slug}`} />
             <Row label="Buyer agent" value={n.buyer_agent || '—'} />
             <Row label="Contact" value={n.contact || '—'} />
             <Row label="Budget" value={n.budget_text || '—'} />

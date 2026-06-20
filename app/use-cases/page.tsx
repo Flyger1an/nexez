@@ -6,7 +6,7 @@ import { useCases } from '../../lib/marketing-content'
 export const metadata: Metadata = {
   title: 'Use Cases',
   description:
-    'Explore how consultants, agencies, coaches, local services, SaaS teams, and marketplaces use Nexez to publish AI-readable buying pages.',
+    'Explore how consultants, agencies, coaches, local services, SaaS teams, and marketplaces use Nexez to publish AI-readable buying listings.',
 }
 
 export default function UseCasesPage() {
@@ -22,7 +22,7 @@ export default function UseCasesPage() {
           <div className="max-w-3xl">
             <div className="eyebrow">Use cases</div>
             <h1 className="mt-5 text-balance text-5xl font-semibold tracking-[-0.065em] sm:text-6xl lg:text-7xl">
-              AI-ready pages for <span className="nx-accent-text">real buying workflows.</span>
+              AI-ready listings for <span className="nx-accent-text">real buying workflows.</span>
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
               Nexez is strongest when the offer is specific: a service, a package, a retainer, a booking, a quote,
@@ -30,7 +30,7 @@ export default function UseCasesPage() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a href={appUrl('/create')} className="btn-primary h-11 px-5">
-                Create your page
+                Create your listing
                 <ArrowRight className="size-4" />
               </a>
               <a href="/examples" className="btn-secondary h-11 px-5">View examples</a>
@@ -44,7 +44,7 @@ export default function UseCasesPage() {
           <div className="mb-8 max-w-2xl">
             <p className="text-sm font-medium text-muted-foreground">Choose your lane</p>
             <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">
-              The best agent pages start with buyer intent.
+              The best agent listings start with buyer intent.
             </h2>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -84,7 +84,7 @@ export default function UseCasesPage() {
             {[
               ['Offer model', 'Services, products, packages, retainers, and bookings are structured into comparable records.'],
               ['Trust context', 'Policies, location, website, contact, verification, and freshness signals help agents avoid bad recommendations.'],
-              ['Action path', 'Every page points to booking, buying, quote request, contact, negotiation, or human review.'],
+              ['Action path', 'Every listing points to booking, buying, quote request, contact, negotiation, or human review.'],
             ].map(([title, copy]) => (
               <div key={title} className="rounded-lg border border-border bg-white/[0.03] p-5">
                 <CheckCircle2 className="size-5 text-[var(--ready)]" />

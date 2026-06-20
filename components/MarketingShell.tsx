@@ -174,12 +174,12 @@ function MarketingFooter({ authed }: { authed: boolean | null }) {
   const gettingStartedLinks: Array<[string, string]> =
     authed === true
       ? [
-          ['Create a page', appUrl('/create')],
+          ['Create a listing', appUrl('/create')],
           ['Dashboard', appUrl('/dashboard')],
           ['Support', '/support'],
         ]
       : [
-          ['Create a page', appUrl('/create')],
+          ['Create a listing', appUrl('/create')],
           ['Sign in', appUrl('/login')],
           ['Dashboard', appUrl('/dashboard')],
           ['Support', '/support'],
@@ -196,7 +196,7 @@ function MarketingFooter({ authed }: { authed: boolean | null }) {
             <span className="font-medium">Nexez</span>
           </a>
           <p className="mt-3 max-w-xs text-muted-foreground">
-            Pages built for AI agents to discover, understand, and buy from.
+            Listings built for AI agents to discover, understand, and buy from.
           </p>
         </div>
         <FooterCol
@@ -233,7 +233,7 @@ function MarketingFooter({ authed }: { authed: boolean | null }) {
       </div>
       <div className="border-t border-border">
         <div className="mx-auto max-w-7xl px-5 py-4 text-xs text-muted-foreground">
-          © Nexez — pages built for AI agents.
+          © Nexez — listings built for AI agents.
         </div>
       </div>
     </footer>

@@ -654,10 +654,10 @@ function SortableOfferCard({
             <input
               value={offer.url}
               onChange={(e) => onUpdate(index, 'url', e.target.value)}
-              placeholder="Override booking URL (optional — used when this toggle or page-level 'Prefer original' is active)"
+              placeholder="Override booking URL (optional — used when this toggle or listing-level 'Prefer original' is active)"
               className="w-full rounded border border-white/10 bg-black/30 px-3 py-1.5 text-sm text-white"
             />
-            <div className="text-[9px] text-zinc-500 mt-1">When enabled, this offer directs to the original site (overrides page default).</div>
+            <div className="text-[9px] text-zinc-500 mt-1">When enabled, this offer directs to the original site (overrides listing default).</div>
           </div>
 
           {/* Consumer / Local Service Fields */}

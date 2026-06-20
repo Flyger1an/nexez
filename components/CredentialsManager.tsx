@@ -97,7 +97,7 @@ export function CredentialsManager({
               {isRec && doc.status === 'verified' ? (
                 <label className="mt-1.5 flex items-center gap-1.5 text-[10px] text-[var(--fg-muted)]">
                   <input type="checkbox" checked={!!doc.public} onChange={(e) => togglePublic(doc, e.target.checked)} />
-                  Show this document publicly (a view link appears on your agent page)
+                  Show this document publicly (a view link appears on your agent listing)
                 </label>
               ) : null}
             </div>
