@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { safeNextPath } from '../../../lib/safe-redirect'
 import { sendOnceSystemEmail } from '../../../lib/server/system-email'
 import { buildWelcomeEmail } from '../../../lib/email'
+import { ensureTrialSeeded } from '../../../lib/server/trial'
 
 // A user counts as "new" (gets the welcome) only if their account was created very
 // recently — so an existing user signing in again never gets a backfill blast, and
@@ -34,7 +35,18 @@ export async function GET(request: Request) {
     // created_at so existing users aren't welcomed on their next login.
     const { data: { user } } = await supabase.auth.getUser()
     const createdMs = user?.created_at ? Date.parse(user.created_at) : NaN
-    if (user?.email && Number.isFinite(createdMs) && Date.now() - createdMs < WELCOME_WINDOW_MS) {
+    const isNew = Boolean(user?.id) && Number.isFinite(createdMs) && Date.now() - createdMs < WELCOME_WINDOW_MS
+
+    // Seed the no-card trial for a brand-new confirmed account BEFORE redirecting, so the
+    // email-confirmation signup path shows the trial on its FIRST dashboard load (not a
+    // one-render "Free" flash from the layout-seed racing the page read). Awaited — a single
+    // fast idempotent insert, Pro by default. The dashboard layout backstop still covers any
+    // other path. Existing users (created > 24h) are never auto-trialed here.
+    if (isNew && user) {
+      await ensureTrialSeeded(user.id, user.user_metadata?.plan)
+    }
+
+    if (isNew && user?.email) {
       const createUrl = new URL('/create', requestUrl.origin).toString()
       const name = (user.user_metadata?.full_name as string | undefined) || (user.user_metadata?.name as string | undefined) || null
       const to = user.email
