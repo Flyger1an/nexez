@@ -170,17 +170,17 @@ export default async function NexezHome() {
           <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(440px,0.9fr)] lg:gap-12">
             {/* LEFT — h1, copy, CTAs */}
             <div>
-              <h1 className="text-balance text-[2.6rem] font-semibold leading-[1.04] tracking-[-0.03em] sm:text-[3.05rem] lg:text-[3.5rem]">
-                Turn AI discovery into <span className="nx-accent-text">pipeline, bookings, and sales.</span>
+              <h1 className="text-balance text-[2.3rem] font-semibold leading-[1.05] tracking-[-0.035em] sm:text-[2.7rem] lg:text-[3.05rem]">
+                Get found by the agents <span className="nx-accent-text">doing the buying.</span>
               </h1>
               <p className="mt-6 max-w-xl text-base leading-7 text-muted-foreground md:text-lg">
-                Add a structured layer AI agents can parse, trust, and turn into measurable conversions.
+                Nexez puts your business in front of the AI buyer agents shopping for real customers, turning agent conversations into closed sales.
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <a href={appUrl('/create')} className="btn-primary h-11 px-5">
-                  Get agent-ready
+                  List your business
                 </a>
-                <a href="#simulator" className="btn-secondary h-11 px-5">See how agents read your business</a>
+                <a href="/how-it-works" className="btn-secondary h-11 px-5">See how it works</a>
               </div>
             </div>
 

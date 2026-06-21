@@ -120,11 +120,11 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           )}
           {authed === null ? (
             <span aria-hidden="true" className="btn-primary btn-sm" style={{ opacity: 0, pointerEvents: 'none' }}>
-              Get started
+              Get listed
             </span>
           ) : (
             <a href={appUrl(authed ? '/dashboard' : '/create')} className="btn-primary btn-sm">
-              {authed ? 'Dashboard' : 'Get started'}
+              {authed ? 'Dashboard' : 'Get listed'}
             </a>
           )}
         </div>

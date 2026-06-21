@@ -40,7 +40,7 @@ const DESKTOP_OFFERS: [string, string, string, string, string][] = [
 // ── Desktop: a compact draggable X-ray that fills the hero's right column ──────────
 
 function XrayDesktop({ className }: { className?: string }) {
-  const [reveal, setReveal] = useState(50) // 3..97 — scanner position (% from left)
+  const [reveal, setReveal] = useState(63) // 3..97 — scanner position (% from left). Rest at ~63 so the human listing reads as a near-complete card and the agent view teases from the right (cleaner than a 50/50 mid-content cut); drag reveals more.
   const [moved, setMoved] = useState(false)
   const draggingRef = useRef(false)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -70,6 +70,11 @@ function XrayDesktop({ className }: { className?: string }) {
 
   const humanClip = `inset(0 ${(100 - reveal).toFixed(2)}% 0 0)`
   const agentClip = `inset(0 0 0 ${reveal.toFixed(2)}%)`
+  // Soft-dissolve each pane into the scanner line so the reveal edge reads as a deliberate
+  // x-ray sweep instead of a hard mid-content clip at any divider position.
+  const r = reveal.toFixed(2)
+  const humanMask = `linear-gradient(90deg, #000 0, #000 calc(${r}% - 5%), transparent ${r}%)`
+  const agentMask = `linear-gradient(90deg, transparent ${r}%, #000 calc(${r}% + 5%))`
 
   return (
     <div className={`relative ${className ?? ''}`}>
@@ -94,7 +99,7 @@ function XrayDesktop({ className }: { className?: string }) {
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 flex flex-col overflow-hidden"
-          style={{ background: '#F3EFE6', color: '#16150F', padding: '18px 20px', clipPath: humanClip }}
+          style={{ background: '#F3EFE6', color: '#16150F', padding: '18px 20px', clipPath: humanClip, WebkitMaskImage: humanMask, maskImage: humanMask }}
         >
           {/* promo strip (full-bleed) */}
           <div className="flex items-center justify-between text-[10px]" style={{ margin: '-18px -20px 0', background: '#16150F', color: '#F3EFE6', padding: '5px 20px' }}>
@@ -168,6 +173,8 @@ function XrayDesktop({ className }: { className?: string }) {
             color: '#F4F4F1',
             padding: '18px 20px',
             clipPath: agentClip,
+            WebkitMaskImage: agentMask,
+            maskImage: agentMask,
             backgroundImage: 'radial-gradient(circle, color-mix(in srgb, var(--signal) 26%, transparent) 1px, transparent 1px)',
             backgroundSize: '22px 22px',
           }}
