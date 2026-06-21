@@ -43,8 +43,6 @@ function useAuthedUser(): boolean | null {
 const navLinks = [
   { label: 'How it works', href: '/how-it-works' },
   { label: 'Use cases', href: '/use-cases' },
-  { label: 'Agents', href: '/agents' },
-  { label: 'Examples', href: '/examples' },
   { label: 'Discovery', href: '/discovery' },
   { label: 'Pricing', href: '/pricing' },
   { label: 'Simulator', href: '/simulator' },
@@ -196,7 +194,7 @@ function MarketingFooter({ authed }: { authed: boolean | null }) {
             <span className="font-medium">Nexez</span>
           </a>
           <p className="mt-3 max-w-xs text-muted-foreground">
-            Listings built for AI agents to discover, understand, and buy from.
+            The commerce layer for AI agents. Get discovered, get understood, get bought.
           </p>
         </div>
         <FooterCol

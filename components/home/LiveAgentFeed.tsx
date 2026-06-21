@@ -13,7 +13,7 @@ type Row = { id: number; role: Role; label: string; msg: string }
 const AGENTS = ['ChatGPT', 'Claude', 'Perplexity', 'Grok']
 
 const STEPS: { role: Role; label: (a: string) => string; msg: (a: string) => string }[] = [
-  { role: 'agent', label: (a) => a, msg: (a) => `GET nexez.app/nexez-spa · via ${a}` },
+  { role: 'agent', label: (a) => a, msg: (a) => `GET nexez.app/your-store · via ${a}` },
   { role: 'sys', label: () => 'parse', msg: () => 'agent.json ok · 5 offers · readiness 96' },
   { role: 'agent', label: (a) => a, msg: () => 'query: "deep tissue, sat, under $150"' },
   { role: 'ok', label: () => 'match', msg: () => 'Deep Tissue 60m · $120 · book available' },
@@ -66,7 +66,7 @@ export function LiveAgentFeed() {
             <span className="nx-pulsedot size-1.5 rounded-full" style={{ background: 'var(--signal)' }} />
             agent_session · live
           </span>
-          <span className="font-mono text-[11px]" style={{ color: '#65655F' }}>nexez.app/nexez-spa</span>
+          <span className="font-mono text-[11px]" style={{ color: '#65655F' }}>nexez.app/your-store</span>
         </div>
         <div className="flex min-h-[300px] flex-col gap-2.5 px-4 py-4 sm:px-5">
           {feed.map((r) => {

@@ -33,8 +33,10 @@ export function DesignSystemFx() {
     }
     root.classList.add('fx')
 
-    // scroll reveals with gentle stagger; release the classes after entrance
-    const rvs = Array.from(document.querySelectorAll<HTMLElement>('.glass,.bubble,.kpi'))
+    // scroll reveals with gentle stagger; release the classes after entrance.
+    // [data-reveal] is the explicit opt-in marker (homepage sections use it so they
+    // get the entrance without adopting .glass styling).
+    const rvs = Array.from(document.querySelectorAll<HTMLElement>('.glass,.bubble,.kpi,[data-reveal]'))
     rvs.forEach((el) => el.classList.add('rv'))
     const io = new IntersectionObserver(
       (entries) => {

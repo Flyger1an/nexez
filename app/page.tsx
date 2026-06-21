@@ -7,21 +7,21 @@ import {
   Sparkles,
   CheckCircle2,
   Search,
+  RefreshCw,
+  Handshake,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
-import { AgentPage, PUBLIC_PAGE_SELECT, getOfferCount, getReadinessScore } from '../lib/agent-page'
-import { supabase } from '../lib/supabase'
-import { agentRuntimeUrl, appUrl } from '../lib/site'
-import { publicLaunchVisiblePages } from '../lib/public-page-visibility'
+import { appUrl } from '../lib/site'
 import { SimulatorTeaser } from '../components/SimulatorTeaser'
 import { AgentXray } from '../components/home/AgentXray'
+import { KnowledgeGraph } from '../components/home/KnowledgeGraph'
 import { ReadinessLab } from '../components/home/ReadinessLab'
 import { LiveAgentFeed } from '../components/home/LiveAgentFeed'
+import { ScrollProgress } from '../components/home/ScrollProgress'
+import { ShaderBackdrop } from '../components/home/ShaderBackdrop'
 
-// Marketing homepage: statically served (fast on nexez.ai) but revalidated every
-// 5 min so the "Public examples" showcase picks up newly published pages without a
-// redeploy. The always-live listing lives on /discovery.
-export const revalidate = 300
+// Marketing homepage: fully static (fast on nexez.ai). The always-live listing
+// directory lives on /discovery.
 
 type Feature = {
   title: string
@@ -30,21 +30,21 @@ type Feature = {
 }
 
 const workflow = [
-  { step: '01', title: 'Connect', copy: 'Import offers from your site, calendar, payments, or store.' },
-  { step: '02', title: 'Optimize', copy: 'Clean up pricing, proof, actions, and schema.' },
-  { step: '03', title: 'Publish', copy: 'Launch a fast, crawlable listing on Nexez or your domain.' },
-  { step: '04', title: 'Measure', copy: 'See agent visits, intent, bookings, and sales.' },
+  { step: '01', title: 'Connect', copy: 'Import offers, pricing, and availability from your site, Stripe, Shopify, Calendly, or Square.' },
+  { step: '02', title: 'Structure', copy: 'Nexez maps every offer to schema agents trust: JSON-LD, llms.txt, agent.json, and MCP.' },
+  { step: '03', title: 'Publish', copy: 'Ship a crawlable, transactable listing on your own domain or a nexez link.' },
+  { step: '04', title: 'Sell', copy: 'Agents discover, compare, and check out. You watch the revenue land.' },
 ]
 
 const keyFeatures: Feature[] = [
   {
-    title: 'AI Copilot',
-    copy: 'Tighten offers for agent evaluation.',
+    title: 'Copilot',
+    copy: 'Tighten pricing, offers, and proof for the way agents actually weigh and decide.',
     Icon: Sparkles,
   },
   {
     title: 'Agent Simulator',
-    copy: 'Preview how agents parse your business.',
+    copy: 'Preview how ChatGPT, Claude, and Perplexity read and buy from your listing before you ever publish.',
     Icon: Bot,
   },
   {
@@ -53,8 +53,8 @@ const keyFeatures: Feature[] = [
     Icon: Search,
   },
   {
-    title: 'Analytics',
-    copy: 'Track visits, queries, and conversions.',
+    title: 'Revenue Analytics',
+    copy: 'Attribute pipeline and sales to the exact agent, query, and offer that produced them.',
     Icon: TrendingUp,
   },
   {
@@ -73,7 +73,7 @@ const keyFeatures: Feature[] = [
 const stats = [
   { value: '<200ms', label: 'Agent-ready load' },
   { value: '19+', label: 'AI crawlers welcomed' },
-  { value: '5', label: 'Structured formats' },
+  { value: '5+', label: 'Structured formats' },
   { value: 'Live', label: 'Conversion analytics' },
 ]
 
@@ -95,24 +95,24 @@ const marqueeModels = [
 
 const pinnedStories: Feature[] = [
   {
-    title: 'Win more qualified discovery',
-    copy: 'Match high-intent buyer queries with cleaner offers and clearer fit.',
-    Icon: Search,
+    title: 'Set it once. Sell on autopilot.',
+    copy: 'Configure your offers a single time. Your listing stays live, structured, and agent-ready around the clock, with zero ongoing upkeep.',
+    Icon: Sparkles,
   },
   {
-    title: 'Improve recommendation confidence',
-    copy: 'Give agents pricing, proof, and next steps they can compare quickly.',
-    Icon: ShieldCheck,
+    title: 'Your listing never goes stale.',
+    copy: 'Connect Stripe, Shopify, your calendar, or store, and prices, availability, and offers refresh themselves the instant anything changes. No agent ever sees an old price.',
+    Icon: RefreshCw,
   },
   {
-    title: 'Reduce friction to action',
-    copy: 'Turn interest into booking, checkout, or lead capture with direct actions.',
-    Icon: CheckCircle2,
+    title: 'Let agents close deals for you.',
+    copy: 'Set your floor and your terms once. Nexez negotiates with buyer agents on your behalf and alerts you the second a sale lands.',
+    Icon: Handshake,
   },
   {
-    title: 'Prove what is driving revenue',
-    copy: 'See which models, queries, and sessions create real outcomes.',
-    Icon: TrendingUp,
+    title: 'One listing, every agent.',
+    copy: 'Publish once and get found by ChatGPT, Claude, Perplexity, and every major buyer agent. No per-platform busywork, no rebuilding for each one.',
+    Icon: Bot,
   },
 ]
 
@@ -130,10 +130,9 @@ const valueBullets = [
 ]
 
 const analyticsBullets = [
-  'Agent model',
-  'Buyer query',
-  'Comparison activity',
-  'Booking or sale',
+  'Attribute pipeline and sales to the exact agent and offer',
+  'Read the buyer intent behind every discovery',
+  'Track comparisons, drop-off, and conversion by model',
 ]
 
 const discoveryFlow = [
@@ -144,17 +143,10 @@ const discoveryFlow = [
 
 const schemaChips = ['Offers', 'Pricing', 'Proof', 'Actions']
 
-export default async function NexezHome() {
-  const { data: pages } = await supabase
-    .from('pages_public')
-    .select(PUBLIC_PAGE_SELECT)
-    .eq('is_published', true)
-    .order('created_at', { ascending: false })
-    .returns<AgentPage[]>()
-  const visiblePages = publicLaunchVisiblePages(pages)
-
+export default function NexezHome() {
   return (
     <main>
+      <ScrollProgress />
       {/* HERO — text + CTAs on the left, the draggable Agent X-Ray prominent on the right */}
       <section
         className="relative overflow-hidden border-b border-border"
@@ -166,6 +158,7 @@ export default async function NexezHome() {
         }}
       >
         <p className="sr-only">Hero</p>
+        <ShaderBackdrop />
         <div className="relative z-10 mx-auto max-w-7xl px-5 py-16 lg:py-20">
           <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(440px,0.9fr)] lg:gap-12">
             {/* LEFT — h1, copy, CTAs */}
@@ -178,24 +171,24 @@ export default async function NexezHome() {
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <a href={appUrl('/create')} className="btn-primary h-11 px-5">
-                  List your business
+                  List your offers
                 </a>
                 <a href="/how-it-works" className="btn-secondary h-11 px-5">See how it works</a>
+              </div>
+
+              {/* stat ticker — compact, tucked under the CTAs beside the X-Ray */}
+              <div className="mt-7 flex max-w-xl overflow-hidden rounded-[11px] border border-border" style={{ background: 'var(--ov-02)' }}>
+                {stats.map((s, i) => (
+                  <div key={s.label} className={`flex-1 px-3 py-2.5 ${i < stats.length - 1 ? 'border-r border-border' : ''}`}>
+                    <div className="font-display text-base font-bold tracking-[-0.02em] sm:text-lg">{s.value}</div>
+                    <div className="mt-0.5 text-[10px] leading-tight text-muted-foreground">{s.label}</div>
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* RIGHT — the draggable X-Ray gets its own prominent space */}
             <AgentXray />
-          </div>
-
-          {/* stat ticker — full width below the hero */}
-          <div className="mt-12 flex overflow-hidden rounded-[13px] border border-border" style={{ background: 'var(--ov-02)' }}>
-            {stats.map((s, i) => (
-              <div key={s.label} className={`flex-1 px-4 py-[18px] sm:px-5 ${i < stats.length - 1 ? 'border-r border-border' : ''}`}>
-                <div className="font-display text-xl font-bold tracking-[-0.02em] sm:text-[26px]">{s.value}</div>
-                <div className="mt-0.5 text-[11px] text-muted-foreground sm:text-[12.5px]">{s.label}</div>
-              </div>
-            ))}
           </div>
         </div>
       </section>
@@ -203,11 +196,13 @@ export default async function NexezHome() {
       {/* AGENT LOGO MARQUEE */}
       <section
         className="border-b border-border bg-white/[0.015]"
-        aria-label="Read by every major agent"
-        data-section-name="Read by every major agent"
+        aria-label="Transacts with every major agent"
+        data-section-name="Transacts with every major agent"
       >
-        <p className="sr-only">Read by every major agent</p>
         <div className="mx-auto max-w-7xl px-5 py-10">
+          <p className="mb-7 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+            Transacts with every major agent
+          </p>
           <div className="nx-marquee">
             <div className="nx-marquee-track">
               {[...marqueeModels, ...marqueeModels].map((m, i) => (
@@ -232,33 +227,36 @@ export default async function NexezHome() {
         className="nx-home-reveal-band border-b border-border"
         aria-label="Problem"
         data-section-name="Problem"
-        style={{ zIndex: 1 }}
+        style={{ position: 'relative', zIndex: 1 }}
       >
         <p className="sr-only">Problem</p>
-        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-20 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
+        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-20 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start" data-reveal>
           <div>
             <h2 className="max-w-3xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-              If agents cannot understand you, they cannot recommend you.
+              Your storefront was built for human eyes. <span className="nx-accent-text">The buyer is now a machine.</span>
             </h2>
             <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-              Most sites are built for browsing. Nexez makes your offers readable when AI decides who gets shortlisted.
+              Agents don&apos;t scroll, squint, or hunt through tabs. They parse. If your prices, offers, and checkout aren&apos;t machine-legible, the agent moves on to a competitor it can actually transact with, and you never see the lost sale.
             </p>
+            <div className="mt-10 hidden aspect-square w-full lg:block">
+              <KnowledgeGraph />
+            </div>
           </div>
           <div className="grid gap-4">
             <div className="nx-tile overflow-hidden p-5" aria-label="Agent discovery flow">
-              <div className="relative grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-center">
+              <div className="relative grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-stretch">
                 {discoveryFlow.map(({ title, label, Icon }, index) => (
                   <div key={title} className="contents">
-                    <div className="rounded-lg border border-border bg-white/[0.035] p-4">
+                    <div className="flex h-full flex-col rounded-lg border border-border bg-white/[0.035] p-4">
                       <div className="flex items-center justify-between gap-3">
-                        <div className="flex size-9 items-center justify-center rounded-md border border-border bg-black">
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-black">
                           <Icon className="size-4 text-[var(--signal)]" />
                         </div>
-                        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                        <span className="text-right font-mono text-[10px] uppercase leading-[1.5] tracking-[0.14em] text-muted-foreground">
                           {label}
                         </span>
                       </div>
-                      <p className="mt-5 text-sm font-medium tracking-tight">{title}</p>
+                      <p className="mt-auto whitespace-nowrap pt-5 text-sm font-medium tracking-tight">{title}</p>
                     </div>
                     {index < discoveryFlow.length - 1 ? (
                       <div className="hidden items-center justify-center sm:flex">
@@ -299,6 +297,7 @@ export default async function NexezHome() {
         aria-label="Value proposition"
         data-section-name="Value proposition"
         data-benefits-section-name="Benefits"
+        style={{ position: 'relative', zIndex: 2 }}
       >
         <p className="sr-only">Value proposition</p>
         <p className="sr-only">Benefits</p>
@@ -340,12 +339,12 @@ export default async function NexezHome() {
                     <span className="font-mono text-xs text-muted-foreground">0{index + 1} / 04</span>
                     <span className="inline-flex items-center gap-2 text-sm font-medium text-[var(--signal)]">
                       {index === 0
-                        ? 'Match better intent'
+                        ? 'Set and forget'
                         : index === 1
-                          ? 'Raise confidence'
+                          ? 'Always in sync'
                           : index === 2
-                            ? 'Move buyers forward'
-                            : 'Measure revenue'}
+                            ? 'Rules + alerts'
+                            : 'Built-in reach'}
                       <ArrowRight className="size-4" />
                     </span>
                   </div>
@@ -361,15 +360,15 @@ export default async function NexezHome() {
         className="nx-home-reveal-band border-b border-border"
         aria-label="Why it matters"
         data-section-name="Why it matters"
-        style={{ zIndex: 2 }}
+        style={{ position: 'relative', zIndex: 2 }}
       >
         <p className="sr-only">Why it matters</p>
-        <div className="mx-auto max-w-7xl px-5 py-20">
+        <div className="mx-auto max-w-7xl px-5 py-20" data-reveal>
           <h2 className="max-w-3xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-            AI agents do not just discover businesses. <span className="nx-accent-text">They influence who gets chosen.</span>
+            The clearer you are, <span className="nx-accent-text">the more you sell.</span>
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-            Become easier to interpret, compare, and act on when buyer intent is highest.
+            Your listing resolves a buyer&apos;s intent into a confirmed order: pricing, proof, and a checkout the agent can call. Zero ambiguity.
           </p>
           <div className="mt-10">
             <ReadinessLab />
@@ -382,17 +381,17 @@ export default async function NexezHome() {
         className="nx-home-reveal-band border-b border-border"
         aria-label="Analytics"
         data-section-name="Analytics"
-        style={{ zIndex: 3 }}
+        style={{ position: 'relative', zIndex: 3 }}
       >
         <p className="sr-only">Analytics</p>
-        <div className="mx-auto max-w-7xl px-5 py-20">
+        <div className="mx-auto max-w-7xl px-5 py-20" data-reveal>
           <div className="grid gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-start">
             <div>
               <h2 className="max-w-3xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-                See which AI traffic actually converts
+                See exactly which agents drive revenue.
               </h2>
               <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-                Know which models arrived, what they wanted, and whether they created pipeline.
+                Every agent visit, query, comparison, and checkout, attributed. Know which models bring buyers, what they searched, and which sessions became sales.
               </p>
             </div>
             <ul className="nx-tile grid gap-3 p-5 text-sm text-muted-foreground md:p-6">
@@ -412,21 +411,32 @@ export default async function NexezHome() {
 
       {/* PRODUCT CAPABILITIES */}
       <section
-        className="nx-home-static-band nx-home-reveal-band--tint-015 border-b border-border"
+        className="nx-home-static-band nx-home-reveal-band--tint-015 border-b border-border overflow-hidden"
         aria-label="Product capabilities"
         data-section-name="Product capabilities"
-        style={{ zIndex: 4 }}
+        style={{ position: 'relative', zIndex: 4 }}
       >
         <p className="sr-only">Product capabilities</p>
-        <div className="mx-auto max-w-7xl px-5 py-20">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage:
+              'radial-gradient(circle, color-mix(in srgb, var(--signal) 7%, transparent) 1px, transparent 1px)',
+            backgroundSize: '24px 24px',
+            WebkitMaskImage: 'radial-gradient(110% 75% at 50% 8%, #000, transparent 72%)',
+            maskImage: 'radial-gradient(110% 75% at 50% 8%, #000, transparent 72%)',
+          }}
+        />
+        <div className="relative z-10 mx-auto max-w-7xl px-5 py-20">
           <div className="mb-10 max-w-2xl">
             <h2 className="text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-              Built to help you <span className="nx-accent-text">convert AI-driven demand.</span>
+              Everything you need to <span className="nx-accent-text">convert agent demand.</span>
             </h2>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {keyFeatures.map(({ title, copy, Icon }) => (
-              <div key={title} className="card flex items-start gap-3">
+              <div key={title} data-reveal className="card flex items-start gap-3">
                 <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-black">
                   <Icon className="size-4 text-[var(--signal)]" />
                 </div>
@@ -451,12 +461,12 @@ export default async function NexezHome() {
         <div className="mx-auto max-w-7xl px-5 py-20">
           <div className="mb-10 max-w-2xl">
             <h2 className="text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-              Go from invisible to agent-ready in four steps
+              Four steps to a business agents can buy from.
             </h2>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {workflow.map((item, i) => (
-              <div key={item.step} className="nx-tile p-5">
+              <div key={item.step} data-reveal className="nx-tile p-5">
                 <div className="flex items-center justify-between">
                   <p className="font-mono text-xs text-muted-foreground">{item.step}</p>
                   {i < workflow.length - 1 ? <ArrowRight className="size-4 text-white/20" /> : <CheckCircle2 className="size-4 text-[var(--ready)]/60" />}
@@ -478,9 +488,9 @@ export default async function NexezHome() {
         style={{ zIndex: 6 }}
       >
         <p className="sr-only">Agent simulator</p>
-        <div className="mx-auto max-w-4xl px-5 text-center">
+        <div className="mx-auto max-w-4xl px-5 text-center" data-reveal>
           <h2 className="text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-            See how agents read your business
+            Ask what a buyer would. Watch the agent answer with your offers.
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
             Ask a buyer question. Watch Nexez resolve offers, prices, and actions instantly.
@@ -488,57 +498,6 @@ export default async function NexezHome() {
           <div className="mt-8">
             <SimulatorTeaser />
           </div>
-        </div>
-      </section>
-
-      {/* PUBLIC EXAMPLES */}
-      <section
-        className="nx-home-static-band border-b border-border py-20"
-        aria-label="Public examples"
-        data-section-name="Public examples"
-        style={{ zIndex: 7 }}
-      >
-        <p className="sr-only">Public examples</p>
-        <div className="mx-auto max-w-7xl px-5">
-          <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h2 className="text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">Listings agents can discover now.</h2>
-            </div>
-            <a href="/discovery" className="btn-secondary h-10 px-4">
-              Browse directory
-              <ArrowRight className="size-4" />
-            </a>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {visiblePages.slice(0, 6).map((page) => (
-              <a key={page.id} href={agentRuntimeUrl(`/${page.slug}`)} className="nx-tile group block p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <h3 className="line-clamp-1 text-lg font-medium group-hover:text-white">{page.name}</h3>
-                    <p className="mt-1 font-mono text-xs text-muted-foreground">/{page.slug}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Ready</p>
-                    <p className="mt-1 font-mono text-lg text-[var(--ready)]">{getReadinessScore(page)}%</p>
-                  </div>
-                </div>
-                <p className="mt-4 line-clamp-3 text-sm leading-6 text-muted-foreground">
-                  {page.description || 'A structured offer listing built for AI agents.'}
-                </p>
-                <div className="mt-5 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  <span className="rounded-full border border-border px-2 py-1">{getOfferCount(page)} offers</span>
-                  {page.location ? <span className="rounded-full border border-border px-2 py-1">{page.location}</span> : null}
-                </div>
-              </a>
-            ))}
-          </div>
-
-          {!visiblePages.length ? (
-            <div className="rounded-lg border border-dashed border-border p-12 text-center">
-              <p className="text-sm text-muted-foreground">No published listings yet. Be the first.</p>
-            </div>
-          ) : null}
         </div>
       </section>
 
@@ -553,18 +512,18 @@ export default async function NexezHome() {
         <div className="pointer-events-none absolute inset-0 z-0">
           <div className="nx-orb nx-orb--purple !opacity-25" style={{ top: 'auto', bottom: '-22rem', left: '50%', transform: 'translateX(-50%)' }} />
         </div>
-        <div className="relative z-10 mx-auto max-w-3xl px-5 py-24 text-center">
+        <div className="relative z-10 mx-auto max-w-3xl px-5 py-24 text-center" data-reveal>
           <h2 className="text-[2rem] font-semibold leading-tight tracking-[-0.03em] md:text-[2.75rem]">
-            Be the business <span className="nx-accent-text">AI agents choose.</span>
+            Be the business <span className="nx-accent-text">the agent buys from.</span>
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-            Launch an agent-ready presence in minutes and start measuring AI-driven growth.
+            Stand up a structured, transactable listing in minutes, and turn AI discovery into revenue you can measure.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a href={appUrl('/create')} className="btn-primary h-11 px-5">
-              Launch your agent listing
+              Deploy your listing
             </a>
-            <a href="#simulator" className="btn-secondary h-11 px-5">Try the simulator</a>
+            <a href="/support" className="btn-secondary h-11 px-5">Talk to us</a>
           </div>
         </div>
       </section>

@@ -114,7 +114,7 @@ function XrayDesktop({ className }: { className?: string }) {
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
                 <div className="flex size-5 items-center justify-center rounded font-display text-[11px] font-bold" style={{ background: '#16150F', color: '#F3EFE6' }}>N</div>
-                <span className="font-display text-[13px] font-bold">Nexez Spa &amp; Wellness Co.</span>
+                <span className="font-display text-[13px] font-bold">Serenity Spa</span>
               </div>
               <div className="flex items-center gap-2 text-[10px]" style={{ color: '#6A6760' }}>
                 <span>Services ▾</span>
@@ -182,11 +182,11 @@ function XrayDesktop({ className }: { className?: string }) {
           <div className="flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <span className="font-mono text-[11px]" style={{ color: '#9A9A95' }}>GET</span>
-              <span className="truncate font-mono text-[12px]" style={{ color: '#F4F4F1' }}>nexez.app/nexez-spa</span>
+              <span className="truncate font-mono text-[12px]" style={{ color: '#F4F4F1' }}>nexez.app/your-listing</span>
             </div>
             <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 font-mono text-[10px] text-[var(--signal)]" style={{ border: '1px solid color-mix(in srgb, var(--signal) 35%, transparent)' }}>
               <span className="nx-pulsedot size-1.5 rounded-full" style={{ background: 'var(--signal)' }} />
-              readiness 96
+              readiness 98
             </span>
           </div>
           <div className="mt-3 font-mono text-[9.5px] uppercase tracking-[0.14em]" style={{ color: '#65655F' }}>offers []</div>
@@ -307,11 +307,11 @@ function XrayMobile({ className }: { className?: string }) {
               <span className="size-2 rounded-full bg-[var(--ready)]" />
             </div>
             <span className="hidden min-w-0 items-center gap-1.5 truncate rounded-md border border-border bg-white/[0.04] px-2 py-0.5 font-mono text-[11px] text-muted-foreground sm:inline-flex">
-              <Lock className="size-3 shrink-0 text-[var(--ready)]" /> nexez.app/nexez-spa
+              <Lock className="size-3 shrink-0 text-[var(--ready)]" /> nexez.app/your-listing
             </span>
           </div>
           <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--ready)]/25 bg-[var(--ready)]/10 px-2.5 py-0.5 font-mono text-[11px] text-[var(--ready)]">
-            <span className="nx-live-dot" /> readiness 96
+            <span className="nx-live-dot" /> readiness 98
           </span>
         </div>
 
@@ -390,7 +390,7 @@ function HumanPane() {
             <span className="flex size-[26px] items-center justify-center rounded-full" style={{ background: 'linear-gradient(140deg, #93A98F, #6C8A74)', color: '#FCF9F3' }}>
               <Leaf className="size-3.5" />
             </span>
-            <span style={{ fontFamily: SERIF, fontSize: '16px', fontWeight: 600 }}>Nexez Spa</span>
+            <span style={{ fontFamily: SERIF, fontSize: '16px', fontWeight: 600 }}>Serenity Spa</span>
           </div>
           <div className="flex items-center gap-3 text-[10px]" style={{ color: '#9A8E7C' }}>
             <span className="hidden sm:inline">Services</span>
@@ -433,7 +433,7 @@ function AgentPane() {
   return (
     <div className="flex h-full flex-col gap-3 p-5" style={{ background: '#08080C' }}>
       <div className="flex items-center justify-between gap-2 font-mono">
-        <span className="truncate text-[11px]" style={{ color: '#D4D4D8' }}>GET nexez.app/nexez-spa</span>
+        <span className="truncate text-[11px]" style={{ color: '#D4D4D8' }}>GET nexez.app/your-listing</span>
         <span className="shrink-0 text-[10px] text-[var(--ready)]">200 OK</span>
       </div>
       <div className="flex flex-col gap-1.5">
