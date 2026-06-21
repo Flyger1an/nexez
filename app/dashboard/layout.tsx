@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { createClient } from '../../utils/supabase/server'
 import { getOwnerPlanId } from '../../lib/server/plan'
+import { ensureTrialSeeded } from '../../lib/server/trial'
 import { PlanProvider } from '../../components/billing/PlanProvider'
 
 /**
@@ -21,6 +22,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
       data: { user },
     } = await supabase.auth.getUser()
     plan = await getOwnerPlanId(supabase, user?.id)
+    // Safety net for the email-confirmation signup path: a new user who confirmed their
+    // email lands here with no billing row but a chosen plan in their metadata — seed their
+    // trial idempotently, then re-resolve so this same render reflects it. Only runs while
+    // they still resolve to 'free' (a real legacy/paid row short-circuits the insert).
+    if (plan === 'free' && user?.id && typeof user.user_metadata?.plan === 'string') {
+      if (await ensureTrialSeeded(user.id, user.user_metadata.plan)) {
+        plan = await getOwnerPlanId(supabase, user.id)
+      }
+    }
   } catch {
     plan = 'free'
   }

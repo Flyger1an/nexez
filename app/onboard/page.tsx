@@ -20,23 +20,21 @@ export default function OnboardPage() {
   const [error, setError] = useState('')
   const [needsEmailConfirm, setNeedsEmailConfirm] = useState(false)
 
-  const selectedPlan = billingPlans.find(p => p.id === selectedPlanId) || billingPlans[1]
-  const isPaidPlan = selectedPlanId !== 'free' && selectedPlanId !== 'enterprise'
-  // Where to send a freshly-onboarded user: paid plans go straight to checkout
-  // (so the plan choice isn't silently dropped); Free/Enterprise go to the dashboard.
-  const postSignupPath = isPaidPlan ? `/dashboard/billing?plan=${selectedPlanId}` : '/dashboard'
+  // Only Launch/Pro/Scale are self-serve (Free is gone; Enterprise = contact sales).
+  const trialablePlans = billingPlans.filter((p) => p.id !== 'free' && p.id !== 'enterprise')
+  const selectedPlan = billingPlans.find(p => p.id === selectedPlanId) || trialablePlans[0]
+  // No-card 7-day trial: a freshly-onboarded user lands on the dashboard with their trial
+  // already live — no immediate checkout. They add a card any time before day 7 to stay live.
+  const postSignupPath = '/dashboard'
 
   useEffect(() => {
     const planParam = new URLSearchParams(window.location.search).get('plan')
-    if (planParam && billingPlans.some((p) => p.id === planParam)) setSelectedPlanId(planParam)
-    // Already signed in (e.g. arriving from pricing "Choose plan")? Skip the signup
-    // wizard and go straight to checkout for the chosen plan, or the dashboard.
+    if (planParam && trialablePlans.some((p) => p.id === planParam)) setSelectedPlanId(planParam)
+    // Already signed in (e.g. arriving from pricing "Start trial")? Skip the wizard → dashboard.
     createClient()
       .auth.getUser()
       .then(({ data }) => {
-        if (!data.user) return
-        const paid = planParam && planParam !== 'free' && planParam !== 'enterprise'
-        router.replace(paid ? `/dashboard/billing?plan=${planParam}` : '/dashboard')
+        if (data.user) router.replace('/dashboard')
       })
   }, [])
 
@@ -77,6 +75,14 @@ export default function OnboardPage() {
       return
     }
 
+    // Session is live → start the 7-day no-card trial of the chosen plan. Idempotent +
+    // service-role; if email confirmation had been required, the dashboard seeds it instead.
+    await fetch('/api/billing/start-trial', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ plan: selectedPlanId }),
+    }).catch(() => {})
+
     setStep(3)
     setLoading(false)
   }
@@ -91,7 +97,7 @@ export default function OnboardPage() {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         // Carry the chosen paid plan so payouts onboarding returns to checkout for it.
-        body: JSON.stringify(isPaidPlan ? { plan: selectedPlanId } : {}),
+        body: JSON.stringify({ plan: selectedPlanId }),
       })
       const data = await res.json()
       if (data.url) {
@@ -147,11 +153,11 @@ export default function OnboardPage() {
           <div className="md:col-span-8">
             {step === 1 && (
               <div>
-                <h1 className="text-4xl font-semibold tracking-tight">Choose your plan</h1>
-                <p className="mt-2 text-[#9CA3AF]">Start free or pick the plan that matches your volume of listings and offers.</p>
+                <h1 className="text-4xl font-semibold tracking-tight">Start your free trial</h1>
+                <p className="mt-2 text-[#9CA3AF]">Pick a plan to begin your 7-day free trial — no credit card required. Add one any time before it ends to stay live.</p>
 
                 <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                  {billingPlans.map(plan => {
+                  {trialablePlans.map(plan => {
                     const isSelected = selectedPlanId === plan.id
                     const isPopular = plan.id === 'pro'
                     return (
@@ -182,9 +188,9 @@ export default function OnboardPage() {
                 <a href="/pricing" className="mt-4 inline-block text-sm text-[#9CA3AF] hover:text-white underline">Compare all plans and platform fees</a>
 
                 <button onClick={() => setStep(2)} className="mt-8 inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 font-medium text-zinc-950 hover:bg-zinc-200">
-                  Continue with {selectedPlan.name} <ArrowRight className="size-4" />
+                  Start {selectedPlan.name} trial <ArrowRight className="size-4" />
                 </button>
-                <p className="mt-2 text-xs text-[#9CA3AF]">You can upgrade or downgrade anytime from Billing.</p>
+                <p className="mt-2 text-xs text-[#9CA3AF]">No card required to start. Upgrade or downgrade anytime from Billing.</p>
               </div>
             )}
 
@@ -193,8 +199,7 @@ export default function OnboardPage() {
                 <h1 className="text-4xl font-semibold tracking-tight">Confirm your email</h1>
                 <p className="mt-2 max-w-md text-[#9CA3AF]">
                   We sent a confirmation link to <span className="text-white">{email}</span>. Click it to
-                  activate your account — you’ll be taken straight to{' '}
-                  {isPaidPlan ? `checkout for the ${selectedPlan.name} plan` : 'your dashboard'} to finish.
+                  activate your account and start your 7-day {selectedPlan.name} trial.
                 </p>
                 <div className="mt-8 max-w-md rounded-2xl border border-white/10 bg-[#12101B] p-6 text-sm text-[#9CA3AF]">
                   <div className="flex items-center gap-3 text-white">
@@ -274,20 +279,16 @@ export default function OnboardPage() {
 
             {step === 4 && (
               <div className="text-center">
-                <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-full bg-[var(--ready)] text-4xl">{isPaidPlan ? '💳' : '🎉'}</div>
-                <h1 className="text-4xl font-semibold tracking-tight">
-                  {isPaidPlan ? 'One step left' : "You’re all set!"}
-                </h1>
+                <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-full bg-[var(--ready)] text-4xl">🎉</div>
+                <h1 className="text-4xl font-semibold tracking-tight">Your trial is live</h1>
                 <p className="mt-3 text-[#9CA3AF]">
-                  {isPaidPlan
-                    ? `Confirm your ${selectedPlan.name} subscription to activate it — secure checkout, cancel anytime.`
-                    : 'Your Free workspace is ready. Create your first listing whenever you like.'}
+                  Your 7-day {selectedPlan.name} trial just started — no card required. Add a payment method any time before it ends to keep your storefront live.
                 </p>
 
                 <div className="mt-8 inline-block rounded-2xl border border-white/10 bg-[#12101B] p-6 text-left text-sm">
                   <div className="font-medium">Summary</div>
                   <div className="mt-2 space-y-1 text-[#9CA3AF]">
-                    <div>• Plan: {selectedPlan.name} {selectedPlan.cadence ? `(${selectedPlan.price}/${selectedPlan.cadence})` : `(${selectedPlan.price})`}{isPaidPlan ? ' — confirm at checkout' : ''}</div>
+                    <div>• Plan: {selectedPlan.name} — 7-day free trial ({selectedPlan.price}/{selectedPlan.cadence} after)</div>
                     <div>• Stripe payouts: connect anytime from Billing or Integrations</div>
                     <div>• Next: Create your first listing</div>
                   </div>
@@ -295,7 +296,7 @@ export default function OnboardPage() {
 
                 <div className="mt-8 flex justify-center gap-3">
                   <button onClick={finishOnboarding} className="rounded-lg bg-white px-8 py-3 font-medium text-zinc-950 hover:bg-zinc-200">
-                    {isPaidPlan ? `Confirm your ${selectedPlan.name} subscription` : 'Go to Dashboard'}
+                    Go to Dashboard
                   </button>
                   <a href="/create" className="rounded-lg border border-white/15 px-8 py-3 hover:bg-white/5">Create your first listing</a>
                 </div>

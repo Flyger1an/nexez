@@ -38,6 +38,29 @@ export async function GET(request: Request) {
   const admin = createAdminClient()
   const stripe = new Stripe(stripeKey)
 
+  // Trial-expiry pass: flip expired no-card trials to 'paused' (storefront offline). These are
+  // DB-only trials (no Stripe customer), so the Stripe reconcile below skips them. The status
+  // flip fires the serving-resync trigger → the seller's public listings go offline until they
+  // subscribe. The status='trialing' guard avoids racing a conversion that just landed.
+  let pausedTrials = 0
+  const { data: expired } = await admin
+    .from('billing_subscriptions')
+    .select('owner_id')
+    .eq('account_origin', 'trial')
+    .eq('status', 'trialing')
+    .lt('trial_ends_at', new Date().toISOString())
+    .is('stripe_customer_id', null)
+    .limit(LIMIT)
+    .returns<Array<{ owner_id: string }>>()
+  for (const r of expired ?? []) {
+    const { error: pErr } = await admin
+      .from('billing_subscriptions')
+      .update({ status: 'paused' })
+      .eq('owner_id', r.owner_id)
+      .eq('status', 'trialing')
+    if (!pErr) pausedTrials += 1
+  }
+
   const { data, error } = await admin
     .from('billing_subscriptions')
     .select('owner_id, stripe_customer_id, stripe_subscription_id, plan_id, status')
@@ -109,5 +132,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, scanned: rows.length, healed, unchanged, alerted, actions, ran_at: new Date().toISOString() })
+  return NextResponse.json({ ok: true, scanned: rows.length, healed, unchanged, alerted, pausedTrials, actions, ran_at: new Date().toISOString() })
 }

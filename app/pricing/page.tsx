@@ -6,10 +6,9 @@ import { billingPlans } from '../../lib/billing'
 import { appUrl } from '../../lib/site'
 
 export default function PricingPage() {
-  const tiers = [
-    ...billingPlans,
-    // Add Free explicitly for display if not in list, but we added it
-  ]
+  // Free is retired — paid plans only, each starting with a 7-day no-card trial.
+  // Enterprise routes to sales.
+  const tiers = billingPlans.filter((p) => p.id !== 'free')
 
   return (
     <main className="min-h-screen">
@@ -19,21 +18,20 @@ export default function PricingPage() {
           <div className="eyebrow justify-center">Plans &amp; pricing</div>
           <h1 className="display mt-4">Simple, transparent pricing.</h1>
           <p className="lede mx-auto mt-4 text-center">
-            Subscribe to manage your agent listings.
+            Start any plan with a 7-day free trial — no credit card required.
           </p>
           <div className="mt-4 text-sm" style={{ color: 'var(--ready)' }}>No hidden fees. Cancel anytime.</div>
         </div>
 
         {/* Main Pricing Tiers */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5 mb-16">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-16">
           {tiers.map((plan, planIndex) => {
             const isPopular = plan.id === 'pro'
-            const isFree = plan.id === 'free'
             const isEnterprise = plan.id === 'enterprise'
-            const priceDisplay = isFree ? '$0' : isEnterprise ? 'Custom' : plan.price
+            const priceDisplay = isEnterprise ? 'Custom' : plan.price
             const cadence = isEnterprise ? '' : `/${plan.cadence}`
             // Plans are cumulative — make that legible (each builds on the one before).
-            const previousPlanName = !isFree && !isEnterprise && planIndex > 0 ? tiers[planIndex - 1].name : null
+            const previousPlanName = !isEnterprise && planIndex > 0 ? tiers[planIndex - 1].name : null
 
             return (
               <div
@@ -90,13 +88,13 @@ export default function PricingPage() {
                 </ul>
 
                 <a
-                  href={isFree ? appUrl('/create') : isEnterprise ? '/support' : appUrl(`/onboard?plan=${plan.id}`)}
+                  href={isEnterprise ? '/support' : appUrl(`/onboard?plan=${plan.id}`)}
                   className={`mt-8 w-full ${isPopular ? 'btn-primary' : 'btn-secondary'}`}
                 >
-                  {isFree ? 'Get started free' : isEnterprise ? 'Contact sales' : 'Choose plan'}
+                  {isEnterprise ? 'Contact sales' : 'Start free trial'}
                 </a>
 
-                {isFree && <p className="mt-2 text-center text-[10px] text-zinc-500">No credit card required</p>}
+                {!isEnterprise && <p className="mt-2 text-center text-[10px] text-zinc-500">7-day free trial · no credit card</p>}
               </div>
             )
           })}
@@ -114,15 +112,13 @@ export default function PricingPage() {
 
           {/* Commission ladder — rendered from the billing catalog (single source
               of truth) so the advertised rate always matches what's actually charged. */}
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            {billingPlans.map((plan) => (
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {billingPlans.filter((plan) => plan.id !== 'free').map((plan) => (
               <div key={plan.id} className="glass rounded-2xl p-5">
                 <div className="text-sm font-medium" style={{ color: 'var(--ready)' }}>{plan.name}</div>
                 <div className="mt-2 text-3xl font-semibold">{plan.commissionPercent}%</div>
                 <p className="mt-2 text-xs text-[#9CA3AF]">
-                  {plan.id === 'free'
-                    ? 'On every completed booking or payment — no subscription.'
-                    : `$100 booking → $${plan.commissionPercent} to Nexez, $${100 - plan.commissionPercent} to you.`}
+                  {`$100 booking → $${plan.commissionPercent} to Nexez, $${100 - plan.commissionPercent} to you.`}
                 </p>
               </div>
             ))}
@@ -165,10 +161,10 @@ export default function PricingPage() {
         </div>
 
         <div className="mt-12 text-center">
-          <a href={appUrl('/login?mode=signup')} className="btn-primary">
-            Start for free
+          <a href={appUrl('/onboard?plan=pro')} className="btn-primary">
+            Start your free trial
           </a>
-          <p className="mt-2 text-xs text-zinc-500">No credit card required for Free tier.</p>
+          <p className="mt-2 text-xs text-zinc-500">7-day free trial · no credit card required.</p>
         </div>
       </div>
     </main>

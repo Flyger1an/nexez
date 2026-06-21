@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { AgentPage, OWNER_PAGE_SELECT, getOfferCount } from '../../../lib/agent-page'
 import { billingPlans, getPlanLimits } from '../../../lib/billing'
 import { getStripeBillingReadiness } from '../../../lib/server/billing-readiness'
+import { getOwnerBillingState } from '../../../lib/server/plan'
 import { BillingSubscription, getCommissionPercentForPlan } from '../../../lib/stripe-billing'
 import {
   getAgentDrivenRevenueCents,
@@ -54,6 +55,14 @@ export default async function BillingPage({ searchParams }: BillingProps) {
     .eq('owner_id', user.id)
     .maybeSingle<BillingSubscription>()
 
+  // Canonical trial/paused lifecycle (trial-expiry aware) for the banner + active-plan
+  // resolution. Days left is rounded up so "1 day left" shows on the final day.
+  const trialState = await getOwnerBillingState(supabase, user.id)
+  const trialDaysLeft = trialState.trialEndsAt
+    ? Math.max(0, Math.ceil((new Date(trialState.trialEndsAt).getTime() - new Date().getTime()) / 86_400_000))
+    : 0
+  const trialPlanName = billingPlans.find((p) => p.id === trialState.chosenPlanId)?.name ?? 'plan'
+
   const pageCount = pages?.length ?? 0
   const offerCount = pages?.reduce((sum, page) => sum + getOfferCount(page), 0) ?? 0
 
@@ -74,9 +83,9 @@ export default async function BillingPage({ searchParams }: BillingProps) {
   // Only treat the stored plan as ACTIVE when the subscription is in a live state.
   // An abandoned/incomplete or canceled row must not show a plan the user isn't on
   // (it would otherwise inherit the plan_id written during checkout creation).
-  const liveSubStatuses = ['active', 'trialing', 'past_due', 'unpaid']
-  const hasLiveSubscription = Boolean(billingState?.plan_id) && liveSubStatuses.includes(billingState?.status ?? '')
-  const activePlan = hasLiveSubscription ? billingPlans.find((plan) => plan.id === billingState?.plan_id) : undefined
+  // isLive is the trial-expiry-aware "conferring now" check (an expired trial is NOT live).
+  const hasLiveSubscription = trialState.isLive && Boolean(trialState.chosenPlanId)
+  const activePlan = hasLiveSubscription ? billingPlans.find((plan) => plan.id === trialState.chosenPlanId) : undefined
 
   // Page limit comes from the billing catalog (single source of truth); 999 is the
   // client's "unlimited" sentinel, so map the catalog's Infinity onto it.
@@ -152,6 +161,28 @@ export default async function BillingPage({ searchParams }: BillingProps) {
         {search.error === 'bad_price_id' && (
           <div className="mb-6 rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-200">
             One of your Stripe plan IDs points to a product instead of a price. Copy the Price ID from Stripe, update project settings, and redeploy.
+          </div>
+        )}
+
+        {/* Trial / paused lifecycle banners (Shopify-style) */}
+        {trialState.isTrialing && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--signal)]/30 bg-[var(--signal)]/10 px-4 py-3 text-sm">
+            <span className="text-white">
+              <span className="font-semibold">{trialDaysLeft} day{trialDaysLeft === 1 ? '' : 's'} left</span> in your {trialPlanName} trial — add a payment method to keep your storefront live after it ends.
+            </span>
+            <a href={`?plan=${trialState.chosenPlanId}`} className="rounded-xl bg-[var(--signal-solid)] px-4 py-1.5 font-medium text-white">
+              Add payment method
+            </a>
+          </div>
+        )}
+        {trialState.isPaused && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--amber)]/40 bg-[var(--amber)]/10 px-4 py-3 text-sm">
+            <span className="text-white">
+              <span className="font-semibold">Your storefront is paused.</span> Your trial ended — choose a plan to bring your listings back online.
+            </span>
+            <a href={`?plan=${trialState.chosenPlanId ?? 'pro'}`} className="rounded-xl bg-[var(--amber)] px-4 py-1.5 font-medium text-zinc-950">
+              Choose a plan to go live
+            </a>
           </div>
         )}
 
