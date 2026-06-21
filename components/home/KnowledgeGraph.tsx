@@ -87,7 +87,8 @@ const { AGENTS, CHIPS } = ((): { AGENTS: Agent[]; CHIPS: Chip[] } => {
     const glyphColor = `hsl(${d.hue} 88% ${lum}%)`
     const ringColor = `hsla(${d.hue} 80% 62% / ${(0.5 - z * 0.18).toFixed(2)})`
     const haloColor = `hsla(${d.hue} 80% 55% / ${(0.34 - z * 0.16).toFixed(2)})`
-    const labelColor = `rgba(226,226,235,${(0.82 - z * 0.34).toFixed(2)})`
+    // theme-aware: dark text on the light field, light text in dark mode — keeps the depth fade
+    const labelColor = `color-mix(in srgb, var(--fg) ${Math.round((0.82 - z * 0.34) * 100)}%, transparent)`
     const strokeOp = (d.hot ? 0.72 : 0.5) - z * 0.18
     const stroke = `hsla(${d.hue} 75% 62% / ${strokeOp.toFixed(2)})`
     const dotColor = `hsl(${d.hue} 92% ${Math.round(74 - z * 10)}%)`
