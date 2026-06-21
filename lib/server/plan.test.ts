@@ -1,10 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { createSupabaseMock, type QueryContext } from '../../test/supabase-mock'
-import { getOwnerPlanId, ownerAllows, isPlatformAdmin } from './plan'
+import { getOwnerPlanId, getOwnerBillingState, ownerAllows, isPlatformAdmin } from './plan'
+
+type SubRow = { plan_id: string; status: string; trial_ends_at?: string | null; account_origin?: string | null }
+const future = () => new Date(Date.now() + 86_400_000).toISOString()
+const past = () => new Date(Date.now() - 86_400_000).toISOString()
 
 // Build a client where `admin` decides the platform_admins row and `sub` the
 // billing_subscriptions row. `adminError` simulates a missing/erroring table.
-function client(opts: { admin?: boolean; sub?: { plan_id: string; status: string } | null; adminError?: boolean }) {
+function client(opts: { admin?: boolean; sub?: SubRow | null; adminError?: boolean }) {
   return createSupabaseMock((ctx: QueryContext) => {
     if (ctx.table === 'platform_admins') {
       if (opts.adminError) return { data: null, error: { message: 'relation "platform_admins" does not exist' } }
@@ -58,5 +62,45 @@ describe('isPlatformAdmin', () => {
     expect(await isPlatformAdmin(client({ admin: true }), 'owner-1')).toBe(true)
     expect(await isPlatformAdmin(client({ admin: false }), 'owner-1')).toBe(false)
     expect(await isPlatformAdmin(client({}), null)).toBe(false)
+  })
+})
+
+describe('getOwnerPlanId — trials & paused', () => {
+  it('an in-window trial confers the chosen plan', async () => {
+    expect(await getOwnerPlanId(client({ sub: { plan_id: 'pro', status: 'trialing', trial_ends_at: future() } }), 'owner-1')).toBe('pro')
+  })
+  it('an EXPIRED trial does not confer → free', async () => {
+    expect(await getOwnerPlanId(client({ sub: { plan_id: 'pro', status: 'trialing', trial_ends_at: past() } }), 'owner-1')).toBe('free')
+  })
+  it('a paused account → free (no paid features)', async () => {
+    expect(await getOwnerPlanId(client({ sub: { plan_id: 'pro', status: 'paused', account_origin: 'trial' } }), 'owner-1')).toBe('free')
+  })
+  it('dunning (past_due/unpaid) still confers', async () => {
+    expect(await getOwnerPlanId(client({ sub: { plan_id: 'scale', status: 'past_due' } }), 'owner-1')).toBe('scale')
+  })
+})
+
+describe('getOwnerBillingState', () => {
+  it('reports an in-window trial', async () => {
+    const s = await getOwnerBillingState(client({ sub: { plan_id: 'pro', status: 'trialing', trial_ends_at: future(), account_origin: 'trial' } }), 'owner-1')
+    expect(s).toMatchObject({ planId: 'pro', chosenPlanId: 'pro', isLive: true, isTrialing: true, isPaused: false })
+    expect(s.trialEndsAt).toBeTruthy()
+  })
+  it('reports an expired trial as paused (trial origin) — gating drops to free', async () => {
+    const s = await getOwnerBillingState(client({ sub: { plan_id: 'pro', status: 'trialing', trial_ends_at: past(), account_origin: 'trial' } }), 'owner-1')
+    expect(s).toMatchObject({ planId: 'free', chosenPlanId: 'pro', isLive: false, isTrialing: false, isPaused: true })
+  })
+  it('a legacy account NEVER pauses (grandfathered to free)', async () => {
+    const s = await getOwnerBillingState(client({ sub: { plan_id: 'free', status: 'canceled', account_origin: 'legacy' } }), 'owner-1')
+    expect(s.isPaused).toBe(false)
+    expect(s.planId).toBe('free')
+  })
+  it('admin → enterprise, live, never paused', async () => {
+    const s = await getOwnerBillingState(client({ admin: true }), 'owner-1')
+    expect(s).toMatchObject({ planId: 'enterprise', isLive: true, isPaused: false })
+  })
+  it('no subscription row → neutral free, not paused', async () => {
+    const s = await getOwnerBillingState(client({ sub: null }), 'owner-1')
+    expect(s).toMatchObject({ planId: 'free', chosenPlanId: null, isPaused: false, isLive: false })
   })
 })

@@ -14,6 +14,20 @@ export const LIVE_STATUSES = new Set(['active', 'trialing', 'past_due', 'unpaid'
 const VALID_PLANS = new Set<PlanId>(['free', 'launch', 'pro', 'scale', 'enterprise'])
 
 /**
+ * Does this subscription row CONFER its plan right now? active/past_due/unpaid always do
+ * (the dunning grace policy). A 'trialing' row confers only while it's inside its window —
+ * an expired no-card trial (trial_ends_at in the past) does NOT, so the account drops to
+ * Free/paused. 'paused'/'canceled'/'incomplete' never confer. MUST mirror the SQL
+ * conferring predicate in 20260627007400 (owner_plan_rank / plan_published_page_limit).
+ */
+export function subscriptionConfers(status: string | null | undefined, trialEndsAt: string | null | undefined): boolean {
+  if (status === 'trialing') {
+    return !trialEndsAt || new Date(trialEndsAt).getTime() >= Date.now()
+  }
+  return status === 'active' || status === 'past_due' || status === 'unpaid'
+}
+
+/**
  * Resolve an owner's effective plan id, server-side, from billing_subscriptions.
  * The single source the gating surfaces read so the "what plan is this user on"
  * decision never drifts. Defaults to 'free' (no/invalid/inactive subscription).
@@ -38,19 +52,85 @@ export async function getOwnerPlanId(
       supabase.from('platform_admins').select('user_id').eq('user_id', ownerId).maybeSingle<{ user_id: string }>(),
       supabase
         .from('billing_subscriptions')
-        .select('plan_id, status')
+        .select('plan_id, status, trial_ends_at')
         .eq('owner_id', ownerId)
-        .maybeSingle<{ plan_id: string | null; status: string | null }>(),
+        .maybeSingle<{ plan_id: string | null; status: string | null; trial_ends_at: string | null }>(),
     ])
     if (adminRes.data) return 'enterprise'
-    const planId = subRes.data?.plan_id
-    if (planId && VALID_PLANS.has(planId as PlanId) && LIVE_STATUSES.has(subRes.data?.status ?? '')) {
-      return planId as PlanId
+    const sub = subRes.data
+    if (sub?.plan_id && VALID_PLANS.has(sub.plan_id as PlanId) && subscriptionConfers(sub.status, sub.trial_ends_at)) {
+      return sub.plan_id as PlanId
     }
   } catch {
     // fall through to free on any read error — gating fails safe (most restrictive)
   }
   return 'free'
+}
+
+export type OwnerBillingState = {
+  /** Entitled tier RIGHT NOW (Free when not conferring) — drives feature gating. */
+  planId: PlanId
+  /** The plan_id on the row, even when paused — for "your {Pro} trial" display copy. */
+  chosenPlanId: PlanId | null
+  status: string | null
+  /** A conferring sub (active/dunning/in-window trial). */
+  isLive: boolean
+  /** In-window trial. */
+  isTrialing: boolean
+  /** Storefront paused: a NEW (trial) account whose trial expired or was paused. Legacy
+   *  accounts never pause (they grandfather to Free). */
+  isPaused: boolean
+  trialEndsAt: string | null
+  origin: string | null
+}
+
+/**
+ * Richer billing state for the dashboard (trial countdown + paused banner). Splits the
+ * tier (for gating) from the lifecycle (trialing/paused/trialEndsAt). NEVER auto-pauses on
+ * a read error — returns a neutral Free state so a billing blip can't take a paying
+ * customer's storefront offline (the real pause gate is the serving flag, set only by a
+ * deliberate cron/trigger).
+ */
+export async function getOwnerBillingState(
+  supabase: Pick<SupabaseClient, 'from'>,
+  ownerId: string | null | undefined,
+): Promise<OwnerBillingState> {
+  const neutral: OwnerBillingState = {
+    planId: 'free', chosenPlanId: null, status: null,
+    isLive: false, isTrialing: false, isPaused: false, trialEndsAt: null, origin: null,
+  }
+  if (!ownerId) return neutral
+  try {
+    const [adminRes, subRes] = await Promise.all([
+      supabase.from('platform_admins').select('user_id').eq('user_id', ownerId).maybeSingle<{ user_id: string }>(),
+      supabase
+        .from('billing_subscriptions')
+        .select('plan_id, status, trial_ends_at, account_origin')
+        .eq('owner_id', ownerId)
+        .maybeSingle<{ plan_id: string | null; status: string | null; trial_ends_at: string | null; account_origin: string | null }>(),
+    ])
+    if (adminRes.data) return { ...neutral, planId: 'enterprise', isLive: true }
+    const sub = subRes.data
+    if (!sub) return neutral
+    const chosen = sub.plan_id && VALID_PLANS.has(sub.plan_id as PlanId) ? (sub.plan_id as PlanId) : null
+    const conferring = subscriptionConfers(sub.status, sub.trial_ends_at)
+    const trialing = sub.status === 'trialing' && conferring
+    const trialExpired = sub.status === 'trialing' && !conferring
+    // Only NEW (trial-origin) accounts pause; legacy stays on its grandfathered Free.
+    const paused = sub.account_origin === 'trial' && (sub.status === 'paused' || trialExpired)
+    return {
+      planId: conferring && chosen ? chosen : 'free',
+      chosenPlanId: chosen,
+      status: sub.status ?? null,
+      isLive: conferring,
+      isTrialing: trialing,
+      isPaused: paused,
+      trialEndsAt: sub.trial_ends_at ?? null,
+      origin: sub.account_origin ?? null,
+    }
+  } catch {
+    return neutral
+  }
 }
 
 /** True when `ownerId` is a platform admin (entitlements god-mode). Reads
