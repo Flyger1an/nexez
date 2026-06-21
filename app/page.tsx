@@ -30,51 +30,51 @@ type Feature = {
 }
 
 const workflow = [
-  { step: '01', title: 'Connect', copy: 'Bring in offers from your website, Calendly, Stripe, Shopify, Square, or add them by hand.' },
-  { step: '02', title: 'Optimize', copy: 'Sharpen pricing, structure, and copy with AI Copilot, or edit every detail manually.' },
-  { step: '03', title: 'Publish', copy: 'Go live on a Nexez link or your own custom domain.' },
-  { step: '04', title: 'Measure', copy: 'Track agent visits, queries, conversion actions, and readiness over time.' },
+  { step: '01', title: 'Connect', copy: 'Import your offers and business details from your website or tools like Calendly, Stripe, Shopify, and Square.' },
+  { step: '02', title: 'Optimize', copy: 'Improve pricing clarity, content structure, and offer presentation so agents can interpret your business correctly.' },
+  { step: '03', title: 'Publish', copy: 'Launch a structured, crawlable listing on a Nexez link or your own custom domain.' },
+  { step: '04', title: 'Measure', copy: 'Track agent traffic, buyer intent, and conversion activity so you can see what is working.' },
 ]
 
 const keyFeatures: Feature[] = [
   {
     title: 'AI Copilot',
-    copy: 'Improve offers, pricing, and structure for the way agents actually parse. One click.',
+    copy: 'Strengthen your pricing, offer structure, and business copy for the way AI agents actually evaluate options.',
     Icon: Sparkles,
   },
   {
     title: 'Agent Simulator',
-    copy: 'See how ChatGPT, Claude, Grok, and Perplexity interpret your listing before you publish.',
+    copy: 'See how leading AI systems interpret your business before you publish, so you can improve what they see.',
     Icon: Bot,
   },
   {
-    title: 'Competitor Analyzer',
-    copy: 'Analyze how agents see any competitor’s website: structure, pricing, and readiness.',
+    title: 'Competitor Analysis',
+    copy: 'Understand how your business compares when agents evaluate competing options.',
     Icon: Search,
   },
   {
     title: 'Analytics',
-    copy: 'Track agent visits, queries, and conversions, attributed by model.',
+    copy: 'Track visits, queries, and conversions by model to understand where revenue opportunities are coming from.',
     Icon: TrendingUp,
   },
   {
     title: 'Custom Domains',
-    copy: 'Host your listing on your own domain, with SSL and brand root artifacts.',
+    copy: 'Publish on your own domain for a more trustworthy, branded experience.',
     Icon: Globe2,
   },
   {
     title: 'Trust Score',
-    copy: 'Build credibility with agents and humans from readiness, verification, and real completion rates.',
+    copy: 'Increase confidence with signals that help agents assess business quality, readiness, and reliability.',
     Icon: ShieldCheck,
   },
 ]
 
 // Hero stat ticker (the X-Ray instrument's "instrument readout" framing).
 const stats = [
-  { value: '<200ms', label: 'Agent listing load' },
+  { value: '<200ms', label: 'Agent-ready load' },
   { value: '19+', label: 'AI crawlers welcomed' },
-  { value: '5', label: 'Formats per listing' },
-  { value: '0%', label: 'Fee until you get paid' },
+  { value: '5', label: 'Structured formats' },
+  { value: 'Live', label: 'Conversion analytics' },
 ]
 
 // Agents that read structured pages — monogram lockups for the marquee.
@@ -93,6 +93,29 @@ const marqueeModels = [
   { name: 'Amazon Nova', mark: 'N' },
 ]
 
+const pinnedStories: Feature[] = [
+  {
+    title: 'Win more qualified discovery',
+    copy: 'Make it easier for AI agents to match your business to high-intent buyer queries.',
+    Icon: Search,
+  },
+  {
+    title: 'Improve recommendation confidence',
+    copy: 'Help agents evaluate your business with clearer offers, business details, and conversion paths.',
+    Icon: ShieldCheck,
+  },
+  {
+    title: 'Reduce friction to action',
+    copy: 'Make booking, buying, and lead capture easier by giving agents exact next steps they can follow.',
+    Icon: CheckCircle2,
+  },
+  {
+    title: 'Prove what is driving revenue',
+    copy: 'Track which AI models are visiting, what they are looking for, and which sessions lead to pipeline or purchases.',
+    Icon: TrendingUp,
+  },
+]
+
 export default async function NexezHome() {
   const { data: pages } = await supabase
     .from('pages_public')
@@ -107,37 +130,30 @@ export default async function NexezHome() {
       {/* HERO — text + CTAs on the left, the draggable Agent X-Ray prominent on the right */}
       <section
         className="relative overflow-hidden border-b border-border"
+        aria-label="Hero"
+        data-section-name="Hero"
         style={{
           background:
             'radial-gradient(120% 75% at 50% -12%, color-mix(in srgb, var(--signal) 9%, transparent), transparent 55%), var(--bg)',
         }}
       >
+        <p className="sr-only">Hero</p>
         <div className="relative z-10 mx-auto max-w-7xl px-5 py-16 lg:py-20">
           <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(440px,0.9fr)] lg:gap-12">
-            {/* LEFT — eyebrow, h1, copy, CTAs */}
+            {/* LEFT — h1, copy, CTAs */}
             <div>
-              <div
-                className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--signal)]"
-                style={{
-                  border: '1px solid color-mix(in srgb, var(--signal) 30%, transparent)',
-                  background: 'color-mix(in srgb, var(--signal) 6%, transparent)',
-                }}
-              >
-                <span className="nx-pulsedot size-1.5 rounded-full" style={{ background: 'var(--signal)' }} />
-                The web has a second audience now
-              </div>
-              <h1 className="mt-6 text-balance text-5xl font-semibold leading-[0.95] tracking-[-0.045em] sm:text-6xl lg:text-7xl">
-                Where AI agents <span className="nx-accent-text">buy from you.</span>
+              <h1 className="text-balance text-[2.6rem] font-semibold leading-[1.04] tracking-[-0.03em] sm:text-[3.05rem] lg:text-[3.5rem]">
+                Turn AI discovery into <span className="nx-accent-text">pipeline, bookings, and sales.</span>
               </h1>
               <p className="mt-6 max-w-xl text-base leading-7 text-muted-foreground md:text-lg">
-                Your site is built for humans. Agents see something else entirely. Nexez derives the structured layer
-                they read, so they can find, understand, and <span className="text-white">buy from you</span>.
+                Nexez helps your business get found, understood, and chosen by AI agents with a structured,
+                agent-ready layer that drives measurable conversions without changing your website.
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <a href={appUrl('/create')} className="btn-primary h-11 px-5">
-                  Get started
+                  Get agent-ready
                 </a>
-                <a href="/discovery" className="btn-secondary h-11 px-5">See live examples</a>
+                <a href="#simulator" className="btn-secondary h-11 px-5">See how agents read your business</a>
               </div>
             </div>
 
@@ -158,11 +174,13 @@ export default async function NexezHome() {
       </section>
 
       {/* AGENT LOGO MARQUEE */}
-      <section className="border-b border-border bg-white/[0.015]">
+      <section
+        className="border-b border-border bg-white/[0.015]"
+        aria-label="Read by every major agent"
+        data-section-name="Read by every major agent"
+      >
+        <p className="sr-only">Read by every major agent</p>
         <div className="mx-auto max-w-7xl px-5 py-10">
-          <p className="mb-5 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-            Read by every major agent
-          </p>
           <div className="nx-marquee">
             <div className="nx-marquee-track">
               {[...marqueeModels, ...marqueeModels].map((m, i) => (
@@ -182,46 +200,184 @@ export default async function NexezHome() {
         </div>
       </section>
 
-      {/* READINESS LAB — interactive */}
-      <section className="border-b border-border">
-        <div className="mx-auto max-w-7xl px-5 py-20">
-          <p className="mb-4 font-mono text-[11.5px] uppercase tracking-[0.16em] text-[var(--signal)]">Readiness Lab · interactive</p>
-          <h2 className="max-w-3xl text-3xl font-semibold tracking-[-0.04em] md:text-5xl">
-            Expose more. <span className="nx-accent-text">Agents understand more.</span>
+      {/* PROBLEM */}
+      <section
+        className="nx-home-reveal-band border-b border-border"
+        aria-label="Problem"
+        data-section-name="Problem"
+        style={{ zIndex: 1 }}
+      >
+        <p className="sr-only">Problem</p>
+        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-20 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
+          <h2 className="max-w-3xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
+            If AI agents cannot understand your business, they cannot recommend it.
           </h2>
-          <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-            Each signal you publish raises your readiness score and unlocks a new action agents can take. Flip them on
-            to see what becomes possible.
-          </p>
+          <div className="nx-tile p-6 md:p-7">
+            <div className="space-y-5 text-sm leading-6 text-muted-foreground md:text-base md:leading-7">
+              <p>
+                More buyers are relying on AI to research options, compare providers, and decide what to do next.
+                But most websites are built for human browsing, not machine interpretation.
+              </p>
+              <p>That means even strong businesses can be missed.</p>
+              <p>
+                If your pricing, offers, proof, and next steps are hard for AI agents to parse, your business becomes
+                harder to surface, harder to trust, and harder to buy from.
+              </p>
+              <p>
+                Nexez fixes that by making your business clear, structured, and action-ready for AI-driven discovery.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* PINNED STORY CARDS */}
+      <section
+        className="nx-home-reveal-band--tint-01 border-b border-border"
+        aria-label="Value proposition"
+        data-section-name="Value proposition"
+        data-benefits-section-name="Benefits"
+      >
+        <p className="sr-only">Value proposition</p>
+        <p className="sr-only">Benefits</p>
+        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-20 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start">
+          <div className="lg:sticky lg:top-24">
+            <h2 className="max-w-xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
+              Keep your website. Add the layer that converts AI traffic.
+            </h2>
+            <p className="mt-5 max-w-lg text-sm leading-6 text-muted-foreground md:text-base">
+              Your website should keep doing what it does best: build trust with people and convert human visitors.
+              Nexez adds the missing layer that helps AI agents interpret your business and move qualified buyers
+              toward action.
+            </p>
+            <ul className="mt-7 grid gap-3 text-sm text-muted-foreground">
+              {[
+                'Publish structured offers AI agents can understand',
+                'Give agents clear pricing, proof, and next steps',
+                'Increase the chance of being recommended in AI-assisted discovery',
+                'Turn agent traffic into measurable business outcomes',
+              ].map((item) => (
+                <li key={item} className="flex gap-3">
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[var(--ready)]" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="grid gap-5 pb-0 lg:pb-[34vh]">
+            <h3 className="text-lg font-semibold tracking-[-0.015em] md:text-xl">Why businesses choose Nexez</h3>
+            {pinnedStories.map(({ title, copy, Icon }, index) => (
+              <article
+                key={title}
+                className="nx-tile min-h-[320px] p-6 transition-colors lg:!sticky lg:min-h-[360px]"
+                style={{ top: `${96 + index * 18}px`, zIndex: index + 1 }}
+              >
+                <div className="flex h-full flex-col justify-between gap-10">
+                  <div>
+                    <div className="flex size-10 items-center justify-center rounded-lg border border-border bg-black">
+                      <Icon className="size-4 text-[var(--signal)]" />
+                    </div>
+                    <h3 className="mt-6 max-w-xl text-lg font-semibold leading-tight tracking-[-0.015em] md:text-2xl">{title}</h3>
+                    <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">{copy}</p>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-border pt-5">
+                    <span className="font-mono text-xs text-muted-foreground">0{index + 1} / 04</span>
+                    <span className="inline-flex items-center gap-2 text-sm font-medium text-[var(--signal)]">
+                      {index === 0
+                        ? 'Match better intent'
+                        : index === 1
+                          ? 'Raise confidence'
+                          : index === 2
+                            ? 'Move buyers forward'
+                            : 'Measure revenue'}
+                      <ArrowRight className="size-4" />
+                    </span>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* WHY IT MATTERS */}
+      <section
+        className="nx-home-reveal-band border-b border-border"
+        aria-label="Why it matters"
+        data-section-name="Why it matters"
+        style={{ zIndex: 2 }}
+      >
+        <p className="sr-only">Why it matters</p>
+        <div className="mx-auto max-w-7xl px-5 py-20">
+          <h2 className="max-w-3xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
+            AI agents do not just discover businesses. <span className="nx-accent-text">They influence who gets chosen.</span>
+          </h2>
+          <div className="mt-4 max-w-2xl space-y-4 text-sm leading-6 text-muted-foreground md:text-base">
+            <p>
+              In many buying journeys, AI agents shape the shortlist before a human ever clicks through. If your
+              business is easier to interpret, compare, and act on, you are more likely to be included when intent is
+              highest.
+            </p>
+            <p>Nexez helps you compete at that moment.</p>
+          </div>
           <div className="mt-10">
             <ReadinessLab />
           </div>
         </div>
       </section>
 
-      {/* LIVE AGENT ACTIVITY — interactive */}
-      <section className="border-b border-border">
+      {/* ANALYTICS */}
+      <section
+        className="nx-home-reveal-band border-b border-border"
+        aria-label="Analytics"
+        data-section-name="Analytics"
+        style={{ zIndex: 3 }}
+      >
+        <p className="sr-only">Analytics</p>
         <div className="mx-auto max-w-7xl px-5 py-20">
-          <p className="mb-4 font-mono text-[11.5px] uppercase tracking-[0.16em] text-[var(--signal)]">Live agent activity</p>
-          <h2 className="max-w-3xl text-3xl font-semibold tracking-[-0.04em] md:text-5xl">
-            See which agents convert, <span className="nx-accent-text">down to the offer.</span>
-          </h2>
-          <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-            Every session is attributed to the model behind it — so you can prove ROI in minutes, not quarters.
-          </p>
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-start">
+            <div>
+              <h2 className="max-w-3xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
+                See which AI traffic actually converts
+              </h2>
+              <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
+                Nexez gives you more than visibility. It shows you which AI models are engaging with your business,
+                what they searched, what they compared, and whether those sessions led to real outcomes.
+              </p>
+            </div>
+            <ul className="nx-tile grid gap-3 p-5 text-sm text-muted-foreground md:p-6">
+              {[
+                'Identify which agents drive qualified traffic',
+                'Understand the queries behind discovery',
+                'Track comparisons and conversion behavior',
+                'Measure pipeline, bookings, and purchases tied to agent activity',
+              ].map((item) => (
+                <li key={item} className="flex gap-3">
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[var(--ready)]" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
           <div className="mt-10">
             <LiveAgentFeed />
           </div>
         </div>
       </section>
 
-      {/* KEY FEATURES */}
-      <section className="border-b border-border bg-white/[0.015]">
+      {/* PRODUCT CAPABILITIES */}
+      <section
+        className="nx-home-reveal-band nx-home-reveal-band--tint-015 border-b border-border"
+        aria-label="Product capabilities"
+        data-section-name="Product capabilities"
+        style={{ zIndex: 4 }}
+      >
+        <p className="sr-only">Product capabilities</p>
         <div className="mx-auto max-w-7xl px-5 py-20">
           <div className="mb-10 max-w-2xl">
-            <p className="text-sm font-medium text-muted-foreground">Key capabilities</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">
-              Everything you need to <span className="nx-accent-text">win agent traffic.</span>
+            <h2 className="text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
+              Built to help you <span className="nx-accent-text">convert AI-driven demand.</span>
             </h2>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -241,15 +397,18 @@ export default async function NexezHome() {
       </section>
 
       {/* WORKFLOW */}
-      <section className="border-b border-border">
+      <section
+        className="nx-home-reveal-band border-b border-border"
+        aria-label="How it works"
+        data-section-name="How it works"
+        style={{ zIndex: 5 }}
+      >
+        <p className="sr-only">How it works</p>
         <div className="mx-auto max-w-7xl px-5 py-20">
           <div className="mb-10 max-w-2xl">
-            <p className="text-sm font-medium text-muted-foreground">How it works</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">From website to agent ready.</h2>
-            <p className="mt-4 text-sm leading-6 text-muted-foreground">
-              Intentionally boring where it should be: import, edit, publish, measure. The magic is in the structure
-              agents receive.
-            </p>
+            <h2 className="text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
+              Go from invisible to agent-ready in four steps
+            </h2>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {workflow.map((item, i) => (
@@ -267,15 +426,21 @@ export default async function NexezHome() {
       </section>
 
       {/* SIMULATOR */}
-      <section id="simulator" className="border-b border-border bg-white/[0.02] py-20">
+      <section
+        id="simulator"
+        className="nx-home-reveal-band nx-home-reveal-band--tint-02 border-b border-border py-20"
+        aria-label="Agent simulator"
+        data-section-name="Agent simulator"
+        style={{ zIndex: 6 }}
+      >
+        <p className="sr-only">Agent simulator</p>
         <div className="mx-auto max-w-4xl px-5 text-center">
-          <p className="text-sm font-medium text-muted-foreground">Agent simulator</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">
-            Agents pick one answer. <span className="nx-accent-text">Win the query.</span>
+          <h2 className="text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
+            See how agents read your business
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-            Ask a real buyer question and watch a structured listing resolve it into the exact offers, prices, and next
-            actions an AI agent would use — then see what it takes to be the one it picks. Instantly, no signup.
+            Ask a real buyer question and watch a structured listing resolve it into offers, prices, and next actions
+            an AI agent can understand. Instantly, no signup.
           </p>
           <div className="mt-8">
             <SimulatorTeaser />
@@ -284,12 +449,17 @@ export default async function NexezHome() {
       </section>
 
       {/* PUBLIC EXAMPLES */}
-      <section className="border-b border-border py-20">
+      <section
+        className="nx-home-reveal-band border-b border-border py-20"
+        aria-label="Public examples"
+        data-section-name="Public examples"
+        style={{ zIndex: 7 }}
+      >
+        <p className="sr-only">Public examples</p>
         <div className="mx-auto max-w-7xl px-5">
           <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Public examples</p>
-              <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">Listings agents can discover now.</h2>
+              <h2 className="text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">Listings agents can discover now.</h2>
             </div>
             <a href="/discovery" className="btn-secondary h-10 px-4">
               Browse directory
@@ -330,23 +500,29 @@ export default async function NexezHome() {
       </section>
 
       {/* FINAL CTA */}
-      <section className="relative overflow-hidden">
+      <section
+        className="nx-home-reveal-band relative overflow-hidden"
+        aria-label="Final call to action"
+        data-section-name="Final call to action"
+        style={{ zIndex: 8 }}
+      >
+        <p className="sr-only">Final call to action</p>
         <div className="pointer-events-none absolute inset-0 z-0">
           <div className="nx-orb nx-orb--purple !opacity-25" style={{ top: 'auto', bottom: '-22rem', left: '50%', transform: 'translateX(-50%)' }} />
         </div>
         <div className="relative z-10 mx-auto max-w-3xl px-5 py-24 text-center">
-          <h2 className="text-4xl font-semibold tracking-[-0.055em] md:text-6xl">
-            Be the answer <span className="nx-accent-text">agents pick.</span>
+          <h2 className="text-[2rem] font-semibold leading-tight tracking-[-0.03em] md:text-[2.75rem]">
+            Be the business <span className="nx-accent-text">AI agents choose.</span>
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-            Deploy a crawlable, structured listing in minutes, on a Nexez link or your own domain, and start
-            measuring real discovery signals.
+            Launch a structured, agent-ready presence in minutes and start converting AI-driven discovery into
+            measurable growth.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a href={appUrl('/create')} className="btn-primary h-11 px-5">
-              Deploy your listing
+              Launch your agent listing
             </a>
-            <a href="/discovery" className="btn-secondary h-11 px-5">See live examples</a>
+            <a href="#simulator" className="btn-secondary h-11 px-5">Try the simulator</a>
           </div>
         </div>
       </section>

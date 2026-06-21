@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 /**
  * Live agent activity: a session log that streams a scripted agent→parse→query→match
@@ -41,13 +41,14 @@ const MODELS = [
 
 export function LiveAgentFeed() {
   const [feed, setFeed] = useState<Row[]>([])
+  const rowIdRef = useRef(0)
 
   useEffect(() => {
     let i = 0
     const tick = () => {
       const step = STEPS[i % STEPS.length]
       const agent = AGENTS[Math.floor(i / STEPS.length) % AGENTS.length]
-      const row: Row = { id: i, role: step.role, label: step.label(agent), msg: step.msg(agent) }
+      const row: Row = { id: rowIdRef.current++, role: step.role, label: step.label(agent), msg: step.msg(agent) }
       i += 1
       setFeed((prev) => [...prev, row].slice(-7))
     }

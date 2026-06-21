@@ -647,6 +647,44 @@ a:focus-visible,
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
 }
 
+/* Homepage section bands. The pinned story cards carry the main scroll effect, so
+   these bands stay quiet to avoid competing sticky interactions. */
+.nx-home-reveal-band {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 18%),
+    var(--bg);
+}
+
+.nx-home-reveal-band--tint-01 {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 18%),
+    linear-gradient(rgba(255, 255, 255, 0.01), rgba(255, 255, 255, 0.01)),
+    var(--bg);
+}
+
+.nx-home-reveal-band--tint-015 {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 18%),
+    linear-gradient(rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0.015)),
+    var(--bg);
+}
+
+.nx-home-reveal-band--tint-02 {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 18%),
+    linear-gradient(rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.02)),
+    var(--bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nx-home-reveal-band {
+    position: relative;
+    top: auto;
+    box-shadow: none;
+  }
+}
+
 /* Continuous logo marquee (edges faded, pauses on hover). */
 .nx-marquee {
   overflow: hidden;
