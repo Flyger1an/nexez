@@ -18,7 +18,7 @@ import { enforceRateLimit } from '../../../lib/rate-limit'
 import { supabase } from '../../../lib/supabase'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 import { getCommissionPercentForPlan, calculateApplicationFeeCents } from '../../../lib/stripe-billing'
-import { getOwnerPlanId } from '../../../lib/server/plan'
+import { getOwnerPlanId, getOwnerBillingState } from '../../../lib/server/plan'
 import { billingPlans } from '../../../lib/billing'
 
 type CheckoutInput = {
@@ -146,6 +146,15 @@ export async function POST(request: Request) {
   let ownerPlanId: Awaited<ReturnType<typeof getOwnerPlanId>> = 'free'
   if (hasSupabaseAdminEnv() && page.owner_id) {
     const admin = createAdminClient()
+    // A paused seller (expired no-card trial) is offline — block checkout even if an agent
+    // holds a cached checkout URL. The public listing already 404s via the serving gate;
+    // this closes the service-role-read bypass on the money path.
+    if ((await getOwnerBillingState(admin, page.owner_id)).isPaused) {
+      return NextResponse.json(
+        { error: 'This seller’s storefront is paused and not accepting orders right now.' },
+        { status: 402 },
+      )
+    }
     ownerPlanId = await getOwnerPlanId(admin, page.owner_id)
     const { data: billing } = await admin
       .from('billing_subscriptions')

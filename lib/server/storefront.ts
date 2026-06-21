@@ -2,6 +2,7 @@ import 'server-only'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 import { AgentPage, PUBLIC_PAGE_SELECT } from '../agent-page'
 import type { Storefront, StorefrontWithCount } from '../storefront'
+import { getOwnerBillingState } from './plan'
 
 /**
  * Resolve a public storefront + its published listings by handle. Reads via the
@@ -25,6 +26,12 @@ export async function loadStorefrontByHandle(
     .eq('handle', clean)
     .maybeSingle<Storefront>()
   if (!storefront) return null
+
+  // A paused storefront (expired no-card trial) goes offline — return no listings, matching
+  // the pages_public `serving` gate the anon surfaces enforce. is_published is untouched, so
+  // reactivating brings the listings straight back. Legacy/active owners never pause.
+  const billing = await getOwnerBillingState(admin, storefront.owner_id)
+  if (billing.isPaused) return { storefront, listings: [] }
 
   // Read THIS storefront's published listings from the BASE pages table via the
   // service-role client: pages_public (the anon projection) deliberately exposes neither
@@ -136,12 +143,29 @@ export async function loadPublicStorefronts(limit = 60): Promise<StorefrontSumma
   if (!storefronts?.length) return []
   const { data: pubPages } = await admin
     .from('pages')
-    .select('storefront_id')
+    .select('storefront_id, owner_id')
     .eq('is_published', true)
-    .returns<Array<{ storefront_id: string | null }>>()
+    .returns<Array<{ storefront_id: string | null; owner_id: string | null }>>()
+  // Paused storefronts (expired no-card trials) are offline — drop their listings from the
+  // directory count so they leave discovery, mirroring the pages_public serving gate. Only
+  // trial-origin rows can pause, so this set is small.
+  const { data: pausedRows } = await admin
+    .from('billing_subscriptions')
+    .select('owner_id, status, trial_ends_at')
+    .eq('account_origin', 'trial')
+    .in('status', ['paused', 'trialing'])
+    .returns<Array<{ owner_id: string; status: string; trial_ends_at: string | null }>>()
+  const nowMs = Date.now()
+  const pausedOwners = new Set(
+    (pausedRows ?? [])
+      .filter((r) => r.status === 'paused' || (r.status === 'trialing' && r.trial_ends_at != null && new Date(r.trial_ends_at).getTime() < nowMs))
+      .map((r) => r.owner_id),
+  )
   const counts = new Map<string, number>()
   for (const p of pubPages ?? []) {
-    if (p.storefront_id) counts.set(p.storefront_id, (counts.get(p.storefront_id) ?? 0) + 1)
+    if (p.storefront_id && !(p.owner_id && pausedOwners.has(p.owner_id))) {
+      counts.set(p.storefront_id, (counts.get(p.storefront_id) ?? 0) + 1)
+    }
   }
   return storefronts
     .map((s) => ({ handle: s.handle, display_name: s.display_name, logo_url: s.logo_url, listing_count: counts.get(s.id) ?? 0 }))
