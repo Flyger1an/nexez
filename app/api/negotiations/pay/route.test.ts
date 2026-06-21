@@ -153,6 +153,16 @@ describe('POST /api/negotiations/pay', () => {
     expect(stripeRef.create).not.toHaveBeenCalled()
   })
 
+  it('402 when the seller is paused (expired no-card trial) — no escrow session created', async () => {
+    // The pause flips billing status only; the negotiation stays payable and Connect stays
+    // enabled, so without the gate the buyer's persistent token would still fund a suppressed
+    // storefront. Must 402 before any Stripe session — same as /api/checkout.
+    db(NEG, { plan_id: 'pro', status: 'paused', account_origin: 'trial', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true })
+    const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))
+    expect(res.status).toBe(402)
+    expect(stripeRef.create).not.toHaveBeenCalled()
+  })
+
   it('approved (high value): manual-capture hold, metadata "hold"', async () => {
     db({ ...NEG, settlement_state: 'approved', amount_cents: 500000 })
     const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))

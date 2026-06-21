@@ -7,7 +7,7 @@ import { getCommissionPercentForPlan, calculateApplicationFeeCents } from '../..
 import { minorToStripeAmount } from '../../../../lib/currency'
 import { parseBuyerIdentity } from '../../../../lib/buyer-identity'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
-import { getOwnerPlanId } from '../../../../lib/server/plan'
+import { getOwnerPlanId, getOwnerBillingState } from '../../../../lib/server/plan'
 import type { AgentNegotiation } from '../../../../lib/negotiations'
 
 function paymentFingerprint(input: {
@@ -111,6 +111,14 @@ export async function POST(request: Request) {
   // Status-aware plan resolution (canceled/incomplete 'pro' → Free 15%, not 6%) —
   // single source of truth, mirrors app/api/checkout/route.ts and entitlements.
   const ownerPlanId = await getOwnerPlanId(admin, negotiation.owner_id as string)
+  // A paused seller (expired no-card trial) is offline — block funding even though the buyer
+  // holds the persistent negotiate token. Pausing flips billing status only (it never touches
+  // the negotiation or the Connect account), so without this the escrow would still fund a
+  // suppressed storefront. Mirrors the /api/checkout pause gate; closes the same money-path
+  // service-role bypass on the negotiation/escrow funding endpoint.
+  if ((await getOwnerBillingState(admin, negotiation.owner_id as string)).isPaused) {
+    return fail(402, 'This seller’s storefront is paused and not accepting orders right now.')
+  }
   const { data: billing } = await admin
     .from('billing_subscriptions')
     .select('stripe_connect_account_id, stripe_connect_charges_enabled')
