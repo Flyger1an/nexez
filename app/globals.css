@@ -768,14 +768,18 @@ a:focus-visible,
 .nx-kg-float { animation: nx-kg-float 6s ease-in-out infinite; }
 .nx-kg-glow { animation: nx-kg-glow 7s ease-in-out infinite; }
 .nx-kg-cardglow { animation: nx-kg-cardglow 5s ease-in-out infinite; }
+.nx-kg-scan { animation: nx-kg-scan 9s linear infinite; }
 @keyframes nx-kg-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-@keyframes nx-kg-glow { 0%, 100% { opacity: 0.55; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.06); } }
+@keyframes nx-kg-glow { 0%, 100% { opacity: 0.55; transform: scale(1); } 50% { opacity: 0.82; transform: scale(1.06); } }
 @keyframes nx-kg-cardglow { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.85; } }
+@keyframes nx-kg-scan { 0% { transform: translateY(-260px); } 100% { transform: translateY(1100px); } }
 .nx-kg-paused .nx-kg-float,
 .nx-kg-paused .nx-kg-glow,
-.nx-kg-paused .nx-kg-cardglow { animation-play-state: paused; }
+.nx-kg-paused .nx-kg-cardglow,
+.nx-kg-paused .nx-kg-scan { animation-play-state: paused; }
 @media (prefers-reduced-motion: reduce) {
   .nx-kg-float, .nx-kg-glow, .nx-kg-cardglow { animation: none; }
+  .nx-kg-scan { animation: none; opacity: 0; }
 }
 
 /* =====================================================

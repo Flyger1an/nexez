@@ -2,66 +2,71 @@
 
 import { useEffect, useRef } from 'react'
 
-// Faithful React port of the "Nexez Knowledge Graph" design (originally a .dc.html):
-// a central listing node ringed by 12 agent nodes, curved connection paths with
-// travelling data dots, radiating pulse rings, a dot-grid / scan-line / vignette
-// field, floating data fragments, and registration ticks. The scene is authored on a
-// fixed 1000×1000 stage and scaled to "contain" inside its (square) panel.
+// Faithful React port of the enhanced "Nexez Knowledge Graph" design (.dc.html):
+// a central listing node ringed by 12 depth-clustered agent nodes (per-agent hue +
+// continuous z-depth scale/blur/brightness/opacity), curved connection paths with
+// data dots flowing inward (queries) or outward (offers), schema chips riding the hot
+// paths, radiating pulse rings, a moving scan sweep, dot-grid / scan-lines / vignette /
+// glow field, floating data fragments and registration ticks. Authored on a fixed
+// 1000×1000 stage, scaled to "contain" inside its (square) panel.
 //
-// Adaptations from the original: agent-node backdrop-blur dropped (invisible over the
-// dark field, expensive while floating) — kept on the focal card. Pauses offscreen /
-// tab-hidden and under reduced-motion via SVG pauseAnimations() + CSS play-state.
+// Rules applied (same as the live build): background + edge vignette inherit var(--bg)
+// (dark in dark mode, light page colour in light mode → blends, no box); paused
+// offscreen / tab-hidden / reduced-motion via svg.pauseAnimations() + CSS play-state;
+// agent-node backdrop-blur dropped (the radial highlight carries the glass look and it
+// is expensive across 12 floating nodes) — kept on the focal card.
 
 const DISPLAY = 'var(--font-display, ui-sans-serif, system-ui, sans-serif)'
 const MONO = 'ui-monospace, SFMono-Regular, monospace'
 
+type AgentDef = { name: string; mono: string; ang: number; r: number; z: number; hue: number; hot?: boolean; dir?: 'out' }
 type Agent = {
   name: string
-  glyph: string
+  mono: string
   left: string
   top: string
   pathD: string
   stroke: string
+  strokeW: string
   dotColor: string
   glyphColor: string
   ringColor: string
   haloColor: string
+  labelColor: string
+  keyPoints: string
   transform: string
   filter: string
-  opacity: number
+  opacity: string
   dotDur: string
   floatDelay: string
 }
+type Chip = { left: string; top: string; text: string; color: string; border: string }
 
-const AGENTS: Agent[] = (() => {
+const { AGENTS, CHIPS } = ((): { AGENTS: Agent[]; CHIPS: Chip[] } => {
   const cx = 500
   const cy = 500
-  const defs = [
-    { name: 'ChatGPT', glyph: 'G' },
-    { name: 'Claude', glyph: 'C' },
-    { name: 'Gemini', glyph: 'G' },
-    { name: 'Perplexity', glyph: 'P' },
-    { name: 'Grok', glyph: 'X' },
-    { name: 'Copilot', glyph: 'C' },
-    { name: 'Llama', glyph: 'L' },
-    { name: 'Mistral', glyph: 'M' },
-    { name: 'DeepSeek', glyph: 'D' },
-    { name: 'Qwen', glyph: 'Q' },
-    { name: 'Cohere', glyph: 'C' },
-    { name: 'Amazon Nova', glyph: 'N' },
+  const defs: AgentDef[] = [
+    { name: 'ChatGPT', mono: 'Gp', ang: -82, r: 298, z: 0.12, hue: 248 },
+    { name: 'Claude', mono: 'Cl', ang: -57, r: 322, z: 0.16, hue: 172, hot: true, dir: 'out' },
+    { name: 'Gemini', mono: 'Gm', ang: -108, r: 362, z: 0.55, hue: 232 },
+    { name: 'Perplexity', mono: 'Px', ang: -14, r: 300, z: 0.14, hue: 262, hot: true },
+    { name: 'Copilot', mono: 'Co', ang: 40, r: 314, z: 0.22, hue: 220, dir: 'out' },
+    { name: 'Grok', mono: 'Gk', ang: 13, r: 364, z: 0.5, hue: 248 },
+    { name: 'Mistral', mono: 'Ms', ang: 96, r: 300, z: 0.12, hue: 280, hot: true },
+    { name: 'Llama', mono: 'Lm', ang: 70, r: 372, z: 0.58, hue: 248 },
+    { name: 'DeepSeek', mono: 'Ds', ang: 122, r: 352, z: 0.4, hue: 232, dir: 'out' },
+    { name: 'Qwen', mono: 'Qw', ang: 158, r: 318, z: 0.2, hue: 172 },
+    { name: 'Cohere', mono: 'Ch', ang: 196, r: 366, z: 0.52, hue: 262 },
+    { name: 'Amazon Nova', mono: 'Nv', ang: 226, r: 312, z: 0.24, hue: 248, dir: 'out' },
   ]
-  const tierPat = [0, 1, 0, 2, 1, 0, 1, 2, 0, 1, 0, 2]
-  const tealSet = new Set([1, 5, 9])
-  const scaleBy = [1, 0.9, 0.8]
-  const blurBy = [0, 0.7, 1.7]
-  const opacBy = [1, 0.92, 0.74]
+  const chipText: Record<string, string> = { Claude: 'Offer', Perplexity: '200 OK', Mistral: '$120' }
+  const chips: Chip[] = []
 
-  return defs.map((d, i) => {
-    const ang = ((-90 + i * 30) * Math.PI) / 180
-    const tier = tierPat[i]
-    const r = 296 + tier * 48 + (((i * 53) % 24) - 12)
-    const x = cx + Math.cos(ang) * r
-    const y = cy + Math.sin(ang) * r
+  const agents = defs.map((d, i) => {
+    const ang = (d.ang * Math.PI) / 180
+    const z = d.z
+    const x = cx + Math.cos(ang) * d.r
+    const y = cy + Math.sin(ang) * d.r
     const sx = cx + Math.cos(ang) * 96
     const sy = cy + Math.sin(ang) * 96
     const ex = x - Math.cos(ang) * 40
@@ -72,32 +77,63 @@ const AGENTS: Agent[] = (() => {
     const ccx = mx - Math.sin(ang) * off
     const ccy = my + Math.cos(ang) * off
     const pathD = `M ${sx.toFixed(1)} ${sy.toFixed(1)} Q ${ccx.toFixed(1)} ${ccy.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}`
-    const t = tealSet.has(i)
+
+    const scale = (1.06 - z * 0.34).toFixed(3)
+    const blur = (z * z * 2.4).toFixed(2)
+    const bright = (1 - z * 0.28).toFixed(3)
+    const opacity = (1 - z * 0.3).toFixed(3)
+
+    const lum = Math.round(72 - z * 16)
+    const glyphColor = `hsl(${d.hue} 88% ${lum}%)`
+    const ringColor = `hsla(${d.hue} 80% 62% / ${(0.5 - z * 0.18).toFixed(2)})`
+    const haloColor = `hsla(${d.hue} 80% 55% / ${(0.34 - z * 0.16).toFixed(2)})`
+    const labelColor = `rgba(226,226,235,${(0.82 - z * 0.34).toFixed(2)})`
+    const strokeOp = (d.hot ? 0.72 : 0.5) - z * 0.18
+    const stroke = `hsla(${d.hue} 75% 62% / ${strokeOp.toFixed(2)})`
+    const dotColor = `hsl(${d.hue} 92% ${Math.round(74 - z * 10)}%)`
+
+    if (d.hot) {
+      const px = 0.25 * sx + 0.5 * ccx + 0.25 * ex
+      const py = 0.25 * sy + 0.5 * ccy + 0.25 * ey
+      chips.push({
+        left: `${px.toFixed(1)}px`,
+        top: `${py.toFixed(1)}px`,
+        text: chipText[d.name],
+        color: `hsl(${d.hue} 88% 78%)`,
+        border: `hsla(${d.hue} 80% 62% / 0.5)`,
+      })
+    }
+
     return {
       name: d.name,
-      glyph: d.glyph,
+      mono: d.mono,
       left: `${x.toFixed(1)}px`,
       top: `${y.toFixed(1)}px`,
       pathD,
-      stroke: t ? 'rgba(45,212,191,0.5)' : 'rgba(79,70,229,0.5)',
-      dotColor: t ? '#5eead4' : '#818cf8',
-      glyphColor: t ? '#5eead4' : '#a5b4fc',
-      ringColor: t ? 'rgba(94,234,212,0.45)' : 'rgba(99,102,241,0.45)',
-      haloColor: t ? 'rgba(45,212,191,0.28)' : 'rgba(79,70,229,0.32)',
-      transform: `translate(-50%,-50%) scale(${scaleBy[tier]})`,
-      filter: blurBy[tier] ? `blur(${blurBy[tier]}px)` : 'none',
-      opacity: opacBy[tier],
-      dotDur: `${3.6 + (i % 4) * 0.7}s`,
+      stroke,
+      strokeW: d.hot ? '2' : '1.4',
+      dotColor,
+      glyphColor,
+      ringColor,
+      haloColor,
+      labelColor,
+      keyPoints: d.dir === 'out' ? '0;1' : '1;0',
+      transform: `translate(-50%,-50%) scale(${scale})`,
+      filter: `blur(${blur}px) brightness(${bright})`,
+      opacity,
+      dotDur: `${d.hot ? 2.6 : 3.8 + (i % 4) * 0.6}s`,
       floatDelay: `${(i * 0.4).toFixed(1)}s`,
     }
   })
+
+  return { AGENTS: agents, CHIPS: chips }
 })()
 
 const FRAGMENTS = [
-  { left: 170, top: 300, color: 'rgba(129,140,248,0.30)', rot: -4, text: 'POST /checkout · 200 OK' },
-  { right: 128, top: 235, color: 'rgba(94,234,212,0.30)', rot: 3, text: 'schema.org/Offer' },
-  { left: 150, bottom: 235, color: 'rgba(129,140,248,0.30)', rot: 2, text: 'price: "$120.00"' },
-  { right: 185, bottom: 330, color: 'rgba(129,140,248,0.30)', rot: -3, text: 'id: your-business · MCP' },
+  { left: 170, top: 300, color: 'rgba(129,140,248,0.28)', rot: -4, text: 'POST /checkout · 200 OK' },
+  { right: 128, top: 235, color: 'rgba(94,234,212,0.28)', rot: 3, text: 'schema.org/Offer' },
+  { left: 150, bottom: 235, color: 'rgba(129,140,248,0.28)', rot: 2, text: 'price: "$120.00"' },
+  { right: 185, bottom: 330, color: 'rgba(129,140,248,0.28)', rot: -3, text: 'id: your-business · MCP' },
 ]
 const TICKS = [
   { left: 34, top: 34, text: '+   nexez · agent graph' },
@@ -163,20 +199,17 @@ export function KnowledgeGraph({ className }: { className?: string }) {
     <div ref={rootRef} aria-hidden className={`relative h-full w-full overflow-hidden ${className ?? ''}`} style={{ background: 'var(--bg)' }}>
       <div
         ref={wrapRef}
-        style={{
-          position: 'absolute',
-          left: '50%',
-          top: '50%',
-          width: 1000,
-          height: 1000,
-          transformOrigin: 'center center',
-          transform: 'translate(-50%,-50%) scale(0.6)',
-        }}
+        style={{ position: 'absolute', left: '50%', top: '50%', width: 1000, height: 1000, transformOrigin: 'center center', transform: 'translate(-50%,-50%) scale(0.6)' }}
       >
         {/* dot grid */}
         <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle, rgba(99,102,241,0.13) 0.6px, transparent 0.7px)', backgroundSize: '26px 26px', backgroundPosition: '13px 13px' }} />
         {/* scan lines */}
         <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 4px)', opacity: 0.5 }} />
+        {/* moving scan sweep */}
+        <div
+          className="nx-kg-scan"
+          style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 200, background: 'linear-gradient(180deg, transparent, rgba(129,140,248,0.10) 45%, rgba(129,140,248,0.14) 50%, rgba(129,140,248,0.10) 55%, transparent)', mixBlendMode: 'screen', pointerEvents: 'none' }}
+        />
         {/* vignette — fades the scene edges into the page background (theme-aware) */}
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 50% 50%, transparent 38%, color-mix(in srgb, var(--bg) 62%, transparent) 76%, var(--bg) 100%)' }} />
         {/* central volumetric glow */}
@@ -184,30 +217,14 @@ export function KnowledgeGraph({ className }: { className?: string }) {
 
         {/* registration ticks */}
         {TICKS.map((t, i) => (
-          <div
-            key={i}
-            style={{
-              position: 'absolute',
-              left: t.left,
-              right: t.right,
-              top: t.top,
-              bottom: t.bottom,
-              font: `500 10px ${MONO}`,
-              color: 'rgba(165,180,252,0.32)',
-              letterSpacing: 1,
-              whiteSpace: 'pre',
-            }}
-          >
+          <div key={i} style={{ position: 'absolute', left: t.left, right: t.right, top: t.top, bottom: t.bottom, font: `500 10px ${MONO}`, color: 'rgba(165,180,252,0.32)', letterSpacing: 1, whiteSpace: 'pre' }}>
             {t.text}
           </div>
         ))}
 
         {/* floating data fragments */}
         {FRAGMENTS.map((f, i) => (
-          <div
-            key={i}
-            style={{ position: 'absolute', left: f.left, right: f.right, top: f.top, bottom: f.bottom, font: `500 11px ${MONO}`, color: f.color, transform: `rotate(${f.rot}deg)` }}
-          >
+          <div key={i} style={{ position: 'absolute', left: f.left, right: f.right, top: f.top, bottom: f.bottom, font: `500 11px ${MONO}`, color: f.color, transform: `rotate(${f.rot}deg)` }}>
             {f.text}
           </div>
         ))}
@@ -236,37 +253,44 @@ export function KnowledgeGraph({ className }: { className?: string }) {
 
           {AGENTS.map((a, i) => (
             <g key={i}>
-              <path d={a.pathD} fill="none" stroke={a.stroke} strokeWidth="1.6" filter="url(#nx-kg-lineGlow)" />
-              <circle r="2.4" fill={a.dotColor} filter="url(#nx-kg-dotGlow)">
-                <animateMotion dur={a.dotDur} repeatCount="indefinite" path={a.pathD} rotate="auto" />
+              <path d={a.pathD} fill="none" stroke={a.stroke} strokeWidth={a.strokeW} filter="url(#nx-kg-lineGlow)" />
+              <circle r="2.5" fill={a.dotColor} filter="url(#nx-kg-dotGlow)">
+                <animateMotion dur={a.dotDur} repeatCount="indefinite" path={a.pathD} keyPoints={a.keyPoints} keyTimes="0;1" calcMode="linear" rotate="auto" />
               </circle>
-              <circle r="2.4" fill={a.dotColor}>
-                <animateMotion dur={a.dotDur} repeatCount="indefinite" path={a.pathD} rotate="auto" />
+              <circle r="2.5" fill={a.dotColor}>
+                <animateMotion dur={a.dotDur} repeatCount="indefinite" path={a.pathD} keyPoints={a.keyPoints} keyTimes="0;1" calcMode="linear" rotate="auto" />
               </circle>
             </g>
           ))}
         </svg>
 
+        {/* schema chips riding the hot paths */}
+        {CHIPS.map((c, i) => (
+          <div key={i} style={{ position: 'absolute', left: c.left, top: c.top, transform: 'translate(-50%,-50%)', font: `500 9px ${MONO}`, letterSpacing: 0.4, color: c.color, background: 'rgba(13,13,18,0.78)', border: `1px solid ${c.border}`, borderRadius: 5, padding: '2px 7px', whiteSpace: 'nowrap' }}>
+            {c.text}
+          </div>
+        ))}
+
         {/* agent nodes */}
         {AGENTS.map((a, i) => (
-          <div key={i} style={{ position: 'absolute', left: a.left, top: a.top, transform: a.transform, opacity: a.opacity, filter: a.filter }}>
+          <div key={i} style={{ position: 'absolute', left: a.left, top: a.top, transform: a.transform, opacity: Number(a.opacity), filter: a.filter }}>
             <div className="nx-kg-float" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9, animationDelay: a.floatDelay }}>
               <div
                 style={{
                   width: 62,
                   height: 62,
                   borderRadius: '50%',
-                  background: 'rgba(20,20,28,0.72)',
+                  background: 'radial-gradient(circle at 32% 26%, rgba(255,255,255,0.16), rgba(255,255,255,0) 56%), rgba(24,24,33,0.6)',
                   border: `1px solid ${a.ringColor}`,
-                  boxShadow: `0 0 22px ${a.haloColor}, inset 0 1px 0 rgba(255,255,255,0.08)`,
+                  boxShadow: `0 0 24px ${a.haloColor}, inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -8px 16px rgba(0,0,0,0.35)`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <span style={{ font: `700 23px ${DISPLAY}`, color: a.glyphColor }}>{a.glyph}</span>
+                <span style={{ font: `600 19px ${DISPLAY}`, letterSpacing: 0.5, color: a.glyphColor }}>{a.mono}</span>
               </div>
-              <span style={{ font: `600 11px ${DISPLAY}`, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(226,226,235,0.78)', whiteSpace: 'nowrap' }}>{a.name}</span>
+              <span style={{ font: `600 11px ${DISPLAY}`, letterSpacing: 2, textTransform: 'uppercase', color: a.labelColor, whiteSpace: 'nowrap' }}>{a.name}</span>
             </div>
           </div>
         ))}
@@ -279,11 +303,11 @@ export function KnowledgeGraph({ className }: { className?: string }) {
               position: 'relative',
               borderRadius: 18,
               padding: '18px 18px 16px',
-              background: 'rgba(18,18,26,0.62)',
+              background: 'radial-gradient(circle at 30% 12%, rgba(255,255,255,0.06), rgba(255,255,255,0) 60%), rgba(18,18,26,0.66)',
               backdropFilter: 'blur(16px)',
               WebkitBackdropFilter: 'blur(16px)',
               border: '1px solid rgba(99,102,241,0.42)',
-              boxShadow: '0 24px 70px rgba(0,0,0,0.55), 0 0 40px rgba(79,70,229,0.28), inset 0 1px 0 rgba(255,255,255,0.07)',
+              boxShadow: '0 24px 70px rgba(0,0,0,0.55), 0 0 40px rgba(79,70,229,0.28), inset 0 1px 0 rgba(255,255,255,0.08)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 13 }}>
