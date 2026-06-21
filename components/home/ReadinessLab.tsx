@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 /**
  * Interactive Readiness Lab: flip structured signals on/off; each adds its weight to
@@ -8,7 +8,8 @@ import { useState } from 'react'
  * of actions agents can take. Theme-aware (lives on the page surface) — accents use
  * the design tokens so it flips cleanly in light + dark.
  */
-type Signal = { key: string; label: string; weight: number; unlock: string }
+type SignalKey = 'offers' | 'actions' | 'schema' | 'mcp' | 'llms' | 'fresh'
+type Signal = { key: SignalKey; label: string; weight: number; unlock: string }
 
 const SIGNALS: Signal[] = [
   { key: 'offers', label: 'Offers + pricing', weight: 24, unlock: 'compare price' },
@@ -22,15 +23,61 @@ const SIGNALS: Signal[] = [
 const R = 76
 const C = 2 * Math.PI * R // ≈ 477.5
 
+const INITIAL_SIGNALS: Record<SignalKey, boolean> = {
+  offers: true,
+  actions: true,
+  schema: true,
+  mcp: false,
+  llms: false,
+  fresh: false,
+}
+
+const DEMO_SIGNAL_STATES: Record<SignalKey, boolean>[] = [
+  { offers: true, actions: false, schema: false, mcp: false, llms: false, fresh: false },
+  { offers: true, actions: true, schema: false, mcp: false, llms: false, fresh: false },
+  { offers: true, actions: true, schema: true, mcp: false, llms: true, fresh: false },
+  { offers: true, actions: true, schema: true, mcp: true, llms: true, fresh: true },
+  INITIAL_SIGNALS,
+]
+
 export function ReadinessLab() {
-  const [on, setOn] = useState<Record<string, boolean>>({
-    offers: true,
-    actions: true,
-    schema: true,
-    mcp: false,
-    llms: false,
-    fresh: false,
-  })
+  const rootRef = useRef<HTMLDivElement>(null)
+  const demoIndexRef = useRef(0)
+  const [on, setOn] = useState<Record<SignalKey, boolean>>(INITIAL_SIGNALS)
+  const [visible, setVisible] = useState(false)
+  const [manualControl, setManualControl] = useState(false)
+
+  useEffect(() => {
+    const node = rootRef.current
+    if (!node || typeof IntersectionObserver === 'undefined') return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setVisible(entry.isIntersecting && entry.intersectionRatio >= 0.35),
+      { threshold: [0, 0.35, 0.65] },
+    )
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!visible || manualControl) return
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+    if (reduceMotion.matches) return
+
+    const interval = window.setInterval(() => {
+      demoIndexRef.current = (demoIndexRef.current + 1) % DEMO_SIGNAL_STATES.length
+      setOn(DEMO_SIGNAL_STATES[demoIndexRef.current])
+    }, 1450)
+
+    return () => window.clearInterval(interval)
+  }, [visible, manualControl])
+
+  function handleToggle(key: SignalKey) {
+    setManualControl(true)
+    setOn((p) => ({ ...p, [key]: !p[key] }))
+  }
 
   const score = SIGNALS.reduce((s, f) => s + (on[f.key] ? f.weight : 0), 0)
   const dashOffset = C * (1 - score / 100)
@@ -42,7 +89,7 @@ export function ReadinessLab() {
         : { text: 'Mostly invisible to agents', color: '#E5635A' }
 
   return (
-    <div className="grid items-stretch gap-5 lg:grid-cols-[1fr_0.85fr]">
+    <div ref={rootRef} data-home-readiness-lab className="grid items-stretch gap-5 lg:grid-cols-[1fr_0.85fr]">
       {/* toggles */}
       <div className="card !p-6">
         <div className="mb-4 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
@@ -55,7 +102,7 @@ export function ReadinessLab() {
               <button
                 key={f.key}
                 type="button"
-                onClick={() => setOn((p) => ({ ...p, [f.key]: !p[f.key] }))}
+                onClick={() => handleToggle(f.key)}
                 aria-pressed={isOn}
                 className="flex w-full items-center gap-3.5 rounded-xl px-4 py-3.5 text-left transition-colors"
                 style={{

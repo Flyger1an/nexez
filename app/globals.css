@@ -647,13 +647,40 @@ a:focus-visible,
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
 }
 
-/* Homepage section bands. The pinned story cards carry the main scroll effect, so
-   these bands stay quiet to avoid competing sticky interactions. */
-.nx-home-reveal-band {
+/* Homepage section bands. These create a restrained stacked-page reveal on
+   desktop; the pinned story-card section intentionally uses only the tint class
+   so its inner card choreography can stay distinct. */
+.nx-home-reveal-band,
+.nx-home-static-band {
   position: relative;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 18%),
     var(--bg);
+}
+
+@media (min-width: 1024px) {
+  .nx-home-reveal-band {
+    position: sticky;
+    top: 72px;
+    min-height: min(760px, calc(100vh - 72px));
+    box-shadow:
+      0 -1px 0 var(--border),
+      0 -28px 80px rgba(0, 0, 0, 0.28);
+  }
+
+  .nx-home-reveal-band::after {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 16%);
+    opacity: 0.55;
+  }
+
+  .nx-home-reveal-band > * {
+    position: relative;
+    z-index: 1;
+  }
 }
 
 .nx-home-reveal-band--tint-01 {
@@ -675,6 +702,12 @@ a:focus-visible,
     linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 18%),
     linear-gradient(rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.02)),
     var(--bg);
+}
+
+.nx-flow-line {
+  width: 28px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--signal) 60%, transparent), transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {
