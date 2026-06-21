@@ -22,12 +22,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
       data: { user },
     } = await supabase.auth.getUser()
     plan = await getOwnerPlanId(supabase, user?.id)
-    // Safety net for the email-confirmation signup path: a new user who confirmed their
-    // email lands here with no billing row but a chosen plan in their metadata — seed their
-    // trial idempotently, then re-resolve so this same render reflects it. Only runs while
-    // they still resolve to 'free' (a real legacy/paid row short-circuits the insert).
-    if (plan === 'free' && user?.id && typeof user.user_metadata?.plan === 'string') {
-      if (await ensureTrialSeeded(user.id, user.user_metadata.plan)) {
+    // Backstop so no signup path leaves an account on the retired Free tier: any account
+    // that resolves to 'free' with NO billing row gets a trial seeded idempotently (their
+    // chosen plan from metadata, else Pro), then we re-resolve so this render reflects it.
+    // A real legacy/paid row short-circuits the insert, so grandfathered accounts keep
+    // resolving to 'free' without a re-seed.
+    if (plan === 'free' && user?.id) {
+      if (await ensureTrialSeeded(user.id, user.user_metadata?.plan)) {
         plan = await getOwnerPlanId(supabase, user.id)
       }
     }

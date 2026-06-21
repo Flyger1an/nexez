@@ -435,8 +435,8 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
                 {mode === 'signin' ? (
                   <span>
                     New to Nexez?{' '}
-                    <a href={modeHref('signup')} onClick={handleModeLink('signup')} className="text-white hover:underline">
-                      Create an account
+                    <a href={nextPath ? `/onboard?next=${encodeURIComponent(nextPath)}` : '/onboard'} className="text-white hover:underline">
+                      Start your free trial
                     </a>
                   </span>
                 ) : mode === 'signup' ? (

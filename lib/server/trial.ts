@@ -13,7 +13,11 @@ export const TRIAL_DAYS = 7
  */
 export async function ensureTrialSeeded(ownerId: string | null | undefined, planMeta: unknown): Promise<boolean> {
   if (!ownerId || !hasSupabaseAdminEnv()) return false
-  const plan = getBillingPlan(typeof planMeta === 'string' ? planMeta : '')
+  // Backstop: a new account that reached here with no chosen plan (or an invalid one)
+  // defaults to a Pro trial, so NO signup path can leave an account on the retired Free
+  // tier. An explicit 'free'/'enterprise' choice opts out (Enterprise = contact sales).
+  const chosen = typeof planMeta === 'string' ? planMeta : ''
+  const plan = getBillingPlan(chosen) ?? (chosen === '' ? getBillingPlan('pro') : undefined)
   if (!plan || plan.id === 'free' || plan.id === 'enterprise') return false
   try {
     const admin = createAdminClient()

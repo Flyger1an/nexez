@@ -135,7 +135,7 @@ export default async function NexezHome() {
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <a href={appUrl('/create')} className="btn-primary h-11 px-5">
-                  Get started free
+                  Get started
                 </a>
                 <a href="/discovery" className="btn-secondary h-11 px-5">See live examples</a>
               </div>

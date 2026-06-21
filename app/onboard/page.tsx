@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Check, ArrowRight, CreditCard, User, Sparkles } from 'lucide-react'
 import { createClient } from '../../utils/supabase/client'
 import { billingPlans } from '../../lib/billing'
+import { safeNextPath } from '../../lib/safe-redirect'
 
 type Step = 1 | 2 | 3 | 4
 
@@ -19,22 +20,28 @@ export default function OnboardPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [needsEmailConfirm, setNeedsEmailConfirm] = useState(false)
+  // Where to land after signup. Defaults to the dashboard; a `?next=` (e.g. /create, when a
+  // visitor built a listing before signing up) returns them there to finish publishing.
+  const [nextPath, setNextPath] = useState('/dashboard')
 
   // Only Launch/Pro/Scale are self-serve (Free is gone; Enterprise = contact sales).
   const trialablePlans = billingPlans.filter((p) => p.id !== 'free' && p.id !== 'enterprise')
   const selectedPlan = billingPlans.find(p => p.id === selectedPlanId) || trialablePlans[0]
-  // No-card 7-day trial: a freshly-onboarded user lands on the dashboard with their trial
+  // No-card 7-day trial: a freshly-onboarded user lands on `nextPath` with their trial
   // already live — no immediate checkout. They add a card any time before day 7 to stay live.
-  const postSignupPath = '/dashboard'
+  const postSignupPath = nextPath
 
   useEffect(() => {
-    const planParam = new URLSearchParams(window.location.search).get('plan')
+    const params = new URLSearchParams(window.location.search)
+    const planParam = params.get('plan')
     if (planParam && trialablePlans.some((p) => p.id === planParam)) setSelectedPlanId(planParam)
-    // Already signed in (e.g. arriving from pricing "Start trial")? Skip the wizard → dashboard.
+    const next = safeNextPath(params.get('next'))
+    if (next) setNextPath(next)
+    // Already signed in (e.g. arriving from pricing "Start trial")? Skip the wizard.
     createClient()
       .auth.getUser()
       .then(({ data }) => {
-        if (data.user) router.replace('/dashboard')
+        if (data.user) router.replace(next || '/dashboard')
       })
   }, [])
 

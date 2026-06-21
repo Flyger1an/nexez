@@ -720,13 +720,13 @@ export default function CreatePage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div className="card w-full max-w-md !p-7 text-center">
             <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--signal)] to-[var(--ready)] text-lg font-bold text-[#0A0A0F]">N</div>
-            <h2 className="mt-4 text-2xl font-semibold">Create a free account to publish</h2>
+            <h2 className="mt-4 text-2xl font-semibold">Start your free trial to publish</h2>
             <p className="mt-2 text-sm leading-6 text-zinc-400">
-              Your listing is saved. Sign in or create an account to publish it and unlock your dashboard, analytics, and custom domains.
+              Your listing is saved. Start a 7-day free trial (no card) to publish it and unlock your dashboard, analytics, and custom domains — it’ll carry straight over to your new account.
             </p>
             <div className="mt-6 flex flex-col gap-2">
-              <a href="/login?mode=signup&next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-gradient-to-r from-[var(--signal)] to-[var(--ready)] px-5 font-medium text-[#0A0A0F] hover:opacity-90">
-                Create account
+              <a href="/onboard?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-gradient-to-r from-[var(--signal)] to-[var(--ready)] px-5 font-medium text-[#0A0A0F] hover:opacity-90">
+                Start free trial
               </a>
               <a href="/login?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-white/15 px-5 text-sm font-medium text-white hover:bg-white/5">
                 I already have an account — sign in
