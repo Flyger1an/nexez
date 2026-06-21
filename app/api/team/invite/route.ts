@@ -10,7 +10,7 @@ import { enforceRateLimit } from '../../../../lib/rate-limit'
  * Create a team invite AND notify the invitee. Invites were previously a silent
  * client-side DB write — the teammate was never told, so collaboration never
  * started. This inserts via the OWNER's session client (so the "owners manage own
- * invites" RLS + the Scale/admin plan-gate trigger still apply), then emails the
+ * invites" RLS + the Pro/admin plan-gate trigger still apply), then emails the
  * invitee a link to sign in/up with that exact address (the access RLS keys on the
  * JWT email). Unlisted /api/* → app host, so the owner session is preserved.
  */
@@ -53,17 +53,17 @@ export async function POST(request: Request) {
 
   // Insert through the owner's session client → RLS ("owners manage own invites") +
   // the trg_enforce_team_collaboration plan gate both apply. The gate raises a
-  // check_violation ('Team collaboration is a Scale plan feature.') for under-tier
-  // owners — surface that as 402 so the UI can prompt an upgrade.
+  // check_violation (23514) for both the Pro feature gate and the per-plan seat limit;
+  // surface either as 402 (with the DB's own message) so the UI can prompt an upgrade.
   const { data: invite, error } = await supabase
     .from('team_invites')
     .insert({ owner_id: user.id, email, role })
     .select('id, email, role, status, created_at')
     .maybeSingle<{ id: string; email: string; role: string; status: string; created_at: string }>()
   if (error) {
-    const isPlanGate = /team collaboration is a scale plan feature/i.test(error.message)
+    const isPlanGate = error.code === '23514' || /plan feature|seat limit/i.test(error.message)
     return NextResponse.json(
-      { error: isPlanGate ? 'Team collaboration is a Scale plan feature.' : error.message },
+      { error: error.message },
       { status: isPlanGate ? 402 : 400 },
     )
   }

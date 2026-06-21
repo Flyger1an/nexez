@@ -120,7 +120,7 @@ export default async function AccountSettingsPage() {
               feature="teamCollaboration"
               currentPlan={currentPlan}
               title="Team collaboration"
-              description="Invite editors and reviewers and run approval workflows on your listings — available on the Scale plan and up."
+              description="Invite editors and reviewers and run approval workflows on your listings — available on the Pro plan and up."
             >
               <TeamInvites />
             </PlanGate>

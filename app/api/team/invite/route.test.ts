@@ -69,8 +69,15 @@ describe('POST /api/team/invite', () => {
     expect((await POST(post({ email: 'owner@example.com', role: 'editor' }))).status).toBe(400)
   })
 
-  it('402 when the plan gate trigger rejects (under Scale)', async () => {
-    refs.insert = { data: null, error: { message: 'Team collaboration is a Scale plan feature.' } }
+  it('402 when the plan gate trigger rejects (under Pro)', async () => {
+    refs.insert = { data: null, error: { code: '23514', message: 'Team collaboration is a Pro plan feature.' } }
+    wire()
+    const res = await POST(post({ email: 'mate@example.com', role: 'editor' }))
+    expect(res.status).toBe(402)
+  })
+
+  it('402 when the per-plan seat limit is reached', async () => {
+    refs.insert = { data: null, error: { code: '23514', message: 'Team seat limit reached for your plan (3 seats).' } }
     wire()
     const res = await POST(post({ email: 'mate@example.com', role: 'editor' }))
     expect(res.status).toBe(402)

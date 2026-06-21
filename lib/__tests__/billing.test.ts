@@ -31,6 +31,13 @@ describe('billing catalog', () => {
     expect(getPlanLimits(null).pages).toBe(1)
     expect(getPlanLimits('bogus').pages).toBe(1)
   })
+
+  it('team-seat quotas ladder up (the new differentiator for Scale/Enterprise)', () => {
+    expect(getPlanLimits('launch').teamSeats).toBe(0) // team collab not available below Pro
+    expect(getPlanLimits('pro').teamSeats).toBe(3)
+    expect(getPlanLimits('scale').teamSeats).toBe(10)
+    expect(getPlanLimits('enterprise').teamSeats).toBe(Number.POSITIVE_INFINITY)
+  })
 })
 
 describe('planAllows (cumulative feature gating)', () => {
@@ -43,20 +50,18 @@ describe('planAllows (cumulative feature gating)', () => {
     }
   })
 
-  it('gates Pro-tier features (integrations / outboundWebhooks / apiAccess / negotiation / analyticsHistory)', () => {
-    for (const f of ['integrations', 'outboundWebhooks', 'apiAccess', 'negotiation', 'analyticsHistory'] as const) {
+  it('gates Pro-tier features — incl. team collaboration + white-label (moved down from Scale)', () => {
+    for (const f of ['integrations', 'outboundWebhooks', 'apiAccess', 'negotiation', 'analyticsHistory', 'teamCollaboration', 'whiteLabel'] as const) {
       expect(planAllows('launch', f)).toBe(false)
       expect(planAllows('pro', f)).toBe(true)
       expect(planAllows('scale', f)).toBe(true)
     }
   })
 
-  it('gates Scale-tier features (teamCollaboration / whiteLabel / prioritySupport)', () => {
-    for (const f of ['teamCollaboration', 'whiteLabel', 'prioritySupport'] as const) {
-      expect(planAllows('pro', f)).toBe(false)
-      expect(planAllows('scale', f)).toBe(true)
-      expect(planAllows('enterprise', f)).toBe(true)
-    }
+  it('keeps prioritySupport as the Scale badge', () => {
+    expect(planAllows('pro', 'prioritySupport')).toBe(false)
+    expect(planAllows('scale', 'prioritySupport')).toBe(true)
+    expect(planAllows('enterprise', 'prioritySupport')).toBe(true)
   })
 
   it('gates SSO to Enterprise only', () => {
@@ -77,7 +82,9 @@ describe('minPlanForFeature (the "Upgrade to X" target)', () => {
     expect(minPlanForFeature('aiFeatures').id).toBe('launch')
     expect(minPlanForFeature('integrations').id).toBe('pro')
     expect(minPlanForFeature('negotiation').id).toBe('pro')
-    expect(minPlanForFeature('teamCollaboration').id).toBe('scale')
+    expect(minPlanForFeature('teamCollaboration').id).toBe('pro') // moved down from Scale
+    expect(minPlanForFeature('whiteLabel').id).toBe('pro')
+    expect(minPlanForFeature('prioritySupport').id).toBe('scale')
     expect(minPlanForFeature('sso').id).toBe('enterprise')
   })
 })

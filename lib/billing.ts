@@ -31,8 +31,11 @@ const FEATURE_MIN_RANK: Record<PlanFeature, number> = {
   apiAccess: 2,
   negotiation: 2,
   analyticsHistory: 2,
-  teamCollaboration: 3,
-  whiteLabel: 3,
+  // Pro is the "almost everything" tier — team collaboration + white-label moved down
+  // from Scale (rank 3 → 2). Scale/Enterprise now differ mainly by LIMITS (seats, listings,
+  // domains) + SSO, not by exclusive features.
+  teamCollaboration: 2,
+  whiteLabel: 2,
   prioritySupport: 3,
   sso: 4,
 }
@@ -57,6 +60,8 @@ export type PlanLimits = {
   pages: number
   /** Max verified custom domains. */
   customDomains: number
+  /** Max team-collaboration seats (non-revoked invites). 0 = feature not available. */
+  teamSeats: number
 }
 
 export type BillingPlan = {
@@ -93,7 +98,7 @@ export const billingPlans: BillingPlan[] = [
     envVar: '', // no price for free
     blurb: 'Try Nexez with one agent listing and the core toolkit.',
     features: ['1 published listing', 'agent.json · llms.txt · MCP', 'Directory listing', 'Deterministic simulator'],
-    limits: { pages: 1, customDomains: 0 },
+    limits: { pages: 1, customDomains: 0, teamSeats: 0 },
     commissionPercent: 15, // Free pays the highest commission, no subscription fee
   },
   {
@@ -105,7 +110,7 @@ export const billingPlans: BillingPlan[] = [
     envVar: 'STRIPE_PRICE_LAUNCH',
     blurb: 'For a solo pro turning agent traffic into bookings.',
     features: ['3 published listings', 'Custom domain', 'AI simulator & optimize', 'Remove Nexez badge'],
-    limits: { pages: 3, customDomains: 1 },
+    limits: { pages: 3, customDomains: 1, teamSeats: 0 },
     commissionPercent: 8,
   },
   {
@@ -116,8 +121,8 @@ export const billingPlans: BillingPlan[] = [
     cadence: 'month',
     envVar: 'STRIPE_PRICE_PRO',
     blurb: 'For teams running services, bookings, and paid offers.',
-    features: ['25 published listings', 'Integrations & webhooks', 'API access', 'Negotiation & smart pricing'],
-    limits: { pages: 25, customDomains: 5 },
+    features: ['25 published listings', 'Team collaboration (3 seats)', 'White-label branding', 'Integrations, webhooks & API', 'Negotiation & smart pricing'],
+    limits: { pages: 25, customDomains: 5, teamSeats: 3 },
     commissionPercent: 6,
   },
   {
@@ -128,8 +133,8 @@ export const billingPlans: BillingPlan[] = [
     cadence: 'month',
     envVar: 'STRIPE_PRICE_SCALE',
     blurb: 'For agencies and operators managing many agent listings.',
-    features: ['100 published listings', 'Team collaboration', 'White-label branding', 'Priority support'],
-    limits: { pages: 100, customDomains: 25 },
+    features: ['100 published listings', '10 team seats', '25 custom domains', 'Priority support'],
+    limits: { pages: 100, customDomains: 25, teamSeats: 10 },
     commissionPercent: 4,
   },
   {
@@ -140,8 +145,8 @@ export const billingPlans: BillingPlan[] = [
     cadence: 'month',
     envVar: 'STRIPE_PRICE_ENTERPRISE',
     blurb: 'For large organizations with custom needs and SLAs.',
-    features: ['Unlimited listings', 'SSO / SAML', 'Dedicated support & SLAs', 'Volume discounts'],
-    limits: { pages: UNLIMITED, customDomains: UNLIMITED },
+    features: ['Unlimited listings, seats & domains', 'SSO / SAML', 'Dedicated support & SLAs', 'Volume discounts'],
+    limits: { pages: UNLIMITED, customDomains: UNLIMITED, teamSeats: UNLIMITED },
     commissionPercent: 2, // custom in practice
   },
 ]
