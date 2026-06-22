@@ -147,18 +147,20 @@ export default function NexezHome() {
   return (
     <main>
       <ScrollProgress />
-      {/* HERO — text + CTAs on the left, the draggable Agent X-Ray prominent on the right */}
-      <section
-        className="relative overflow-hidden border-b border-border"
-        aria-label="Hero"
-        data-section-name="Hero"
-        style={{
-          background:
-            'radial-gradient(120% 75% at 50% -12%, color-mix(in srgb, var(--signal) 9%, transparent), transparent 55%), var(--bg)',
-        }}
-      >
-        <p className="sr-only">Hero</p>
+      {/* HERO + MARQUEE share one smoke field that bleeds across both */}
+      <div className="relative overflow-hidden" style={{ background: 'var(--bg)' }}>
         <ShaderBackdrop />
+        {/* HERO — text + CTAs on the left, the draggable Agent X-Ray prominent on the right */}
+        <section
+          className="relative z-10"
+          aria-label="Hero"
+          data-section-name="Hero"
+          style={{
+            background:
+              'radial-gradient(120% 75% at 50% -12%, color-mix(in srgb, var(--signal) 9%, transparent), transparent 55%)',
+          }}
+        >
+          <p className="sr-only">Hero</p>
         <div className="relative z-10 mx-auto max-w-7xl px-5 py-16 lg:py-20">
           <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(440px,0.9fr)] lg:gap-12">
             {/* LEFT — h1, copy, CTAs */}
@@ -195,7 +197,7 @@ export default function NexezHome() {
 
       {/* AGENT LOGO MARQUEE */}
       <section
-        className="border-b border-border bg-white/[0.015]"
+        className="relative z-10"
         aria-label="Transacts with every major agent"
         data-section-name="Transacts with every major agent"
       >
@@ -221,6 +223,7 @@ export default function NexezHome() {
           </div>
         </div>
       </section>
+      </div>
 
       {/* PROBLEM */}
       <section

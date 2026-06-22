@@ -11,9 +11,9 @@ You are implementing the complete visual identity for nexez.ai — marketing sit
 
 1. **Never hard-code a color, shadow, blur, or radius.** Every visual value comes from a CSS custom property. If a needed token doesn't exist, add it to BOTH themes, then use it.
 2. **No multicolor gradient text.** Headlines use the tonal `--grad-text` fade only. The prism gradient appears exclusively in: 1px hairlines, readiness rings, the logo diagonal, eyebrow ticks.
-3. **Color signals meaning, never decoration.** `--ready` teal = agent-ready/positive states. `--amber` = needs attention. `--signal` periwinkle = interactive/primary.
+3. **Color signals meaning, never decoration.** `--signal` persimmon (`#FF6A33`) = importance / interactive / primary; `--signal-solid` (`#DC4F1E`) is the deep fill behind white button text (AA). `--ready` teal = agent-ready/positive states. `--amber` = caution / needs attention. **The platform is restrained** (mono base; persimmon reserved for importance), **the homepage is expressive**. The dashboard canvas is calmed via `.nx-dash` (neutralizes `--signal`/`--signal-solid` to `--fg`; the sidebar re-asserts persimmon on the active nav), and primary buttons read as clean neutral-inverse pills (`--fg` fill / `--bg` text — white pill in dark, black pill in light).
 4. **Respect the gloss budget.** Edge highlights, sheens, and glows are already tuned to a matte finish. Do not brighten them. New components inherit `--edge`, `--sheen`, `--card-glow` — never invent stronger ones.
-5. **Code/data wells stay dark in BOTH themes** (terminal aesthetic): background `--well`, text `--well-muted`, syntax colors fixed `#8E9EFF / #5FEAD3 / #FFD9A8`.
+5. **Code/data wells stay dark in BOTH themes** (terminal aesthetic): background `--well`, text `--well-muted`, syntax colors fixed `#FF6A33 / #5FEAD3 / #FFD9A8`.
 6. **Every page works in both themes.** Theme = `data-theme="light"` on `<html>`; default (no attribute) is black. `flip()` toggles. Test every new component in both before shipping.
 7. **`prefers-reduced-motion: reduce`** must show the full design with entrances skipped. Cursor specular may remain (static, non-animated response).
 8. **Semi-transparent elements never straddle a border** (the pricing-badge lesson). Anything overlapping a card edge gets an opaque backing: `linear-gradient(tint,tint), var(--bg)`.
@@ -35,14 +35,14 @@ Fonts (Google Fonts): **Schibsted Grotesk** 500/600/700 (display, letter-spacing
 --raise:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.03))
 --blur-card:10px  --blur-btn:12px  --sat:125%
 --well:#0A0D13  --well-line:rgba(255,255,255,.08)  --well-muted:rgba(238,241,248,.62)
---signal:#8E9EFF  --ready:#5FEAD3  --amber:#FFD9A8
---prism:linear-gradient(90deg,#8E9EFF,#5FEAD3 55%,#FFD9A8)
+--signal:#FF6A33  --signal-solid:#DC4F1E  --ready:#5FEAD3  --amber:#FFD9A8
+--prism:linear-gradient(90deg,#FF6A33,#5FEAD3 55%,#FFD9A8)
 --sheen:rgba(255,255,255,.13)  --card-glow:rgba(255,255,255,.035)
 --btn-grad:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.025))
 --btn-border:rgba(255,255,255,.13)  --btn-edge:rgba(255,255,255,.15)
---pri-grad:linear-gradient(180deg,rgba(155,170,255,.26),rgba(142,158,255,.07))
---pri-border:rgba(155,170,255,.38)
---pri-glow:0 10px 28px -12px rgba(142,158,255,.26)
+--pri-grad:linear-gradient(180deg,rgba(255,140,90,.26),rgba(255,106,51,.07))
+--pri-border:rgba(255,106,51,.38)
+--pri-glow:0 10px 28px -12px rgba(255,106,51,.26)
 --r-card:26px  --r-pill:999px
 ```
 
@@ -55,13 +55,13 @@ Fonts (Google Fonts): **Schibsted Grotesk** 500/600/700 (display, letter-spacing
 --line:rgba(13,16,22,.12)  --line-soft:rgba(13,16,22,.07)  --line-hi:rgba(13,16,22,.26)
 --edge:rgba(255,255,255,.6)  --edge-soft:rgba(255,255,255,.38)
 --raise:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.6))
---signal:#5566F2  --ready:#0E9F87  --amber:#C8862F
---prism:linear-gradient(90deg,#5566F2,#15B79E 55%,#E8A94C)
---sheen:rgba(255,255,255,.32)  --card-glow:rgba(85,102,242,.05)
+--signal:#FF6A33  --signal-solid:#DC4F1E  --ready:#0E9F87  --amber:#C8862F
+--prism:linear-gradient(90deg,#FF6A33,#15B79E 55%,#E8A94C)
+--sheen:rgba(255,255,255,.32)  --card-glow:rgba(255,106,51,.05)
 --btn-grad:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.55))
 --btn-border:rgba(13,16,22,.1)  --btn-edge:rgba(255,255,255,.7)
---pri-grad:linear-gradient(180deg,rgba(85,102,242,.2),rgba(85,102,242,.06))
---pri-border:rgba(85,102,242,.36)
+--pri-grad:linear-gradient(180deg,rgba(255,106,51,.2),rgba(255,106,51,.06))
+--pri-border:rgba(255,106,51,.36)
 (wells, radii, fonts unchanged)
 ```
 
@@ -150,7 +150,7 @@ Clearspace ≥ one stroke width; mono fallback = all strokes `currentColor`; nev
 
 ## 6 · Page inventory (reference renderings 1–7)
 
-Marketing: **1 Homepage** (hero + floating agent-page mock + payload well), **2 Pricing** (3 tiers, featured scaled 1.035 + flag badge, glass FAQ accordions), **3 Analytics** (KPI row, layered bar chart, model share, queries, funnel), **4 Simulator** (glass chat: user bubble periwinkle-tinted, agent bubble with parsing trace well), **5 Directory** (cards with readiness rings, filter chips, CTA band).
+Marketing: **1 Homepage** (hero + floating agent-page mock + payload well), **2 Pricing** (3 tiers, featured scaled 1.035 + flag badge, glass FAQ accordions), **3 Analytics** (KPI row, layered bar chart, model share, queries, funnel), **4 Simulator** (glass chat: user bubble persimmon-tinted, agent bubble with parsing trace well), **5 Directory** (cards with readiness rings, filter chips, CTA band).
 App: **6 Offer Editor** (topbar, rail, two-row offer cards, live preview + readiness checklist + Copilot), **7 Onboarding** (01–04 stepper pills, URL import bar, source-card grid with monogram tiles).
 Copy voice: plain verbs, sentence case, buttons say exactly what they do ("Deploy your agent page", not "Submit"). Data is always mono.
 

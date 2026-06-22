@@ -260,7 +260,7 @@ export default function OnboardPage() {
 
                 <div className="mt-8 max-w-md rounded-2xl border border-white/10 bg-[#12101B] p-6">
                   <div className="flex items-center gap-3 text-sm">
-                    <CreditCard className="size-5 text-[var(--signal)]" />
+                    <CreditCard className="size-5 text-[var(--fg-muted)]" />
                     <div>
                       <div className="font-medium">Secure Stripe Connect</div>
                       <div className="text-xs text-[#9CA3AF]">Nexez never sees your customer payment details.</div>

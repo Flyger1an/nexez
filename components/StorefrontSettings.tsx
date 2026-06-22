@@ -203,7 +203,7 @@ export function StorefrontSettings({
           <span className="text-sm font-medium text-zinc-200">Accent color</span>
           <input
             type="color"
-            value={/^#[0-9a-f]{6}$/i.test(edit.accent_color) ? edit.accent_color : '#5566f2'}
+            value={/^#[0-9a-f]{6}$/i.test(edit.accent_color) ? edit.accent_color : '#FF6A33'}
             onChange={(e) => setEdit({ ...edit, accent_color: e.target.value })}
             className="h-8 w-12 cursor-pointer rounded border border-white/10 bg-transparent"
             aria-label="Accent color"

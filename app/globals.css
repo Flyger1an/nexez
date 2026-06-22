@@ -261,10 +261,25 @@
 /* =====================================================
    DASHBOARD & APP-SPECIFIC OVERRIDES
    ===================================================== */
+/* Dashboard shell: persimmon is calmed to black/white across the canvas (.nx-dash);
+   the sidebar re-asserts persimmon so the nav "you are here" highlight is the one
+   accent. Teal (--ready) + amber stay for green/gold semantics. */
+.nx-dash { --signal: var(--fg); --signal-solid: var(--fg); }
 .dashboard-sidebar {
   background: #050505;
   border-color: var(--border);
+  --signal: #FF6A33;
+  --signal-solid: #DC4F1E;
 }
+/* Solid signal fills inside the calmed dashboard resolve to --fg (which flips with the
+   theme), so buttons that hardcode text-white / text-zinc-950 collide in one mode. Force
+   the contrasting --bg text → a clean inverted button (dark text on the light fill in dark
+   mode, light text on the dark fill in light mode). Dots/bars carry no text → no-op. */
+.nx-dash .bg-\[var\(--signal-solid\)\],
+.nx-dash .bg-\[var\(--signal\)\] { color: var(--bg) !important; }
+/* The sidebar re-asserts persimmon fills, so keep white text on those (the badge). */
+.dashboard-sidebar .bg-\[var\(--signal-solid\)\],
+.dashboard-sidebar .bg-\[var\(--signal\)\] { color: #fff !important; }
 
 .nav-item {
   position: relative;
@@ -1050,8 +1065,8 @@ html.light:not(:has(.public-agent-page)) .nx-chip { color: #0e7490; }
   --font-mono: var(--font-jetbrains), "JetBrains Mono", ui-monospace, monospace;
 
   /* design-system accents (dark) */
-  --signal: #8E9EFF; --ready: #5FEAD3; --amber: #FFD9A8;
-  --prism: linear-gradient(90deg, #8E9EFF, #5FEAD3 55%, #FFD9A8);
+  --signal: #FF6A33; --ready: #5FEAD3; --amber: #FFD9A8;
+  --prism: linear-gradient(90deg, #FF6A33, #5FEAD3 55%, #FFD9A8);
   --sheen: rgba(255,255,255,.13); --card-glow: rgba(255,255,255,.035);
   --text-dim: rgba(238,241,248,.66);
 
@@ -1071,9 +1086,9 @@ html.light:not(:has(.public-agent-page)) .nx-chip { color: #0e7490; }
   --btn-border: rgba(255,255,255,.13); --btn-border-hi: rgba(255,255,255,.26);
   --btn-edge: rgba(255,255,255,.15); --btn-edge-hi: rgba(255,255,255,.24);
   --btn-shadow: 0 10px 26px -12px rgba(0,0,0,.65); --btn-shadow-hi: 0 16px 38px -14px rgba(0,0,0,.75);
-  --pri-grad: linear-gradient(180deg, rgba(155,170,255,.26), rgba(142,158,255,.07));
-  --pri-border: rgba(155,170,255,.38); --pri-glow: 0 10px 28px -12px rgba(142,158,255,.26);
-  --pri-glow-hi: 0 14px 38px -14px rgba(142,158,255,.38);
+  --pri-grad: linear-gradient(180deg, rgba(255,140,90,.26), rgba(255,106,51,.07));
+  --pri-border: rgba(255,140,90,.38); --pri-glow: 0 10px 28px -12px rgba(255,106,51,.26);
+  --pri-glow-hi: 0 14px 38px -14px rgba(255,106,51,.38);
   --r-card: 26px; --r-pill: 999px;
 
   /* brand accent shift: purple/lavender -> periwinkle, neon-teal -> ready teal */
@@ -1082,9 +1097,9 @@ html.light:not(:has(.public-agent-page)) .nx-chip { color: #0e7490; }
   --color-neon-teal: var(--ready);
 }
 html.light {
-  --signal: #5566F2; --ready: #0E9F87; --amber: #C8862F;
-  --prism: linear-gradient(90deg, #5566F2, #15B79E 55%, #E8A94C);
-  --sheen: rgba(255,255,255,.32); --card-glow: rgba(85,102,242,.05);
+  --signal: #FF6A33; --ready: #0E9F87; --amber: #C8862F;
+  --prism: linear-gradient(90deg, #FF6A33, #15B79E 55%, #E8A94C);
+  --sheen: rgba(255,255,255,.32); --card-glow: rgba(255,106,51,.05);
   --text-dim: rgba(13,16,22,.58);
   --glass: rgba(255,255,255,.6); --glass-strong: rgba(255,255,255,.78);
   --fill-1: rgba(13,16,22,.045); --fill-2: rgba(13,16,22,.075);
@@ -1097,13 +1112,13 @@ html.light {
   --btn-border: rgba(13,16,22,.1); --btn-border-hi: rgba(13,16,22,.2);
   --btn-edge: rgba(255,255,255,.7); --btn-edge-hi: rgba(255,255,255,.9);
   --btn-shadow: 0 10px 26px -12px rgba(25,35,65,.22); --btn-shadow-hi: 0 16px 38px -14px rgba(25,35,65,.3);
-  --pri-grad: linear-gradient(180deg, rgba(85,102,242,.2), rgba(85,102,242,.06));
-  --pri-border: rgba(85,102,242,.36); --pri-glow: 0 10px 28px -12px rgba(85,102,242,.2);
-  --pri-glow-hi: 0 14px 38px -14px rgba(85,102,242,.3);
+  --pri-grad: linear-gradient(180deg, rgba(255,106,51,.2), rgba(255,106,51,.06));
+  --pri-border: rgba(255,106,51,.36); --pri-glow: 0 10px 28px -12px rgba(255,106,51,.2);
+  --pri-glow-hi: 0 14px 38px -14px rgba(255,106,51,.3);
 }
 /* code/data wells + the new tokens stay dark on agent pages, in any theme (rule 5) */
 .public-agent-page {
-  --signal: #8E9EFF; --ready: #5FEAD3; --amber: #FFD9A8;
+  --signal: #FF6A33; --ready: #5FEAD3; --amber: #FFD9A8;
   --glass: rgba(255,255,255,.035); --glass-strong: rgba(255,255,255,.06);
   --fill-1: rgba(255,255,255,.045); --fill-2: rgba(255,255,255,.075);
   --line: rgba(255,255,255,.1); --line-soft: rgba(255,255,255,.065);
@@ -1137,6 +1152,25 @@ html.light {
 }
 .btn-primary:active, .btn-secondary:active { transform: translateY(0) scale(.965); transition-duration: .1s; }
 html.light .btn-primary, html.light .btn-secondary { color: var(--fg); }
+/* Flat platform/utility surfaces (the forced-dark bg-[#hex] pages — tools, finance, test,
+   checkout, agent pages, etc.) make the glass btn-primary fill blend into the page in BOTH
+   themes. Give those primary CTAs the same clean neutral-inverse pill the rest of the
+   platform uses: --fg fill / --bg text, which flips correctly — white pill + dark text on
+   the dark-mode page, black pill + light text on the light-mode page. The homepage keeps
+   its expressive glass CTA (it sits on the shader hero, not a bg-[#hex] surface). */
+.bg-\[\#0A0A0F\] .btn-primary,
+.bg-\[\#090b10\] .btn-primary,
+.bg-\[\#050507\] .btn-primary {
+  background: var(--fg);
+  color: var(--bg) !important;
+  border-color: transparent;
+  box-shadow: none;
+}
+.bg-\[\#0A0A0F\] .btn-primary:hover,
+.bg-\[\#090b10\] .btn-primary:hover,
+.bg-\[\#050507\] .btn-primary:hover {
+  background: var(--fg); filter: brightness(0.9); border-color: transparent;
+}
 .btn-primary::before, .btn-secondary::before {
   content: ""; position: absolute; inset: -40%; z-index: -1;
   background: linear-gradient(115deg, transparent 30%, var(--sheen) 48%, transparent 60%);
@@ -1206,7 +1240,7 @@ html.fx .ring .fg { transition: stroke-dashoffset 1.3s cubic-bezier(.22,1,.36,1)
    only under .has-menu (added by React after hydration); without JS the links stay
    (scrollable strip). At <=480px Sign in folds out of the bar but is in the sheet. */
 nav.glassnav .logo { font-family: var(--font-display); font-weight: 700; letter-spacing: -.04em; font-size: 1.15rem; display: inline-flex; align-items: center; gap: .55rem; color: var(--fg); }
-nav.glassnav .logo .mark { width: 22px; height: 22px; flex-shrink: 0; color: var(--fg); filter: drop-shadow(0 0 3px rgba(142,158,255,.22)); }
+nav.glassnav .logo .mark { width: 22px; height: 22px; flex-shrink: 0; color: var(--fg); filter: drop-shadow(0 0 3px rgba(255,106,51,.22)); }
 nav.glassnav .nav-actions { display: inline-flex; align-items: center; gap: .5rem; }
 .menu-btn { display: none; align-items: center; justify-content: center; width: 38px; height: 38px; flex-shrink: 0; border-radius: var(--r-pill); background: linear-gradient(180deg, var(--fill-1), transparent); border: 1px solid var(--line-soft); color: var(--fg); font-size: 1.05rem; line-height: 1; cursor: pointer; transition: border-color .25s ease, background .25s ease; }
 .menu-btn:hover { border-color: var(--line); background: var(--fill-2); }
@@ -1266,8 +1300,8 @@ nav.glassnav.open .navsheet { display: grid; gap: .15rem; }
    lived here are gone; colors are tokens at the source now, enforced by
    `npm run lint:palette`.
    ============================================================================ */
-:root { --signal-solid: #5145e8; }
-html.light { --signal-solid: #4f46e5; }
+:root { --signal-solid: #DC4F1E; }
+html.light { --signal-solid: #DC4F1E; }
 .bg-\[var\(--signal-solid\)\] { color: #fff; }
 
 /* ============================================================================

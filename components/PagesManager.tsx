@@ -221,7 +221,7 @@ export function PagesManager({
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="mx-auto max-w-7xl px-6 py-8">
         {limitMsg && (
-          <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-[var(--signal)]/25 bg-[var(--signal)]/[0.06] px-4 py-3">
+          <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-[var(--amber)]/30 bg-[var(--amber)]/[0.08] px-4 py-3">
             <span className="min-w-0 flex-1 text-sm text-zinc-300">{limitMsg}</span>
             <a href={appUrl('/dashboard/billing')} className="btn-primary btn-sm shrink-0">Upgrade plan</a>
           </div>

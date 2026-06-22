@@ -37,7 +37,7 @@ void main(){
   // fade toward the top-centre so the bloom reads as a light source, not a flat wash
   float vignette = smoothstep(1.15, 0.15, distance(uv, vec2(0.5, 0.18)));
   f *= vignette;
-  vec3 peri = vec3(0.310, 0.275, 0.898); // ~#4f46e5
+  vec3 peri = vec3(1.000, 0.416, 0.200); // persimmon ~#FF6A33
   gl_FragColor = vec4(peri * f, f * 0.6);
 }`
 

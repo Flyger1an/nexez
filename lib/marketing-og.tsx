@@ -3,7 +3,7 @@ import { ImageResponse } from 'next/og'
 type OgAccent = 'signal' | 'ready' | 'amber'
 
 const accentColor: Record<OgAccent, string> = {
-  signal: '#8E9EFF',
+  signal: '#FF6A33',
   ready: '#5FEAD3',
   amber: '#FFD9A8',
 }

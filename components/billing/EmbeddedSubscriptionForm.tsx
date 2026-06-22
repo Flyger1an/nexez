@@ -152,7 +152,7 @@ export default function EmbeddedSubscriptionForm({ plan, clientSecret, onSuccess
           appearance: {
             theme: 'night',
             variables: {
-              colorPrimary: '#8E9EFF',
+              colorPrimary: '#DC4F1E',
               colorBackground: '#0F0D18',
               colorText: '#ffffff',
               colorDanger: '#ef4444',

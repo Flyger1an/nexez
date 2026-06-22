@@ -374,15 +374,15 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                       href={n.href}
                       className={`flex items-center justify-between gap-3 rounded-lg border px-5 py-3 text-sm transition ${
                         n.severity === 'action'
-                          ? 'border-[var(--signal)]/40 bg-[var(--signal)]/10 hover:bg-[var(--signal)]/20'
+                          ? 'border-[var(--amber)]/40 bg-[var(--amber)]/10 hover:bg-[var(--amber)]/20'
                           : 'border-[var(--bd-10)] bg-[var(--ov-03)] hover:bg-[var(--ov-05)]'
                       }`}
                     >
                       <span className="flex items-center gap-3">
-                        <Bell className={`size-4 ${n.severity === 'action' ? 'text-[var(--signal)]' : 'text-[var(--fg-muted)]'}`} />
+                        <Bell className={`size-4 ${n.severity === 'action' ? 'text-[var(--amber)]' : 'text-[var(--fg-muted)]'}`} />
                         <span className="text-white">{n.message}</span>
                       </span>
-                      <span className="shrink-0 text-sm font-medium text-[var(--signal)]">{n.cta} →</span>
+                      <span className={`shrink-0 text-sm font-medium ${n.severity === 'action' ? 'text-[var(--amber)]' : 'text-[var(--signal)]'}`}>{n.cta} →</span>
                     </a>
                   ))}
                 </div>

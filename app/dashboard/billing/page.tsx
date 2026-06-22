@@ -166,11 +166,11 @@ export default async function BillingPage({ searchParams }: BillingProps) {
 
         {/* Trial / paused lifecycle banners (Shopify-style) */}
         {trialState.isTrialing && (
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--signal)]/30 bg-[var(--signal)]/10 px-4 py-3 text-sm">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--amber)]/40 bg-[var(--amber)]/10 px-4 py-3 text-sm">
             <span className="text-white">
               <span className="font-semibold">{trialDaysLeft} day{trialDaysLeft === 1 ? '' : 's'} left</span> in your {trialPlanName} trial — add a payment method to keep your storefront live after it ends.
             </span>
-            <a href={`?plan=${trialState.chosenPlanId}`} className="rounded-xl bg-[var(--signal-solid)] px-4 py-1.5 font-medium text-white">
+            <a href={`?plan=${trialState.chosenPlanId}`} className="rounded-xl bg-[var(--amber)] px-4 py-1.5 font-medium text-zinc-950">
               Add payment method
             </a>
           </div>

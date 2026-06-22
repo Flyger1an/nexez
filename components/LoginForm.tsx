@@ -481,7 +481,7 @@ function Benefit({ icon, title, text }: { icon: React.ReactNode; title: string; 
   return (
     <div className="rounded-lg border border-border bg-white/[0.03] p-4">
       <div className="flex items-center gap-3">
-        <span className="flex size-8 items-center justify-center rounded-md border border-border bg-black text-[var(--signal)]">{icon}</span>
+        <span className="flex size-8 items-center justify-center rounded-md border border-border bg-black text-[var(--fg-muted)]">{icon}</span>
         <p className="text-sm font-medium text-white">{title}</p>
       </div>
       <p className="mt-3 text-sm leading-6 text-muted-foreground">{text}</p>

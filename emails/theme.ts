@@ -1,7 +1,7 @@
 // EXACT Nexez brand palette for email (the LIGHT-theme token values — email has no
 // theme toggle, and the design system reads best in light). These mirror the CSS
 // tokens in app/globals.css `html.light`; keep them in sync if the brand shifts:
-//   --signal #5566F2 · --signal-solid #4f46e5 · --ready #0E9F87 · --amber #C8862F
+//   --signal #FF6A33 · --signal-solid #DC4F1E · --ready #0E9F87 · --amber #C8862F
 //   --bg #fafafa · --panel #ffffff · --fg #0a0a0a · --fg-muted #52525b · --fg-muted-2 #71717a
 // Email clients can't use CSS variables, so we hardcode the resolved values here —
 // one source of truth for every template.
@@ -12,8 +12,8 @@ export const BRAND = {
   fgMuted: '#52525b', // --fg-muted (labels)
   fgFaint: '#71717a', // --fg-muted-2 (footnotes)
   border: '#e6e6ea', // light hairline (solid, ~ --bd-10 over white)
-  signal: '#5566F2', // --signal (accent text / links)
-  signalSolid: '#4f46e5', // --signal-solid (button fill carrying WHITE text — AA contrast)
+  signal: '#FF6A33', // --signal (accent text / links)
+  signalSolid: '#DC4F1E', // --signal-solid (deep persimmon — white-text button fill, AA contrast)
   ready: '#0E9F87', // --ready (positive: paid / confirmed)
   amber: '#C8862F', // --amber (caution: refund requested)
   danger: '#b91c1c', // sanctioned light-mode red (dispute / problem)

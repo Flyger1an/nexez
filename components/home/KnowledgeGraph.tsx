@@ -46,18 +46,18 @@ const { AGENTS, CHIPS } = ((): { AGENTS: Agent[]; CHIPS: Chip[] } => {
   const cx = 500
   const cy = 500
   const defs: AgentDef[] = [
-    { name: 'ChatGPT', mono: 'Gp', ang: -82, r: 298, z: 0.12, hue: 248 },
+    { name: 'ChatGPT', mono: 'Gp', ang: -82, r: 298, z: 0.12, hue: 14 },
     { name: 'Claude', mono: 'Cl', ang: -57, r: 322, z: 0.16, hue: 172, hot: true, dir: 'out' },
-    { name: 'Gemini', mono: 'Gm', ang: -108, r: 362, z: 0.55, hue: 232 },
-    { name: 'Perplexity', mono: 'Px', ang: -14, r: 300, z: 0.14, hue: 262, hot: true },
-    { name: 'Copilot', mono: 'Co', ang: 40, r: 314, z: 0.22, hue: 220, dir: 'out' },
-    { name: 'Grok', mono: 'Gk', ang: 13, r: 364, z: 0.5, hue: 248 },
-    { name: 'Mistral', mono: 'Ms', ang: 96, r: 300, z: 0.12, hue: 280, hot: true },
-    { name: 'Llama', mono: 'Lm', ang: 70, r: 372, z: 0.58, hue: 248 },
-    { name: 'DeepSeek', mono: 'Ds', ang: 122, r: 352, z: 0.4, hue: 232, dir: 'out' },
+    { name: 'Gemini', mono: 'Gm', ang: -108, r: 362, z: 0.55, hue: 8 },
+    { name: 'Perplexity', mono: 'Px', ang: -14, r: 300, z: 0.14, hue: 20, hot: true },
+    { name: 'Copilot', mono: 'Co', ang: 40, r: 314, z: 0.22, hue: 4, dir: 'out' },
+    { name: 'Grok', mono: 'Gk', ang: 13, r: 364, z: 0.5, hue: 14 },
+    { name: 'Mistral', mono: 'Ms', ang: 96, r: 300, z: 0.12, hue: 26, hot: true },
+    { name: 'Llama', mono: 'Lm', ang: 70, r: 372, z: 0.58, hue: 14 },
+    { name: 'DeepSeek', mono: 'Ds', ang: 122, r: 352, z: 0.4, hue: 8, dir: 'out' },
     { name: 'Qwen', mono: 'Qw', ang: 158, r: 318, z: 0.2, hue: 172 },
-    { name: 'Cohere', mono: 'Ch', ang: 196, r: 366, z: 0.52, hue: 262 },
-    { name: 'Amazon Nova', mono: 'Nv', ang: 226, r: 312, z: 0.24, hue: 248, dir: 'out' },
+    { name: 'Cohere', mono: 'Ch', ang: 196, r: 366, z: 0.52, hue: 20 },
+    { name: 'Amazon Nova', mono: 'Nv', ang: 226, r: 312, z: 0.24, hue: 14, dir: 'out' },
   ]
   const chipText: Record<string, string> = { Claude: 'Offer', Perplexity: '200 OK', Mistral: '$120' }
   const chips: Chip[] = []
@@ -131,10 +131,10 @@ const { AGENTS, CHIPS } = ((): { AGENTS: Agent[]; CHIPS: Chip[] } => {
 })()
 
 const FRAGMENTS = [
-  { left: 170, top: 300, color: 'rgba(129,140,248,0.28)', rot: -4, text: 'POST /checkout · 200 OK' },
+  { left: 170, top: 300, color: 'rgba(255,140,90,0.28)', rot: -4, text: 'POST /checkout · 200 OK' },
   { right: 128, top: 235, color: 'rgba(94,234,212,0.28)', rot: 3, text: 'schema.org/Offer' },
-  { left: 150, bottom: 235, color: 'rgba(129,140,248,0.28)', rot: 2, text: 'price: "$120.00"' },
-  { right: 185, bottom: 330, color: 'rgba(129,140,248,0.28)', rot: -3, text: 'id: your-business · MCP' },
+  { left: 150, bottom: 235, color: 'rgba(255,140,90,0.28)', rot: 2, text: 'price: "$120.00"' },
+  { right: 185, bottom: 330, color: 'rgba(255,140,90,0.28)', rot: -3, text: 'id: your-business · MCP' },
 ]
 const TICKS = [
   { left: 34, top: 34, text: '+   nexez · agent graph' },
@@ -203,22 +203,22 @@ export function KnowledgeGraph({ className }: { className?: string }) {
         style={{ position: 'absolute', left: '50%', top: '50%', width: 1000, height: 1000, transformOrigin: 'center center', transform: 'translate(-50%,-50%) scale(0.6)' }}
       >
         {/* dot grid */}
-        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle, rgba(99,102,241,0.13) 0.6px, transparent 0.7px)', backgroundSize: '26px 26px', backgroundPosition: '13px 13px' }} />
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle, rgba(255,106,51,0.13) 0.6px, transparent 0.7px)', backgroundSize: '26px 26px', backgroundPosition: '13px 13px' }} />
         {/* scan lines */}
         <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 4px)', opacity: 0.5 }} />
         {/* moving scan sweep */}
         <div
           className="nx-kg-scan"
-          style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 200, background: 'linear-gradient(180deg, transparent, rgba(129,140,248,0.10) 45%, rgba(129,140,248,0.14) 50%, rgba(129,140,248,0.10) 55%, transparent)', mixBlendMode: 'screen', pointerEvents: 'none' }}
+          style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 200, background: 'linear-gradient(180deg, transparent, rgba(255,140,90,0.10) 45%, rgba(255,140,90,0.14) 50%, rgba(255,140,90,0.10) 55%, transparent)', mixBlendMode: 'screen', pointerEvents: 'none' }}
         />
         {/* vignette — fades the scene edges into the page background (theme-aware) */}
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 50% 50%, transparent 38%, color-mix(in srgb, var(--bg) 62%, transparent) 76%, var(--bg) 100%)' }} />
         {/* central volumetric glow */}
-        <div className="nx-kg-glow" style={{ position: 'absolute', left: '50%', top: '50%', marginLeft: -380, marginTop: -380, width: 760, height: 760, borderRadius: '50%', background: 'radial-gradient(circle, rgba(79,70,229,0.32) 0%, rgba(79,70,229,0.10) 38%, transparent 66%)', filter: 'blur(14px)' }} />
+        <div className="nx-kg-glow" style={{ position: 'absolute', left: '50%', top: '50%', marginLeft: -380, marginTop: -380, width: 760, height: 760, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,106,51,0.32) 0%, rgba(255,106,51,0.10) 38%, transparent 66%)', filter: 'blur(14px)' }} />
 
         {/* registration ticks */}
         {TICKS.map((t, i) => (
-          <div key={i} style={{ position: 'absolute', left: t.left, right: t.right, top: t.top, bottom: t.bottom, font: `500 10px ${MONO}`, color: 'rgba(165,180,252,0.32)', letterSpacing: 1, whiteSpace: 'pre' }}>
+          <div key={i} style={{ position: 'absolute', left: t.left, right: t.right, top: t.top, bottom: t.bottom, font: `500 10px ${MONO}`, color: 'rgba(255,168,128,0.32)', letterSpacing: 1, whiteSpace: 'pre' }}>
             {t.text}
           </div>
         ))}
@@ -246,7 +246,7 @@ export function KnowledgeGraph({ className }: { className?: string }) {
           </defs>
 
           {[0, 2, 4].map((begin, i) => (
-            <circle key={i} cx="500" cy="500" r="120" fill="none" stroke={i === 2 ? 'rgba(94,234,212,0.45)' : 'rgba(79,70,229,0.5)'} strokeWidth="1">
+            <circle key={i} cx="500" cy="500" r="120" fill="none" stroke={i === 2 ? 'rgba(94,234,212,0.45)' : 'rgba(255,106,51,0.5)'} strokeWidth="1">
               <animate attributeName="r" values="120;430" dur="6s" begin={`${begin}s`} repeatCount="indefinite" />
               <animate attributeName="opacity" values={`${i === 2 ? 0.45 : 0.5};0`} dur="6s" begin={`${begin}s`} repeatCount="indefinite" />
             </circle>
@@ -298,7 +298,7 @@ export function KnowledgeGraph({ className }: { className?: string }) {
 
         {/* central storefront listing node */}
         <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: 268 }}>
-          <div className="nx-kg-cardglow" style={{ position: 'absolute', inset: -18, borderRadius: 24, background: 'radial-gradient(circle, rgba(79,70,229,0.45), transparent 70%)', filter: 'blur(10px)' }} />
+          <div className="nx-kg-cardglow" style={{ position: 'absolute', inset: -18, borderRadius: 24, background: 'radial-gradient(circle, rgba(255,106,51,0.45), transparent 70%)', filter: 'blur(10px)' }} />
           <div
             style={{
               position: 'relative',
@@ -307,16 +307,16 @@ export function KnowledgeGraph({ className }: { className?: string }) {
               background: 'radial-gradient(circle at 30% 12%, rgba(255,255,255,0.06), rgba(255,255,255,0) 60%), rgba(18,18,26,0.66)',
               backdropFilter: 'blur(16px)',
               WebkitBackdropFilter: 'blur(16px)',
-              border: '1px solid rgba(99,102,241,0.42)',
-              boxShadow: '0 24px 70px rgba(0,0,0,0.55), 0 0 40px rgba(79,70,229,0.28), inset 0 1px 0 rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,106,51,0.42)',
+              boxShadow: '0 24px 70px rgba(0,0,0,0.55), 0 0 40px rgba(255,106,51,0.28), inset 0 1px 0 rgba(255,255,255,0.08)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 13 }}>
-              <div style={{ width: 26, height: 26, borderRadius: 7, background: 'linear-gradient(140deg,#6366f1,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: `700 15px ${DISPLAY}`, color: '#fff', boxShadow: '0 0 16px rgba(79,70,229,0.7)' }}>N</div>
-              <span style={{ font: `500 11px ${MONO}`, color: 'rgba(199,210,254,0.92)', letterSpacing: 0.3, flex: 1 }}>nexez.app/your-business</span>
+              <div style={{ width: 26, height: 26, borderRadius: 7, background: 'linear-gradient(140deg,#F4783A,#E0501E)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: `700 15px ${DISPLAY}`, color: '#fff', boxShadow: '0 0 16px rgba(255,106,51,0.7)' }}>N</div>
+              <span style={{ font: `500 11px ${MONO}`, color: 'rgba(255,205,180,0.92)', letterSpacing: 0.3, flex: 1 }}>nexez.app/your-business</span>
               <span style={{ font: `600 10px ${MONO}`, color: '#5eead4', border: '1px solid rgba(94,234,212,0.45)', borderRadius: 999, padding: '2px 8px' }}>96</span>
             </div>
-            <div style={{ height: 1, background: 'linear-gradient(90deg,transparent,rgba(99,102,241,0.35),transparent)', marginBottom: 12 }} />
+            <div style={{ height: 1, background: 'linear-gradient(90deg,transparent,rgba(255,106,51,0.35),transparent)', marginBottom: 12 }} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 13 }}>
               {[
                 { name: 'Premium Plan · 60m', price: '$120', action: 'book', teal: false },
@@ -331,9 +331,9 @@ export function KnowledgeGraph({ className }: { className?: string }) {
                       font: `600 9px ${MONO}`,
                       textTransform: 'uppercase',
                       letterSpacing: 1,
-                      color: o.teal ? '#5eead4' : '#a5b4fc',
-                      background: o.teal ? 'rgba(45,212,191,0.16)' : 'rgba(79,70,229,0.18)',
-                      border: `1px solid ${o.teal ? 'rgba(94,234,212,0.4)' : 'rgba(99,102,241,0.4)'}`,
+                      color: o.teal ? '#5eead4' : '#FF9A6E',
+                      background: o.teal ? 'rgba(45,212,191,0.16)' : 'rgba(255,106,51,0.18)',
+                      border: `1px solid ${o.teal ? 'rgba(94,234,212,0.4)' : 'rgba(255,106,51,0.4)'}`,
                       borderRadius: 5,
                       padding: '2px 6px',
                     }}
@@ -345,7 +345,7 @@ export function KnowledgeGraph({ className }: { className?: string }) {
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {['LocalBusiness', 'Service', 'Offer'].map((tag) => (
-                <span key={tag} style={{ font: `500 9px ${MONO}`, letterSpacing: 0.4, color: 'rgba(165,180,252,0.85)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 999, padding: '3px 9px' }}>
+                <span key={tag} style={{ font: `500 9px ${MONO}`, letterSpacing: 0.4, color: 'rgba(255,168,128,0.85)', border: '1px solid rgba(255,106,51,0.3)', borderRadius: 999, padding: '3px 9px' }}>
                   {tag}
                 </span>
               ))}

@@ -141,7 +141,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="nx-dash min-h-screen bg-background text-foreground">
       <div
         className={`grid min-h-screen transition-[grid-template-columns] ease-in-out ${
           pinAnimating ? 'duration-[520ms]' : 'duration-200'
