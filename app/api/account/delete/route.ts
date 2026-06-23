@@ -6,11 +6,15 @@ import { enforceRateLimit } from '../../../../lib/rate-limit'
 export const maxDuration = 30
 
 /**
- * POST /api/account/delete — permanently delete the authenticated user's account + ALL associated
- * data (App Store Guideline 5.1.1(v) + GDPR/CCPA). The target is ALWAYS the session user (cookie
- * on web, bearer token in the Nexxi app — never from the body), so a session can only delete itself.
- * Requires `{ confirm: true }` so it can't fire by accident; clients gate it behind a re-auth /
- * explicit confirmation step. Hard-deletes the auth user, so the session is invalid afterward.
+ * POST /api/account/delete — delete the authenticated user's NEXXI BUYER account (App Store
+ * Guideline 5.1.1(v) + GDPR/CCPA). The target is ALWAYS the session user (cookie on web, bearer
+ * token in the Nexxi app — never from the body), so a session can only delete itself. Requires
+ * `{ confirm: true }` so it can't fire by accident.
+ *
+ * Nexxi shares one login with the Nexez seller dashboard but they are separate facets: this clears
+ * the BUYER facet always, and only deletes the auth user when the account does NOT also sell on
+ * Nexez (so deleting in the buyer app never destroys someone's seller business). The response's
+ * `sellerRetained` tells the client whether the login + seller account were kept.
  */
 export async function POST(request: NextRequest) {
   const limited = await enforceRateLimit(request, 'account:delete', 5, 60_000)
@@ -34,7 +38,9 @@ export async function POST(request: NextRequest) {
     console.error('[account/delete] failed', result.errors)
     return NextResponse.json({ error: 'Could not delete your account. Please contact support.' }, { status: 500 })
   }
-  // The account IS deleted; surface any non-fatal data-cleanup issues for observability.
+  // Buyer data is cleared; surface any non-fatal cleanup issues for observability.
   if (result.errors.length) console.warn('[account/delete] partial cleanup issues', result.errors)
-  return NextResponse.json({ ok: true })
+  // sellerRetained=true → the account also sells on Nexez, so its seller data + login were KEPT;
+  // the client should message that instead of "your account is gone".
+  return NextResponse.json({ ok: true, sellerRetained: result.sellerRetained })
 }

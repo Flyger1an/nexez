@@ -28,7 +28,7 @@ const req = (body: unknown = { confirm: true }) =>
 beforeEach(() => {
   rateRef.response = null
   authRef.result = { ok: true, user: { id: 'owner-Z', email: 'z@acme.com' }, db: {} }
-  delRef.result = { ok: true, authUserDeleted: true, errors: [] }
+  delRef.result = { ok: true, authUserDeleted: true, sellerRetained: false, errors: [] }
   delRef.calls.length = 0
 })
 
@@ -51,7 +51,14 @@ describe('POST /api/account/delete', () => {
   })
 
   it('500s when deletion fails (auth user not removed)', async () => {
-    delRef.result = { ok: false, authUserDeleted: false, errors: [{ scope: 'auth.deleteUser', message: 'boom' }] }
+    delRef.result = { ok: false, authUserDeleted: false, sellerRetained: false, errors: [{ scope: 'auth.deleteUser', message: 'boom' }] }
     expect((await POST(req())).status).toBe(500)
+  })
+
+  it('forwards sellerRetained so the client can message a kept seller account', async () => {
+    delRef.result = { ok: true, authUserDeleted: false, sellerRetained: true, errors: [] }
+    const res = await POST(req())
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true, sellerRetained: true })
   })
 })

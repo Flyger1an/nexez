@@ -2,27 +2,36 @@ import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 
-// Full account deletion (App Store Guideline 5.1.1(v) + GDPR/CCPA erasure). Several owned tables
-// DO have `on delete cascade` to auth.users, but we delete every owned table explicitly anyway and
-// delete the Supabase auth user LAST (so "can't sign back in" holds even if a data delete failed,
-// and so cleanup never depends on cascade ordering). The Nexez account is shared between the seller
-// dashboard and the Nexxi buyer app, so deletion removes BOTH the buyer/agent data AND any seller
-// pages the account owns. Buyer-side rows on OTHER sellers' records have no FK to the buyer, so the
-// anonymizer below is the ONLY path that erases that buyer PII — it must stay exhaustive.
+// Account deletion for the Nexxi BUYER app (App Store 5.1.1(v) + GDPR/CCPA erasure).
+//
+// Nexxi and the Nexez seller dashboard SHARE one auth account (SSO), but they are separate FACETS:
+//   - buyer facet  = the personal buyer-agent data + buyer PII on sellers' records
+//   - seller facet = pages, billing, api keys, etc. owned by the same auth user
+//
+// "Delete my Nexxi account" must NEVER destroy the seller's business. So we always clear the BUYER
+// facet, then branch:
+//   - account ALSO owns seller data → KEEP the seller data AND the auth user (login still works for
+//     Nexez); return sellerRetained=true. Critically we do NOT delete the auth user, because several
+//     seller tables `on delete cascade` to auth.users — deleting it would wipe the seller's pages.
+//   - pure buyer (no seller data) → full removal incl. the auth user ("can't sign back in").
+//
+// Buyer-side rows on OTHER sellers' records have no FK to the buyer, so the anonymizer below is the
+// ONLY path that erases that buyer PII — it must stay exhaustive and runs in BOTH branches.
 
-/** Tables keyed by the auth user id — the user's agent + personal data. */
-const USER_ID_TABLES = [
+/** BUYER-facet tables (keyed by user_id) — always deleted. */
+const BUYER_USER_ID_TABLES = [
   'agent_action_approvals',
   'agent_messages',
   'agent_threads',
   'user_agents',
-  'user_integrations',
   'user_push_tokens',
-  'platform_admins',
 ] as const
 
-/** Tables keyed by owner_id — the seller-side data this account owns. */
-const OWNER_ID_TABLES = [
+/** SELLER/account tables keyed by user_id — deleted ONLY in the pure-buyer full-removal path. */
+const SELLER_USER_ID_TABLES = ['user_integrations', 'platform_admins'] as const
+
+/** SELLER tables keyed by owner_id — deleted ONLY in the pure-buyer full-removal path. */
+const SELLER_OWNER_ID_TABLES = [
   'agent_visits',
   'api_keys',
   'billing_subscriptions',
@@ -36,15 +45,17 @@ const OWNER_ID_TABLES = [
   'team_invites',
 ] as const
 
+/** Owning a row in any of these = the account is also a SELLER → retain the seller facet + login. */
+const SELLER_SIGNAL_TABLES = ['pages', 'billing_subscriptions', 'api_keys'] as const
+
 /**
  * Tables where the deleted user appears as the BUYER on another seller's record. The sale/record is
- * the seller's to keep, so we ERASE the buyer's PII columns rather than delete the row.
+ * the seller's to keep, so we ERASE the buyer's PII columns rather than delete the row. (Buyer facet.)
  *
- * Matching is best-effort (there is no buyer→auth.users FK): `emailColumns` are the columns whose
- * value can equal the user's email (buyer_email always; `contact` is free-form and may hold the
- * email when buyer_email was never captured), and `referenceColumn` is the stronger link where the
- * row stores the buyer's auth user id (checkout_orders.buyer_reference). `columns` is everything we
- * null — including free-text the buyer typed (contact / buyer_query / message), which can carry PII.
+ * Matching is best-effort (there is no buyer→auth.users FK): `emailColumns` are columns whose value
+ * can equal the user's email (buyer_email always; `contact` is free-form and may hold the email when
+ * buyer_email was never captured); `referenceColumn` is the stronger link where the row stores the
+ * buyer's auth user id. `columns` is everything we null — incl. free text the buyer typed.
  */
 const BUYER_PII_TABLES = [
   {
@@ -70,40 +81,31 @@ const BUYER_PII_TABLES = [
 export type DeleteAccountResult = {
   ok: boolean
   authUserDeleted: boolean
+  /** True when the account also sells on Nexez: the buyer facet was cleared but the seller account + login were KEPT. */
+  sellerRetained: boolean
   errors: { scope: string; message: string }[]
 }
 
-/**
- * Delete a user's account and all associated data. Best-effort per table (collect errors, keep
- * going) so a single failure can't strand the rest, then delete the auth user. Requires the
- * service role; callers must authenticate + authorize the user first.
- */
-export async function deleteUserAccount(userId: string, email: string | null): Promise<DeleteAccountResult> {
-  const errors: DeleteAccountResult['errors'] = []
-  if (!hasSupabaseAdminEnv()) {
-    return { ok: false, authUserDeleted: false, errors: [{ scope: 'config', message: 'Service role not configured.' }] }
+/** Does this auth user own any seller data? (pages / billing / api keys) */
+async function accountIsSeller(admin: SupabaseClient, userId: string): Promise<boolean> {
+  for (const table of SELLER_SIGNAL_TABLES) {
+    const { data, error } = await admin.from(table).select('owner_id').eq('owner_id', userId).limit(1)
+    if (error) {
+      // Fail SAFE: if we can't tell, assume seller so we never accidentally cascade-delete a business.
+      return true
+    }
+    if (data && data.length > 0) return true
   }
-  const admin = createAdminClient()
+  return false
+}
 
-  for (const table of USER_ID_TABLES) {
-    const { error } = await admin.from(table).delete().eq('user_id', userId)
-    if (error) errors.push({ scope: `delete:${table}`, message: error.message })
-  }
-
-  for (const table of OWNER_ID_TABLES) {
-    const { error } = await admin.from(table).delete().eq('owner_id', userId)
-    if (error) errors.push({ scope: `delete:${table}`, message: error.message })
-  }
-
-  // Invites the user RECEIVED (keyed by their email, not owner_id) — erase those too.
-  if (email) {
-    const { error } = await admin.from('team_invites').delete().ilike('email', email)
-    if (error) errors.push({ scope: 'delete:team_invites:received', message: error.message })
-  }
-
-  // Erase buyer PII on sellers' transaction records. Match by the strong reference (buyer_reference
-  // == userId) first, then by every email-bearing column (case-insensitive) — so non-email contacts
-  // and orders whose stored email differs from the account email are still caught.
+/** Erase the deleted user's buyer PII from sellers' transaction records (runs in both branches). */
+async function anonymizeBuyerPii(
+  admin: SupabaseClient,
+  userId: string,
+  email: string | null,
+  errors: DeleteAccountResult['errors'],
+): Promise<void> {
   for (const { table, columns, emailColumns, referenceColumn } of BUYER_PII_TABLES) {
     const patch = Object.fromEntries(columns.map((c) => [c, null]))
     if (referenceColumn) {
@@ -117,12 +119,52 @@ export async function deleteUserAccount(userId: string, email: string | null): P
       }
     }
   }
+}
 
-  // Delete the auth user LAST — this is the "can't sign back in" guarantee.
+/**
+ * Delete the BUYER facet of an account; keep the seller facet (+ login) if the account also sells.
+ * Best-effort per table (collect errors, keep going). Requires the service role; callers must
+ * authenticate + authorize the user first.
+ */
+export async function deleteUserAccount(userId: string, email: string | null): Promise<DeleteAccountResult> {
+  const errors: DeleteAccountResult['errors'] = []
+  if (!hasSupabaseAdminEnv()) {
+    return { ok: false, authUserDeleted: false, sellerRetained: false, errors: [{ scope: 'config', message: 'Service role not configured.' }] }
+  }
+  const admin = createAdminClient()
+
+  // 1. Always clear the BUYER facet + anonymize buyer PII on sellers' records.
+  for (const table of BUYER_USER_ID_TABLES) {
+    const { error } = await admin.from(table).delete().eq('user_id', userId)
+    if (error) errors.push({ scope: `delete:${table}`, message: error.message })
+  }
+  await anonymizeBuyerPii(admin, userId, email, errors)
+
+  // 2. Does this account also sell on Nexez? If so, STOP — keep the seller data and the login.
+  if (await accountIsSeller(admin, userId)) {
+    return { ok: true, authUserDeleted: false, sellerRetained: true, errors }
+  }
+
+  // 3. Pure buyer → full removal: remaining account tables (empty for a pure buyer, but be thorough),
+  //    then the auth user LAST.
+  for (const table of SELLER_USER_ID_TABLES) {
+    const { error } = await admin.from(table).delete().eq('user_id', userId)
+    if (error) errors.push({ scope: `delete:${table}`, message: error.message })
+  }
+  for (const table of SELLER_OWNER_ID_TABLES) {
+    const { error } = await admin.from(table).delete().eq('owner_id', userId)
+    if (error) errors.push({ scope: `delete:${table}`, message: error.message })
+  }
+  if (email) {
+    // Invites the user RECEIVED (keyed by their email, not owner_id).
+    const { error } = await admin.from('team_invites').delete().ilike('email', email)
+    if (error) errors.push({ scope: 'delete:team_invites:received', message: error.message })
+  }
+
   const authUserDeleted = await deleteAuthUser(admin, userId)
   if (!authUserDeleted) errors.push({ scope: 'auth.deleteUser', message: 'Failed to delete the auth user.' })
 
-  return { ok: authUserDeleted, authUserDeleted, errors }
+  return { ok: authUserDeleted, authUserDeleted, sellerRetained: false, errors }
 }
 
 async function deleteAuthUser(admin: SupabaseClient, userId: string): Promise<boolean> {
@@ -135,4 +177,10 @@ async function deleteAuthUser(admin: SupabaseClient, userId: string): Promise<bo
 }
 
 // Exposed for tests.
-export const __DELETE_ACCOUNT_TABLES = { USER_ID_TABLES, OWNER_ID_TABLES, BUYER_PII_TABLES }
+export const __DELETE_ACCOUNT_TABLES = {
+  BUYER_USER_ID_TABLES,
+  SELLER_USER_ID_TABLES,
+  SELLER_OWNER_ID_TABLES,
+  SELLER_SIGNAL_TABLES,
+  BUYER_PII_TABLES,
+}
