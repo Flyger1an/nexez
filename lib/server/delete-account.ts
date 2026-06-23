@@ -23,6 +23,7 @@ const BUYER_USER_ID_TABLES = [
   'agent_action_approvals',
   'agent_messages',
   'agent_threads',
+  'saved_pages',
   'user_agents',
   'user_push_tokens',
 ] as const
