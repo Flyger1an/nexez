@@ -22,6 +22,7 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/adm
 const BUYER_USER_ID_TABLES = [
   'agent_action_approvals',
   'agent_messages',
+  'agent_tasks',
   'agent_threads',
   'saved_pages',
   'saved_searches',
