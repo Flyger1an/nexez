@@ -25,6 +25,7 @@ const BUYER_USER_ID_TABLES = [
   'agent_tasks',
   'agent_threads',
   'notifications',
+  'referral_codes',
   'saved_pages',
   'saved_searches',
   'user_agents',
@@ -141,6 +142,11 @@ export async function deleteUserAccount(userId: string, email: string | null): P
   for (const table of BUYER_USER_ID_TABLES) {
     const { error } = await admin.from(table).delete().eq('user_id', userId)
     if (error) errors.push({ scope: `delete:${table}`, message: error.message })
+  }
+  // Referral attribution is keyed by referrer_user_id / referred_user_id (no plain user_id) — clear both.
+  for (const column of ['referrer_user_id', 'referred_user_id'] as const) {
+    const { error } = await admin.from('referrals').delete().eq(column, userId)
+    if (error) errors.push({ scope: `delete:referrals:${column}`, message: error.message })
   }
   await anonymizeBuyerPii(admin, userId, email, errors)
 
