@@ -1,5 +1,6 @@
 import 'server-only'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
+import { escapeLike } from './sql-escape'
 
 // GDPR/CCPA data export: gather the personal data we hold about a user into one JSON object.
 // Service-role reads (so it works for both the web cookie session and the Nexxi bearer token);
@@ -57,7 +58,7 @@ export async function exportUserAccount(
   }
   if (email) {
     for (const table of BUYER_EMAIL_TABLES) {
-      const { data: rows } = await admin.from(table).select('*').ilike('buyer_email', email).limit(ROW_CAP)
+      const { data: rows } = await admin.from(table).select('*').ilike('buyer_email', escapeLike(email)).limit(ROW_CAP)
       data[`${table}_as_buyer`] = rows ?? []
     }
   }

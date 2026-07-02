@@ -10,6 +10,8 @@ const { adminRef } = vi.hoisted(() => ({
     isSeller: false,
     // When true, the seller-signal select returns an error (to test the fail-safe path).
     signalError: false,
+    // Negotiation ids the buyer's email/contact resolves to (for the negotiation_messages erasure).
+    negIds: [] as string[],
   },
 }))
 
@@ -29,9 +31,13 @@ vi.mock('../../utils/supabase/admin', () => ({
         update: (patch: Record<string, unknown>) => ({
           eq: (by: string, val: unknown) => done({ op: 'update', table, patch, by, val }),
           ilike: (by: string, val: unknown) => done({ op: 'update', table, patch, by, val }),
+          // negotiation_messages erasure: update({content}).in('negotiation_id', ids).eq('role','buyer')
+          in: (by: string, vals: unknown) => ({
+            eq: (col: string, cval: unknown) => done({ op: 'update', table, patch, in: { by, vals }, eq: { col, cval } }),
+          }),
         }),
-        // accountIsSeller(): select('owner_id').eq(...).limit(1) → row iff isSeller + signal table.
         select: (_cols: string) => ({
+          // accountIsSeller(): select('owner_id').eq(...).limit(1) → row iff isSeller + signal table.
           eq: (_by: string, val: unknown) => ({
             limit: (_n: number) =>
               Promise.resolve(
@@ -40,6 +46,9 @@ vi.mock('../../utils/supabase/admin', () => ({
                   : { data: adminRef.isSeller && table === 'pages' ? [{ owner_id: val }] : [], error: null },
               ),
           }),
+          // eraseBuyerNegotiationMessages(): select('id').ilike(col, email) on agent_negotiations.
+          ilike: (_by: string, _val: unknown) =>
+            Promise.resolve({ data: table === 'agent_negotiations' ? adminRef.negIds.map((id) => ({ id })) : [], error: null }),
         }),
       }),
       auth: {
@@ -63,6 +72,7 @@ beforeEach(() => {
   adminRef.hasEnv = true
   adminRef.isSeller = false
   adminRef.signalError = false
+  adminRef.negIds = []
 })
 
 describe('deleteUserAccount — facet-aware (Nexxi buyer vs Nexez seller)', () => {
@@ -82,9 +92,30 @@ describe('deleteUserAccount — facet-aware (Nexxi buyer vs Nexez seller)', () =
     for (const t of __DELETE_ACCOUNT_TABLES.SELLER_OWNER_ID_TABLES) {
       expect(adminRef.ops).toContainEqual({ op: 'delete', table: t, by: 'owner_id', val: 'user-1' })
     }
-    // Buyer PII anonymized on sellers' records (checkout_orders incl. buyer_name + by reference).
-    const ordersPatch = { buyer_email: null, buyer_name: null, buyer_reference: null }
+    // Buyer PII anonymized on sellers' records (checkout_orders incl. buyer_name/buyer_agent + by reference).
+    const ordersPatch = { buyer_email: null, buyer_name: null, buyer_reference: null, buyer_agent: null }
     expect(adminRef.ops).toContainEqual({ op: 'update', table: 'checkout_orders', patch: ordersPatch, by: 'buyer_reference', val: 'user-1' })
+  })
+
+  it('erases the buyer\'s own chat turns from sellers\' negotiation threads (GDPR)', async () => {
+    adminRef.negIds = ['neg-1', 'neg-2']
+    await deleteUserAccount('user-1', 'Buyer@Acme.com')
+    // negotiation_messages.content nulled for role=buyer on the buyer's negotiations.
+    expect(adminRef.ops).toContainEqual({
+      op: 'update',
+      table: 'negotiation_messages',
+      patch: { content: {} },
+      in: { by: 'negotiation_id', vals: ['neg-1', 'neg-2'] },
+      eq: { col: 'role', cval: 'buyer' },
+    })
+  })
+
+  it('erases buyer chat in the SELLER-retained branch too (anonymizer runs in both)', async () => {
+    adminRef.isSeller = true
+    adminRef.negIds = ['neg-9']
+    const result = await deleteUserAccount('user-2', 'seller@acme.com')
+    expect(result.sellerRetained).toBe(true)
+    expect(adminRef.ops.some((o) => o.op === 'update' && o.table === 'negotiation_messages')).toBe(true)
   })
 
   it('SELLER who also buys: clears the buyer facet + anonymizes PII, but KEEPS seller data and the login', async () => {

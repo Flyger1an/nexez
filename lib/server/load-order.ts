@@ -2,6 +2,7 @@ import 'server-only'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 import { minorToStripeAmount } from '../currency'
 import { canReviewOrderStatus, normalizeReviewTags } from '../reviews'
+import { escapeLike } from './sql-escape'
 import type { BuyerOrderRequest, BuyerOrderReview, BuyerOrderView, BuyerRequestKind } from '../buyer-portal'
 
 // Server-side resolver for the buyer order portal. The buyer's token IS the
@@ -377,11 +378,9 @@ export async function findOrdersByEmail(email: string): Promise<import('../buyer
   if (!clean || !hasSupabaseAdminEnv()) return []
   const admin = createAdminClient()
 
-  // Case-insensitive EXACT match. Escape the LIKE metacharacters so a buyer email can
-  // never wildcard-match another buyer's address. NB: besides SQL's % and _, PostgREST
-  // additionally aliases `*` to `%` in its ilike operator (URL-level, before SQL), and
-  // both _ and * pass the route's email regex — so * MUST be escaped too.
-  const pattern = clean.replace(/([\\%_*])/g, '\\$1')
+  // Case-insensitive EXACT match. Escape the LIKE metacharacters so a buyer email can never
+  // wildcard-match another buyer's address (shared escapeLike; see its doc for the `*` PostgREST alias).
+  const pattern = escapeLike(clean)
 
   const [orders, negs] = await Promise.all([
     admin

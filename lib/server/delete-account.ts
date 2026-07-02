@@ -1,6 +1,7 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
+import { escapeLike } from './sql-escape'
 
 // Account deletion for the Nexxi BUYER app (App Store 5.1.1(v) + GDPR/CCPA erasure).
 //
@@ -65,13 +66,13 @@ const SELLER_SIGNAL_TABLES = ['pages', 'billing_subscriptions', 'api_keys'] as c
 const BUYER_PII_TABLES = [
   {
     table: 'agent_negotiations',
-    columns: ['buyer_email', 'contact', 'buyer_query', 'budget_text', 'timeline_text'],
+    columns: ['buyer_email', 'contact', 'buyer_query', 'budget_text', 'timeline_text', 'buyer_agent'],
     emailColumns: ['buyer_email', 'contact'],
     referenceColumn: null,
   },
   {
     table: 'checkout_orders',
-    columns: ['buyer_email', 'buyer_name', 'buyer_reference'],
+    columns: ['buyer_email', 'buyer_name', 'buyer_reference', 'buyer_agent'],
     emailColumns: ['buyer_email'],
     referenceColumn: 'buyer_reference',
   },
@@ -104,6 +105,38 @@ async function accountIsSeller(admin: SupabaseClient, userId: string): Promise<b
   return false
 }
 
+/**
+ * Erase the buyer's own chat turns from sellers' negotiation threads. The negotiation ROW is the
+ * seller's record (kept), and negotiation_messages `on delete cascade`s from it — so that cascade
+ * never fires on buyer deletion. We null the buyer message `content` (keeps the thread's shape, drops
+ * the PII the buyer typed). MUST run BEFORE agent_negotiations buyer_email/contact are nulled, since
+ * email is the only link back to the buyer's negotiations.
+ */
+async function eraseBuyerNegotiationMessages(
+  admin: SupabaseClient,
+  email: string | null,
+  errors: DeleteAccountResult['errors'],
+): Promise<void> {
+  if (!email) return
+  const pattern = escapeLike(email)
+  const ids = new Set<string>()
+  for (const col of ['buyer_email', 'contact'] as const) {
+    const { data, error } = await admin.from('agent_negotiations').select('id').ilike(col, pattern)
+    if (error) {
+      errors.push({ scope: `erase-messages:lookup:${col}`, message: error.message })
+      continue
+    }
+    for (const row of (data ?? []) as { id: string }[]) ids.add(row.id)
+  }
+  if (!ids.size) return
+  const { error } = await admin
+    .from('negotiation_messages')
+    .update({ content: {} })
+    .in('negotiation_id', [...ids])
+    .eq('role', 'buyer')
+  if (error) errors.push({ scope: 'erase-messages:negotiation_messages', message: error.message })
+}
+
 /** Erase the deleted user's buyer PII from sellers' transaction records (runs in both branches). */
 async function anonymizeBuyerPii(
   admin: SupabaseClient,
@@ -111,6 +144,9 @@ async function anonymizeBuyerPii(
   email: string | null,
   errors: DeleteAccountResult['errors'],
 ): Promise<void> {
+  // Buyer chat content first — it's resolved via agent_negotiations' email columns, which the loop below nulls.
+  await eraseBuyerNegotiationMessages(admin, email, errors)
+
   for (const { table, columns, emailColumns, referenceColumn } of BUYER_PII_TABLES) {
     const patch = Object.fromEntries(columns.map((c) => [c, null]))
     if (referenceColumn) {
@@ -118,8 +154,9 @@ async function anonymizeBuyerPii(
       if (error) errors.push({ scope: `anonymize:${table}:${referenceColumn}`, message: error.message })
     }
     if (email) {
+      const pattern = escapeLike(email)
       for (const col of emailColumns) {
-        const { error } = await admin.from(table).update(patch).ilike(col, email)
+        const { error } = await admin.from(table).update(patch).ilike(col, pattern)
         if (error) errors.push({ scope: `anonymize:${table}:${col}`, message: error.message })
       }
     }
@@ -167,7 +204,7 @@ export async function deleteUserAccount(userId: string, email: string | null): P
   }
   if (email) {
     // Invites the user RECEIVED (keyed by their email, not owner_id).
-    const { error } = await admin.from('team_invites').delete().ilike('email', email)
+    const { error } = await admin.from('team_invites').delete().ilike('email', escapeLike(email))
     if (error) errors.push({ scope: 'delete:team_invites:received', message: error.message })
   }
 
