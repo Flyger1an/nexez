@@ -5,6 +5,11 @@
 
 export type NexieTiming = 'flexible' | 'this_week' | 'asap'
 
+/** Buyer-facing push categories the buyer can independently mute (master switch = notificationsEnabled). */
+export type NexieNotificationCategory = 'orders' | 'alerts' | 'tasks'
+export type NexieNotificationTypes = Record<NexieNotificationCategory, boolean>
+export const NEXIE_NOTIFICATION_CATEGORIES: NexieNotificationCategory[] = ['orders', 'alerts', 'tasks']
+
 export type NexiePreferences = {
   /** Soft budget ceiling in MAJOR currency units (e.g. dollars), or null for none. */
   budgetMax: number | null
@@ -16,8 +21,10 @@ export type NexiePreferences = {
   location: string | null
   /** When true, the app defaults spoken replies on. */
   voiceRepliesDefault: boolean
-  /** Push opt-in (default true; false = the server skips sending to this buyer). */
+  /** Push opt-in master switch (default true; false = the server skips ALL sends to this buyer). */
   notificationsEnabled: boolean
+  /** Per-category push opt-in (each default true). Ignored when notificationsEnabled is false. */
+  notificationTypes: NexieNotificationTypes
   /**
    * Which search sources to include, by adapter id. `null` = all available sources (the default);
    * `[]` = Nexez only. The Nexez marketplace is always searched regardless (core/transactable);
@@ -41,6 +48,7 @@ export const DEFAULT_PREFERENCES: NexiePreferences = {
   location: null,
   voiceRepliesDefault: false,
   notificationsEnabled: true,
+  notificationTypes: { orders: true, alerts: true, tasks: true },
   sources: null,
 }
 
@@ -77,6 +85,14 @@ export function normalizePreferences(input: unknown): NexiePreferences {
 
   const timing = NEXIE_TIMINGS.includes(o.timing as NexieTiming) ? (o.timing as NexieTiming) : null
 
+  // Per-category push opt-in: each defaults ON unless explicitly false.
+  const nt = o.notificationTypes && typeof o.notificationTypes === 'object' ? (o.notificationTypes as Record<string, unknown>) : {}
+  const notificationTypes: NexieNotificationTypes = {
+    orders: nt.orders !== false,
+    alerts: nt.alerts !== false,
+    tasks: nt.tasks !== false,
+  }
+
   const location =
     typeof o.location === 'string' && o.location.trim()
       ? o.location.trim().replace(/\s+/g, ' ').slice(0, MAX_LOCATION_LEN)
@@ -106,6 +122,7 @@ export function normalizePreferences(input: unknown): NexiePreferences {
     location,
     voiceRepliesDefault: o.voiceRepliesDefault === true,
     notificationsEnabled: o.notificationsEnabled !== false,
+    notificationTypes,
     sources,
   }
 }

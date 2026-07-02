@@ -329,6 +329,7 @@ export class NegotiationService {
     await sendPushToEmail(email, {
       ...msg,
       data: { type: 'negotiation', negotiationId: negotiation.id, token: negotiation.status_token, status: action },
+      category: 'orders',
     });
   }
 

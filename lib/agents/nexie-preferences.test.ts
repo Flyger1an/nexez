@@ -62,6 +62,26 @@ describe('normalizePreferences', () => {
     expect(normalizePreferences({ notificationsEnabled: false }).notificationsEnabled).toBe(false)
     expect(normalizePreferences({ notificationsEnabled: 'no' }).notificationsEnabled).toBe(true)
   })
+
+  it('defaults every notification category ON; only an explicit false mutes one', () => {
+    expect(normalizePreferences({}).notificationTypes).toEqual({ orders: true, alerts: true, tasks: true })
+    expect(normalizePreferences({ notificationTypes: { alerts: false } }).notificationTypes).toEqual({
+      orders: true,
+      alerts: false,
+      tasks: true,
+    })
+    // Non-false / garbage values stay ON; unknown keys are ignored.
+    expect(normalizePreferences({ notificationTypes: { orders: 'no', bogus: false } }).notificationTypes).toEqual({
+      orders: true,
+      alerts: true,
+      tasks: true,
+    })
+    expect(normalizePreferences({ notificationTypes: 'nope' }).notificationTypes).toEqual({
+      orders: true,
+      alerts: true,
+      tasks: true,
+    })
+  })
 })
 
 describe('preferencesPromptBlock', () => {

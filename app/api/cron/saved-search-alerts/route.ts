@@ -85,6 +85,7 @@ export async function GET(request: Request) {
             ? `${fresh[0].name ?? 'A new business'} just matched your saved search.`
             : `${fresh.length} new businesses match your saved search.`,
         data: { type: 'saved_search', query: s.query, category: s.category },
+        category: 'alerts',
       })
       await admin.from('saved_searches').update({ last_notified_at: new Date().toISOString() }).eq('id', s.id)
       notified += 1

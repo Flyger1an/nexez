@@ -95,6 +95,7 @@ export async function GET(request: Request) {
             ? `${top[0].name ?? 'A business'} matches "${label}".`
             : `${top.length} businesses match "${label}".`,
         data: { type: 'agent_task', taskId: t.id, query: t.query, category: t.category, slug: top[0].slug },
+        category: 'tasks',
       })
 
       // Record EVERY fresh match as seen (not just the few we surfaced) so we don't re-push them next run.

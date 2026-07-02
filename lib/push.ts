@@ -14,10 +14,15 @@ const EXPO_BATCH = 100 // Expo accepts up to 100 messages per request
 
 export type PushPlatform = 'ios' | 'android' | 'web' | 'unknown'
 
+/** Buyer-facing push category → matched against the buyer's per-category opt-in. Omit for seller
+ *  pushes (they aren't gated by the buyer facet's per-category prefs — only the master switch). */
+export type PushCategory = 'orders' | 'alerts' | 'tasks'
+
 export type PushMessage = {
   title: string
   body: string
   data?: Record<string, unknown>
+  category?: PushCategory
 }
 
 /** Upsert a device's Expo push token. Pass the USER-SCOPED client (RLS enforces ownership). */
@@ -72,8 +77,16 @@ export async function sendPushToTokens(tokens: string[], message: PushMessage): 
   return { sent }
 }
 
-/** User ids who turned notifications OFF (preferences.notificationsEnabled === false). */
-async function pushOptedOutUserIds(admin: SupabaseClient, userIds: string[]): Promise<Set<string>> {
+/**
+ * User ids who should NOT receive this push: the master switch (notificationsEnabled === false), OR —
+ * when a category is given — that category muted (notificationTypes[category] === false). A missing
+ * category (seller pushes) is gated only by the master switch. Each pref defaults ON.
+ */
+async function pushOptedOutUserIds(
+  admin: SupabaseClient,
+  userIds: string[],
+  category?: PushCategory,
+): Promise<Set<string>> {
   const out = new Set<string>()
   if (!userIds.length) return out
   const { data } = await admin
@@ -82,12 +95,21 @@ async function pushOptedOutUserIds(admin: SupabaseClient, userIds: string[]): Pr
     .in('user_id', userIds)
     .returns<{ user_id: string; preferences: Record<string, unknown> | null }[]>()
   for (const row of data ?? []) {
-    if (row.preferences && row.preferences.notificationsEnabled === false) out.add(row.user_id)
+    const prefs = row.preferences
+    if (!prefs) continue
+    if (prefs.notificationsEnabled === false) {
+      out.add(row.user_id)
+      continue
+    }
+    if (category) {
+      const types = prefs.notificationTypes as Record<string, unknown> | undefined
+      if (types && types[category] === false) out.add(row.user_id)
+    }
   }
   return out
 }
 
-async function tokensBy(column: 'user_id' | 'email', value: string): Promise<string[]> {
+async function tokensBy(column: 'user_id' | 'email', value: string, category?: PushCategory): Promise<string[]> {
   if (!hasSupabaseAdminEnv()) return []
   const admin = createAdminClient()
   const base = admin.from('user_push_tokens').select('token, user_id')
@@ -97,19 +119,23 @@ async function tokensBy(column: 'user_id' | 'email', value: string): Promise<str
       : await base.eq('user_id', value).returns<{ token: string; user_id: string }[]>()
   const rows = data ?? []
   if (!rows.length) return []
-  // Respect each owner's notifications pref (default ON; fail-open if the lookup fails).
-  const optedOut = await pushOptedOutUserIds(createAdminClient(), [...new Set(rows.map((r) => r.user_id).filter(Boolean))])
+  // Respect each owner's notifications prefs (default ON; fail-open if the lookup fails).
+  const optedOut = await pushOptedOutUserIds(
+    createAdminClient(),
+    [...new Set(rows.map((r) => r.user_id).filter(Boolean))],
+    category,
+  )
   return rows.filter((r) => !optedOut.has(r.user_id)).map((r) => r.token)
 }
 
 /** Push to all of a user's devices (by user id). Service-role; safe from webhooks/cron. */
 export async function sendPushToUser(userId: string | null, message: PushMessage): Promise<{ sent: number }> {
   if (!userId) return { sent: 0 }
-  return sendPushToTokens(await tokensBy('user_id', userId), message)
+  return sendPushToTokens(await tokensBy('user_id', userId, message.category), message)
 }
 
 /** Push to all devices of the account with this email (negotiations key on buyer_email). */
 export async function sendPushToEmail(email: string | null, message: PushMessage): Promise<{ sent: number }> {
   if (!email) return { sent: 0 }
-  return sendPushToTokens(await tokensBy('email', email), message)
+  return sendPushToTokens(await tokensBy('email', email, message.category), message)
 }

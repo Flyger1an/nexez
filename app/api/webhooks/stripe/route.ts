@@ -203,6 +203,7 @@ export async function POST(request: NextRequest) {
             title: 'Payment confirmed',
             body: `Your payment to ${page?.name || negotiation.slug || 'the seller'} is confirmed.`,
             data: { type: 'negotiation', token, status: 'paid' },
+            category: 'orders',
           })
         })
       }
@@ -284,6 +285,7 @@ export async function POST(request: NextRequest) {
             title: 'Booking confirmed',
             body: `Your purchase from ${page?.name || orderRow.slug || 'the seller'} is confirmed.`,
             data: { type: 'order', token: row.access_token, status: 'paid' },
+            category: 'orders',
           })
         })
       }
@@ -480,6 +482,7 @@ export async function POST(request: NextRequest) {
             title: bn.kind === 'partial_refund' ? 'Partial refund' : bn.kind === 'dispute_update' ? 'Order update' : 'Refund processed',
             body: `Update on your purchase from ${page?.name || order.slug || 'the seller'}.`,
             data: { type: 'order', token, status: bn.kind },
+            category: 'orders',
           })
         })
       }
@@ -585,6 +588,7 @@ export async function POST(request: NextRequest) {
           title: bn.kind === 'partial_refund' ? 'Partial refund' : bn.kind === 'dispute_update' ? 'Deal update' : 'Refund processed',
           body: `Update on your agreement with ${page?.name || neg.slug || 'the seller'}.`,
           data: { type: 'negotiation', token, status: bn.kind },
+          category: 'orders',
         })
       })
     }
