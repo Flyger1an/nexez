@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // client (token lookup + preferences) and the Expo fetch, then assert who gets a send.
 
 const { adminRef } = vi.hoisted(() => ({
-  adminRef: { tokens: [] as any[], prefsRows: [] as any[] },
+  adminRef: { tokens: [] as any[], prefsRows: [] as any[], recorded: [] as any[] },
 }))
 
 vi.mock('../utils/supabase/admin', () => ({
@@ -15,6 +15,10 @@ vi.mock('../utils/supabase/admin', () => ({
         const result = table === 'user_push_tokens' ? { data: adminRef.tokens } : { data: adminRef.prefsRows }
         const leaf = { returns: () => Promise.resolve(result) }
         return { eq: () => leaf, in: () => leaf }
+      },
+      insert: (rows: any[]) => {
+        adminRef.recorded.push(...rows)
+        return Promise.resolve({ error: null })
       },
     }),
   }),
@@ -27,6 +31,7 @@ const TOKEN = 'ExponentPushToken[abc123]'
 beforeEach(() => {
   adminRef.tokens = [{ token: TOKEN, user_id: 'u1' }]
   adminRef.prefsRows = [{ user_id: 'u1', preferences: { notificationsEnabled: true, notificationTypes: { orders: true, alerts: true, tasks: true } } }]
+  adminRef.recorded = []
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true }) as any))
 })
 
@@ -56,5 +61,21 @@ describe('sendPushToUser — category gating', () => {
   it('missing notificationTypes (legacy prefs) → category treated as ON', async () => {
     adminRef.prefsRows = [{ user_id: 'u1', preferences: { notificationsEnabled: true } }]
     expect((await sendPushToUser('u1', { title: 't', body: 'b', category: 'tasks' })).sent).toBe(1)
+  })
+})
+
+describe('sendPushToUser — activity-feed recording', () => {
+  it('records a buyer push (category set) even when that category push is muted', async () => {
+    // Push muted for 'alerts', but the in-app feed still records it (feed ≠ device push).
+    adminRef.prefsRows = [{ user_id: 'u1', preferences: { notificationsEnabled: true, notificationTypes: { orders: true, alerts: false, tasks: true } } }]
+    const res = await sendPushToUser('u1', { title: 'New match', body: 'b', category: 'alerts', data: { type: 'saved_search' } })
+    expect(res.sent).toBe(0) // push suppressed
+    expect(adminRef.recorded).toHaveLength(1) // but recorded to the feed
+    expect(adminRef.recorded[0]).toMatchObject({ user_id: 'u1', category: 'alerts', type: 'saved_search', title: 'New match' })
+  })
+
+  it('does NOT record an uncategorized (seller) push — the buyer feed never mixes the seller facet', async () => {
+    await sendPushToUser('u1', { title: 'New order', body: 'b', data: { type: 'order' } })
+    expect(adminRef.recorded).toHaveLength(0)
   })
 })

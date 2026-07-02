@@ -109,6 +109,40 @@ async function pushOptedOutUserIds(
   return out
 }
 
+/** Distinct auth user ids that have a device registered under this email (for the activity feed). */
+async function userIdsByEmail(email: string): Promise<string[]> {
+  if (!hasSupabaseAdminEnv()) return []
+  const { data } = await createAdminClient()
+    .from('user_push_tokens')
+    .select('user_id')
+    .eq('email', email.toLowerCase())
+    .returns<{ user_id: string }[]>()
+  return [...new Set((data ?? []).map((r) => r.user_id).filter(Boolean))]
+}
+
+/**
+ * Persist a buyer-facing notification to the in-app activity feed. ONLY buyer pushes (those carrying a
+ * `category`) are recorded — seller pushes have no category, so the feed never mixes the seller facet.
+ * Recorded regardless of push opt-out (the in-app feed is separate from device push). Best-effort.
+ */
+async function recordNotifications(userIds: string[], message: PushMessage): Promise<void> {
+  if (!message.category || !userIds.length || !hasSupabaseAdminEnv()) return
+  const rows = userIds.map((user_id) => ({
+    user_id,
+    category: message.category,
+    type: typeof message.data?.type === 'string' ? message.data.type : null,
+    title: message.title,
+    body: message.body,
+    data: message.data ?? {},
+  }))
+  try {
+    const { error } = await createAdminClient().from('notifications').insert(rows)
+    if (error) console.warn('[push] notification record failed:', error.message)
+  } catch {
+    // best-effort — never break the push/money flow on a feed write
+  }
+}
+
 async function tokensBy(column: 'user_id' | 'email', value: string, category?: PushCategory): Promise<string[]> {
   if (!hasSupabaseAdminEnv()) return []
   const admin = createAdminClient()
@@ -131,11 +165,13 @@ async function tokensBy(column: 'user_id' | 'email', value: string, category?: P
 /** Push to all of a user's devices (by user id). Service-role; safe from webhooks/cron. */
 export async function sendPushToUser(userId: string | null, message: PushMessage): Promise<{ sent: number }> {
   if (!userId) return { sent: 0 }
+  await recordNotifications([userId], message)
   return sendPushToTokens(await tokensBy('user_id', userId, message.category), message)
 }
 
 /** Push to all devices of the account with this email (negotiations key on buyer_email). */
 export async function sendPushToEmail(email: string | null, message: PushMessage): Promise<{ sent: number }> {
   if (!email) return { sent: 0 }
+  if (message.category) await recordNotifications(await userIdsByEmail(email), message)
   return sendPushToTokens(await tokensBy('email', email, message.category), message)
 }
