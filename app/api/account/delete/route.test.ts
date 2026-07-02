@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 const { authRef, rateRef, delRef } = vi.hoisted(() => ({
   authRef: { result: null as any },
   rateRef: { response: null as any },
-  delRef: { result: { ok: true, authUserDeleted: true, errors: [] as any[] }, calls: [] as any[] },
+  delRef: { result: { ok: true, authUserDeleted: true, sellerRetained: false, errors: [] as any[] }, calls: [] as any[] },
 }))
 
 vi.mock('../../../../lib/rate-limit', () => ({ enforceRateLimit: vi.fn(async () => rateRef.response) }))
