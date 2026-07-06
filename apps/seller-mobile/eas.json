@@ -1,0 +1,38 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "ios": {
+        "simulator": true
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_NEXEZ_API_URL": "https://nexez.app",
+        "EXPO_PUBLIC_AGENT_RUNTIME_URL": "https://nexez.app"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_NEXEZ_API_URL": "https://nexez.app",
+        "EXPO_PUBLIC_AGENT_RUNTIME_URL": "https://nexez.app"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
