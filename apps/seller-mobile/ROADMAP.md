@@ -37,7 +37,7 @@ actions call the existing Next API routes with the seller's `Authorization: Bear
 
 ## 🚀 Next up — release / deploy (owner actions)
 
-1. **Deploy the web app** → activates the Bearer-auth deal-action routes + seller push sends on prod `nexez.app` (until then they 401 / no-op; UI + toasts already work).
+1. ~~**Deploy the web app**~~ — ✅ **Shipped 2026-07-06** (deploy of `c0a5e4c`, Vercel prod Ready in 56s). The Bearer-auth deal-action routes (`/api/negotiations/transition` + `/escrow`, `/api/orders/refund`) + seller push sends are now **live on prod** (no longer 401 / no-op). Not yet exercised e2e against a real mobile token + live deal.
 2. **EAS build + TestFlight** — ✅ pipeline configured (`eas.json` profiles dev/preview/production + `app.nexez.sellerhub` bundle id/package; build steps in README). RUN is an owner action: `eas login && eas init`, register the Supabase publishable env vars (`eas env:create`), then `eas build`. Fastest device test = `eas build -p android --profile preview` (APK, no Apple account).
 3. **Physical-device push test** — Expo push tokens can't be issued on the simulator.
 
