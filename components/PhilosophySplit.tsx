@@ -8,7 +8,7 @@ type View = 'both' | 'human' | 'agent'
 const TABS: { id: View; label: string }[] = [
   { id: 'both', label: 'Compare' },
   { id: 'human', label: 'Human site' },
-  { id: 'agent', label: 'Agent page' },
+  { id: 'agent', label: 'Agent listing' },
 ]
 
 // The signature split: a cluttered human site vs the precise agent surface,

@@ -367,14 +367,14 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     secondaryCta: { label: 'Browse agent index', href: agentRuntimeUrl('/agent-pages.json') },
     stats: [
       { value: 'REST', label: 'Public APIs' },
-      { value: 'MCP', label: 'Per-page manifests' },
+      { value: 'MCP', label: 'Per-listing manifests' },
       { value: 'JSON', label: 'Agent-readable offers' },
     ],
     visualTitle: 'Developer surface',
     visualItems: [
-      'Global index: /agent-pages.json for published agent pages.',
+      'Global index: /agent-pages.json for published listings.',
       'Search: /api/agent-search?q={intent} for buyer-intent discovery.',
-      'Per-page artifacts: /{slug}/agent.json, /{slug}/llms.txt, /{slug}/mcp.json.',
+      'Per-listing artifacts: /{slug}/agent.json, /{slug}/llms.txt, /{slug}/mcp.json.',
     ],
     sections: [
       {
@@ -389,14 +389,14 @@ export const marketingPages: Record<string, MarketingPageContent> = {
         ],
       },
       {
-        eyebrow: 'Page artifacts',
-        title: 'Every page exposes structured context.',
+        eyebrow: 'Listing artifacts',
+        title: 'Every listing exposes structured context.',
         copy:
           'A public page is only one representation. Nexez publishes multiple machine-readable formats so different agents can choose the surface they understand best.',
         cards: [
-          { title: 'agent.json', copy: 'Canonical business, offer, action, trust, and readiness data for a page.' },
+          { title: 'agent.json', copy: 'Canonical business, offer, action, trust, and readiness data for a listing.' },
           { title: 'llms.txt', copy: 'Plain-language context optimized for LLM ingestion and retrieval.' },
-          { title: 'MCP manifest', copy: 'Optional per-page manifest for tools and resources where enabled.' },
+          { title: 'MCP manifest', copy: 'Optional per-listing manifest for tools and resources where enabled.' },
         ],
       },
       {
@@ -418,7 +418,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
       { title: 'Where should crawlers start?', copy: 'Start with https://nexez.app/llms.txt, /agent-pages.json, and /openapi.json.' },
     ],
     finalCtaTitle: 'Stop scraping. Start with structured intent.',
-    finalCtaCopy: 'Build against pages that were designed to be read by agents from day one.',
+    finalCtaCopy: 'Build against listings that were designed to be read by agents from day one.',
   },
   compare: {
     slug: 'compare',

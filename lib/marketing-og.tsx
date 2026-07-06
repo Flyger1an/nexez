@@ -132,7 +132,7 @@ export function renderMarketingOg({
 
           <div style={{ display: 'flex', gap: 14, alignItems: 'center', color: '#A1A1AA', fontSize: 24 }}>
             <div style={{ width: 8, height: 8, borderRadius: 999, background: color }} />
-            Pages built for AI agents to discover, understand, and act.
+            Listings built for AI agents to discover, understand, and act.
           </div>
         </div>
       </div>

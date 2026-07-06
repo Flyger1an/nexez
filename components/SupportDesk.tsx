@@ -260,7 +260,7 @@ export function SupportDesk() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className="min-h-36 w-full rounded-md border border-border bg-[var(--fill-1)] px-3 py-3 text-sm leading-6 text-white outline-none placeholder:text-[var(--fg-muted)] focus:border-zinc-500"
-            placeholder="Example: Claude can open my page but does not see the booking link for my strategy session."
+            placeholder="Example: Claude can open my listing but does not see the booking link for my strategy session."
           />
         </label>
 

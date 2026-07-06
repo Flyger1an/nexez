@@ -65,7 +65,7 @@ export function PendingInvitesBanner() {
       <div className="flex items-center gap-3">
         <Users className="size-5 shrink-0 text-[var(--signal)]" />
         <p className="text-sm text-white">
-          You&rsquo;ve been invited to collaborate on {count} {count === 1 ? 'page' : 'pages'}.
+          You&rsquo;ve been invited to collaborate on {count} {count === 1 ? 'listing' : 'listings'}.
           {error ? <span className="ml-2 text-red-300">{error}</span> : null}
         </p>
       </div>

@@ -653,7 +653,7 @@ function AgentDetectionSummary({
       </div>
 
       <div className="rounded-lg border border-[var(--bd-10)] bg-[var(--ov-04)] p-5">
-        <p className="text-xs uppercase tracking-[0.18em] text-[var(--ready)]">Top pages</p>
+        <p className="text-xs uppercase tracking-[0.18em] text-[var(--ready)]">Top listings</p>
         <h2 className="mt-2 text-xl font-semibold">Most agent-readable</h2>
         <div className="mt-4 space-y-3">
           {topPages.length ? (
@@ -672,7 +672,7 @@ function AgentDetectionSummary({
             ))
           ) : (
             <p className="rounded-lg border border-dashed border-[var(--bd-10)] p-4 text-sm text-[var(--fg-muted-2)]">
-              Publish a page; crawlers populate this.
+              Publish a listing; crawlers populate this.
             </p>
           )}
         </div>
@@ -726,7 +726,7 @@ function RecentActivity({ events, pages }: { events: CheckoutEvent[]; pages: Age
             href={firstPage ? `/dashboard/${firstPage.id}/test` : '/create'}
             className="inline-flex items-center justify-center rounded-lg bg-[var(--signal)] px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-[var(--signal)]"
           >
-            {firstPage ? 'Test a page' : 'Create a page'}
+            {firstPage ? 'Test a listing' : 'Create a listing'}
           </a>
         </div>
       )}

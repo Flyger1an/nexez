@@ -34,7 +34,7 @@ export function HowItWorksProof() {
           </h2>
           <p className="mt-4 text-sm leading-6 text-muted-foreground md:text-base">
             Nexez is the layer that turns messy marketing context into explicit buying context. The main website stays
-            persuasive. The agent page becomes precise.
+            persuasive. The agent listing becomes precise.
           </p>
         </div>
 
@@ -68,7 +68,7 @@ export function HowItWorksProof() {
           <div className="nx-tile p-6">
             <div className="flex items-center gap-2 text-[var(--signal)]">
               <Code2 className="size-5" />
-              <h3 className="text-lg font-medium text-white">Nexez agent page</h3>
+              <h3 className="text-lg font-medium text-white">Nexez agent listing</h3>
             </div>
             <pre className="mt-5 overflow-x-auto rounded-lg border border-border bg-black/30 p-4 font-mono text-xs leading-6 text-zinc-300">
               <code>{agentPayload}</code>

@@ -10,7 +10,7 @@ export function ConversionFunnel({ views, attempts, conversions }: FunnelProps) 
   const max = Math.max(views, attempts, conversions, 1)
 
   const stages = [
-    { label: 'Agent Page Views', value: views, color: 'var(--signal)' },
+    { label: 'Listing views', value: views, color: 'var(--signal)' },
     { label: 'Checkout Intent', value: attempts, color: 'var(--signal)' },
     { label: 'Conversions', value: conversions, color: 'var(--ready)' },
   ]

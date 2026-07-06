@@ -264,7 +264,7 @@ export function SecurityHero({ content }: { content: MarketingPageContent }) {
   const hosts = [
     { host: 'nexez.ai', role: 'Public education + discovery', state: 'open', icon: Globe },
     { host: 'app.nexez.ai', role: 'Authenticated creation + billing', state: 'gated', icon: Lock },
-    { host: 'nexez.app', role: 'Crawlable agent pages + APIs', state: 'open', icon: Unlock },
+    { host: 'nexez.app', role: 'Crawlable agent listings + APIs', state: 'open', icon: Unlock },
   ]
   return (
     <HeroShell accent="amber">
@@ -365,7 +365,7 @@ export function CompareHero({ content }: { content: MarketingPageContent }) {
     ['Structured offers', false, false, true],
     ['Direct buy / book action', false, false, true],
     ['Agent-readable artifacts', false, false, true],
-    ['You own the page', true, false, true],
+    ['You own the listing', true, false, true],
     ['Built for AI parsing', false, false, true],
   ]
   const cols = ['Website', 'Directory', 'Nexez']
@@ -430,7 +430,7 @@ export function EnterpriseHero({ content }: { content: MarketingPageContent }) {
             <p className="text-sm font-medium">One organization</p>
             <p className="text-xs text-muted-foreground">Governed, measured, consistent</p>
           </div>
-          <span className="ml-auto font-mono text-xs text-muted-foreground">48 pages</span>
+          <span className="ml-auto font-mono text-xs text-muted-foreground">48 listings</span>
         </div>
         <div className="grid grid-cols-4 gap-2">
           {Array.from({ length: 12 }).map((_, i) => (

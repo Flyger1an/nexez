@@ -28,7 +28,7 @@ export function TrafficChart({ data }: { data: any[] }) {
             stroke="var(--signal)"
             strokeWidth={2}
             dot={false}
-            name="Agent Page Visits"
+            name="Listing visits"
           />
           <Line
             type="monotone"
