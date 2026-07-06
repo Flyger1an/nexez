@@ -1,7 +1,6 @@
 import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createClient } from '../../../../utils/supabase/server'
+import { resolveRequestAuth } from '../../../../lib/server/request-auth'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 import { toStripeAmount } from '../../../../lib/currency'
@@ -29,11 +28,7 @@ export async function POST(request: Request) {
   const secret = process.env.STRIPE_SECRET_KEY
   if (!secret) return NextResponse.json({ error: 'Payments are not enabled on this deployment.' }, { status: 412 })
 
-  const cookieStore = await cookies()
-  const supabase = createClient(cookieStore)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { supabase, user } = await resolveRequestAuth(request)
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   const body = (await request.json().catch(() => ({}))) as { orderId?: string; amount?: number }

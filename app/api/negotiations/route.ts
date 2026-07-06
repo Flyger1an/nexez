@@ -14,6 +14,7 @@ import { enforceNegotiationRateLimit } from '../../../lib/rate-limit'
 import { sanitizeBuyerInput } from '../../../lib/negotiation-input'
 import { buildNegotiationEmail, sendEmail } from '../../../lib/email'
 import { resolveOwnerNotifyEmail } from '../../../lib/server/owner-email'
+import { sendPushToUser } from '../../../lib/push'
 import { supabase } from '../../../lib/supabase'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 import { ownerAllows } from '../../../lib/server/plan'
@@ -202,6 +203,16 @@ export async function POST(request: Request) {
         }
       } catch (e) {
         console.error('[email] negotiation notify threw:', e instanceof Error ? e.message : e)
+      }
+      // Mobile push to the seller, alongside the email (best-effort: never blocks the buyer).
+      try {
+        await sendPushToUser(ownerId, {
+          title: 'New negotiation',
+          body: `${offer.name} — ${input.budget || 'new offer'}${input.buyerAgent ? ` · ${input.buyerAgent}` : ''}`,
+          data: { type: 'negotiation', negotiationId: result.negotiationId, slug: input.slug },
+        })
+      } catch {
+        // swallow — a push failure must not affect the negotiation flow
       }
     }
 

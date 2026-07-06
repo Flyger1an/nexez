@@ -17,7 +17,7 @@ import {
   hasEmailEnv,
   sendEmail,
 } from '../../../../lib/email'
-import { sendPushToEmail } from '../../../../lib/push'
+import { sendPushToEmail, sendPushToUser } from '../../../../lib/push'
 import { resolveOwnerNotifyEmail } from '../../../../lib/server/owner-email'
 import { sendOnceSystemEmail } from '../../../../lib/server/system-email'
 
@@ -180,6 +180,11 @@ export async function POST(request: NextRequest) {
             inboxUrl: `${getBaseUrl()}/dashboard/negotiations`,
           })
           await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
+          await sendPushToUser(page.owner_id, {
+            title: autoSettle ? 'Payment received' : 'Payment held in escrow',
+            body: `${formatCurrencyAmount(session.amount_total ?? expectedChargeAmount, negotiation.currency || 'usd')} · ${negotiation.offer_name || 'Agreement'}`,
+            data: { type: 'negotiation', negotiationId: session.metadata?.nexez_negotiation_id ?? null, status: nextStatus },
+          })
         })
       }
       // Buyer receipt + portal link (negotiation buyers reuse status_token as their
@@ -303,6 +308,11 @@ export async function POST(request: NextRequest) {
             inboxUrl: `${getBaseUrl()}/dashboard/finance`,
           })
           await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
+          await sendPushToUser(page.owner_id, {
+            title: 'Booking confirmed',
+            body: `${formatCurrencyAmount(orderRow.amount_cents, orderRow.currency)} · ${orderRow.offer_name || 'Your offer'}`,
+            data: { type: 'order', status: 'paid' },
+          })
         })
       }
       return NextResponse.json({ received: true, type: event.type, order: true, status: 'paid' }, { status: 200 })

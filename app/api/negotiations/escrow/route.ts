@@ -1,7 +1,6 @@
 import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createClient } from '../../../../utils/supabase/server'
+import { resolveRequestAuth } from '../../../../lib/server/request-auth'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 import { minorToStripeAmount, toStripeAmount } from '../../../../lib/currency'
 import { planRefund, refundIdempotencyKey } from '../../../../lib/refunds'
@@ -30,11 +29,7 @@ export async function POST(request: Request) {
     )
   }
 
-  const cookieStore = await cookies()
-  const supabase = createClient(cookieStore)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { supabase, user } = await resolveRequestAuth(request)
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   let body: { negotiationId?: string; action?: 'approve' | 'capture' | 'cancel' | 'refund'; amount?: number }

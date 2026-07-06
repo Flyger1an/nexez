@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createClient } from '../../../../utils/supabase/server'
+import { resolveRequestAuth } from '../../../../lib/server/request-auth'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 import {
   canTransitionNegotiation,
@@ -33,11 +32,7 @@ export async function POST(request: Request) {
   const limited = await enforceRateLimit(request, 'negotiation-transition', 30, 60_000)
   if (limited) return limited
 
-  const cookieStore = await cookies()
-  const supabase = createClient(cookieStore)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { supabase, user } = await resolveRequestAuth(request)
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   let body: {
