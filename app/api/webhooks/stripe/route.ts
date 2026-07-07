@@ -17,6 +17,8 @@ import {
   hasEmailEnv,
   sendEmail,
 } from '../../../../lib/email'
+import { captureEvent } from '../../../../lib/observability'
+import { applyPriceToOffers, formatStripePriceString } from '../../../../lib/stripe-price-sync'
 import { sendPushToEmail, sendPushToUser } from '../../../../lib/push'
 import { resolveOwnerNotifyEmail } from '../../../../lib/server/owner-email'
 import { sendOnceSystemEmail } from '../../../../lib/server/system-email'
@@ -74,6 +76,118 @@ export async function POST(request: NextRequest) {
       // Don't block processing on a ledger hiccup — log and continue.
       console.warn('[Stripe Webhook] event ledger insert failed:', ledgerErr.message)
     }
+  }
+
+  // Bi-directional catalog sync: a price changed in Stripe → refresh every
+  // offer imported with that stripe_price_id (or, for product-keyed imports,
+  // that stripe_product_id), so listings track Stripe without a manual
+  // re-import. Connect events (event.account) are tenancy-scoped to that
+  // seller's pages; platform-key events (no account) match by the ids alone
+  // (the importer authenticates with the platform key, and Stripe ids are
+  // globally unique). Already-current offers count as unchanged, so Stripe
+  // redeliveries are no-ops even past the event ledger.
+  if (event.type === 'price.updated' || event.type === 'price.created') {
+    if (!hasSupabaseAdminEnv()) {
+      return NextResponse.json({ received: true, type: event.type, note: 'SUPABASE_SERVICE_ROLE_KEY required' }, { status: 200 })
+    }
+    const price = event.data.object as Stripe.Price
+    if (price.active === false) {
+      // Deactivating a price shouldn't rewrite listings — leaving the last
+      // synced price standing is the safe read; the owner re-imports to change it.
+      return NextResponse.json({ received: true, type: event.type, skipped: 'inactive price' }, { status: 200 })
+    }
+    const admin = createAdminClient()
+    const connectedAccount = (event as { account?: string }).account ?? null
+    let ownerId: string | null = null
+    if (connectedAccount) {
+      const { data: sub } = await admin
+        .from('billing_subscriptions')
+        .select('owner_id')
+        .eq('stripe_connect_account_id', connectedAccount)
+        .maybeSingle<{ owner_id: string }>()
+      if (!sub?.owner_id) {
+        return NextResponse.json({ received: true, type: event.type, skipped: 'unknown connected account' }, { status: 200 })
+      }
+      ownerId = sub.owner_id
+    }
+
+    const productId = typeof price.product === 'string' ? price.product : price.product?.id ?? null
+    const target = {
+      priceId: price.id,
+      productId,
+      priceStr: formatStripePriceString(price),
+      syncedAt: new Date().toISOString(),
+    }
+
+    // Candidate pages via JSONB containment on the offer markers — targeted
+    // index-friendly lookups instead of scanning every page per price event.
+    type PriceSyncPageRow = { id: string; slug: string; owner_id: string | null; services: OfferItem[] | null; products: OfferItem[] | null }
+    const markers: Array<Record<string, unknown>> = [{ metadata: { stripe_price_id: price.id } }]
+    if (productId) markers.push({ metadata: { stripe_product_id: productId } })
+    const candidates = new Map<string, PriceSyncPageRow>()
+    for (const column of ['services', 'products'] as const) {
+      for (const marker of markers) {
+        let query = admin.from('pages').select('id, slug, owner_id, services, products').contains(column, [marker])
+        if (ownerId) query = query.eq('owner_id', ownerId)
+        const { data: rows, error } = await query
+        if (error) {
+          console.warn(`[Stripe Webhook] price sync ${column} lookup failed:`, error.message)
+          continue
+        }
+        for (const row of (rows ?? []) as PriceSyncPageRow[]) candidates.set(row.id, row)
+      }
+    }
+
+    let offersUpdated = 0
+    let pagesTouched = 0
+    for (const row of candidates.values()) {
+      const services = applyPriceToOffers(row.services ?? [], target)
+      const products = applyPriceToOffers(row.products ?? [], target)
+      const changed = services.changed + products.changed
+      if (!changed) continue
+      // pages_public is trigger-maintained, so the live projection follows.
+      const { error: updateErr } = await admin
+        .from('pages')
+        .update({ services: services.offers, products: products.offers })
+        .eq('id', row.id)
+      if (updateErr) {
+        console.warn('[Stripe Webhook] price sync update failed for page', row.slug, updateErr.message)
+        continue
+      }
+      offersUpdated += changed
+      pagesTouched += 1
+      // Audit trail the analytics dashboard already renders ("Stripe price syncs").
+      const changes = [...services.changes, ...products.changes]
+      const { error: eventError } = await admin.from('checkout_events').insert({
+        page_id: row.id,
+        owner_id: row.owner_id || null,
+        slug: row.slug,
+        offer_key: 'stripe:price-sync',
+        offer_name: `Stripe price sync (${changes.map((c) => c.name).join(', ')})`,
+        offer_kind: 'products',
+        event_type: 'stripe_price_sync',
+        agent_user_agent: 'Stripe-Webhook',
+        metadata: {
+          source: 'stripe_webhook',
+          price_id: price.id,
+          product_id: productId,
+          new_price: target.priceStr,
+          changes,
+        },
+      })
+      if (eventError) {
+        console.warn('[Stripe Webhook] Failed to log price sync for page', row.slug, eventError.message)
+      }
+    }
+    captureEvent('integration.price_synced', {
+      provider: 'stripe',
+      priceId: price.id,
+      price: target.priceStr,
+      offersUpdated,
+      pagesTouched,
+      connect: Boolean(connectedAccount),
+    })
+    return NextResponse.json({ received: true, type: event.type, offersUpdated, pagesTouched }, { status: 200 })
   }
 
   // Negotiation escrow: a buyer-funded Checkout completed.
@@ -664,107 +778,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true, type: event.type, connect_synced: false, reason: 'no matching billing row' }, { status: 200 })
   }
 
-  if (event.type !== 'price.updated' && event.type !== 'price.created') {
-    return NextResponse.json({ received: true, type: event.type }, { status: 200 })
-  }
-
-  if (!hasSupabaseAdminEnv()) {
-    return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY is required for Stripe webhook sync.' }, { status: 412 })
-  }
-
-  const priceObj = event.data.object as Stripe.Price
-  const priceId = priceObj.id
-  const productId = typeof priceObj.product === 'string' ? priceObj.product : priceObj.product?.id
-  const formattedPrice = formatStripePrice(priceObj)
-  const supabase = createAdminClient()
-
-  const { data: pages, error: pageError } = await supabase
-    .from('pages')
-    .select('id, slug, services, products, owner_id')
-
-  if (pageError) {
-    console.warn('[Stripe Webhook] Page scan failed:', pageError.message)
-    return NextResponse.json({ error: 'Could not scan pages for Stripe price sync.' }, { status: 500 })
-  }
-
-  let updates = 0
-  const changedOffers: Array<{ slug: string; name: string; old: string; new: string }> = []
-
-  for (const pg of pages || []) {
-    let services = (pg.services || []) as OfferItem[]
-    let products = (pg.products || []) as OfferItem[]
-    let pageChanged = false
-
-    const matcher = (offer: OfferItem) => {
-      const metadata = offer.metadata || {}
-      return metadata.stripe_price_id === priceId || (productId && metadata.stripe_product_id === productId)
-    }
-
-    const applyPrice = (offers: OfferItem[]) =>
-      offers.map((offer) => {
-        if (matcher(offer) && offer.source === 'stripe' && offer.price !== formattedPrice) {
-          changedOffers.push({ slug: pg.slug, name: offer.name, old: offer.price || '', new: formattedPrice })
-          pageChanged = true
-          updates += 1
-          return {
-            ...offer,
-            price: formattedPrice,
-            metadata: {
-              ...(offer.metadata || {}),
-              last_stripe_sync: new Date().toISOString(),
-            },
-          }
-        }
-
-        return offer
-      })
-
-    services = applyPrice(services)
-    products = applyPrice(products)
-
-    if (!pageChanged) continue
-
-    const { error: updateError } = await supabase
-      .from('pages')
-      .update({ services, products })
-      .eq('id', pg.id)
-
-    if (updateError) {
-      console.warn('[Stripe Webhook] Failed to update page', pg.slug, updateError.message)
-      continue
-    }
-
-    const pageChanges = changedOffers.filter((change) => change.slug === pg.slug)
-    const { error: eventError } = await supabase.from('checkout_events').insert({
-      page_id: pg.id,
-      owner_id: pg.owner_id || null,
-      slug: pg.slug,
-      offer_key: 'stripe:price-sync',
-      offer_name: `Stripe price sync (${pageChanges.map((change) => change.name).join(', ')})`,
-      offer_kind: 'products',
-      event_type: 'stripe_price_sync',
-      agent_user_agent: 'Stripe-Webhook',
-      metadata: {
-        source: 'stripe_webhook',
-        price_id: priceId,
-        product_id: productId,
-        new_price: formattedPrice,
-        changes: pageChanges,
-      },
-    })
-
-    if (eventError) {
-      console.warn('[Stripe Webhook] Failed to log price sync for page', pg.slug, eventError.message)
-    }
-  }
-
-  return NextResponse.json({
-    received: true,
-    type: event.type,
-    price_id: priceId,
-    pages_scanned: pages?.length || 0,
-    offers_updated: updates,
-  })
+  return NextResponse.json({ received: true, type: event.type }, { status: 200 })
 }
 
 export async function GET() {
@@ -888,11 +902,4 @@ async function syncBillingSubscription(event: Stripe.Event, subscription: Stripe
     plan_id: row.plan_id,
     status: row.status,
   })
-}
-
-function formatStripePrice(price: Stripe.Price) {
-  const interval = price.recurring?.interval ? ` / ${price.recurring.interval}` : ''
-  return typeof price.unit_amount === 'number'
-    ? `$${(price.unit_amount / 100).toFixed(0)}${interval}`
-    : 'Custom'
 }

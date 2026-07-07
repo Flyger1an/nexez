@@ -400,4 +400,159 @@ describe('POST /api/webhooks/stripe', () => {
       expect(updated.status).toBe('refunded')
     })
   })
+
+  // Bi-directional catalog sync: price.updated rewrites imported offers in place.
+  describe('price.updated → offer price sync', () => {
+    const priceEvent = (eventOver: Record<string, any> = {}, priceOver: Record<string, any> = {}) => ({
+      id: 'evt_price',
+      type: 'price.updated',
+      data: { object: { id: 'price_1', active: true, unit_amount: 5500, recurring: null, ...priceOver } },
+      ...eventOver,
+    })
+    const stripeOffer = (over: Record<string, any> = {}) => ({
+      name: 'Deep Clean',
+      description: 'Imported from Stripe',
+      price: '$40',
+      url: '',
+      source: 'stripe',
+      metadata: { stripe_price_id: 'price_1', stripe_product_id: 'prod_1' },
+      ...over,
+    })
+    // Handler + context recorder; the default arm also serves the event ledger insert.
+    function withDb(handler: (ctx: QueryContext) => { data?: any; error?: any } | undefined) {
+      const contexts: QueryContext[] = []
+      hasSupabaseAdminEnv.mockReturnValue(true)
+      createAdminClient.mockReturnValue(
+        createSupabaseMock((ctx: QueryContext) => {
+          contexts.push(ctx)
+          return handler(ctx) ?? { data: null, error: null }
+        }) as any,
+      )
+      return contexts
+    }
+    const containsColumn = (ctx: QueryContext) => ctx.calls.find((c) => c[0] === 'contains')?.[1]
+
+    beforeEach(() => vi.stubEnv('STRIPE_WEBHOOK_SECRET', 'whsec_test'))
+
+    it('connect event scopes to the connected account owner and rewrites only matching offers', async () => {
+      const page = {
+        id: 'pg1',
+        slug: 'acme',
+        owner_id: 'owner-1',
+        services: [stripeOffer(), stripeOffer({ name: 'Manual add', source: undefined, metadata: {} })],
+        products: [],
+      }
+      const contexts = withDb((ctx) => {
+        if (ctx.table === 'billing_subscriptions') return { data: { owner_id: 'owner-1' }, error: null }
+        if (ctx.table === 'pages' && ctx.op === 'select') {
+          return { data: containsColumn(ctx) === 'services' ? [page] : [], error: null }
+        }
+        return undefined
+      })
+      constructEvent.mockReturnValue(priceEvent({ account: 'acct_1' }))
+      const res = await POST(post({ sig: 'good', body: '{}' }))
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ offersUpdated: 1, pagesTouched: 1 })
+      // Tenancy: every pages read carried the resolved owner filter.
+      const pageSelects = contexts.filter((c) => c.table === 'pages' && c.op === 'select')
+      expect(pageSelects.length).toBeGreaterThan(0)
+      for (const c of pageSelects) expect(c.eqs.owner_id).toBe('owner-1')
+      const update = contexts.find((c) => c.table === 'pages' && c.op === 'update')!
+      expect(update.eqs.id).toBe('pg1')
+      expect(update.payload.services[0]).toMatchObject({ name: 'Deep Clean', price: '$55' })
+      expect(update.payload.services[0].metadata.last_stripe_sync).toBeTruthy()
+      expect(update.payload.services[1].price).toBe('$40') // non-Stripe offer untouched
+      // Audit trail lands in the analytics vocabulary.
+      const audit = contexts.find((c) => c.table === 'checkout_events' && c.op === 'insert')!
+      expect(audit.payload).toMatchObject({ page_id: 'pg1', event_type: 'stripe_price_sync' })
+      expect(audit.payload.metadata.changes).toEqual([{ name: 'Deep Clean', from: '$40', to: '$55' }])
+    })
+
+    it('price.created reaches product-keyed offers via the stripe_product_id fallback', async () => {
+      const page = {
+        id: 'pg3',
+        slug: 'beta',
+        owner_id: 'owner-2',
+        services: [],
+        products: [stripeOffer({ name: 'Product-keyed', metadata: { stripe_product_id: 'prod_1' } })],
+      }
+      const contexts = withDb((ctx) => {
+        if (ctx.table === 'pages' && ctx.op === 'select') {
+          const marker = ctx.calls.find((c) => c[0] === 'contains')?.[2]?.[0]
+          const byProduct = marker?.metadata?.stripe_product_id === 'prod_1'
+          return { data: containsColumn(ctx) === 'products' && byProduct ? [page] : [], error: null }
+        }
+        return undefined
+      })
+      constructEvent.mockReturnValue(priceEvent({ type: 'price.created' }, { product: 'prod_1' }))
+      const res = await POST(post({ sig: 'good', body: '{}' }))
+      expect(await res.json()).toMatchObject({ type: 'price.created', offersUpdated: 1, pagesTouched: 1 })
+      const update = contexts.find((c) => c.table === 'pages' && c.op === 'update')!
+      expect(update.payload.products[0].price).toBe('$55')
+    })
+
+    it('unknown connected account → acknowledged, pages never queried (no cross-tenant writes)', async () => {
+      const contexts = withDb((ctx) => {
+        if (ctx.table === 'billing_subscriptions') return { data: null, error: null }
+        return undefined
+      })
+      constructEvent.mockReturnValue(priceEvent({ account: 'acct_stranger' }))
+      const res = await POST(post({ sig: 'good', body: '{}' }))
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ skipped: 'unknown connected account' })
+      expect(contexts.some((c) => c.table === 'pages')).toBe(false)
+    })
+
+    it('platform event (no account) matches by price id alone; recurring format + Standard tier follow', async () => {
+      const page = {
+        id: 'pg2',
+        slug: 'gamma',
+        owner_id: 'owner-3',
+        services: [],
+        products: [stripeOffer({
+          price: '$40 / month',
+          tiers: [{ name: 'Standard', price: '$40 / month', description: 'Recurring via Stripe' }],
+        })],
+      }
+      const contexts = withDb((ctx) => {
+        if (ctx.table === 'pages' && ctx.op === 'select') {
+          return { data: containsColumn(ctx) === 'products' ? [page] : [], error: null }
+        }
+        return undefined
+      })
+      constructEvent.mockReturnValue(priceEvent({}, { recurring: { interval: 'month' } }))
+      const res = await POST(post({ sig: 'good', body: '{}' }))
+      expect(await res.json()).toMatchObject({ offersUpdated: 1, pagesTouched: 1 })
+      expect(contexts.some((c) => c.table === 'billing_subscriptions')).toBe(false)
+      for (const c of contexts.filter((x) => x.table === 'pages' && x.op === 'select')) {
+        expect('owner_id' in c.eqs).toBe(false)
+      }
+      const update = contexts.find((c) => c.table === 'pages' && c.op === 'update')!
+      expect(update.payload.products[0].price).toBe('$55 / month')
+      expect(update.payload.products[0].tiers[0].price).toBe('$55 / month')
+    })
+
+    it('inactive price → skipped, listings keep the last synced price', async () => {
+      const contexts = withDb(() => undefined)
+      constructEvent.mockReturnValue(priceEvent({}, { active: false }))
+      const res = await POST(post({ sig: 'good', body: '{}' }))
+      expect(await res.json()).toMatchObject({ skipped: 'inactive price' })
+      expect(contexts.some((c) => c.table === 'pages')).toBe(false)
+    })
+
+    it('already-current offers → no write issued (redelivery past the ledger no-ops)', async () => {
+      const page = { id: 'pg1', slug: 'acme', owner_id: 'owner-1', services: [stripeOffer({ price: '$55' })], products: [] }
+      const contexts = withDb((ctx) => {
+        if (ctx.table === 'pages' && ctx.op === 'select') {
+          return { data: containsColumn(ctx) === 'services' ? [page] : [], error: null }
+        }
+        return undefined
+      })
+      constructEvent.mockReturnValue(priceEvent())
+      const res = await POST(post({ sig: 'good', body: '{}' }))
+      expect(await res.json()).toMatchObject({ offersUpdated: 0, pagesTouched: 0 })
+      expect(contexts.some((c) => c.table === 'pages' && c.op === 'update')).toBe(false)
+      expect(contexts.some((c) => c.table === 'checkout_events')).toBe(false)
+    })
+  })
 })
