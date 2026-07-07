@@ -85,7 +85,16 @@ actions call the existing Next API routes with the seller's `Authorization: Bear
 
 ## 📱 Coverage / polish
 
-7. **Android** — never run/verified (iOS sim only). Confirm an emulator, smoke-test layout (floating nav insets, BlurView intensity, Switch styling).
+7. ~~**Android**~~ — ✅ **Smoke-tested 2026-07-07** on the Pixel_10_Pro AVD (wiped-data boot dodges the
+   known cold-start ANR; driven headlessly via `adb input` + `screencap` — synthetic typing works on
+   Android where the iOS sim accent-picker breaks it, but `%` URL-escapes are NOT decoded, only `%s`).
+   Verified: onboarding, login, Overview (floating nav + FAB insets correct over the gesture bar,
+   glass renders), create fork, the FULL intake interview incl. a live prod-LLM turn (messy input →
+   "Guided Sunrise Hike $95/person" extracted correctly) → commit → listing editor, session resume.
+   **Fixed on-Android finding**: with RN 0.85 edge-to-edge the window neither resizes nor does
+   KeyboardAvoidingView pad, so the intake composer hid under the keyboard — the screen now tracks
+   keyboard height (`Keyboard.addListener`) and pads manually on Android; verified live. Still open:
+   Switch styling in Settings not eyeballed; a real-device pass (push etc.) remains an owner action.
 8. **Google OAuth** — blocked on the web auth flow not exposing it; email/password only today.
 9. **App icon → Ink & Ember** — splash/adaptive-icon backgrounds updated to `#0a0e16`; the icon/splash *artwork* is still the create-expo-app default — needs a branded asset.
 10. **Negotiation thread content** — `seller_llm` messages fall back to "Message" when their jsonb shape has no `message`/`reasoning`/`query`/`text`; map the real LLM-decision shape.

@@ -7,7 +7,7 @@
 import { useRouter } from 'expo-router'
 import { ArrowRight, CircleCheck, Globe2, MessageCircleQuestion, Send, Sparkles } from 'lucide-react-native'
 import { useEffect, useRef, useState } from 'react'
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { AppButton, Glass, LoadingState, ReadinessRing, Screen, StackHeader } from '@/src/components/ui'
 import {
   commitIntakeSession,
@@ -42,6 +42,21 @@ export function IntakeInterviewScreen() {
   const sessionIdRef = useRef<string | null>(null)
   const scrollRef = useRef<ScrollView>(null)
   const idRef = useRef(0)
+
+  // Android + edge-to-edge (RN 0.85 default): the window neither resizes nor
+  // does KeyboardAvoidingView pad, so a bottom composer vanishes under the
+  // keyboard (found in the Android pass). Track the keyboard height and pad
+  // the chat container manually; iOS keeps the standard KAV behavior.
+  const [kbHeight, setKbHeight] = useState(0)
+  useEffect(() => {
+    if (Platform.OS !== 'android') return
+    const show = Keyboard.addListener('keyboardDidShow', (e) => setKbHeight(e.endCoordinates?.height ?? 0))
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKbHeight(0))
+    return () => {
+      show.remove()
+      hide.remove()
+    }
+  }, [])
 
   const nextId = () => `m-${++idRef.current}`
 
@@ -209,7 +224,11 @@ export function IntakeInterviewScreen() {
 
   return (
     <Screen scroll={false} header={<StackHeader title="Nexez intake" onBack={() => router.back()} />}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
+      <KeyboardAvoidingView
+        style={{ flex: 1, paddingBottom: Platform.OS === 'android' ? kbHeight : 0 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={90}
+      >
         <ScrollView
           ref={scrollRef}
           style={{ flex: 1 }}
