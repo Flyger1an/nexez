@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { BarChart3, ExternalLink, Gauge, Send, Shield, ShoppingBag } from 'lucide-react-native'
+import { BarChart3, ExternalLink, Gauge, MessageCircleQuestion, Send, Shield, ShoppingBag } from 'lucide-react-native'
 import * as WebBrowser from 'expo-web-browser'
 import { Pressable, Text, View } from 'react-native'
 import { Badge, Card, ErrorState, LoadingState, ReadinessRing, Screen, SectionTitle, StackHeader } from '@/src/components/ui'
@@ -15,6 +15,9 @@ const ACTION_TILES = [
   { key: 'competitor', label: 'Compare', icon: BarChart3, tone: colors.steel },
   { key: 'trust', label: 'Trust', icon: Shield, tone: colors.ember },
   { key: 'preview', label: 'Preview', icon: ExternalLink, tone: colors.steel },
+  // Re-interview: the intake conversation seeded from THIS listing — asks only
+  // the gaps; answers stage onto the listing's draft (intake spec §12 → v2).
+  { key: 'reinterview', label: 'Re-interview', icon: MessageCircleQuestion, tone: colors.ember },
 ] as const
 
 export function ListingDetailScreen() {
@@ -36,6 +39,7 @@ export function ListingDetailScreen() {
 
   function goTile(key: string) {
     if (key === 'preview') return void WebBrowser.openBrowserAsync(publicPageUrl(page!.slug))
+    if (key === 'reinterview') return router.push({ pathname: '/intake', params: { pageId: page!.id } })
     if (key === 'readiness') return router.push({ pathname: '/listing/[id]/readiness', params: { id: page!.id } })
     if (key === 'simulator') return router.push({ pathname: '/listing/[id]/simulator', params: { id: page!.id } })
     if (key === 'competitor') return router.push({ pathname: '/listing/[id]/competitor', params: { id: page!.id } })

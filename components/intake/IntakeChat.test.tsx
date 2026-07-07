@@ -104,6 +104,74 @@ describe('IntakeChat — setup', () => {
   })
 })
 
+describe('IntakeChat — re-interview mode (existing listing)', () => {
+  /** A session seeded from an existing page, built through the real machine. */
+  function seededState(): IntakeState {
+    let state = createIntakeState({
+      seed: {
+        name: 'Existing Biz',
+        description: 'A shop that already exists.',
+        services: [{ name: 'Old Offer', description: '', price: '$50', url: '' }],
+      },
+    })
+    for (const action of [
+      { type: 'ADD_SOURCE' as const, source: { id: 's1', kind: 'integration' as const, value: 'page:page-7', label: 'Existing listing', addedAt: '2026-07-07T00:00:00Z' } },
+      { type: 'ANALYZE_GAPS' as const },
+    ]) {
+      const applied = applyIntakeAction(state, action)
+      if (applied.ok) state = applied.state
+    }
+    return state
+  }
+
+  it('renders the re-interview setup — single start action, no URL/scratch inputs', async () => {
+    mockFetch([noSessions])
+    render(<IntakeChat reinterviewPageId="page-7" />)
+    expect(screen.getByText('Re-interview this listing')).toBeInTheDocument()
+    expect(screen.getByText('Start the re-interview')).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('https://yourbusiness.com')).not.toBeInTheDocument()
+    expect(screen.queryByText('Start from scratch')).not.toBeInTheDocument()
+  })
+
+  it('start posts page_id and the opening message names the listing', async () => {
+    const calls = mockFetch([
+      noSessions,
+      { match: (url, init) => url.endsWith('/api/agents/intake/threads') && init?.method === 'POST', status: 201, body: { ok: true, id: 'sess-r', state: seededState() } },
+    ])
+    render(<IntakeChat reinterviewPageId="page-7" />)
+    fireEvent.click(screen.getByText('Start the re-interview'))
+    await waitFor(() => expect(screen.getByText(/I re-read Existing Biz/)).toBeInTheDocument())
+    const create = calls.find((c) => c.method === 'POST' && c.url.endsWith('/api/agents/intake/threads'))
+    expect(create?.payload).toEqual({ page_id: 'page-7' })
+  })
+
+  it('only offers to resume a session for THIS listing', async () => {
+    mockFetch([
+      {
+        match: (url, init) => url.endsWith('/api/agents/intake/threads') && (!init?.method || init.method === 'GET'),
+        body: { ok: true, sessions: [{ id: 'sess-other', status: 'active', phase: 'INTERVIEW', pageId: 'different-page', updatedAt: null }] },
+      },
+    ])
+    render(<IntakeChat reinterviewPageId="page-7" />)
+    await waitFor(() => expect(screen.getByText('Start the re-interview')).toBeInTheDocument())
+    expect(screen.queryByText('Resume your interview in progress')).not.toBeInTheDocument()
+  })
+
+  it('resumes the matching listing session when one exists', async () => {
+    mockFetch([
+      {
+        match: (url, init) => url.endsWith('/api/agents/intake/threads') && (!init?.method || init.method === 'GET'),
+        body: { ok: true, sessions: [{ id: 'sess-mine', status: 'active', phase: 'INTERVIEW', pageId: 'page-7', updatedAt: null }] },
+      },
+      { match: (url) => url.endsWith('/threads/sess-mine'), body: { ok: true, id: 'sess-mine', status: 'active', phase: 'INTERVIEW', state: seededState() } },
+    ])
+    render(<IntakeChat reinterviewPageId="page-7" />)
+    await waitFor(() => expect(screen.getByText('Resume your interview in progress')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Resume your interview in progress'))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Nexez intake' })).toBeInTheDocument())
+  })
+})
+
 describe('IntakeChat — interview', () => {
   it('a scratch start opens the chat with the first gap batch (blocking marks + quick answers)', async () => {
     mockFetch([

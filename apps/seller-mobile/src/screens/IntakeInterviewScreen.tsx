@@ -4,7 +4,7 @@
 // gap chips, which work with or without a server-side LLM). No gap logic on
 // device. Sessions are resumable across devices — start here on the couch,
 // finish in the web builder.
-import { useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { ArrowRight, CircleCheck, Globe2, MessageCircleQuestion, Send, Sparkles } from 'lucide-react-native'
 import { useEffect, useRef, useState } from 'react'
 import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
@@ -30,6 +30,10 @@ type SetupPhase = 'loading' | 'setup' | 'starting' | 'chat'
 
 export function IntakeInterviewScreen() {
   const router = useRouter()
+  // Re-interview an EXISTING listing (/intake?pageId=… from listing detail):
+  // the session seeds from the page; commit stages onto its draft.
+  const { pageId } = useLocalSearchParams<{ pageId?: string }>()
+  const reinterviewPageId = typeof pageId === 'string' && pageId ? pageId : null
   const [phase, setPhase] = useState<SetupPhase>('loading')
   // Which start path is in flight — so only ITS button shows the loading label.
   const [startingVia, setStartingVia] = useState<'url' | 'scratch' | 'resume' | null>(null)
@@ -63,11 +67,14 @@ export function IntakeInterviewScreen() {
   useEffect(() => {
     listIntakeSessions()
       .then((json) => {
-        setResumableId(json.sessions?.[0]?.id ?? null)
+        const sessions = json.sessions ?? []
+        // In re-interview mode only a session for THAT listing counts.
+        const match = reinterviewPageId ? sessions.find((s) => s.pageId === reinterviewPageId) : sessions[0]
+        setResumableId(match?.id ?? null)
         setPhase('setup')
       })
       .catch(() => setPhase('setup'))
-  }, [])
+  }, [reinterviewPageId])
 
   function openingMessages(state: IntakeSessionState): ChatMessage[] {
     const extraction = state.extractions[0]
@@ -84,7 +91,9 @@ export function IntakeInterviewScreen() {
     if (state.gaps.length > 0) cards.push({ type: 'gap_batch', gaps: state.gaps.slice(0, 3) })
     const intro = extraction
       ? `I read what your site already says — ${extraction.offers.length} offer${extraction.offers.length === 1 ? '' : 's'} came through. I will only ask about what is missing.`
-      : 'We are starting fresh. A few focused questions and your draft will be ready to review — answer, skip, or bail to the editor any time.'
+      : state.draft?.name?.trim()
+        ? `I re-read ${state.draft.name} — it is already on Nexez, so I will only ask about what is missing or could be stronger. Your answers land as a draft on the listing.`
+        : 'We are starting fresh. A few focused questions and your draft will be ready to review — answer, skip, or bail to the editor any time.'
     return [{ id: nextId(), role: 'agent', content: intro, cards }]
   }
 
@@ -101,7 +110,7 @@ export function IntakeInterviewScreen() {
     return replay.length ? replay : openingMessages(state)
   }
 
-  async function start(body: { source_url?: string }) {
+  async function start(body: { source_url?: string; page_id?: string }) {
     setPhase('starting')
     setStartingVia(body.source_url ? 'url' : 'scratch')
     setSetupError('')
@@ -184,10 +193,11 @@ export function IntakeInterviewScreen() {
           <View style={st.setupIcon}>
             <Sparkles size={22} color={colors.ember} />
           </View>
-          <Text style={st.setupTitle}>Interview, not paperwork</Text>
+          <Text style={st.setupTitle}>{reinterviewPageId ? 'Re-interview this listing' : 'Interview, not paperwork'}</Text>
           <Text style={st.setupSub}>
-            Nexez reads what already exists — your site, your listings — and only asks about the gaps. Your answers
-            become a draft you review before anything publishes.
+            {reinterviewPageId
+              ? 'Nexez re-reads what the listing already says and only asks about what is missing or could be stronger. Your answers land as a draft on the listing — nothing goes live without you.'
+              : 'Nexez reads what already exists — your site, your listings — and only asks about the gaps. Your answers become a draft you review before anything publishes.'}
           </Text>
         </View>
 
@@ -198,25 +208,37 @@ export function IntakeInterviewScreen() {
           </Pressable>
         ) : null}
 
-        <Glass tone="group" radius={16} contentStyle={st.urlCard}>
-          <TextInput
-            value={sourceUrl}
-            onChangeText={setSourceUrl}
-            autoCapitalize="none"
-            keyboardType="url"
-            placeholder="https://yourbusiness.com"
-            placeholderTextColor={colors.textTertiary}
-            style={st.urlInput}
-          />
+        {reinterviewPageId ? (
           <AppButton
             full
-            icon={Globe2}
-            label={startingVia === 'url' ? 'Reading your site…' : 'Start with my site'}
-            disabled={phase === 'starting' || !sourceUrl.trim()}
-            onPress={() => start({ source_url: sourceUrl.trim() })}
+            icon={Sparkles}
+            label={phase === 'starting' ? 'Re-reading your listing…' : 'Start the re-interview'}
+            disabled={phase === 'starting'}
+            onPress={() => start({ page_id: reinterviewPageId })}
           />
-        </Glass>
-        <AppButton full variant="secondary" label="Start from scratch" disabled={phase === 'starting'} onPress={() => start({})} />
+        ) : (
+          <>
+            <Glass tone="group" radius={16} contentStyle={st.urlCard}>
+              <TextInput
+                value={sourceUrl}
+                onChangeText={setSourceUrl}
+                autoCapitalize="none"
+                keyboardType="url"
+                placeholder="https://yourbusiness.com"
+                placeholderTextColor={colors.textTertiary}
+                style={st.urlInput}
+              />
+              <AppButton
+                full
+                icon={Globe2}
+                label={startingVia === 'url' ? 'Reading your site…' : 'Start with my site'}
+                disabled={phase === 'starting' || !sourceUrl.trim()}
+                onPress={() => start({ source_url: sourceUrl.trim() })}
+              />
+            </Glass>
+            <AppButton full variant="secondary" label="Start from scratch" disabled={phase === 'starting'} onPress={() => start({})} />
+          </>
+        )}
         {setupError ? <Text style={st.error}>{setupError}</Text> : null}
       </Screen>
     )

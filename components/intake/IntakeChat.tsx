@@ -19,6 +19,10 @@ import { appUrl } from '../../lib/site'
 type IntakeChatProps = {
   /** "Just take me to the form" — the fork's escape hatch. */
   onSwitchToForm?: () => void
+  /** Re-interview an EXISTING listing: the session seeds from the page and
+   *  commit stages onto its draft (never a new page). Entry: the editor's
+   *  Re-interview action → /create?reinterview=<pageId>. */
+  reinterviewPageId?: string
   className?: string
 }
 
@@ -26,7 +30,7 @@ type SetupPhase = 'setup' | 'starting' | 'signin' | 'chat'
 
 type ActiveSession = { id: string; updatedAt: string | null }
 
-export function IntakeChat({ onSwitchToForm, className = '' }: IntakeChatProps) {
+export function IntakeChat({ onSwitchToForm, reinterviewPageId, className = '' }: IntakeChatProps) {
   const [phase, setPhase] = useState<SetupPhase>('setup')
   const [sourceUrl, setSourceUrl] = useState('')
   const [setupError, setSetupError] = useState('')
@@ -36,20 +40,23 @@ export function IntakeChat({ onSwitchToForm, className = '' }: IntakeChatProps) 
 
   // Surface an existing interview so a second visit resumes instead of
   // duplicating (cross-device: start on mobile, finish here). Best-effort —
-  // unauthenticated visitors just see the fresh-start setup.
+  // unauthenticated visitors just see the fresh-start setup. In re-interview
+  // mode only a session for THAT listing counts.
   useEffect(() => {
     let cancelled = false
     fetch('/api/agents/intake/threads')
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
         if (cancelled || !json?.sessions?.length) return
-        setResumable({ id: json.sessions[0].id, updatedAt: json.sessions[0].updatedAt ?? null })
+        const sessions = json.sessions as Array<{ id: string; pageId: string | null; updatedAt: string | null }>
+        const match = reinterviewPageId ? sessions.find((s) => s.pageId === reinterviewPageId) : sessions[0]
+        if (match) setResumable({ id: match.id, updatedAt: match.updatedAt ?? null })
       })
       .catch(() => {})
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [reinterviewPageId])
 
   function openingMessages(state: IntakeState): AgentChatMessage<IntakeCard>[] {
     const extraction = state.extractions[0]
@@ -68,7 +75,9 @@ export function IntakeChat({ onSwitchToForm, className = '' }: IntakeChatProps) 
     }
     const intro = extraction
       ? `I read what your site already says — ${extraction.offers.length} offer${extraction.offers.length === 1 ? '' : 's'} came through. I will only ask about what is missing or unclear.`
-      : 'We are starting fresh. A few focused questions and your draft will be ready to review in the builder — answer, skip, or jump to the form any time.'
+      : state.draft.name.trim()
+        ? `I re-read ${state.draft.name} — it is already on Nexez, so I will only ask about what is missing or could be stronger. Your answers land as a draft on the listing.`
+        : 'We are starting fresh. A few focused questions and your draft will be ready to review in the builder — answer, skip, or jump to the form any time.'
     return [{ id: 'intake-opening', role: 'assistant', content: intro, cards }]
   }
 
@@ -158,10 +167,13 @@ export function IntakeChat({ onSwitchToForm, className = '' }: IntakeChatProps) 
         <div className="flex size-12 items-center justify-center rounded-2xl border border-[var(--signal)]/40 bg-[var(--signal)]/15">
           <Sparkles className="size-6 text-[var(--signal)]" />
         </div>
-        <h2 className="mt-5 text-2xl font-semibold tracking-[-0.03em]">Talk it through</h2>
+        <h2 className="mt-5 text-2xl font-semibold tracking-[-0.03em]">
+          {reinterviewPageId ? 'Re-interview this listing' : 'Talk it through'}
+        </h2>
         <p className="mt-2 text-sm leading-6 text-white/60">
-          I will read what already exists — your site, your listings — and only ask about the gaps. Twenty minutes of
-          conversation, not forty form fields.
+          {reinterviewPageId
+            ? 'Nexez re-reads what the listing already says and only asks about what is missing or could be stronger. Your answers land as a DRAFT on the listing — nothing goes live without you.'
+            : 'I will read what already exists — your site, your listings — and only ask about the gaps. Twenty minutes of conversation, not forty form fields.'}
         </p>
 
         {phase === 'signin' ? (
@@ -189,32 +201,46 @@ export function IntakeChat({ onSwitchToForm, className = '' }: IntakeChatProps) 
                 <ArrowRight className="size-4 text-[var(--ready)]" />
               </button>
             ) : null}
-            <div className="rounded-2xl border border-white/12 bg-white/[0.045] p-2">
-              <input
-                type="url"
-                value={sourceUrl}
-                onChange={(event) => setSourceUrl(event.target.value)}
-                placeholder="https://yourbusiness.com"
-                className="w-full bg-transparent px-3 py-3 text-sm text-white outline-none placeholder:text-white/35"
-              />
+            {reinterviewPageId ? (
               <button
                 type="button"
-                disabled={phase === 'starting' || !sourceUrl.trim()}
-                onClick={() => start({ source_url: sourceUrl.trim() })}
-                className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-medium text-zinc-950 transition hover:bg-zinc-200 disabled:opacity-40"
+                disabled={phase === 'starting'}
+                onClick={() => start({ page_id: reinterviewPageId })}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-medium text-zinc-950 transition hover:bg-zinc-200 disabled:opacity-40"
               >
-                {phase === 'starting' ? <Loader2 className="size-4 animate-spin" /> : <Globe2 className="size-4" />}
-                Start with my site
+                {phase === 'starting' ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                {phase === 'starting' ? 'Re-reading your listing…' : 'Start the re-interview'}
               </button>
-            </div>
-            <button
-              type="button"
-              disabled={phase === 'starting'}
-              onClick={() => start({})}
-              className="w-full rounded-2xl border border-white/12 px-4 py-3 text-sm text-white/75 transition hover:bg-white/5 disabled:opacity-50"
-            >
-              Start from scratch
-            </button>
+            ) : (
+              <>
+                <div className="rounded-2xl border border-white/12 bg-white/[0.045] p-2">
+                  <input
+                    type="url"
+                    value={sourceUrl}
+                    onChange={(event) => setSourceUrl(event.target.value)}
+                    placeholder="https://yourbusiness.com"
+                    className="w-full bg-transparent px-3 py-3 text-sm text-white outline-none placeholder:text-white/35"
+                  />
+                  <button
+                    type="button"
+                    disabled={phase === 'starting' || !sourceUrl.trim()}
+                    onClick={() => start({ source_url: sourceUrl.trim() })}
+                    className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-medium text-zinc-950 transition hover:bg-zinc-200 disabled:opacity-40"
+                  >
+                    {phase === 'starting' ? <Loader2 className="size-4 animate-spin" /> : <Globe2 className="size-4" />}
+                    Start with my site
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  disabled={phase === 'starting'}
+                  onClick={() => start({})}
+                  className="w-full rounded-2xl border border-white/12 px-4 py-3 text-sm text-white/75 transition hover:bg-white/5 disabled:opacity-50"
+                >
+                  Start from scratch
+                </button>
+              </>
+            )}
             {setupError ? <p className="text-xs text-red-300">{setupError}</p> : null}
           </div>
         )}

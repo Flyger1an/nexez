@@ -52,6 +52,8 @@ export type IntakeSessionState = {
   messages: IntakeSessionMessage[]
   sources: Array<{ id: string; kind: string; value: string; label?: string }>
   extractions: Array<{ sourceId: string; offers: unknown[]; confidence?: number }>
+  /** Present when the session seeded from an existing listing (re-interview). */
+  draft?: { name?: string }
 }
 
 export type IntakeSessionSummary = { id: string; status: string; phase: string; pageId: string | null; updatedAt: string | null }

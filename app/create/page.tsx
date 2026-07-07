@@ -85,6 +85,9 @@ export default function CreatePage() {
   // The /create fork (intake spec §6): "Talk it through" (default, hero) vs
   // "Build with the form" (the wizard, fully preserved as fallback + power path).
   const [mode, setMode] = useState<'talk' | 'form'>('talk')
+  // Re-interview an existing listing (?reinterview=<pageId> from the editor):
+  // the interview seeds from the page and stages changes onto its draft.
+  const [reinterviewPageId, setReinterviewPageId] = useState<string | null>(null)
   const [step, setStep] = useState(1)
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
@@ -184,10 +187,14 @@ export default function CreatePage() {
     const params = new URLSearchParams(window.location.search)
     const template = getCreatePageTemplate(params.get('template'))
 
-    // Form-centric entries skip the interview fork: explicit ?mode=form,
-    // template starts, CSV import, the Tools import handoff, and a pending
-    // page saved before a sign-in round-trip (that flow is form work).
-    if (
+    // Re-interview entry wins the fork outright — it IS the point of the visit.
+    const reinterview = params.get('reinterview')
+    if (reinterview) {
+      setReinterviewPageId(reinterview)
+    } else if (
+      // Form-centric entries skip the interview fork: explicit ?mode=form,
+      // template starts, CSV import, the Tools import handoff, and a pending
+      // page saved before a sign-in round-trip (that flow is form work).
       params.get('mode') === 'form' ||
       params.get('template') ||
       params.get('import') === 'csv' ||
@@ -743,26 +750,41 @@ export default function CreatePage() {
                   <Wand2 className="size-3.5" />
                   Seller intake interview
                 </div>
-                <h1 className="mt-5 text-4xl font-semibold tracking-tight">Talk your listing into existence</h1>
+                <h1 className="mt-5 text-4xl font-semibold tracking-tight">
+                  {reinterviewPageId ? 'Give this listing another pass' : 'Talk your listing into existence'}
+                </h1>
                 <p className="mt-4 text-base leading-7 text-zinc-400">
-                  Share your website and Nexez reads what already exists — offers, prices, FAQs — then interviews you
-                  only about the gaps. Your answers become a draft you review and publish in the builder.
+                  {reinterviewPageId
+                    ? 'Nexez re-reads the listing and interviews you only about what is missing or could be stronger. Your answers stage as a draft on the listing — review and publish in the builder.'
+                    : 'Share your website and Nexez reads what already exists — offers, prices, FAQs — then interviews you only about the gaps. Your answers become a draft you review and publish in the builder.'}
                 </p>
                 <ul className="mt-6 space-y-3 text-sm text-zinc-300">
                   <li className="flex items-center gap-3"><Globe2 className="size-4 shrink-0 text-[var(--signal)]" /> Reads your site, socials, and integrations first</li>
                   <li className="flex items-center gap-3"><Bot className="size-4 shrink-0 text-[var(--signal)]" /> Asks only what is missing — a conversation, not a form</li>
                   <li className="flex items-center gap-3"><CheckCircle2 className="size-4 shrink-0 text-[var(--ready)]" /> Hands off to the builder — nothing publishes without you</li>
                 </ul>
-                <button
-                  type="button"
-                  onClick={() => setMode('form')}
-                  className="mt-8 inline-flex items-center gap-2 rounded-lg border border-white/15 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/5"
-                  data-testid="switch-to-form"
-                >
-                  Build with the form instead
-                </button>
+                {reinterviewPageId ? (
+                  <a
+                    href={appUrl(`/dashboard/${reinterviewPageId}`)}
+                    className="mt-8 inline-flex items-center gap-2 rounded-lg border border-white/15 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/5"
+                  >
+                    Back to the builder
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setMode('form')}
+                    className="mt-8 inline-flex items-center gap-2 rounded-lg border border-white/15 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/5"
+                    data-testid="switch-to-form"
+                  >
+                    Build with the form instead
+                  </button>
+                )}
               </div>
-              <IntakeChat onSwitchToForm={() => setMode('form')} />
+              <IntakeChat
+                onSwitchToForm={reinterviewPageId ? undefined : () => setMode('form')}
+                reinterviewPageId={reinterviewPageId ?? undefined}
+              />
             </div>
           </div>
         </main>

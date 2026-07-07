@@ -1,12 +1,20 @@
-import { CopyPlus, ExternalLink, Loader2, Play } from 'lucide-react'
+import { CopyPlus, ExternalLink, Loader2, MessageCircleQuestion, Play } from 'lucide-react'
 import { PageEditor } from './usePageEditor'
-import { agentRuntimeUrl } from '../../lib/site'
+import { agentRuntimeUrl, appUrl } from '../../lib/site'
 
 export function EditorToolbar({ e }: { e: PageEditor }) {
   const page = e.page
   return (
     <div className="flex justify-end">
       <div className="flex flex-wrap gap-3">
+        <a
+          href={appUrl(`/create?reinterview=${page.id}`)}
+          className="inline-flex w-fit items-center gap-2 rounded-lg border border-[var(--signal)]/40 px-4 py-2 text-sm text-[var(--signal)] hover:bg-[var(--signal)]/10"
+          title="Interview only the gaps — answers stage as a draft on this listing"
+        >
+          <MessageCircleQuestion className="size-4" />
+          Re-interview
+        </a>
         <button
           onClick={e.startReanalysis}
           disabled={e.syncing || !e.websiteUrl}

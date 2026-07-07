@@ -34,6 +34,16 @@ test.describe('create fork (talk vs form)', () => {
     await expect(page.getByTestId('create-talk-mode')).not.toBeVisible()
   })
 
+  test('?reinterview deep-links into re-interview mode (editor entry)', async ({ page }) => {
+    await page.goto('/create?reinterview=some-page-id', { waitUntil: 'domcontentloaded' })
+    await expect(page.getByRole('heading', { name: 'Give this listing another pass' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Re-interview this listing' })).toBeVisible()
+    await expect(page.getByText('Start the re-interview')).toBeVisible()
+    // create-only entries are gone in this mode
+    await expect(page.getByText('Start from scratch')).not.toBeVisible()
+    await expect(page.getByTestId('switch-to-form')).not.toBeVisible()
+  })
+
   test('unauthenticated interview start routes to sign-in (real API 401)', async ({ page }) => {
     // The resume-check GET fires from a mount effect, so its response is a
     // reliable "hydration complete" signal — clicking before hydration would
