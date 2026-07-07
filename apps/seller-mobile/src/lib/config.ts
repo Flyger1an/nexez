@@ -26,6 +26,25 @@ export const config = {
 
 export const isSupabaseConfigured = Boolean(config.supabaseUrl && config.supabasePublishableKey)
 
+// Fail LOUD, not silent. The Supabase client falls back to a placeholder URL so
+// the JS bundle still boots (see supabase.ts), which means a build shipped with
+// missing EXPO_PUBLIC_* env used to just silently fail every request with no
+// hint why. Surface exactly which required vars are absent, and in a dev build
+// throw so it's impossible to miss; in a release build log an error so a
+// mis-provisioned store build is diagnosable from the logs (crashing every
+// user on launch would be worse than the login screen's degraded-state notice).
+export const configErrors: string[] = [
+  ['EXPO_PUBLIC_SUPABASE_URL', config.supabaseUrl],
+  ['EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY', config.supabasePublishableKey],
+].flatMap(([name, value]) => (value ? [] : [`${name} is not set`]))
+
+if (configErrors.length) {
+  const message = `[nexez-config] missing required env: ${configErrors.join(', ')}`
+  // __DEV__ is injected by the Expo/RN bundler.
+  if (typeof __DEV__ !== 'undefined' && __DEV__) throw new Error(message)
+  console.error(message)
+}
+
 export function publicPageUrl(slug: string) {
   return `${config.agentRuntimeUrl}/${slug.replace(/^\/+/, '')}`
 }

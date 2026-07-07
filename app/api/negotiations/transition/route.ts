@@ -85,10 +85,11 @@ export async function POST(request: Request) {
   let finalStatus = to
 
   // Only allow amount updates on states where it makes sense (proposed or before funding).
-  // This centralizes the previous direct client writes. Note: Authenticated owners can still
-  // mutate via direct Supabase (RLS allows it for flexibility); full lock would require
-  // tighter policies or additional triggers. We rely on app-layer guards + DB money-safety
-  // trigger as defense-in-depth. Amount changes after PI attached are still rejected by trigger.
+  // This centralizes the previous direct client writes. Authenticated owners can still
+  // mutate their own rows via direct Supabase (RLS allows it), but the DB money-safety
+  // trigger now LOCKS amount_cents once a PaymentIntent is attached (funded), so a direct
+  // REST edit of a held/funded amount is rejected at the database — app guard + trigger
+  // agree. Pre-funding amount edits (no PI) remain intentionally open for renegotiation.
   if (amountCents != null) {
     if (!Number.isFinite(amountCents) || amountCents < 50) {
       return NextResponse.json({ error: 'Invalid amount (minimum 50 cents).' }, { status: 400 })

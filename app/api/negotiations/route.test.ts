@@ -21,6 +21,23 @@ vi.mock('../../../lib/email', () => ({
 vi.mock('../../../lib/rate-limit', () => ({
   enforceNegotiationRateLimit: () => null,
 }))
+// Admin + plan surface. Defaults keep the local no-admin-env path (admin=null →
+// plan/pause gates skipped) so the existing routing tests are unaffected; the
+// pause-gate tests flip these refs to exercise the prod path.
+const { adminRef } = vi.hoisted(() => ({ adminRef: { hasEnv: false, allowed: true, paused: false } }))
+vi.mock('../../../utils/supabase/admin', async () => {
+  // Back the admin client with the same dbRef handler so getPublishedPage's
+  // admin-env read resolves to the same mocked page rows.
+  const { createSupabaseMock } = await import('../../../test/supabase-mock')
+  return {
+    createAdminClient: () => createSupabaseMock((ctx) => dbRef.handler(ctx)),
+    hasSupabaseAdminEnv: () => adminRef.hasEnv,
+  }
+})
+vi.mock('../../../lib/server/plan', () => ({
+  ownerAllows: async () => adminRef.allowed,
+  getOwnerBillingState: async () => ({ isPaused: adminRef.paused }),
+}))
 vi.mock('next/server', async (importOriginal) => {
   const actual = await importOriginal<typeof import('next/server')>()
   return { ...actual, after: () => {} } // run nothing after the response in tests
@@ -78,8 +95,43 @@ describe('POST /api/negotiations', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     dbRef.handler = () => ({ data: null, error: null })
+    adminRef.hasEnv = false
+    adminRef.allowed = true
+    adminRef.paused = false
   })
   afterEach(() => vi.unstubAllEnvs())
+
+  describe('plan + pause gates (admin-env path)', () => {
+    beforeEach(() => {
+      adminRef.hasEnv = true
+      dbRef.handler = (ctx: QueryContext) => (ctx.table === 'pages' ? { data: pageWithOffer, error: null } : { data: null, error: null })
+    })
+
+    it('403 when the owner is not on a plan that accepts offers', async () => {
+      adminRef.allowed = false
+      expect((await POST(post({ slug: 'demo', offer: 'services-0' }))).status).toBe(403)
+    })
+
+    it('402 when the seller storefront is PAUSED (offline — no proposal thread, no seller ping)', async () => {
+      adminRef.allowed = true
+      adminRef.paused = true
+      const res = await POST(post({ slug: 'demo', offer: 'services-0' }))
+      expect(res.status).toBe(402)
+      expect((await res.json()).error).toMatch(/paused/i)
+      // the service must never run for a paused seller
+      const { negotiationService } = await import('../../../lib/negotiation.service')
+      expect(negotiationService.submitProposal).not.toHaveBeenCalled()
+    })
+
+    it('proceeds when the owner is allowed and NOT paused', async () => {
+      adminRef.allowed = true
+      adminRef.paused = false
+      const res = await POST(post({ slug: 'demo', offer: 'services-0' }))
+      expect(res.status).toBe(200)
+      const { negotiationService } = await import('../../../lib/negotiation.service')
+      expect(negotiationService.submitProposal).toHaveBeenCalled()
+    })
+  })
 
   it('400 when slug or offer is missing', async () => {
     expect((await POST(post({ slug: '', offer: '' }))).status).toBe(400)

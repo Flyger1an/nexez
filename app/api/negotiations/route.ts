@@ -17,7 +17,7 @@ import { resolveOwnerNotifyEmail } from '../../../lib/server/owner-email'
 import { sendPushToUser } from '../../../lib/push'
 import { supabase } from '../../../lib/supabase'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
-import { ownerAllows } from '../../../lib/server/plan'
+import { ownerAllows, getOwnerBillingState } from '../../../lib/server/plan'
 import { negotiationService } from '../../../lib/negotiation.service'
 import { captureError } from '../../../lib/observability'
 
@@ -118,11 +118,24 @@ export async function POST(request: Request) {
   // If the page owner isn't on Pro+, the page doesn't accept offers (resolved with
   // the admin client since this is a public, buyer-facing route).
   const ownerId = (page as { owner_id?: string | null }).owner_id ?? null
-  const ownerNegotiationAllowed = hasSupabaseAdminEnv()
-    ? (ownerId ? await ownerAllows(createAdminClient(), ownerId, 'negotiation') : false)
+  const admin = hasSupabaseAdminEnv() ? createAdminClient() : null
+  const ownerNegotiationAllowed = admin
+    ? (ownerId ? await ownerAllows(admin, ownerId, 'negotiation') : false)
     : true
   if (!ownerNegotiationAllowed) {
     return NextResponse.json({ error: 'This page is not accepting offers - use the listed price to book or buy.' }, { status: 403 })
+  }
+
+  // Pause gate: a paused seller (expired no-card trial) is offline - the public
+  // listing already 404s via the serving projection, so an agent shouldn't be
+  // able to open a proposal thread + fire a seller notification against it
+  // either. Mirrors the 402 the checkout route returns. Only reachable with the
+  // admin client (public buyer-facing route); no admin env -> local dev, skip.
+  if (admin && ownerId && (await getOwnerBillingState(admin, ownerId)).isPaused) {
+    return NextResponse.json(
+      { error: 'This seller’s storefront is paused and not accepting offers right now.' },
+      { status: 402 },
+    )
   }
 
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)

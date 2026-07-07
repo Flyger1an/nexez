@@ -207,11 +207,16 @@ export async function GET(request: NextRequest) {
   if (!domain || !token) {
     return NextResponse.json({ error: 'domain and token query params required' }, { status: 400 })
   }
-  // Reuse logic by faking a body
+  // Reuse POST's logic. Carry the original request's headers through so the
+  // rate limit inside POST keys on the REAL client IP - a fresh header set
+  // would give clientIp() an empty value and let this GET alias bypass the
+  // per-IP limit POST enforces.
+  const headers = new Headers(request.headers)
+  headers.set('content-type', 'application/json')
   const fakeReq = new NextRequest(request.url, {
     method: 'POST',
     body: JSON.stringify({ customDomain: domain, token, pageId: searchParams.get('pageId') }),
-    headers: { 'content-type': 'application/json' },
+    headers,
   })
   return POST(fakeReq)
 }

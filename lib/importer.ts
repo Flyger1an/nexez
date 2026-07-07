@@ -567,6 +567,13 @@ function isBlockedIpv4(address: string): boolean {
 
 function isBlockedIpv6(address: string): boolean {
   const normalized = address.toLowerCase()
+  // An IPv4-mapped/compatible IPv6 (`::ffff:169.254.169.254`, its hex form
+  // `::ffff:a9fe:a9fe`, or the deprecated `::a.b.c.d`) must be judged by the
+  // embedded v4 - otherwise a DNS name resolving to a mapped-IPv6 slips the v6
+  // prefix checks below and reaches a private/link-local target (SSRF).
+  const embedded = embeddedIpv4(normalized)
+  if (embedded) return isBlockedIpv4(embedded)
+
   return normalized === '::1'
     || normalized === '::'
     || normalized.startsWith('fc')
@@ -575,6 +582,21 @@ function isBlockedIpv6(address: string): boolean {
     || normalized.startsWith('fe9')
     || normalized.startsWith('fea')
     || normalized.startsWith('feb')
+}
+
+/** Decode the IPv4 embedded in a v4-mapped/compatible IPv6, or null. */
+function embeddedIpv4(normalized: string): string | null {
+  // Dotted tail: `::ffff:1.2.3.4` / `::1.2.3.4`.
+  const dotted = normalized.match(/^::(?:ffff:)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/)
+  if (dotted) return dotted[1]!
+  // Hex form: `::ffff:aabb:ccdd` -> a.b.c.d.
+  const hex = normalized.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/)
+  if (hex) {
+    const hi = parseInt(hex[1]!, 16)
+    const lo = parseInt(hex[2]!, 16)
+    return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`
+  }
+  return null
 }
 
 // Basic robots.txt respect (Phase 5). We only check Disallow for our paths.
