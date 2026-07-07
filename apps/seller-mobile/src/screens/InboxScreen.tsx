@@ -66,7 +66,7 @@ export function InboxScreen({ initialTab = 'negotiations' }: { initialTab?: Inbo
                 </Text>
                 <Text style={s.amount}>{formatCurrency(n.amount_cents, n.currency)}</Text>
               </View>
-              {/* Action shortcuts only while the deal is actually actionable —
+              {/* Action shortcuts only while the deal is actually actionable -
                   the same status vocabulary the detail screen gates on. A
                   declined/complete/held deal gets a single View affordance. */}
               {n.status === 'negotiation' || n.status === 'agreement_proposed' ? (

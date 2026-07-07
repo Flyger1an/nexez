@@ -176,7 +176,7 @@ describe('getCheckoutOffer', () => {
     expect(getCheckoutOffer(page, 'services--1')).toBeNull()
   })
 
-  it('resolves a non-key string by offer name (case/separator-insensitive) — natural-language bookings', () => {
+  it('resolves a non-key string by offer name (case/separator-insensitive) - natural-language bookings', () => {
     expect(getCheckoutOffer(page, 'Strategy')?.name).toBe('Strategy')
     expect(getCheckoutOffer(page, 'audit')?.name).toBe('Audit') // case-insensitive
     expect(getCheckoutOffer(page, '  Template  ')?.name).toBe('Template') // trimmed; products too
@@ -228,7 +228,7 @@ describe('getRequestBaseUrl', () => {
     const inject = (h: string) =>
       getRequestBaseUrl({ get: (n: string) => (n === 'x-forwarded-host' ? h : null) } as unknown as Headers)
     // A garbage / header-injected x-forwarded-host must not be reflected into the
-    // (CDN-cached) base URL — it falls back to the canonical runtime base instead.
+    // (CDN-cached) base URL - it falls back to the canonical runtime base instead.
     expect(inject('evil.com/path')).toBe(getBaseUrl())
     expect(inject('evil.com white space')).toBe(getBaseUrl())
     expect(inject('a\r\nset-cookie: x=y')).toBe(getBaseUrl())

@@ -37,7 +37,7 @@ export function EditorClient({ initial }: { initial: EditorInitial }) {
               {page && isStale(page) && page.website_url && (
                 <div className="rounded-lg border border-[var(--amber)]/30 bg-[var(--amber)]/5 p-3 text-sm">
                   <span className="text-[var(--amber)]">
-                    Freshness: {freshnessLabel(page)}. Your live business may have changed — re-sync from your
+                    Freshness: {freshnessLabel(page)}. Your live business may have changed - re-sync from your
                     website to keep agent data accurate.
                   </span>{' '}
                   <a href={`/dashboard/${e.id}/settings`} className="text-[var(--signal)] hover:underline">
@@ -138,7 +138,7 @@ export function EditorClient({ initial }: { initial: EditorInitial }) {
                 {hasPendingDraft(page) && (
                   <div className="mt-2 flex flex-col gap-2 rounded border border-[var(--amber)]/30 bg-[var(--amber)]/5 p-2 sm:flex-row sm:items-center sm:justify-between">
                     <span className="text-[11px] text-[var(--amber)]">
-                      Draft staged{page?.draft_updated_at ? ` ${new Date(page.draft_updated_at).toLocaleString()}` : ''} — not live yet.
+                      Draft staged{page?.draft_updated_at ? ` ${new Date(page.draft_updated_at).toLocaleString()}` : ''} - not live yet.
                     </span>
                     <span className="flex gap-2">
                       <a

@@ -113,7 +113,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
   const payouts = await getConnectPayoutSnapshot(connectAccountId)
   const nextPayout = getNextPayout(payouts)
 
-  // Negotiated/escrow channel — one widened read feeds the channel split, the
+  // Negotiated/escrow channel - one widened read feeds the channel split, the
   // escrow-lifecycle strip, AND the recent-activity ledger.
   const { data: negRowsRaw } = await supabase
     .from('agent_negotiations')
@@ -222,7 +222,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
   // Channel row = windowed flow comparison; escrow strip = all-time current balances.
   const hasNegWindow = negWindowSel.agreedCents > 0
   const hasEscrowActivity = negSel.heldCents > 0 || negSel.completeCents > 0 || negSel.reversedCents > 0
-  // The two channels measure different money types — shown side by side, never summed.
+  // The two channels measure different money types - shown side by side, never summed.
   const channelTotal = sel.gmvCents + negWindowSel.agreedCents
   const directShare = channelTotal > 0 ? Math.round((sel.gmvCents / channelTotal) * 100) : 0
 
@@ -239,7 +239,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
               <h1 className="mt-2 text-4xl font-semibold tracking-tight">Money in &amp; out</h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">
                 Real agent-driven sales, what you keep after the {commissionPct}% platform fee, payouts to your bank, and
-                escrow held — separate from your own Nexez subscription.
+                escrow held - separate from your own Nexez subscription.
               </p>
             </div>
             <a
@@ -320,7 +320,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
             <KpiTile label="Escrow held" value={money(heldSel)} sub="pending settlement" icon={<Lock className="size-4" />} tone="amber" />
           </div>
 
-          {/* Where the money goes — GMV → commission + net (selected currency) */}
+          {/* Where the money goes - GMV → commission + net (selected currency) */}
           {sel.gmvCents > 0 && (
             <GlassCard className="mt-6 p-6">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -380,7 +380,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
             </div>
           )}
 
-          {/* Escrow lifecycle — where negotiated money sits right now (all-time balances) */}
+          {/* Escrow lifecycle - where negotiated money sits right now (all-time balances) */}
           {hasEscrowActivity && (
             <GlassCard className="mt-6 p-6">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -401,7 +401,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
               </div>
               <p className="mt-3 text-[11px] text-zinc-500">
                 Held funds release to you on capture; refunds and disputes are money out and exist only on this channel.
-                These are Nexez records of agreed deals, reconciled with Stripe by our escrow job — distinct from your live
+                These are Nexez records of agreed deals, reconciled with Stripe by our escrow job - distinct from your live
                 Stripe balance below.
               </p>
             </GlassCard>
@@ -422,14 +422,14 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
               <RevenueChart data={trend} currency={selectedCurrency} />
             ) : hasNegWindow || hasEscrowActivity ? (
               <p className="rounded-xl border border-dashed border-[var(--bd-10)] p-8 text-center text-sm text-zinc-500">
-                No direct checkout sales in this window — your negotiated/escrow activity is shown above.
+                No direct checkout sales in this window - your negotiated/escrow activity is shown above.
               </p>
             ) : (
               <EmptyFinance payoutsReady={payoutsReady} connectAccountId={connectAccountId} />
             )}
           </GlassCard>
 
-          {/* Recent activity — unified ledger across both channels (centerpiece) */}
+          {/* Recent activity - unified ledger across both channels (centerpiece) */}
           {ledger.length > 0 && (
             <GlassCard className="mt-6 p-6">
               <h2 className="flex items-center gap-2 text-lg font-semibold">
@@ -458,7 +458,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
               </div>
               <p className="mt-3 text-[11px] text-zinc-500">
                 Direct rows are checkout sessions (purchase intent); negotiated rows are escrow deals with their current
-                status. Each row is in its own currency — amounts are never totaled across rows.
+                status. Each row is in its own currency - amounts are never totaled across rows.
               </p>
             </GlassCard>
           )}
@@ -486,7 +486,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                 </div>
               ) : !payouts ? (
                 <p className="mt-4 text-sm text-[var(--fg-muted)]">
-                  {payoutsReady ? 'Payout details are syncing from Stripe — refresh shortly.' : 'Finish Stripe verification to enable payouts.'}
+                  {payoutsReady ? 'Payout details are syncing from Stripe - refresh shortly.' : 'Finish Stripe verification to enable payouts.'}
                   <a href="/dashboard/billing?tab=fees" className="ml-2 text-[var(--signal)] hover:underline">Manage</a>
                 </p>
               ) : (
@@ -516,14 +516,14 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                           <li key={p.id} className="flex items-center justify-between gap-3">
                             <span className="text-zinc-300">{formatCurrencyAmount(p.amountCents, p.currency)}</span>
                             <span className="flex items-center gap-2 text-xs text-zinc-500">
-                              {p.arrivalDate ? new Date(p.arrivalDate * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
+                              {p.arrivalDate ? new Date(p.arrivalDate * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-'}
                               <PayoutStatus status={p.status} />
                             </span>
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-sm text-zinc-500">No payouts yet — they’ll appear here once you make sales.</p>
+                      <p className="text-sm text-zinc-500">No payouts yet - they’ll appear here once you make sales.</p>
                     )}
                   </div>
                 </div>
@@ -587,7 +587,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                     ))}
                   </tbody>
                 </table>
-                <p className="mt-3 text-[11px] text-zinc-500">Each currency is shown on its own — totals are never mixed across currencies.</p>
+                <p className="mt-3 text-[11px] text-zinc-500">Each currency is shown on its own - totals are never mixed across currencies.</p>
               </div>
             </GlassCard>
           )}
@@ -716,7 +716,7 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
   return (
     <tr className="border-b border-[var(--bd-05)] last:border-b-0 hover:bg-[var(--ov-03)]">
       <td className="py-2.5 pr-3 text-xs text-[var(--fg-muted)] whitespace-nowrap">
-        {when ? when.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
+        {when ? when.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-'}
         {when ? <span className="ml-1 text-zinc-600">{when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span> : null}
       </td>
       <td className="py-2.5 pr-3">
@@ -759,7 +759,7 @@ function Balance({ label, lines }: { label: string; lines: { amountCents: number
           </p>
         ))
       ) : (
-        <p className="mt-1 text-lg font-semibold text-zinc-500">—</p>
+        <p className="mt-1 text-lg font-semibold text-zinc-500">-</p>
       )}
     </div>
   )
@@ -782,7 +782,7 @@ function EmptyFinance({ payoutsReady, connectAccountId }: { payoutsReady: boolea
   ctas.push({ label: 'View your listings', href: '/dashboard/listings', variant: 'secondary' })
   return (
     <EmptyState icon={Wallet} title="Your first sale lands here" ctas={ctas}>
-      When an agent buys through one of your listings, the revenue, Nexez fee, net-to-you, and payouts all show up here —
+      When an agent buys through one of your listings, the revenue, Nexez fee, net-to-you, and payouts all show up here -
       per currency.
       {!connectAccountId
         ? ' First, connect Stripe so you can accept payments.'

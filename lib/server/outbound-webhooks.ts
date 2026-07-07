@@ -19,7 +19,7 @@ export type OutboundDeliveryResult = {
  * Fire all of an owner's ACTIVE account-level outbound webhooks with a signed
  * payload, recording each delivery's status. Reuses fireOutboundWebhook so the
  * SSRF guard, HMAC signing, timeout, and no-redirect policy are shared with the
- * per-page path. Best-effort: never throws — returns per-endpoint results.
+ * per-page path. Best-effort: never throws - returns per-endpoint results.
  */
 export async function fireOwnerOutboundWebhooks(
   admin: AdminClient,

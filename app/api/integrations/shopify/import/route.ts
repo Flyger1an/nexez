@@ -25,8 +25,8 @@ type ShopifyImportRequest = {
 /**
  * Resolve a Shopify store to a strictly-validated *.myshopify.com host. The old
  * `shop.includes('.myshopify.com')` substring check let an attacker point the
- * Admin-API call (carrying the caller's X-Shopify-Access-Token) at any host —
- * e.g. "evil.com/x#.myshopify.com" — turning this into an unauthenticated SSRF +
+ * Admin-API call (carrying the caller's X-Shopify-Access-Token) at any host -
+ * e.g. "evil.com/x#.myshopify.com" - turning this into an unauthenticated SSRF +
  * credential relay (red-team gauntlet finding). Pin the authority to a real
  * Shopify subdomain before building the URL.
  */
@@ -41,7 +41,7 @@ function resolveShopDomain(shop: string): string | null {
 }
 
 export async function POST(request: Request) {
-  // Require an authenticated session — this route fetches a private catalog with a
+  // Require an authenticated session - this route fetches a private catalog with a
   // caller-supplied admin token and must not be anonymously abusable.
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
     })
 
     if (!res.ok) {
-      // Do NOT reflect the upstream response body — it was a read-SSRF exfiltration
+      // Do NOT reflect the upstream response body - it was a read-SSRF exfiltration
       // channel. Surface only Shopify's status code.
       return NextResponse.json({
         error: 'Failed to fetch from Shopify',

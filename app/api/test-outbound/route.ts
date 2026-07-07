@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Sign in to test outbound webhooks.' }, { status: 401 })
   }
 
-  // Outbound webhooks are a Pro (`outboundWebhooks`) capability — gate the test
+  // Outbound webhooks are a Pro (`outboundWebhooks`) capability - gate the test
   // sender too, so it can't be used to fire arbitrary webhooks below Pro.
   if (!(await ownerAllows(supabase, user.id, 'outboundWebhooks'))) {
     return NextResponse.json(

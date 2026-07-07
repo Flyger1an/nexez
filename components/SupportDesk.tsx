@@ -224,7 +224,7 @@ export function SupportDesk() {
                 value={reference}
                 onChange={(event) => setReference(event.target.value)}
                 className="h-11 w-full rounded-md border border-border bg-[var(--fill-1)] px-3 text-sm text-white outline-none placeholder:text-[var(--fg-muted)] focus:border-zinc-500"
-                placeholder="Negotiation/order id or Stripe session — helps us trace it"
+                placeholder="Negotiation/order id or Stripe session - helps us trace it"
               />
             </label>
           ) : null}

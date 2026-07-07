@@ -81,7 +81,7 @@ describe('fireOwnerOutboundWebhooks', () => {
   })
 
   it('returns [] without firing when the owner plan does not allow outbound webhooks (downgrade)', async () => {
-    // A Free (or downgraded) owner with active rows must NOT receive deliveries —
+    // A Free (or downgraded) owner with active rows must NOT receive deliveries -
     // the dispatch-time plan re-check closes the retained-feature leak.
     const admin = mockAdmin(
       [{ id: 'a', url: 'https://hook.example.com/ok', secret: 'whsec_a' }],

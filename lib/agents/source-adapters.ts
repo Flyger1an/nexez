@@ -5,17 +5,17 @@ import { searchAgentPages, type AgentSearchResult } from '../agent-search'
 import { publicLaunchVisiblePages } from '../public-page-visibility'
 import { mergeRankedResults, semanticSearch } from './semantic-search'
 // Brave is the active external discovery source (AI-friendly terms). The Yelp + Google adapters are
-// intentionally NOT imported/registered here — see external-sources.ts for the ToS rationale.
+// intentionally NOT imported/registered here - see external-sources.ts for the ToS rationale.
 import { braveAdapter } from './external-sources'
 
 // Source adapters are the multi-platform seam: each is a place Nexxi can shop. v1 ships
 // only the `nexez` adapter; v2 adds others (recommendations, other marketplaces) by
-// registering them here — the agent loop never changes, it just calls searchAllSources().
+// registering them here - the agent loop never changes, it just calls searchAllSources().
 
 export type SourceAdapterContext = {
   db: SupabaseClient
   baseUrl: string
-  /** Buyer location (from preferences) — some sources (e.g. Yelp) require it to search. */
+  /** Buyer location (from preferences) - some sources (e.g. Yelp) require it to search. */
   location?: string | null
 }
 
@@ -69,7 +69,7 @@ export function getSourceAdapters(): SourceAdapter[] {
   return [...registry.values()]
 }
 
-/** The Nexez marketplace is the core transactable source — always searched, never opt-out. */
+/** The Nexez marketplace is the core transactable source - always searched, never opt-out. */
 export const CORE_SOURCE_ID = 'nexez'
 
 /**
@@ -84,7 +84,7 @@ export function getAvailableSources(): { id: string; label: string; core: boolea
 /**
  * Fan out the query across the selected, available sources, stamp each result with its source,
  * merge, rank by score, cap to `limit`. A single failing source is isolated (best-effort) so it
- * can't take down the others — but if EVERY active source fails, the error is surfaced so the
+ * can't take down the others - but if EVERY active source fails, the error is surfaced so the
  * caller's deterministic-fallback path still kicks in (matching the original nexez-only behavior).
  *
  * `enabledIds` is the buyer's source selection: the core Nexez source is always included; any
@@ -117,7 +117,7 @@ export async function searchAllSources(
   )
   // Transactable-first ranking: the core Nexez marketplace (bookable offers) always ranks above
   // discovery-only sources, then by score within each tier. So Nexez leads whenever it matches, and
-  // external discovery fills the remaining slots — taking all of them only when Nexez has no match.
+  // external discovery fills the remaining slots - taking all of them only when Nexez has no match.
   const tier = (r: AgentSearchResult) => (!r.source || r.source.id === CORE_SOURCE_ID ? 0 : 1)
   return results.sort((a, b) => tier(a) - tier(b) || b.score - a.score).slice(0, limit)
 }

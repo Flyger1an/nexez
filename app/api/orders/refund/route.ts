@@ -63,7 +63,7 @@ export async function POST(request: Request) {
   }
 
   // checkout_orders.amount_cents is already Stripe smallest-unit (session.amount_total),
-  // as is refunded_cents — so the ledger math is a direct subtraction (no conversion).
+  // as is refunded_cents - so the ledger math is a direct subtraction (no conversion).
   const plan = planRefund({
     capturedAmount: order.amount_cents ?? 0,
     alreadyRefunded: order.refunded_cents ?? 0,

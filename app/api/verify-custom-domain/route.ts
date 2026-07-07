@@ -26,7 +26,7 @@ const resolveTxt = promisify(dns.resolveTxt)
  * 5. This route updates `custom_domain_verified` and clears the temp token.
  *
  * Security: this route is owner-OR-editor-authenticated via resolvePageAccess
- * (requireEditor) — the logged-in user may be the page owner or a non-revoked
+ * (requireEditor) - the logged-in user may be the page owner or a non-revoked
  * editor-collaborator invited by that owner. Plan gate + all owner-scoped reads/
  * writes target the resolved PAGE OWNER (service-role), never the caller's id.
  * The browser never marks a domain verified directly; it only asks the server to
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminClient()
 
-  // Plan gate: verifying (enabling) a custom domain requires Launch+ — gated on the
+  // Plan gate: verifying (enabling) a custom domain requires Launch+ - gated on the
   // PAGE OWNER's plan (the collaborator inherits it), not the logged-in caller.
   if (!(await ownerAllows(admin, access.ownerId, 'customDomain'))) {
     return NextResponse.json({ error: 'Custom domains are available on the Launch plan and up.', upgrade: 'launch' }, { status: 402 })

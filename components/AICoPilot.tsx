@@ -212,7 +212,7 @@ export function AICoPilot({
         <div>
           <div className="text-xs text-zinc-400 mb-1">Suggested FAQs:</div>
           <ul className="text-xs space-y-1">
-            {enhancedFaqs.slice(0, 4).map((f, i) => <li key={i}>• {f.question} — {f.answer}</li>)}
+            {enhancedFaqs.slice(0, 4).map((f, i) => <li key={i}>• {f.question} - {f.answer}</li>)}
           </ul>
           <button onClick={applyFaqs} className="mt-2 text-xs rounded border border-white/20 px-3 py-1">Copy FAQs</button>
           {applied.faq && <span className="ml-2 text-[10px] text-[var(--ready)]">Copied ✓</span>}
@@ -233,7 +233,7 @@ export function AICoPilot({
         <div>
           <div className="text-xs text-zinc-400 mb-2">Voice-agent rewrite.</div>
           <div className="text-sm bg-black/30 p-2 rounded mb-2">
-            Before: {(allOffers[0]?.description || '—').slice(0, 80)}
+            Before: {(allOffers[0]?.description || '-').slice(0, 80)}
           </div>
           <div className="text-sm bg-[var(--ready)]/10 p-2 rounded mb-2">
             Voice: {allOffers[0] ? rewriteForVoice(allOffers[0], businessName).description.slice(0, 100) : 'Add offers'}

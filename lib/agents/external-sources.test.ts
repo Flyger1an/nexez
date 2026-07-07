@@ -48,7 +48,7 @@ describe('yelpAdapter', () => {
     )
     const out = await yelpAdapter.search('plumber', 5, ctx('Austin'))
     expect(out).toHaveLength(1)
-    expect(out[0].offer).toBeNull() // discovery-only — never bookable
+    expect(out[0].offer).toBeNull() // discovery-only - never bookable
     expect(out[0].source).toEqual({ id: 'yelp', label: 'Yelp' })
     expect(out[0].page.slug).toBe('yelp:biz1')
     expect(out[0].page.name).toBe('Axle Plumbing')

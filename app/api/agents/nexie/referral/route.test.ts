@@ -52,7 +52,7 @@ beforeEach(() => {
   ref.inserts = []
 })
 
-describe('referral endpoint — GET', () => {
+describe('referral endpoint - GET', () => {
   it('401s when unauthenticated', async () => {
     authRef.result = { ok: false, response: NextResponse.json({ code: 'auth_required' }, { status: 401 }) }
     expect((await GET(req())).status).toBe(401)
@@ -75,7 +75,7 @@ describe('referral endpoint — GET', () => {
   })
 })
 
-describe('referral endpoint — POST claim', () => {
+describe('referral endpoint - POST claim', () => {
   it('400s on a malformed code (before touching the db)', async () => {
     expect((await POST(req('POST', { code: 'x' }))).status).toBe(400)
     expect(ref.inserts).toHaveLength(0)

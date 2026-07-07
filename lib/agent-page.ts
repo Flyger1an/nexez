@@ -112,7 +112,7 @@ export type OfferItem = {
   ab_label?: string
 
   // Smart Rules Phase 1: hybrid booking. Absent offerType means 'fixed'
-  // (direct booking — today's behavior). 'negotiable' offers route agents to
+  // (direct booking - today's behavior). 'negotiable' offers route agents to
   // the Make-an-Offer negotiation flow instead of checkout.
   offerType?: 'fixed' | 'negotiable'
   rules?: OfferRules
@@ -120,7 +120,7 @@ export type OfferItem = {
 
 /**
  * Smart Rules Phase 1: per-offer rules. Pricing rules (minPrice, discount and
- * auto-accept thresholds) are OWNER-PRIVATE — they drive server-side proposal
+ * auto-accept thresholds) are OWNER-PRIVATE - they drive server-side proposal
  * evaluation and must never be serialized into agent.json/mcp/public HTML.
  * Booking constraints (notice/blackout/max bookings) are public-safe.
  */
@@ -140,7 +140,7 @@ export type OfferRules = {
   /** Calendar protection: cap on bookings per rolling week. Public-safe. */
   maxBookingsPerWeek?: number
 
-  // Smart Rules Phase 2 — advanced auto-decision + scope rules.
+  // Smart Rules Phase 2 - advanced auto-decision + scope rules.
   /** Auto-record the suggested counter-offer when a proposal lands in review/flag. */
   autoCounter?: boolean
   /** What the offer includes by default. Public product info. */
@@ -364,7 +364,7 @@ export function parseOfferLines(value: string): OfferItem[] {
     }
 
     // Smart Rules markers: [[TYPE]]negotiable + [[RULES]]{json} (pipe-safe; only
-    // negotiable is ever emitted — absent means fixed).
+    // negotiable is ever emitted - absent means fixed).
     let offerType: OfferItem['offerType']
     const typePart = parts.find(p => p.includes('[[TYPE]]'))
     if (typePart && typePart.replace('[[TYPE]]', '').trim() === 'negotiable') {
@@ -380,7 +380,7 @@ export function parseOfferLines(value: string): OfferItem[] {
           rules = parsedRules
         }
       } catch (e) {
-        // malformed rules JSON degrades gracefully — offer still parses
+        // malformed rules JSON degrades gracefully - offer still parses
       }
     }
 
@@ -444,7 +444,7 @@ export function formatOfferLines(items: OfferItem[] | null | undefined) {
       if (item.ab_test) {
         base.push(`[[ABTEST]]${item.ab_test}~${item.ab_label || ''}`)
       }
-      // Smart Rules markers (pipe-safe). Fixed is the default — only negotiable is emitted.
+      // Smart Rules markers (pipe-safe). Fixed is the default - only negotiable is emitted.
       if (item.offerType === 'negotiable') {
         base.push('[[TYPE]]negotiable')
       }
@@ -497,7 +497,7 @@ export function getCheckoutOffer(page: Pick<AgentPage, 'products' | 'services'>,
   }
 
   // Fallback: resolve by offer NAME. Natural-language bookings pass the offer's name, not its
-  // structured key ("services-0"), and an LLM formats it inconsistently — "Standard Service Call",
+  // structured key ("services-0"), and an LLM formats it inconsistently - "Standard Service Call",
   // "standard service call", "standard-service-call". Collapse case + all separators/punctuation so
   // every variant matches the same offer (structured keys still take priority above). First, an
   // exact normalized match; if none, a unique containment match (handles "the standard service
@@ -546,12 +546,12 @@ export type ReadinessCriterion = {
   id: string
   label: string
   met: boolean
-  /** Shown only when unmet — a short nudge toward filling it in. */
+  /** Shown only when unmet - a short nudge toward filling it in. */
   hint: string
 }
 
 /**
- * Per-criterion readiness breakdown — the single source of truth for both the
+ * Per-criterion readiness breakdown - the single source of truth for both the
  * numeric score and the "what's still missing" checklist on /create. Keep the
  * order stable; `getReadinessScore` is derived from `met`/total so the percentage
  * and the checklist can never drift apart.
@@ -589,7 +589,7 @@ export type Certification = {
 }
 
 /**
- * "Nexez Certified Agent-Ready" — earned by published pages that clear a 95%
+ * "Nexez Certified Agent-Ready" - earned by published pages that clear a 95%
  * readiness bar. A simple, deterministic trust signal surfaced on the public
  * page, agent.json, and the directory.
  */
@@ -612,7 +612,7 @@ type HeaderGetter = Pick<Headers, 'get'>
 
 // A well-formed host: letters/digits/dots/hyphens, optional :port. The base URL
 // derived here is embedded in (CDN-cached) agent artifacts, so a malformed or
-// injected `x-forwarded-host` must never be reflected — fall back to the canonical
+// injected `x-forwarded-host` must never be reflected - fall back to the canonical
 // runtime base instead. (Defense-in-depth alongside `Vary: x-forwarded-host` on the
 // cached artifacts; the platform should also strip client-supplied X-Forwarded-Host.)
 const VALID_HOST_RE = /^[a-z0-9.-]+(?::\d+)?$/i
@@ -653,7 +653,7 @@ export function parseAvailabilityWindows(note: string | null | undefined): Array
     const parsed = JSON.parse(marker)
     if (Array.isArray(parsed)) return parsed
   } catch {
-    // bad json — ignore
+    // bad json - ignore
   }
   return null
 }
@@ -674,7 +674,7 @@ export function getTrustScore(page: Partial<AgentPage>, events?: any[]): number 
   const hasDomain = !!(page.custom_domain_verified || v.domain_verified)
   const hasEmail = !!v.email_verified
   // Credentials only count toward trust once they've actually been REVIEWED.
-  // A self-reported entry (a bare filename string) must NOT boost the score —
+  // A self-reported entry (a bare filename string) must NOT boost the score -
   // otherwise anyone lists a random file and inflates their ranking. The bonus
   // applies only to credentials carrying a verified status (set by the LLM
   // review pass); unreviewed / self-reported docs contribute nothing.

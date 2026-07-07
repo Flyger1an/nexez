@@ -64,7 +64,7 @@ export function pageEmbeddingText(page: AgentPage): string {
 /**
  * Vector retrieval: embed the query, get vector-ranked published slugs via the RPC, fetch
  * their public projection, apply launch-visibility, and build one result per page scored by
- * similarity (so semantic-only matches — zero lexical overlap — still surface). Returns []
+ * similarity (so semantic-only matches - zero lexical overlap - still surface). Returns []
  * when unconfigured / no embeddings populated / any failure (caller falls back to lexical).
  */
 export async function semanticSearch(

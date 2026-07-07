@@ -12,7 +12,7 @@ export type NexieMemorySignals = {
   interest: string | null
 }
 
-// Ceiling cues only (drop "over"/"around" — those aren't a max), then a number (+ optional k).
+// Ceiling cues only (drop "over"/"around" - those aren't a max), then a number (+ optional k).
 const BUDGET_CUE =
   /(?:budget(?:\s+is|\s+of)?|under|up to|at most|no more than|less than|below|max(?:imum)?)\s*\$?\s?([\d][\d,]*(?:\.\d+)?)\s*(k)?\b/i
 

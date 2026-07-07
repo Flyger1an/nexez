@@ -4,7 +4,7 @@ import 'server-only'
  * Live Stripe Connect balance + payouts for the seller's connected account, for
  * the Finance dashboard's Payouts panel. Server-only (reads STRIPE_SECRET_KEY).
  * Returns null gracefully when the seller hasn't connected or Stripe isn't
- * configured — non-fatal, the dashboard falls back to the connect CTA. Amounts are
+ * configured - non-fatal, the dashboard falls back to the connect CTA. Amounts are
  * in the currency's smallest unit (cents / whole-yen), formatCurrencyAmount-ready.
  */
 import Stripe from 'stripe'
@@ -25,7 +25,7 @@ export type PayoutSnapshot = {
 
 /**
  * The soonest in-flight payout (pending/in_transit with an arrival estimate), for
- * the "Next payout" headline. Returns null when none — Stripe gives an estimate,
+ * the "Next payout" headline. Returns null when none - Stripe gives an estimate,
  * not a guaranteed date or a schedule, so the UI says "next expected", not a cadence.
  */
 export function getNextPayout(snapshot: PayoutSnapshot | null): PayoutLine | null {

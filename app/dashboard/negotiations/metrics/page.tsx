@@ -17,7 +17,7 @@ const MAX_NEGOTIATIONS = 500
 const WINDOW_DAYS = 30
 
 function msToHuman(ms: number): string {
-  if (!ms) return '—'
+  if (!ms) return '-'
   if (ms < 1000) return `${Math.round(ms)}ms`
   const s = ms / 1000
   if (s < 90) return `${s.toFixed(1)}s`

@@ -6,9 +6,9 @@ import { enforceRateLimit } from '../../../../lib/rate-limit'
 export const maxDuration = 30
 
 /**
- * POST /api/account/delete — delete the authenticated user's NEXXI BUYER account (App Store
+ * POST /api/account/delete - delete the authenticated user's NEXXI BUYER account (App Store
  * Guideline 5.1.1(v) + GDPR/CCPA). The target is ALWAYS the session user (cookie on web, bearer
- * token in the Nexxi app — never from the body), so a session can only delete itself. Requires
+ * token in the Nexxi app - never from the body), so a session can only delete itself. Requires
  * `{ confirm: true }` so it can't fire by accident.
  *
  * Nexxi shares one login with the Nexez seller dashboard but they are separate facets: this clears

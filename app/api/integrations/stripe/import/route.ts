@@ -12,7 +12,7 @@ import { resolveFeatureOwner } from '../../../../../lib/server/page-access'
  * Returns lines ready to paste into the services/products fields.
  *
  * Security: Only runs if STRIPE_SECRET_KEY is configured server-side.
- * No user tokens stored yet — this is a one-shot import helper.
+ * No user tokens stored yet - this is a one-shot import helper.
  */
 
 type ImportRequest = {
@@ -134,7 +134,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Provide productId, priceIds, or leave empty for recent products' }, { status: 400 })
     }
 
-    // Phase 3: Richer structuredOffers for Stripe — stable IDs for the now-active price webhook sync (price.updated mutates offers) + manual re-sync
+    // Phase 3: Richer structuredOffers for Stripe - stable IDs for the now-active price webhook sync (price.updated mutates offers) + manual re-sync
     const structuredOffers = lines.map((line, idx) => {
       const parts = line.split(' | ').map(p => p.trim())
       const priceStr = parts[1] || 'Custom'

@@ -72,7 +72,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, storefront: data })
   }
 
-  // Create a NEW storefront — cap per account (a guard-rail, not a plan gate in v1).
+  // Create a NEW storefront - cap per account (a guard-rail, not a plan gate in v1).
   // Counted via the session client (RLS scopes it to the caller's own storefronts).
   const { count } = await supabase
     .from('storefronts')

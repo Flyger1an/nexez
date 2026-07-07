@@ -8,7 +8,7 @@ import { enforceRateLimit } from '../../../../lib/rate-limit'
 
 /**
  * Create a team invite AND notify the invitee. Invites were previously a silent
- * client-side DB write — the teammate was never told, so collaboration never
+ * client-side DB write - the teammate was never told, so collaboration never
  * started. This inserts via the OWNER's session client (so the "owners manage own
  * invites" RLS + the Pro/admin plan-gate trigger still apply), then emails the
  * invitee a link to sign in/up with that exact address (the access RLS keys on the
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   }
 
   // Dedup: if this teammate already has a live (non-revoked) invite, DON'T insert a
-  // duplicate or re-send the email — that would let an owner re-email one address on
+  // duplicate or re-send the email - that would let an owner re-email one address on
   // a loop. (email is lowercased above + on insert, so an exact match is safe.) Return
   // the existing invite so the UI can say "already invited".
   const { data: existing } = await supabase
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
   }
 
   // Notify the invitee. Awaited (not after()) so the response reports ACTUAL delivery
-  // — sendEmail never throws (returns {ok}); we don't want to claim "sent" when the
+  // - sendEmail never throws (returns {ok}); we don't want to claim "sent" when the
   // email was skipped (no RESEND) or rejected.
   let emailed = false
   if (hasEmailEnv()) {

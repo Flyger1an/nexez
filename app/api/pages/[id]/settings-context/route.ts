@@ -10,7 +10,7 @@ import { enforceRateLimit } from '../../../../../lib/rate-limit'
  * Settings context for the page editor's Settings screen, collaborator-aware. Returns
  * the EFFECTIVE plan (the page OWNER's, so an editor sees the owner's entitlements not
  * their own) + the role + the owner-only page_secrets the UI needs (domain token,
- * calendly secret, outbound webhooks) — all behind resolvePageAccess(requireEditor),
+ * calendly secret, outbound webhooks) - all behind resolvePageAccess(requireEditor),
  * read via the service-role client (an editor can't read page_secrets under RLS).
  */
 export async function GET(request: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -43,7 +43,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
   return NextResponse.json({
     role: access.role,
     ownerId: access.ownerId,
-    plan, // the OWNER's effective plan — drives the UI gates for owner + editor alike
+    plan, // the OWNER's effective plan - drives the UI gates for owner + editor alike
     secrets: {
       calendly_webhook_secret: secrets?.calendly_webhook_secret ?? null,
       outbound_webhooks: secrets?.outbound_webhooks ?? null,

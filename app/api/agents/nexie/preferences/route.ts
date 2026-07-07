@@ -8,7 +8,7 @@ import { enforceRateLimit } from '../../../../../lib/rate-limit'
 export const maxDuration = 30
 
 /**
- * GET /api/agents/nexie/preferences — the authenticated buyer's standing preferences
+ * GET /api/agents/nexie/preferences - the authenticated buyer's standing preferences
  * (budget, interests, timing, location, voice-replies default). Always returns a complete,
  * normalized shape (defaults when nothing is set). Owner-scoped via RLS on user_agents.
  */
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * PATCH /api/agents/nexie/preferences — replace the buyer's standing preferences with a
+ * PATCH /api/agents/nexie/preferences - replace the buyer's standing preferences with a
  * validated copy of the posted `{ preferences }` (the agent reads these every turn). The
  * body is fully normalized server-side, so the client can't store anything unsafe/oversized.
  */

@@ -178,7 +178,7 @@ function HeroProofPanel({ title, items }: { title: string; items: string[] }) {
           <p className="text-sm font-medium">Agent clarity signal</p>
         </div>
         <p className="mt-2 text-xs leading-5 text-muted-foreground">
-          Structured for agents, readable by people — every offer carries the price, proof, and next action a buyer needs to move.
+          Structured for agents, readable by people - every offer carries the price, proof, and next action a buyer needs to move.
         </p>
       </div>
     </div>

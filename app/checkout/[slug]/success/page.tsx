@@ -12,7 +12,7 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
   const [{ slug }, search] = await Promise.all([params, searchParams])
 
   // Buyer recourse: surface the seller's contact (from the redacted public view) so a
-  // buyer with a question/issue has a path — the seller can then refund from Finance.
+  // buyer with a question/issue has a path - the seller can then refund from Finance.
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
   const { data: page } = await supabase
@@ -22,12 +22,12 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
     .maybeSingle<{ name: string | null; contact_email: string | null }>()
   const sellerEmail = page?.contact_email || null
   const mailto = sellerEmail
-    ? `mailto:${sellerEmail}?subject=${encodeURIComponent(`Order question — ${slug}`)}&body=${encodeURIComponent(`Hi, I have a question about my recent order${search.session_id ? ` (Stripe session ${search.session_id})` : ''}.`)}`
+    ? `mailto:${sellerEmail}?subject=${encodeURIComponent(`Order question - ${slug}`)}&body=${encodeURIComponent(`Hi, I have a question about my recent order${search.session_id ? ` (Stripe session ${search.session_id})` : ''}.`)}`
     : null
 
   // Map the Stripe session → the order's portal token so we can link the buyer
   // straight into their order portal. The order is captured by the webhook async,
-  // so the token may not exist yet on the immediate redirect — in that case the
+  // so the token may not exist yet on the immediate redirect - in that case the
   // receipt email (which carries the same link) is the reliable delivery channel.
   const portalLookup = search.session_id ? await loadOrderTokenBySession(search.session_id) : null
   const portalUrl = portalLookup ? `/orders/${portalLookup.token}` : null
@@ -82,7 +82,7 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
               </>
             ) : (
               <p className="mt-1 text-zinc-400">
-                We&rsquo;re finalizing your order — a receipt with a link to view, track, or get help with it is on its way
+                We&rsquo;re finalizing your order - a receipt with a link to view, track, or get help with it is on its way
                 to your email.
               </p>
             )}

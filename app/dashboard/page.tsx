@@ -8,7 +8,7 @@ import { analyticsRangeBounds } from '../../lib/analytics'
 import { DashboardClient, DashboardInitial } from './DashboardClient'
 
 // Server component: authenticates + fetches the dashboard's data in one parallel
-// wave server-side, then hands it to the client island as initial state — so the
+// wave server-side, then hands it to the client island as initial state - so the
 // dashboard renders with real data (no client fetch waterfall, no loading flash).
 export default async function DashboardPage() {
   const cookieStore = await cookies()

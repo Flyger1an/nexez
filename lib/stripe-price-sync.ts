@@ -1,4 +1,4 @@
-// Bi-directional Stripe sync — the inbound half (Stripe → Nexez), pure.
+// Bi-directional Stripe sync - the inbound half (Stripe → Nexez), pure.
 // Offers imported from Stripe carry stable identifiers in
 // metadata.stripe_price_id / metadata.stripe_product_id (set by
 // /api/integrations/stripe/import); when a `price.updated`/`price.created`
@@ -16,7 +16,7 @@ export type StripePriceLike = {
 
 /** Format a Stripe price the exact way the importer does ("$40", "$40 / month",
  *  "Custom", "Custom / month") so a webhook sync is byte-identical to a manual
- *  re-import — truthiness on unit_amount (a $0 price reads Custom) and the
+ *  re-import - truthiness on unit_amount (a $0 price reads Custom) and the
  *  interval appended unconditionally, both matching stripe/import/route.ts. */
 export function formatStripePriceString(price: Pick<StripePriceLike, 'unit_amount' | 'recurring'>): string {
   const amount = price.unit_amount ? `$${(price.unit_amount / 100).toFixed(0)}` : 'Custom'
@@ -26,7 +26,7 @@ export function formatStripePriceString(price: Pick<StripePriceLike, 'unit_amoun
 
 export type PriceSyncTarget = {
   priceId: string
-  /** The price's parent product — fallback match for product-keyed imports. */
+  /** The price's parent product - fallback match for product-keyed imports. */
   productId?: string | null
   /** Pre-formatted via formatStripePriceString. */
   priceStr: string
@@ -44,11 +44,11 @@ export type PriceSyncResult = {
 
 /**
  * Apply a fresh Stripe price to every offer imported from Stripe.
- * - Match requires `source === 'stripe'` — an owner who clears the source has
+ * - Match requires `source === 'stripe'` - an owner who clears the source has
  *   deliberately detached the offer, and it stops syncing.
  * - Primary key: metadata.stripe_price_id === priceId. Fallback: an offer with
  *   NO price id of its own matches on stripe_product_id (product-keyed
- *   imports). Requiring the absence fixes the multi-price clobber — a
+ *   imports). Requiring the absence fixes the multi-price clobber - a
  *   product's monthly offer must not be rewritten by its yearly price's event.
  * - Only the `price` field moves (the smart-merge philosophy: Stripe-sourced
  *   offers always take the fresh price; names/descriptions stay the owner's),

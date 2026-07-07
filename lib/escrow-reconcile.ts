@@ -27,7 +27,7 @@ export type ReconcileInput = {
 export type ReconcileResult =
   | { heal: false; reason: string }
   | { heal: true; toStatus: NegotiationStatus; reason: string }
-  // Drift we won't auto-resolve — surfaced for alerting instead of silent guessing.
+  // Drift we won't auto-resolve - surfaced for alerting instead of silent guessing.
   | { heal: false; alert: true; reason: string }
 
 /**
@@ -68,7 +68,7 @@ export function reconcilePaymentState(input: ReconcileInput): ReconcileResult {
         return { heal: true, toStatus: 'declined', reason: 'pi_canceled_but_active' }
       }
       if (status === 'complete') {
-        // We think it's captured but Stripe says canceled — contradictory, don't guess.
+        // We think it's captured but Stripe says canceled - contradictory, don't guess.
         return { heal: false, alert: true, reason: 'pi_canceled_but_marked_complete' }
       }
       return { heal: false, reason: 'consistent' }
@@ -79,7 +79,7 @@ export function reconcilePaymentState(input: ReconcileInput): ReconcileResult {
       }
       return { heal: false, reason: 'consistent' }
     default:
-      // In-flight / pending states — nothing settled yet.
+      // In-flight / pending states - nothing settled yet.
       return { heal: false, reason: 'pi_pending' }
   }
 }

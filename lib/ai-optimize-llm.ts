@@ -13,7 +13,7 @@ import { isLlmConfigured, llmComplete } from './llm'
 
 /**
  * Voice-agent optimization. Uses the platform LLM when enabled (useLlm + key set),
- * otherwise falls back to the deterministic rewriteForVoiceSync — so it always
+ * otherwise falls back to the deterministic rewriteForVoiceSync - so it always
  * returns a usable, spoken-friendly description.
  */
 export async function rewriteForVoice(offer: OfferItem, businessName: string, useLlm = false): Promise<OfferItem> {

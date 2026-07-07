@@ -6,7 +6,7 @@ import { getBillingPlan, getPlanPriceId, isStripePriceId } from '../../../../lib
 import { createClient } from '../../../../utils/supabase/server'
 
 // /login and /dashboard/billing live on the APP host (app.nexez.ai), so build
-// these redirects with appUrl() — getBaseUrl() returns the agent-runtime host
+// these redirects with appUrl() - getBaseUrl() returns the agent-runtime host
 // (nexez.app) and would mint a wrong-host URL that the proxy then has to re-redirect.
 export async function POST(request: Request) {
   const formData = await request.formData()

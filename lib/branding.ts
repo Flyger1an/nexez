@@ -1,4 +1,4 @@
-// C10 — white-label branding for public agent pages (esp. on custom domains).
+// C10 - white-label branding for public agent pages (esp. on custom domains).
 // All values are validated/sanitized here because they render into the public
 // page (accent color into inline style, logo into <img src>): we never let raw
 // user input become a style or URL without passing these guards.

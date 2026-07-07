@@ -86,7 +86,7 @@ export default function NegotiationsInbox() {
   useEffect(() => {
     const escrow = new URLSearchParams(window.location.search).get('escrow')
     if (escrow === 'held') {
-      setMessage('Escrow hold authorized — the status updates to “Funds held” once Stripe confirms.')
+      setMessage('Escrow hold authorized - the status updates to “Funds held” once Stripe confirms.')
     } else if (escrow === 'cancelled') {
       setMessage('Escrow checkout was cancelled. No hold was placed.')
     }
@@ -133,7 +133,7 @@ export default function NegotiationsInbox() {
         setNegotiations(data || [])
       }
     } catch (err) {
-      // Network failure or timeout — surface a retryable error instead of
+      // Network failure or timeout - surface a retryable error instead of
       // spinning forever (the inbox once hung on "Loading negotiations…").
       console.error('Failed to load negotiations:', err)
       setLoadError(err instanceof Error ? err.message : 'Failed to load negotiations.')
@@ -143,7 +143,7 @@ export default function NegotiationsInbox() {
   }
 
   // Non-payment status transitions go through the server route, which validates the
-  // transition (and the DB money-safety trigger backstops it) — no direct client writes.
+  // transition (and the DB money-safety trigger backstops it) - no direct client writes.
   async function updateStatus(item: AgentNegotiation, to: NegotiationStatus) {
     setUpdatingId(item.id)
     setMessage('')
@@ -168,7 +168,7 @@ export default function NegotiationsInbox() {
   }
 
   // Set/adjust the agreed amount before placing an escrow hold.
-  // Now routed through server API (was previously direct client write — major safety win).
+  // Now routed through server API (was previously direct client write - major safety win).
   async function saveAmount(item: AgentNegotiation, dollars: number) {
     setMessage('')
     const cents = Math.round(dollars * 100)
@@ -217,12 +217,12 @@ export default function NegotiationsInbox() {
       }
       const msg =
         action === 'approve'
-          ? 'Approved — the buyer can now pay to secure the agreement.'
+          ? 'Approved - the buyer can now pay to secure the agreement.'
           : action === 'capture'
-            ? 'Funds captured — negotiation complete.'
+            ? 'Funds captured - negotiation complete.'
             : action === 'refund'
               ? (data as { fully?: boolean }).fully === false
-                ? 'Partial refund sent to the buyer — the remainder is still refundable.'
+                ? 'Partial refund sent to the buyer - the remainder is still refundable.'
                 : 'Payment refunded to the buyer.'
               : 'Escrow hold released.'
       setMessage(msg)
@@ -244,7 +244,7 @@ export default function NegotiationsInbox() {
             feature="negotiation"
             currentPlan={plan}
             title="Negotiation & smart pricing"
-            description="let agents make offers, set auto-accept rules, and run counter-offers — on the Pro plan and up."
+            description="let agents make offers, set auto-accept rules, and run counter-offers - on the Pro plan and up."
             className="mb-6"
           />
           <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -307,7 +307,7 @@ export default function NegotiationsInbox() {
                 <Handshake className="mx-auto size-8 text-zinc-500" />
                 <p className="mt-3 text-sm font-medium text-zinc-200">Negotiations are being set up</p>
                 <p className="mx-auto mt-2 max-w-md text-sm text-zinc-400">
-                  This workspace is finishing setup for agent negotiations — check back shortly.
+                  This workspace is finishing setup for agent negotiations - check back shortly.
                 </p>
               </div>
             ) : (
@@ -315,7 +315,7 @@ export default function NegotiationsInbox() {
                 <Handshake className="mx-auto size-8 text-[var(--signal)]" />
                 <p className="mt-3 text-base font-medium text-white">No proposals yet</p>
                 <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-zinc-400">
-                  When an AI agent or buyer proposes terms on one of your negotiable offers — scope, budget, timeline —
+                  When an AI agent or buyer proposes terms on one of your negotiable offers - scope, budget, timeline -
                   it lands here for you to <span className="text-zinc-200">accept, counter, or decline</span>, with escrow
                   on agreed deals. Mark an offer “negotiable” in the listing editor to invite proposals.
                 </p>
@@ -396,7 +396,7 @@ function NegotiationCard({
   const isEscrowCapture = (to: NegotiationStatus) => escrowAvailable && item.status === 'held' && to === 'complete'
   const isEscrowRelease = (to: NegotiationStatus) => escrowAvailable && item.status === 'held' && to === 'declined'
   const ownerTransitions = transitions.filter((to) => to !== 'held')
-  // A captured payment can be refunded back to the buyer — in full or in part.
+  // A captured payment can be refunded back to the buyer - in full or in part.
   const canRefund = item.status === 'complete' && escrowAvailable && !!item.stripe_payment_intent_id
   // Refundable remainder in MAJOR units: amount_cents is app-minor (major×100);
   // refunded_cents is Stripe smallest-unit. Both reduce to the same major scale.
@@ -493,7 +493,7 @@ function NegotiationCard({
         )}
       </dl>
 
-      {/* Agreed amount — owner can confirm/adjust before approval or buyer payment. */}
+      {/* Agreed amount - owner can confirm/adjust before approval or buyer payment. */}
       {item.status === 'agreement_proposed' && (
         <AmountEditor item={item} disabled={updating} onSave={onSaveAmount} />
       )}
@@ -541,7 +541,7 @@ function NegotiationCard({
           ))
         )}
 
-        {/* Refund a captured payment back to the buyer — full or partial. A partial
+        {/* Refund a captured payment back to the buyer - full or partial. A partial
             keeps the deal 'complete' so the remainder stays refundable. */}
         {canRefund &&
           (refundOpen ? (
@@ -672,7 +672,7 @@ function NegotiationCard({
                 })
                 const data = await res.json().catch(() => ({}))
                 if (!res.ok) {
-                  // setMessage may not be in this exact closure after refactor — use console + parent refresh
+                  // setMessage may not be in this exact closure after refactor - use console + parent refresh
                   console.error('Manual owner response failed:', data.error)
                   if (onRefresh) onRefresh()
                   else window.location.reload()

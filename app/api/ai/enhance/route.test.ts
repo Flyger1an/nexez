@@ -15,7 +15,7 @@ const { userRef, accessRef, optInRef, ownerAllowsRef } = vi.hoisted(() => ({
 // Rate limiting has its own dedicated test; keep it a pass-through here.
 vi.mock('../../../../lib/rate-limit', () => ({ enforceRateLimit: vi.fn(async () => null) }))
 
-// Route awaits cookies() before building the session client — keep it inert.
+// Route awaits cookies() before building the session client - keep it inert.
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ getAll: () => [], set: () => {} })) }))
 
 // Session client: only auth.getUser is exercised here.

@@ -6,11 +6,11 @@ import type { AgentPage } from '../../lib/agent-page'
 import { appUrl } from '../../lib/site'
 
 /**
- * "Compare a competitor" — the signed-in lens of the Agent Lab. Scores any rival
+ * "Compare a competitor" - the signed-in lens of the Agent Lab. Scores any rival
  * site for agent-readiness (trust / parseability / structured-data / clarity),
  * surfaces gaps + recommendations, and (optionally) puts it side-by-side with one
  * of the owner's own pages. Backed by /api/analyze-competitor (auth + LLM, so it
- * stays behind sign-in). Logged-out visitors see a locked teaser — a natural
+ * stays behind sign-in). Logged-out visitors see a locked teaser - a natural
  * conversion nudge.
  */
 
@@ -54,7 +54,7 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
         </div>
         <h3 className="text-xl font-semibold">Compare a competitor</h3>
         <p className="max-w-md text-sm text-zinc-400">
-          Score any rival site for agent-readiness — trust, parseability, structured data, and clarity — see exactly
+          Score any rival site for agent-readiness - trust, parseability, structured data, and clarity - see exactly
           what it&apos;s missing, and put it side-by-side with your own listing. Sign in to unlock.
         </p>
         <div className="mt-1 flex gap-2">
@@ -146,7 +146,7 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
           <label className="text-xs text-zinc-400">Your listing (optional side-by-side)</label>
           {myPages.length > 0 ? (
             <select value={sideSlug} onChange={(e) => setSideSlug(e.target.value)} className="input mt-1 w-full" disabled={loading}>
-              <option value="">— none —</option>
+              <option value="">- none -</option>
               {myPages.map((p) => (
                 <option key={p.id} value={p.slug}>{p.name} (/{p.slug})</option>
               ))}
@@ -183,7 +183,7 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
             {scoreCards.map((s) => (
               <div key={s.label} className="rounded-2xl border border-white/10 bg-[#12101B] p-3">
                 <div className="text-[10px] uppercase tracking-widest text-zinc-500">{s.label}</div>
-                <div className={`mt-1 text-3xl font-semibold tabular-nums ${scoreTone(s.val)}`}>{s.val ?? '—'}</div>
+                <div className={`mt-1 text-3xl font-semibold tabular-nums ${scoreTone(s.val)}`}>{s.val ?? '-'}</div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded bg-white/10">
                   <div className={`h-1.5 ${scoreTone(s.val)} bg-current`} style={{ width: `${Math.min(100, s.val || 0)}%` }} />
                 </div>
@@ -202,8 +202,8 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
             <div className="mt-4 rounded-2xl border border-[var(--ready)]/25 bg-[var(--ready)]/[0.04] p-4">
               <p className="font-medium">Head-to-head vs your listing (/{analysis.userComparison.slug})</p>
               <p className="mt-1 text-sm text-zinc-300">
-                Your readiness <span className="font-mono text-[var(--ready)]">{analysis.userComparison.readiness ?? '—'}</span> · trust{' '}
-                <span className="font-mono text-[var(--ready)]">{analysis.userComparison.trust ?? '—'}</span> · {analysis.userComparison.offerCount ?? 0} offers
+                Your readiness <span className="font-mono text-[var(--ready)]">{analysis.userComparison.readiness ?? '-'}</span> · trust{' '}
+                <span className="font-mono text-[var(--ready)]">{analysis.userComparison.trust ?? '-'}</span> · {analysis.userComparison.offerCount ?? 0} offers
               </p>
               {analysis.userComparison.summary && <p className="mt-1 text-xs text-zinc-400">{analysis.userComparison.summary}</p>}
               {analysis.userComparison.winSuggestions?.length > 0 && (
@@ -233,7 +233,7 @@ function GapList({ title, tone, items }: { title: string; tone: string; items: s
           ))}
         </ul>
       ) : (
-        <p className="text-xs text-zinc-600">—</p>
+        <p className="text-xs text-zinc-600">-</p>
       )}
     </div>
   )
@@ -241,7 +241,7 @@ function GapList({ title, tone, items }: { title: string; tone: string; items: s
 
 function analysisToMd(a: CompetitorAnalysis): string {
   return [
-    `# Agent-readiness analysis — ${a.url}`,
+    `# Agent-readiness analysis - ${a.url}`,
     ``,
     `Overall: ${a.scores.overall} · Parseability: ${a.scores.parseability} · Structured data: ${a.scores.structuredDataQuality} · Clarity: ${a.scores.clarityAndIntent}`,
     ``,

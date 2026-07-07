@@ -30,7 +30,7 @@ vi.mock('../../../utils/supabase/server', () => ({
 
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({})) }))
 
-// Authoritative authorization primitive — fully mocked here (it has its own test).
+// Authoritative authorization primitive - fully mocked here (it has its own test).
 vi.mock('../../../lib/server/page-access', () => ({
   resolvePageAccess: vi.fn((opts: any) => Promise.resolve(resolveRef.fn(opts))),
 }))
@@ -161,7 +161,7 @@ describe('POST /api/custom-domain (collaborator-aware)', () => {
   })
 
   it('attach is plan-gated on the OWNER: 402 when the owner is on Free', async () => {
-    // Collaborator on a Free owner — gate must read the OWNER plan, not the caller.
+    // Collaborator on a Free owner - gate must read the OWNER plan, not the caller.
     userRef.user = { id: 'editor-9', email: 'editor@example.com' }
     resolveRef.fn = () => ({ pageId: 'page-1', ownerId: 'owner-1', role: 'editor' })
     adminRef.subscription = null // owner has no live subscription -> free

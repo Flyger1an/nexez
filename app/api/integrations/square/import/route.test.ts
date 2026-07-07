@@ -42,7 +42,7 @@ describe('POST /api/integrations/square/import (collaboration gate)', () => {
     expect((await POST(post({}))).status).toBe(401)
   })
 
-  it('403 when resolveFeatureOwner denies — never reaches Square / sample data', async () => {
+  it('403 when resolveFeatureOwner denies - never reaches Square / sample data', async () => {
     featureRef.fn = () => ({ ok: false, status: 403 })
     expect((await POST(post({ pageId: 'p1' }))).status).toBe(403)
     expect(ownerAllowsRef.calls).toEqual([])

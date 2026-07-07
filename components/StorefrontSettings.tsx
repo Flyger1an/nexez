@@ -98,7 +98,7 @@ export function StorefrontSettings({
       setEdit(toEditState(saved))
       setMessage(isNew ? 'Storefront created.' : 'Storefront saved.')
     } catch {
-      setError('Could not save — try again.')
+      setError('Could not save - try again.')
     } finally {
       setSaving(false)
     }
@@ -135,7 +135,7 @@ export function StorefrontSettings({
         Your public brand homes that list everything you publish. Agents and buyers can browse each at one link.
       </p>
 
-      {/* Storefront picker — one chip per storefront + New */}
+      {/* Storefront picker - one chip per storefront + New */}
       {storefronts.length > 0 ? (
         <div className="mt-4 flex flex-wrap gap-2">
           {storefronts.map((s) => {
@@ -170,7 +170,7 @@ export function StorefrontSettings({
 
       <div className="mt-5 space-y-4">
         {isNew && storefronts.length > 0 ? (
-          <p className="text-sm text-[var(--signal)]">New storefront — pick a unique handle to publish it.</p>
+          <p className="text-sm text-[var(--signal)]">New storefront - pick a unique handle to publish it.</p>
         ) : null}
 
         <label className="block">

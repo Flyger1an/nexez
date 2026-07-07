@@ -15,7 +15,7 @@ const EXPO_BATCH = 100 // Expo accepts up to 100 messages per request
 export type PushPlatform = 'ios' | 'android' | 'web' | 'unknown'
 
 /** Buyer-facing push category → matched against the buyer's per-category opt-in. Omit for seller
- *  pushes (they aren't gated by the buyer facet's per-category prefs — only the master switch). */
+ *  pushes (they aren't gated by the buyer facet's per-category prefs - only the master switch). */
 export type PushCategory = 'orders' | 'alerts' | 'tasks'
 
 export type PushMessage = {
@@ -71,15 +71,15 @@ export async function sendPushToTokens(tokens: string[], message: PushMessage): 
       })
       if (res.ok) sent += batch.length
     } catch {
-      // best-effort — swallow so a push failure can't break the caller
+      // best-effort - swallow so a push failure can't break the caller
     }
   }
   return { sent }
 }
 
 /**
- * User ids who should NOT receive this push: the master switch (notificationsEnabled === false), OR —
- * when a category is given — that category muted (notificationTypes[category] === false). A missing
+ * User ids who should NOT receive this push: the master switch (notificationsEnabled === false), OR -
+ * when a category is given - that category muted (notificationTypes[category] === false). A missing
  * category (seller pushes) is gated only by the master switch. Each pref defaults ON.
  */
 async function pushOptedOutUserIds(
@@ -122,7 +122,7 @@ async function userIdsByEmail(email: string): Promise<string[]> {
 
 /**
  * Persist a buyer-facing notification to the in-app activity feed. ONLY buyer pushes (those carrying a
- * `category`) are recorded — seller pushes have no category, so the feed never mixes the seller facet.
+ * `category`) are recorded - seller pushes have no category, so the feed never mixes the seller facet.
  * Recorded regardless of push opt-out (the in-app feed is separate from device push). Best-effort.
  */
 async function recordNotifications(userIds: string[], message: PushMessage): Promise<void> {
@@ -139,7 +139,7 @@ async function recordNotifications(userIds: string[], message: PushMessage): Pro
     const { error } = await createAdminClient().from('notifications').insert(rows)
     if (error) console.warn('[push] notification record failed:', error.message)
   } catch {
-    // best-effort — never break the push/money flow on a feed write
+    // best-effort - never break the push/money flow on a feed write
   }
 }
 

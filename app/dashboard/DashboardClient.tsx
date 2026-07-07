@@ -37,7 +37,7 @@ export type DashboardInitial = {
   // Start-of-today (ISO), computed server-side from the same helper Analytics
   // uses, so the Overview headline and Analytics' "Today" range stay in sync.
   todayCutoff: string
-  // An intake interview reached handed_off — counts toward the create step in
+  // An intake interview reached handed_off - counts toward the create step in
   // the onboarding checklist (intake spec §8).
   interviewCompleted?: boolean
 }
@@ -176,7 +176,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
     }
     setOpenNegotiations(negotiationResult.error ? 0 : negotiationResult.count ?? 0)
 
-    // Pages shared with me — one follow-up query keyed off the invites we already loaded.
+    // Pages shared with me - one follow-up query keyed off the invites we already loaded.
     try {
       const ownerIds = [...new Set((invitesResult.data ?? []).map((i) => i.owner_id as string))].filter(
         (oid) => oid !== user.id,
@@ -334,7 +334,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                       <p className="text-sm text-[var(--signal)]">Today on your listings</p>
                       <h2 className="mt-2 text-3xl font-semibold tracking-tight">
                         {publishedCount > 0
-                          ? `All quiet so far — your ${publishedCount} published listing${publishedCount === 1 ? '' : 's'} ${publishedCount === 1 ? 'is' : 'are'} live and crawlable.`
+                          ? `All quiet so far - your ${publishedCount} published listing${publishedCount === 1 ? '' : 's'} ${publishedCount === 1 ? 'is' : 'are'} live and crawlable.`
                           : 'Publish a listing to start appearing to AI agents.'}
                       </h2>
                       <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">
@@ -351,7 +351,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                         {agentPageVisits} AI agent visits, {trafficSplit.human} human visits, {discoveryClicks} discovery clicks, and {conversionActions} conversion actions
                       </h2>
                       <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">
-                        {totalTrackedSignals} tracked signals today across {publishedCount} published listings and {totalOffers} listed offers —
+                        {totalTrackedSignals} tracked signals today across {publishedCount} published listings and {totalOffers} listed offers -
                         a live view of how AI agents are discovering and acting on your business. See full history in{' '}
                         <a href="/dashboard/analytics" className="text-[var(--signal)] hover:underline">Analytics</a>.
                       </p>
@@ -480,7 +480,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
 
             {!pages.length ? (
               <div className="mt-5 rounded-lg border border-dashed border-[var(--bd-15)] p-12 text-center">
-                <p className="text-[var(--fg-muted)]">No listings yet — create your first listing to start showing up for AI agents.</p>
+                <p className="text-[var(--fg-muted)]">No listings yet - create your first listing to start showing up for AI agents.</p>
               </div>
             ) : null}
 
@@ -567,7 +567,7 @@ function NewUserHero({ name }: { name: string }) {
         Publish your first agent-readable page.
       </h2>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">
-        Paste your existing website and we’ll turn it into an agent-readable page in seconds — or start
+        Paste your existing website and we’ll turn it into an agent-readable page in seconds - or start
         from an industry template. Then publish it and (optionally) host it on your own custom domain.
       </p>
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">

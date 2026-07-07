@@ -27,7 +27,7 @@ function paymentFingerprint(input: {
 }
 
 /**
- * Buyer-facing escrow funding — the BUYER pays the agreed amount (not the owner).
+ * Buyer-facing escrow funding - the BUYER pays the agreed amount (not the owner).
  *
  * POST { negotiationId, token }
  *
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
     .eq('status_token', token)
     .maybeSingle<AgentNegotiation>()
 
-  // Constant 404 on any mismatch — never reveal which negotiations exist.
+  // Constant 404 on any mismatch - never reveal which negotiations exist.
   if (!negotiation) {
     return fail(404, 'Negotiation not found.')
   }
@@ -108,10 +108,10 @@ export async function POST(request: Request) {
   // Connect routing: owner is merchant of record, Nexez takes the plan commission as
   // an application fee. Mirrors app/api/checkout/route.ts.
   let connectAccountId: string | null = null
-  // Status-aware plan resolution (canceled/incomplete 'pro' → Free 15%, not 6%) —
+  // Status-aware plan resolution (canceled/incomplete 'pro' → Free 15%, not 6%) -
   // single source of truth, mirrors app/api/checkout/route.ts and entitlements.
   const ownerPlanId = await getOwnerPlanId(admin, negotiation.owner_id as string)
-  // A paused seller (expired no-card trial) is offline — block funding even though the buyer
+  // A paused seller (expired no-card trial) is offline - block funding even though the buyer
   // holds the persistent negotiate token. Pausing flips billing status only (it never touches
   // the negotiation or the Connect account), so without this the escrow would still fund a
   // suppressed storefront. Mirrors the /api/checkout pause gate; closes the same money-path
@@ -180,7 +180,7 @@ export async function POST(request: Request) {
           : NextResponse.redirect(existingUrl, { status: 303 })
       }
     } catch {
-      // Stale/foreign session id — fall through and create a fresh one.
+      // Stale/foreign session id - fall through and create a fresh one.
     }
   }
 
@@ -193,7 +193,7 @@ export async function POST(request: Request) {
             currency,
             unit_amount: chargeAmount,
             product_data: {
-              name: `${negotiation.offer_name} — ${autoSettle ? 'payment' : 'escrow hold'}`,
+              name: `${negotiation.offer_name} - ${autoSettle ? 'payment' : 'escrow hold'}`,
             },
           },
           quantity: 1,

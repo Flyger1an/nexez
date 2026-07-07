@@ -1,6 +1,6 @@
 'use client'
 
-// Seller intake interview — web client (spec §6). A thin client of the shared
+// Seller intake interview: web client (spec §6). A thin client of the shared
 // agent-chat primitive over the threads API: no interview logic lives here.
 // The reducer on the server decides what is askable; this component renders
 // turns + cards and posts owner input (free text, or structured quick-answers
@@ -17,11 +17,11 @@ import type { Gap, GapAnswer, IntakeState } from '../../lib/intake'
 import { appUrl } from '../../lib/site'
 
 type IntakeChatProps = {
-  /** "Just take me to the form" — the fork's escape hatch. */
+  /** "Just take me to the form": the fork's escape hatch. */
   onSwitchToForm?: () => void
   /** Re-interview an EXISTING listing: the session seeds from the page and
    *  commit stages onto its draft (never a new page). Entry: the editor's
-   *  Re-interview action → /create?reinterview=<pageId>. */
+   *  Re-interview action -> /create?reinterview=<pageId>. */
   reinterviewPageId?: string
   className?: string
 }
@@ -39,7 +39,7 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, className = '' }
   const sessionIdRef = useRef<string | null>(null)
 
   // Surface an existing interview so a second visit resumes instead of
-  // duplicating (cross-device: start on mobile, finish here). Best-effort —
+  // duplicating (cross-device: start on mobile, finish here). Best-effort:
   // unauthenticated visitors just see the fresh-start setup. In re-interview
   // mode only a session for THAT listing counts.
   useEffect(() => {
@@ -74,10 +74,10 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, className = '' }
       cards.push({ type: 'gap_batch', gaps: state.gaps.slice(0, 3) })
     }
     const intro = extraction
-      ? `I read what your site already says — ${extraction.offers.length} offer${extraction.offers.length === 1 ? '' : 's'} came through. I will only ask about what is missing or unclear.`
+      ? `I read what your site already says. ${extraction.offers.length} offer${extraction.offers.length === 1 ? '' : 's'} came through, and I will only ask about what is missing or unclear.`
       : state.draft.name.trim()
-        ? `I re-read ${state.draft.name} — it is already on Nexez, so I will only ask about what is missing or could be stronger. Your answers land as a draft on the listing.`
-        : 'We are starting fresh. A few focused questions and your draft will be ready to review in the builder — answer, skip, or jump to the form any time.'
+        ? `I re-read ${state.draft.name}. It is already on Nexez, so I will only ask about what is missing or could be stronger. Your answers land as a draft on the listing.`
+        : 'We are starting fresh. A few focused questions and your draft will be ready to review in the builder. Answer, skip, or jump to the form any time.'
     return [{ id: 'intake-opening', role: 'assistant', content: intro, cards }]
   }
 
@@ -149,7 +149,7 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, className = '' }
       body: JSON.stringify(body),
     })
     const json = await response.json()
-    if (!response.ok) throw new Error(json.error || 'The interview hit a snag — try again.')
+    if (!response.ok) throw new Error(json.error || 'The interview hit a snag. Try again.')
     return { message: json.message, cards: json.cards ?? [] }
   }
 
@@ -163,27 +163,27 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, className = '' }
 
   if (phase !== 'chat') {
     return (
-      <section className={`mx-auto flex min-h-[720px] w-full max-w-md flex-col justify-center overflow-hidden rounded-[2rem] border border-white/15 bg-[#07070A] p-8 text-white shadow-[0_24px_80px_rgba(0,0,0,0.45)] ${className}`}>
+      <section className={`mx-auto flex min-h-[720px] w-full max-w-md flex-col justify-center overflow-hidden rounded-[2rem] border border-[var(--bd-15)] bg-[var(--panel)] p-8 text-[var(--fg)] shadow-[0_24px_80px_rgba(15,23,42,0.12)] dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:shadow-[0_24px_80px_rgba(0,0,0,0.45)] ${className}`}>
         <div className="flex size-12 items-center justify-center rounded-2xl border border-[var(--signal)]/40 bg-[var(--signal)]/15">
           <Sparkles className="size-6 text-[var(--signal)]" />
         </div>
         <h2 className="mt-5 text-2xl font-semibold tracking-[-0.03em]">
           {reinterviewPageId ? 'Re-interview this listing' : 'Talk it through'}
         </h2>
-        <p className="mt-2 text-sm leading-6 text-white/60">
+        <p className="mt-2 text-sm leading-6 text-[var(--fg-muted)]">
           {reinterviewPageId
-            ? 'Nexez re-reads what the listing already says and only asks about what is missing or could be stronger. Your answers land as a DRAFT on the listing — nothing goes live without you.'
-            : 'I will read what already exists — your site, your listings — and only ask about the gaps. Twenty minutes of conversation, not forty form fields.'}
+            ? 'Nexez re-reads what the listing already says and only asks about what is missing or could be stronger. Your answers land as a draft on the listing. Nothing goes live without you.'
+            : 'I will read what already exists: your site and your listings. Then I only ask about the gaps. Twenty minutes of conversation, not forty form fields.'}
         </p>
 
         {phase === 'signin' ? (
-          <div className="mt-6 rounded-2xl border border-[var(--amber)]/30 bg-[var(--amber)]/10 p-4 text-sm leading-6 text-white/80">
-            Sign in to start your interview — your progress saves to your account and resumes on any device.
+          <div className="mt-6 rounded-2xl border border-[var(--amber)]/30 bg-[var(--amber)]/10 p-4 text-sm leading-6 text-[var(--fg-soft)]">
+            Sign in to start your interview. Your progress saves to your account and resumes on any device.
             <div className="mt-3 flex flex-col gap-2">
               <a href="/onboard?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-white font-medium text-zinc-950 hover:bg-zinc-200">
                 Start your free trial
               </a>
-              <a href="/login?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-white/15 text-sm text-white hover:bg-white/5">
+              <a href="/login?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-[var(--bd-15)] text-sm text-[var(--fg)] hover:bg-[var(--ov-05)]">
                 I already have an account
               </a>
             </div>
@@ -195,7 +195,7 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, className = '' }
                 type="button"
                 disabled={phase === 'starting'}
                 onClick={() => resume(resumable.id)}
-                className="flex w-full items-center justify-between rounded-2xl border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-4 py-3 text-left text-sm text-white transition hover:bg-[var(--ready)]/15 disabled:opacity-50"
+                className="flex w-full items-center justify-between rounded-2xl border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-4 py-3 text-left text-sm text-[var(--fg)] transition hover:bg-[var(--ready)]/15 disabled:opacity-50"
               >
                 <span>Resume your interview in progress</span>
                 <ArrowRight className="size-4 text-[var(--ready)]" />
@@ -206,26 +206,26 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, className = '' }
                 type="button"
                 disabled={phase === 'starting'}
                 onClick={() => start({ page_id: reinterviewPageId })}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-medium text-zinc-950 transition hover:bg-zinc-200 disabled:opacity-40"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--inverse-bg)] px-4 py-3 text-sm font-medium text-[var(--inverse-fg)] transition hover:brightness-95 disabled:opacity-40"
               >
                 {phase === 'starting' ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
                 {phase === 'starting' ? 'Re-reading your listing…' : 'Start the re-interview'}
               </button>
             ) : (
               <>
-                <div className="rounded-2xl border border-white/12 bg-white/[0.045] p-2">
+                <div className="rounded-2xl border border-[var(--bd-15)] bg-[var(--ov-04)] p-2 dark:border-white/12 dark:bg-white/[0.045]">
                   <input
                     type="url"
                     value={sourceUrl}
                     onChange={(event) => setSourceUrl(event.target.value)}
                     placeholder="https://yourbusiness.com"
-                    className="w-full bg-transparent px-3 py-3 text-sm text-white outline-none placeholder:text-white/35"
+                    className="w-full bg-transparent px-3 py-3 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--fg-muted)]"
                   />
                   <button
                     type="button"
                     disabled={phase === 'starting' || !sourceUrl.trim()}
                     onClick={() => start({ source_url: sourceUrl.trim() })}
-                    className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-medium text-zinc-950 transition hover:bg-zinc-200 disabled:opacity-40"
+                    className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--inverse-bg)] px-4 py-3 text-sm font-medium text-[var(--inverse-fg)] transition hover:brightness-95 disabled:opacity-40"
                   >
                     {phase === 'starting' ? <Loader2 className="size-4 animate-spin" /> : <Globe2 className="size-4" />}
                     Start with my site
@@ -235,19 +235,19 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, className = '' }
                   type="button"
                   disabled={phase === 'starting'}
                   onClick={() => start({})}
-                  className="w-full rounded-2xl border border-white/12 px-4 py-3 text-sm text-white/75 transition hover:bg-white/5 disabled:opacity-50"
+                  className="w-full rounded-2xl border border-[var(--bd-15)] px-4 py-3 text-sm text-[var(--fg-soft)] transition hover:bg-[var(--ov-05)] disabled:opacity-50 dark:border-white/12 dark:text-white/75 dark:hover:bg-white/5"
                 >
                   Start from scratch
                 </button>
               </>
             )}
-            {setupError ? <p className="text-xs text-red-300">{setupError}</p> : null}
+            {setupError ? <p className="text-xs text-red-500">{setupError}</p> : null}
           </div>
         )}
 
         {onSwitchToForm ? (
-          <button type="button" onClick={onSwitchToForm} className="mt-6 text-xs text-white/40 underline-offset-4 hover:text-white/70 hover:underline">
-            Skip the chat — build with the form
+          <button type="button" onClick={onSwitchToForm} className="mt-6 text-xs text-[var(--fg-muted)] underline-offset-4 hover:text-[var(--fg)] hover:underline">
+            Skip the chat, build with the form
           </button>
         ) : null}
       </section>
@@ -264,9 +264,9 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, className = '' }
           welcome: 'Tell me about your business and I will only ask about what is missing.',
           initialMessages,
           placeholder: 'Answer, ask, or say "skip"...',
-          footnote: 'Nothing publishes without you — the interview hands off to the builder for review.',
+          footnote: 'Nothing publishes without you. The interview hands off to the builder for review.',
           headerIcon: <MessageCircleQuestion className="size-5 text-[var(--signal)]" />,
-          errorFallback: 'The interview hit a snag — try again.',
+          errorFallback: 'The interview hit a snag. Try again.',
           sendTurn: ({ text }) => postTurn({ content: text }),
           cardKey: intakeCardKey,
           renderCard: (card, controller) => (
@@ -280,9 +280,9 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, className = '' }
         }}
       />
       {onSwitchToForm ? (
-        <p className="mt-3 text-center text-xs text-white/40">
+        <p className="mt-3 text-center text-xs text-[var(--fg-muted)]">
           Prefer fields?{' '}
-          <button type="button" onClick={onSwitchToForm} className="underline underline-offset-4 hover:text-white/70">
+          <button type="button" onClick={onSwitchToForm} className="underline underline-offset-4 hover:text-[var(--fg)]">
             Build with the form instead
           </button>
         </p>
@@ -320,14 +320,14 @@ function IntakeCardView({
 }) {
   if (card.type === 'source_ingested') {
     return (
-      <article className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 shadow-xl backdrop-blur-2xl">
+      <article className="rounded-3xl border border-[var(--bd-10)] bg-[var(--ov-04)] p-4 shadow-xl backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.04]">
         <div className="flex items-center gap-3">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--ready)]/15 text-[var(--ready)]">
             <Globe2 className="size-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="truncate text-sm font-semibold text-white">Read {card.label}</h3>
-            <p className="mt-0.5 text-xs text-white/50">
+            <h3 className="truncate text-sm font-semibold text-[var(--fg)]">Read {card.label}</h3>
+            <p className="mt-0.5 text-xs text-[var(--fg-muted)]">
               {card.offers} offer{card.offers === 1 ? '' : 's'} imported
               {typeof card.confidence === 'number' ? ` · ${Math.round(card.confidence * 100)}% confidence` : ''}
             </p>
@@ -339,7 +339,7 @@ function IntakeCardView({
 
   if (card.type === 'gap_batch') {
     return (
-      <article className="space-y-3 rounded-3xl border border-white/10 bg-white/[0.04] p-4 shadow-xl backdrop-blur-2xl">
+      <article className="space-y-3 rounded-3xl border border-[var(--bd-10)] bg-[var(--ov-04)] p-4 shadow-xl backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.04]">
         {card.gaps.map((gap) => (
           <GapRow key={gap.id} gap={gap} controller={controller} onAnswers={onAnswers} />
         ))}
@@ -350,12 +350,12 @@ function IntakeCardView({
   if (card.type === 'draft_summary') {
     const offers = card.draft.services.length + card.draft.products.length
     return (
-      <article className="rounded-3xl border border-[var(--ready)]/25 bg-[var(--ready)]/[0.07] p-4 shadow-xl">
+      <article className="rounded-3xl border border-[var(--ready)]/35 bg-[var(--ready)]/[0.08] p-4 shadow-xl">
         <div className="flex items-center gap-4">
           <ReadinessRing value={card.readiness} />
           <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-semibold text-white">{card.draft.name || 'Your draft'}</h3>
-            <p className="mt-0.5 text-xs text-white/55">
+            <h3 className="text-sm font-semibold text-[var(--fg)]">{card.draft.name || 'Your draft'}</h3>
+            <p className="mt-0.5 text-xs text-[var(--fg-muted)]">
               {offers} offer{offers === 1 ? '' : 's'} · {card.draft.faqs.length} FAQ{card.draft.faqs.length === 1 ? '' : 's'}
               {card.draft.industry ? ` · ${card.draft.industry}` : ''}
             </p>
@@ -364,7 +364,7 @@ function IntakeCardView({
                 type="button"
                 disabled={controller.busy}
                 onClick={() => void controller.runAction('Opening the builder...', onCommit)}
-                className="mt-3 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-200 disabled:opacity-50"
+                className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[var(--inverse-bg)] px-4 py-2 text-xs font-semibold text-[var(--inverse-fg)] transition hover:brightness-95 disabled:opacity-50"
               >
                 Review in the builder
                 <ArrowRight className="size-3.5" />
@@ -378,20 +378,20 @@ function IntakeCardView({
 
   // handoff
   return (
-    <article className="rounded-3xl border border-[var(--ready)]/25 bg-[var(--ready)]/10 p-4 shadow-xl">
+    <article className="rounded-3xl border border-[var(--ready)]/35 bg-[var(--ready)]/10 p-4 shadow-xl">
       <div className="flex items-center gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-black/35 text-[var(--ready)]">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--ov-10)] text-[var(--ready)]">
           <CircleCheck className="size-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold text-white">Your draft is ready</h3>
-          <p className="mt-0.5 text-xs text-white/60">Review everything in the builder — publishing stays in your hands.</p>
+          <h3 className="text-sm font-semibold text-[var(--fg)]">Your draft is ready</h3>
+          <p className="mt-0.5 text-xs text-[var(--fg-muted)]">Review everything in the builder. Publishing stays in your hands.</p>
         </div>
         <button
           type="button"
           disabled={controller.busy}
           onClick={() => void controller.runAction('Opening the builder...', onCommit)}
-          className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-white px-4 py-2 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-200 disabled:opacity-50"
+          className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[var(--inverse-bg)] px-4 py-2 text-xs font-semibold text-[var(--inverse-fg)] transition hover:brightness-95 disabled:opacity-50"
         >
           Open builder
           <ArrowRight className="size-3.5" />
@@ -402,7 +402,7 @@ function IntakeCardView({
 }
 
 /** One gap: the question, why it matters, and tappable quick answers. Chips
- *  post STRUCTURED answers through the reducer — no LLM interpretation needed,
+ *  post STRUCTURED answers through the reducer. No LLM interpretation needed,
  *  which keeps the interview fully functional in deterministic mode. */
 function GapRow({
   gap,
@@ -420,11 +420,11 @@ function GapRow({
         {gap.kind === 'blocking' ? (
           <span className="mt-1 inline-block size-1.5 shrink-0 rounded-full bg-[var(--amber)]" title="Needed before your listing can go live" />
         ) : (
-          <ListChecks className="mt-0.5 size-3.5 shrink-0 text-white/30" />
+          <ListChecks className="mt-0.5 size-3.5 shrink-0 text-[var(--fg-muted)]" />
         )}
         <div className="min-w-0">
-          <p className="text-sm leading-5 text-white/90">{gap.question}</p>
-          <p className="mt-0.5 text-[11px] leading-4 text-white/40">{gap.why}</p>
+          <p className="text-sm leading-5 text-[var(--fg)]">{gap.question}</p>
+          <p className="mt-0.5 text-[11px] leading-4 text-[var(--fg-muted)]">{gap.why}</p>
         </div>
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5 pl-3.5">
@@ -434,7 +434,7 @@ function GapRow({
             type="button"
             disabled={controller.busy}
             onClick={() => void controller.runAction('Recording...', () => onAnswers([qa.answer]))}
-            className="rounded-full border border-white/12 bg-white/[0.04] px-3 py-1.5 text-xs text-white/70 transition hover:border-[var(--signal)]/40 hover:text-[var(--signal)] disabled:opacity-40"
+            className="rounded-full border border-[var(--bd-15)] bg-[var(--panel)] px-3 py-1.5 text-xs text-[var(--fg-soft)] transition hover:border-[var(--signal)]/40 hover:text-[var(--signal)] disabled:opacity-40 dark:border-white/12 dark:bg-white/[0.04] dark:text-white/70"
           >
             {qa.label}
           </button>
@@ -470,7 +470,7 @@ function ReadinessRing({ value }: { value: number }) {
   return (
     <div className="relative size-16 shrink-0" role="img" aria-label={`Readiness ${value}%`}>
       <svg viewBox="0 0 64 64" className="size-16 -rotate-90">
-        <circle cx="32" cy="32" r={radius} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="5" />
+        <circle cx="32" cy="32" r={radius} fill="none" stroke="var(--bd-15)" strokeWidth="5" />
         <circle
           cx="32"
           cy="32"
@@ -482,7 +482,7 @@ function ReadinessRing({ value }: { value: number }) {
           strokeDasharray={`${circumference * filled} ${circumference}`}
         />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-white">{value}</span>
+      <span className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-[var(--fg)]">{value}</span>
     </div>
   )
 }

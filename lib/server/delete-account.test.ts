@@ -75,7 +75,7 @@ beforeEach(() => {
   adminRef.negIds = []
 })
 
-describe('deleteUserAccount — facet-aware (Nexxi buyer vs Nexez seller)', () => {
+describe('deleteUserAccount - facet-aware (Nexxi buyer vs Nexez seller)', () => {
   it('PURE BUYER: clears the buyer facet, deletes seller/account tables, and deletes the auth user', async () => {
     const result = await deleteUserAccount('user-1', 'Buyer@Acme.com')
     expect(result.ok).toBe(true)

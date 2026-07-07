@@ -6,7 +6,7 @@ import { billingPlans } from '../../lib/billing'
 import { appUrl } from '../../lib/site'
 
 export default function PricingPage() {
-  // Free is retired — paid plans only, each starting with a 7-day no-card trial.
+  // Free is retired - paid plans only, each starting with a 7-day no-card trial.
   // Enterprise routes to sales.
   const tiers = billingPlans.filter((p) => p.id !== 'free')
 
@@ -18,7 +18,7 @@ export default function PricingPage() {
           <div className="eyebrow justify-center">Plans &amp; pricing</div>
           <h1 className="display mt-4">Simple, transparent pricing.</h1>
           <p className="lede mx-auto mt-4 text-center">
-            Start any plan with a 7-day free trial — no credit card required.
+            Start any plan with a 7-day free trial - no credit card required.
           </p>
           <div className="mt-4 text-sm" style={{ color: 'var(--ready)' }}>No hidden fees. Cancel anytime.</div>
         </div>
@@ -30,7 +30,7 @@ export default function PricingPage() {
             const isEnterprise = plan.id === 'enterprise'
             const priceDisplay = isEnterprise ? 'Custom' : plan.price
             const cadence = isEnterprise ? '' : `/${plan.cadence}`
-            // Plans are cumulative — make that legible (each builds on the one before).
+            // Plans are cumulative - make that legible (each builds on the one before).
             const previousPlanName = !isEnterprise && planIndex > 0 ? tiers[planIndex - 1].name : null
 
             return (
@@ -110,7 +110,7 @@ export default function PricingPage() {
             </p>
           </div>
 
-          {/* Commission ladder — rendered from the billing catalog (single source
+          {/* Commission ladder - rendered from the billing catalog (single source
               of truth) so the advertised rate always matches what's actually charged. */}
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {billingPlans.filter((plan) => plan.id !== 'free').map((plan) => (
@@ -123,7 +123,7 @@ export default function PricingPage() {
               </div>
             ))}
           </div>
-          <p className="mt-4 text-center text-xs text-zinc-500">The transaction fee steps down as your plan goes up — higher tiers keep more of every sale.</p>
+          <p className="mt-4 text-center text-xs text-zinc-500">The transaction fee steps down as your plan goes up - higher tiers keep more of every sale.</p>
 
           <p className="mt-8 text-center text-xs text-[#9CA3AF]">
             Fees are automatically deducted at payout. Full transparency in your Billing History.

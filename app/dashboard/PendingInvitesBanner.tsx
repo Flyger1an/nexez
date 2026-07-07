@@ -6,7 +6,7 @@ import { Loader2, Users } from 'lucide-react'
 import { createClient } from '../../utils/supabase/client'
 
 /**
- * Surfaces the signed-in user's PENDING team invitations with an Accept action — for
+ * Surfaces the signed-in user's PENDING team invitations with an Accept action - for
  * invitees who never opened (or lost) the invite email. Self-contained: reads its own
  * data via the "invitees read own invites" RLS (own verified email), and Accept POSTs to
  * /api/team/accept (service-role flips pending -> accepted) then refreshes so the freshly
@@ -54,7 +54,7 @@ export function PendingInvitesBanner() {
       setCount(0)
       router.refresh()
     } catch {
-      setError('Could not accept — try again.')
+      setError('Could not accept - try again.')
     } finally {
       setAccepting(false)
     }

@@ -36,7 +36,7 @@ function trendingScore(result: AgentSearchResult): number {
 }
 
 export const metadata: Metadata = {
-  title: 'Discovery — Browse agent-ready offers',
+  title: 'Discovery - Browse agent-ready offers',
   description: 'Search, browse trending, and discover agent-optimized offers from businesses across Nexez.',
 }
 

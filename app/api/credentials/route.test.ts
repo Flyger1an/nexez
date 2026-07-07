@@ -25,7 +25,7 @@ vi.mock('../../../utils/supabase/server', () => ({
 }))
 vi.mock('next/headers', () => ({ cookies: async () => ({}) }))
 
-// THE authorization primitive — owner/editor/null is decided entirely here.
+// THE authorization primitive - owner/editor/null is decided entirely here.
 vi.mock('../../../lib/server/page-access', () => ({
   resolvePageAccess: vi.fn(async (opts: { pageId: string }) => accessRef.fn(opts.pageId)),
 }))

@@ -1,4 +1,4 @@
-// G21 — programmatic API keys. Pure helpers (generation, hashing, parsing).
+// G21 - programmatic API keys. Pure helpers (generation, hashing, parsing).
 // Security: only the SHA-256 hash is ever stored; the raw key is returned once
 // at creation and never persisted server-side.
 import { createHash, randomBytes } from 'crypto'

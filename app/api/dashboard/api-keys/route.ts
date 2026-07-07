@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-  // Plan gate: programmatic API access is a Pro feature. Minting is the chokepoint —
+  // Plan gate: programmatic API access is a Pro feature. Minting is the chokepoint -
   // keys can't exist without it, so gating here is sufficient.
   if (!(await ownerAllows(supabase, user.id, 'apiAccess'))) {
     return NextResponse.json({ error: 'API access is available on the Pro plan and up.', upgrade: 'pro' }, { status: 402 })
@@ -40,6 +40,6 @@ export async function POST(request: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-  // raw is returned ONCE — never retrievable again.
+  // raw is returned ONCE - never retrievable again.
   return NextResponse.json({ ...data, raw }, { status: 201 })
 }

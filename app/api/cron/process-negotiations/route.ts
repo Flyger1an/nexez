@@ -5,25 +5,25 @@ import { negotiationService } from '../../../../lib/negotiation.service'
 
 // Bound the work per run so the cron stays fast and within the LLM's rate limits.
 const LIMIT = 50
-// Only re-drive rows the `after()` fast path should already have handled — a short
+// Only re-drive rows the `after()` fast path should already have handled - a short
 // grace avoids racing a decision that's mid-flight in a live request.
 const STALE_MS = 2 * 60_000
 // Skip rows another worker is actively processing (lease still fresh); re-pick a
 // crashed worker's row once its lease expires. Matches the service's claim lease.
 const LEASE_MS = 90_000
-// A row still pending this long means a persistently failing provider/key — alert.
+// A row still pending this long means a persistently failing provider/key - alert.
 const STUCK_MS = 15 * 60_000
 // Aggregate backlog above this (across ALL owners, beyond this run's LIMIT) is an
-// ops signal the async engine isn't keeping up — alert proactively.
+// ops signal the async engine isn't keeping up - alert proactively.
 const BACKLOG_ALERT_THRESHOLD = 25
 export const maxDuration = 60
 
 /**
- * Async-decision backstop (Vercel cron — see vercel.json). The LLM negotiation
+ * Async-decision backstop (Vercel cron - see vercel.json). The LLM negotiation
  * decision normally runs in a next/server `after()` callback right after the POST
  * response. If that never completes (serverless instance death, a cold edge), the
  * negotiation would sit `decision_pending` forever. This cron re-drives any stale
- * pending row via the same `runDecision` path — whose atomic claim makes it safe
+ * pending row via the same `runDecision` path - whose atomic claim makes it safe
  * even if the original `after()` is concurrently finishing.
  *
  * Protected: scheduled runs must send `Authorization: Bearer ${CRON_SECRET}`.
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
     // Don't re-drive a row whose lease is still fresh (after() or another cron run
     // is on it); the claim would no-op anyway, but this avoids the wasted work.
     .or(`decision_claimed_at.is.null,decision_claimed_at.lt.${new Date(now - LEASE_MS).toISOString()}`)
-    .order('decision_requested_at', { ascending: true }) // oldest first — fairness
+    .order('decision_requested_at', { ascending: true }) // oldest first - fairness
     .limit(LIMIT)
 
   if (error) {
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
 
   for (const row of rows) {
     // Surface rows that have been pending far longer than the fast path + this
-    // cron should ever need — a sign the LLM provider/key is failing.
+    // cron should ever need - a sign the LLM provider/key is failing.
     const requestedAt = row.decision_requested_at ? new Date(row.decision_requested_at).getTime() : now
     if (now - requestedAt > STUCK_MS) {
       captureError(new Error('negotiation decision stuck pending'), {
@@ -83,7 +83,7 @@ export async function GET(request: Request) {
   }
 
   // Aggregate health (cheap: the partial index on decision_pending). Counts the
-  // WHOLE pending backlog — including rows beyond this run's LIMIT — plus the oldest
+  // WHOLE pending backlog - including rows beyond this run's LIMIT - plus the oldest
   // pending age, and alerts once per run when unhealthy. This is distinct from the
   // per-row stuck alert above (which only sees the scanned batch).
   const { count: backlogCount } = await admin

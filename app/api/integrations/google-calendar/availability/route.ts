@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
   const accessToken = (body?.accessToken || body?.access_token || '').trim()
 
   if (accessToken) {
-    // Live free/busy sync is a paid integration — gate it (the stub stays available).
+    // Live free/busy sync is a paid integration - gate it (the stub stays available).
     if (!(await ownerAllows(supabase, user.id, 'integrations'))) {
       return NextResponse.json({ error: 'Live Google Calendar sync requires a plan with integrations.' }, { status: 402 })
     }

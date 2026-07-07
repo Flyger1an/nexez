@@ -8,7 +8,7 @@ import { OWNER_PAGE_SELECT, type AgentPage } from '../../../../lib/agent-page'
 import { enforceRateLimit, rateLimitShared } from '../../../../lib/rate-limit'
 
 /**
- * Duplicate a page. Previously a direct client insert with owner_id = the CALLER —
+ * Duplicate a page. Previously a direct client insert with owner_id = the CALLER -
  * which, for an editor-collaborator, silently created the clone under the EDITOR's
  * own (Free) account instead of the owner's. Now a server route: it authorizes the
  * caller as owner OR editor of the source page, then clones it under the PAGE OWNER
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   // PUBLISHED pages). Generous; abuse-ceiling, not a plan limit.
   const ownerCap = await rateLimitShared(`page-duplicate:owner:${access.ownerId}`, 30, 60 * 60_000)
   if (!ownerCap.ok) {
-    return NextResponse.json({ error: 'Too many duplicates for this workspace right now — try again later.' }, { status: 429 })
+    return NextResponse.json({ error: 'Too many duplicates for this workspace right now - try again later.' }, { status: 429 })
   }
 
   const admin = createAdminClient()

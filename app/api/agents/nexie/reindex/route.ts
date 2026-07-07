@@ -11,7 +11,7 @@ export const maxDuration = 60
 const MAX_PAGES = 500
 
 /**
- * POST /api/agents/nexie/reindex — (re)compute pgvector embeddings for published pages so
+ * POST /api/agents/nexie/reindex - (re)compute pgvector embeddings for published pages so
  * semantic search has data. Platform-admin only; needs the embeddings key + service role.
  * Run once after configuring the key, and whenever page content changes meaningfully.
  */
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   const auth = await authenticateNexieRequest(request)
   if (!auth.ok) return auth.response
   if (!(await isPlatformAdmin(auth.db, auth.user.id))) {
-    return NextResponse.json({ error: 'Forbidden — platform admin only.' }, { status: 403 })
+    return NextResponse.json({ error: 'Forbidden - platform admin only.' }, { status: 403 })
   }
   if (!isEmbeddingsConfigured()) {
     return NextResponse.json({ error: 'Embeddings are not configured (set EMBEDDINGS_API_KEY or OPENAI_API_KEY).' }, { status: 503 })

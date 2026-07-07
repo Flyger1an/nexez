@@ -50,7 +50,7 @@ export type AgentNegotiation = {
   /** Cached buyer Checkout session for idempotent pay links. */
   stripe_checkout_session_id: string | null
   metadata: Record<string, unknown> | null
-  /** Continuation credential. Owner-only field — used to build the owner's own
+  /** Continuation credential. Owner-only field - used to build the owner's own
    * persistent-thread link (the agent runtime is cookie-isolated, so that link
    * authenticates by token, not session). Never render it. */
   status_token: string | null
@@ -86,35 +86,35 @@ export function humanizeTermKey(key: string): string {
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase()
-  // Whitespace/punctuation-only keys collapse to '' — caller substitutes a label.
+  // Whitespace/punctuation-only keys collapse to '' - caller substitutes a label.
   if (!spaced) return ''
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }
 
 function formatTermValue(value: unknown): string {
-  if (value == null) return '—'
-  if (typeof value === 'string') return value.trim() || '—'
+  if (value == null) return '-'
+  if (typeof value === 'string') return value.trim() || '-'
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)
   if (Array.isArray(value)) {
-    const parts = value.map(formatTermValue).filter((p) => p && p !== '—')
-    return parts.length ? parts.join(', ') : '—'
+    const parts = value.map(formatTermValue).filter((p) => p && p !== '-')
+    return parts.length ? parts.join(', ') : '-'
   }
   if (typeof value === 'object') {
     const parts = Object.entries(value as Record<string, unknown>).map(
       ([k, v]) => `${humanizeTermKey(k)}: ${formatTermValue(v)}`,
     )
-    return parts.length ? parts.join('; ') : '—'
+    return parts.length ? parts.join('; ') : '-'
   }
   return String(value)
 }
 
 /**
  * Turn buyer-submitted `requested_terms` into readable label/value rows for the
- * owner inbox + receipt — instead of dumping raw `JSON.stringify` at the human.
+ * owner inbox + receipt - instead of dumping raw `JSON.stringify` at the human.
  * Pure + client-safe; React escapes the values, so this carries no injection
  * risk. Input is `unknown` on purpose: it's buyer-controlled raw JSON stored in a
  * JSONB column, so while it's *usually* an object it can also arrive as an array
- * or bare primitive — those are surfaced under a single "Terms" row rather than
+ * or bare primitive - those are surfaced under a single "Terms" row rather than
  * silently dropped. The form-fallback shape `{ note: "<raw text>" }` (set when a
  * buyer posts non-JSON terms) renders as a single "Note" row.
  */
@@ -122,7 +122,7 @@ export function formatRequestedTerms(terms: unknown): { label: string; value: st
   if (terms == null) return []
   if (Array.isArray(terms) || typeof terms !== 'object') {
     const value = formatTermValue(terms)
-    return value === '—' ? [] : [{ label: 'Terms', value }]
+    return value === '-' ? [] : [{ label: 'Terms', value }]
   }
   return Object.entries(terms as Record<string, unknown>).map(([key, value]) => ({
     label: humanizeTermKey(key) || 'Term',
@@ -132,7 +132,7 @@ export function formatRequestedTerms(terms: unknown): { label: string; value: st
 
 /**
  * True when a Postgres/PostgREST error means the table hasn't been migrated yet
- * (relation does not exist / not in the schema cache) — as opposed to a
+ * (relation does not exist / not in the schema cache) - as opposed to a
  * transient load failure. Lets the inbox show "apply migration" guidance
  * instead of a generic error for a not-yet-migrated project.
  */

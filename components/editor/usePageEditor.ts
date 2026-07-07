@@ -212,7 +212,7 @@ export function usePageEditor(initial: EditorInitial) {
     }
   }, [id, servicesOffers.length])
 
-  // Version restore handoff from Settings history — populate state from snapshot.
+  // Version restore handoff from Settings history - populate state from snapshot.
   useEffect(() => {
     if (typeof window === 'undefined') return
     const search = new URLSearchParams(window.location.search)
@@ -365,7 +365,7 @@ export function usePageEditor(initial: EditorInitial) {
     setPendingReanalysis(null)
 
     // Stripe-sourced prices are already fresh in `merged`, so this count is
-    // effectively 0 — preserved from the original for behavioral parity.
+    // effectively 0 - preserved from the original for behavioral parity.
     const stripePriceChanges = incomingServices.filter(
       (inc) =>
         inc.source === 'stripe' &&
@@ -405,7 +405,7 @@ export function usePageEditor(initial: EditorInitial) {
         snapshot,
       }
       updatePayload.team_collaboration = { ...teamCollab, approvals: [...(teamCollab.approvals || []), newApproval] }
-      setMessage('Pending team approvals detected — this edit queued as new approval request.')
+      setMessage('Pending team approvals detected - this edit queued as new approval request.')
     }
 
     const { error } = await supabase.from('pages').update(updatePayload).eq('id', page.id)
@@ -488,7 +488,7 @@ export function usePageEditor(initial: EditorInitial) {
       }
       window.location.href = `/dashboard/${data.id}`
     } catch {
-      setMessage('Could not duplicate — try again.')
+      setMessage('Could not duplicate - try again.')
     }
   }
 
@@ -571,7 +571,7 @@ export function usePageEditor(initial: EditorInitial) {
       const res = await fetch(RESYNC_ENDPOINTS[provider], {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // Scope the re-sync to THIS page so the import gates on the page OWNER's plan —
+        // Scope the re-sync to THIS page so the import gates on the page OWNER's plan -
         // an editor-collaborator inherits the owner's `integrations` entitlement.
         body: JSON.stringify({ ...body, pageId: id }),
       })

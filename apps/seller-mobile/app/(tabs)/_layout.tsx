@@ -54,7 +54,7 @@ export default function TabLayout() {
         <Tabs.Screen name="listings" />
         <Tabs.Screen name="inbox" />
         <Tabs.Screen name="settings" />
-        {/* Registered but not in the floating nav — reached via Overview's CTA / Create circle. */}
+        {/* Registered but not in the floating nav - reached via Overview's CTA / Create circle. */}
         <Tabs.Screen name="analytics" options={{ href: null }} />
         <Tabs.Screen name="create" options={{ href: null }} />
       </Tabs>

@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   // billing_subscriptions is server-managed: RLS lets owners SELECT but NOT
   // insert/update, so the account id + status MUST be persisted with the
   // service-role client (same pattern as the webhook + portal route). Without it
-  // the write is silently rejected by RLS and the account is forgotten — so never
+  // the write is silently rejected by RLS and the account is forgotten - so never
   // create an orphan Stripe account we can't save.
   if (!hasSupabaseAdminEnv()) {
     return NextResponse.json({ error: 'Server is not configured to persist the Connect account.' }, { status: 500 })
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
 
   // If the caller is mid-funnel on a paid plan (e.g. the onboarding wizard),
   // thread that plan through the return URL so payouts onboarding lands back on
-  // billing with checkout auto-opening for that plan — keeping subscription +
+  // billing with checkout auto-opening for that plan - keeping subscription +
   // payouts setup one coherent flow instead of dropping the subscription.
   const body = await request.json().catch(() => ({} as { plan?: string }))
   const requestedPlan = typeof body?.plan === 'string' ? body.plan : ''

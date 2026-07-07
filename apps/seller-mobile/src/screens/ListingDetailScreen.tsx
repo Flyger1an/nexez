@@ -15,7 +15,7 @@ const ACTION_TILES = [
   { key: 'competitor', label: 'Compare', icon: BarChart3, tone: colors.steel },
   { key: 'trust', label: 'Trust', icon: Shield, tone: colors.ember },
   { key: 'preview', label: 'Preview', icon: ExternalLink, tone: colors.steel },
-  // Re-interview: the intake conversation seeded from THIS listing — asks only
+  // Re-interview: the intake conversation seeded from THIS listing, asking only
   // the gaps; answers stage onto the listing's draft (intake spec §12 → v2).
   { key: 'reinterview', label: 'Re-interview', icon: MessageCircleQuestion, tone: colors.ember },
 ] as const
@@ -89,9 +89,9 @@ export function ListingDetailScreen() {
       <Card>
         <Text style={st.eyebrow}>Business</Text>
         <Text style={st.desc}>{page.description || 'No description yet.'}</Text>
-        <InfoRow label="Industry" value={page.industry || '—'} />
-        <InfoRow label="Location" value={page.location || '—'} />
-        <InfoRow label="Website" value={page.website_url || '—'} mono />
+        <InfoRow label="Industry" value={page.industry || 'Not set'} />
+        <InfoRow label="Location" value={page.location || 'Not set'} />
+        <InfoRow label="Website" value={page.website_url || 'Not set'} mono />
         <View style={st.chips}>
           <EndpointChip>JSON-LD</EndpointChip>
           <EndpointChip>llms.txt</EndpointChip>
@@ -112,7 +112,7 @@ export function ListingDetailScreen() {
                 <Text style={st.offerName} numberOfLines={1}>
                   {o.name}
                 </Text>
-                <Text style={st.offerPrice}>{o.price || '—'}</Text>
+                <Text style={st.offerPrice}>{o.price || 'Not set'}</Text>
               </View>
             ))
           ) : (

@@ -24,7 +24,7 @@ import type { MarketingPageContent } from '../../lib/marketing-content'
 // accent so the section above the fold reads as a distinct identity, while a
 // shared HeroHeadline keeps type, CTAs, and rhythm consistent across the family.
 // Everything is theme-aware via the Liquid Glass tokens (var(--signal|--ready|
-// --amber|--prism|--fg…)) — no raw hexes, so it passes the palette guard and
+// --amber|--prism|--fg…)) - no raw hexes, so it passes the palette guard and
 // works in both light and dark.
 
 export type Accent = 'signal' | 'ready' | 'amber'
@@ -443,7 +443,7 @@ export function EnterpriseHero({ content }: { content: MarketingPageContent }) {
             </div>
           ))}
         </div>
-        <p className="mt-4 text-center text-xs text-muted-foreground">Clients · locations · service lines — one structured layer</p>
+        <p className="mt-4 text-center text-xs text-muted-foreground">Clients · locations · service lines - one structured layer</p>
       </div>
     </HeroShell>
   )

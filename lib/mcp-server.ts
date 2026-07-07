@@ -1,4 +1,4 @@
-// Real MCP (Model Context Protocol) endpoint logic — JSON-RPC 2.0 over HTTP
+// Real MCP (Model Context Protocol) endpoint logic - JSON-RPC 2.0 over HTTP
 // (stateless "Streamable HTTP" style). Pure request→response so it's testable;
 // the route handles I/O + loading the page. Beyond the static mcp.json, this
 // lets MCP-native agents call initialize / tools/list / resources/* directly.
@@ -25,7 +25,7 @@ function tools(negotiationAllowed: boolean) {
   return [
     {
       name: 'book_offer',
-      description: 'Get the booking/checkout target for a specific offer (respects per-offer + page original-site preferences and any booking constraints — min notice, blackout dates — listed in agent.json).',
+      description: 'Get the booking/checkout target for a specific offer (respects per-offer + page original-site preferences and any booking constraints - min notice, blackout dates - listed in agent.json).',
       inputSchema: {
         type: 'object',
         properties: { offer: { type: 'string', description: 'Offer key, e.g. services-0 or products-1' } },
@@ -33,7 +33,7 @@ function tools(negotiationAllowed: boolean) {
       },
     },
     // negotiate_offer is only advertised when the owner's plan allows negotiation
-    // AND the page has a negotiable offer — else calling it would 403.
+    // AND the page has a negotiable offer - else calling it would 403.
     ...(negotiationAllowed
       ? [
           {
@@ -58,8 +58,8 @@ function tools(negotiationAllowed: boolean) {
 function resources(page: AgentPage, baseUrl: string) {
   const platformBase = getBaseUrl()
   const list = [
-    { uri: `${baseUrl}/${page.slug}/agent.json`, name: `${page.name} — Agent manifest`, description: 'Full structured agent-ready data.', mimeType: 'application/json' },
-    { uri: `${baseUrl}/${page.slug}/llms.txt`, name: `${page.name} — llms.txt`, description: 'Plain-text agent context.', mimeType: 'text/plain' },
+    { uri: `${baseUrl}/${page.slug}/agent.json`, name: `${page.name} - Agent manifest`, description: 'Full structured agent-ready data.', mimeType: 'application/json' },
+    { uri: `${baseUrl}/${page.slug}/llms.txt`, name: `${page.name} - llms.txt`, description: 'Plain-text agent context.', mimeType: 'text/plain' },
   ]
   for (const offer of getCheckoutOffers(page)) {
     list.push({
@@ -72,7 +72,7 @@ function resources(page: AgentPage, baseUrl: string) {
   return list
 }
 
-/** Handle one JSON-RPC MCP request for a page. Pure — the route resolves the
+/** Handle one JSON-RPC MCP request for a page. Pure - the route resolves the
  *  (async) negotiation entitlement and threads it in via opts.negotiationAllowed. */
 export function handleMcpRequest(
   page: AgentPage,

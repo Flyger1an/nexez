@@ -71,7 +71,7 @@ export async function POST(request: Request) {
   }
 
   // Published-page limit is enforced by a DB trigger (plan limit + grandfathered
-  // baseline) — the single source of truth, so we attempt the write and map the
+  // baseline) - the single source of truth, so we attempt the write and map the
   // trigger's check_violation to a 402 rather than re-deriving the limit here.
   const { data, error } = await admin.from('pages').insert(insert).select(SERVER_PAGE_SELECT).single()
   if (error) {

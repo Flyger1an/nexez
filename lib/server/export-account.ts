@@ -4,7 +4,7 @@ import { escapeLike } from './sql-escape'
 
 // GDPR/CCPA data export: gather the personal data we hold about a user into one JSON object.
 // Service-role reads (so it works for both the web cookie session and the Nexxi bearer token);
-// callers MUST authenticate + authorize the user first. Secrets are excluded — api_keys are
+// callers MUST authenticate + authorize the user first. Secrets are excluded - api_keys are
 // exported as metadata only (never key_hash) and page_secrets are omitted entirely.
 
 const ROW_CAP = 5000
@@ -63,7 +63,7 @@ export async function exportUserAccount(
     }
   }
 
-  // API keys: metadata only — NEVER export the key hash.
+  // API keys: metadata only - NEVER export the key hash.
   const { data: apiKeys } = await admin
     .from('api_keys')
     .select('id, name, prefix, last_used_at, revoked_at, created_at')

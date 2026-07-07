@@ -48,7 +48,7 @@ describe('POST /api/simulate-url (anonymous any-URL demo)', () => {
     expect((await POST(post({}))).status).toBe(400)
   })
 
-  it('400 (not a crawl) when the host is blocked — SSRF guard rejects up front', async () => {
+  it('400 (not a crawl) when the host is blocked - SSRF guard rejects up front', async () => {
     urlError = 'Website URL cannot target localhost, private networks, or link-local addresses.'
     const res = await POST(post({ url: 'http://169.254.169.254/' }))
     expect(res.status).toBe(400)

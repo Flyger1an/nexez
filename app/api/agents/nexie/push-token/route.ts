@@ -8,7 +8,7 @@ export const maxDuration = 20
 const PLATFORMS = ['ios', 'android', 'web', 'unknown'] as const
 
 /**
- * POST /api/agents/nexie/push-token — register the device's Expo push token for the
+ * POST /api/agents/nexie/push-token - register the device's Expo push token for the
  * authenticated buyer. Upserts via the user-scoped client (RLS confines it to the
  * caller's own rows); stores the account email too so async senders can resolve a
  * buyer by email (negotiations) or user id (orders).

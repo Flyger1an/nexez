@@ -127,7 +127,7 @@ describe('POST /api/negotiations/pay', () => {
   })
 
   it('canceled "pro" subscription reverts to Free 15% commission (status-aware, not raw plan_id)', async () => {
-    // A {plan_id:'pro', status:'canceled'} row must NOT keep the 6% rate — commission
+    // A {plan_id:'pro', status:'canceled'} row must NOT keep the 6% rate - commission
     // is resolved via getOwnerPlanId (live-status only), same as entitlements.
     db(NEG, { plan_id: 'pro', status: 'canceled', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true })
     const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))
@@ -153,10 +153,10 @@ describe('POST /api/negotiations/pay', () => {
     expect(stripeRef.create).not.toHaveBeenCalled()
   })
 
-  it('402 when the seller is paused (expired no-card trial) — no escrow session created', async () => {
+  it('402 when the seller is paused (expired no-card trial) - no escrow session created', async () => {
     // The pause flips billing status only; the negotiation stays payable and Connect stays
     // enabled, so without the gate the buyer's persistent token would still fund a suppressed
-    // storefront. Must 402 before any Stripe session — same as /api/checkout.
+    // storefront. Must 402 before any Stripe session - same as /api/checkout.
     db(NEG, { plan_id: 'pro', status: 'paused', account_origin: 'trial', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true })
     const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))
     expect(res.status).toBe(402)

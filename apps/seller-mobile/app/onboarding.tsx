@@ -32,7 +32,7 @@ export default function OnboardingRoute() {
         <AvatarChip initial="N" size={54} />
         <Text style={st.eyebrow}>Nexez Seller Hub</Text>
         <Text style={st.title}>Your AI-commerce command center</Text>
-        <Text style={st.subtitle}>Manage listings, agent discovery, negotiations, orders, and readiness — from anywhere.</Text>
+        <Text style={st.subtitle}>Manage listings, agent discovery, negotiations, orders, and readiness - from anywhere.</Text>
       </View>
 
       <View style={{ gap: 12 }}>

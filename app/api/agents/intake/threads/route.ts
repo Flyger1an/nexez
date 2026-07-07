@@ -15,11 +15,11 @@ import { resolveRequestAuth } from '../../../../../lib/server/request-auth'
 export const maxDuration = 60
 
 /**
- * POST /api/agents/intake/threads — start an intake interview (spec §5).
+ * POST /api/agents/intake/threads - start an intake interview (spec §5).
  * Body: { source_url?, page_id? }. With a page_id the session re-interviews an
  * existing listing (draft seeded, provenance 'imported'); with a source_url the
  * site is ingested + extracted before the first turn; with neither the owner is
- * starting from scratch. Auth: web cookie or mobile bearer — sessions persist
+ * starting from scratch. Auth: web cookie or mobile bearer - sessions persist
  * only for authenticated owners.
  */
 export async function POST(request: NextRequest) {
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       const recorded = applyIntakeAction(state, { type: 'RECORD_EXTRACTION', extraction })
       if (recorded.ok) state = recorded.state
     } catch (error) {
-      // Extraction is best-effort at create time — the interview proceeds from
+      // Extraction is best-effort at create time - the interview proceeds from
       // scratch and the agent can retry ingestion mid-conversation.
       console.warn('[intake] create-time extraction failed', error)
     }
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * GET /api/agents/intake/threads — the owner's resumable interviews, newest
+ * GET /api/agents/intake/threads - the owner's resumable interviews, newest
  * first (cross-device resume: start on the couch, finish on desktop).
  */
 export async function GET(request: NextRequest) {

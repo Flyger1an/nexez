@@ -1,7 +1,7 @@
 // Pure, testable helpers for the buyer order portal (`/orders/<token>`). Buyers are
-// anonymous — these turn the raw order/negotiation row (resolved server-side in
+// anonymous - these turn the raw order/negotiation row (resolved server-side in
 // lib/server/load-order.ts) into buyer-facing status copy, a timeline, and recourse
-// eligibility. No secrets, no DB — safe to import anywhere + unit-test directly.
+// eligibility. No secrets, no DB - safe to import anywhere + unit-test directly.
 
 export type BuyerOrderKind = 'checkout' | 'negotiation'
 
@@ -26,11 +26,11 @@ export type BuyerOrderReview = {
 }
 
 // Normalized, buyer-safe view of an order/negotiation (no owner_id, no offer rules,
-// no internal notes — the server resolver strips those before building this).
+// no internal notes - the server resolver strips those before building this).
 export type BuyerOrderView = {
   kind: BuyerOrderKind
   token: string
-  reference: string // session id (checkout) or negotiation id — what the buyer can quote
+  reference: string // session id (checkout) or negotiation id - what the buyer can quote
   offerName: string | null
   amountCents: number | null
   currency: string
@@ -117,7 +117,7 @@ export function describeOrderStatus(kind: BuyerOrderKind, status: string): Statu
 
 export type TimelineStep = { key: string; label: string; done: boolean; current: boolean }
 
-// A small, honest progress timeline for the order. Reflects what actually happened —
+// A small, honest progress timeline for the order. Reflects what actually happened -
 // never implies a delivery/refund step that didn't occur.
 export function buildOrderTimeline(view: BuyerOrderView): TimelineStep[] {
   const s = (view.status || '').toLowerCase()
@@ -161,7 +161,7 @@ export function isRefundableStatus(status: string): boolean {
 }
 
 // Whether the buyer can still ask for a refund. A request is a NOTIFICATION to the
-// seller (the seller refunds from Finance) — it never moves money.
+// seller (the seller refunds from Finance) - it never moves money.
 export function canRequestRefund(view: BuyerOrderView): boolean {
   return isRefundableStatus(view.status)
 }

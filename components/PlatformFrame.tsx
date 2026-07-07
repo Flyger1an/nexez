@@ -9,7 +9,7 @@ import { isDualPath, isMarketingPath } from '../lib/site'
 //  - PlatformShell: the in-app product nav (app.nexez.ai: dashboard, page builder).
 //  - MarketingShell: the marketing nav/footer (nexez.ai: homepage, discovery,
 //    pricing, simulator, …).
-// Agent/public pages, auth, and the API render children directly — keeping those
+// Agent/public pages, auth, and the API render children directly - keeping those
 // surfaces (esp. the agent pages) lean.
 const PlatformShell = dynamic(() => import('./PlatformShell'))
 const MarketingShell = dynamic(() => import('./MarketingShell').then((m) => m.MarketingShell))
@@ -19,7 +19,7 @@ const MarketingShell = dynamic(() => import('./MarketingShell').then((m) => m.Ma
 const platformPrefixes = ['/dashboard', '/create']
 
 // `hasSession` is resolved on the server (root layout reads the Supabase session
-// cookie) so the shell choice is correct on first paint — no flash between the
+// cookie) so the shell choice is correct on first paint - no flash between the
 // marketing and dashboard chrome on the dual discovery surfaces.
 export function PlatformFrame({
   children,

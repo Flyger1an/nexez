@@ -17,7 +17,7 @@ import {
 } from '../emails/templates'
 
 // Gated transactional email (Resend-compatible). Dormant unless RESEND_API_KEY
-// is set — like the other gated integrations (LLM, Stripe, Vercel). When unset,
+// is set - like the other gated integrations (LLM, Stripe, Vercel). When unset,
 // sendEmail is a no-op so the rest of the flow is unaffected.
 //
 // HTML is rendered from the branded react-email templates in ../emails (one brand
@@ -78,14 +78,14 @@ function basicHtml(text: string): string {
 
 // Render a template to HTML, but NEVER let a render failure silently kill the email.
 // react-email's render() can throw at runtime (e.g. a serverless output-tracing gap that
-// drops a transitive dep — passes locally + in the build, fails live). On failure we log
+// drops a transitive dep - passes locally + in the build, fails live). On failure we log
 // + report it and fall back to the plain-text body as HTML, so the email still sends.
 async function renderHtml(element: ReactElement, text: string): Promise<string> {
   try {
     return await render(element)
   } catch (e) {
     const template = (element.type as { name?: string })?.name || 'email'
-    console.error(`[email] render failed for "${template}" — sending plain-HTML fallback:`, e)
+    console.error(`[email] render failed for "${template}" - sending plain-HTML fallback:`, e)
     captureError(e, { area: 'email-render', template })
     return basicHtml(text)
   }
@@ -161,7 +161,7 @@ export async function buildMoneyEventEmail(opts: {
     dispute_opened: {
       subject: `⚠️ Payment disputed: ${offerName}`,
       heading: 'A payment is disputed',
-      lead: `A buyer disputed a payment on your Nexez listing "${businessName}". Disputes are time-sensitive — respond with evidence in your Stripe dashboard before the deadline, or the dispute is auto-lost.`,
+      lead: `A buyer disputed a payment on your Nexez listing "${businessName}". Disputes are time-sensitive - respond with evidence in your Stripe dashboard before the deadline, or the dispute is auto-lost.`,
       tone: 'danger' as const,
     },
     dispute_closed: {
@@ -222,7 +222,7 @@ export async function buildBuyerReceiptEmail(opts: {
 }): Promise<Built> {
   const { businessName, offerName, amount, manageUrl } = opts
   const subject = `Your receipt from ${businessName}`
-  const lead = `Thanks for your purchase from ${businessName}. Here's your receipt — keep this link to track your order or get help.`
+  const lead = `Thanks for your purchase from ${businessName}. Here's your receipt - keep this link to track your order or get help.`
   const rows: Row[] = [
     ['Seller', businessName],
     ['Item', offerName],
@@ -263,9 +263,9 @@ export async function buildBuyerStatusEmail(opts: {
       cta: 'View your order',
     },
     request_received: {
-      subject: `We received your request — ${businessName}`,
+      subject: `We received your request - ${businessName}`,
       heading: 'Request received',
-      lead: `Thanks — we've passed your request to ${businessName}. You'll get an update here as soon as the seller responds.`,
+      lead: `Thanks - we've passed your request to ${businessName}. You'll get an update here as soon as the seller responds.`,
       cta: 'Track your request',
     },
   }[opts.kind]
@@ -341,7 +341,7 @@ export async function buildTeamInviteEmail(opts: {
   const text = [
     lead,
     '',
-    `Important: sign in or create your account using THIS email address (${inviteeEmail}) — that's how your access is granted.`,
+    `Important: sign in or create your account using THIS email address (${inviteeEmail}) - that's how your access is granted.`,
     '',
     `Accept the invite: ${acceptUrl}`,
   ].join('\n')
@@ -357,7 +357,7 @@ export async function buildWelcomeEmail(opts: { name?: string | null; createUrl:
   const text = [
     greeting,
     '',
-    'Publish a listing AI agents can read — then let them book and pay through, straight to your own Stripe. You only pay a fee when you get paid.',
+    'Publish a listing AI agents can read - then let them book and pay through, straight to your own Stripe. You only pay a fee when you get paid.',
     '',
     `Create your first agent listing: ${createUrl}`,
   ].join('\n')
@@ -368,9 +368,9 @@ export async function buildWelcomeEmail(opts: { name?: string | null; createUrl:
 // ── Stripe Connect linked + charges enabled (fired once on the false→true flip) ──
 export async function buildStripeConnectedEmail(opts: { financeUrl: string }): Promise<Built> {
   const { financeUrl } = opts
-  const subject = 'Stripe is connected — you can accept agent payments'
+  const subject = 'Stripe is connected - you can accept agent payments'
   const text = [
-    'Your Stripe account is linked and charges are enabled. You can now accept card payments from AI agents — payouts go straight to your Stripe, and Nexez only takes its fee when you get paid.',
+    'Your Stripe account is linked and charges are enabled. You can now accept card payments from AI agents - payouts go straight to your Stripe, and Nexez only takes its fee when you get paid.',
     '',
     `Open your Finance dashboard: ${financeUrl}`,
   ].join('\n')

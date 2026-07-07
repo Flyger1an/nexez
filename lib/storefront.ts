@@ -12,7 +12,7 @@ export type Storefront = {
   description: string | null
   logo_url: string | null
   accent_color: string | null
-  // §7 billing/payout SEAMS — null ⇒ account-pooled (fall back to the account). Populated
+  // §7 billing/payout SEAMS - null ⇒ account-pooled (fall back to the account). Populated
   // only when a storefront becomes its own merchant. Never exposed on public reads.
   stripe_connect_account_id?: string | null
   plan_id?: string | null
@@ -23,7 +23,7 @@ export type Storefront = {
 /** A storefront plus its published-listing count, for the account picker + directory. */
 export type StorefrontWithCount = Storefront & { listing_count: number }
 
-/** Max storefronts a single account can own (a guard-rail, not a plan gate — v1). */
+/** Max storefronts a single account can own (a guard-rail, not a plan gate - v1). */
 export const MAX_STOREFRONTS_PER_ACCOUNT = 10
 
 export const HANDLE_MAX = 63

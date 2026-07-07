@@ -69,7 +69,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
   // hover, overlaying the canvas instead of reflowing it.
   const [pinned, setPinned] = useState(false)
   // The pin/unpin toggle animates slowly + deliberately (rail width + canvas
-  // reflow together). The hover pop-out stays snappy — so we only switch to the
+  // reflow together). The hover pop-out stays snappy - so we only switch to the
   // slow duration while a toggle is in flight, then reset.
   const [pinAnimating, setPinAnimating] = useState(false)
   const pinTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -82,7 +82,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
   }, [])
 
   // Open-negotiations count for the nav badge. Owner-scoped (RLS) read via the
-  // browser client — mirrors the dashboard Overview's "open" definition
+  // browser client - mirrors the dashboard Overview's "open" definition
   // (negotiation + agreement_proposed + held). Fails soft to 0.
   useEffect(() => {
     let cancelled = false
@@ -462,7 +462,7 @@ function QuickPageSearch() {
           aria-describedby="platform-page-search-hint"
         />
       </div>
-      {/* Keyboard hint is desktop-only — hide on phones (no ⌘K / Enter there). */}
+      {/* Keyboard hint is desktop-only - hide on phones (no ⌘K / Enter there). */}
       <p id="platform-page-search-hint" className="mt-1 hidden items-center gap-1.5 text-[11px] text-muted-foreground sm:flex">
         Press <kbd className="rounded border border-border bg-black/40 px-1 font-mono text-[10px]">⌘K</kbd> to search, Enter to open the first match.
       </p>

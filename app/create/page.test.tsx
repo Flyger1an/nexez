@@ -206,7 +206,7 @@ function guidedImportPayloadForScenario(scenario: RefinementScenario, refined = 
   }
 }
 
-/** Only the guided-import calls — other components on /create (e.g. the intake
+/** Only the guided-import calls - other components on /create (e.g. the intake
  *  panel's resume check during the fork's first frame) may fetch too, and these
  *  suites assert the IMPORT contract, not total network traffic. */
 function importCalls(fetchMock: ReturnType<typeof vi.fn>): Array<[RequestInfo | URL, RequestInit]> {
@@ -219,7 +219,7 @@ describe('CreatePage guided import review', () => {
   beforeEach(() => {
     resetSupabaseMocks()
     // These suites exercise the form wizard. /create now forks to the intake
-    // interview by default (spec §6) — enter through the real fork logic.
+    // interview by default (spec §6) - enter through the real fork logic.
     window.history.replaceState({}, '', '/create?mode=form')
   })
 
@@ -438,7 +438,7 @@ describe('CreatePage guided import review', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Publish listing' }))
 
     // The limit is inline (not via alert); the page is only created on the user's
-    // explicit "Save as draft" choice — which we don't make here.
+    // explicit "Save as draft" choice - which we don't make here.
     expect(await screen.findByText('Published page limit reached for your plan (1 page(s)). Upgrade to publish more.')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Save as draft' })).toBeTruthy()
     expect(alertMock).not.toHaveBeenCalled()

@@ -58,7 +58,7 @@ export function BuyerRequestsPanel({ requests }: { requests: BuyerRequestRow[] }
       }
       setRows((r) => r.map((o) => (o.id === id ? { ...o, status } : o)))
     } catch {
-      setError('Could not update — try again.')
+      setError('Could not update - try again.')
     } finally {
       setBusyId(null)
     }

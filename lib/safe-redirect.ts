@@ -4,7 +4,7 @@
 // form (components/LoginForm.tsx) read a `next` value from the query string and
 // redirect to it after sign-in. Without validation that is a classic OPEN REDIRECT:
 // `?next=https://evil.example` (or protocol-relative `//evil.example`) sends the
-// freshly-authenticated user to an attacker host — a phishing / OAuth-landing vector.
+// freshly-authenticated user to an attacker host - a phishing / OAuth-landing vector.
 //
 // Accept ONLY a same-origin absolute path. Reject absolute URLs, protocol-relative
 // (`//host`, `/\host`), and anything not starting with a single `/`. The result is

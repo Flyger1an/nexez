@@ -16,7 +16,7 @@ export function CodeCopyButton({ text, label = 'Copy' }: { text: string; label?:
           setCopied(true)
           setTimeout(() => setCopied(false), 1600)
         } catch {
-          /* clipboard unavailable — no-op */
+          /* clipboard unavailable - no-op */
         }
       }}
       className="inline-flex items-center gap-1.5 rounded-md border border-border bg-white/[0.04] px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-white/25 hover:text-white"

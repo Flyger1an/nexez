@@ -118,7 +118,7 @@ export function ApiKeysManager() {
 
       {freshKey && (
         <div className="mt-3 rounded-lg border border-[var(--ready)]/30 bg-[var(--ready)]/10 p-3 text-sm">
-          <div className="text-[var(--ready)]">Your new key — copy it now, it won’t be shown again:</div>
+          <div className="text-[var(--ready)]">Your new key - copy it now, it won’t be shown again:</div>
           <div className="mt-2 flex items-center gap-2">
             <code className="flex-1 break-all rounded bg-black/50 px-2 py-1 text-[var(--ready)]">{freshKey}</code>
             <button
@@ -141,7 +141,7 @@ export function ApiKeysManager() {
           </div>
         ) : keys.length === 0 ? (
           <EmptyState icon={KeyRound} title="No API keys yet">
-            Create a key to let your own agents or back-end call the Nexez API on your behalf — programmatic access to your
+            Create a key to let your own agents or back-end call the Nexez API on your behalf - programmatic access to your
             listings, offers, and negotiations.
           </EmptyState>
         ) : (

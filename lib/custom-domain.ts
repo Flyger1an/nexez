@@ -68,11 +68,12 @@ export function mapCustomDomainPath(slug: string, pathname: string): string {
   if (pathname === '/agent.json') return `/${slug}/agent.json`
   if (pathname === '/mcp.json') return `/${slug}/mcp.json`
   if (pathname === '/llms.txt') return `/${slug}/llms.txt`
+  if (pathname === '/openapi.json') return `/${slug}/openapi.json`
   return pathname
 }
 
 // Agent artifacts served at a page's root on a custom domain.
-export const DOMAIN_ARTIFACTS = ['agent.json', 'mcp.json', 'llms.txt'] as const
+export const DOMAIN_ARTIFACTS = ['agent.json', 'mcp.json', 'llms.txt', 'openapi.json'] as const
 export type DomainArtifact = (typeof DOMAIN_ARTIFACTS)[number]
 
 /**

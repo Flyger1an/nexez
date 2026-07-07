@@ -1,5 +1,5 @@
 // Instant skeleton shown while the editor's server fetch resolves (App Router
-// Suspense) — replaces the old client-side "Loading editor..." flash.
+// Suspense) - replaces the old client-side "Loading editor..." flash.
 export default function EditorLoading() {
   return (
     <main className="min-h-screen bg-[#0A0A0F] px-6 py-10 text-white">

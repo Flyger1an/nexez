@@ -34,7 +34,7 @@ const sparsePage: AgentPage = {
   created_at: new Date().toISOString(),
 }
 
-// A page with zero offers — agents have nothing to act on.
+// A page with zero offers - agents have nothing to act on.
 const emptyPage: AgentPage = { ...sparsePage, id: 'empty', slug: 'empty', services: null, products: null }
 
 describe('agent-simulator: query-aware public simulation', () => {

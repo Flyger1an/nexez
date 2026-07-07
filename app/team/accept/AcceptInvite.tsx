@@ -56,7 +56,7 @@ export function AcceptInvite({ emailConfirmed }: { emailConfirmed: boolean }) {
           <CheckCircle2 className="mx-auto size-10 text-[var(--ready)]" />
           <h1 className="mt-4 text-xl font-semibold text-white">You&rsquo;re all set</h1>
           <p className="mt-2 text-sm text-zinc-400">
-            No pending invitations to accept — any shared listings are already on your dashboard.
+            No pending invitations to accept - any shared listings are already on your dashboard.
           </p>
           <Link href="/dashboard" className="btn btn-primary mt-6 inline-flex">Go to dashboard</Link>
         </>

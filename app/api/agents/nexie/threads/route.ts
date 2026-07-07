@@ -5,7 +5,7 @@ import { enforceRateLimit } from '../../../../../lib/rate-limit'
 export const maxDuration = 30
 
 /**
- * GET /api/agents/nexie/threads — the authenticated buyer's recent conversations
+ * GET /api/agents/nexie/threads - the authenticated buyer's recent conversations
  * (ACTIVE only, newest first). Owner-scoped via RLS on agent_threads. Archived threads
  * are excluded (PATCH /threads/[id] { archived } toggles status).
  */

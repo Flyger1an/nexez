@@ -11,19 +11,19 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supaba
  * GET /api/negotiations/status?id=<uuid>&token=<status_token>
  *
  * The token is generated at proposal creation and returned exactly once in the
- * POST /api/negotiations response — it is the credential. Rows are owner-only
+ * POST /api/negotiations response - it is the credential. Rows are owner-only
  * under RLS, so the lookup uses the service-role client scoped to id+token.
  * Any mismatch (wrong id, wrong token, deleted row) is a constant 404 so the
  * endpoint leaks nothing about which negotiations exist.
  *
  * Burst 3a: the LLM decision is asynchronous, so this endpoint surfaces it.
  * `decisionPending` is true while the LLM is still running; once false the
- * sanitized `decision` (action/counter/reasoning/clarification/scheduling — owner
+ * sanitized `decision` (action/counter/reasoning/clarification/scheduling - owner
  * `internalNotes` stripped) is returned and `decisionSeq` increments per turn so
  * a polling agent can detect a new decision.
  */
 export async function GET(request: Request) {
-  // Polling needs headroom — keep the per-IP allowance generous here.
+  // Polling needs headroom - keep the per-IP allowance generous here.
   const limited = await enforceRateLimit(request, 'negotiation-status', 60, 60_000)
   if (limited) return limited
 
@@ -70,7 +70,7 @@ export async function GET(request: Request) {
     isPayable(data.settlement_state)
 
   const decisionPending = Boolean(data.decision_pending)
-  // The decision is owner-private until sanitized — strip internalNotes before it
+  // The decision is owner-private until sanitized - strip internalNotes before it
   // ever reaches the agent. Null while a decision is still being produced.
   const decision = decisionPending ? null : sanitizeAgentDecision(data.metadata?.last_decision as Record<string, any> | null | undefined) ?? null
 
@@ -100,7 +100,7 @@ function getAgentNextStep(
   switch (status) {
     case 'negotiation':
       if (ctx.decisionPending) {
-        return 'The seller is responding — your proposal is being evaluated. Poll again in a few seconds.'
+        return 'The seller is responding - your proposal is being evaluated. Poll again in a few seconds.'
       }
       if (ctx.decision?.action === 'counter') {
         const price = ctx.decision.counter?.priceCents != null ? ` ($${(ctx.decision.counter.priceCents / 100).toFixed(2)})` : ''
@@ -115,12 +115,12 @@ function getAgentNextStep(
       return 'Under review by the seller. Check back shortly.'
     case 'agreement_proposed':
       if (ctx.payable) {
-        return 'Agreement reached — POST /api/negotiations/pay with your id+token to fund and secure it.'
+        return 'Agreement reached - POST /api/negotiations/pay with your id+token to fund and secure it.'
       }
       if (ctx.settlement === 'awaiting_approval') {
-        return 'Agreement reached — awaiting seller approval before payment. Check back shortly.'
+        return 'Agreement reached - awaiting seller approval before payment. Check back shortly.'
       }
-      return 'Agreement proposed — the seller will finalize payment or scheduling next.'
+      return 'Agreement proposed - the seller will finalize payment or scheduling next.'
     case 'held':
       return 'Funds are held in escrow pending completion.'
     case 'complete':

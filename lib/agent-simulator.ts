@@ -427,7 +427,7 @@ export function interpretPublicQuery(page: AgentPage, query: string): PublicQuer
 // honest simulation: ChatGPT optimizes for *acting*, Claude for *diligence*,
 // Grok for *price*, Perplexity for *citable sources*, the Generic Agent for
 // *schema validity*. Given identical input they reach different stances, which
-// is exactly what an owner needs to see — "who would act on my page, and who
+// is exactly what an owner needs to see - "who would act on my page, and who
 // would bounce, and why."
 // ---------------------------------------------------------------------------
 
@@ -512,7 +512,7 @@ const VERDICT_PERSONAS: Record<string, (page: AgentPage, s: VerdictSignals) => P
       return {
         lens,
         stance: 'skip',
-        headline: `Nothing structured to act on — I'd tell the buyer ${page.name} isn't bookable here yet.`,
+        headline: `Nothing structured to act on - I'd tell the buyer ${page.name} isn't bookable here yet.`,
         noticed: [],
         gaps: ['Add at least one offer with a price and a checkout action so I have something to do.'],
       }
@@ -545,7 +545,7 @@ const VERDICT_PERSONAS: Record<string, (page: AgentPage, s: VerdictSignals) => P
     if (s.describedRatio === 1 && s.hasOffers) noticed.push('Every offer carries its own description')
     if (s.hasFaqs) noticed.push(`${s.faqCount} FAQ${s.faqCount === 1 ? '' : 's'} pre-empting buyer objections`)
     const gaps: string[] = []
-    if (!page.description) gaps.push('Add a summary — without it I can only describe you generically.')
+    if (!page.description) gaps.push('Add a summary - without it I can only describe you generically.')
     if (s.hasOffers && s.describedRatio < 1) gaps.push('Describe every offer so I can compare them accurately.')
     if (!s.hasAudience) gaps.push('State the ideal buyer so I can judge fit instead of guessing.')
     if (!s.hasFaqs) gaps.push('Add FAQs so I can answer objections rather than defer to a human.')
@@ -560,7 +560,7 @@ const VERDICT_PERSONAS: Record<string, (page: AgentPage, s: VerdictSignals) => P
         stance === 'recommend'
           ? 'Thorough enough that I can recommend it and pre-answer the obvious objections.'
           : stance === 'skip'
-            ? "There's nothing to recommend yet — no offers for me to stand behind."
+            ? "There's nothing to recommend yet - no offers for me to stand behind."
             : "I'd surface it with caveats; a few gaps would stop me short of a confident recommendation.",
     }
   },
@@ -568,16 +568,16 @@ const VERDICT_PERSONAS: Record<string, (page: AgentPage, s: VerdictSignals) => P
   Grok(page, s) {
     const lens = 'What does it cost, and is it worth surfacing?'
     if (!s.hasOffers) {
-      return { lens, stance: 'skip', headline: 'Nothing priced to compare — not worth surfacing.', noticed: [], gaps: ['Add priced offers; I skip pages I can’t rank by value.'] }
+      return { lens, stance: 'skip', headline: 'Nothing priced to compare - not worth surfacing.', noticed: [], gaps: ['Add priced offers; I skip pages I can’t rank by value.'] }
     }
     const noticed: string[] = []
-    if (s.allPriced) noticed.push(`All ${s.offerCount} offers priced — instant value comparison`)
+    if (s.allPriced) noticed.push(`All ${s.offerCount} offers priced - instant value comparison`)
     else if (s.somePriced) noticed.push(`${s.pricedCount}/${s.offerCount} offers priced`)
     if (s.cheapest?.price) noticed.push(`Entry point at ${s.cheapest.price}`)
     if (s.best && s.bestPriced) noticed.push(`Best fit "${s.best.name}" at ${s.best.price}`)
     const gaps: string[] = []
-    if (!s.somePriced) gaps.push('No prices at all — add them or I rank you below competitors who have them.')
-    else if (!s.allPriced) gaps.push(`Price the other ${s.offerCount - s.pricedCount} offer${s.offerCount - s.pricedCount === 1 ? '' : 's'} — I skip what I can’t price.`)
+    if (!s.somePriced) gaps.push('No prices at all - add them or I rank you below competitors who have them.')
+    else if (!s.allPriced) gaps.push(`Price the other ${s.offerCount - s.pricedCount} offer${s.offerCount - s.pricedCount === 1 ? '' : 's'} - I skip what I can’t price.`)
     const stance: AgentStance = s.allPriced ? 'recommend' : s.somePriced ? 'needs_info' : 'skip'
     return {
       lens,
@@ -586,7 +586,7 @@ const VERDICT_PERSONAS: Record<string, (page: AgentPage, s: VerdictSignals) => P
       gaps,
       headline:
         stance === 'recommend'
-          ? `Clear pricing top to bottom${s.cheapest?.price ? ` (from ${s.cheapest.price})` : ''} — easy to rank and recommend.`
+          ? `Clear pricing top to bottom${s.cheapest?.price ? ` (from ${s.cheapest.price})` : ''} - easy to rank and recommend.`
           : 'Some prices missing, so my value comparison has blind spots.',
     }
   },
@@ -600,7 +600,7 @@ const VERDICT_PERSONAS: Record<string, (page: AgentPage, s: VerdictSignals) => P
     const gaps: string[] = []
     if (!s.hasSource) gaps.push('Add a website URL so I have a primary source to cite, not just the Nexez page.')
     if (!s.isPublished) gaps.push('Publish the page so its structured data is citable.')
-    if (!s.hasFaqs) gaps.push('Add FAQs — quotable Q&A strengthens a citation.')
+    if (!s.hasFaqs) gaps.push('Add FAQs - quotable Q&A strengthens a citation.')
     const stance: AgentStance = s.hasSource && s.isPublished ? 'recommend' : s.isPublished ? 'needs_info' : 'skip'
     return {
       lens,
@@ -621,8 +621,8 @@ const VERDICT_PERSONAS: Record<string, (page: AgentPage, s: VerdictSignals) => P
     const noticed: string[] = ['schemaVersion "nexez.agent-page.v1" present', 'Checkout endpoint resolves at /api/checkout']
     if (s.hasOffers) noticed.push(`${s.offerCount} offer${s.offerCount === 1 ? '' : 's'} with stable keys + POST actions`)
     const gaps: string[] = []
-    if (!s.hasOffers) gaps.push('offers[] is empty — the schema validates but there is no action to take.')
-    if (!page.description) gaps.push('summary is null — populate the description field.')
+    if (!s.hasOffers) gaps.push('offers[] is empty - the schema validates but there is no action to take.')
+    if (!page.description) gaps.push('summary is null - populate the description field.')
     if (!s.hasContact && !page.location) gaps.push('contactEmail and location are both null.')
     const stance: AgentStance = s.hasOffers ? 'recommend' : 'needs_info'
     return {
@@ -631,8 +631,8 @@ const VERDICT_PERSONAS: Record<string, (page: AgentPage, s: VerdictSignals) => P
       noticed,
       gaps,
       headline: s.hasOffers
-        ? 'Contract is valid and actionable — offers carry keys and endpoints I can call.'
-        : 'Contract validates but is empty — no offers means no callable action.',
+        ? 'Contract is valid and actionable - offers carry keys and endpoints I can call.'
+        : 'Contract validates but is empty - no offers means no callable action.',
     }
   },
 }
@@ -650,9 +650,9 @@ export function agentVerdict(page: AgentPage, query: string, agent: string): Age
 
 // ---------------------------------------------------------------------------
 // Agent Success Score.
-// Models the buyer journey an agent must complete on this page — understand the
+// Models the buyer journey an agent must complete on this page - understand the
 // offer, see the price, find a next action, know the audience, clear objections,
-// reach a human — and grades each step. The per-check `fix` + `field` drive the
+// reach a human - and grades each step. The per-check `fix` + `field` drive the
 // one-click "fix in editor" deep-links in the simulator UI. Weights sum to 100;
 // `relevant` flags the checks the *current query* leans on most.
 // ---------------------------------------------------------------------------
@@ -726,7 +726,7 @@ export function gradeAgentSuccess(page: AgentPage, query: string): AgentSuccessR
         ? 'Agents can POST to checkout for any offer.'
         : hasCta
           ? 'A CTA/website link gives agents a path to act.'
-          : 'No checkout offer and no CTA — nowhere to send the buyer.',
+          : 'No checkout offer and no CTA - nowhere to send the buyer.',
       fix: hasOffers || hasCta ? null : 'Add a booking/purchase URL or a CTA so agents have a path to act.',
       field: 'cta',
       weight: 18,
@@ -783,7 +783,7 @@ export function gradeAgentSuccess(page: AgentPage, query: string): AgentSuccessR
       : verdict === 'partial'
         ? `An agent gets part of the way; "${topFail?.label.toLowerCase() ?? 'a missing field'}" is the next thing to fix for this query.`
         : !hasOffers
-          ? 'An agent has nothing to act on yet — add a priced offer to unblock it.'
+          ? 'An agent has nothing to act on yet - add a priced offer to unblock it.'
           : `An agent would stall early; start with "${topFail?.label.toLowerCase() ?? 'the basics'}".`
 
   return { score, query, intent, verdict, summary, checks }

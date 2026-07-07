@@ -3,12 +3,12 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supaba
 import { sendPushToUser } from '../../../../lib/push'
 import { captureError } from '../../../../lib/observability'
 
-// Agent tasks (Vercel cron — see vercel.json). For each ACTIVE buyer task, matches its query/category
+// Agent tasks (Vercel cron - see vercel.json). For each ACTIVE buyer task, matches its query/category
 // against the WHOLE published catalog (existing + new) and pushes the buyer on any match it hasn't told
 // them about yet (deduped per task via notified_slugs). This is the "agent works while you're away"
-// runner — distinct from saved-search alerts, which only fire on freshly-published pages.
+// runner - distinct from saved-search alerts, which only fire on freshly-published pages.
 //
-// NOTIFY only — money never moves here; the buyer still approves any purchase in-app. sendPushToUser
+// NOTIFY only - money never moves here; the buyer still approves any purchase in-app. sendPushToUser
 // honors each user's notifications pref (fail-open).
 //
 // Protected: scheduled runs must send `Authorization: Bearer ${CRON_SECRET}`.

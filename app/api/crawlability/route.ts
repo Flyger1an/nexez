@@ -13,7 +13,7 @@ import {
 } from '../../../lib/crawlability'
 
 /**
- * B6 — Agent crawlability test.
+ * B6 - Agent crawlability test.
  * POST { url } → fetches the public URL + its origin's /agent.json, /llms.txt,
  * /robots.txt and returns a deterministic agent-readiness report. Safe to call
  * for any public URL (only issues GETs, polite UA, short timeouts).

@@ -17,7 +17,7 @@ type Row = {
   created_at: string
 }
 
-/** GET — the buyer's in-app activity feed (newest first) + unread count. Owner-scoped via RLS. */
+/** GET - the buyer's in-app activity feed (newest first) + unread count. Owner-scoped via RLS. */
 export async function GET(request: NextRequest) {
   const limited = await enforceRateLimit(request, 'agents:nexie:notifications', 60, 60_000)
   if (limited) return limited
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * PATCH { id } | { all: true } — mark one notification, or all unread, as read. RLS scopes writes to
+ * PATCH { id } | { all: true } - mark one notification, or all unread, as read. RLS scopes writes to
  * the caller, so no explicit user_id filter is needed for safety (it's owner-only either way).
  */
 export async function PATCH(request: NextRequest) {

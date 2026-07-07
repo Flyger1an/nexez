@@ -5,7 +5,7 @@
  * AND serialized into the LLM prompt. Capping them at the single route entry point
  * prevents prompt-stuffing / cost + latency blowup (a multi-MB `query`) and bounds
  * what an injection payload can carry. This is hardening, not the security boundary
- * — the price-floor clamp + the `internalNotes` strip are the hard guarantees.
+ * - the price-floor clamp + the `internalNotes` strip are the hard guarantees.
  */
 
 export type BuyerInputFields = {
@@ -36,7 +36,7 @@ const TRUNCATION_MARKER = ' … [truncated]'
 /**
  * Return a cleaned copy of the untrusted fields (control chars stripped, each
  * capped to its limit) plus a `truncated` flag. Only fields present on the input
- * are returned. Pure — no I/O.
+ * are returned. Pure - no I/O.
  */
 export function sanitizeBuyerInput(input: BuyerInputFields): SanitizedBuyerInput {
   let truncated = false

@@ -4,7 +4,7 @@ import { AgentPage, normalizeSlug } from './agent-page'
 // unpublished draft. Identity / publishing / domain fields are intentionally
 // dropped (new slug, no custom domain, no verification, is_published=false).
 // The slug is made unique against the caller's existing slugs deterministically
-// (no Math.random — keeps it pure for the React compiler + reproducible).
+// (no Math.random - keeps it pure for the React compiler + reproducible).
 export function buildDuplicatePayload(page: AgentPage, ownerId: string, existingSlugs: string[]) {
   const base = normalizeSlug(`${page.name || 'page'}-copy`) || 'page-copy'
   const taken = new Set(existingSlugs)

@@ -25,9 +25,9 @@ const STATUS_STYLE: Record<string, string> = {
 }
 
 /** Direct-checkout orders with an in-app refund action (negotiated deals are refunded
- *  from the Negotiations inbox). Supports FULL or PARTIAL refunds — the amount field
+ *  from the Negotiations inbox). Supports FULL or PARTIAL refunds - the amount field
  *  prefills to the refundable remainder; lower it for a partial. A partial keeps the
- *  order open for the rest. Inline confirm — no window.confirm. */
+ *  order open for the rest. Inline confirm - no window.confirm. */
 export function OrdersPanel({ orders }: { orders: OrderRow[] }) {
   const [rows, setRows] = useState(orders)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -82,7 +82,7 @@ export function OrdersPanel({ orders }: { orders: OrderRow[] }) {
         ),
       )
     } catch {
-      setError('Refund failed — try again.')
+      setError('Refund failed - try again.')
     } finally {
       setBusyId(null)
     }
@@ -92,7 +92,7 @@ export function OrdersPanel({ orders }: { orders: OrderRow[] }) {
     <section className="nx-rise mt-8">
       <h2 className="text-lg font-semibold">Direct orders</h2>
       <p className="mt-1 text-sm text-zinc-500">
-        Checkout sales (not negotiated). A refund returns the buyer&rsquo;s money and gives Nexez&rsquo;s commission back too — in
+        Checkout sales (not negotiated). A refund returns the buyer&rsquo;s money and gives Nexez&rsquo;s commission back too - in
         full, or a partial amount with the rest still refundable.
       </p>
       {error ? <p className="mt-2 text-sm text-red-300">{error}</p> : null}
@@ -125,7 +125,7 @@ export function OrdersPanel({ orders }: { orders: OrderRow[] }) {
                         {o.buyer_reference ? <span className="text-[11px] text-zinc-600">ref: {o.buyer_reference}</span> : null}
                       </span>
                     ) : (
-                      <span className="text-xs text-zinc-600">—</span>
+                      <span className="text-xs text-zinc-600">-</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-zinc-200">
@@ -143,7 +143,7 @@ export function OrdersPanel({ orders }: { orders: OrderRow[] }) {
                   </td>
                   <td className="px-4 py-3 text-right">
                     {o.status !== 'paid' ? (
-                      <span className="text-xs text-zinc-600">—</span>
+                      <span className="text-xs text-zinc-600">-</span>
                     ) : confirmId === o.id ? (
                       <span className="inline-flex items-center gap-2">
                         <span className="text-xs text-zinc-400">Refund</span>

@@ -15,7 +15,7 @@ const secureStoreOptions: SecureStore.SecureStoreOptions = {
 class LargeSecureStore {
   private encryptionKeyName(key: string) {
     // expo-secure-store only allows [A-Za-z0-9._-] in keys. Supabase's storage key
-    // (e.g. "sb-<ref>-auth-token") is safe, but a ":" separator is NOT — it throws
+    // (e.g. "sb-<ref>-auth-token") is safe, but a ":" separator is NOT - it throws
     // "Invalid key provided to SecureStore". Use "." and sanitize anything unexpected.
     return `${key}.aes-key`.replace(/[^A-Za-z0-9._-]/g, '_')
   }

@@ -24,13 +24,13 @@ export function OrdersLookupForm() {
       })
       const data = (await res.json().catch(() => ({}))) as { error?: string }
       if (!res.ok) {
-        setError(data.error || 'Something went wrong — try again.')
+        setError(data.error || 'Something went wrong - try again.')
         setState('idle')
         return
       }
       setState('sent')
     } catch {
-      setError('Something went wrong — try again.')
+      setError('Something went wrong - try again.')
       setState('idle')
     }
   }

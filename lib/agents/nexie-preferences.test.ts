@@ -110,7 +110,7 @@ describe('preferencesPromptBlock', () => {
   })
 })
 
-describe('normalizePreferences — sources selection', () => {
+describe('normalizePreferences - sources selection', () => {
   it('defaults to null (= all available sources) when absent or not an array', () => {
     expect(normalizePreferences({}).sources).toBeNull()
     expect(normalizePreferences({ sources: 'nope' }).sources).toBeNull()

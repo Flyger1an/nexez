@@ -51,7 +51,7 @@ describe('exportUserAccount', () => {
       expect(result!.data).toHaveProperty(`${t}_as_buyer`)
     }
 
-    // api_keys metadata only — never the hash.
+    // api_keys metadata only - never the hash.
     const keyOp = adminRef.ops.find((o) => o.table === 'api_keys')
     expect(keyOp).toBeTruthy()
     expect(keyOp.cols).not.toMatch(/key_hash/)

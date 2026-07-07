@@ -12,7 +12,7 @@ export type OnboardingStep = {
 }
 
 export type OnboardingExtras = {
-  /** True when an intake interview reached handed_off (spec §8) — the
+  /** True when an intake interview reached handed_off (spec §8) - the
    *  conversational path to a created page. */
   interviewCompleted?: boolean
 }

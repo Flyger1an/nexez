@@ -13,7 +13,7 @@ import { FEATURE_LABELS, minPlanForFeature, planAllows, type PlanFeature, type P
  * so the tier matrix lives in exactly one place.
  *
  * NOTE: this is the upgrade-NUDGE layer (it controls what's shown). True server-side
- * enforcement of each capability lives on the consuming routes/renders — a client gate
+ * enforcement of each capability lives on the consuming routes/renders - a client gate
  * alone is bypassable.
  */
 type PlanGateProps = {
@@ -25,7 +25,7 @@ type PlanGateProps = {
   variant?: 'card' | 'tile' | 'inline'
 }
 
-// Enterprise isn't self-serve — its "upgrade" is a sales conversation, not a
+// Enterprise isn't self-serve - its "upgrade" is a sales conversation, not a
 // checkout link (a checkout deep-link for Enterprise silently does nothing).
 function upgradeHref(planId: PlanId) {
   if (planId === 'enterprise') return appUrl('/support?topic=enterprise')
@@ -40,12 +40,12 @@ function upgradeCta(planId: PlanId, planName: string) {
 function upgradeBody(plan: { id: PlanId; name: string }, opts?: { short?: boolean }) {
   if (plan.id === 'enterprise') {
     return opts?.short
-      ? `available on the ${plan.name} plan — talk to our team.`
-      : `Available on the ${plan.name} plan — talk to our team to enable it.`
+      ? `available on the ${plan.name} plan - talk to our team.`
+      : `Available on the ${plan.name} plan - talk to our team to enable it.`
   }
   return opts?.short
     ? `available on the ${plan.name} plan and up.`
-    : `Available on the ${plan.name} plan and up — upgrade to unlock.`
+    : `Available on the ${plan.name} plan and up - upgrade to unlock.`
 }
 
 export function PlanGate({ feature, currentPlan, children, title, description, variant = 'card' }: PlanGateProps) {
@@ -62,7 +62,7 @@ export function PlanGate({ feature, currentPlan, children, title, description, v
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--signal)]/25 bg-[var(--signal)]/[0.06] px-4 py-3">
         <Lock className="size-4 shrink-0 text-[var(--signal)]" />
         <span className="min-w-0 flex-1 text-sm text-[var(--fg-muted)]">
-          <span className="font-medium text-white">{heading}</span> — {body}
+          <span className="font-medium text-white">{heading}</span> - {body}
         </span>
         <a href={href} className="btn-primary btn-sm inline-flex shrink-0 items-center gap-1.5">
           <Sparkles className="size-3.5" /> {cta}
@@ -89,7 +89,7 @@ export function PlanGate({ feature, currentPlan, children, title, description, v
 /**
  * A standalone upgrade nudge that renders ONLY when the plan lacks the feature
  * (nothing when it's allowed). Use above a surface that should stay visible/usable
- * but wants to tease the upgrade — e.g. an inbox or catalog page.
+ * but wants to tease the upgrade - e.g. an inbox or catalog page.
  */
 export function UpgradeBanner({
   feature,
@@ -110,7 +110,7 @@ export function UpgradeBanner({
     <div className={`flex flex-wrap items-center gap-3 rounded-xl border border-[var(--signal)]/25 bg-[var(--signal)]/[0.06] px-4 py-3 ${className}`}>
       <Sparkles className="size-4 shrink-0 text-[var(--signal)]" />
       <span className="min-w-0 flex-1 text-sm text-[var(--fg-muted)]">
-        <span className="font-medium text-white">{title ?? FEATURE_LABELS[feature]}</span> — {description ?? upgradeBody(plan, { short: true })}
+        <span className="font-medium text-white">{title ?? FEATURE_LABELS[feature]}</span> - {description ?? upgradeBody(plan, { short: true })}
       </span>
       <a href={upgradeHref(plan.id)} className="btn-primary btn-sm inline-flex shrink-0 items-center gap-1.5">
         <Sparkles className="size-3.5" /> {upgradeCta(plan.id, plan.name)}
@@ -120,7 +120,7 @@ export function UpgradeBanner({
 }
 
 /**
- * A lightweight "this is a {Plan} feature" chip — for labelling a control that is
+ * A lightweight "this is a {Plan} feature" chip - for labelling a control that is
  * shown but gated (or to tease a feature) without replacing it with a full teaser.
  */
 export function ProBadge({ feature, className = '' }: { feature: PlanFeature; className?: string }) {
@@ -129,7 +129,7 @@ export function ProBadge({ feature, className = '' }: { feature: PlanFeature; cl
     <a
       href={upgradeHref(plan.id)}
       className={`inline-flex items-center gap-1 rounded-full border border-[var(--signal)]/30 bg-[var(--signal)]/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--signal)] transition hover:bg-[var(--signal)]/20 ${className}`}
-      title={`${FEATURE_LABELS[feature]} — ${plan.name} plan`}
+      title={`${FEATURE_LABELS[feature]} - ${plan.name} plan`}
     >
       <Sparkles className="size-3" /> {plan.name}
     </a>

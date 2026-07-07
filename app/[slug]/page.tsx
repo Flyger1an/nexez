@@ -210,7 +210,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
   // branding, so default pages stay read-free on this hot path.
   const brandingCustomized = Boolean(branding.hide_nexez_badge || branding.logo_url || branding.brand_name)
   // Negotiation only surfaces when the seller has actually marked an offer
-  // negotiable — keep the denominator to negotiable offers (not "any offer") so
+  // negotiable - keep the denominator to negotiable offers (not "any offer") so
   // the owner-plan read below stays off the hot path for ordinary offer pages.
   const hasNegotiableOffer = negotiationOffers.some(
     (o) => (o as { offerType?: string }).offerType === 'negotiable',
@@ -243,7 +243,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
       <div className="mx-auto max-w-5xl px-6 py-10">
         {previewing && (
           <div className="mb-4 rounded-lg border border-[var(--amber)]/40 bg-[var(--amber)]/10 px-4 py-2 text-sm text-[var(--amber)]">
-            Draft preview — this is staged content, not the live page. Publish from the editor to go live.
+            Draft preview - this is staged content, not the live page. Publish from the editor to go live.
           </div>
         )}
         {showBrand ? (
@@ -277,7 +277,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
 
         {(page as any).mcp_enabled && (
           <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-[var(--ready)]/10 px-3 py-0.5 text-xs text-[var(--ready)]">
-            MCP Ready — structured context for Model Context Protocol agents
+            MCP Ready - structured context for Model Context Protocol agents
             <a href={mcpJsonHref} className="underline">mcp.json</a>
           </div>
         )}
@@ -491,12 +491,12 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
 
             {negotiationCreated ? (
               <p className="mt-4 rounded-lg border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-4 py-3 text-sm text-[var(--ready)]">
-                Proposal sent — the owner has received your request and will review the terms.
+                Proposal sent - the owner has received your request and will review the terms.
               </p>
             ) : null}
             {negotiationAccepted ? (
               <p className="mt-4 rounded-lg border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-4 py-3 text-sm text-[var(--ready)]">
-                Proposal accepted within the seller&apos;s rules — agreement proposed. The owner will follow up to finalize payment or scheduling.
+                Proposal accepted within the seller&apos;s rules - agreement proposed. The owner will follow up to finalize payment or scheduling.
               </p>
             ) : null}
 
@@ -514,7 +514,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
                     const key = getCheckoutOfferKey(offer.kind, offer.index)
                     return (
                       <option key={key} value={key}>
-                        {offer.name} {offer.price ? `— ${offer.price}` : ''}
+                        {offer.name} {offer.price ? `- ${offer.price}` : ''}
                       </option>
                     )
                   })}
@@ -772,7 +772,7 @@ function OfferSection({
             <div className="mt-4 flex flex-wrap gap-3">
               {(() => {
                 // Smart Rules Phase 1: negotiable offers route to the Make-an-Offer
-                // flow (proposal + seller rules) instead of direct booking — but only
+                // flow (proposal + seller rules) instead of direct booking - but only
                 // when the owner's plan unlocks negotiation. Below Pro (where POST
                 // /api/negotiations 403s) these fall through to the direct-book path.
                 if (item.offerType === 'negotiable' && allowNegotiation) {
@@ -855,7 +855,7 @@ function buildJsonLd(
       name: item.name,
       description: item.description || undefined,
       price: item.price || undefined,
-      // schema.org Offer.price is ambiguous without priceCurrency — surface the page
+      // schema.org Offer.price is ambiguous without priceCurrency - surface the page
       // settlement currency (matches the checkout page's JSON-LD).
       priceCurrency: item.price ? normalizeCurrency((page as { currency?: string | null }).currency).toUpperCase() : undefined,
       priceValidUntil: item.price ? validUntil : undefined,

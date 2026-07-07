@@ -1,8 +1,8 @@
-// Seller intake interview — the platform service behind /api/agents/intake/*
+// Seller intake interview - the platform service behind /api/agents/intake/*
 // (spec: nexez-intake-interview-spec.md §5). Mirrors the Nexie pattern: routes
 // are thin; this module owns the turn loop, the LLM tool schema, and the
 // materialization at commit. Every tool call the LLM makes is validated by the
-// pure reducer (lib/intake) — the model cannot skip phases, invent offers, or
+// pure reducer (lib/intake) - the model cannot skip phases, invent offers, or
 // commit; validation failures are fed back as tool results so it can repair.
 //
 // Dependency injection: the LLM call and the site importer are injectable
@@ -73,25 +73,25 @@ export type IntakeDeps = {
 // ---------------------------------------------------------------------------
 // System prompt + tool schema (spec §5)
 
-export const INTAKE_SYSTEM_PROMPT = `You are the Nexez intake interviewer — a seller-side agent genuinely interested in understanding this business so it succeeds on the platform.
+export const INTAKE_SYSTEM_PROMPT = `You are the Nexez intake interviewer - a seller-side agent genuinely interested in understanding this business so it succeeds on the platform.
 
 You are NOT a form. The extraction already captured what the owner's website and integrations state; your job is to interview the owner ONLY about the gaps the platform surfaces to you, conversationally.
 
 Rules:
-- Ask at most 1–3 RELATED questions per turn (one ask_gaps call), acknowledging what you already learned ("Your site lists three wedding packages — do those prices still hold?"). Never a laundry list.
-- Map free-form answers into record_answers with structured field updates. Quote the owner faithfully in the answer text. An answer WITHOUT field updates records nothing on the draft — if the owner stated a fact, it must appear in fields.
+- Ask at most 1–3 RELATED questions per turn (one ask_gaps call), acknowledging what you already learned ("Your site lists three wedding packages - do those prices still hold?"). Never a laundry list.
+- Map free-form answers into record_answers with structured field updates. Quote the owner faithfully in the answer text. An answer WITHOUT field updates records nothing on the draft - if the owner stated a fact, it must appear in fields.
 - Never invent offers, prices, or facts. propose_offers only curates what extraction or the owner provided. If a fact is missing, ask.
 - Mark skipped:true ONLY when the owner declines a question ("skip", "later", "no thanks"). Never skip questions on their behalf.
 - When the platform tells you no blocking gaps remain, summarize the draft in plain language and call request_handoff so the owner can review in the builder. Keep going on quality/opportunity gaps only if the owner is engaged.
-- Your text reply is ALWAYS spoken directly to the owner — never narrate tools, internal state, or bookkeeping ("no new input to record" is forbidden). Keep replies short, warm, and specific to THIS business. Sentence case. No emoji.
+- Your text reply is ALWAYS spoken directly to the owner - never narrate tools, internal state, or bookkeeping ("no new input to record" is forbidden). Keep replies short, warm, and specific to THIS business. Sentence case. No emoji.
 
-FIELD-UPDATE GRAMMAR (record_answers fields[] — the only shapes the platform accepts):
+FIELD-UPDATE GRAMMAR (record_answers fields[] - the only shapes the platform accepts):
 - Page fact:      {"target":"page","field":"location","value":"Austin, TX"}   (fields: name, description, website_url, cta_url, cta_label, audience, location, contact_email, industry)
 - Edit an offer:  {"target":"offer","offerKey":"services-0","field":"price","value":"$350"}
 - NEW offer:      {"target":"new_offer","kind":"services","offer":{"name":"Real Estate Aerial Package","price":"$350","description":"Aerial property shoot","duration":"2 hours","url":""}}
 - Negotiation:    {"target":"offer_rules","offerKey":"services-0","rules":{"minPrice":"$900","minNoticeHours":48}}
 - FAQ:            {"target":"faq","question":"Do you travel?","answer":"Yes, within the metro."}
-Example — owner says "We offer a Real Estate Aerial Package for $350, takes about 2 hours, and a Wedding Aerial Film from $1,200":
+Example - owner says "We offer a Real Estate Aerial Package for $350, takes about 2 hours, and a Wedding Aerial Film from $1,200":
 record_answers with TWO new_offer updates, one per offer, each carrying name + price (+ duration when stated).` + INTAKE_SAFETY_PREAMBLE
 
 export const INTAKE_TOOLS = [
@@ -129,7 +129,7 @@ export const INTAKE_TOOLS = [
                 skipped: { type: 'boolean' },
                 fields: {
                   type: 'array',
-                  description: 'Structured updates derived from the answer — one per stated fact.',
+                  description: 'Structured updates derived from the answer - one per stated fact.',
                   items: {
                     type: 'object',
                     properties: {
@@ -140,7 +140,7 @@ export const INTAKE_TOOLS = [
                           'page: name|description|website_url|cta_url|cta_label|audience|location|contact_email|industry · offer: name|price|description|duration|serviceArea|travelFee|isMobile|url|offerType',
                       },
                       value: { type: 'string' },
-                      offerKey: { type: 'string', description: 'e.g. services-0 — required for target offer / offer_rules.' },
+                      offerKey: { type: 'string', description: 'e.g. services-0 - required for target offer / offer_rules.' },
                       kind: { type: 'string', enum: ['services', 'products'], description: 'for target new_offer.' },
                       offer: {
                         type: 'object',
@@ -245,7 +245,7 @@ export function importResultToExtraction(sourceId: string, result: ImportResult)
 }
 
 // ---------------------------------------------------------------------------
-// Session load/persist (RLS-bound — tenancy is enforced by both the .eq and RLS)
+// Session load/persist (RLS-bound - tenancy is enforced by both the .eq and RLS)
 
 export async function loadIntakeSession(db: Db, sessionId: string, ownerId: string): Promise<IntakeSessionRow | null> {
   const { data, error } = await db
@@ -298,7 +298,7 @@ export async function handleIntakeTurn(
     user: { id: string; email?: string | null }
     sessionId: string
     content?: string
-    /** Structured quick-answers from the client's gap_batch card — bypasses LLM mapping. */
+    /** Structured quick-answers from the client's gap_batch card - bypasses LLM mapping. */
     structuredAnswers?: GapAnswer[]
   },
   deps: IntakeDeps = {},
@@ -325,14 +325,14 @@ export async function handleIntakeTurn(
     if (applied.ok) state = applied.state
   }
 
-  // 2. Structured quick-answers apply directly — no LLM interpretation needed.
+  // 2. Structured quick-answers apply directly - no LLM interpretation needed.
   if (input.structuredAnswers?.length) {
     const applied = applyIntakeAction(state, { type: 'RECORD_ANSWERS', answers: input.structuredAnswers })
     if (!applied.ok) return { ok: false, status: 400, error: applied.error, code: applied.code }
     state = applied.state
   }
 
-  // 3. Auto-advance through analysis once sources exist — the conversational
+  // 3. Auto-advance through analysis once sources exist - the conversational
   //    surface never exposes ANALYZE_GAPS as something the LLM must remember.
   if ((state.phase === 'INGEST' || state.phase === 'EXTRACT') && state.sources.length > 0) {
     const applied = applyIntakeAction(state, { type: 'ANALYZE_GAPS' })
@@ -365,7 +365,7 @@ export async function handleIntakeTurn(
     return { ok: false, status: 500, error: 'Could not save the interview. Please retry.' }
   }
 
-  // Telemetry (spec §8) — the dataset that tunes analyzeGaps priorities later.
+  // Telemetry (spec §8) - the dataset that tunes analyzeGaps priorities later.
   captureEvent('intake.turn', {
     sessionId: row.id,
     phase: state.phase,
@@ -409,7 +409,7 @@ function deterministicTurn(
   ids: { now: () => Date; newId: () => string },
 ): { state: IntakeState; message: string; cards: IntakeCard[] } {
   if (state.phase === 'REVIEW_HANDOFF') {
-    return { state, message: 'This interview has wrapped — your draft is ready to review in the builder.', cards: [] }
+    return { state, message: 'This interview has wrapped - your draft is ready to review in the builder.', cards: [] }
   }
   const batch = state.gaps.slice(0, 3)
   if (batch.length === 0) {
@@ -422,7 +422,7 @@ function deterministicTurn(
     }
     return {
       state,
-      message: 'I have everything I need — review your draft in the builder whenever you are ready.',
+      message: 'I have everything I need - review your draft in the builder whenever you are ready.',
       cards: [],
     }
   }
@@ -474,7 +474,7 @@ async function runLlmTurn(
       if (executed.message) finalText = executed.message
       transcript.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(executed.result) })
     }
-    // A successful handoff ends the interview — no further rounds (any extra
+    // A successful handoff ends the interview - no further rounds (any extra
     // tool call would only bounce off already_handed_off).
     if (state.handoff) break
     // Refresh the machine context after mutations so the next round sees
@@ -510,19 +510,19 @@ function buildContextBlock(state: IntakeState, stage: 'opening' | 'followup' = '
   }
   const instruction =
     stage === 'followup'
-      ? 'Your tool calls were processed (results above; a rejection explains the exact shape to retry with). Now reply to the OWNER in plain conversational text — acknowledge what you captured in their words, and if you have not asked the next 1–3 gaps this turn, call ask_gaps (or request_handoff when eligible). Never mention tools or internal state.'
-      : 'Respond to the owner now. FIRST record every fact from their last message (record_answers with field updates — an answer without fields records nothing), then ask the next 1–3 related gaps via ask_gaps, or request_handoff when eligible.'
+      ? 'Your tool calls were processed (results above; a rejection explains the exact shape to retry with). Now reply to the OWNER in plain conversational text - acknowledge what you captured in their words, and if you have not asked the next 1–3 gaps this turn, call ask_gaps (or request_handoff when eligible). Never mention tools or internal state.'
+      : 'Respond to the owner now. FIRST record every fact from their last message (record_answers with field updates - an answer without fields records nothing), then ask the next 1–3 related gaps via ask_gaps, or request_handoff when eligible.'
   return [
     `PHASE: ${state.phase}`,
     `HANDOFF_ELIGIBLE: ${handoffEligible(state)}`,
     `CURRENT DRAFT:\n${JSON.stringify(draftSummary, null, 1)}`,
     `CURRENT GAPS (ask via ask_gaps with these ids):\n${JSON.stringify(gaps, null, 1)}`,
-    recent.length ? `CONVERSATION SO FAR:\n${fenceUntrusted('OWNER CONVERSATION', recent.join('\n'))}` : 'CONVERSATION SO FAR: (none — this is your opening turn)',
+    recent.length ? `CONVERSATION SO FAR:\n${fenceUntrusted('OWNER CONVERSATION', recent.join('\n'))}` : 'CONVERSATION SO FAR: (none - this is your opening turn)',
     instruction,
   ].join('\n\n')
 }
 
-/** Deterministic repairs for the model mistakes the first live pass surfaced —
+/** Deterministic repairs for the model mistakes the first live pass surfaced -
  *  narrow and unambiguous only; everything else reaches the reducer, whose
  *  teaching rejections feed back for the model to repair itself.
  *  - `fields` sent as a JSON STRING → parsed.
@@ -625,7 +625,7 @@ async function executeToolCall(
     case 'ingest_url': {
       const url = typeof args.url === 'string' ? args.url.trim() : ''
       if (!ctx.importSite) {
-        return { state, result: { ok: false, code: 'importer_unavailable', error: 'URL ingestion is unavailable right now — continue the interview.' } }
+        return { state, result: { ok: false, code: 'importer_unavailable', error: 'URL ingestion is unavailable right now - continue the interview.' } }
       }
       const sourceId = ctx.newId()
       const added = applyIntakeAction(state, {
@@ -662,7 +662,7 @@ async function executeToolCall(
 
 // ---------------------------------------------------------------------------
 // Commit (spec §3 REVIEW_HANDOFF): materialize through the existing paths. The
-// builder remains the single source of truth for editing — a NEW page is
+// builder remains the single source of truth for editing - a NEW page is
 // created as a draft (is_published false) exactly like /create does; a
 // re-interview stages onto pages.draft (the D12 overlay) and never touches
 // live columns.
@@ -679,14 +679,14 @@ export async function commitIntakeSession(
   const row = await loadIntakeSession(input.db, input.sessionId, input.user.id)
   if (!row) return { ok: false, status: 404, error: 'Interview not found.' }
   if (row.status === 'handed_off' && row.page_id) {
-    // Idempotent replay — the client can safely retry a commit.
+    // Idempotent replay - the client can safely retry a commit.
     return { ok: true, pageId: row.page_id, slug: null, alreadyCommitted: true }
   }
   if (row.status !== 'active') return { ok: false, status: 409, error: 'This interview is no longer active.' }
 
   let state = sessionState(row)
   if (state.phase !== 'REVIEW_HANDOFF') {
-    // An owner-initiated commit is always allowed — it IS the exit.
+    // An owner-initiated commit is always allowed - it IS the exit.
     const applied = applyIntakeAction(state, { type: 'EXIT_TO_BUILDER', at: now().toISOString() })
     if (!applied.ok) return { ok: false, status: 409, error: applied.error }
     state = applied.state
@@ -716,7 +716,7 @@ export async function commitIntakeSession(
     if (error) return { ok: false, status: 500, error: 'Could not stage the draft onto your listing.' }
     pageId = row.page_id
   } else {
-    // New listing: same insert shape as /create, always as a draft — publishing
+    // New listing: same insert shape as /create, always as a draft - publishing
     // stays a human decision in the builder (spec §2.3).
     const name = draft.name.trim() || 'Untitled listing'
     slug = await uniqueIntakeSlug(input.admin, normalizeSlug(name) || 'listing')
@@ -753,7 +753,7 @@ export async function commitIntakeSession(
     return { ok: false, status: 500, error: 'Draft created, but the interview could not be closed. Retry to finish.' }
   }
 
-  // Telemetry (spec §8): the per-session record — sources used, gap outcomes
+  // Telemetry (spec §8): the per-session record - sources used, gap outcomes
   // (incl. asked-but-abandoned), time-to-handoff. Publish rate vs the form path
   // comes from joining these sessions' page_ids against publish events.
   const answeredIds = new Set(state.answers.filter((a) => !a.skipped).map((a) => a.gapId))

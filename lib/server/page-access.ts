@@ -4,7 +4,7 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/adm
 // THE security primitive for team collaboration on a page. Feature routes used to
 // assume `req.user === page.owner` (gate on user.id + scope `.eq('owner_id', user.id)`),
 // which blocked editor-collaborators. This resolves the page's ACTUAL owner and
-// authorizes the requester as owner OR a non-revoked invited collaborator — so a route
+// authorizes the requester as owner OR a non-revoked invited collaborator - so a route
 // can then gate on + act as the PAGE OWNER (via the service-role client). Because the
 // caller acts with the owner's privileges, ALL authorization MUST be decided here.
 //
@@ -14,7 +14,7 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/adm
 //   - owner match is by user id; collaborator match is by the requester's VERIFIED auth
 //     email (case-insensitively, never via ilike → no LIKE-wildcard injection);
 //     ⚠️ this is load-bearing: the collaborator grant assumes userEmail is a CONFIRMED
-//     address the caller controls. We now ENFORCE that — the collaborator branch fails
+//     address the caller controls. We now ENFORCE that - the collaborator branch fails
 //     closed unless the caller passes a non-null `userEmailConfirmedAt` (Supabase auth
 //     `email_confirmed_at`). Keep Supabase Auth "Confirm email" ON in prod (the
 //     pre-existing collaborator RLS in 20260603220000 relies on the same assumption);
@@ -52,15 +52,15 @@ export async function resolvePageAccess(opts: {
   if (page.owner_id === userId) return { pageId: page.id, ownerId: page.owner_id, role: 'owner' }
 
   // Otherwise: an ACCEPTED invite to THIS owner under the requester's verified email.
-  // A merely-`pending` invite does NOT grant access — the invitee must explicitly accept
+  // A merely-`pending` invite does NOT grant access - the invitee must explicitly accept
   // (POST /api/team/accept) first; this mirrors the `status = 'accepted'` RLS gate so the
   // app-layer act-as-owner path can't out-grant the database. Emails are stored lowercased
   // (insert path + client); compare on the lowercased value with `.eq` (exact, no
-  // wildcards) — a mixed-case legacy row would simply fail to match, i.e. deny.
+  // wildcards) - a mixed-case legacy row would simply fail to match, i.e. deny.
   const email = (opts.userEmail || '').trim().toLowerCase()
   if (!email) return null
   // Defense-in-depth (deferred-hardening a): the act-as-owner collaborator grant is
-  // only as trustworthy as the email join key — require a CONFIRMED address. Fails
+  // only as trustworthy as the email join key - require a CONFIRMED address. Fails
   // closed when the caller didn't pass a confirmation timestamp.
   if (!opts.userEmailConfirmedAt) return null
   const { data: invite } = await admin
@@ -105,7 +105,7 @@ export type FeatureOwnerResult =
  *   - pageId ABSENT → no page context: the caller acts as THEMSELVES (legacy
  *     self-gate). Returns { ownerId: userId, pageId: null, scoped: false }. Never denies.
  *
- * `requireEditor` defaults to true — these routes mutate/derive from page data, so a
+ * `requireEditor` defaults to true - these routes mutate/derive from page data, so a
  * viewer-collaborator must not pass.
  */
 export async function resolveFeatureOwner(opts: {

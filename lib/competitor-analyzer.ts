@@ -173,7 +173,7 @@ function computeScores(signals: CompetitorAnalysis['signals'], htmlLen: number):
     )
   )
 
-  // Overall Agent Trust (0-100) — weighted composite inspired by getTrustScore but for external sites
+  // Overall Agent Trust (0-100) - weighted composite inspired by getTrustScore but for external sites
   // 35% parse + 30% struct + 25% clarity + 10% "trust extras" (contact + reasonable content)
   const overallBase = Math.round(0.35 * parseability + 0.30 * structuredDataQuality + 0.25 * clarity)
   const trustBonus = signals.hasContact ? 5 : 0
@@ -199,9 +199,9 @@ async function computeGapsAndRecs(url: string, signals: CompetitorAnalysis['sign
   if (signals.headingCount < 4) { missing.push('Sparse heading structure (hard for agents to parse sections)'); recs.push('Use clear H1/H2 for “Services”, “Pricing”, “How it works”.') }
 
   const strengths: string[] = []
-  if (signals.hasJsonLd) strengths.push('Has structured JSON-LD data — agents can parse offers reliably')
-  if (signals.hasLlmsTxt || signals.hasAgentJson) strengths.push('Has AI-native files (llms.txt / agent.json) — excellent for agent consumption')
-  if (signals.offerCount >= 3 && signals.priceMentions >= 1) strengths.push('Multiple priced offers visible — good clarity for comparison')
+  if (signals.hasJsonLd) strengths.push('Has structured JSON-LD data - agents can parse offers reliably')
+  if (signals.hasLlmsTxt || signals.hasAgentJson) strengths.push('Has AI-native files (llms.txt / agent.json) - excellent for agent consumption')
+  if (signals.offerCount >= 3 && signals.priceMentions >= 1) strengths.push('Multiple priced offers visible - good clarity for comparison')
   if (signals.hasContact) strengths.push('Clear contact/booking path present')
 
   const weaknesses: string[] = []
@@ -222,7 +222,7 @@ async function computeGapsAndRecs(url: string, signals: CompetitorAnalysis['sign
   }
 
   return {
-    missing: missing.length ? missing : ['No major gaps detected — strong agent surface.'],
+    missing: missing.length ? missing : ['No major gaps detected - strong agent surface.'],
     strengths: strengths.length ? strengths : ['Basic content present.'],
     weaknesses: weaknesses.length ? weaknesses : ['Minor polish opportunities only.'],
     recommendations: finalRecs,
@@ -278,7 +278,7 @@ export async function analyzeCompetitorSite(
       scores: { overall: 22, parseability: 30, structuredDataQuality: 10, clarityAndIntent: 25 },
       missing: ['Unable to fetch meaningful content (robots, JS-heavy, or timeout)'],
       strengths: [],
-      weaknesses: ['Site appears opaque to agents — high risk of being ignored'],
+      weaknesses: ['Site appears opaque to agents - high risk of being ignored'],
       recommendations: ['Ensure server-rendered content or clean HTML for /services and /pricing.', 'Add llms.txt and JSON-LD.'],
       signals: { hasJsonLd: false, jsonLdCount: 0, hasLlmsTxt: false, hasAgentJson: false, offerCount: 0, headingCount: 0, hasContact: false, textLength: 0, priceMentions: 0 },
     }
@@ -331,7 +331,7 @@ export async function analyzeCompetitorSite(
       summary: (opts.userNexezPage.description || '').slice(0, 160),
       winSuggestions: [
         scores.structuredDataQuality < 60 ? 'Add JSON-LD + llms.txt (competitor may be weak here too)' : 'Leverage your existing structured data advantage.',
-        scores.clarityAndIntent < 65 ? 'Run AI Co-Pilot on your offers for clearer intent signals' : 'Your clarity is competitive — push pricing tiers + consumer fields.',
+        scores.clarityAndIntent < 65 ? 'Run AI Co-Pilot on your offers for clearer intent signals' : 'Your clarity is competitive - push pricing tiers + consumer fields.',
       ],
     }
   }

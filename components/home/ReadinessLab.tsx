@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 /**
  * Interactive Readiness Lab: flip structured signals on/off; each adds its weight to
  * a 0–100 readiness score that drives an animated ring gauge, a verdict, and the list
- * of actions agents can take. Theme-aware (lives on the page surface) — accents use
+ * of actions agents can take. Theme-aware (lives on the page surface) - accents use
  * the design tokens so it flips cleanly in light + dark.
  */
 type SignalKey = 'offers' | 'actions' | 'schema' | 'mcp' | 'llms' | 'fresh'

@@ -11,7 +11,7 @@ type PageProps = {
 
 // Server component: authenticates, fetches the page + its activity in one
 // parallel wave, enforces access, and hands everything to the client island as
-// initial state — so the editor renders with real data (no client fetch
+// initial state - so the editor renders with real data (no client fetch
 // waterfall, no loading flash, no client-side redirects).
 export default async function EditAgentPage({ params }: PageProps) {
   const { id } = await params

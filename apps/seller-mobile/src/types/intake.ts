@@ -1,6 +1,6 @@
-// Seller intake interview — the threads-API contract this app consumes
+// Seller intake interview - the threads-API contract this app consumes
 // (server: app/api/agents/intake/* + lib/agents/intake.ts in the web repo).
-// The app is a THIN client (spec §7): no gap logic on device — these types
+// The app is a THIN client (spec §7): no gap logic on device - these types
 // mirror only what the screens render and post.
 
 export type IntakeGapKind = 'blocking' | 'quality' | 'opportunity'
@@ -15,7 +15,7 @@ export type IntakeGap = {
   kind: IntakeGapKind
 }
 
-/** Structured quick-answer payload — passed through verbatim; the server
+/** Structured quick-answer payload - passed through verbatim; the server
  *  reducer validates every field update. */
 export type IntakeGapAnswer = {
   gapId: string

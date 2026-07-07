@@ -108,7 +108,7 @@ export async function fireOutboundWebhook(endpoint: string, secret: string | nul
       headers,
       body,
       signal: controller.signal,
-      // Don't follow redirects — a 30x to a private host would re-introduce SSRF
+      // Don't follow redirects - a 30x to a private host would re-introduce SSRF
       // (and leak the signed payload to the redirect target).
       redirect: 'manual',
     }).finally(() => clearTimeout(timeout))

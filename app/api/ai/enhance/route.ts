@@ -15,7 +15,7 @@ import { enforceRateLimit } from '../../../../lib/rate-limit'
  * the deterministic rewriter. Returns the source so the UI can label it.
  *
  * Collaboration: when a `pageId` is supplied, an editor-collaborator (not just the
- * page owner) may call this — access is resolved via resolvePageAccess and BOTH the
+ * page owner) may call this - access is resolved via resolvePageAccess and BOTH the
  * opt-in read and the AI plan gate are decided against the PAGE OWNER. Without a
  * pageId we keep the legacy self-gate (an owner enhancing ad-hoc copy for themselves).
  */
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
   }
 
   // Plan gate: AI features unlock on Launch+. Below that we still return a useful
-  // result via the deterministic path (no error) — the LLM call is what's gated.
+  // result via the deterministic path (no error) - the LLM call is what's gated.
   if (isLlmConfigured() && optedIn && aiAllowed) {
     try {
       const enhanced = await llmComplete(

@@ -23,7 +23,7 @@ export function TypewriterCode({
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
     // Clear before the user reaches it (the tile is below the fold, so this
-    // pre-scroll frame is off-screen — no visible flash).
+    // pre-scroll frame is off-screen - no visible flash).
     setShown('')
 
     const io = new IntersectionObserver(

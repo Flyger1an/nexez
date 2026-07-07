@@ -646,7 +646,7 @@ async function tryExtractShopifyProducts(baseUrl: string): Promise<OfferItem[]> 
       offers.push(offer)
     }
   } catch {
-    // Silent fail — fall back to normal crawling
+    // Silent fail - fall back to normal crawling
   }
   return offers
 }
@@ -1511,7 +1511,7 @@ export async function analyzeSite(
         )
       }
     } catch {
-      // best-effort — deterministic result stands
+      // best-effort - deterministic result stands
     }
   }
 

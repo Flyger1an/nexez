@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { extractMemorySignals, mergeMemorySignals } from './nexie-memory'
 
-describe('extractMemorySignals — budget (high precision; ceiling cue required)', () => {
+describe('extractMemorySignals - budget (high precision; ceiling cue required)', () => {
   it('captures a budget only when an explicit ceiling cue precedes the amount', () => {
     expect(extractMemorySignals('keep it under $500').budgetObserved).toBe(500)
     expect(extractMemorySignals('my budget is $1,200 total').budgetObserved).toBe(1200)
@@ -20,7 +20,7 @@ describe('extractMemorySignals — budget (high precision; ceiling cue required)
   })
 })
 
-describe('extractMemorySignals — timing + interest', () => {
+describe('extractMemorySignals - timing + interest', () => {
   it('maps timing keywords', () => {
     expect(extractMemorySignals('I need this asap').timingObserved).toBe('asap')
     expect(extractMemorySignals('sometime next week is fine').timingObserved).toBe('this_week')
@@ -45,7 +45,7 @@ describe('mergeMemorySignals', () => {
     expect(out.updated_at).toBe(now)
   })
 
-  it('writes budget/timing only when present — never clobbers a prior value with null', () => {
+  it('writes budget/timing only when present - never clobbers a prior value with null', () => {
     const withBudget = mergeMemorySignals({}, extractMemorySignals('under $400'), 'under $400', [], now)
     expect(withBudget.budget_observed).toBe(400)
     // A later turn with no budget cue must NOT erase the learned budget.

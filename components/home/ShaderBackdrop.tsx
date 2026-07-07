@@ -8,7 +8,7 @@ import { useEffect, useRef } from 'react'
 //   • paused when offscreen (IntersectionObserver) and when the tab is hidden
 //   • reduced-motion → draws a single static frame, no rAF loop
 //   • no WebGL / context-loss → renders nothing, the section's CSS gradient shows through
-//   • DPR capped at 2 and canvas downscaled (0.6×) — the blur hides the lower res, keeps it cheap
+//   • DPR capped at 2 and canvas downscaled (0.6×) - the blur hides the lower res, keeps it cheap
 
 const FRAG = `
 precision highp float;

@@ -89,7 +89,7 @@ describe('GET /api/negotiations/status', () => {
               action: 'counter',
               reasoning: 'Closer to our floor.',
               counter: { priceCents: 90000 },
-              internalNotes: 'owner-only — never send to the agent',
+              internalNotes: 'owner-only - never send to the agent',
             },
           },
         },

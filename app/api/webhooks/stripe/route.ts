@@ -26,9 +26,9 @@ import { sendOnceSystemEmail } from '../../../../lib/server/system-email'
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'placeholder')
 
 export async function POST(request: NextRequest) {
-  // A Connect platform needs TWO endpoints — one for "your account" events
+  // A Connect platform needs TWO endpoints - one for "your account" events
   // (subscriptions) and one for "connected account" events (the escrow charges,
-  // refunds, disputes) — and Stripe gives each its OWN signing secret. Verify
+  // refunds, disputes) - and Stripe gives each its OWN signing secret. Verify
   // against every configured secret so both endpoints' events are accepted.
   // STRIPE_WEBHOOK_SECRET_CONNECT is the connected-accounts endpoint's secret;
   // either var may also hold a comma-separated list (e.g. during a rotation).
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       if (ledgerErr.code === '23505') {
         return NextResponse.json({ received: true, type: event.type, duplicate: true }, { status: 200 })
       }
-      // Don't block processing on a ledger hiccup — log and continue.
+      // Don't block processing on a ledger hiccup - log and continue.
       console.warn('[Stripe Webhook] event ledger insert failed:', ledgerErr.message)
     }
   }
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     }
     const price = event.data.object as Stripe.Price
     if (price.active === false) {
-      // Deactivating a price shouldn't rewrite listings — leaving the last
+      // Deactivating a price shouldn't rewrite listings - leaving the last
       // synced price standing is the safe read; the owner re-imports to change it.
       return NextResponse.json({ received: true, type: event.type, skipped: 'inactive price' }, { status: 200 })
     }
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
       syncedAt: new Date().toISOString(),
     }
 
-    // Candidate pages via JSONB containment on the offer markers — targeted
+    // Candidate pages via JSONB containment on the offer markers - targeted
     // index-friendly lookups instead of scanning every page per price event.
     type PriceSyncPageRow = { id: string; slug: string; owner_id: string | null; services: OfferItem[] | null; products: OfferItem[] | null }
     const markers: Array<Record<string, unknown>> = [{ metadata: { stripe_price_id: price.id } }]
@@ -228,7 +228,7 @@ export async function POST(request: NextRequest) {
       const paid = !session.payment_status || session.payment_status === 'paid'
       // amount_cents is 2-decimal minor units; the charge (pay route) sends Stripe's
       // smallest unit via minorToStripeAmount, so validate against the same conversion
-      // — otherwise zero-decimal currencies (JPY/KRW) never match and never settle.
+      // - otherwise zero-decimal currencies (JPY/KRW) never match and never settle.
       const expectedChargeAmount = minorToStripeAmount(negotiation.amount_cents ?? 0, negotiation.currency)
       const amountMatches = session.amount_total === expectedChargeAmount
       const currencyMatches = (session.currency || '').toLowerCase() === (negotiation.currency || 'usd').toLowerCase()
@@ -251,7 +251,7 @@ export async function POST(request: NextRequest) {
       const nextEscrowMode = autoSettle ? 'captured' : 'manual_capture_created'
       // Capture the buyer's email (Stripe collected it, or the pay route prefilled +
       // stamped it in metadata) so we can email a receipt + future status updates.
-      // Only ever ADDED — never overwritten with null.
+      // Only ever ADDED - never overwritten with null.
       const buyerEmail = session.customer_details?.email || session.customer_email || session.metadata?.nexez_buyer_email || null
       const { error: settleErr } = await admin
         .from('agent_negotiations')
@@ -273,7 +273,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'escrow settle failed', type: event.type }, { status: 500 })
       }
 
-      // Notify the seller that a buyer funded the deal — mirrors the Calendly
+      // Notify the seller that a buyer funded the deal - mirrors the Calendly
       // booking email. Owner email = the page's contact_email. Gated on RESEND
       // env (dormant otherwise) and fired via after() so it never blocks the 200.
       if (hasEmailEnv() && negotiation.page_id) {
@@ -330,7 +330,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Both the hosted checkout ('billing_page') and the embedded subscription
-    // flow ('embedded_billing') are Nexez plan checkouts — sync either one.
+    // flow ('embedded_billing') are Nexez plan checkouts - sync either one.
     if (session.metadata?.nexez_source === 'billing_page' || session.metadata?.nexez_source === 'embedded_billing') {
       return syncBillingCheckoutSession(event, session)
     }
@@ -435,7 +435,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true, type: event.type }, { status: 200 })
   }
 
-  // Subscription invoice lifecycle — keep plan status fresh on payment success and
+  // Subscription invoice lifecycle - keep plan status fresh on payment success and
   // failure (dunning). A failed payment flips the subscription to past_due/unpaid;
   // a paid invoice restores active. We re-sync the underlying subscription so
   // billing_subscriptions.status always reflects Stripe, not just the periodic
@@ -461,7 +461,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true, type: event.type, billing: false, reason: 'no subscription on invoice' }, { status: 200 })
   }
 
-  // Negotiation escrow reversals — matched to a negotiation by its stored payment
+  // Negotiation escrow reversals - matched to a negotiation by its stored payment
   // intent (works for connected-account events, which carry the same PI). All behind
   // the event-id idempotency ledger above.
   if (
@@ -507,7 +507,7 @@ export async function POST(request: NextRequest) {
         status_token: string | null
       }>()
     if (!neg) {
-      // Not a negotiation — try a direct-checkout ORDER (same PI matching). This is
+      // Not a negotiation - try a direct-checkout ORDER (same PI matching). This is
       // what closes the "direct-checkout disputes/refunds vanish silently" hole.
       const { data: order } = await admin
         .from('checkout_orders')
@@ -526,7 +526,7 @@ export async function POST(request: NextRequest) {
       let oBuyerNotify: { kind: 'refunded' | 'partial_refund' | 'dispute_update'; amountCents: number | null; detail: string | null } | null = null
       if (event.type === 'charge.refunded') {
         // A PARTIAL refund (e.g. from the Stripe dashboard) must NOT mark the order
-        // fully refunded — keep it 'paid' so the owner can still refund the remainder
+        // fully refunded - keep it 'paid' so the owner can still refund the remainder
         // in-app; only a full refund flips status. (Stripe never double-refunds.)
         const fullyRefunded = obj.amount == null || obj.amount_refunded == null || obj.amount_refunded >= obj.amount
         // Reconcile the cumulative-refunded ledger to Stripe's authoritative total
@@ -535,8 +535,8 @@ export async function POST(request: NextRequest) {
         oUpdate = fullyRefunded
           ? { status: 'refunded', ...refundedLedger, metadata: { ...oMeta, refund: { source: 'stripe_webhook', amount_cents: obj.amount_refunded ?? null, at: oNow } } }
           : { ...refundedLedger, metadata: { ...oMeta, partial_refund: { amount_cents: obj.amount_refunded ?? null, at: oNow } } }
-        oNotify = { kind: 'refund', amountCents: obj.amount_refunded ?? null, detail: fullyRefunded ? null : 'Partial refund — the order stays open for the remainder.' }
-        // Only email the buyer on a NEW transition — a lost dispute already fired a
+        oNotify = { kind: 'refund', amountCents: obj.amount_refunded ?? null, detail: fullyRefunded ? null : 'Partial refund - the order stays open for the remainder.' }
+        // Only email the buyer on a NEW transition - a lost dispute already fired a
         // 'refunded' email, and Stripe sends a separate charge.refunded for the same PI
         // (distinct event id → not collapsed by the ledger), which would double-email.
         if (fullyRefunded) {
@@ -550,7 +550,7 @@ export async function POST(request: NextRequest) {
       } else if (event.type === 'charge.dispute.closed') {
         const won = obj.status === 'won'
         oUpdate = { status: won ? 'dispute_won' : 'refunded', metadata: { ...oMeta, dispute_outcome: { result: won ? 'won' : obj.status ?? 'lost', at: oNow } } }
-        oNotify = { kind: 'dispute_closed', amountCents: obj.amount ?? null, detail: won ? 'You won — funds retained.' : `Lost (${obj.status ?? 'lost'}) — refunded to the buyer.` }
+        oNotify = { kind: 'dispute_closed', amountCents: obj.amount ?? null, detail: won ? 'You won - funds retained.' : `Lost (${obj.status ?? 'lost'}) - refunded to the buyer.` }
         if (won) {
           if (order.status !== 'dispute_won') oBuyerNotify = { kind: 'dispute_update', amountCents: obj.amount ?? null, detail: 'The dispute was resolved.' }
         } else if (order.status !== 'refunded') {
@@ -618,7 +618,7 @@ export async function POST(request: NextRequest) {
     let update: Record<string, unknown> | null = null
     // Seller notification descriptor (time-sensitive for disputes). null = no email.
     let notify: { kind: 'refund' | 'dispute_opened' | 'dispute_closed'; amountCents: number | null; detail: string | null } | null = null
-    // Buyer-facing status update (skips dispute_opened — the buyer started it).
+    // Buyer-facing status update (skips dispute_opened - the buyer started it).
     let buyerNotify: { kind: 'refunded' | 'partial_refund' | 'dispute_update'; amountCents: number | null; detail: string | null } | null = null
 
     if (event.type === 'charge.refunded') {
@@ -630,7 +630,7 @@ export async function POST(request: NextRequest) {
       update = fullyRefunded
         ? { status: 'refunded', ...refundedLedger, metadata: { ...baseMeta, refund: { source: 'stripe_webhook', amount_cents: obj.amount_refunded ?? null, at: now } } }
         : { ...refundedLedger, metadata: { ...baseMeta, partial_refund: { amount_cents: obj.amount_refunded ?? null, at: now } } }
-      notify = { kind: 'refund', amountCents: obj.amount_refunded ?? null, detail: fullyRefunded ? null : 'Partial refund — the deal stays open for the remainder.' }
+      notify = { kind: 'refund', amountCents: obj.amount_refunded ?? null, detail: fullyRefunded ? null : 'Partial refund - the deal stays open for the remainder.' }
       // Email the buyer only on a NEW transition (avoid the lost-dispute + charge.refunded double).
       if (fullyRefunded) {
         if (neg.status !== 'refunded') buyerNotify = { kind: 'refunded', amountCents: obj.amount_refunded ?? null, detail: null }
@@ -645,7 +645,7 @@ export async function POST(request: NextRequest) {
       update = won
         ? { status: 'complete', metadata: { ...baseMeta, dispute_outcome: { result: 'won', at: now } } }
         : { status: 'refunded', metadata: { ...baseMeta, dispute_outcome: { result: obj.status ?? 'lost', at: now } } }
-      notify = { kind: 'dispute_closed', amountCents: obj.amount ?? null, detail: won ? 'You won — funds retained.' : `Lost (${obj.status ?? 'lost'}) — refunded to the buyer.` }
+      notify = { kind: 'dispute_closed', amountCents: obj.amount ?? null, detail: won ? 'You won - funds retained.' : `Lost (${obj.status ?? 'lost'}) - refunded to the buyer.` }
       if (won) {
         if (neg.status !== 'complete') buyerNotify = { kind: 'dispute_update', amountCents: obj.amount ?? null, detail: 'The dispute was resolved.' }
       } else if (neg.status !== 'refunded') {
@@ -667,7 +667,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'reversal update failed', type: event.type }, { status: 500 })
     }
 
-    // Notify the seller — refunds are informational; a dispute is time-sensitive
+    // Notify the seller - refunds are informational; a dispute is time-sensitive
     // (evidence deadline), so silent DB-only handling risked auto-lost disputes.
     if (notify && hasEmailEnv() && neg.page_id) {
       const n = notify

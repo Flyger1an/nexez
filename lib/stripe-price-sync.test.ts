@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { applyPriceToOffers, formatStripePriceString } from './stripe-price-sync'
 import type { OfferItem } from './agent-page'
 
-// The formatter must stay byte-identical to /api/integrations/stripe/import —
+// The formatter must stay byte-identical to /api/integrations/stripe/import -
 // a webhook sync and a manual re-import producing different strings would make
 // every redelivery look like a change.
 describe('formatStripePriceString', () => {
@@ -50,7 +50,7 @@ describe('applyPriceToOffers', () => {
     expect(changes).toEqual([{ name: 'Deep Clean', from: '$40', to: '$55' }])
   })
 
-  it('requires source=stripe — an owner clearing the source detaches the offer from sync', () => {
+  it('requires source=stripe - an owner clearing the source detaches the offer from sync', () => {
     const offers = [offer({ source: undefined }), offer({ source: 'calendly' })]
     expect(applyPriceToOffers(offers, target()).changed).toBe(0)
   })
@@ -75,7 +75,7 @@ describe('applyPriceToOffers', () => {
     expect(next[1].price).toBe('$450 / year')
   })
 
-  it('moves ONLY the price field — names/descriptions stay the owner\'s', () => {
+  it('moves ONLY the price field - names/descriptions stay the owner\'s', () => {
     const offers = [offer({ name: 'Renamed by owner', description: 'Owner copy' })]
     const { offers: next } = applyPriceToOffers(offers, target())
     expect(next[0]).toMatchObject({ name: 'Renamed by owner', description: 'Owner copy', price: '$55' })
@@ -123,7 +123,7 @@ describe('applyPriceToOffers', () => {
     const offers = [offer({ price: '$55' })]
     const { offers: next, changed } = applyPriceToOffers(offers, target())
     expect(changed).toBe(0)
-    expect(next[0]).toBe(offers[0]) // same reference — nothing to write
+    expect(next[0]).toBe(offers[0]) // same reference - nothing to write
   })
 
   it('updates every offer sharing the price id (multi-offer pages)', () => {

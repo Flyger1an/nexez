@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 
-// Liquid Glass motion layer — ported from nexez-fx.js, adapted for React/Next.
+// Liquid Glass motion layer - ported from nexez-fx.js, adapted for React/Next.
 // Runs once after mount: cursor-tracked specular on buttons/lift-cards, scroll-reveal
 // entrances on .glass/.kpi (with the release-after-1500ms pattern so native hover
 // transforms aren't overridden), KPI count-ups, and readiness-ring draw.
@@ -62,7 +62,7 @@ export function DesignSystemFx() {
     })
     observers.push(io)
 
-    // KPI counters — "$48.2k", "2,847", "19+" parse; "<200ms" is skipped
+    // KPI counters - "$48.2k", "2,847", "19+" parse; "<200ms" is skipped
     document.querySelectorAll<HTMLElement>('.kpi-num').forEach((el) => {
       const m = (el.textContent || '').trim().match(/^(\$?)([\d,]+(?:\.\d+)?)([a-z%+]*)$/i)
       if (!m) return

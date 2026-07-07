@@ -6,14 +6,14 @@ import { captureEvent } from '../../../../../../../lib/observability'
 import { enforceRateLimit } from '../../../../../../../lib/rate-limit'
 import { resolveRequestAuth } from '../../../../../../../lib/server/request-auth'
 
-// Ingestion crawls — keep the budget generous but bounded.
+// Ingestion crawls - keep the budget generous but bounded.
 export const maxDuration = 60
 
 /**
- * POST /api/agents/intake/threads/[id]/ingest — add a source mid-conversation
+ * POST /api/agents/intake/threads/[id]/ingest - add a source mid-conversation
  * (spec §5). Body: { url? } | { text? }. Sources append; extraction folds into
  * the working draft non-destructively (stated facts always win) and gaps are
- * re-analyzed in place. Integration sources land in a later batch — the tool
+ * re-analyzed in place. Integration sources land in a later batch - the tool
  * schema stays forward-compatible.
  */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (url) {
       extraction = importResultToExtraction(sourceId, await analyzeSite(url))
     } else {
-      // Pasted text rides the importer's LLM offer extractor (best-effort — []
+      // Pasted text rides the importer's LLM offer extractor (best-effort - []
       // without a configured LLM; the interview simply asks instead).
       const offers = await llmExtractOffers(text)
       extraction = { sourceId, offers, clarifyingQuestions: null }

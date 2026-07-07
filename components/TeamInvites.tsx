@@ -43,7 +43,7 @@ export function TeamInvites() {
     }
     setMessage('')
     // Server route: inserts under the owner's session (RLS + plan-gate still apply)
-    // AND emails the invitee a link to join — a direct client insert sent no
+    // AND emails the invitee a link to join - a direct client insert sent no
     // notification, so the teammate never knew and collaboration never started.
     try {
       const to = email.trim().toLowerCase()
@@ -63,11 +63,11 @@ export function TeamInvites() {
           ? `${to} is already invited.`
           : data.emailed
             ? `Invite sent to ${to}.`
-            : `Invite created for ${to}, but we couldn’t send the email — share the workspace link directly.`,
+            : `Invite created for ${to}, but we couldn’t send the email - share the workspace link directly.`,
       )
       void load()
     } catch {
-      setMessage('Could not send the invite — try again.')
+      setMessage('Could not send the invite - try again.')
     }
   }
 
@@ -84,7 +84,7 @@ export function TeamInvites() {
         <h2 className="text-xl font-semibold">Team</h2>
       </div>
       <p className="mt-1 text-sm text-[var(--fg-muted)]">
-        Invite teammates by email — they get role-based access to your listings and negotiations. We email them a link to
+        Invite teammates by email - they get role-based access to your listings and negotiations. We email them a link to
         join; they sign in with that same email to get access.
       </p>
 
@@ -128,7 +128,7 @@ export function TeamInvites() {
           </div>
         ) : invites.length === 0 ? (
           <EmptyState icon={Users} title="No teammates yet">
-            Invite collaborators to help manage your listings and negotiations — they get scoped, role-based access without
+            Invite collaborators to help manage your listings and negotiations - they get scoped, role-based access without
             sharing your login.
           </EmptyState>
         ) : (

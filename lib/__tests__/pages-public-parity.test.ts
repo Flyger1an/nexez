@@ -13,7 +13,7 @@ import { PUBLIC_PAGE_SELECT } from '../agent-page'
 function projectionOutputColumns(sql: string): string[] {
   const m = sql.match(/create\s+(?:or\s+replace\s+view|table)\s+public\.pages_public(?:\s+as)?\s+select([\s\S]*?)\sfrom\s+(?:public\.)?pages\b/i)
   if (!m) return []
-  // Split the projection on TOP-LEVEL commas only — the rules-stripping jsonb
+  // Split the projection on TOP-LEVEL commas only - the rules-stripping jsonb
   // subqueries contain commas inside parens that must not split a column.
   const parts: string[] = []
   let depth = 0

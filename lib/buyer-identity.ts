@@ -1,5 +1,5 @@
 // Optional buyer identity an agent (or the on-page form) can declare at checkout so
-// the seller knows WHO is buying and the buyer gets a receipt + order-portal access —
+// the seller knows WHO is buying and the buyer gets a receipt + order-portal access -
 // instead of the only signal being whatever email Stripe collected on its hosted page.
 //
 // Pure + tested; shared by the direct-checkout route and the negotiation pay route.
@@ -12,7 +12,7 @@ const NAME_MAX = 200
 const REFERENCE_MAX = 200
 const AGENT_MAX = 120
 
-// Pragmatic shape check — just enough to reject garbage before Stripe (which rejects
+// Pragmatic shape check - just enough to reject garbage before Stripe (which rejects
 // malformed customer_email anyway). Not a full RFC 5322 validation.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 

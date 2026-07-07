@@ -1,5 +1,5 @@
 import 'server-only'
-// Lightweight error observability — gated behind env. When OBSERVABILITY_WEBHOOK_URL
+// Lightweight error observability - gated behind env. When OBSERVABILITY_WEBHOOK_URL
 // is set, errors are POSTed there (Better Stack / Logtail, Axiom, Slack relay, etc.);
 // otherwise we just console.error. No heavy SDK dependency.
 //
@@ -13,7 +13,7 @@ export function isObservabilityConfigured(): boolean {
 
 export function captureEvent(name: string, data: Record<string, unknown> = {}): void {
   // Info-level telemetry (agent-turn + tool latency/outcome). Local log always; POSTed to
-  // the same sink as errors when configured. Fire-and-forget — never throws into the caller.
+  // the same sink as errors when configured. Fire-and-forget - never throws into the caller.
   console.info('[nexez:event]', name, data)
 
   const url = process.env.OBSERVABILITY_WEBHOOK_URL
@@ -37,7 +37,7 @@ export function captureEvent(name: string, data: Record<string, unknown> = {}): 
         console.warn('[nexez] observability sink unreachable:', err instanceof Error ? err.message : String(err))
       })
   } catch {
-    // ignore — never let observability break the caller
+    // ignore - never let observability break the caller
   }
 }
 
@@ -56,7 +56,7 @@ export function captureError(error: unknown, context: Record<string, unknown> = 
   if (token) headers['Authorization'] = `Bearer ${token}`
 
   // Fire-and-forget; never throw from the error path. But DO surface a failed send
-  // — a silently-broken observability sink (wrong token/URL) is worse than none,
+  // - a silently-broken observability sink (wrong token/URL) is worse than none,
   // since you'd believe you have alerting and don't. A non-2xx or network error is
   // logged so it shows up in the function logs instead of vanishing.
   try {
@@ -80,6 +80,6 @@ export function captureError(error: unknown, context: Record<string, unknown> = 
         console.warn('[nexez] observability sink unreachable:', err instanceof Error ? err.message : String(err))
       })
   } catch {
-    // ignore — never let observability break the caller
+    // ignore - never let observability break the caller
   }
 }

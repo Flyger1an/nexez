@@ -258,7 +258,7 @@ export async function getOverviewMetrics(userId: string): Promise<SellerOverview
   }))
 
   // Money hero: 30d pipeline from conversion events, payouts from paid orders,
-  // and a 10-day agent-visit sparkline — all from real seller signals.
+  // and a 10-day agent-visit sparkline - all from real seller signals.
   const pipelineCents = events
     .filter((event) => event.event_type === 'stripe_session_created' && event.metadata?.dry_run !== true)
     .reduce((sum, event) => sum + (Number(event.metadata?.amount_cents) || 0), 0)

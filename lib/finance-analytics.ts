@@ -3,7 +3,7 @@
 // a server page or a client island. GMV = the value of created Stripe checkout
 // sessions (purchase intent at Stripe), excluding dry-run simulator events.
 //
-// HARD RULE: never sum amounts ACROSS currencies — amount_cents is the page's
+// HARD RULE: never sum amounts ACROSS currencies - amount_cents is the page's
 // settlement-currency smallest unit (per lib/currency), so cross-currency sums are
 // meaningless. Everything here buckets BY currency.
 import type { CheckoutEvent } from './checkout-events'
@@ -138,7 +138,7 @@ export function getCurrencyOptions(events: CheckoutEvent[]): string[] {
 // ── Negotiated / escrow channel ─────────────────────────────────────────────
 // The second revenue rail (agent_negotiations). Distinct from direct checkout:
 // these are AGREED escrow amounts with a real settlement lifecycle, NOT checkout
-// intent — never sum the two channels into one number, and never across currencies.
+// intent - never sum the two channels into one number, and never across currencies.
 
 /** The widened agent_negotiations row the finance page selects (status + money + provenance). */
 export type NegotiationFinanceRow = {
@@ -196,9 +196,9 @@ export function rollupNegotiationsByCurrency(negs: NegotiationFinanceRow[]): Neg
 }
 
 /**
- * Share of captured escrow value that was later reversed (refunded/disputed) — a
+ * Share of captured escrow value that was later reversed (refunded/disputed) - a
  * marketplace trust signal. Returns null when there's no settled volume to judge
- * (mirrors pctDelta's "no signal → null" so the UI shows "—" not a fake 0%).
+ * (mirrors pctDelta's "no signal → null" so the UI shows "-" not a fake 0%).
  */
 export function getReversalRate(row: { completeCents: number; reversedCents: number }): number | null {
   const denom = row.completeCents + row.reversedCents
@@ -228,7 +228,7 @@ const LEDGER_NEG_STATUSES = new Set(['held', 'complete', 'refunded', 'disputed']
 
 /**
  * Interleave the DIRECT checkout channel (checkout_events) and the NEGOTIATED
- * escrow channel (agent_negotiations) into one time-ordered ledger — the living
+ * escrow channel (agent_negotiations) into one time-ordered ledger - the living
  * record of marketplace activity. Fee prefers charge-time snapshot if present on the
  * row (post 20260627 migration), else derives from passed current plan rate.
  * Each row carries its own currency;
@@ -269,7 +269,7 @@ export function buildMarketplaceLedger(
     const amountCents = minorToStripeAmount(n.amount_cents, normalizeCurrency(n.currency))
     const isReversal = n.status === 'refunded' || n.status === 'disputed'
     // A refund/dispute returns the full amount to the buyer (escrow refunds aren't
-    // fee-reduced), so the seller's outflow is the whole amount — fee n/a.
+    // fee-reduced), so the seller's outflow is the whole amount - fee n/a.
     // Prefer snapshot at charge time if present (from migration 20260627000000).
     const snapshotFee = (n as any).application_fee_cents
     const feeCents = isReversal ? 0 : (typeof snapshotFee === 'number' && snapshotFee != null ? snapshotFee : calculateApplicationFeeCents(amountCents, commissionPct))

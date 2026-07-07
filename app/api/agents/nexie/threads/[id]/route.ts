@@ -7,7 +7,7 @@ export const maxDuration = 30
 type WireMessage = { id: string; role: 'user' | 'assistant'; content: string; cards?: unknown[] }
 
 /**
- * GET /api/agents/nexie/threads/[id] — a single conversation's messages, mapped to the
+ * GET /api/agents/nexie/threads/[id] - a single conversation's messages, mapped to the
  * mobile chat shape so the app can RESUME it. Assistant cards are restored from the
  * message metadata. Owner-scoped (RLS + explicit user_id match); 404 if not the owner's.
  */
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 /**
- * PATCH /api/agents/nexie/threads/[id] — rename ({ title }) and/or archive ({ archived }).
+ * PATCH /api/agents/nexie/threads/[id] - rename ({ title }) and/or archive ({ archived }).
  * Owner-scoped; the title is trimmed + length-capped server-side.
  */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

@@ -1,4 +1,4 @@
-// Smart Rules Phase 2 — proposal review + counter-offer suggestion.
+// Smart Rules Phase 2 - proposal review + counter-offer suggestion.
 //
 // Two paths, one contract:
 // - LLM review (gated on LLM_API_KEY + page llm_opt_in): the model reads the
@@ -10,7 +10,7 @@
 // Deterministic rules ALWAYS win: LLM output is clamped so a counter never
 // lands below the owner's floor (minPrice / max-discount), an "accept" below
 // the floor is downgraded to a counter, and a counter never exceeds the listed
-// price. The private rule values are used server-side only — callers must not
+// price. The private rule values are used server-side only - callers must not
 // serialize them to agents.
 import { OfferItem } from './agent-page'
 import { formatUsdCents, parseMoneyCents } from './checkout'
@@ -88,7 +88,7 @@ export function clampReview(
   const listed = parseMoneyCents(offer.price)
   let counterPriceCents = typeof raw.counterPriceCents === 'number' && raw.counterPriceCents > 0 ? raw.counterPriceCents : null
 
-  // Never accept below the owner's floor — downgrade to a counter at the floor.
+  // Never accept below the owner's floor - downgrade to a counter at the floor.
   if (recommendation === 'accept' && floor != null && proposedPriceCents != null && proposedPriceCents < floor) {
     recommendation = 'counter'
     counterPriceCents = counterPriceCents ?? floor
@@ -193,7 +193,7 @@ function deterministicReview(input: ReviewProposalInput): ProposalReview {
   const counterCents = suggestCounterCents(offer, proposal.proposedPriceCents)
   const flagged = evaluation.decision === 'flag'
   const reasoning = flagged
-    ? 'Proposal is outside your pricing rules — counter to bring it back within range.'
+    ? 'Proposal is outside your pricing rules - counter to bring it back within range.'
     : 'Proposal is within your rules; a counter toward the listed price is suggested.'
 
   if (counterCents != null) {

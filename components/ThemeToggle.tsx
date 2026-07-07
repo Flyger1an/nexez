@@ -26,14 +26,14 @@ const OPTIONS: { id: ThemeChoice; Icon: typeof Sun; label: string }[] = [
 // Platform-wide light / dark / system theme switch. Persists to localStorage,
 // applies the class on <html>, and reacts to OS changes while in system mode.
 export function ThemeToggle({ className = '' }: { className?: string }) {
-  const [choice, setChoice] = useState<ThemeChoice>('light')
+  const [choice, setChoice] = useState<ThemeChoice>('dark')
 
   useEffect(() => {
-    const stored = (localStorage.getItem(THEME_KEY) as ThemeChoice) || 'light'
+    const stored = (localStorage.getItem(THEME_KEY) as ThemeChoice) || 'dark'
     setChoice(stored)
     const mq = window.matchMedia('(prefers-color-scheme: light)')
     const onChange = () => {
-      if (((localStorage.getItem(THEME_KEY) as ThemeChoice) || 'light') === 'system') apply('system')
+      if (((localStorage.getItem(THEME_KEY) as ThemeChoice) || 'dark') === 'system') apply('system')
     }
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)

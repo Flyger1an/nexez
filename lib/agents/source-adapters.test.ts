@@ -100,11 +100,11 @@ describe('source adapters', () => {
     expect(out.map((r) => r.page.slug)).toEqual(['n1'])
   })
 
-  it('register-by-config: a newly registered source joins the default fan-out — zero agent-loop change', async () => {
+  it('register-by-config: a newly registered source joins the default fan-out - zero agent-loop change', async () => {
     registerSourceAdapter(stub('stub-source', [result(0.99, 'stub-hit')]))
     expect(getSourceAdapters().some((a) => a.id === 'stub-source')).toBe(true)
     // Exercise the DEFAULT registry (what the agent loop calls), but only over a sub-list
-    // that excludes nexez (its search needs a live DB) — proving the stub participates.
+    // that excludes nexez (its search needs a live DB) - proving the stub participates.
     const out = await searchAllSources('q', 5, ctx, {}, getSourceAdapters().filter((a) => a.id !== 'nexez'))
     expect(out.some((r) => r.page.slug === 'stub-hit')).toBe(true)
   })

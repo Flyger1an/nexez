@@ -1,14 +1,14 @@
-// Seller intake interview — pure domain types.
+// Seller intake interview - pure domain types.
 // Spec: nexez-intake-interview-spec.md. The interview is a platform capability:
 // this module (and its siblings gaps.ts / reducer.ts) is pure + framework-free
-// (same discipline as lib/editor-merge.ts) — no I/O, no Date.now(), no LLM.
+// (same discipline as lib/editor-merge.ts) - no I/O, no Date.now(), no LLM.
 // Timestamps and ids always arrive via action payloads so the reducer is
 // deterministic and resumable.
 import type { FaqItem, OfferItem, OfferKind } from '../agent-page'
 import type { ImportClarifyingQuestion } from '../importer'
 
 /** The interview state machine (spec §3). GAP_ANALYSIS and SYNTHESIS are real,
- *  persisted phases — the LLM cannot skip them because the reducer validates
+ *  persisted phases - the LLM cannot skip them because the reducer validates
  *  every action against the current phase. */
 export type IntakePhase =
   | 'INGEST'
@@ -18,7 +18,7 @@ export type IntakePhase =
   | 'SYNTHESIS'
   | 'REVIEW_HANDOFF'
 
-/** Where a fact on the working draft came from (spec §2.1 — never invent).
+/** Where a fact on the working draft came from (spec §2.1 - never invent).
  *  - imported: sourced from ingestion (site crawl, integration, pasted text, existing page)
  *  - stated: the owner said it in the interview (always via a recorded GapAnswer)
  *  - suggested_confirmed: the agent suggested it and the owner explicitly confirmed */
@@ -32,11 +32,11 @@ export type IntakeSource = {
   /** URL / integration id / raw text. Empty for kind 'none' ("starting from scratch"). */
   value: string
   label?: string
-  addedAt: string // ISO — stamped by the caller, never inside the reducer
+  addedAt: string // ISO - stamped by the caller, never inside the reducer
 }
 
 /** The rich extraction result stored per source (spec §3 EXTRACT). A trimmed,
- *  serializable projection of ImportResult — native OfferItem[] throughout. */
+ *  serializable projection of ImportResult - native OfferItem[] throughout. */
 export type IntakeExtraction = {
   sourceId: string
   title?: string | null
@@ -103,12 +103,12 @@ export type IntakeOfferField =
   | 'offerType'
 
 /** An owner answer to a gap. `gapId` must reference a known gap, or carry the
- *  `volunteered:` prefix for facts the owner offered unprompted — this is what
+ *  `volunteered:` prefix for facts the owner offered unprompted - this is what
  *  keeps the provenance invariant structural: a field can only become
  *  'stated' / 'suggested_confirmed' through a recorded GapAnswer. */
 export type GapAnswer = {
   gapId: string
-  /** The owner's words (or a faithful paraphrase) — kept for provenance review. */
+  /** The owner's words (or a faithful paraphrase) - kept for provenance review. */
   answer: string
   skipped?: boolean
   fields?: IntakeFieldUpdate[]
@@ -120,10 +120,10 @@ export type IntakeMessage = {
   id: string
   role: 'owner' | 'agent'
   content: string
-  at: string // ISO — stamped by the caller
+  at: string // ISO - stamped by the caller
 }
 
-/** The working draft — native objects only (spec §2.2 / §9). Serialization to
+/** The working draft - native objects only (spec §2.2 / §9). Serialization to
  *  the pipe format happens once, at commit, outside this module. */
 export type IntakeDraft = {
   name: string
@@ -145,7 +145,7 @@ export type IntakeHandoff = {
   at: string
 }
 
-/** The full session state — everything the API persists into
+/** The full session state - everything the API persists into
  *  intake_sessions.state (spec §4). */
 export type IntakeState = {
   phase: IntakePhase
@@ -160,7 +160,7 @@ export type IntakeState = {
   answers: GapAnswer[]
   draft: IntakeDraft
   /** Field path → provenance. Keys: `page:<field>` / `offer:<offerKey>:<field>`
-   *  / `faq:<n>` — see provenanceKey(). */
+   *  / `faq:<n>` - see provenanceKey(). */
   provenance: Record<string, Provenance>
   messages: IntakeMessage[]
   handoff: IntakeHandoff | null
@@ -190,14 +190,14 @@ export type IntakeErrorCode =
   | 'blocking_gaps_remain'
   | 'already_handed_off'
 
-/** Discriminated result — same shape discipline as resolveFeatureOwner. The
+/** Discriminated result - same shape discipline as resolveFeatureOwner. The
  *  reducer never throws: routes surface `error` to the LLM / client and the
  *  prior state stays authoritative. */
 export type IntakeApplyResult =
   | { ok: true; state: IntakeState }
   | { ok: false; code: IntakeErrorCode; error: string }
 
-/** Provenance key helpers — one canonical spelling, used by reducer + tests. */
+/** Provenance key helpers - one canonical spelling, used by reducer + tests. */
 export function pageProvenanceKey(field: IntakePageField): string {
   return `page:${field}`
 }

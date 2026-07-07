@@ -180,7 +180,7 @@ export default function NegotiationDetailRoute() {
           {status === 'complete' ? (
             mode === 'refund' ? (
               <View style={st.form}>
-                <Text style={st.formLabel}>Refund amount ({(item.currency || 'usd').toUpperCase()}) — blank = full remainder</Text>
+                <Text style={st.formLabel}>Refund amount ({(item.currency || 'usd').toUpperCase()}) - blank = full remainder</Text>
                 <TextInput value={amountText} onChangeText={setAmountText} keyboardType="decimal-pad" placeholder="Full remainder" placeholderTextColor={colors.textTertiary} style={st.input} />
                 <AppButton
                   full

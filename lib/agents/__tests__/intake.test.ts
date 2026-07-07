@@ -87,8 +87,8 @@ const ids = { now: () => new Date(T0), newId: (() => { let n = 0; return () => `
 
 // ---------------------------------------------------------------------------
 
-describe('handleIntakeTurn — session guards', () => {
-  it('404s when the session does not exist (or belongs to someone else — RLS + eq)', async () => {
+describe('handleIntakeTurn - session guards', () => {
+  it('404s when the session does not exist (or belongs to someone else - RLS + eq)', async () => {
     const { db } = makeDb(null)
     const result = await handleIntakeTurn({ db, user: OWNER, sessionId: 'sess-1', content: 'hi' }, ids)
     expect(result).toMatchObject({ ok: false, status: 404 })
@@ -101,7 +101,7 @@ describe('handleIntakeTurn — session guards', () => {
   })
 })
 
-describe('handleIntakeTurn — deterministic interviewer (no LLM)', () => {
+describe('handleIntakeTurn - deterministic interviewer (no LLM)', () => {
   it('asks the top gap batch verbatim with a gap_batch card and persists', async () => {
     const { db, captured } = makeDb(sessionRow(analyzedState()))
     const result = await handleIntakeTurn({ db, user: OWNER, sessionId: 'sess-1', content: 'ready when you are' }, ids)
@@ -164,21 +164,21 @@ describe('handleIntakeTurn — deterministic interviewer (no LLM)', () => {
   })
 })
 
-describe('handleIntakeTurn — LLM tool loop (the reducer is the firewall)', () => {
+describe('handleIntakeTurn - LLM tool loop (the reducer is the firewall)', () => {
   it('a valid ask_gaps tool call interviews with the model phrasing', async () => {
     const state = analyzedState()
     const firstGap = state.gaps[0]
     const llm = vi
       .fn()
       .mockResolvedValueOnce({
-        choices: [{ message: { content: null, tool_calls: [toolCall('ask_gaps', { gapIds: [firstGap.id], phrasing: 'Quick one — what do the trays cost?' })] } }],
+        choices: [{ message: { content: null, tool_calls: [toolCall('ask_gaps', { gapIds: [firstGap.id], phrasing: 'Quick one - what do the trays cost?' })] } }],
       })
       .mockResolvedValueOnce({ choices: [{ message: { content: '' } }] })
     const { db } = makeDb(sessionRow(state))
     const result = await handleIntakeTurn({ db, user: OWNER, sessionId: 'sess-1', content: 'hi' }, { ...ids, llm })
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.message).toBe('Quick one — what do the trays cost?')
+    expect(result.message).toBe('Quick one - what do the trays cost?')
     expect(result.state.phase).toBe('INTERVIEW')
     expect(result.cards.some((c) => c.type === 'gap_batch')).toBe(true)
   })
@@ -190,7 +190,7 @@ describe('handleIntakeTurn — LLM tool loop (the reducer is the firewall)', () 
       .mockResolvedValueOnce({
         choices: [{ message: { content: null, tool_calls: [toolCall('request_handoff', { summary: 'All done!' })] } }],
       })
-      .mockResolvedValueOnce({ choices: [{ message: { content: 'You are right — one more question first.' } }] })
+      .mockResolvedValueOnce({ choices: [{ message: { content: 'You are right - one more question first.' } }] })
     const { db } = makeDb(sessionRow(state))
     const result = await handleIntakeTurn({ db, user: OWNER, sessionId: 'sess-1', content: 'wrap it up' }, { ...ids, llm })
     expect(result.ok).toBe(true)
@@ -201,7 +201,7 @@ describe('handleIntakeTurn — LLM tool loop (the reducer is the firewall)', () 
     const secondCallMessages = llm.mock.calls[1][0] as Array<{ role: string; content: string }>
     const toolResult = secondCallMessages.find((m) => m.role === 'tool')
     expect(toolResult?.content).toContain('blocking_gaps_remain')
-    expect(result.message).toBe('You are right — one more question first.')
+    expect(result.message).toBe('You are right - one more question first.')
   })
 
   it('rejects invented offers: propose_offers outside the pool leaves the draft untouched', async () => {
@@ -211,7 +211,7 @@ describe('handleIntakeTurn — LLM tool loop (the reducer is the firewall)', () 
       .mockResolvedValueOnce({
         choices: [{ message: { content: null, tool_calls: [toolCall('propose_offers', { kind: 'services', offers: [{ name: 'Platinum Mega Package', description: '', price: '$9,999', url: '' }] })] } }],
       })
-      .mockResolvedValueOnce({ choices: [{ message: { content: 'Understood — sticking to what your site offers.' } }] })
+      .mockResolvedValueOnce({ choices: [{ message: { content: 'Understood - sticking to what your site offers.' } }] })
     const { db } = makeDb(sessionRow(state))
     const result = await handleIntakeTurn({ db, user: OWNER, sessionId: 'sess-1', content: 'make me look bigger' }, { ...ids, llm })
     expect(result.ok).toBe(true)
@@ -255,7 +255,7 @@ describe('handleIntakeTurn — LLM tool loop (the reducer is the firewall)', () 
     })
     if (answered.ok) state = answered.state
     const llm = vi.fn().mockResolvedValueOnce({
-      choices: [{ message: { content: null, tool_calls: [toolCall('request_handoff', { summary: 'Two offers, priced — review in the builder.' })] } }],
+      choices: [{ message: { content: null, tool_calls: [toolCall('request_handoff', { summary: 'Two offers, priced - review in the builder.' })] } }],
     })
     const { db } = makeDb(sessionRow(state))
     const result = await handleIntakeTurn({ db, user: OWNER, sessionId: 'sess-1', content: 'looks good' }, { ...ids, llm })
@@ -269,7 +269,7 @@ describe('handleIntakeTurn — LLM tool loop (the reducer is the firewall)', () 
   })
 })
 
-describe('commitIntakeSession — materialization (spec §10)', () => {
+describe('commitIntakeSession - materialization (spec §10)', () => {
   /** Rich offers exercising every roundtrip-sensitive field. */
   const richOffers: OfferItem[] = [
     {
@@ -334,7 +334,7 @@ describe('commitIntakeSession — materialization (spec §10)', () => {
     expect(captured.sessions[0].state.handoff.via).toBe('owner_exit') // commit before agent handoff = the owner exit
   })
 
-  it('serializes offers losslessly — the formatOfferLines/parseOfferLines roundtrip holds for every field', async () => {
+  it('serializes offers losslessly - the formatOfferLines/parseOfferLines roundtrip holds for every field', async () => {
     const state = committableState()
     const { db } = makeDb(sessionRow(state))
     const inserted: any[] = []
@@ -368,13 +368,13 @@ describe('commitIntakeSession — materialization (spec §10)', () => {
     const patch = captured.pages[0]
     expect(patch.draft).toBeTruthy()
     expect(patch.draft.services.length).toBeGreaterThan(0)
-    // live columns stay untouched — publishing is the builder's job
+    // live columns stay untouched - publishing is the builder's job
     expect(patch.name).toBeUndefined()
     expect(patch.services).toBeUndefined()
     expect(patch.is_published).toBeUndefined()
   })
 
-  it('is idempotent — a committed session replays to the same page id', async () => {
+  it('is idempotent - a committed session replays to the same page id', async () => {
     const { db } = makeDb(sessionRow(committableState(), { status: 'handed_off', page_id: 'page-done' }))
     const result = await commitIntakeSession({ db, admin: makeAdmin([], []), user: OWNER, sessionId: 'sess-1' })
     expect(result).toMatchObject({ ok: true, pageId: 'page-done', alreadyCommitted: true })
@@ -387,7 +387,7 @@ describe('commitIntakeSession — materialization (spec §10)', () => {
   })
 })
 
-describe('normalizeLlmAnswer — deterministic repairs from the live pass', () => {
+describe('normalizeLlmAnswer - deterministic repairs from the live pass', () => {
   it('parses fields sent as a JSON string', () => {
     const fixed = normalizeLlmAnswer({
       gapId: 'g',
@@ -427,7 +427,7 @@ describe('normalizeLlmAnswer — deterministic repairs from the live pass', () =
       .mockResolvedValueOnce({
         choices: [{ message: { content: null, tool_calls: [toolCall('record_answers', { answers: [{ gapId: 'offer:services-1:price', answer: '$250', fields: [{ target: 'offer', offerKey: 'services-1', field: 'price', value: '$250' }] }] })] } }],
       })
-      .mockResolvedValueOnce({ choices: [{ message: { content: 'Got it — trays at $250.' } }] })
+      .mockResolvedValueOnce({ choices: [{ message: { content: 'Got it - trays at $250.' } }] })
     const { db } = makeDb(sessionRow(state))
     const result = await handleIntakeTurn({ db, user: OWNER, sessionId: 'sess-1', content: 'trays are $250' }, { ...ids, llm })
     expect(result.ok).toBe(true)

@@ -5,7 +5,7 @@
 // host allowlist, a prompt injection could plant an attacker URL (phishing) there.
 // The price-floor clamp and internalNotes strip already neutralize the money/secret
 // paths; this closes the rendered-link path by trusting only known providers (or the
-// owner's own configured offer link, which is owner-set — not LLM-emitted).
+// owner's own configured offer link, which is owner-set - not LLM-emitted).
 
 const ALLOWED_SCHEDULING_HOSTS = [
   'calendly.com',
@@ -24,7 +24,7 @@ const ALLOWED_SCHEDULING_HOSTS = [
   'meetings.hubspot.com',
 ]
 // Note: open-signup / user-content hosts (square.site, the broad hubspot.com) were
-// removed — `host.endsWith('.square.site')` would have trusted attacker.square.site,
+// removed - `host.endsWith('.square.site')` would have trusted attacker.square.site,
 // undercutting the anti-phishing purpose. Keep only dedicated scheduler hosts.
 
 function hostOf(url: string | null | undefined): string | null {

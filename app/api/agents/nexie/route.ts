@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       db,
       userId: user.id,
       // Only carry the buyer email into the transact path if it's CONFIRMED. An unconfirmed (or
-      // attacker-chosen) address must never be stamped onto orders/negotiations — mirrors the
+      // attacker-chosen) address must never be stamped onto orders/negotiations - mirrors the
       // orders endpoint + push-token trigger. Unconfirmed users can still chat/search; their
       // bookings just go through unattributed rather than linked to an unverified email.
       userEmail: user.email_confirmed_at ? (user.email ?? null) : null,

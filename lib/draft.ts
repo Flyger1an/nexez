@@ -1,4 +1,4 @@
-// D12 — staging: draft content that can be previewed before it goes live.
+// D12 - staging: draft content that can be previewed before it goes live.
 // Pure helpers shared by the editor (save/publish) and the public page
 // (owner-only preview overlay). Drafts are owner-only; never selected for
 // anonymous public reads.

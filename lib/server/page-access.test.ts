@@ -105,7 +105,7 @@ describe('resolveFeatureOwner', () => {
     refs.invite = null
   })
 
-  it('self-gates the caller when NO pageId (create/sandbox flow) — never touches admin', async () => {
+  it('self-gates the caller when NO pageId (create/sandbox flow) - never touches admin', async () => {
     const r = await resolveFeatureOwner({ pageId: undefined, userId: 'u-self', userEmail: 'u@x.com' })
     expect(r).toEqual({ ok: true, ownerId: 'u-self', pageId: null, scoped: false, role: 'owner' })
   })

@@ -32,7 +32,7 @@ export function clientIp(request: Request): string {
   // overwrites x-forwarded-for / x-real-ip and adds x-vercel-forwarded-for (its
   // trusted signal, leftmost = real client). Non-standard headers like
   // cf-connecting-ip are NOT managed on this deployment (no Cloudflare in front),
-  // so they pass through from the caller verbatim — trusting them let a client
+  // so they pass through from the caller verbatim - trusting them let a client
   // mint a fresh rate-limit bucket per request by spoofing one header, defeating
   // the per-IP cap regardless of the shared store. Never read cf-connecting-ip.
   const vercel = request.headers.get('x-vercel-forwarded-for')
@@ -45,11 +45,11 @@ export function clientIp(request: Request): string {
 }
 
 // Optional shared backing store (Upstash Redis / Vercel KV REST). When configured,
-// limits are GLOBAL across serverless instances — closing the per-instance bypass
+// limits are GLOBAL across serverless instances - closing the per-instance bypass
 // where caps aren't coherent and cold instances reset the window. When NOT
 // configured, the in-memory `rateLimit` is used transparently, so dev/test and
 // un-provisioned deploys keep working unchanged. Errors fail OPEN (to the in-memory
-// limiter) — a Redis outage must never take down a route.
+// limiter) - a Redis outage must never take down a route.
 function redisRestConfig(): { url: string; token: string } | null {
   const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL
   const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN
@@ -131,7 +131,7 @@ export async function enforceRateLimit(
   opts?: { subject?: string; failClosed?: boolean },
 ): Promise<NextResponse | null> {
   // `subject` keys the bucket by a stable identity (e.g. the authed user id) instead of the client
-  // IP — so one account can't multiply its quota by rotating IPs. `failClosed` denies on a shared-
+  // IP - so one account can't multiply its quota by rotating IPs. `failClosed` denies on a shared-
   // store OUTAGE (money/expensive routes). Both default off → existing callers are unchanged.
   const id = opts?.subject ? `u:${opts.subject}` : clientIp(request)
   const res = await rateLimitShared(`${route}:${id}`, limit, windowMs, Date.now(), { failClosed: opts?.failClosed })
@@ -153,7 +153,7 @@ export const NEGOTIATION_RATE_LIMITS = {
  * returns null to proceed.
  *
  * `buyerAgent` is buyer-supplied and therefore spoofable, so its bucket is a
- * fairness/cost guard — NOT a security control. The IP and page buckets are the
+ * fairness/cost guard - NOT a security control. The IP and page buckets are the
  * real guards, and become globally-shared once a Redis/KV store is configured.
  */
 export async function enforceNegotiationRateLimit(
@@ -166,7 +166,7 @@ export async function enforceNegotiationRateLimit(
   const agent = (ctx.buyerAgent || 'anonymous').toLowerCase().slice(0, 120)
 
   const results = await Promise.all([
-    // Negotiation create writes persistent state + sends seller email — the IP guard fails CLOSED on
+    // Negotiation create writes persistent state + sends seller email - the IP guard fails CLOSED on
     // a shared-store outage so the abuse window can't be re-opened by knocking the store over.
     rateLimitShared(`neg:ip:${ip}`, NEGOTIATION_RATE_LIMITS.ip.limit, NEGOTIATION_RATE_LIMITS.ip.windowMs, now, { failClosed: true }),
     rateLimitShared(`neg:page:${slug}`, NEGOTIATION_RATE_LIMITS.page.limit, NEGOTIATION_RATE_LIMITS.page.windowMs, now),

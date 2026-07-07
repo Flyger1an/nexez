@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Leaf, Lock, Monitor, ScanLine } from 'lucide-react'
 
 /**
- * The homepage hero centerpiece: the SAME business ("Nexez Spa") rendered two ways —
+ * The homepage hero centerpiece: the SAME business ("Nexez Spa") rendered two ways -
  * a cluttered, ambiguous HUMAN page vs the brutally clean AGENT layer Nexez derives.
  *
  *  - Desktop (md+): a compact draggable X-RAY sized to sit in the hero's right column
@@ -13,10 +13,10 @@ import { Leaf, Lock, Monitor, ScanLine } from 'lucide-react'
  *    machine layer on the right; a draggable vertical scanner reveals one over the
  *    other. Both halves are tuned to fill the panel with no dead space.
  *  - Mobile (<md): a single full-width view + a segmented Human/Agent toggle (default
- *    Agent — the payoff) inside a browser-chrome frame, with a one-shot derive sweep.
+ *    Agent - the payoff) inside a browser-chrome frame, with a one-shot derive sweep.
  *
  * Both panes are FIXED "device-screen" colors (warm paper / machine dark) that do NOT
- * theme-flip — the human-vs-machine contrast is the point (mirrors the agent-page
+ * theme-flip - the human-vs-machine contrast is the point (mirrors the agent-page
  * convention). Periwinkle accents use var(--signal) so they stay on-brand light + dark.
  */
 export function AgentXray() {
@@ -28,7 +28,7 @@ export function AgentXray() {
   )
 }
 
-// 4 offers — vague on the human side, firm on the agent side (same business).
+// 4 offers - vague on the human side, firm on the agent side (same business).
 const DESKTOP_OFFERS: [string, string, string, string, string][] = [
   // [name, duration, vaguePrice, firmPrice, action]
   ['Deep Tissue', '60 / 90 min', 'from $120*', '$120', 'book'],
@@ -40,7 +40,7 @@ const DESKTOP_OFFERS: [string, string, string, string, string][] = [
 // ── Desktop: a compact draggable X-ray that fills the hero's right column ──────────
 
 function XrayDesktop({ className }: { className?: string }) {
-  const [reveal, setReveal] = useState(63) // 3..97 — scanner position (% from left). Rest at ~63 so the human listing reads as a near-complete card and the agent view teases from the right (cleaner than a 50/50 mid-content cut); drag reveals more.
+  const [reveal, setReveal] = useState(63) // 3..97 - scanner position (% from left). Rest at ~63 so the human listing reads as a near-complete card and the agent view teases from the right (cleaner than a 50/50 mid-content cut); drag reveals more.
   const [moved, setMoved] = useState(false)
   const draggingRef = useRef(false)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -95,7 +95,7 @@ function XrayDesktop({ className }: { className?: string }) {
         className="relative h-[440px] select-none overflow-hidden rounded-[18px] border border-border"
         style={{ boxShadow: '0 40px 90px -40px rgba(0,0,0,0.9)' }}
       >
-        {/* ===== HUMAN LAYER (paper) — compact, cluttered, ambiguous ===== */}
+        {/* ===== HUMAN LAYER (paper) - compact, cluttered, ambiguous ===== */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 flex flex-col overflow-hidden"
@@ -104,7 +104,7 @@ function XrayDesktop({ className }: { className?: string }) {
           {/* promo strip (full-bleed) */}
           <div className="flex items-center justify-between text-[10px]" style={{ margin: '-18px -20px 0', background: '#16150F', color: '#F3EFE6', padding: '5px 20px' }}>
             <span>
-              ▸ SUMMER SALE — <b style={{ color: '#E7B14B' }}>40% off*</b> select packages
+              ▸ SUMMER SALE - <b style={{ color: '#E7B14B' }}>40% off*</b> select packages
             </span>
             <span style={{ color: '#A79F8E' }}>📍 2 locations</span>
           </div>
@@ -140,7 +140,7 @@ function XrayDesktop({ className }: { className?: string }) {
               </div>
             </div>
 
-            {/* 4 services — vague pricing (the ambiguity) */}
+            {/* 4 services - vague pricing (the ambiguity) */}
             <div className="grid grid-cols-2 gap-1.5">
               {DESKTOP_OFFERS.map(([name, dur, vague]) => (
                 <div key={name} className="rounded-lg px-2.5 py-2" style={{ background: '#FFFFFF', border: '1px solid #E3DECF' }}>
@@ -164,7 +164,7 @@ function XrayDesktop({ className }: { className?: string }) {
           </div>
         </div>
 
-        {/* ===== AGENT LAYER (machine) — clean, compact ===== */}
+        {/* ===== AGENT LAYER (machine) - clean, compact ===== */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 flex flex-col"
@@ -315,7 +315,7 @@ function XrayMobile({ className }: { className?: string }) {
           </span>
         </div>
 
-        {/* stage — one full-width view */}
+        {/* stage - one full-width view */}
         <div className="relative h-[392px]">
           {view === 'human' ? <HumanPane /> : <AgentPane />}
           {swept && (
@@ -363,7 +363,7 @@ function XrayMobile({ className }: { className?: string }) {
 
 // ── Shared content panes for the mobile single-view (beautiful + clean) ─────────
 
-// An elegant system serif for the boutique-spa "human" mock — a different voice from
+// An elegant system serif for the boutique-spa "human" mock - a different voice from
 // Nexez's grotesque brand (it depicts a third-party site), zero font-load.
 const SERIF = 'Georgia, "Times New Roman", serif'
 
@@ -373,7 +373,7 @@ const OFFERS = [
   { name: 'Day Pass', dur: '', vague: 'call for pricing', price: '$60', action: 'buy' },
 ]
 
-// HUMAN — beautiful but ambiguous boutique-spa site (fixed warm colors; does NOT theme-flip).
+// HUMAN - beautiful but ambiguous boutique-spa site (fixed warm colors; does NOT theme-flip).
 function HumanPane() {
   return (
     <div className="relative flex h-full flex-col overflow-hidden" style={{ background: 'linear-gradient(165deg, #FCF9F3 0%, #F4ECDF 100%)', color: '#2A2520' }}>
@@ -381,7 +381,7 @@ function HumanPane() {
       <div aria-hidden className="pointer-events-none absolute -bottom-16 -left-16 size-56 rounded-full" style={{ background: 'radial-gradient(circle, rgba(233,201,192,0.45), transparent 70%)' }} />
 
       <div className="relative flex items-center justify-center gap-1.5 px-4 py-1.5 text-[10px] tracking-[0.04em]" style={{ background: 'linear-gradient(90deg, rgba(201,162,75,0.16), rgba(233,201,192,0.24), rgba(201,162,75,0.16))', color: '#8A6A2E', borderBottom: '1px solid rgba(201,162,75,0.18)' }}>
-        <span>✦</span> Summer reset — <b style={{ fontWeight: 700 }}>20% off*</b> · ends soon
+        <span>✦</span> Summer reset - <b style={{ fontWeight: 700 }}>20% off*</b> · ends soon
       </div>
 
       <div className="relative flex flex-1 flex-col gap-3 px-5 py-4">
@@ -428,7 +428,7 @@ function HumanPane() {
   )
 }
 
-// AGENT — the clean machine layer (fixed dark; does NOT theme-flip).
+// AGENT - the clean machine layer (fixed dark; does NOT theme-flip).
 function AgentPane() {
   return (
     <div className="flex h-full flex-col gap-3 p-5" style={{ background: '#08080C' }}>

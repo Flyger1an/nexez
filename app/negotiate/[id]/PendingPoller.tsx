@@ -44,7 +44,7 @@ export default function PendingPoller({ id, token, currentSeq }: { id: string; t
           router.refresh()
         }
       } catch {
-        // transient — keep polling until the cap
+        // transient - keep polling until the cap
       }
     }, INTERVAL_MS)
 
@@ -58,7 +58,7 @@ export default function PendingPoller({ id, token, currentSeq }: { id: string; t
         <div className="text-sm font-medium">The seller’s negotiation assistant is responding…</div>
         <div className="text-xs text-zinc-400">
           {waited >= 120_000
-            ? 'Still working — refresh in a moment to see the decision.'
+            ? 'Still working - refresh in a moment to see the decision.'
             : 'This usually takes a few seconds. The thread will update automatically.'}
         </div>
       </div>

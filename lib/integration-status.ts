@@ -43,7 +43,7 @@ export async function recordIntegration(provider: IntegrationProvider, detail?: 
       { onConflict: 'user_id,provider' },
     )
   } catch {
-    // non-fatal — status persistence is a nicety, not a gate
+    // non-fatal - status persistence is a nicety, not a gate
   }
 }
 

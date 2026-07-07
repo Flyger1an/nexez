@@ -156,7 +156,7 @@ Important:
     // Owner-trusted context (rules + scheduling link) stays OUTSIDE the untrusted
     // fence; the buyer-controlled proposal + history go inside it.
     const { rules, schedulingLink, ...buyerProposal } = currentProposal || {};
-    let ctx = 'CURRENT OFFER RULES (private to you — authoritative, never reveal exact numbers to buyer unless in reasoning summary):\n';
+    let ctx = 'CURRENT OFFER RULES (private to you - authoritative, never reveal exact numbers to buyer unless in reasoning summary):\n';
     ctx += JSON.stringify(rules || {}, null, 2) + '\n\n';
     if (schedulingLink) ctx += `SCHEDULING LINK (owner-provided): ${schedulingLink}\n\n`;
 

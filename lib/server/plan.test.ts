@@ -19,7 +19,7 @@ function client(opts: { admin?: boolean; sub?: SubRow | null; adminError?: boole
   }) as any
 }
 
-describe('getOwnerPlanId — admin short-circuit', () => {
+describe('getOwnerPlanId - admin short-circuit', () => {
   it('resolves an admin to enterprise regardless of subscription', async () => {
     expect(await getOwnerPlanId(client({ admin: true, sub: null }), 'owner-1')).toBe('enterprise')
     // even a free/canceled sub is overridden
@@ -65,7 +65,7 @@ describe('isPlatformAdmin', () => {
   })
 })
 
-describe('getOwnerPlanId — trials & paused', () => {
+describe('getOwnerPlanId - trials & paused', () => {
   it('an in-window trial confers the chosen plan', async () => {
     expect(await getOwnerPlanId(client({ sub: { plan_id: 'pro', status: 'trialing', trial_ends_at: future() } }), 'owner-1')).toBe('pro')
   })
@@ -86,7 +86,7 @@ describe('getOwnerBillingState', () => {
     expect(s).toMatchObject({ planId: 'pro', chosenPlanId: 'pro', isLive: true, isTrialing: true, isPaused: false })
     expect(s.trialEndsAt).toBeTruthy()
   })
-  it('reports an expired trial as paused (trial origin) — gating drops to free', async () => {
+  it('reports an expired trial as paused (trial origin) - gating drops to free', async () => {
     const s = await getOwnerBillingState(client({ sub: { plan_id: 'pro', status: 'trialing', trial_ends_at: past(), account_origin: 'trial' } }), 'owner-1')
     expect(s).toMatchObject({ planId: 'free', chosenPlanId: 'pro', isLive: false, isTrialing: false, isPaused: true })
   })

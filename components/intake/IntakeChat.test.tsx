@@ -5,7 +5,7 @@ import { applyIntakeAction, createIntakeState, type IntakeState } from '../../li
 import { IntakeChat } from './IntakeChat'
 
 // ---------------------------------------------------------------------------
-// Fixtures — session states built through the real machine (no drift).
+// Fixtures - session states built through the real machine (no drift).
 
 function scratchState(): IntakeState {
   let state = createIntakeState()
@@ -68,7 +68,7 @@ afterEach(() => vi.unstubAllGlobals())
 
 // ---------------------------------------------------------------------------
 
-describe('IntakeChat — setup', () => {
+describe('IntakeChat - setup', () => {
   it('renders the setup screen with both start paths and the form escape hatch', async () => {
     mockFetch([noSessions])
     const onSwitch = vi.fn()
@@ -77,7 +77,7 @@ describe('IntakeChat — setup', () => {
     expect(screen.getByPlaceholderText('https://yourbusiness.com')).toBeInTheDocument()
     expect(screen.getByText('Start with my site')).toBeInTheDocument()
     expect(screen.getByText('Start from scratch')).toBeInTheDocument()
-    fireEvent.click(screen.getByText('Skip the chat — build with the form'))
+    fireEvent.click(screen.getByText('Skip the chat, build with the form'))
     expect(onSwitch).toHaveBeenCalled()
   })
 
@@ -104,7 +104,7 @@ describe('IntakeChat — setup', () => {
   })
 })
 
-describe('IntakeChat — re-interview mode (existing listing)', () => {
+describe('IntakeChat - re-interview mode (existing listing)', () => {
   /** A session seeded from an existing page, built through the real machine. */
   function seededState(): IntakeState {
     let state = createIntakeState({
@@ -124,7 +124,7 @@ describe('IntakeChat — re-interview mode (existing listing)', () => {
     return state
   }
 
-  it('renders the re-interview setup — single start action, no URL/scratch inputs', async () => {
+  it('renders the re-interview setup - single start action, no URL/scratch inputs', async () => {
     mockFetch([noSessions])
     render(<IntakeChat reinterviewPageId="page-7" />)
     expect(screen.getByText('Re-interview this listing')).toBeInTheDocument()
@@ -172,7 +172,7 @@ describe('IntakeChat — re-interview mode (existing listing)', () => {
   })
 })
 
-describe('IntakeChat — interview', () => {
+describe('IntakeChat - interview', () => {
   it('a scratch start opens the chat with the first gap batch (blocking marks + quick answers)', async () => {
     mockFetch([
       noSessions,
@@ -203,13 +203,13 @@ describe('IntakeChat — interview', () => {
     const calls = mockFetch([
       noSessions,
       { match: (url, init) => url.endsWith('/api/agents/intake/threads') && init?.method === 'POST', status: 201, body: { ok: true, id: 'sess-1', state: scratchState() } },
-      { match: (url) => url.includes('/threads/sess-1/messages'), body: { ok: true, message: 'Noted — next question.', cards: [] } },
+      { match: (url) => url.includes('/threads/sess-1/messages'), body: { ok: true, message: 'Noted - next question.', cards: [] } },
     ])
     render(<IntakeChat />)
     fireEvent.click(screen.getByText('Start from scratch'))
     await waitFor(() => expect(screen.getAllByRole('button', { name: 'Skip' }).length).toBeGreaterThan(0))
     fireEvent.click(screen.getAllByRole('button', { name: 'Skip' })[0])
-    await waitFor(() => expect(screen.getByText('Noted — next question.')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Noted - next question.')).toBeInTheDocument())
     const turn = calls.find((c) => c.url.includes('/messages'))
     expect(turn?.payload.answers).toEqual([{ gapId: 'page:name', answer: 'skip', skipped: true }])
   })

@@ -144,7 +144,7 @@ describe('buildMarketplaceLedger', () => {
     expect(reversal.isReversal).toBe(true)
     expect(reversal.channel).toBe('negotiated')
     expect(reversal.buyerLabel).toBe('Agent') // fallback when buyer_agent unset
-    expect(reversal.feeCents).toBe(0) // full refund — no fee reduction
+    expect(reversal.feeCents).toBe(0) // full refund - no fee reduction
     expect(reversal.netCents).toBe(2000) // whole amount is the outflow
   })
 

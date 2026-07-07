@@ -76,7 +76,7 @@ export function IntegrationsScreen() {
             {isErrored ? (
               <View style={st.errorRow}>
                 <AlertTriangle size={15} color={colors.danger} />
-                <Text style={st.errorText}>Couldn’t reach Shopify — check your store URL, or finish setup on the web dashboard.</Text>
+                <Text style={st.errorText}>Couldn’t reach Shopify - check your store URL, or finish setup on the web dashboard.</Text>
               </View>
             ) : null}
           </View>

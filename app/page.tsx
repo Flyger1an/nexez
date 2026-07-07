@@ -77,7 +77,7 @@ const stats = [
   { value: 'Live', label: 'Conversion analytics' },
 ]
 
-// Agents that read structured pages — monogram lockups for the marquee.
+// Agents that read structured pages - monogram lockups for the marquee.
 const marqueeModels = [
   { name: 'ChatGPT', mark: 'G' },
   { name: 'Claude', mark: 'C' },
@@ -150,7 +150,7 @@ export default function NexezHome() {
       {/* HERO + MARQUEE share one smoke field that bleeds across both */}
       <div className="relative overflow-hidden" style={{ background: 'var(--bg)' }}>
         <ShaderBackdrop />
-        {/* HERO — text + CTAs on the left, the draggable Agent X-Ray prominent on the right */}
+        {/* HERO - text + CTAs on the left, the draggable Agent X-Ray prominent on the right */}
         <section
           className="relative z-10"
           aria-label="Hero"
@@ -163,7 +163,7 @@ export default function NexezHome() {
           <p className="sr-only">Hero</p>
         <div className="relative z-10 mx-auto max-w-7xl px-5 py-16 lg:py-20">
           <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(440px,0.9fr)] lg:gap-12">
-            {/* LEFT — h1, copy, CTAs */}
+            {/* LEFT - h1, copy, CTAs */}
             <div>
               <h1 className="text-balance text-[2.3rem] font-semibold leading-[1.05] tracking-[-0.035em] sm:text-[2.7rem] lg:text-[3.05rem]">
                 Get found by the agents <span className="nx-accent-text">doing the buying.</span>
@@ -178,7 +178,7 @@ export default function NexezHome() {
                 <a href="/how-it-works" className="btn-secondary h-11 px-5">See how it works</a>
               </div>
 
-              {/* stat ticker — compact, tucked under the CTAs beside the X-Ray */}
+              {/* stat ticker - compact, tucked under the CTAs beside the X-Ray */}
               <div className="mt-7 flex max-w-xl overflow-hidden rounded-[11px] border border-border" style={{ background: 'var(--ov-02)' }}>
                 {stats.map((s, i) => (
                   <div key={s.label} className={`flex-1 px-3 py-2.5 ${i < stats.length - 1 ? 'border-r border-border' : ''}`}>
@@ -189,7 +189,7 @@ export default function NexezHome() {
               </div>
             </div>
 
-            {/* RIGHT — the draggable X-Ray gets its own prominent space */}
+            {/* RIGHT - the draggable X-Ray gets its own prominent space */}
             <AgentXray />
           </div>
         </div>

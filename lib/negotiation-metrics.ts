@@ -4,7 +4,7 @@ import { NEGOTIATION_STATUSES, NegotiationStatus } from './negotiations'
  * Pure aggregation for the negotiation metrics dashboard (Burst 3c). Given the
  * owner's negotiation rows + their message turns, computes the funnel, decision
  * mix, async decision latency (the buyer-turn → seller-turn gap), escrow value,
- * throughput, and pending backlog. No I/O — the caller fetches the rows (RLS
+ * throughput, and pending backlog. No I/O - the caller fetches the rows (RLS
  * owner-scoped on the server) and the dashboard renders the result.
  */
 

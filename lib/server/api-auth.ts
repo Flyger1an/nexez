@@ -44,7 +44,7 @@ export async function authenticateApiKey(request: Request): Promise<ApiAuthResul
   // Plan gate: programmatic API access is a Pro (`apiAccess`) capability, re-checked
   // on EVERY request. Keys aren't auto-revoked on downgrade, so a key minted on Pro
   // must stop working once the owner drops below Pro (the only enforcement otherwise
-  // was at mint time — gating-review HIGH).
+  // was at mint time - gating-review HIGH).
   if (!(await ownerAllows(admin, data.owner_id, 'apiAccess'))) {
     return { ok: false, error: 'API access requires the Pro plan. Upgrade to use the API.', status: 402 }
   }

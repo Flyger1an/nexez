@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // Nexie regression after the agent-chat factor-out (spec §6/§11.3): the shipped
-// buyer surface must behave byte-for-byte — same endpoint contract, same thread
+// buyer surface must behave byte-for-byte - same endpoint contract, same thread
 // reuse, same approval flow, same copy.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '../test/dom'

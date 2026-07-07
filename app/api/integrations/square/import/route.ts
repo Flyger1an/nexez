@@ -96,7 +96,7 @@ function sampleOffers(): OfferItem[] {
 
 export async function POST(request: Request) {
   // Require auth + `integrations` (Pro) ON THE EFFECTIVE OWNER: authenticated outbound
-  // call with a caller-supplied access token — not anonymously abusable, and live sync
+  // call with a caller-supplied access token - not anonymously abusable, and live sync
   // is Pro. A `pageId` lets an editor-collaborator import into the owner's page (gate on
   // the owner's plan); the page-less create flow self-gates.
   const cookieStore = await cookies()

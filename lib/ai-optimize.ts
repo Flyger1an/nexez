@@ -101,7 +101,7 @@ export function generateStrongFaqs(businessName: string, audience: string, hasPr
   return faqs
 }
 
-// Voice Agent Optimization — deterministic, spoken-friendly rewrite (numbers as
+// Voice Agent Optimization - deterministic, spoken-friendly rewrite (numbers as
 // words, remove fluff, clear pauses, natural flow). The LLM-backed variant lives
 // in lib/ai-optimize-llm.ts (server-only) so this module stays client-safe.
 export function rewriteForVoiceSync(offer: OfferItem, businessName: string): OfferItem {
@@ -139,7 +139,7 @@ export function suggestPricingTiers(offers: OfferItem[]): { suggestion: string; 
 export function suggestSchemaImprovements(page: any): string[] {
   const tips: string[] = []
   if (!page.description || page.description.length < 40) tips.push('Add a rich natural-language summary (used in JSON-LD and agent.json).')
-  if ((page.services || []).some((s: any) => !s.duration)) tips.push('Add duration to services — agents use it for scheduling and availability.')
+  if ((page.services || []).some((s: any) => !s.duration)) tips.push('Add duration to services - agents use it for scheduling and availability.')
   if (!page.faqs || page.faqs.length < 2) tips.push('Add 2-3 FAQs (generateStrongFaqs already available).')
   if (!page.location && !page.contact_email) tips.push('Add location or email for agent context and trust.')
   tips.push('Ensure every offer has a direct url or global cta_url so agents have an actionable next step.')
@@ -153,7 +153,7 @@ export function suggestEnhancedFAQs(businessName: string, audience: string, offe
   if (offers[0]) {
     base.push({
       question: `Can I (or my agent) book the "${offers[0].name}" directly?`,
-      answer: `Yes — use the direct checkout link on this page or the agent.json for structured automation.`,
+      answer: `Yes - use the direct checkout link on this page or the agent.json for structured automation.`,
     })
   }
   return base

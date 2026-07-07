@@ -34,7 +34,7 @@ export function buildNotifications(input: {
     notifications.push({
       id: 'stale',
       severity: 'action',
-      message: `${stale.length} published listing${stale.length === 1 ? '' : 's'} may be stale — consider re-syncing`,
+      message: `${stale.length} published listing${stale.length === 1 ? '' : 's'} may be stale - consider re-syncing`,
       cta: 'Review',
       href: stale[0]?.id ? `/dashboard/${stale[0].id}/settings` : '/dashboard',
     })

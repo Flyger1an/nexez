@@ -12,7 +12,7 @@ export function OutboundActivityCard({ e }: { e: PageEditor }) {
         <div className="space-y-1 text-[11px]">
           {recentOutboundFires.slice(0, 4).map((evt: any, idx: number) => (
             <div key={idx} className="flex justify-between text-[var(--signal)]">
-              <span>{evt.event_type.replace(/_/g, ' ')} — {evt.offer_name}</span>
+              <span>{evt.event_type.replace(/_/g, ' ')} - {evt.offer_name}</span>
               <span className="text-[var(--signal)]/70">{new Date(evt.created_at).toLocaleTimeString()}</span>
             </div>
           ))}

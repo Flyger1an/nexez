@@ -46,7 +46,7 @@ async function authedOwner(pageId: string): Promise<AuthedOwner> {
   if (!access) return { error: NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 }) }
 
   const admin = createAdminClient()
-  // Ownership already proven by resolvePageAccess — load the trusted page row by id
+  // Ownership already proven by resolvePageAccess - load the trusted page row by id
   // (service-role, no owner_id filter needed since access.pageId is authoritative).
   const { data: page } = await admin
     .from('pages')
@@ -96,7 +96,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   // Plan gate (on the OWNER, not the acting collaborator): LLM credential review is
   // an AI feature (Launch+). Below that the file is still stored + listed, but stays
-  // 'pending' (no trust boost) — same fail-safe shape as a failed review, with a
+  // 'pending' (no trust boost) - same fail-safe shape as a failed review, with a
   // reason that nudges the upgrade.
   const aiAllowed = await ownerAllows(admin, access.ownerId, 'aiFeatures')
   // Fail-safe: any review failure → pending (never verified), so the file is
@@ -108,7 +108,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         bytes,
         business: { name: page.name, industry: page.industry, location: page.location },
       })
-    : { status: 'pending' as const, verdict: { reason: 'Credential review is an AI feature — upgrade to the Launch plan to get documents reviewed and verified.' } }
+    : { status: 'pending' as const, verdict: { reason: 'Credential review is an AI feature - upgrade to the Launch plan to get documents reviewed and verified.' } }
 
   const record: CredentialRecord = {
     id,

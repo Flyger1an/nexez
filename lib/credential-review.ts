@@ -3,7 +3,7 @@ import { llmComplete, llmVisionCompleteDetailed } from './llm'
 // LLM credential review. Looks at an uploaded document (image via vision, PDF
 // via text extraction) and judges whether it's a genuine, relevant, unexpired
 // professional credential for the business. This is LLM-REVIEWED plausibility,
-// NOT authority-grade authentication — we never contact an issuing body.
+// NOT authority-grade authentication - we never contact an issuing body.
 //
 // Fail-safe by construction: anything other than a confident, legitimate,
 // unexpired, matching credential returns 'pending' or 'rejected'. Only a clear
@@ -95,22 +95,22 @@ export async function reviewCredential(input: {
       const raw: unknown = docText
       const clean = (typeof raw === 'string' ? raw : Array.isArray(raw) ? raw.join('\n') : '').trim()
       if (!clean) {
-        return { status: 'pending', verdict: { reason: 'No readable text in the PDF (likely a scanned image) — left for manual review.' } }
+        return { status: 'pending', verdict: { reason: 'No readable text in the PDF (likely a scanned image) - left for manual review.' } }
       }
       text = await llmComplete(`${prompt}\n\nDOCUMENT TEXT:\n${clean.slice(0, 12000)}`, { system: SYSTEM, maxTokens: 500, temperature: 0.1 })
     } else {
       return { status: 'pending', verdict: { reason: 'Unsupported file type for automated review.' } }
     }
   } catch {
-    return { status: 'pending', verdict: { reason: 'Automated review could not run — left as pending (no score boost).' } }
+    return { status: 'pending', verdict: { reason: 'Automated review could not run - left as pending (no score boost).' } }
   }
 
   if (!text) {
-    return { status: 'pending', verdict: { reason: 'Review service unavailable — left as pending (no score boost).' } }
+    return { status: 'pending', verdict: { reason: 'Review service unavailable - left as pending (no score boost).' } }
   }
   const verdict = parseVerdict(text)
   if (!verdict) {
-    return { status: 'pending', verdict: { reason: 'Could not parse the review result — left as pending.' } }
+    return { status: 'pending', verdict: { reason: 'Could not parse the review result - left as pending.' } }
   }
   return { status: decide(verdict), verdict }
 }

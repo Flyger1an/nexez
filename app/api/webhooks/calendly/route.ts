@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
       calendly_event_type: eventType,
     },
   }
-  // Outbound webhooks are Pro+ — re-check at dispatch time so a downgraded owner
+  // Outbound webhooks are Pro+ - re-check at dispatch time so a downgraded owner
   // stops receiving deliveries (both per-page and account-level). `supabase` here
   // is the service-role client, so the plan resolves correctly.
   const obAllowed = await ownerAllows(supabase, page.owner_id, 'outboundWebhooks')

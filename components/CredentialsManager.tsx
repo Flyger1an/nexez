@@ -130,7 +130,7 @@ export function CredentialsManager({
       {error ? <p className="mt-1 text-[10px] text-red-400">{error}</p> : null}
       <p className="mt-1.5 text-[10px] text-[var(--fg-muted-2)]">
         Each upload is reviewed by an LLM (type, issuer, holder match, expiry). Only <span className="text-[var(--ready)]">reviewed</span> credentials
-        add to your Trust Score — a self-typed name never does. Documents stay private unless you tick “show publicly.”
+        add to your Trust Score - a self-typed name never does. Documents stay private unless you tick “show publicly.”
       </p>
     </div>
   )

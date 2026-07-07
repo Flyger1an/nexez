@@ -9,10 +9,10 @@ import { resolveRequestAuth } from '../../../../../../../lib/server/request-auth
 export const maxDuration = 60
 
 /**
- * POST /api/agents/intake/threads/[id]/messages — one interview turn (spec §5):
+ * POST /api/agents/intake/threads/[id]/messages - one interview turn (spec §5):
  * owner turn in → agent turn out (text + cards). Body:
  *   { content?: string, answers?: GapAnswer[] }
- * `answers` are structured quick-answers from a gap_batch card — they apply
+ * `answers` are structured quick-answers from a gap_batch card - they apply
  * through the reducer directly (no LLM interpretation), which also keeps the
  * interview functional when no LLM is configured.
  */

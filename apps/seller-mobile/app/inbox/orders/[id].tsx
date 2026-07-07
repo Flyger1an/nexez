@@ -152,7 +152,7 @@ export default function OrderDetailRoute() {
         <Card>
           {showForm ? (
             <View style={{ gap: 10 }}>
-              <Text style={st.formLabel}>Refund amount ({(item.currency || 'usd').toUpperCase()}) — blank = full remainder</Text>
+              <Text style={st.formLabel}>Refund amount ({(item.currency || 'usd').toUpperCase()}) - blank = full remainder</Text>
               <TextInput value={amountText} onChangeText={setAmountText} keyboardType="decimal-pad" placeholder="Full remainder" placeholderTextColor={colors.textTertiary} style={st.input} />
               <AppButton full label={busy ? 'Refunding…' : 'Issue refund'} icon={RefreshCcw} variant="danger" disabled={busy || !amountValid} onPress={confirmRefund} />
             </View>

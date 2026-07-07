@@ -8,7 +8,7 @@ import { loadReviewSummariesForSlugs } from '../../../lib/server/reviews'
 import { loadStorefrontHandlesForSlugs } from '../../../lib/server/storefront'
 
 export async function GET(request: Request) {
-  // Public agent-facing search — throttle to blunt scraping/DB abuse.
+  // Public agent-facing search - throttle to blunt scraping/DB abuse.
   const limited = await enforceRateLimit(request, 'agent-search', 30, 60_000)
   if (limited) return limited
 

@@ -1,6 +1,6 @@
-// Seller intake interview — deterministic gap analysis (spec §3 GAP_ANALYSIS).
+// Seller intake interview - deterministic gap analysis (spec §3 GAP_ANALYSIS).
 // Pure function of the session state: no I/O, no LLM, no randomness. The LLM's
-// job is to phrase these gaps conversationally — never to decide what to ask.
+// job is to phrase these gaps conversationally - never to decide what to ask.
 //
 // Inputs, in dedup priority order (first writer wins per field):
 //   1. importer clarifyingQuestions (already typed with field + why)
@@ -12,7 +12,7 @@
 // Gap kinds: 'blocking' prevents a publishable draft; 'quality' raises
 // readiness; 'opportunity' is upside. Coverage-based gaps persist until the
 // draft actually covers them (or the owner skips); knowledge gaps (industry /
-// opportunity) are one-shot — answered means done, whatever the answer was.
+// opportunity) are one-shot - answered means done, whatever the answer was.
 import { getCheckoutOfferKey, type OfferItem, type OfferKind } from '../agent-page'
 import type { Gap, GapKind, IntakeDraft, IntakeState } from './types'
 
@@ -35,7 +35,7 @@ const PAGE_FIELD_GAPS: Array<{
   { field: 'name', kind: 'blocking', order: 0, question: 'What is the name of your business?', why: 'Agents need a name to identify who they are buying from.' },
   { field: 'description', kind: 'blocking', order: 1, question: 'How would you describe what you do in a sentence or two?', why: 'The description is the first thing an agent reads to decide relevance.' },
   { field: 'website_url', kind: 'quality', order: 0, question: 'Do you have a website I should link to?', why: 'A linked site lets agents verify the business is real.' },
-  { field: 'cta_url', kind: 'quality', order: 1, question: 'Where should buyers go to book or pay — a booking page, checkout, or contact form?', why: 'Agents need a conversion destination to send buyers to.' },
+  { field: 'cta_url', kind: 'quality', order: 1, question: 'Where should buyers go to book or pay - a booking page, checkout, or contact form?', why: 'Agents need a conversion destination to send buyers to.' },
   { field: 'audience', kind: 'quality', order: 2, question: 'Who is your ideal customer?', why: 'Knowing the best-fit buyer helps agents match you to the right requests.' },
   { field: 'industry', kind: 'quality', order: 3, question: 'What industry or niche are you in?', why: 'A category improves agent matching and unlocks industry defaults.' },
   { field: 'location', kind: 'quality', order: 4, question: 'Where are you located, or what area do you serve?', why: 'Local buyers filter by area; agents skip listings without one.' },
@@ -115,14 +115,14 @@ const INDUSTRY_EXPECTATIONS: IndustryExpectation[] = [
   {
     key: 'catering-radius', match: ['catering', 'private chef', 'food truck', 'meal prep'], kind: 'quality', order: 1,
     field: 'offer.serviceArea',
-    question: 'How far do you travel for events — what is your service radius?',
+    question: 'How far do you travel for events - what is your service radius?',
     why: 'Local buyers are matched by area; a radius makes you eligible for more precise requests.',
     coveredBy: (draft) => offerEntries(draft).some(({ offer }) => Boolean(offer.serviceArea?.trim())),
   },
   {
     key: 'catering-dietary', match: ['catering', 'private chef', 'food truck', 'meal prep'], kind: 'opportunity', order: 0,
     field: 'offer.dietary',
-    question: 'Do you offer dietary options — vegetarian, vegan, gluten-free, halal, kosher?',
+    question: 'Do you offer dietary options - vegetarian, vegan, gluten-free, halal, kosher?',
     why: 'Dietary coverage is one of the most common agent-side filters for food requests.',
   },
   // Photography / video / creative production
@@ -135,14 +135,14 @@ const INDUSTRY_EXPECTATIONS: IndustryExpectation[] = [
   {
     key: 'photo-licensing', match: ['photography', 'video production', 'videography'], kind: 'quality', order: 1,
     field: 'offer.licensing',
-    question: 'How do you handle usage rights and licensing — are they included in the price?',
+    question: 'How do you handle usage rights and licensing - are they included in the price?',
     why: 'Licensing ambiguity stalls agent-led purchases of creative work.',
   },
   // Home / field services
   {
     key: 'home-service-area', match: ['plumbing', 'hvac', 'electrical', 'roofing', 'handyman', 'cleaning', 'landscaping', 'pest control', 'locksmith', 'moving', 'appliance repair', 'pressure washing', 'window cleaning', 'pool cleaning', 'home services'], kind: 'quality', order: 0,
     field: 'offer.serviceArea',
-    question: 'What area do you serve — which neighborhoods, cities, or radius?',
+    question: 'What area do you serve - which neighborhoods, cities, or radius?',
     why: 'Field-service requests are matched by coverage area first.',
     coveredBy: (draft) => offerEntries(draft).some(({ offer }) => Boolean(offer.serviceArea?.trim())),
   },
@@ -150,7 +150,7 @@ const INDUSTRY_EXPECTATIONS: IndustryExpectation[] = [
     key: 'home-emergency', match: ['plumbing', 'hvac', 'electrical', 'locksmith', 'appliance repair'], kind: 'quality', order: 1,
     field: 'offer.emergency',
     question: 'Do you take emergency or after-hours calls, and is there a different rate?',
-    why: 'Emergency availability is a high-intent match — agents route urgent jobs to businesses that state it.',
+    why: 'Emergency availability is a high-intent match - agents route urgent jobs to businesses that state it.',
   },
   {
     key: 'home-callout', match: ['plumbing', 'hvac', 'electrical', 'handyman', 'appliance repair'], kind: 'opportunity', order: 0,
@@ -162,7 +162,7 @@ const INDUSTRY_EXPECTATIONS: IndustryExpectation[] = [
   {
     key: 'consulting-engagement', match: ['consulting', 'consultant', 'coaching', 'advisory', 'strategy'], kind: 'quality', order: 0,
     field: 'offer.engagement',
-    question: 'How do clients typically engage you — one-off projects, retainers, or hourly?',
+    question: 'How do clients typically engage you - one-off projects, retainers, or hourly?',
     why: 'Engagement shape determines which agent requests you fit.',
   },
   {
@@ -207,7 +207,7 @@ function industryMatches(industry: string, terms: string[]): boolean {
 /**
  * The deterministic core of the interview (spec §3): compute every gap the
  * conversation could ask about, prioritized, deduped, and filtered by what the
- * owner has already answered or skipped. Pure — same state in, same gaps out.
+ * owner has already answered or skipped. Pure - same state in, same gaps out.
  */
 export function analyzeGaps(state: Pick<IntakeState, 'draft' | 'extractions' | 'answers'>): Gap[] {
   const { draft } = state
@@ -226,7 +226,7 @@ export function analyzeGaps(state: Pick<IntakeState, 'draft' | 'extractions' | '
     gaps.push(gap)
   }
 
-  // 1. Importer clarifying questions — the extraction already knows what was
+  // 1. Importer clarifying questions - the extraction already knows what was
   //    ambiguous, with a typed field + why. Only while still uncovered.
   for (const extraction of state.extractions) {
     for (const q of extraction.clarifyingQuestions ?? []) {
@@ -249,7 +249,7 @@ export function analyzeGaps(state: Pick<IntakeState, 'draft' | 'extractions' | '
     }
   }
 
-  // 2. Readiness rubric — canonical page-field coverage. (slug auto-derives
+  // 2. Readiness rubric - canonical page-field coverage. (slug auto-derives
   //    from the name and publish is the handoff outcome, so neither is a gap.)
   for (const spec of PAGE_FIELD_GAPS) {
     const value = draft[spec.field]
@@ -269,7 +269,7 @@ export function analyzeGaps(state: Pick<IntakeState, 'draft' | 'extractions' | '
     )
   }
 
-  // No offers at all is blocking — the most important gap AFTER identity
+  // No offers at all is blocking - the most important gap AFTER identity
   // (name/description sort first: a scratch interview starts with who you are,
   // then what agents can buy).
   const entries = offerEntries(draft)
@@ -312,7 +312,7 @@ export function analyzeGaps(state: Pick<IntakeState, 'draft' | 'extractions' | '
           id: `offer:${key}:price-vague`,
           field: 'price',
           offerKey: key,
-          question: `"${label}" is listed as "${price}" — can we anchor it with a starting price (even "From $X")?`,
+          question: `"${label}" is listed as "${price}" - can we anchor it with a starting price (even "From $X")?`,
           why: 'A concrete anchor price makes the offer eligible for agent-led transactions.',
           kind: 'quality',
           priority: PRIORITY_QUALITY + 40,
@@ -354,7 +354,7 @@ export function analyzeGaps(state: Pick<IntakeState, 'draft' | 'extractions' | '
       )
     } else if (offer.offerType === 'negotiable') {
       // Smart Rules minimums (spec §3): a negotiable offer without a floor
-      // routes every proposal to manual review — recommend the guardrails.
+      // routes every proposal to manual review - recommend the guardrails.
       const rules = offer.rules ?? {}
       if (!rules.minPrice && rules.maxDiscountPercent == null) {
         push(
@@ -377,7 +377,7 @@ export function analyzeGaps(state: Pick<IntakeState, 'draft' | 'extractions' | '
             id: `offer:${key}:booking-rules`,
             field: 'rules.booking',
             offerKey: key,
-            question: `Any booking guardrails for "${label}" — minimum notice, blackout dates, or a weekly cap?`,
+            question: `Any booking guardrails for "${label}" - minimum notice, blackout dates, or a weekly cap?`,
             why: 'Booking constraints protect your calendar while agents book autonomously.',
             kind: 'opportunity',
             priority: PRIORITY_OPPORTUNITY + 20,
@@ -389,7 +389,7 @@ export function analyzeGaps(state: Pick<IntakeState, 'draft' | 'extractions' | '
     }
   }
 
-  // 4. Industry expectations — what this kind of business should be asked.
+  // 4. Industry expectations - what this kind of business should be asked.
   if (draft.industry.trim()) {
     for (const exp of INDUSTRY_EXPECTATIONS) {
       if (!industryMatches(draft.industry, exp.match)) continue
@@ -410,7 +410,7 @@ export function analyzeGaps(state: Pick<IntakeState, 'draft' | 'extractions' | '
     }
   }
 
-  // FAQs — last quality nudge.
+  // FAQs - last quality nudge.
   if (draft.faqs.length === 0) {
     push(
       {
@@ -430,7 +430,7 @@ export function analyzeGaps(state: Pick<IntakeState, 'draft' | 'extractions' | '
 }
 
 /** True when the agent may request handoff (spec §3 SYNTHESIS): no blocking
- *  gap remains askable. Skipped blocking gaps are the owner's call — they are
+ *  gap remains askable. Skipped blocking gaps are the owner's call - they are
  *  excused here and land in the builder as unfinished work. */
 export function hasBlockingGaps(gaps: Gap[]): boolean {
   return gaps.some((gap) => gap.kind === 'blocking')

@@ -19,7 +19,7 @@ import { INDUSTRIES } from '../lib/industries'
 
 export type LoginMode = 'signin' | 'signup' | 'reset'
 
-// Lightweight password strength scoring (0-4) — display only, server enforces length.
+// Lightweight password strength scoring (0-4) - display only, server enforces length.
 function scorePassword(pw: string): { score: number; label: string; color: string } {
   let score = 0
   if (pw.length >= 8) score++

@@ -10,7 +10,7 @@ const TRIAL_DAYS = 7
  * Start a new account's 7-day, no-card trial of the plan it picked at signup (Shopify-style).
  * Idempotent + one-per-account: it ONLY seeds a trial when the account has no billing row at
  * all. A row already present means the account is grandfathered ('legacy'), already trialing,
- * or already subscribed — none of which we overwrite (a legacy user upgrades via checkout, not
+ * or already subscribed - none of which we overwrite (a legacy user upgrades via checkout, not
  * by starting a fresh trial that would later pause away their grandfathered access).
  *
  * Service-role write: RLS blocks client inserts on billing_subscriptions, and the resolvers

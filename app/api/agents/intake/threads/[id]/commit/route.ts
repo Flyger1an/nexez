@@ -7,11 +7,11 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../../../../../uti
 export const maxDuration = 30
 
 /**
- * POST /api/agents/intake/threads/[id]/commit — REVIEW_HANDOFF (spec §5):
+ * POST /api/agents/intake/threads/[id]/commit - REVIEW_HANDOFF (spec §5):
  * materialize the working draft through the existing paths and return the page
  * id. A new listing is created as a DRAFT (publishing stays a human decision in
  * the builder); a re-interview stages onto pages.draft. Owner-initiated commit
- * is always allowed — it doubles as the "just take me to the form" exit.
+ * is always allowed - it doubles as the "just take me to the form" exit.
  * Idempotent: retrying a committed session returns the same page id.
  */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

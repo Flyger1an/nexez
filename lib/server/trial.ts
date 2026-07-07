@@ -26,7 +26,7 @@ export async function ensureTrialSeeded(ownerId: string | null | undefined, plan
       .select('owner_id')
       .eq('owner_id', ownerId)
       .maybeSingle<{ owner_id: string }>()
-    if (existing) return false // legacy/trial/paid all preserved — never overwrite
+    if (existing) return false // legacy/trial/paid all preserved - never overwrite
     const { error } = await admin.from('billing_subscriptions').insert({
       owner_id: ownerId,
       plan_id: plan.id,

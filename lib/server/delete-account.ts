@@ -13,13 +13,13 @@ import { escapeLike } from './sql-escape'
 // facet, then branch:
 //   - account ALSO owns seller data → KEEP the seller data AND the auth user (login still works for
 //     Nexez); return sellerRetained=true. Critically we do NOT delete the auth user, because several
-//     seller tables `on delete cascade` to auth.users — deleting it would wipe the seller's pages.
+//     seller tables `on delete cascade` to auth.users - deleting it would wipe the seller's pages.
 //   - pure buyer (no seller data) → full removal incl. the auth user ("can't sign back in").
 //
 // Buyer-side rows on OTHER sellers' records have no FK to the buyer, so the anonymizer below is the
-// ONLY path that erases that buyer PII — it must stay exhaustive and runs in BOTH branches.
+// ONLY path that erases that buyer PII - it must stay exhaustive and runs in BOTH branches.
 
-/** BUYER-facet tables (keyed by user_id) — always deleted. */
+/** BUYER-facet tables (keyed by user_id) - always deleted. */
 const BUYER_USER_ID_TABLES = [
   'agent_action_approvals',
   'agent_messages',
@@ -33,10 +33,10 @@ const BUYER_USER_ID_TABLES = [
   'user_push_tokens',
 ] as const
 
-/** SELLER/account tables keyed by user_id — deleted ONLY in the pure-buyer full-removal path. */
+/** SELLER/account tables keyed by user_id - deleted ONLY in the pure-buyer full-removal path. */
 const SELLER_USER_ID_TABLES = ['user_integrations', 'platform_admins'] as const
 
-/** SELLER tables keyed by owner_id — deleted ONLY in the pure-buyer full-removal path. */
+/** SELLER tables keyed by owner_id - deleted ONLY in the pure-buyer full-removal path. */
 const SELLER_OWNER_ID_TABLES = [
   'agent_visits',
   'api_keys',
@@ -61,7 +61,7 @@ const SELLER_SIGNAL_TABLES = ['pages', 'billing_subscriptions', 'api_keys'] as c
  * Matching is best-effort (there is no buyer→auth.users FK): `emailColumns` are columns whose value
  * can equal the user's email (buyer_email always; `contact` is free-form and may hold the email when
  * buyer_email was never captured); `referenceColumn` is the stronger link where the row stores the
- * buyer's auth user id. `columns` is everything we null — incl. free text the buyer typed.
+ * buyer's auth user id. `columns` is everything we null - incl. free text the buyer typed.
  */
 const BUYER_PII_TABLES = [
   {
@@ -107,7 +107,7 @@ async function accountIsSeller(admin: SupabaseClient, userId: string): Promise<b
 
 /**
  * Erase the buyer's own chat turns from sellers' negotiation threads. The negotiation ROW is the
- * seller's record (kept), and negotiation_messages `on delete cascade`s from it — so that cascade
+ * seller's record (kept), and negotiation_messages `on delete cascade`s from it - so that cascade
  * never fires on buyer deletion. We null the buyer message `content` (keeps the thread's shape, drops
  * the PII the buyer typed). MUST run BEFORE agent_negotiations buyer_email/contact are nulled, since
  * email is the only link back to the buyer's negotiations.
@@ -144,7 +144,7 @@ async function anonymizeBuyerPii(
   email: string | null,
   errors: DeleteAccountResult['errors'],
 ): Promise<void> {
-  // Buyer chat content first — it's resolved via agent_negotiations' email columns, which the loop below nulls.
+  // Buyer chat content first - it's resolved via agent_negotiations' email columns, which the loop below nulls.
   await eraseBuyerNegotiationMessages(admin, email, errors)
 
   for (const { table, columns, emailColumns, referenceColumn } of BUYER_PII_TABLES) {
@@ -180,14 +180,14 @@ export async function deleteUserAccount(userId: string, email: string | null): P
     const { error } = await admin.from(table).delete().eq('user_id', userId)
     if (error) errors.push({ scope: `delete:${table}`, message: error.message })
   }
-  // Referral attribution is keyed by referrer_user_id / referred_user_id (no plain user_id) — clear both.
+  // Referral attribution is keyed by referrer_user_id / referred_user_id (no plain user_id) - clear both.
   for (const column of ['referrer_user_id', 'referred_user_id'] as const) {
     const { error } = await admin.from('referrals').delete().eq(column, userId)
     if (error) errors.push({ scope: `delete:referrals:${column}`, message: error.message })
   }
   await anonymizeBuyerPii(admin, userId, email, errors)
 
-  // 2. Does this account also sell on Nexez? If so, STOP — keep the seller data and the login.
+  // 2. Does this account also sell on Nexez? If so, STOP - keep the seller data and the login.
   if (await accountIsSeller(admin, userId)) {
     return { ok: true, authUserDeleted: false, sellerRetained: true, errors }
   }

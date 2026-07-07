@@ -115,7 +115,7 @@ const demoPage = (overrides: any = {}) => ({
   owner_id: 'o1',
   slug: 'demo',
   // LLM-path tests need the page opted into LLM negotiation (the engine now routes
-  // non-opted-in pages to the deterministic fallback — see the llm_opt_in gate).
+  // non-opted-in pages to the deterministic fallback - see the llm_opt_in gate).
   llm_opt_in: true,
   services: [{ name: 'Consult', price: '$1000', offerType: 'negotiable', rules: { minPrice: '800', autoAccept: true } }],
   products: [],
@@ -155,7 +155,7 @@ describe('LLMClientFactory (respects platform LLM config)', () => {
   })
 })
 
-describe('NegotiationService.submitProposal (sync phase — no LLM)', () => {
+describe('NegotiationService.submitProposal (sync phase - no LLM)', () => {
   it('persists the same status token it returns and writes only the buyer turn, pending', async () => {
     const state = seedNegotiationDb(demoPage())
     const service = new NegotiationService(okLLM({ action: 'counter', reasoning: 'r' }))
@@ -226,7 +226,7 @@ describe('NegotiationService.submitProposal (sync phase — no LLM)', () => {
   })
 })
 
-describe('NegotiationService.runDecision (async phase — LLM + claim)', () => {
+describe('NegotiationService.runDecision (async phase - LLM + claim)', () => {
   it('locks in the agreed amount on accept (= buyer proposed price) so escrow can hold', async () => {
     const page = demoPage()
     const state = seedNegotiationDb(page)
@@ -259,7 +259,7 @@ describe('NegotiationService.runDecision (async phase — LLM + claim)', () => {
 
   it('clamps an LLM accept below the seller floor up to a counter at the floor (rules win)', async () => {
     const state = seedNegotiationDb(demoPage({ services: [{ name: 'Svc', price: '$1000', offerType: 'negotiable', rules: { minPrice: '800' } }] }))
-    // LLM tries to accept $500 — below the $800 floor.
+    // LLM tries to accept $500 - below the $800 floor.
     const service = new NegotiationService(okLLM({ action: 'accept', reasoning: 'tempted' }))
     const s = await service.submitProposal({ slug: 'demo', offerKey: 'services-0', buyerProposal: { proposedPriceCents: 50000 } })
     await service.runDecision(s.negotiationId)
@@ -281,7 +281,7 @@ describe('NegotiationService.runDecision (async phase — LLM + claim)', () => {
     await service.runDecision(s.negotiationId)
 
     const seller = state.messages.find((m) => m.role === 'seller_llm')
-    // The deterministic clamp overrides the manipulated decision — never accept below floor.
+    // The deterministic clamp overrides the manipulated decision - never accept below floor.
     expect(seller?.content?.decision?.action).toBe('counter')
     expect(seller?.content?.decision?.counter?.priceCents).toBe(80000)
   })

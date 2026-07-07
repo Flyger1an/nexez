@@ -7,7 +7,7 @@ import { enforceRateLimit } from '../../../../../lib/rate-limit'
 
 /**
  * Upsert the page's owner-only secrets (domain verification token, Calendly webhook
- * secret, outbound webhooks) — collaborator-aware. page_secrets is owner-RLS'd, so an
+ * secret, outbound webhooks) - collaborator-aware. page_secrets is owner-RLS'd, so an
  * editor can't write it directly; this route authorizes via resolvePageAccess
  * (requireEditor) and writes via the service-role client scoped to the PAGE OWNER.
  * Only the three known secret columns are accepted (no arbitrary column writes).

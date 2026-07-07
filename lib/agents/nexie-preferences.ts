@@ -1,4 +1,4 @@
-// Buyer "standing preferences" for the Nexxi agent — budget, interests, timing, and
+// Buyer "standing preferences" for the Nexxi agent - budget, interests, timing, and
 // location that persist on the user_agents.preferences JSONB and steer every turn (and
 // a voice-replies default the mobile app reads). Pure + validated so the route, the
 // agent prompt, and tests all share one shape. No secrets, no DB access here.
@@ -135,7 +135,7 @@ const TIMING_LABEL: Record<NexieTiming, string> = {
 
 /**
  * A compact, model-readable block of the buyer's standing preferences for the system
- * prompt — or '' when nothing agent-relevant is set (voiceRepliesDefault is UI-only).
+ * prompt - or '' when nothing agent-relevant is set (voiceRepliesDefault is UI-only).
  */
 export function preferencesPromptBlock(prefs: NexiePreferences): string {
   const lines: string[] = []

@@ -1,4 +1,4 @@
-// Nexez Seller Hub — "Ink & Ember" + Liquid Glass design system (handoff v2).
+// Nexez Seller Hub - "Ink & Ember" + Liquid Glass design system (handoff v2).
 // Tokens from design_handoff_seller_hub (README + Seller Hub.dc.html).
 // Legacy alias names (persimmon*/gold*/teal/…) map onto the new palette at the
 // bottom so screens written against v1 keep compiling while adopting Ink & Ember.
@@ -11,7 +11,7 @@ export const colors = {
   surface: '#11161f', // solid raised well (ring inner)
   surfaceDeep: '#0c1119',
 
-  // Liquid Glass material (translucent — pair with a BlurView behind)
+  // Liquid Glass material (translucent - pair with a BlurView behind)
   glass: 'rgba(255,255,255,0.07)', // standard panel fill
   glassBorder: 'rgba(255,255,255,0.14)',
   glassRim: 'rgba(255,255,255,0.18)', // inset specular top rim = the "liquid" edge
@@ -25,7 +25,7 @@ export const colors = {
   inputBorder: 'rgba(255,255,255,0.14)',
   hairline: 'rgba(255,255,255,0.06)',
 
-  // Brand — Ember (primary) + Steel (secondary / trust / money)
+  // Brand - Ember (primary) + Steel (secondary / trust / money)
   ember: '#E45F38',
   emberText: '#F3865F', // text/icon inside glass ring buttons
   emberTint: '#F8A07F', // secondary highlight text, endpoint chips

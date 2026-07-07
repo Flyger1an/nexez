@@ -21,7 +21,7 @@ function captureFetch(): { body: () => Record<string, unknown> } {
   return { body: () => store.body ?? {} }
 }
 
-describe('Nexxi money-path safety — buyer identity comes from the session, never the LLM payload', () => {
+describe('Nexxi money-path safety - buyer identity comes from the session, never the LLM payload', () => {
   beforeEach(() => {
     process.env.NEXIE_AGENT_RUNTIME_URL = 'https://nexez.app'
   })

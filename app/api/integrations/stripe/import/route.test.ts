@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Same collaboration gate as the other importers (resolveFeatureOwner → integrations
 // capability on the EFFECTIVE OWNER). We force the owner-disallow path so the 402 fires
-// immediately after the gate — no Stripe/network call is reached.
+// immediately after the gate - no Stripe/network call is reached.
 const { userRef, featureRef, ownerAllowsRef } = vi.hoisted(() => ({
   userRef: { user: { id: 'user-1', email: 'me@x.com', email_confirmed_at: '2026-01-01' } as any },
   featureRef: { fn: (_o: any) => ({ ok: true, ownerId: 'user-1', pageId: null, scoped: false, role: 'owner' }) as any },
@@ -43,7 +43,7 @@ describe('POST /api/integrations/stripe/import (collaboration gate)', () => {
     expect((await POST(post({}))).status).toBe(401)
   })
 
-  it('403 when resolveFeatureOwner denies — never enumerates the Stripe catalog', async () => {
+  it('403 when resolveFeatureOwner denies - never enumerates the Stripe catalog', async () => {
     featureRef.fn = () => ({ ok: false, status: 403 })
     expect((await POST(post({ pageId: 'p1' }))).status).toBe(403)
     expect(ownerAllowsRef.calls).toEqual([])

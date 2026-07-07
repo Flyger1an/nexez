@@ -63,10 +63,10 @@ export default async function NegotiationReceiptPage({ params }: { params: Promi
             <Row label="Offer" value={n.offer_name} />
             <Row label="Amount" value={formatNegotiationAmount(n.amount_cents, n.currency)} />
             <Row label="Listing" value={`${getBaseUrl()}/${n.slug}`} />
-            <Row label="Buyer agent" value={n.buyer_agent || '—'} />
-            <Row label="Contact" value={n.contact || '—'} />
-            <Row label="Budget" value={n.budget_text || '—'} />
-            <Row label="Timeline" value={n.timeline_text || '—'} />
+            <Row label="Buyer agent" value={n.buyer_agent || '-'} />
+            <Row label="Contact" value={n.contact || '-'} />
+            <Row label="Budget" value={n.budget_text || '-'} />
+            <Row label="Timeline" value={n.timeline_text || '-'} />
             {n.buyer_query ? <Row label="Request" value={n.buyer_query} /> : null}
             {termRows.length > 0 ? (
               <div className="border-t border-white/10 pt-3">

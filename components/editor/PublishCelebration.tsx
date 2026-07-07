@@ -39,7 +39,7 @@ export function PublishCelebration() {
       setCopied(true)
       setTimeout(() => setCopied(false), 1800)
     } catch {
-      /* clipboard blocked — the View-live link still works */
+      /* clipboard blocked - the View-live link still works */
     }
   }
 
@@ -61,7 +61,7 @@ export function PublishCelebration() {
         <div className="min-w-0">
           <p className="text-lg font-semibold text-white">🎉 Your listing is live</p>
           <p className="mt-1 max-w-xl text-sm leading-6 text-[var(--fg-muted)]">
-            Agents can now discover and buy from this listing. Share the link to start driving traffic — and connect payouts
+            Agents can now discover and buy from this listing. Share the link to start driving traffic - and connect payouts
             so you get paid the moment a deal closes.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">

@@ -13,7 +13,7 @@ function clean(value: unknown, max: number): string {
   return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, max) : ''
 }
 
-/** GET — the buyer's agent tasks (newest first). Owner-scoped via RLS (buyer facet). */
+/** GET - the buyer's agent tasks (newest first). Owner-scoped via RLS (buyer facet). */
 export async function GET(request: NextRequest) {
   const limited = await enforceRateLimit(request, 'agents:nexie:tasks', 40, 60_000)
   if (limited) return limited
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST { prompt, query?, category? } — create a standing agent task. `prompt` is the buyer's words;
+ * POST { prompt, query?, category? } - create a standing agent task. `prompt` is the buyer's words;
  * `query` (defaults to the prompt) is the match text. Capped per user to avoid runaway alerts.
  */
 export async function POST(request: NextRequest) {
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ ok: true })
 }
 
-/** PATCH { id, status } — pause/resume a task. */
+/** PATCH { id, status } - pause/resume a task. */
 export async function PATCH(request: NextRequest) {
   const limited = await enforceRateLimit(request, 'agents:nexie:tasks', 30, 60_000)
   if (limited) return limited
@@ -99,7 +99,7 @@ export async function PATCH(request: NextRequest) {
   return NextResponse.json({ ok: true })
 }
 
-/** DELETE { id } — remove a task. RLS scopes to the caller. */
+/** DELETE { id } - remove a task. RLS scopes to the caller. */
 export async function DELETE(request: NextRequest) {
   const limited = await enforceRateLimit(request, 'agents:nexie:tasks', 30, 60_000)
   if (limited) return limited

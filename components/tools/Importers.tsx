@@ -111,7 +111,7 @@ export function StripeImporter() {
           window.location.href = '/create?imported=true&source=stripe'
         }}
         renderOffer={(o: any, i: number) => (
-          <div key={i}>• {o.name} — {o.price} {o.tiers ? '(recurring options)' : ''}</div>
+          <div key={i}>• {o.name} - {o.price} {o.tiers ? '(recurring options)' : ''}</div>
         )}
         footer={
           stripeResult && !stripeResult.error ? (
@@ -228,7 +228,7 @@ export function ShopifyImporter() {
           window.location.href = '/create?imported=true&source=shopify'
         }}
         renderOffer={(o: any, i: number) => (
-          <div key={i}>• {o.name} — {o.price}</div>
+          <div key={i}>• {o.name} - {o.price}</div>
         )}
       />
       <p className="mt-2 text-[10px] text-zinc-500">
@@ -281,7 +281,7 @@ export function AcuityImporter() {
     <div className="mt-6 rounded-xl border border-white/10 p-5">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <div className="font-semibold text-[var(--amber)]">Acuity Scheduling — Consumer Services</div>
+          <div className="font-semibold text-[var(--amber)]">Acuity Scheduling - Consumer Services</div>
           <p className="text-xs text-[#9CA3AF]">Import appointment types for coaching, beauty, wellness, medical, fitness. Strong scheduling + consumer fields.</p>
         </div>
         {acuityConnected && (
@@ -325,7 +325,7 @@ export function AcuityImporter() {
           window.location.href = '/create?imported=true&source=acuity'
         }}
         renderOffer={(o: any, i: number) => (
-          <div key={i}>• {o.name} — {o.price} {o.duration ? `(${o.duration})` : ''}</div>
+          <div key={i}>• {o.name} - {o.price} {o.duration ? `(${o.duration})` : ''}</div>
         )}
         footer={<p className="mt-2 text-[10px] text-zinc-500">Great for time-based consumer services with durations and tiers.</p>}
       />
@@ -379,8 +379,8 @@ export function SquareImporter() {
     <div className="mt-6 rounded-xl border border-white/10 p-5">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <div className="font-semibold text-[var(--signal)]">Square — Bookings &amp; Payments</div>
-          <p className="text-xs text-[#9CA3AF]">Import your Square catalog items as offers — for mobile, wellness, and home services.</p>
+          <div className="font-semibold text-[var(--signal)]">Square - Bookings &amp; Payments</div>
+          <p className="text-xs text-[#9CA3AF]">Import your Square catalog items as offers - for mobile, wellness, and home services.</p>
         </div>
         {squareConnected && (
           <span className="text-[10px] text-[var(--ready)]">Connected • {new Date(squareConnected.lastImport).toLocaleTimeString()}</span>
@@ -423,12 +423,12 @@ export function SquareImporter() {
           window.location.href = '/create?imported=true&source=square'
         }}
         renderOffer={(o: any, i: number) => (
-          <div key={i}>• {o.name} — {o.price} {o.duration ? `(${o.duration})` : ''}</div>
+          <div key={i}>• {o.name} - {o.price} {o.duration ? `(${o.duration})` : ''}</div>
         )}
         footer={
           isSample ? (
             <p className="mt-2 text-[10px] text-[var(--amber)]">
-              Showing sample data — add a Square access token with Catalog read to import your live items.
+              Showing sample data - add a Square access token with Catalog read to import your live items.
             </p>
           ) : (
             <p className="mt-2 text-[10px] text-zinc-500">Variations become tiers; price_money becomes price.</p>

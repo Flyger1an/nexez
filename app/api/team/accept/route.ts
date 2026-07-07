@@ -6,7 +6,7 @@ import { enforceRateLimit } from '../../../../lib/rate-limit'
 
 /**
  * Accept the caller's pending team invitations. Collaborator page access now requires an
- * ACCEPTED invite (migration 20260626001500) — a merely-pending invite no longer grants
+ * ACCEPTED invite (migration 20260626001500) - a merely-pending invite no longer grants
  * access. The invitee reaches this from the invite email's "Accept" link (/team/accept),
  * which flips every pending invite addressed to their VERIFIED, CONFIRMED email to
  * 'accepted'.
@@ -14,7 +14,7 @@ import { enforceRateLimit } from '../../../../lib/rate-limit'
  * Writes via the service-role client because the invitee has no RLS UPDATE on
  * team_invites (only owners manage their own invites). Strictly scoped to the caller's
  * own confirmed email + status='pending' (revoked stays revoked), so it can only ever
- * accept invitations addressed to the caller — never another address, never un-revoke.
+ * accept invitations addressed to the caller - never another address, never un-revoke.
  */
 export async function POST(request: Request) {
   const limited = await enforceRateLimit(request, 'team-accept', 20, 60_000)

@@ -351,7 +351,7 @@ export default function BillingDashboardClient({
           </div>
         </GlassCard>
 
-        {/* How money flows — the dual-revenue model in one glance */}
+        {/* How money flows - the dual-revenue model in one glance */}
         <GlassCard className="p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-stretch sm:justify-between">
             <MoneyFlowStep label="Agents buy through your listings" value={formatCurrencyAmount(agentRevenueCents, revenueCurrency)} sub="gross sales this month" tone="white" />
@@ -362,7 +362,7 @@ export default function BillingDashboardClient({
           </div>
           <p className="mt-4 border-t border-[var(--bd-10)] pt-3 text-xs text-[var(--fg-muted)]">
             Transaction fees are separate from your <span className="text-white">{activePlan?.name ?? 'Free'}</span> subscription
-            {activePlan?.cadence ? ` (${activePlan.price}/${activePlan.cadence})` : ''} — that’s what you pay Nexez to run your listings.
+            {activePlan?.cadence ? ` (${activePlan.price}/${activePlan.cadence})` : ''} - that’s what you pay Nexez to run your listings.
           </p>
         </GlassCard>
 
@@ -416,7 +416,7 @@ export default function BillingDashboardClient({
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-16 items-center justify-center rounded-2xl border border-[var(--bd-10)] bg-[var(--ov-04)] font-mono text-xs text-[var(--fg-muted)]">
-                {billingState?.stripe_customer_id ? '••••' : '—'}
+                {billingState?.stripe_customer_id ? '••••' : '-'}
               </div>
               <div>
                 <div className="font-medium">Payment method</div>
@@ -810,7 +810,7 @@ export default function BillingDashboardClient({
         <div className="ml-auto text-xs text-[var(--fg-muted)] hidden md:block">All changes sync via Stripe webhooks</div>
       </div>
 
-      {/* Active tab content — called as functions (not <Capitalized /> JSX) to satisfy react-hooks/static-components lint */}
+      {/* Active tab content - called as functions (not <Capitalized /> JSX) to satisfy react-hooks/static-components lint */}
       <div>
         {activeTab === 'overview' && OverviewTab()}
         {activeTab === 'usage' && UsageTab()}
@@ -821,7 +821,7 @@ export default function BillingDashboardClient({
 
       {/* Subtle footer note */}
       <div className="pt-4 text-center text-[10px] text-[var(--fg-muted)]">
-        Questions? <a href="/support" className="underline hover:text-white">Contact support</a> — we usually reply within a few hours.
+        Questions? <a href="/support" className="underline hover:text-white">Contact support</a> - we usually reply within a few hours.
       </div>
     </div>
   )

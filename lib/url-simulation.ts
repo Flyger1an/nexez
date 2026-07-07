@@ -7,7 +7,7 @@ import { getReadinessScore } from './agent-page'
  * versus what it would get if the same business were an agent-ready Nexez page.
  * Pure + deterministic so it runs in tests and on the server with no I/O.
  *
- * Honesty matters here — this is a public, outward-facing demo. The importer is
+ * Honesty matters here - this is a public, outward-facing demo. The importer is
  * an *enrichment* tool: when it can't extract real offers it scaffolds a
  * template (tagged `source: 'template'`) so onboarding has a starting point.
  * For a "what's really on this site" view we DROP those scaffolds, so a thin
@@ -62,7 +62,7 @@ function safeHost(url: string): string {
 }
 
 export function buildUrlSimComparison(url: string, r: ImportResult): UrlSimComparison {
-  // Real extraction only — drop template/guidance scaffolds so we never show a
+  // Real extraction only - drop template/guidance scaffolds so we never show a
   // fabricated priced offer as if it were on the site.
   const realOffers = (r.structuredOffers ?? []).filter((o) => !FABRICATED_OFFER_SOURCES.has(o.source || ''))
   const detectedOffers = realOffers.length > 0
@@ -96,10 +96,10 @@ export function buildUrlSimComparison(url: string, r: ImportResult): UrlSimCompa
   const host = safeHost(url)
 
   const summary = nativeAgentDocs
-    ? `${host} exposes some agent documents already, but they're scattered — no single structured offer list and no checkout an agent can call.`
+    ? `${host} exposes some agent documents already, but they're scattered - no single structured offer list and no checkout an agent can call.`
     : nativeStructuredData
       ? `${host} has some schema.org markup an agent can read, but no unified priced offer list and no actions it can take.`
-      : `An agent visiting ${host} sees unstructured HTML. To do anything it has to scrape and guess — no machine-readable offers, prices, or checkout actions.`
+      : `An agent visiting ${host} sees unstructured HTML. To do anything it has to scrape and guess - no machine-readable offers, prices, or checkout actions.`
 
   const gains: string[] = []
   if (detectedOffers)
@@ -109,8 +109,8 @@ export function buildUrlSimComparison(url: string, r: ImportResult): UrlSimCompa
   if (faqCount) gains.push(`${faqCount} FAQ${faqCount === 1 ? '' : 's'} agents can quote to clear objections`)
 
   const verdict = detectedOffers
-    ? `Nexez would turn ${host} into a page an AI agent can act on — ${offers.length} structured offer${offers.length === 1 ? '' : 's'} with a callable checkout and a projected ${readiness}% readiness, up from raw HTML an agent has to guess at.`
-    : `We couldn't auto-detect structured offers on ${host} from its public pages — an agent-ready Nexez page would add the offer list, prices, and actions an agent needs.`
+    ? `Nexez would turn ${host} into a page an AI agent can act on - ${offers.length} structured offer${offers.length === 1 ? '' : 's'} with a callable checkout and a projected ${readiness}% readiness, up from raw HTML an agent has to guess at.`
+    : `We couldn't auto-detect structured offers on ${host} from its public pages - an agent-ready Nexez page would add the offer list, prices, and actions an agent needs.`
 
   return {
     url,

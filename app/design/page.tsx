@@ -7,7 +7,7 @@ export default function DesignSystemShowcase() {
     <main className="min-h-screen bg-[#0A0A0F] text-white p-8">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-6xl font-semibold tracking-tighter mb-2">Nexez Design System</h1>
-        <p className="text-[#9CA3AF] text-xl">v1.0 — Human-first management. Agent-first consumption.</p>
+        <p className="text-[#9CA3AF] text-xl">v1.0 - Human-first management. Agent-first consumption.</p>
 
         {/* Colors */}
         <section className="mt-16">

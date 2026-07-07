@@ -10,7 +10,7 @@ import { enforceRateLimit, rateLimitShared } from '../../../../lib/rate-limit'
  * "Find my orders" email lookup. A buyer enters their email; if it has orders, we
  * email a single signed, 24h-expiring magic link to their order list. Security:
  *  - ALWAYS returns the same neutral response (never reveals whether an email has
- *    orders — anti-enumeration);
+ *    orders - anti-enumeration);
  *  - email is sent ONLY when orders actually match (a non-customer address gets
  *    nothing), and only to that address;
  *  - IP rate-limit (hard) + per-email rate-limit (skips the send, stays neutral) to
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 
   // Everything past here returns the SAME neutral response regardless of outcome.
   if (EMAIL_RE.test(email) && hasEmailEnv()) {
-    // Per-email cap (keyed on a hash, never the raw address) — bound how often any one
+    // Per-email cap (keyed on a hash, never the raw address) - bound how often any one
     // inbox can be mailed, defeating bombing even across rotating IPs. On exceed we
     // simply skip the send and still return neutral.
     const emailKey = createHash('sha256').update(email).digest('hex').slice(0, 32)

@@ -11,7 +11,7 @@ import type { BuyerOrderRequest, BuyerOrderReview, BuyerOrderView, BuyerRequestK
 // unguessable token, returning only buyer-safe fields (no owner_id, no offer rules,
 // no internal notes). Without admin env (local/tests) there's nothing to read → null.
 
-// agent_negotiations.contact is free-form agent-supplied text — only ever treat it
+// agent_negotiations.contact is free-form agent-supplied text - only ever treat it
 // as an email recipient when it actually looks like an address (else we'd email an
 // arbitrary third party / store junk as the buyer's identity). Exported for testing.
 export function emailish(value: string | null): string | null {
@@ -30,7 +30,7 @@ export function negotiationDisplayCents(amountCents: number | null, currency: st
 
 // An order/deal that's still on a "funds-collected" status (checkout 'paid' or a
 // settled negotiation 'complete') but carries a recorded out-of-band partial refund
-// should read as partially refunded for the buyer — the webhook keeps the base status
+// should read as partially refunded for the buyer - the webhook keeps the base status
 // so the seller can refund the remainder, but the buyer was already emailed about it.
 // Applied to BOTH read paths + both money kinds so the portal display, the refund
 // eligibility, and the seller email all agree.
@@ -204,7 +204,7 @@ export async function loadOrderByToken(token: string): Promise<BuyerOrderView | 
   return null
 }
 
-// Internal (NOT buyer-safe) resolution for the recourse API — it needs owner_id +
+// Internal (NOT buyer-safe) resolution for the recourse API - it needs owner_id +
 // page_id to write the order_requests row and notify the seller. Never returned to a
 // client; the route uses it server-side only.
 export type OrderRequestTarget = {
@@ -221,9 +221,9 @@ export type OrderRequestTarget = {
   buyerEmail: string | null
   sellerName: string | null
   sellerEmail: string | null
-  // Kinds with a live (open/acknowledged) request — block a duplicate.
+  // Kinds with a live (open/acknowledged) request - block a duplicate.
   openRequestKinds: string[]
-  // Lifetime count per kind (ALL statuses) — caps post-closure re-filing / spam.
+  // Lifetime count per kind (ALL statuses) - caps post-closure re-filing / spam.
   requestTotals: Record<string, number>
 }
 
@@ -341,7 +341,7 @@ export async function resolveOrderForRequest(token: string): Promise<OrderReques
 type SessionLookup = { token: string; status: string } | null
 
 /** Map a Stripe session id (which the buyer always has from the success URL) to its
- *  order's portal token — so the success page can link straight into the portal
+ *  order's portal token - so the success page can link straight into the portal
  *  once the webhook has captured the order (the capture is async; null until then). */
 export async function loadOrderTokenBySession(sessionId: string): Promise<SessionLookup> {
   const clean = (sessionId || '').trim()

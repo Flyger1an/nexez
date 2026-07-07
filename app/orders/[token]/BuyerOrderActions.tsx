@@ -54,7 +54,7 @@ export function BuyerOrderActions({
       />
       {sellerEmail ? (
         <a
-          href={`mailto:${sellerEmail}?subject=${encodeURIComponent(`Order question${offerName ? ` — ${offerName}` : ''}`)}&body=${encodeURIComponent(`Hi, I have a question about my order (ref ${reference}).`)}`}
+          href={`mailto:${sellerEmail}?subject=${encodeURIComponent(`Order question${offerName ? ` - ${offerName}` : ''}`)}&body=${encodeURIComponent(`Hi, I have a question about my order (ref ${reference}).`)}`}
           className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4 text-left text-sm text-zinc-300 transition hover:bg-white/[0.05] sm:col-span-2"
         >
           <Mail className="size-4 text-[var(--signal)]" />
@@ -109,18 +109,18 @@ function RequestCard({
       })
       const data = (await res.json().catch(() => ({}))) as { error?: string }
       if (!res.ok) {
-        setError(data.error || 'Could not send — try again.')
+        setError(data.error || 'Could not send - try again.')
         setState('open')
         return
       }
       setState('done')
     } catch {
-      setError('Could not send — try again.')
+      setError('Could not send - try again.')
       setState('open')
     }
   }
 
-  const doneCopy = alreadyOpen && state === 'done' && !message ? openLabel : 'Sent — the seller has been notified.'
+  const doneCopy = alreadyOpen && state === 'done' && !message ? openLabel : 'Sent - the seller has been notified.'
 
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">

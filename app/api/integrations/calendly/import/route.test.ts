@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // The collaboration gate: resolveFeatureOwner authorizes (owner|editor|self), then the
-// `integrations` (Pro) capability is checked against the EFFECTIVE OWNER — via the admin
+// `integrations` (Pro) capability is checked against the EFFECTIVE OWNER - via the admin
 // client when scoped to a page, the session client when self-gating. Both are mocked so
 // we assert the wiring without real Calendly/network calls.
 const { userRef, featureRef, ownerAllowsRef } = vi.hoisted(() => ({
@@ -44,7 +44,7 @@ describe('POST /api/integrations/calendly/import (collaboration gate)', () => {
     expect((await POST(post({ token: 't' }))).status).toBe(401)
   })
 
-  it('403 when resolveFeatureOwner denies (stranger with a pageId) — never touches the plan gate', async () => {
+  it('403 when resolveFeatureOwner denies (stranger with a pageId) - never touches the plan gate', async () => {
     featureRef.fn = () => ({ ok: false, status: 403 })
     const res = await POST(post({ token: 't', pageId: 'p1' }))
     expect(res.status).toBe(403)
@@ -65,7 +65,7 @@ describe('POST /api/integrations/calendly/import (collaboration gate)', () => {
 
   it('editor-collaborator: gates integrations on the OWNER via the ADMIN client', async () => {
     featureRef.fn = () => ({ ok: true, ownerId: 'owner-9', pageId: 'p1', scoped: true, role: 'editor' })
-    // Gate passes; the missing token then yields 400 — proving we got past the gate.
+    // Gate passes; the missing token then yields 400 - proving we got past the gate.
     const res = await POST(post({ pageId: 'p1' }))
     expect(res.status).toBe(400)
     expect(ownerAllowsRef.calls).toEqual([{ ownerId: 'owner-9', feature: 'integrations', client: expect.objectContaining({ __admin: true }) }])

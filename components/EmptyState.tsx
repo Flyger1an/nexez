@@ -9,7 +9,7 @@ export type EmptyStateCta = {
 }
 
 /**
- * Shared "nothing here yet" surface — warm, encouraging, with a clear next step.
+ * Shared "nothing here yet" surface - warm, encouraging, with a clear next step.
  * Models the Negotiations / Onboarding empty states so every surface reads the same
  * instead of one-off flat "No data" placeholders. Server-component-safe (no hooks);
  * uses on-palette tokens (--signal/--ready + zinc) so it passes the palette guard.

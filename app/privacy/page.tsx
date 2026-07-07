@@ -26,8 +26,8 @@ const sections: { heading: string; body: string[] }[] = [
     heading: '3. Information Collected Automatically',
     body: [
       'Agent & visitor analytics: when your published listings are viewed, we record events (such as page views, discovery clicks, and checkout intents) and, for AI agents, classification signals derived from the request (e.g., user-agent and referrer).',
-      'Mobile app: a device push-notification token (so we can notify you about your orders), and — only if you opt in — crash and diagnostic data via our error-monitoring provider to help us fix problems.',
-      'Privacy-safe IPs: visitor IP addresses are never stored in raw form — only a salted hash is kept for de-duplication and abuse prevention.',
+      'Mobile app: a device push-notification token (so we can notify you about your orders), and - only if you opt in - crash and diagnostic data via our error-monitoring provider to help us fix problems.',
+      'Privacy-safe IPs: visitor IP addresses are never stored in raw form - only a salted hash is kept for de-duplication and abuse prevention.',
     ],
   },
   {
@@ -57,13 +57,13 @@ const sections: { heading: string; body: string[] }[] = [
   {
     heading: '8. Service Providers',
     body: [
-      'We use trusted processors to run the Service: Supabase (database + authentication), our hosting provider, Expo (mobile builds + push delivery), Sentry (opt-in crash/error monitoring), a large-language-model provider (buyer-agent requests), a third-party search provider (optional external discovery), and — where you enable them — payment and scheduling providers such as Stripe and Calendly. These providers process data on our behalf under their own terms.',
+      'We use trusted processors to run the Service: Supabase (database + authentication), our hosting provider, Expo (mobile builds + push delivery), Sentry (opt-in crash/error monitoring), a large-language-model provider (buyer-agent requests), a third-party search provider (optional external discovery), and - where you enable them - payment and scheduling providers such as Stripe and Calendly. These providers process data on our behalf under their own terms.',
     ],
   },
   {
     heading: '9. Data Retention & Deletion',
     body: [
-      'We retain account and content data for as long as your account is active. You can delete listings at any time. You can permanently delete your account in the Nexxi app (Profile → Delete account) or via the dashboard — this removes your account, agent data, preferences, and any listings you own, and anonymizes your buyer details on past transaction records, except where retention is required by law.',
+      'We retain account and content data for as long as your account is active. You can delete listings at any time. You can permanently delete your account in the Nexxi app (Profile → Delete account) or via the dashboard - this removes your account, agent data, preferences, and any listings you own, and anonymizes your buyer details on past transaction records, except where retention is required by law.',
     ],
   },
   {

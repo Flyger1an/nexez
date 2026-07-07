@@ -15,7 +15,7 @@ import { resolvePageAccess } from '../../../lib/server/page-access'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 
 /**
- * A2 — Custom domain provisioning (owner OR editor-collaborator).
+ * A2 - Custom domain provisioning (owner OR editor-collaborator).
  *
  * POST { action: 'attach' | 'status' | 'remove', domain }
  * - Resolves the page that uses this domain (service-role, by custom_domain) and
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
   }
   const admin = createAdminClient()
 
-  // Find the page that uses this domain authoritatively (service-role), by domain only —
+  // Find the page that uses this domain authoritatively (service-role), by domain only -
   // we NEVER trust an owner_id from the client. The resolved page id is then handed to
   // resolvePageAccess, which authorizes the caller as the page's OWNER or a non-revoked
   // EDITOR invitee. (A domain may host several pages, so take the first match.)

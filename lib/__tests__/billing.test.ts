@@ -50,7 +50,7 @@ describe('planAllows (cumulative feature gating)', () => {
     }
   })
 
-  it('gates Pro-tier features — incl. team collaboration + white-label (moved down from Scale)', () => {
+  it('gates Pro-tier features - incl. team collaboration + white-label (moved down from Scale)', () => {
     for (const f of ['integrations', 'outboundWebhooks', 'apiAccess', 'negotiation', 'analyticsHistory', 'teamCollaboration', 'whiteLabel'] as const) {
       expect(planAllows('launch', f)).toBe(false)
       expect(planAllows('pro', f)).toBe(true)
@@ -69,7 +69,7 @@ describe('planAllows (cumulative feature gating)', () => {
     expect(planAllows('enterprise', 'sso')).toBe(true)
   })
 
-  it('treats null/unknown plan as Free (fail-safe — denies paid features)', () => {
+  it('treats null/unknown plan as Free (fail-safe - denies paid features)', () => {
     expect(planAllows(null, 'customDomain')).toBe(false)
     expect(planAllows(undefined, 'aiFeatures')).toBe(false)
     expect(planAllows('bogus' as PlanId, 'integrations')).toBe(false)

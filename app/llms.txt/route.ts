@@ -84,7 +84,7 @@ export async function GET(request: Request) {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
       'Cache-Control': 'public, max-age=300, s-maxage=300',
-      // Base URL reflects the request host — vary the CDN cache key on it.
+      // Base URL reflects the request host - vary the CDN cache key on it.
       Vary: 'x-forwarded-host',
     },
   })

@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     }
     // Guard the common misconfiguration up front: a value that isn't a Stripe Price ID
     // (e.g. a "prod_…" product id pasted by mistake) would otherwise reach Stripe and
-    // 500. A TEST price id under LIVE keys still passes this check — Stripe's "no such
+    // 500. A TEST price id under LIVE keys still passes this check - Stripe's "no such
     // price" path below catches that and returns the same actionable guidance.
     if (!isStripePriceId(priceId)) {
       console.error('[billing/create-subscription] plan price id is not a Stripe Price id', { plan: plan.id, priceId })
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
       customerId = customer.id
 
       // Upsert a preliminary row so the webhook can find this customer by owner_id.
-      // Deliberately DO NOT write plan_id here — payment hasn't happened yet, and the
+      // Deliberately DO NOT write plan_id here - payment hasn't happened yet, and the
       // billing UI derives the active plan from plan_id. Writing it optimistically made
       // an abandoned checkout show a plan the user never paid for. The webhook
       // (customer.subscription.* / checkout.session.completed) sets plan_id on confirmation.
@@ -96,7 +96,7 @@ export async function POST(request: Request) {
         }, { onConflict: 'owner_id' })
         if (linkError) console.error('[billing/create-subscription] failed to persist stripe_customer_id', linkError)
       } else {
-        console.warn('[billing/create-subscription] admin env missing — customer id not persisted; webhook will backfill via metadata')
+        console.warn('[billing/create-subscription] admin env missing - customer id not persisted; webhook will backfill via metadata')
       }
     }
 

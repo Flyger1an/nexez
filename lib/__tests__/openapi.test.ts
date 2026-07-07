@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildOpenApiSpec } from '../agent-capabilities'
 
-describe('buildOpenApiSpec — programmatic API (G21)', () => {
+describe('buildOpenApiSpec - programmatic API (G21)', () => {
   const spec = buildOpenApiSpec() as {
     info: Record<string, unknown>
     paths: Record<string, Record<string, { security?: unknown[]; operationId?: string }>>

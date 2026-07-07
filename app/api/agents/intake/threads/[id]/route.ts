@@ -6,7 +6,7 @@ import { resolveRequestAuth } from '../../../../../../lib/server/request-auth'
 export const maxDuration = 30
 
 /**
- * GET /api/agents/intake/threads/[id] — resume: the full session state for any
+ * GET /api/agents/intake/threads/[id] - resume: the full session state for any
  * client (web /create panel or the mobile onboarding screen render from the
  * same payload; spec §5). Owner-scoped via RLS + explicit owner eq.
  */

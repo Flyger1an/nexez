@@ -67,7 +67,7 @@ export async function logCheckoutEvent({
           if (!hasSupabaseAdminEnv()) return { ok: !error, error }
           const admin = createAdminClient()
 
-          // Outbound webhooks are Pro+ — re-check at dispatch time (not just at
+          // Outbound webhooks are Pro+ - re-check at dispatch time (not just at
           // create time) so a downgraded owner stops receiving BOTH per-page and
           // account-level deliveries. (fireOwnerOutboundWebhooks self-gates too.)
           if (!ownerId || !(await ownerAllows(admin, ownerId, 'outboundWebhooks'))) return { ok: !error, error }

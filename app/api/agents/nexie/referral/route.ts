@@ -5,7 +5,7 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../../../utils/sup
 
 export const maxDuration = 30
 
-// Unambiguous alphabet (no 0/O/1/I/L). 7 chars ≈ 27 bits — plenty for invite codes.
+// Unambiguous alphabet (no 0/O/1/I/L). 7 chars ≈ 27 bits - plenty for invite codes.
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 const CODE_LEN = 7
 
@@ -26,7 +26,7 @@ async function ensureCode(admin: ReturnType<typeof createAdminClient>, userId: s
     const { error } = await admin.from('referral_codes').insert({ user_id: userId, code })
     if (!error) return code
     if (error.code === '23505') {
-      // Either the code collided (retry) or the row now exists (race) — re-read and use it.
+      // Either the code collided (retry) or the row now exists (race) - re-read and use it.
       const { data } = await admin.from('referral_codes').select('code').eq('user_id', userId).maybeSingle<{ code: string }>()
       if (data?.code) return data.code
       continue
@@ -36,7 +36,7 @@ async function ensureCode(admin: ReturnType<typeof createAdminClient>, userId: s
   return null
 }
 
-/** GET — the buyer's invite code + how many people have joined with it. */
+/** GET - the buyer's invite code + how many people have joined with it. */
 export async function GET(request: NextRequest) {
   const limited = await enforceRateLimit(request, 'agents:nexie:referral', 30, 60_000)
   if (limited) return limited
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ ok: true, code, referralCount: count ?? 0 })
 }
 
-/** POST { code } — claim someone's invite code (once per account; no self-referral). */
+/** POST { code } - claim someone's invite code (once per account; no self-referral). */
 export async function POST(request: NextRequest) {
   const limited = await enforceRateLimit(request, 'agents:nexie:referral', 15, 60_000)
   if (limited) return limited

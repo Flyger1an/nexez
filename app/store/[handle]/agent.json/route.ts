@@ -7,7 +7,7 @@ type RouteProps = { params: Promise<{ handle: string }> }
 /**
  * Storefront manifest: a per-seller catalog so an agent can discover a whole
  * storefront (brand + all its listings' agent.json URLs) in one fetch. Additive to the
- * agent contract — the per-listing /[slug]/agent.json is unchanged.
+ * agent contract - the per-listing /[slug]/agent.json is unchanged.
  */
 export async function GET(_request: Request, { params }: RouteProps) {
   const { handle } = await params

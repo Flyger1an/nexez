@@ -28,7 +28,7 @@ export default function OnboardPage() {
   const trialablePlans = billingPlans.filter((p) => p.id !== 'free' && p.id !== 'enterprise')
   const selectedPlan = billingPlans.find(p => p.id === selectedPlanId) || trialablePlans[0]
   // No-card 7-day trial: a freshly-onboarded user lands on `nextPath` with their trial
-  // already live — no immediate checkout. They add a card any time before day 7 to stay live.
+  // already live - no immediate checkout. They add a card any time before day 7 to stay live.
   const postSignupPath = nextPath
 
   useEffect(() => {
@@ -161,7 +161,7 @@ export default function OnboardPage() {
             {step === 1 && (
               <div>
                 <h1 className="text-4xl font-semibold tracking-tight">Start your free trial</h1>
-                <p className="mt-2 text-[#9CA3AF]">Pick a plan to begin your 7-day free trial — no credit card required. Add one any time before it ends to stay live.</p>
+                <p className="mt-2 text-[#9CA3AF]">Pick a plan to begin your 7-day free trial - no credit card required. Add one any time before it ends to stay live.</p>
 
                 <div className="mt-8 grid gap-4 sm:grid-cols-2">
                   {trialablePlans.map(plan => {
@@ -254,7 +254,7 @@ export default function OnboardPage() {
                 <h1 className="text-4xl font-semibold tracking-tight">Connect Stripe</h1>
                 <p className="mt-2 max-w-md text-[#9CA3AF]">
                   Link your Stripe account so agents can pay you directly for bookings and offers.
-                  <span className="text-[var(--ready)]"> Required to accept card payments on Nexez</span> — without it,
+                  <span className="text-[var(--ready)]"> Required to accept card payments on Nexez</span> - without it,
                   agents are routed to your external booking links instead.
                 </p>
 
@@ -289,13 +289,13 @@ export default function OnboardPage() {
                 <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-full bg-[var(--ready)] text-4xl">🎉</div>
                 <h1 className="text-4xl font-semibold tracking-tight">Your trial is live</h1>
                 <p className="mt-3 text-[#9CA3AF]">
-                  Your 7-day {selectedPlan.name} trial just started — no card required. Add a payment method any time before it ends to keep your storefront live.
+                  Your 7-day {selectedPlan.name} trial just started - no card required. Add a payment method any time before it ends to keep your storefront live.
                 </p>
 
                 <div className="mt-8 inline-block rounded-2xl border border-white/10 bg-[#12101B] p-6 text-left text-sm">
                   <div className="font-medium">Summary</div>
                   <div className="mt-2 space-y-1 text-[#9CA3AF]">
-                    <div>• Plan: {selectedPlan.name} — 7-day free trial ({selectedPlan.price}/{selectedPlan.cadence} after)</div>
+                    <div>• Plan: {selectedPlan.name} - 7-day free trial ({selectedPlan.price}/{selectedPlan.cadence} after)</div>
                     <div>• Stripe payouts: connect anytime from Billing or Integrations</div>
                     <div>• Next: Create your first listing</div>
                   </div>

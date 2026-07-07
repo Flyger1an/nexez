@@ -10,7 +10,7 @@ import { colors, fonts, radii, readinessColor } from '@/src/theme/colors'
 export type Tone = 'info' | 'success' | 'warn' | 'muted' | 'danger' | 'gold'
 
 /* ------------------------------------------------------------------ */
-/* Liquid Glass primitive — BlurView + translucent fill + specular rim */
+/* Liquid Glass primitive - BlurView + translucent fill + specular rim */
 /* ------------------------------------------------------------------ */
 
 type GlassTone = 'card' | 'group' | 'raised' | 'sticky'
@@ -113,7 +113,7 @@ export function Header({ eyebrow, title, subtitle, right }: { eyebrow?: string; 
   )
 }
 
-/* Fixed back-header for overlay (drill-down) screens — sticky glass. */
+/* Fixed back-header for overlay (drill-down) screens - sticky glass. */
 export function StackHeader({ title, onBack, right }: { title: string; onBack: () => void; right?: React.ReactNode }) {
   return (
     <View style={styles.stackHeaderWrap}>

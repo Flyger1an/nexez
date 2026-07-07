@@ -79,7 +79,7 @@ export class NegotiationService {
 
   /**
    * Phase 1 (sync, on the POST): record the buyer's proposal and queue an LLM
-   * decision. Does NOT call the LLM — that runs in runDecision() after the
+   * decision. Does NOT call the LLM - that runs in runDecision() after the
    * response. Returns the negotiation id + status token (the agent's credential)
    * so the caller can hand back a statusUrl to poll.
    */
@@ -165,7 +165,7 @@ export class NegotiationService {
 
   /**
    * Phase 2 (async): produce the LLM decision for a pending negotiation. Safe to
-   * call from both `after()` and the backstop cron — the atomic claim guarantees
+   * call from both `after()` and the backstop cron - the atomic claim guarantees
    * exactly one of them does the work. A no-op if the row was already decided.
    */
   async runDecision(negotiationId: string): Promise<void> {
@@ -180,8 +180,8 @@ export class NegotiationService {
       await this.produceDecision(claimed, page, offer);
     } catch (err) {
       // Catastrophic (page unpublished / offer removed / DB down mid-flight). Don't
-      // leave the agent polling forever — write a deterministic review turn so the
-      // thread has an answer — and surface the failure.
+      // leave the agent polling forever - write a deterministic review turn so the
+      // thread has an answer - and surface the failure.
       captureError(err instanceof Error ? err : new Error(String(err)), { negotiationId, phase: 'runDecision' });
       await this.writeFallbackTurn(claimed).catch(() => {});
     }
@@ -195,8 +195,8 @@ export class NegotiationService {
    * stamps decision_claimed_at only when the row is pending AND unleased (or its
    * lease expired). Postgres serializes the two concurrent updates (after() vs.
    * cron): the winner's WHERE matches and returns the row; the loser sees the
-   * fresh lease and matches zero rows. decision_pending stays TRUE — agents keep
-   * seeing "responding" — until persistDecision clears it. A crashed worker's
+   * fresh lease and matches zero rows. decision_pending stays TRUE - agents keep
+   * seeing "responding" - until persistDecision clears it. A crashed worker's
    * lease expires so the backstop cron can re-drive it. Null = lost / not pending.
    */
   private async claimPendingDecision(id: string): Promise<any | null> {
@@ -255,7 +255,7 @@ export class NegotiationService {
       try {
         llmDecision = await this.getLLM().negotiate(rules, proposalForLLM, history);
       } catch {
-        // Provider outage / bad key — fall back to the deterministic rules decision
+        // Provider outage / bad key - fall back to the deterministic rules decision
         // so a polling agent still gets an answer.
         llmDecision = this.fallbackDecision(rulesEval, proposalForLLM, rules);
       }
@@ -270,13 +270,13 @@ export class NegotiationService {
     // Rules always win.
     llmDecision = this.clampWithRules(llmDecision, rulesEval, proposalForLLM, rules);
     // Never let an LLM-emitted scheduling link reach the agent unless it points at a
-    // known provider (or the owner's own configured link) — blocks a prompt injection
+    // known provider (or the owner's own configured link) - blocks a prompt injection
     // from planting a phishing <a href> in the rendered decision. Falls back to the
     // owner-derived link when the candidate is missing or off-allowlist.
     llmDecision.schedulingLink = sanitizeSchedulingLink(llmDecision.schedulingLink, schedulingLink);
 
     // Never persist the offer's private pricing rules into the durable message log
-    // (owner-private Phase 1 invariant) — they were attached for LLM context only.
+    // (owner-private Phase 1 invariant) - they were attached for LLM context only.
     const { rules: _omitRules, ...proposalForLog } = proposalForLLM;
     const sellerTurn: ConversationTurn = {
       id: randomUUID(),
@@ -304,7 +304,7 @@ export class NegotiationService {
     const nextSeq = (Number(negotiation.decision_seq) || 0) + 1;
     await this.persistDecision(negotiation.id, newStatus, sellerTurn, llmDecision, rulesEval, agreedAmountCents, settlementState, nextSeq);
 
-    // Push the buyer's device(s) that the seller responded — the async loop that
+    // Push the buyer's device(s) that the seller responded - the async loop that
     // makes Nexie useful. Best-effort + isolated: a push failure must never affect
     // the decision that just persisted.
     try {
@@ -407,7 +407,7 @@ export class NegotiationService {
       status: newStatus,
       updated_at: new Date().toISOString(),
       decision_seq: decisionSeq,
-      // The decision is now durably written — clear the pending flag (agents stop
+      // The decision is now durably written - clear the pending flag (agents stop
       // seeing "responding") and release the lease.
       decision_pending: false,
       decision_claimed_at: null,
@@ -456,7 +456,7 @@ export class NegotiationService {
 
   private async loadPublishedPage(slug: string) {
     // Reads owner-private offer `rules` (the floor clamp depends on minPrice), so it
-    // must use the service-role client — anon can no longer read the pages base table,
+    // must use the service-role client - anon can no longer read the pages base table,
     // and the public view strips `rules`. Falls back to anon only when no admin env
     // is configured (tests / minimal deploys, where the page read is mocked anyway).
     const { data } = await this.db()
@@ -469,7 +469,7 @@ export class NegotiationService {
   }
 
   private async loadNegotiation(id: string, token?: string) {
-    // Owner-only under RLS, so continuation lookups need the service-role client —
+    // Owner-only under RLS, so continuation lookups need the service-role client -
     // with the anon client this read returned nothing and every follow-up forked a
     // brand-new negotiation instead of resuming the thread.
     const query = this.db().from('agent_negotiations').select('*').eq('id', id);
@@ -502,7 +502,7 @@ export class NegotiationService {
       offer_key: offerKey,
       offer_name: offer.name,
       offer_kind: offer.kind,
-      // Settlement currency for the whole negotiation — inherit the page's currency
+      // Settlement currency for the whole negotiation - inherit the page's currency
       // (was relying on the DB default 'usd', so non-USD pages mis-recorded + charged
       // the buyer in USD). amount_cents stays 2-decimal minor units; the charge site
       // converts to Stripe's smallest unit per this currency.
@@ -559,7 +559,7 @@ export class NegotiationService {
     // silently disable the clamp and auto-accept. Hold for owner review instead.
     if (decision.action === 'accept' && misconfigured) {
       decision.action = 'review';
-      decision.reasoning = (decision.reasoning || '') + ' (Seller minimum is misconfigured — held for owner review instead of auto-accepting.)';
+      decision.reasoning = (decision.reasoning || '') + ' (Seller minimum is misconfigured - held for owner review instead of auto-accepting.)';
       return decision;
     }
 
@@ -579,7 +579,7 @@ export class NegotiationService {
   /**
    * Resolve the seller's hard price floor from rules.minPrice. Uses the SAME
    * money parser as evaluateProposal (parseMoney) so the clamp and the
-   * deterministic gate can never diverge — the old parseFloat() kept the "-" sign
+   * deterministic gate can never diverge - the old parseFloat() kept the "-" sign
    * (a "-100" floor became -10000 cents, so the clamp never fired) and NaN'd on
    * natural "$200" / "1,000" inputs (silently disabling the floor entirely).
    * Distinguishes three cases:
@@ -598,7 +598,7 @@ export class NegotiationService {
 
   private decisionToStatus(action: NegotiationAction, current: string): string {
     // Never move a funded (held) or terminal negotiation backward to
-    // agreement_proposed — that state must only ever be reached from an active
+    // agreement_proposed - that state must only ever be reached from an active
     // negotiating state. Defense-in-depth behind the submitProposal reopen guard.
     if (current === 'held' || isTerminalNegotiationStatus(current as NegotiationStatus)) return current;
     if (action === 'accept') return 'agreement_proposed';

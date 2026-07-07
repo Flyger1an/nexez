@@ -1,7 +1,7 @@
-// Seller intake interview — the pure state machine (spec §3).
+// Seller intake interview - the pure state machine (spec §3).
 // No I/O, no Date.now(), no LLM: timestamps/ids arrive in action payloads, so
 // the reducer is deterministic, unit-testable, and resume-safe. It never
-// throws — every action returns a discriminated IntakeApplyResult, and an
+// throws - every action returns a discriminated IntakeApplyResult, and an
 // invalid action leaves the prior state authoritative (this is the layer that
 // stops the LLM from skipping phases, inventing offers, or committing).
 import type { OfferItem, OfferKind } from '../agent-page'
@@ -218,7 +218,7 @@ export function applyIntakeAction(state: IntakeState, action: IntakeAction): Int
         return fail('empty_gap_batch', 'ask_gaps needs at least one gap id.')
       }
       if (action.gapIds.length > 3) {
-        return fail('gap_batch_too_large', 'Ask at most 3 related questions per turn — never a laundry list.')
+        return fail('gap_batch_too_large', 'Ask at most 3 related questions per turn - never a laundry list.')
       }
       const known = new Set(state.gaps.map((g) => g.id))
       const unknown = action.gapIds.find((id) => !known.has(id))
@@ -273,7 +273,7 @@ export function applyIntakeAction(state: IntakeState, action: IntakeAction): Int
 
     case 'PROPOSE_OFFERS': {
       if (state.phase === 'INGEST') {
-        return fail('invalid_phase', 'Nothing has been extracted yet — offers can only be proposed from sources or stated answers.')
+        return fail('invalid_phase', 'Nothing has been extracted yet - offers can only be proposed from sources or stated answers.')
       }
       if (!PRE_HANDOFF.includes(state.phase)) {
         return fail('invalid_phase', `Cannot propose offers in phase ${state.phase}.`)
@@ -305,7 +305,7 @@ export function applyIntakeAction(state: IntakeState, action: IntakeAction): Int
     }
 
     case 'EXIT_TO_BUILDER': {
-      // The owner can bail at ANY point — every exit lands in the builder with
+      // The owner can bail at ANY point - every exit lands in the builder with
       // everything captured so far (spec §3 INTERVIEW).
       return {
         ok: true,
@@ -374,7 +374,7 @@ function foldExtraction(
   return { draft, provenance }
 }
 
-/** Replace prior answers to the same gap (a re-answer supersedes) — keyed by
+/** Replace prior answers to the same gap (a re-answer supersedes) - keyed by
  *  gapId, order preserved, replay-idempotent. */
 function dedupeAnswers(existing: GapAnswer[], incoming: GapAnswer[]): GapAnswer[] {
   const incomingIds = new Set(incoming.map((a) => a.gapId))
@@ -387,7 +387,7 @@ type FoldOutcome =
   | { ok: false; code: IntakeErrorCode; error: string }
 
 /** Fold answer field-updates into the draft (spec §3 SYNTHESIS). This is the
- *  ONLY code path that writes 'stated' / 'suggested_confirmed' provenance —
+ *  ONLY code path that writes 'stated' / 'suggested_confirmed' provenance -
  *  which makes the provenance invariant structural rather than by convention.
  *  All-or-nothing: any invalid update rejects the whole batch untouched. */
 function foldAnswers(state: IntakeState, answers: GapAnswer[]): FoldOutcome {
@@ -405,7 +405,7 @@ function foldAnswers(state: IntakeState, answers: GapAnswer[]): FoldOutcome {
       return { ok: false, code: 'invalid_field_update', error: 'fields must be an ARRAY of field-update objects.' }
     }
     for (const update of answer.fields ?? []) {
-      // An LLM-supplied update with a missing/unknown target must FAIL LOUDLY —
+      // An LLM-supplied update with a missing/unknown target must FAIL LOUDLY -
       // silently ignoring it reads as "recorded" while the draft never changes
       // (the exact failure the first live pass surfaced).
       if (!update || typeof update !== 'object' || !('target' in update)) {
@@ -434,7 +434,7 @@ function foldAnswers(state: IntakeState, answers: GapAnswer[]): FoldOutcome {
           const previousNorm = normalizeOfferName(entry.offer.name)
           const applied = applyOfferField(entry.offer, update)
           if (applied) return applied
-          // A rename moves the offer's provenance key base — migrate every
+          // A rename moves the offer's provenance key base - migrate every
           // existing mark so stated-field protection survives the new name.
           const nextNorm = normalizeOfferName(entry.offer.name)
           if (update.field === 'name' && previousNorm && nextNorm !== previousNorm) {
@@ -493,12 +493,12 @@ function foldAnswers(state: IntakeState, answers: GapAnswer[]): FoldOutcome {
           break
         }
         default:
-          // Runtime LLM data can carry any target string — unknown values must
+          // Runtime LLM data can carry any target string - unknown values must
           // reject (teachably), never no-op.
           return {
             ok: false,
             code: 'invalid_field_update',
-            error: `Unknown field-update target ${JSON.stringify((update as { target?: unknown }).target)} — use page | offer | offer_rules | new_offer | faq.`,
+            error: `Unknown field-update target ${JSON.stringify((update as { target?: unknown }).target)} - use page | offer | offer_rules | new_offer | faq.`,
           }
       }
     }
@@ -568,7 +568,7 @@ function mergeOfferFields(
 }
 
 /** propose_offers (spec §5): the LLM may only curate offers that exist in the
- *  extraction pool or were stated by the owner — anything else is invention.
+ *  extraction pool or were stated by the owner - anything else is invention.
  *  Stated facts survive curation: stated-provenance fields win over proposed
  *  values, and stated offers the proposal omits are retained, not dropped. */
 function foldProposedOffers(state: IntakeState, kind: OfferKind, proposed: OfferItem[]): FoldOutcome {
@@ -586,7 +586,7 @@ function foldProposedOffers(state: IntakeState, kind: OfferKind, proposed: Offer
       return {
         ok: false,
         code: 'invented_offer',
-        error: `"${offer.name ?? ''}" is not derived from any ingested source or stated answer — the interview never invents offers.`,
+        error: `"${offer.name ?? ''}" is not derived from any ingested source or stated answer - the interview never invents offers.`,
       }
     }
   }
@@ -598,7 +598,7 @@ function foldProposedOffers(state: IntakeState, kind: OfferKind, proposed: Offer
     const norm = normalizeOfferName(offer.name)
     const existing = currentByName.get(norm)
     const merged: OfferItem = { ...(existing ?? {}), ...offer }
-    // Stated fields always win over a re-proposal — only a new GapAnswer may
+    // Stated fields always win over a re-proposal - only a new GapAnswer may
     // change what the owner said.
     if (existing) {
       for (const field of OFFER_PROVENANCE_FIELDS) {

@@ -1,11 +1,11 @@
 // Cumulative-refunded ledger math for in-app PARTIAL refunds. Pure + client-safe
-// (no Stripe / no secrets) so both refund routes — negotiation escrow + direct
-// checkout orders — share one well-tested implementation.
+// (no Stripe / no secrets) so both refund routes - negotiation escrow + direct
+// checkout orders - share one well-tested implementation.
 //
 // All amounts are in Stripe smallest-unit (¥1 = 1, $1 = 100), i.e. the same unit as
 // charge.amount_refunded / session.amount_total. The cap is (captured − alreadyRefunded);
 // idempotency is keyed on the NEW running total so two equal-amount partials get
-// DISTINCT keys (the collision that made partials unsafe — Stripe would otherwise
+// DISTINCT keys (the collision that made partials unsafe - Stripe would otherwise
 // return the cached first refund and silently under-refund the buyer) while a genuine
 // retry of the same intended total dedupes. Stripe's own server-side ceiling (it
 // rejects refunds beyond the refundable remainder) is the final backstop.

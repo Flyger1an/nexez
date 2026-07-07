@@ -88,7 +88,7 @@ const WIDGET_JS = `
 
     btn.addEventListener('click', function (e) {
       e.preventDefault();
-      // Open the public agent page — it already handles per-offer prefer_original_for_this,
+      // Open the public agent page - it already handles per-offer prefer_original_for_this,
       // page prefer_original_site, consumer fields, tiers, ||WINDOWS||, source badges, JSON-LD etc.
       window.open(publicUrl, '_blank', 'noopener,noreferrer');
     });

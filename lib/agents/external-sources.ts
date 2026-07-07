@@ -4,7 +4,7 @@ import type { SourceAdapter } from './source-adapters'
 
 // External discovery sources. These broaden what Nexxi can *find* beyond the Nezez marketplace,
 // but their results are DISCOVERY-ONLY: `offer: null` means no checkout/negotiate action, so they
-// never enter the money path (Book/Negotiate + escrow stay Nexez-backed). Each is env-gated — with
+// never enter the money path (Book/Negotiate + escrow stay Nexez-backed). Each is env-gated - with
 // no API key the adapter reports unavailable and returns nothing, so prod is unaffected until the
 // owner sets the key. A failing call throws and is isolated by searchAllSources' fan-out.
 //
@@ -100,8 +100,8 @@ function yelpToResult(b: YelpBusiness, index: number, count: number): AgentSearc
 /**
  * Yelp Fusion business search. Requires a buyer location (Yelp's API mandates location/lat-long).
  *
- * ⚠️ COMPLIANCE — DO NOT set YELP_API_KEY without resolving this first. Yelp's API Terms (Jan 2025,
- * §9) prohibit ingesting Yelp Content into a generative-AI model — but our agent feeds search
+ * ⚠️ COMPLIANCE - DO NOT set YELP_API_KEY without resolving this first. Yelp's API Terms (Jan 2025,
+ * §9) prohibit ingesting Yelp Content into a generative-AI model - but our agent feeds search
  * results to the LLM (the search tool result is added to the chat completion). The terms also bar
  * commercial use without Yelp's written consent, cap caching at 24h, and forbid blending Yelp
  * ratings with other sources. Treat Yelp as blocked for the LLM path absent written consent from
@@ -205,7 +205,7 @@ function braveToResult(r: BraveWebResult, index: number, count: number): AgentSe
     source: BRAVE_SOURCE,
     name: r.title ? stripHtml(r.title) : 'Web result',
     // Web results have no stable id; the index is unique within a result set (slug isn't used for
-    // any action — these are discovery-only).
+    // any action - these are discovery-only).
     slug: `brave:${index}`,
     url: r.url || 'https://search.brave.com',
     description: r.description ? stripHtml(r.description) : null,

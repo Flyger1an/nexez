@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // trust-report authorizes via resolveFeatureOwner (owner|editor|self) then gates the
-// AI-written report on the EFFECTIVE OWNER's aiFeatures plan — falling back to the
+// AI-written report on the EFFECTIVE OWNER's aiFeatures plan - falling back to the
 // deterministic score-only report below the threshold (no 402). Mocks let us assert the
 // gate wiring; LLM is left unconfigured so the deterministic branch is exercised.
 const { userRef, featureRef, ownerAllowsRef } = vi.hoisted(() => ({
@@ -51,7 +51,7 @@ describe('POST /api/trust-report (collaboration gate)', () => {
     expect((await POST(post({ events: [] }))).status).toBe(400)
   })
 
-  it('403 when resolveFeatureOwner denies (stranger with a pageId) — never reaches the gate', async () => {
+  it('403 when resolveFeatureOwner denies (stranger with a pageId) - never reaches the gate', async () => {
     featureRef.fn = () => ({ ok: false, status: 403 })
     const res = await POST(post({ page: PAGE, events: [], pageId: 'p1' }))
     expect(res.status).toBe(403)

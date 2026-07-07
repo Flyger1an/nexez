@@ -11,7 +11,7 @@ const LIMIT = 50
 export const maxDuration = 60
 
 /**
- * Escrow reconciliation (Vercel cron — see vercel.json). The money-side backstop:
+ * Escrow reconciliation (Vercel cron - see vercel.json). The money-side backstop:
  * for negotiations that have a Stripe payment intent and aren't in a settled-terminal
  * state, compare our status against the true Stripe PI state and self-heal the
  * unambiguous drift (succeeded→complete, canceled→declined, refunded→refunded).
@@ -56,7 +56,7 @@ export async function GET(request: Request) {
 
   // Backfill pass: a paid Checkout session whose webhook never landed (e.g. the
   // connected-account endpoint wasn't configured) leaves the negotiation with a
-  // session id but NO payment intent — invisible to the PI-based scan below, so a
+  // session id but NO payment intent - invisible to the PI-based scan below, so a
   // missed webhook would strand real money. Resolve the session on the connected
   // account and persist its PI so the reconcile loop can heal it this same run.
   let backfilled = 0
@@ -86,7 +86,7 @@ export async function GET(request: Request) {
         if (!upErr) backfilled += 1
       }
     } catch {
-      // Unreadable/foreign/expired session — skip; a later run retries.
+      // Unreadable/foreign/expired session - skip; a later run retries.
     }
   }
 
@@ -127,7 +127,7 @@ export async function GET(request: Request) {
       refunded = Boolean(charge?.refunded || (charge?.amount_refunded ?? 0) > 0)
       disputed = Boolean(charge?.disputed)
     } catch {
-      piStatus = null // unreadable — the helper decides whether that's alert-worthy
+      piStatus = null // unreadable - the helper decides whether that's alert-worthy
     }
 
     const result = reconcilePaymentState({

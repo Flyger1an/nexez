@@ -27,7 +27,7 @@ vi.mock('next/server', async (importOriginal) => {
 })
 
 // The token the (mocked) service "persisted" on the negotiation row. The route must
-// return exactly this in statusToken/statusUrl — a regression here means every
+// return exactly this in statusToken/statusUrl - a regression here means every
 // fresh proposal's status poll 404s (the route once minted its own random token).
 const PERSISTED_STATUS_TOKEN = 'persisted-status-token-abc123'
 
@@ -43,7 +43,7 @@ vi.mock('../../../lib/negotiation.service', () => ({
         statusToken: PERSISTED_STATUS_TOKEN,
       }
     }),
-    // Fires inside after() (a no-op in tests) — present so the route reference resolves.
+    // Fires inside after() (a no-op in tests) - present so the route reference resolves.
     runDecision: vi.fn().mockResolvedValue(undefined),
   },
 }))
@@ -102,7 +102,7 @@ describe('POST /api/negotiations', () => {
   })
 
   it('dryRun validates without inserting', async () => {
-    // Legacy semantics: a dry run validates the proposal but persists nothing —
+    // Legacy semantics: a dry run validates the proposal but persists nothing -
     // no negotiation-service call (which inserts + queues the LLM) and no inserts.
     const ops: string[] = []
     dbRef.handler = (ctx: QueryContext) => {

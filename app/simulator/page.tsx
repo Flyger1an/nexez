@@ -63,7 +63,7 @@ export default function GlobalAgentSimulator() {
   const [recommendations, setRecommendations] = useState<string[]>([])
   const [successReport, setSuccessReport] = useState<AgentSuccessReport | null>(null)
   const [rankAnalysis, setRankAnalysis] = useState<QueryRankAnalysis | null>(null)
-  // "Simulate any URL" — public, logged-out demo (deterministic crawl).
+  // "Simulate any URL" - public, logged-out demo (deterministic crawl).
   const [urlInput, setUrlInput] = useState('')
   const [urlLoading, setUrlLoading] = useState(false)
   const [urlComparison, setUrlComparison] = useState<UrlSimComparison | null>(null)
@@ -72,7 +72,7 @@ export default function GlobalAgentSimulator() {
   const [message, setMessage] = useState('')
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   // Which lens of the Agent Lab is active. 'test' (your page / any slug), 'url'
-  // (simulate any website), or 'compare' (score a competitor — signed-in).
+  // (simulate any website), or 'compare' (score a competitor - signed-in).
   const [mode, setMode] = useState<'test' | 'url' | 'compare'>('test')
 
   const supabase = createClient()
@@ -142,7 +142,7 @@ export default function GlobalAgentSimulator() {
   }, [])
 
   async function loadPageBySlug(slug: string): Promise<AgentPage | null> {
-    // Public "analyze a page by slug" flow — runs as anon for logged-out users, so
+    // Public "analyze a page by slug" flow - runs as anon for logged-out users, so
     // it reads the redacted public view (offer `rules` stripped), not the base table.
     const result = await supabase
       .from('pages_public')
@@ -455,7 +455,7 @@ export default function GlobalAgentSimulator() {
             </div>
           </div>
 
-          {/* Mode tabs — the three lenses of the Agent Lab */}
+          {/* Mode tabs - the three lenses of the Agent Lab */}
           <div className="mb-8 flex flex-wrap gap-2">
             {([
               { key: 'test', label: 'Test a listing', icon: Bot },
@@ -503,7 +503,7 @@ export default function GlobalAgentSimulator() {
                 </div>
               ) : (
                 <p className="text-sm text-zinc-400">
-                  Paste a public slug or URL below to try it now —{' '}
+                  Paste a public slug or URL below to try it now -{' '}
                   <a href={appUrl('/dashboard')} className="underline hover:text-white">
                     sign in to test your own listings
                   </a>{' '}
@@ -738,7 +738,7 @@ export default function GlobalAgentSimulator() {
                       {filteredHistory.map((h, idx) => (
                         <div key={h.id || idx} className="rounded border border-white/10 p-2 text-xs flex items-center justify-between gap-2">
                           <div className="min-w-0">
-                            <span className="font-mono text-[var(--signal)]">{h.agent || 'multi'}</span> — { (h.query || '').slice(0, 52) }{(h.query || '').length > 52 ? '...' : ''}
+                            <span className="font-mono text-[var(--signal)]">{h.agent || 'multi'}</span> - { (h.query || '').slice(0, 52) }{(h.query || '').length > 52 ? '...' : ''}
                             <div className="text-[10px] text-zinc-500">{new Date(h.timestamp).toLocaleString()}</div>
                           </div>
                           <div className="flex gap-1 shrink-0">
@@ -765,7 +765,7 @@ export default function GlobalAgentSimulator() {
             <div className="card text-center py-12">
               <Bot className="mx-auto size-8 text-[var(--signal)] mb-4" />
               <p className="text-xl font-medium">Pick one of your listings or paste a public slug.</p>
-              <p className="mt-2 text-[#9CA3AF]">See it judged by ChatGPT, Claude, Grok, and Perplexity — with a success score and where it ranks.</p>
+              <p className="mt-2 text-[#9CA3AF]">See it judged by ChatGPT, Claude, Grok, and Perplexity - with a success score and where it ranks.</p>
             </div>
           )}
           </>
@@ -780,7 +780,7 @@ export default function GlobalAgentSimulator() {
                 <span className="font-medium">Simulate any website</span>
                 <span className="rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--ready)]">No account needed</span>
               </div>
-              <p className="mb-3 text-sm text-zinc-400">See what an AI agent gets from any business site today — and what it would get if the same business were agent-ready on Nexez.</p>
+              <p className="mb-3 text-sm text-zinc-400">See what an AI agent gets from any business site today - and what it would get if the same business were agent-ready on Nexez.</p>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <input
                   value={urlInput}
@@ -954,7 +954,7 @@ function UrlComparisonPanel({ c }: { c: UrlSimComparison }) {
           <dl className="space-y-2 text-sm">
             <div>
               <dt className="text-[11px] uppercase tracking-wide text-zinc-500">Page title (all an agent gets for free)</dt>
-              <dd className="text-zinc-200">{c.raw.title || '—'}</dd>
+              <dd className="text-zinc-200">{c.raw.title || '-'}</dd>
             </div>
           </dl>
           <p className="mt-3 text-sm text-zinc-400">{c.raw.summary}</p>
@@ -988,13 +988,13 @@ function UrlComparisonPanel({ c }: { c: UrlSimComparison }) {
               {ar.offers.slice(0, 8).map((o, i) => (
                 <li key={i} className="flex items-baseline justify-between gap-3 text-sm">
                   <span className="truncate text-zinc-200">{o.name}</span>
-                  <span className="shrink-0 font-mono text-xs text-[var(--ready)]">{o.price || '—'}</span>
+                  <span className="shrink-0 font-mono text-xs text-[var(--ready)]">{o.price || '-'}</span>
                 </li>
               ))}
               {ar.offers.length > 8 && <li className="text-[11px] text-zinc-500">+{ar.offers.length - 8} more</li>}
             </ul>
           ) : (
-            <p className="mt-3 text-sm text-zinc-400">No offers auto-detected from the public pages — you&apos;d add them in the builder.</p>
+            <p className="mt-3 text-sm text-zinc-400">No offers auto-detected from the public pages - you&apos;d add them in the builder.</p>
           )}
         </div>
       </div>

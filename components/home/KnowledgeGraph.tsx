@@ -14,7 +14,7 @@ import { useEffect, useRef } from 'react'
 // (dark in dark mode, light page colour in light mode → blends, no box); paused
 // offscreen / tab-hidden / reduced-motion via svg.pauseAnimations() + CSS play-state;
 // agent-node backdrop-blur dropped (the radial highlight carries the glass look and it
-// is expensive across 12 floating nodes) — kept on the focal card.
+// is expensive across 12 floating nodes) - kept on the focal card.
 
 const DISPLAY = 'var(--font-display, ui-sans-serif, system-ui, sans-serif)'
 const MONO = 'ui-monospace, SFMono-Regular, monospace'
@@ -87,7 +87,7 @@ const { AGENTS, CHIPS } = ((): { AGENTS: Agent[]; CHIPS: Chip[] } => {
     const glyphColor = `hsl(${d.hue} 88% ${lum}%)`
     const ringColor = `hsla(${d.hue} 80% 62% / ${(0.5 - z * 0.18).toFixed(2)})`
     const haloColor = `hsla(${d.hue} 80% 55% / ${(0.34 - z * 0.16).toFixed(2)})`
-    // theme-aware: dark text on the light field, light text in dark mode — keeps the depth fade
+    // theme-aware: dark text on the light field, light text in dark mode - keeps the depth fade
     const labelColor = `color-mix(in srgb, var(--fg) ${Math.round((0.82 - z * 0.34) * 100)}%, transparent)`
     const strokeOp = (d.hot ? 0.72 : 0.5) - z * 0.18
     const stroke = `hsla(${d.hue} 75% 62% / ${strokeOp.toFixed(2)})`
@@ -168,7 +168,7 @@ export function KnowledgeGraph({ className }: { className?: string }) {
         try {
           p ? svg.pauseAnimations() : svg.unpauseAnimations()
         } catch {
-          /* SMIL unsupported — CSS play-state still applies */
+          /* SMIL unsupported - CSS play-state still applies */
         }
       }
     }
@@ -211,7 +211,7 @@ export function KnowledgeGraph({ className }: { className?: string }) {
           className="nx-kg-scan"
           style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 200, background: 'linear-gradient(180deg, transparent, rgba(255,140,90,0.10) 45%, rgba(255,140,90,0.14) 50%, rgba(255,140,90,0.10) 55%, transparent)', mixBlendMode: 'screen', pointerEvents: 'none' }}
         />
-        {/* vignette — fades the scene edges into the page background (theme-aware) */}
+        {/* vignette - fades the scene edges into the page background (theme-aware) */}
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 50% 50%, transparent 38%, color-mix(in srgb, var(--bg) 62%, transparent) 76%, var(--bg) 100%)' }} />
         {/* central volumetric glow */}
         <div className="nx-kg-glow" style={{ position: 'absolute', left: '50%', top: '50%', marginLeft: -380, marginTop: -380, width: 760, height: 760, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,106,51,0.32) 0%, rgba(255,106,51,0.10) 38%, transparent 66%)', filter: 'blur(14px)' }} />

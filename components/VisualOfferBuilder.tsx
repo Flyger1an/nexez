@@ -110,7 +110,7 @@ const SERVICE_TEMPLATES: OfferItem[] = [
     price: '$85',
     description: 'Bath, haircut, nail trim, ear cleaning, and teeth brushing.',
     duration: '90-120 min',
-    serviceArea: 'Mobile — we come to you',
+    serviceArea: 'Mobile - we come to you',
     isMobile: true,
     url: '',
   },
@@ -446,7 +446,7 @@ function SortableOfferCard({
             {offer.ab_test && (
               <span
                 className="absolute -top-1.5 left-0 rounded bg-[var(--signal)]/10 px-1.5 py-px text-[9px] font-medium text-[var(--signal)]"
-                title="A/B test variant — visitors are split across variants; compare in Analytics → A/B Tests"
+                title="A/B test variant - visitors are split across variants; compare in Analytics → A/B Tests"
               >
                 A/B · Variant {offer.ab_label || '?'}
               </span>
@@ -624,7 +624,7 @@ function SortableOfferCard({
                 </label>
               </div>
               <p className="mt-1.5 text-[9px] text-zinc-500">
-                Pricing rules are private — never shown to agents. Notice, blackout, and weekly-cap constraints are published in agent.json so agents can respect them.
+                Pricing rules are private - never shown to agents. Notice, blackout, and weekly-cap constraints are published in agent.json so agents can respect them.
               </p>
             </div>
           )}
@@ -654,7 +654,7 @@ function SortableOfferCard({
             <input
               value={offer.url}
               onChange={(e) => onUpdate(index, 'url', e.target.value)}
-              placeholder="Override booking URL (optional — used when this toggle or listing-level 'Prefer original' is active)"
+              placeholder="Override booking URL (optional - used when this toggle or listing-level 'Prefer original' is active)"
               className="w-full rounded border border-white/10 bg-black/30 px-3 py-1.5 text-sm text-white"
             />
             <div className="text-[9px] text-zinc-500 mt-1">When enabled, this offer directs to the original site (overrides listing default).</div>
@@ -711,7 +711,7 @@ function SortableOfferCard({
               onClick={() => onDuplicate(index)}
               className="min-h-[44px] min-w-[44px] rounded p-2 text-[var(--signal)] hover:bg-[var(--signal)]/10 active:bg-[var(--signal)]/20 md:p-1"
               aria-label="Duplicate offer as A/B variant"
-              title="Duplicate as A/B variant — visitors are split 50/50 and served one variant each; compare in Analytics → A/B Tests"
+              title="Duplicate as A/B variant - visitors are split 50/50 and served one variant each; compare in Analytics → A/B Tests"
             >
               <Copy className="size-5 md:size-4" />
             </button>

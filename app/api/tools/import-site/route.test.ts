@@ -13,7 +13,7 @@ const { userRef, accessRef, ownerAllowsRef, analyzeRef } = vi.hoisted(() => ({
   analyzeRef: { skipLlm: undefined as boolean | undefined },
 }))
 
-// Session client (createClient(cookies)) — only auth.getUser() is exercised here.
+// Session client (createClient(cookies)) - only auth.getUser() is exercised here.
 // `from` returns a tagged client so we can tell the SESSION client apart from ADMIN.
 vi.mock('../../../../utils/supabase/server', () => ({
   createClient: vi.fn(() => ({
@@ -49,7 +49,7 @@ vi.mock('../../../../lib/llm', () => ({
 
 vi.mock('../../../../lib/observability', () => ({ captureError: vi.fn() }))
 
-// analyzeSite is the heavy importer — stub it and capture the skipLlm option.
+// analyzeSite is the heavy importer - stub it and capture the skipLlm option.
 const importResult = {
   title: 'Acme',
   description: 'desc',

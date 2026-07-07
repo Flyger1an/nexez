@@ -45,7 +45,7 @@ vi.mock('../../../../utils/supabase/admin', () => ({
   })),
 }))
 
-// THE authorization primitive — stubbed to model owner / editor / stranger.
+// THE authorization primitive - stubbed to model owner / editor / stranger.
 vi.mock('../../../../lib/server/page-access', () => ({
   resolvePageAccess: vi.fn((o: any) => accessRef.fn(o)),
 }))

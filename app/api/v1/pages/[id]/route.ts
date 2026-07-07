@@ -53,7 +53,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   // The published-page limit (plan + grandfathered baseline) is enforced by a DB
-  // trigger on the draft → published transition — the single source of truth, so
+  // trigger on the draft → published transition - the single source of truth, so
   // we attempt the update and map the trigger's check_violation to a 402.
   // Scope the update to the owner so a key can never touch another tenant's page.
   const { data, error } = await admin

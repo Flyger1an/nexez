@@ -187,7 +187,7 @@ export default function CreatePage() {
     const params = new URLSearchParams(window.location.search)
     const template = getCreatePageTemplate(params.get('template'))
 
-    // Re-interview entry wins the fork outright — it IS the point of the visit.
+    // Re-interview entry wins the fork outright - it IS the point of the visit.
     const reinterview = params.get('reinterview')
     if (reinterview) {
       setReinterviewPageId(reinterview)
@@ -300,7 +300,7 @@ export default function CreatePage() {
 
     if (userError || !user) {
       closePendingPublicPageTab(publicPageTab)
-      // Visitor built a page but isn't signed in — preserve their work and
+      // Visitor built a page but isn't signed in - preserve their work and
       // prompt them to create an account / sign in before it goes live.
       try {
         sessionStorage.setItem(
@@ -312,7 +312,7 @@ export default function CreatePage() {
           }),
         )
       } catch {
-        // sessionStorage unavailable — proceed to prompt anyway
+        // sessionStorage unavailable - proceed to prompt anyway
       }
       setNeedsAuth(true)
       setLoading(false)
@@ -361,7 +361,7 @@ export default function CreatePage() {
       setPublishError(
         isSlugTaken
           ? `The link “/${cleanSlug}” is already taken. Try a different listing name or edit the slug, then publish again.`
-          : `Couldn’t publish your listing: ${error.message}. Your work is saved — try again.`,
+          : `Couldn’t publish your listing: ${error.message}. Your work is saved. Try again.`,
       )
       return
     }
@@ -369,7 +369,7 @@ export default function CreatePage() {
     const createdSlug = createdPage?.slug || cleanSlug
 
     if (asDraft) {
-      // Drafts aren't publicly visible — straight to the editor to finish or publish.
+      // Drafts aren't publicly visible. Send the seller to the editor to finish or publish.
       if (createdPage?.id) {
         router.push(`/dashboard/${createdPage.id}?created=1&draft=1`)
       }
@@ -737,12 +737,12 @@ export default function CreatePage() {
     )
   }
 
-  // "Talk it through" — the conversational intake in hero position (default).
+  // "Talk it through": the conversational intake in hero position (default).
   // The wizard below stays byte-identical as the fallback + power path.
   if (mode === 'talk') {
     return (
       <ErrorBoundary>
-        <main className="min-h-screen bg-[#0A0A0F] text-white" data-testid="create-talk-mode">
+        <main className="min-h-screen bg-[var(--bg)] text-[var(--fg)] dark:bg-[#0A0A0F] dark:text-white" data-testid="create-talk-mode">
           <div className="mx-auto max-w-6xl px-6 py-10">
             <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(420px,0.95fr)]">
               <div className="max-w-xl">
@@ -753,20 +753,20 @@ export default function CreatePage() {
                 <h1 className="mt-5 text-4xl font-semibold tracking-tight">
                   {reinterviewPageId ? 'Give this listing another pass' : 'Talk your listing into existence'}
                 </h1>
-                <p className="mt-4 text-base leading-7 text-zinc-400">
+                <p className="mt-4 text-base leading-7 text-[var(--fg-muted)]">
                   {reinterviewPageId
-                    ? 'Nexez re-reads the listing and interviews you only about what is missing or could be stronger. Your answers stage as a draft on the listing — review and publish in the builder.'
-                    : 'Share your website and Nexez reads what already exists — offers, prices, FAQs — then interviews you only about the gaps. Your answers become a draft you review and publish in the builder.'}
+                    ? 'Nexez re-reads the listing and interviews you only about what is missing or could be stronger. Your answers stage as a draft on the listing, then you review and publish in the builder.'
+                    : 'Share your website and Nexez reads what already exists: offers, prices, and FAQs. Then it interviews you only about the gaps. Your answers become a draft you review and publish in the builder.'}
                 </p>
-                <ul className="mt-6 space-y-3 text-sm text-zinc-300">
+                <ul className="mt-6 space-y-3 text-sm text-[var(--fg-soft)]">
                   <li className="flex items-center gap-3"><Globe2 className="size-4 shrink-0 text-[var(--signal)]" /> Reads your site, socials, and integrations first</li>
-                  <li className="flex items-center gap-3"><Bot className="size-4 shrink-0 text-[var(--signal)]" /> Asks only what is missing — a conversation, not a form</li>
-                  <li className="flex items-center gap-3"><CheckCircle2 className="size-4 shrink-0 text-[var(--ready)]" /> Hands off to the builder — nothing publishes without you</li>
+                  <li className="flex items-center gap-3"><Bot className="size-4 shrink-0 text-[var(--signal)]" /> Asks only what is missing, in conversation instead of a form</li>
+                  <li className="flex items-center gap-3"><CheckCircle2 className="size-4 shrink-0 text-[var(--ready)]" /> Hands off to the builder, with nothing published without you</li>
                 </ul>
                 {reinterviewPageId ? (
                   <a
                     href={appUrl(`/dashboard/${reinterviewPageId}`)}
-                    className="mt-8 inline-flex items-center gap-2 rounded-lg border border-white/15 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/5"
+                    className="mt-8 inline-flex items-center gap-2 rounded-lg border border-[var(--bd-15)] px-5 py-3 text-sm font-medium text-[var(--fg)] transition hover:bg-[var(--ov-05)]"
                   >
                     Back to the builder
                   </a>
@@ -774,7 +774,7 @@ export default function CreatePage() {
                   <button
                     type="button"
                     onClick={() => setMode('form')}
-                    className="mt-8 inline-flex items-center gap-2 rounded-lg border border-white/15 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/5"
+                    className="mt-8 inline-flex items-center gap-2 rounded-lg border border-[var(--bd-15)] px-5 py-3 text-sm font-medium text-[var(--fg)] transition hover:bg-[var(--ov-05)]"
                     data-testid="switch-to-form"
                   >
                     Build with the form instead
@@ -801,14 +801,14 @@ export default function CreatePage() {
             <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--signal)] to-[var(--ready)] text-lg font-bold text-[#0A0A0F]">N</div>
             <h2 className="mt-4 text-2xl font-semibold">Start your free trial to publish</h2>
             <p className="mt-2 text-sm leading-6 text-zinc-400">
-              Your listing is saved. Start a 7-day free trial (no card) to publish it and unlock your dashboard, analytics, and custom domains — it’ll carry straight over to your new account.
+              Your listing is saved. Start a 7-day free trial (no card) to publish it and unlock your dashboard, analytics, and custom domains. It will carry straight over to your new account.
             </p>
             <div className="mt-6 flex flex-col gap-2">
               <a href="/onboard?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-gradient-to-r from-[var(--signal)] to-[var(--ready)] px-5 font-medium text-[#0A0A0F] hover:opacity-90">
                 Start free trial
               </a>
               <a href="/login?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-white/15 px-5 text-sm font-medium text-white hover:bg-white/5">
-                I already have an account — sign in
+                I already have an account, sign in
               </a>
               <button type="button" onClick={() => setNeedsAuth(false)} className="mt-1 text-xs text-zinc-500 hover:text-zinc-300">
                 Keep editing
@@ -1125,7 +1125,7 @@ export default function CreatePage() {
 
         <section className="mx-auto mt-10 max-w-4xl text-center">
           <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight">Build your Nexez listing</h1>
-          <p className="mt-4 text-zinc-400">Create a clean, AI-optimized listing for your products and services — designed so agents can discover, understand, and buy.</p>
+          <p className="mt-4 text-zinc-400">Create a clean, AI-optimized listing for your products and services, designed so agents can discover, understand, and buy.</p>
         </section>
 
         <div className="card mt-10 max-w-5xl overflow-hidden">

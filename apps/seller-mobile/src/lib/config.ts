@@ -4,7 +4,7 @@ function trimTrailingSlash(value: string) {
 
 /** Authed API calls MUST target the app host. Under the 3-host split the
  *  proxy 308-canonicalizes /api/* on nexez.app → app.nexez.ai, and RN's fetch
- *  mishandles the cross-host redirect (drops Authorization / stalls) — every
+ *  mishandles the cross-host redirect (drops Authorization / stalls) - every
  *  Bearer call silently breaks. Found by the on-device intake pass; normalize
  *  the known-wrong runtime host so a stale env can't reintroduce it. */
 function normalizeApiHost(value: string) {
@@ -20,7 +20,7 @@ export const config = {
     '',
   apiUrl: normalizeApiHost(process.env.EXPO_PUBLIC_NEXEZ_API_URL ?? 'https://app.nexez.ai'),
   // Public agent surfaces (published pages, agent.json links) stay on the
-  // agent-runtime host — only the authed API moves to the app host.
+  // agent-runtime host - only the authed API moves to the app host.
   agentRuntimeUrl: trimTrailingSlash(process.env.EXPO_PUBLIC_AGENT_RUNTIME_URL ?? 'https://nexez.app'),
 }
 

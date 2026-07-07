@@ -46,7 +46,7 @@ export function wantsCustomDomain(fields: Record<string, unknown>): boolean {
 /**
  * True when a Supabase write error is the published-page-limit trigger firing
  * (SQLSTATE 23514 / its message). The DB trigger is the single source of truth
- * for the limit — including the grandfathered baseline — so the v1 routes attempt
+ * for the limit - including the grandfathered baseline - so the v1 routes attempt
  * the write and map this to a 402 rather than duplicating (and drifting from) the
  * limit math in app code.
  */

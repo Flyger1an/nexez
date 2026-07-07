@@ -45,8 +45,8 @@ function resolveOffers(input: EditorOffersInput): { services: OfferItem[]; produ
 
 /**
  * Canonical smart merge of incoming offers into existing ones (by
- * case-insensitive name). Protects substantial manual work — long descriptions
- * (>80 chars) and existing pricing tiers — while taking fresh
+ * case-insensitive name). Protects substantial manual work - long descriptions
+ * (>80 chars) and existing pricing tiers - while taking fresh
  * price/url/duration/serviceArea/isMobile/travelFee. Stripe-sourced offers
  * always take the fresh price. `mode: 'new'` only appends genuinely new offers
  * and leaves existing ones untouched.
@@ -85,7 +85,7 @@ export function smartMergeOffers(
         tiers: current.tiers?.length ? current.tiers : inc.tiers || [],
         source: inc.source || current.source,
         prefer_original_for_this: inc.prefer_original_for_this ?? current.prefer_original_for_this,
-        // Smart Rules are owner-authored — imports/re-syncs never overwrite them.
+        // Smart Rules are owner-authored - imports/re-syncs never overwrite them.
         offerType: current.offerType ?? inc.offerType,
         rules: current.rules ?? inc.rules,
       }

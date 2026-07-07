@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'amount must be a positive number.' }, { status: 400 })
   }
 
-  // Load the negotiation — RLS ensures the caller can only read their own.
+  // Load the negotiation - RLS ensures the caller can only read their own.
   const { data: negotiation, error } = await supabase
     .from('agent_negotiations')
     .select('*')
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
 
     if (action === 'cancel') {
       // Only a not-yet-captured deal can be cancelled. A 'complete' (captured) or
-      // terminal negotiation must not be flipped to 'declined' — use refund for a
+      // terminal negotiation must not be flipped to 'declined' - use refund for a
       // completed payment. (The money-safety trigger doesn't guard this backward move.)
       if (!['negotiation', 'agreement_proposed', 'held'].includes(negotiation.status)) {
         return NextResponse.json(
@@ -147,7 +147,7 @@ export async function POST(request: Request) {
         {
           payment_intent: negotiation.stripe_payment_intent_id,
           amount: plan.refundAmount,
-          // Give Nexez's commission BACK on a refund — the charge took an
+          // Give Nexez's commission BACK on a refund - the charge took an
           // application_fee to the platform, so without this the seller would eat
           // the full refund while Nexez kept its cut (proportional on a partial).
           // Connected-account refund.

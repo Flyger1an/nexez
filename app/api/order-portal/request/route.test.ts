@@ -14,7 +14,7 @@ vi.mock('../../../../utils/supabase/admin', () => ({
     from: () => ({ insert: (p: any) => Promise.resolve(adminRef.insert(p)) }),
   })),
 }))
-// Email is a no-op (RESEND unset) — keep builders importable but inert.
+// Email is a no-op (RESEND unset) - keep builders importable but inert.
 vi.mock('../../../../lib/email', () => ({
   hasEmailEnv: vi.fn(() => false),
   sendEmail: vi.fn(async () => ({ ok: true })),

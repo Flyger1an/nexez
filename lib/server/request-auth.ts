@@ -17,7 +17,7 @@ export type ResolvedAuth = {
  * Both paths return an RLS-scoped client + a verified user, so every downstream
  * owner-scoped query/mutation behaves identically regardless of how the caller
  * authenticated. The bearer path uses the public (anon/publishable) key with the
- * caller's JWT attached, so RLS still applies — there is no privilege escalation,
+ * caller's JWT attached, so RLS still applies - there is no privilege escalation,
  * and an invalid/expired token resolves to `user: null` (→ 401 at the call site).
  */
 export async function resolveRequestAuth(request: Request): Promise<ResolvedAuth> {

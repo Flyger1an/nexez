@@ -1,4 +1,4 @@
-// D-tier — per-page "deployments" built on the existing `versions` snapshots
+// D-tier - per-page "deployments" built on the existing `versions` snapshots
 // (newest-first). Pure helpers so the timeline + rollback UI and tests share
 // one source of truth. No new storage: a deployment IS a version snapshot.
 import { FaqItem, OfferItem } from './agent-page'

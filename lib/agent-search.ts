@@ -190,7 +190,7 @@ function tokenize(value: string) {
 // ---------------------------------------------------------------------------
 // Win-the-query discovery analysis.
 // The simulator's third lens: not "how does an agent parse my page" but "when
-// an agent searches Nexez for this, do I surface — and if not, who beats me and
+// an agent searches Nexez for this, do I surface - and if not, who beats me and
 // why?" Uses the SAME relevance + readiness ranking as `searchAgentPages`, so
 // the projected rank matches what /api/agent-search would actually return.
 // ---------------------------------------------------------------------------
@@ -199,7 +199,7 @@ const RANK_SEARCHABLE_STOPSCORE = 0
 
 // Tokens too generic to be useful *advice*. The ranking still counts them (so the
 // projected rank matches what /api/agent-search actually returns), but we never
-// tell an owner to "add the term 'next'" to win — only meaningful terms surface
+// tell an owner to "add the term 'next'" to win - only meaningful terms surface
 // as suggestions. Includes common English plus the default-query boilerplate
 // ("Book X and confirm price, fit, and next steps").
 const SUGGESTION_STOPWORDS = new Set([
@@ -299,7 +299,7 @@ export function analyzeQueryRank(field: AgentPage[], target: AgentPage, query: s
     const rawMisses = [...c.matched].filter((t) => !targetMatched.has(t))
     const termsYouMiss = meaningfulTerms(rawMisses)
     const reasons: string[] = []
-    if (c.score > targetScore) reasons.push('Stronger relevance — matches more of your query')
+    if (c.score > targetScore) reasons.push('Stronger relevance - matches more of your query')
     else if (c.score === targetScore && c.readiness > targetReadiness)
       reasons.push(`Tied on relevance, but more complete (readiness ${c.readiness}% vs your ${targetReadiness}%)`)
     if (termsYouMiss.length) reasons.push(`Mentions ${termsYouMiss.map((t) => `“${t}”`).join(', ')} where your page doesn't`)
@@ -318,14 +318,14 @@ export function analyzeQueryRank(field: AgentPage[], target: AgentPage, query: s
         : `Your page doesn't surface for this query. Name your offers the way buyers phrase what they want.`,
     )
   } else if (rank === 1) {
-    toWin.push('You already rank #1 for this query — keep your readiness high to hold the top spot.')
+    toWin.push('You already rank #1 for this query - keep your readiness high to hold the top spot.')
   } else {
     if (termsToAdd.length) toWin.push(`Add the terms rivals match and you don't: ${termsToAdd.map((t) => `“${t}”`).join(', ')}.`)
     const tiedHigherReadiness = above.some((c) => c.score === targetScore && c.readiness > targetReadiness)
-    if (tiedHigherReadiness) toWin.push(`Raise your readiness (currently ${targetReadiness}%) — publish, and fill in audience, FAQs, and prices to win the tie-break.`)
+    if (tiedHigherReadiness) toWin.push(`Raise your readiness (currently ${targetReadiness}%) - publish, and fill in audience, FAQs, and prices to win the tie-break.`)
     if (!termsToAdd.length && !tiedHigherReadiness) toWin.push('Sharpen your offer names and descriptions to match buyer phrasing more directly.')
   }
-  if (!target.is_published) toWin.unshift('This page is unpublished, so it has no real discovery rank yet — the position above is projected. Publish to compete.')
+  if (!target.is_published) toWin.unshift('This page is unpublished, so it has no real discovery rank yet - the position above is projected. Publish to compete.')
 
   return {
     query,

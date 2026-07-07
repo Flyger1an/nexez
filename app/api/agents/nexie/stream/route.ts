@@ -18,9 +18,9 @@ function chunkText(text: string): string[] {
 }
 
 /**
- * POST /api/agents/nexie/stream — same turn as /api/agents/nexie, but Server-Sent Events:
+ * POST /api/agents/nexie/stream - same turn as /api/agents/nexie, but Server-Sent Events:
  *   data: {"type":"token","value":"..."}   (progressive preview, may include pre-tool preamble)
- *   data: {"type":"done", ...NexieTurnResult}  (AUTHORITATIVE — clients render done.message + cards)
+ *   data: {"type":"done", ...NexieTurnResult}  (AUTHORITATIVE - clients render done.message + cards)
  *   data: {"type":"error","error":"..."}
  * The turn persists + returns exactly as the JSON route, so memory/threads/resume are unchanged.
  */

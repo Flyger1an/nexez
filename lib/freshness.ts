@@ -22,11 +22,11 @@ export function isStale(
 }
 
 /**
- * schema.org `Offer.priceValidUntil` — the date a listed price should no longer be
+ * schema.org `Offer.priceValidUntil` - the date a listed price should no longer be
  * assumed current. Tied to the same freshness contract as {@link isStale}: a price is
  * good for `thresholdDays` past the page's last update and rolls forward whenever the
  * owner edits. Always emits a date (so agents never treat the price as permanent) and
- * never a past one — a page already beyond its window reports "valid through today"
+ * never a past one - a page already beyond its window reports "valid through today"
  * (re-verify) rather than an expired date that agents/crawlers would treat as a
  * withdrawn offer. Returns a `YYYY-MM-DD` string, or null when the page has no timestamp.
  */

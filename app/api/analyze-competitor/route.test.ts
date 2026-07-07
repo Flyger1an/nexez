@@ -44,7 +44,7 @@ describe('POST /api/analyze-competitor (collaboration gate)', () => {
     ownerAllowsRef.value = false
   })
 
-  it('401 when not authenticated — never reaches outbound scraping', async () => {
+  it('401 when not authenticated - never reaches outbound scraping', async () => {
     userRef.user = null
     expect((await POST(post({ url: 'https://example.com' }))).status).toBe(401)
   })
@@ -53,7 +53,7 @@ describe('POST /api/analyze-competitor (collaboration gate)', () => {
     expect((await POST(post({}))).status).toBe(400)
   })
 
-  it('403 when resolveFeatureOwner denies (stranger with a pageId) — never touches the plan gate', async () => {
+  it('403 when resolveFeatureOwner denies (stranger with a pageId) - never touches the plan gate', async () => {
     featureRef.fn = () => ({ ok: false, status: 403 })
     const res = await POST(post({ url: 'https://example.com', pageId: 'p1' }))
     expect(res.status).toBe(403)

@@ -129,7 +129,7 @@ export async function GET(
         },
       },
       // negotiate_offer is only advertised when the owner's plan allows negotiation
-      // AND the page has a negotiable offer — otherwise calling it would 403.
+      // AND the page has a negotiable offer - otherwise calling it would 403.
       ...(negotiationAllowed
         ? [
             {
@@ -168,7 +168,7 @@ export async function GET(
     headers: {
       'Content-Type': 'application/json',
       'Cache-Control': 'public, max-age=300, s-maxage=3600',
-      // Base URL reflects the request host — vary the CDN cache key on it (this is
+      // Base URL reflects the request host - vary the CDN cache key on it (this is
       // cached for 1h, the widest poisoning window of the artifacts).
       Vary: 'x-forwarded-host',
     },

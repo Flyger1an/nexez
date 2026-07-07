@@ -11,7 +11,7 @@ import { enforceRateLimit } from '../../../../lib/rate-limit'
 /**
  * Buyer recourse from the order portal: file a refund request or a problem report.
  * The buyer's portal token IS the authorization (resolveOrderForRequest gates on it
- * with the service-role client). This NEVER moves money — it records an
+ * with the service-role client). This NEVER moves money - it records an
  * `order_requests` row + notifies the seller, who refunds/responds from Finance.
  *
  * Namespaced under /api/order-portal (NOT /api/orders) so it stays on the agent
@@ -78,12 +78,12 @@ export async function POST(request: Request) {
   })
   if (error) {
     // The partial unique index (one live request per order+kind) makes the dedup
-    // atomic — a racing duplicate surfaces as 23505; treat it as the same 409.
+    // atomic - a racing duplicate surfaces as 23505; treat it as the same 409.
     if ((error as { code?: string }).code === '23505') {
       return NextResponse.json({ error: 'You already have a request pending on this order.' }, { status: 409 })
     }
     console.warn('[order-portal] request insert failed:', error.message)
-    return NextResponse.json({ error: 'Could not file your request — please try again.' }, { status: 500 })
+    return NextResponse.json({ error: 'Could not file your request - please try again.' }, { status: 500 })
   }
 
   const amount = target.amountCents != null ? formatCurrencyAmount(target.amountCents, target.currency) : null
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
           amount,
           message: message || null,
           buyerEmail,
-          // /dashboard/* lives on the APP host — use appUrl, not getBaseUrl (runtime host).
+          // /dashboard/* lives on the APP host - use appUrl, not getBaseUrl (runtime host).
           inboxUrl: appUrl('/dashboard/finance'),
         })
         await sendEmail({ to: sellerEmail, subject: mail.subject, html: mail.html, text: mail.text })

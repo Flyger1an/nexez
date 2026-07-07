@@ -60,7 +60,7 @@ export async function POST() {
 
     // Persist a customer id resolved/created outside the webhook path so repeated
     // portal opens don't spawn duplicate Stripe customers (writes go through the
-    // service-role client — RLS has no user insert/update on billing_subscriptions).
+    // service-role client - RLS has no user insert/update on billing_subscriptions).
     if (resolvedByFallback && customerId && hasSupabaseAdminEnv()) {
       try {
         const admin = createAdminClient()

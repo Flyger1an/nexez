@@ -97,7 +97,7 @@ describe('buildMoneyEventEmail', () => {
   })
 
   it('dispute_closed: resolution subject + outcome detail', async () => {
-    const mail = await buildMoneyEventEmail({ kind: 'dispute_closed', businessName: 'Apex', offerName: 'Audit', detail: 'You won — funds retained.', inboxUrl: 'https://nexez.app/dashboard/negotiations' })
+    const mail = await buildMoneyEventEmail({ kind: 'dispute_closed', businessName: 'Apex', offerName: 'Audit', detail: 'You won - funds retained.', inboxUrl: 'https://nexez.app/dashboard/negotiations' })
     expect(mail.subject).toBe('Dispute resolved: Audit')
     expect(mail.text).toContain('You won')
   })

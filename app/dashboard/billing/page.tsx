@@ -168,7 +168,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
         {trialState.isTrialing && (
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--amber)]/40 bg-[var(--amber)]/10 px-4 py-3 text-sm">
             <span className="text-white">
-              <span className="font-semibold">{trialDaysLeft} day{trialDaysLeft === 1 ? '' : 's'} left</span> in your {trialPlanName} trial — add a payment method to keep your storefront live after it ends.
+              <span className="font-semibold">{trialDaysLeft} day{trialDaysLeft === 1 ? '' : 's'} left</span> in your {trialPlanName} trial - add a payment method to keep your storefront live after it ends.
             </span>
             <a href={`?plan=${trialState.chosenPlanId}`} className="rounded-xl bg-[var(--amber)] px-4 py-1.5 font-medium text-zinc-950">
               Add payment method
@@ -178,7 +178,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
         {trialState.isPaused && (
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--amber)]/40 bg-[var(--amber)]/10 px-4 py-3 text-sm">
             <span className="text-white">
-              <span className="font-semibold">Your storefront is paused.</span> Your trial ended — choose a plan to bring your listings back online.
+              <span className="font-semibold">Your storefront is paused.</span> Your trial ended - choose a plan to bring your listings back online.
             </span>
             <a href={`?plan=${trialState.chosenPlanId ?? 'pro'}`} className="rounded-xl bg-[var(--amber)] px-4 py-1.5 font-medium text-zinc-950">
               Choose a plan to go live

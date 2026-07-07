@@ -59,7 +59,7 @@ export function LiveAgentFeed() {
 
   return (
     <div className="grid gap-5 lg:grid-cols-[1.5fr_1fr]">
-      {/* session log — fixed dark terminal surface */}
+      {/* session log - fixed dark terminal surface */}
       <div className="overflow-hidden rounded-2xl" style={{ background: '#0B0B0D', border: '1px solid rgba(255,255,255,0.1)' }}>
         <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
           <span className="inline-flex items-center gap-2 font-mono text-[11px] text-[var(--signal)]">

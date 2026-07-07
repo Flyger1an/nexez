@@ -190,7 +190,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Agent Tabs — per Design System */}
+        {/* Agent Tabs - per Design System */}
         <div className="flex border-b border-white/10 mb-6">
           {agentTabs.map((tab) => (
             <button
@@ -207,7 +207,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
           ))}
         </div>
 
-        {/* Side-by-Side Comparison — Design System Spec */}
+        {/* Side-by-Side Comparison - Design System Spec */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
           {/* LEFT: Original Page Preview */}

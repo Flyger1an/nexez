@@ -17,7 +17,7 @@ export default function CreateListingRoute() {
 
   return (
     <Screen header={<StackHeader title="New listing" onBack={() => router.back()} />}>
-      <Text style={st.lede}>Two ways to get agent-ready. Both land in the same editor — nothing publishes without you.</Text>
+      <Text style={st.lede}>Two ways to get agent-ready. Both land in the same editor, and nothing publishes without you.</Text>
 
       <Pressable onPress={() => router.push('/intake')} style={({ pressed }) => [pressed ? st.pressed : null]}>
         <Glass tone="card" radius={18} contentStyle={st.option}>
@@ -40,7 +40,7 @@ export default function CreateListingRoute() {
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={st.optionTitle}>Build with the form</Text>
-            <Text style={st.optionSub}>The guided editor — every field in your hands from the start.</Text>
+            <Text style={st.optionSub}>The guided editor, with every field in your hands from the start.</Text>
           </View>
         </Glass>
       </Pressable>

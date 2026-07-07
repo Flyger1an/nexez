@@ -264,7 +264,7 @@ export function formatEventDate(value: string) {
 /**
  * Dominant settlement currency across the revenue events (from metadata.currency,
  * recorded by the checkout route), defaulting to usd. Lets the dashboard format
- * revenue in the workspace's actual currency — correct, incl. zero-decimal, for a
+ * revenue in the workspace's actual currency - correct, incl. zero-decimal, for a
  * single-currency workspace (the common case). Mixed-currency totals are summed in
  * smallest units and only approximate; a full per-currency breakdown is a follow-up.
  */
@@ -434,7 +434,7 @@ const FREE_RANGE_PRESETS = new Set(['today', '1d', '7d', '30d'])
  * analyticsRangeBounds defaults an unknown preset (e.g. `90d`) to an epoch
  * cutoff = all-time, so gating only `all`/custom would let `?range=90d` slip the
  * paywall. Applied server-side on BOTH the analytics page and the CSV export so
- * a hand-crafted URL can't read history beyond the free window — the client
+ * a hand-crafted URL can't read history beyond the free window - the client
  * teaser alone is bypassable.
  */
 export function clampHistoryRange(input: AnalyticsRangeInput, fullHistory: boolean): AnalyticsRangeInput {
@@ -450,7 +450,7 @@ export type KpiDelta = { text: string; dir: 'up' | 'down' | 'flat' }
 /**
  * The equal-length window immediately before `bounds.cutoff`, used for the
  * period-over-period KPI deltas. Only meaningful for the bounded presets
- * (today / 1d / 7d / 30d) — returns null for all-time (epoch cutoff) and custom
+ * (today / 1d / 7d / 30d) - returns null for all-time (epoch cutoff) and custom
  * ranges, where "the previous period" isn't well defined.
  */
 export function previousPeriodBounds(
@@ -469,7 +469,7 @@ export function previousPeriodBounds(
 
 /**
  * Format a period-over-period change for a "higher is better" KPI. Returns null
- * when there's no prior signal to compare against — the UI then hides the delta
+ * when there's no prior signal to compare against - the UI then hides the delta
  * rather than showing a misleading "+100%".
  */
 export function pctDelta(current: number, previous: number, label = 'prev period'): KpiDelta | null {

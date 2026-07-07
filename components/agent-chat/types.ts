@@ -1,4 +1,4 @@
-// Shared agent-chat primitive — types (spec §6: one chat system, two agents).
+// Shared agent-chat primitive - types (spec §6: one chat system, two agents).
 // The shell owns the conversation mechanics (message list, busy states, starter
 // prompts, mic affordance, input form); each agent parameterizes endpoint
 // behavior via sendTurn and its own card renderers. No agent logic lives here.

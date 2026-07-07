@@ -9,13 +9,13 @@ import { planAllows, type PlanFeature, type PlanId } from '../billing'
 // retain access + the plan commission rate during Stripe's dunning window so a
 // transient payment failure doesn't instantly downgrade a paying customer.
 // NOTE: the DB triggers (page-limit, team-collaboration) hardcode this same set
-// in SQL — keep them in sync with this constant.
+// in SQL - keep them in sync with this constant.
 export const LIVE_STATUSES = new Set(['active', 'trialing', 'past_due', 'unpaid'])
 const VALID_PLANS = new Set<PlanId>(['free', 'launch', 'pro', 'scale', 'enterprise'])
 
 /**
  * Does this subscription row CONFER its plan right now? active/past_due/unpaid always do
- * (the dunning grace policy). A 'trialing' row confers only while it's inside its window —
+ * (the dunning grace policy). A 'trialing' row confers only while it's inside its window -
  * an expired no-card trial (trial_ends_at in the past) does NOT, so the account drops to
  * Free/paused. 'paused'/'canceled'/'incomplete' never confer. MUST mirror the SQL
  * conferring predicate in 20260627007400 (owner_plan_rank / plan_published_page_limit).
@@ -34,7 +34,7 @@ export function subscriptionConfers(status: string | null | undefined, trialEnds
  *
  * Pass any Supabase client that can read the owner's billing_subscriptions row
  * (the authed server client for the owner's own pages, or the admin client when
- * resolving another page's owner — e.g. badge/white-label gating on a public page).
+ * resolving another page's owner - e.g. badge/white-label gating on a public page).
  */
 export async function getOwnerPlanId(
   supabase: Pick<SupabaseClient, 'from'>,
@@ -43,7 +43,7 @@ export async function getOwnerPlanId(
   if (!ownerId) return 'free'
   try {
     // Resolve admin status + subscription in parallel. A platform admin gets the TOP
-    // tier everywhere (ENTITLEMENTS only — not an RLS/cross-tenant bypass), mirroring
+    // tier everywhere (ENTITLEMENTS only - not an RLS/cross-tenant bypass), mirroring
     // the SQL owner_plan_rank()/plan_published_page_limit() admin short-circuit.
     // supabase-js surfaces query errors in `.error` (no throw), so a missing
     // platform_admins table (e.g. pre-migration) just yields null → billing still
@@ -62,15 +62,15 @@ export async function getOwnerPlanId(
       return sub.plan_id as PlanId
     }
   } catch {
-    // fall through to free on any read error — gating fails safe (most restrictive)
+    // fall through to free on any read error - gating fails safe (most restrictive)
   }
   return 'free'
 }
 
 export type OwnerBillingState = {
-  /** Entitled tier RIGHT NOW (Free when not conferring) — drives feature gating. */
+  /** Entitled tier RIGHT NOW (Free when not conferring) - drives feature gating. */
   planId: PlanId
-  /** The plan_id on the row, even when paused — for "your {Pro} trial" display copy. */
+  /** The plan_id on the row, even when paused - for "your {Pro} trial" display copy. */
   chosenPlanId: PlanId | null
   status: string | null
   /** A conferring sub (active/dunning/in-window trial). */
@@ -87,7 +87,7 @@ export type OwnerBillingState = {
 /**
  * Richer billing state for the dashboard (trial countdown + paused banner). Splits the
  * tier (for gating) from the lifecycle (trialing/paused/trialEndsAt). NEVER auto-pauses on
- * a read error — returns a neutral Free state so a billing blip can't take a paying
+ * a read error - returns a neutral Free state so a billing blip can't take a paying
  * customer's storefront offline (the real pause gate is the serving flag, set only by a
  * deliberate cron/trigger).
  */

@@ -72,7 +72,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'You already reviewed this order.' }, { status: 409 })
     }
     console.warn('[order-portal] review insert failed:', error.message)
-    return NextResponse.json({ error: 'Could not save your review — please try again.' }, { status: 500 })
+    return NextResponse.json({ error: 'Could not save your review - please try again.' }, { status: 500 })
   }
 
   return NextResponse.json({

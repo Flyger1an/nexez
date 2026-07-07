@@ -56,7 +56,7 @@ export async function POST(request: Request) {
   }
 
   // Collaboration: when a pageId is supplied, the action runs in the context of that
-  // page — an editor-collaborator inherits the PAGE OWNER's plan (so the AI path is
+  // page - an editor-collaborator inherits the PAGE OWNER's plan (so the AI path is
   // gated on the owner's entitlement, not the logged-in collaborator's). When no
   // pageId is supplied (e.g. the create flow before a page exists, or the standalone
   // tools sandbox), keep the legacy self-gate. This route is stateless: it never
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
 
   // Phase 5 robustness: overall timeout guard so importer never hangs the request (per-fetch already timeout'd).
   // The deterministic crawl finishes well inside 14s, but the guided AI path can
-  // add up to two ~12s model calls — give it headroom under maxDuration (45s)
+  // add up to two ~12s model calls - give it headroom under maxDuration (45s)
   // so the race doesn't clip LLM-assisted imports.
   const OVERALL_TIMEOUT_MS = llmEnabled ? 40_000 : 14_000
   const timeout = new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Analysis timed out. Partial results may be available on retry or try a simpler URL.')), OVERALL_TIMEOUT_MS))

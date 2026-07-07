@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!resolved) return { title: 'Storefront not found | Nexez' }
   const name = resolved.storefront.display_name || resolved.storefront.handle
   return {
-    title: `${name} — agent storefront | Nexez`,
+    title: `${name} - agent storefront | Nexez`,
     description: resolved.storefront.description || `Browse ${name}'s AI-ready listings on Nexez.`,
   }
 }

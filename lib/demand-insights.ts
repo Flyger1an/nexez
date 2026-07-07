@@ -1,10 +1,10 @@
-// "What agents asked" — aggregate the query/intent signals we already collect
+// "What agents asked" - aggregate the query/intent signals we already collect
 // on checkout_events + agent_visits into demand insights. Pure + tested.
 
 export type QueryStat = { query: string; count: number }
 
 /**
- * Queries agents searched for that this business doesn't appear to serve —
+ * Queries agents searched for that this business doesn't appear to serve -
  * no meaningful word overlap with any offer name/description. Product gold:
  * "agents searched for X you don't offer."
  */

@@ -87,7 +87,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
   const checkoutUrl = `${baseUrl}/checkout/${page.slug}?offer=${offerKey}`
   const publicUrl = `${baseUrl}/${page.slug}`
   // Show the buyer the SAME currency + amount the charge will use (the page's
-  // settlement currency), not a hardcoded USD — otherwise the displayed price
+  // settlement currency), not a hardcoded USD - otherwise the displayed price
   // silently mismatches what Stripe charges.
   const currency = normalizeCurrency(page.currency)
   const priceCents = toStripeAmount(parseMoney(offer.price) ?? 0, currency) || null
@@ -210,7 +210,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
                     <p className="font-medium">You’ll pay securely on Stripe</p>
                     <p className="mt-1 text-sm leading-6 text-zinc-400">
                       No card details are entered or stored on Nexez. Continue to complete payment on Stripe’s secure
-                      checkout — your selected offer and buyer context are passed along, and the seller is paid directly.
+                      checkout - your selected offer and buyer context are passed along, and the seller is paid directly.
                     </p>
                   </div>
                 </div>

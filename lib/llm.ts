@@ -1,11 +1,11 @@
 import 'server-only'
-// Real LLM assist — OpenAI-compatible chat completions, gated behind env so it
+// Real LLM assist - OpenAI-compatible chat completions, gated behind env so it
 // stays dormant (deterministic fallback) until a key is configured.
 // Works with OpenAI, xAI/Grok, Google Gemini (via https://generativelanguage.googleapis.com/v1beta/openai/),
 // Together, Groq, etc. via LLM_BASE_URL + LLM_MODEL.
 //
 // `import 'server-only'` (above) makes any client-bundle import of this module a
-// build error — the LLM_API_KEY it reads must never reach the browser. The
+// build error - the LLM_API_KEY it reads must never reach the browser. The
 // deterministic, client-safe helpers live in lib/ai-optimize.ts; the LLM-backed
 // voice rewrite lives in lib/ai-optimize-llm.ts (also server-only).
 
@@ -166,7 +166,7 @@ export async function llmComplete(
  * OpenAI-compatible multimodal message shape (content parts with image_url).
  * Works with vision-capable OpenAI-compatible models (gpt-4o / gpt-4o-mini,
  * etc.). `images` are data URLs (data:image/png;base64,…) or https URLs.
- * Same fail-safe telemetry as llmCompleteDetailed — callers treat a non-ok
+ * Same fail-safe telemetry as llmCompleteDetailed - callers treat a non-ok
  * result as "could not review" (never as a pass).
  */
 export async function llmVisionCompleteDetailed(

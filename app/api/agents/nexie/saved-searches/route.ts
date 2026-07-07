@@ -12,7 +12,7 @@ function clean(value: unknown, max: number): string {
 }
 
 /**
- * GET /api/agents/nexie/saved-searches — the buyer's standing searches (newest first).
+ * GET /api/agents/nexie/saved-searches - the buyer's standing searches (newest first).
  * Owner-scoped via RLS (buyer facet).
  */
 export async function GET(request: NextRequest) {
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/agents/nexie/saved-searches { query?, category? } — save a standing search (idempotent).
+ * POST /api/agents/nexie/saved-searches { query?, category? } - save a standing search (idempotent).
  * Requires at least one of query/category. last_notified_at defaults to now() so only future
  * publishes trigger alerts (no backfill).
  */
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * DELETE /api/agents/nexie/saved-searches { id } — remove a saved search. RLS scopes to the caller.
+ * DELETE /api/agents/nexie/saved-searches { id } - remove a saved search. RLS scopes to the caller.
  */
 export async function DELETE(request: NextRequest) {
   const limited = await enforceRateLimit(request, 'agents:nexie:saved-searches', 30, 60_000)

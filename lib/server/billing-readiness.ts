@@ -3,8 +3,8 @@ import 'server-only'
 /**
  * Server-only Stripe billing readiness checks. These read presence of the secret
  * env vars (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, SUPABASE_SERVICE_ROLE_KEY),
- * so they live behind `import 'server-only'` to keep them — and any future secret
- * reads — out of client bundles. The pure plan catalog (lib/billing.ts) stays
+ * so they live behind `import 'server-only'` to keep them - and any future secret
+ * reads - out of client bundles. The pure plan catalog (lib/billing.ts) stays
  * client-safe and reads only non-secret price IDs.
  */
 import { billingPlans, getPlanPriceId, isStripePriceId } from '../billing'

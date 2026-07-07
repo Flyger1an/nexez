@@ -3,7 +3,7 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supaba
 import { sendPushToUser } from '../../../../lib/push'
 import { captureError } from '../../../../lib/observability'
 
-// Saved-search alerts (Vercel cron — see vercel.json). For each buyer saved search, finds newly
+// Saved-search alerts (Vercel cron - see vercel.json). For each buyer saved search, finds newly
 // PUBLISHED catalog entries (since that search's last_notified_at) that match its query/category and
 // pushes the buyer. sendPushToUser already honors each user's notifications pref (fail-open). We only
 // advance last_notified_at when we actually notify, so a page can't be skipped between runs.

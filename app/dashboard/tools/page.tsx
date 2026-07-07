@@ -25,7 +25,7 @@ export default function ToolsPage() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<any>(null)
 
-  // Developer platform — API keys are managed via <ApiKeysManager />
+  // Developer platform - API keys are managed via <ApiKeysManager />
   const revenueShare = 15 // % on agent-driven transactions
 
   // Account-level outbound webhooks: persisted server-side (DB + RLS) and
@@ -140,10 +140,10 @@ export default function ToolsPage() {
       </div>
       <div className="mt-4 text-sm space-y-1.5">
         <div className="text-zinc-300">Revenue share: {revenueShare}% on agent-driven transactions.</div>
-        <a href="/openapi.json" className="text-[var(--signal)] hover:underline block">OpenAPI spec — full endpoint reference →</a>
+        <a href="/openapi.json" className="text-[var(--signal)] hover:underline block">OpenAPI spec - full endpoint reference →</a>
         <a href="/agent-pages.json" className="text-[var(--signal)] hover:underline block">Public agent index →</a>
-        <a href="/api/directory" className="text-[var(--signal)] hover:underline block">Directory API — readiness &amp; trust signals →</a>
-        <a href="/api/public-simulate" className="text-[var(--signal)] hover:underline block">Simulation API — preview how agents read a page →</a>
+        <a href="/api/directory" className="text-[var(--signal)] hover:underline block">Directory API - readiness &amp; trust signals →</a>
+        <a href="/api/public-simulate" className="text-[var(--signal)] hover:underline block">Simulation API - preview how agents read a page →</a>
       </div>
     </div>
   )
@@ -244,7 +244,7 @@ export default function ToolsPage() {
                         {result.structuredOffers.slice(0, 6).map((offer: any, i: number) => (
                           <div key={i} className="text-sm bg-white/[0.03] p-3 rounded flex items-start justify-between gap-3">
                             <div>
-                              <span className="font-medium">{offer.name}</span> — {offer.price}
+                              <span className="font-medium">{offer.name}</span> - {offer.price}
                               {(offer.duration || offer.isMobile || offer.serviceArea) && (
                                 <span className="ml-2 text-[10px] text-[var(--signal)]/80">
                                   {offer.duration} {offer.isMobile ? '• Mobile' : ''} {offer.serviceArea ? `• ${offer.serviceArea}` : ''}
@@ -289,7 +289,7 @@ export default function ToolsPage() {
             <div>
               <h2 className="text-2xl font-semibold">Connect more tools</h2>
               <p className="mt-1 text-sm text-[#9CA3AF]">
-                Import offers from Stripe, Shopify, Square, and Acuity — each becomes an editable, agent-ready page.
+                Import offers from Stripe, Shopify, Square, and Acuity - each becomes an editable, agent-ready page.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <span className="rounded-full border border-[var(--signal)]/25 bg-[var(--signal)]/10 px-2.5 py-0.5 text-[11px] text-[var(--signal)]">Stripe</span>
@@ -305,7 +305,7 @@ export default function ToolsPage() {
               currentPlan={plan}
               variant="tile"
               title="Connect your tools"
-              description="Import offers from Stripe, Shopify, Square, and Acuity — and keep them synced. Available on the Pro plan and up."
+              description="Import offers from Stripe, Shopify, Square, and Acuity - and keep them synced. Available on the Pro plan and up."
             >
               <StripeImporter />
               <ShopifyImporter />
@@ -319,12 +319,12 @@ export default function ToolsPage() {
           <div className="rounded-xl border border-white/10 p-5">
             <div className="font-semibold mb-2 text-[var(--signal)]">What you can connect</div>
             <ul className="text-sm text-[#9CA3AF] space-y-1.5">
-              <li>• <span className="text-[var(--ready)]">Calendly</span> — event types, plus webhooks and signing secrets</li>
-              <li>• <span className="text-[var(--signal)]">Stripe</span> — products, prices, and live price re-sync</li>
-              <li>• <span className="text-[var(--signal)]">Shopify / Woo</span> — product catalog via the public feed</li>
-              <li>• <span className="text-[var(--signal)]">Square</span> — bookings and payments for mobile, wellness, and home services</li>
-              <li>• <span className="text-[var(--amber)]">Acuity Scheduling</span> — appointment types for coaching, beauty, and wellness</li>
-              <li>• <span className="text-[var(--signal)]">Google Calendar</span> — availability windows</li>
+              <li>• <span className="text-[var(--ready)]">Calendly</span> - event types, plus webhooks and signing secrets</li>
+              <li>• <span className="text-[var(--signal)]">Stripe</span> - products, prices, and live price re-sync</li>
+              <li>• <span className="text-[var(--signal)]">Shopify / Woo</span> - product catalog via the public feed</li>
+              <li>• <span className="text-[var(--signal)]">Square</span> - bookings and payments for mobile, wellness, and home services</li>
+              <li>• <span className="text-[var(--amber)]">Acuity Scheduling</span> - appointment types for coaching, beauty, and wellness</li>
+              <li>• <span className="text-[var(--signal)]">Google Calendar</span> - availability windows</li>
               <li>• CSV and website hybrid import</li>
             </ul>
             <p className="mt-3 text-[10px] text-zinc-500">Connect once, then keep your pages fresh for agents automatically.</p>
@@ -412,7 +412,7 @@ export default function ToolsPage() {
                 ))}
               </div>
             ) : (
-              <p className="mt-3 text-[11px] text-zinc-500">No webhooks yet — add a URL to start receiving signed events.</p>
+              <p className="mt-3 text-[11px] text-zinc-500">No webhooks yet - add a URL to start receiving signed events.</p>
             )}
             </PlanGate>
           </div>

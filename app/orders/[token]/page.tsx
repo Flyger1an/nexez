@@ -14,7 +14,7 @@ import { formatCurrencyAmount } from '../../../lib/currency'
 import { BuyerOrderActions } from './BuyerOrderActions'
 import { BuyerReviewCard } from './BuyerReviewCard'
 
-// Private, per-buyer page keyed by an unguessable token — never index, never cache.
+// Private, per-buyer page keyed by an unguessable token - never index, never cache.
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
   title: 'Your order · Nexez',
@@ -53,7 +53,7 @@ export default async function OrderPortalPage({ params }: PageProps) {
 
   const status = describeOrderStatus(order.kind, order.status)
   const timeline = buildOrderTimeline(order)
-  const amount = order.amountCents != null ? formatCurrencyAmount(order.amountCents, order.currency) : '—'
+  const amount = order.amountCents != null ? formatCurrencyAmount(order.amountCents, order.currency) : '-'
   const placed = new Date(order.createdAt).toLocaleString()
 
   return (
@@ -134,7 +134,7 @@ export default async function OrderPortalPage({ params }: PageProps) {
         <section className="mt-6">
           <h2 className="text-lg font-semibold">Need help with this order?</h2>
           <p className="mt-1 text-sm text-zinc-400">
-            Requests go straight to the seller — they handle the refund or response. Nexez never charges you to ask.
+            Requests go straight to the seller - they handle the refund or response. Nexez never charges you to ask.
           </p>
           <BuyerOrderActions
             token={order.token}

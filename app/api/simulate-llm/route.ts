@@ -9,7 +9,7 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/
 import { getPagePrivateMeta } from '../../../lib/server/page-private-meta'
 
 export async function POST(request: Request) {
-  // Public endpoint that runs a paid LLM against any published slug — throttle it.
+  // Public endpoint that runs a paid LLM against any published slug - throttle it.
   const limited = await enforceRateLimit(request, 'simulate-llm', 20, 60_000)
   if (limited) return limited
 
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
     // Respect the page owner's consent: only send their page to a real LLM when the
     // page opted in (llm_opt_in). Otherwise fall back to the deterministic simulation
-    // — this also stops an attacker forcing paid LLM calls against arbitrary slugs.
+    // - this also stops an attacker forcing paid LLM calls against arbitrary slugs.
     // Plan gate: AI features unlock on Launch+. Resolve the owner's plan with the
     // admin client (this is a public route; the anon client can't read another
     // owner's billing row). If admin isn't configured, fall back to the opt-in gate.

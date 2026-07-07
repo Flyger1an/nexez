@@ -62,7 +62,7 @@ const post = (body: unknown) =>
     body: JSON.stringify(body),
   })
 
-describe('POST /api/checkout — Smart Rules calendar protection', () => {
+describe('POST /api/checkout - Smart Rules calendar protection', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     dbRef.handler = () => ({ data: null, error: null })
@@ -70,7 +70,7 @@ describe('POST /api/checkout — Smart Rules calendar protection', () => {
   })
 
   // The checkout route reads owner-private booking rules, so the page lookup uses the
-  // service-role client (admin) when configured — the page fixture lives on adminRef.
+  // service-role client (admin) when configured - the page fixture lives on adminRef.
   it('409 when the weekly booking cap is reached (count from checkout_events)', async () => {
     adminRef.handler = (c: QueryContext) =>
       c.table === 'pages' ? { data: fixedPage({ maxBookingsPerWeek: 2 }), error: null } : { data: null, error: null, count: 2 }
@@ -99,7 +99,7 @@ describe('POST /api/checkout — Smart Rules calendar protection', () => {
     expect((await res.json()).error).toMatch(/blackout/i)
   })
 
-  it('never charges the platform account when the seller has no Connect — routes to the external link', async () => {
+  it('never charges the platform account when the seller has no Connect - routes to the external link', async () => {
     // Stripe key IS set and admin env is available, the offer has a price, but the
     // owner has no Connect account (billing_subscriptions returns null). The charge
     // must NOT run on the platform account; it falls back to the external link.
@@ -125,7 +125,7 @@ describe('POST /api/checkout — Smart Rules calendar protection', () => {
   })
 })
 
-describe('POST /api/checkout — buyer identity propagation', () => {
+describe('POST /api/checkout - buyer identity propagation', () => {
   // Connect-ready seller so the live Stripe branch runs (page + a charges-enabled
   // billing_subscriptions row, both on the service-role client).
   beforeEach(async () => {
@@ -169,7 +169,7 @@ describe('POST /api/checkout — buyer identity propagation', () => {
 
   it('puts the Connect platform fee under payment_intent_data, not the session top level', async () => {
     // Top-level application_fee_amount is rejected by Stripe for Checkout Sessions ("unknown
-    // parameter"), which silently fell back to the provider URL — no real charge. It must live
+    // parameter"), which silently fell back to the provider URL - no real charge. It must live
     // under payment_intent_data for a direct charge on the connected account.
     const res = await POST(post({ slug: 'demo', offer: 'services-0' }))
     expect(res.status).toBe(200)

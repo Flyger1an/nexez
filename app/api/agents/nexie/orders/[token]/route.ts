@@ -13,12 +13,12 @@ import {
 export const maxDuration = 30
 
 /**
- * GET /api/agents/nexie/orders/[token] — full receipt/detail for ONE of the buyer's orders.
+ * GET /api/agents/nexie/orders/[token] - full receipt/detail for ONE of the buyer's orders.
  *
  * The portal token alone is the credential for the anonymous WEB portal, but this AUTHED app endpoint
  * additionally BINDS the order to the caller's account: it requires a confirmed email and only returns
  * the order when its buyer_email matches (case-insensitive). That mirrors the orders LIST (email-scoped)
- * so a signed-in user can only read receipts for their own purchases — holding/guessing another buyer's
+ * so a signed-in user can only read receipts for their own purchases - holding/guessing another buyer's
  * token isn't enough. Status copy + timeline + request labels are computed with the SAME server helpers
  * the web portal uses (one source of truth); the app just renders them.
  */

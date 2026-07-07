@@ -36,7 +36,7 @@ describe('POST /api/negotiations/transition', () => {
     expect((await POST(post({ negotiationId: 'n1', to: 'banana' }))).status).toBe(400)
   })
 
-  it('409 — held is buyer-funded, never set directly here', async () => {
+  it('409 - held is buyer-funded, never set directly here', async () => {
     withNegotiation({ id: 'n1', status: 'agreement_proposed', escrow_mode: 'manual_capture_ready' })
     const res = await POST(post({ negotiationId: 'n1', to: 'held' }))
     expect(res.status).toBe(409)

@@ -6,7 +6,7 @@ import { supabase } from '../../../lib/supabase'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 import { agentArtifactHref, normalizeDomainPath } from '../../../lib/custom-domain'
 
-// Cap on JSON-RPC batch size — an unbounded array was a single-request
+// Cap on JSON-RPC batch size - an unbounded array was a single-request
 // amplification DoS (~194x) on this unauthenticated endpoint (red-team gauntlet).
 const MCP_MAX_BATCH = 25
 
@@ -72,7 +72,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
   // Resolve negotiation entitlement once (async) and thread it into the pure
   // handler so the advertised tools + tools/call match the gated POST endpoint.
   const negotiationAllowed = await resolveNegotiationAllowed(page)
-  // Support a single request or a JSON-RPC batch (bounded — an unbounded batch was
+  // Support a single request or a JSON-RPC batch (bounded - an unbounded batch was
   // a single-request amplification DoS).
   if (Array.isArray(body)) {
     if (body.length > MCP_MAX_BATCH) {

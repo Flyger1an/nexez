@@ -17,10 +17,10 @@ import PendingPoller from './PendingPoller'
  *
  * agent_negotiations rows are owner-only under RLS, so this page is NOT readable
  * with the anonymous client. Two authorized read paths:
- *   1. Agent  — the status token (issued once at creation) is the credential.
+ *   1. Agent  - the status token (issued once at creation) is the credential.
  *               Service-role read filtered by id + token, mirroring
  *               /api/negotiations/status. Any mismatch → 404 (leaks nothing).
- *   2. Owner  — no token needed; the session client + RLS restricts to the
+ *   2. Owner  - no token needed; the session client + RLS restricts to the
  *               owner's own negotiations (the dashboard "View full thread" link).
  *
  * Only a strict field allow-list is loaded, and owner-private data (the offer's
@@ -98,7 +98,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
     negotiation = data ?? null
   }
 
-  // Owner path: no token — RLS on the session client restricts to their own rows.
+  // Owner path: no token - RLS on the session client restricts to their own rows.
   if (!negotiation) {
     const { data } = await serverClient
       .from('agent_negotiations')
@@ -183,7 +183,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
           </div>
         </div>
 
-        {/* Async decision in flight — poll + soft-refresh when it lands. */}
+        {/* Async decision in flight - poll + soft-refresh when it lands. */}
         {negotiation.decision_pending && formToken && (
           <PendingPoller id={negotiation.id} token={formToken} currentSeq={negotiation.decision_seq ?? 0} />
         )}
@@ -191,7 +191,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
         {/* Buyer-funded settlement */}
         {justPaid && (
           <div className="card mb-6 border border-[var(--ready)]/40 bg-[var(--ready)]/10">
-            <div className="text-sm font-medium text-[var(--ready)]">Payment received — your agreement is secured.</div>
+            <div className="text-sm font-medium text-[var(--ready)]">Payment received - your agreement is secured.</div>
             <div className="text-xs text-[var(--fg-muted)] mt-1">The seller has been notified. This thread reflects the final status above.</div>
           </div>
         )}
@@ -206,7 +206,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
             <p className="text-sm text-zinc-300 mb-3">
               {negotiation.settlement_state === 'auto'
                 ? 'Pay now to confirm and complete this agreement.'
-                : 'Approved by the seller — pay to place the escrow hold (captured on delivery).'}
+                : 'Approved by the seller - pay to place the escrow hold (captured on delivery).'}
             </p>
             <form method="post" action="/api/negotiations/pay">
               <input type="hidden" name="negotiationId" value={negotiation.id} />
@@ -220,7 +220,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
         )}
         {!justPaid && awaitingApproval && (
           <div className="card mb-6 border border-[var(--amber)]/30 bg-[var(--amber)]/5 text-sm text-[var(--amber)]">
-            Agreement reached for {formatNegotiationAmount(negotiation.amount_cents)} — awaiting seller approval before payment. Check back shortly.
+            Agreement reached for {formatNegotiationAmount(negotiation.amount_cents)} - awaiting seller approval before payment. Check back shortly.
           </div>
         )}
 

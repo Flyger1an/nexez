@@ -13,7 +13,7 @@ export function AvailabilityCard({ e }: { e: PageEditor }) {
         <a href="#next-available" className="text-[10px] text-[var(--signal)] hover:text-[var(--signal)]">Edit →</a>
       </div>
       <div className="text-sm text-[var(--ready)]">
-        {nextAvailable ? nextAvailable.split(' ||WINDOWS||')[0] : 'Not set — agents will see "Contact for current slots"'}
+        {nextAvailable ? nextAvailable.split(' ||WINDOWS||')[0] : 'Not set - agents will see "Contact for current slots"'}
       </div>
       {googleCalendarId && (
         <div className="mt-1 text-[10px] text-[var(--ready)]">Google Calendar connected</div>
@@ -37,7 +37,7 @@ export function AvailabilityCard({ e }: { e: PageEditor }) {
       <div className="mt-1 text-[10px] text-[var(--ready)]">
         {page.outbound_webhooks?.length
           ? `${page.outbound_webhooks.length} webhook URL${page.outbound_webhooks.length === 1 ? '' : 's'} configured`
-          : 'No booking webhooks yet — configure in Settings'}
+          : 'No booking webhooks yet - configure in Settings'}
       </div>
       <div className="mt-1 text-[9px] text-[var(--fg-muted-2)]">Test events and signing protection are available in Settings.</div>
       {typeof window !== 'undefined' && localStorage.getItem('nexez_last_outbound_fired') && (

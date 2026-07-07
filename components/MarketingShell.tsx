@@ -232,7 +232,7 @@ function MarketingFooter({ authed }: { authed: boolean | null }) {
       </div>
       <div className="border-t border-border">
         <div className="mx-auto max-w-7xl px-5 py-4 text-xs text-muted-foreground">
-          © Nexez — listings built for AI agents.
+          © Nexez - listings built for AI agents.
         </div>
       </div>
     </footer>

@@ -13,7 +13,7 @@ export const maxDuration = 20
  *
  * Safety posture for an outward-facing, anonymous crawler:
  * - SSRF: analyzeSite() validates the host (sync pattern + DNS-resolved IP) and
- *   fetches only via the SSRF-safe path — localhost/private/link-local are blocked.
+ *   fetches only via the SSRF-safe path - localhost/private/link-local are blocked.
  * - Cost: runs DETERMINISTIC ONLY (skipLlm) so anonymous traffic never spends on
  *   the LLM; the crawl still returns real structured offers (schema.org/JSON-LD,
  *   common paths, Shopify, agent docs).

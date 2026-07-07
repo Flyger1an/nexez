@@ -29,7 +29,7 @@ export function CalendlyBookingsCard({ e }: { e: PageEditor }) {
         <div className="space-y-1 text-xs">
           {recentCalendlyBookings.slice(0, lastBooking ? 2 : 3).map((evt: any, idx: number) => (
             <div key={idx} className="flex justify-between text-[var(--fg-muted)]">
-              <span>{evt.offer_name} — {evt.metadata?.invitee_name || 'Guest'}</span>
+              <span>{evt.offer_name} - {evt.metadata?.invitee_name || 'Guest'}</span>
               <span className="text-[var(--fg-muted-2)]">{new Date(evt.created_at).toLocaleDateString()}</span>
             </div>
           ))}

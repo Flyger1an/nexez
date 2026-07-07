@@ -6,7 +6,7 @@ import { getOwnerBillingState } from './plan'
 
 /**
  * Resolve a public storefront + its published listings by handle. Reads via the
- * SERVICE-ROLE client because `storefronts` has no anon grant (least privilege —
+ * SERVICE-ROLE client because `storefronts` has no anon grant (least privilege -
  * mirrors how the buyer portal + [slug]/agent.json read owner-scoped data on the
  * agent runtime). Listings are scoped to THIS storefront via `storefront_id` (Phase 4:
  * an account can own several storefronts, so owner_id is no longer 1:1 with a storefront).
@@ -27,7 +27,7 @@ export async function loadStorefrontByHandle(
     .maybeSingle<Storefront>()
   if (!storefront) return null
 
-  // A paused storefront (expired no-card trial) goes offline — return no listings, matching
+  // A paused storefront (expired no-card trial) goes offline - return no listings, matching
   // the pages_public `serving` gate the anon surfaces enforce. is_published is untouched, so
   // reactivating brings the listings straight back. Legacy/active owners never pause.
   const billing = await getOwnerBillingState(admin, storefront.owner_id)
@@ -38,7 +38,7 @@ export async function loadStorefrontByHandle(
   // owner_id nor storefront_id (launch-hardening / SEV1 parity), so it can't be filtered
   // here. The base rows carry private offer `rules`; callers MUST only surface the curated
   // fields (name/slug/description/location + the offer_count/readiness DERIVED server-side)
-  // — never serialize the raw products/services. Mirrors how checkout reads base pages.
+  // - never serialize the raw products/services. Mirrors how checkout reads base pages.
   const { data: listings } = await admin
     .from('pages')
     .select(PUBLIC_PAGE_SELECT)
@@ -129,7 +129,7 @@ export type StorefrontSummary = Pick<Storefront, 'handle' | 'display_name' | 'lo
 /**
  * Public storefronts (those with ≥1 published listing) + their listing counts, for the
  * discovery directory. Service-role (storefronts has no anon grant). Two small reads (all
- * storefronts; published-listing storefront_ids) joined + counted in memory — fine for a
+ * storefronts; published-listing storefront_ids) joined + counted in memory - fine for a
  * cached directory; returns [] in dev. Counts are keyed by storefront_id so a multi-
  * storefront account splits its listings across its storefronts. Sorted by count, capped.
  */
@@ -146,7 +146,7 @@ export async function loadPublicStorefronts(limit = 60): Promise<StorefrontSumma
     .select('storefront_id, owner_id')
     .eq('is_published', true)
     .returns<Array<{ storefront_id: string | null; owner_id: string | null }>>()
-  // Paused storefronts (expired no-card trials) are offline — drop their listings from the
+  // Paused storefronts (expired no-card trials) are offline - drop their listings from the
   // directory count so they leave discovery, mirroring the pages_public serving gate. Only
   // trial-origin rows can pause, so this set is small.
   const { data: pausedRows } = await admin
@@ -178,7 +178,7 @@ export async function loadPublicStorefronts(limit = 60): Promise<StorefrontSumma
  * All storefronts an account owns + each one's published-listing count, oldest first (the
  * first is the account's "primary"). For the Storefront-settings picker + the GET side of
  * the storefront API. Service-role, but the caller MUST pass the authenticated user's own
- * id — this is owner-scoped data, never client-supplied.
+ * id - this is owner-scoped data, never client-supplied.
  */
 export async function loadStorefrontsForOwner(ownerId: string): Promise<StorefrontWithCount[]> {
   const clean = (ownerId || '').trim()

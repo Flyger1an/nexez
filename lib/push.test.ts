@@ -35,7 +35,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true }) as any))
 })
 
-describe('sendPushToUser — category gating', () => {
+describe('sendPushToUser - category gating', () => {
   it('sends when the category is enabled', async () => {
     expect((await sendPushToUser('u1', { title: 't', body: 'b', category: 'alerts' })).sent).toBe(1)
   })
@@ -64,7 +64,7 @@ describe('sendPushToUser — category gating', () => {
   })
 })
 
-describe('sendPushToUser — activity-feed recording', () => {
+describe('sendPushToUser - activity-feed recording', () => {
   it('records a buyer push (category set) even when that category push is muted', async () => {
     // Push muted for 'alerts', but the in-app feed still records it (feed ≠ device push).
     adminRef.prefsRows = [{ user_id: 'u1', preferences: { notificationsEnabled: true, notificationTypes: { orders: true, alerts: false, tasks: true } } }]
@@ -74,7 +74,7 @@ describe('sendPushToUser — activity-feed recording', () => {
     expect(adminRef.recorded[0]).toMatchObject({ user_id: 'u1', category: 'alerts', type: 'saved_search', title: 'New match' })
   })
 
-  it('does NOT record an uncategorized (seller) push — the buyer feed never mixes the seller facet', async () => {
+  it('does NOT record an uncategorized (seller) push - the buyer feed never mixes the seller facet', async () => {
     await sendPushToUser('u1', { title: 'New order', body: 'b', data: { type: 'order' } })
     expect(adminRef.recorded).toHaveLength(0)
   })

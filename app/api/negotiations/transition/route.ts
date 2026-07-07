@@ -24,7 +24,7 @@ type OwnerMessage = {
  * Replaces the inbox's direct client-side status writes so illegal transitions are
  * rejected by the server (and the DB money-safety trigger), not just hidden in the UI.
  * Money-moving steps stay on dedicated routes:
- *  - 'held'    is set only by the Stripe webhook (buyer funded) — never here.
+ *  - 'held'    is set only by the Stripe webhook (buyer funded) - never here.
  *  - 'complete'/'declined' on a Stripe-backed hold go through /escrow capture|cancel.
  * This route handles: propose agreement, decline, reopen, and offline complete.
  */

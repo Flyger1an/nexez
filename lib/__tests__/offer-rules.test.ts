@@ -14,7 +14,7 @@ const negotiable = (rules: OfferItem['rules'], price = '$1,000'): Pick<OfferItem
   price,
 })
 
-describe('evaluateProposal — decision matrix', () => {
+describe('evaluateProposal - decision matrix', () => {
   it('never auto-accepts a non-negotiable offer', () => {
     expect(evaluateProposal({ offerType: undefined, rules: { autoAccept: true }, price: '$100' }, { proposedPriceCents: 100_00 }))
       .toEqual({ decision: 'review', reasons: ['offer_not_negotiable'] })
@@ -63,7 +63,7 @@ describe('evaluateProposal — decision matrix', () => {
   })
 })
 
-describe('getBookingRuleError — calendar protection', () => {
+describe('getBookingRuleError - calendar protection', () => {
   it('rejects when the weekly booking cap is reached', () => {
     const err = getBookingRuleError({ rules: { maxBookingsPerWeek: 3 } }, { recentBookingsThisWeek: 3 })
     expect(err).toMatch(/booking limit/i)
@@ -81,7 +81,7 @@ describe('getBookingRuleError — calendar protection', () => {
   })
 })
 
-describe('publicBookingConstraints — privacy invariant', () => {
+describe('publicBookingConstraints - privacy invariant', () => {
   it('exposes only public-safe fields and NEVER pricing rules', () => {
     const constraints = publicBookingConstraints(
       negotiable({

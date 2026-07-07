@@ -34,7 +34,7 @@ const byId = (gaps: ReturnType<typeof analyzeGaps>, id: string) => gaps.find((g)
 
 // ---------------------------------------------------------------------------
 
-describe('analyzeGaps — blocking vs quality classification', () => {
+describe('analyzeGaps - blocking vs quality classification', () => {
   it('an empty draft (from scratch) has the publishable minimum as blocking gaps, rubric as quality', () => {
     const gaps = analyzeGaps(stateWith(emptyIntakeDraft()))
     expect(byId(gaps, 'page:name')?.kind).toBe('blocking')
@@ -72,13 +72,13 @@ describe('analyzeGaps — blocking vs quality classification', () => {
     expect(hasBlockingGaps(gaps)).toBe(false)
   })
 
-  it('is deterministic — same state, same gaps', () => {
+  it('is deterministic - same state, same gaps', () => {
     const state = stateWith(readyDraft({ industry: 'Photography' }))
     expect(analyzeGaps(state)).toEqual(analyzeGaps(state))
   })
 })
 
-describe('analyzeGaps — per-offer coverage', () => {
+describe('analyzeGaps - per-offer coverage', () => {
   it('an offer without a price is blocking; a vague price is a quality nudge', () => {
     const draft = readyDraft({
       services: [
@@ -130,7 +130,7 @@ describe('analyzeGaps — per-offer coverage', () => {
   })
 })
 
-describe('analyzeGaps — importer clarifying questions', () => {
+describe('analyzeGaps - importer clarifying questions', () => {
   const extraction = (qs: NonNullable<IntakeExtraction['clarifyingQuestions']>): IntakeExtraction => ({
     sourceId: 'src-1',
     offers: [],
@@ -140,7 +140,7 @@ describe('analyzeGaps — importer clarifying questions', () => {
   it('surfaces an importer question while its field is uncovered, with the importer wording winning the dedup slot', () => {
     const gaps = analyzeGaps(
       stateWith(readyDraft(), [
-        extraction([{ id: 'q-aud', field: 'audience', question: 'Your site mentions weddings and offices — who is the core buyer?', why: 'Matching' }]),
+        extraction([{ id: 'q-aud', field: 'audience', question: 'Your site mentions weddings and offices - who is the core buyer?', why: 'Matching' }]),
       ]),
     )
     const importerGap = byId(gaps, 'imp:q-aud')
@@ -171,12 +171,12 @@ describe('analyzeGaps — importer clarifying questions', () => {
     expect(byId(gaps, 'imp:q-off')?.kind).toBe('blocking')
     // the generic offers gap shares the slot and must not double up
     expect(ids(gaps)).not.toContain('page:offers')
-    // per-offer coverage owns pricing — the generic importer question is dropped
+    // per-offer coverage owns pricing - the generic importer question is dropped
     expect(ids(gaps)).not.toContain('imp:q-price')
   })
 })
 
-describe('analyzeGaps — industry expectations (spec fixtures)', () => {
+describe('analyzeGaps - industry expectations (spec fixtures)', () => {
   it('caterer: minimums + service radius (quality) and dietary options (opportunity)', () => {
     const gaps = analyzeGaps(stateWith(readyDraft({ industry: 'Catering' })))
     expect(byId(gaps, 'ind:catering-minimums')?.kind).toBe('quality')
@@ -218,7 +218,7 @@ describe('analyzeGaps — industry expectations (spec fixtures)', () => {
   })
 })
 
-describe('analyzeGaps — answered/skipped filtering', () => {
+describe('analyzeGaps - answered/skipped filtering', () => {
   it('a skipped gap never reappears, even when still uncovered', () => {
     const answers: GapAnswer[] = [{ gapId: 'page:audience', answer: 'skip', skipped: true }]
     const gaps = analyzeGaps(stateWith(readyDraft(), [], answers))

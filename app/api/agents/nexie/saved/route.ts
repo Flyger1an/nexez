@@ -12,7 +12,7 @@ function cleanSlug(value: unknown): string | null {
 }
 
 /**
- * GET /api/agents/nexie/saved — the authenticated buyer's saved business slugs (newest first).
+ * GET /api/agents/nexie/saved - the authenticated buyer's saved business slugs (newest first).
  * Owner-scoped via RLS on saved_pages (buyer facet).
  */
 export async function GET(request: NextRequest) {
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/agents/nexie/saved { slug } — save a business for the authenticated buyer (idempotent;
+ * POST /api/agents/nexie/saved { slug } - save a business for the authenticated buyer (idempotent;
  * a repeat save is a no-op). The row's owner is the session user (RLS WITH CHECK enforces it).
  */
 export async function POST(request: NextRequest) {
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * DELETE /api/agents/nexie/saved { slug } — unsave a business. RLS scopes the delete to the caller.
+ * DELETE /api/agents/nexie/saved { slug } - unsave a business. RLS scopes the delete to the caller.
  */
 export async function DELETE(request: NextRequest) {
   const limited = await enforceRateLimit(request, 'agents:nexie:saved', 30, 60_000)

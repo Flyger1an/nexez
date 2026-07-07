@@ -1,4 +1,4 @@
-// Smart Rules Phase 1 — pure, framework-free evaluation of agent proposals and
+// Smart Rules Phase 1 - pure, framework-free evaluation of agent proposals and
 // booking constraints against an offer's owner-defined rules.
 //
 // Privacy invariant: pricing rules (minPrice, maxDiscountPercent,
@@ -15,7 +15,7 @@ export type RuleDecision = 'auto_accept' | 'review' | 'flag'
 
 export type RulesEvaluation = {
   decision: RuleDecision
-  /** Machine-readable reason codes (stable — stored in negotiation metadata). */
+  /** Machine-readable reason codes (stable - stored in negotiation metadata). */
   reasons: string[]
 }
 

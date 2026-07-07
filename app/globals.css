@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* =====================================================
    NEXEZ DESIGN SYSTEM v2
    Precision platform UI: monochrome, focused, agent-first.
@@ -137,7 +139,7 @@
 }
 
 /* =====================================================
-   COMPONENT LIBRARY — Exact from Design System v1.0
+   COMPONENT LIBRARY - Exact from Design System v1.0
    ===================================================== */
 
 /* --- Buttons --- */
@@ -293,7 +295,7 @@
 }
 
 /* Active "you are here" item: periwinkle accent (theme-aware via --signal/--fg,
-   so it reads correctly in both dark and light — no separate light override). */
+   so it reads correctly in both dark and light - no separate light override). */
 .nav-item.active {
   color: var(--fg);
   background: color-mix(in srgb, var(--signal) 14%, transparent);
@@ -335,7 +337,7 @@
   line-height: 1;
 }
 
-/* Agent-facing public pages — minimal decoration */
+/* Agent-facing public pages - minimal decoration */
 .public-agent-page .card {
   background: rgba(26, 22, 37, 0.6);
   border-color: rgba(255, 255, 255, 0.1);
@@ -416,7 +418,7 @@ a:focus-visible,
 }
 
 /* =====================================================
-   HOMEPAGE — ABSTRACT BACKDROP + DECORATIVE MOTION
+   HOMEPAGE - ABSTRACT BACKDROP + DECORATIVE MOTION
    Pure CSS/SVG. Compositor-only transforms, modest blur,
    honors reduced-motion. No raster assets.
    ===================================================== */
@@ -550,7 +552,7 @@ a:focus-visible,
 }
 
 /* =====================================================
-   HOMEPAGE — PREMIUM UTILITIES (bento, accents, motion)
+   HOMEPAGE - PREMIUM UTILITIES (bento, accents, motion)
    ===================================================== */
 
 /* Colored gradient accent text (purple → teal). */
@@ -798,7 +800,7 @@ a:focus-visible,
 }
 
 /* =====================================================
-   THEME SYSTEM — light / dark / system (dark is default)
+   THEME SYSTEM - light / dark / system (dark is default)
    The app was authored dark-first with hardcoded neutral
    utilities (text-white, bg-black, text-zinc-*, bg-white/x,
    border-white/x). We remap that finite set of neutrals to
@@ -1024,7 +1026,7 @@ html.light .btn-secondary { color: var(--fg); }
 html.light .dashboard-sidebar { background: #ffffff; }
 html.light .nav-item { color: var(--fg-muted); }
 html.light .nav-item:hover { color: var(--fg); background: rgba(0, 0, 0, 0.05); }
-/* .nav-item.active is theme-aware (periwinkle, defined above) — no light override. */
+/* .nav-item.active is theme-aware (periwinkle, defined above) - no light override. */
 html.light .nx-grid {
   background-image:
     linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
@@ -1041,7 +1043,7 @@ html.light .nx-orb { opacity: 0.32; }
 .nx-nav { background-color: color-mix(in srgb, var(--bg) 82%, transparent); }
 
 /* Accent text tints (100–300) darken on light platform surfaces (not the dark-
-   locked public agent pages) for contrast. Only red survives here — every other
+   locked public agent pages) for contrast. Only red survives here - every other
    accent family is now a design-system token at the source (cyan/sky/blue/violet
    /purple/pink → --signal, emerald/green/teal → --ready, amber/orange → --amber),
    enforced by `npm run lint:palette`. */
@@ -1152,10 +1154,10 @@ html.light {
 }
 .btn-primary:active, .btn-secondary:active { transform: translateY(0) scale(.965); transition-duration: .1s; }
 html.light .btn-primary, html.light .btn-secondary { color: var(--fg); }
-/* Flat platform/utility surfaces (the forced-dark bg-[#hex] pages — tools, finance, test,
+/* Flat platform/utility surfaces (the forced-dark bg-[#hex] pages - tools, finance, test,
    checkout, agent pages, etc.) make the glass btn-primary fill blend into the page in BOTH
    themes. Give those primary CTAs the same clean neutral-inverse pill the rest of the
-   platform uses: --fg fill / --bg text, which flips correctly — white pill + dark text on
+   platform uses: --fg fill / --bg text, which flips correctly - white pill + dark text on
    the dark-mode page, black pill + light text on the light-mode page. The homepage keeps
    its expressive glass CTA (it sits on the shader hero, not a bg-[#hex] surface). */
 .bg-\[\#0A0A0F\] .btn-primary,
@@ -1292,11 +1294,11 @@ nav.glassnav.open .navsheet { display: grid; gap: .15rem; }
 
 /* ============================================================================
    SOLID BRAND FILL  ( --signal-solid )
-   A deeper periwinkle for solid buttons/badges that carry white text — a bare
+   A deeper periwinkle for solid buttons/badges that carry white text - a bare
    --signal is too light in dark mode. The neutral remap flips .text-white -> --fg
    (dark), illegible on the fill, so we force white on the fill itself (it's deep
    periwinkle in BOTH themes; harmless on text-less dots/bars). Source uses
-   bg-[var(--signal-solid)] directly — the old #7C3AED / emerald-400 remaps that
+   bg-[var(--signal-solid)] directly - the old #7C3AED / emerald-400 remaps that
    lived here are gone; colors are tokens at the source now, enforced by
    `npm run lint:palette`.
    ============================================================================ */
@@ -1305,11 +1307,11 @@ html.light { --signal-solid: #DC4F1E; }
 .bg-\[var\(--signal-solid\)\] { color: #fff; }
 
 /* ============================================================================
-   VISUAL DELIGHT — entrance + celebration motion (CSS-only, accessible)
+   VISUAL DELIGHT - entrance + celebration motion (CSS-only, accessible)
    Keyframes are global; the `animation:` APPLICATION lives under
    prefers-reduced-motion:no-preference, so reduced-motion users get the final
    (visible) state instantly with zero motion. animation-fill-mode:both means the
-   element ALWAYS lands at its end state even if the animation is interrupted — so
+   element ALWAYS lands at its end state even if the animation is interrupted - so
    these never hide critical content (unlike the JS scroll-reveal `.rv`).
    ============================================================================ */
 @keyframes nx-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
@@ -1336,7 +1338,7 @@ html.light { --signal-solid: #DC4F1E; }
 }
 
 /* ===========================================================================
-   Homepage signature interactions — Agent X-Ray, Readiness Lab, Live feed.
+   Homepage signature interactions - Agent X-Ray, Readiness Lab, Live feed.
    Accent glow uses var(--signal) so it stays on-palette in both themes.
    ============================================================================ */
 @keyframes nx-pulsedot { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
@@ -1353,7 +1355,7 @@ html.light { --signal-solid: #DC4F1E; }
 }
 
 /* ===========================================================================
-   X-Ray hero — mobile "derive" scan beam. One-shot periwinkle sweep that plays
+   X-Ray hero - mobile "derive" scan beam. One-shot periwinkle sweep that plays
    once when the mobile frame scrolls into view, so the x-ray reads as a verb on
    touch (where there's no drag). Width-agnostic (translateX % is relative to the
    beam's own 1/3-stage width), reduced-motion safe.

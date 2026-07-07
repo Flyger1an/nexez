@@ -36,7 +36,7 @@ type CheckoutInput = {
 
 async function getPublishedPage(slug: string) {
   // Checkout enforces owner-private offer `rules` (booking blackouts / max bookings),
-  // so read the base table with the service-role client — anon can't read it anymore
+  // so read the base table with the service-role client - anon can't read it anymore
   // and the public view strips `rules`. Anon fallback only when no admin env (tests).
   const db = hasSupabaseAdminEnv() ? createAdminClient() : supabase
   const { data } = await db
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
 
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
 
-  // Smart Rules: calendar protection (Phase 1) — weekly booking cap + blackout
+  // Smart Rules: calendar protection (Phase 1) - weekly booking cap + blackout
   // dates. Counting booked events needs the service-role client (events are
   // owner-only under RLS); when it's unavailable the cap is skipped gracefully.
   if (!input.dryRun && offer.rules && (offer.rules.maxBookingsPerWeek != null || offer.rules.blackoutDates?.length)) {
@@ -137,7 +137,7 @@ export async function POST(request: Request) {
   // too, so the simulator reflects reality). A card charge only ever runs through
   // the owner's Connect account (owner is merchant of record; Nexez takes the plan
   // commission as an application fee). We deliberately do NOT charge into the
-  // PLATFORM account for a seller who hasn't connected Stripe — they couldn't
+  // PLATFORM account for a seller who hasn't connected Stripe - they couldn't
   // receive the funds and it creates a payout / money-transmission liability. No
   // Connect → fall through to the seller's external checkout (destination) or a
   // payments-not-set-up response below. Plan is resolved status-awarely
@@ -146,7 +146,7 @@ export async function POST(request: Request) {
   let ownerPlanId: Awaited<ReturnType<typeof getOwnerPlanId>> = 'free'
   if (hasSupabaseAdminEnv() && page.owner_id) {
     const admin = createAdminClient()
-    // A paused seller (expired no-card trial) is offline — block checkout even if an agent
+    // A paused seller (expired no-card trial) is offline - block checkout even if an agent
     // holds a cached checkout URL. The public listing already 404s via the serving gate;
     // this closes the service-role-read bypass on the money path.
     if ((await getOwnerBillingState(admin, page.owner_id)).isPaused) {
@@ -163,7 +163,7 @@ export async function POST(request: Request) {
       .maybeSingle<{ stripe_connect_account_id: string | null; stripe_connect_charges_enabled: boolean | null }>()
     // Only route a charge to a Connect account that can actually ACCEPT one. An
     // owner who created the account but hasn't finished onboarding has an id but
-    // charges_enabled !== true — fall through to the external destination instead
+    // charges_enabled !== true - fall through to the external destination instead
     // of creating a dead-end Checkout session that fails at Stripe.
     if (billing?.stripe_connect_account_id && billing.stripe_connect_charges_enabled === true) {
       connectAccountId = billing.stripe_connect_account_id
@@ -232,7 +232,7 @@ export async function POST(request: Request) {
       }
 
       if (applicationFeeAmount && applicationFeeAmount > 0) {
-        // Checkout Sessions take the Connect platform fee under payment_intent_data — NOT at the
+        // Checkout Sessions take the Connect platform fee under payment_intent_data - NOT at the
         // session top level (top-level application_fee_amount → Stripe "unknown parameter" error,
         // which silently fell back to the provider URL, so no real charge ever happened).
         sessionParams.payment_intent_data = {

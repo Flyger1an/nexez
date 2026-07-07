@@ -3,11 +3,11 @@ import { createHash, createHmac, timingSafeEqual } from 'crypto'
 
 // Stateless, signed, expiring magic-link token for the "find my orders" email lookup.
 // Payload = { e: <email>, x: <expiry ms> }, base64url-encoded, with an HMAC-SHA256
-// signature. No DB row needed — possession of a valid, unexpired token (delivered only
+// signature. No DB row needed - possession of a valid, unexpired token (delivered only
 // to the email's own inbox) authorizes listing that email's orders.
 //
 // Signing key: a dedicated ORDER_LOOKUP_SECRET if set, else derived (domain-separated)
-// from SUPABASE_SERVICE_ROLE_KEY — a strong server-only secret that's always present in
+// from SUPABASE_SERVICE_ROLE_KEY - a strong server-only secret that's always present in
 // prod and never reaches the client. Rotating it just invalidates outstanding links
 // (they're short-lived anyway). No env setup required.
 

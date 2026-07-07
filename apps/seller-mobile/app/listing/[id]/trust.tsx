@@ -36,7 +36,7 @@ export default function TrustRoute() {
     { label: 'Average rating', value: avgRating != null ? `${avgRating.toFixed(1)} ★` : 'No reviews yet', ok: avgRating != null && avgRating >= 4 },
     { label: 'Verified reviews', value: `${reviews.length}`, ok: reviews.length > 0 },
     { label: 'Verified domain', value: verified ? 'Verified' : 'Not set', ok: verified },
-    { label: 'Refund rate', value: paid ? `${Math.round(refundRate * 100)}%` : '—', ok: refundRate <= 0.1 },
+    { label: 'Refund rate', value: paid ? `${Math.round(refundRate * 100)}%` : '-', ok: refundRate <= 0.1 },
   ]
 
   return (

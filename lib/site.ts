@@ -52,7 +52,7 @@ const MARKETING_PREFIXES = [
 
 // Discovery/community surfaces that exist in BOTH contexts: marketing chrome for
 // anonymous visitors (nexez.ai) and the in-app dashboard chrome for signed-in
-// users (app host). A subset of MARKETING_PREFIXES — the proxy keeps a signed-in
+// users (app host). A subset of MARKETING_PREFIXES - the proxy keeps a signed-in
 // visitor on the app host for these, and PlatformFrame picks the matching shell.
 const DUAL_PREFIXES = ['/discovery', '/leaderboard', '/simulator', '/support'] as const
 
@@ -78,7 +78,7 @@ const APP_API_PREFIXES = [
   '/api/dashboard',
   '/api/integrations',
   // Owner-only negotiation actions are called from the dashboard (app host) where
-  // the session cookie lives — NOT by agents. They must resolve to APP_HOST even
+  // the session cookie lives - NOT by agents. They must resolve to APP_HOST even
   // though they sit under /api/negotiations (an agent-runtime prefix); listed here
   // because the app check runs before the agent-runtime check in canonicalHostFor.
   // (The agent/buyer-facing /api/negotiations, /pay, /status stay on the runtime.)
@@ -97,7 +97,7 @@ const APP_API_PREFIXES = [
   '/api/verify-custom-domain',
 ] as const
 
-// `/orders` is the public buyer order portal — buyer-facing, cookie-isolated, lives
+// `/orders` is the public buyer order portal - buyer-facing, cookie-isolated, lives
 // on the agent runtime next to `/checkout` (where the buyer already is).
 const AGENT_RUNTIME_PREFIXES = ['/checkout', '/negotiate', '/orders', '/store', '/.well-known'] as const
 
@@ -106,7 +106,7 @@ const AGENT_RUNTIME_API_PREFIXES = [
   '/api/checkout',
   '/api/cron',
   '/api/negotiations',
-  // The buyer-portal recourse API. Deliberately NOT `/api/orders` — that prefix
+  // The buyer-portal recourse API. Deliberately NOT `/api/orders` - that prefix
   // holds the OWNER refund action (/api/orders/refund), which must stay on the app
   // host with the owner session (see APP_API_PREFIXES); routing it here would 308 it
   // cross-origin. Buyer (token-gated) routes get their own namespace.
@@ -118,7 +118,7 @@ const AGENT_RUNTIME_API_PREFIXES = [
 const AGENT_RUNTIME_EXACT = new Set(['/agent-pages.json', '/llms.txt', '/openapi.json', '/widget.js'])
 
 // Paths that must be served on BOTH hosts (each domain has its own copy) and
-// therefore must NOT be canonical-redirected — otherwise e.g. the marketing
+// therefore must NOT be canonical-redirected - otherwise e.g. the marketing
 // sitemap/robots on nexez.ai would bounce to nexez.app.
 const HOST_NEUTRAL = new Set(['/sitemap.xml', '/robots.txt'])
 
@@ -128,8 +128,8 @@ const HOST_NEUTRAL = new Set(['/sitemap.xml', '/robots.txt'])
 // client code calls must be reachable SAME-ORIGIN on both. Canonical-redirecting
 // them (to the marketing host) breaks the signed-in/app-host case two ways: the
 // cross-domain hop is blocked by CORS, and for the session-bearing support routes
-// it also drops the auth cookie (different registrable domain). So — like
-// sitemap/robots — these skip the canonical-host redirect and are served on
+// it also drops the auth cookie (different registrable domain). So - like
+// sitemap/robots - these skip the canonical-host redirect and are served on
 // whichever first-party host requests them. They remain marketing-canonical for
 // SEO/link purposes (see canonicalHostFor); this only suppresses the redirect.
 const HOST_NEUTRAL_API_PREFIXES = [

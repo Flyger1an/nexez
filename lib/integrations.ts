@@ -15,7 +15,7 @@ const stripHtml = (s: string): string =>
     .trim()
 
 // ---------------------------------------------------------------------------
-// Square — Catalog API (GET /v2/catalog/list?types=ITEM)
+// Square - Catalog API (GET /v2/catalog/list?types=ITEM)
 // ---------------------------------------------------------------------------
 export function mapSquareCatalogToOffers(objects: unknown[]): OfferItem[] {
   const offers: OfferItem[] = []
@@ -50,7 +50,7 @@ export function mapSquareCatalogToOffers(objects: unknown[]): OfferItem[] {
 }
 
 // ---------------------------------------------------------------------------
-// Acuity — Appointment Types API (GET /api/v1/appointment-types)
+// Acuity - Appointment Types API (GET /api/v1/appointment-types)
 // ---------------------------------------------------------------------------
 export function mapAcuityTypesToOffers(types: unknown[]): OfferItem[] {
   const offers: OfferItem[] = []
@@ -76,7 +76,7 @@ export function mapAcuityTypesToOffers(types: unknown[]): OfferItem[] {
 }
 
 // ---------------------------------------------------------------------------
-// Google Calendar — derive open windows by subtracting busy periods
+// Google Calendar - derive open windows by subtracting busy periods
 // (from the freeBusy API) from business hours. Best-effort, server-local time.
 // ---------------------------------------------------------------------------
 export type BusyPeriod = { start: string; end: string }

@@ -33,7 +33,7 @@ type PageProps = {
 
 export default function PageSettings({ params }: PageProps) {
   // The EFFECTIVE plan governing this page's feature gates is the page OWNER's, not
-  // the logged-in user's — so an editor-collaborator sees the owner's entitlements.
+  // the logged-in user's - so an editor-collaborator sees the owner's entitlements.
   // Falls back to the logged-in user's plan until the settings-context loads.
   const ownPlan = usePlan()
   const [plan, setPlan] = useState(ownPlan)
@@ -81,7 +81,7 @@ export default function PageSettings({ params }: PageProps) {
   const [reSyncInput, setReSyncInput] = useState('')
   const [reSyncInput2, setReSyncInput2] = useState('') // for shopify domain + token
 
-  // Phase 3: Per-page outbound webhooks — now first-class (url + optional secret per endpoint)
+  // Phase 3: Per-page outbound webhooks - now first-class (url + optional secret per endpoint)
   type OutboundEndpoint = { url: string; secret?: string }
   const [outboundEndpoints, setOutboundEndpoints] = useState<OutboundEndpoint[]>([])
   const [newOutboundUrl, setNewOutboundUrl] = useState('')
@@ -525,7 +525,7 @@ export default function PageSettings({ params }: PageProps) {
 	      }
 	      return { error: null }
 	    } catch {
-	      return { error: { message: 'Could not save settings — try again.' } }
+	      return { error: { message: 'Could not save settings - try again.' } }
 	    }
 	  }
 
@@ -688,7 +688,7 @@ export default function PageSettings({ params }: PageProps) {
                       className="w-40 rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
                     />
                     <span className="text-[10px] text-zinc-500">
-                      e.g. “/” or “/pricing” — host several listings on one domain.
+                      e.g. “/” or “/pricing” - host several listings on one domain.
                     </span>
                   </div>
 
@@ -753,7 +753,7 @@ export default function PageSettings({ params }: PageProps) {
                               type="button"
                               onClick={() => {
                                 setLogoUrl('')
-                                setMessage('Logo removed — Save Settings to apply the change.')
+                                setMessage('Logo removed - Save Settings to apply the change.')
                               }}
                               className="rounded border border-red-400/40 px-2 py-0.5 text-[10px] text-red-300 hover:bg-red-400/10"
                             >
@@ -800,13 +800,13 @@ export default function PageSettings({ params }: PageProps) {
 
                   <div className="mt-1 flex items-center gap-2 text-[10px]">
                     {customDomain && domainVerified ? (
-                      <span className="text-[var(--ready)]">✓ Verified — custom domain ownership confirmed.</span>
+                      <span className="text-[var(--ready)]">✓ Verified - custom domain ownership confirmed.</span>
                     ) : customDomain ? (
-                      <span className="text-zinc-400">Status: {domainVerificationToken ? 'Token ready — awaiting DNS verify' : 'Pending verification'}</span>
+                      <span className="text-zinc-400">Status: {domainVerificationToken ? 'Token ready - awaiting DNS verify' : 'Pending verification'}</span>
                     ) : null}
                   </div>
 
-                  {/* A3: connection wizard — provider attach + SSL state machine */}
+                  {/* A3: connection wizard - provider attach + SSL state machine */}
                   {customDomain ? (
                     <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
                       <div className="flex items-center justify-between gap-2">
@@ -930,7 +930,7 @@ export default function PageSettings({ params }: PageProps) {
                                     {c.status === 'pass' ? '✅' : c.status === 'warn' ? '🟡' : '❌'}
                                   </span>
                                   <span className="text-zinc-300">{c.label}</span>
-                                  <span className="text-zinc-500">— {c.detail}</span>
+                                  <span className="text-zinc-500">- {c.detail}</span>
                                 </li>
                               ))}
                             </ul>
@@ -1416,7 +1416,7 @@ export default function PageSettings({ params }: PageProps) {
                 Pulls your Shopify products as rich offers. Leave token empty to use public catalog.
               </p>
 
-              {/* Phase 3: Per-page outbound webhooks — FIRST CLASS (url + optional secret, real test button, auto-fired) */}
+              {/* Phase 3: Per-page outbound webhooks - FIRST CLASS (url + optional secret, real test button, auto-fired) */}
               <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4" data-testid="outbound-webhooks-panel">
                 <div className="text-sm font-medium text-[var(--signal)] mb-2">Booking event webhooks</div>
                 <p className="text-[10px] text-zinc-400 mb-3">Send booking activity to Zapier, Make, n8n, or your own system. Add a signing secret when you want extra protection.</p>
@@ -1576,7 +1576,7 @@ export default function PageSettings({ params }: PageProps) {
                     <div className="space-y-1 text-[11px]">
                       {recentOutboundFires.map((evt, i) => (
                         <div key={i} className="flex justify-between text-[var(--signal)]/90">
-                          <span>{evt.event_type?.replace(/_/g, ' ')} — {evt.offer_name}</span>
+                          <span>{evt.event_type?.replace(/_/g, ' ')} - {evt.offer_name}</span>
                           <span className="text-[var(--signal)]/60">{new Date(evt.created_at).toLocaleTimeString()}</span>
                         </div>
                       ))}
@@ -1744,7 +1744,7 @@ export default function PageSettings({ params }: PageProps) {
               {/* Agent Memory & Context System */}
               <div className="mt-6 rounded-lg border border-zinc-300/30 bg-zinc-400/5 p-4">
                 <div className="font-medium text-zinc-200 mb-1 flex items-center gap-2">Agent Memory & Context <span className="rounded bg-[var(--amber)]/15 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-[var(--amber)]">Public</span></div>
-                <p className="text-[10px] text-zinc-400 mb-2">Notes, buyer preferences, restrictions, common objections, or “always mention X.” <span className="text-[var(--amber)]/90">Public — published in this listing’s <code>agent.json</code> and readable by anyone, so keep private pricing strategy and internal notes out.</span></p>
+                <p className="text-[10px] text-zinc-400 mb-2">Notes, buyer preferences, restrictions, common objections, or “always mention X.” <span className="text-[var(--amber)]/90">Public - published in this listing’s <code>agent.json</code> and readable by anyone, so keep private pricing strategy and internal notes out.</span></p>
                 <textarea
                   className="w-full h-20 rounded border border-white/15 bg-black/30 p-2 text-sm font-mono"
                   placeholder="e.g. Prefers async over live calls for first meetings. Common question: turnaround time. Restrictions: no weekends."
@@ -1759,7 +1759,7 @@ export default function PageSettings({ params }: PageProps) {
                     const mem = { notes: memoryNotes, updated: new Date().toISOString() }
                     const { error } = await supabase.from('pages').update({ agent_memory: mem }).eq('id', page.id)
                     if (!error) {
-                      setMessage('Agent memory saved — it’s public (published in your agent.json) and readable by anyone, not just agents.')
+                      setMessage('Agent memory saved - it’s public (published in your agent.json) and readable by anyone, not just agents.')
                     } else {
                       setMessage('Save failed: ' + error.message)
                     }
@@ -1796,7 +1796,7 @@ export default function PageSettings({ params }: PageProps) {
                 >
                   Suggest with AI
                 </button>
-                <p className="mt-1 text-[10px] text-zinc-500">These notes help agents keep important context consistent. They are world-readable — keep anything confidential out.</p>
+                <p className="mt-1 text-[10px] text-zinc-500">These notes help agents keep important context consistent. They are world-readable - keep anything confidential out.</p>
               </div>
 
               {/* AI assist opt-in */}
@@ -1832,7 +1832,7 @@ export default function PageSettings({ params }: PageProps) {
                   {(page as any)?.team_collaboration?.approvals?.length ? (
                     (page as any).team_collaboration.approvals.map((a: any, i: number) => (
                       <div key={i} className="flex justify-between py-0.5 border-b border-white/5 last:border-0">
-                        <span>{a.note || 'Change request'} — {a.status || 'pending'}</span>
+                        <span>{a.note || 'Change request'} - {a.status || 'pending'}</span>
                         <span className="text-zinc-500">{new Date(a.ts).toLocaleDateString()}</span>
                       </div>
                     ))

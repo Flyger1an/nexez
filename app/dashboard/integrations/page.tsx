@@ -162,14 +162,14 @@ export default function IntegrationsPage() {
           feature="integrations"
           currentPlan={plan}
           title="Integrations"
-          description="connect Calendly, Stripe, Shopify, Square & more and keep your offers in sync — on the Pro plan and up."
+          description="connect Calendly, Stripe, Shopify, Square & more and keep your offers in sync - on the Pro plan and up."
           className="mb-6"
         />
         <div className="border-b border-white/10 pb-6">
           <p className="text-sm text-[var(--signal)]">Integrations &amp; imports</p>
           <h1 className="mt-2 text-4xl font-semibold tracking-tight">Connect your tools. Import your offers.</h1>
           <p className="mt-4 max-w-3xl text-zinc-400">
-            Pull pricing, availability, and booking links from the tools you already use — then keep your agent listing in
+            Pull pricing, availability, and booking links from the tools you already use - then keep your agent listing in
             sync automatically.
           </p>
         </div>
@@ -179,7 +179,7 @@ export default function IntegrationsPage() {
             <div>
               <h2 className="font-semibold">Why connect?</h2>
               <p className="mt-3 text-sm leading-6 text-zinc-400">
-                Live pricing and availability keep your listing accurate — which raises the trust signals agents use to
+                Live pricing and availability keep your listing accurate - which raises the trust signals agents use to
                 recommend you.
               </p>
             </div>
@@ -214,7 +214,7 @@ export default function IntegrationsPage() {
               <div>
                 <h2 className="text-xl font-semibold">Prefer to enter things manually?</h2>
                 <p className="mt-2 text-sm text-zinc-400">
-                  The visual builder lets you add offers, tiers, and FAQs in minutes — no connection required.
+                  The visual builder lets you add offers, tiers, and FAQs in minutes - no connection required.
                 </p>
               </div>
               <a
@@ -236,7 +236,7 @@ export default function IntegrationsPage() {
                     <span className="text-[9px] rounded bg-[var(--signal)]/10 px-1.5 py-0.5 text-[var(--signal)]">Consumer</span>
                   </div>
                   <p className="text-xs text-zinc-400 mt-1.5 leading-5">
-                    Payments and bookings for mobile, wellness, and home services — with mobile, travel-fee, service-area,
+                    Payments and bookings for mobile, wellness, and home services - with mobile, travel-fee, service-area,
                     and duration fields.
                   </p>
                   <a href="/dashboard/tools" className="mt-2 inline-block text-[11px] text-[var(--signal)] hover:underline">Import in Tools →</a>
@@ -247,7 +247,7 @@ export default function IntegrationsPage() {
                     <span className="text-[9px] rounded bg-[var(--amber)]/10 px-1.5 py-0.5 text-[var(--amber)]">Consumer</span>
                   </div>
                   <p className="text-xs text-zinc-400 mt-1.5 leading-5">
-                    Appointment types for coaching, beauty, medical, and fitness — time-based offers with duration and
+                    Appointment types for coaching, beauty, medical, and fitness - time-based offers with duration and
                     tiers.
                   </p>
                   <a href="/dashboard/tools" className="mt-2 inline-block text-[11px] text-[var(--amber)] hover:underline">Import in Tools →</a>
@@ -326,7 +326,7 @@ function IntegrationCard({
           {status}
         </span>
         {locked ? (
-          // Gated for this plan — point straight at checkout instead of bouncing
+          // Gated for this plan - point straight at checkout instead of bouncing
           // through Tools to a teaser.
           <a href={appUrl('/dashboard/billing?plan=pro')} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md bg-[var(--signal-solid)] px-3 py-2 text-center text-sm font-semibold text-white hover:opacity-90">
             <Lock className="size-3.5" /> Upgrade to connect

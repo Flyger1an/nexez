@@ -1,4 +1,4 @@
-// B6 — Agent crawlability test for hosted (custom-domain) agent pages.
+// B6 - Agent crawlability test for hosted (custom-domain) agent pages.
 // Pure scoring + robots parsing live here so they're unit-testable; the route
 // does the fetching and feeds these functions.
 

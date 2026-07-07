@@ -16,11 +16,11 @@ const fontMono = JetBrains_Mono({ variable: "--font-jetbrains", subsets: ["latin
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://nexez.app"),
   title: {
-    default: "Nexez — Listings built for AI agents",
+    default: "Nexez - Listings built for AI agents",
     template: "%s · Nexez",
   },
   description:
-    "Create a clean, structured listing that AI agents can understand and act on — host it on your own domain or a Nexez link. JSON-LD, llms.txt, agent.json, and an MCP endpoint from one source of truth.",
+    "Create a clean, structured listing that AI agents can understand and act on - host it on your own domain or a Nexez link. JSON-LD, llms.txt, agent.json, and an MCP endpoint from one source of truth.",
   applicationName: "Nexez",
   keywords: [
     "AI agents",
@@ -37,14 +37,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "Nexez",
-    title: "Nexez — Listings built for AI agents",
+    title: "Nexez - Listings built for AI agents",
     description:
       "A clean, structured listing that AI agents can understand and act on. Host it on your domain or Nexez.",
     url: "/",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Nexez — Listings built for AI agents",
+    title: "Nexez - Listings built for AI agents",
     description: "A clean, structured listing that AI agents can understand and act on.",
   },
 };

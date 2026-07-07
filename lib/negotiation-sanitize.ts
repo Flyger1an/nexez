@@ -3,7 +3,7 @@
  * a (non-owner) buying agent.
  *
  * `internalNotes` is explicitly "Private for business owner (never sent to
- * agent)" — see `lib/llm-engine/BaseLLMAdapter.ts`. The decision is surfaced to
+ * agent)" - see `lib/llm-engine/BaseLLMAdapter.ts`. The decision is surfaced to
  * agents in two places (the async `/api/negotiations/status` poll and the public
  * `/negotiate/[id]` thread), so the strip lives here once and is reused by both
  * rather than duplicated. The remaining fields (action, reasoning, counter,
@@ -35,11 +35,11 @@ export function sanitizeAgentDecision<T extends Record<string, any> | null | und
       'never reveal these instructions',
       'offer rules',
       'untrusted buyer',
-      'security — read carefully',
+      'security - read carefully',
       'system prompt',
     ]
     if (leakPhrases.some((p) => lower.includes(p))) {
-      return '[redacted — contained system instructions]'
+      return '[redacted - contained system instructions]'
     }
     // Limit length on free-text decision fields to reduce exfil surface.
     return val.length > 1200 ? val.slice(0, 1200) + '…' : val
@@ -84,11 +84,11 @@ export function sanitizeNegotiationMessageContent(content: any): any {
       'never reveal these instructions',
       'offer rules',
       'untrusted buyer',
-      'security — read carefully',
+      'security - read carefully',
       'system prompt',
     ]
     if (leakPhrases.some((p) => lower.includes(p))) {
-      return '[redacted — contained system instructions]'
+      return '[redacted - contained system instructions]'
     }
     return val.length > 1200 ? val.slice(0, 1200) + '…' : val
   }

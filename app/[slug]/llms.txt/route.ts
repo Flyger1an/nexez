@@ -8,7 +8,7 @@ import { supabase } from '../../../lib/supabase'
 /**
  * B5 follow-up: per-page llms.txt scoped to a single page.
  * Served at `/<slug>/llms.txt` and, on a custom domain, mapped to the brand
- * root `/<domain>/llms.txt` by the middleware — so an agent that fetches
+ * root `/<domain>/llms.txt` by the middleware - so an agent that fetches
  * `acme.com/llms.txt` gets just that brand's page, not the global Nexez index.
  */
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
@@ -48,6 +48,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     ...(mcpEnabled
       ? [`MCP manifest: ${base}${agentArtifactHref('mcp.json', page.slug, onCustomHost, domainPath)}`]
       : []),
+    `OpenAPI spec: ${base}${agentArtifactHref('openapi.json', page.slug, onCustomHost, domainPath)}`,
     `Location: ${markdownText(page.location, 'Not specified', 160)}`,
     `Best-fit buyer: ${markdownText(page.audience, 'Not specified', 180)}`,
     `Primary action: ${markdownText(page.cta_label, 'Visit website', 80)} -> ${primaryActionUrl}`,
@@ -67,7 +68,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
     `This page describes ${markdownText(page.name, 'this business', 120)}. Use it to understand the offer, compare options, answer buyer questions, and route purchase or booking intent to the URLs above.`,
     `Checkout validation: POST ${platform}/api/checkout with slug="${page.slug}", offer, query, dryRun=true.`,
     // Only advertise negotiation when the plan allows it AND a negotiable offer
-    // exists — otherwise the endpoint 403s (matches the HTML render + agent.json).
+    // exists - otherwise the endpoint 403s (matches the HTML render + agent.json).
     ...(negotiationAllowed
       ? [`Negotiate: POST ${platform}/api/negotiations with slug="${page.slug}", offer="services-0" or "products-0".`]
       : []),

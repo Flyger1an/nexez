@@ -1,4 +1,4 @@
-// Hybrid settlement classification — pure, framework-free.
+// Hybrid settlement classification - pure, framework-free.
 //
 // When a negotiation reaches an agreed amount, it is classified into one of two
 // settlement paths:
@@ -19,7 +19,7 @@ export function isPayable(state: SettlementState | null | undefined): boolean {
   return state === 'auto' || state === 'approved'
 }
 
-/** The auto-settle ceiling for an offer, in cents — per-offer override or platform default. */
+/** The auto-settle ceiling for an offer, in cents - per-offer override or platform default. */
 export function getAutoSettleCeilingCents(offer: Pick<OfferItem, 'rules'> | null | undefined): number {
   const override = offer?.rules?.autoSettleMax
   if (override) {

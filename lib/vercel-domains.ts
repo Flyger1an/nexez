@@ -1,5 +1,5 @@
 import 'server-only'
-// A2 — Custom domain SSL + provisioning via the hosting provider (Vercel).
+// A2 - Custom domain SSL + provisioning via the hosting provider (Vercel).
 // Gated like Stripe: when VERCEL_API_TOKEN + VERCEL_PROJECT_ID are absent the
 // platform falls back to "manual" mode (ownership-verified, user points DNS at
 // their own host). When configured, we attach the domain to the Vercel project
@@ -89,7 +89,7 @@ export function deriveDomainState(input: DomainStateInput): {
     return { state: 'live', label: 'Live', detail: 'Domain attached, verified, and serving over HTTPS.' }
   }
 
-  // Manual mode (no provider token): be honest — we can prove ownership but not TLS.
+  // Manual mode (no provider token): be honest - we can prove ownership but not TLS.
   if (input.ownershipVerified) {
     return {
       state: 'verifying',

@@ -44,7 +44,7 @@ type NegotiationInput = {
 
 async function getPublishedPage(slug: string) {
   // The negotiation flow needs the owner-private offer `rules` (floor clamp +
-  // dryRun rules eval), so read the base table with the service-role client —
+  // dryRun rules eval), so read the base table with the service-role client -
   // anon can't read it anymore and the public view strips `rules`. Falls back to
   // the anon client only when no admin env is set (tests, where it's mocked).
   const db = hasSupabaseAdminEnv() ? createAdminClient() : supabase
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
   }
 
-  // Cap untrusted buyer fields at the single entry point — this bounds both the
+  // Cap untrusted buyer fields at the single entry point - this bounds both the
   // persisted message log and the LLM prompt (prompt-stuffing / cost guard, and
   // limits what an injection payload can carry). Done before rate limiting so the
   // per-agent key uses the capped buyerAgent.
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
   const platformBase = getBaseUrl()
   let baseUrl = platformBase
 
-  // Layered quotas (per IP + per page + per agent) — keyed on the parsed input so
+  // Layered quotas (per IP + per page + per agent) - keyed on the parsed input so
   // one page or one named agent can't dominate. Done after parsing so we have slug.
   const limited = await enforceNegotiationRateLimit(request, { slug: input.slug, buyerAgent: input.buyerAgent })
   if (limited) return limited
@@ -122,14 +122,14 @@ export async function POST(request: Request) {
     ? (ownerId ? await ownerAllows(createAdminClient(), ownerId, 'negotiation') : false)
     : true
   if (!ownerNegotiationAllowed) {
-    return NextResponse.json({ error: 'This page is not accepting offers — use the listed price to book or buy.' }, { status: 403 })
+    return NextResponse.json({ error: 'This page is not accepting offers - use the listed price to book or buy.' }, { status: 403 })
   }
 
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
   const proposedPriceCents = parseMoneyCents(input.budget)
 
   // Legacy dry-run semantics: validate the proposal without persisting anything.
-  // Short-circuit before the negotiation service — it inserts agent_negotiations +
+  // Short-circuit before the negotiation service - it inserts agent_negotiations +
   // negotiation_messages rows, none of which a dry run may do. Page + offer
   // existence are already validated above; run only the deterministic rules eval.
   if (input.dryRun) {
@@ -157,7 +157,7 @@ export async function POST(request: Request) {
 
   try {
     // Phase 1 (sync): record the proposal + queue the decision. The LLM runs in
-    // the `after()` callback below — the response returns immediately so buyer
+    // the `after()` callback below - the response returns immediately so buyer
     // latency is decoupled from provider latency.
     const result = await negotiationService.submitProposal({
       slug: input.slug,
@@ -177,7 +177,7 @@ export async function POST(request: Request) {
     )
 
     // Notify the owner of a fresh proposal (continuations don't re-notify). Resolve the
-    // recipient with a fallback to the owner's ACCOUNT email — many pages never set an
+    // recipient with a fallback to the owner's ACCOUNT email - many pages never set an
     // explicit contact_email, and without this the notification is silently skipped (the
     // root cause of the missed proposal emails). Send INLINE (awaited) so delivery never
     // depends on after() flushing; try/catch so a send failure can't break the buyer's
@@ -208,11 +208,11 @@ export async function POST(request: Request) {
       try {
         await sendPushToUser(ownerId, {
           title: 'New negotiation',
-          body: `${offer.name} — ${input.budget || 'new offer'}${input.buyerAgent ? ` · ${input.buyerAgent}` : ''}`,
+          body: `${offer.name} - ${input.budget || 'new offer'}${input.buyerAgent ? ` · ${input.buyerAgent}` : ''}`,
           data: { type: 'negotiation', negotiationId: result.negotiationId, slug: input.slug },
         })
       } catch {
-        // swallow — a push failure must not affect the negotiation flow
+        // swallow - a push failure must not affect the negotiation flow
       }
     }
 
@@ -266,7 +266,7 @@ export async function POST(request: Request) {
       )
     }
     if (err?.status === 404) {
-      // Continuation with a missing/wrong status token — constant 404 so the
+      // Continuation with a missing/wrong status token - constant 404 so the
       // endpoint leaks nothing about which negotiations exist.
       return NextResponse.json({ error: 'Negotiation not found.' }, { status: 404 })
     }

@@ -215,7 +215,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const agentSharePct = 15 // platform share on agent-driven transactions
   const agentShareCents = Math.round(agentRevenueCents * (agentSharePct / 100))
   // Format revenue in the workspace's actual settlement currency (recorded on
-  // checkout events) — correct incl. zero-decimal currencies, not hardcoded USD.
+  // checkout events) - correct incl. zero-decimal currencies, not hardcoded USD.
   const revenueCurrency = getRevenueCurrency(filteredEvents)
   const money = (cents: number) => formatCurrencyAmount(cents, revenueCurrency)
   const popularService = getTopOfferStats(filteredEvents)[0]?.name || 'No offer activity yet'
@@ -228,7 +228,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const maxOfferEvents = Math.max(...topOffers.map((offer) => offer.total), 1)
 
   // Period-over-period deltas: fetch the equal-length window immediately before
-  // the current one (bounded presets only — all-time/custom have no "prev") and
+  // the current one (bounded presets only - all-time/custom have no "prev") and
   // compare the headline KPIs apples-to-apples (same page/action/traffic/query).
   const prevBounds = previousPeriodBounds(rangeBounds)
   const periodLabel =
@@ -328,7 +328,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
 
   // A/B Tests (Phase 6): impressions + conversions attributed per served variant.
   // Ignore the action facet here so a "conversions only" view can't hide the
-  // impression denominator — but still respect page/search/time scope.
+  // impression denominator - but still respect page/search/time scope.
   const abTests = rollupAbResults(
     filterAnalyticsEvents(events, { query: filters.q, pageId: selectedPageId || undefined }),
   )
@@ -465,7 +465,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                   { label: '30d', value: '30d' },
                   { label: 'All', value: 'all' },
                 ].map((r) => {
-                  // 'All time' is a Pro (analyticsHistory) capability — show it locked for lower tiers.
+                  // 'All time' is a Pro (analyticsHistory) capability - show it locked for lower tiers.
                   if (r.value === 'all' && !fullHistory) {
                     return (
                       <a
@@ -527,7 +527,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                   className="mt-3 flex items-center gap-2 rounded-lg border border-[var(--signal)]/25 bg-[var(--signal)]/[0.06] p-3 text-xs text-zinc-300 transition hover:bg-[var(--signal)]/12"
                 >
                   <Lock className="size-3.5 shrink-0 text-[var(--signal)]" />
-                  <span>Custom date ranges &amp; all-time history are on <span className="font-medium text-white">Pro</span> — upgrade to unlock.</span>
+                  <span>Custom date ranges &amp; all-time history are on <span className="font-medium text-white">Pro</span> - upgrade to unlock.</span>
                 </a>
               )}
             </div>
@@ -636,7 +636,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             {topOffers.length ? (
               <TopOffersChart offers={topOffers} max={maxOfferEvents} />
             ) : (
-              <EmptyPanel message="No offer signals yet." hint="Publish a listing and share its link — as agents discover and act on your offers, the leaders show up here." />
+              <EmptyPanel message="No offer signals yet." hint="Publish a listing and share its link - as agents discover and act on your offers, the leaders show up here." />
             )}
           </Panel>
 
@@ -759,7 +759,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             )}
           </Panel>
 
-          <Panel title="Demand Insights — what agents asked">
+          <Panel title="Demand Insights - what agents asked">
             {topQueries.length || topReferrers.length ? (
               <div className="space-y-4 text-sm">
                 {topQueries.length > 0 && (
@@ -780,7 +780,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                 )}
                 {unservedQueries.length > 0 && (
                   <div className="rounded-lg border border-[var(--amber)]/20 bg-[var(--amber)]/5 p-3">
-                    <div className="text-xs uppercase tracking-[0.18em] text-[var(--amber)]">Gaps — searched but not offered</div>
+                    <div className="text-xs uppercase tracking-[0.18em] text-[var(--amber)]">Gaps - searched but not offered</div>
                     <ul className="mt-2 flex flex-wrap gap-1.5">
                       {unservedQueries.map((q) => (
                         <li key={q.query} className="rounded-full border border-[var(--amber)]/30 bg-[var(--amber)]/10 px-2.5 py-0.5 text-xs text-[var(--amber)]">
@@ -808,7 +808,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                 )}
               </div>
             ) : (
-              <EmptyPanel message="No agent queries yet." hint="The questions agents ask about your offers land here — a goldmine for sharpening your copy once traffic arrives." />
+              <EmptyPanel message="No agent queries yet." hint="The questions agents ask about your offers land here - a goldmine for sharpening your copy once traffic arrives." />
             )}
           </Panel>
 

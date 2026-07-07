@@ -1,5 +1,6 @@
-import { getBaseUrl } from './agent-page'
+import { getBaseUrl, getCheckoutOffers, type AgentPage } from './agent-page'
 import { buildAgentDistributionLinks } from './agent-distribution'
+import { agentArtifactHref } from './custom-domain'
 
 export function buildNexezCapabilities() {
   const baseUrl = getBaseUrl()
@@ -64,6 +65,89 @@ export function buildNexezCapabilities() {
       service_role_required_in_browser: false,
     },
   }
+}
+
+// Request/response schema pieces shared by the global spec and the per-page
+// spec so the two can never drift. `pin` narrows slug/offer to one page's real
+// values (enums), which is the whole point of the scoped spec: an agent reading
+// acme.com/openapi.json sees exactly which offer keys exist.
+function checkoutRequestSchema(pin?: { slug: string; offerKeys: string[]; offerLegend: string }) {
+  return {
+    type: 'object',
+    required: ['slug', 'offer'],
+    properties: {
+      slug: pin ? { type: 'string', enum: [pin.slug], default: pin.slug } : { type: 'string' },
+      offer: pin && pin.offerKeys.length
+        ? { type: 'string', enum: pin.offerKeys, description: `Offer key. ${pin.offerLegend}` }
+        : { type: 'string', description: 'Offer key such as services-0 or products-0.' },
+      query: { type: 'string', description: 'Optional buyer request or agent context.' },
+      buyerEmail: { type: 'string', description: 'Optional buyer email. Prefills Stripe checkout and enables the buyer receipt + order portal.' },
+      buyerName: { type: 'string', description: 'Optional buyer or business name recorded on the order.' },
+      buyerReference: { type: 'string', description: 'Optional buyer-side reference / order id; also stamped on the Stripe session (client_reference_id).' },
+      buyerAgent: { type: 'string', description: 'Optional identifier for the buying agent.' },
+      dryRun: {
+        type: 'boolean',
+        description: 'When true, validate and log checkout intent without creating a Stripe session or redirecting.',
+        default: false,
+      },
+    },
+  }
+}
+
+function negotiationRequestSchema(pin?: { slug: string; offerKeys: string[] }) {
+  return {
+    type: 'object',
+    required: ['slug', 'offer'],
+    properties: {
+      slug: pin ? { type: 'string', enum: [pin.slug], default: pin.slug } : { type: 'string' },
+      offer: pin && pin.offerKeys.length ? { type: 'string', enum: pin.offerKeys } : { type: 'string' },
+      buyerAgent: { type: 'string' },
+      query: { type: 'string' },
+      requestedTerms: { type: 'object', additionalProperties: true },
+      budget: { type: 'string' },
+      timeline: { type: 'string' },
+      contact: { type: 'string' },
+      dryRun: { type: 'boolean', default: false },
+    },
+  }
+}
+
+const CHECKOUT_RESPONSE_SCHEMA = {
+  type: 'object',
+  properties: {
+    url: { type: 'string' },
+    ok: { type: 'boolean' },
+    provider: { type: 'string' },
+    checkoutUrl: { type: 'string' },
+    actionUrl: { type: ['string', 'null'] },
+    stripeConfigured: { type: 'boolean' },
+    checkoutSessionId: { type: 'string' },
+    events: { type: 'object', additionalProperties: { type: 'boolean' } },
+  },
+}
+
+const AGENT_PAGE_MANIFEST_SCHEMA = {
+  type: 'object',
+  properties: {
+    schema_version: { type: 'string' },
+    page: { type: 'object' },
+    offers: { type: 'array', items: { type: 'object' } },
+    faqs: { type: 'array', items: { type: 'object' } },
+    plain_text: { type: 'string' },
+  },
+}
+
+const AGENT_NEGOTIATION_RESPONSE_SCHEMA = {
+  type: 'object',
+  properties: {
+    ok: { type: 'boolean' },
+    id: { type: 'string' },
+    status: { type: 'string' },
+    escrowMode: { type: 'string' },
+    stripeConfigured: { type: 'boolean' },
+    next: { type: 'string' },
+    publicPageUrl: { type: 'string' },
+  },
 }
 
 export function buildOpenApiSpec() {
@@ -197,24 +281,7 @@ export function buildOpenApiSpec() {
             required: true,
             content: {
               'application/json': {
-                schema: {
-                  type: 'object',
-                  required: ['slug', 'offer'],
-                  properties: {
-                    slug: { type: 'string' },
-                    offer: { type: 'string', description: 'Offer key such as services-0 or products-0.' },
-                    query: { type: 'string', description: 'Optional buyer request or agent context.' },
-                    buyerEmail: { type: 'string', description: 'Optional buyer email. Prefills Stripe checkout and enables the buyer receipt + order portal.' },
-                    buyerName: { type: 'string', description: 'Optional buyer or business name recorded on the order.' },
-                    buyerReference: { type: 'string', description: 'Optional buyer-side reference / order id; also stamped on the Stripe session (client_reference_id).' },
-                    buyerAgent: { type: 'string', description: 'Optional identifier for the buying agent.' },
-                    dryRun: {
-                      type: 'boolean',
-                      description: 'When true, validate and log checkout intent without creating a Stripe session or redirecting.',
-                      default: false,
-                    },
-                  },
-                },
+                schema: checkoutRequestSchema(),
               },
             },
           },
@@ -223,19 +290,7 @@ export function buildOpenApiSpec() {
               description: 'Provider redirect or Stripe Checkout URL.',
               content: {
                 'application/json': {
-                  schema: {
-                    type: 'object',
-                    properties: {
-                      url: { type: 'string' },
-                      ok: { type: 'boolean' },
-                      provider: { type: 'string' },
-                      checkoutUrl: { type: 'string' },
-                      actionUrl: { type: ['string', 'null'] },
-                      stripeConfigured: { type: 'boolean' },
-                      checkoutSessionId: { type: 'string' },
-                      events: { type: 'object', additionalProperties: { type: 'boolean' } },
-                    },
-                  },
+                  schema: CHECKOUT_RESPONSE_SCHEMA,
                 },
               },
             },
@@ -252,21 +307,7 @@ export function buildOpenApiSpec() {
             required: true,
             content: {
               'application/json': {
-                schema: {
-                  type: 'object',
-                  required: ['slug', 'offer'],
-                  properties: {
-                    slug: { type: 'string' },
-                    offer: { type: 'string' },
-                    buyerAgent: { type: 'string' },
-                    query: { type: 'string' },
-                    requestedTerms: { type: 'object', additionalProperties: true },
-                    budget: { type: 'string' },
-                    timeline: { type: 'string' },
-                    contact: { type: 'string' },
-                    dryRun: { type: 'boolean', default: false },
-                  },
-                },
+                schema: negotiationRequestSchema(),
               },
             },
           },
@@ -421,28 +462,150 @@ export function buildOpenApiSpec() {
             pages: { type: 'array', items: { type: 'object' } },
           },
         },
-        AgentPageManifest: {
-          type: 'object',
-          properties: {
-            schema_version: { type: 'string' },
-            page: { type: 'object' },
-            offers: { type: 'array', items: { type: 'object' } },
-            faqs: { type: 'array', items: { type: 'object' } },
-            plain_text: { type: 'string' },
+        AgentPageManifest: AGENT_PAGE_MANIFEST_SCHEMA,
+        AgentNegotiationResponse: AGENT_NEGOTIATION_RESPONSE_SCHEMA,
+      },
+    },
+  }
+}
+
+/**
+ * Per-page OpenAPI spec - the domain-scoped counterpart to the global
+ * /openapi.json. Served at /<slug>/openapi.json and, on a verified custom
+ * domain, at the brand root /openapi.json (middleware rewrite), so an agent
+ * reading acme.com sees ONLY acme's surface: slug and offer keys pinned to
+ * this page's real values, negotiation advertised only when the plan allows it
+ * (matching llms.txt/agent.json gating). Transactional endpoints stay on the
+ * platform server; identity links reflect the brand domain.
+ */
+export function buildPageOpenApiSpec(
+  page: AgentPage,
+  opts: {
+    platformBase?: string
+    identityBase?: string
+    onCustomHost?: boolean
+    domainPath?: string
+    negotiationAllowed?: boolean
+  } = {},
+) {
+  const platformBase = opts.platformBase || getBaseUrl()
+  const identityBase = opts.identityBase || platformBase
+  const onCustomHost = opts.onCustomHost === true
+  const domainPath = opts.domainPath || '/'
+  const negotiationAllowed = opts.negotiationAllowed === true
+
+  const offers = getCheckoutOffers(page)
+  const offerKeys = offers.map((o) => `${o.kind}-${o.index}`)
+  const offerLegend = offers
+    .map((o) => `${o.kind}-${o.index} = ${String(o.name || 'Offer').slice(0, 80)}${o.price ? ` (${String(o.price).slice(0, 40)})` : ''}`)
+    .join('; ')
+    .slice(0, 1500)
+  const pin = { slug: page.slug, offerKeys, offerLegend }
+
+  const selfUrl = onCustomHost
+    ? `${identityBase}${domainPath === '/' ? '' : domainPath}`
+    : `${identityBase}/${page.slug}`
+  const link = (artifact: 'agent.json' | 'llms.txt' | 'openapi.json') =>
+    `${identityBase}${agentArtifactHref(artifact, page.slug, onCustomHost, domainPath)}`
+
+  return {
+    openapi: '3.1.0',
+    info: {
+      title: `${page.name || page.slug} - Nexez agent API`,
+      version: '0.1.0',
+      description: `Checkout and manifest API scoped to one published listing: ${String(page.description || page.name || page.slug).slice(0, 300)}`,
+      'x-nexez-page': {
+        slug: page.slug,
+        url: selfUrl,
+        agent_json_url: link('agent.json'),
+        llms_url: link('llms.txt'),
+        openapi_url: link('openapi.json'),
+        global_openapi_url: `${platformBase}/openapi.json`,
+      },
+    },
+    // Transactional endpoints always run on the platform host - a brand-domain
+    // request still checks out through the Nexez runtime (Stripe, order rows).
+    servers: [{ url: platformBase }],
+    paths: {
+      [`/${page.slug}/agent.json`]: {
+        get: {
+          summary: 'Read this page\'s manifest',
+          operationId: 'getAgentPageManifest',
+          responses: {
+            '200': {
+              description: 'Structured seller, offer, FAQ, and checkout context.',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/AgentPageManifest' },
+                },
+              },
+            },
+            '404': { description: 'No published page for this slug.' },
           },
         },
-        AgentNegotiationResponse: {
-          type: 'object',
-          properties: {
-            ok: { type: 'boolean' },
-            id: { type: 'string' },
-            status: { type: 'string' },
-            escrowMode: { type: 'string' },
-            stripeConfigured: { type: 'boolean' },
-            next: { type: 'string' },
-            publicPageUrl: { type: 'string' },
+      },
+      '/api/checkout': {
+        post: {
+          summary: `Start checkout for a ${page.name || page.slug} offer`,
+          operationId: 'startAgentCheckout',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: checkoutRequestSchema(pin),
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Provider redirect or Stripe Checkout URL.',
+              content: {
+                'application/json': {
+                  schema: CHECKOUT_RESPONSE_SCHEMA,
+                },
+              },
+            },
+            '404': { description: 'Page or offer not found.' },
+            '409': { description: 'Checkout is not configured for this offer.' },
           },
         },
+      },
+      // Advertised only when the plan allows negotiation AND a negotiable offer
+      // exists - otherwise the endpoint 403s (matches llms.txt + agent.json).
+      ...(negotiationAllowed
+        ? {
+            '/api/negotiations': {
+              post: {
+                summary: `Open a proposal with ${page.name || page.slug}`,
+                operationId: 'createAgentNegotiation',
+                requestBody: {
+                  required: true,
+                  content: {
+                    'application/json': {
+                      schema: negotiationRequestSchema(pin),
+                    },
+                  },
+                },
+                responses: {
+                  '200': {
+                    description: 'Negotiation created or validated.',
+                    content: {
+                      'application/json': {
+                        schema: { $ref: '#/components/schemas/AgentNegotiationResponse' },
+                      },
+                    },
+                  },
+                  '412': { description: 'Negotiation table migration has not been applied.' },
+                },
+              },
+            },
+          }
+        : {}),
+    },
+    components: {
+      schemas: {
+        AgentPageManifest: AGENT_PAGE_MANIFEST_SCHEMA,
+        ...(negotiationAllowed ? { AgentNegotiationResponse: AGENT_NEGOTIATION_RESPONSE_SCHEMA } : {}),
       },
     },
   }

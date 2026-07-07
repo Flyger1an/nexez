@@ -1,7 +1,7 @@
 // A/B variant serving (Phase 6).
 //
 // Offers that share an `ab_test` id are variants of one experiment. The public
-// page serves a SINGLE variant per visitor — chosen by a sticky bucket cookie —
+// page serves a SINGLE variant per visitor - chosen by a sticky bucket cookie -
 // so the comparison is unbiased (vs. simply showing both, which is not a test).
 // Conversions and impressions are attributed per variant via checkout_events
 // metadata, and rolled up here for the analytics dashboard.
@@ -80,7 +80,7 @@ export function canonicalHiddenIndices(offers: OfferItem[] | null | undefined): 
   return hidden
 }
 
-/** The served variants (with index) for a bucket — used to log impressions. */
+/** The served variants (with index) for a bucket - used to log impressions. */
 export function servedVariants(
   offers: OfferItem[] | null | undefined,
   bucket: number,
@@ -125,7 +125,7 @@ export function rollupAbResults(events: CheckoutEvent[]): AbTestResult[] {
     const meta = (event.metadata ?? {}) as Record<string, unknown>
     const test = typeof meta.ab_test === 'string' ? meta.ab_test : null
     if (!test) continue
-    const label = typeof meta.ab_label === 'string' && meta.ab_label ? meta.ab_label : '—'
+    const label = typeof meta.ab_label === 'string' && meta.ab_label ? meta.ab_label : '-'
 
     const entry = tests.get(test) ?? { slug: event.slug ?? null, variants: new Map<string, Acc>() }
     const variant = entry.variants.get(label) ?? { offerName: event.offer_name || '', impressions: 0, conversions: 0 }
@@ -136,7 +136,7 @@ export function rollupAbResults(events: CheckoutEvent[]): AbTestResult[] {
     } else if (!isDryRunEvent(event) && conversionEventTypes.includes(event.event_type)) {
       variant.conversions += 1
     } else {
-      // Not an impression or a counted conversion — skip (but keep variant if seen).
+      // Not an impression or a counted conversion - skip (but keep variant if seen).
       entry.variants.set(label, variant)
       tests.set(test, entry)
       continue

@@ -136,7 +136,7 @@ describe('rateLimitShared (Redis/KV REST backend, with in-memory fallback)', () 
     vi.stubEnv('KV_REST_API_URL', '')
     vi.stubEnv('KV_REST_API_TOKEN', '')
     const res = await rateLimitShared(`fc-noconfig-${Math.random()}`, 2, 1000, 10_700_000, { failClosed: true })
-    expect(res.ok).toBe(true) // unconfigured is not an outage — must stay available
+    expect(res.ok).toBe(true) // unconfigured is not an outage - must stay available
   })
 })
 

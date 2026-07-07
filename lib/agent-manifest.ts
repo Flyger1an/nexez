@@ -56,7 +56,8 @@ export function buildAgentPagePayload(
   const isCustomRootOrSub = dp !== '/' || !identityBase.includes('nexez.')
   const publicUrl = buildPublicPageUrl(page.slug, identityBase, isCustomRootOrSub)
   const agentJsonUrl = absoluteRuntimeUrl(identityBase, agentArtifactHref('agent.json', page.slug, isCustomRootOrSub, dp))
-  const llmsUrl = absoluteRuntimeUrl(identityBase, agentArtifactHref('llms.txt' as any, page.slug, isCustomRootOrSub, dp))
+  const llmsUrl = absoluteRuntimeUrl(identityBase, agentArtifactHref('llms.txt', page.slug, isCustomRootOrSub, dp))
+  const openApiUrl = absoluteRuntimeUrl(identityBase, agentArtifactHref('openapi.json', page.slug, isCustomRootOrSub, dp))
   const checkoutOffers = getCheckoutOffers(page)
   const offers = checkoutOffers.map((offer) => buildOfferPayload(page, offer, identityBase, platformBase, negotiationAllowed))
   const ratingSummary = publicRatingSummary(opts.reviewSummary)
@@ -97,6 +98,8 @@ export function buildAgentPagePayload(
         windows: parseAvailabilityWindows((page as any).next_available),
       },
       llms_url: llmsUrl,
+      // Per-page OpenAPI spec (domain-scoped): slug + offer keys pinned to this page.
+      openapi_url: openApiUrl,
     },
     offers,
     faqs: page.faqs ?? [],
@@ -130,7 +133,7 @@ function publicRatingSummary(summary?: ReviewSummary | null) {
 function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: string, platformBase: string, negotiationAllowed = false) {
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
   // Only advertise negotiation when the owner's plan allows it AND this offer is
-  // negotiable — otherwise an agent would POST /api/negotiations and get a 403.
+  // negotiable - otherwise an agent would POST /api/negotiations and get a 403.
   const isNegotiable = (offer as { offerType?: string }).offerType === 'negotiable'
   const checkoutUrl = absoluteRuntimeUrl(platformBase, getCheckoutPath(page.slug, offer.kind, offer.index))
   const providerUrl = getOfferDestination(page, offer) || null
@@ -143,14 +146,14 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: 
     // Speech-ready phrasing for voice agents (advanced LLM-powered using platform's configured LLM when page llm_opt_in + key, else deterministic).
     voice_summary: offer.description ? rewriteForVoiceSync(offer, page.name).description : null,
     price: offer.price || null,
-    // Currency for `price` (the page settlement currency) — explicit per-offer so an
+    // Currency for `price` (the page settlement currency) - explicit per-offer so an
     // agent reading a single offer never has to assume USD.
     currency: normalizeCurrency((page as { currency?: string | null }).currency),
     provider_url: providerUrl,
     checkout_url: checkoutUrl,
     prefer_original_for_this: (offer as any).prefer_original_for_this || false,
     availability: (offer as any).availability || 'available',
-    // Smart Rules Phase 1: hybrid booking. Public-safe constraints ONLY —
+    // Smart Rules Phase 1: hybrid booking. Public-safe constraints ONLY -
     // pricing rules (min price, discount/auto-accept thresholds) never leave
     // the server. Negotiable offers: lead with negotiation_action below.
     ...publicBookingConstraints(offer),
@@ -172,7 +175,7 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: 
       // Optional buyer identity an agent can include so the seller knows who is buying
       // and the buyer gets a receipt + order-portal access. All optional.
       optional_fields: {
-        buyerEmail: 'Buyer email — prefills checkout and enables the receipt + order portal.',
+        buyerEmail: 'Buyer email - prefills checkout and enables the receipt + order portal.',
         buyerName: 'Buyer or business name.',
         buyerReference: 'Your buyer-side reference / order id (also stamped on the Stripe session).',
         buyerAgent: 'Identifier for the buying agent.',

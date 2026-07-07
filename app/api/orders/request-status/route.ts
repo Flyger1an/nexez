@@ -5,7 +5,7 @@ import { enforceRateLimit } from '../../../../lib/rate-limit'
 
 /**
  * Owner triage of a buyer-filed order request (acknowledge / resolve / decline). The
- * actual money movement is the separate /api/orders/refund action — this only tracks
+ * actual money movement is the separate /api/orders/refund action - this only tracks
  * the request's state. RLS scopes the UPDATE to the owner's own rows, so a foreign id
  * updates nothing. Unlisted /api/* canonicalizes to the app host (owner session).
  */

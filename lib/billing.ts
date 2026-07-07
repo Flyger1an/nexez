@@ -1,7 +1,7 @@
 export type PlanId = 'free' | 'launch' | 'pro' | 'scale' | 'enterprise'
 
 // Gateable capabilities. A feature unlocks at a minimum plan RANK (see
-// FEATURE_MIN_RANK) and is cumulative — every higher tier inherits it. Add a new
+// FEATURE_MIN_RANK) and is cumulative - every higher tier inherits it. Add a new
 // capability here + one line in FEATURE_MIN_RANK/FEATURE_LABELS and it's gated
 // everywhere via planAllows().
 export const PLAN_FEATURES = [
@@ -31,7 +31,7 @@ const FEATURE_MIN_RANK: Record<PlanFeature, number> = {
   apiAccess: 2,
   negotiation: 2,
   analyticsHistory: 2,
-  // Pro is the "almost everything" tier — team collaboration + white-label moved down
+  // Pro is the "almost everything" tier - team collaboration + white-label moved down
   // from Scale (rank 3 → 2). Scale/Enterprise now differ mainly by LIMITS (seats, listings,
   // domains) + SSO, not by exclusive features.
   teamCollaboration: 2,
@@ -79,7 +79,7 @@ export type BillingPlan = {
    * Platform commission % on agent-driven transactions (applied via Stripe
    * Application Fee). It steps DOWN as the plan rank rises, so upgrading both
    * unlocks features AND lowers the transaction take-rate. Free pays the most
-   * (no subscription); Enterprise the least. THIS is the single source of truth —
+   * (no subscription); Enterprise the least. THIS is the single source of truth -
    * the pricing page and billing dashboard render these numbers, and
    * getCommissionPercentForPlan() charges them.
    */
@@ -155,7 +155,7 @@ export function getBillingPlan(id: string | null | undefined): BillingPlan | und
   return billingPlans.find((plan) => plan.id === id)
 }
 
-/** The plan to fall back to when none is set / unknown — the Free tier. */
+/** The plan to fall back to when none is set / unknown - the Free tier. */
 export function defaultPlan(): BillingPlan {
   return billingPlans[0]
 }
@@ -173,7 +173,7 @@ export function planAllows(id: string | null | undefined, feature: PlanFeature):
   return getPlanRank(id) >= FEATURE_MIN_RANK[feature]
 }
 
-/** The lowest-priced plan that unlocks `feature` — used for "Upgrade to X" prompts. */
+/** The lowest-priced plan that unlocks `feature` - used for "Upgrade to X" prompts. */
 export function minPlanForFeature(feature: PlanFeature): BillingPlan {
   const minRank = FEATURE_MIN_RANK[feature]
   return billingPlans.find((p) => p.rank >= minRank) ?? billingPlans[billingPlans.length - 1]

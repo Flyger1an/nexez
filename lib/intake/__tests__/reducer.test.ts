@@ -11,7 +11,7 @@ import {
 } from '../types'
 
 // ---------------------------------------------------------------------------
-// Fixtures — timestamps/ids are caller-supplied by design (the reducer is pure),
+// Fixtures - timestamps/ids are caller-supplied by design (the reducer is pure),
 // so tests pin them.
 
 const T0 = '2026-07-06T00:00:00.000Z'
@@ -112,7 +112,7 @@ describe('INGEST → EXTRACT → GAP_ANALYSIS', () => {
     expect(state.draft.faqs).toHaveLength(1)
     expect(state.provenance['page:name']).toBe('imported')
     expect(state.provenance[`offer:${normalizeOfferName('Event Catering')}:price`]).toBe('imported')
-    // nothing became 'stated' — no answers exist
+    // nothing became 'stated' - no answers exist
     expect(Object.values(state.provenance)).not.toContain('stated')
   })
 
@@ -162,7 +162,7 @@ describe('INGEST → EXTRACT → GAP_ANALYSIS', () => {
   })
 })
 
-describe('ASK_GAPS — the 1–3 batch rule', () => {
+describe('ASK_GAPS - the 1–3 batch rule', () => {
   it('moves to INTERVIEW and records the asked ids', () => {
     const state = interviewState()
     expect(state.phase).toBe('INTERVIEW')
@@ -187,14 +187,14 @@ describe('ASK_GAPS — the 1–3 batch rule', () => {
       { type: 'RECORD_EXTRACTION', extraction: extraction() },
       { type: 'ANALYZE_GAPS' },
     )
-    const message = { id: 'm-1', role: 'agent' as const, content: 'Quick one — what do the trays cost?', at: T0 }
+    const message = { id: 'm-1', role: 'agent' as const, content: 'Quick one - what do the trays cost?', at: T0 }
     const asked = run(analyzed, { type: 'ASK_GAPS', gapIds: ['offer:services-1:price'], message })
     const askedAgain = run(asked, { type: 'ASK_GAPS', gapIds: ['imp:q-aud'], message })
     expect(askedAgain.messages).toHaveLength(1)
   })
 })
 
-describe('RECORD_ANSWERS — folding + SYNTHESIS', () => {
+describe('RECORD_ANSWERS - folding + SYNTHESIS', () => {
   const priceAnswer: GapAnswer = {
     gapId: 'offer:services-1:price',
     answer: 'Trays start at $250.',
@@ -209,7 +209,7 @@ describe('RECORD_ANSWERS — folding + SYNTHESIS', () => {
     expect(state.gaps.map((g) => g.id)).not.toContain('offer:services-1:price')
   })
 
-  it('is idempotent — replaying the same answer batch yields the identical state', () => {
+  it('is idempotent - replaying the same answer batch yields the identical state', () => {
     const once = run(interviewState(), { type: 'RECORD_ANSWERS', answers: [priceAnswer] })
     const twice = run(once, { type: 'RECORD_ANSWERS', answers: [priceAnswer] })
     expect(twice).toEqual(once)
@@ -345,7 +345,7 @@ describe('RECORD_ANSWERS — folding + SYNTHESIS', () => {
 
   it('renaming an offer migrates its provenance keys so stated protection survives', () => {
     // State a price, then rename the offer, then let the LLM re-propose stale data
-    // under the new name — the stated price must still win.
+    // under the new name - the stated price must still win.
     const state = run(interviewState(), {
       type: 'RECORD_ANSWERS',
       answers: [
@@ -365,7 +365,7 @@ describe('RECORD_ANSWERS — folding + SYNTHESIS', () => {
     expect(proposed.draft.services.find((o) => o.name === 'Party Trays')?.price).toBe('$250')
   })
 
-  it('rejects malformed LLM field updates loudly — never a silent no-op', () => {
+  it('rejects malformed LLM field updates loudly - never a silent no-op', () => {
     const state = interviewState()
     // fields not an array
     expectError(
@@ -400,7 +400,7 @@ describe('RECORD_ANSWERS — folding + SYNTHESIS', () => {
   })
 })
 
-describe('provenance integrity — stated requires a GapAnswer (structural)', () => {
+describe('provenance integrity - stated requires a GapAnswer (structural)', () => {
   it('extractions and proposals alone can never produce stated provenance', () => {
     const state = run(
       createIntakeState(),
@@ -443,7 +443,7 @@ describe('provenance integrity — stated requires a GapAnswer (structural)', ()
   })
 })
 
-describe('PROPOSE_OFFERS — the invention firewall', () => {
+describe('PROPOSE_OFFERS - the invention firewall', () => {
   it('rejects offers not derived from extraction or stated answers, leaving state untouched', () => {
     const state = run(
       createIntakeState(),
@@ -502,7 +502,7 @@ describe('PROPOSE_OFFERS — the invention firewall', () => {
   })
 })
 
-describe('handoff — agent-gated, owner-free', () => {
+describe('handoff - agent-gated, owner-free', () => {
   it('the agent cannot hand off while blocking gaps remain', () => {
     const state = interviewState() // Drop-off Trays has no price → blocking
     expect(handoffEligible(state)).toBe(false)
@@ -555,7 +555,7 @@ describe('handoff — agent-gated, owner-free', () => {
     const analyzed = run(extracted, { type: 'ANALYZE_GAPS' })
     expect(run(analyzed, { type: 'EXIT_TO_BUILDER', at: T0 }).phase).toBe('REVIEW_HANDOFF')
 
-    // INTERVIEW (with a blocking gap still open — exit is still allowed)
+    // INTERVIEW (with a blocking gap still open - exit is still allowed)
     const fromInterview = run(interviewState(), { type: 'EXIT_TO_BUILDER', at: T0 })
     expect(fromInterview.phase).toBe('REVIEW_HANDOFF')
 
@@ -581,7 +581,7 @@ describe('handoff — agent-gated, owner-free', () => {
   })
 })
 
-describe('interview loop — INTERVIEW ⇄ SYNTHESIS convergence', () => {
+describe('interview loop - INTERVIEW ⇄ SYNTHESIS convergence', () => {
   it('ask → answer → re-ask cycles until no blocking gaps remain, then hands off', () => {
     let state = run(
       createIntakeState(),

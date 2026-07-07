@@ -65,8 +65,8 @@ describe('formatRequestedTerms', () => {
   })
   it('uses an em-dash for null/empty values rather than "null"', () => {
     expect(formatRequestedTerms({ budget: null, notes: '' })).toEqual([
-      { label: 'Budget', value: '—' },
-      { label: 'Notes', value: '—' },
+      { label: 'Budget', value: '-' },
+      { label: 'Notes', value: '-' },
     ])
   })
 })

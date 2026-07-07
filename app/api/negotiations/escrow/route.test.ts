@@ -37,7 +37,7 @@ const post = (body: unknown) =>
     body: JSON.stringify(body),
   })
 
-describe('POST /api/negotiations/escrow — refund', () => {
+describe('POST /api/negotiations/escrow - refund', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_x')
@@ -91,7 +91,7 @@ describe('POST /api/negotiations/escrow — refund', () => {
     expect(params.amount).toBe(3000)
     expect(opts.idempotencyKey).toBe('refund-n1-3000')
     const upd = getUpdate()
-    expect(upd.status).toBeUndefined() // not flipped — remainder still refundable
+    expect(upd.status).toBeUndefined() // not flipped - remainder still refundable
     expect(upd.refunded_cents).toBe(3000)
     expect(upd.metadata.partial_refund).toMatchObject({ amount_cents: 3000, source: 'owner_action' })
   })
@@ -121,14 +121,14 @@ describe('POST /api/negotiations/escrow — refund', () => {
   })
 })
 
-describe('POST /api/negotiations/escrow — cancel', () => {
+describe('POST /api/negotiations/escrow - cancel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_x')
   })
   afterEach(() => vi.unstubAllEnvs())
 
-  it('409 — a captured (complete) deal cannot be cancelled (must refund instead)', async () => {
+  it('409 - a captured (complete) deal cannot be cancelled (must refund instead)', async () => {
     const getUpdate = withNegotiation({ id: 'n1', status: 'complete', stripe_payment_intent_id: 'pi_1', metadata: {} })
     const res = await POST(post({ negotiationId: 'n1', action: 'cancel' }))
     expect(res.status).toBe(409)

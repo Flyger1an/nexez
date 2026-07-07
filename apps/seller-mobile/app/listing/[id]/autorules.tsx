@@ -68,7 +68,7 @@ export default function AutoRulesRoute() {
         />
       }
     >
-      <ToggleRow label="Let Nexez negotiate" detail="Auto-respond to buyer agents 24/7 — never below your floor" value={on} onValueChange={setOn} />
+      <ToggleRow label="Let Nexez negotiate" detail="Auto-respond to buyer agents 24/7 - never below your floor" value={on} onValueChange={setOn} />
       <TextField label="Floor (never go below)" value={floor} onChangeText={setFloor} placeholder="$2,000" />
       <TextField label="Auto-accept at or above" value={accept} onChangeText={setAccept} placeholder="$6,500" />
       <TextField label="Auto-decline below" value={decline} onChangeText={setDecline} placeholder="$1,500" />

@@ -10,7 +10,7 @@ const { authRef, rateRef, loadRef } = vi.hoisted(() => ({
 vi.mock('../../../../../../lib/rate-limit', () => ({ enforceRateLimit: vi.fn(async () => rateRef.response) }))
 vi.mock('../../../../../../lib/agents/nexie-auth', () => ({ authenticateNexieRequest: vi.fn(async () => authRef.result) }))
 vi.mock('../../../../../../lib/server/load-order', () => ({ loadOrderByToken: vi.fn(async () => loadRef.view) }))
-// NB: lib/buyer-portal is NOT mocked — the pure status/timeline/label helpers run for real.
+// NB: lib/buyer-portal is NOT mocked - the pure status/timeline/label helpers run for real.
 
 import { GET } from './route'
 

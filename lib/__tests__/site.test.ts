@@ -52,7 +52,7 @@ describe('isHostNeutralPath', () => {
     // Simulator (signed-in users browse it on the app host).
     expect(isHostNeutralPath('/api/simulate-llm')).toBe(true)
     expect(isHostNeutralPath('/api/simulate-url')).toBe(true)
-    // Support routes carry the session — must not be redirected cross-domain.
+    // Support routes carry the session - must not be redirected cross-domain.
     expect(isHostNeutralPath('/api/support/assist')).toBe(true)
     expect(isHostNeutralPath('/api/support/tickets')).toBe(true)
     // Discovery click-tracking + listing.
@@ -86,7 +86,7 @@ describe('canonicalHostFor', () => {
   it('keeps agent/buyer negotiation routes on the runtime but OWNER actions on the app host', () => {
     // The proposal (agents), pay link (buyer), and status poll (agents) are public
     // agent-runtime surfaces. escrow/transition are owner actions fired from the
-    // dashboard (app host) where the session cookie lives — canonicalizing them to
+    // dashboard (app host) where the session cookie lives - canonicalizing them to
     // the runtime made the dashboard POST a cross-origin 308 ("Load failed").
     expect(canonicalHostFor('/api/negotiations')).toBe(AGENT_RUNTIME_HOST)
     expect(canonicalHostFor('/api/negotiations/pay')).toBe(AGENT_RUNTIME_HOST)
@@ -112,7 +112,7 @@ describe('canonicalHostFor', () => {
     expect(canonicalHostFor('/orders/tok_abc123')).toBe(AGENT_RUNTIME_HOST)
     expect(canonicalHostFor('/api/order-portal/request')).toBe(AGENT_RUNTIME_HOST)
     // …but the OWNER actions under /api/orders/* must stay on the app host (owner
-    // session). The /api/order-portal prefix must NOT capture them — a 308 here would
+    // session). The /api/order-portal prefix must NOT capture them - a 308 here would
     // push the owner refund/triage cross-origin and drop the session.
     expect(canonicalHostFor('/api/orders/refund')).toBe(APP_HOST)
     expect(canonicalHostFor('/api/orders/request-status')).toBe(APP_HOST)

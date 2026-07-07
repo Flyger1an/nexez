@@ -1,5 +1,5 @@
 /**
- * Reject if a promise (or thenable — e.g. a Supabase query builder) doesn't
+ * Reject if a promise (or thenable - e.g. a Supabase query builder) doesn't
  * settle within `ms`. Keeps loading UIs from spinning forever when a network
  * call stalls without ever resolving or rejecting.
  *

@@ -74,7 +74,7 @@ export function PhilosophySplit() {
                 <span className="ml-auto rounded bg-white/10 px-2 py-1 text-[10px] text-zinc-200">Book a call</span>
               </div>
 
-              {/* hero — marketing, not structured */}
+              {/* hero - marketing, not structured */}
               <div className="mt-3 rounded-md bg-gradient-to-br from-[var(--signal)]/25 via-white/[0.05] to-[var(--signal)]/15 p-3.5">
                 <p className="text-[15px] font-semibold tracking-tight text-white">Strategy that scales your B2B.</p>
                 <p className="mt-1 text-[11px] text-zinc-400">Trusted by 200+ founders to find their next growth lever.</p>
@@ -90,7 +90,7 @@ export function PhilosophySplit() {
                 <span className="ml-auto rounded bg-white/10 px-1.5 py-0.5 text-zinc-300">Accept</span>
               </div>
 
-              {/* the actual offers — buried in prose */}
+              {/* the actual offers - buried in prose */}
               <p className="mt-3 text-[9px] uppercase tracking-[0.18em] text-zinc-500">Our services</p>
               <ul className="mt-1.5 space-y-1 text-zinc-400">
                 <li>• <span className="text-zinc-200">Strategy Session</span>: a focused 60 minute deep dive. <span className="text-zinc-300">From $450.</span></li>

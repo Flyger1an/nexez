@@ -13,13 +13,13 @@ import { enforceRateLimit } from '../../../../lib/rate-limit'
  * notes). These used to run client-side via a dynamic `import('lib/llm')`, which
  * was both UNGATED and broken (LLM_API_KEY is server-only, so the browser call
  * fired with an undefined key and silently failed). Moving them here closes the
- * gate — auth + `aiFeatures` (Launch+) + the page's `llm_opt_in` consent — and
+ * gate - auth + `aiFeatures` (Launch+) + the page's `llm_opt_in` consent - and
  * makes the feature actually work. The page is loaded scoped to the owner so the
  * prompt is built from trusted server data, never client-supplied page content.
  *
  * Collaboration: authorization runs through `resolvePageAccess` (owner OR a
  * non-revoked editor invitee), and the plan gate + page read act as the PAGE
- * OWNER via the service-role client — so an editor-collaborator inherits the
+ * OWNER via the service-role client - so an editor-collaborator inherits the
  * owner's plan and works against the owner's data, while a non-editor still 403s.
  */
 type SuggestKind = 'memory' | 'approval-note'
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   if (!pageId) return NextResponse.json({ error: 'pageId is required' }, { status: 400 })
 
   // Authorize as owner OR a non-revoked editor-collaborator. This is the ONLY
-  // authorization — trust its result. Needs the service-role env to read the
+  // authorization - trust its result. Needs the service-role env to read the
   // page/invite authoritatively.
   if (!hasSupabaseAdminEnv()) {
     return NextResponse.json({ error: 'AI is not configured.' }, { status: 503 })
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient()
 
-  // Load the page scoped to the OWNER via the admin client — ownership is already
+  // Load the page scoped to the OWNER via the admin client - ownership is already
   // proven by resolvePageAccess (look it up by id), and the service-role read sees
   // the owner's row regardless of the collaborator's RLS. Trusted server data to
   // build the prompt from (never trust client-supplied page content).

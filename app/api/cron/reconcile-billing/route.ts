@@ -9,7 +9,7 @@ const LIMIT = 100
 export const maxDuration = 60
 
 /**
- * Billing subscription reconciliation (Vercel cron — see vercel.json). The backstop
+ * Billing subscription reconciliation (Vercel cron - see vercel.json). The backstop
  * for missed/unhandled Stripe webhooks: for every billing_subscriptions row that has
  * a Stripe customer, fetch the customer's live subscriptions and re-sync our row to
  * the truth. Heals plan/status/period drift; if the customer has no subscription at
@@ -91,7 +91,7 @@ export async function GET(request: Request) {
       const subscription = live ?? list.data[0] ?? null
 
       if (!subscription) {
-        // No subscription in Stripe — our row must not claim a paid plan.
+        // No subscription in Stripe - our row must not claim a paid plan.
         if (row.plan_id || (row.status && row.status !== 'canceled')) {
           await admin
             .from('billing_subscriptions')

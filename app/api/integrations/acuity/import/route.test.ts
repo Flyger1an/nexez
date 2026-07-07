@@ -42,7 +42,7 @@ describe('POST /api/integrations/acuity/import (collaboration gate)', () => {
     expect((await POST(post({}))).status).toBe(401)
   })
 
-  it('403 when resolveFeatureOwner denies — never reaches Acuity / sample data', async () => {
+  it('403 when resolveFeatureOwner denies - never reaches Acuity / sample data', async () => {
     featureRef.fn = () => ({ ok: false, status: 403 })
     expect((await POST(post({ pageId: 'p1' }))).status).toBe(403)
     expect(ownerAllowsRef.calls).toEqual([])

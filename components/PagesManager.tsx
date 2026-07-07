@@ -43,7 +43,7 @@ export function PagesManager({
   // Published-page usage meter. The real limit can be raised by a grandfathered
   // baseline the client can't see, so only show the "of N" cap when we're within
   // the plan limit; once over (grandfathered) just show the count. Enforcement is
-  // server-side (DB trigger) — this is purely the heads-up + upgrade nudge.
+  // server-side (DB trigger) - this is purely the heads-up + upgrade nudge.
   const publishedLimit = getPlanLimits(plan).pages
   const showCap = Number.isFinite(publishedLimit) && counts.published <= publishedLimit
   const atCap = showCap && counts.published >= publishedLimit
@@ -103,7 +103,7 @@ export function PagesManager({
     setLimitMsg(null)
     const supabase = createClient()
     // The published-page limit is enforced server-side by a DB trigger (plan limit
-    // + grandfathered baseline), so we attempt the write and surface its verdict —
+    // + grandfathered baseline), so we attempt the write and surface its verdict -
     // this stays correct for grandfathered owners the client can't reason about.
     const { error } = await supabase.from('pages').update({ is_published: !current }).eq('id', id)
     if (error) {
@@ -399,10 +399,10 @@ export function PagesManager({
               {query.trim()
                 ? `No listings match “${query.trim()}”.`
                 : status === 'published'
-                  ? 'No published listings yet — publish a draft to make it discoverable by agents.'
+                  ? 'No published listings yet - publish a draft to make it discoverable by agents.'
                   : status === 'draft'
                     ? 'No drafts. Listings you create or duplicate land here until you publish them.'
-                    : 'No listings yet — create your first listing to get started.'}
+                    : 'No listings yet - create your first listing to get started.'}
             </p>
             {query.trim() ? (
               <button onClick={() => setQuery('')} className="btn-secondary mt-4 inline-flex h-10 px-4">

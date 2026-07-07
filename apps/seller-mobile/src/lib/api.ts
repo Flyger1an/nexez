@@ -95,7 +95,7 @@ export function transitionNegotiation(input: {
 }
 
 // Escrow / money actions: approve a held agreement, capture, cancel, or refund.
-// `amount` (major units, e.g. 30 = $30) is optional on refund — omit for the full remainder.
+// `amount` (major units, e.g. 30 = $30) is optional on refund - omit for the full remainder.
 export function escrowAction(input: {
   negotiationId: string
   action: 'approve' | 'capture' | 'cancel' | 'refund'
@@ -107,7 +107,7 @@ export function escrowAction(input: {
   })
 }
 
-// Refund a direct checkout order. `amount` (major units) optional — omit for full remainder.
+// Refund a direct checkout order. `amount` (major units) optional - omit for full remainder.
 export function refundOrder(input: { orderId: string; amount?: number }) {
   return apiFetch<DealActionResult>('/api/orders/refund', {
     method: 'POST',
@@ -138,7 +138,7 @@ export function getIntakeSession(id: string) {
 }
 
 /** One interview turn: free text (`content`) or structured quick-answers
- *  (`answers`, e.g. Skip / posture chips) — the latter needs no LLM at all. */
+ *  (`answers`, e.g. Skip / posture chips) - the latter needs no LLM at all. */
 export function sendIntakeTurn(id: string, input: { content?: string; answers?: IntakeGapAnswer[] }) {
   return apiFetch<IntakeTurnResponse>(`/api/agents/intake/threads/${id}/messages`, {
     method: 'POST',
@@ -147,7 +147,7 @@ export function sendIntakeTurn(id: string, input: { content?: string; answers?: 
 }
 
 /** REVIEW_HANDOFF: materialize the draft (new draft listing, or staged onto an
- *  existing one). Idempotent — safe to retry. */
+ *  existing one). Idempotent - safe to retry. */
 export function commitIntakeSession(id: string) {
   return apiFetch<IntakeCommitResponse>(`/api/agents/intake/threads/${id}/commit`, { method: 'POST' })
 }

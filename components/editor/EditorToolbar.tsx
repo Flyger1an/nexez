@@ -10,7 +10,7 @@ export function EditorToolbar({ e }: { e: PageEditor }) {
         <a
           href={appUrl(`/create?reinterview=${page.id}`)}
           className="inline-flex w-fit items-center gap-2 rounded-lg border border-[var(--signal)]/40 px-4 py-2 text-sm text-[var(--signal)] hover:bg-[var(--signal)]/10"
-          title="Interview only the gaps — answers stage as a draft on this listing"
+          title="Interview only the gaps - answers stage as a draft on this listing"
         >
           <MessageCircleQuestion className="size-4" />
           Re-interview

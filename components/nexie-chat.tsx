@@ -1,10 +1,10 @@
 'use client'
 
-// Nexxi (buyer agent) web chat — a thin client of the shared agent-chat
+// Nexxi (buyer agent) web chat - a thin client of the shared agent-chat
 // primitive (components/agent-chat). This file owns only what is Nexxi's:
 // the card types + renderers, the /api/agents/nexie endpoint wiring, and the
 // thread id. The shell (messages, busy states, starters, mic, composer) is
-// the shared primitive — one chat system, two agents (spec §6).
+// the shared primitive - one chat system, two agents (spec §6).
 import { useRef } from 'react'
 import { Check, ChevronRight, Search, ShieldCheck, Sparkles, X } from 'lucide-react'
 import { AgentChat, type AgentChatController, type AgentTurnResponse } from './agent-chat'
