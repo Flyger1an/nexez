@@ -6,6 +6,7 @@ import {
 import { OWNER_PAGE_SELECT, type AgentPage } from '../../../../../lib/agent-page'
 import { analyzeSite, getImportUrlError } from '../../../../../lib/importer'
 import { applyIntakeAction, createIntakeState, type IntakeState } from '../../../../../lib/intake'
+import { captureEvent } from '../../../../../lib/observability'
 import { enforceRateLimit } from '../../../../../lib/rate-limit'
 import { resolveRequestAuth } from '../../../../../lib/server/request-auth'
 
@@ -116,6 +117,16 @@ export async function POST(request: NextRequest) {
     console.error('[intake] session insert failed', error)
     return NextResponse.json({ error: 'Could not start the interview.' }, { status: 500 })
   }
+
+  // Telemetry (spec §8): which entry path sellers take + what extraction yields.
+  captureEvent('intake.session_started', {
+    sessionId: data.id,
+    entry: pageId ? 'reinterview' : sourceUrl ? 'url' : 'scratch',
+    extracted: state.extractions.length > 0,
+    offersExtracted: state.extractions.reduce((sum, e) => sum + e.offers.length, 0),
+    gaps: state.gaps.length,
+    blocking: state.gaps.filter((g) => g.kind === 'blocking').length,
+  })
 
   return NextResponse.json({ ok: true, id: data.id, status: data.status, phase: data.phase, state }, { status: 201 })
 }

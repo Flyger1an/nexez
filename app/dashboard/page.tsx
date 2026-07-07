@@ -23,12 +23,13 @@ export default async function DashboardPage() {
   const meta = (user.user_metadata ?? {}) as { full_name?: string; company?: string }
   const displayName = meta.full_name || meta.company || user.email || ''
 
-  const [pageRes, eventRes, visitRes, invitesRes, negRes] = await Promise.all([
+  const [pageRes, eventRes, visitRes, invitesRes, negRes, intakeRes] = await Promise.all([
     supabase.from('pages').select(OWNER_PAGE_SELECT).eq('owner_id', user.id).order('created_at', { ascending: false }).returns<AgentPage[]>(),
     supabase.from('checkout_events').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(100).returns<CheckoutEvent[]>(),
     supabase.from('agent_visits').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1000).returns<AgentVisit[]>(),
     supabase.from('team_invites').select('owner_id').eq('email', (user.email ?? '').toLowerCase()).eq('status', 'accepted'),
     supabase.from('agent_negotiations').select('id', { count: 'exact', head: true }).eq('owner_id', user.id).in('status', ['negotiation', 'agreement_proposed', 'held']),
+    supabase.from('intake_sessions').select('id', { count: 'exact', head: true }).eq('owner_id', user.id).eq('status', 'handed_off'),
   ])
 
   // Fall back to the basic select if newer optional columns aren't migrated yet.
@@ -69,6 +70,8 @@ export default async function DashboardPage() {
     sharedPages,
     displayName,
     todayCutoff,
+    // interview_completed (intake spec §8): any interview that reached handoff.
+    interviewCompleted: intakeRes.error ? false : (intakeRes.count ?? 0) > 0,
   }
 
   return <DashboardClient initial={initial} />

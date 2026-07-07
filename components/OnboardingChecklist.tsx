@@ -7,14 +7,14 @@ import { getOnboardingSteps, onboardingProgress } from '../lib/onboarding'
 
 const DISMISS_KEY = 'nexez_onboarding_dismissed'
 
-export function OnboardingChecklist({ pages }: { pages: AgentPage[] }) {
+export function OnboardingChecklist({ pages, interviewCompleted }: { pages: AgentPage[]; interviewCompleted?: boolean }) {
   const [dismissed, setDismissed] = useState(true) // default hidden until we read localStorage (avoids flash)
 
   useEffect(() => {
     setDismissed(localStorage.getItem(DISMISS_KEY) === '1')
   }, [])
 
-  const steps = getOnboardingSteps(pages)
+  const steps = getOnboardingSteps(pages, { interviewCompleted })
   const progress = onboardingProgress(steps)
 
   // Hide once complete (and clear the flag so it can resurface if state changes) or if dismissed.

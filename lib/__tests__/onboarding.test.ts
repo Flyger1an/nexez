@@ -36,6 +36,18 @@ describe('getOnboardingSteps', () => {
     expect(byId.offers).toBe(false)
     expect(byId.publish).toBe(false)
   })
+
+  it('a handed-off intake interview completes the create step (spec §8)', () => {
+    const steps = getOnboardingSteps([], { interviewCompleted: true })
+    expect(steps.find((s) => s.id === 'create')?.done).toBe(true)
+    // the rest still derive from page state
+    expect(steps.find((s) => s.id === 'offers')?.done).toBe(false)
+  })
+
+  it('the create step advertises the interview path', () => {
+    const steps = getOnboardingSteps([])
+    expect(steps.find((s) => s.id === 'create')?.description).toMatch(/intake interview/i)
+  })
 })
 
 describe('onboardingProgress', () => {

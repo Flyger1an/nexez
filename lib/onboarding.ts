@@ -11,7 +11,13 @@ export type OnboardingStep = {
   done: boolean
 }
 
-export function getOnboardingSteps(pages: AgentPage[]): OnboardingStep[] {
+export type OnboardingExtras = {
+  /** True when an intake interview reached handed_off (spec §8) — the
+   *  conversational path to a created page. */
+  interviewCompleted?: boolean
+}
+
+export function getOnboardingSteps(pages: AgentPage[], extras: OnboardingExtras = {}): OnboardingStep[] {
   const firstId = pages[0]?.id
   const editorHref = firstId ? `/dashboard/${firstId}` : '/create'
   const settingsHref = firstId ? `/dashboard/${firstId}/settings` : '/create'
@@ -25,10 +31,10 @@ export function getOnboardingSteps(pages: AgentPage[]): OnboardingStep[] {
     {
       id: 'create',
       title: 'Create your first agent page',
-      description: 'Import an existing site or start from an industry template.',
+      description: 'Talk it through with the intake interview, import your site, or start from a template.',
       href: '/create',
       cta: 'Create page',
-      done: hasPage,
+      done: hasPage || Boolean(extras.interviewCompleted),
     },
     {
       id: 'offers',

@@ -37,6 +37,9 @@ export type DashboardInitial = {
   // Start-of-today (ISO), computed server-side from the same helper Analytics
   // uses, so the Overview headline and Analytics' "Today" range stay in sync.
   todayCutoff: string
+  // An intake interview reached handed_off — counts toward the create step in
+  // the onboarding checklist (intake spec §8).
+  interviewCompleted?: boolean
 }
 
 // Overview shows a bounded recent set; full management (with pagination) lives
@@ -319,7 +322,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
             </a>
           </div>
         </section>
-        <OnboardingChecklist pages={pages} />
+        <OnboardingChecklist pages={pages} interviewCompleted={initial?.interviewCompleted} />
             {pages.length === 0 ? (
               <NewUserHero name={displayName} />
             ) : (

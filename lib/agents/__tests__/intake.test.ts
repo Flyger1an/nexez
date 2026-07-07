@@ -1,6 +1,15 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createSupabaseMock } from '../../../test/supabase-mock'
 import { formatOfferLines, parseOfferLines, type OfferItem } from '../../agent-page'
+
+const { captureEventMock } = vi.hoisted(() => ({ captureEventMock: vi.fn() }))
+vi.mock('../../observability', () => ({
+  captureEvent: captureEventMock,
+  captureError: vi.fn(),
+  isObservabilityConfigured: () => false,
+}))
+
+beforeEach(() => captureEventMock.mockClear())
 import {
   commitIntakeSession,
   draftReadiness,
@@ -374,6 +383,61 @@ describe('commitIntakeSession — materialization (spec §10)', () => {
     const { db } = makeDb(null)
     const result = await commitIntakeSession({ db, admin: makeAdmin([], []), user: OWNER, sessionId: 'sess-1' })
     expect(result).toMatchObject({ ok: false, status: 404 })
+  })
+})
+
+describe('telemetry (spec §8)', () => {
+  it('every turn emits intake.turn with the gap counters', async () => {
+    const { db } = makeDb(sessionRow(analyzedState()))
+    const result = await handleIntakeTurn({ db, user: OWNER, sessionId: 'sess-1', content: 'hi' }, ids)
+    expect(result.ok).toBe(true)
+    const event = captureEventMock.mock.calls.find(([name]) => name === 'intake.turn')
+    expect(event).toBeTruthy()
+    expect(event?.[1]).toMatchObject({ sessionId: 'sess-1', phase: 'INTERVIEW', llm: false })
+    expect(typeof event?.[1].gapsRemaining).toBe('number')
+    expect(typeof event?.[1].blockingRemaining).toBe('number')
+    expect(typeof event?.[1].durationMs).toBe('number')
+  })
+
+  it('commit emits intake.handoff with gap outcomes + time-to-handoff', async () => {
+    let state = analyzedState()
+    const skipped = applyIntakeAction(state, {
+      type: 'RECORD_ANSWERS',
+      answers: [{ gapId: 'offer:services-1:price', answer: 'later', skipped: true }],
+    })
+    if (skipped.ok) state = skipped.state
+    const { db } = makeDb(sessionRow(state, { created_at: '2026-07-06T00:00:00.000Z' }))
+    const inserted: any[] = []
+    const admin = createSupabaseMock((ctx) => {
+      if (ctx.table === 'pages' && ctx.op === 'select') return { data: null }
+      if (ctx.table === 'pages' && ctx.op === 'insert') {
+        inserted.push(ctx.payload)
+        return { data: { id: 'page-new', slug: ctx.payload.slug } }
+      }
+      return { data: null }
+    }) as any
+    const result = await commitIntakeSession(
+      { db, admin, user: OWNER, sessionId: 'sess-1' },
+      { now: () => new Date('2026-07-06T00:12:00.000Z') },
+    )
+    expect(result.ok).toBe(true)
+    const event = captureEventMock.mock.calls.find(([name]) => name === 'intake.handoff')
+    expect(event).toBeTruthy()
+    expect(event?.[1]).toMatchObject({
+      sessionId: 'sess-1',
+      via: 'owner_exit',
+      pageId: 'page-new',
+      newPage: true,
+      gapsSkipped: 1,
+      timeToHandoffMs: 12 * 60 * 1000,
+    })
+    expect(event?.[1].sourceKinds).toEqual(['url'])
+  })
+
+  it('an idempotent commit replay does NOT double-count a handoff', async () => {
+    const { db } = makeDb(sessionRow(analyzedState(), { status: 'handed_off', page_id: 'page-done' }))
+    await commitIntakeSession({ db, admin: createSupabaseMock(() => ({ data: null })) as any, user: OWNER, sessionId: 'sess-1' })
+    expect(captureEventMock.mock.calls.filter(([name]) => name === 'intake.handoff')).toHaveLength(0)
   })
 })
 

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { importResultToExtraction, loadIntakeSession, sessionState } from '../../../../../../../lib/agents/intake'
 import { analyzeSite, getImportUrlError, llmExtractOffers } from '../../../../../../../lib/importer'
 import { applyIntakeAction, type IntakeExtraction, type IntakeState } from '../../../../../../../lib/intake'
+import { captureEvent } from '../../../../../../../lib/observability'
 import { enforceRateLimit } from '../../../../../../../lib/rate-limit'
 import { resolveRequestAuth } from '../../../../../../../lib/server/request-auth'
 
@@ -85,6 +86,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .eq('id', row.id)
     .eq('owner_id', user.id)
   if (error) return NextResponse.json({ error: 'Could not save the new source.' }, { status: 500 })
+
+  // Telemetry (spec §8): mid-conversation sources and what they yield.
+  captureEvent('intake.ingest', {
+    sessionId: row.id,
+    kind: url ? 'url' : 'text',
+    offersFound: extraction.offers.length,
+    gaps: state.gaps.length,
+  })
 
   return NextResponse.json({
     ok: true,

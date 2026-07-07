@@ -14,6 +14,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { getReadinessScore, normalizeSlug, type AgentPage, type OfferItem } from '../agent-page'
 import type { ImportResult } from '../importer'
 import { INTAKE_SAFETY_PREAMBLE, fenceUntrusted } from '../llm-engine/prompt-safety'
+import { captureEvent } from '../observability'
 import {
   analyzeGaps,
   applyIntakeAction,
@@ -266,6 +267,7 @@ export async function handleIntakeTurn(
 ): Promise<IntakeTurnResult> {
   const now = deps.now ?? (() => new Date())
   const newId = deps.newId ?? (() => crypto.randomUUID())
+  const turnStartedAt = Date.now()
 
   const row = await loadIntakeSession(input.db, input.sessionId, input.user.id)
   if (!row) return { ok: false, status: 404, error: 'Interview not found.' }
@@ -324,6 +326,19 @@ export async function handleIntakeTurn(
   } catch {
     return { ok: false, status: 500, error: 'Could not save the interview. Please retry.' }
   }
+
+  // Telemetry (spec §8) — the dataset that tunes analyzeGaps priorities later.
+  captureEvent('intake.turn', {
+    sessionId: row.id,
+    phase: state.phase,
+    llm: Boolean(llm),
+    structuredAnswers: input.structuredAnswers?.length ?? 0,
+    gapsRemaining: state.gaps.length,
+    blockingRemaining: state.gaps.filter((g) => g.kind === 'blocking').length,
+    answered: state.answers.filter((a) => !a.skipped).length,
+    skipped: state.answers.filter((a) => a.skipped).length,
+    durationMs: Date.now() - turnStartedAt,
+  })
   return { ok: true, message, cards, state, status: row.status }
 }
 
@@ -650,6 +665,27 @@ export async function commitIntakeSession(
   } catch {
     return { ok: false, status: 500, error: 'Draft created, but the interview could not be closed. Retry to finish.' }
   }
+
+  // Telemetry (spec §8): the per-session record — sources used, gap outcomes
+  // (incl. asked-but-abandoned), time-to-handoff. Publish rate vs the form path
+  // comes from joining these sessions' page_ids against publish events.
+  const answeredIds = new Set(state.answers.filter((a) => !a.skipped).map((a) => a.gapId))
+  const skippedIds = new Set(state.answers.filter((a) => a.skipped).map((a) => a.gapId))
+  const abandonedGapIds = state.askedGapIds.filter((id) => !answeredIds.has(id) && !skippedIds.has(id))
+  captureEvent('intake.handoff', {
+    sessionId: row.id,
+    via: state.handoff?.via ?? 'owner_exit',
+    pageId,
+    newPage: !row.page_id,
+    sourceKinds: state.sources.map((s) => s.kind),
+    gapsAsked: state.askedGapIds.length,
+    gapsAnswered: answeredIds.size,
+    gapsSkipped: skippedIds.size,
+    abandonedGapIds: abandonedGapIds.slice(0, 20),
+    readiness: draftReadiness(state.draft),
+    offers: state.draft.services.length + state.draft.products.length,
+    timeToHandoffMs: row.created_at ? Math.max(0, now().getTime() - new Date(row.created_at).getTime()) : null,
+  })
   return { ok: true, pageId, slug, alreadyCommitted: false }
 }
 
