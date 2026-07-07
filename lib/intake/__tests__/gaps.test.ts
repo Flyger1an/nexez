@@ -46,6 +46,11 @@ describe('analyzeGaps — blocking vs quality classification', () => {
     expect(hasBlockingGaps(gaps)).toBe(true)
   })
 
+  it('a scratch interview asks identity first: name, description, then offers', () => {
+    const gaps = analyzeGaps(stateWith(emptyIntakeDraft()))
+    expect(gaps.slice(0, 3).map((g) => g.id)).toEqual(['page:name', 'page:description', 'page:offers'])
+  })
+
   it('blocking gaps sort before quality, quality before opportunity', () => {
     const gaps = analyzeGaps(stateWith(draftWith({ industry: 'Catering' })))
     const kinds = gaps.map((g) => g.kind)

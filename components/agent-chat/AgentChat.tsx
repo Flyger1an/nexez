@@ -15,9 +15,11 @@ type AgentChatProps<TCard> = {
 
 export function AgentChat<TCard>({ config, className = '' }: AgentChatProps<TCard>) {
   const [input, setInput] = useState('')
-  const [messages, setMessages] = useState<AgentChatMessage<TCard>[]>([
-    { id: 'welcome', role: 'assistant', content: config.welcome },
-  ])
+  const [messages, setMessages] = useState<AgentChatMessage<TCard>[]>(
+    config.initialMessages?.length
+      ? config.initialMessages
+      : [{ id: 'welcome', role: 'assistant', content: config.welcome }],
+  )
   const [busy, setBusy] = useState(false)
   const [listening, setListening] = useState(false)
   const [notice, setNotice] = useState('')

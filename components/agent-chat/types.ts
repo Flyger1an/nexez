@@ -44,6 +44,9 @@ export type AgentChatConfig<TCard> = {
   quickPromptEvent?: string
   /** Fallback error copy when a turn fails without a message. */
   errorFallback?: string
+  /** Seed the conversation (e.g. resuming a persisted session, or an opening
+   *  agent turn with cards). When present it replaces the default welcome. */
+  initialMessages?: AgentChatMessage<TCard>[]
   /** Show the mic affordance (Web Speech API where available). */
   voice?: boolean
   sendTurn: (input: { text: string; mode: 'text' | 'voice' }) => Promise<AgentTurnResponse<TCard>>

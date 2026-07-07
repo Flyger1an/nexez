@@ -269,7 +269,9 @@ export function analyzeGaps(state: Pick<IntakeState, 'draft' | 'extractions' | '
     )
   }
 
-  // No offers at all is blocking — the single most important gap after identity.
+  // No offers at all is blocking — the most important gap AFTER identity
+  // (name/description sort first: a scratch interview starts with who you are,
+  // then what agents can buy).
   const entries = offerEntries(draft)
   if (entries.length === 0) {
     push(
@@ -279,7 +281,7 @@ export function analyzeGaps(state: Pick<IntakeState, 'draft' | 'extractions' | '
         question: 'What services or products should agents be able to buy from you?',
         why: 'A page with nothing to transact on cannot convert an agent visit.',
         kind: 'blocking',
-        priority: PRIORITY_BLOCKING + 15,
+        priority: PRIORITY_BLOCKING + 25,
       },
       'field:offers', // shares the dedup slot with the importer's offers question
       false,

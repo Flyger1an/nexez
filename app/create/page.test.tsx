@@ -206,14 +206,27 @@ function guidedImportPayloadForScenario(scenario: RefinementScenario, refined = 
   }
 }
 
+/** Only the guided-import calls — other components on /create (e.g. the intake
+ *  panel's resume check during the fork's first frame) may fetch too, and these
+ *  suites assert the IMPORT contract, not total network traffic. */
+function importCalls(fetchMock: ReturnType<typeof vi.fn>): Array<[RequestInfo | URL, RequestInit]> {
+  return fetchMock.mock.calls.filter((call) => String(call[0]).includes('/api/tools/import-site')) as Array<
+    [RequestInfo | URL, RequestInit]
+  >
+}
+
 describe('CreatePage guided import review', () => {
   beforeEach(() => {
     resetSupabaseMocks()
+    // These suites exercise the form wizard. /create now forks to the intake
+    // interview by default (spec §6) — enter through the real fork logic.
+    window.history.replaceState({}, '', '/create?mode=form')
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
+    window.history.replaceState({}, '', '/')
   })
 
   it('makes the 8-of-12 preview explicit and can show/apply every detected offer', async () => {
@@ -257,8 +270,8 @@ describe('CreatePage guided import review', () => {
     fireEvent.change(answerField, { target: { value: 'Feature implementation retainers before audits.' } })
     fireEvent.click(screen.getByRole('button', { name: 'Refine draft' }))
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
-    const secondCall = fetchMock.mock.calls.at(1) as unknown as [RequestInfo | URL, RequestInit]
+    await waitFor(() => expect(importCalls(fetchMock)).toHaveLength(2))
+    const secondCall = importCalls(fetchMock)[1]
     const secondBody = JSON.parse(String(secondCall[1]?.body || '{}'))
     expect(secondBody.clarifyingAnswers).toEqual([
       {
@@ -312,14 +325,14 @@ describe('CreatePage guided import review', () => {
 
     expect(await screen.findByText(scenario.refinedOffer)).toBeInTheDocument()
     expect(await screen.findByText(/AI extraction used agent-draft-v1/i)).toBeInTheDocument()
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(importCalls(fetchMock)).toHaveLength(2))
 
-    const firstCall = fetchMock.mock.calls.at(0) as unknown as [RequestInfo | URL, RequestInit]
+    const firstCall = importCalls(fetchMock)[0]
     const firstBody = JSON.parse(String(firstCall[1]?.body || '{}'))
     expect(firstBody.industry).toBe(scenario.industry)
     expect(firstBody.offerFocus).toBe(scenario.offerFocus)
 
-    const secondCall = fetchMock.mock.calls.at(1) as unknown as [RequestInfo | URL, RequestInit]
+    const secondCall = importCalls(fetchMock)[1]
     const secondBody = JSON.parse(String(secondCall[1]?.body || '{}'))
     expect(secondBody.clarifyingAnswers).toEqual([
       {
