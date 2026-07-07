@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createSupabaseMock } from '../../../../test/supabase-mock'
 
@@ -30,6 +31,63 @@ describe('POST /api/webhooks/calendly', () => {
     vi.mocked(hasSupabaseAdminEnv).mockReturnValue(true)
     vi.mocked(createAdminClient).mockReturnValue(createSupabaseMock(() => ({ data: [] })) as any)
     expect((await POST(post({ slug: 'missing' }))).status).toBe(404)
+  })
+})
+
+// Signature verification: the route must accept REAL Calendly deliveries
+// (Calendly-Webhook-Signature: t=...,v1=HMAC(`${t}.${body}`)) with a freshness
+// window, and keep the legacy bare-hex HMAC(body) form for manual integrations.
+describe('POST /api/webhooks/calendly - signature verification', () => {
+  const SECRET = 'per-page-secret'
+  const body = JSON.stringify({ event: 'invitee.created', payload: { event: { name: 'Nope' }, invitee: { name: 'Ada' } } })
+
+  function withSecretPage() {
+    vi.mocked(hasSupabaseAdminEnv).mockReturnValue(true)
+    vi.mocked(createAdminClient).mockReturnValue(
+      createSupabaseMock((ctx) => {
+        if (ctx.table === 'pages' && ctx.op === 'select') {
+          return { data: [{ id: 'pg1', owner_id: 'o1', slug: 'acme', name: 'Acme', contact_email: null, services: [], products: [] }], error: null }
+        }
+        if (ctx.table === 'page_secrets') return { data: { calendly_webhook_secret: SECRET, outbound_webhooks: null }, error: null }
+        if (ctx.table === 'checkout_events' && ctx.op === 'select') return { count: 0, data: null, error: null }
+        return { data: null, error: null }
+      }) as any,
+    )
+  }
+  const signed = (header: string, value: string) =>
+    new Request('https://nexez.test/api/webhooks/calendly?slug=acme', {
+      method: 'POST',
+      headers: { [header]: value },
+      body,
+    }) as any
+  const hmac = (payload: string) => crypto.createHmac('sha256', SECRET).update(payload, 'utf8').digest('hex')
+
+  beforeEach(() => vi.clearAllMocks())
+
+  it("accepts Calendly's real scheme: t + v1 over `${t}.${body}` on the real header name", async () => {
+    withSecretPage()
+    const t = String(Math.floor(Date.now() / 1000))
+    const res = await POST(signed('Calendly-Webhook-Signature', `t=${t},v1=${hmac(`${t}.${body}`)}`))
+    expect(res.status).toBe(200)
+  })
+
+  it('rejects a stale timestamp even with a valid HMAC (replay protection)', async () => {
+    withSecretPage()
+    const stale = String(Math.floor(Date.now() / 1000) - 10 * 60)
+    const res = await POST(signed('Calendly-Webhook-Signature', `t=${stale},v1=${hmac(`${stale}.${body}`)}`))
+    expect(res.status).toBe(401)
+  })
+
+  it('keeps the legacy bare-hex HMAC(body) form on the x- header', async () => {
+    withSecretPage()
+    const res = await POST(signed('x-calendly-webhook-signature', hmac(body)))
+    expect(res.status).toBe(200)
+  })
+
+  it('rejects a wrong signature outright', async () => {
+    withSecretPage()
+    const res = await POST(signed('Calendly-Webhook-Signature', `t=${Math.floor(Date.now() / 1000)},v1=${'ab'.repeat(32)}`))
+    expect(res.status).toBe(401)
   })
 })
 

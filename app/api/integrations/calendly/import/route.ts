@@ -98,6 +98,14 @@ export async function POST(request: Request) {
       },
     })
 
+    if (!eventsRes.ok) {
+      // A token-permission failure is not "no event types" - surface it as an
+      // error (status only; the upstream body is never reflected).
+      return NextResponse.json(
+        { error: 'Calendly rejected the event-types request. Check the token permissions.', status: eventsRes.status },
+        { status: 502 },
+      )
+    }
     const eventsData = await eventsRes.json()
 
     if (!eventsData.collection || eventsData.collection.length === 0) {

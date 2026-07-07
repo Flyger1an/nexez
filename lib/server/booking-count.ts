@@ -30,19 +30,30 @@ export async function countRecentBookings(
       .eq('slug', input.slug)
       .gte('created_at', since)
 
+  // Owner test-mode pings (x-nexez-test-mode) are synthetic - they must never
+  // count toward the cap or flip real availability. Every calendly:webhook row
+  // carries metadata.test_mode, so a plain neq is safe here.
+  const calendlyLeg = (eventType: string) =>
+    base()
+      .eq('offer_key', 'calendly:webhook')
+      .ilike('offer_name', escapeLike(input.offerName))
+      .eq('metadata->>calendly_event_type', eventType)
+      .neq('metadata->>test_mode', 'true')
+
   const [checkout, created, canceled] = await Promise.all([
     base()
       .eq('offer_key', input.offerKey)
       .in('event_type', ['stripe_session_created', 'provider_redirect']),
-    base()
-      .eq('offer_key', 'calendly:webhook')
-      .ilike('offer_name', escapeLike(input.offerName))
-      .eq('metadata->>calendly_event_type', 'invitee.created'),
-    base()
-      .eq('offer_key', 'calendly:webhook')
-      .ilike('offer_name', escapeLike(input.offerName))
-      .eq('metadata->>calendly_event_type', 'invitee.canceled'),
+    calendlyLeg('invitee.created'),
+    calendlyLeg('invitee.canceled'),
   ])
+
+  // A failed leg counts as 0 (the cap fails open, never phantom-blocks) - but
+  // it must be VISIBLE, or a broken filter silently disables calendar
+  // protection forever.
+  for (const leg of [checkout, created, canceled]) {
+    if (leg.error) console.warn('[booking-count] count leg failed (fails open):', leg.error.message)
+  }
 
   return (checkout.count ?? 0) + Math.max(0, (created.count ?? 0) - (canceled.count ?? 0))
 }

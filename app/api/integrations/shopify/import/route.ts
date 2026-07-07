@@ -101,6 +101,9 @@ export async function POST(request: Request) {
         'X-Shopify-Access-Token': accessToken,
         'Content-Type': 'application/json',
       },
+      // The access token must never follow a redirect off *.myshopify.com
+      // (undici forwards custom headers cross-origin).
+      redirect: 'error',
     })
 
     if (!res.ok) {

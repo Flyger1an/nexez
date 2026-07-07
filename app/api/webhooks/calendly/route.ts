@@ -47,7 +47,10 @@ export async function POST(request: NextRequest) {
   }
 
   const rawBody = await request.text()
-  const signature = request.headers.get('x-calendly-webhook-signature')
+  // Real Calendly sends `Calendly-Webhook-Signature`; the x- name is kept for
+  // manual/legacy integrations that adopted it from this route's docs.
+  const signature =
+    request.headers.get('calendly-webhook-signature') || request.headers.get('x-calendly-webhook-signature')
   const testPageSlug = request.headers.get('x-nexez-test-page-slug') || new URL(request.url).searchParams.get('slug') || ''
   const headerSecret = request.headers.get('x-nexez-test-secret') || request.headers.get('x-calendly-webhook-secret')
   const isTestMode = request.headers.get('x-nexez-test-mode') === 'true'
@@ -315,20 +318,37 @@ async function firePageOutbounds(outbounds: AgentPage['outbound_webhooks'], payl
   return results
 }
 
+// Signed webhooks older than this are rejected (replay protection). Calendly
+// recommends a ~3 minute tolerance; 5 covers clock skew both directions.
+const SIGNATURE_TOLERANCE_MS = 5 * 60 * 1000
+
 function verifyCalendlySignature(rawBody: string, secret: string, signature: string) {
-  const expected = crypto.createHmac('sha256', secret).update(rawBody, 'utf8').digest('hex')
-  const provided = parseCalendlySignature(signature)
-  if (!provided) return false
+  const parsed = parseCalendlySignature(signature)
+  if (!parsed) return false
+
+  // Calendly's real scheme (t=...,v1=...) signs `${t}.${body}` - HMACing the
+  // body alone would reject every genuine Calendly delivery. The timestamped
+  // form also gets a freshness window so captured payloads can't be replayed
+  // to inflate booking counts / spam owner notifications. The bare-hex legacy
+  // form (HMAC over the body only) is kept for existing manual integrations.
+  if (parsed.t != null) {
+    const timestampMs = Number(parsed.t) * 1000
+    if (!Number.isFinite(timestampMs) || Math.abs(Date.now() - timestampMs) > SIGNATURE_TOLERANCE_MS) return false
+  }
+  const payload = parsed.t != null ? `${parsed.t}.${rawBody}` : rawBody
+  const expected = crypto.createHmac('sha256', secret).update(payload, 'utf8').digest('hex')
 
   const expectedBuffer = Buffer.from(expected, 'hex')
-  const providedBuffer = Buffer.from(provided, 'hex')
+  const providedBuffer = Buffer.from(parsed.v1, 'hex')
   if (expectedBuffer.length !== providedBuffer.length) return false
 
   return crypto.timingSafeEqual(expectedBuffer, providedBuffer)
 }
 
-function parseCalendlySignature(signature: string) {
+function parseCalendlySignature(signature: string): { t: string | null; v1: string } | null {
   const trimmed = signature.trim()
   const v1 = trimmed.match(/(?:^|,)v1=([a-f0-9]+)/i)?.[1]
-  return v1 || (/^[a-f0-9]+$/i.test(trimmed) ? trimmed : null)
+  const t = trimmed.match(/(?:^|,)t=(\d+)/)?.[1] ?? null
+  if (v1) return { t, v1 }
+  return /^[a-f0-9]+$/i.test(trimmed) ? { t: null, v1: trimmed } : null
 }

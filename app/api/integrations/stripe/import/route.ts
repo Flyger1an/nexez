@@ -180,9 +180,12 @@ export async function POST(request: Request) {
       message: 'Stripe data ready. Rich cards will be used when possible.',
     })
   } catch (error: any) {
+    // Never reflect the Stripe SDK message - auth errors embed a redacted form
+    // of the PLATFORM secret key, and other messages are an object-ID oracle.
+    console.warn('[Stripe Import] failed:', error?.message || error)
     return NextResponse.json(
       {
-        error: error.message || 'Stripe import failed',
+        error: 'Stripe import failed',
         hint: 'Make sure the IDs are correct and belong to your Stripe account.',
       },
       { status: 500 }
