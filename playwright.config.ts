@@ -1,4 +1,20 @@
 import { defineConfig } from '@playwright/test'
+import { readFileSync } from 'node:fs'
+
+// The authed specs read E2E_EMAIL/E2E_PASSWORD from the environment. Locally
+// those live in the gitignored .env.local (the standing "E2E Runner" test
+// seller) — load the E2E_* keys from there when the shell doesn't provide
+// them, so `npx playwright test` just works without exporting anything.
+// Shell/CI env always wins; no secrets are ever committed.
+try {
+  // cwd-relative like testDir below — playwright runs from the repo root.
+  for (const line of readFileSync('.env.local', 'utf8').split('\n')) {
+    const match = line.match(/^(E2E_[A-Z_]+)=(.*)$/)
+    if (match && !process.env[match[1]]) process.env[match[1]] = match[2].trim()
+  }
+} catch {
+  // no .env.local (CI) — the authed specs self-skip without creds
+}
 
 // Support live deployed testing via TEST_LIVE=1 (skips the local webServer).
 // Under the 3-host split (nexez.ai marketing · app.nexez.ai app · nexez.app agent

@@ -60,6 +60,12 @@ test.describe('create fork (talk vs form)', () => {
 test.describe('authed interview loop', () => {
   test('scratch interview → skip blocking gaps → draft summary → commit → builder', async ({ page }) => {
     test.skip(!email || !password, 'set E2E_EMAIL and E2E_PASSWORD to run the authed intake E2E')
+    // Commit needs the SERVER's admin env (SUPABASE_SERVICE_ROLE_KEY) — absent
+    // on a local dev server by design (prod-only secret), so this leg only runs
+    // against a deployment: TEST_LIVE=1 E2E_BASE_URL=https://app.nexez.ai.
+    // Prod turns ride the real LLM (~25s each), hence the generous budget.
+    test.skip(!process.env.TEST_LIVE, 'commit needs the deployed server — run with TEST_LIVE=1 E2E_BASE_URL=https://app.nexez.ai')
+    test.setTimeout(300_000)
 
     await page.goto('/login', { waitUntil: 'domcontentloaded' })
     await page.locator('input[type="email"]').fill(email!)
@@ -78,17 +84,28 @@ test.describe('authed interview loop', () => {
 
     // Skip through blocking gaps (quick answers post STRUCTURED answers through
     // the reducer — the no-LLM path). The summary card appears once no blocking
-    // gap remains askable.
-    for (let round = 0; round < 6; round++) {
+    // gap remains askable. Earlier cards keep their (idempotent) Skip chips as
+    // the transcript grows, so always act on the NEWEST batch (.last()), and
+    // key each round on the real turn response, not a fixed wait.
+    for (let round = 0; round < 8; round++) {
       const summaryVisible = await page
         .getByRole('button', { name: /Review in the builder/ })
+        .first()
         .isVisible()
         .catch(() => false)
       if (summaryVisible) break
-      const skip = page.getByRole('button', { name: 'Skip' }).first()
+      // Newest batch card, FIRST chip — blocking gaps sort to the top of each
+      // batch, so this works through them before any quality gap.
+      const newestBatch = page.locator('article').filter({ has: page.getByRole('button', { name: 'Skip' }) }).last()
+      const skip = newestBatch.getByRole('button', { name: 'Skip' }).first()
       if (!(await skip.isVisible().catch(() => false))) break
+      const turnDone = page.waitForResponse(
+        (r) => r.url().includes('/messages') && r.request().method() === 'POST',
+        { timeout: 30_000 },
+      )
       await skip.click()
-      await page.waitForTimeout(800) // one turn round-trip
+      await turnDone
+      await page.waitForTimeout(250) // render settle
     }
 
     await expect(page.getByRole('button', { name: /Review in the builder/ }).first()).toBeVisible({ timeout: 20_000 })
@@ -98,7 +115,7 @@ test.describe('authed interview loop', () => {
     await page.waitForURL(/\/dashboard\/[0-9a-f-]{36}/, { timeout: 30_000 })
     const pageId = page.url().match(/\/dashboard\/([0-9a-f-]{36})/)?.[1]
     expect(pageId).toBeTruthy()
-    await expect(page.getByRole('heading', { name: 'Edit agent page' })).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole('heading', { name: 'Edit listing' })).toBeVisible({ timeout: 20_000 })
 
     // Cleanup (service-role env only): the draft page + its interview session.
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL

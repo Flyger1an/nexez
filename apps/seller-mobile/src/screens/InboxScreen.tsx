@@ -66,17 +66,28 @@ export function InboxScreen({ initialTab = 'negotiations' }: { initialTab?: Inbo
                 </Text>
                 <Text style={s.amount}>{formatCurrency(n.amount_cents, n.currency)}</Text>
               </View>
-              <View style={s.actions}>
-                <Pressable onPress={() => router.push({ pathname: '/inbox/negotiations/[id]', params: { id: n.id } })} style={[s.actBtn, s.actPrimary, { flex: 1 }]}>
-                  <Text style={[s.actText, { color: colors.persimmonLight }]}>Accept</Text>
-                </Pressable>
-                <Pressable onPress={() => router.push({ pathname: '/inbox/negotiations/[id]', params: { id: n.id } })} style={[s.actBtn, { flex: 1 }]}>
-                  <Text style={s.actText}>Counter</Text>
-                </Pressable>
-                <Pressable onPress={() => router.push({ pathname: '/inbox/negotiations/[id]', params: { id: n.id } })} style={s.actBtn}>
-                  <Text style={[s.actText, { color: colors.textSecondary }]}>Decline</Text>
-                </Pressable>
-              </View>
+              {/* Action shortcuts only while the deal is actually actionable —
+                  the same status vocabulary the detail screen gates on. A
+                  declined/complete/held deal gets a single View affordance. */}
+              {n.status === 'negotiation' || n.status === 'agreement_proposed' ? (
+                <View style={s.actions}>
+                  <Pressable onPress={() => router.push({ pathname: '/inbox/negotiations/[id]', params: { id: n.id } })} style={[s.actBtn, s.actPrimary, { flex: 1 }]}>
+                    <Text style={[s.actText, { color: colors.persimmonLight }]}>Accept</Text>
+                  </Pressable>
+                  <Pressable onPress={() => router.push({ pathname: '/inbox/negotiations/[id]', params: { id: n.id } })} style={[s.actBtn, { flex: 1 }]}>
+                    <Text style={s.actText}>Counter</Text>
+                  </Pressable>
+                  <Pressable onPress={() => router.push({ pathname: '/inbox/negotiations/[id]', params: { id: n.id } })} style={s.actBtn}>
+                    <Text style={[s.actText, { color: colors.textSecondary }]}>Decline</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={s.actions}>
+                  <Pressable onPress={() => router.push({ pathname: '/inbox/negotiations/[id]', params: { id: n.id } })} style={[s.actBtn, { flex: 1 }]}>
+                    <Text style={s.actText}>{n.status === 'held' ? 'Review hold' : 'View deal'}</Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
           ))
         ) : (

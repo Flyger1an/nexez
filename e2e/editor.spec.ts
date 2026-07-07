@@ -38,7 +38,7 @@ test.describe('authed editor', () => {
     await page.goto(href!, { waitUntil: 'domcontentloaded' })
 
     // Server component hydrated with real data (no "Loading editor…" flash).
-    await expect(page.getByRole('heading', { name: 'Edit agent page' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Edit listing' })).toBeVisible()
     const nameValue = await page.locator('input[required]').first().inputValue()
     expect(nameValue.length).toBeGreaterThan(0)
     await expect(page.getByRole('button', { name: /save changes/i })).toBeVisible()
