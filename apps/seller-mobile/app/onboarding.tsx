@@ -4,6 +4,7 @@ import type { LucideIcon } from 'lucide-react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { StyleSheet, Text, View } from 'react-native'
 import { AppButton, AvatarChip, Glass, Screen } from '@/src/components/ui'
+import { useSession } from '@/src/hooks/useSession'
 import { colors, fonts } from '@/src/theme/colors'
 
 const POINTS: Array<{ icon: LucideIcon; title: string; sub: string }> = [
@@ -15,10 +16,14 @@ const POINTS: Array<{ icon: LucideIcon; title: string; sub: string }> = [
 
 export default function OnboardingRoute() {
   const router = useRouter()
+  const { session } = useSession()
 
+  // Onboarding now lands in the intake interview (spec §7): a signed-in seller
+  // goes straight into the conversation; a new visitor signs in first and picks
+  // it up from the create fork. Getting started is a conversation, not a form.
   async function start() {
     await AsyncStorage.setItem('nexez.onboarded', '1').catch(() => {})
-    router.replace('/login')
+    router.replace(session ? '/intake' : '/login')
   }
 
   return (

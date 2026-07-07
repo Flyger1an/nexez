@@ -35,6 +35,19 @@ actions call the existing Next API routes with the seller's `Authorization: Bear
 
 ---
 
+**Seller intake interview (2026-07-07 — code-complete; on-device verify pending)**
+- The conversational intake (spec `nexez-intake-interview-spec.md` §7) as a THIN client of the same
+  threads API web /create uses — no gap logic on device. `app/intake.tsx` → `IntakeInterviewScreen`:
+  setup (URL / from-scratch / resume an active session cross-device), chat thread with cards
+  (source_ingested, gap_batch with Skip + Fixed/Open-to-offers chips posting STRUCTURED answers —
+  fully functional with no server LLM, draft_summary with ReadinessRing, handoff), composer.
+  Commit lands on the app's own `/listing/[id]` editor.
+- `app/listing/create.tsx` is now the create FORK (Talk it through, default · Build with the form →
+  the untouched guided editor); onboarding's CTA routes a signed-in seller straight to `/intake`.
+- API: `listIntakeSessions/startIntakeSession/getIntakeSession/sendIntakeTurn/commitIntakeSession`
+  in `src/lib/api.ts`; contract types in `src/types/intake.ts`. Typecheck green; needs an
+  emulator/device pass (see Coverage).
+
 ## 🚀 Next up — release / deploy (owner actions)
 
 1. ~~**Deploy the web app**~~ — ✅ **Shipped 2026-07-06** (deploy of `c0a5e4c`, Vercel prod Ready in 56s). The Bearer-auth deal-action routes (`/api/negotiations/transition` + `/escrow`, `/api/orders/refund`) + seller push sends are now **live on prod** (no longer 401 / no-op). Not yet exercised e2e against a real mobile token + live deal.

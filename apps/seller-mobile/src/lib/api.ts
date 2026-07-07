@@ -1,6 +1,13 @@
 import { config } from './config'
 import { supabase } from './supabase'
 import type { SimulationResult } from '@/src/types/nexez'
+import type {
+  IntakeCommitResponse,
+  IntakeGapAnswer,
+  IntakeSessionState,
+  IntakeSessionSummary,
+  IntakeTurnResponse,
+} from '@/src/types/intake'
 
 type ApiOptions = RequestInit & {
   auth?: boolean
@@ -106,4 +113,41 @@ export function refundOrder(input: { orderId: string; amount?: number }) {
     method: 'POST',
     body: JSON.stringify(input),
   })
+}
+
+// ---- Seller intake interview (authed; same threads API as web /create) -------
+// The app is a thin client (intake spec §7): render agent turns + cards, post
+// owner turns. All interview logic (gap analysis, phase machine, provenance,
+// invention firewall) lives server-side.
+
+export function listIntakeSessions() {
+  return apiFetch<{ ok: boolean; sessions: IntakeSessionSummary[] }>('/api/agents/intake/threads')
+}
+
+export function startIntakeSession(input: { source_url?: string; page_id?: string } = {}) {
+  return apiFetch<{ ok: boolean; id: string; status: string; phase: string; state: IntakeSessionState }>(
+    '/api/agents/intake/threads',
+    { method: 'POST', body: JSON.stringify(input) },
+  )
+}
+
+export function getIntakeSession(id: string) {
+  return apiFetch<{ ok: boolean; id: string; status: string; phase: string; pageId: string | null; state: IntakeSessionState }>(
+    `/api/agents/intake/threads/${id}`,
+  )
+}
+
+/** One interview turn: free text (`content`) or structured quick-answers
+ *  (`answers`, e.g. Skip / posture chips) — the latter needs no LLM at all. */
+export function sendIntakeTurn(id: string, input: { content?: string; answers?: IntakeGapAnswer[] }) {
+  return apiFetch<IntakeTurnResponse>(`/api/agents/intake/threads/${id}/messages`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+/** REVIEW_HANDOFF: materialize the draft (new draft listing, or staged onto an
+ *  existing one). Idempotent — safe to retry. */
+export function commitIntakeSession(id: string) {
+  return apiFetch<IntakeCommitResponse>(`/api/agents/intake/threads/${id}/commit`, { method: 'POST' })
 }
