@@ -2,7 +2,15 @@ import { NextRequest, NextResponse, after } from 'next/server'
 import { cookies } from 'next/headers'
 import crypto from 'crypto'
 import type { AgentPage } from '../../../../lib/agent-page'
-import { getBaseUrl } from '../../../../lib/agent-page'
+import { getBaseUrl, getCheckoutOfferKey } from '../../../../lib/agent-page'
+import {
+  applyOfferAvailability,
+  computeAvailability,
+  findOfferByEventName,
+  offerBookingCap,
+} from '../../../../lib/calendly-availability'
+import { countRecentBookings } from '../../../../lib/server/booking-count'
+import { captureEvent } from '../../../../lib/observability'
 import { buildBookingEmail, hasEmailEnv, sendEmail } from '../../../../lib/email'
 import { resolveOwnerNotifyEmail } from '../../../../lib/server/owner-email'
 import { fireOutboundWebhook, type OutboundWebhookPayload } from '../../../../lib/webhooks'
@@ -29,7 +37,9 @@ type CalendlyPayload = {
   }
 }
 
-type WebhookPage = Pick<AgentPage, 'id' | 'slug' | 'name' | 'contact_email'> & { owner_id: string | null }
+type WebhookPage = Pick<AgentPage, 'id' | 'slug' | 'name' | 'contact_email' | 'services' | 'products'> & {
+  owner_id: string | null
+}
 
 export async function POST(request: NextRequest) {
   if (!hasSupabaseAdminEnv()) {
@@ -50,7 +60,7 @@ export async function POST(request: NextRequest) {
 
   const { data: pages, error: pageError } = await supabase
     .from('pages')
-    .select('id, owner_id, slug, name, contact_email')
+    .select('id, owner_id, slug, name, contact_email, services, products')
     .eq('slug', testPageSlug)
     .limit(1)
     .returns<WebhookPage[]>()
@@ -139,20 +149,81 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: insertError.message }, { status: 500 })
   }
 
-  const { error: updateError } = await supabase
-    .from('pages')
-    .update({
-      last_booking: {
-        at: new Date().toISOString(),
-        event_name: eventName,
-        invitee_name: inviteeName,
-        source: 'calendly',
-      },
-    })
-    .eq('id', page.id)
+  // last_booking is a "recent activity" trust signal - only a real booking
+  // should stamp it, never a cancellation.
+  if (eventType === 'invitee.created') {
+    const { error: updateError } = await supabase
+      .from('pages')
+      .update({
+        last_booking: {
+          at: new Date().toISOString(),
+          event_name: eventName,
+          invitee_name: inviteeName,
+          source: 'calendly',
+        },
+      })
+      .eq('id', page.id)
 
-  if (updateError) {
-    console.warn('[Calendly Webhook] Failed to update page last_booking:', updateError.message)
+    if (updateError) {
+      console.warn('[Calendly Webhook] Failed to update page last_booking:', updateError.message)
+    }
+  }
+
+  // Bi-directional sync: reflect real Calendly bookings in the offer's
+  // advertised availability. Only offers that opted into calendar protection
+  // (rules.maxBookingsPerWeek - the same cap checkout enforces) are managed;
+  // the value is recomputed from the rolling-week count on every event, so
+  // created and canceled webhooks both self-correct. The event row above is
+  // already inserted, so this count includes the booking that triggered it.
+  let availabilitySync: { offer_key: string; availability: string } | null = null
+  const offerMatch = findOfferByEventName(page, eventName)
+  const bookingCap = offerMatch ? offerBookingCap(offerMatch.offer) : null
+  if (!offerMatch) {
+    captureEvent('integration.availability_skipped', {
+      provider: 'calendly',
+      slug: page.slug,
+      reason: 'no_matching_offer',
+    })
+  } else if (bookingCap == null) {
+    captureEvent('integration.availability_skipped', {
+      provider: 'calendly',
+      slug: page.slug,
+      reason: 'no_booking_cap',
+    })
+  } else {
+    const offerKey = getCheckoutOfferKey(offerMatch.kind, offerMatch.index)
+    const booked = await countRecentBookings(supabase, {
+      slug: page.slug,
+      offerKey,
+      offerName: offerMatch.offer.name,
+    })
+    const availability = computeAvailability(bookingCap, booked)
+    const applied = applyOfferAvailability(
+      page[offerMatch.kind] || [],
+      offerMatch.index,
+      availability,
+      new Date().toISOString(),
+    )
+    if (applied.changed) {
+      // pages_public is trigger-maintained, so agents see the flip immediately.
+      const { error: availabilityError } = await supabase
+        .from('pages')
+        .update({ [offerMatch.kind]: applied.offers })
+        .eq('id', page.id)
+      if (availabilityError) {
+        console.warn('[Calendly Webhook] availability sync failed:', availabilityError.message)
+      } else {
+        availabilitySync = { offer_key: offerKey, availability }
+        captureEvent('integration.availability_synced', {
+          provider: 'calendly',
+          slug: page.slug,
+          offerKey,
+          availability,
+          booked,
+          cap: bookingCap,
+        })
+      }
+    }
   }
 
   // Notify the business by email on a new booking (gated on RESEND_API_KEY). Recipient
@@ -199,6 +270,7 @@ export async function POST(request: NextRequest) {
     received: true,
     event: eventType,
     page: page.slug,
+    availability_sync: availabilitySync,
     outbound: outboundResults,
     accountOutbound: accountOutboundResults,
   })

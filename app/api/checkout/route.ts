@@ -13,6 +13,7 @@ import { parseMoney, toStripeDescription } from '../../../lib/checkout'
 import { parseBuyerIdentity, buyerMetadata } from '../../../lib/buyer-identity'
 import { normalizeCurrency, toStripeAmount } from '../../../lib/currency'
 import { getBookingRuleError } from '../../../lib/offer-rules'
+import { countRecentBookings } from '../../../lib/server/booking-count'
 import { logCheckoutEvent } from '../../../lib/server/log-checkout-event'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 import { supabase } from '../../../lib/supabase'
@@ -82,15 +83,14 @@ export async function POST(request: Request) {
   if (!input.dryRun && offer.rules && (offer.rules.maxBookingsPerWeek != null || offer.rules.blackoutDates?.length)) {
     let recentBookingsThisWeek = 0
     if (offer.rules.maxBookingsPerWeek != null && hasSupabaseAdminEnv()) {
-      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-      const { count } = await createAdminClient()
-        .from('checkout_events')
-        .select('id', { count: 'exact', head: true })
-        .eq('slug', page.slug)
-        .eq('offer_key', offerKey)
-        .in('event_type', ['stripe_session_created', 'provider_redirect'])
-        .gte('created_at', weekAgo)
-      recentBookingsThisWeek = count ?? 0
+      // Shared counter (checkout + Calendly webhook bookings) - the same number
+      // that drives the offer's advertised availability, so the cap an agent
+      // sees and the cap that blocks it can never disagree.
+      recentBookingsThisWeek = await countRecentBookings(createAdminClient(), {
+        slug: page.slug,
+        offerKey,
+        offerName: offer.name,
+      })
     }
     const ruleError = getBookingRuleError(offer, { recentBookingsThisWeek })
     if (ruleError) {
