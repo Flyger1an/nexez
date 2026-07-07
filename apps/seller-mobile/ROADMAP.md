@@ -42,8 +42,13 @@ actions call the existing Next API routes with the seller's `Authorization: Bear
   routes were never exercised e2e from a device. Fixed in `src/lib/config.ts`: `apiUrl` defaults to
   `https://app.nexez.ai` AND normalizes the known-wrong runtime host so a stale env (.env.local or
   EAS `eas env`) can't reintroduce it. `agentRuntimeUrl` stays nexez.app (public pages/artifacts).
-  **Owner action: update `EXPO_PUBLIC_NEXEZ_API_URL` in any EAS env to app.nexez.ai** (the code
-  normalization covers it either way). Deal actions should now be re-smoked on-device.
+  The wrong host was baked into `eas.json`'s preview/production build profiles (no EAS cloud env
+  exists yet — `eas init` still pending) — **fixed in eas.json** alongside the code normalization.
+  **Deal actions RE-SMOKED on-device (2026-07-07): PASS.** A QA negotiation on the negotiation-lab
+  page, driven from the sim with the real Bearer token: the illegal transition (counter on an
+  auto-accepted `agreement_proposed` deal) was correctly rejected by the server state machine and
+  surfaced in-app; Decline (with the confirm guard) succeeded end-to-end — status flipped to
+  `declined` in-app + DB. Bearer auth → transition route verified live; QA rows cleaned to zero.
 
 **Seller intake interview (2026-07-07 — ON-DEVICE PASS DONE, iOS sim + prod grok-4.3)**
 - Full loop verified live on the iPhone 17 Pro sim via Expo Go: create fork → "Talk it through" →
