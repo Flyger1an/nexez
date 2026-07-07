@@ -365,6 +365,30 @@ describe('RECORD_ANSWERS — folding + SYNTHESIS', () => {
     expect(proposed.draft.services.find((o) => o.name === 'Party Trays')?.price).toBe('$250')
   })
 
+  it('rejects malformed LLM field updates loudly — never a silent no-op', () => {
+    const state = interviewState()
+    // fields not an array
+    expectError(
+      state,
+      { type: 'RECORD_ANSWERS', answers: [{ gapId: `${VOLUNTEERED_PREFIX}x`, answer: 'x', fields: '[{"target":"page"}]' as never }] },
+      'invalid_field_update',
+    )
+    // update without a target (the exact live-pass failure: {name, value})
+    expectError(
+      state,
+      { type: 'RECORD_ANSWERS', answers: [{ gapId: `${VOLUNTEERED_PREFIX}x`, answer: 'x', fields: [{ name: 'audience', value: 'realtors' } as never] }] },
+      'invalid_field_update',
+    )
+    // unknown target value
+    expectError(
+      state,
+      { type: 'RECORD_ANSWERS', answers: [{ gapId: `${VOLUNTEERED_PREFIX}x`, answer: 'x', fields: [{ target: 'pages', field: 'name', value: 'X' } as never] }] },
+      'invalid_field_update',
+    )
+    // and nothing leaked into the draft
+    expect(state.draft.audience).toBe('')
+  })
+
   it('suggested_confirmed provenance flows from origin: suggested', () => {
     const state = run(interviewState(), {
       type: 'RECORD_ANSWERS',

@@ -14,7 +14,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { getReadinessScore, normalizeSlug, type AgentPage, type OfferItem } from '../agent-page'
 import type { ImportResult } from '../importer'
 import { INTAKE_SAFETY_PREAMBLE, fenceUntrusted } from '../llm-engine/prompt-safety'
-import { captureEvent } from '../observability'
+import { captureError, captureEvent } from '../observability'
 import {
   analyzeGaps,
   applyIntakeAction,
@@ -79,11 +79,20 @@ You are NOT a form. The extraction already captured what the owner's website and
 
 Rules:
 - Ask at most 1–3 RELATED questions per turn (one ask_gaps call), acknowledging what you already learned ("Your site lists three wedding packages — do those prices still hold?"). Never a laundry list.
-- Map free-form answers into record_answers with structured field updates. Quote the owner faithfully in the answer text.
+- Map free-form answers into record_answers with structured field updates. Quote the owner faithfully in the answer text. An answer WITHOUT field updates records nothing on the draft — if the owner stated a fact, it must appear in fields.
 - Never invent offers, prices, or facts. propose_offers only curates what extraction or the owner provided. If a fact is missing, ask.
-- The owner can say "skip", "later", or "just take me to the form" — record skips, and never pressure.
+- Mark skipped:true ONLY when the owner declines a question ("skip", "later", "no thanks"). Never skip questions on their behalf.
 - When the platform tells you no blocking gaps remain, summarize the draft in plain language and call request_handoff so the owner can review in the builder. Keep going on quality/opportunity gaps only if the owner is engaged.
-- Keep replies short, warm, and specific to THIS business. Sentence case. No emoji.` + INTAKE_SAFETY_PREAMBLE
+- Your text reply is ALWAYS spoken directly to the owner — never narrate tools, internal state, or bookkeeping ("no new input to record" is forbidden). Keep replies short, warm, and specific to THIS business. Sentence case. No emoji.
+
+FIELD-UPDATE GRAMMAR (record_answers fields[] — the only shapes the platform accepts):
+- Page fact:      {"target":"page","field":"location","value":"Austin, TX"}   (fields: name, description, website_url, cta_url, cta_label, audience, location, contact_email, industry)
+- Edit an offer:  {"target":"offer","offerKey":"services-0","field":"price","value":"$350"}
+- NEW offer:      {"target":"new_offer","kind":"services","offer":{"name":"Real Estate Aerial Package","price":"$350","description":"Aerial property shoot","duration":"2 hours","url":""}}
+- Negotiation:    {"target":"offer_rules","offerKey":"services-0","rules":{"minPrice":"$900","minNoticeHours":48}}
+- FAQ:            {"target":"faq","question":"Do you travel?","answer":"Yes, within the metro."}
+Example — owner says "We offer a Real Estate Aerial Package for $350, takes about 2 hours, and a Wedding Aerial Film from $1,200":
+record_answers with TWO new_offer updates, one per offer, each carrying name + price (+ duration when stated).` + INTAKE_SAFETY_PREAMBLE
 
 export const INTAKE_TOOLS = [
   {
@@ -105,7 +114,8 @@ export const INTAKE_TOOLS = [
     type: 'function' as const,
     function: {
       name: 'record_answers',
-      description: 'Record the owner\'s answers to previously asked gaps, mapping their words into structured field updates. Use skipped:true when they decline.',
+      description:
+        "Record the owner's answers to previously asked gaps, mapping their words into structured field updates (see the FIELD-UPDATE GRAMMAR in your instructions). An answer without fields records NOTHING on the draft. skipped:true ONLY when the owner declines.",
       parameters: {
         type: 'object',
         properties: {
@@ -115,9 +125,37 @@ export const INTAKE_TOOLS = [
               type: 'object',
               properties: {
                 gapId: { type: 'string' },
-                answer: { type: 'string' },
+                answer: { type: 'string', description: "The owner's words (faithful quote or close paraphrase)." },
                 skipped: { type: 'boolean' },
-                fields: { type: 'array', items: { type: 'object' } },
+                fields: {
+                  type: 'array',
+                  description: 'Structured updates derived from the answer — one per stated fact.',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      target: { type: 'string', enum: ['page', 'offer', 'offer_rules', 'new_offer', 'faq'] },
+                      field: {
+                        type: 'string',
+                        description:
+                          'page: name|description|website_url|cta_url|cta_label|audience|location|contact_email|industry · offer: name|price|description|duration|serviceArea|travelFee|isMobile|url|offerType',
+                      },
+                      value: { type: 'string' },
+                      offerKey: { type: 'string', description: 'e.g. services-0 — required for target offer / offer_rules.' },
+                      kind: { type: 'string', enum: ['services', 'products'], description: 'for target new_offer.' },
+                      offer: {
+                        type: 'object',
+                        description: 'for target new_offer: {name, price, description, url, duration?, serviceArea?, travelFee?}.',
+                      },
+                      rules: {
+                        type: 'object',
+                        description: 'for target offer_rules: {minPrice?, maxDiscountPercent?, minNoticeHours?, blackoutDates?, maxBookingsPerWeek?}.',
+                      },
+                      question: { type: 'string', description: 'for target faq.' },
+                      answer: { type: 'string', description: 'for target faq.' },
+                    },
+                    required: ['target'],
+                  },
+                },
               },
               required: ['gapId', 'answer'],
             },
@@ -417,7 +455,8 @@ async function runLlmTurn(
     let response: ChatResponse
     try {
       response = await llm(transcript, INTAKE_TOOLS)
-    } catch {
+    } catch (error) {
+      captureError(error, { scope: 'intake.llm', round })
       break // model unavailable mid-turn → fall back below
     }
     const assistant = response.choices?.[0]?.message
@@ -439,8 +478,11 @@ async function runLlmTurn(
     // tool call would only bounce off already_handed_off).
     if (state.handoff) break
     // Refresh the machine context after mutations so the next round sees
-    // current gaps/eligibility rather than a stale list.
-    transcript.push({ role: 'user', content: buildContextBlock(state) })
+    // current gaps/eligibility rather than a stale list. The follow-up
+    // instruction differs from the opening one: re-sending "record their
+    // answers first" after they were recorded made the model narrate
+    // bookkeeping ("no new input to record") instead of talking to the owner.
+    transcript.push({ role: 'user', content: buildContextBlock(state, 'followup') })
   }
 
   if (!finalText) {
@@ -454,7 +496,7 @@ async function runLlmTurn(
 
 /** The machine-truth block the model reasons over each round. Owner words are
  *  already in state.messages; extraction/pasted content is fenced as data. */
-function buildContextBlock(state: IntakeState): string {
+function buildContextBlock(state: IntakeState, stage: 'opening' | 'followup' = 'opening'): string {
   const gaps = state.gaps.slice(0, CONTEXT_GAPS).map((g) => ({ id: g.id, kind: g.kind, question: g.question, why: g.why }))
   const recent = state.messages.slice(-CONTEXT_MESSAGES).map((m) => `${m.role === 'owner' ? 'OWNER' : 'YOU'}: ${m.content}`)
   const draftSummary = {
@@ -466,15 +508,60 @@ function buildContextBlock(state: IntakeState): string {
     offers: [...state.draft.services, ...state.draft.products].map((o) => ({ name: o.name, price: o.price, duration: o.duration })),
     faqs: state.draft.faqs.length,
   }
+  const instruction =
+    stage === 'followup'
+      ? 'Your tool calls were processed (results above; a rejection explains the exact shape to retry with). Now reply to the OWNER in plain conversational text — acknowledge what you captured in their words, and if you have not asked the next 1–3 gaps this turn, call ask_gaps (or request_handoff when eligible). Never mention tools or internal state.'
+      : 'Respond to the owner now. FIRST record every fact from their last message (record_answers with field updates — an answer without fields records nothing), then ask the next 1–3 related gaps via ask_gaps, or request_handoff when eligible.'
   return [
     `PHASE: ${state.phase}`,
     `HANDOFF_ELIGIBLE: ${handoffEligible(state)}`,
     `CURRENT DRAFT:\n${JSON.stringify(draftSummary, null, 1)}`,
     `CURRENT GAPS (ask via ask_gaps with these ids):\n${JSON.stringify(gaps, null, 1)}`,
     recent.length ? `CONVERSATION SO FAR:\n${fenceUntrusted('OWNER CONVERSATION', recent.join('\n'))}` : 'CONVERSATION SO FAR: (none — this is your opening turn)',
-    'Respond to the owner now. Record any answers/facts from their last message first, then ask the next 1–3 related gaps, or request_handoff when eligible.',
+    instruction,
   ].join('\n\n')
 }
+
+/** Deterministic repairs for the model mistakes the first live pass surfaced —
+ *  narrow and unambiguous only; everything else reaches the reducer, whose
+ *  teaching rejections feed back for the model to repair itself.
+ *  - `fields` sent as a JSON STRING → parsed.
+ *  - `{name|field, value}` with no target, where the key is a page field →
+ *    coerced to a page update (page-field names are unambiguous). */
+export function normalizeLlmAnswer(answer: GapAnswer): GapAnswer {
+  let fields: unknown = answer.fields
+  if (typeof fields === 'string') {
+    try {
+      fields = JSON.parse(fields)
+    } catch {
+      return answer // the reducer rejects non-array fields with a teaching error
+    }
+  }
+  if (!Array.isArray(fields)) return fields === undefined || fields === null ? answer : { ...answer, fields: fields as GapAnswer['fields'] }
+  const normalized = fields.map((update) => {
+    if (update && typeof update === 'object' && !('target' in update)) {
+      const u = update as Record<string, unknown>
+      const key = typeof u.field === 'string' ? u.field : typeof u.name === 'string' ? u.name : null
+      if (key && (PAGE_FIELDS as readonly string[]).includes(key) && typeof u.value === 'string') {
+        return { target: 'page' as const, field: key as IntakePageField, value: u.value }
+      }
+    }
+    return update
+  })
+  return { ...answer, fields: normalized as GapAnswer['fields'] }
+}
+
+const PAGE_FIELDS = [
+  'name',
+  'description',
+  'website_url',
+  'cta_url',
+  'cta_label',
+  'audience',
+  'location',
+  'contact_email',
+  'industry',
+] as const
 
 type ExecutedTool = { state: IntakeState; result: Record<string, unknown>; message?: string }
 
@@ -514,7 +601,7 @@ async function executeToolCall(
       )
     }
     case 'record_answers': {
-      const answers = Array.isArray(args.answers) ? (args.answers as GapAnswer[]) : []
+      const answers = Array.isArray(args.answers) ? (args.answers as GapAnswer[]).map(normalizeLlmAnswer) : []
       return fold(applyIntakeAction(state, { type: 'RECORD_ANSWERS', answers }), (next) => ({
         result: { remainingGaps: next.gaps.length, handoffEligible: handoffEligible(next) },
       }))

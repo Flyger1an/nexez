@@ -15,6 +15,7 @@ import {
   draftReadiness,
   handleIntakeTurn,
   importResultToExtraction,
+  normalizeLlmAnswer,
   type IntakeSessionRow,
 } from '../intake'
 import { applyIntakeAction, createIntakeState, type IntakeState } from '../../intake'
@@ -383,6 +384,59 @@ describe('commitIntakeSession — materialization (spec §10)', () => {
     const { db } = makeDb(null)
     const result = await commitIntakeSession({ db, admin: makeAdmin([], []), user: OWNER, sessionId: 'sess-1' })
     expect(result).toMatchObject({ ok: false, status: 404 })
+  })
+})
+
+describe('normalizeLlmAnswer — deterministic repairs from the live pass', () => {
+  it('parses fields sent as a JSON string', () => {
+    const fixed = normalizeLlmAnswer({
+      gapId: 'g',
+      answer: 'a',
+      fields: JSON.stringify([{ target: 'page', field: 'location', value: 'Austin' }]) as never,
+    })
+    expect(fixed.fields).toEqual([{ target: 'page', field: 'location', value: 'Austin' }])
+  })
+
+  it('coerces the unambiguous {name, value} page-field mistake into a page update', () => {
+    const fixed = normalizeLlmAnswer({
+      gapId: 'page:audience',
+      answer: 'realtors and wedding planners',
+      fields: [{ name: 'audience', value: 'realtors and wedding planners' } as never],
+    })
+    expect(fixed.fields).toEqual([{ target: 'page', field: 'audience', value: 'realtors and wedding planners' }])
+  })
+
+  it('leaves ambiguous/unknown shapes for the reducer to reject teachably', () => {
+    const untouched = normalizeLlmAnswer({
+      gapId: 'g',
+      answer: 'a',
+      fields: [{ name: 'not_a_page_field', value: 'x' } as never],
+    })
+    expect(untouched.fields?.[0]).toEqual({ name: 'not_a_page_field', value: 'x' })
+    const noFields = normalizeLlmAnswer({ gapId: 'g', answer: 'a' })
+    expect(noFields.fields).toBeUndefined()
+  })
+
+  it('the LLM loop repairs a malformed record_answers via the teaching rejection', async () => {
+    const state = analyzedState()
+    const llm = vi
+      .fn()
+      .mockResolvedValueOnce({
+        choices: [{ message: { content: null, tool_calls: [toolCall('record_answers', { answers: [{ gapId: 'offer:services-1:price', answer: '$250', fields: [{ price: '$250' }] }] })] } }],
+      })
+      .mockResolvedValueOnce({
+        choices: [{ message: { content: null, tool_calls: [toolCall('record_answers', { answers: [{ gapId: 'offer:services-1:price', answer: '$250', fields: [{ target: 'offer', offerKey: 'services-1', field: 'price', value: '$250' }] }] })] } }],
+      })
+      .mockResolvedValueOnce({ choices: [{ message: { content: 'Got it — trays at $250.' } }] })
+    const { db } = makeDb(sessionRow(state))
+    const result = await handleIntakeTurn({ db, user: OWNER, sessionId: 'sess-1', content: 'trays are $250' }, { ...ids, llm })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    // round 1's malformed update was rejected with the shape guide…
+    const round2 = llm.mock.calls[1][0] as Array<{ role: string; content: string }>
+    expect(round2.find((m) => m.role === 'tool')?.content).toContain('invalid_field_update')
+    // …and round 2's corrected call landed on the draft
+    expect(result.state.draft.services[1].price).toBe('$250')
   })
 })
 

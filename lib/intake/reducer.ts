@@ -401,7 +401,21 @@ function foldAnswers(state: IntakeState, answers: GapAnswer[]): FoldOutcome {
 
   for (const answer of answers) {
     if (answer.skipped) continue
+    if (answer.fields != null && !Array.isArray(answer.fields)) {
+      return { ok: false, code: 'invalid_field_update', error: 'fields must be an ARRAY of field-update objects.' }
+    }
     for (const update of answer.fields ?? []) {
+      // An LLM-supplied update with a missing/unknown target must FAIL LOUDLY —
+      // silently ignoring it reads as "recorded" while the draft never changes
+      // (the exact failure the first live pass surfaced).
+      if (!update || typeof update !== 'object' || !('target' in update)) {
+        return {
+          ok: false,
+          code: 'invalid_field_update',
+          error:
+            "Each field update needs a target: 'page' {field,value} · 'offer' {offerKey,field,value} · 'offer_rules' {offerKey,rules} · 'new_offer' {kind,offer} · 'faq' {question,answer}.",
+        }
+      }
       const mark: Provenance = update.origin === 'suggested' ? 'suggested_confirmed' : 'stated'
       switch (update.target) {
         case 'page': {
@@ -478,6 +492,14 @@ function foldAnswers(state: IntakeState, answers: GapAnswer[]): FoldOutcome {
           provenance[faqProvenanceKey(q)] = mark
           break
         }
+        default:
+          // Runtime LLM data can carry any target string — unknown values must
+          // reject (teachably), never no-op.
+          return {
+            ok: false,
+            code: 'invalid_field_update',
+            error: `Unknown field-update target ${JSON.stringify((update as { target?: unknown }).target)} — use page | offer | offer_rules | new_offer | faq.`,
+          }
       }
     }
   }
