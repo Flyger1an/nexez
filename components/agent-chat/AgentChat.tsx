@@ -127,10 +127,20 @@ export function AgentChat<TCard>({ config, className = '' }: AgentChatProps<TCar
     }
     recognition.onend = () => {
       setListening(false)
-      setNotice('')
+      // `end` always fires AFTER `error` - clear only the transient listening
+      // notice so the error message above survives long enough to be read.
+      setNotice((current) => (current === 'Listening...' ? '' : current))
     }
     recognitionRef.current = recognition
-    recognition.start()
+    try {
+      recognition.start()
+    } catch {
+      // start() throws synchronously on permission/security/invalid-state
+      // failures (e.g. embedded webviews) - fall back to typing, don't crash.
+      recognitionRef.current = null
+      setListening(false)
+      setNotice('Voice capture could not start. Try again or type instead.')
+    }
   }
 
   return (

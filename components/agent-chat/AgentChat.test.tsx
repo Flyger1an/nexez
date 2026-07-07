@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '../../test/dom'
 import { AgentChat } from './AgentChat'
 import type { AgentChatConfig, AgentChatController } from './types'
@@ -121,5 +121,118 @@ describe('AgentChat primitive', () => {
   it('voice: false hides the mic affordance', () => {
     render(<AgentChat config={makeConfig({ voice: false })} />)
     expect(screen.queryByRole('button', { name: 'Start voice input' })).not.toBeInTheDocument()
+  })
+})
+
+// Web Speech capture paths. jsdom has no SpeechRecognition, so the mock below
+// stands in for the browser engine and the tests drive its event handlers in
+// the REAL browser order (error is always followed by end).
+class MockRecognition {
+  static instances: MockRecognition[] = []
+  static failStart = false
+  lang = ''
+  interimResults = false
+  continuous = false
+  onstart: (() => void) | null = null
+  onresult: ((event: unknown) => void) | null = null
+  onerror: (() => void) | null = null
+  onend: (() => void) | null = null
+  stopped = 0
+  constructor() {
+    MockRecognition.instances.push(this)
+  }
+  start() {
+    if (MockRecognition.failStart) throw new DOMException('not allowed', 'NotAllowedError')
+    this.onstart?.()
+  }
+  stop() {
+    this.stopped += 1
+    this.onend?.()
+  }
+}
+
+function finalResult(transcript: string) {
+  const result: any = [{ transcript }]
+  result.isFinal = true
+  return { results: [result] }
+}
+
+describe('AgentChat voice capture', () => {
+  beforeEach(() => {
+    MockRecognition.instances = []
+    MockRecognition.failStart = false
+    ;(window as any).SpeechRecognition = MockRecognition
+  })
+  afterEach(() => {
+    delete (window as any).SpeechRecognition
+    delete (window as any).webkitSpeechRecognition
+  })
+
+  const mic = () => screen.getByRole('button', { name: /voice input/i })
+
+  it('unsupported browser (no SpeechRecognition at all) falls back to the typing notice', () => {
+    delete (window as any).SpeechRecognition
+    render(<AgentChat config={makeConfig()} />)
+    fireEvent.click(mic())
+    expect(screen.getByText('Voice input is not supported in this browser yet.')).toBeInTheDocument()
+  })
+
+  it('a final transcript is sent as a voice-mode turn', async () => {
+    const sendTurn = vi.fn(async () => ({ message: 'heard you' }))
+    render(<AgentChat config={makeConfig({ sendTurn })} />)
+    fireEvent.click(mic())
+    expect(screen.getByRole('button', { name: 'Stop voice input' })).toBeInTheDocument()
+    const recognition = MockRecognition.instances[0]
+    recognition.onresult?.(finalResult('book me friday'))
+    await waitFor(() => expect(sendTurn).toHaveBeenCalledWith({ text: 'book me friday', mode: 'voice' }))
+    expect(recognition.stopped).toBeGreaterThan(0)
+    await waitFor(() => expect(screen.getByText('heard you')).toBeInTheDocument())
+  })
+
+  it('the error notice SURVIVES the end event that follows it (browsers fire error then end)', async () => {
+    render(<AgentChat config={makeConfig()} />)
+    fireEvent.click(mic())
+    const recognition = MockRecognition.instances[0]
+    recognition.onerror?.()
+    recognition.onend?.()
+    await waitFor(() =>
+      expect(screen.getByText('Voice capture stopped. Try again or type instead.')).toBeInTheDocument(),
+    )
+    // and the mic returned to its idle state
+    expect(screen.getByRole('button', { name: 'Start voice input' })).toBeInTheDocument()
+  })
+
+  it('a clean end (no error) clears the transient listening notice', async () => {
+    render(<AgentChat config={makeConfig()} />)
+    fireEvent.click(mic())
+    expect(screen.getByText('Listening...')).toBeInTheDocument()
+    MockRecognition.instances[0].onend?.()
+    await waitFor(() => expect(screen.queryByText('Listening...')).not.toBeInTheDocument())
+  })
+
+  it('start() throwing (permission/security) degrades to a notice instead of crashing', () => {
+    MockRecognition.failStart = true
+    render(<AgentChat config={makeConfig()} />)
+    fireEvent.click(mic())
+    expect(screen.getByText('Voice capture could not start. Try again or type instead.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start voice input' })).toBeInTheDocument()
+  })
+
+  it('clicking the mic while listening stops recognition', () => {
+    render(<AgentChat config={makeConfig()} />)
+    fireEvent.click(mic())
+    const recognition = MockRecognition.instances[0]
+    fireEvent.click(screen.getByRole('button', { name: 'Stop voice input' }))
+    expect(recognition.stopped).toBe(1)
+    expect(screen.getByRole('button', { name: 'Start voice input' })).toBeInTheDocument()
+  })
+
+  it('webkit-prefixed engines are used when the unprefixed one is absent', () => {
+    delete (window as any).SpeechRecognition
+    ;(window as any).webkitSpeechRecognition = MockRecognition
+    render(<AgentChat config={makeConfig()} />)
+    fireEvent.click(mic())
+    expect(MockRecognition.instances).toHaveLength(1)
+    expect(screen.getByText('Listening...')).toBeInTheDocument()
   })
 })
