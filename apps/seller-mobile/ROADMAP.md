@@ -35,7 +35,25 @@ actions call the existing Next API routes with the seller's `Authorization: Bear
 
 ---
 
-**Seller intake interview (2026-07-07 — code-complete; on-device verify pending)**
+**⚠️ API host fix (2026-07-07 — found by the on-device intake pass, affects EVERY authed call)**
+- `EXPO_PUBLIC_NEXEZ_API_URL=https://nexez.app` silently broke all Bearer API calls: the 3-host
+  proxy 308-canonicalizes `/api/*` on nexez.app → app.nexez.ai, and RN fetch mishandles the
+  cross-host redirect (stall / dropped Authorization). This is almost certainly why the deal-action
+  routes were never exercised e2e from a device. Fixed in `src/lib/config.ts`: `apiUrl` defaults to
+  `https://app.nexez.ai` AND normalizes the known-wrong runtime host so a stale env (.env.local or
+  EAS `eas env`) can't reintroduce it. `agentRuntimeUrl` stays nexez.app (public pages/artifacts).
+  **Owner action: update `EXPO_PUBLIC_NEXEZ_API_URL` in any EAS env to app.nexez.ai** (the code
+  normalization covers it either way). Deal actions should now be re-smoked on-device.
+
+**Seller intake interview (2026-07-07 — ON-DEVICE PASS DONE, iOS sim + prod grok-4.3)**
+- Full loop verified live on the iPhone 17 Pro sim via Expo Go: create fork → "Talk it through" →
+  scratch interview → RESUME of a persisted session (cross-device resume works) → one pasted prose
+  message ("Ember Lane Cakes… wedding cakes $600… birthday cakes $180") mapped by the prod LLM into
+  name/description/location + BOTH offers → draft_summary card (ReadinessRing 45) → "Review in the
+  editor" commit → landed on the app's own /listing/[id] showing the Draft with 2 priced offers.
+  Test rows cleaned to zero. Fixed on-device findings: gap/summary cards collapsed to min-content
+  width inside the flex-start message row (Glass now `alignSelf: 'stretch'`), and the URL button
+  showed the loading label when the scratch path was starting (per-path `startingVia`).
 - The conversational intake (spec `nexez-intake-interview-spec.md` §7) as a THIN client of the same
   threads API web /create uses — no gap logic on device. `app/intake.tsx` → `IntakeInterviewScreen`:
   setup (URL / from-scratch / resume an active session cross-device), chat thread with cards

@@ -31,6 +31,8 @@ type SetupPhase = 'loading' | 'setup' | 'starting' | 'chat'
 export function IntakeInterviewScreen() {
   const router = useRouter()
   const [phase, setPhase] = useState<SetupPhase>('loading')
+  // Which start path is in flight — so only ITS button shows the loading label.
+  const [startingVia, setStartingVia] = useState<'url' | 'scratch' | 'resume' | null>(null)
   const [sourceUrl, setSourceUrl] = useState('')
   const [setupError, setSetupError] = useState('')
   const [resumableId, setResumableId] = useState<string | null>(null)
@@ -86,6 +88,7 @@ export function IntakeInterviewScreen() {
 
   async function start(body: { source_url?: string }) {
     setPhase('starting')
+    setStartingVia(body.source_url ? 'url' : 'scratch')
     setSetupError('')
     try {
       const json = await startIntakeSession(body)
@@ -95,11 +98,14 @@ export function IntakeInterviewScreen() {
     } catch (error) {
       setSetupError(error instanceof Error ? error.message : 'Could not start the interview.')
       setPhase('setup')
+    } finally {
+      setStartingVia(null)
     }
   }
 
   async function resume(id: string) {
     setPhase('starting')
+    setStartingVia('resume')
     setSetupError('')
     try {
       const json = await getIntakeSession(id)
@@ -109,6 +115,8 @@ export function IntakeInterviewScreen() {
     } catch (error) {
       setSetupError(error instanceof Error ? error.message : 'Could not resume the interview.')
       setPhase('setup')
+    } finally {
+      setStartingVia(null)
     }
   }
 
@@ -188,7 +196,7 @@ export function IntakeInterviewScreen() {
           <AppButton
             full
             icon={Globe2}
-            label={phase === 'starting' ? 'Reading your site…' : 'Start with my site'}
+            label={startingVia === 'url' ? 'Reading your site…' : 'Start with my site'}
             disabled={phase === 'starting' || !sourceUrl.trim()}
             onPress={() => start({ source_url: sourceUrl.trim() })}
           />
@@ -269,7 +277,7 @@ function IntakeCardView({
 }) {
   if (card.type === 'source_ingested') {
     return (
-      <Glass tone="group" radius={16} contentStyle={st.sourceCard}>
+      <Glass style={st.cardStretch} tone="group" radius={16} contentStyle={st.sourceCard}>
         <View style={st.sourceIcon}>
           <Globe2 size={18} color={colors.success} />
         </View>
@@ -286,7 +294,7 @@ function IntakeCardView({
 
   if (card.type === 'gap_batch') {
     return (
-      <Glass tone="group" radius={16} contentStyle={st.gapCard}>
+      <Glass style={st.cardStretch} tone="group" radius={16} contentStyle={st.gapCard}>
         {card.gaps.map((gap) => (
           <GapRow key={gap.id} gap={gap} busy={busy} onAnswer={onAnswer} />
         ))}
@@ -297,7 +305,7 @@ function IntakeCardView({
   if (card.type === 'draft_summary') {
     const offers = card.draft.services.length + card.draft.products.length
     return (
-      <Glass tone="group" radius={16} contentStyle={st.summaryCard}>
+      <Glass style={st.cardStretch} tone="group" radius={16} contentStyle={st.summaryCard}>
         <ReadinessRing score={card.readiness} size={62} stroke={6} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={st.cardTitle} numberOfLines={1}>{card.draft.name || 'Your draft'}</Text>
@@ -318,7 +326,7 @@ function IntakeCardView({
 
   // handoff
   return (
-    <Glass tone="group" radius={16} contentStyle={st.summaryCard}>
+    <Glass style={st.cardStretch} tone="group" radius={16} contentStyle={st.summaryCard}>
       <View style={st.sourceIcon}>
         <CircleCheck size={18} color={colors.success} />
       </View>
@@ -370,6 +378,7 @@ function GapRow({ gap, busy, onAnswer }: { gap: IntakeGap; busy: boolean; onAnsw
 }
 
 const st = StyleSheet.create({
+  cardStretch: { alignSelf: 'stretch' },
   // setup
   setupHead: { gap: 8, paddingTop: 8 },
   setupIcon: { width: 44, height: 44, borderRadius: 13, backgroundColor: colors.ringBg, borderWidth: 1, borderColor: colors.ringBorder, alignItems: 'center', justifyContent: 'center' },
