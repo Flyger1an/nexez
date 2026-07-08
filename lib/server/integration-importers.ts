@@ -57,9 +57,34 @@ export type ProviderOffers =
   | { ok: true; offers: OfferItem[]; note: string; lines?: string[] }
   | { ok: false; status: number; error: string; upstreamStatus?: number }
 
-type CalendlyEventType = {
-  attributes: { name: string; slug: string; duration: number; kind: string; active: boolean }
-  relationships: { scheduling_url: { href: string } }
+// Calendly's v2 API returns event-type fields at the resource top level
+// (uri/name/duration/scheduling_url). An older shape nested them under
+// attributes/relationships; normalize both so a real token and the existing
+// fixtures both resolve — and so the event-type URI is captured for single-use
+// scheduling links.
+type CalendlyEventTypeRaw = {
+  uri?: string
+  name?: string
+  duration?: number
+  kind?: string
+  active?: boolean
+  scheduling_url?: string
+  resource?: { uri?: string }
+  attributes?: { name?: string; slug?: string; duration?: number; kind?: string; active?: boolean }
+  relationships?: { scheduling_url?: { href?: string } }
+}
+
+type NormalizedEventType = { name: string; duration: number; kind: string; schedulingUrl: string; uri: string }
+
+function normalizeCalendlyEventType(event: CalendlyEventTypeRaw): NormalizedEventType {
+  const attrs = event.attributes ?? event
+  return {
+    name: attrs.name ?? '',
+    duration: Number(attrs.duration ?? 0),
+    kind: attrs.kind ?? 'solo',
+    schedulingUrl: event.relationships?.scheduling_url?.href ?? event.scheduling_url ?? '',
+    uri: event.uri ?? event.resource?.uri ?? '',
+  }
 }
 
 /** Live Calendly event types → bookable offers (moved verbatim from the route). */
@@ -88,15 +113,19 @@ export async function importCalendlyOffers(token: string): Promise<ProviderOffer
 
     const lines: string[] = []
     const offers: OfferItem[] = []
-    for (const event of eventsData.collection as CalendlyEventType[]) {
-      const name = event.attributes.name
-      const durationMinutes = event.attributes.duration
-      const kind = event.attributes.kind === 'solo' ? '1:1' : 'Group'
-      const url = event.relationships.scheduling_url?.href || ''
+    for (const raw of eventsData.collection as CalendlyEventTypeRaw[]) {
+      const event = normalizeCalendlyEventType(raw)
+      const name = event.name
+      const durationMinutes = event.duration
+      const kind = event.kind === 'solo' ? '1:1' : 'Group'
+      const url = event.schedulingUrl
       const price = 'Custom'
       const description = `${kind} call lasting ${durationMinutes} minutes. Book directly via Calendly.`
       lines.push(`${name} | ${price} | ${description} | ${url}`)
-      offers.push({ name, description, price, url, duration: `${durationMinutes} min`, source: 'calendly', confidence: 0.92 })
+      // Stash the event-type URI so checkout can mint a single-use booking link
+      // for this exact event type (the reusable scheduling_url stays as fallback).
+      const metadata = event.uri ? { calendly_event_type: event.uri } : undefined
+      offers.push({ name, description, price, url, duration: `${durationMinutes} min`, source: 'calendly', confidence: 0.92, ...(metadata ? { metadata } : {}) })
     }
     return { ok: true, offers, lines, note: `Imported ${lines.length} Calendly event types as bookable offers.` }
   } catch (error) {

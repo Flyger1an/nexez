@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { getCalendlyUser, fetchCalendlyBusy, cancelCalendlyEvent, calendlyEventUuid } from './calendly-write'
+import { getCalendlyUser, fetchCalendlyBusy, cancelCalendlyEvent, calendlyEventUuid, createCalendlySchedulingLink } from './calendly-write'
 
 const res = (body: unknown, ok = true, status = 200) => ({ ok, status, json: async () => body }) as any
 const now = new Date('2026-07-08T12:00:00Z')
@@ -74,5 +74,36 @@ describe('cancelCalendlyEvent + calendlyEventUuid', () => {
     expect(calendlyEventUuid('https://api.calendly.com/scheduled_events/AbC123dEf456GhI7/invitees')).toBe('AbC123dEf456GhI7')
     expect(calendlyEventUuid('https://calendly.com/acme/intro')).toBeNull()
     expect(calendlyEventUuid(null)).toBeNull()
+  })
+})
+
+describe('createCalendlySchedulingLink', () => {
+  const EVENT_TYPE = 'https://api.calendly.com/event_types/GBGGGGGG'
+  it('POSTs a single-use link (max_event_count 1) and returns booking_url', async () => {
+    const seen: any[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: any) => {
+      seen.push({ url: String(url), body: JSON.parse(init.body) })
+      return res({ resource: { booking_url: 'https://calendly.com/acme/intro/one-time-abc' } }, true, 201)
+    }))
+    const link = await createCalendlySchedulingLink('pat', EVENT_TYPE)
+    expect(link).toBe('https://calendly.com/acme/intro/one-time-abc')
+    expect(seen[0].url).toBe('https://api.calendly.com/scheduling_links')
+    expect(seen[0].body).toEqual({ max_event_count: 1, owner: EVENT_TYPE, owner_type: 'EventType' })
+  })
+  it('rejects a non-Calendly / malformed event-type URI without calling the API (SSRF/tamper guard)', async () => {
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    expect(await createCalendlySchedulingLink('pat', 'https://evil.example/event_types/x')).toBeNull()
+    expect(await createCalendlySchedulingLink('pat', 'https://api.calendly.com/scheduled_events/EV1')).toBeNull()
+    expect(await createCalendlySchedulingLink('pat', '')).toBeNull()
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+  it('null on Calendly failure or a missing booking_url (caller keeps the reusable link)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => res({}, false, 403)))
+    expect(await createCalendlySchedulingLink('pat', EVENT_TYPE)).toBeNull()
+    vi.stubGlobal('fetch', vi.fn(async () => res({ resource: {} }, true, 201)))
+    expect(await createCalendlySchedulingLink('pat', EVENT_TYPE)).toBeNull()
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('down') }))
+    expect(await createCalendlySchedulingLink('pat', EVENT_TYPE)).toBeNull()
   })
 })

@@ -22,6 +22,7 @@ import { applyPriceToOffers, formatStripePriceString } from '../../../../lib/str
 import { sendPushToEmail, sendPushToUser } from '../../../../lib/push'
 import { resolveOwnerNotifyEmail } from '../../../../lib/server/owner-email'
 import { sendOnceSystemEmail } from '../../../../lib/server/system-email'
+import { cancelCalendlyForRefund } from '../../../../lib/server/calendly-cancel-on-refund'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'placeholder')
 
@@ -492,7 +493,7 @@ export async function POST(request: NextRequest) {
 
     const { data: neg } = await admin
       .from('agent_negotiations')
-      .select('id, status, metadata, offer_name, page_id, currency, buyer_agent, slug, buyer_email, status_token')
+      .select('id, status, metadata, offer_name, page_id, currency, buyer_agent, slug, buyer_email, status_token, calendly_event_uri, calendly_cancelled_at')
       .eq('stripe_payment_intent_id', piId)
       .maybeSingle<{
         id: string
@@ -505,6 +506,8 @@ export async function POST(request: NextRequest) {
         slug: string | null
         buyer_email: string | null
         status_token: string | null
+        calendly_event_uri: string | null
+        calendly_cancelled_at: string | null
       }>()
     if (!neg) {
       // Not a negotiation - try a direct-checkout ORDER (same PI matching). This is
@@ -665,6 +668,22 @@ export async function POST(request: NextRequest) {
       console.warn('[Stripe Webhook] reversal update failed:', upErr.message)
       await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
       return NextResponse.json({ error: 'reversal update failed', type: event.type }, { status: 500 })
+    }
+
+    // Cancel-on-refund: a full refund / lost dispute flips status → 'refunded'
+    // (partials never do). If this negotiation has a Calendly booking linked via
+    // the invitee webhook's tracking param, release it on the seller's calendar.
+    // Deferred so the webhook still responds fast; idempotent (calendly_cancelled_at)
+    // and dormant without INTEGRATION_SECRET_KEY.
+    if (update.status === 'refunded' && neg.calendly_event_uri && !neg.calendly_cancelled_at) {
+      after(async () => {
+        await cancelCalendlyForRefund(admin, {
+          id: neg.id,
+          page_id: neg.page_id,
+          calendly_event_uri: neg.calendly_event_uri,
+          calendly_cancelled_at: neg.calendly_cancelled_at,
+        })
+      })
     }
 
     // Notify the seller - refunds are informational; a dispute is time-sensitive

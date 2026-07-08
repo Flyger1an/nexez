@@ -54,6 +54,38 @@ describe('importCalendlyOffers', () => {
     expect(r.lines?.[0]).toContain('Intro Call | Custom')
   })
 
+  it('captures the event-type URI (for single-use links) from the real v2 top-level shape', async () => {
+    // Calendly's v2 event_types returns fields at the resource top level (uri,
+    // name, duration, scheduling_url) — NOT nested under attributes/relationships.
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ resource: { uri: 'https://api.calendly.com/users/U1' } }))
+      .mockResolvedValueOnce(jsonResponse({
+        collection: [{ uri: 'https://api.calendly.com/event_types/GBGGGGGG', name: 'Strategy Call', duration: 45, kind: 'solo', active: true, scheduling_url: 'https://calendly.com/acme/strategy' }],
+      })))
+    const r = await importCalendlyOffers('cal_tok')
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.offers[0]).toMatchObject({
+      name: 'Strategy Call',
+      duration: '45 min',
+      url: 'https://calendly.com/acme/strategy',
+      source: 'calendly',
+      metadata: { calendly_event_type: 'https://api.calendly.com/event_types/GBGGGGGG' },
+    })
+  })
+
+  it('omits the event-type metadata when the URI is absent (legacy shape → single-use falls back)', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ resource: { uri: 'u' } }))
+      .mockResolvedValueOnce(jsonResponse({
+        collection: [{ attributes: { name: 'Intro Call', duration: 30, kind: 'solo', active: true }, relationships: { scheduling_url: { href: 'https://calendly.com/acme/intro' } } }],
+      })))
+    const r = await importCalendlyOffers('tok')
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.offers[0]!.metadata?.calendly_event_type).toBeUndefined()
+  })
+
   it('an invalid token is an error, not empty', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse({}, false, 401)))
     const r = await importCalendlyOffers('bad')

@@ -91,6 +91,67 @@ describe('POST /api/webhooks/calendly - signature verification', () => {
   })
 })
 
+// Cancel-on-refund linkage: a booking that arrived via a negotiation-tagged
+// Calendly link (utm_content=nz_neg_<id>) records the scheduled-event URI on that
+// negotiation — scoped to THIS page so a signed webhook can only touch its own.
+describe('POST /api/webhooks/calendly - negotiation link', () => {
+  const EVENT_URI = 'https://api.calendly.com/scheduled_events/EVENTUUID12345678'
+  function drive(capture: any[]) {
+    vi.mocked(hasSupabaseAdminEnv).mockReturnValue(true)
+    vi.mocked(createAdminClient).mockReturnValue(
+      createSupabaseMock((ctx) => {
+        if (ctx.table === 'pages' && ctx.op === 'select') {
+          return { data: [{ id: 'pg1', owner_id: 'o1', slug: 'acme', name: 'Acme', contact_email: null, services: [], products: [] }], error: null }
+        }
+        if (ctx.table === 'agent_negotiations' && ctx.op === 'update') {
+          capture.push({ payload: ctx.payload, calls: ctx.calls })
+          return { data: null, error: null }
+        }
+        return { data: null, error: null }
+      }) as any,
+    )
+  }
+  const bookingPost = (payload: Record<string, any>) =>
+    new Request('https://nexez.test/api/webhooks/calendly?slug=acme', {
+      method: 'POST',
+      headers: { 'x-nexez-test-secret': 'shh' },
+      body: JSON.stringify({ event: 'invitee.created', payload }),
+    }) as any
+
+  beforeEach(() => vi.clearAllMocks())
+
+  it('records the event URI on the tagged negotiation, scoped to this page, first-booking-wins', async () => {
+    const captured: any[] = []
+    drive(captured)
+    const res = await POST(bookingPost({ event: { name: 'Intro', uri: EVENT_URI }, invitee: { name: 'Ada' }, tracking: { utm_content: 'nz_neg_neg-9' } }))
+    expect(res.status).toBe(200)
+    expect(captured).toHaveLength(1)
+    expect(captured[0].payload).toEqual({ calendly_event_uri: EVENT_URI })
+    expect(captured[0].calls).toContainEqual(['eq', 'id', 'neg-9'])
+    expect(captured[0].calls).toContainEqual(['eq', 'page_id', 'pg1']) // cross-page contamination blocked
+    expect(captured[0].calls).toContainEqual(['is', 'calendly_event_uri', null]) // never overwrite
+  })
+
+  it('ignores bookings with no tag or a foreign utm_content', async () => {
+    const captured: any[] = []
+    drive(captured)
+    await POST(bookingPost({ event: { name: 'Intro', uri: EVENT_URI }, invitee: { name: 'Ada' }, tracking: { utm_content: 'spring-sale' } }))
+    await POST(bookingPost({ event: { name: 'Intro', uri: EVENT_URI }, invitee: { name: 'Ada' } }))
+    expect(captured).toHaveLength(0)
+  })
+
+  it('does not link on invitee.canceled (only real bookings)', async () => {
+    const captured: any[] = []
+    drive(captured)
+    await POST(new Request('https://nexez.test/api/webhooks/calendly?slug=acme', {
+      method: 'POST',
+      headers: { 'x-nexez-test-secret': 'shh' },
+      body: JSON.stringify({ event: 'invitee.canceled', payload: { event: { name: 'Intro', uri: EVENT_URI }, invitee: { name: 'Ada' }, tracking: { utm_content: 'nz_neg_neg-9' } } }),
+    }) as any)
+    expect(captured).toHaveLength(0)
+  })
+})
+
 // Bi-directional sync: real Calendly bookings drive the offer's advertised
 // availability (only for offers with the maxBookingsPerWeek opt-in).
 describe('POST /api/webhooks/calendly - availability sync', () => {

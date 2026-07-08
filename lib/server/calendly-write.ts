@@ -11,11 +11,16 @@ const TIMEOUT_MS = 9000
 // Calendly's /user_busy_times allows at most a 7-day window per request.
 const MAX_BUSY_DAYS = 7
 
-function withTimeout(): { signal: AbortSignal; done: () => void } {
+function withTimeout(ms: number = TIMEOUT_MS): { signal: AbortSignal; done: () => void } {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), ms)
   return { signal: controller.signal, done: () => clearTimeout(timer) }
 }
+
+// A freshly-minted single-use link sits in the buyer's checkout redirect path, so
+// give it a tighter budget than the background (9s) calls — fall back to the
+// reusable link quickly rather than making the buyer wait on Calendly.
+const LINK_TIMEOUT_MS = 6000
 
 export type CalendlyUser = { ok: true; uri: string } | { ok: false; reason: 'invalid' | 'unknown' }
 
@@ -110,4 +115,39 @@ export function calendlyEventUuid(eventUri: string | null | undefined): string |
   // Calendly event UUIDs are alphanumeric (base32-like), not hex.
   const match = eventUri.match(/scheduled_events\/([A-Za-z0-9-]{16,})(?:\/|$|\?)/)
   return match ? match[1]! : null
+}
+
+// A stored event-type URI must be a real Calendly event_types resource before we
+// hand it to the API as a scheduling-link owner. Guards against a malformed /
+// tampered offer.metadata value (defence in depth — it originates from the
+// seller's own import, and is only ever sent as a body param to the pinned host).
+function isCalendlyEventTypeUri(uri: string): boolean {
+  return /^https:\/\/api\.calendly\.com\/event_types\/[A-Za-z0-9-]+$/.test(uri)
+}
+
+/**
+ * Mint a SINGLE-USE Calendly scheduling link for an event type. Each link is good
+ * for exactly one booking (max_event_count: 1), so the reusable public scheduling
+ * URL is never shared/re-bookable from a checkout redirect. Returns the one-time
+ * booking_url, or null on any failure (caller falls back to the reusable link).
+ */
+export async function createCalendlySchedulingLink(pat: string, eventTypeUri: string): Promise<string | null> {
+  if (!eventTypeUri || !isCalendlyEventTypeUri(eventTypeUri)) return null
+  const t = withTimeout(LINK_TIMEOUT_MS)
+  try {
+    const res = await fetch(`${CALENDLY_API}/scheduling_links`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ max_event_count: 1, owner: eventTypeUri, owner_type: 'EventType' }),
+      signal: t.signal,
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    const url = data?.resource?.booking_url
+    return typeof url === 'string' && url ? url : null
+  } catch {
+    return null
+  } finally {
+    t.done()
+  }
 }

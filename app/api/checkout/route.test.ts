@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { QueryContext } from '../../../test/supabase-mock'
 
-const { dbRef, adminRef, stripeCalls } = vi.hoisted(() => ({
+const { dbRef, adminRef, stripeCalls, credRef } = vi.hoisted(() => ({
   dbRef: { handler: (_c: any) => ({ data: null, error: null }) as { data?: any; error?: any; count?: number | null } },
   adminRef: { handler: (_c: any) => ({ data: null, error: null }) as { data?: any; error?: any; count?: number | null } },
   stripeCalls: [] as Array<{ params: any; opts: any }>,
+  credRef: { configured: true, pat: 'pat' as string | null, minted: 'https://calendly.com/acme/intro/one-time-xyz' as string | null, patCalls: 0 },
 }))
 
 vi.mock('stripe', () => ({
@@ -33,6 +34,13 @@ vi.mock('../../../utils/supabase/admin', async () => {
 })
 vi.mock('../../../lib/server/log-checkout-event', () => ({
   logCheckoutEvent: vi.fn(async () => ({ ok: true })),
+}))
+vi.mock('../../../lib/server/page-integration-credentials', () => ({
+  integrationCredentialsConfigured: () => credRef.configured,
+  getCalendlyPat: async () => { credRef.patCalls += 1; return credRef.pat },
+}))
+vi.mock('../../../lib/server/calendly-write', () => ({
+  createCalendlySchedulingLink: async () => credRef.minted,
 }))
 
 import { POST } from './route'
@@ -182,5 +190,60 @@ describe('POST /api/checkout - buyer identity propagation', () => {
     const res = await POST(post({ slug: 'demo', offer: 'services-0', buyerEmail: 'nope' }))
     expect(res.status).toBe(200)
     expect(stripeCalls[0].params.customer_email).toBeUndefined()
+  })
+})
+
+describe('POST /api/checkout - single-use Calendly links', () => {
+  const calendlyPage = (over: Record<string, any> = {}) => ({
+    id: 'p1',
+    owner_id: 'o1',
+    slug: 'demo',
+    name: 'Demo Co',
+    services: [{ name: 'Intro Call', price: 'Custom', description: '', url: 'https://calendly.com/acme/intro', source: 'calendly', metadata: { calendly_event_type: 'https://api.calendly.com/event_types/GB' }, ...over }],
+    products: [],
+    is_published: true,
+  })
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    credRef.configured = true
+    credRef.pat = 'pat'
+    credRef.minted = 'https://calendly.com/acme/intro/one-time-xyz'
+    credRef.patCalls = 0
+    const { hasSupabaseAdminEnv } = await import('../../../utils/supabase/admin')
+    vi.mocked(hasSupabaseAdminEnv).mockReturnValue(true)
+    adminRef.handler = (c: QueryContext) => (c.table === 'pages' ? { data: calendlyPage(), error: null } : { data: null, error: null, count: 0 })
+  })
+  afterEach(() => vi.unstubAllEnvs())
+
+  it('mints a one-time booking link as the destination for a connected Calendly offer', async () => {
+    const res = await POST(post({ slug: 'demo', offer: 'services-0' }))
+    expect(res.status).toBe(200)
+    expect((await res.json()).url).toBe('https://calendly.com/acme/intro/one-time-xyz')
+  })
+
+  it('falls back to the reusable link when the page has no stored PAT', async () => {
+    credRef.pat = null
+    const res = await POST(post({ slug: 'demo', offer: 'services-0' }))
+    expect((await res.json()).url).toBe('https://calendly.com/acme/intro')
+  })
+
+  it('falls back to the reusable link when the credential store is not configured (dormant, no PAT read)', async () => {
+    credRef.configured = false
+    const res = await POST(post({ slug: 'demo', offer: 'services-0' }))
+    expect((await res.json()).url).toBe('https://calendly.com/acme/intro')
+    expect(credRef.patCalls).toBe(0) // never touches the credential store when dormant
+  })
+
+  it('falls back to the reusable link when Calendly minting fails', async () => {
+    credRef.minted = null
+    const res = await POST(post({ slug: 'demo', offer: 'services-0' }))
+    expect((await res.json()).url).toBe('https://calendly.com/acme/intro')
+  })
+
+  it('never mints for a non-Calendly offer or an offer missing the event-type URI', async () => {
+    adminRef.handler = (c: QueryContext) => (c.table === 'pages' ? { data: calendlyPage({ source: 'shopify', metadata: {} }), error: null } : { data: null, error: null, count: 0 })
+    const res = await POST(post({ slug: 'demo', offer: 'services-0' }))
+    expect((await res.json()).url).toBe('https://calendly.com/acme/intro')
+    expect(credRef.patCalls).toBe(0)
   })
 })

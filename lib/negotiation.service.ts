@@ -8,6 +8,7 @@ import { AgentPage, getCheckoutOffer, getBaseUrl } from './agent-page';
 import { getAutoSettleCeilingCents, classifySettlement, SettlementState } from './settlement';
 import { captureError } from './observability';
 import { sanitizeSchedulingLink } from './scheduling-allowlist';
+import { tagCalendlyTracking } from './calendly-tracking';
 import { isTerminalNegotiationStatus, type NegotiationStatus } from './negotiations';
 import { parseMoney } from './checkout';
 import { normalizeCurrency } from './currency';
@@ -274,6 +275,10 @@ export class NegotiationService {
     // from planting a phishing <a href> in the rendered decision. Falls back to the
     // owner-derived link when the candidate is missing or off-allowlist.
     llmDecision.schedulingLink = sanitizeSchedulingLink(llmDecision.schedulingLink, schedulingLink);
+    // Tag a Calendly link with this negotiation's id so a later booking is
+    // linkable back here (Calendly echoes utm_content on the invitee webhook),
+    // enabling exact cancel-on-refund. No-op for non-Calendly links.
+    llmDecision.schedulingLink = tagCalendlyTracking(llmDecision.schedulingLink, negotiation.id);
 
     // Never persist the offer's private pricing rules into the durable message log
     // (owner-private Phase 1 invariant) - they were attached for LLM context only.

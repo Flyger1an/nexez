@@ -16,6 +16,7 @@ import { resolveOwnerNotifyEmail } from '../../../../lib/server/owner-email'
 import { fireOutboundWebhook, type OutboundWebhookPayload } from '../../../../lib/webhooks'
 import { fireOwnerOutboundWebhooks } from '../../../../lib/server/outbound-webhooks'
 import { ownerAllows } from '../../../../lib/server/plan'
+import { parseNegotiationTracking } from '../../../../lib/calendly-tracking'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { createClient as createServerClient } from '../../../../utils/supabase/server'
 
@@ -33,6 +34,12 @@ type CalendlyPayload = {
       location?: {
         type?: string
       }
+    }
+    // Calendly echoes UTM params the booker arrived with. We stamp
+    // utm_content=nz_neg_<id> on negotiation scheduling links so the booking can
+    // be linked back to its negotiation for cancel-on-refund.
+    tracking?: {
+      utm_content?: string | null
     }
   }
 }
@@ -150,6 +157,25 @@ export async function POST(request: NextRequest) {
   if (insertError) {
     console.warn('[Calendly Webhook] Failed to insert event:', insertError.message)
     return NextResponse.json({ error: insertError.message }, { status: 500 })
+  }
+
+  // Exact booking↔negotiation link for cancel-on-refund. If this booking arrived
+  // through a negotiation-tagged Calendly link (utm_content=nz_neg_<id>), record
+  // the scheduled-event URI on that negotiation. Scoped to THIS page's id, so a
+  // signed webhook can only ever touch its own page's negotiations (cross-page
+  // contamination is impossible). First booking wins — never overwrites.
+  if (eventType === 'invitee.created') {
+    const negId = parseNegotiationTracking(payload.tracking?.utm_content)
+    const eventUri = payload.event?.uri || null
+    if (negId && eventUri) {
+      const { error: linkErr } = await supabase
+        .from('agent_negotiations')
+        .update({ calendly_event_uri: eventUri })
+        .eq('id', negId)
+        .eq('page_id', page.id)
+        .is('calendly_event_uri', null)
+      if (linkErr) console.warn('[Calendly Webhook] negotiation link failed:', linkErr.message)
+    }
   }
 
   // last_booking is a "recent activity" trust signal - only a real booking

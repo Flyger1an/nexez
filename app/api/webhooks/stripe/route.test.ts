@@ -26,6 +26,19 @@ vi.mock('stripe', () => ({
 }))
 vi.mock('../../../../utils/supabase/admin', () => ({ createAdminClient, hasSupabaseAdminEnv }))
 
+// Cancel-on-refund runs inside next/server `after`. Make `after` record-only so
+// other tests are unaffected (callbacks simply never run unless a test drains
+// them); the cancel-on-refund tests drain + await afterCbs explicitly.
+const { afterCbs, cancelSpy } = vi.hoisted(() => ({
+  afterCbs: [] as Array<() => unknown>,
+  cancelSpy: vi.fn((_admin?: any, _neg?: any) => Promise.resolve({ cancelled: true as const })),
+}))
+vi.mock('next/server', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('next/server')>()
+  return { ...actual, after: (fn: () => unknown) => { afterCbs.push(fn) } }
+})
+vi.mock('../../../../lib/server/calendly-cancel-on-refund', () => ({ cancelCalendlyForRefund: cancelSpy }))
+
 import { POST } from './route'
 
 const post = (opts: { sig?: string; body?: string } = {}) =>
@@ -345,6 +358,74 @@ describe('POST /api/webhooks/stripe', () => {
       const res = await POST(post({ sig: 'good', body: '{}' }))
       expect(res.status).toBe(200)
       expect((await res.json()).matched).toBe(false)
+    })
+  })
+
+  // Cancel-on-refund: only a FULL refund / lost dispute (status → 'refunded') on a
+  // Calendly-linked negotiation releases the calendar hold. Partials never do.
+  describe('escrow reversals - Calendly cancel-on-refund', () => {
+    const EVENT_URI = 'https://api.calendly.com/scheduled_events/EVENTUUID12345678'
+    function withNeg(neg: any) {
+      hasSupabaseAdminEnv.mockReturnValue(true)
+      createAdminClient.mockReturnValue(
+        createSupabaseMock((ctx: QueryContext) => {
+          if (ctx.table === 'agent_negotiations') return { data: neg, error: null }
+          return { data: null, error: null }
+        }) as any,
+      )
+    }
+    const linked = (over: Record<string, any> = {}) => ({ id: 'n1', status: 'complete', metadata: {}, page_id: 'pg1', calendly_event_uri: EVENT_URI, calendly_cancelled_at: null, ...over })
+    const drain = async () => { for (const cb of afterCbs) await cb() }
+
+    beforeEach(() => { vi.stubEnv('STRIPE_WEBHOOK_SECRET', 'whsec_test'); afterCbs.length = 0 })
+
+    it('full refund cancels the linked booking', async () => {
+      withNeg(linked())
+      constructEvent.mockReturnValue({ id: 'evt_rc', type: 'charge.refunded', data: { object: { payment_intent: 'pi_1', amount: 9000, amount_refunded: 9000 } } })
+      await POST(post({ sig: 'good', body: '{}' }))
+      await drain()
+      expect(cancelSpy).toHaveBeenCalledTimes(1)
+      expect(cancelSpy.mock.calls[0]![1]).toMatchObject({ id: 'n1', page_id: 'pg1', calendly_event_uri: EVENT_URI })
+    })
+
+    it('PARTIAL refund does NOT cancel the booking', async () => {
+      withNeg(linked())
+      constructEvent.mockReturnValue({ id: 'evt_rp', type: 'charge.refunded', data: { object: { payment_intent: 'pi_1', amount: 9000, amount_refunded: 4000 } } })
+      await POST(post({ sig: 'good', body: '{}' }))
+      await drain()
+      expect(cancelSpy).not.toHaveBeenCalled()
+    })
+
+    it('lost dispute (→ refunded) also cancels the booking', async () => {
+      withNeg(linked({ status: 'disputed' }))
+      constructEvent.mockReturnValue({ id: 'evt_dll', type: 'charge.dispute.closed', data: { object: { payment_intent: 'pi_1', status: 'lost' } } })
+      await POST(post({ sig: 'good', body: '{}' }))
+      await drain()
+      expect(cancelSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it('won dispute (→ complete) does NOT cancel', async () => {
+      withNeg(linked({ status: 'disputed' }))
+      constructEvent.mockReturnValue({ id: 'evt_dw', type: 'charge.dispute.closed', data: { object: { payment_intent: 'pi_1', status: 'won' } } })
+      await POST(post({ sig: 'good', body: '{}' }))
+      await drain()
+      expect(cancelSpy).not.toHaveBeenCalled()
+    })
+
+    it('no linked booking → no cancel attempt', async () => {
+      withNeg(linked({ calendly_event_uri: null }))
+      constructEvent.mockReturnValue({ id: 'evt_rn', type: 'charge.refunded', data: { object: { payment_intent: 'pi_1', amount: 9000, amount_refunded: 9000 } } })
+      await POST(post({ sig: 'good', body: '{}' }))
+      await drain()
+      expect(cancelSpy).not.toHaveBeenCalled()
+    })
+
+    it('already-cancelled booking → skipped (idempotent)', async () => {
+      withNeg(linked({ calendly_cancelled_at: '2026-07-08T00:00:00Z' }))
+      constructEvent.mockReturnValue({ id: 'evt_ra', type: 'charge.refunded', data: { object: { payment_intent: 'pi_1', amount: 9000, amount_refunded: 9000 } } })
+      await POST(post({ sig: 'good', body: '{}' }))
+      await drain()
+      expect(cancelSpy).not.toHaveBeenCalled()
     })
   })
 

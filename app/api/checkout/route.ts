@@ -21,6 +21,8 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/
 import { getCommissionPercentForPlan, calculateApplicationFeeCents } from '../../../lib/stripe-billing'
 import { getOwnerPlanId, getOwnerBillingState } from '../../../lib/server/plan'
 import { billingPlans } from '../../../lib/billing'
+import { getCalendlyPat, integrationCredentialsConfigured } from '../../../lib/server/page-integration-credentials'
+import { createCalendlySchedulingLink } from '../../../lib/server/calendly-write'
 
 type CheckoutInput = {
   slug: string
@@ -106,7 +108,12 @@ export async function POST(request: Request) {
   // For now, canonical is safe default for transactional URLs.
   const checkoutUrl = `${baseUrl}/checkout/${page.slug}?offer=${offerKey}`
   const successUrl = `${baseUrl}/checkout/${page.slug}/success?session_id={CHECKOUT_SESSION_ID}&offer=${offerKey}`
-  const destination = getOfferDestination(page, offer)
+  let destination = getOfferDestination(page, offer)
+  // Single-use scheduling links: for a Calendly-sourced offer on a page that has
+  // connected a PAT, mint a one-time booking link so the reusable public
+  // scheduling URL isn't shared/re-bookable from this redirect. Best-effort —
+  // falls back to the reusable link (dormant without INTEGRATION_SECRET_KEY).
+  destination = (await maybeMintSingleUseCalendlyLink(page.id, offer, destination)) || destination
   // Multi-currency: the page's currency is the source of truth for what the buyer
   // is charged; the offer price string is just the amount. amountCents is the
   // Stripe smallest-unit amount (×100, or as-is for zero-decimal currencies like JPY).
@@ -382,6 +389,27 @@ async function readCheckoutInput(request: Request): Promise<CheckoutInput> {
     buyerReference: str(formData.get('buyerReference')),
     buyerAgent: str(formData.get('buyerAgent')),
   }
+}
+
+// Mint a single-use Calendly booking link when the resolved offer is a Calendly
+// event type on a page that has connected a PAT. Returns null (→ keep the
+// reusable link) for non-Calendly offers, a missing event-type URI, an
+// unconfigured credential store, or any Calendly failure. Only reaches the
+// network for genuine Calendly offers, so ordinary checkouts pay nothing.
+async function maybeMintSingleUseCalendlyLink(
+  pageId: string,
+  offer: { source?: string; metadata?: Record<string, unknown> | null } | null,
+  fallback: string,
+): Promise<string | null> {
+  if (!offer || offer.source !== 'calendly') return null
+  const eventTypeUri = typeof offer.metadata?.calendly_event_type === 'string' ? offer.metadata.calendly_event_type : ''
+  if (!eventTypeUri) return null
+  if (!integrationCredentialsConfigured()) return null
+  const pat = await getCalendlyPat(pageId)
+  if (!pat) return null
+  const minted = await createCalendlySchedulingLink(pat, eventTypeUri)
+  // Never downgrade a working reusable link on failure.
+  return minted || fallback
 }
 
 function getDryRunProvider(destination: string, amountCents: number | null, connectAccountId: string | null) {
