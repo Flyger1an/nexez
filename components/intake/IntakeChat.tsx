@@ -10,7 +10,7 @@
 // carries readiness/positive, amber --amber flags blocking gaps, persimmon
 // --signal stays on interactive accents.
 import { useEffect, useRef, useState } from 'react'
-import { ArrowRight, CircleCheck, Globe2, ListChecks, Loader2, MessageCircleQuestion, Sparkles } from 'lucide-react'
+import { ArrowRight, CircleCheck, Globe2, ListChecks, Loader2, MessageCircleQuestion, Plug, Sparkles } from 'lucide-react'
 import { AgentChat, type AgentChatController, type AgentChatMessage, type AgentTurnResponse } from '../agent-chat'
 import type { IntakeCard } from '../../lib/agents/intake'
 import type { Gap, GapAnswer, IntakeState } from '../../lib/intake'
@@ -36,7 +36,24 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, className = '' }
   const [setupError, setSetupError] = useState('')
   const [resumable, setResumable] = useState<ActiveSession | null>(null)
   const [initialMessages, setInitialMessages] = useState<AgentChatMessage<IntakeCard>[]>([])
+  // Re-interview only: whether the listing already has a saved Calendly token, so
+  // the connector can offer "use your saved connection" instead of re-pasting.
+  const [calendlyConnected, setCalendlyConnected] = useState(false)
   const sessionIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!reinterviewPageId) return
+    let cancelled = false
+    fetch(`/api/pages/${reinterviewPageId}/settings-context`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (!cancelled && json?.secrets?.calendly_connected) setCalendlyConnected(true)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [reinterviewPageId])
 
   // Surface an existing interview so a second visit resumes instead of
   // duplicating (cross-device: start on mobile, finish here). Best-effort:
@@ -70,6 +87,8 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, className = '' }
         confidence: extraction.confidence,
       })
     }
+    // Let the seller pull a live catalog (Calendly/Shopify/Square/Acuity) any time.
+    cards.push({ type: 'integration_connect', calendlyConnected })
     if (state.gaps.length > 0) {
       cards.push({ type: 'gap_batch', gaps: state.gaps.slice(0, 3) })
     }
@@ -151,6 +170,29 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, className = '' }
     const json = await response.json()
     if (!response.ok) throw new Error(json.error || 'The interview hit a snag. Try again.')
     return { message: json.message, cards: json.cards ?? [] }
+  }
+
+  // Connect a live integration mid-interview: POST the provider + credentials to
+  // /ingest, then fold the result (the source + refreshed gaps) into the chat.
+  async function postIngest(body: Record<string, unknown>): Promise<AgentTurnResponse<IntakeCard>> {
+    const response = await fetch(`/api/agents/intake/threads/${sessionIdRef.current}/ingest`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const json = await response.json()
+    if (!response.ok) throw new Error(json.error || 'Could not connect that tool.')
+    const state = json.state as IntakeState
+    const source = state.sources[state.sources.length - 1]
+    const label = source?.label || 'your tool'
+    const cards: IntakeCard[] = [{ type: 'source_ingested', sourceId: json.sourceId, label, offers: json.offersFound }]
+    if (state.gaps.length > 0) cards.push({ type: 'gap_batch', gaps: state.gaps.slice(0, 3) })
+    const found = json.offersFound as number
+    const message =
+      found > 0
+        ? `Connected ${label} — imported ${found} offer${found === 1 ? '' : 's'}.${state.gaps.length ? ' Here is what is still worth confirming:' : ' Your draft is looking complete.'}`
+        : `Connected ${label}, but I did not find any offers to import. We can keep going with what we have.`
+    return { message, cards }
   }
 
   async function commit() {
@@ -275,6 +317,7 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, className = '' }
               controller={controller}
               onCommit={commit}
               onAnswers={(answers) => postTurn({ answers })}
+              onConnect={postIngest}
             />
           ),
         }}
@@ -301,6 +344,8 @@ function intakeCardKey(card: IntakeCard): string {
       return `summary-${card.readiness}-${card.draft.services.length + card.draft.products.length}`
     case 'handoff':
       return `handoff-${card.via}`
+    case 'integration_connect':
+      return 'integration-connect'
   }
 }
 
@@ -312,12 +357,18 @@ function IntakeCardView({
   controller,
   onCommit,
   onAnswers,
+  onConnect,
 }: {
   card: IntakeCard
   controller: AgentChatController<IntakeCard>
   onCommit: () => Promise<AgentTurnResponse<IntakeCard>>
   onAnswers: (answers: GapAnswer[]) => Promise<AgentTurnResponse<IntakeCard>>
+  onConnect: (body: Record<string, unknown>) => Promise<AgentTurnResponse<IntakeCard>>
 }) {
+  if (card.type === 'integration_connect') {
+    return <IntegrationConnect card={card} controller={controller} onConnect={onConnect} />
+  }
+
   if (card.type === 'source_ingested') {
     return (
       <article className="rounded-3xl border border-[var(--bd-10)] bg-[var(--ov-04)] p-4 shadow-xl backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.04]">
@@ -397,6 +448,116 @@ function IntakeCardView({
           <ArrowRight className="size-3.5" />
         </button>
       </div>
+    </article>
+  )
+}
+
+// Providers the interview can pull a live catalog from (the seller's own token,
+// used once). Mirrors lib/server/integration-importers INGESTABLE_PROVIDERS.
+const CONNECT_PROVIDERS: Array<{ key: string; label: string; fields: Array<{ name: string; label: string; type: 'text' | 'password' }> }> = [
+  { key: 'calendly', label: 'Calendly', fields: [{ name: 'token', label: 'Personal Access Token', type: 'password' }] },
+  { key: 'shopify', label: 'Shopify', fields: [{ name: 'shop', label: 'store.myshopify.com', type: 'text' }, { name: 'accessToken', label: 'Admin API token', type: 'password' }] },
+  { key: 'square', label: 'Square', fields: [{ name: 'accessToken', label: 'Access token', type: 'password' }] },
+  { key: 'acuity', label: 'Acuity', fields: [{ name: 'userId', label: 'User ID', type: 'text' }, { name: 'apiKey', label: 'API key', type: 'password' }] },
+]
+
+/** Pull a live catalog mid-interview. Pick a provider, paste the credential, and
+ *  the offers fold into the draft (via /ingest, Pro-gated server-side). A
+ *  re-interview with a saved Calendly token skips the paste. */
+function IntegrationConnect({
+  card,
+  controller,
+  onConnect,
+}: {
+  card: Extract<IntakeCard, { type: 'integration_connect' }>
+  controller: AgentChatController<IntakeCard>
+  onConnect: (body: Record<string, unknown>) => Promise<AgentTurnResponse<IntakeCard>>
+}) {
+  const [provider, setProvider] = useState<string | null>(null)
+  const [values, setValues] = useState<Record<string, string>>({})
+  const meta = CONNECT_PROVIDERS.find((p) => p.key === provider)
+  const ready = meta ? meta.fields.every((f) => (values[f.name] || '').trim().length > 0) : false
+
+  function connect(body: Record<string, unknown>) {
+    void controller.runAction('Connecting your tool…', () => onConnect(body))
+    setProvider(null)
+    setValues({})
+  }
+
+  return (
+    <article className="rounded-3xl border border-[var(--bd-10)] bg-[var(--ov-04)] p-4 shadow-xl backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="flex items-center gap-2">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-[var(--signal)]/15 text-[var(--signal)]">
+          <Plug className="size-4" />
+        </div>
+        <h3 className="text-sm font-semibold text-[var(--fg)]">Connect a booking or store tool</h3>
+      </div>
+      <p className="mt-1 text-[11px] leading-4 text-[var(--fg-muted)]">
+        Pull your live offers from Calendly, Shopify, Square, or Acuity. A Pro feature.
+      </p>
+
+      {!meta ? (
+        <>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {CONNECT_PROVIDERS.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                disabled={controller.busy}
+                onClick={() => setProvider(p.key)}
+                className="rounded-full border border-[var(--bd-15)] bg-[var(--panel)] px-3 py-1.5 text-xs text-[var(--fg-soft)] transition hover:border-[var(--signal)]/40 hover:text-[var(--signal)] disabled:opacity-40 dark:border-white/12 dark:bg-white/[0.04] dark:text-white/70"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          {card.calendlyConnected ? (
+            <button
+              type="button"
+              disabled={controller.busy}
+              onClick={() => connect({ provider: 'calendly' })}
+              className="mt-2 inline-flex items-center gap-1.5 text-xs text-[var(--ready)] transition hover:underline disabled:opacity-40"
+            >
+              <CircleCheck className="size-3.5" /> Use your saved Calendly connection
+            </button>
+          ) : null}
+        </>
+      ) : (
+        <div className="mt-3 space-y-2">
+          {meta.fields.map((f) => (
+            <input
+              key={f.name}
+              type={f.type}
+              value={values[f.name] || ''}
+              onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
+              placeholder={f.label}
+              className="w-full rounded-xl border border-[var(--bd-15)] bg-[var(--panel)] px-3 py-2 text-xs text-[var(--fg)] outline-none placeholder:text-[var(--fg-muted)] dark:border-white/12 dark:bg-white/[0.04]"
+            />
+          ))}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={!ready || controller.busy}
+              onClick={() => connect({ provider: meta.key, ...values })}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--inverse-bg)] px-3 py-2 text-xs font-semibold text-[var(--inverse-fg)] transition hover:brightness-95 disabled:opacity-40"
+            >
+              Connect {meta.label}
+              <ArrowRight className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              disabled={controller.busy}
+              onClick={() => {
+                setProvider(null)
+                setValues({})
+              }}
+              className="rounded-xl border border-[var(--bd-15)] px-3 py-2 text-xs text-[var(--fg-muted)] transition hover:bg-[var(--ov-05)] disabled:opacity-40 dark:border-white/12"
+            >
+              Back
+            </button>
+          </div>
+        </div>
+      )}
     </article>
   )
 }

@@ -187,6 +187,40 @@ describe('IntakeChat - interview', () => {
     expect(screen.getAllByRole('button', { name: 'Skip' }).length).toBeGreaterThan(0)
   })
 
+  it('the integration connector: pick a provider, enter a token, and it posts to /ingest and folds the result', async () => {
+    const ingested = () => {
+      let state = scratchState()
+      const added = applyIntakeAction(state, {
+        type: 'ADD_SOURCE',
+        source: { id: 'si', kind: 'integration', value: 'calendly', label: 'Calendly', addedAt: '2026-07-08T00:00:00Z' },
+      })
+      if (added.ok) state = added.state
+      return state
+    }
+    const calls = mockFetch([
+      noSessions,
+      { match: (url, init) => url.endsWith('/api/agents/intake/threads') && init?.method === 'POST', status: 201, body: { ok: true, id: 'sess-1', state: scratchState() } },
+      { match: (url) => url.endsWith('/sess-1/ingest'), body: { ok: true, sourceId: 'si', offersFound: 3, phase: 'GAP_ANALYSIS', state: ingested() } },
+    ])
+    render(<IntakeChat />)
+    fireEvent.click(screen.getByText('Start from scratch'))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Nexez intake' })).toBeInTheDocument())
+
+    // The connector card is present; picking Calendly reveals its token field.
+    expect(screen.getByText('Connect a booking or store tool')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Calendly'))
+    const tokenInput = screen.getByPlaceholderText('Personal Access Token')
+    fireEvent.change(tokenInput, { target: { value: 'cal_tok_123' } })
+    fireEvent.click(screen.getByText('Connect Calendly'))
+
+    await waitFor(() => {
+      const ingest = calls.find((c) => c.url.endsWith('/sess-1/ingest'))
+      expect(ingest?.payload).toEqual({ provider: 'calendly', token: 'cal_tok_123' })
+    })
+    // The imported result is folded into the chat.
+    await waitFor(() => expect(screen.getByText(/Connected Calendly — imported 3 offers/)).toBeInTheDocument())
+  })
+
   it('a URL start shows the source_ingested card with offer count + confidence', async () => {
     mockFetch([
       noSessions,

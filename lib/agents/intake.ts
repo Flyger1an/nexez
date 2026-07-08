@@ -48,6 +48,11 @@ export type IntakeCard =
   | { type: 'gap_batch'; gaps: Gap[] }
   | { type: 'draft_summary'; draft: IntakeDraft; readiness: number; handoffEligible: boolean }
   | { type: 'handoff'; via: 'agent' | 'owner_exit' }
+  // Client-only: the web intake seeds this to let the seller pull a live catalog
+  // (Calendly/Shopify/Square/Acuity) mid-interview. The server never emits it —
+  // the client posts the chosen provider + credentials to /ingest and folds the
+  // result. `calendlyConnected` (re-interview only) offers "use saved token".
+  | { type: 'integration_connect'; calendlyConnected?: boolean }
 
 export type IntakeTurnResult =
   | { ok: true; message: string; cards: IntakeCard[]; state: IntakeState; status: IntakeSessionRow['status'] }

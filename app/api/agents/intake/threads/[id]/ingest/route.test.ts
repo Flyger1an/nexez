@@ -20,10 +20,17 @@ vi.mock('../../../../../../../lib/importer', () => ({
   analyzeSite: vi.fn(async () => importerRef.result),
   llmExtractOffers: vi.fn(async () => importerRef.offers),
 }))
+const { credRef } = vi.hoisted(() => ({ credRef: { savedPat: null as string | null, lastInput: null as any } }))
 vi.mock('../../../../../../../lib/server/integration-importers', () => ({
   INGESTABLE_PROVIDERS: ['calendly', 'shopify', 'square', 'acuity'],
   gateIntegrationImport: vi.fn(async () => integRef.gate),
-  importIntegrationOffers: vi.fn(async () => integRef.importResult),
+  importIntegrationOffers: vi.fn(async (input: any) => {
+    credRef.lastInput = input
+    return integRef.importResult
+  }),
+}))
+vi.mock('../../../../../../../lib/server/page-integration-credentials', () => ({
+  getCalendlyPat: vi.fn(async () => credRef.savedPat),
 }))
 
 import { POST } from './route'
@@ -64,6 +71,8 @@ beforeEach(() => {
   importerRef.urlError = null
   integRef.gate = { ok: true, ownerId: 'owner-1' }
   integRef.importResult = { ok: true, offers: [{ name: 'Calendly Consult', description: '', price: 'Custom', url: '', source: 'calendly' }], note: 'Imported 1' }
+  credRef.savedPat = null
+  credRef.lastInput = null
   importerRef.offers = [{ name: 'Pasted Offer', description: '', price: '$40', url: '' }]
   importerRef.result = {
     title: 'Apex',
@@ -145,6 +154,22 @@ describe('POST /api/agents/intake/threads/[id]/ingest', () => {
     it('400s when the provider credentials are missing', async () => {
       authRef.result = { supabase: dbWith(activeRow(), []), user: OWNER }
       expect((await POST(post({ provider: 'shopify' }), params)).status).toBe(400) // no shop/accessToken
+    })
+
+    it('re-interview: a Calendly connect with no token falls back to the page\'s saved PAT', async () => {
+      credRef.savedPat = 'stored_cal_pat'
+      const reRow = { id: 'sess-1', owner_id: OWNER.id, page_id: 'page-7', status: 'active', phase: 'GAP_ANALYSIS', state: midInterviewState() }
+      authRef.result = { supabase: dbWith(reRow, []), user: OWNER }
+      const res = await POST(post({ provider: 'calendly' }), params) // NO token in the body
+      expect(res.status).toBe(200)
+      expect(credRef.lastInput).toEqual({ provider: 'calendly', token: 'stored_cal_pat' })
+    })
+
+    it('a Calendly connect with no token AND no saved PAT is a 400 (nothing to use)', async () => {
+      credRef.savedPat = null
+      const reRow = { id: 'sess-1', owner_id: OWNER.id, page_id: 'page-7', status: 'active', phase: 'GAP_ANALYSIS', state: midInterviewState() }
+      authRef.result = { supabase: dbWith(reRow, []), user: OWNER }
+      expect((await POST(post({ provider: 'calendly' }), params)).status).toBe(400)
     })
 
     it('surfaces the Pro gate (402) before fetching', async () => {

@@ -105,6 +105,11 @@ export default function PageSettings({ params }: PageProps) {
 
   // Deeper Calendly: per-page webhook secret for real signature verification (beyond demo headers)
   const [calendlyWebhookSecret, setCalendlyWebhookSecret] = useState('')
+  // Calendly write-side connection: a stored (encrypted) PAT. Write-only — the
+  // raw token is never loaded back; we only know whether one is connected.
+  const [calendlyConnected, setCalendlyConnected] = useState(false)
+  const [calendlyPat, setCalendlyPat] = useState('')
+  const [calendlyPatBusy, setCalendlyPatBusy] = useState(false)
 
   // Verification details for trust score
   const [verificationDetails, setVerificationDetails] = useState<any>({})
@@ -244,11 +249,12 @@ export default function PageSettings({ params }: PageProps) {
 	    const ctx = (await ctxRes.json().catch(() => ({}))) as {
 	      role?: 'owner' | 'editor' | 'viewer'
 	      plan?: typeof ownPlan
-	      secrets?: { calendly_webhook_secret: string | null; outbound_webhooks: unknown; domain_verification_token: string | null }
+	      secrets?: { calendly_webhook_secret: string | null; outbound_webhooks: unknown; domain_verification_token: string | null; calendly_connected?: boolean }
 	    }
 	    if (ctx.plan) setPlan(ctx.plan)
 	    if (ctx.role) setPageRole(ctx.role)
 	    const secrets = ctx.secrets
+    setCalendlyConnected(Boolean(secrets?.calendly_connected))
 
 	    const activePage = {
 	      ...data,
@@ -504,6 +510,37 @@ export default function PageSettings({ params }: PageProps) {
 	    await navigator.clipboard.writeText(value)
 	    setCopied(label)
 	    window.setTimeout(() => setCopied(''), 1200)
+	  }
+
+	  // Save (encrypt) or clear the page's Calendly PAT. The raw token is sent once
+	  // and never read back; the server stores it encrypted and returns only status.
+	  async function updateCalendlyConnection(clear = false) {
+	    if (!page?.id) return
+	    if (!clear && !calendlyPat.trim()) return
+	    setCalendlyPatBusy(true)
+	    try {
+	      const res = await fetch(`/api/pages/${page.id}/secrets`, {
+	        method: 'POST',
+	        headers: { 'content-type': 'application/json' },
+	        body: JSON.stringify({ calendly_pat: clear ? '' : calendlyPat.trim() }),
+	      })
+	      if (res.status === 503) {
+	        setMessage('Calendly connection storage is not enabled on this deployment yet.')
+	        return
+	      }
+	      if (!res.ok) {
+	        const j = (await res.json().catch(() => ({}))) as { error?: string }
+	        setMessage(j.error || 'Could not update the Calendly connection.')
+	        return
+	      }
+	      setCalendlyConnected(!clear)
+	      setCalendlyPat('')
+	      setMessage(clear ? 'Calendly connection removed.' : 'Calendly connected. Nexez can now manage this listing’s calendar.')
+	    } catch {
+	      setMessage('Could not update the Calendly connection.')
+	    } finally {
+	      setCalendlyPatBusy(false)
+	    }
 	  }
 
 	  async function upsertPageSecrets(values: Record<string, unknown>) {
@@ -1914,6 +1951,52 @@ export default function PageSettings({ params }: PageProps) {
                   className="w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm font-mono"
                 />
                 <p className="mt-1 text-[10px] text-zinc-500">Save settings after pasting the secret. Use your listing slug when setting up the Calendly webhook URL.</p>
+              </div>
+
+              {/* Calendly connection (write-side): a stored, encrypted PAT so Nexez can
+                  manage this listing's calendar. Write-only — the token is never shown back. */}
+              <div className="mt-4 rounded-lg border border-[var(--signal)]/30 bg-[var(--signal)]/5 p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-medium text-[var(--signal)]">Calendly connection</div>
+                  {calendlyConnected ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[var(--ready)]/15 px-2 py-0.5 text-[10px] font-medium text-[var(--ready)]">
+                      <Check className="size-3" /> Connected
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-zinc-400">Not connected</span>
+                  )}
+                </div>
+                <p className="mt-1 text-[10px] text-zinc-400">
+                  Paste a Calendly Personal Access Token so Nexez can manage this listing’s calendar (used by availability sync and
+                  future calendar blocking). Stored encrypted; the token is never shown again.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <input
+                    type="password"
+                    value={calendlyPat}
+                    onChange={(e) => setCalendlyPat(e.target.value)}
+                    placeholder={calendlyConnected ? 'Paste a new token to replace' : 'Paste Calendly Personal Access Token'}
+                    className="min-w-0 flex-1 rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm font-mono"
+                  />
+                  <button
+                    type="button"
+                    disabled={calendlyPatBusy || !calendlyPat.trim()}
+                    onClick={() => updateCalendlyConnection(false)}
+                    className="shrink-0 rounded-lg bg-[var(--signal)]/90 px-3 py-1.5 text-sm font-medium text-black transition hover:brightness-110 disabled:opacity-40"
+                  >
+                    {calendlyPatBusy ? 'Saving…' : calendlyConnected ? 'Replace' : 'Connect'}
+                  </button>
+                  {calendlyConnected ? (
+                    <button
+                      type="button"
+                      disabled={calendlyPatBusy}
+                      onClick={() => updateCalendlyConnection(true)}
+                      className="shrink-0 rounded-lg border border-white/15 px-3 py-1.5 text-sm text-zinc-300 transition hover:bg-white/10 disabled:opacity-40"
+                    >
+                      Disconnect
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </form>
 

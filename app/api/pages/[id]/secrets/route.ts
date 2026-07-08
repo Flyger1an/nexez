@@ -4,6 +4,7 @@ import { createClient } from '../../../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../../utils/supabase/admin'
 import { resolvePageAccess } from '../../../../../lib/server/page-access'
 import { enforceRateLimit } from '../../../../../lib/rate-limit'
+import { encryptSecret, hasSecretCryptoKey } from '../../../../../lib/server/secret-crypto'
 
 /**
  * Upsert the page's owner-only secrets (domain verification token, Calendly webhook
@@ -36,6 +37,24 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   for (const key of ALLOWED_KEYS) {
     if (key in body) values[key] = body[key]
   }
+
+  // Calendly PAT: a powerful write-scope credential — encrypt at rest (the
+  // ciphertext column is service-role-read-only) and NEVER echo it back. An
+  // empty value clears the stored token.
+  if ('calendly_pat' in body) {
+    if (!hasSecretCryptoKey()) {
+      return NextResponse.json({ error: 'Credential storage is not configured on this deployment.' }, { status: 503 })
+    }
+    const raw = typeof body.calendly_pat === 'string' ? body.calendly_pat.trim() : ''
+    if (raw) {
+      const encrypted = encryptSecret(raw)
+      if (!encrypted) return NextResponse.json({ error: 'Could not secure the credential.' }, { status: 500 })
+      values.calendly_pat_encrypted = encrypted
+    } else {
+      values.calendly_pat_encrypted = null // explicit clear
+    }
+  }
+
   if (!Object.keys(values).length) return NextResponse.json({ error: 'No valid fields to update.' }, { status: 400 })
 
   const admin = createAdminClient()

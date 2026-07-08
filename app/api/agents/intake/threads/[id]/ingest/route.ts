@@ -11,6 +11,7 @@ import {
   INGESTABLE_PROVIDERS,
   type IntegrationIngestInput,
 } from '../../../../../../../lib/server/integration-importers'
+import { getCalendlyPat } from '../../../../../../../lib/server/page-integration-credentials'
 
 // Ingestion crawls / live catalog fetches - keep the budget generous but bounded.
 export const maxDuration = 60
@@ -103,7 +104,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   let extraction: IntakeExtraction
 
   if (provider) {
-    const input = buildIntegrationInput(provider, body)
+    const pageId = (row as { page_id?: string | null }).page_id ?? undefined
+    // Re-interview convenience: a Calendly connect with no token falls back to
+    // the page's saved (encrypted) PAT, so the seller doesn't re-paste it.
+    let effectiveBody = body
+    if (provider === 'calendly' && !str(body.token) && pageId) {
+      const savedToken = await getCalendlyPat(pageId)
+      if (savedToken) effectiveBody = { ...body, token: savedToken }
+    }
+    const input = buildIntegrationInput(provider, effectiveBody)
     if ('error' in input) return NextResponse.json({ error: input.error }, { status: 400 })
 
     // Pro gate on the EFFECTIVE owner (re-interview → the page owner; new draft →
@@ -111,7 +120,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const gate = await gateIntegrationImport({
       supabase,
       user,
-      pageId: (row as { page_id?: string | null }).page_id ?? undefined,
+      pageId,
       proMessage: 'Connecting a live integration is a Pro feature. Upgrade to sync your catalog, or paste your offers and I’ll structure them (free).',
     })
     if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })

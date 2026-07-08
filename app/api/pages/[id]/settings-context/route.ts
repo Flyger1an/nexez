@@ -35,9 +35,11 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     getOwnerPlanId(admin, access.ownerId),
     admin
       .from('page_secrets')
-      .select('calendly_webhook_secret, outbound_webhooks, domain_verification_token')
+      // calendly_pat_encrypted is selected ONLY to derive a boolean — its value
+      // never leaves the server.
+      .select('calendly_webhook_secret, outbound_webhooks, domain_verification_token, calendly_pat_encrypted')
       .eq('page_id', access.pageId)
-      .maybeSingle<{ calendly_webhook_secret: string | null; outbound_webhooks: unknown; domain_verification_token: string | null }>(),
+      .maybeSingle<{ calendly_webhook_secret: string | null; outbound_webhooks: unknown; domain_verification_token: string | null; calendly_pat_encrypted: string | null }>(),
   ])
 
   return NextResponse.json({
@@ -48,6 +50,8 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
       calendly_webhook_secret: secrets?.calendly_webhook_secret ?? null,
       outbound_webhooks: secrets?.outbound_webhooks ?? null,
       domain_verification_token: secrets?.domain_verification_token ?? null,
+      // Boolean only — the encrypted PAT is never returned to the client.
+      calendly_connected: Boolean(secrets?.calendly_pat_encrypted),
     },
   })
 }

@@ -4,7 +4,7 @@ const refs = vi.hoisted(() => ({
   user: { id: 'editor-2', email: 'mate@x.com' } as any,
   access: { pageId: 'p1', ownerId: 'owner-1', role: 'editor' } as any,
   plan: 'enterprise',
-  secrets: { calendly_webhook_secret: 'cs', outbound_webhooks: [{ url: 'u' }], domain_verification_token: 'tok' } as any,
+  secrets: { calendly_webhook_secret: 'cs', outbound_webhooks: [{ url: 'u' }], domain_verification_token: 'tok', calendly_pat_encrypted: 'v1.enc.crypt.tag' } as any,
 }))
 
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ getAll: () => [], set: () => {} })) }))
@@ -47,12 +47,20 @@ describe('GET /api/pages/[id]/settings-context', () => {
   it('returns the OWNER plan + role + owner-only secrets for an editor', async () => {
     const res = await GET(req(), { params })
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({
+    const json = await res.json()
+    expect(json).toEqual({
       role: 'editor',
       ownerId: 'owner-1',
       plan: 'enterprise', // the OWNER's plan, not the editor's
-      secrets: { calendly_webhook_secret: 'cs', outbound_webhooks: [{ url: 'u' }], domain_verification_token: 'tok' },
+      secrets: {
+        calendly_webhook_secret: 'cs',
+        outbound_webhooks: [{ url: 'u' }],
+        domain_verification_token: 'tok',
+        calendly_connected: true, // boolean derived from ciphertext presence
+      },
     })
+    // The encrypted PAT itself must never reach the client.
+    expect(JSON.stringify(json)).not.toContain('v1.enc.crypt.tag')
   })
 
   it('requires editor (passes requireEditor to the resolver)', async () => {

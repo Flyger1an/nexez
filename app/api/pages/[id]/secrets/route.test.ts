@@ -5,6 +5,11 @@ const refs = vi.hoisted(() => ({
   access: { pageId: 'p1', ownerId: 'owner-1', role: 'editor' } as any,
   upsertArg: null as any,
   upsertError: null as any,
+  cryptoKey: true,
+}))
+vi.mock('../../../../../lib/server/secret-crypto', () => ({
+  hasSecretCryptoKey: () => refs.cryptoKey,
+  encryptSecret: (v: string) => (refs.cryptoKey && v ? `enc(${v})` : null),
 }))
 
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ getAll: () => [], set: () => {} })) }))
@@ -37,6 +42,7 @@ describe('POST /api/pages/[id]/secrets', () => {
     refs.access = { pageId: 'p1', ownerId: 'owner-1', role: 'editor' }
     refs.upsertArg = null
     refs.upsertError = null
+    refs.cryptoKey = true
   })
 
   it('401 unauth / 403 stranger', async () => {
@@ -67,5 +73,26 @@ describe('POST /api/pages/[id]/secrets', () => {
   it('500 when the upsert fails', async () => {
     refs.upsertError = { message: 'boom' }
     expect((await POST(post({ domain_verification_token: 't' }), { params })).status).toBe(500)
+  })
+
+  it('encrypts a calendly_pat, stores the ciphertext, and NEVER echoes the raw token', async () => {
+    const res = await POST(post({ calendly_pat: 'cal_live_secret' }), { params })
+    expect(res.status).toBe(200)
+    expect(refs.upsertArg.calendly_pat_encrypted).toBe('enc(cal_live_secret)')
+    expect('calendly_pat' in refs.upsertArg).toBe(false) // raw never written
+    expect(JSON.stringify(await res.json())).not.toContain('cal_live_secret')
+  })
+
+  it('an empty calendly_pat CLEARS the stored token (null)', async () => {
+    const res = await POST(post({ calendly_pat: '   ' }), { params })
+    expect(res.status).toBe(200)
+    expect(refs.upsertArg.calendly_pat_encrypted).toBeNull()
+  })
+
+  it('503 when calendly_pat is sent but the crypto key is not configured', async () => {
+    refs.cryptoKey = false
+    const res = await POST(post({ calendly_pat: 'cal_live_secret' }), { params })
+    expect(res.status).toBe(503)
+    expect(refs.upsertArg).toBeNull() // nothing written
   })
 })
