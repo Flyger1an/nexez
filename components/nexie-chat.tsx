@@ -72,21 +72,28 @@ export function NexieChat({ initialThreadId, className = '' }: NexieChatProps) {
 
   // Streaming turn over the SSE route: tokens render progressively via onToken;
   // the `done` frame is authoritative (message + cards + threadId). Falls back
-  // to the JSON route if the stream can't start (non-2xx / no body).
+  // to the JSON route only when the browser/network cannot provide a readable
+  // stream. Real route errors still surface so auth/rate limits are not retried.
   async function streamTurn(
     { text, mode }: { text: string; mode: 'text' | 'voice' },
     { onToken }: { onToken: (delta: string) => void },
   ): Promise<AgentTurnResponse<NexieCard>> {
-    const response = await fetch('/api/agents/nexie/stream', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ message: text, mode, threadId: threadIdRef.current }),
-    })
-    if (!response.ok || !response.body) {
-      // No stream available — surface the route's error (rate limit, auth, etc.).
+    let response: Response
+    try {
+      response = await fetch('/api/agents/nexie/stream', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ message: text, mode, threadId: threadIdRef.current }),
+      })
+    } catch {
+      return postTurn({ message: text, mode })
+    }
+
+    if (!response.ok) {
       const json = await response.json().catch(() => ({}))
       throw new Error((json as { error?: string }).error || 'Nexxi could not answer.')
     }
+    if (!response.body) return postTurn({ message: text, mode })
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder()

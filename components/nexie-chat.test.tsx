@@ -18,9 +18,16 @@ function sseBody(frames: object[]): ReadableStream<Uint8Array> {
   })
 }
 
+type MockResponse = {
+  ok?: boolean
+  body: Record<string, unknown>
+  tokens?: string[]
+  streamBody?: ReadableStream<Uint8Array> | null
+}
+
 // Normal turns stream over /api/agents/nexie/stream (SSE); approvals still POST
 // JSON to /api/agents/nexie. Responses are consumed in order across both routes.
-function mockFetch(responses: Array<{ ok?: boolean; body: Record<string, unknown>; tokens?: string[] }>) {
+function mockFetch(responses: MockResponse[]) {
   const calls: Array<{ url: string; payload: Record<string, unknown> }> = []
   let call = 0
   vi.stubGlobal(
@@ -31,6 +38,7 @@ function mockFetch(responses: Array<{ ok?: boolean; body: Record<string, unknown
       const next = responses[Math.min(call++, responses.length - 1)]
       const ok = next.ok !== false
       if (u.endsWith('/stream')) {
+        if ('streamBody' in next) return { ok, body: next.streamBody, json: async () => next.body } as unknown as Response
         if (!ok) return { ok, body: null, json: async () => next.body } as unknown as Response
         const tokenFrames = (next.tokens ?? []).map((value) => ({ type: 'token', value }))
         return { ok, body: sseBody([...tokenFrames, { type: 'done', ...next.body }]) } as unknown as Response
@@ -83,6 +91,18 @@ describe('NexieChat (regression after the agent-chat factor-out)', () => {
     await sendText('second')
     await waitFor(() => expect(screen.getByText('Second reply.')).toBeInTheDocument())
     expect(calls[1].payload.threadId).toBe('t-1')
+  })
+
+  it('falls back to the JSON route when streaming is unavailable', async () => {
+    const calls = mockFetch([
+      { streamBody: null, body: {} },
+      { body: { threadId: 't-json', message: 'Fallback reply.', cards: [] } },
+    ])
+    render(<NexieChat />)
+    await sendText('find a strategist')
+    await waitFor(() => expect(screen.getByText('Fallback reply.')).toBeInTheDocument())
+    expect(calls.map((call) => call.url)).toEqual(['/api/agents/nexie/stream', '/api/agents/nexie'])
+    expect(calls[1].payload).toEqual({ message: 'find a strategist', mode: 'text', threadId: undefined })
   })
 
   it('renders page_result cards with the View page link', async () => {
@@ -151,9 +171,10 @@ describe('NexieChat (regression after the agent-chat factor-out)', () => {
   })
 
   it('surfaces the API error message when a turn fails', async () => {
-    mockFetch([{ ok: false, body: { error: 'Sign in to use Nexxi.' } }])
+    const calls = mockFetch([{ ok: false, body: { error: 'Sign in to use Nexxi.' } }])
     render(<NexieChat />)
     await sendText('hello')
     await waitFor(() => expect(screen.getByText('Sign in to use Nexxi.')).toBeInTheDocument())
+    expect(calls).toHaveLength(1)
   })
 })
