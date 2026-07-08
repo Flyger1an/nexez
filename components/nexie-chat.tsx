@@ -70,6 +70,66 @@ export function NexieChat({ initialThreadId, className = '' }: NexieChatProps) {
     return { message: json.message, cards: json.cards ?? [] }
   }
 
+  // Streaming turn over the SSE route: tokens render progressively via onToken;
+  // the `done` frame is authoritative (message + cards + threadId). Falls back
+  // to the JSON route if the stream can't start (non-2xx / no body).
+  async function streamTurn(
+    { text, mode }: { text: string; mode: 'text' | 'voice' },
+    { onToken }: { onToken: (delta: string) => void },
+  ): Promise<AgentTurnResponse<NexieCard>> {
+    const response = await fetch('/api/agents/nexie/stream', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ message: text, mode, threadId: threadIdRef.current }),
+    })
+    if (!response.ok || !response.body) {
+      // No stream available — surface the route's error (rate limit, auth, etc.).
+      const json = await response.json().catch(() => ({}))
+      throw new Error((json as { error?: string }).error || 'Nexxi could not answer.')
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let final: AgentTurnResponse<NexieCard> | null = null
+    let streamError: string | null = null
+
+    const handleFrame = (frame: string) => {
+      const dataLine = frame.split('\n').find((line) => line.startsWith('data:'))
+      if (!dataLine) return
+      const payload = dataLine.slice(5).trim()
+      if (!payload) return
+      let evt: { type?: string; value?: string; error?: string; threadId?: string; message?: string; cards?: NexieCard[] }
+      try {
+        evt = JSON.parse(payload)
+      } catch {
+        return
+      }
+      if (evt.type === 'token') onToken(evt.value ?? '')
+      else if (evt.type === 'done') {
+        threadIdRef.current = evt.threadId ?? threadIdRef.current
+        final = { message: evt.message ?? '', cards: evt.cards ?? [] }
+      } else if (evt.type === 'error') streamError = evt.error || 'Nexxi could not answer.'
+    }
+
+    for (;;) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      // SSE frames are separated by a blank line.
+      let boundary
+      while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+        handleFrame(buffer.slice(0, boundary))
+        buffer = buffer.slice(boundary + 2)
+      }
+    }
+    if (buffer.trim()) handleFrame(buffer) // flush a trailing unterminated frame
+
+    if (streamError) throw new Error(streamError)
+    if (!final) throw new Error('Nexxi could not answer.')
+    return final
+  }
+
   function decide(
     controller: AgentChatController<NexieCard>,
     card: Extract<NexieCard, { type: 'approval' }>,
@@ -97,6 +157,7 @@ export function NexieChat({ initialThreadId, className = '' }: NexieChatProps) {
         quickPromptEvent: 'nexie:quick-prompt',
         errorFallback: 'Nexxi could not answer.',
         sendTurn: ({ text, mode }) => postTurn({ message: text, mode }),
+        streamTurn,
         cardKey: (card) => `${card.type}-${card.id}`,
         renderCard: (card, controller) => (
           <NexieCardView card={card} onDecision={(c, decision) => decide(controller, c, decision)} />

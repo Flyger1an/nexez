@@ -50,6 +50,16 @@ export type AgentChatConfig<TCard> = {
   /** Show the mic affordance (Web Speech API where available). */
   voice?: boolean
   sendTurn: (input: { text: string; mode: 'text' | 'voice' }) => Promise<AgentTurnResponse<TCard>>
+  /** Optional streaming variant of a turn. When present, the shell renders the
+   *  agent's reply progressively (each `onToken` delta grows the live bubble)
+   *  and then replaces that preview with the resolved response — which is
+   *  AUTHORITATIVE (message + cards), since the streamed preview can differ
+   *  (e.g. a pre-tool-call preamble). Falls back to `sendTurn` when absent.
+   *  Card-initiated actions (runAction) always use the non-streaming path. */
+  streamTurn?: (
+    input: { text: string; mode: 'text' | 'voice' },
+    handlers: { onToken: (delta: string) => void },
+  ) => Promise<AgentTurnResponse<TCard>>
   renderCard: (card: TCard, controller: AgentChatController<TCard>) => ReactNode
   cardKey: (card: TCard) => string
 }

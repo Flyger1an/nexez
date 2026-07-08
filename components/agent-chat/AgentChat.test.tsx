@@ -124,6 +124,77 @@ describe('AgentChat primitive', () => {
   })
 })
 
+describe('AgentChat streaming (streamTurn)', () => {
+  // A streamTurn that lets the test drive tokens, then resolves with the
+  // authoritative final response.
+  function deferredStream() {
+    let emit!: (delta: string) => void
+    let finish!: (r: { message: string; cards?: TestCard[] }) => void
+    let fail!: (e: Error) => void
+    const streamTurn = vi.fn(
+      (_input: { text: string; mode: string }, { onToken }: { onToken: (d: string) => void }) => {
+        emit = onToken
+        return new Promise<{ message: string; cards?: TestCard[] }>((resolve, reject) => {
+          finish = resolve
+          fail = reject
+        })
+      },
+    )
+    return { streamTurn, emit: (d: string) => emit(d), finish: (r: any) => finish(r), fail: (e: Error) => fail(e) }
+  }
+
+  it('renders tokens progressively, then replaces the preview with the authoritative done', async () => {
+    const s = deferredStream()
+    render(<AgentChat config={makeConfig({ streamTurn: s.streamTurn as any })} />)
+    await sendText('find me a photographer')
+
+    // The generic "thinking" indicator shows before the first token.
+    expect(screen.getByText(/TestBot is thinking/)).toBeInTheDocument()
+
+    s.emit('Search')
+    await waitFor(() => expect(screen.getByText('Search')).toBeInTheDocument())
+    // Once tokens flow, the thinking indicator yields to the live bubble.
+    expect(screen.queryByText(/TestBot is thinking/)).not.toBeInTheDocument()
+    s.emit('ing offers…')
+    await waitFor(() => expect(screen.getByText('Searching offers…')).toBeInTheDocument())
+
+    // done is authoritative: the streamed preview is replaced by message + cards.
+    s.finish({ message: 'Here are 2 matches.', cards: [{ id: 'c1', label: 'Card one' }] })
+    await waitFor(() => expect(screen.getByText('Here are 2 matches.')).toBeInTheDocument())
+    expect(screen.queryByText('Searching offers…')).not.toBeInTheDocument()
+    expect(screen.getByTestId('card-c1')).toBeInTheDocument()
+  })
+
+  it('surfaces a stream error in place of the live bubble', async () => {
+    const s = deferredStream()
+    render(<AgentChat config={makeConfig({ streamTurn: s.streamTurn as any })} />)
+    await sendText('go')
+    s.emit('partial…')
+    await waitFor(() => expect(screen.getByText('partial…')).toBeInTheDocument())
+    s.fail(new Error('Nexxi hit a snag.'))
+    await waitFor(() => expect(screen.getByText('Nexxi hit a snag.')).toBeInTheDocument())
+    expect(screen.queryByText('partial…')).not.toBeInTheDocument()
+  })
+
+  it('an error before any token still shows the message (falls back to a fresh bubble)', async () => {
+    const s = deferredStream()
+    render(<AgentChat config={makeConfig({ streamTurn: s.streamTurn as any })} />)
+    await sendText('go')
+    s.fail(new Error('Rate limited.'))
+    await waitFor(() => expect(screen.getByText('Rate limited.')).toBeInTheDocument())
+  })
+
+  it('uses sendTurn (non-streaming) when no streamTurn is configured', async () => {
+    const sendTurn = vi.fn(async () => ({ message: 'plain reply', cards: [] }))
+    const streamTurn = vi.fn()
+    render(<AgentChat config={makeConfig({ sendTurn, streamTurn: undefined })} />)
+    await sendText('hi')
+    await waitFor(() => expect(screen.getByText('plain reply')).toBeInTheDocument())
+    expect(sendTurn).toHaveBeenCalledWith({ text: 'hi', mode: 'text' })
+    expect(streamTurn).not.toHaveBeenCalled()
+  })
+})
+
 // Web Speech capture paths. jsdom has no SpeechRecognition, so the mock below
 // stands in for the browser engine and the tests drive its event handlers in
 // the REAL browser order (error is always followed by end).

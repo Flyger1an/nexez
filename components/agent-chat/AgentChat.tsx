@@ -21,6 +21,9 @@ export function AgentChat<TCard>({ config, className = '' }: AgentChatProps<TCar
       : [{ id: 'welcome', role: 'assistant', content: config.welcome }],
   )
   const [busy, setBusy] = useState(false)
+  // True once the first streamed token has landed (a live bubble is rendering),
+  // so the generic "thinking" indicator yields to the progressive reply.
+  const [streaming, setStreaming] = useState(false)
   const [listening, setListening] = useState(false)
   const [notice, setNotice] = useState('')
   const recognitionRef = useRef<any>(null)
@@ -43,6 +46,17 @@ export function AgentChat<TCard>({ config, className = '' }: AgentChatProps<TCar
     setMessages((current) => [...current, { id: crypto.randomUUID(), role: 'assistant', content, cards }])
   }
 
+  // Replace an existing (streamed) assistant bubble by id, or append a fresh one
+  // when no live bubble exists (e.g. an error before any token arrived).
+  function settleAssistant(id: string | null, content: string, cards?: TCard[]) {
+    setMessages((current) => {
+      if (id && current.some((m) => m.id === id)) {
+        return current.map((m) => (m.id === id ? { ...m, content, cards: cards ?? m.cards } : m))
+      }
+      return [...current, { id: crypto.randomUUID(), role: 'assistant', content, cards }]
+    })
+  }
+
   async function sendMessage(value = input, mode: 'text' | 'voice' = 'text') {
     const text = value.trim()
     if (!text || busy) return
@@ -51,6 +65,37 @@ export function AgentChat<TCard>({ config, className = '' }: AgentChatProps<TCar
     setInput('')
     setBusy(true)
     setNotice('')
+
+    if (config.streamTurn) {
+      // One turn runs at a time (guarded by `busy`), so the live bubble's id is a
+      // plain closure local — no ref needed. First token appends the bubble;
+      // later tokens grow it.
+      let streamingId: string | null = null
+      const onToken = (delta: string) => {
+        if (!delta) return
+        if (!streamingId) {
+          streamingId = crypto.randomUUID()
+          const id = streamingId
+          setStreaming(true)
+          setMessages((current) => [...current, { id, role: 'assistant', content: delta }])
+        } else {
+          const id = streamingId
+          setMessages((current) => current.map((m) => (m.id === id ? { ...m, content: m.content + delta } : m)))
+        }
+      }
+      try {
+        const response = await config.streamTurn({ text, mode }, { onToken })
+        // The resolved response is authoritative — swap the streamed preview for
+        // the final message + cards (the preview may omit tool-driven content).
+        settleAssistant(streamingId, response.message, response.cards ?? [])
+      } catch (error) {
+        settleAssistant(streamingId, error instanceof Error && error.message ? error.message : errorFallback)
+      } finally {
+        setStreaming(false)
+        setBusy(false)
+      }
+      return
+    }
 
     try {
       const response = await config.sendTurn({ text, mode })
@@ -197,7 +242,7 @@ export function AgentChat<TCard>({ config, className = '' }: AgentChatProps<TCar
           </div>
         ))}
 
-        {busy ? (
+        {busy && !streaming ? (
           <div className="flex items-center gap-2 rounded-2xl border border-[var(--bd-10)] bg-[var(--ov-03)] px-4 py-3 text-sm text-[var(--fg-muted)] dark:border-white/10 dark:bg-white/[0.035] dark:text-white/60">
             <Loader2 className="size-4 animate-spin text-[var(--signal)]" />
             {notice || `${config.agentName} is thinking...`}

@@ -6,15 +6,36 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '../test/dom'
 import { NexieChat } from './nexie-chat'
 
-function mockFetch(responses: Array<{ ok?: boolean; body: Record<string, unknown> }>) {
+// Build an SSE body that replays a turn result as a single authoritative `done`
+// frame (the shape the stream route emits; token frames are optional preview).
+function sseBody(frames: object[]): ReadableStream<Uint8Array> {
+  const enc = new TextEncoder()
+  return new ReadableStream({
+    start(controller) {
+      for (const frame of frames) controller.enqueue(enc.encode(`data: ${JSON.stringify(frame)}\n\n`))
+      controller.close()
+    },
+  })
+}
+
+// Normal turns stream over /api/agents/nexie/stream (SSE); approvals still POST
+// JSON to /api/agents/nexie. Responses are consumed in order across both routes.
+function mockFetch(responses: Array<{ ok?: boolean; body: Record<string, unknown>; tokens?: string[] }>) {
   const calls: Array<{ url: string; payload: Record<string, unknown> }> = []
   let call = 0
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init: RequestInit) => {
-      calls.push({ url: String(url), payload: JSON.parse(String(init.body)) })
+      const u = String(url)
+      calls.push({ url: u, payload: JSON.parse(String(init.body)) })
       const next = responses[Math.min(call++, responses.length - 1)]
-      return { ok: next.ok !== false, json: async () => next.body } as Response
+      const ok = next.ok !== false
+      if (u.endsWith('/stream')) {
+        if (!ok) return { ok, body: null, json: async () => next.body } as unknown as Response
+        const tokenFrames = (next.tokens ?? []).map((value) => ({ type: 'token', value }))
+        return { ok, body: sseBody([...tokenFrames, { type: 'done', ...next.body }]) } as unknown as Response
+      }
+      return { ok, json: async () => next.body } as Response
     }),
   )
   return calls
@@ -40,12 +61,14 @@ describe('NexieChat (regression after the agent-chat factor-out)', () => {
     expect(screen.getByRole('button', { name: 'Start voice input' })).toBeInTheDocument()
   })
 
-  it('posts a turn to /api/agents/nexie with {message, threadId, mode} and renders the reply', async () => {
-    const calls = mockFetch([{ body: { threadId: 't-1', message: 'Found two options.', cards: [] } }])
+  it('streams a turn over /api/agents/nexie/stream with {message, threadId, mode}, rendering tokens then the final reply', async () => {
+    const calls = mockFetch([
+      { tokens: ['Found ', 'two '], body: { threadId: 't-1', message: 'Found two options.', cards: [] } },
+    ])
     render(<NexieChat />)
     await sendText('find a photographer')
     await waitFor(() => expect(screen.getByText('Found two options.')).toBeInTheDocument())
-    expect(calls[0].url).toBe('/api/agents/nexie')
+    expect(calls[0].url).toBe('/api/agents/nexie/stream')
     expect(calls[0].payload).toEqual({ message: 'find a photographer', mode: 'text', threadId: undefined })
   })
 
