@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   filterAnalyticsEvents,
   getAgentName,
+  getAgentDrivenRevenueCents,
+  getPipelineCents,
+  getRevenueCents,
+  getRevenueCentsByCurrency,
+  getRevenueCurrency,
   getAgentPageVisitCount,
   getDailyEventSeries,
   getDiscoveryActionStats,
@@ -139,5 +144,44 @@ describe('getAgentName', () => {
     expect(getAgentName('SomeRandomBot/2')).toBe('Generic Agent')
     expect(getAgentName(null)).toBe('Unknown agent')
     expect(getAgentName('CustomThing/1.0')).toBe('CustomThing/1.0')
+  })
+})
+
+// Currency-scoped revenue rollups: amounts settling in different currencies are
+// different units and must never be summed into one number.
+describe('revenue rollups (currency scoping)', () => {
+  const sale = (id: string, amountCents: number, currency?: string, over: Partial<CheckoutEvent> = {}): CheckoutEvent => ({
+    ...discoveryEvent,
+    id,
+    event_type: 'stripe_session_created',
+    agent_user_agent: 'Claude-Agent/1.0',
+    metadata: { amount_cents: amountCents, ...(currency ? { currency } : {}) },
+    ...over,
+  })
+
+  it('a mixed workspace sums ONLY the dominant currency (no cross-currency sums)', () => {
+    const events = [sale('u1', 10_000, 'usd'), sale('u2', 5_000, 'usd'), sale('j1', 900_000, 'jpy')]
+    expect(getRevenueCurrency(events)).toBe('usd')
+    expect(getRevenueCents(events)).toBe(15_000) // the 900,000 JPY never leaks in
+    expect(getAgentDrivenRevenueCents(events)).toBe(15_000)
+    expect(getPipelineCents(events)).toBe(15_000)
+  })
+
+  it('an explicit currency scopes the sum to that currency', () => {
+    const events = [sale('u1', 10_000, 'usd'), sale('j1', 900_000, 'jpy')]
+    expect(getRevenueCents(events, 'jpy')).toBe(900_000)
+    expect(getRevenueCents(events, 'usd')).toBe(10_000)
+  })
+
+  it('getRevenueCentsByCurrency returns the full per-currency breakdown', () => {
+    const events = [sale('u1', 10_000, 'usd'), sale('u2', 2_500, 'usd'), sale('j1', 900_000, 'jpy')]
+    const byCurrency = getRevenueCentsByCurrency(events)
+    expect(byCurrency.get('usd')).toBe(12_500)
+    expect(byCurrency.get('jpy')).toBe(900_000)
+  })
+
+  it('rows that predate multi-currency (no metadata.currency) count as usd', () => {
+    const events = [sale('legacy', 4_000), sale('u1', 1_000, 'usd')]
+    expect(getRevenueCents(events)).toBe(5_000)
   })
 })

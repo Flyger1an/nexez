@@ -99,26 +99,52 @@ export function getDiscoverySurfaceStats(events: CheckoutEvent[]) {
     .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label))
 }
 
-export function getRevenueCents(events: CheckoutEvent[]) {
+/** Settlement currency recorded on the event (metadata.currency, stamped by the
+ *  checkout route). Rows that predate multi-currency are usd. */
+function eventCurrency(event: CheckoutEvent): string {
+  return ((event.metadata?.currency as string | undefined) || 'usd').toLowerCase()
+}
+
+/** Per-currency revenue breakdown - amounts in different settlement currencies
+ *  are different units and must NEVER be summed together. */
+export function getRevenueCentsByCurrency(events: CheckoutEvent[]): Map<string, number> {
+  const totals = new Map<string, number>()
+  for (const event of events) {
+    if (isDryRunEvent(event) || event.event_type !== 'stripe_session_created') continue
+    const code = eventCurrency(event)
+    totals.set(code, (totals.get(code) ?? 0) + getAmountCents(event))
+  }
+  return totals
+}
+
+// The single-number rollups are CURRENCY-SCOPED: they sum only events settling
+// in `currency` (default: the workspace's dominant settlement currency), since
+// the dashboards format the result with exactly one currency code. A
+// single-currency workspace (the common case) is unchanged; a mixed workspace
+// now shows a correct dominant-currency figure instead of a cross-currency sum.
+export function getRevenueCents(events: CheckoutEvent[], currency: string = getRevenueCurrency(events)) {
   return events.reduce((sum, event) => {
     if (isDryRunEvent(event) || event.event_type !== 'stripe_session_created') return sum
+    if (eventCurrency(event) !== currency) return sum
     return sum + getAmountCents(event)
   }, 0)
 }
 
 // Real agent-driven revenue for share calculations (data flywheel + monetization)
-export function getAgentDrivenRevenueCents(events: CheckoutEvent[]) {
+export function getAgentDrivenRevenueCents(events: CheckoutEvent[], currency: string = getRevenueCurrency(events)) {
   return events.reduce((sum, event) => {
     if (isDryRunEvent(event) || event.event_type !== 'stripe_session_created') return sum
+    if (eventCurrency(event) !== currency) return sum
     const isAgentSourced = !!event.agent_user_agent || !!event.query || (event.referrer && /agent|gpt|claude|perplexity|grok/i.test(event.referrer))
     if (!isAgentSourced) return sum
     return sum + getAmountCents(event)
   }, 0)
 }
 
-export function getPipelineCents(events: CheckoutEvent[]) {
+export function getPipelineCents(events: CheckoutEvent[], currency: string = getRevenueCurrency(events)) {
   return events.reduce((sum, event) => {
     if (isDryRunEvent(event) || !['checkout_attempt', 'provider_redirect', 'stripe_session_created'].includes(event.event_type)) return sum
+    if (eventCurrency(event) !== currency) return sum
     return sum + getAmountCents(event)
   }, 0)
 }

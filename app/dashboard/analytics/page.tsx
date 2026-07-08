@@ -209,14 +209,15 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const conversionRate = filteredEvents.length
     ? ((conversionCount / Math.max(attemptCount || filteredEvents.length, 1)) * 100).toFixed(1)
     : '0.0'
-  const revenueCents = getRevenueCents(filteredEvents)
-  const pipelineCents = getPipelineCents(filteredEvents)
-  const agentRevenueCents = getAgentDrivenRevenueCents(filteredEvents)
+  // Resolve the settlement currency FIRST and scope every rollup to it - the
+  // KPI renders one currency code, so amounts settling in other currencies
+  // must not be mixed into the number (they're different units).
+  const revenueCurrency = getRevenueCurrency(filteredEvents)
+  const revenueCents = getRevenueCents(filteredEvents, revenueCurrency)
+  const pipelineCents = getPipelineCents(filteredEvents, revenueCurrency)
+  const agentRevenueCents = getAgentDrivenRevenueCents(filteredEvents, revenueCurrency)
   const agentSharePct = 15 // platform share on agent-driven transactions
   const agentShareCents = Math.round(agentRevenueCents * (agentSharePct / 100))
-  // Format revenue in the workspace's actual settlement currency (recorded on
-  // checkout events) - correct incl. zero-decimal currencies, not hardcoded USD.
-  const revenueCurrency = getRevenueCurrency(filteredEvents)
   const money = (cents: number) => formatCurrencyAmount(cents, revenueCurrency)
   const popularService = getTopOfferStats(filteredEvents)[0]?.name || 'No offer activity yet'
   const dailySeries = mergeVisitCountsIntoDailySeries(getDailyEventSeries(filteredEvents, 10), filteredAgentVisits)
@@ -288,9 +289,11 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       periodLabel,
     )
     agentVisitsDelta = pctDelta(agentPageVisits, getTrafficSplit(prevVisits).ai, periodLabel)
-    revenueDelta = pctDelta(revenueCents, getRevenueCents(prevEvents), periodLabel)
+    // The prev period sums in the SAME currency as the current one, so the
+    // delta compares like units even if the workspace switched currencies.
+    revenueDelta = pctDelta(revenueCents, getRevenueCents(prevEvents, revenueCurrency), periodLabel)
     conversionDelta = pctDelta(Number(conversionRate), prevConversionRate, periodLabel)
-    agentRevenueDelta = pctDelta(agentRevenueCents, getAgentDrivenRevenueCents(prevEvents), periodLabel)
+    agentRevenueDelta = pctDelta(agentRevenueCents, getAgentDrivenRevenueCents(prevEvents, revenueCurrency), periodLabel)
   }
 
   // One-line takeaway from the biggest movers (drives the insight band).

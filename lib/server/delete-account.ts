@@ -42,11 +42,15 @@ const SELLER_OWNER_ID_TABLES = [
   'api_keys',
   'billing_subscriptions',
   'checkout_events',
+  // Interview transcripts are personal data with NO auth.users FK (pages FK is
+  // SET NULL) - without this entry they'd survive account deletion orphaned.
+  'intake_sessions',
   'outbound_webhooks',
   'page_secrets',
   'pages',
   'published_page_grandfather',
   'sent_system_emails',
+  'storefronts',
   'support_tickets',
   'team_invites',
 ] as const

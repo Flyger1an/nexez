@@ -192,7 +192,10 @@ export default function GlobalAgentSimulator() {
 
     try {
       const effectiveQuery = nextQuery.trim() || buildDefaultAgentQuery(page)
-      const multi = runMultiAgentSimulation(page, effectiveQuery, window.location.origin)
+      // No explicit base URL: the builders default to getBaseUrl() (nexez.app), so
+      // agent-facing URLs in exported/persisted simulations never carry the viewer's
+      // host (nexez.ai / a preview URL) into the agent contract.
+      const multi = runMultiAgentSimulation(page, effectiveQuery)
       let finalResults = multi.results
       setSimulationResults(finalResults)
       setRecommendations(getRecommendations(page))
@@ -237,7 +240,7 @@ export default function GlobalAgentSimulator() {
       if (isLoggedIn) {
         const { data: { user } } = await supabase.auth.getUser()
         if (user && (page as any).owner_id === user.id) {
-          const newSim = buildSimulationHistoryEntry(page, effectiveQuery, window.location.origin, finalResults)
+          const newSim = buildSimulationHistoryEntry(page, effectiveQuery, undefined, finalResults)
 
           const existing = Array.isArray((page as any).simulations) ? (page as any).simulations : history
           const updated = [newSim, ...existing].slice(0, 20)

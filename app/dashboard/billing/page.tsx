@@ -94,8 +94,8 @@ export default async function BillingPage({ searchParams }: BillingProps) {
 
   // Real platform fee this month = agent-driven revenue × the plan's commission %.
   const commissionPct = getCommissionPercentForPlan(activePlan?.id ?? null)
-  const agentRevenueCents = getAgentDrivenRevenueCents(events)
   const revenueCurrency = getRevenueCurrency(events)
+  const agentRevenueCents = getAgentDrivenRevenueCents(events, revenueCurrency)
   const platformFeesCents = Math.round((agentRevenueCents * commissionPct) / 100)
 
   // Usage: pages metered against the plan limit; the rest are real this-month
