@@ -1,44 +1,22 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../../utils/supabase/server'
-import { createAdminClient } from '../../../../../utils/supabase/admin'
-import { ownerAllows } from '../../../../../lib/server/plan'
-import { resolveFeatureOwner } from '../../../../../lib/server/page-access'
 import { formatOfferLines, type OfferItem } from '../../../../../lib/agent-page'
-import { mapAcuityTypesToOffers } from '../../../../../lib/integrations'
+import { fetchAcuityTypes, gateIntegrationImport } from '../../../../../lib/server/integration-importers'
 
 /**
  * Acuity Scheduling integration (Phase 3 consumer track).
  *
  * Real path: POST { userId, apiKey } → live Acuity API
  * (GET /api/v1/appointment-types, HTTP Basic auth) mapped to rich OfferItem[].
- * Falls back to sample data when credentials are absent or the call fails.
+ * The live fetch lives in lib/server/integration-importers (shared with the
+ * interview's /ingest); this route adds the sample fallback.
  */
 
 type AcuityImportRequest = {
   userId?: string
   apiKey?: string
   pageId?: string        // when importing INTO an existing page (collaboration)
-}
-
-async function fetchAcuityTypes(userId: string, apiKey: string): Promise<OfferItem[] | null> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 9000)
-  try {
-    const auth = Buffer.from(`${userId}:${apiKey}`).toString('base64')
-    const res = await fetch('https://acuityscheduling.com/api/v1/appointment-types', {
-      headers: { Authorization: `Basic ${auth}`, Accept: 'application/json' },
-      signal: controller.signal,
-    })
-    if (!res.ok) return null
-    const data = await res.json()
-    const offers = mapAcuityTypesToOffers(Array.isArray(data) ? data : [])
-    return offers.length ? offers : null
-  } catch {
-    return null
-  } finally {
-    clearTimeout(timer)
-  }
 }
 
 function sampleOffers(): OfferItem[] {
@@ -98,24 +76,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const access = await resolveFeatureOwner({
+  const gate = await gateIntegrationImport({
+    supabase,
+    user,
     pageId: body.pageId,
-    userId: user.id,
-    userEmail: user.email,
-    userEmailConfirmedAt: user.email_confirmed_at,
+    proMessage: 'Connecting Acuity is a Pro feature. Upgrade to sync appointment types, or add offers manually / upload a CSV (free).',
   })
-  if (!access.ok) {
-    return NextResponse.json(
-      { error: access.status === 503 ? 'Server is not configured for this action.' : 'You do not have edit access to this page.' },
-      { status: access.status },
-    )
-  }
-  if (!(await ownerAllows(access.scoped ? createAdminClient() : supabase, access.ownerId, 'integrations'))) {
-    return NextResponse.json(
-      { error: 'Connecting Acuity is a Pro feature. Upgrade to sync appointment types, or add offers manually / upload a CSV (free).' },
-      { status: 402 },
-    )
-  }
+  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
   const userId = (body?.userId || '').trim()
   const apiKey = (body?.apiKey || '').trim()

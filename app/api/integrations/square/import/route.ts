@@ -1,19 +1,17 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../../utils/supabase/server'
-import { createAdminClient } from '../../../../../utils/supabase/admin'
-import { ownerAllows } from '../../../../../lib/server/plan'
-import { resolveFeatureOwner } from '../../../../../lib/server/page-access'
 import { formatOfferLines, type OfferItem } from '../../../../../lib/agent-page'
-import { mapSquareCatalogToOffers } from '../../../../../lib/integrations'
+import { fetchSquareCatalog, gateIntegrationImport } from '../../../../../lib/server/integration-importers'
 
 /**
  * Square integration (Phase 3 consumer track).
  *
  * Real path: POST { accessToken } → live Square Catalog API
- * (GET /v2/catalog/list?types=ITEM) mapped to rich OfferItem[] (variations →
- * tiers, price_money → price). Falls back to sample data when no token is
- * supplied or the call fails, so the flow always demonstrates the contract.
+ * (GET /v2/catalog/list?types=ITEM) mapped to rich OfferItem[]. The live fetch
+ * lives in lib/server/integration-importers (shared with the interview's
+ * /ingest); this route adds the sample fallback so the demo flow always shows
+ * the contract even without a token.
  */
 
 type SquareImportRequest = {
@@ -21,29 +19,6 @@ type SquareImportRequest = {
   locationId?: string
   merchantId?: string
   pageId?: string        // when importing INTO an existing page (collaboration)
-}
-
-async function fetchSquareCatalog(accessToken: string): Promise<OfferItem[] | null> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 9000)
-  try {
-    const res = await fetch('https://connect.squareup.com/v2/catalog/list?types=ITEM', {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Square-Version': '2024-06-04',
-        Accept: 'application/json',
-      },
-      signal: controller.signal,
-    })
-    if (!res.ok) return null
-    const data = await res.json()
-    const offers = mapSquareCatalogToOffers(Array.isArray(data?.objects) ? data.objects : [])
-    return offers.length ? offers : null
-  } catch {
-    return null
-  } finally {
-    clearTimeout(timer)
-  }
 }
 
 function sampleOffers(): OfferItem[] {
@@ -113,24 +88,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const access = await resolveFeatureOwner({
+  const gate = await gateIntegrationImport({
+    supabase,
+    user,
     pageId: body.pageId,
-    userId: user.id,
-    userEmail: user.email,
-    userEmailConfirmedAt: user.email_confirmed_at,
+    proMessage: 'Connecting Square is a Pro feature. Upgrade to sync your catalog, or add offers manually / upload a CSV (free).',
   })
-  if (!access.ok) {
-    return NextResponse.json(
-      { error: access.status === 503 ? 'Server is not configured for this action.' : 'You do not have edit access to this page.' },
-      { status: access.status },
-    )
-  }
-  if (!(await ownerAllows(access.scoped ? createAdminClient() : supabase, access.ownerId, 'integrations'))) {
-    return NextResponse.json(
-      { error: 'Connecting Square is a Pro feature. Upgrade to sync your catalog, or add offers manually / upload a CSV (free).' },
-      { status: 402 },
-    )
-  }
+  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
   const accessToken = (body?.accessToken || '').trim()
 

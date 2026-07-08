@@ -2,10 +2,11 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { createSupabaseMock } from '../../../../../../../test/supabase-mock'
 import { applyIntakeAction, createIntakeState, type IntakeState } from '../../../../../../../lib/intake'
 
-const { authRef, rateLimitRef, importerRef } = vi.hoisted(() => ({
+const { authRef, rateLimitRef, importerRef, integRef } = vi.hoisted(() => ({
   authRef: { result: null as any },
   rateLimitRef: { response: null as any },
   importerRef: { urlError: null as string | null, result: null as any, offers: [] as any[] },
+  integRef: { gate: null as any, importResult: null as any },
 }))
 
 vi.mock('../../../../../../../lib/rate-limit', () => ({
@@ -18,6 +19,11 @@ vi.mock('../../../../../../../lib/importer', () => ({
   getImportUrlError: vi.fn(() => importerRef.urlError),
   analyzeSite: vi.fn(async () => importerRef.result),
   llmExtractOffers: vi.fn(async () => importerRef.offers),
+}))
+vi.mock('../../../../../../../lib/server/integration-importers', () => ({
+  INGESTABLE_PROVIDERS: ['calendly', 'shopify', 'square', 'acuity'],
+  gateIntegrationImport: vi.fn(async () => integRef.gate),
+  importIntegrationOffers: vi.fn(async () => integRef.importResult),
 }))
 
 import { POST } from './route'
@@ -56,6 +62,8 @@ function dbWith(row: any, updates: any[] = []) {
 beforeEach(() => {
   rateLimitRef.response = null
   importerRef.urlError = null
+  integRef.gate = { ok: true, ownerId: 'owner-1' }
+  integRef.importResult = { ok: true, offers: [{ name: 'Calendly Consult', description: '', price: 'Custom', url: '', source: 'calendly' }], note: 'Imported 1' }
   importerRef.offers = [{ name: 'Pasted Offer', description: '', price: '$40', url: '' }]
   importerRef.result = {
     title: 'Apex',
@@ -112,5 +120,47 @@ describe('POST /api/agents/intake/threads/[id]/ingest', () => {
     const json = await res.json()
     expect(json.offersFound).toBe(1)
     expect(json.state.draft.services.map((o: any) => o.name)).toContain('Pasted Offer')
+  })
+
+  describe('integration sources', () => {
+    const activeRow = () => ({ id: 'sess-1', owner_id: OWNER.id, page_id: null, status: 'active', phase: 'GAP_ANALYSIS', state: midInterviewState() })
+
+    it('ingests a live integration catalog: Pro-gated, folded as an integration source', async () => {
+      const updates: any[] = []
+      authRef.result = { supabase: dbWith(activeRow(), updates), user: OWNER }
+      const res = await POST(post({ provider: 'calendly', token: 'cal_tok' }), params)
+      expect(res.status).toBe(200)
+      const json = await res.json()
+      expect(json.offersFound).toBe(1)
+      expect(json.state.sources.some((s: any) => s.kind === 'integration' && s.value === 'calendly')).toBe(true)
+      expect(json.state.draft.services.map((o: any) => o.name)).toContain('Calendly Consult')
+      expect(updates).toHaveLength(1)
+    })
+
+    it('400s on an unsupported provider', async () => {
+      authRef.result = { supabase: dbWith(activeRow(), []), user: OWNER }
+      expect((await POST(post({ provider: 'wixxx', token: 'x' }), params)).status).toBe(400)
+    })
+
+    it('400s when the provider credentials are missing', async () => {
+      authRef.result = { supabase: dbWith(activeRow(), []), user: OWNER }
+      expect((await POST(post({ provider: 'shopify' }), params)).status).toBe(400) // no shop/accessToken
+    })
+
+    it('surfaces the Pro gate (402) before fetching', async () => {
+      integRef.gate = { ok: false, status: 402, error: 'Connecting a live integration is a Pro feature.' }
+      authRef.result = { supabase: dbWith(activeRow(), []), user: OWNER }
+      const res = await POST(post({ provider: 'calendly', token: 'cal_tok' }), params)
+      expect(res.status).toBe(402)
+    })
+
+    it('422s when the live fetch fails (never folds sample/invented offers)', async () => {
+      integRef.importResult = { ok: false, status: 502, error: 'Could not reach Square (check the access token).' }
+      const updates: any[] = []
+      authRef.result = { supabase: dbWith(activeRow(), updates), user: OWNER }
+      const res = await POST(post({ provider: 'square', accessToken: 'sq_tok' }), params)
+      expect(res.status).toBe(422)
+      expect(updates).toHaveLength(0) // nothing persisted on a failed import
+    })
   })
 })

@@ -2,9 +2,7 @@ import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../../utils/supabase/server'
-import { createAdminClient } from '../../../../../utils/supabase/admin'
-import { ownerAllows } from '../../../../../lib/server/plan'
-import { resolveFeatureOwner } from '../../../../../lib/server/page-access'
+import { gateIntegrationImport } from '../../../../../lib/server/integration-importers'
 
 /**
  * Stripe Import for Nexez agent pages (lean MVP).
@@ -42,24 +40,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const access = await resolveFeatureOwner({
+  // Stripe's fetch/parse stays route-local (it uses the PLATFORM key, not a
+  // caller token, so it isn't exposed to the interview's /ingest) — but the
+  // authorize step is the shared one.
+  const gate = await gateIntegrationImport({
+    supabase,
+    user,
     pageId: body.pageId,
-    userId: user.id,
-    userEmail: user.email,
-    userEmailConfirmedAt: user.email_confirmed_at,
+    proMessage: 'Importing from Stripe is a Pro feature. Upgrade to sync products, or add offers manually / upload a CSV (free).',
   })
-  if (!access.ok) {
-    return NextResponse.json(
-      { error: access.status === 503 ? 'Server is not configured for this action.' : 'You do not have edit access to this page.' },
-      { status: access.status },
-    )
-  }
-  if (!(await ownerAllows(access.scoped ? createAdminClient() : supabase, access.ownerId, 'integrations'))) {
-    return NextResponse.json(
-      { error: 'Importing from Stripe is a Pro feature. Upgrade to sync products, or add offers manually / upload a CSV (free).' },
-      { status: 402 },
-    )
-  }
+  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
 
   const requestSecret = body.stripeSecretKey?.trim()
   const secret = process.env.STRIPE_SECRET_KEY || (process.env.NODE_ENV !== 'production' ? requestSecret : '')
