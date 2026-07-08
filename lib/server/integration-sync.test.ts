@@ -90,4 +90,13 @@ describe('syncPageIntegration', () => {
     await syncPageIntegration(admin(), 'calendly', 'pg1')
     expect('next_available' in h.pagesUpdate).toBe(false)
   })
+
+  it('updates a provider offer that already lives in products — no cross-column duplicate', async () => {
+    h.imported = { ok: true, offers: [shopOffer()], note: 'Imported 1' } // "Mug"
+    h.page = { id: 'pg1', slug: 'acme', services: [], products: [{ name: 'Mug', price: '$10', description: '', url: 'https://old', source: 'shopify' }], next_available: null }
+    const r = await syncPageIntegration(admin(), 'shopify', 'pg1')
+    expect(r.ok).toBe(true)
+    expect(h.pagesUpdate.products.filter((o: any) => o.name === 'Mug')).toHaveLength(1) // refreshed in products
+    expect((h.pagesUpdate.services ?? []).find((o: any) => o.name === 'Mug')).toBeUndefined() // not duplicated to services
+  })
 })

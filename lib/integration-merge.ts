@@ -28,3 +28,28 @@ export function mergeProviderOffers(existing: OfferItem[], incoming: OfferItem[]
   }
   return [...untouched, ...merged]
 }
+
+/**
+ * Column-aware version: a listing splits offers across `services` and `products`,
+ * and the rest of the platform (Calendly webhook/cron, Stripe webhook) treats a
+ * provider offer as valid in EITHER column. So a sync must update a provider
+ * offer wherever it already lives and must NOT add a duplicate to the other
+ * column. Incoming offers that already exist as this provider's offers in
+ * `products` are merged there; everything else flows to `services` (updated in
+ * place if present, appended if new). Non-provider offers in both columns are
+ * preserved.
+ */
+export function mergeProviderOffersAcrossColumns(
+  services: OfferItem[],
+  products: OfferItem[],
+  incoming: OfferItem[],
+  provider: string,
+): { services: OfferItem[]; products: OfferItem[] } {
+  const prodProviderNames = new Set(products.filter((o) => o.source === provider).map((o) => o.name.toLowerCase()))
+  const toProducts = incoming.filter((o) => prodProviderNames.has(o.name.toLowerCase()))
+  const toServices = incoming.filter((o) => !prodProviderNames.has(o.name.toLowerCase()))
+  return {
+    services: mergeProviderOffers(services, toServices, provider),
+    products: mergeProviderOffers(products, toProducts, provider),
+  }
+}

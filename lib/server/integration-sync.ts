@@ -5,7 +5,7 @@ import { getCalendlyPat, getShopifyCreds, integrationCredentialsConfigured } fro
 import { fetchCalendlyBusy } from './calendly-write'
 import { deriveAvailabilityWindows } from '../integrations'
 import { applyOfferAvailability, buildCalendlyNextAvailable } from '../calendly-availability'
-import { mergeProviderOffers } from '../integration-merge'
+import { mergeProviderOffersAcrossColumns } from '../integration-merge'
 import { parseAvailabilityWindows, type OfferItem } from '../agent-page'
 import { captureEvent } from '../observability'
 
@@ -62,18 +62,24 @@ export async function syncPageIntegration(admin: SupabaseClient, provider: SyncP
 
   const { data: page } = await admin
     .from('pages')
-    .select('id, slug, services, next_available')
+    .select('id, slug, services, products, next_available')
     .eq('id', pageId)
-    .maybeSingle<{ id: string; slug: string; services: OfferItem[] | null; next_available: string | null }>()
+    .maybeSingle<{ id: string; slug: string; services: OfferItem[] | null; products: OfferItem[] | null; next_available: string | null }>()
   if (!page) return { ok: false, status: 404, error: 'Page not found.' }
 
-  let services = mergeProviderOffers(page.services ?? [], imported.offers, provider)
+  // Column-aware merge: update a provider offer wherever it already lives
+  // (services OR products) and never duplicate across columns — the webhook/cron
+  // treat a provider offer as valid in either.
+  const merged = mergeProviderOffersAcrossColumns(page.services ?? [], page.products ?? [], imported.offers, provider)
+  let services = merged.services
+  let products = merged.products
   const nowIso = new Date().toISOString()
   const update: Record<string, unknown> = {}
   let windows: Array<{ label: string }> = []
   let availabilitySynced = false
 
-  // Calendly-only: refresh availability from real busy-times (mirrors the cron).
+  // Calendly-only: refresh availability from real busy-times (mirrors the cron),
+  // across BOTH columns since a Calendly offer can live in either.
   if (provider === 'calendly' && input.provider === 'calendly') {
     const busy = await fetchCalendlyBusy(input.token, { days: HORIZON_DAYS })
     if (busy) {
@@ -85,6 +91,11 @@ export async function syncPageIntegration(admin: SupabaseClient, provider: SyncP
         const applied = applyOfferAvailability(services, i, availability, nowIso)
         if (applied.changed) services = applied.offers
       }
+      for (let i = 0; i < products.length; i++) {
+        if (products[i]!.source !== 'calendly') continue
+        const applied = applyOfferAvailability(products, i, availability, nowIso)
+        if (applied.changed) products = applied.offers
+      }
       // Never stomp a hand-written availability note; only refresh empty / already-Calendly-managed.
       const priorIsManual = parseAvailabilityWindows(page.next_available) === null && Boolean(page.next_available && page.next_available.trim())
       if (!priorIsManual) {
@@ -95,6 +106,7 @@ export async function syncPageIntegration(admin: SupabaseClient, provider: SyncP
   }
 
   update.services = services
+  update.products = products
   const { error: writeErr } = await admin.from('pages').update(update).eq('id', pageId)
   if (writeErr) return { ok: false, status: 500, error: 'Could not save the synced offers.' }
 
