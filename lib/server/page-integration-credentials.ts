@@ -62,3 +62,65 @@ export async function hasCalendlyPat(pageId: string): Promise<boolean> {
     .maybeSingle<{ calendly_pat_encrypted: string | null }>()
   return Boolean(data?.calendly_pat_encrypted)
 }
+
+// ---- Shopify: per-page {shop, token}, same encrypted-at-rest model as Calendly.
+// The pair is stored as ONE encrypted JSON blob so a re-sync never re-prompts.
+export type ShopifyCreds = { shop: string; token: string }
+
+/**
+ * Encrypt + persist a page's Shopify connection ({shop, token}). Empty shop OR
+ * token clears the stored connection. Caller MUST authorize edit access first.
+ */
+export async function saveShopifyCreds(
+  pageId: string,
+  ownerId: string,
+  creds: { shop?: string | null; token?: string | null },
+): Promise<'saved' | 'cleared' | 'unconfigured'> {
+  if (!hasSupabaseAdminEnv()) return 'unconfigured'
+  const shop = (creds.shop ?? '').trim()
+  const token = (creds.token ?? '').trim()
+  const admin = createAdminClient()
+  if (!shop || !token) {
+    await admin
+      .from('page_secrets')
+      .upsert({ page_id: pageId, owner_id: ownerId, shopify_credentials_encrypted: null, updated_at: new Date().toISOString() }, { onConflict: 'page_id' })
+    return 'cleared'
+  }
+  const encrypted = encryptSecret(JSON.stringify({ shop, token }))
+  if (!encrypted) return 'unconfigured'
+  const { error } = await admin
+    .from('page_secrets')
+    .upsert({ page_id: pageId, owner_id: ownerId, shopify_credentials_encrypted: encrypted, updated_at: new Date().toISOString() }, { onConflict: 'page_id' })
+  return error ? 'unconfigured' : 'saved'
+}
+
+/** Decrypt the stored Shopify {shop, token} for a page (service-role), or null. */
+export async function getShopifyCreds(pageId: string): Promise<ShopifyCreds | null> {
+  if (!integrationCredentialsConfigured()) return null
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('page_secrets')
+    .select('shopify_credentials_encrypted')
+    .eq('page_id', pageId)
+    .maybeSingle<{ shopify_credentials_encrypted: string | null }>()
+  const raw = decryptSecret(data?.shopify_credentials_encrypted ?? null)
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as ShopifyCreds
+    return parsed && typeof parsed.shop === 'string' && typeof parsed.token === 'string' && parsed.shop && parsed.token ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+/** Whether a page has a stored Shopify connection (boolean the client may see). */
+export async function hasShopifyCreds(pageId: string): Promise<boolean> {
+  if (!hasSupabaseAdminEnv()) return false
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('page_secrets')
+    .select('shopify_credentials_encrypted')
+    .eq('page_id', pageId)
+    .maybeSingle<{ shopify_credentials_encrypted: string | null }>()
+  return Boolean(data?.shopify_credentials_encrypted)
+}

@@ -63,6 +63,25 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     }
   }
 
+  // Shopify connection ({shop, token}) — same encrypted-at-rest, service-role-only
+  // model as the Calendly PAT, stored as one JSON blob so a re-sync never
+  // re-prompts. Empty shop OR token clears the connection.
+  if ('shopify_credentials' in body) {
+    if (!hasSecretCryptoKey()) {
+      return NextResponse.json({ error: 'Credential storage is not configured on this deployment.' }, { status: 503 })
+    }
+    const c = (body.shopify_credentials ?? {}) as { shop?: unknown; token?: unknown }
+    const shop = typeof c.shop === 'string' ? c.shop.trim() : ''
+    const token = typeof c.token === 'string' ? c.token.trim() : ''
+    if (shop && token) {
+      const encrypted = encryptSecret(JSON.stringify({ shop, token }))
+      if (!encrypted) return NextResponse.json({ error: 'Could not secure the credential.' }, { status: 500 })
+      values.shopify_credentials_encrypted = encrypted
+    } else {
+      values.shopify_credentials_encrypted = null // explicit clear
+    }
+  }
+
   if (!Object.keys(values).length) return NextResponse.json({ error: 'No valid fields to update.' }, { status: 400 })
 
   const admin = createAdminClient()
