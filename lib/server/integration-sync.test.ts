@@ -5,6 +5,8 @@ const h = vi.hoisted(() => ({
   configured: true,
   calendlyPat: 'pat' as string | null,
   shopifyCreds: { shop: 'acme.myshopify.com', token: 'shpat_x' } as { shop: string; token: string } | null,
+  squareCreds: { accessToken: 'sq_x' } as { accessToken: string } | null,
+  acuityCreds: { userId: 'u', apiKey: 'k' } as { userId: string; apiKey: string } | null,
   imported: { ok: true, offers: [] as any[], note: 'n' } as any,
   busy: [] as any,
   page: { id: 'pg1', slug: 'acme', services: [] as any[], next_available: null } as any,
@@ -17,6 +19,8 @@ vi.mock('./page-integration-credentials', () => ({
   integrationCredentialsConfigured: () => h.configured,
   getCalendlyPat: async () => h.calendlyPat,
   getShopifyCreds: async () => h.shopifyCreds,
+  getSquareCreds: async () => h.squareCreds,
+  getAcuityCreds: async () => h.acuityCreds,
 }))
 vi.mock('./calendly-write', () => ({ fetchCalendlyBusy: async () => h.busy }))
 vi.mock('../observability', () => ({ captureEvent: vi.fn() }))
@@ -89,6 +93,19 @@ describe('syncPageIntegration', () => {
     h.page.next_available = 'Booking paused until August'
     await syncPageIntegration(admin(), 'calendly', 'pg1')
     expect('next_available' in h.pagesUpdate).toBe(false)
+  })
+
+  it('square: imports catalog offers from stored creds (no availability, no cursor stamp)', async () => {
+    h.imported = { ok: true, offers: [{ name: 'Latte', description: '', price: '$5', url: '', source: 'square' }], note: 'Imported 1' }
+    const r = await syncPageIntegration(admin(), 'square', 'pg1')
+    expect(r).toMatchObject({ ok: true, provider: 'square', imported: 1, availabilitySynced: false })
+    expect(h.pagesUpdate.services.find((o: any) => o.name === 'Latte').source).toBe('square')
+    expect(h.secretsUpdate).toBeNull()
+  })
+
+  it('acuity: 400 when not connected for the page', async () => {
+    h.acuityCreds = null
+    expect(await syncPageIntegration(admin(), 'acuity', 'pg1')).toMatchObject({ ok: false, status: 400 })
   })
 
   it('updates a provider offer that already lives in products — no cross-column duplicate', async () => {

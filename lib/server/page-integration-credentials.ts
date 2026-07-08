@@ -63,36 +63,9 @@ export async function hasCalendlyPat(pageId: string): Promise<boolean> {
   return Boolean(data?.calendly_pat_encrypted)
 }
 
-// ---- Shopify: per-page {shop, token}, same encrypted-at-rest model as Calendly.
-// The pair is stored as ONE encrypted JSON blob so a re-sync never re-prompts.
+// ---- Shopify: per-page {shop, token} stored as ONE encrypted JSON blob (the
+// secrets route does the encrypt-on-write; here we only READ it back for sync).
 export type ShopifyCreds = { shop: string; token: string }
-
-/**
- * Encrypt + persist a page's Shopify connection ({shop, token}). Empty shop OR
- * token clears the stored connection. Caller MUST authorize edit access first.
- */
-export async function saveShopifyCreds(
-  pageId: string,
-  ownerId: string,
-  creds: { shop?: string | null; token?: string | null },
-): Promise<'saved' | 'cleared' | 'unconfigured'> {
-  if (!hasSupabaseAdminEnv()) return 'unconfigured'
-  const shop = (creds.shop ?? '').trim()
-  const token = (creds.token ?? '').trim()
-  const admin = createAdminClient()
-  if (!shop || !token) {
-    await admin
-      .from('page_secrets')
-      .upsert({ page_id: pageId, owner_id: ownerId, shopify_credentials_encrypted: null, updated_at: new Date().toISOString() }, { onConflict: 'page_id' })
-    return 'cleared'
-  }
-  const encrypted = encryptSecret(JSON.stringify({ shop, token }))
-  if (!encrypted) return 'unconfigured'
-  const { error } = await admin
-    .from('page_secrets')
-    .upsert({ page_id: pageId, owner_id: ownerId, shopify_credentials_encrypted: encrypted, updated_at: new Date().toISOString() }, { onConflict: 'page_id' })
-  return error ? 'unconfigured' : 'saved'
-}
 
 /** Decrypt the stored Shopify {shop, token} for a page (service-role), or null. */
 export async function getShopifyCreds(pageId: string): Promise<ShopifyCreds | null> {
@@ -113,14 +86,31 @@ export async function getShopifyCreds(pageId: string): Promise<ShopifyCreds | nu
   }
 }
 
-/** Whether a page has a stored Shopify connection (boolean the client may see). */
-export async function hasShopifyCreds(pageId: string): Promise<boolean> {
-  if (!hasSupabaseAdminEnv()) return false
-  const admin = createAdminClient()
-  const { data } = await admin
-    .from('page_secrets')
-    .select('shopify_credentials_encrypted')
-    .eq('page_id', pageId)
-    .maybeSingle<{ shopify_credentials_encrypted: string | null }>()
-  return Boolean(data?.shopify_credentials_encrypted)
+// ---- Square + Acuity: the remaining per-seller token providers, stored as one
+// encrypted JSON blob each (secrets route encrypts on write). Square =
+// {accessToken}; Acuity = {userId, apiKey}. Read back here for sync via a generic
+// column-keyed helper.
+export type SquareCreds = { accessToken: string }
+export type AcuityCreds = { userId: string; apiKey: string }
+type JsonCredProvider = 'square' | 'acuity'
+const JSON_CRED_COLUMN: Record<JsonCredProvider, 'square_credentials_encrypted' | 'acuity_credentials_encrypted'> = {
+  square: 'square_credentials_encrypted',
+  acuity: 'acuity_credentials_encrypted',
 }
+
+async function getProviderJsonCreds<T>(pageId: string, provider: JsonCredProvider): Promise<T | null> {
+  if (!integrationCredentialsConfigured()) return null
+  const col = JSON_CRED_COLUMN[provider]
+  const admin = createAdminClient()
+  const { data } = await admin.from('page_secrets').select(col).eq('page_id', pageId).maybeSingle<Record<string, string | null>>()
+  const raw = decryptSecret((data?.[col] as string | null) ?? null)
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as T
+  } catch {
+    return null
+  }
+}
+
+export const getSquareCreds = (pageId: string) => getProviderJsonCreds<SquareCreds>(pageId, 'square')
+export const getAcuityCreds = (pageId: string) => getProviderJsonCreds<AcuityCreds>(pageId, 'acuity')

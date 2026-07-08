@@ -119,7 +119,7 @@ export function IntegrationsHealthPanel({ e }: { e: PageEditor }) {
         )}
       </div>
       <p className="mt-2 text-[10px] text-[var(--fg-muted-2)]">
-        Re-sync refreshes imported offers and shows a merge preview before changes are applied. Stripe price updates can keep matching offers current. Manage connections in <a href={`/dashboard/${id}/settings`} className="underline">Settings</a> or <a href="/dashboard/tools" className="underline">Tools</a>.
+        Re-sync pulls fresh offers from your saved connection — no token needed — and merges them in place (your manual offers are never touched). Connect, disconnect, and manage every integration in <a href={`/dashboard/${id}/settings`} className="underline">Settings → Integrations</a>.
       </p>
       <div className="mt-2 text-[10px] text-[var(--ready)]">Webhooks and Google Calendar availability are managed in Settings.</div>
       <div className="mt-1 text-[10px] text-[var(--fg-muted)]">Last sync times appear in the badges.</div>

@@ -1,7 +1,7 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { importIntegrationOffers, type IntegrationIngestInput } from './integration-importers'
-import { getCalendlyPat, getShopifyCreds, integrationCredentialsConfigured } from './page-integration-credentials'
+import { getCalendlyPat, getShopifyCreds, getSquareCreds, getAcuityCreds, integrationCredentialsConfigured } from './page-integration-credentials'
 import { fetchCalendlyBusy } from './calendly-write'
 import { deriveAvailabilityWindows } from '../integrations'
 import { applyOfferAvailability, buildCalendlyNextAvailable } from '../calendly-availability'
@@ -15,13 +15,13 @@ const HORIZON_DAYS = 7
 // the token". All are per-seller token providers whose creds live encrypted in
 // page_secrets. (Stripe is excluded: it's platform-key + Connect, and its prices
 // already auto-sync via webhook — there's no per-seller catalog token to store.)
-export type SyncProvider = 'calendly' | 'shopify'
-export const SYNCABLE_PROVIDERS: readonly SyncProvider[] = ['calendly', 'shopify']
+export type SyncProvider = 'calendly' | 'shopify' | 'square' | 'acuity'
+export const SYNCABLE_PROVIDERS: readonly SyncProvider[] = ['calendly', 'shopify', 'square', 'acuity']
 export function isSyncProvider(p: string): p is SyncProvider {
   return (SYNCABLE_PROVIDERS as readonly string[]).includes(p)
 }
 
-const PROVIDER_LABEL: Record<SyncProvider, string> = { calendly: 'Calendly', shopify: 'Shopify' }
+const PROVIDER_LABEL: Record<SyncProvider, string> = { calendly: 'Calendly', shopify: 'Shopify', square: 'Square', acuity: 'Acuity' }
 
 export type SyncResult =
   | { ok: true; provider: SyncProvider; imported: number; windows: number; availabilitySynced: boolean; note: string | null }
@@ -34,8 +34,16 @@ async function resolveStoredInput(provider: SyncProvider, pageId: string): Promi
     const token = await getCalendlyPat(pageId)
     return token ? { provider: 'calendly', token } : null
   }
-  const creds = await getShopifyCreds(pageId)
-  return creds ? { provider: 'shopify', shop: creds.shop, accessToken: creds.token } : null
+  if (provider === 'shopify') {
+    const creds = await getShopifyCreds(pageId)
+    return creds ? { provider: 'shopify', shop: creds.shop, accessToken: creds.token } : null
+  }
+  if (provider === 'square') {
+    const creds = await getSquareCreds(pageId)
+    return creds ? { provider: 'square', accessToken: creds.accessToken } : null
+  }
+  const creds = await getAcuityCreds(pageId)
+  return creds ? { provider: 'acuity', userId: creds.userId, apiKey: creds.apiKey } : null
 }
 
 /**

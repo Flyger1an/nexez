@@ -172,6 +172,11 @@ export default function IntegrationsPage() {
             Pull pricing, availability, and booking links from the tools you already use - then keep your agent listing in
             sync automatically.
           </p>
+          <div className="mt-4 max-w-3xl rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/10 p-3 text-sm text-zinc-300">
+            <span className="font-medium text-[var(--signal)]">New:</span> connect &amp; re-sync each integration right on the
+            listing — open a listing&apos;s <span className="font-medium">Settings → Integrations</span> to connect once (stored
+            securely) and re-sync anytime without re-entering the token. This page is your account-wide status overview.
+          </div>
         </div>
 
         <div className="grid gap-8 py-8 lg:grid-cols-[240px_1fr]">

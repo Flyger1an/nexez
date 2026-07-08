@@ -52,4 +52,11 @@ describe('getPageIntegrationConnections', () => {
     const c = byProvider(await getPageIntegrationConnections('pg1', 'o1'))
     expect(c.shopify.connected).toBe(true)
   })
+
+  it('includes Square + Acuity as token providers (connected reflects the stored blob)', async () => {
+    drive({ calendly_pat_encrypted: null, shopify_credentials_encrypted: null, square_credentials_encrypted: 'v1.sq', acuity_credentials_encrypted: null, calendly_synced_at: null }, null)
+    const c = byProvider(await getPageIntegrationConnections('pg1', 'o1'))
+    expect(c.square).toMatchObject({ connected: true, kind: 'token', canSync: true })
+    expect(c.acuity).toMatchObject({ connected: false, kind: 'token', canSync: true })
+  })
 })

@@ -7,7 +7,7 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/adm
 
 export type IntegrationConnectionKind = 'token' | 'connect'
 export type IntegrationConnectionState = {
-  provider: 'calendly' | 'shopify' | 'stripe'
+  provider: 'calendly' | 'shopify' | 'square' | 'acuity' | 'stripe'
   label: string
   connected: boolean
   /** 'token' = a stored per-page credential (connect/disconnect/sync here);
@@ -31,9 +31,9 @@ export async function getPageIntegrationConnections(pageId: string, ownerId: str
 
   const { data: secrets } = await admin
     .from('page_secrets')
-    .select('calendly_pat_encrypted, shopify_credentials_encrypted, calendly_synced_at')
+    .select('calendly_pat_encrypted, shopify_credentials_encrypted, square_credentials_encrypted, acuity_credentials_encrypted, calendly_synced_at')
     .eq('page_id', pageId)
-    .maybeSingle<{ calendly_pat_encrypted: string | null; shopify_credentials_encrypted: string | null; calendly_synced_at: string | null }>()
+    .maybeSingle<{ calendly_pat_encrypted: string | null; shopify_credentials_encrypted: string | null; square_credentials_encrypted: string | null; acuity_credentials_encrypted: string | null; calendly_synced_at: string | null }>()
 
   let stripeConnected = false
   if (ownerId) {
@@ -48,6 +48,8 @@ export async function getPageIntegrationConnections(pageId: string, ownerId: str
   return [
     { provider: 'calendly', label: 'Calendly', connected: Boolean(secrets?.calendly_pat_encrypted), kind: 'token', autoSync: true, canSync: true, lastSyncedAt: secrets?.calendly_synced_at ?? null },
     { provider: 'shopify', label: 'Shopify', connected: Boolean(secrets?.shopify_credentials_encrypted), kind: 'token', autoSync: false, canSync: true, lastSyncedAt: null },
+    { provider: 'square', label: 'Square', connected: Boolean(secrets?.square_credentials_encrypted), kind: 'token', autoSync: false, canSync: true, lastSyncedAt: null },
+    { provider: 'acuity', label: 'Acuity', connected: Boolean(secrets?.acuity_credentials_encrypted), kind: 'token', autoSync: false, canSync: true, lastSyncedAt: null },
     { provider: 'stripe', label: 'Stripe', connected: stripeConnected, kind: 'connect', autoSync: true, canSync: false, lastSyncedAt: null },
   ]
 }

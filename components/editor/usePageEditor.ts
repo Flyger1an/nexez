@@ -13,7 +13,6 @@ import {
 import {
   smartMergeOffers,
   countOfferChanges,
-  detectStripePriceChanges,
   buildSavePayload,
   buildDraftContent,
   type EditorSaveInput,
@@ -23,14 +22,6 @@ import { publishErrorMessage } from '../../lib/publish-error'
 import { optimizeAllOffersForAgents, enhanceDescriptionForAgents } from '../../lib/ai-optimize'
 import { createClient } from '../../utils/supabase/client'
 import { EditorEvent, EditorInitial, IntegrationStatus, PendingReanalysis, ResyncProvider } from './types'
-
-const RESYNC_ENDPOINTS: Record<ResyncProvider, string> = {
-  calendly: '/api/integrations/calendly/import',
-  stripe: '/api/integrations/stripe/import',
-  shopify: '/api/integrations/shopify/import',
-  square: '/api/integrations/square/import',
-  acuity: '/api/integrations/acuity/import',
-}
 
 const RESYNC_LABELS: Record<ResyncProvider, string> = {
   calendly: 'Calendly',
@@ -492,101 +483,29 @@ export function usePageEditor(initial: EditorInitial) {
     }
   }
 
-  // Gather per-provider request body, prompting for credentials when needed.
-  // Returns null when the user cancels a required credential prompt.
-  function resyncBody(provider: ResyncProvider): Record<string, any> | null {
-    if (provider === 'calendly') {
-      let token = sessionStorage.getItem('nexez_last_calendly_token') || ''
-      if (!token) {
-        token = prompt('Paste your Calendly access token for re-sync:') || ''
-        if (token) sessionStorage.setItem('nexez_last_calendly_token', token)
-      }
-      return token ? { token } : null
-    }
-    if (provider === 'stripe') {
-      let secret = sessionStorage.getItem('nexez_last_stripe_secret') || ''
-      if (!secret) {
-        secret = prompt('Paste your Stripe secret key for re-sync:') || ''
-        if (secret) sessionStorage.setItem('nexez_last_stripe_secret', secret)
-      }
-      return secret ? { stripeSecretKey: secret } : null
-    }
-    if (provider === 'shopify') {
-      let shop = sessionStorage.getItem('nexez_last_shopify_shop') || ''
-      let token = sessionStorage.getItem('nexez_last_shopify_token') || ''
-      if (!shop) {
-        shop = prompt('Shopify store domain (yourstore.myshopify.com):') || ''
-        if (shop) sessionStorage.setItem('nexez_last_shopify_shop', shop)
-      }
-      if (!token) {
-        token = prompt('Shopify Admin API token (optional):') || ''
-        if (token) sessionStorage.setItem('nexez_last_shopify_token', token)
-      }
-      return shop ? { shop, accessToken: token } : null
-    }
-    return {} // square, acuity: server uses stored env credentials
-  }
-
-  function resyncSummary(provider: ResyncProvider, incoming: OfferItem[]): string {
-    const { newCount, updateCount } = countOfferChanges(servicesOffers, incoming)
-    switch (provider) {
-      case 'calendly':
-        return `Calendly re-sync: ${incoming.length} offers (${newCount} new, ${updateCount} potentially updated). Smart merge will protect your edited descriptions and tiers.`
-      case 'stripe':
-        return `Stripe re-sync: ${incoming.length} products/prices (${newCount} new, ${updateCount} potentially updated). Smart merge protects your edits.`
-      case 'shopify':
-        return `Shopify re-sync: ${incoming.length} products (${newCount} new, ${updateCount} potentially updated). Smart merge protects your edits.`
-      case 'square':
-        return `Square consumer services re-sync: ${incoming.length} offers. Rich mobile + travel fields included.`
-      case 'acuity':
-        return `Acuity scheduling re-sync: ${incoming.length} appointment types. Strong for time-based consumer services.`
-    }
-  }
-
-  function resyncSuccessMessage(provider: ResyncProvider, incoming: OfferItem[]): string {
-    switch (provider) {
-      case 'calendly':
-        return 'Calendly offers loaded into re-analysis preview.'
-      case 'stripe': {
-        const changes = detectStripePriceChanges(servicesOffers, incoming).length
-        return `Stripe offers loaded into re-analysis preview.${changes > 0 ? ` • ${changes} price change(s) detected` : ''}`
-      }
-      case 'shopify':
-        return 'Shopify catalog loaded into re-analysis preview.'
-      case 'square':
-        return 'Square services loaded into re-analysis preview.'
-      case 'acuity':
-        return 'Acuity appointment types loaded into re-analysis preview.'
-    }
-  }
-
+  // Re-sync a connected integration from its STORED credential — no token
+  // prompt. Routes through the unified per-listing sync engine (saves server-
+  // side, safe source-scoped merge), then reloads to show the result. Connect /
+  // disconnect live in Settings -> Integrations.
   async function resyncIntegration(provider: ResyncProvider) {
+    if (!id) return
+    if (provider === 'stripe') {
+      setMessage('Stripe is managed from Settings \u2192 Integrations (prices auto-sync from your Stripe account).')
+      return
+    }
     setIntegrationResyncing(provider)
     try {
-      const body = resyncBody(provider)
-      if (body === null) {
-        setIntegrationResyncing(null)
+      const res = await fetch(`/api/pages/${id}/integrations/${provider}/sync`, { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        // 400 here means "not connected" -> the message points to Settings.
+        setMessage(data.error || `${RESYNC_LABELS[provider]} sync failed.`)
         return
       }
-      const res = await fetch(RESYNC_ENDPOINTS[provider], {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // Scope the re-sync to THIS page so the import gates on the page OWNER's plan -
-        // an editor-collaborator inherits the owner's `integrations` entitlement.
-        body: JSON.stringify({ ...body, pageId: id }),
-      })
-      const data = await res.json()
-      if (data.structuredOffers?.length) {
-        const incoming = data.structuredOffers as OfferItem[]
-        setPendingReanalysis({ incomingServices: incoming, incomingProducts: [], summary: resyncSummary(provider, incoming) })
-        setMessage(resyncSuccessMessage(provider, incoming))
-      } else if (provider === 'calendly' || provider === 'stripe' || provider === 'shopify') {
-        // Square/Acuity stayed silent on empty in the original; preserve that.
-        const noun = provider === 'calendly' ? 'offers' : 'products'
-        setMessage(data.error || `No ${noun} returned from ${RESYNC_LABELS[provider]}.`)
-      }
-    } catch (e: any) {
-      setMessage(`${RESYNC_LABELS[provider]} re-sync failed: ${e.message}`)
+      setMessage(`Synced ${data.imported ?? 0} ${RESYNC_LABELS[provider]} offer(s) from the saved connection \u2014 reloading\u2026`)
+      setTimeout(() => window.location.reload(), 600)
+    } catch (err: any) {
+      setMessage(`${RESYNC_LABELS[provider]} sync failed: ${err.message}`)
     } finally {
       setIntegrationResyncing(null)
     }

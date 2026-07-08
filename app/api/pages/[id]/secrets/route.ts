@@ -82,6 +82,28 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     }
   }
 
+  // Square {accessToken} + Acuity {userId, apiKey} — same encrypted-at-rest,
+  // service-role-only model. Any empty required field clears the connection.
+  for (const [key, col, fields] of [
+    ['square_credentials', 'square_credentials_encrypted', ['accessToken']],
+    ['acuity_credentials', 'acuity_credentials_encrypted', ['userId', 'apiKey']],
+  ] as const) {
+    if (!(key in body)) continue
+    if (!hasSecretCryptoKey()) {
+      return NextResponse.json({ error: 'Credential storage is not configured on this deployment.' }, { status: 503 })
+    }
+    const c = (body[key] ?? {}) as Record<string, unknown>
+    const picked = fields.map((f) => (typeof c[f] === 'string' ? (c[f] as string).trim() : ''))
+    if (picked.every((v) => v)) {
+      const payload = Object.fromEntries(fields.map((f, i) => [f, picked[i]]))
+      const encrypted = encryptSecret(JSON.stringify(payload))
+      if (!encrypted) return NextResponse.json({ error: 'Could not secure the credential.' }, { status: 500 })
+      values[col] = encrypted
+    } else {
+      values[col] = null // explicit clear
+    }
+  }
+
   if (!Object.keys(values).length) return NextResponse.json({ error: 'No valid fields to update.' }, { status: 400 })
 
   const admin = createAdminClient()
