@@ -6,10 +6,14 @@ const refs = vi.hoisted(() => ({
   upsertArg: null as any,
   upsertError: null as any,
   cryptoKey: true,
+  calendlyCheck: { ok: true, uri: 'u1' } as any,
 }))
 vi.mock('../../../../../lib/server/secret-crypto', () => ({
   hasSecretCryptoKey: () => refs.cryptoKey,
   encryptSecret: (v: string) => (refs.cryptoKey && v ? `enc(${v})` : null),
+}))
+vi.mock('../../../../../lib/server/calendly-write', () => ({
+  getCalendlyUser: async () => refs.calendlyCheck,
 }))
 
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ getAll: () => [], set: () => {} })) }))
@@ -43,6 +47,7 @@ describe('POST /api/pages/[id]/secrets', () => {
     refs.upsertArg = null
     refs.upsertError = null
     refs.cryptoKey = true
+    refs.calendlyCheck = { ok: true, uri: 'u1' }
   })
 
   it('401 unauth / 403 stranger', async () => {
@@ -94,5 +99,19 @@ describe('POST /api/pages/[id]/secrets', () => {
     const res = await POST(post({ calendly_pat: 'cal_live_secret' }), { params })
     expect(res.status).toBe(503)
     expect(refs.upsertArg).toBeNull() // nothing written
+  })
+
+  it('400 (not stored) when Calendly definitively rejects the token at save time', async () => {
+    refs.calendlyCheck = { ok: false, reason: 'invalid' }
+    const res = await POST(post({ calendly_pat: 'bad_token' }), { params })
+    expect(res.status).toBe(400)
+    expect(refs.upsertArg).toBeNull() // nothing written on a rejected token
+  })
+
+  it('still stores when Calendly is unreachable (unknown ≠ invalid — no Calendly-downtime lockout)', async () => {
+    refs.calendlyCheck = { ok: false, reason: 'unknown' }
+    const res = await POST(post({ calendly_pat: 'maybe_ok' }), { params })
+    expect(res.status).toBe(200)
+    expect(refs.upsertArg.calendly_pat_encrypted).toBe('enc(maybe_ok)')
   })
 })

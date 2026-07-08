@@ -5,6 +5,7 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../../../utils/sup
 import { resolvePageAccess } from '../../../../../lib/server/page-access'
 import { enforceRateLimit } from '../../../../../lib/rate-limit'
 import { encryptSecret, hasSecretCryptoKey } from '../../../../../lib/server/secret-crypto'
+import { getCalendlyUser } from '../../../../../lib/server/calendly-write'
 
 /**
  * Upsert the page's owner-only secrets (domain verification token, Calendly webhook
@@ -47,6 +48,13 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     }
     const raw = typeof body.calendly_pat === 'string' ? body.calendly_pat.trim() : ''
     if (raw) {
+      // Don't store a token Calendly definitively rejects. A network/unknown
+      // error still stores (the token may be fine; don't block on Calendly
+      // downtime), but a 401/403 fails the save with a clear message.
+      const check = await getCalendlyUser(raw)
+      if (!check.ok && check.reason === 'invalid') {
+        return NextResponse.json({ error: 'Calendly rejected that token. Check it and try again.' }, { status: 400 })
+      }
       const encrypted = encryptSecret(raw)
       if (!encrypted) return NextResponse.json({ error: 'Could not secure the credential.' }, { status: 500 })
       values.calendly_pat_encrypted = encrypted

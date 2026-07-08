@@ -6,6 +6,7 @@
     { "path": "/api/cron/process-negotiations", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/saved-search-alerts", "schedule": "0 */6 * * *" },
     { "path": "/api/cron/agent-tasks", "schedule": "15 */6 * * *" },
-    { "path": "/api/cron/availability-refresh", "schedule": "45 */6 * * *" }
+    { "path": "/api/cron/availability-refresh", "schedule": "45 */6 * * *" },
+    { "path": "/api/cron/calendly-availability", "schedule": "20 */6 * * *" }
   ]
 }

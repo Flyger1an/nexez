@@ -60,6 +60,7 @@ export function createSupabaseMock(handler: QueryHandler, opts: SupabaseMockOpti
       or: (f: string) => (ctx.calls.push(['or', f]), builder),
       ilike: (k: string, v: any) => (ctx.calls.push(['ilike', k, v]), builder),
       is: (k: string, v: any) => (ctx.calls.push(['is', k, v]), builder),
+      not: (k: string, op: string, v: any) => (ctx.calls.push(['not', k, op, v]), builder),
       contains: (k: string, v: any) => (ctx.calls.push(['contains', k, v]), builder),
       // terminals
       single: () => resolve(),
