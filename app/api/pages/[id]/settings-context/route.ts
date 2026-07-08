@@ -4,6 +4,7 @@ import { createClient } from '../../../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../../utils/supabase/admin'
 import { resolvePageAccess } from '../../../../../lib/server/page-access'
 import { getOwnerPlanId } from '../../../../../lib/server/plan'
+import { getPageIntegrationConnections } from '../../../../../lib/server/integration-connections'
 import { enforceRateLimit } from '../../../../../lib/rate-limit'
 
 /**
@@ -31,7 +32,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
   if (!access) return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
 
   const admin = createAdminClient()
-  const [plan, { data: secrets }] = await Promise.all([
+  const [plan, { data: secrets }, integrations] = await Promise.all([
     getOwnerPlanId(admin, access.ownerId),
     admin
       .from('page_secrets')
@@ -40,12 +41,16 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
       .select('calendly_webhook_secret, outbound_webhooks, domain_verification_token, calendly_pat_encrypted')
       .eq('page_id', access.pageId)
       .maybeSingle<{ calendly_webhook_secret: string | null; outbound_webhooks: unknown; domain_verification_token: string | null; calendly_pat_encrypted: string | null }>(),
+    // Unified per-provider connection state for the Integrations panel (booleans
+    // + timestamps only — never a credential value).
+    getPageIntegrationConnections(access.pageId, access.ownerId),
   ])
 
   return NextResponse.json({
     role: access.role,
     ownerId: access.ownerId,
     plan, // the OWNER's effective plan - drives the UI gates for owner + editor alike
+    integrations,
     secrets: {
       calendly_webhook_secret: secrets?.calendly_webhook_secret ?? null,
       outbound_webhooks: secrets?.outbound_webhooks ?? null,

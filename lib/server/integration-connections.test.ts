@@ -1,0 +1,55 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { createSupabaseMock } from '../../test/supabase-mock'
+
+vi.mock('../../utils/supabase/admin', () => ({ createAdminClient: vi.fn(), hasSupabaseAdminEnv: vi.fn() }))
+
+import { getPageIntegrationConnections } from './integration-connections'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
+
+function drive(secrets: any, billing: any) {
+  vi.mocked(hasSupabaseAdminEnv).mockReturnValue(true)
+  vi.mocked(createAdminClient).mockReturnValue(
+    createSupabaseMock((ctx: any) => {
+      if (ctx.table === 'page_secrets') return { data: secrets, error: null }
+      if (ctx.table === 'billing_subscriptions') return { data: billing, error: null }
+      return { data: null, error: null }
+    }) as any,
+  )
+}
+
+const byProvider = (arr: any[]) => Object.fromEntries(arr.map((c) => [c.provider, c]))
+
+describe('getPageIntegrationConnections', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('empty when the service role is not configured', async () => {
+    vi.mocked(hasSupabaseAdminEnv).mockReturnValue(false)
+    expect(await getPageIntegrationConnections('pg1', 'o1')).toEqual([])
+  })
+
+  it('reflects stored Calendly + Shopify connections and their sync semantics', async () => {
+    drive(
+      { calendly_pat_encrypted: 'v1.x', shopify_credentials_encrypted: null, calendly_synced_at: '2026-07-08T18:00:00Z' },
+      null,
+    )
+    const c = byProvider(await getPageIntegrationConnections('pg1', 'o1'))
+    expect(c.calendly).toMatchObject({ connected: true, kind: 'token', autoSync: true, canSync: true, lastSyncedAt: '2026-07-08T18:00:00Z' })
+    expect(c.shopify).toMatchObject({ connected: false, kind: 'token', autoSync: false, canSync: true })
+  })
+
+  it('marks Stripe connected only when the owner has Connect charges enabled', async () => {
+    drive({ calendly_pat_encrypted: null, shopify_credentials_encrypted: null, calendly_synced_at: null }, { stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true })
+    let c = byProvider(await getPageIntegrationConnections('pg1', 'o1'))
+    expect(c.stripe).toMatchObject({ connected: true, kind: 'connect', autoSync: true, canSync: false })
+
+    drive({ calendly_pat_encrypted: null, shopify_credentials_encrypted: null, calendly_synced_at: null }, { stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: false })
+    c = byProvider(await getPageIntegrationConnections('pg1', 'o1'))
+    expect(c.stripe.connected).toBe(false)
+  })
+
+  it('Shopify connected when a credential blob is stored', async () => {
+    drive({ calendly_pat_encrypted: null, shopify_credentials_encrypted: 'v1.y', calendly_synced_at: null }, null)
+    const c = byProvider(await getPageIntegrationConnections('pg1', 'o1'))
+    expect(c.shopify.connected).toBe(true)
+  })
+})

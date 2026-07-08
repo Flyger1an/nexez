@@ -22,6 +22,7 @@ import { buildAgentPagePayload, getAgentJsonPath } from '../../../../lib/agent-m
 import { createClient } from '../../../../utils/supabase/client'
 import { agentRuntimeUrl } from '../../../../lib/site'
 import { CredentialsManager } from '../../../../components/CredentialsManager'
+import { IntegrationsPanel } from '../../../../components/settings/IntegrationsPanel'
 import { planAllows } from '../../../../lib/billing'
 import { ProBadge } from '../../../../components/billing/PlanGate'
 import { usePlan } from '../../../../components/billing/PlanProvider'
@@ -77,9 +78,6 @@ export default function PageSettings({ params }: PageProps) {
   const [preferOriginalSite, setPreferOriginalSite] = useState(false)
   const [industry, setIndustry] = useState('')
   const [copied, setCopied] = useState('')
-  const [activeReSync, setActiveReSync] = useState<'calendly' | 'stripe' | 'shopify' | null>(null)
-  const [reSyncInput, setReSyncInput] = useState('')
-  const [reSyncInput2, setReSyncInput2] = useState('') // for shopify domain + token
 
   // Phase 3: Per-page outbound webhooks - now first-class (url + optional secret per endpoint)
   type OutboundEndpoint = { url: string; secret?: string }
@@ -107,10 +105,6 @@ export default function PageSettings({ params }: PageProps) {
   const [calendlyWebhookSecret, setCalendlyWebhookSecret] = useState('')
   // Calendly write-side connection: a stored (encrypted) PAT. Write-only — the
   // raw token is never loaded back; we only know whether one is connected.
-  const [calendlyConnected, setCalendlyConnected] = useState(false)
-  const [calendlyPat, setCalendlyPat] = useState('')
-  const [calendlyPatBusy, setCalendlyPatBusy] = useState(false)
-  const [calendlySyncBusy, setCalendlySyncBusy] = useState(false)
 
   // Verification details for trust score
   const [verificationDetails, setVerificationDetails] = useState<any>({})
@@ -255,7 +249,6 @@ export default function PageSettings({ params }: PageProps) {
 	    if (ctx.plan) setPlan(ctx.plan)
 	    if (ctx.role) setPageRole(ctx.role)
 	    const secrets = ctx.secrets
-    setCalendlyConnected(Boolean(secrets?.calendly_connected))
 
 	    const activePage = {
 	      ...data,
@@ -511,59 +504,6 @@ export default function PageSettings({ params }: PageProps) {
 	    await navigator.clipboard.writeText(value)
 	    setCopied(label)
 	    window.setTimeout(() => setCopied(''), 1200)
-	  }
-
-	  // Save (encrypt) or clear the page's Calendly PAT. The raw token is sent once
-	  // and never read back; the server stores it encrypted and returns only status.
-	  async function updateCalendlyConnection(clear = false) {
-	    if (!page?.id) return
-	    if (!clear && !calendlyPat.trim()) return
-	    setCalendlyPatBusy(true)
-	    try {
-	      const res = await fetch(`/api/pages/${page.id}/secrets`, {
-	        method: 'POST',
-	        headers: { 'content-type': 'application/json' },
-	        body: JSON.stringify({ calendly_pat: clear ? '' : calendlyPat.trim() }),
-	      })
-	      if (res.status === 503) {
-	        setMessage('Calendly connection storage is not enabled on this deployment yet.')
-	        return
-	      }
-	      if (!res.ok) {
-	        const j = (await res.json().catch(() => ({}))) as { error?: string }
-	        setMessage(j.error || 'Could not update the Calendly connection.')
-	        return
-	      }
-	      setCalendlyConnected(!clear)
-	      setCalendlyPat('')
-	      setMessage(clear ? 'Calendly connection removed.' : 'Calendly connected. Nexez can now manage this listing’s calendar.')
-	    } catch {
-	      setMessage('Could not update the Calendly connection.')
-	    } finally {
-	      setCalendlyPatBusy(false)
-	    }
-	  }
-
-	  // Pull live event types + availability from the STORED PAT (no re-entering the
-	  // token). This is what actually puts Calendly offers on the listing so the
-	  // single-use link + availability features have something to work with.
-	  async function syncFromCalendly() {
-	    if (!page?.id) return
-	    setCalendlySyncBusy(true)
-	    try {
-	      const res = await fetch(`/api/pages/${page.id}/calendly/sync`, { method: 'POST' })
-	      const j = (await res.json().catch(() => ({}))) as { imported?: number; windows?: number; error?: string }
-	      if (!res.ok) {
-	        setMessage(j.error || 'Could not sync from Calendly.')
-	        return
-	      }
-	      const slots = j.windows ? ` · ${j.windows} open slot window${j.windows === 1 ? '' : 's'}` : ''
-	      setMessage(`Synced ${j.imported ?? 0} Calendly event type${j.imported === 1 ? '' : 's'} to this listing${slots}.`)
-	    } catch {
-	      setMessage('Could not sync from Calendly.')
-	    } finally {
-	      setCalendlySyncBusy(false)
-	    }
 	  }
 
 	  async function upsertPageSecrets(values: Record<string, unknown>) {
@@ -1281,200 +1221,12 @@ export default function PageSettings({ params }: PageProps) {
                 Re-sync Offers from Original Website (Preview in Editor)
               </button>
 
-              {/* Phase 3: Calendly re-sync (per ROADMAP) */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveReSync(activeReSync === 'calendly' ? null : 'calendly');
-                  setReSyncInput('');
-                }}
-                className="mt-3 w-full rounded-lg border border-[var(--signal)]/30 px-5 py-3 text-sm text-[var(--signal)] hover:bg-[var(--signal)]/10"
-              >
-                Re-sync from Calendly
-              </button>
-              {activeReSync === 'calendly' && (
-                <div className="mt-2 space-y-2">
-                  <input
-                    type="password"
-                    value={reSyncInput}
-                    onChange={(e) => setReSyncInput(e.target.value)}
-                    placeholder="Calendly access token"
-                    className="w-full rounded border border-white/15 bg-black/30 px-3 py-2 text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!reSyncInput.trim()) return;
-                      setMessage('Re-syncing from Calendly...');
-                      try {
-                        const res = await fetch('/api/integrations/calendly/import', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ token: reSyncInput.trim(), pageId: id }),
-                        });
-                        const data = await res.json();
-                        if (data.structuredOffers?.length) {
-                          sessionStorage.setItem('nexez_imported_structured', JSON.stringify(data.structuredOffers));
-                          sessionStorage.setItem('nexez_imported_page', JSON.stringify({ name: page?.name, slug: page?.slug }));
-                          window.location.href = `/dashboard/${id}?reanalyzed=true&source=calendly`;
-
-                          const webhookEndpoint = localStorage.getItem('nexez_outbound_webhook_url')
-                          if (webhookEndpoint && page?.id) {
-                            await fetch('/api/test-outbound', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                endpoint: webhookEndpoint,
-                                eventType: 'integration.re_sync_completed',
-                                pageId: page.id,
-                                data: { integration: 'calendly', offer_count: data.structuredOffers?.length || 0 },
-                              }),
-                            }).catch(() => {})
-                          }
-                        } else {
-                          setMessage(data.error || data.message || 'No events found or import failed.');
-                        }
-                      } catch (e: any) {
-                        setMessage('Calendly re-sync failed: ' + e.message);
-                      } finally {
-                        setActiveReSync(null);
-                        setReSyncInput('');
-                      }
-                    }}
-                    className="w-full rounded-lg bg-[var(--signal)] px-5 py-2 text-sm font-semibold text-zinc-950 hover:bg-[var(--signal)]"
-                  >
-                    Confirm Re-sync from Calendly
-                  </button>
-                </div>
-              )}
-              <p className="mt-1 text-[10px] text-zinc-500">
-                Pulls your latest Calendly event types as rich offers and merges them (preserves your edits).
-              </p>
-
-              {/* Phase 3: Stripe re-sync (per ROADMAP) */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveReSync(activeReSync === 'stripe' ? null : 'stripe');
-                  setReSyncInput('');
-                }}
-                className="mt-3 w-full rounded-lg border border-[var(--signal)]/30 px-5 py-3 text-sm text-[var(--signal)] hover:bg-[var(--signal)]/10"
-              >
-                Re-sync from Stripe
-              </button>
-              {activeReSync === 'stripe' && (
-                <div className="mt-2 space-y-2">
-                  <input
-                    type="password"
-                    value={reSyncInput}
-                    onChange={(e) => setReSyncInput(e.target.value)}
-                    placeholder="Stripe secret key"
-                    className="w-full rounded border border-white/15 bg-black/30 px-3 py-2 text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!reSyncInput.trim()) return;
-                      setMessage('Re-syncing from Stripe...');
-                      try {
-                        const res = await fetch('/api/integrations/stripe/import', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ stripeSecretKey: reSyncInput.trim(), pageId: id }),
-                        });
-                        const data = await res.json();
-                        if (data.structuredOffers?.length) {
-                          sessionStorage.setItem('nexez_imported_structured', JSON.stringify(data.structuredOffers));
-                          sessionStorage.setItem('nexez_imported_page', JSON.stringify({ name: page?.name, slug: page?.slug }));
-                          window.location.href = `/dashboard/${id}?reanalyzed=true&source=stripe`;
-                        } else {
-                          setMessage(data.error || data.message || 'No products found or import failed.');
-                        }
-                      } catch (e: any) {
-                        setMessage('Stripe re-sync failed: ' + e.message);
-                      } finally {
-                        setActiveReSync(null);
-                        setReSyncInput('');
-                      }
-                    }}
-                    className="w-full rounded-lg bg-[var(--signal)] px-5 py-2 text-sm font-semibold text-zinc-950 hover:bg-[var(--signal)]"
-                  >
-                    Confirm Re-sync from Stripe
-                  </button>
-                </div>
-              )}
-              <p className="mt-1 text-[10px] text-zinc-500">
-                Pulls latest products & prices as rich offers and merges them (preserves your edits).
-              </p>
-
-              {/* Phase 3: Shopify re-sync */}
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveReSync(activeReSync === 'shopify' ? null : 'shopify');
-                  setReSyncInput('');
-                  setReSyncInput2('');
-                }}
-                className="mt-3 w-full rounded-lg border border-[var(--signal)]/30 px-5 py-3 text-sm text-[var(--signal)] hover:bg-[var(--signal)]/10"
-              >
-                Re-sync from Shopify
-              </button>
-              {activeReSync === 'shopify' && (
-                <div className="mt-2 space-y-2">
-                  <input
-                    type="text"
-                    value={reSyncInput}
-                    onChange={(e) => setReSyncInput(e.target.value)}
-                    placeholder="Shopify store domain (yourstore.myshopify.com)"
-                    className="w-full rounded border border-white/15 bg-black/30 px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="password"
-                    value={reSyncInput2}
-                    onChange={(e) => setReSyncInput2(e.target.value)}
-                    placeholder="Admin API token (optional)"
-                    className="w-full rounded border border-white/15 bg-black/30 px-3 py-2 text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!reSyncInput.trim()) return;
-                      setMessage('Re-syncing from Shopify...');
-                      try {
-                        const res = await fetch('/api/integrations/shopify/import', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            shop: reSyncInput.trim(),
-                            accessToken: reSyncInput2.trim(),
-                            pageId: id,
-                          }),
-                        });
-                        const data = await res.json();
-                        if (data.structuredOffers?.length) {
-                          sessionStorage.setItem('nexez_imported_structured', JSON.stringify(data.structuredOffers));
-                          sessionStorage.setItem('nexez_imported_page', JSON.stringify({ name: page?.name, slug: page?.slug }));
-                          window.location.href = `/dashboard/${id}?reanalyzed=true&source=shopify`;
-                        } else {
-                          setMessage(data.error || data.message || 'No products found or import failed.');
-                        }
-                      } catch (e: any) {
-                        setMessage('Shopify re-sync failed: ' + e.message);
-                      } finally {
-                        setActiveReSync(null);
-                        setReSyncInput('');
-                        setReSyncInput2('');
-                      }
-                    }}
-                    className="w-full rounded-lg bg-[var(--signal)] px-5 py-2 text-sm font-semibold text-zinc-950 hover:bg-[var(--signal)]"
-                  >
-                    Confirm Re-sync from Shopify
-                  </button>
-                </div>
-              )}
-              <p className="mt-1 text-[10px] text-zinc-500">
-                Pulls your Shopify products as rich offers. Leave token empty to use public catalog.
-              </p>
+              {/* Unified per-listing integrations — connect once, then re-sync
+                  without re-entering the token until you disconnect. */}
+              <div className="mt-4">
+                <div className="text-sm font-medium text-[var(--signal)] mb-1">Integrations</div>
+                <IntegrationsPanel pageId={id} isPro={planAllows(plan, 'integrations')} onMessage={setMessage} />
+              </div>
 
               {/* Phase 3: Per-page outbound webhooks - FIRST CLASS (url + optional secret, real test button, auto-fired) */}
               <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4" data-testid="outbound-webhooks-panel">
@@ -1976,66 +1728,6 @@ export default function PageSettings({ params }: PageProps) {
                 <p className="mt-1 text-[10px] text-zinc-500">Save settings after pasting the secret. Use your listing slug when setting up the Calendly webhook URL.</p>
               </div>
 
-              {/* Calendly connection (write-side): a stored, encrypted PAT so Nexez can
-                  manage this listing's calendar. Write-only — the token is never shown back. */}
-              <div className="mt-4 rounded-lg border border-[var(--signal)]/30 bg-[var(--signal)]/5 p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-sm font-medium text-[var(--signal)]">Calendly connection</div>
-                  {calendlyConnected ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[var(--ready)]/15 px-2 py-0.5 text-[10px] font-medium text-[var(--ready)]">
-                      <Check className="size-3" /> Connected
-                    </span>
-                  ) : (
-                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-zinc-400">Not connected</span>
-                  )}
-                </div>
-                <p className="mt-1 text-[10px] text-zinc-400">
-                  Paste a Calendly Personal Access Token so Nexez can manage this listing’s calendar (used by availability sync and
-                  future calendar blocking). Stored encrypted; the token is never shown again.
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <input
-                    type="password"
-                    value={calendlyPat}
-                    onChange={(e) => setCalendlyPat(e.target.value)}
-                    placeholder={calendlyConnected ? 'Paste a new token to replace' : 'Paste Calendly Personal Access Token'}
-                    className="min-w-0 flex-1 rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm font-mono"
-                  />
-                  <button
-                    type="button"
-                    disabled={calendlyPatBusy || !calendlyPat.trim()}
-                    onClick={() => updateCalendlyConnection(false)}
-                    className="shrink-0 rounded-lg bg-[var(--signal)]/90 px-3 py-1.5 text-sm font-medium text-black transition hover:brightness-110 disabled:opacity-40"
-                  >
-                    {calendlyPatBusy ? 'Saving…' : calendlyConnected ? 'Replace' : 'Connect'}
-                  </button>
-                  {calendlyConnected ? (
-                    <button
-                      type="button"
-                      disabled={calendlyPatBusy}
-                      onClick={() => updateCalendlyConnection(true)}
-                      className="shrink-0 rounded-lg border border-white/15 px-3 py-1.5 text-sm text-zinc-300 transition hover:bg-white/10 disabled:opacity-40"
-                    >
-                      Disconnect
-                    </button>
-                  ) : null}
-                </div>
-                {calendlyConnected ? (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={calendlySyncBusy}
-                      onClick={() => syncFromCalendly()}
-                      className="shrink-0 rounded-lg border border-[var(--signal)]/40 px-3 py-1.5 text-sm text-[var(--signal)] transition hover:bg-[var(--signal)]/10 disabled:opacity-40"
-                    >
-                      {calendlySyncBusy ? 'Syncing…' : 'Sync from Calendly'}
-                    </button>
-                    <span className="text-[10px] text-zinc-400">
-                      Pull your event types in as offers + refresh availability — no re-pasting the token.
-                    </span>
-                  </div>
-                ) : null}
-              </div>
             </form>
 
             <section className="rounded-lg border border-white/10 bg-white/[0.04]">

@@ -48,7 +48,7 @@ describe('GET /api/pages/[id]/settings-context', () => {
     const res = await GET(req(), { params })
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json).toEqual({
+    expect(json).toMatchObject({
       role: 'editor',
       ownerId: 'owner-1',
       plan: 'enterprise', // the OWNER's plan, not the editor's
@@ -59,6 +59,9 @@ describe('GET /api/pages/[id]/settings-context', () => {
         calendly_connected: true, // boolean derived from ciphertext presence
       },
     })
+    // Unified connection state drives the Integrations panel (booleans only).
+    const cal = (json.integrations as any[]).find((c) => c.provider === 'calendly')
+    expect(cal).toMatchObject({ connected: true, kind: 'token', canSync: true })
     // The encrypted PAT itself must never reach the client.
     expect(JSON.stringify(json)).not.toContain('v1.enc.crypt.tag')
   })
