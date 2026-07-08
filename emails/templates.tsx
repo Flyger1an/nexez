@@ -194,3 +194,34 @@ export function StripeConnectedEmail(p: { financeUrl: string }) {
     </BrandedEmail>
   )
 }
+
+// ── Stale-listing re-interview nudge (freshness cron; caution tone, cooldown-gated) ──
+export function StaleListingEmail(p: {
+  businessName: string
+  listingName: string
+  freshnessLabel: string
+  reinterviewUrl: string
+  editUrl: string
+}) {
+  return (
+    <BrandedEmail preview={`Your Nexez listing “${p.listingName}” may be out of date.`}>
+      <EmailHeading tone="caution">A quick refresh keeps agents accurate</EmailHeading>
+      <Lead>
+        Your listing <strong>{p.listingName}</strong> hasn’t changed in a while, so AI agents may be quoting stale prices or
+        offers. A short re-interview asks only about what’s missing or could be stronger — most people finish in a couple of
+        minutes.
+      </Lead>
+      <InfoRows
+        rows={[
+          ['Business', p.businessName],
+          ['Listing', p.listingName],
+          ['Status', p.freshnessLabel],
+        ]}
+      />
+      <PrimaryButton href={p.reinterviewUrl}>Re-interview this listing</PrimaryButton>
+      <FinePrint>
+        Prefer to edit by hand? Open the builder: {p.editUrl}. We’ll only nudge you about this listing once in a while.
+      </FinePrint>
+    </BrandedEmail>
+  )
+}

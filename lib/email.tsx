@@ -14,6 +14,7 @@ import {
   TeamInviteEmail,
   WelcomeEmail,
   StripeConnectedEmail,
+  StaleListingEmail,
 } from '../emails/templates'
 
 // Gated transactional email (Resend-compatible). Dormant unless RESEND_API_KEY
@@ -375,5 +376,36 @@ export async function buildStripeConnectedEmail(opts: { financeUrl: string }): P
     `Open your Finance dashboard: ${financeUrl}`,
   ].join('\n')
   const html = await renderHtml(<StripeConnectedEmail financeUrl={financeUrl} />, text)
+  return { subject, html, text }
+}
+
+// ── Stale-listing re-interview nudge (freshness cron; seller-facet email) ──
+export async function buildStaleListingEmail(opts: {
+  businessName: string
+  listingName: string
+  freshnessLabel: string
+  reinterviewUrl: string
+  editUrl: string
+}): Promise<Built> {
+  const { businessName, listingName, freshnessLabel, reinterviewUrl, editUrl } = opts
+  const subject = `Keep “${listingName}” accurate for AI agents`
+  const text = [
+    `Your Nexez listing "${listingName}" hasn't changed in a while (${freshnessLabel}), so AI agents may be quoting stale prices or offers.`,
+    '',
+    'A short re-interview asks only about what is missing or could be stronger - most people finish in a couple of minutes.',
+    '',
+    `Re-interview this listing: ${reinterviewUrl}`,
+    `Or edit it by hand: ${editUrl}`,
+  ].join('\n')
+  const html = await renderHtml(
+    <StaleListingEmail
+      businessName={businessName}
+      listingName={listingName}
+      freshnessLabel={freshnessLabel}
+      reinterviewUrl={reinterviewUrl}
+      editUrl={editUrl}
+    />,
+    text,
+  )
   return { subject, html, text }
 }

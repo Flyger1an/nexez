@@ -55,3 +55,23 @@ export function freshnessLabel(
   if (days < 60) return 'Updated last month'
   return `Updated ${Math.floor(days / 30)} months ago`
 }
+
+/** Days a stale-listing re-interview nudge waits before it may fire again for the
+ *  same page — so the daily freshness cron nudges each page at most once per window. */
+export const STALE_NUDGE_COOLDOWN_DAYS = 30
+
+/**
+ * True when a stale page is due for a re-interview nudge: never nudged before, or
+ * the last nudge is older than the cooldown. Unparseable timestamps → due (a
+ * missing/garbled ledger row must not permanently suppress the nudge).
+ */
+export function staleNudgeDue(
+  lastNudgedAt: string | null | undefined,
+  now: Date = new Date(),
+  cooldownDays: number = STALE_NUDGE_COOLDOWN_DAYS,
+): boolean {
+  if (!lastNudgedAt) return true
+  const t = new Date(lastNudgedAt).getTime()
+  if (Number.isNaN(t)) return true
+  return now.getTime() - t >= cooldownDays * 86400000
+}

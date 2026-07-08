@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { daysSince, freshnessLabel, isStale, priceValidUntil } from '../freshness'
+import { daysSince, freshnessLabel, isStale, priceValidUntil, staleNudgeDue } from '../freshness'
 
 const now = new Date('2026-06-03T00:00:00Z')
 const daysAgo = (n: number) => new Date(now.getTime() - n * 86400000).toISOString()
@@ -44,5 +44,23 @@ describe('freshnessLabel', () => {
     expect(freshnessLabel({ updated_at: daysAgo(1) }, now)).toBe('Updated yesterday')
     expect(freshnessLabel({ updated_at: daysAgo(10) }, now)).toBe('Updated 10 days ago')
     expect(freshnessLabel({ updated_at: daysAgo(120) }, now)).toContain('months ago')
+  })
+})
+
+describe('staleNudgeDue', () => {
+  it('is due when never nudged before', () => {
+    expect(staleNudgeDue(null, now)).toBe(true)
+    expect(staleNudgeDue(undefined, now)).toBe(true)
+  })
+  it('is NOT due inside the cooldown window', () => {
+    expect(staleNudgeDue(daysAgo(10), now, 30)).toBe(false)
+    expect(staleNudgeDue(daysAgo(29), now, 30)).toBe(false)
+  })
+  it('is due once the cooldown has elapsed', () => {
+    expect(staleNudgeDue(daysAgo(30), now, 30)).toBe(true)
+    expect(staleNudgeDue(daysAgo(45), now, 30)).toBe(true)
+  })
+  it('treats an unparseable timestamp as due (never permanently suppress)', () => {
+    expect(staleNudgeDue('not-a-date', now)).toBe(true)
   })
 })
