@@ -105,18 +105,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   if (provider) {
     const pageId = (row as { page_id?: string | null }).page_id ?? undefined
-    // Re-interview convenience: a Calendly connect with no token falls back to
-    // the page's saved (encrypted) PAT, so the seller doesn't re-paste it.
-    let effectiveBody = body
-    if (provider === 'calendly' && !str(body.token) && pageId) {
-      const savedToken = await getCalendlyPat(pageId)
-      if (savedToken) effectiveBody = { ...body, token: savedToken }
-    }
-    const input = buildIntegrationInput(provider, effectiveBody)
-    if ('error' in input) return NextResponse.json({ error: input.error }, { status: 400 })
 
-    // Pro gate on the EFFECTIVE owner (re-interview → the page owner; new draft →
-    // self), same capability the manual import routes require.
+    // Authorize FIRST (Pro on the effective owner: re-interview → the page owner;
+    // new draft → self) — before touching any stored secret or external API.
     const gate = await gateIntegrationImport({
       supabase,
       user,
@@ -124,6 +115,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       proMessage: 'Connecting a live integration is a Pro feature. Upgrade to sync your catalog, or paste your offers and I’ll structure them (free).',
     })
     if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
+
+    // Re-interview convenience: a Calendly connect with no token falls back to
+    // the page's saved (encrypted) PAT, so the seller doesn't re-paste it. Only
+    // reached once the caller is authorized for this page.
+    let effectiveBody = body
+    if (provider === 'calendly' && !str(body.token) && pageId) {
+      const savedToken = await getCalendlyPat(pageId)
+      if (savedToken) effectiveBody = { ...body, token: savedToken }
+    }
+    const input = buildIntegrationInput(provider, effectiveBody)
+    if ('error' in input) return NextResponse.json({ error: input.error }, { status: 400 })
 
     const result = await importIntegrationOffers(input)
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: 422 })
