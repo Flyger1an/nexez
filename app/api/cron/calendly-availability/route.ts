@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { deriveAvailabilityWindows } from '../../../../lib/integrations'
-import { applyOfferAvailability } from '../../../../lib/calendly-availability'
+import { applyOfferAvailability, buildCalendlyNextAvailable } from '../../../../lib/calendly-availability'
 import { fetchCalendlyBusy } from '../../../../lib/server/calendly-write'
 import { getCalendlyPat, integrationCredentialsConfigured } from '../../../../lib/server/page-integration-credentials'
 import { parseAvailabilityWindows, type OfferItem } from '../../../../lib/agent-page'
@@ -84,10 +84,7 @@ export async function GET(request: Request) {
     }
 
     const windows = deriveAvailabilityWindows(busy, { days: HORIZON_DAYS })
-    const note = windows.length
-      ? `Next open slots: ${windows.slice(0, 3).map((w) => w.label).join(', ')} (synced from Calendly)`
-      : `No open slots in the next ${HORIZON_DAYS} days (synced from Calendly)`
-    const nextAvailable = `${note} ||WINDOWS||${JSON.stringify(windows)}`
+    const nextAvailable = buildCalendlyNextAvailable(windows, HORIZON_DAYS)
 
     // Only write when the open slots actually changed (avoid churn / updated_at
     // bumps) — OR when the listing has no Calendly-synced marker yet, so the

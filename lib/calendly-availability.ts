@@ -9,6 +9,19 @@ import type { OfferItem } from './agent-page'
 export type OfferAvailability = NonNullable<OfferItem['availability']>
 
 /**
+ * Build the `pages.next_available` string from derived open-slot windows: a
+ * human note for the listing + the machine-readable `||WINDOWS||<json>` tail that
+ * parseAvailabilityWindows reads back. Shared by the availability cron and the
+ * manual "Sync from Calendly" endpoint so both write the identical format.
+ */
+export function buildCalendlyNextAvailable(windows: Array<{ label: string }>, days: number): string {
+  const note = windows.length
+    ? `Next open slots: ${windows.slice(0, 3).map((w) => w.label).join(', ')} (synced from Calendly)`
+    : `No open slots in the next ${days} days (synced from Calendly)`
+  return `${note} ||WINDOWS||${JSON.stringify(windows)}`
+}
+
+/**
  * Derive advertised availability from the rolling-week booking count vs the
  * owner's cap. Deterministic and recomputed from scratch on every event, so
  * created/canceled webhooks and the cron sweep all self-correct.

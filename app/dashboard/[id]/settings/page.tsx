@@ -110,6 +110,7 @@ export default function PageSettings({ params }: PageProps) {
   const [calendlyConnected, setCalendlyConnected] = useState(false)
   const [calendlyPat, setCalendlyPat] = useState('')
   const [calendlyPatBusy, setCalendlyPatBusy] = useState(false)
+  const [calendlySyncBusy, setCalendlySyncBusy] = useState(false)
 
   // Verification details for trust score
   const [verificationDetails, setVerificationDetails] = useState<any>({})
@@ -540,6 +541,28 @@ export default function PageSettings({ params }: PageProps) {
 	      setMessage('Could not update the Calendly connection.')
 	    } finally {
 	      setCalendlyPatBusy(false)
+	    }
+	  }
+
+	  // Pull live event types + availability from the STORED PAT (no re-entering the
+	  // token). This is what actually puts Calendly offers on the listing so the
+	  // single-use link + availability features have something to work with.
+	  async function syncFromCalendly() {
+	    if (!page?.id) return
+	    setCalendlySyncBusy(true)
+	    try {
+	      const res = await fetch(`/api/pages/${page.id}/calendly/sync`, { method: 'POST' })
+	      const j = (await res.json().catch(() => ({}))) as { imported?: number; windows?: number; error?: string }
+	      if (!res.ok) {
+	        setMessage(j.error || 'Could not sync from Calendly.')
+	        return
+	      }
+	      const slots = j.windows ? ` · ${j.windows} open slot window${j.windows === 1 ? '' : 's'}` : ''
+	      setMessage(`Synced ${j.imported ?? 0} Calendly event type${j.imported === 1 ? '' : 's'} to this listing${slots}.`)
+	    } catch {
+	      setMessage('Could not sync from Calendly.')
+	    } finally {
+	      setCalendlySyncBusy(false)
 	    }
 	  }
 
@@ -1997,6 +2020,21 @@ export default function PageSettings({ params }: PageProps) {
                     </button>
                   ) : null}
                 </div>
+                {calendlyConnected ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={calendlySyncBusy}
+                      onClick={() => syncFromCalendly()}
+                      className="shrink-0 rounded-lg border border-[var(--signal)]/40 px-3 py-1.5 text-sm text-[var(--signal)] transition hover:bg-[var(--signal)]/10 disabled:opacity-40"
+                    >
+                      {calendlySyncBusy ? 'Syncing…' : 'Sync from Calendly'}
+                    </button>
+                    <span className="text-[10px] text-zinc-400">
+                      Pull your event types in as offers + refresh availability — no re-pasting the token.
+                    </span>
+                  </div>
+                ) : null}
               </div>
             </form>
 
