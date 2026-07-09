@@ -111,6 +111,18 @@ beforeEach(() => {
 })
 
 describe('POST /api/credentials (collaborator-aware)', () => {
+  it('401 before parsing multipart when there is no session user', async () => {
+    userRef.user = null
+    const res = await POST(
+      new Request('https://nexez.app/api/credentials', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ pageId: 'p1' }),
+      }),
+    )
+    expect(res.status).toBe(401)
+  })
+
   it('401 when there is no session user', async () => {
     userRef.user = null
     expect((await POST(postReq({ pageId: 'p1', file: pngFile() }))).status).toBe(401)

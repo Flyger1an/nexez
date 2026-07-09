@@ -27,12 +27,17 @@ type AuthedOwner =
 // service-role client + the resolved OWNER id + the owner's page row. A
 // collaborator's session client cannot read/write the owner's rows under RLS,
 // so every owner-scoped read/write below goes through `admin`.
-async function authedOwner(pageId: string): Promise<AuthedOwner> {
+async function getRequestUser() {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  return user
+}
+
+async function authedOwner(pageId: string, actingUser?: any): Promise<AuthedOwner> {
+  const user = actingUser ?? await getRequestUser()
   if (!user) return { error: NextResponse.json({ error: 'Not authenticated' }, { status: 401 }) }
   if (!hasSupabaseAdminEnv()) return { error: NextResponse.json({ error: 'unavailable' }, { status: 503 }) }
 
@@ -68,6 +73,9 @@ async function saveDocs(admin: any, pageId: string, ownerId: string, page: any, 
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
+  const user = await getRequestUser()
+  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
   let form: FormData
   try {
     form = await request.formData()
@@ -80,7 +88,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!ALLOWED.has(file.type)) return NextResponse.json({ error: 'Upload a PNG/JPEG/WebP image or a PDF.' }, { status: 400 })
   if (file.size > MAX_BYTES) return NextResponse.json({ error: 'File is too large (max 8MB).' }, { status: 400 })
 
-  const ctx = await authedOwner(pageId)
+  const ctx = await authedOwner(pageId, user)
   if ('error' in ctx) return ctx.error
   const { admin, access, page } = ctx
 

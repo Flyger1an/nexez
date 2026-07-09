@@ -56,7 +56,7 @@ export async function POST(request: Request) {
 
   if (!secret) {
     return NextResponse.json(
-      { error: 'Stripe import is not enabled yet. Add your Stripe secret key in project settings, then try again.' },
+      { error: 'Stripe import is not enabled for this workspace yet. Finish the Stripe connection in Integrations, then try again.' },
       { status: 412 }
     )
   }

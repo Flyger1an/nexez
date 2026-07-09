@@ -1253,7 +1253,7 @@ export default function CreatePage() {
                         <input
                           value={calendlyToken}
                           onChange={(e) => setCalendlyToken(e.target.value)}
-                          placeholder="Calendly Personal Access Token (starts with ghp_...)"
+                          placeholder="Calendly Personal Access Token"
                           className="flex-1 rounded-lg border border-white/10 bg-white/[0.06] px-3 py-2 text-sm text-white placeholder:text-zinc-600"
                           type="password"
                         />

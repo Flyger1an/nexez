@@ -10,7 +10,6 @@ import { recordIntegration } from '../../lib/integration-status'
 // Tools page stays a thin orchestrator. Import logic is unchanged.
 
 export function StripeImporter() {
-  const [stripeKey, setStripeKey] = useState('')
   const [stripeLoading, setStripeLoading] = useState(false)
   const [stripeResult, setStripeResult] = useState<any>(null)
   const [stripeConnected, setStripeConnected] = useState<{ lastImport: string } | null>(null)
@@ -23,7 +22,6 @@ export function StripeImporter() {
   }, [])
 
   async function handleStripeImport() {
-    if (!stripeKey.trim()) return
     setStripeLoading(true)
     setStripeResult(null)
 
@@ -31,7 +29,7 @@ export function StripeImporter() {
       const res = await fetch('/api/integrations/stripe/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stripeSecretKey: stripeKey.trim() }),
+        body: JSON.stringify({}),
       })
       const data = await res.json()
       setStripeResult(data)
@@ -54,7 +52,7 @@ export function StripeImporter() {
       <div className="mb-4 flex items-start justify-between">
         <div>
           <h3 className="text-lg font-semibold text-[var(--signal)]">Stripe Product &amp; Price Import</h3>
-          <p className="text-xs text-[#9CA3AF] mt-1">Paste a Stripe secret key to import products and prices as editable offers.</p>
+          <p className="text-xs text-[#9CA3AF] mt-1">Import products and prices from your connected Stripe catalog as editable offers.</p>
         </div>
         {stripeConnected && (
           <div className="text-right text-xs">
@@ -70,29 +68,16 @@ export function StripeImporter() {
       </div>
 
       <div className="flex gap-3">
-        <input
-          type="password"
-          value={stripeKey}
-          onChange={(e) => setStripeKey(e.target.value)}
-          placeholder="Stripe secret key"
-          className="flex-1 input"
-        />
         <button
           onClick={handleStripeImport}
-          disabled={stripeLoading || !stripeKey.trim()}
+          disabled={stripeLoading}
           className="btn-primary bg-[var(--signal)] text-zinc-950 hover:bg-[var(--signal)]"
         >
-          {stripeLoading ? <Loader2 className="size-4 animate-spin" /> : 'Import Products'}
+          {stripeLoading ? <Loader2 className="size-4 animate-spin" /> : 'Import Stripe Catalog'}
         </button>
         {stripeConnected && (
           <button
-            onClick={() => {
-              const secret = prompt('Paste your Stripe Secret Key to re-sync:')
-              if (secret) {
-                setStripeKey(secret)
-                setTimeout(() => handleStripeImport(), 50)
-              }
-            }}
+            onClick={handleStripeImport}
             disabled={stripeLoading}
             className="rounded-lg border border-[var(--signal)]/40 px-4 py-2 text-sm text-[var(--signal)] hover:bg-white/5"
           >

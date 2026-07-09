@@ -73,7 +73,6 @@ function CheckoutFormInner({ clientSecret, onSuccess, onCancel }: { clientSecret
         setErrorMessage(error.message || 'Payment failed. Please try again or use a different card.')
       } else if (paymentIntent && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'processing')) {
         // Success (or processing for some methods). Webhook will sync billing_subscriptions.
-        console.log('[EmbeddedSubscription] Payment confirmed', paymentIntent.id)
         onSuccess?.()
       } else {
         setErrorMessage('Payment requires additional action. Please follow the prompts or check your email.')

@@ -63,6 +63,9 @@ const nextConfig: NextConfig = {
     ];
     return [
       { source: "/:path*", headers: baseline },
+      // The marketing homepage can be clickjacking-protected without affecting
+      // crawlable agent pages, public JSON artifacts, or dashboard preview iframes.
+      { source: "/", headers: frame },
       { source: "/dashboard/:path*", headers: frame },
       { source: "/login", headers: frame },
       { source: "/auth/:path*", headers: frame },
