@@ -1,13 +1,58 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, ArrowRight, CreditCard, User, Sparkles } from 'lucide-react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  BadgeCheck,
+  Check,
+  CheckCircle2,
+  CreditCard,
+  Eye,
+  EyeOff,
+  Gauge,
+  Globe2,
+  Loader2,
+  LockKeyhole,
+  Mail,
+  Rocket,
+  ShieldCheck,
+  Sparkles,
+  User,
+  WalletCards,
+} from 'lucide-react'
+import { NexezLogo } from '../../components/NexezLogo'
 import { createClient } from '../../utils/supabase/client'
 import { billingPlans } from '../../lib/billing'
 import { safeNextPath } from '../../lib/safe-redirect'
 
 type Step = 1 | 2 | 3 | 4
+
+function scorePassword(pw: string): { score: number; label: string; color: string } {
+  let score = 0
+  if (pw.length >= 8) score++
+  if (pw.length >= 12) score++
+  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++
+  if (/\d/.test(pw) && /[^A-Za-z0-9]/.test(pw)) score++
+  const labels = ['Too short', 'Weak', 'Fair', 'Good', 'Strong']
+  const colors = ['#ef4444', '#f59e0b', '#eab308', '#22c55e', '#10b981']
+  return { score, label: labels[score], color: colors[score] }
+}
+
+const steps: Array<{ num: Step; title: string; text: string; icon: ReactNode }> = [
+  { num: 1, title: 'Plan', text: 'Pick the launch lane.', icon: <Sparkles className="size-4" /> },
+  { num: 2, title: 'Account', text: 'Create your workspace.', icon: <User className="size-4" /> },
+  { num: 3, title: 'Payments', text: 'Prepare direct checkout.', icon: <WalletCards className="size-4" /> },
+  { num: 4, title: 'Launch', text: 'Start building listings.', icon: <Rocket className="size-4" /> },
+]
+
+const launchChecklist = [
+  'Agent-readable listing structure',
+  'AI simulator and readiness scoring',
+  'Conversion tracking for AI traffic',
+  'Bookings, checkout, and negotiation paths',
+]
 
 export default function OnboardPage() {
   const router = useRouter()
@@ -15,21 +60,20 @@ export default function OnboardPage() {
   const [selectedPlanId, setSelectedPlanId] = useState('pro')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [fullName, setFullName] = useState('')
   const [company, setCompany] = useState('')
+  const [agree, setAgree] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [needsEmailConfirm, setNeedsEmailConfirm] = useState(false)
-  // Where to land after signup. Defaults to the dashboard; a `?next=` (e.g. /create, when a
-  // visitor built a listing before signing up) returns them there to finish publishing.
   const [nextPath, setNextPath] = useState('/dashboard')
 
-  // Only Launch/Pro/Scale are self-serve (Free is gone; Enterprise = contact sales).
-  const trialablePlans = billingPlans.filter((p) => p.id !== 'free' && p.id !== 'enterprise')
-  const selectedPlan = billingPlans.find(p => p.id === selectedPlanId) || trialablePlans[0]
-  // No-card 7-day trial: a freshly-onboarded user lands on `nextPath` with their trial
-  // already live - no immediate checkout. They add a card any time before day 7 to stay live.
+  const trialablePlans = useMemo(() => billingPlans.filter((p) => p.id !== 'free' && p.id !== 'enterprise'), [])
+  const selectedPlan = billingPlans.find((p) => p.id === selectedPlanId) || trialablePlans[0]
   const postSignupPath = nextPath
+  const strength = useMemo(() => scorePassword(password), [password])
+  const progress = Math.round((step / steps.length) * 100)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -37,84 +81,90 @@ export default function OnboardPage() {
     if (planParam && trialablePlans.some((p) => p.id === planParam)) setSelectedPlanId(planParam)
     const next = safeNextPath(params.get('next'))
     if (next) setNextPath(next)
-    // Already signed in (e.g. arriving from pricing "Start trial")? Skip the wizard.
     createClient()
       .auth.getUser()
       .then(({ data }) => {
         if (data.user) router.replace(next || '/dashboard')
       })
-  }, [])
+  }, [router, trialablePlans])
 
-  const steps = [
-    { num: 1, title: 'Choose Your Plan' },
-    { num: 2, title: 'Create Your Account' },
-    { num: 3, title: 'Connect Stripe' },
-    { num: 4, title: "You're All Set" },
-  ]
+  function validateAccount() {
+    if (!fullName.trim()) return 'Enter your full name.'
+    if (!company.trim()) return 'Enter your company or business name.'
+    if (!email.trim()) return 'Enter your work email.'
+    if (password.length < 8) return 'Password must be at least 8 characters.'
+    if (!agree) return 'Accept the Terms and Privacy Policy to continue.'
+    return ''
+  }
 
   async function handleSignupAndContinue() {
+    const validationError = validateAccount()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
     setLoading(true)
     setError('')
     const supabase = createClient()
 
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName, company, plan: selectedPlanId },
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(postSignupPath)}`,
-      },
-    })
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: { full_name: fullName.trim(), company: company.trim(), plan: selectedPlanId },
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(postSignupPath)}`,
+        },
+      })
 
-    if (signUpError) {
-      setError(signUpError.message)
+      if (signUpError) {
+        setError(signUpError.message)
+        return
+      }
+
+      if (!data.session) {
+        setNeedsEmailConfirm(true)
+        return
+      }
+
+      // Non-fatal: the auth-callback + dashboard backstops re-seed the trial from
+      // the plan saved in user_metadata, so a transient failure self-heals. Still
+      // validate the response (parity with the signUp / connect calls) and log a
+      // non-OK instead of silently swallowing it.
+      const trialRes = await fetch('/api/billing/start-trial', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ plan: selectedPlanId }),
+      }).catch(() => null)
+      if (!trialRes || !trialRes.ok) {
+        console.warn('[onboard] start-trial did not confirm; relying on the seed backstop', trialRes?.status ?? 'network')
+      }
+
+      setStep(3)
+    } finally {
       setLoading(false)
-      return
     }
-
-    // When email confirmation is required there is NO session yet, so we can't
-    // proceed to Stripe Connect (which needs an authenticated request). Show a
-    // "check your email" state; the confirmation link resumes via
-    // /auth/callback?next=postSignupPath (checkout for paid, dashboard for free).
-    if (!data.session) {
-      setNeedsEmailConfirm(true)
-      setLoading(false)
-      return
-    }
-
-    // Session is live → start the 7-day no-card trial of the chosen plan. Idempotent +
-    // service-role; if email confirmation had been required, the dashboard seeds it instead.
-    await fetch('/api/billing/start-trial', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ plan: selectedPlanId }),
-    }).catch(() => {})
-
-    setStep(3)
-    setLoading(false)
   }
 
   async function handleStripeConnect() {
     setLoading(true)
+    setError('')
     try {
-      // Create Stripe Connect account + get onboarding link (Express for quick setup).
-      // This is for transaction payments (owner MoR + Nexez app fee/commission on all plans incl Free).
-      // Subscriptions (Nexez billing to owner) are handled separately in Billing.
       const res = await fetch('/api/billing/connect', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        // Carry the chosen paid plan so payouts onboarding returns to checkout for it.
         body: JSON.stringify({ plan: selectedPlanId }),
       })
       const data = await res.json()
       if (data.url) {
-        window.location.href = data.url // redirect to Stripe hosted onboarding
-      } else {
-        setError(data.error || 'Failed to start Stripe Connect onboarding.')
-        setLoading(false)
+        window.location.href = data.url
+        return
       }
-    } catch (e: any) {
-      setError(e.message || 'Connect error')
+      setError(data.error || 'Failed to start Stripe Connect onboarding.')
+    } catch (event) {
+      setError(event instanceof Error ? event.message : 'Connect error')
+    } finally {
       setLoading(false)
     }
   }
@@ -124,194 +174,513 @@ export default function OnboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#090b10] text-white">
-      <div className="mx-auto max-w-5xl px-6 py-12">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-[var(--signal-solid)] text-sm font-semibold">N</div>
-          <div>
-            <div className="font-semibold tracking-tight">Nexez</div>
-            <div className="text-[10px] text-[#9CA3AF] -mt-1">Onboarding</div>
-          </div>
-        </div>
+    <main className="nx-auth-page nx-onboard-page">
+      <OnboardingBackdrop />
+      <div className="nx-auth-shell">
+        <header className="nx-auth-topbar">
+          <a href="/" className="nx-auth-logo" aria-label="Nexez home">
+            <span className="nx-auth-logo-mark">
+              <NexezLogo className="size-6" />
+            </span>
+            <span>Nexez</span>
+          </a>
+          <nav className="nx-auth-nav" aria-label="Onboarding links">
+            <a href="/login" className="nx-auth-link">
+              Sign in
+            </a>
+            <a href="/pricing" className="nx-auth-secondary">
+              Compare plans
+            </a>
+          </nav>
+        </header>
 
-        <div className="grid md:grid-cols-12 gap-8">
-          {/* Stepper */}
-          <div className="md:col-span-4">
-            <div className="sticky top-8">
-              <div className="text-xs uppercase tracking-[2px] text-[#9CA3AF] mb-3">4-STEP ONBOARDING</div>
-              <ol className="space-y-3">
-                {steps.map((s) => (
-                  <li key={s.num} className={`flex gap-3 text-sm ${step === s.num ? 'text-white' : 'text-[#9CA3AF]'}`}>
-                    <div className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px] ${step >= s.num ? 'border-[var(--signal)] bg-[var(--signal)]/10 text-[var(--signal)]' : 'border-white/20'}`}>
-                      {step > s.num ? <Check className="size-3" /> : s.num}
-                    </div>
-                    <div>
-                      <div className="font-medium">{s.title}</div>
-                      {s.num === 3 && <div className="text-[10px] text-[var(--ready)]">Required to accept card payments</div>}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-              <p className="mt-6 text-xs text-[#9CA3AF]">You can always change your plan later from Billing.</p>
+        <div className="nx-onboard-stage">
+          <aside className="nx-onboard-lead">
+            <div className="nx-auth-eyebrow">
+              <span className="nx-auth-signal-dot" />
+              Guided launch
             </div>
-          </div>
+            <h1 className="nx-onboard-lead-title">Build your agent-ready storefront.</h1>
+            <p className="nx-onboard-lead-copy">
+              Pick a plan, create your workspace, prepare direct payments, then land inside Nexez ready to publish.
+            </p>
 
-          {/* Content */}
-          <div className="md:col-span-8">
-            {step === 1 && (
-              <div>
-                <h1 className="text-4xl font-semibold tracking-tight">Start your free trial</h1>
-                <p className="mt-2 text-[#9CA3AF]">Pick a plan to begin your 7-day free trial - no credit card required. Add one any time before it ends to stay live.</p>
-
-                <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                  {trialablePlans.map(plan => {
-                    const isSelected = selectedPlanId === plan.id
-                    const isPopular = plan.id === 'pro'
-                    return (
-                      <button
-                        key={plan.id}
-                        onClick={() => setSelectedPlanId(plan.id)}
-                        className={`text-left rounded-2xl border p-5 transition ${isSelected ? 'border-[var(--signal)] bg-[#1A1625]' : 'border-white/10 hover:border-white/20'}`}
-                      >
-                        <div className="flex justify-between">
-                          <div>
-                            <div className="font-semibold text-lg">{plan.name}</div>
-                            <div className="text-sm text-[#9CA3AF]">{plan.blurb}</div>
-                          </div>
-                          {isPopular && <span className="rounded bg-[var(--signal)] px-2 py-0.5 text-[10px] font-semibold text-zinc-950 h-fit">Popular</span>}
-                        </div>
-                        <div className="mt-4">
-                          <span className="text-3xl font-semibold tracking-tight">{plan.price}</span>
-                          {plan.cadence && <span className="text-sm text-[#9CA3AF]">/{plan.cadence}</span>}
-                        </div>
-                        <ul className="mt-4 text-xs text-[#9CA3AF] space-y-1">
-                          {plan.features.slice(0, 3).map((f, i) => <li key={i}>• {f}</li>)}
-                        </ul>
-                      </button>
-                    )
-                  })}
-                </div>
-
-                <a href="/pricing" className="mt-4 inline-block text-sm text-[#9CA3AF] hover:text-white underline">Compare all plans and platform fees</a>
-
-                <button onClick={() => setStep(2)} className="mt-8 inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 font-medium text-zinc-950 hover:bg-zinc-200">
-                  Start {selectedPlan.name} trial <ArrowRight className="size-4" />
-                </button>
-                <p className="mt-2 text-xs text-[#9CA3AF]">No card required to start. Upgrade or downgrade anytime from Billing.</p>
+            <div className="nx-onboard-meter">
+              <div className="nx-onboard-meter-top">
+                <span>Setup progress</span>
+                <span className="font-mono">{progress}%</span>
               </div>
-            )}
+              <div className="nx-onboard-meter-bar">
+                <span style={{ width: `${progress}%` }} />
+              </div>
+            </div>
 
-            {step === 2 && needsEmailConfirm && (
-              <div>
-                <h1 className="text-4xl font-semibold tracking-tight">Confirm your email</h1>
-                <p className="mt-2 max-w-md text-[#9CA3AF]">
-                  We sent a confirmation link to <span className="text-white">{email}</span>. Click it to
-                  activate your account and start your 7-day {selectedPlan.name} trial.
+            <ol className="nx-onboard-step-list">
+              {steps.map((s) => {
+                const status = step === s.num ? 'is-active' : step > s.num ? 'is-done' : ''
+                return (
+                  <li key={s.num} className={`nx-onboard-step-item ${status}`}>
+                    <span className="nx-onboard-step-icon">{step > s.num ? <Check className="size-4" /> : s.icon}</span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold">{s.title}</span>
+                      <span className="block text-xs leading-5 text-[var(--nx-auth-muted)]">{s.text}</span>
+                    </span>
+                  </li>
+                )
+              })}
+            </ol>
+
+            <div className="nx-onboard-selected">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--nx-auth-muted)]">Selected plan</p>
+              <div className="mt-3 flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-xl font-semibold">{selectedPlan.name}</p>
+                  <p className="mt-1 text-xs leading-5 text-[var(--nx-auth-muted)]">{selectedPlan.blurb}</p>
+                </div>
+                <p className="shrink-0 font-mono text-lg font-semibold">
+                  {selectedPlan.price}
+                  {selectedPlan.cadence ? <span className="text-xs text-[var(--nx-auth-muted)]">/{selectedPlan.cadence}</span> : null}
                 </p>
-                <div className="mt-8 max-w-md rounded-2xl border border-white/10 bg-[#12101B] p-6 text-sm text-[#9CA3AF]">
-                  <div className="flex items-center gap-3 text-white">
-                    <Check className="size-5 text-[var(--ready)]" />
-                    <span className="font-medium">Account created</span>
-                  </div>
-                  <p className="mt-3">
-                    Didn’t get the email? Check spam, or{' '}
-                    <button onClick={() => { setNeedsEmailConfirm(false); }} className="text-[var(--signal)] underline">
-                      go back
-                    </button>{' '}
-                    to re-enter your details.
-                  </p>
-                </div>
               </div>
-            )}
+            </div>
+          </aside>
 
-            {step === 2 && !needsEmailConfirm && (
-              <div>
-                <h1 className="text-4xl font-semibold tracking-tight">Create your account</h1>
-                <p className="mt-1 text-[#9CA3AF]">You're signing up for the {selectedPlan.name} plan.</p>
-
-                <div className="mt-8 max-w-md space-y-4">
-                  <input type="text" placeholder="Full name" value={fullName} onChange={e => setFullName(e.target.value)} className="w-full rounded-lg border border-white/15 bg-black/30 px-4 py-3 text-sm" />
-                  <input type="text" placeholder="Business or company name" value={company} onChange={e => setCompany(e.target.value)} className="w-full rounded-lg border border-white/15 bg-black/30 px-4 py-3 text-sm" />
-                  <input type="email" placeholder="Work email" value={email} onChange={e => setEmail(e.target.value)} className="w-full rounded-lg border border-white/15 bg-black/30 px-4 py-3 text-sm" />
-                  <input type="password" placeholder="Password (min 8 chars)" value={password} onChange={e => setPassword(e.target.value)} className="w-full rounded-lg border border-white/15 bg-black/30 px-4 py-3 text-sm" />
-
-                  {error && <p className="text-sm text-red-400">{error}</p>}
-
-                  <button 
-                    onClick={handleSignupAndContinue} 
-                    disabled={loading || !email || !password || !fullName || !company}
-                    className="w-full rounded-lg bg-[var(--signal-solid)] py-3 font-medium disabled:opacity-60"
-                  >
-                    {loading ? 'Creating account…' : 'Create account & continue'}
-                  </button>
-                  <p className="text-center text-xs text-[#9CA3AF]">By continuing you agree to our Terms and Privacy Policy.</p>
+          <section className="nx-onboard-workspace">
+            <div className="nx-onboard-main-card">
+              <div className="nx-onboard-main-head">
+                <div>
+                  <p className="nx-onboard-kicker">Step {step} of 4</p>
+                  <h2 className="nx-onboard-heading">
+                    {step === 1
+                      ? 'Choose your launch plan'
+                      : step === 2
+                        ? needsEmailConfirm
+                          ? 'Confirm your email'
+                          : 'Create your account'
+                        : step === 3
+                          ? 'Prepare direct payments'
+                          : 'Your trial is live'}
+                  </h2>
                 </div>
+                <StatusPill step={step} />
               </div>
-            )}
 
-            {step === 3 && (
-              <div>
-                <h1 className="text-4xl font-semibold tracking-tight">Connect Stripe</h1>
-                <p className="mt-2 max-w-md text-[#9CA3AF]">
-                  Link your Stripe account so agents can pay you directly for bookings and offers.
-                  <span className="text-[var(--ready)]"> Required to accept card payments on Nexez</span> - without it,
-                  agents are routed to your external booking links instead.
-                </p>
+              <div className="nx-onboard-main-body">
+                {step === 1 ? (
+                  <PlanStep
+                    trialablePlans={trialablePlans}
+                    selectedPlanId={selectedPlanId}
+                    onSelect={setSelectedPlanId}
+                    onContinue={() => setStep(2)}
+                  />
+                ) : null}
 
-                <div className="mt-8 max-w-md rounded-2xl border border-white/10 bg-[#12101B] p-6">
-                  <div className="flex items-center gap-3 text-sm">
-                    <CreditCard className="size-5 text-[var(--fg-muted)]" />
-                    <div>
-                      <div className="font-medium">Secure Stripe Connect</div>
-                      <div className="text-xs text-[#9CA3AF]">Nexez never sees your customer payment details.</div>
-                    </div>
-                  </div>
+                {step === 2 && needsEmailConfirm ? (
+                  <EmailConfirmStep email={email} selectedPlanName={selectedPlan.name} onBack={() => setNeedsEmailConfirm(false)} />
+                ) : null}
 
-                  <div className="mt-6 flex gap-3">
-                    <button 
-                      onClick={handleStripeConnect}
-                      disabled={loading}
-                      className="flex-1 rounded-lg bg-white py-3 text-sm font-semibold text-zinc-950 hover:bg-zinc-200"
-                    >
-                      {loading ? 'Connecting…' : 'Connect with Stripe'}
-                    </button>
-                    <button onClick={() => setStep(4)} className="flex-1 rounded-lg border border-white/15 py-3 text-sm hover:bg-white/5">
-                      Skip for now
-                    </button>
-                  </div>
-                  <p className="mt-3 text-[10px] text-center text-[#9CA3AF]">You can connect later from Billing or Integrations.</p>
-                </div>
+                {step === 2 && !needsEmailConfirm ? (
+                  <AccountStep
+                    selectedPlanName={selectedPlan.name}
+                    fullName={fullName}
+                    company={company}
+                    email={email}
+                    password={password}
+                    showPassword={showPassword}
+                    agree={agree}
+                    loading={loading}
+                    error={error}
+                    strength={strength}
+                    onFullName={setFullName}
+                    onCompany={setCompany}
+                    onEmail={setEmail}
+                    onPassword={setPassword}
+                    onTogglePassword={() => setShowPassword((value) => !value)}
+                    onAgree={setAgree}
+                    onBack={() => setStep(1)}
+                    onContinue={handleSignupAndContinue}
+                  />
+                ) : null}
+
+                {step === 3 ? (
+                  <PaymentsStep
+                    loading={loading}
+                    error={error}
+                    onConnect={handleStripeConnect}
+                    onSkip={() => setStep(4)}
+                    onBack={() => setStep(2)}
+                  />
+                ) : null}
+
+                {step === 4 ? <LaunchStep selectedPlan={selectedPlan} onDashboard={finishOnboarding} /> : null}
               </div>
-            )}
-
-            {step === 4 && (
-              <div className="text-center">
-                <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-full bg-[var(--ready)] text-4xl">🎉</div>
-                <h1 className="text-4xl font-semibold tracking-tight">Your trial is live</h1>
-                <p className="mt-3 text-[#9CA3AF]">
-                  Your 7-day {selectedPlan.name} trial just started - no card required. Add a payment method any time before it ends to keep your storefront live.
-                </p>
-
-                <div className="mt-8 inline-block rounded-2xl border border-white/10 bg-[#12101B] p-6 text-left text-sm">
-                  <div className="font-medium">Summary</div>
-                  <div className="mt-2 space-y-1 text-[#9CA3AF]">
-                    <div>• Plan: {selectedPlan.name} - 7-day free trial ({selectedPlan.price}/{selectedPlan.cadence} after)</div>
-                    <div>• Stripe payouts: connect anytime from Billing or Integrations</div>
-                    <div>• Next: Create your first listing</div>
-                  </div>
-                </div>
-
-                <div className="mt-8 flex justify-center gap-3">
-                  <button onClick={finishOnboarding} className="rounded-lg bg-white px-8 py-3 font-medium text-zinc-950 hover:bg-zinc-200">
-                    Go to Dashboard
-                  </button>
-                  <a href="/create" className="rounded-lg border border-white/15 px-8 py-3 hover:bg-white/5">Create your first listing</a>
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          </section>
         </div>
       </div>
     </main>
   )
 }
+
+function PlanStep({
+  trialablePlans,
+  selectedPlanId,
+  onSelect,
+  onContinue,
+}: {
+  trialablePlans: typeof billingPlans
+  selectedPlanId: string
+  onSelect: (id: string) => void
+  onContinue: () => void
+}) {
+  return (
+    <div>
+      <p className="max-w-2xl text-sm leading-6 text-[var(--nx-auth-muted)]">
+        Start with a 7-day trial. No card is required today, and you can upgrade, downgrade, or cancel from Billing.
+      </p>
+      <div className="nx-onboard-plan-grid">
+        {trialablePlans.map((plan) => {
+          const isSelected = selectedPlanId === plan.id
+          const isPopular = plan.id === 'pro'
+          return (
+            <button
+              key={plan.id}
+              type="button"
+              onClick={() => onSelect(plan.id)}
+              className={`nx-onboard-plan ${isSelected ? 'is-selected' : ''}`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-lg font-semibold">{plan.name}</p>
+                  <p className="mt-1 text-xs leading-5 text-[var(--nx-auth-muted)]">{plan.blurb}</p>
+                </div>
+                {isPopular ? <span className="nx-auth-live">Best fit</span> : null}
+              </div>
+              <div className="mt-6">
+                <span className="text-4xl font-semibold tracking-[-0.04em]">{plan.price}</span>
+                {plan.cadence ? <span className="text-sm text-[var(--nx-auth-muted)]">/{plan.cadence}</span> : null}
+              </div>
+              <ul className="mt-6 space-y-2 text-xs leading-5 text-[var(--nx-auth-muted)]">
+                {plan.features.slice(0, 4).map((feature) => (
+                  <li key={feature} className="flex gap-2">
+                    <Check className="mt-0.5 size-3.5 shrink-0 text-[var(--nx-auth-ready)]" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-auto pt-6">
+                <span className={`inline-flex w-full items-center justify-center gap-2 rounded-[17px] px-4 py-3 text-sm font-semibold transition ${isSelected ? 'bg-[#fafafa] text-[#050505]' : 'border border-[var(--nx-auth-line)] text-[var(--nx-auth-muted)] group-hover:text-[var(--nx-auth-text)]'}`}>
+                  {isSelected ? 'Selected' : 'Select plan'}
+                </span>
+              </div>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="nx-onboard-callout">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-2xl border border-[var(--nx-auth-line)] bg-white/[0.055] text-[var(--nx-auth-signal)]">
+              <Gauge className="size-5" />
+            </span>
+            <div>
+              <p className="font-semibold">Trial includes</p>
+              <p className="text-xs text-[var(--nx-auth-muted)]">Everything needed to publish your first listing.</p>
+            </div>
+          </div>
+          <a href="/pricing" className="text-sm font-medium text-[var(--nx-auth-muted)] underline decoration-white/25 underline-offset-4 hover:text-[var(--nx-auth-text)] hover:decoration-white">
+            Compare every plan
+          </a>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {launchChecklist.map((item) => (
+            <div key={item} className="flex gap-3 rounded-[18px] border border-[var(--nx-auth-line)] bg-white/[0.035] p-3 text-sm text-[var(--nx-auth-soft)]">
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[var(--nx-auth-ready)]" />
+              {item}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        <button type="button" onClick={onContinue} className="nx-auth-primary">
+          Continue with selected plan <ArrowRight className="size-4" />
+        </button>
+        <a href="/login" className="nx-auth-ghost-button">
+          I already have an account
+        </a>
+      </div>
+    </div>
+  )
+}
+
+function EmailConfirmStep({ email, selectedPlanName, onBack }: { email: string; selectedPlanName: string; onBack: () => void }) {
+  return (
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div>
+        <div className="flex size-14 items-center justify-center rounded-2xl border border-[var(--nx-auth-ready)]/30 bg-[var(--nx-auth-ready)]/10 text-[var(--nx-auth-ready)]">
+          <Mail className="size-6" />
+        </div>
+        <h3 className="mt-6 text-3xl font-semibold tracking-[-0.04em]">Check your inbox.</h3>
+        <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--nx-auth-muted)]">
+          We sent a confirmation link to <span className="font-medium text-[var(--nx-auth-text)]">{email}</span>. Confirm your email to activate the workspace and start your 7-day {selectedPlanName} trial.
+        </p>
+        <button type="button" onClick={onBack} className="nx-auth-ghost-button mt-6">
+          <ArrowLeft className="size-4" />
+          Edit account details
+        </button>
+      </div>
+      <div className="rounded-[24px] border border-[var(--nx-auth-line)] bg-[#050505] p-5">
+        <p className="text-sm font-semibold">What happens next</p>
+        <div className="mt-4 space-y-3 text-sm text-[var(--nx-auth-muted)]">
+          {['Open the confirmation email.', 'Return to Nexez with your session active.', 'Create your first agent-ready listing.'].map((item, index) => (
+            <div key={item} className="flex gap-3">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white/10 font-mono text-xs text-[var(--nx-auth-text)]">{index + 1}</span>
+              <span>{item}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AccountStep(props: {
+  selectedPlanName: string
+  fullName: string
+  company: string
+  email: string
+  password: string
+  showPassword: boolean
+  agree: boolean
+  loading: boolean
+  error: string
+  strength: { score: number; label: string; color: string }
+  onFullName: (value: string) => void
+  onCompany: (value: string) => void
+  onEmail: (value: string) => void
+  onPassword: (value: string) => void
+  onTogglePassword: () => void
+  onAgree: (value: boolean) => void
+  onBack: () => void
+  onContinue: () => void
+}) {
+  return (
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="max-w-2xl">
+        <p className="text-sm leading-6 text-[var(--nx-auth-muted)]">
+          You are starting on the {props.selectedPlanName} plan. This creates your owner workspace so listings, imports, analytics, and payments stay tied to your business.
+        </p>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <Field label="Full name" icon={<User className="size-4" />}>
+            <input value={props.fullName} onChange={(event) => props.onFullName(event.target.value)} className={inputClass} placeholder="Jordan Rivera" autoComplete="name" />
+          </Field>
+          <Field label="Business name" icon={<Globe2 className="size-4" />}>
+            <input value={props.company} onChange={(event) => props.onCompany(event.target.value)} className={inputClass} placeholder="Apex Strategy Co." autoComplete="organization" />
+          </Field>
+          <Field label="Work email" icon={<Mail className="size-4" />}>
+            <input value={props.email} onChange={(event) => props.onEmail(event.target.value)} className={inputClass} placeholder="you@company.com" type="email" autoComplete="email" />
+          </Field>
+          <Field label="Password" icon={<LockKeyhole className="size-4" />}>
+            <div className="relative">
+              <input
+                value={props.password}
+                onChange={(event) => props.onPassword(event.target.value)}
+                className={`${inputClass} pr-12`}
+                placeholder="At least 8 characters"
+                type={props.showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={props.onTogglePassword}
+                className="absolute right-3 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-[var(--nx-auth-muted)] transition hover:bg-white/10 hover:text-[var(--nx-auth-text)]"
+                aria-label={props.showPassword ? 'Hide password' : 'Show password'}
+              >
+                {props.showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+            {props.password ? (
+              <div className="mt-2">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                  <div className="h-full rounded-full transition-all" style={{ width: `${Math.max(10, (props.strength.score / 4) * 100)}%`, backgroundColor: props.strength.color }} />
+                </div>
+                <p className="mt-1 text-xs" style={{ color: props.strength.color }}>
+                  {props.strength.label}
+                </p>
+              </div>
+            ) : null}
+          </Field>
+        </div>
+
+        <label className="mt-5 flex items-start gap-3 rounded-[18px] border border-[var(--nx-auth-line)] bg-white/[0.035] p-4 text-xs leading-5 text-[var(--nx-auth-muted)]">
+          <input
+            type="checkbox"
+            checked={props.agree}
+            onChange={(event) => props.onAgree(event.target.checked)}
+            className="mt-0.5 size-4 rounded border-white/20 bg-white/10 accent-[var(--nx-auth-signal)]"
+          />
+          <span>
+            I agree to the{' '}
+            <a href="/terms" className="text-[var(--nx-auth-text)] underline decoration-white/25 underline-offset-4 hover:decoration-white">
+              Terms
+            </a>{' '}
+            and{' '}
+            <a href="/privacy" className="text-[var(--nx-auth-text)] underline decoration-white/25 underline-offset-4 hover:decoration-white">
+              Privacy Policy
+            </a>
+            .
+          </span>
+        </label>
+
+        {props.error ? <p role="alert" className="nx-auth-message nx-auth-message--error mt-4">{props.error}</p> : null}
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button type="button" onClick={props.onBack} className="nx-auth-ghost-button">
+            <ArrowLeft className="size-4" />
+            Back
+          </button>
+          <button type="button" onClick={props.onContinue} disabled={props.loading} className="nx-auth-submit max-w-[220px]">
+            {props.loading ? <Loader2 className="size-4 animate-spin" /> : null}
+            Create account
+            {!props.loading ? <ArrowRight className="size-4" /> : null}
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-[24px] border border-[var(--nx-auth-line)] bg-[#050505] p-5">
+        <p className="text-sm font-semibold">Workspace protection</p>
+        <div className="mt-4 space-y-3">
+          <SecurityRow icon={<ShieldCheck className="size-4" />} title="Session protected" text="Private tools stay behind auth." />
+          <SecurityRow icon={<BadgeCheck className="size-4" />} title="Public pages stay crawlable" text="Agent pages remain clean and fast." />
+          <SecurityRow icon={<Gauge className="size-4" />} title="Trial starts after signup" text="No card required to begin." />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PaymentsStep(props: { loading: boolean; error: string; onConnect: () => void; onSkip: () => void; onBack: () => void }) {
+  return (
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div>
+        <p className="max-w-2xl text-sm leading-6 text-[var(--nx-auth-muted)]">
+          Stripe Connect lets agents and buyers pay through Nexez checkout. You can skip this now and use external booking links until payouts are connected.
+        </p>
+        <div className="mt-6 rounded-[24px] border border-[var(--nx-auth-line)] bg-[#050505] p-5">
+          <div className="flex items-start gap-4">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-[var(--nx-auth-line)] bg-white/[0.055] text-[var(--nx-auth-signal)]">
+              <CreditCard className="size-6" />
+            </span>
+            <div>
+              <p className="text-lg font-semibold">Secure Stripe Connect</p>
+              <p className="mt-1 text-sm leading-6 text-[var(--nx-auth-muted)]">
+                Nexez never sees card details. Stripe handles account verification, payouts, and payment security.
+              </p>
+            </div>
+          </div>
+          {props.error ? <p role="alert" className="nx-auth-message nx-auth-message--error mt-5">{props.error}</p> : null}
+          <div className="mt-6 flex flex-wrap gap-3">
+            <button type="button" onClick={props.onBack} className="nx-auth-ghost-button">
+              <ArrowLeft className="size-4" />
+              Back
+            </button>
+            <button type="button" onClick={props.onConnect} disabled={props.loading} className="nx-auth-submit max-w-[210px]">
+              {props.loading ? <Loader2 className="size-4 animate-spin" /> : null}
+              Connect Stripe
+            </button>
+            <button type="button" onClick={props.onSkip} className="nx-auth-ghost-button border-transparent bg-transparent">
+              Skip for now
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="rounded-[24px] border border-[var(--nx-auth-line)] bg-[#050505] p-5">
+        <p className="text-sm font-semibold">When connected</p>
+        <div className="mt-4 space-y-3 text-sm text-[var(--nx-auth-muted)]">
+          {['Accept direct checkout payments.', 'Support agent-assisted purchases.', 'Track revenue from AI-driven sessions.'].map((item) => (
+            <div key={item} className="flex gap-3">
+              <Check className="mt-0.5 size-4 shrink-0 text-[var(--nx-auth-ready)]" />
+              <span>{item}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function LaunchStep({ selectedPlan, onDashboard }: { selectedPlan: (typeof billingPlans)[number]; onDashboard: () => void }) {
+  return (
+    <div className="text-center">
+      <div className="mx-auto flex size-16 items-center justify-center rounded-3xl border border-[var(--nx-auth-ready)]/30 bg-[var(--nx-auth-ready)]/10 text-[var(--nx-auth-ready)]">
+        <Rocket className="size-8" />
+      </div>
+      <h3 className="mt-6 text-4xl font-semibold tracking-[-0.05em]">Your trial is live.</h3>
+      <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[var(--nx-auth-muted)]">
+        Your 7-day {selectedPlan.name} trial is ready. Build your first listing, publish the agent-readable page, then track which AI traffic turns into real demand.
+      </p>
+      <div className="mx-auto mt-8 grid max-w-3xl gap-3 text-left sm:grid-cols-3">
+        {[
+          ['Plan', `${selectedPlan.name} trial`],
+          ['Next move', 'Create listing'],
+          ['Payments', 'Connect anytime'],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-[18px] border border-[var(--nx-auth-line)] bg-[#050505] p-4">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-[var(--nx-auth-muted)]">{label}</p>
+            <p className="mt-2 text-sm font-semibold">{value}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-8 flex flex-wrap justify-center gap-3">
+        <button type="button" onClick={onDashboard} className="nx-auth-primary">
+          Go to Dashboard <ArrowRight className="size-4" />
+        </button>
+        <a href="/create" className="nx-auth-ghost-button">
+          Create first listing
+        </a>
+      </div>
+    </div>
+  )
+}
+
+function StatusPill({ step }: { step: Step }) {
+  const label = step === 1 ? 'No card required' : step === 2 ? 'Secure account' : step === 3 ? 'Optional now' : 'Ready'
+  return (
+    <span className="nx-auth-live">
+      <span className="inline-block size-1.5 rounded-full bg-[var(--nx-auth-ready)]" />
+      {label}
+    </span>
+  )
+}
+
+function Field({ label, icon, children }: { label: string; icon?: ReactNode; children: ReactNode }) {
+  return (
+    <label className="nx-auth-field">
+      <span className="nx-auth-label">
+        {icon ? <span className="text-[var(--nx-auth-muted)]">{icon}</span> : null}
+        {label}
+      </span>
+      {children}
+    </label>
+  )
+}
+
+function SecurityRow({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
+  return (
+    <div className="flex gap-3 rounded-[18px] border border-[var(--nx-auth-line)] bg-white/[0.035] p-3">
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.055] text-[var(--nx-auth-signal)]">{icon}</span>
+      <span>
+        <span className="block text-sm font-semibold">{title}</span>
+        <span className="block text-xs leading-5 text-[var(--nx-auth-muted)]">{text}</span>
+      </span>
+    </div>
+  )
+}
+
+function OnboardingBackdrop() {
+  return <div aria-hidden="true" className="nx-auth-backdrop" />
+}
+
+const inputClass = 'nx-auth-input'

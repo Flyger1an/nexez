@@ -17,6 +17,17 @@ export async function GET(request: Request) {
   // Guard against open redirect: only allow a same-origin relative path.
   const next = safeNextPath(requestUrl.searchParams.get('next'))
 
+  // OAuth provider error / consent-cancel: Google -> Supabase forwards `error`
+  // (e.g. access_denied) with NO code. Without this, we'd silently redirect an
+  // unauthenticated user onward and they'd bounce to a blank login form. Surface
+  // it the same way the expired-link branch below does, so LoginForm shows a message.
+  if (!code && requestUrl.searchParams.get('error')) {
+    const loginUrl = new URL('/login', requestUrl.origin)
+    loginUrl.searchParams.set('error', 'auth_callback')
+    if (next && next !== '/') loginUrl.searchParams.set('next', next)
+    return NextResponse.redirect(loginUrl)
+  }
+
   if (code) {
     const cookieStore = await cookies()
     const supabase = createClient(cookieStore, requestUrl.host)

@@ -36,4 +36,21 @@ describe('safeNextPath', () => {
     // Only the protocol-relative prefix is dangerous; an interior backslash stays same-origin.
     expect(safeNextPath('/foo\\bar')).toBe('/foo\\bar')
   })
+
+  it('rejects control-char injection the WHATWG URL parser would strip into a host', () => {
+    // The URL parser SILENTLY removes tab/newline/CR mid-string, so `/<tab>/evil`
+    // resolves to protocol-relative `//evil`. Guard must reject before that sink.
+    const TAB = String.fromCharCode(0x09)
+    const LF = String.fromCharCode(0x0a)
+    const CR = String.fromCharCode(0x0d)
+    const BSLASH = String.fromCharCode(0x5c)
+    for (const ctrl of [TAB, LF, CR]) {
+      expect(safeNextPath('/' + ctrl + '/evil.example')).toBe('/dashboard')
+      expect(safeNextPath('/' + ctrl + BSLASH + 'evil.example')).toBe('/dashboard')
+    }
+    // Regression proof: the guarded result must never resolve cross-origin.
+    const malicious = '/' + TAB + '/evil.example'
+    expect(new URL(malicious, 'https://app.nexez.ai').origin).toBe('https://evil.example') // parser strips the tab
+    expect(new URL(safeNextPath(malicious), 'https://app.nexez.ai').origin).toBe('https://app.nexez.ai') // ...but the guard neutralizes it
+  })
 })
