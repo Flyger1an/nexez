@@ -2478,15 +2478,21 @@ html.light { --signal-solid: #DC4F1E; }
   .nx-auth-layout--login {
     grid-template-columns: 1fr;
   }
+  /* Mobile/stacked: the mesh + copy would sit below the fold under the form and
+     add nothing, so drop them entirely and center the sign-in card in the
+     viewport. (The layout has flex:1, so align-content centers the single row;
+     a tall signup form still grows the page and scrolls — no clipping.) */
+  .nx-auth-copy-block {
+    display: none;
+  }
+  .nx-auth-layout--login {
+    align-content: center;
+    justify-items: center;
+  }
   .nx-auth-form-wrap {
     order: 1;
-  }
-  .nx-auth-copy-block {
-    order: 2;
-    min-height: 560px;
-  }
-  .nx-auth-mesh {
-    min-height: 0;
+    width: 100%;
+    max-width: 460px;
   }
 }
 
@@ -2511,26 +2517,7 @@ html.light { --signal-solid: #DC4F1E; }
   .nx-auth-card-body {
     padding: 18px;
   }
-  .nx-auth-copy-block {
-    min-height: auto;
-  }
-  .nx-auth-copy-content {
-    min-height: 580px;
-    padding: 24px;
-  }
-  .nx-auth-mesh {
-    min-height: 0;
-    margin-top: 0;
-  }
-  .nx-auth-mesh-svg {
-    transform: translateX(20%) scale(1.42);
-  }
-  .nx-auth-mesh-label {
-    font-size: 9px;
-  }
-  .nx-auth-mesh-label--bottom {
-    display: none;
-  }
+  /* (mesh/copy-block rules removed — the block is display:none across ≤1023) */
   .nx-auth-preview {
     padding: 12px;
   }
