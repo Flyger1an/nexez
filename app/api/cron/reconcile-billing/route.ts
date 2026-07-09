@@ -2,7 +2,12 @@ import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { captureError } from '../../../../lib/observability'
-import { buildBillingSubscriptionRow } from '../../../../lib/stripe-billing'
+import {
+  buildBillingSubscriptionRow,
+  isDbManagedBillingStatus,
+  pickLiveStripeSubscription,
+  shouldSkipSubscriptionSync,
+} from '../../../../lib/stripe-billing'
 
 // Bound the work per run so the cron stays fast and within Stripe rate limits.
 const LIMIT = 100
@@ -38,10 +43,14 @@ export async function GET(request: Request) {
   const admin = createAdminClient()
   const stripe = new Stripe(stripeKey)
 
-  // Trial-expiry pass: flip expired no-card trials to 'paused' (storefront offline). These are
-  // DB-only trials (no Stripe customer), so the Stripe reconcile below skips them. The status
-  // flip fires the serving-resync trigger → the seller's public listings go offline until they
-  // subscribe. The status='trialing' guard avoids racing a conversion that just landed.
+  // Trial-expiry pass: flip expired no-card trials to 'paused' (storefront offline). The
+  // status flip fires the serving-resync trigger → the seller's public listings go offline
+  // until they subscribe. Scope is EXACT via account_origin='trial' + status='trialing' +
+  // expired trial_ends_at (only ever set on no-card trials) — do NOT also filter on a null
+  // stripe_customer_id: a trial that merely opened (and abandoned) the embedded payment
+  // sheet now carries a customer id while still 'trialing', and excluding it here let it
+  // serve for free forever past expiry (the pause never fired). The .eq('status','trialing')
+  // guard on the UPDATE still prevents clobbering a conversion that just landed as 'active'.
   let pausedTrials = 0
   const { data: expired } = await admin
     .from('billing_subscriptions')
@@ -49,7 +58,6 @@ export async function GET(request: Request) {
     .eq('account_origin', 'trial')
     .eq('status', 'trialing')
     .lt('trial_ends_at', new Date().toISOString())
-    .is('stripe_customer_id', null)
     .limit(LIMIT)
     .returns<Array<{ owner_id: string }>>()
   for (const r of expired ?? []) {
@@ -80,15 +88,27 @@ export async function GET(request: Request) {
 
   for (const row of rows) {
     try {
-      // Prefer the active/trialing subscription; fall back to the most recent.
+      // Prefer the live subscription; fall back to the most recent SETTLED one -
+      // never an incomplete/incomplete_expired sub (an opened-then-abandoned payment
+      // sheet), which must not "reconcile" a live trial/paused/active row away.
       const list = await stripe.subscriptions.list({
         customer: row.stripe_customer_id as string,
         status: 'all',
         limit: 5,
         expand: ['data.items.data.price'],
       })
-      const live = list.data.find((s) => s.status === 'active' || s.status === 'trialing' || s.status === 'past_due')
-      const subscription = live ?? list.data[0] ?? null
+      const live = pickLiveStripeSubscription(list.data)
+      const subscription = live ?? list.data.find((s) => !shouldSkipSubscriptionSync(s.status)) ?? null
+
+      // DB-managed lifecycle (no-card trial / its expiry pause) has NO Stripe
+      // subscription behind it - the row merely holds a customer id from an opened
+      // payment sheet. Stripe silence is expected; only a LIVE subscription (a real
+      // conversion) may overwrite these states. Without this guard the cron reset
+      // in-window trials to 'canceled' (plan stripped) within the hour.
+      if (!live && isDbManagedBillingStatus(row.status) && !row.stripe_subscription_id) {
+        unchanged += 1
+        continue
+      }
 
       if (!subscription) {
         // No subscription in Stripe - our row must not claim a paid plan.

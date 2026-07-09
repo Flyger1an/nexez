@@ -178,6 +178,23 @@ export default function BillingDashboardClient({
       })
       const data = await res.json()
 
+      // Existing live subscription: the server switched its price in place (prorated) -
+      // there is no new payment to confirm, so no PaymentElement mounts.
+      if (res.ok && data.planChanged) {
+        setSelectedPlanId(null)
+        setCheckoutSuccess(`You're switched to ${plan.name}. Prorated charges or credit apply to your next invoice. This page will refresh shortly.`)
+        setTimeout(() => {
+          router.refresh()
+          setTimeout(() => window.location.reload(), 900)
+        }, 1400)
+        return
+      }
+      if (res.ok && data.alreadyOnPlan) {
+        setSelectedPlanId(null)
+        setCheckoutSuccess(`You're already subscribed to ${plan.name}.`)
+        return
+      }
+
       if (!res.ok || !data.clientSecret) {
         throw new Error(data.error || 'Failed to start secure checkout.')
       }

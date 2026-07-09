@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '../../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { getBillingPlan, getPlanPriceId, isStripePriceId } from '../../../../lib/billing'
+import { getSubscriptionPriceId, pickLiveStripeSubscription } from '../../../../lib/stripe-billing'
 
 /**
  * Creates a Stripe Subscription for recurring paid plans using Embedded Components flow.
@@ -68,6 +69,56 @@ export async function POST(request: Request) {
 
     let customerId = billingState?.stripe_customer_id || null
 
+    // Plan CHANGE, not first purchase: if this customer already has a live subscription,
+    // switch its price in place (prorated) instead of minting a second one. Creating a
+    // new subscription here double-billed the customer every cycle and made the two
+    // subs' webhook events flip-flop billing_subscriptions (plan + commission oscillated).
+    if (customerId) {
+      const existing = await stripe.subscriptions.list({
+        customer: customerId,
+        status: 'all',
+        limit: 20,
+        expand: ['data.items.data.price'],
+      })
+      const live = pickLiveStripeSubscription(existing.data)
+      if (live) {
+        if (getSubscriptionPriceId(live) === priceId) {
+          return NextResponse.json({ ok: true, alreadyOnPlan: true, planId: plan.id, subscriptionId: live.id })
+        }
+        const item = live.items?.data?.[0]
+        if (!item) {
+          console.error('[billing/create-subscription] live subscription has no item to update', { subId: live.id })
+          return NextResponse.json({ error: 'Your current subscription could not be updated. Please contact support.' }, { status: 500 })
+        }
+        const updated = await stripe.subscriptions.update(live.id, {
+          items: [{ id: item.id, price: priceId }],
+          proration_behavior: 'create_prorations',
+          payment_settings: { save_default_payment_method: 'on_subscription' },
+          metadata: {
+            nexez_user_id: user.id,
+            nexez_plan: plan.id,
+            nexez_price_id: priceId,
+            nexez_source: 'embedded_billing_plan_change',
+          },
+        })
+        // Optimistic sync from REAL Stripe state so the page reflects the switch
+        // immediately; the customer.subscription.updated webhook re-confirms.
+        if (hasSupabaseAdminEnv()) {
+          const { error: syncError } = await createAdminClient()
+            .from('billing_subscriptions')
+            .update({
+              plan_id: plan.id,
+              stripe_price_id: priceId,
+              stripe_subscription_id: updated.id,
+              status: updated.status,
+            })
+            .eq('owner_id', user.id)
+          if (syncError) console.warn('[billing/create-subscription] plan-change row sync failed (webhook will heal)', syncError)
+        }
+        return NextResponse.json({ ok: true, planChanged: true, planId: plan.id, subscriptionId: updated.id })
+      }
+    }
+
     if (!customerId) {
       // Create customer in Stripe (idempotent-ish via metadata)
       const customer = await stripe.customers.create({
@@ -79,22 +130,35 @@ export async function POST(request: Request) {
       })
       customerId = customer.id
 
-      // Upsert a preliminary row so the webhook can find this customer by owner_id.
-      // Deliberately DO NOT write plan_id here - payment hasn't happened yet, and the
-      // billing UI derives the active plan from plan_id. Writing it optimistically made
-      // an abandoned checkout show a plan the user never paid for. The webhook
-      // (customer.subscription.* / checkout.session.completed) sets plan_id on confirmation.
+      // Link the customer so the webhook can find it by owner_id. Deliberately DO NOT
+      // write plan_id (payment hasn't happened) and NEVER overwrite an existing row's
+      // status: stamping 'incomplete' over a live 'trialing'/'paused' row killed the
+      // no-card trial's entitlements and permanently un-paused paused storefronts the
+      // moment the payment sheet was opened - even if it was abandoned.
       // Must use the service-role client: RLS allows owners SELECT but not insert/update
       // on billing_subscriptions, so a session-client write is silently rejected (which
       // left the customer id unlinked and the subscription state unsynced).
       if (hasSupabaseAdminEnv()) {
-        const { error: linkError } = await createAdminClient().from('billing_subscriptions').upsert({
-          owner_id: user.id,
-          stripe_customer_id: customerId,
-          status: 'incomplete',
-          metadata: { source: 'create-subscription', created_via: 'embedded' },
-        }, { onConflict: 'owner_id' })
-        if (linkError) console.error('[billing/create-subscription] failed to persist stripe_customer_id', linkError)
+        const admin = createAdminClient()
+        if (billingState) {
+          const { error: linkError } = await admin
+            .from('billing_subscriptions')
+            .update({ stripe_customer_id: customerId })
+            .eq('owner_id', user.id)
+          if (linkError) console.error('[billing/create-subscription] failed to persist stripe_customer_id', linkError)
+        } else {
+          const { error: linkError } = await admin.from('billing_subscriptions').insert({
+            owner_id: user.id,
+            stripe_customer_id: customerId,
+            status: 'incomplete',
+            metadata: { source: 'create-subscription', created_via: 'embedded' },
+          })
+          // 23505: a concurrent writer (start-trial, webhook) created the row first -
+          // leave its state alone; the webhook backfills the customer id via metadata.
+          if (linkError && linkError.code !== '23505') {
+            console.error('[billing/create-subscription] failed to persist stripe_customer_id', linkError)
+          }
+        }
       } else {
         console.warn('[billing/create-subscription] admin env missing - customer id not persisted; webhook will backfill via metadata')
       }

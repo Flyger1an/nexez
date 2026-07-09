@@ -1,15 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createSupabaseMock } from '../../../../test/supabase-mock'
 
-const { customersCreate, subscriptionsCreate } = vi.hoisted(() => ({
+const { customersCreate, subscriptionsCreate, subscriptionsList, subscriptionsUpdate } = vi.hoisted(() => ({
   customersCreate: vi.fn(),
   subscriptionsCreate: vi.fn(),
+  subscriptionsList: vi.fn(),
+  subscriptionsUpdate: vi.fn(),
 }))
 
 vi.mock('stripe', () => ({
   default: class {
     customers = { create: customersCreate }
-    subscriptions = { create: subscriptionsCreate }
+    subscriptions = { create: subscriptionsCreate, list: subscriptionsList, update: subscriptionsUpdate }
   },
 }))
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ getAll: () => [], set: () => {} })) }))
@@ -36,7 +38,12 @@ const jsonRequest = (body: Record<string, unknown>) =>
   })
 
 describe('POST /api/billing/create-subscription', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // Default: the customer has NO live subscription, so create-subscription proceeds
+    // to mint the first one. Tests exercising a plan change override this.
+    subscriptionsList.mockResolvedValue({ data: [] })
+  })
   afterEach(() => vi.unstubAllEnvs())
 
   it('rejects unsupported plans', async () => {
@@ -157,6 +164,81 @@ describe('POST /api/billing/create-subscription', () => {
 
     const res = await POST(jsonRequest({ plan: 'pro' }))
     expect(res.status).toBe(500)
+  })
+
+  it('UPDATES the existing live subscription on a plan change instead of creating a second (no double-billing)', async () => {
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_ready')
+    vi.mocked(getBillingPlan).mockReturnValue({ id: 'pro', name: 'Pro' } as any)
+    vi.mocked(getPlanPriceId).mockReturnValue('price_pro')
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock(
+        (ctx) => (ctx.table === 'billing_subscriptions' ? { data: { stripe_customer_id: 'cus_existing', plan_id: 'launch', status: 'active' } } : { data: null }),
+        { user: { id: 'u1', email: 'a@b.c' } },
+      ) as any,
+    )
+    // Customer already has a LIVE (active) subscription on a different price.
+    subscriptionsList.mockResolvedValue({
+      data: [{ id: 'sub_live', status: 'active', items: { data: [{ id: 'si_1', price: { id: 'price_launch' } }] } }],
+    })
+    subscriptionsUpdate.mockResolvedValue({ id: 'sub_live', status: 'active' })
+
+    const res = await POST(jsonRequest({ plan: 'pro' }))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.planChanged).toBe(true)
+    expect(body.subscriptionId).toBe('sub_live')
+    // The critical assertion: we UPDATED the existing sub's item, never created a 2nd.
+    expect(subscriptionsUpdate).toHaveBeenCalledWith('sub_live', expect.objectContaining({
+      items: [{ id: 'si_1', price: 'price_pro' }],
+      proration_behavior: 'create_prorations',
+    }))
+    expect(subscriptionsCreate).not.toHaveBeenCalled()
+  })
+
+  it('is a no-op when the live subscription is already on the requested plan', async () => {
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_ready')
+    vi.mocked(getBillingPlan).mockReturnValue({ id: 'pro', name: 'Pro' } as any)
+    vi.mocked(getPlanPriceId).mockReturnValue('price_pro')
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock(
+        (ctx) => (ctx.table === 'billing_subscriptions' ? { data: { stripe_customer_id: 'cus_existing', plan_id: 'pro', status: 'active' } } : { data: null }),
+        { user: { id: 'u1', email: 'a@b.c' } },
+      ) as any,
+    )
+    subscriptionsList.mockResolvedValue({
+      data: [{ id: 'sub_live', status: 'active', items: { data: [{ id: 'si_1', price: { id: 'price_pro' } }] } }],
+    })
+
+    const res = await POST(jsonRequest({ plan: 'pro' }))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.alreadyOnPlan).toBe(true)
+    expect(subscriptionsUpdate).not.toHaveBeenCalled()
+    expect(subscriptionsCreate).not.toHaveBeenCalled()
+  })
+
+  it('an incomplete_expired sub is NOT live: a plan pick creates the first real subscription', async () => {
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_ready')
+    vi.mocked(getBillingPlan).mockReturnValue({ id: 'pro', name: 'Pro' } as any)
+    vi.mocked(getPlanPriceId).mockReturnValue('price_pro')
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock(
+        (ctx) => (ctx.table === 'billing_subscriptions' ? { data: { stripe_customer_id: 'cus_existing', plan_id: null, status: 'incomplete' } } : { data: null }),
+        { user: { id: 'u1', email: 'a@b.c' } },
+      ) as any,
+    )
+    subscriptionsList.mockResolvedValue({ data: [{ id: 'sub_dead', status: 'incomplete_expired', items: { data: [{ id: 'si_x', price: { id: 'price_pro' } }] } }] })
+    subscriptionsCreate.mockResolvedValue({ id: 'sub_new', latest_invoice: { confirmation_secret: { client_secret: 'pi_secret_123' } } })
+
+    const res = await POST(jsonRequest({ plan: 'pro' }))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.clientSecret).toBe('pi_secret_123')
+    expect(subscriptionsUpdate).not.toHaveBeenCalled()
+    expect(subscriptionsCreate).toHaveBeenCalledOnce()
   })
 
   it('returns setup guidance instead of a 500 when Stripe cannot find the configured price', async () => {

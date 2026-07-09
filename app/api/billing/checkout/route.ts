@@ -4,6 +4,8 @@ import { cookies } from 'next/headers'
 import { appUrl } from '../../../../lib/site'
 import { getBillingPlan, getPlanPriceId, isStripePriceId } from '../../../../lib/billing'
 import { createClient } from '../../../../utils/supabase/server'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
+import { getSubscriptionPriceId, pickLiveStripeSubscription } from '../../../../lib/stripe-billing'
 
 // /login and /dashboard/billing live on the APP host (app.nexez.ai), so build
 // these redirects with appUrl() - getBaseUrl() returns the agent-runtime host
@@ -44,6 +46,53 @@ export async function POST(request: Request) {
     .maybeSingle<{ stripe_customer_id: string | null }>()
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+
+  // Plan CHANGE, not first purchase: a customer with a live subscription gets its
+  // price switched in place (prorated) - a second Checkout Session would mint a
+  // second concurrent subscription and double-bill every cycle.
+  if (billingState?.stripe_customer_id) {
+    try {
+      const existing = await stripe.subscriptions.list({
+        customer: billingState.stripe_customer_id,
+        status: 'all',
+        limit: 20,
+        expand: ['data.items.data.price'],
+      })
+      const live = pickLiveStripeSubscription(existing.data)
+      if (live) {
+        if (getSubscriptionPriceId(live) === priceId) {
+          return NextResponse.redirect(appUrl('/dashboard/billing?already_on_plan=1'), 303)
+        }
+        const item = live.items?.data?.[0]
+        if (!item) {
+          console.error('[billing/checkout] live subscription has no item to update', { subId: live.id })
+          return NextResponse.redirect(appUrl('/dashboard/billing?error=stripe'), 303)
+        }
+        const updated = await stripe.subscriptions.update(live.id, {
+          items: [{ id: item.id, price: priceId }],
+          proration_behavior: 'create_prorations',
+          metadata: {
+            nexez_user_id: user.id,
+            nexez_plan: plan.id,
+            nexez_price_id: priceId,
+            nexez_source: 'billing_page_plan_change',
+          },
+        })
+        // Optimistic sync from REAL Stripe state; the subscription.updated webhook re-confirms.
+        if (hasSupabaseAdminEnv()) {
+          await createAdminClient()
+            .from('billing_subscriptions')
+            .update({ plan_id: plan.id, stripe_price_id: priceId, stripe_subscription_id: updated.id, status: updated.status })
+            .eq('owner_id', user.id)
+        }
+        return NextResponse.redirect(appUrl(`/dashboard/billing?plan_changed=${plan.id}`), 303)
+      }
+    } catch (err) {
+      console.error('[billing/checkout] plan-change path failed', err)
+      return NextResponse.redirect(appUrl('/dashboard/billing?error=stripe'), 303)
+    }
+  }
+
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: 'subscription',
     client_reference_id: user.id,

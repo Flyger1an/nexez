@@ -4,6 +4,7 @@ import { getBaseUrl, type OfferItem } from '../../../../lib/agent-page'
 import {
   buildBillingSubscriptionRow,
   getSubscriptionPriceId,
+  shouldSkipSubscriptionSync,
   stripeObjectId,
 } from '../../../../lib/stripe-billing'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
@@ -863,6 +864,15 @@ async function syncBillingCheckoutSession(event: Stripe.Event, session: Stripe.C
 async function syncBillingSubscription(event: Stripe.Event, subscription: Stripe.Subscription) {
   if (!hasSupabaseAdminEnv()) {
     return NextResponse.json({ received: true, type: event.type, note: 'SUPABASE_SERVICE_ROLE_KEY required' }, { status: 200 })
+  }
+
+  // Pre-payment states carry nothing worth writing: the row is either the fresh
+  // 'incomplete' link row already, or holds REAL state (live no-card trial, paused,
+  // active) that an opened-then-abandoned payment sheet must never overwrite -
+  // subscription.created fires with 'incomplete' the moment the sheet opens, and
+  // 'incomplete_expired' ~23h after abandonment.
+  if (shouldSkipSubscriptionSync(subscription.status)) {
+    return NextResponse.json({ received: true, type: event.type, billing: false, reason: `skipped pre-payment status ${subscription.status}` }, { status: 200 })
   }
 
   const supabase = createAdminClient()

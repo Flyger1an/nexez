@@ -1,14 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createSupabaseMock } from '../../../../test/supabase-mock'
 
-const { checkoutSessionsCreate } = vi.hoisted(() => ({ checkoutSessionsCreate: vi.fn() }))
+const { checkoutSessionsCreate, subscriptionsList, subscriptionsUpdate } = vi.hoisted(() => ({
+  checkoutSessionsCreate: vi.fn(),
+  subscriptionsList: vi.fn(),
+  subscriptionsUpdate: vi.fn(),
+}))
 vi.mock('stripe', () => ({
   default: class {
     checkout = { sessions: { create: checkoutSessionsCreate } }
+    subscriptions = { list: subscriptionsList, update: subscriptionsUpdate }
   },
 }))
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ getAll: () => [], set: () => {} })) }))
 vi.mock('../../../../utils/supabase/server', () => ({ createClient: vi.fn() }))
+vi.mock('../../../../utils/supabase/admin', () => ({ hasSupabaseAdminEnv: vi.fn(() => false), createAdminClient: vi.fn() }))
 vi.mock('../../../../lib/billing', () => ({
   getBillingPlan: vi.fn(),
   getPlanPriceId: vi.fn(),
@@ -27,7 +33,11 @@ const form = (plan: string) =>
   })
 
 describe('POST /api/billing/checkout', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // Default: no live subscription -> a first purchase creates a Checkout Session.
+    subscriptionsList.mockResolvedValue({ data: [] })
+  })
   afterEach(() => vi.unstubAllEnvs())
 
   it('redirects with ?error=plan for an unknown plan', async () => {
@@ -109,5 +119,31 @@ describe('POST /api/billing/checkout', () => {
         },
       }),
     )
+  })
+
+  it('a live subscription makes a plan change UPDATE the sub in place — no second Checkout Session', async () => {
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_ready')
+    vi.mocked(getBillingPlan).mockReturnValue({ id: 'pro', name: 'Pro' } as any)
+    vi.mocked(getPlanPriceId).mockReturnValue('price_pro' as any)
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock(
+        (ctx) => (ctx.table === 'billing_subscriptions' ? { data: { stripe_customer_id: 'cus_existing' } } : { data: null }),
+        { user: { id: 'u1', email: 'a@b.c' } },
+      ) as any,
+    )
+    subscriptionsList.mockResolvedValue({
+      data: [{ id: 'sub_live', status: 'active', items: { data: [{ id: 'si_1', price: { id: 'price_launch' } }] } }],
+    })
+    subscriptionsUpdate.mockResolvedValue({ id: 'sub_live', status: 'active' })
+
+    const res = await POST(form('pro'))
+
+    expect(res.status).toBe(303)
+    expect(res.headers.get('location')).toContain('plan_changed=pro')
+    expect(subscriptionsUpdate).toHaveBeenCalledWith('sub_live', expect.objectContaining({
+      items: [{ id: 'si_1', price: 'price_pro' }],
+      proration_behavior: 'create_prorations',
+    }))
+    expect(checkoutSessionsCreate).not.toHaveBeenCalled()
   })
 })

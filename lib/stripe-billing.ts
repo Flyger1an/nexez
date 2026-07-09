@@ -24,6 +24,38 @@ export type BillingSubscription = {
   stripe_connect_payouts_enabled?: boolean | null
 }
 
+/**
+ * Stripe subscription statuses that mean "this is the customer's live subscription".
+ * Mirrors the LIVE_STATUSES set the entitlement resolvers grant plans for.
+ */
+export const LIVE_SUBSCRIPTION_STATUSES = ['active', 'trialing', 'past_due', 'unpaid'] as const
+
+/** The customer's live subscription, if any — the one a plan change must UPDATE, never duplicate. */
+export function pickLiveStripeSubscription<T extends { status: string }>(subscriptions: T[]): T | null {
+  return subscriptions.find((s) => (LIVE_SUBSCRIPTION_STATUSES as readonly string[]).includes(s.status)) ?? null
+}
+
+/**
+ * Pre-payment subscription states must never overwrite real billing state. A user who
+ * merely OPENS (then abandons) the embedded payment sheet mints an 'incomplete'
+ * subscription; syncing that status over a live no-card trial kills the trial's
+ * entitlements, and syncing it over 'paused' permanently un-pauses the storefront
+ * (nothing ever re-pauses a non-'trialing' row). The row is either already
+ * 'incomplete' (fresh link row) or holds a state strictly more truthful.
+ */
+export function shouldSkipSubscriptionSync(status: string | null | undefined): boolean {
+  return status === 'incomplete' || status === 'incomplete_expired'
+}
+
+/**
+ * DB-managed lifecycle states (the no-card trial and its expiry pause) have no Stripe
+ * subscription behind them - Stripe silence is EXPECTED and must not be "reconciled"
+ * into canceled/incomplete. Only a live Stripe subscription may overwrite these.
+ */
+export function isDbManagedBillingStatus(status: string | null | undefined): boolean {
+  return status === 'trialing' || status === 'paused'
+}
+
 export function getPlanIdForStripePrice(priceId: string | null | undefined): BillingPlan['id'] | null {
   if (!priceId) return null
   return billingPlans.find((plan) => getPlanPriceId(plan) === priceId)?.id ?? null
