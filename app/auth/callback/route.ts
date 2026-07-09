@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { safeNextPath } from '../../../lib/safe-redirect'
 import { sendOnceSystemEmail } from '../../../lib/server/system-email'
 import { buildWelcomeEmail } from '../../../lib/email'
-import { ensureTrialSeeded } from '../../../lib/server/trial'
+import { ensureTrialSeeded, hasBillingAccount } from '../../../lib/server/trial'
 
 // A user counts as "new" (gets the welcome) only if their account was created very
 // recently - so an existing user signing in again never gets a backfill blast, and
@@ -51,10 +51,14 @@ export async function GET(request: Request) {
     // Seed the no-card trial for a brand-new confirmed account BEFORE redirecting, so the
     // email-confirmation signup path shows the trial on its FIRST dashboard load (not a
     // one-render "Free" flash from the layout-seed racing the page read). Awaited - a single
-    // fast idempotent insert, Pro by default. The dashboard layout backstop still covers any
-    // other path. Existing users (created > 24h) are never auto-trialed here.
-    if (isNew && user) {
-      await ensureTrialSeeded(user.id, user.user_metadata?.plan)
+    // fast idempotent insert. ONLY when the user explicitly picked a plan at signup (the
+    // /onboard email path stamps it into user_metadata) - an OAuth first-touch (Continue
+    // with Google) never chose one and is routed through onboarding below instead of being
+    // silently defaulted. Existing users (created > 24h) are never auto-trialed here.
+    const planMeta = user?.user_metadata?.plan
+    const chosePlan = typeof planMeta === 'string' && planMeta.length > 0
+    if (isNew && user && chosePlan) {
+      await ensureTrialSeeded(user.id, planMeta)
     }
 
     if (isNew && user?.email) {
@@ -65,6 +69,16 @@ export async function GET(request: Request) {
       after(async () => {
         await sendOnceSystemEmail({ ownerId, kind: 'welcome', to, build: () => buildWelcomeEmail({ name, createUrl }) })
       })
+    }
+
+    // OAuth first-touch: a brand-new account with NO chosen plan goes through onboarding
+    // to pick one (Shopify-style plan-first), not to a silently-seeded default trial.
+    // Gated on "no billing row yet" so a re-login inside the welcome window after
+    // completing onboarding passes straight through to `next`.
+    if (isNew && user && !chosePlan && !(await hasBillingAccount(user.id))) {
+      const onboardUrl = new URL('/onboard', requestUrl.origin)
+      if (next && next !== '/') onboardUrl.searchParams.set('next', next)
+      return NextResponse.redirect(onboardUrl)
     }
   }
 

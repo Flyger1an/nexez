@@ -68,6 +68,10 @@ export default function OnboardPage() {
   const [error, setError] = useState('')
   const [needsEmailConfirm, setNeedsEmailConfirm] = useState(false)
   const [nextPath, setNextPath] = useState('/dashboard')
+  // Signed in but plan-less (OAuth first-touch, e.g. Continue with Google): the account
+  // exists, so onboarding skips the Account step and the plan pick starts the trial.
+  const [authedPlanPick, setAuthedPlanPick] = useState(false)
+  const [authedEmail, setAuthedEmail] = useState('')
 
   const trialablePlans = useMemo(() => billingPlans.filter((p) => p.id !== 'free' && p.id !== 'enterprise'), [])
   const selectedPlan = billingPlans.find((p) => p.id === selectedPlanId) || trialablePlans[0]
@@ -81,11 +85,29 @@ export default function OnboardPage() {
     if (planParam && trialablePlans.some((p) => p.id === planParam)) setSelectedPlanId(planParam)
     const next = safeNextPath(params.get('next'))
     if (next) setNextPath(next)
+    let cancelled = false
     createClient()
       .auth.getUser()
-      .then(({ data }) => {
-        if (data.user) router.replace(next || '/dashboard')
+      .then(async ({ data }) => {
+        if (!data.user || cancelled) return
+        // Signed in: does this account already have billing state? An OAuth first-touch
+        // (Continue with Google) does not - keep them here to pick a plan. Anyone with a
+        // billing row heads to the dashboard as before. On a failed probe, STAYING is the
+        // safe default: the plan pick is idempotent for accounts that already have billing,
+        // while bouncing a plan-less account would silently seed the default trial.
+        const res = await fetch('/api/billing/start-trial').catch(() => null)
+        const info = res && res.ok ? ((await res.json().catch(() => null)) as { hasBilling?: boolean } | null) : null
+        if (cancelled) return
+        if (info?.hasBilling) {
+          router.replace(next || '/dashboard')
+          return
+        }
+        setAuthedPlanPick(true)
+        setAuthedEmail(data.user.email ?? '')
       })
+    return () => {
+      cancelled = true
+    }
   }, [router, trialablePlans])
 
   function validateAccount() {
@@ -147,6 +169,37 @@ export default function OnboardPage() {
     }
   }
 
+  // Authed plan-less path (OAuth first-touch): the account already exists, so picking a
+  // plan IS the trial start - skip the Account step entirely and go straight to Payments.
+  async function handleAuthedPlanContinue() {
+    if (loading) return
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/api/billing/start-trial', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ plan: selectedPlanId }),
+      }).catch(() => null)
+      const data = res
+        ? ((await res.json().catch(() => ({}))) as { error?: string; alreadyHadAccount?: boolean; planId?: string | null })
+        : null
+      if (!res || !res.ok) {
+        setError(data?.error || 'Could not start your trial. Please try again.')
+        return
+      }
+      // A billing row already existed (double-click, or back-and-repick after the first
+      // Continue): billing is the source of truth, so reflect ITS plan in the UI rather
+      // than pretending the new selection took. Plan changes happen from Billing.
+      if (data?.alreadyHadAccount && typeof data.planId === 'string' && data.planId) {
+        setSelectedPlanId(data.planId)
+      }
+      setStep(3)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function handleStripeConnect() {
     setLoading(true)
     setError('')
@@ -185,9 +238,11 @@ export default function OnboardPage() {
             <span>Nexez</span>
           </a>
           <nav className="nx-auth-nav" aria-label="Onboarding links">
-            <a href="/login" className="nx-auth-link">
-              Sign in
-            </a>
+            {!authedPlanPick ? (
+              <a href="/login" className="nx-auth-link">
+                Sign in
+              </a>
+            ) : null}
             <a href="/pricing" className="nx-auth-secondary">
               Compare plans
             </a>
@@ -217,13 +272,19 @@ export default function OnboardPage() {
 
             <ol className="nx-onboard-step-list">
               {steps.map((s) => {
-                const status = step === s.num ? 'is-active' : step > s.num ? 'is-done' : ''
+                // Authed plan-pick (OAuth first-touch): the workspace already exists, so
+                // the Account step reads as done from the start.
+                const accountDone = authedPlanPick && s.num === 2
+                const done = accountDone || step > s.num
+                const status = !done && step === s.num ? 'is-active' : done ? 'is-done' : ''
                 return (
                   <li key={s.num} className={`nx-onboard-step-item ${status}`}>
-                    <span className="nx-onboard-step-icon">{step > s.num ? <Check className="size-4" /> : s.icon}</span>
+                    <span className="nx-onboard-step-icon">{done ? <Check className="size-4" /> : s.icon}</span>
                     <span className="min-w-0">
                       <span className="block text-sm font-semibold">{s.title}</span>
-                      <span className="block text-xs leading-5 text-[var(--nx-auth-muted)]">{s.text}</span>
+                      <span className="block text-xs leading-5 text-[var(--nx-auth-muted)]">
+                        {accountDone ? 'Signed in.' : s.text}
+                      </span>
                     </span>
                   </li>
                 )
@@ -271,7 +332,10 @@ export default function OnboardPage() {
                     trialablePlans={trialablePlans}
                     selectedPlanId={selectedPlanId}
                     onSelect={setSelectedPlanId}
-                    onContinue={() => setStep(2)}
+                    onContinue={authedPlanPick ? handleAuthedPlanContinue : () => setStep(2)}
+                    loading={authedPlanPick && loading}
+                    error={authedPlanPick ? error : ''}
+                    authedEmail={authedPlanPick ? authedEmail : ''}
                   />
                 ) : null}
 
@@ -308,7 +372,7 @@ export default function OnboardPage() {
                     error={error}
                     onConnect={handleStripeConnect}
                     onSkip={() => setStep(4)}
-                    onBack={() => setStep(2)}
+                    onBack={() => setStep(authedPlanPick ? 1 : 2)}
                   />
                 ) : null}
 
@@ -327,16 +391,29 @@ function PlanStep({
   selectedPlanId,
   onSelect,
   onContinue,
+  loading = false,
+  error = '',
+  authedEmail = '',
 }: {
   trialablePlans: typeof billingPlans
   selectedPlanId: string
   onSelect: (id: string) => void
   onContinue: () => void
+  loading?: boolean
+  error?: string
+  authedEmail?: string
 }) {
   return (
     <div>
       <p className="max-w-2xl text-sm leading-6 text-[var(--nx-auth-muted)]">
-        Start with a 7-day trial. No card is required today, and you can upgrade, downgrade, or cancel from Billing.
+        {authedEmail ? (
+          <>
+            Signed in as <span className="font-medium text-[var(--nx-auth-text)]">{authedEmail}</span> — pick a plan to
+            start your 7-day trial. No card is required today, and you can change plans anytime from Billing.
+          </>
+        ) : (
+          <>Start with a 7-day trial. No card is required today, and you can upgrade, downgrade, or cancel from Billing.</>
+        )}
       </p>
       <div className="nx-onboard-plan-grid">
         {trialablePlans.map((plan) => {
@@ -403,13 +480,23 @@ function PlanStep({
         </div>
       </div>
 
+      {error ? (
+        <p role="alert" className="nx-auth-message nx-auth-message--error mt-6">
+          {error}
+        </p>
+      ) : null}
+
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        <button type="button" onClick={onContinue} className="nx-auth-primary">
-          Continue with selected plan <ArrowRight className="size-4" />
+        <button type="button" onClick={onContinue} disabled={loading} className="nx-auth-primary disabled:cursor-not-allowed disabled:opacity-60">
+          {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+          {authedEmail ? 'Start my trial with this plan' : 'Continue with selected plan'}
+          {!loading ? <ArrowRight className="size-4" /> : null}
         </button>
-        <a href="/login" className="nx-auth-ghost-button">
-          I already have an account
-        </a>
+        {!authedEmail ? (
+          <a href="/login" className="nx-auth-ghost-button">
+            I already have an account
+          </a>
+        ) : null}
       </div>
     </div>
   )

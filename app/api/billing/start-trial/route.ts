@@ -7,6 +7,35 @@ import { getBillingPlan } from '../../../../lib/billing'
 const TRIAL_DAYS = 7
 
 /**
+ * Lightweight billing-presence probe for the signed-in user. /onboard uses it to decide
+ * whether an authenticated visitor still needs the plan picker (an OAuth first-touch,
+ * e.g. Continue with Google, has no billing row yet) or should bounce to the dashboard.
+ * Exposes only the owner's own presence/plan/status booleans - data they already see
+ * on the billing dashboard.
+ */
+export async function GET() {
+  const supabase = createClient(await cookies())
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
+  if (!hasSupabaseAdminEnv()) {
+    return NextResponse.json({ error: 'Billing lookup unavailable.' }, { status: 503 })
+  }
+
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('billing_subscriptions')
+    .select('plan_id, status')
+    .eq('owner_id', user.id)
+    .maybeSingle<{ plan_id: string | null; status: string | null }>()
+  if (error) return NextResponse.json({ error: 'Billing lookup failed.' }, { status: 500 })
+
+  return NextResponse.json({ hasBilling: Boolean(data), planId: data?.plan_id ?? null, status: data?.status ?? null })
+}
+
+/**
  * Start a new account's 7-day, no-card trial of the plan it picked at signup (Shopify-style).
  * Idempotent + one-per-account: it ONLY seeds a trial when the account has no billing row at
  * all. A row already present means the account is grandfathered ('legacy'), already trialing,
