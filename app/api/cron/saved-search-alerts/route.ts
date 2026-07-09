@@ -55,8 +55,13 @@ export async function GET(request: Request) {
   try {
     const { data: pages } = await admin
       .from('pages_public')
+      // serving=true excludes PAUSED sellers (expired no-card trial): the service-role
+      // client bypasses the anon RLS `is_published AND serving` gate, so without this a
+      // paused seller's offline listings would still be pushed to buyers (who'd land on a
+      // 404). serving is NOT NULL default true, so active/legacy/admin rows are unaffected.
       .select('slug, name, description, industry, location, created_at')
       .eq('is_published', true)
+      .eq('serving', true)
       .gt('created_at', sinceIso)
       .order('created_at', { ascending: false })
       .limit(PAGE_LIMIT)

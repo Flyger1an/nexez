@@ -809,6 +809,14 @@ export async function GET() {
 }
 
 async function syncBillingCheckoutSession(event: Stripe.Event, session: Stripe.Checkout.Session) {
+  // Platform-account events only: Nexez plan checkouts are created on the platform
+  // account (no stripeAccount), so a legit billing event never carries `event.account`.
+  // A CONNECTED-account event (transaction payouts) must NOT drive entitlement writes -
+  // it could carry attacker-controlled metadata.nexez_user_id/nexez_plan and clobber a
+  // victim's plan (the owner-by-metadata arm below does not fail closed).
+  if ((event as { account?: string }).account) {
+    return NextResponse.json({ received: true, type: event.type, billing: false, reason: 'connect account event ignored for billing' }, { status: 200 })
+  }
   if (!hasSupabaseAdminEnv()) {
     return NextResponse.json({ received: true, type: event.type, note: 'SUPABASE_SERVICE_ROLE_KEY required' }, { status: 200 })
   }
@@ -847,6 +855,10 @@ async function syncBillingCheckoutSession(event: Stripe.Event, session: Stripe.C
 
   if (error) {
     console.warn('[Stripe Webhook] billing checkout sync failed:', error.message)
+    // Release the idempotency claim so Stripe's retry reprocesses this event (the upsert
+    // is idempotent, no emails fire here) rather than being swallowed as a duplicate,
+    // which would strand billing state until the reconcile cron catches up.
+    await supabase.from('stripe_webhook_events').delete().eq('event_id', event.id)
     return NextResponse.json({ error: 'Could not sync billing checkout.' }, { status: 500 })
   }
 
@@ -862,6 +874,11 @@ async function syncBillingCheckoutSession(event: Stripe.Event, session: Stripe.C
 }
 
 async function syncBillingSubscription(event: Stripe.Event, subscription: Stripe.Subscription) {
+  // Platform-account events only (see syncBillingCheckoutSession): a connected-account
+  // event must never drive platform entitlement writes.
+  if ((event as { account?: string }).account) {
+    return NextResponse.json({ received: true, type: event.type, billing: false, reason: 'connect account event ignored for billing' }, { status: 200 })
+  }
   if (!hasSupabaseAdminEnv()) {
     return NextResponse.json({ received: true, type: event.type, note: 'SUPABASE_SERVICE_ROLE_KEY required' }, { status: 200 })
   }
@@ -919,6 +936,9 @@ async function syncBillingSubscription(event: Stripe.Event, subscription: Stripe
 
   if (error) {
     console.warn('[Stripe Webhook] subscription lifecycle sync failed:', error.message)
+    // Release the idempotency claim so Stripe retries this event instead of it being
+    // swallowed as a duplicate (the upsert is idempotent; no side effects fire here).
+    await supabase.from('stripe_webhook_events').delete().eq('event_id', event.id)
     return NextResponse.json({ error: 'Could not sync billing subscription.' }, { status: 500 })
   }
 

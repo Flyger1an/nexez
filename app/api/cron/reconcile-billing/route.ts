@@ -128,6 +128,13 @@ export async function GET(request: Request) {
       const rebuilt = buildBillingSubscriptionRow({
         ownerId: row.owner_id as string,
         subscription,
+        // Parity with the webhook (syncBillingSubscription): fall back to the plan/price
+        // stamped into subscription metadata at creation. Without this, a plan Price-ID env
+        // drift (no local price→plan match) makes the hourly cron rebuild plan_id=null for
+        // an ACTIVE paying subscriber — dropping entitlement + spiking commission to 15% —
+        // and fight the webhook, which DOES carry the metadata fallback.
+        fallbackPlanId: subscription.metadata?.nexez_plan,
+        fallbackPriceId: subscription.metadata?.nexez_price_id,
         eventId: 'reconcile-billing',
         eventType: 'reconcile',
       })

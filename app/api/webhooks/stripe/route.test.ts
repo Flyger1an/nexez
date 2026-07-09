@@ -208,6 +208,72 @@ describe('POST /api/webhooks/stripe', () => {
     )
   })
 
+  describe('billing entitlement hardening (audit leftovers)', () => {
+    beforeEach(() => {
+      vi.stubEnv('STRIPE_WEBHOOK_SECRET', 'whsec_test')
+      vi.stubEnv('STRIPE_PRICE_PRO', 'price_pro')
+      hasSupabaseAdminEnv.mockReturnValue(true)
+    })
+
+    it('IGNORES a connected-account subscription event (never writes platform entitlements)', async () => {
+      // A connected Express account emits customer.subscription.updated carrying an
+      // attacker-chosen nexez_user_id/nexez_plan. Must not clobber the victim's plan.
+      constructEvent.mockReturnValue({
+        id: 'evt_connect_sub',
+        account: 'acct_evil',
+        type: 'customer.subscription.updated',
+        data: {
+          object: {
+            id: 'sub_x', status: 'active', customer: 'cus_x',
+            metadata: { nexez_user_id: 'victim', nexez_plan: 'scale', nexez_price_id: 'price_pro' },
+            items: { data: [{ price: { id: 'price_pro' }, current_period_start: 1, current_period_end: 2 }] },
+          },
+        },
+      })
+
+      const res = await POST(post({ sig: 'good', body: '{"id":"evt_connect_sub"}' }))
+      const json = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(json.billing).toBe(false)
+      expect(String(json.reason)).toMatch(/connect/i)
+      expect(adminUpsert).not.toHaveBeenCalled()
+    })
+
+    it('RELEASES the idempotency claim when the billing upsert 500s (Stripe can retry, not swallow)', async () => {
+      const deletedEventIds: string[] = []
+      createAdminClient.mockReturnValue(
+        createSupabaseMock((ctx: QueryContext) => {
+          if (ctx.table === 'stripe_webhook_events' && ctx.op === 'delete') {
+            deletedEventIds.push(ctx.eqs.event_id)
+            return { error: null }
+          }
+          if (ctx.table === 'billing_subscriptions' && ctx.op === 'upsert') {
+            return { error: { message: 'db pool timeout' } } // transient failure
+          }
+          return { data: null, error: null } // ledger insert: no conflict
+        }) as any,
+      )
+      constructEvent.mockReturnValue({
+        id: 'evt_sub_fail',
+        type: 'customer.subscription.updated',
+        data: {
+          object: {
+            id: 'sub_f', status: 'active', customer: 'cus_f',
+            metadata: { nexez_user_id: 'user_9', nexez_plan: 'pro', nexez_price_id: 'price_pro' },
+            items: { data: [{ price: { id: 'price_pro' }, current_period_start: 1, current_period_end: 2 }] },
+          },
+        },
+      })
+
+      const res = await POST(post({ sig: 'good', body: '{"id":"evt_sub_fail"}' }))
+
+      expect(res.status).toBe(500)
+      // The claim was released → Stripe's retry reprocesses instead of being 200-duplicated.
+      expect(deletedEventIds).toContain('evt_sub_fail')
+    })
+  })
+
   describe('negotiation escrow checkout sessions', () => {
     beforeEach(() => {
       vi.stubEnv('STRIPE_WEBHOOK_SECRET', 'whsec_test')

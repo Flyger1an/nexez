@@ -89,4 +89,41 @@ describe('GET /api/cron/reconcile-billing — trial-expiry pause pass', () => {
     expect(updates).toHaveLength(0)
     expect(body.unchanged).toBe(1)
   })
+
+  it('does NOT null an active subscriber plan when the Stripe price is unmapped — uses the metadata fallback (webhook parity)', async () => {
+    const upserts: any[] = []
+    vi.mocked(createAdminClient).mockReturnValue(
+      createSupabaseMock((ctx) => {
+        if (ctx.op === 'upsert') {
+          upserts.push(ctx.payload)
+          return { error: null }
+        }
+        const isMainLoop = ctx.calls.some((c) => c[0] === 'not')
+        if (isMainLoop) {
+          return { data: [{ owner_id: 'sub-owner', stripe_customer_id: 'cus_x', stripe_subscription_id: 'sub1', plan_id: 'pro', status: 'active' }] }
+        }
+        return { data: [] } // no expired trials
+      }) as any,
+    )
+    // Live active sub, but its price id maps to NO local plan (a plan Price-ID env drift).
+    // metadata still carries the plan chosen at creation.
+    subscriptionsList.mockResolvedValue({
+      data: [{
+        id: 'sub1', status: 'active', customer: 'cus_x',
+        metadata: { nexez_plan: 'pro', nexez_price_id: 'price_pro_drifted' },
+        cancel_at_period_end: false,
+        items: { data: [{ id: 'si_1', price: { id: 'price_unmapped_env' }, current_period_start: 1, current_period_end: 2 }] },
+      }],
+    })
+
+    const res = await GET(cronReq())
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    // Rebuilt plan_id resolves to 'pro' via the metadata fallback (not null), matching the
+    // row → treated as unchanged, NO plan-nulling upsert. Without the fallback this would
+    // have upserted plan_id=null (entitlement dropped, commission spiked to 15%) hourly.
+    expect(body.unchanged).toBe(1)
+    expect(upserts.every((p) => p.plan_id !== null)).toBe(true)
+  })
 })

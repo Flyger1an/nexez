@@ -58,8 +58,12 @@ export async function GET(request: Request) {
   try {
     const { data: pages } = await admin
       .from('pages_public')
+      // serving=true excludes PAUSED sellers (expired no-card trial): the service-role
+      // client bypasses the anon RLS gate, so without this a paused seller's offline
+      // listings would still be matched to buyer tasks and pushed (buyer lands on a 404).
       .select('slug, name, description, industry, location')
       .eq('is_published', true)
+      .eq('serving', true)
       .order('created_at', { ascending: false })
       .limit(PAGE_LIMIT)
       .returns<CatalogPage[]>()
