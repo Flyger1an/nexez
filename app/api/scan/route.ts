@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { enforceRateLimit } from '../../../lib/rate-limit'
-import { gatherSiteSignals } from '../../../lib/server/site-scan'
+import { gatherSiteSignals, normalizeScanUrl } from '../../../lib/server/site-scan'
 import { AGENT_BOTS, evaluateCrawlability } from '../../../lib/crawlability'
 import { captureError, captureEvent } from '../../../lib/observability'
 
-// Page + agent.json + .well-known/agent.json + llms.txt + robots probes.
+// One page fetch plus bounded agent-manifest, API, llms.txt, and robots probes.
 export const maxDuration = 30
 
 /**
@@ -26,6 +26,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
+  const normalized = normalizeScanUrl(body.url || '')
+  if (normalized) {
+    const targetHost = new URL(normalized).hostname.toLowerCase()
+    const targetLimited = await enforceRateLimit(request, 'scan-target', 30, 60_000, {
+      subject: `target:${targetHost}`,
+      failClosed: true,
+    })
+    if (targetLimited) return targetLimited
+  }
+
   try {
     const result = await gatherSiteSignals(body.url || '')
     if ('error' in result) {
@@ -41,12 +51,15 @@ export async function POST(request: Request) {
         url: result.url,
         origin: result.origin,
         elapsedMs: result.elapsedMs,
+        scannedAt: new Date().toISOString(),
+        version: report.version,
         score: report.score,
+        dimensions: report.dimensions,
         checks: report.checks,
         agentBots: AGENT_BOTS,
         blockedBots: AGENT_BOTS.filter((b) => !result.robots[b]),
       },
-      { headers: { 'Cache-Control': 'public, max-age=60, s-maxage=300' } },
+      { headers: { 'Cache-Control': 'no-store' } },
     )
   } catch (error) {
     captureError(error, { route: 'scan' })

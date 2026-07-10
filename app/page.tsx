@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { appUrl } from '../lib/site'
+import { buildPlatformStructuredData } from '../lib/platform-agent-manifest'
 import { SimulatorTeaser } from '../components/SimulatorTeaser'
 import { AgentXray } from '../components/home/AgentXray'
 import { KnowledgeGraph } from '../components/home/KnowledgeGraph'
@@ -143,9 +144,15 @@ const discoveryFlow = [
 
 const schemaChips = ['Offers', 'Pricing', 'Proof', 'Actions']
 
+const homeStructuredData = buildPlatformStructuredData()
+
 export default function NexezHome() {
   return (
     <main>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(homeStructuredData).replace(/</g, '\\u003c') }}
+      />
       <ScrollProgress />
       {/* HERO + MARQUEE share one smoke field that bleeds across both */}
       <div className="relative overflow-hidden" style={{ background: 'var(--bg)' }}>

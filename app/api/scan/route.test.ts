@@ -8,6 +8,10 @@ vi.mock('../../../lib/rate-limit', () => ({
 }))
 vi.mock('../../../lib/server/site-scan', () => ({
   gatherSiteSignals: (...a: unknown[]) => gatherSiteSignals(...a),
+  normalizeScanUrl: (value: string) => {
+    if (!value) return null
+    return new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`).toString()
+  },
 }))
 vi.mock('../../../lib/observability', () => ({ captureEvent: vi.fn(), captureError: vi.fn() }))
 
@@ -22,7 +26,7 @@ const post = (body: unknown) =>
 
 const allowedRobots = {
   GPTBot: true, 'OAI-SearchBot': true, 'ChatGPT-User': true, ClaudeBot: false,
-  'Claude-Web': true, PerplexityBot: true, 'Google-Extended': true,
+  'Claude-SearchBot': true, 'Claude-User': true, PerplexityBot: true, 'Google-Extended': true,
 }
 
 describe('POST /api/scan (public anonymous scanner)', () => {
@@ -56,8 +60,34 @@ describe('POST /api/scan (public anonymous scanner)', () => {
       elapsedMs: 120,
       robots: allowedRobots,
       signals: {
-        status: 200, responseMs: 120, hasJsonLd: true, hasTitle: true, hasMetaDescription: true,
-        hasH1: true, agentJsonOk: true, wellKnownAgentJsonOk: false, llmsTxtOk: true, robots: allowedRobots,
+        status: 200,
+        responseMs: 120,
+        https: true,
+        hasJsonLd: true,
+        validJsonLd: true,
+        schemaTypes: ['Organization', 'Offer'],
+        hasTitle: true,
+        hasMetaDescription: true,
+        hasH1: true,
+        hasBusinessIdentity: true,
+        hasOfferSchema: true,
+        hasStructuredPrice: true,
+        hasVisiblePrice: true,
+        hasActionPath: true,
+        hasStructuredAction: true,
+        hasStructuredAvailability: true,
+        hasVisibleAvailability: true,
+        hasOfferDetails: true,
+        hasContact: true,
+        hasPolicies: true,
+        hasFreshnessSignal: true,
+        agentJsonOk: true,
+        wellKnownAgentJsonOk: false,
+        wellKnownAgentCardOk: false,
+        mcpJsonOk: true,
+        openApiJsonOk: true,
+        llmsTxtOk: true,
+        robots: allowedRobots,
       },
     })
     const res = await POST(post({ url: 'acme.com' }))
@@ -65,6 +95,8 @@ describe('POST /api/scan (public anonymous scanner)', () => {
     const json = await res.json()
     expect(json.ok).toBe(true)
     expect(typeof json.score).toBe('number')
+    expect(json.version).toBe(2)
+    expect(json.dimensions.transactability.score).toBe(100)
     expect(Array.isArray(json.checks)).toBe(true)
     expect(json.blockedBots).toContain('ClaudeBot')
     // Anti-scraping-relay: never leaks fetched HTML.

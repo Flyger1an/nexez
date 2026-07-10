@@ -2,35 +2,15 @@ import 'server-only'
 import { getImportUrlError, getResolvedImportUrlError, safeFetch } from '../importer'
 import { parseRobotsForAgentBots, type AgentBot, type CrawlabilitySignals } from '../crawlability'
 
-/**
- * Shared agent-legibility signal gathering for ANY public URL. Used by both the
- * dashboard crawlability test (/api/crawlability) and the public marketing
- * scanner (/api/scan) so the two can never drift.
- *
- * Every outbound request goes through safeFetch (literal-host guard → DNS-resolved
- * private-IP block → manual, re-validated redirect hops) — the raw fetch() the
- * crawlability route once used was an SSRF oracle (red-team gauntlet finding).
- */
+const SCAN_UA = 'Nexez Agent Readiness Scanner/2.0 (+https://nexez.ai/scan)'
 
-const SCAN_UA = 'Nexez Crawlability Bot/1.0'
-
-// Hard response-body caps. safeFetch bounds time (per-hop timeout) but not SIZE;
-// an adversarial or just-huge page could otherwise buffer unbounded bytes via
-// .text(). Head-of-document content carries every signal we score.
 export const HTML_BYTE_CAP = 512 * 1024
 export const ROBOTS_BYTE_CAP = 64 * 1024
 export const JSON_BYTE_CAP = 256 * 1024
 
-/**
- * Read a response body up to maxBytes, decoding as UTF-8. Stops pulling from the
- * stream once the cap is reached (truncates the final chunk). Returns null when
- * the body is missing or reading fails.
- */
 export async function readBodyCapped(res: Response, maxBytes: number): Promise<string | null> {
   const body = res.body
   if (!body) {
-    // Some runtimes (and test mocks) surface no stream; fall back to .text()
-    // and slice — the string is already materialized at that point anyway.
     try {
       const text = await res.text()
       return text.length > maxBytes ? text.slice(0, maxBytes) : text
@@ -38,6 +18,7 @@ export async function readBodyCapped(res: Response, maxBytes: number): Promise<s
       return null
     }
   }
+
   const reader = body.getReader()
   const decoder = new TextDecoder('utf-8', { fatal: false })
   let out = ''
@@ -60,16 +41,11 @@ export async function readBodyCapped(res: Response, maxBytes: number): Promise<s
     try {
       await reader.cancel()
     } catch {
-      /* stream already closed */
+      // The stream may already be closed.
     }
   }
 }
 
-/**
- * Strip HTML to a compact text approximation for LLM comprehension analysis:
- * drop script/style, tags → spaces, collapse whitespace, cap length. Not a
- * renderer — good enough for "what can an agent read off this page".
- */
 export function stripHtmlToText(html: string, maxChars = 8000): string {
   const text = html
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
@@ -79,48 +55,204 @@ export function stripHtmlToText(html: string, maxChars = 8000): string {
     .replace(/&amp;/gi, '&')
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#(?:39|x27);/gi, "'")
     .replace(/\s+/g, ' ')
     .trim()
   return text.length > maxChars ? text.slice(0, maxChars) : text
 }
 
-/** Accepts bare domains (prepends https://); null when unparseable. */
 export function normalizeScanUrl(input: string): string | null {
-  let u = (input || '').trim()
-  if (!u) return null
-  if (!/^https?:\/\//i.test(u)) u = `https://${u}`
+  let value = (input || '').trim()
+  if (!value) return null
+  if (!/^https?:\/\//i.test(value)) value = `https://${value}`
   try {
-    return new URL(u).toString()
+    return new URL(value).toString()
   } catch {
     return null
   }
 }
 
-async function probe(url: string): Promise<{ ok: boolean; status: number; ms: number }> {
-  const started = Date.now()
-  const res = await safeFetch(url, { headers: { 'User-Agent': SCAN_UA } }, { timeoutMs: 6500 })
-  return { ok: !!res && res.ok, status: res?.status ?? 0, ms: Date.now() - started }
+type JsonRecord = Record<string, unknown>
+
+function isRecord(value: unknown): value is JsonRecord {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
-async function probeJson(url: string): Promise<boolean> {
-  const res = await safeFetch(url, { headers: { 'User-Agent': SCAN_UA, Accept: 'application/json' } }, { timeoutMs: 6500 })
+function collectJsonNodes(value: unknown, output: JsonRecord[], depth = 0) {
+  if (depth > 12 || output.length >= 1000) return
+  if (Array.isArray(value)) {
+    for (const item of value) collectJsonNodes(item, output, depth + 1)
+    return
+  }
+  if (!isRecord(value)) return
+  output.push(value)
+  for (const child of Object.values(value)) collectJsonNodes(child, output, depth + 1)
+}
+
+function schemaTypes(node: JsonRecord): string[] {
+  const raw = node['@type']
+  const values = Array.isArray(raw) ? raw : raw ? [raw] : []
+  return values
+    .filter((value): value is string => typeof value === 'string')
+    .map((value) => value.split(/[\/#:]/).filter(Boolean).at(-1) || value)
+}
+
+const BUSINESS_TYPES = new Set([
+  'Organization', 'Corporation', 'LocalBusiness', 'ProfessionalService', 'Store',
+  'OnlineBusiness', 'FinancialService', 'HomeAndConstructionBusiness', 'MedicalBusiness',
+  'LegalService', 'FoodEstablishment', 'TravelAgency', 'RealEstateAgent', 'EducationalOrganization',
+])
+const OFFER_TYPES = new Set(['Offer', 'AggregateOffer', 'Product', 'Service'])
+
+export type StructuredEvidence = {
+  hasJsonLd: boolean
+  validJsonLd: boolean
+  schemaTypes: string[]
+  hasBusinessIdentity: boolean
+  hasOfferSchema: boolean
+  hasStructuredPrice: boolean
+  hasStructuredAction: boolean
+  hasStructuredAvailability: boolean
+  hasOfferDetails: boolean
+  hasStructuredContact: boolean
+  hasStructuredPolicies: boolean
+  dates: string[]
+}
+
+/** Parse bounded JSON-LD scripts and derive concrete schema evidence. */
+export function extractStructuredEvidence(html: string): StructuredEvidence {
+  const parsedRoots: unknown[] = []
+  let scriptCount = 0
+  const scripts = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi
+  let match: RegExpExecArray | null
+  while ((match = scripts.exec(html)) && scriptCount < 100) {
+    const attributes = match[1] || ''
+    if (!/\btype\s*=\s*(?:["']application\/ld\+json[^"']*["']|application\/ld\+json)/i.test(attributes)) continue
+    scriptCount += 1
+    const raw = (match[2] || '')
+      .trim()
+      .replace(/^<!--/, '')
+      .replace(/-->$/, '')
+      .replace(/^\/\*<!\[CDATA\[\*\//, '')
+      .replace(/\/\*\]\]>\*\/$/, '')
+      .trim()
+    try {
+      parsedRoots.push(JSON.parse(raw))
+    } catch {
+      // Presence and validity are reported separately.
+    }
+  }
+
+  const nodes: JsonRecord[] = []
+  for (const root of parsedRoots) collectJsonNodes(root, nodes)
+  const types = Array.from(new Set(nodes.flatMap(schemaTypes)))
+  const offerNodes = nodes.filter((node) => schemaTypes(node).some((type) => OFFER_TYPES.has(type)))
+  const hasValue = (value: unknown) => value !== null && value !== undefined && String(value).trim() !== ''
+  const hasAny = (node: JsonRecord, keys: string[]) => keys.some((key) => hasValue(node[key]))
+
+  return {
+    hasJsonLd: scriptCount > 0,
+    validJsonLd: parsedRoots.length > 0,
+    schemaTypes: types,
+    hasBusinessIdentity: nodes.some((node) =>
+      schemaTypes(node).some((type) => BUSINESS_TYPES.has(type) || type.endsWith('Business')) && hasValue(node.name),
+    ),
+    hasOfferSchema: offerNodes.length > 0,
+    hasStructuredPrice: offerNodes.length > 0 && nodes.some((node) =>
+      hasAny(node, ['price', 'lowPrice', 'highPrice', 'minPrice', 'maxPrice', 'priceRange']),
+    ),
+    hasStructuredAction: nodes.some((node) => {
+      const isAction = schemaTypes(node).some((type) => type.endsWith('Action'))
+      const isOffer = schemaTypes(node).some((type) => OFFER_TYPES.has(type))
+      return (isAction && hasAny(node, ['target', 'url'])) || (isOffer && hasAny(node, ['url', 'potentialAction']))
+    }),
+    hasStructuredAvailability: nodes.some((node) =>
+      hasAny(node, ['availability', 'availabilityStarts', 'availabilityEnds', 'openingHours', 'openingHoursSpecification', 'deliveryLeadTime']),
+    ),
+    hasOfferDetails: offerNodes.some((node) =>
+      hasValue(node.name) && hasAny(node, ['description', 'serviceType', 'category', 'sku', 'itemOffered']),
+    ),
+    hasStructuredContact: nodes.some((node) =>
+      hasAny(node, ['contactPoint', 'email', 'telephone', 'address', 'customerService']),
+    ),
+    hasStructuredPolicies: nodes.some((node) =>
+      hasAny(node, ['hasMerchantReturnPolicy', 'merchantReturnPolicy', 'termsOfService', 'publishingPrinciples', 'refundType']),
+    ),
+    dates: nodes
+      .flatMap((node) => ['dateModified', 'datePublished', 'uploadDate'].map((key) => node[key]))
+      .filter((value): value is string => typeof value === 'string'),
+  }
+}
+
+function hasRecentDate(values: Array<string | null | undefined>): boolean {
+  const now = Date.now()
+  const maxAge = 400 * 24 * 60 * 60 * 1000
+  return values.some((value) => {
+    if (!value) return false
+    const time = Date.parse(value)
+    return Number.isFinite(time) && time <= now + 24 * 60 * 60 * 1000 && now - time <= maxAge
+  })
+}
+
+function hasActionLink(html: string): boolean {
+  const anchors = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi
+  let match: RegExpExecArray | null
+  while ((match = anchors.exec(html))) {
+    const href = match[1]?.match(/\bhref\s*=\s*["']([^"']+)["']/i)?.[1]?.trim() || ''
+    const label = stripHtmlToText(match[2] || '', 180)
+    if (!href || href === '#' || /^javascript:/i.test(href)) continue
+    if (/\b(buy|book|schedule|checkout|order|subscribe|request (?:a )?quote|get started|hire|apply|reserve|sign up|launch|deploy (?:your )?listing|list (?:your )?offers)\b/i.test(label)) return true
+  }
+  return /<form\b[^>]*\baction\s*=\s*["'][^"'#]+["']/i.test(html)
+}
+
+function recordLooksMeaningful(value: unknown, kind: 'agent' | 'agent-card' | 'mcp' | 'openapi'): boolean {
+  if (!isRecord(value)) return false
+  if (kind === 'openapi') return typeof value.openapi === 'string' && isRecord(value.paths)
+  if (kind === 'agent-card') {
+    return typeof value.name === 'string' && ['skills', 'capabilities', 'url'].some((key) => key in value)
+  }
+  if (kind === 'mcp') return ['servers', 'tools', 'resources', 'capabilities', 'pages', 'mcp'].some((key) => key in value)
+  return typeof value.name === 'string' && ['offers', 'skills', 'capabilities', 'url', 'endpoints'].some((key) => key in value)
+}
+
+const SAFE_FETCH_OPTIONS = { timeoutMs: 6500, pinnedDns: true, standardPortsOnly: true } as const
+
+async function probeJson(url: string, kind: 'agent' | 'agent-card' | 'mcp' | 'openapi'): Promise<boolean> {
+  const res = await safeFetch(
+    url,
+    { headers: { 'User-Agent': SCAN_UA, Accept: 'application/json' } },
+    SAFE_FETCH_OPTIONS,
+  )
   if (!res || !res.ok) return false
-  // Capped read + JSON.parse — never res.json() on an unbounded body.
   const text = await readBodyCapped(res, JSON_BYTE_CAP)
   if (!text) return false
   try {
-    JSON.parse(text)
-    return true
+    return recordLooksMeaningful(JSON.parse(text), kind)
   } catch {
     return false
   }
 }
 
 async function fetchCapped(url: string, maxBytes: number): Promise<string | null> {
-  const res = await safeFetch(url, { headers: { 'User-Agent': SCAN_UA } }, { timeoutMs: 6500 })
+  const res = await safeFetch(url, { headers: { 'User-Agent': SCAN_UA } }, SAFE_FETCH_OPTIONS)
   if (!res || !res.ok) return null
   const text = await readBodyCapped(res, maxBytes)
-  return text && text.length >= 20 ? text : null
+  return text && text.trim().length >= 20 ? text : null
+}
+
+async function fetchPage(url: string): Promise<{ status: number; ms: number; html: string; lastModified: string | null; finalUrl: string }> {
+  const started = Date.now()
+  const res = await safeFetch(
+    url,
+    { headers: { 'User-Agent': SCAN_UA, Accept: 'text/html,application/xhtml+xml' } },
+    SAFE_FETCH_OPTIONS,
+  )
+  const ms = Date.now() - started
+  if (!res) return { status: 0, ms, html: '', lastModified: null, finalUrl: url }
+  const html = res.ok ? (await readBodyCapped(res, HTML_BYTE_CAP)) || '' : ''
+  return { status: res.status, ms, html, lastModified: res.headers.get('last-modified'), finalUrl: res.url || url }
 }
 
 export type SiteSignalsResult = {
@@ -129,57 +261,83 @@ export type SiteSignalsResult = {
   elapsedMs: number
   signals: CrawlabilitySignals
   robots: Record<AgentBot, boolean>
-  /** Stripped, capped page text — for the gated LLM comprehension pass (never returned to anon callers). */
+  /** Capped public page text for the gated LLM pass. Never returned by anonymous routes. */
   pageText: string
 }
 
-/**
- * SSRF-guard then fetch the page + its origin's /agent.json,
- * /.well-known/agent.json, /llms.txt and /robots.txt in parallel, and derive
- * the pure CrawlabilitySignals. Returns { error } for guard/parse failures —
- * callers map that to a 400 without leaking anything about internal hosts.
- */
 export async function gatherSiteSignals(rawUrl: string): Promise<SiteSignalsResult | { error: string }> {
   const url = normalizeScanUrl(rawUrl)
   if (!url) return { error: 'A valid URL is required' }
 
-  // Literal host check THEN DNS-resolved private-IP check (the literal check
-  // alone let public names resolving to private IPs through).
-  const urlError = getImportUrlError(url) || (await getResolvedImportUrlError(url))
+  const urlError = getImportUrlError(url) || await getResolvedImportUrlError(url, { useCache: false, failClosed: true })
   if (urlError) return { error: urlError }
 
-  const origin = new URL(url).origin
-  const started = Date.now()
+  const parsedUrl = new URL(url)
+  if (parsedUrl.port && !((parsedUrl.protocol === 'https:' && parsedUrl.port === '443') || (parsedUrl.protocol === 'http:' && parsedUrl.port === '80'))) {
+    return { error: 'The scanner supports standard HTTP and HTTPS ports only.' }
+  }
 
-  const [html, pageProbe, agentJsonOk, wellKnownAgentJsonOk, llmsRes, robotsTxt] = await Promise.all([
-    // Primary page HTML via the CAPPED reader (streams + truncates at HTML_BYTE_CAP):
-    // fetchHtmlSafe buffered the whole body with res.text() before any slice, so an
-    // attacker-controlled public host could stream (or gzip-bomb) GBs into a single
-    // anonymous /api/scan invocation. readBodyCapped bounds the DECOMPRESSED bytes.
-    fetchCapped(url, HTML_BYTE_CAP),
-    probe(url),
-    probeJson(`${origin}/agent.json`),
-    probeJson(`${origin}/.well-known/agent.json`),
-    probe(`${origin}/llms.txt`),
+  const started = Date.now()
+  // Resolve the canonical page first. Artifact probes must use the final origin,
+  // otherwise a common apex-to-www redirect produces false missing-file results.
+  const page = await fetchPage(url)
+  const finalUrl = page.finalUrl
+  const finalParsedUrl = new URL(finalUrl)
+  const origin = finalParsedUrl.origin
+  const [agentJsonOk, wellKnownAgentJsonOk, wellKnownAgentCardOk, mcpJsonOk, openApiJsonOk, llmsTxt, robotsTxt] = await Promise.all([
+    probeJson(`${origin}/agent.json`, 'agent'),
+    probeJson(`${origin}/.well-known/agent.json`, 'agent'),
+    probeJson(`${origin}/.well-known/agent-card.json`, 'agent-card'),
+    probeJson(`${origin}/.well-known/mcp.json`, 'mcp'),
+    probeJson(`${origin}/openapi.json`, 'openapi'),
+    fetchCapped(`${origin}/llms.txt`, JSON_BYTE_CAP),
     fetchCapped(`${origin}/robots.txt`, ROBOTS_BYTE_CAP),
   ])
 
-  const raw = html || '' // already bounded to HTML_BYTE_CAP by fetchCapped
-  const lower = raw.toLowerCase()
+  const html = page.html
+  const lower = html.toLowerCase()
+  const visibleText = stripHtmlToText(html, 50_000)
+  const structured = extractStructuredEvidence(html)
   const robots = parseRobotsForAgentBots(robotsTxt)
+  const metaDate = html.match(/<meta[^>]+(?:property|name)=["'](?:article:modified_time|date|last-modified)["'][^>]+content=["']([^"']+)["']/i)?.[1]
 
   const signals: CrawlabilitySignals = {
-    status: pageProbe.status,
-    responseMs: pageProbe.ms,
-    hasJsonLd: lower.includes('application/ld+json'),
-    hasTitle: /<title[\s>]/.test(lower),
-    hasMetaDescription: /<meta[^>]+name=["']description["']/.test(lower),
-    hasH1: /<h1[\s>]/.test(lower),
+    status: page.status,
+    responseMs: page.ms,
+    https: finalParsedUrl.protocol === 'https:',
+    hasJsonLd: structured.hasJsonLd,
+    validJsonLd: structured.validJsonLd,
+    schemaTypes: structured.schemaTypes,
+    hasTitle: /<title[\s>]/i.test(html),
+    hasMetaDescription: /<meta[^>]+name=["']description["']/i.test(html),
+    hasH1: /<h1[\s>]/i.test(html),
+    hasBusinessIdentity: structured.hasBusinessIdentity,
+    hasOfferSchema: structured.hasOfferSchema,
+    hasStructuredPrice: structured.hasStructuredPrice,
+    hasVisiblePrice: /(?:[$€£¥]\s?\d[\d,.]*|\b(?:USD|EUR|GBP|CAD|AUD|NGN|JPY)\s?\d[\d,.]*|\d[\d,.]*\s?(?:USD|EUR|GBP|CAD|AUD|NGN|JPY)\b)/i.test(visibleText),
+    hasActionPath: hasActionLink(html),
+    hasStructuredAction: structured.hasStructuredAction,
+    hasStructuredAvailability: structured.hasStructuredAvailability,
+    hasVisibleAvailability: /\b(book now|schedule|availability|available|in stock|shipping|delivery|appointment|opening hours|reserve)\b/i.test(visibleText),
+    hasOfferDetails: structured.hasOfferDetails,
+    hasContact: structured.hasStructuredContact || /(?:href=["'](?:mailto:|tel:)|href=["'][^"']*\/(?:contact|support)(?:[\/?#"']))/i.test(lower),
+    hasPolicies: structured.hasStructuredPolicies || /href=["'][^"']*\/(?:privacy|terms|refund|returns?|cancellation)(?:[\/?#"'])/i.test(lower),
+    hasFreshnessSignal: hasRecentDate([...structured.dates, metaDate, page.lastModified]),
     agentJsonOk,
     wellKnownAgentJsonOk,
-    llmsTxtOk: llmsRes.ok,
+    wellKnownAgentCardOk,
+    mcpJsonOk,
+    openApiJsonOk,
+    llmsTxtOk: Boolean(llmsTxt),
     robots,
   }
 
-  return { url, origin, elapsedMs: Date.now() - started, signals, robots, pageText: stripHtmlToText(raw) }
+  return {
+    url: finalUrl,
+    origin,
+    elapsedMs: Date.now() - started,
+    signals,
+    robots,
+    pageText: stripHtmlToText(html),
+  }
 }

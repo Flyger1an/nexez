@@ -14,7 +14,7 @@ export const maxDuration = 30
  * The GATED deep agent-legibility report (signed-in). The anonymous /api/scan
  * stays deterministic; here we add the LLM comprehension refinement + agent's-eye
  * read for accounts on an aiFeatures plan (Launch+ / any active trial). Below that
- * — or if the LLM is unconfigured — it degrades to the deterministic report with
+ * or if the LLM is unconfigured, it degrades to the deterministic report with
  * an upgrade hint, never a hard error. Host-neutral so the marketing /scan page
  * can call it same-origin under the shared .nexez.ai session cookie.
  */
@@ -36,6 +36,14 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: 'Sign in to run the deep agent-comprehension report.' }, { status: 401 })
   }
+
+  // Account-scoped quota prevents a single user from multiplying model spend by
+  // rotating IPs. It fails closed only when a configured shared limiter is down.
+  const accountLimited = await enforceRateLimit(request, 'scan-deep-account', 20, 60 * 60_000, {
+    subject: user.id,
+    failClosed: true,
+  })
+  if (accountLimited) return accountLimited
 
   // aiFeatures (Launch+ / active trial) unlocks the LLM pass; below that the report
   // is still returned, deterministic-only, with an upgrade nudge. Owner-scoped read.

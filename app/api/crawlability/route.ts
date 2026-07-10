@@ -3,13 +3,12 @@ import { enforceRateLimit } from '../../../lib/rate-limit'
 import { gatherSiteSignals } from '../../../lib/server/site-scan'
 import { AGENT_BOTS, evaluateCrawlability } from '../../../lib/crawlability'
 
-// Multiple external fetches (page + agent.json + llms.txt + robots).
+// One page fetch plus bounded agent-manifest, API, llms.txt, and robots probes.
 export const maxDuration = 30
 
 /**
  * B6 - Agent crawlability test.
- * POST { url } → fetches the public URL + its origin's /agent.json,
- * /.well-known/agent.json, /llms.txt, /robots.txt and returns a deterministic
+   * POST { url } fetches the public URL and bounded discovery artifacts, then returns a deterministic
  * agent-readiness report. Safe to call for any public URL (only issues GETs,
  * polite UA, short timeouts, hard byte caps).
  *
@@ -40,7 +39,10 @@ export async function POST(request: Request) {
     url: result.url,
     origin: result.origin,
     elapsedMs: result.elapsedMs,
+    scannedAt: new Date().toISOString(),
+    version: report.version,
     score: report.score,
+    dimensions: report.dimensions,
     checks: report.checks,
     agentBots: AGENT_BOTS,
     blockedBots: AGENT_BOTS.filter((b) => !result.robots[b]),

@@ -13,7 +13,10 @@
  */
 
 import dns from 'node:dns/promises'
+import http from 'node:http'
+import https from 'node:https'
 import net from 'node:net'
+import { Readable } from 'node:stream'
 import { getReadinessScore, normalizeSlug, type FaqItem, type OfferItem } from './agent-page'
 import { getIndustryBoostKeywords, industrySeeds } from './industry-catalog'
 import { isLlmConfigured, llmCompleteDetailed, llmModel, llmProviderName, type LlmCompletionResult } from './llm'
@@ -495,6 +498,10 @@ export function getImportUrlError(value: string): string | null {
     return 'Website URL must use HTTP or HTTPS.'
   }
 
+  if (url.username || url.password) {
+    return 'Website URL cannot include embedded credentials.'
+  }
+
   const hostname = url.hostname.toLowerCase()
   if (PRIVATE_HOST_PATTERNS.some((pattern) => pattern.test(hostname))) {
     return 'Website URL cannot target localhost, private networks, or link-local addresses.'
@@ -507,7 +514,10 @@ export function getImportUrlError(value: string): string | null {
   return null
 }
 
-export async function getResolvedImportUrlError(value: string): Promise<string | null> {
+export async function getResolvedImportUrlError(
+  value: string,
+  opts: { useCache?: boolean; failClosed?: boolean } = {},
+): Promise<string | null> {
   const urlError = getImportUrlError(value)
   if (urlError) return urlError
 
@@ -517,7 +527,8 @@ export async function getResolvedImportUrlError(value: string): Promise<string |
     return isBlockedIpAddress(hostname) ? 'Website URL cannot target localhost, private networks, or link-local addresses.' : null
   }
 
-  const cached = HOST_SAFETY_CACHE.get(hostname)
+  const useCache = opts.useCache !== false
+  const cached = useCache ? HOST_SAFETY_CACHE.get(hostname) : undefined
   if (cached && Date.now() - cached.ts < HOST_SAFETY_TTL_MS) return cached.error
 
   let error: string | null = null
@@ -530,14 +541,15 @@ export async function getResolvedImportUrlError(value: string): Promise<string |
       error = 'Website URL resolved to a private or local network address.'
     }
   } catch {
-    // Let the actual fetch surface network/DNS failures; this guard is for confirmed private resolutions.
-    error = null
+    error = opts.failClosed ? 'Website hostname could not be resolved safely.' : null
   }
 
-  HOST_SAFETY_CACHE.set(hostname, { ts: Date.now(), error })
-  if (HOST_SAFETY_CACHE.size > 100) {
-    const first = HOST_SAFETY_CACHE.keys().next().value
-    if (first) HOST_SAFETY_CACHE.delete(first)
+  if (useCache) {
+    HOST_SAFETY_CACHE.set(hostname, { ts: Date.now(), error })
+    if (HOST_SAFETY_CACHE.size > 100) {
+      const first = HOST_SAFETY_CACHE.keys().next().value
+      if (first) HOST_SAFETY_CACHE.delete(first)
+    }
   }
   return error
 }
@@ -978,29 +990,123 @@ function clampSummary(value: string, maxLength: number): string {
   return `${clipped.slice(0, end).trim().replace(/[.,;:\s]+$/, '')}...`
 }
 
+type SafeFetchOptions = {
+  maxRedirects?: number
+  timeoutMs?: number
+  /** Resolve and connect to the same validated public IP, closing DNS-rebinding TOCTOU. */
+  pinnedDns?: boolean
+  /** Scanner posture: permit only the conventional public web ports. */
+  standardPortsOnly?: boolean
+}
+
+function standardWebPort(url: URL): boolean {
+  if (!url.port) return true
+  return (url.protocol === 'https:' && url.port === '443') || (url.protocol === 'http:' && url.port === '80')
+}
+
 /**
- * SSRF-hardened fetch. Validates the target (literal + DNS-resolved private-IP
- * block) and follows redirects MANUALLY, re-validating EVERY hop. The native
- * redirect:'follow' only checks the initial URL, so a 30x to 127.0.0.1 /
- * 169.254.169.254 sailed past the guard (red-team gauntlet finding). Returns the
- * final Response, or null if any hop is unsafe / the chain errors / loops.
+ * GET/HEAD transport for anonymous scanners. DNS is resolved once, every answer
+ * is checked, and the socket connects directly to the selected public IP while
+ * retaining the original Host header and TLS server name. This closes the gap
+ * between a safety lookup and a later resolver lookup inside native fetch.
+ */
+async function fetchWithPinnedPublicDns(
+  url: string,
+  init: RequestInit,
+  signal: AbortSignal,
+  timeoutMs: number,
+): Promise<Response | null> {
+  const target = new URL(url)
+  const method = (init.method || 'GET').toUpperCase()
+  if (method !== 'GET' && method !== 'HEAD') return null
+
+  let records: Array<{ address: string; family: number }>
+  try {
+    records = await Promise.race([
+      dns.lookup(target.hostname, { all: true, verbatim: true }),
+      new Promise<never>((_, reject) => {
+        if (signal.aborted) reject(new Error('Aborted'))
+        else signal.addEventListener('abort', () => reject(new Error('Aborted')), { once: true })
+      }),
+    ])
+  } catch {
+    return null
+  }
+
+  if (!records.length || records.some((record) => isBlockedIpAddress(record.address))) return null
+  const selected = records.find((record) => record.family === 4) || records[0]!
+  const requestHeaders: Record<string, string> = {}
+  new Headers(init.headers).forEach((value, key) => { requestHeaders[key] = value })
+  requestHeaders.host = target.host
+  requestHeaders['accept-encoding'] = 'identity'
+  delete requestHeaders.connection
+  delete requestHeaders['content-length']
+  delete requestHeaders['transfer-encoding']
+
+  return new Promise((resolve) => {
+    const transport = target.protocol === 'https:' ? https : http
+    const options: https.RequestOptions = {
+      protocol: target.protocol,
+      hostname: selected.address,
+      port: target.port || (target.protocol === 'https:' ? 443 : 80),
+      path: `${target.pathname}${target.search}`,
+      method,
+      headers: requestHeaders,
+      signal,
+      ...(target.protocol === 'https:' && net.isIP(target.hostname) === 0 ? { servername: target.hostname } : {}),
+    }
+
+    const req = transport.request(options, (incoming) => {
+      const clearLifetime = () => clearTimeout(lifetime)
+      incoming.once('end', clearLifetime)
+      incoming.once('close', clearLifetime)
+      const responseHeaders = new Headers()
+      for (let index = 0; index < incoming.rawHeaders.length; index += 2) {
+        responseHeaders.append(incoming.rawHeaders[index]!, incoming.rawHeaders[index + 1] || '')
+      }
+      const status = incoming.statusCode || 0
+      const noBody = method === 'HEAD' || status === 204 || status === 205 || status === 304
+      const body = noBody ? null : Readable.toWeb(incoming) as ReadableStream<Uint8Array>
+      const response = new Response(body, { status, statusText: incoming.statusMessage, headers: responseHeaders })
+      Object.defineProperty(response, 'url', { value: target.toString(), configurable: true })
+      resolve(response)
+    })
+    const lifetime = setTimeout(() => req.destroy(new Error('Response lifetime exceeded')), timeoutMs)
+    req.once('error', () => {
+      clearTimeout(lifetime)
+      resolve(null)
+    })
+    req.end()
+  })
+}
+
+/**
+ * SSRF-hardened fetch. Validates the target and follows redirects manually,
+ * re-validating every hop. Scanner callers can additionally pin the socket to
+ * the exact public DNS result to prevent DNS rebinding.
  */
 export async function safeFetch(
   url: string,
   init: RequestInit = {},
-  opts: { maxRedirects?: number; timeoutMs?: number } = {},
+  opts: SafeFetchOptions = {},
 ): Promise<Response | null> {
   const maxRedirects = opts.maxRedirects ?? 4
   const timeoutMs = opts.timeoutMs ?? 6500
   let current = url
   for (let hop = 0; hop <= maxRedirects; hop++) {
     if (getImportUrlError(current)) return null
-    if (await getResolvedImportUrlError(current)) return null
+    const parsed = new URL(current)
+    if (opts.standardPortsOnly && !standardWebPort(parsed)) return null
+    if (await getResolvedImportUrlError(current, { useCache: !opts.pinnedDns, failClosed: Boolean(opts.pinnedDns) })) return null
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
     let res: Response
     try {
-      res = await fetch(current, { ...init, signal: controller.signal, redirect: 'manual' })
+      const fetched = opts.pinnedDns
+        ? await fetchWithPinnedPublicDns(current, { ...init, redirect: 'manual' }, controller.signal, timeoutMs)
+        : await fetch(current, { ...init, signal: controller.signal, redirect: 'manual' })
+      if (!fetched) return null
+      res = fetched
     } catch {
       return null
     } finally {
@@ -1013,6 +1119,11 @@ export async function safeFetch(
         current = new URL(loc, current).toString()
       } catch {
         return null
+      }
+      try {
+        await res.body?.cancel()
+      } catch {
+        // Redirect body may already be closed.
       }
       continue // re-validate the redirect target before connecting to it
     }

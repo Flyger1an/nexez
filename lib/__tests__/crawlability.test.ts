@@ -1,95 +1,141 @@
 import { describe, expect, it } from 'vitest'
 import {
   AGENT_BOTS,
+  CHECK_WEIGHTS,
+  DIMENSION_WEIGHTS,
   evaluateCrawlability,
   parseRobotsForAgentBots,
   type CrawlabilitySignals,
 } from '../crawlability'
 
 describe('parseRobotsForAgentBots', () => {
-  it('allows all bots when robots.txt is empty/missing', () => {
-    const r = parseRobotsForAgentBots(null)
-    for (const b of AGENT_BOTS) expect(r[b]).toBe(true)
+  it('allows all bots when robots.txt is empty or missing', () => {
+    const result = parseRobotsForAgentBots(null)
+    for (const bot of AGENT_BOTS) expect(result[bot]).toBe(true)
   })
 
-  it('blocks a specific bot via its own group', () => {
-    const robots = 'User-agent: GPTBot\nDisallow: /\n\nUser-agent: *\nDisallow:'
-    const r = parseRobotsForAgentBots(robots)
-    expect(r['GPTBot']).toBe(false)
-    expect(r['ClaudeBot']).toBe(true) // falls back to * (allow-all)
+  it('blocks one specific bot while wildcard remains open', () => {
+    const result = parseRobotsForAgentBots('User-agent: GPTBot\nDisallow: /\n\nUser-agent: *\nDisallow:')
+    expect(result.GPTBot).toBe(false)
+    expect(result.ClaudeBot).toBe(true)
   })
 
-  it('blocks all via wildcard Disallow: /', () => {
-    const r = parseRobotsForAgentBots('User-agent: *\nDisallow: /')
-    for (const b of AGENT_BOTS) expect(r[b]).toBe(false)
+  it('supports grouped agents and Allow winning an equal-length tie', () => {
+    const robots = [
+      'User-agent: ClaudeBot',
+      'User-agent: Claude-SearchBot',
+      'Disallow: /*',
+      'Allow: /$',
+      '',
+      'User-agent: *',
+      'Disallow: /',
+    ].join('\n')
+    const result = parseRobotsForAgentBots(robots)
+    expect(result.ClaudeBot).toBe(true)
+    expect(result['Claude-SearchBot']).toBe(true)
+    expect(result.GPTBot).toBe(false)
   })
 
-  it('treats empty Disallow as allow', () => {
-    const r = parseRobotsForAgentBots('User-agent: *\nDisallow:')
-    for (const b of AGENT_BOTS) expect(r[b]).toBe(true)
+  it('blocks all through a wildcard root rule', () => {
+    const result = parseRobotsForAgentBots('User-agent: *\nDisallow: /')
+    for (const bot of AGENT_BOTS) expect(result[bot]).toBe(false)
   })
 })
 
 function allAllowed() {
-  return Object.fromEntries(AGENT_BOTS.map((b) => [b, true])) as Record<(typeof AGENT_BOTS)[number], boolean>
+  return Object.fromEntries(AGENT_BOTS.map((bot) => [bot, true])) as Record<(typeof AGENT_BOTS)[number], boolean>
 }
 
 const perfectSignals: CrawlabilitySignals = {
   status: 200,
   responseMs: 150,
+  https: true,
   hasJsonLd: true,
+  validJsonLd: true,
+  schemaTypes: ['Organization', 'Offer', 'Service'],
   hasTitle: true,
   hasMetaDescription: true,
   hasH1: true,
+  hasBusinessIdentity: true,
+  hasOfferSchema: true,
+  hasStructuredPrice: true,
+  hasVisiblePrice: true,
+  hasActionPath: true,
+  hasStructuredAction: true,
+  hasStructuredAvailability: true,
+  hasVisibleAvailability: true,
+  hasOfferDetails: true,
+  hasContact: true,
+  hasPolicies: true,
+  hasFreshnessSignal: true,
   agentJsonOk: true,
+  wellKnownAgentJsonOk: true,
+  wellKnownAgentCardOk: false,
+  mcpJsonOk: true,
+  openApiJsonOk: true,
   llmsTxtOk: true,
   robots: allAllowed(),
 }
 
-describe('evaluateCrawlability', () => {
-  it('scores a perfect page 100', () => {
+describe('evaluateCrawlability V2', () => {
+  it('scores complete evidence at 100 across all dimensions', () => {
     const report = evaluateCrawlability(perfectSignals)
+    expect(report.version).toBe(2)
     expect(report.score).toBe(100)
-    expect(report.checks.every((c) => c.status === 'pass')).toBe(true)
+    expect(report.checks.every((check) => check.status === 'pass')).toBe(true)
+    for (const dimension of Object.values(report.dimensions)) expect(dimension.score).toBe(100)
+    expect(Object.values(CHECK_WEIGHTS).reduce((sum, value) => sum + value, 0)).toBe(100)
+    expect(Object.values(DIMENSION_WEIGHTS).reduce((sum, value) => sum + value, 0)).toBe(100)
   })
 
-  it('fails reachability + zeroes the big weights when down', () => {
-    const report = evaluateCrawlability({ ...perfectSignals, status: 0, responseMs: 0 })
-    expect(report.checks.find((c) => c.id === 'reachable')?.status).toBe('fail')
-    expect(report.score).toBeLessThan(100)
+  it('does not confuse a JSON-LD script with a structured offer', () => {
+    const report = evaluateCrawlability({
+      ...perfectSignals,
+      validJsonLd: false,
+      schemaTypes: [],
+      hasBusinessIdentity: false,
+      hasOfferSchema: false,
+      hasStructuredPrice: false,
+      hasStructuredAction: false,
+      hasStructuredAvailability: false,
+      hasOfferDetails: false,
+    })
+    expect(report.checks.find((check) => check.id === 'jsonld')?.status).toBe('warn')
+    expect(report.checks.find((check) => check.id === 'offer_schema')?.status).toBe('fail')
+    expect(report.checks.find((check) => check.id === 'pricing')?.status).toBe('warn')
+    expect(report.dimensions.understanding.score).toBeLessThan(50)
+    expect(report.score).toBeLessThan(80)
   })
 
-  it('marks JSON-LD + agent.json failures and lowers the score', () => {
-    const report = evaluateCrawlability({ ...perfectSignals, hasJsonLd: false, agentJsonOk: false })
-    expect(report.checks.find((c) => c.id === 'jsonld')?.status).toBe('fail')
-    expect(report.checks.find((c) => c.id === 'agent_json')?.status).toBe('fail')
-    expect(report.score).toBe(60) // 100 - 20 (jsonld) - 20 (agent_json)
-  })
-
-  it('warns (not fails) when only some agent bots are blocked', () => {
+  it('warns when only some evaluated crawlers are blocked', () => {
     const robots = allAllowed()
-    robots['GPTBot'] = false
+    robots.GPTBot = false
     const report = evaluateCrawlability({ ...perfectSignals, robots })
-    expect(report.checks.find((c) => c.id === 'robots')?.status).toBe('warn')
+    expect(report.checks.find((check) => check.id === 'robots')?.status).toBe('warn')
   })
 
-  it('passes agent_json when only /.well-known/agent.json is present', () => {
-    const report = evaluateCrawlability({ ...perfectSignals, agentJsonOk: false, wellKnownAgentJsonOk: true })
-    const check = report.checks.find((c) => c.id === 'agent_json')
-    expect(check?.status).toBe('pass')
-    expect(check?.detail).toContain('.well-known')
-    expect(report.score).toBe(100)
+  it('passes discovery documents with two meaningful endpoint formats', () => {
+    const report = evaluateCrawlability({
+      ...perfectSignals,
+      agentJsonOk: false,
+      wellKnownAgentJsonOk: true,
+      wellKnownAgentCardOk: false,
+      mcpJsonOk: false,
+      openApiJsonOk: true,
+    })
+    expect(report.checks.find((check) => check.id === 'agent_docs')?.status).toBe('pass')
   })
 
-  it('fails agent_json only when neither location is present', () => {
-    const report = evaluateCrawlability({ ...perfectSignals, agentJsonOk: false, wellKnownAgentJsonOk: false })
-    expect(report.checks.find((c) => c.id === 'agent_json')?.status).toBe('fail')
-    expect(report.score).toBe(80) // 100 - 20 (agent_json)
-  })
-
-  it('is backward-compatible when wellKnownAgentJsonOk is undefined (root pass ⇒ pass)', () => {
-    const report = evaluateCrawlability({ ...perfectSignals, agentJsonOk: true })
-    expect(report.checks.find((c) => c.id === 'agent_json')?.status).toBe('pass')
-    expect(report.score).toBe(100)
+  it('fails agent documents when every probe lacks meaningful data', () => {
+    const report = evaluateCrawlability({
+      ...perfectSignals,
+      agentJsonOk: false,
+      wellKnownAgentJsonOk: false,
+      wellKnownAgentCardOk: false,
+      mcpJsonOk: false,
+      openApiJsonOk: false,
+    })
+    expect(report.checks.find((check) => check.id === 'agent_docs')?.status).toBe('fail')
+    expect(report.dimensions.discovery.score).toBeLessThan(100)
   })
 })

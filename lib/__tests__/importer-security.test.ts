@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import dns from 'node:dns/promises'
-import { getResolvedImportUrlError } from '../importer'
+import { getImportUrlError, getResolvedImportUrlError } from '../importer'
 
 vi.mock('node:dns/promises', () => ({
   default: { lookup: vi.fn() },
@@ -9,6 +9,17 @@ vi.mock('node:dns/promises', () => ({
 describe('importer URL safety', () => {
   beforeEach(() => {
     vi.mocked(dns.lookup).mockReset()
+  })
+
+  it('rejects embedded credentials before any network request', () => {
+    expect(getImportUrlError('https://admin:secret@example.com/')).toMatch(/credentials/i)
+  })
+
+  it('fails closed when strict DNS validation cannot complete', async () => {
+    vi.mocked(dns.lookup).mockRejectedValue(new Error('resolver unavailable'))
+    await expect(
+      getResolvedImportUrlError('https://strict-scan.example.com/', { useCache: false, failClosed: true }),
+    ).resolves.toMatch(/resolved safely/i)
   })
 
   it('blocks public-looking hostnames that resolve to private addresses', async () => {

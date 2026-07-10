@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: 'How Nexez collects, uses, and protects your information.',
 }
 
-const LAST_UPDATED = 'June 19, 2026'
+const LAST_UPDATED = 'July 10, 2026'
 
 const sections: { heading: string; body: string[] }[] = [
   {
@@ -26,8 +26,9 @@ const sections: { heading: string; body: string[] }[] = [
     heading: '3. Information Collected Automatically',
     body: [
       'Agent & visitor analytics: when your published listings are viewed, we record events (such as page views, discovery clicks, and checkout intents) and, for AI agents, classification signals derived from the request (e.g., user-agent and referrer).',
+      'Website readiness scanner: when you submit a public URL, we fetch a limited portion of the public page and its public agent-discovery files to produce a report. We do not retain the fetched page content. We record the submitted domain, score, timing, and service telemetry needed to operate, secure, and improve the scanner. If you choose the model-assisted analysis, up to 8,000 characters of public page text are sent to our configured large-language-model provider.',
       'Mobile app: a device push-notification token (so we can notify you about your orders), and - only if you opt in - crash and diagnostic data via our error-monitoring provider to help us fix problems.',
-      'Privacy-safe IPs: visitor IP addresses are never stored in raw form - only a salted hash is kept for de-duplication and abuse prevention.',
+      'IP addresses may be processed transiently for security and rate limiting. Where an identifier is retained for analytics or de-duplication, we use a salted hash instead of the raw address.',
     ],
   },
   {
