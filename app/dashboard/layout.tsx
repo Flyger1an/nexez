@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '../../utils/supabase/server'
 import { getOwnerPlanId } from '../../lib/server/plan'
-import { ensureTrialSeeded } from '../../lib/server/trial'
+import { ensureTrialSeeded, hasBillingAccount, isTrialablePlan } from '../../lib/server/trial'
 import { PlanProvider } from '../../components/billing/PlanProvider'
 
 /**
@@ -17,6 +17,7 @@ import { PlanProvider } from '../../components/billing/PlanProvider'
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   let plan: Awaited<ReturnType<typeof getOwnerPlanId>> = 'free'
   let signedOut = false
+  let needsPlanSelection = false
   // A transient auth/billing blip here should degrade to a free-gated dashboard,
   // not 500 the whole subtree. Failing soft to 'free' introduces no auth hole
   // (it only restricts features).
@@ -29,13 +30,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
     } = await supabase.auth.getUser()
     signedOut = !user && !authError
     plan = await getOwnerPlanId(supabase, user?.id)
-    // Backstop so no signup path leaves an account on the retired Free tier: any account
-    // that resolves to 'free' with NO billing row gets a trial seeded idempotently (their
-    // chosen plan from metadata, else Pro), then we re-resolve so this render reflects it.
-    // A real legacy/paid row short-circuits the insert, so grandfathered accounts keep
-    // resolving to 'free' without a re-seed.
+    // Backstop for delayed email confirmation: seed only a plan the user explicitly
+    // selected. A plan-less account is routed back to onboarding instead of receiving
+    // an implicit Pro trial. Existing billing rows (legacy, paused, or paid) are preserved.
     if (plan === 'free' && user?.id) {
-      if (await ensureTrialSeeded(user.id, user.user_metadata?.plan)) {
+      const planMeta = user.user_metadata?.plan
+      const hasBilling = await hasBillingAccount(user.id)
+      if (!hasBilling && !isTrialablePlan(planMeta)) {
+        needsPlanSelection = true
+      } else if (!hasBilling && await ensureTrialSeeded(user.id, planMeta)) {
         plan = await getOwnerPlanId(supabase, user.id)
       }
     }
@@ -46,6 +49,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Outside the try: redirect() throws NEXT_REDIRECT, which the catch above
   // must never swallow.
   if (signedOut) redirect('/login?next=/dashboard')
+  if (needsPlanSelection) redirect('/onboard?next=/dashboard')
 
   return <PlanProvider plan={plan}>{children}</PlanProvider>
 }

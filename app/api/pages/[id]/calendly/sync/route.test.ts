@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { afterEach, describe, it, expect, vi, beforeEach } from 'vitest'
 import { createSupabaseMock } from '../../../../../../test/supabase-mock'
 
 const h = vi.hoisted(() => ({
@@ -56,6 +56,8 @@ const calOffer = () => ({
 
 describe('POST /api/pages/[id]/calendly/sync', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-08T12:00:00.000Z'))
     h.user = { id: 'u1', email: 'o@x.com', email_confirmed_at: 't' }
     h.gate = { ok: true }
     h.configured = true
@@ -66,6 +68,7 @@ describe('POST /api/pages/[id]/calendly/sync', () => {
     h.pagesUpdate = null
     h.secretsUpdate = null
   })
+  afterEach(() => vi.useRealTimers())
 
   it('401 when not authenticated', async () => {
     h.user = null

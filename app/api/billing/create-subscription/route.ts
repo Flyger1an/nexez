@@ -3,16 +3,23 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
-import { getBillingPlan, getPlanPriceId, isStripePriceId } from '../../../../lib/billing'
+import { getBillingPlan, getPlanPriceId, isSelfServePlanId, isStripePriceId } from '../../../../lib/billing'
 import { getSubscriptionPriceId, pickLiveStripeSubscription } from '../../../../lib/stripe-billing'
+import {
+  claimBillingCheckoutAttempt,
+  markBillingCheckoutAttemptReady,
+  releaseBillingCheckoutAttempt,
+  retireSupersededBillingObject,
+  stripeBillingIdempotencyKey,
+} from '../../../../lib/server/billing-checkout-attempt'
 
 /**
  * Creates a Stripe Subscription for recurring paid plans using Embedded Components flow.
  * 
- * Returns a client_secret from the Subscription's latest_invoice.payment_intent
+ * Returns a client_secret from the Subscription's latest invoice confirmation secret
  * so the client can use <PaymentElement> + stripe.confirmPayment() without leaving the page.
  * 
- * - Only for paid plans (Launch/Pro/Scale/Enterprise). Free has no sub.
+ * - Only for self-serve paid plans (Launch/Pro/Scale). Enterprise uses sales-assisted billing.
  * - Separate from transaction commissions (handled via Stripe Connect + app fees in /api/checkout).
  * - Webhook (customer.subscription.* + checkout if any) will sync full state to billing_subscriptions.
  * - Production: errors logged, auth required, env checks, customer reuse.
@@ -24,7 +31,7 @@ export async function POST(request: Request) {
     const planId = String(body.plan || body.planId || '')
     const plan = getBillingPlan(planId)
 
-    if (!plan || plan.id === 'free' || plan.id === 'enterprise') {
+    if (!plan || !isSelfServePlanId(plan.id)) {
       return NextResponse.json(
         { error: 'Invalid or unsupported plan for self-serve subscription. Use Enterprise contact sales or Free tier.' },
         { status: 400 }
@@ -69,75 +76,52 @@ export async function POST(request: Request) {
 
     let customerId = billingState?.stripe_customer_id || null
 
-    // Plan CHANGE, not first purchase: if this customer already has a live subscription,
-    // switch its price in place (prorated) instead of minting a second one. Creating a
-    // new subscription here double-billed the customer every cycle and made the two
-    // subs' webhook events flip-flop billing_subscriptions (plan + commission oscillated).
-    if (customerId) {
-      const existing = await stripe.subscriptions.list({
-        customer: customerId,
-        status: 'all',
-        limit: 20,
-        expand: ['data.items.data.price'],
-      })
-      const live = pickLiveStripeSubscription(existing.data)
-      if (live) {
-        if (getSubscriptionPriceId(live) === priceId) {
-          return NextResponse.json({ ok: true, alreadyOnPlan: true, planId: plan.id, subscriptionId: live.id })
-        }
-        const item = live.items?.data?.[0]
-        if (!item) {
-          console.error('[billing/create-subscription] live subscription has no item to update', { subId: live.id })
-          return NextResponse.json({ error: 'Your current subscription could not be updated. Please contact support.' }, { status: 500 })
-        }
-        const updated = await stripe.subscriptions.update(live.id, {
-          items: [{ id: item.id, price: priceId }],
-          proration_behavior: 'create_prorations',
-          payment_settings: { save_default_payment_method: 'on_subscription' },
-          metadata: {
-            nexez_user_id: user.id,
-            nexez_plan: plan.id,
-            nexez_price_id: priceId,
-            nexez_source: 'embedded_billing_plan_change',
-          },
+    const claim = await claimBillingCheckoutAttempt({ ownerId: user.id, planId: plan.id, flow: 'embedded' })
+    if (!claim.ok) {
+      return NextResponse.json(
+        {
+          error: claim.reason === 'busy'
+            ? 'Another subscription checkout is already open. Finish it or try again in a few minutes.'
+            : 'Secure checkout is temporarily unavailable. Please try again shortly.',
+        },
+        { status: claim.reason === 'busy' ? 409 : 503 },
+      )
+    }
+    const attempt = claim.attempt
+
+    // An expired attempt may still own a Stripe object. Invalidate it before a new
+    // checkout starts so an old browser tab cannot later complete a second plan.
+  if (claim.superseded?.stripe_object_id) {
+    const staleId = claim.superseded.stripe_object_id
+    try {
+      await retireSupersededBillingObject(stripe, staleId)
+    } catch (error) {
+        console.warn('[billing/create-subscription] stale checkout cleanup failed', {
+          objectId: staleId,
+          message: error instanceof Error ? error.message : 'unknown',
         })
-        // Optimistic sync from REAL Stripe state so the page reflects the switch
-        // immediately; the customer.subscription.updated webhook re-confirms.
-        if (hasSupabaseAdminEnv()) {
-          const { error: syncError } = await createAdminClient()
-            .from('billing_subscriptions')
-            .update({
-              plan_id: plan.id,
-              stripe_price_id: priceId,
-              stripe_subscription_id: updated.id,
-              status: updated.status,
-            })
-            .eq('owner_id', user.id)
-          if (syncError) console.warn('[billing/create-subscription] plan-change row sync failed (webhook will heal)', syncError)
-        }
-        return NextResponse.json({ ok: true, planChanged: true, planId: plan.id, subscriptionId: updated.id })
       }
     }
 
     if (!customerId) {
-      // Create customer in Stripe (idempotent-ish via metadata)
-      const customer = await stripe.customers.create({
-        email: user.email || undefined,
-        metadata: {
-          nexez_user_id: user.id,
-          nexez_source: 'embedded_subscription',
+      // The attempt key serializes concurrent first-touch requests, including customer
+      // creation, so two tabs cannot mint separate Stripe customers for one owner.
+      const customer = await stripe.customers.create(
+        {
+          email: user.email || undefined,
+          metadata: {
+            nexez_user_id: user.id,
+            nexez_source: 'embedded_subscription',
+          },
         },
-      })
+        { idempotencyKey: stripeBillingIdempotencyKey(attempt.attempt_key, 'customer-create') },
+      )
       customerId = customer.id
 
       // Link the customer so the webhook can find it by owner_id. Deliberately DO NOT
       // write plan_id (payment hasn't happened) and NEVER overwrite an existing row's
       // status: stamping 'incomplete' over a live 'trialing'/'paused' row killed the
-      // no-card trial's entitlements and permanently un-paused paused storefronts the
-      // moment the payment sheet was opened - even if it was abandoned.
-      // Must use the service-role client: RLS allows owners SELECT but not insert/update
-      // on billing_subscriptions, so a session-client write is silently rejected (which
-      // left the customer id unlinked and the subscription state unsynced).
+      // no-card trial's entitlements and permanently un-paused paused storefronts.
       if (hasSupabaseAdminEnv()) {
         const admin = createAdminClient()
         if (billingState) {
@@ -153,47 +137,120 @@ export async function POST(request: Request) {
             status: 'incomplete',
             metadata: { source: 'create-subscription', created_via: 'embedded' },
           })
-          // 23505: a concurrent writer (start-trial, webhook) created the row first -
-          // leave its state alone; the webhook backfills the customer id via metadata.
           if (linkError && linkError.code !== '23505') {
             console.error('[billing/create-subscription] failed to persist stripe_customer_id', linkError)
           }
         }
-      } else {
-        console.warn('[billing/create-subscription] admin env missing - customer id not persisted; webhook will backfill via metadata')
       }
+    }
+
+    // Plan CHANGE, not first purchase: if this customer already has a live subscription,
+    // switch its price in place (prorated) instead of minting a second one. Creating a
+    // new subscription here double-billed the customer every cycle and made the two
+    // subs' webhook events flip-flop billing_subscriptions (plan + commission oscillated).
+    const existing = await stripe.subscriptions.list({
+      customer: customerId,
+      status: 'all',
+      limit: 20,
+      expand: ['data.items.data.price', 'data.latest_invoice.confirmation_secret'],
+    })
+    const live = pickLiveStripeSubscription(existing.data)
+    if (live) {
+      if (getSubscriptionPriceId(live) === priceId) {
+        await releaseBillingCheckoutAttempt(user.id, attempt.attempt_key)
+        return NextResponse.json({ ok: true, alreadyOnPlan: true, planId: plan.id, subscriptionId: live.id })
+      }
+      const item = live.items?.data?.[0]
+      if (!item) {
+        console.error('[billing/create-subscription] live subscription has no item to update', { subId: live.id })
+        return NextResponse.json({ error: 'Your current subscription could not be updated. Please contact support.' }, { status: 500 })
+      }
+      const updated = await stripe.subscriptions.update(
+        live.id,
+        {
+          items: [{ id: item.id, price: priceId }],
+          proration_behavior: 'create_prorations',
+          payment_settings: { save_default_payment_method: 'on_subscription' },
+          metadata: {
+            nexez_user_id: user.id,
+            nexez_plan: plan.id,
+            nexez_price_id: priceId,
+            nexez_source: 'embedded_billing_plan_change',
+          },
+        },
+        { idempotencyKey: stripeBillingIdempotencyKey(attempt.attempt_key, 'subscription-update') },
+      )
+      // Optimistic sync from REAL Stripe state so the page reflects the switch
+      // immediately; the customer.subscription.updated webhook re-confirms.
+      if (hasSupabaseAdminEnv()) {
+        const { error: syncError } = await createAdminClient()
+          .from('billing_subscriptions')
+          .update({
+            plan_id: plan.id,
+            stripe_price_id: priceId,
+            stripe_subscription_id: updated.id,
+            status: updated.status,
+          })
+          .eq('owner_id', user.id)
+        if (syncError) console.warn('[billing/create-subscription] plan-change row sync failed (webhook will heal)', syncError)
+      }
+      await releaseBillingCheckoutAttempt(user.id, attempt.attempt_key)
+      return NextResponse.json({ ok: true, planChanged: true, planId: plan.id, subscriptionId: updated.id })
+    }
+
+    // Resume an already-open Payment Element for this plan. This is both better UX
+    // and a second layer of duplicate protection when a request is retried later.
+    const pending = existing.data.find((subscription) =>
+      subscription.status === 'incomplete' && getSubscriptionPriceId(subscription) === priceId,
+    )
+    if (pending) {
+      const clientSecret = subscriptionInvoiceClientSecret(pending)
+      if (!clientSecret) {
+        return NextResponse.json({ error: 'Could not resume the existing checkout. Please try again shortly.' }, { status: 409 })
+      }
+      await markBillingCheckoutAttemptReady(user.id, attempt.attempt_key, pending.id)
+      return NextResponse.json({
+        ok: true,
+        reusedPending: true,
+        subscriptionId: pending.id,
+        clientSecret,
+        customerId,
+        planId: plan.id,
+        priceId,
+      })
+    }
+
+    // A different abandoned plan must not remain payable in an old tab.
+    for (const stale of existing.data.filter((subscription) => subscription.status === 'incomplete')) {
+      await stripe.subscriptions.cancel(stale.id)
     }
 
     // Create the subscription in incomplete state so we get a client_secret for Elements.
     // This is the standard pattern for Stripe Embedded + Subscriptions (Payment Element).
-    const subscription = await stripe.subscriptions.create({
-      customer: customerId,
-      items: [{ price: priceId }],
-      payment_behavior: 'default_incomplete',
-      payment_settings: {
-        save_default_payment_method: 'on_subscription',
+    const subscription = await stripe.subscriptions.create(
+      {
+        customer: customerId,
+        items: [{ price: priceId }],
+        payment_behavior: 'default_incomplete',
+        payment_settings: {
+          save_default_payment_method: 'on_subscription',
+        },
+        // Stripe API 2025-Basil+ moved the invoice's client secret off
+        // latest_invoice.payment_intent onto latest_invoice.confirmation_secret. Expand
+        // confirmation_secret and read its PaymentIntent client secret for Elements.
+        expand: ['latest_invoice.confirmation_secret'],
+        metadata: {
+          nexez_user_id: user.id,
+          nexez_plan: plan.id,
+          nexez_price_id: priceId,
+          nexez_source: 'embedded_billing',
+        },
       },
-      // Stripe API 2025-Basil+ moved the invoice's client secret off
-      // latest_invoice.payment_intent onto latest_invoice.confirmation_secret. The pinned
-      // SDK (v22 → API 2026-05-27.dahlia) no longer populates payment_intent at all, so
-      // expanding/reading the old field returned nothing → "Failed to initialize payment"
-      // 500s. Expand confirmation_secret and read its client_secret (still a PaymentIntent
-      // client secret, so <PaymentElement> + confirmPayment on the client is unchanged).
-      expand: ['latest_invoice.confirmation_secret'],
-      metadata: {
-        nexez_user_id: user.id,
-        nexez_plan: plan.id,
-        nexez_price_id: priceId,
-        nexez_source: 'embedded_billing',
-      },
-    })
+      { idempotencyKey: stripeBillingIdempotencyKey(attempt.attempt_key, 'subscription-create') },
+    )
 
-    const invoice = subscription.latest_invoice as
-      | { confirmation_secret?: { client_secret?: string | null } | null; payment_intent?: { client_secret?: string | null } | null }
-      | null
-    // confirmation_secret is the current shape; payment_intent is the pre-Basil fallback
-    // (kept so the route still works if a deployment ever pins an older API version).
-    const clientSecret = invoice?.confirmation_secret?.client_secret ?? invoice?.payment_intent?.client_secret ?? null
+    await markBillingCheckoutAttemptReady(user.id, attempt.attempt_key, subscription.id)
+    const clientSecret = subscriptionInvoiceClientSecret(subscription)
 
     if (!clientSecret) {
       console.error('[billing/create-subscription] No client_secret on invoice', { subId: subscription.id })
@@ -233,4 +290,11 @@ function isStripePriceMisconfigurationError(err: any) {
   const param = String(err?.param || '')
 
   return message.includes('no such price') || (code === 'resource_missing' && param.includes('price'))
+}
+
+function subscriptionInvoiceClientSecret(subscription: Pick<Stripe.Subscription, 'latest_invoice'>): string | null {
+  const invoice = subscription.latest_invoice as
+    | { confirmation_secret?: { client_secret?: string | null } | null; payment_intent?: { client_secret?: string | null } | null }
+    | null
+  return invoice?.confirmation_secret?.client_secret ?? invoice?.payment_intent?.client_secret ?? null
 }

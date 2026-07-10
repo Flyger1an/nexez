@@ -1,8 +1,13 @@
 import 'server-only'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
-import { getBillingPlan } from '../billing'
+import { getBillingPlan, isSelfServePlanId } from '../billing'
 
 export const TRIAL_DAYS = 7
+
+/** Only self-serve paid plans can start the no-card trial. */
+export function isTrialablePlan(value: unknown): value is 'launch' | 'pro' | 'scale' {
+  return isSelfServePlanId(value)
+}
 
 /**
  * True only when the owner has a CONFIRMED billing_subscriptions row (legacy, trialing,
@@ -35,12 +40,10 @@ export async function hasBillingAccount(ownerId: string | null | undefined): Pro
  */
 export async function ensureTrialSeeded(ownerId: string | null | undefined, planMeta: unknown): Promise<boolean> {
   if (!ownerId || !hasSupabaseAdminEnv()) return false
-  // Backstop: a new account that reached here with no chosen plan (or an invalid one)
-  // defaults to a Pro trial, so NO signup path can leave an account on the retired Free
-  // tier. An explicit 'free'/'enterprise' choice opts out (Enterprise = contact sales).
-  const chosen = typeof planMeta === 'string' ? planMeta : ''
-  const plan = getBillingPlan(chosen) ?? (chosen === '' ? getBillingPlan('pro') : undefined)
-  if (!plan || plan.id === 'free' || plan.id === 'enterprise') return false
+  // Never invent a plan here. Plan-less OAuth users must make an explicit choice in
+  // onboarding; this helper only persists a valid choice already made by the user.
+  if (!isTrialablePlan(planMeta)) return false
+  const plan = getBillingPlan(planMeta)!
   try {
     const admin = createAdminClient()
     const { data: existing } = await admin

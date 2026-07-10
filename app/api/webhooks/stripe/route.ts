@@ -24,6 +24,7 @@ import { sendPushToEmail, sendPushToUser } from '../../../../lib/push'
 import { resolveOwnerNotifyEmail } from '../../../../lib/server/owner-email'
 import { sendOnceSystemEmail } from '../../../../lib/server/system-email'
 import { cancelCalendlyForRefund } from '../../../../lib/server/calendly-cancel-on-refund'
+import { releaseBillingCheckoutAttempt } from '../../../../lib/server/billing-checkout-attempt'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'placeholder')
 
@@ -862,6 +863,8 @@ async function syncBillingCheckoutSession(event: Stripe.Event, session: Stripe.C
     return NextResponse.json({ error: 'Could not sync billing checkout.' }, { status: 500 })
   }
 
+  await releaseBillingCheckoutAttempt(ownerId)
+
   return NextResponse.json({
     received: true,
     type: event.type,
@@ -941,6 +944,8 @@ async function syncBillingSubscription(event: Stripe.Event, subscription: Stripe
     await supabase.from('stripe_webhook_events').delete().eq('event_id', event.id)
     return NextResponse.json({ error: 'Could not sync billing subscription.' }, { status: 500 })
   }
+
+  await releaseBillingCheckoutAttempt(ownerId)
 
   return NextResponse.json({
     received: true,

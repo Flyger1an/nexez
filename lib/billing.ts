@@ -1,4 +1,9 @@
 export type PlanId = 'free' | 'launch' | 'pro' | 'scale' | 'enterprise'
+export type SelfServePlanId = Exclude<PlanId, 'free' | 'enterprise'>
+
+export function isSelfServePlanId(value: unknown): value is SelfServePlanId {
+  return value === 'launch' || value === 'pro' || value === 'scale'
+}
 
 // Gateable capabilities. A feature unlocks at a minimum plan RANK (see
 // FEATURE_MIN_RANK) and is cumulative - every higher tier inherits it. Add a new

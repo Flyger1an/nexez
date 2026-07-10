@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
-import { getBillingPlan } from '../../../../lib/billing'
+import { getBillingPlan, isSelfServePlanId } from '../../../../lib/billing'
 
 const TRIAL_DAYS = 7
 
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => ({}))) as { plan?: string; planId?: string }
   const plan = getBillingPlan(String(body.plan || body.planId || ''))
-  if (!plan || plan.id === 'free' || plan.id === 'enterprise') {
+  if (!plan || !isSelfServePlanId(plan.id)) {
     return NextResponse.json(
       { error: 'Pick a trialable plan (Launch, Pro, or Scale).' },
       { status: 400 },

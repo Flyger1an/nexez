@@ -1,17 +1,26 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createSupabaseMock } from '../../../../test/supabase-mock'
 
-const { customersCreate, subscriptionsCreate, subscriptionsList, subscriptionsUpdate } = vi.hoisted(() => ({
+const { customersCreate, checkoutExpire, subscriptionsCreate, subscriptionsList, subscriptionsUpdate, subscriptionsCancel } = vi.hoisted(() => ({
   customersCreate: vi.fn(),
+  checkoutExpire: vi.fn(),
   subscriptionsCreate: vi.fn(),
   subscriptionsList: vi.fn(),
   subscriptionsUpdate: vi.fn(),
+  subscriptionsCancel: vi.fn(),
+}))
+const billingAttempt = vi.hoisted(() => ({
+  claim: vi.fn(),
+  markReady: vi.fn(),
+  release: vi.fn(),
+  retire: vi.fn(),
 }))
 
 vi.mock('stripe', () => ({
   default: class {
     customers = { create: customersCreate }
-    subscriptions = { create: subscriptionsCreate, list: subscriptionsList, update: subscriptionsUpdate }
+    checkout = { sessions: { expire: checkoutExpire } }
+    subscriptions = { create: subscriptionsCreate, list: subscriptionsList, update: subscriptionsUpdate, cancel: subscriptionsCancel }
   },
 }))
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ getAll: () => [], set: () => {} })) }))
@@ -23,7 +32,15 @@ vi.mock('../../../../utils/supabase/admin', () => ({
 vi.mock('../../../../lib/billing', () => ({
   getBillingPlan: vi.fn(),
   getPlanPriceId: vi.fn(),
+  isSelfServePlanId: (value: unknown) => ['launch', 'pro', 'scale'].includes(String(value)),
   isStripePriceId: (value: string | null | undefined) => typeof value === 'string' && value.trim().startsWith('price_'),
+}))
+vi.mock('../../../../lib/server/billing-checkout-attempt', () => ({
+  claimBillingCheckoutAttempt: billingAttempt.claim,
+  markBillingCheckoutAttemptReady: billingAttempt.markReady,
+  releaseBillingCheckoutAttempt: billingAttempt.release,
+  retireSupersededBillingObject: billingAttempt.retire,
+  stripeBillingIdempotencyKey: (attempt: string, operation: string) => `nexez-billing:${operation}:${attempt}`,
 }))
 
 import { POST } from './route'
@@ -43,6 +60,11 @@ describe('POST /api/billing/create-subscription', () => {
     // Default: the customer has NO live subscription, so create-subscription proceeds
     // to mint the first one. Tests exercising a plan change override this.
     subscriptionsList.mockResolvedValue({ data: [] })
+    subscriptionsCancel.mockResolvedValue({})
+    billingAttempt.claim.mockResolvedValue({ ok: true, attempt: { attempt_key: 'attempt-1' }, reused: false })
+    billingAttempt.markReady.mockResolvedValue(true)
+    billingAttempt.release.mockResolvedValue(true)
+    billingAttempt.retire.mockResolvedValue('preserved')
   })
   afterEach(() => vi.unstubAllEnvs())
 
@@ -125,6 +147,7 @@ describe('POST /api/billing/create-subscription', () => {
           nexez_source: 'embedded_billing',
         }),
       }),
+      { idempotencyKey: 'nexez-billing:subscription-create:attempt-1' },
     )
   })
 
@@ -189,10 +212,14 @@ describe('POST /api/billing/create-subscription', () => {
     expect(body.planChanged).toBe(true)
     expect(body.subscriptionId).toBe('sub_live')
     // The critical assertion: we UPDATED the existing sub's item, never created a 2nd.
-    expect(subscriptionsUpdate).toHaveBeenCalledWith('sub_live', expect.objectContaining({
-      items: [{ id: 'si_1', price: 'price_pro' }],
-      proration_behavior: 'create_prorations',
-    }))
+    expect(subscriptionsUpdate).toHaveBeenCalledWith(
+      'sub_live',
+      expect.objectContaining({
+        items: [{ id: 'si_1', price: 'price_pro' }],
+        proration_behavior: 'create_prorations',
+      }),
+      { idempotencyKey: 'nexez-billing:subscription-update:attempt-1' },
+    )
     expect(subscriptionsCreate).not.toHaveBeenCalled()
   })
 
@@ -239,6 +266,50 @@ describe('POST /api/billing/create-subscription', () => {
     expect(body.clientSecret).toBe('pi_secret_123')
     expect(subscriptionsUpdate).not.toHaveBeenCalled()
     expect(subscriptionsCreate).toHaveBeenCalledOnce()
+  })
+
+  it('reuses an existing incomplete subscription for the same plan instead of creating another', async () => {
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_ready')
+    vi.mocked(getBillingPlan).mockReturnValue({ id: 'pro', name: 'Pro' } as any)
+    vi.mocked(getPlanPriceId).mockReturnValue('price_pro')
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock(
+        (ctx) => (ctx.table === 'billing_subscriptions' ? { data: { stripe_customer_id: 'cus_existing' } } : { data: null }),
+        { user: { id: 'u1', email: 'a@b.c' } },
+      ) as any,
+    )
+    subscriptionsList.mockResolvedValue({
+      data: [{
+        id: 'sub_pending',
+        status: 'incomplete',
+        items: { data: [{ id: 'si_pending', price: { id: 'price_pro' } }] },
+        latest_invoice: { confirmation_secret: { client_secret: 'pi_pending_secret' } },
+      }],
+    })
+
+    const res = await POST(jsonRequest({ plan: 'pro' }))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body).toMatchObject({ reusedPending: true, subscriptionId: 'sub_pending', clientSecret: 'pi_pending_secret' })
+    expect(subscriptionsCreate).not.toHaveBeenCalled()
+    expect(billingAttempt.markReady).toHaveBeenCalledWith('u1', 'attempt-1', 'sub_pending')
+  })
+
+  it('fails closed when another plan checkout already owns the account slot', async () => {
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_ready')
+    vi.mocked(getBillingPlan).mockReturnValue({ id: 'pro', name: 'Pro' } as any)
+    vi.mocked(getPlanPriceId).mockReturnValue('price_pro')
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock(() => ({ data: { stripe_customer_id: 'cus_existing' } }), { user: { id: 'u1', email: 'a@b.c' } }) as any,
+    )
+    billingAttempt.claim.mockResolvedValue({ ok: false, reason: 'busy' })
+
+    const res = await POST(jsonRequest({ plan: 'pro' }))
+
+    expect(res.status).toBe(409)
+    expect(subscriptionsList).not.toHaveBeenCalled()
+    expect(subscriptionsCreate).not.toHaveBeenCalled()
   })
 
   it('returns setup guidance instead of a 500 when Stripe cannot find the configured price', async () => {

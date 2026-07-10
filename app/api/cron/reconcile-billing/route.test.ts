@@ -85,8 +85,10 @@ describe('GET /api/cron/reconcile-billing — trial-expiry pause pass', () => {
 
     expect(res.status).toBe(200)
     expect(body.pausedTrials).toBe(0)
-    // The paused row must be left exactly as-is — NOT healed to 'canceled', NOT reactivated.
-    expect(updates).toHaveLength(0)
+    // The paused row must not be healed to 'canceled' or reactivated. The only write is
+    // the fair-rotation cursor stamp proving this row was inspected.
+    expect(updates).toHaveLength(1)
+    expect(updates[0].payload).toEqual({ last_reconciled_at: expect.any(String) })
     expect(body.unchanged).toBe(1)
   })
 
@@ -125,5 +127,38 @@ describe('GET /api/cron/reconcile-billing — trial-expiry pause pass', () => {
     // have upserted plan_id=null (entitlement dropped, commission spiked to 15%) hourly.
     expect(body.unchanged).toBe(1)
     expect(upserts.every((p) => p.plan_id !== null)).toBe(true)
+  })
+
+  it('orders by the oldest reconciliation cursor and stamps every scanned row', async () => {
+    const mainSelectCalls: QueryContext['calls'][] = []
+    const cursorWrites: any[] = []
+    vi.mocked(createAdminClient).mockReturnValue(
+      createSupabaseMock((ctx) => {
+        if (ctx.op === 'update') {
+          if ('last_reconciled_at' in ctx.payload) cursorWrites.push({ owner: ctx.eqs.owner_id, value: ctx.payload.last_reconciled_at })
+          return { error: null }
+        }
+        const isMainLoop = ctx.calls.some((c) => c[0] === 'not')
+        if (isMainLoop) {
+          mainSelectCalls.push(ctx.calls)
+          return {
+            data: [
+              { owner_id: 'owner-a', stripe_customer_id: 'cus_a', stripe_subscription_id: null, plan_id: null, status: 'canceled', last_reconciled_at: null },
+              { owner_id: 'owner-b', stripe_customer_id: 'cus_b', stripe_subscription_id: null, plan_id: null, status: 'canceled', last_reconciled_at: '2026-07-01T00:00:00Z' },
+            ],
+          }
+        }
+        return { data: [] }
+      }) as any,
+    )
+    subscriptionsList.mockResolvedValue({ data: [] })
+
+    const res = await GET(cronReq())
+
+    expect(res.status).toBe(200)
+    expect(mainSelectCalls[0]).toContainEqual(['order', 'last_reconciled_at', { ascending: true, nullsFirst: true }])
+    expect(mainSelectCalls[0]).toContainEqual(['order', 'owner_id', { ascending: true }])
+    expect(cursorWrites.map((write) => write.owner)).toEqual(['owner-a', 'owner-b'])
+    expect(cursorWrites[0].value).toBe(cursorWrites[1].value)
   })
 })

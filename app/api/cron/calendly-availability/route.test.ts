@@ -41,11 +41,16 @@ const pageWith = (over: Record<string, any> = {}) => ({ id: 'pg1', slug: 'acme',
 describe('GET /api/cron/calendly-availability', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-08T12:00:00.000Z'))
     credRef.configured = true
     credRef.pat = 'pat'
     credRef.busy = []
   })
-  afterEach(() => vi.unstubAllEnvs())
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllEnvs()
+  })
 
   it('401 without the cron secret', async () => {
     vi.stubEnv('CRON_SECRET', 'shh')

@@ -2,10 +2,17 @@ import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { appUrl } from '../../../../lib/site'
-import { getBillingPlan, getPlanPriceId, isStripePriceId } from '../../../../lib/billing'
+import { getBillingPlan, getPlanPriceId, isSelfServePlanId, isStripePriceId } from '../../../../lib/billing'
 import { createClient } from '../../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { getSubscriptionPriceId, pickLiveStripeSubscription } from '../../../../lib/stripe-billing'
+import {
+  claimBillingCheckoutAttempt,
+  markBillingCheckoutAttemptReady,
+  releaseBillingCheckoutAttempt,
+  retireSupersededBillingObject,
+  stripeBillingIdempotencyKey,
+} from '../../../../lib/server/billing-checkout-attempt'
 
 // /login and /dashboard/billing live on the APP host (app.nexez.ai), so build
 // these redirects with appUrl() - getBaseUrl() returns the agent-runtime host
@@ -15,7 +22,7 @@ export async function POST(request: Request) {
   const planId = String(formData.get('plan') || '')
   const plan = getBillingPlan(planId)
 
-  if (!plan) {
+  if (!plan || !isSelfServePlanId(plan.id)) {
     return NextResponse.redirect(appUrl('/dashboard/billing?error=plan'), 303)
   }
 
@@ -41,11 +48,31 @@ export async function POST(request: Request) {
 
   const { data: billingState } = await supabase
     .from('billing_subscriptions')
-    .select('stripe_customer_id')
+    .select('stripe_customer_id, stripe_subscription_id, status')
     .eq('owner_id', user.id)
-    .maybeSingle<{ stripe_customer_id: string | null }>()
+    .maybeSingle<{ stripe_customer_id: string | null; stripe_subscription_id: string | null; status: string | null }>()
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+  const claim = await claimBillingCheckoutAttempt({ ownerId: user.id, planId: plan.id, flow: 'hosted' })
+  if (!claim.ok) {
+    return NextResponse.redirect(
+      appUrl(`/dashboard/billing?error=${claim.reason === 'busy' ? 'checkout_busy' : 'checkout_unavailable'}`),
+      303,
+    )
+  }
+  const attempt = claim.attempt
+
+  if (claim.superseded?.stripe_object_id) {
+    const staleId = claim.superseded.stripe_object_id
+    try {
+      await retireSupersededBillingObject(stripe, staleId)
+    } catch (error) {
+      console.warn('[billing/checkout] stale checkout cleanup failed', {
+        objectId: staleId,
+        message: error instanceof Error ? error.message : 'unknown',
+      })
+    }
+  }
 
   // Plan CHANGE, not first purchase: a customer with a live subscription gets its
   // price switched in place (prorated) - a second Checkout Session would mint a
@@ -61,6 +88,7 @@ export async function POST(request: Request) {
       const live = pickLiveStripeSubscription(existing.data)
       if (live) {
         if (getSubscriptionPriceId(live) === priceId) {
+          await releaseBillingCheckoutAttempt(user.id, attempt.attempt_key)
           return NextResponse.redirect(appUrl('/dashboard/billing?already_on_plan=1'), 303)
         }
         const item = live.items?.data?.[0]
@@ -68,16 +96,20 @@ export async function POST(request: Request) {
           console.error('[billing/checkout] live subscription has no item to update', { subId: live.id })
           return NextResponse.redirect(appUrl('/dashboard/billing?error=stripe'), 303)
         }
-        const updated = await stripe.subscriptions.update(live.id, {
-          items: [{ id: item.id, price: priceId }],
-          proration_behavior: 'create_prorations',
-          metadata: {
-            nexez_user_id: user.id,
-            nexez_plan: plan.id,
-            nexez_price_id: priceId,
-            nexez_source: 'billing_page_plan_change',
+        const updated = await stripe.subscriptions.update(
+          live.id,
+          {
+            items: [{ id: item.id, price: priceId }],
+            proration_behavior: 'create_prorations',
+            metadata: {
+              nexez_user_id: user.id,
+              nexez_plan: plan.id,
+              nexez_price_id: priceId,
+              nexez_source: 'billing_page_plan_change',
+            },
           },
-        })
+          { idempotencyKey: stripeBillingIdempotencyKey(attempt.attempt_key, 'subscription-update') },
+        )
         // Optimistic sync from REAL Stripe state; the subscription.updated webhook re-confirms.
         if (hasSupabaseAdminEnv()) {
           await createAdminClient()
@@ -85,6 +117,7 @@ export async function POST(request: Request) {
             .update({ plan_id: plan.id, stripe_price_id: priceId, stripe_subscription_id: updated.id, status: updated.status })
             .eq('owner_id', user.id)
         }
+        await releaseBillingCheckoutAttempt(user.id, attempt.attempt_key)
         return NextResponse.redirect(appUrl(`/dashboard/billing?plan_changed=${plan.id}`), 303)
       }
     } catch (err) {
@@ -125,7 +158,11 @@ export async function POST(request: Request) {
 
   let session
   try {
-    session = await stripe.checkout.sessions.create(sessionParams)
+    session = await stripe.checkout.sessions.create(
+      sessionParams,
+      { idempotencyKey: stripeBillingIdempotencyKey(attempt.attempt_key, 'checkout-session-create') },
+    )
+    await markBillingCheckoutAttemptReady(user.id, attempt.attempt_key, session.id)
   } catch (err: any) {
     console.error('[billing/checkout] Failed to create Stripe Checkout Session', err)
 

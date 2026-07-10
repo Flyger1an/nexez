@@ -1,15 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createSupabaseMock } from '../../../../test/supabase-mock'
 
-const { checkoutSessionsCreate, subscriptionsList, subscriptionsUpdate } = vi.hoisted(() => ({
+const { checkoutSessionsCreate, checkoutSessionsExpire, subscriptionsList, subscriptionsUpdate, subscriptionsCancel } = vi.hoisted(() => ({
   checkoutSessionsCreate: vi.fn(),
+  checkoutSessionsExpire: vi.fn(),
   subscriptionsList: vi.fn(),
   subscriptionsUpdate: vi.fn(),
+  subscriptionsCancel: vi.fn(),
 }))
+const billingAttempt = vi.hoisted(() => ({ claim: vi.fn(), markReady: vi.fn(), release: vi.fn(), retire: vi.fn() }))
 vi.mock('stripe', () => ({
   default: class {
-    checkout = { sessions: { create: checkoutSessionsCreate } }
-    subscriptions = { list: subscriptionsList, update: subscriptionsUpdate }
+    checkout = { sessions: { create: checkoutSessionsCreate, expire: checkoutSessionsExpire } }
+    subscriptions = { list: subscriptionsList, update: subscriptionsUpdate, cancel: subscriptionsCancel }
   },
 }))
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ getAll: () => [], set: () => {} })) }))
@@ -18,7 +21,15 @@ vi.mock('../../../../utils/supabase/admin', () => ({ hasSupabaseAdminEnv: vi.fn(
 vi.mock('../../../../lib/billing', () => ({
   getBillingPlan: vi.fn(),
   getPlanPriceId: vi.fn(),
+  isSelfServePlanId: (value: unknown) => ['launch', 'pro', 'scale'].includes(String(value)),
   isStripePriceId: (value: string | null | undefined) => typeof value === 'string' && value.trim().startsWith('price_'),
+}))
+vi.mock('../../../../lib/server/billing-checkout-attempt', () => ({
+  claimBillingCheckoutAttempt: billingAttempt.claim,
+  markBillingCheckoutAttemptReady: billingAttempt.markReady,
+  releaseBillingCheckoutAttempt: billingAttempt.release,
+  retireSupersededBillingObject: billingAttempt.retire,
+  stripeBillingIdempotencyKey: (attempt: string, operation: string) => `nexez-billing:${operation}:${attempt}`,
 }))
 
 import { POST } from './route'
@@ -37,6 +48,10 @@ describe('POST /api/billing/checkout', () => {
     vi.clearAllMocks()
     // Default: no live subscription -> a first purchase creates a Checkout Session.
     subscriptionsList.mockResolvedValue({ data: [] })
+    billingAttempt.claim.mockResolvedValue({ ok: true, attempt: { attempt_key: 'attempt-1' }, reused: false })
+    billingAttempt.markReady.mockResolvedValue(true)
+    billingAttempt.release.mockResolvedValue(true)
+    billingAttempt.retire.mockResolvedValue('preserved')
   })
   afterEach(() => vi.unstubAllEnvs())
 
@@ -81,7 +96,7 @@ describe('POST /api/billing/checkout', () => {
     vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_ready')
     vi.mocked(getBillingPlan).mockReturnValue({ id: 'pro', name: 'Pro' } as any)
     vi.mocked(getPlanPriceId).mockReturnValue('price_pro' as any)
-    checkoutSessionsCreate.mockResolvedValue({ url: 'https://checkout.stripe.test/session' })
+    checkoutSessionsCreate.mockResolvedValue({ id: 'cs_1', url: 'https://checkout.stripe.test/session' })
     vi.mocked(createClient).mockReturnValue(
       createSupabaseMock(
         (ctx) => (
@@ -118,7 +133,9 @@ describe('POST /api/billing/checkout', () => {
           }),
         },
       }),
+      { idempotencyKey: 'nexez-billing:checkout-session-create:attempt-1' },
     )
+    expect(billingAttempt.markReady).toHaveBeenCalledWith('u1', 'attempt-1', 'cs_1')
   })
 
   it('a live subscription makes a plan change UPDATE the sub in place — no second Checkout Session', async () => {
@@ -140,10 +157,30 @@ describe('POST /api/billing/checkout', () => {
 
     expect(res.status).toBe(303)
     expect(res.headers.get('location')).toContain('plan_changed=pro')
-    expect(subscriptionsUpdate).toHaveBeenCalledWith('sub_live', expect.objectContaining({
-      items: [{ id: 'si_1', price: 'price_pro' }],
-      proration_behavior: 'create_prorations',
-    }))
+    expect(subscriptionsUpdate).toHaveBeenCalledWith(
+      'sub_live',
+      expect.objectContaining({
+        items: [{ id: 'si_1', price: 'price_pro' }],
+        proration_behavior: 'create_prorations',
+      }),
+      { idempotencyKey: 'nexez-billing:subscription-update:attempt-1' },
+    )
+    expect(checkoutSessionsCreate).not.toHaveBeenCalled()
+  })
+
+  it('does not create a hosted session while another checkout owns the account slot', async () => {
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_ready')
+    vi.mocked(getBillingPlan).mockReturnValue({ id: 'pro', name: 'Pro' } as any)
+    vi.mocked(getPlanPriceId).mockReturnValue('price_pro' as any)
+    vi.mocked(createClient).mockReturnValue(
+      createSupabaseMock(() => ({ data: { stripe_customer_id: 'cus_existing' } }), { user: { id: 'u1', email: 'a@b.c' } }) as any,
+    )
+    billingAttempt.claim.mockResolvedValue({ ok: false, reason: 'busy' })
+
+    const res = await POST(form('pro'))
+
+    expect(res.status).toBe(303)
+    expect(res.headers.get('location')).toContain('error=checkout_busy')
     expect(checkoutSessionsCreate).not.toHaveBeenCalled()
   })
 })

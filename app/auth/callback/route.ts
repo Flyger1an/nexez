@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { safeNextPath } from '../../../lib/safe-redirect'
 import { sendOnceSystemEmail } from '../../../lib/server/system-email'
 import { buildWelcomeEmail } from '../../../lib/email'
-import { ensureTrialSeeded, hasBillingAccount } from '../../../lib/server/trial'
+import { ensureTrialSeeded, hasBillingAccount, isTrialablePlan } from '../../../lib/server/trial'
 
 // A user counts as "new" (gets the welcome) only if their account was created very
 // recently - so an existing user signing in again never gets a backfill blast, and
@@ -56,7 +56,7 @@ export async function GET(request: Request) {
     // with Google) never chose one and is routed through onboarding below instead of being
     // silently defaulted. Existing users (created > 24h) are never auto-trialed here.
     const planMeta = user?.user_metadata?.plan
-    const chosePlan = typeof planMeta === 'string' && planMeta.length > 0
+    const chosePlan = isTrialablePlan(planMeta)
     if (isNew && user && chosePlan) {
       await ensureTrialSeeded(user.id, planMeta)
     }
@@ -71,11 +71,11 @@ export async function GET(request: Request) {
       })
     }
 
-    // OAuth first-touch: a brand-new account with NO chosen plan goes through onboarding
-    // to pick one (Shopify-style plan-first), not to a silently-seeded default trial.
-    // Gated on "no billing row yet" so a re-login inside the welcome window after
-    // completing onboarding passes straight through to `next`.
-    if (isNew && user && !chosePlan && !(await hasBillingAccount(user.id))) {
+    // Any account with NO valid chosen plan and NO billing row goes through onboarding
+    // to pick one, not to a silently-seeded default trial. This is intentionally not
+    // limited to the welcome window: a user may abandon OAuth and return days later.
+    // Existing billing state remains the source of truth and passes through to `next`.
+    if (user && !chosePlan && !(await hasBillingAccount(user.id))) {
       const onboardUrl = new URL('/onboard', requestUrl.origin)
       if (next && next !== '/') onboardUrl.searchParams.set('next', next)
       return NextResponse.redirect(onboardUrl)

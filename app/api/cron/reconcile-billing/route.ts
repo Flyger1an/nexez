@@ -71,9 +71,12 @@ export async function GET(request: Request) {
 
   const { data, error } = await admin
     .from('billing_subscriptions')
-    .select('owner_id, stripe_customer_id, stripe_subscription_id, plan_id, status')
+    .select('owner_id, stripe_customer_id, stripe_subscription_id, plan_id, status, last_reconciled_at')
     .not('stripe_customer_id', 'is', null)
-    .order('updated_at', { ascending: false })
+    // Fair rotation: never keep scanning the newest LIMIT rows forever. Null/oldest
+    // cursors go first, and every inspected row is stamped in the loop's finally block.
+    .order('last_reconciled_at', { ascending: true, nullsFirst: true })
+    .order('owner_id', { ascending: true })
     .limit(LIMIT)
 
   if (error) {
@@ -85,6 +88,7 @@ export async function GET(request: Request) {
   let unchanged = 0
   let alerted = 0
   const actions: Array<Record<string, unknown>> = []
+  const reconciledAt = new Date().toISOString()
 
   for (const row of rows) {
     try {
@@ -156,6 +160,18 @@ export async function GET(request: Request) {
     } catch (err) {
       captureError(err, { route: 'reconcile-billing', ownerId: row.owner_id })
       alerted += 1
+    } finally {
+      const { error: stampError } = await admin
+        .from('billing_subscriptions')
+        .update({ last_reconciled_at: reconciledAt })
+        .eq('owner_id', row.owner_id)
+      if (stampError) {
+        captureError(new Error('reconcile-billing cursor stamp failed'), {
+          ownerId: row.owner_id,
+          dbError: stampError.message,
+        })
+        alerted += 1
+      }
     }
   }
 

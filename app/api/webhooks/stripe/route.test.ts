@@ -38,6 +38,7 @@ vi.mock('next/server', async (importOriginal) => {
   return { ...actual, after: (fn: () => unknown) => { afterCbs.push(fn) } }
 })
 vi.mock('../../../../lib/server/calendly-cancel-on-refund', () => ({ cancelCalendlyForRefund: cancelSpy }))
+vi.mock('../../../../lib/server/billing-checkout-attempt', () => ({ releaseBillingCheckoutAttempt: vi.fn(async () => true) }))
 
 import { POST } from './route'
 
