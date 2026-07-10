@@ -161,6 +161,18 @@ export async function loadPublicStorefronts(limit = 60): Promise<StorefrontSumma
       .filter((r) => r.status === 'paused' || (r.status === 'trialing' && r.trial_ends_at != null && new Date(r.trial_ends_at).getTime() < nowMs))
       .map((r) => r.owner_id),
   )
+  // Platform admins are NEVER paused - private.nz_owner_is_paused (the serving-flag gate)
+  // exempts them, so their storefront stays online. Mirror that here or the directory would
+  // drift: an admin whose billing row happens to read paused/expired-trial would keep serving
+  // yet vanish from discovery. Only probe the (small) paused set.
+  if (pausedOwners.size > 0) {
+    const { data: admins } = await admin
+      .from('platform_admins')
+      .select('user_id')
+      .in('user_id', [...pausedOwners])
+      .returns<Array<{ user_id: string }>>()
+    for (const a of admins ?? []) pausedOwners.delete(a.user_id)
+  }
   const counts = new Map<string, number>()
   for (const p of pubPages ?? []) {
     if (p.storefront_id && !(p.owner_id && pausedOwners.has(p.owner_id))) {
