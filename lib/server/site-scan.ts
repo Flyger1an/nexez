@@ -65,6 +65,25 @@ export async function readBodyCapped(res: Response, maxBytes: number): Promise<s
   }
 }
 
+/**
+ * Strip HTML to a compact text approximation for LLM comprehension analysis:
+ * drop script/style, tags → spaces, collapse whitespace, cap length. Not a
+ * renderer — good enough for "what can an agent read off this page".
+ */
+export function stripHtmlToText(html: string, maxChars = 8000): string {
+  const text = html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return text.length > maxChars ? text.slice(0, maxChars) : text
+}
+
 /** Accepts bare domains (prepends https://); null when unparseable. */
 export function normalizeScanUrl(input: string): string | null {
   let u = (input || '').trim()
@@ -110,6 +129,8 @@ export type SiteSignalsResult = {
   elapsedMs: number
   signals: CrawlabilitySignals
   robots: Record<AgentBot, boolean>
+  /** Stripped, capped page text — for the gated LLM comprehension pass (never returned to anon callers). */
+  pageText: string
 }
 
 /**
@@ -143,7 +164,8 @@ export async function gatherSiteSignals(rawUrl: string): Promise<SiteSignalsResu
     fetchCapped(`${origin}/robots.txt`, ROBOTS_BYTE_CAP),
   ])
 
-  const lower = (html || '').toLowerCase() // already bounded to HTML_BYTE_CAP by fetchCapped
+  const raw = html || '' // already bounded to HTML_BYTE_CAP by fetchCapped
+  const lower = raw.toLowerCase()
   const robots = parseRobotsForAgentBots(robotsTxt)
 
   const signals: CrawlabilitySignals = {
@@ -159,5 +181,5 @@ export async function gatherSiteSignals(rawUrl: string): Promise<SiteSignalsResu
     robots,
   }
 
-  return { url, origin, elapsedMs: Date.now() - started, signals, robots }
+  return { url, origin, elapsedMs: Date.now() - started, signals, robots, pageText: stripHtmlToText(raw) }
 }

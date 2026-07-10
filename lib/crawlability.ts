@@ -161,21 +161,26 @@ export function evaluateCrawlability(signals: CrawlabilitySignals): Crawlability
     detail: blocked.length === 0 ? 'All known agent bots allowed' : `Blocked: ${blocked.join(', ')}`,
   })
 
-  // Weighted score.
-  const weights: Record<string, number> = {
-    reachable: 25,
-    jsonld: 20,
-    agent_json: 20,
-    robots: 15,
-    semantics: 10,
-    speed: 5,
-    llms_txt: 5,
-  }
+  return { score: scoreFromChecks(checks), checks }
+}
+
+/** Per-check weights (sum 100). `semantics` = the content dimension the gated deep scan refines via the LLM. */
+export const CHECK_WEIGHTS: Record<string, number> = {
+  reachable: 25,
+  jsonld: 20,
+  agent_json: 20,
+  robots: 15,
+  semantics: 10,
+  speed: 5,
+  llms_txt: 5,
+}
+
+/** Weighted 0-100 from a checks array (pass = full weight, warn = half, fail = 0). Pure. */
+export function scoreFromChecks(checks: CrawlCheck[]): number {
   let score = 0
   for (const c of checks) {
-    const w = weights[c.id] ?? 0
+    const w = CHECK_WEIGHTS[c.id] ?? 0
     score += c.status === 'pass' ? w : c.status === 'warn' ? w * 0.5 : 0
   }
-
-  return { score: Math.round(score), checks }
+  return Math.round(score)
 }

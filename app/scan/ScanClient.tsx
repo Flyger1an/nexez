@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type FormEvent } from 'react'
-import { ArrowRight, Check, Loader2, Minus, X } from 'lucide-react'
+import { ArrowRight, Check, Loader2, Minus, Sparkles, X } from 'lucide-react'
 import { appUrl } from '../../lib/site'
 
 type Check = { id: string; label: string; status: 'pass' | 'warn' | 'fail'; detail: string }
@@ -13,6 +13,8 @@ type ScanResult = {
   checks: Check[]
   blockedBots: string[]
 }
+type Comprehension = { score: number; agentRead: string; topFix: string }
+type DeepResult = ScanResult & { llmAssisted: boolean; comprehension?: Comprehension; upgradeHint?: string }
 
 function scoreTone(score: number): { color: string; label: string } {
   if (score >= 80) return { color: 'var(--ready)', label: 'Agent-ready' }
@@ -82,6 +84,10 @@ export function ScanClient() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<ScanResult | null>(null)
+  const [deep, setDeep] = useState<DeepResult | null>(null)
+  const [deepLoading, setDeepLoading] = useState(false)
+  const [deepMsg, setDeepMsg] = useState('')
+  const [needsAuth, setNeedsAuth] = useState(false)
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -90,6 +96,9 @@ export function ScanClient() {
     setLoading(true)
     setError('')
     setResult(null)
+    setDeep(null)
+    setDeepMsg('')
+    setNeedsAuth(false)
     try {
       const res = await fetch('/api/scan', {
         method: 'POST',
@@ -109,6 +118,39 @@ export function ScanClient() {
     }
   }
 
+  // Deep (LLM) pass: same-origin, authed via the shared session cookie. A 401
+  // means "not signed in" (the auth gate); the deterministic result stays shown.
+  async function runDeep() {
+    if (!result || deepLoading) return
+    setDeepLoading(true)
+    setDeepMsg('')
+    setNeedsAuth(false)
+    try {
+      const res = await fetch('/api/scan/deep', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ url: result.url }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.status === 401) {
+        setNeedsAuth(true)
+        return
+      }
+      if (!res.ok) {
+        setDeepMsg(data?.error || 'Could not run the deep analysis.')
+        return
+      }
+      setDeep(data as DeepResult)
+      if (data?.upgradeHint) setDeepMsg(data.upgradeHint)
+    } catch {
+      setDeepMsg('Network error — please try again.')
+    } finally {
+      setDeepLoading(false)
+    }
+  }
+
+  const shown: ScanResult | DeepResult | null = deep ?? result
+  const comprehension = deep?.comprehension
   const deepHref = result
     ? appUrl(`/onboard?next=${encodeURIComponent(`/create?url=${encodeURIComponent(result.url)}`)}`)
     : appUrl('/onboard')
@@ -150,19 +192,21 @@ export function ScanClient() {
         </p>
       ) : null}
 
-      {result ? (
+      {shown ? (
         <section className="glass mt-10 rounded-[24px] p-6 sm:p-8">
           <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:gap-8">
-            <ScoreRing score={result.score} />
+            <ScoreRing score={shown.score} />
             <div className="min-w-0 flex-1 text-center sm:text-left">
               <p className="text-xs uppercase tracking-[0.14em] text-[var(--fg-muted)]">Scanned</p>
-              <p className="truncate text-lg font-semibold">{result.origin}</p>
+              <p className="truncate text-lg font-semibold">{shown.origin}</p>
               <p className="mt-2 text-sm text-[var(--fg-muted)]">
-                7 deterministic checks across structured data, agent manifests, and crawler access.
+                {deep?.llmAssisted
+                  ? 'Structural checks + AI comprehension of your offers.'
+                  : '7 deterministic checks across structured data, agent manifests, and crawler access.'}
               </p>
-              {result.blockedBots.length > 0 ? (
+              {shown.blockedBots.length > 0 ? (
                 <div className="mt-3 flex flex-wrap justify-center gap-1.5 sm:justify-start">
-                  {result.blockedBots.map((b) => (
+                  {shown.blockedBots.map((b) => (
                     <span key={b} className="chip text-xs" style={{ color: 'var(--amber)' }}>
                       {b} blocked
                     </span>
@@ -173,10 +217,56 @@ export function ScanClient() {
           </div>
 
           <ul className="mt-8">
-            {result.checks.map((c) => (
+            {shown.checks.map((c) => (
               <CheckRow key={c.id} c={c} />
             ))}
           </ul>
+
+          {/* Agent's-eye read (the LLM comprehension layer). */}
+          {comprehension ? (
+            <div className="mt-6 rounded-[18px] border border-[var(--bd-10)] bg-[var(--ov-03)] p-5">
+              <p className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--signal)' }}>
+                <Sparkles className="size-4" /> Agent’s-eye read
+                <span className="font-mono text-xs font-normal text-[var(--fg-muted)]">
+                  comprehension {comprehension.score}/100
+                </span>
+              </p>
+              <p className="mt-2 text-sm leading-6">{comprehension.agentRead}</p>
+              {comprehension.topFix ? (
+                <p className="mt-3 text-sm">
+                  <span className="font-semibold" style={{ color: 'var(--ready)' }}>
+                    Top fix:{' '}
+                  </span>
+                  {comprehension.topFix}
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <div className="mt-6 flex flex-col items-start gap-2">
+              <button
+                type="button"
+                onClick={runDeep}
+                disabled={deepLoading}
+                className="btn-secondary min-h-[44px] px-4 disabled:opacity-60"
+              >
+                {deepLoading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                {deepLoading ? 'Reading as an agent…' : 'Add AI comprehension analysis'}
+              </button>
+              {needsAuth ? (
+                <p className="text-xs text-[var(--fg-muted)]">
+                  <a href={deepHref} className="underline decoration-white/25 underline-offset-4 hover:decoration-white">
+                    Sign in
+                  </a>{' '}
+                  to see how an AI agent understands your offers (sends this page’s text to the model).
+                </p>
+              ) : (
+                <p className="text-xs text-[var(--fg-muted)]">
+                  Signed in? Grade how well an AI agent understands your offers — sends this page’s text to the model.
+                </p>
+              )}
+              {deepMsg ? <p className="text-xs" style={{ color: 'var(--amber)' }}>{deepMsg}</p> : null}
+            </div>
+          )}
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <a href={deepHref} className="btn-primary min-h-[48px] flex-1 justify-center px-5">
@@ -187,7 +277,7 @@ export function ScanClient() {
             </a>
           </div>
           <p className="mt-3 text-center text-xs text-[var(--fg-muted)]">
-            Nothing stored. We only summarize the score — never your page content.
+            The free scan stores nothing and summarizes only the score. AI comprehension sends the page text to the model.
           </p>
         </section>
       ) : null}

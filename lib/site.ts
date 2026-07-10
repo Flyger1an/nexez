@@ -139,6 +139,9 @@ const HOST_NEUTRAL_API_PREFIXES = [
   '/api/simulate-url',
   '/api/support',
   '/api/directory',
+  // The gated deep scan: reachable same-origin from the marketing /scan page,
+  // authed via the shared .nexez.ai session cookie.
+  '/api/scan/deep',
 ] as const
 
 /** True when a path is served per-host and must skip canonical-host redirects. */
