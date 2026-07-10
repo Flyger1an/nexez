@@ -41,6 +41,7 @@ function useAuthedUser(): boolean | null {
 }
 
 const navLinks = [
+  { label: 'Scan your site', href: '/scan' },
   { label: 'How it works', href: '/how-it-works' },
   { label: 'Use cases', href: '/use-cases' },
   { label: 'Discovery', href: '/discovery' },
@@ -200,6 +201,7 @@ function MarketingFooter({ authed }: { authed: boolean | null }) {
         <FooterCol
           title="Explore"
           links={[
+            ['Scan your site', '/scan'],
             ['How it works', '/how-it-works'],
             ['Use cases', '/use-cases'],
             ['Examples', '/examples'],

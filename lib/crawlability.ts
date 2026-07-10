@@ -75,6 +75,8 @@ export type CrawlabilitySignals = {
   hasMetaDescription: boolean
   hasH1: boolean
   agentJsonOk: boolean
+  /** Optional second probe location: /.well-known/agent.json (the agent namespace). */
+  wellKnownAgentJsonOk?: boolean
   llmsTxtOk: boolean
   robots: Record<AgentBot, boolean>
 }
@@ -130,11 +132,18 @@ export function evaluateCrawlability(signals: CrawlabilitySignals): Crawlability
     ].join(' '),
   })
 
+  const agentJsonAnywhere = signals.agentJsonOk || Boolean(signals.wellKnownAgentJsonOk)
   checks.push({
     id: 'agent_json',
     label: 'agent.json reachable at domain root',
-    status: signals.agentJsonOk ? 'pass' : 'fail',
-    detail: signals.agentJsonOk ? '/agent.json returns JSON' : '/agent.json not reachable',
+    status: agentJsonAnywhere ? 'pass' : 'fail',
+    detail: signals.agentJsonOk
+      ? '/agent.json returns JSON'
+      : signals.wellKnownAgentJsonOk
+        ? '/.well-known/agent.json returns JSON'
+        : signals.wellKnownAgentJsonOk === undefined
+          ? '/agent.json not reachable'
+          : 'No agent.json at /agent.json or /.well-known/agent.json',
   })
 
   checks.push({

@@ -14,7 +14,7 @@ import { getCalendlyUser } from '../../../../../lib/server/calendly-write'
  * (requireEditor) and writes via the service-role client scoped to the PAGE OWNER.
  * Only the three known secret columns are accepted (no arbitrary column writes).
  */
-const ALLOWED_KEYS = ['calendly_webhook_secret', 'outbound_webhooks', 'domain_verification_token'] as const
+const ALLOWED_KEYS = ['calendly_webhook_secret', 'outbound_webhooks', 'domain_verification_token', 'website_verification_token'] as const
 
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const limited = await enforceRateLimit(request, 'page-secrets', 30, 60_000)

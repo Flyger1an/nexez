@@ -23,6 +23,7 @@ import { createClient } from '../../../../utils/supabase/client'
 import { agentRuntimeUrl } from '../../../../lib/site'
 import { CredentialsManager } from '../../../../components/CredentialsManager'
 import { IntegrationsPanel } from '../../../../components/settings/IntegrationsPanel'
+import { WebsitePanel } from '../../../../components/settings/WebsitePanel'
 import { planAllows } from '../../../../lib/billing'
 import { ProBadge } from '../../../../components/billing/PlanGate'
 import { usePlan } from '../../../../components/billing/PlanProvider'
@@ -1040,6 +1041,18 @@ export default function PageSettings({ params }: PageProps) {
                   Which channel AI agents use first to reach you. Auto picks email, then your action button, then your website. Surfaced in this listing&apos;s agent.json and llms.txt.
                 </p>
               </div>
+
+              {/* Plugin pivot: verify your existing website + copy-paste Agent-Ready Kit. */}
+              {page ? (
+                <div className="rounded-lg border border-white/10 bg-white/[0.02] p-5">
+                  <WebsitePanel
+                    pageId={id}
+                    page={page}
+                    onMessage={setMessage}
+                    onVerified={(at, m) => setPage((current) => (current ? { ...current, website_verified_at: at, website_verified_method: m } : current))}
+                  />
+                </div>
+              ) : null}
 
               {/* Phase 4: Enhanced Embed & Per-Offer Original Site Linking */}
               <div className="rounded-lg border border-white/10 bg-white/[0.02] p-5">

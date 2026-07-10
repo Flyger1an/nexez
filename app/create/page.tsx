@@ -88,6 +88,8 @@ export default function CreatePage() {
   // Re-interview an existing listing (?reinterview=<pageId> from the editor):
   // the interview seeds from the page and stages changes onto its draft.
   const [reinterviewPageId, setReinterviewPageId] = useState<string | null>(null)
+  // Prefill the intake "your website" input from the /scan → onboarding funnel (?url=).
+  const [prefillUrl, setPrefillUrl] = useState('')
   const [step, setStep] = useState(1)
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
@@ -188,6 +190,12 @@ export default function CreatePage() {
     const template = getCreatePageTemplate(params.get('template'))
 
     // Re-interview entry wins the fork outright - it IS the point of the visit.
+    // Scan funnel: prefill the interview's website input (stays in interview mode).
+    const url = params.get('url')
+    if (url && /^https?:\/\//i.test(url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`)) {
+      setPrefillUrl(url.trim())
+    }
+
     const reinterview = params.get('reinterview')
     if (reinterview) {
       setReinterviewPageId(reinterview)
@@ -784,6 +792,7 @@ export default function CreatePage() {
               <IntakeChat
                 onSwitchToForm={reinterviewPageId ? undefined : () => setMode('form')}
                 reinterviewPageId={reinterviewPageId ?? undefined}
+                initialSourceUrl={prefillUrl}
               />
             </div>
           </div>

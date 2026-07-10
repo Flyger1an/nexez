@@ -72,4 +72,24 @@ describe('evaluateCrawlability', () => {
     const report = evaluateCrawlability({ ...perfectSignals, robots })
     expect(report.checks.find((c) => c.id === 'robots')?.status).toBe('warn')
   })
+
+  it('passes agent_json when only /.well-known/agent.json is present', () => {
+    const report = evaluateCrawlability({ ...perfectSignals, agentJsonOk: false, wellKnownAgentJsonOk: true })
+    const check = report.checks.find((c) => c.id === 'agent_json')
+    expect(check?.status).toBe('pass')
+    expect(check?.detail).toContain('.well-known')
+    expect(report.score).toBe(100)
+  })
+
+  it('fails agent_json only when neither location is present', () => {
+    const report = evaluateCrawlability({ ...perfectSignals, agentJsonOk: false, wellKnownAgentJsonOk: false })
+    expect(report.checks.find((c) => c.id === 'agent_json')?.status).toBe('fail')
+    expect(report.score).toBe(80) // 100 - 20 (agent_json)
+  })
+
+  it('is backward-compatible when wellKnownAgentJsonOk is undefined (root pass ⇒ pass)', () => {
+    const report = evaluateCrawlability({ ...perfectSignals, agentJsonOk: true })
+    expect(report.checks.find((c) => c.id === 'agent_json')?.status).toBe('pass')
+    expect(report.score).toBe(100)
+  })
 })

@@ -25,6 +25,7 @@ export function getOnboardingSteps(pages: AgentPage[], extras: OnboardingExtras 
   const hasPage = pages.length > 0
   const hasOffers = pages.some((p) => getOfferCount(p) > 0)
   const hasPublished = pages.some((p) => p.is_published)
+  const hasVerifiedWebsite = pages.some((p) => Boolean(p.website_verified_at))
   const hasCustomDomain = pages.some((p) => Boolean(p.custom_domain_verified))
 
   return [
@@ -51,6 +52,14 @@ export function getOnboardingSteps(pages: AgentPage[], extras: OnboardingExtras 
       href: editorHref,
       cta: 'Publish',
       done: hasPublished,
+    },
+    {
+      id: 'website',
+      title: 'Verify your existing website',
+      description: 'Prove you own your site and get the copy-paste Agent-Ready Kit — make the site you already have agent-legible.',
+      href: settingsHref,
+      cta: 'Verify website',
+      done: hasVerifiedWebsite,
     },
     {
       id: 'domain',

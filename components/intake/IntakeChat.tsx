@@ -23,6 +23,9 @@ type IntakeChatProps = {
    *  commit stages onto its draft (never a new page). Entry: the editor's
    *  Re-interview action -> /create?reinterview=<pageId>. */
   reinterviewPageId?: string
+  /** Prefill the "your website" input (e.g. from the /scan → onboarding funnel).
+   *  Prefill ONLY — the user still clicks start, so no surprise outbound fetch. */
+  initialSourceUrl?: string
   className?: string
 }
 
@@ -30,9 +33,9 @@ type SetupPhase = 'setup' | 'starting' | 'signin' | 'chat'
 
 type ActiveSession = { id: string; updatedAt: string | null }
 
-export function IntakeChat({ onSwitchToForm, reinterviewPageId, className = '' }: IntakeChatProps) {
+export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl = '', className = '' }: IntakeChatProps) {
   const [phase, setPhase] = useState<SetupPhase>('setup')
-  const [sourceUrl, setSourceUrl] = useState('')
+  const [sourceUrl, setSourceUrl] = useState(initialSourceUrl)
   const [setupError, setSetupError] = useState('')
   const [resumable, setResumable] = useState<ActiveSession | null>(null)
   const [initialMessages, setInitialMessages] = useState<AgentChatMessage<IntakeCard>[]>([])

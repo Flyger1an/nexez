@@ -38,9 +38,9 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
       .from('page_secrets')
       // calendly_pat_encrypted is selected ONLY to derive a boolean — its value
       // never leaves the server.
-      .select('calendly_webhook_secret, outbound_webhooks, domain_verification_token, calendly_pat_encrypted')
+      .select('calendly_webhook_secret, outbound_webhooks, domain_verification_token, website_verification_token, calendly_pat_encrypted')
       .eq('page_id', access.pageId)
-      .maybeSingle<{ calendly_webhook_secret: string | null; outbound_webhooks: unknown; domain_verification_token: string | null; calendly_pat_encrypted: string | null }>(),
+      .maybeSingle<{ calendly_webhook_secret: string | null; outbound_webhooks: unknown; domain_verification_token: string | null; website_verification_token: string | null; calendly_pat_encrypted: string | null }>(),
     // Unified per-provider connection state for the Integrations panel (booleans
     // + timestamps only — never a credential value).
     getPageIntegrationConnections(access.pageId, access.ownerId),
@@ -55,6 +55,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
       calendly_webhook_secret: secrets?.calendly_webhook_secret ?? null,
       outbound_webhooks: secrets?.outbound_webhooks ?? null,
       domain_verification_token: secrets?.domain_verification_token ?? null,
+      website_verification_token: secrets?.website_verification_token ?? null,
       // Boolean only — the encrypted PAT is never returned to the client.
       calendly_connected: Boolean(secrets?.calendly_pat_encrypted),
     },

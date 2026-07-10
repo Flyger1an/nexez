@@ -39,6 +39,7 @@ const MARKETING_PREFIXES = [
   '/integrations',
   '/pricing',
   '/privacy',
+  '/scan',
   '/terms',
   '/design',
   '/discovery',
@@ -61,6 +62,7 @@ const APP_PREFIXES = ['/dashboard', '/create', '/login', '/auth', '/onboard', '/
 const MARKETING_API_PREFIXES = [
   '/api/directory',
   '/api/public-simulate',
+  '/api/scan',
   '/api/simulate-llm',
   '/api/simulate-url',
   '/api/support',

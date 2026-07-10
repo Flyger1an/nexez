@@ -46,6 +46,10 @@ export const SERVER_PAGE_SELECT = [
   'owner_id',
   'storefront_id',
   'google_calendar_id',
+  // Owner-facing external-website ownership proof (NOT in pages_public — owner reads
+  // come from the base pages table under RLS).
+  'website_verified_at',
+  'website_verified_method',
   ...PUBLIC_PAGE_COLUMNS,
 ].join(', ')
 
@@ -263,6 +267,8 @@ export type AgentPage = {
   currency?: string | null  // Multi-currency: page settlement currency (ISO 4217, lowercase); default 'usd'
   custom_domain?: string | null
   custom_domain_verified?: boolean | string | null  // Phase 5: timestamp or true when DNS verified
+  website_verified_at?: string | null  // Plugin pivot: proof the owner controls website_url's host
+  website_verified_method?: 'dns' | 'meta' | 'file' | null
   domain_path?: string | null  // C9: path this page serves at on its custom_domain ("/" or "/pricing")
   branding?: Record<string, unknown> | null  // C10: white-label branding (accent_color, logo_url, brand_name, hide_nexez_badge)
   draft?: Record<string, unknown> | null  // D12: staged content (owner-only); promoted to live on publish
