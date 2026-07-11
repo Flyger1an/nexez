@@ -22,7 +22,14 @@ const call = (method: string, params?: Record<string, unknown>) =>
 describe('handlePlatformMcpRequest', () => {
   it('initialize → nexez:platform serverInfo', async () => {
     const r = await call('initialize')
-    expect((r.result as { serverInfo: { name: string } }).serverInfo.name).toBe('nexez:platform')
+    const info = (r.result as {
+      serverInfo: { name: string; title: string; description: string; websiteUrl: string; icons: { src: string }[] }
+    }).serverInfo
+    expect(info.name).toBe('nexez:platform')
+    expect(info.title).toBe('Nexez Agentic Commerce')
+    expect(info.description).toContain('structured offers')
+    expect(info.websiteUrl).toBe('https://nexez.ai/agents')
+    expect(info.icons[0].src).toBe('https://nexez.ai/icon.png')
   })
 
   it('tools/list exposes ONLY the 5 read/dry-run tools (no start_checkout / submit_negotiation)', async () => {

@@ -128,7 +128,14 @@ export async function handlePlatformMcpRequest(
       return ok(id, {
         protocolVersion: MCP_PROTOCOL_VERSION,
         capabilities: { tools: {}, resources: {} },
-        serverInfo: { name: 'nexez:platform', version: '1.0.0' },
+        serverInfo: {
+          name: 'nexez:platform',
+          title: 'Nexez Agentic Commerce',
+          version: '1.0.0',
+          websiteUrl: 'https://nexez.ai/agents',
+          description: 'Search merchants, inspect structured offers, and validate checkout or negotiation before buying.',
+          icons: [{ src: 'https://nexez.ai/icon.png', mimeType: 'image/png', sizes: ['512x512'] }],
+        },
       })
     case 'ping':
       return ok(id, {})
