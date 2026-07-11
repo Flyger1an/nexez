@@ -9,7 +9,8 @@ import crypto from 'node:crypto'
  * Partner-app credentials. No secrets are logged.
  */
 
-export const SHOPIFY_SCOPES = 'read_products'
+export const SHOPIFY_API_VERSION = '2026-07'
+export const SHOPIFY_SCOPES = 'read_products,write_app_proxy'
 
 /** True only when both the client id + secret are present. */
 export function shopifyConfigured(): boolean {

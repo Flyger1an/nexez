@@ -120,12 +120,14 @@ describe('importShopifyOffers', () => {
   })
 
   it('maps products (first variant → price, extra variants → tiers)', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse({
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse({
       products: [{ title: 'Tee', body_html: '<p>Soft</p>', handle: 'tee', variants: [{ price: '20.00', title: 'S' }, { price: '22.00', title: 'L' }] }],
-    })))
+    }))
+    vi.stubGlobal('fetch', fetchMock)
     const r = await importShopifyOffers({ shop: 'acme.myshopify.com', accessToken: 't' })
     expect(r.ok).toBe(true)
     if (!r.ok) return
+    expect(fetchMock.mock.calls[0][0]).toContain('/admin/api/2026-07/products.json')
     expect(r.offers[0]).toMatchObject({ name: 'Tee', price: '$20', source: 'shopify' })
     expect(r.offers[0].tiers).toHaveLength(2)
   })

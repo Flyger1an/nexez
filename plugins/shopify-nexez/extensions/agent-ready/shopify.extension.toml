@@ -1,8 +1,9 @@
 # Theme app extension config. The Shopify CLI regenerates/validates this on
 # `shopify app dev` / `shopify app deploy`; the api_version should track the app.
-api_version = "2024-01"
+api_version = "2026-07"
 
 [[extensions]]
 type = "theme"
 name = "Nexez Agent-Ready"
 handle = "nexez-agent-ready"
+uid = "520db413-28a4-265d-8f90-a2a4bba9e6756536b23f"

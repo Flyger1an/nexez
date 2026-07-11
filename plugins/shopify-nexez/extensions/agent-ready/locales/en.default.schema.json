@@ -1,0 +1,15 @@
+{
+  "agent_ready": {
+    "name": "Agent-ready discovery",
+    "settings": {
+      "proxy_path": {
+        "label": "Storefront proxy path",
+        "info": "Keep /apps/nexez unless you customized the app proxy URL in Shopify. Do not add a trailing slash."
+      },
+      "token": {
+        "label": "Verification token (optional)",
+        "info": "Find this in Nexez under Settings, then Your website. It lets Nexez verify your store."
+      }
+    }
+  }
+}

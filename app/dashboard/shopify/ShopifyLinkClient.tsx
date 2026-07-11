@@ -1,15 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, Loader2 } from 'lucide-react'
+import { Check, ExternalLink, Loader2 } from 'lucide-react'
 
 type Listing = { id: string; name: string | null; slug: string }
 
-export function ShopifyLinkClient({ shop, listings }: { shop: string; listings: Listing[] }) {
+export function ShopifyLinkClient({ shop, listings, appApiKey }: { shop: string; listings: Listing[]; appApiKey: string }) {
   const [pageId, setPageId] = useState(listings[0]?.id ?? '')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
   const [msg, setMsg] = useState('')
+  const themeEditorUrl = `https://${shop}/admin/themes/current/editor?context=apps&template=index&activateAppId=${encodeURIComponent(appApiKey)}/agent-ready`
 
   async function link() {
     if (!pageId || busy) return
@@ -28,7 +29,7 @@ export function ShopifyLinkClient({ shop, listings }: { shop: string; listings: 
         setMsg(data?.error || 'Could not connect. Try again.')
       }
     } catch {
-      setMsg('Network error — please try again.')
+      setMsg('Network error. Please try again.')
     } finally {
       setBusy(false)
     }
@@ -36,12 +37,25 @@ export function ShopifyLinkClient({ shop, listings }: { shop: string; listings: 
 
   if (done) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-[var(--bd-10)] bg-[var(--ov-03)] p-4 text-sm">
-        <Check className="size-4" style={{ color: 'var(--ready)' }} />
-        <span>
-          Connected <span className="font-medium">{shop}</span>. Agents can now transact with this listing on your
-          Shopify storefront.
-        </span>
+      <div className="space-y-3">
+        <div className="flex items-start gap-2 rounded-lg border border-[var(--bd-10)] bg-[var(--ov-03)] p-4 text-sm">
+          <Check className="mt-0.5 size-4 shrink-0" style={{ color: 'var(--ready)' }} />
+          <span>
+            Connected <span className="font-medium">{shop}</span>. Your listing and storefront proxy are linked.
+          </span>
+        </div>
+        <a
+          href={themeEditorUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="btn-primary inline-flex min-h-[44px] w-full items-center justify-center gap-2 px-5"
+        >
+          Enable agent discovery in theme
+          <ExternalLink className="size-4" aria-hidden="true" />
+        </a>
+        <p className="text-xs leading-5 text-[var(--fg-muted)]">
+          Shopify opens the active theme with Nexez selected. Review the app embed, then click Save.
+        </p>
       </div>
     )
   }

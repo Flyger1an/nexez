@@ -5,6 +5,7 @@ import { ownerAllows } from './plan'
 import { resolveFeatureOwner } from './page-access'
 import type { OfferItem } from '../agent-page'
 import { mapSquareCatalogToOffers, mapAcuityTypesToOffers } from '../integrations'
+import { SHOPIFY_API_VERSION } from './shopify'
 
 // Shared cores behind the integration IMPORT routes (Calendly / Shopify / Square /
 // Acuity) so the interview's /ingest can pull the same live catalogs the manual
@@ -158,9 +159,8 @@ export async function importShopifyOffers(opts: { shop: string; accessToken: str
   const shopDomain = resolveShopDomain(opts.shop)
   if (!shopDomain) return { ok: false, status: 400, error: 'Invalid Shopify store domain (expected your-store.myshopify.com).' }
   const safeLimit = Math.min(Math.max(1, Number(opts.limit) || 50), 250)
-  const apiVersion = '2024-01'
   try {
-    const url = `https://${shopDomain}/admin/api/${apiVersion}/products.json?limit=${safeLimit}&fields=id,title,body_html,handle,product_type,variants,images`
+    const url = `https://${shopDomain}/admin/api/${SHOPIFY_API_VERSION}/products.json?limit=${safeLimit}&fields=id,title,body_html,handle,product_type,variants,images`
     const res = await fetch(url, {
       headers: { 'X-Shopify-Access-Token': opts.accessToken, 'Content-Type': 'application/json' },
       // The token must never follow a redirect off *.myshopify.com.

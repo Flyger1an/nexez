@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import crypto from 'node:crypto'
 import {
+  SHOPIFY_API_VERSION,
+  SHOPIFY_SCOPES,
   shopifyConfigured,
   verifyShopifyWebhookHmac,
   verifyShopifyOAuthHmac,
@@ -14,6 +16,11 @@ const SECRET = 'shpss_testsecret'
 beforeEach(() => vi.unstubAllEnvs())
 
 describe('shopify config + HMAC', () => {
+  it('uses the current stable API and includes the app-proxy scope', () => {
+    expect(SHOPIFY_API_VERSION).toBe('2026-07')
+    expect(SHOPIFY_SCOPES.split(',')).toEqual(['read_products', 'write_app_proxy'])
+  })
+
   it('shopifyConfigured requires BOTH key and secret', () => {
     vi.stubEnv('SHOPIFY_API_KEY', '')
     vi.stubEnv('SHOPIFY_API_SECRET', '')

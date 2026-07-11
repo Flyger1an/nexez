@@ -1,34 +1,32 @@
 {% comment %}
-  Nexez Agent-Ready — app-embed block.
-  Server-renders the Nexez manifest <link> (and optional verification meta) into
-  the storefront <head> so AI agents that read the page discover the merchant's
-  live Nexez agent manifest. The FULL JSON-LD + artifact redirects are delivered
-  by the Nexez App Proxy (see the app's README) — a theme extension can't fetch
-  embed.json at render or intercept /.well-known routes.
+  Nexez Agent-Ready app embed.
+  Server-renders same-origin discovery links and an optional verification meta
+  into the storefront head. Shopify's signed App Proxy serves the live artifacts.
 {% endcomment %}
-{% if block.settings.slug != blank %}
-  <link rel="alternate" type="application/json" href="https://nexez.app/{{ block.settings.slug | escape }}/agent.json" title="Agent manifest — Nexez">
-  {% if block.settings.token != blank %}
-    <meta name="nexez-site-verification" content="{{ block.settings.token | escape }}">
-  {% endif %}
+{% assign nexez_proxy_path = block.settings.proxy_path | default: '/apps/nexez' | strip %}
+<link rel="alternate" type="application/json" href="{{ nexez_proxy_path | append: '/agent.json' | escape }}" title="Nexez agent manifest">
+<link rel="alternate" type="text/plain" href="{{ nexez_proxy_path | append: '/llms.txt' | escape }}" title="Nexez agent-readable summary">
+{% if block.settings.token != blank %}
+  <meta name="nexez-site-verification" content="{{ block.settings.token | escape }}">
 {% endif %}
 
 {% schema %}
 {
-  "name": "Nexez Agent-Ready",
+  "name": "t:agent_ready.name",
   "target": "head",
   "settings": [
     {
       "type": "text",
-      "id": "slug",
-      "label": "Nexez listing slug",
-      "info": "From your listing URL: https://nexez.app/<slug>"
+      "id": "proxy_path",
+      "label": "t:agent_ready.settings.proxy_path.label",
+      "info": "t:agent_ready.settings.proxy_path.info",
+      "default": "/apps/nexez"
     },
     {
       "type": "text",
       "id": "token",
-      "label": "Verification token (optional)",
-      "info": "From Nexez → Settings → Your website. Lets Nexez verify your store."
+      "label": "t:agent_ready.settings.token.label",
+      "info": "t:agent_ready.settings.token.info"
     }
   ]
 }

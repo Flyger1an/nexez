@@ -1,10 +1,10 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '../../../utils/supabase/server'
-import { readPendingShop, shopifyConfigured } from '../../../lib/server/shopify'
+import { readPendingShop, shopifyApiKey, shopifyConfigured } from '../../../lib/server/shopify'
 import { ShopifyLinkClient } from './ShopifyLinkClient'
 
-export const metadata = { title: 'Connect Shopify — Nexez' }
+export const metadata = { title: 'Connect Shopify | Nexez' }
 
 /**
  * Post-install linking page: the merchant picks which Nexez listing their
@@ -36,8 +36,8 @@ export default async function ShopifyLinkPage() {
       <h1 className="text-2xl font-semibold">Connect your Shopify store</h1>
 
       {!shop ? (
-        <p className="mt-4 text-sm text-[var(--fg-muted)]">
-          No pending Shopify connection. Start the install from your Shopify admin → Apps → Nexez Agent-Ready.
+          <p className="mt-4 text-sm text-[var(--fg-muted)]">
+            No pending Shopify connection. Start the install from your Shopify admin under Apps, then Nexez Agent-Ready.
         </p>
       ) : listings.length === 0 ? (
         <p className="mt-4 text-sm text-[var(--fg-muted)]">
@@ -48,10 +48,10 @@ export default async function ShopifyLinkPage() {
         <>
           <p className="mt-4 text-sm text-[var(--fg-muted)]">
             <span className="font-medium text-[var(--fg)]">{shop}</span> is connected. Choose the listing agents should
-            transact against — its live artifacts will serve on your storefront via the app proxy.
+            transact against. Its live artifacts will serve on your storefront through the app proxy.
           </p>
           <div className="mt-6">
-            <ShopifyLinkClient shop={shop} listings={listings} />
+            <ShopifyLinkClient shop={shop} listings={listings} appApiKey={shopifyApiKey()} />
           </div>
         </>
       )}

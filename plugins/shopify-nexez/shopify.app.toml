@@ -7,21 +7,18 @@ application_url = "https://app.nexez.ai"
 embedded = false
 
 [access_scopes]
-scopes = "read_products"
+scopes = "read_products,write_app_proxy"
 
 [auth]
 redirect_urls = [ "https://app.nexez.ai/api/shopify/callback" ]
 
 [webhooks]
-api_version = "2024-01"
+api_version = "2026-07"
 
   [[webhooks.subscriptions]]
   topics = [ "app/uninstalled" ]
-  uri = "https://nexez.app/api/webhooks/shopify"
-
-# GDPR/compliance webhooks (customers/data_request, customers/redact, shop/redact)
-# are configured in the Partner dashboard → App setup → Compliance webhooks, all
-# pointing at: https://nexez.app/api/webhooks/shopify
+  compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
+  uri = "https://app.nexez.ai/api/webhooks/shopify"
 
 [app_proxy]
 url = "https://app.nexez.ai/api/shopify/proxy"
