@@ -5,8 +5,18 @@ import { Check, ExternalLink, Loader2 } from 'lucide-react'
 
 type Listing = { id: string; name: string | null; slug: string }
 
-export function ShopifyLinkClient({ shop, listings, appApiKey }: { shop: string; listings: Listing[]; appApiKey: string }) {
-  const [pageId, setPageId] = useState(listings[0]?.id ?? '')
+export function ShopifyLinkClient({
+  shop,
+  listings,
+  appApiKey,
+  currentPageId = null,
+}: {
+  shop: string
+  listings: Listing[]
+  appApiKey: string
+  currentPageId?: string | null
+}) {
+  const [pageId, setPageId] = useState(currentPageId ?? listings[0]?.id ?? '')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
   const [msg, setMsg] = useState('')

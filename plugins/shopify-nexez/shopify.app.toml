@@ -3,7 +3,7 @@
 # Next app and are DORMANT until SHOPIFY_API_KEY / SHOPIFY_API_SECRET are set.
 name = "Nexez Agent-Ready"
 client_id = "30ba9ab10150d4eea0dc69b18c85c638"
-application_url = "https://app.nexez.ai"
+application_url = "https://app.nexez.ai/api/shopify/launch"
 embedded = false
 
 [access_scopes]

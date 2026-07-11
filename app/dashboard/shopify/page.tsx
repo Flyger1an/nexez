@@ -1,7 +1,9 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '../../../utils/supabase/server'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 import { readPendingShop, shopifyApiKey, shopifyConfigured } from '../../../lib/server/shopify'
+import { getInstallByShop } from '../../../lib/server/shopify-install'
 import { ShopifyLinkClient } from './ShopifyLinkClient'
 
 export const metadata = { title: 'Connect Shopify | Nexez' }
@@ -31,6 +33,15 @@ export default async function ShopifyLinkPage() {
 
   const listings = (pages ?? []) as { id: string; name: string | null; slug: string }[]
 
+  // If this shop is already linked to one of the owner's listings, pre-select it
+  // so re-opening the app doesn't silently relink to a different listing.
+  let currentPageId: string | null = null
+  if (shop && hasSupabaseAdminEnv()) {
+    const install = await getInstallByShop(createAdminClient(), shop)
+    if (install && install.owner_id === user.id) currentPageId = install.page_id
+  }
+  const currentListing = currentPageId ? listings.find((l) => l.id === currentPageId) : null
+
   return (
     <div className="mx-auto w-full max-w-xl px-5 py-10">
       <h1 className="text-2xl font-semibold">Connect your Shopify store</h1>
@@ -47,11 +58,18 @@ export default async function ShopifyLinkPage() {
       ) : (
         <>
           <p className="mt-4 text-sm text-[var(--fg-muted)]">
-            <span className="font-medium text-[var(--fg)]">{shop}</span> is connected. Choose the listing agents should
-            transact against. Its live artifacts will serve on your storefront through the app proxy.
+            <span className="font-medium text-[var(--fg)]">{shop}</span> is connected.{' '}
+            {currentListing ? (
+              <>
+                It’s currently linked to <span className="font-medium text-[var(--fg)]">{currentListing.name || currentListing.slug}</span> — pick a
+                different listing below to change it.
+              </>
+            ) : (
+              <>Choose the listing agents should transact against. Its live artifacts serve on your storefront through the app proxy.</>
+            )}
           </p>
           <div className="mt-6">
-            <ShopifyLinkClient shop={shop} listings={listings} appApiKey={shopifyApiKey()} />
+            <ShopifyLinkClient shop={shop} listings={listings} appApiKey={shopifyApiKey()} currentPageId={currentPageId} />
           </div>
         </>
       )}
