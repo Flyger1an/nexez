@@ -1,3 +1,4 @@
+import { ARTIFACT_CORS_HEADERS, artifactPreflight } from '../../../lib/artifact-cors'
 import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl } from '../../../lib/agent-page'
 import { buildPageOpenApiSpec } from '../../../lib/agent-capabilities'
 import { getEffectiveBaseUrl, isCustomHost, normalizeDomainPath } from '../../../lib/custom-domain'
@@ -44,7 +45,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       headers: {
         'Cache-Control': 'public, max-age=300, s-maxage=300',
         Vary: 'x-forwarded-host',
+        ...ARTIFACT_CORS_HEADERS,
       },
     },
   )
+}
+
+export function OPTIONS() {
+  return artifactPreflight()
 }

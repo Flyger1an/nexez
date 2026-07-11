@@ -1,4 +1,5 @@
 import { NextResponse, after } from 'next/server'
+import { ARTIFACT_CORS_HEADERS, artifactPreflight } from '../../../lib/artifact-cors'
 import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '../../../lib/agent-page'
 import { buildAgentPagePayload, buildAgentStorefrontRef } from '../../../lib/agent-manifest'
 import { logAgentPageView } from '../../../lib/server/log-agent-page-view'
@@ -171,6 +172,11 @@ export async function GET(
       // Base URL reflects the request host - vary the CDN cache key on it (this is
       // cached for 1h, the widest poisoning window of the artifacts).
       Vary: 'x-forwarded-host',
+      ...ARTIFACT_CORS_HEADERS,
     },
   })
+}
+
+export function OPTIONS() {
+  return artifactPreflight()
 }

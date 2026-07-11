@@ -25,7 +25,7 @@ const WIDGET_JS = `
   function getNexezOrigin() {
     try {
       // Prefer the script's own src origin (works when user pastes the exact snippet from their Nexez instance)
-      const script = document.currentScript || (document.querySelector('script[src*="widget.js"]') as HTMLScriptElement) || null;
+      const script = document.currentScript || document.querySelector('script[src*="widget.js"]') || null;
       if (script && script.src) {
         const u = new URL(script.src);
         return u.origin;
@@ -132,11 +132,11 @@ const WIDGET_JS = `
 
   // Auto-init support if data-nexez attributes present on script (advanced)
   try {
-    const s = document.currentScript as HTMLScriptElement | null;
+    const s = document.currentScript;
     if (s && s.dataset && s.dataset.nexezAuto) {
       const slug = s.dataset.slug || s.dataset.nexezSlug;
       if (slug) {
-        (window.Nexez as any).init({ slug, theme: (s.dataset.theme as any) || 'light' });
+        window.Nexez.init({ slug, theme: s.dataset.theme || 'light' });
       }
     }
   } catch {}

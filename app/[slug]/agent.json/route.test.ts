@@ -77,6 +77,10 @@ describe('GET /[slug]/agent.json', () => {
     const res = await GET(req(), ctx('demo'))
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toContain('application/json')
+    // Cross-origin fetchable (the redirect recipe / plugin lands agents here) while
+    // keeping the host-poison guard.
+    expect(res.headers.get('access-control-allow-origin')).toBe('*')
+    expect((res.headers.get('vary') || '').toLowerCase()).toContain('x-forwarded-host')
     const body = await res.json()
     expect(JSON.stringify(body)).toContain('demo') // references the page
   })

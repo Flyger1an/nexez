@@ -1,3 +1,4 @@
+import { ARTIFACT_CORS_HEADERS, artifactPreflight } from '../../../lib/artifact-cors'
 import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getCheckoutOffers, getCheckoutPath, resolvePreferredContact, sanitizePublicUrl } from '../../../lib/agent-page'
 import { getAgentJsonPath } from '../../../lib/agent-manifest'
 import { markdownText, plainAgentText } from '../../../lib/agent-text'
@@ -79,6 +80,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       'Content-Type': 'text/plain; charset=utf-8',
       'Cache-Control': 'public, max-age=300, s-maxage=300',
       'Vary': 'x-forwarded-host',
+      ...ARTIFACT_CORS_HEADERS,
     },
   })
+}
+
+export function OPTIONS() {
+  return artifactPreflight()
 }

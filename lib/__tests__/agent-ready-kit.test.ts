@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildAgentReadyKit } from '../agent-ready-kit'
+import { buildAgentReadyKit, buildArtifactRedirects, buildRedirectRecipes } from '../agent-ready-kit'
 import type { AgentPage } from '../agent-page'
 
 function page(over: Partial<AgentPage> = {}): AgentPage {
@@ -78,5 +78,58 @@ describe('buildAgentReadyKit', () => {
     const a = buildAgentReadyKit(page(), { baseUrl: BASE })
     const b = buildAgentReadyKit(page(), { baseUrl: BASE })
     expect(a).toEqual(b)
+  })
+
+  it('relabels the .well-known block as a static fallback (redirect preferred)', () => {
+    const block = buildAgentReadyKit(page(), { baseUrl: BASE }).find((b) => b.id === 'well_known_agent_json')!
+    expect(block.title).toMatch(/fallback/i)
+    expect(block.description.toLowerCase()).toContain('redirect')
+  })
+})
+
+describe('buildArtifactRedirects', () => {
+  it('maps the well-known + core artifact paths to the live listing (301 targets)', () => {
+    const map = Object.fromEntries(buildArtifactRedirects(page(), { baseUrl: BASE }).map((r) => [r.from, r.to]))
+    expect(map['/.well-known/agent.json']).toBe('https://nexez.app/acme-plumbing/agent.json')
+    expect(map['/agent.json']).toBe('https://nexez.app/acme-plumbing/agent.json')
+    expect(map['/llms.txt']).toBe('https://nexez.app/acme-plumbing/llms.txt')
+    expect(map['/openapi.json']).toBe('https://nexez.app/acme-plumbing/openapi.json')
+    expect(map['/mcp.json']).toBeUndefined() // not mcp_enabled
+  })
+
+  it('includes /mcp.json only when the listing has MCP enabled', () => {
+    const rules = buildArtifactRedirects(page({ mcp_enabled: true } as Partial<AgentPage>), { baseUrl: BASE })
+    expect(rules.some((r) => r.from === '/mcp.json' && r.to === 'https://nexez.app/acme-plumbing/mcp.json')).toBe(true)
+  })
+})
+
+describe('buildRedirectRecipes', () => {
+  it('emits a recipe per host stack, each carrying every live 301 target', () => {
+    const recipes = buildRedirectRecipes(page(), { baseUrl: BASE })
+    expect(recipes.map((r) => r.id).sort()).toEqual(['apache', 'cloudflare', 'netlify', 'nginx', 'vercel'])
+    for (const r of recipes) {
+      expect(r.filename).toBeTruthy()
+      expect(r.content).not.toContain('undefined')
+      expect(r.content).toContain('https://nexez.app/acme-plumbing/agent.json')
+      expect(r.content).toContain('https://nexez.app/acme-plumbing/llms.txt')
+    }
+  })
+
+  it('vercel recipe is valid JSON with permanent redirects', () => {
+    const vercel = JSON.parse(buildRedirectRecipes(page(), { baseUrl: BASE }).find((r) => r.id === 'vercel')!.content)
+    expect(Array.isArray(vercel.redirects)).toBe(true)
+    expect(vercel.redirects[0].permanent).toBe(true)
+    expect(vercel.redirects.every((x: { destination: string }) => x.destination.startsWith('https://nexez.app/acme-plumbing/'))).toBe(true)
+  })
+
+  it('cloudflare recipe redirects with a 301', () => {
+    const cf = buildRedirectRecipes(page(), { baseUrl: BASE }).find((r) => r.id === 'cloudflare')!.content
+    expect(cf).toContain('Response.redirect')
+    expect(cf).toContain('301')
+    expect(cf).toContain('/.well-known/agent.json')
+  })
+
+  it('is deterministic (pure)', () => {
+    expect(buildRedirectRecipes(page(), { baseUrl: BASE })).toEqual(buildRedirectRecipes(page(), { baseUrl: BASE }))
   })
 })

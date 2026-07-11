@@ -28,6 +28,110 @@ function escapeHtmlAttr(value: string): string {
     .replace(/"/g, '&quot;')
 }
 
+/** One artifact path on the merchant's own domain → its live Nexez listing URL. */
+export type RedirectRule = { from: string; to: string }
+
+/**
+ * The 301 map a merchant installs so agents hitting THEIR domain's artifact paths
+ * get the merchant's LIVE Nexez listing artifacts (never a stale snapshot). Pure.
+ * `/mcp.json` is only included when the listing has MCP enabled (else that route 404s).
+ */
+export function buildArtifactRedirects(page: AgentPage, opts: { baseUrl?: string } = {}): RedirectRule[] {
+  const base = (opts.baseUrl ?? getBaseUrl()).replace(/\/$/, '')
+  const listingUrl = `${base}/${page.slug}`
+  const rules: RedirectRule[] = [
+    { from: '/.well-known/agent.json', to: `${listingUrl}/agent.json` },
+    { from: '/agent.json', to: `${listingUrl}/agent.json` },
+    { from: '/llms.txt', to: `${listingUrl}/llms.txt` },
+    { from: '/openapi.json', to: `${listingUrl}/openapi.json` },
+  ]
+  if ((page as { mcp_enabled?: boolean }).mcp_enabled) {
+    rules.push({ from: '/mcp.json', to: `${listingUrl}/mcp.json` })
+  }
+  return rules
+}
+
+/** A copy-paste redirect recipe for one hosting stack, generated from the rules. */
+export type RecipeBlock = {
+  id: 'apache' | 'nginx' | 'netlify' | 'vercel' | 'cloudflare'
+  title: string
+  description: string
+  language: 'text' | 'json' | 'js'
+  filename: string
+  content: string
+}
+
+/**
+ * Server-config recipes that 301 the merchant's artifact paths to their live
+ * Nexez listing — the LIVE replacement for the static `.well-known/agent.json`
+ * snapshot (which goes stale when offers change). Pure + deterministic. The
+ * WordPress plugin and Shopify app automate the same redirects server-side.
+ */
+export function buildRedirectRecipes(page: AgentPage, opts: { baseUrl?: string } = {}): RecipeBlock[] {
+  const rules = buildArtifactRedirects(page, opts)
+  const header = '# Nexez — serve your live agent artifacts (301). Never goes stale.'
+
+  return [
+    {
+      id: 'apache',
+      title: 'Apache (.htaccess)',
+      description: 'Add these lines to your site’s .htaccess (Apache / cPanel hosts).',
+      language: 'text',
+      filename: '.htaccess',
+      content: [header, ...rules.map((r) => `Redirect 301 ${r.from} ${r.to}`)].join('\n'),
+    },
+    {
+      id: 'nginx',
+      title: 'Nginx',
+      description: 'Add these inside your server block, then reload nginx.',
+      language: 'text',
+      filename: 'nginx.conf',
+      content: [header, ...rules.map((r) => `location = ${r.from} { return 301 ${r.to}; }`)].join('\n'),
+    },
+    {
+      id: 'netlify',
+      title: 'Netlify / static host',
+      description: 'Append to your _redirects file (Netlify, Cloudflare Pages). The ! forces the redirect even if a file exists.',
+      language: 'text',
+      filename: '_redirects',
+      content: [header, ...rules.map((r) => `${r.from}  ${r.to}  301!`)].join('\n'),
+    },
+    {
+      id: 'vercel',
+      title: 'Vercel (vercel.json)',
+      description: 'Merge this redirects array into your vercel.json.',
+      language: 'json',
+      filename: 'vercel.json',
+      content: JSON.stringify(
+        { redirects: rules.map((r) => ({ source: r.from, destination: r.to, permanent: true })) },
+        null,
+        2,
+      ),
+    },
+    {
+      id: 'cloudflare',
+      title: 'Cloudflare Worker',
+      description: 'Deploy as a Worker on your domain’s route — for hosts where you can’t edit server config.',
+      language: 'js',
+      filename: 'nexez-worker.js',
+      content: [
+        '// Nexez — serve your live agent artifacts (301).',
+        `const NEXEZ_ARTIFACTS = ${JSON.stringify(
+          Object.fromEntries(rules.map((r) => [r.from, r.to])),
+          null,
+          2,
+        )};`,
+        'export default {',
+        '  fetch(request) {',
+        '    const to = NEXEZ_ARTIFACTS[new URL(request.url).pathname];',
+        '    return to ? Response.redirect(to, 301) : fetch(request);',
+        '  },',
+        '};',
+      ].join('\n'),
+    },
+  ]
+}
+
 export function buildAgentReadyKit(page: AgentPage, opts: { baseUrl?: string } = {}): KitBlock[] {
   const base = (opts.baseUrl ?? getBaseUrl()).replace(/\/$/, '')
   const slug = page.slug
@@ -64,8 +168,8 @@ export function buildAgentReadyKit(page: AgentPage, opts: { baseUrl?: string } =
     },
     {
       id: 'well_known_agent_json',
-      title: '.well-known/agent.json',
-      description: 'Host this JSON at your site’s /.well-known/agent.json so agents that probe the well-known namespace discover your listing. (A 301 redirect from that path to the Agent JSON URL works equally well.)',
+      title: '.well-known/agent.json (static fallback)',
+      description: 'Only if you can’t add a redirect rule: host this pointer at /.well-known/agent.json. Prefer the redirect recipe — it points agents straight at your live listing and never goes stale when your offers change.',
       language: 'json',
       filename: '.well-known/agent.json',
       content: JSON.stringify(pointer, null, 2),
@@ -86,15 +190,15 @@ export function buildAgentReadyKit(page: AgentPage, opts: { baseUrl?: string } =
     },
     {
       id: 'badge',
-      title: 'Agent-Ready badge',
-      description: 'Show visitors your site transacts with AI agents. Links to your public listing.',
+      title: 'Agent-Ready badge (for human visitors)',
+      description: 'A trust badge for your human visitors — it shows your site transacts with AI agents and links to your public listing. (Decorative; it does not affect what agents read.)',
       language: 'html',
       content: `<a href="${listingUrl}"><img src="${listingUrl}/badge.svg" alt="Agent-Ready on Nexez" height="28"></a>`,
     },
     {
       id: 'widget',
-      title: 'Book / buy via agent button',
-      description: 'A tiny floating button that opens your agent-ready listing so human visitors can transact too.',
+      title: 'Book / buy button (for human visitors)',
+      description: 'An optional floating button so human visitors can open your agent-ready listing and transact. (A convenience for people — agents read the structured data above, not this script.)',
       language: 'js',
       content: `<script>(function(){var s=document.createElement('script');s.src='${base}/widget.js';s.onload=function(){Nexez.init({slug:'${slug}',theme:'light'})};document.head.appendChild(s);})();</script>`,
     },

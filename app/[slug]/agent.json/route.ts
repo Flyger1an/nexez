@@ -1,5 +1,6 @@
 import { after } from 'next/server'
 import { notFound } from 'next/navigation'
+import { ARTIFACT_CORS_HEADERS, artifactPreflight } from '../../../lib/artifact-cors'
 import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '../../../lib/agent-page'
 import { buildAgentPagePayload, buildAgentStorefrontRef } from '../../../lib/agent-manifest'
 import { logAgentPageView } from '../../../lib/server/log-agent-page-view'
@@ -56,6 +57,11 @@ export async function GET(request: Request, { params }: RouteProps) {
       // The base URL reflects the request host; key the CDN cache on it so a forged
       // x-forwarded-host can't poison the entry served to other hosts.
       Vary: 'x-forwarded-host',
+      ...ARTIFACT_CORS_HEADERS,
     },
   })
+}
+
+export function OPTIONS() {
+  return artifactPreflight()
 }
