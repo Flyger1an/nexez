@@ -189,6 +189,24 @@ describe('createSession — duplicate merging + buyer', () => {
     const s = createSession({ id: 'nb', page: makePage(), items: [{ offer: 'services-0' }], buyer: { email: '  ' } })
     expect(s.buyer).toBeNull()
   })
+
+  it('sanitizes buyer fields to direct-checkout parity (drops invalid email, caps length, strips control chars)', () => {
+    const s = createSession({
+      id: 'san',
+      page: makePage(),
+      items: [{ offer: 'services-0' }],
+      buyer: {
+        email: 'not-an-email', // invalid → dropped (would corrupt the order-portal lookup)
+        name: 'Da\nna', // control char stripped
+        reference: 'x'.repeat(600), // capped well under Stripe's 500-char metadata limit
+        agent: 'Nexie',
+      },
+    })
+    expect(s.buyer?.email).toBeUndefined()
+    expect(s.buyer?.name).toBe('Dana')
+    expect((s.buyer?.reference ?? '').length).toBeLessThanOrEqual(200)
+    expect(s.buyer?.agent).toBe('Nexie')
+  })
 })
 
 describe('updateSession', () => {

@@ -36,6 +36,7 @@ import {
 } from '../agent-page'
 import { normalizeCurrency, toStripeAmount } from '../currency'
 import { parseMoney } from '../checkout'
+import { parseBuyerIdentity, hasBuyerIdentity } from '../buyer-identity'
 
 /** The minimal page projection the session resolver reads. */
 export type SessionPage = Pick<AgentPage, 'slug' | 'name' | 'currency' | 'products' | 'services'>
@@ -259,13 +260,23 @@ function computeStatus(lineItems: SessionLineItem[], issues: SessionLineItemIssu
 
 function normalizeBuyer(buyer: SessionBuyer | null | undefined): SessionBuyer | null {
   if (!buyer) return null
-  const clean = (v: string | null | undefined) => (typeof v === 'string' && v.trim() ? v.trim() : undefined)
-  const email = clean(buyer.email)
-  const name = clean(buyer.name)
-  const reference = clean(buyer.reference)
-  const agent = clean(buyer.agent)
-  if (!email && !name && !reference && !agent) return null
-  return { email, name, reference, agent }
+  // Full parity with the direct-checkout path (parseBuyerIdentity): strip control
+  // chars, length-cap every field, and validate + lowercase the email. This keeps a
+  // value that Stripe would reject on its 500-char metadata limit - or that would
+  // corrupt the order-portal "find my orders" lookup - from ever entering a session.
+  const parsed = parseBuyerIdentity({
+    buyerEmail: buyer.email,
+    buyerName: buyer.name,
+    buyerReference: buyer.reference,
+    buyerAgent: buyer.agent,
+  })
+  if (!hasBuyerIdentity(parsed)) return null
+  return {
+    email: parsed.email ?? undefined,
+    name: parsed.name ?? undefined,
+    reference: parsed.reference ?? undefined,
+    agent: parsed.agent ?? undefined,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -368,7 +379,12 @@ export type DelegatedPayment = {
 /** Everything the settlement layer needs beyond the resolved session. These are
  * resolved from the database by the bridge (owner plan → commission percent,
  * Connect account, pause state) - deliberately NOT the pure core's concern, so a
- * protocol adapter never re-derives money/eligibility logic. */
+ * protocol adapter never re-derives money/eligibility logic.
+ *
+ * INVARIANT: obtain this ONLY from `resolveSettlementContext` (settlement-bridge).
+ * That resolver is where the paused-seller and charges_enabled gates live - a
+ * hand-constructed context skips them and can charge a paused seller. Never build one
+ * directly for a live charge. */
 export type SettlementContext = {
   pageId: string
   ownerId: string | null
@@ -379,6 +395,15 @@ export type SettlementContext = {
   /** Plan commission percent (0-100). The bridge computes the platform
    * application fee from this + the session total via the shared fee helper. */
   commissionPercent: number
+  /** Extra Stripe metadata the calling protocol adapter stamps onto the charge
+   * (e.g. `nexez_source: 'acp'`, protocol order ids). The bridge merges these
+   * with the money-core keys it derives from the session - so the bridge stays
+   * provider-neutral and the adapter owns the channel labelling. */
+  metadata?: Record<string, string>
+  /** Optional Stripe idempotency key. When set, a retried settlement of the same
+   * session returns the original charge instead of double-charging. Populated by
+   * the inbound-auth / idempotency seam (SF5); omitted here means no key. */
+  idempotencyKey?: string
 }
 
 export type SettlementResult =
