@@ -27,6 +27,12 @@ export function AgentChat<TCard>({ config, className = '' }: AgentChatProps<TCar
   const [listening, setListening] = useState(false)
   const [notice, setNotice] = useState('')
   const recognitionRef = useRef<any>(null)
+  // The scrollable transcript. As the interview grows, turns scroll INSIDE the
+  // card rather than stretching the page — see the height cap on the section
+  // below. `pinnedRef` tracks whether the view is at the bottom so we auto-follow
+  // new turns without yanking a reader who has scrolled up to review history.
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const pinnedRef = useRef(true)
 
   const errorFallback = config.errorFallback ?? `${config.agentName} could not answer.`
   const canSend = input.trim().length > 0 && !busy
@@ -41,6 +47,19 @@ export function AgentChat<TCard>({ config, className = '' }: AgentChatProps<TCar
     window.addEventListener(config.quickPromptEvent, onQuickPrompt)
     return () => window.removeEventListener(config.quickPromptEvent!, onQuickPrompt)
   }, [config.quickPromptEvent])
+
+  // Follow the newest turn as messages (or streamed tokens, which mutate the
+  // messages array) arrive — but only while the reader is pinned to the bottom.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el && pinnedRef.current) el.scrollTop = el.scrollHeight
+  }, [messages, busy])
+
+  function onScrollTranscript() {
+    const el = scrollRef.current
+    if (!el) return
+    pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+  }
 
   function appendAssistant(content: string, cards?: TCard[]) {
     setMessages((current) => [...current, { id: crypto.randomUUID(), role: 'assistant', content, cards }])
@@ -190,7 +209,7 @@ export function AgentChat<TCard>({ config, className = '' }: AgentChatProps<TCar
 
   return (
     <section
-      className={`mx-auto flex min-h-[720px] w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-[var(--bd-15)] bg-[var(--panel)] text-[var(--fg)] shadow-[0_24px_80px_rgba(15,23,42,0.12)] dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:shadow-[0_24px_80px_rgba(0,0,0,0.45)] ${className}`}
+      className={`mx-auto flex h-[720px] max-h-[calc(100dvh_-_6rem)] w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-[var(--bd-15)] bg-[var(--panel)] text-[var(--fg)] shadow-[0_24px_80px_rgba(15,23,42,0.12)] dark:border-white/15 dark:bg-[#07070A] dark:text-white dark:shadow-[0_24px_80px_rgba(0,0,0,0.45)] ${className}`}
     >
       <header className="relative border-b border-[var(--bd-10)] bg-[var(--ov-03)] px-5 pb-4 pt-5 backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.035]">
         <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[var(--signal)] to-transparent" />
@@ -212,7 +231,7 @@ export function AgentChat<TCard>({ config, className = '' }: AgentChatProps<TCar
         </div>
       </header>
 
-      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-5">
+      <div ref={scrollRef} onScroll={onScrollTranscript} className="flex-1 min-h-0 space-y-4 overflow-y-auto px-4 py-5">
         {messages.map((message) => (
           <div key={message.id} className={message.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
             <div className={`max-w-[86%] ${message.role === 'user' ? 'items-end' : 'items-start'} flex flex-col gap-3`}>
