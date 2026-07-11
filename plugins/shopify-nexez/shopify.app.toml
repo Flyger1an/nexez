@@ -1,0 +1,29 @@
+# Shopify app config (scaffold). Fill client_id from your Partner dashboard and
+# run `shopify app deploy`. The server routes it points at live in the main Nexez
+# Next app and are DORMANT until SHOPIFY_API_KEY / SHOPIFY_API_SECRET are set.
+name = "Nexez Agent-Ready"
+client_id = "SET_FROM_PARTNER_DASHBOARD"
+application_url = "https://app.nexez.ai"
+embedded = false
+
+[access_scopes]
+scopes = "read_products"
+
+[auth]
+redirect_urls = [ "https://app.nexez.ai/api/shopify/callback" ]
+
+[webhooks]
+api_version = "2024-01"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "https://nexez.app/api/webhooks/shopify"
+
+# GDPR/compliance webhooks (customers/data_request, customers/redact, shop/redact)
+# are configured in the Partner dashboard → App setup → Compliance webhooks, all
+# pointing at: https://nexez.app/api/webhooks/shopify
+
+[app_proxy]
+url = "https://app.nexez.ai/api/shopify/proxy"
+subpath = "nexez"
+prefix = "apps"

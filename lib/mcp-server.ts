@@ -127,3 +127,136 @@ export function handleMcpRequest(
       return err(id, -32601, `Method not found: ${method}`)
   }
 }
+
+// --- Storefront (per-merchant) MCP: aggregate ALL of a seller's listings under
+// one handle so an agent can transact across the whole catalog. Offer keys
+// collide across listings (every listing has services-0), so the merchant-level
+// tools take a REQUIRED slug + offer, resolved STRICTLY within the passed
+// `listings` (the storefront's own, billing-pause-filtered set) — a slug outside
+// that set is rejected (cross-tenant guard). Curated fields only; never raw
+// products/services/rules.
+
+function storefrontTools(negotiationAllowed: boolean) {
+  const slugProp = { type: 'string', description: 'Listing slug within this storefront (see resources/list).' }
+  return [
+    {
+      name: 'book_offer',
+      description: 'Get the booking/checkout target for a specific offer in one of this storefront’s listings (respects per-offer + page original-site preferences).',
+      inputSchema: {
+        type: 'object',
+        properties: { slug: slugProp, offer: { type: 'string', description: 'Offer key, e.g. services-0 or products-1' } },
+        required: ['slug', 'offer'],
+      },
+    },
+    ...(negotiationAllowed
+      ? [
+          {
+            name: 'negotiate_offer',
+            description: "Submit a proposal (scope, budget, timeline) for a listing’s offer for seller review before checkout/escrow.",
+            inputSchema: {
+              type: 'object',
+              properties: {
+                slug: slugProp,
+                offer: { type: 'string', description: 'Offer key, e.g. services-0 or products-1' },
+                query: { type: 'string', description: 'Buyer request / context' },
+                budget: { type: 'string', description: 'Budget or range' },
+                timeline: { type: 'string', description: 'Desired timeline' },
+              },
+              required: ['slug', 'offer'],
+            },
+          },
+        ]
+      : []),
+  ]
+}
+
+function storefrontResources(handle: string, listings: AgentPage[], baseUrl: string) {
+  const list = [
+    {
+      uri: `${baseUrl}/store/${handle}/agent.json`,
+      name: `Storefront manifest (@${handle})`,
+      description: 'Seller-level catalog: brand + links to every published listing.',
+      mimeType: 'application/json',
+    },
+  ]
+  for (const page of listings) {
+    list.push({
+      uri: `${baseUrl}/${page.slug}/agent.json`,
+      name: `${page.name} - Agent manifest`,
+      description: 'Full structured agent-ready data for this listing.',
+      mimeType: 'application/json',
+    })
+    // Curated offer entries so an agent can derive book_offer args (slug + key).
+    for (const offer of getCheckoutOffers(page)) {
+      list.push({
+        uri: `${baseUrl}/${page.slug}#${getCheckoutOfferKey(offer.kind, offer.index)}`,
+        name: `${page.name}: ${offer.name}`,
+        description: offer.description || offer.name,
+        mimeType: 'application/json',
+      })
+    }
+  }
+  return list
+}
+
+/** Handle one JSON-RPC MCP request for a whole storefront. Pure — the route loads
+ *  the (pause-filtered) listings + resolves the owner-level negotiation entitlement. */
+export function handleStorefrontMcpRequest(
+  handle: string,
+  listings: AgentPage[],
+  baseUrl: string,
+  req: JsonRpcRequest,
+  opts: { negotiationAllowed?: boolean } = {},
+): JsonRpcResponse {
+  const id = req.id ?? null
+  const method = req.method || ''
+  const negotiationAllowed = opts.negotiationAllowed === true
+
+  switch (method) {
+    case 'initialize':
+      return ok(id, {
+        protocolVersion: MCP_PROTOCOL_VERSION,
+        capabilities: { tools: {}, resources: {} },
+        serverInfo: { name: `nexez:store:${handle}`, version: '1.0.0' },
+      })
+    case 'ping':
+      return ok(id, {})
+    case 'tools/list':
+      return ok(id, { tools: storefrontTools(negotiationAllowed) })
+    case 'resources/list':
+      return ok(id, { resources: storefrontResources(handle, listings, baseUrl) })
+    case 'resources/read': {
+      const uri = String(req.params?.uri || '')
+      const match = storefrontResources(handle, listings, baseUrl).find((r) => r.uri === uri)
+      if (!match) return err(id, -32602, `Unknown resource: ${uri}`)
+      return ok(id, { contents: [{ uri, mimeType: match.mimeType, text: `See ${uri}` }] })
+    }
+    case 'tools/call': {
+      const name = String(req.params?.name || '')
+      const args = (req.params?.arguments as Record<string, unknown>) || {}
+      const slug = String(args.slug || '')
+      const offerKey = String(args.offer || '')
+      // Cross-tenant guard: the listing MUST belong to this storefront's set.
+      const listing = listings.find((p) => p.slug === slug)
+
+      if (name === 'book_offer') {
+        if (!listing) return err(id, -32602, `Unknown listing in this storefront: ${slug}`)
+        const offer = getCheckoutOffers(listing).find((o) => getCheckoutOfferKey(o.kind, o.index) === offerKey)
+        if (!offer) return err(id, -32602, `Unknown offer: ${offerKey}`)
+        const useOriginal = offer.prefer_original_for_this || (listing.prefer_original_site && !!offer.url)
+        const target = useOriginal && offer.url ? offer.url : `${getBaseUrl()}${getCheckoutPath(listing.slug, offer.kind, offer.index)}`
+        return ok(id, { content: [{ type: 'text', text: `Booking target for "${offer.name}" (${listing.name}): ${target}` }] })
+      }
+      if (name === 'negotiate_offer') {
+        if (!negotiationAllowed) return err(id, -32601, 'negotiate_offer is not available for this storefront.')
+        if (!listing) return err(id, -32602, `Unknown listing in this storefront: ${slug}`)
+        return ok(id, {
+          content: [{ type: 'text', text: `POST ${getBaseUrl()}/api/negotiations with slug="${listing.slug}", offer="${offerKey || 'services-0'}", plus query/budget/timeline.` }],
+        })
+      }
+      return err(id, -32601, `Unknown tool: ${name}`)
+    }
+    default:
+      return err(id, -32601, `Method not found: ${method}`)
+  }
+}

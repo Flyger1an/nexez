@@ -35,10 +35,13 @@ export function buildMcpDiscoveryPage(page: McpDiscoveryPage, baseUrl = getBaseU
   }
 }
 
+export type McpDiscoveryStorefront = { handle: string; display_name: string | null; listing_count: number }
+
 export function buildMcpDiscoveryCatalog(
   pages: McpDiscoveryPage[] = [],
   baseUrl = getBaseUrl(),
   generatedAt = new Date().toISOString(),
+  storefronts: McpDiscoveryStorefront[] = [],
 ) {
   const mcpEnabledPages = pages.filter((page) => page.mcp_enabled)
   const distribution = buildAgentDistributionLinks(baseUrl)
@@ -58,5 +61,17 @@ export function buildMcpDiscoveryCatalog(
     examples: distribution.examples,
     page_count: mcpEnabledPages.length,
     pages: mcpEnabledPages.map((page) => buildMcpDiscoveryPage(page, baseUrl)),
+    // Per-merchant MCP: one endpoint per storefront that transacts across its
+    // whole catalog (always-on for any storefront with published listings).
+    storefront_count: storefronts.length,
+    storefronts: storefronts.map((s) => ({
+      handle: s.handle,
+      name: s.display_name || s.handle,
+      url: `${baseUrl}/store/${s.handle}`,
+      agent_json_url: `${baseUrl}/store/${s.handle}/agent.json`,
+      mcp_manifest_url: `${baseUrl}/store/${s.handle}/mcp.json`,
+      mcp_endpoint: `${baseUrl}/store/${s.handle}/mcp`,
+      listing_count: s.listing_count,
+    })),
   }
 }

@@ -38,6 +38,9 @@ export async function GET(_request: Request, { params }: RouteProps) {
       total_offers: totalOffers,
       avg_readiness: avgReadiness,
       certified_listings: certifiedListings,
+      // Per-merchant MCP: transact across the whole catalog from one endpoint.
+      mcp_endpoint: `${storefrontUrl}/mcp`,
+      mcp_json_url: `${storefrontUrl}/mcp.json`,
     },
     listings: listings.map((page) => ({
       name: page.name,
