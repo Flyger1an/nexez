@@ -9,7 +9,7 @@ import { loadStorefrontHandleForSlug } from '../../../lib/server/storefront'
 import { supabase } from '../../../lib/supabase'
 
 /**
- * Phase 7: MCP-compatible structured data export.
+ * MCP discovery manifest (static) for /<slug>.
  * 
  * Model Context Protocol (MCP) friendly manifest for agents that support it.
  * Exposes the page's offers as MCP "resources" (with URIs, descriptions, mimeTypes)
@@ -18,7 +18,9 @@ import { supabase } from '../../../lib/supabase'
  * When the page has `mcp_enabled: true` (toggle in Settings), this is linked
  * from the public page + can be discovered alongside /agent.json, llms.txt, etc.
  * 
- * Data-only for now (no full MCP server transport). Follows the same
+ * This is the STATIC discovery manifest — the LIVE JSON-RPC 2.0 MCP server runs at
+ * /<slug>/mcp (surfaced below as `_nexez.mcp_endpoint`) and handles initialize,
+ * tools/list, tools/call, resources/list, resources/read. Follows the same
  * deterministic, fidelity-preserving patterns as agent.json.
  * 
  * Route: GET /<slug>/mcp.json (public, published pages only, cached).
