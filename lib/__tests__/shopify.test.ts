@@ -5,6 +5,8 @@ import {
   verifyShopifyWebhookHmac,
   verifyShopifyOAuthHmac,
   verifyShopifyAppProxySignature,
+  signPendingShop,
+  readPendingShop,
 } from '../server/shopify'
 
 const SECRET = 'shpss_testsecret'
@@ -51,5 +53,24 @@ describe('shopify config + HMAC', () => {
     expect(verifyShopifyAppProxySignature(p)).toBe(true)
     p.set('signature', '00')
     expect(verifyShopifyAppProxySignature(p)).toBe(false)
+  })
+
+  it('pending-shop token: sign→read roundtrip; rejects tamper, non-myshopify, expiry, no-secret', () => {
+    vi.stubEnv('SHOPIFY_API_SECRET', SECRET)
+    const shop = 'demo.myshopify.com'
+    const tok = signPendingShop(shop)
+    expect(readPendingShop(tok)).toBe(shop)
+
+    // tampered signature
+    expect(readPendingShop(tok.slice(0, -1) + (tok.endsWith('a') ? 'b' : 'a'))).toBeNull()
+    // a validly-signed but non-myshopify host is still rejected (defense in depth)
+    expect(readPendingShop(signPendingShop('evil.example.com'))).toBeNull()
+    // expired (older than the max age)
+    const old = String(Date.now() - 2 * 60 * 60 * 1000)
+    const sig = crypto.createHmac('sha256', SECRET).update(`${shop}|${old}`).digest('hex')
+    expect(readPendingShop(`${shop}|${old}|${sig}`)).toBeNull()
+    // fails closed without a secret
+    vi.stubEnv('SHOPIFY_API_SECRET', '')
+    expect(readPendingShop(tok)).toBeNull()
   })
 })

@@ -57,6 +57,44 @@ export function verifyShopifyOAuthHmac(params: URLSearchParams): boolean {
   }
 }
 
+const MYSHOPIFY_RE = /^[a-z0-9][a-z0-9-]{0,59}\.myshopify\.com$/
+
+/**
+ * Sign a "pending shop" token after a verified OAuth so the post-install linking
+ * flow can prove THIS browser just installed THIS shop (an HMAC-signed cookie the
+ * client can't forge). Value: `shop|ts|sig`.
+ */
+export function signPendingShop(shop: string): string {
+  const secret = process.env.SHOPIFY_API_SECRET || ''
+  const ts = String(Date.now())
+  const sig = crypto.createHmac('sha256', secret).update(`${shop}|${ts}`).digest('hex')
+  return `${shop}|${ts}|${sig}`
+}
+
+/**
+ * Verify + read a pending-shop token: valid signature, not expired, and a real
+ * myshopify host. Returns the shop or null. The signature (keyed by the app
+ * secret) is what authorizes the later shop→listing link — a client can't mint one.
+ */
+export function readPendingShop(value: string | null | undefined, maxAgeMs = 60 * 60 * 1000): string | null {
+  const secret = process.env.SHOPIFY_API_SECRET
+  if (!value || !secret) return null
+  const parts = value.split('|')
+  if (parts.length !== 3) return null
+  const [shop, ts, sig] = parts
+  const expect = crypto.createHmac('sha256', secret).update(`${shop}|${ts}`).digest('hex')
+  try {
+    const a = Buffer.from(sig, 'hex')
+    const b = Buffer.from(expect, 'hex')
+    if (a.length === 0 || a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null
+  } catch {
+    return null
+  }
+  const age = Date.now() - Number(ts)
+  if (!Number.isFinite(age) || age < 0 || age > maxAgeMs) return null
+  return MYSHOPIFY_RE.test(shop) ? shop : null
+}
+
 /**
  * App Proxy verification: `signature` (hex) = HMAC-SHA256 of the sorted query
  * params (all except `signature`), CONCATENATED `k=vk=v` (no separator), keyed by

@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { shopifyApiKey, shopifyConfigured, verifyShopifyOAuthHmac } from '../../../../lib/server/shopify'
+import { shopifyApiKey, shopifyConfigured, signPendingShop, verifyShopifyOAuthHmac } from '../../../../lib/server/shopify'
 import { resolveShopDomain } from '../../../../lib/server/integration-importers'
 import { upsertInstall } from '../../../../lib/server/shopify-install'
 import { appUrl } from '../../../../lib/site'
+import { createClient } from '../../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 
 /**
@@ -57,9 +58,31 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'No access token returned.' }, { status: 502 })
   }
 
+  // Link the install to the signed-in Nexez owner if there is one (the OAuth
+  // proved Shopify-admin control of the shop; the session identifies the owner).
+  // If not signed in, the install stays unlinked and is claimed on the linking
+  // page after login. owner_id is only written when known (undefined → preserved).
+  let ownerId: string | null = null
+  try {
+    const { data } = await createClient(jar).auth.getUser()
+    ownerId = data.user?.id ?? null
+  } catch {
+    /* not signed in */
+  }
+
   if (hasSupabaseAdminEnv()) {
-    await upsertInstall(createAdminClient(), { shop, offlineToken: token, scope })
+    await upsertInstall(createAdminClient(), { shop, offlineToken: token, scope, ownerId: ownerId ?? undefined })
   }
   jar.delete('shopify_oauth_state')
-  return NextResponse.redirect(appUrl('/dashboard?shopify=connected'), 302)
+  // Signed proof that THIS browser just installed THIS shop → authorizes the
+  // shop→listing link on /dashboard/shopify (a client can't forge it).
+  jar.set('shopify_pending_shop', signPendingShop(shop), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 3600,
+  })
+  const dest = ownerId ? '/dashboard/shopify' : '/login?next=/dashboard/shopify'
+  return NextResponse.redirect(appUrl(dest), 302)
 }
