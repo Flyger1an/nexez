@@ -16,6 +16,9 @@ export function buildNexezCapabilities() {
     openapi_url: `${baseUrl}/openapi.json`,
     agent_index_url: `${baseUrl}/agent-pages.json`,
     mcp_discovery_url: `${baseUrl}/.well-known/mcp.json`,
+    // Canonical JSON-RPC platform MCP endpoint (search/directory/get_page + dry-run
+    // checkout/negotiation validation); unauthenticated.
+    mcp_endpoint: `${baseUrl}/mcp`,
     search_url_template: `${baseUrl}/api/agent-search?q={query}`,
     openclaw: distribution.openclaw,
     sdks: distribution.sdks,

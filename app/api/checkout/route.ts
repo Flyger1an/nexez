@@ -113,7 +113,10 @@ export async function POST(request: Request) {
   // connected a PAT, mint a one-time booking link so the reusable public
   // scheduling URL isn't shared/re-bookable from this redirect. Best-effort —
   // falls back to the reusable link (dormant without INTEGRATION_SECRET_KEY).
-  destination = (await maybeMintSingleUseCalendlyLink(page.id, offer, destination)) || destination
+  // Skipped on a dry run — validation must be side-effect-free (no real link mint).
+  if (!input.dryRun) {
+    destination = (await maybeMintSingleUseCalendlyLink(page.id, offer, destination)) || destination
+  }
   // Multi-currency: the page's currency is the source of truth for what the buyer
   // is charged; the offer price string is just the amount. amountCents is the
   // Stripe smallest-unit amount (×100, or as-is for zero-decimal currencies like JPY).

@@ -50,7 +50,9 @@ export function buildMcpDiscoveryCatalog(
     schema_version: 'nexez.mcp-discovery.v1',
     generated_at: generatedAt,
     protocol_note:
-      'Discovery catalog for Nexez pages that expose MCP-compatible JSON resources. Per-page manifests are data-only resources, not a streaming MCP transport.',
+      'Discovery catalog for Nexez MCP surfaces. `mcp_endpoint` is the canonical platform JSON-RPC server (search/directory/get_page + dry-run validation); each page + storefront also exposes its own live JSON-RPC `mcp_endpoint`.',
+    // The one canonical, discovery-first MCP server for the whole catalog.
+    mcp_endpoint: `${baseUrl}/mcp`,
     homepage_url: baseUrl,
     agent_access_url: distribution.docs_url,
     llms_url: `${baseUrl}/llms.txt`,
