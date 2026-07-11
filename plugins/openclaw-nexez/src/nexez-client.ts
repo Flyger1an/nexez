@@ -97,7 +97,7 @@ export async function validateCheckout(
   config?: NexezPluginConfig,
   signal?: AbortSignal,
 ) {
-  return postJson('/api/checkout', { ...params, dryRun: true, buyerAgent: params.buyerAgent || 'openclaw' }, config, signal)
+  return dryRunResult('/api/checkout', { ...params, buyerAgent: params.buyerAgent || 'openclaw' }, config, signal)
 }
 
 export async function startCheckout(
@@ -114,7 +114,7 @@ export async function validateNegotiation(
   config?: NexezPluginConfig,
   signal?: AbortSignal,
 ) {
-  return postJson('/api/negotiations', { ...params, dryRun: true, buyerAgent: params.buyerAgent || 'openclaw' }, config, signal)
+  return dryRunResult('/api/negotiations', { ...params, buyerAgent: params.buyerAgent || 'openclaw' }, config, signal)
 }
 
 export async function submitNegotiation(
@@ -158,6 +158,35 @@ async function postJson(
     body,
     signal,
   }, config)
+}
+
+// A validate/dry-run reports validity structurally rather than throwing on an
+// EXPECTED rejection (e.g. a fixed-price offer refusing negotiation), so the agent
+// can branch cleanly — "not negotiable" -> use checkout — instead of treating it as
+// a tool failure. Genuine transport errors (network/abort) still throw.
+async function dryRunResult(
+  path: string,
+  body: Record<string, unknown>,
+  config?: NexezPluginConfig,
+  signal?: AbortSignal,
+) {
+  try {
+    return await postJson(path, { ...body, dryRun: true }, config, signal)
+  } catch (error) {
+    if (error instanceof NexezApiError) {
+      let reason = error.message
+      try {
+        const parsed = JSON.parse(error.body)
+        if (parsed && typeof (parsed as { error?: unknown }).error === 'string') {
+          reason = (parsed as { error: string }).error
+        }
+      } catch {
+        // non-JSON body — keep the generic message
+      }
+      return { ok: false, status: error.status, reason }
+    }
+    throw error
+  }
 }
 
 async function requestJson(

@@ -47,14 +47,14 @@ export async function getAgentPage(params, config, signal) {
     return requestJson(`/${encodeURIComponent(params.slug)}/agent.json`, { signal }, config);
 }
 export async function validateCheckout(params, config, signal) {
-    return postJson('/api/checkout', { ...params, dryRun: true, buyerAgent: params.buyerAgent || 'openclaw' }, config, signal);
+    return dryRunResult('/api/checkout', { ...params, buyerAgent: params.buyerAgent || 'openclaw' }, config, signal);
 }
 export async function startCheckout(params, config, signal) {
     assertApproved(params.userApproved, 'checkout');
     return postJson('/api/checkout', { ...params, dryRun: false, buyerAgent: params.buyerAgent || 'openclaw' }, config, signal);
 }
 export async function validateNegotiation(params, config, signal) {
-    return postJson('/api/negotiations', { ...params, dryRun: true, buyerAgent: params.buyerAgent || 'openclaw' }, config, signal);
+    return dryRunResult('/api/negotiations', { ...params, buyerAgent: params.buyerAgent || 'openclaw' }, config, signal);
 }
 export async function submitNegotiation(params, config, signal) {
     assertApproved(params.userApproved, 'negotiation');
@@ -66,6 +66,31 @@ async function postJson(path, body, config, signal) {
         body,
         signal,
     }, config);
+}
+// A validate/dry-run reports validity structurally rather than throwing on an
+// EXPECTED rejection (e.g. a fixed-price offer refusing negotiation), so the agent
+// can branch cleanly — "not negotiable" -> use checkout — instead of treating it as
+// a tool failure. Genuine transport errors (network/abort) still throw.
+async function dryRunResult(path, body, config, signal) {
+    try {
+        return await postJson(path, { ...body, dryRun: true }, config, signal);
+    }
+    catch (error) {
+        if (error instanceof NexezApiError) {
+            let reason = error.message;
+            try {
+                const parsed = JSON.parse(error.body);
+                if (parsed && typeof parsed.error === 'string') {
+                    reason = parsed.error;
+                }
+            }
+            catch {
+                // non-JSON body — keep the generic message
+            }
+            return { ok: false, status: error.status, reason };
+        }
+        throw error;
+    }
 }
 async function requestJson(path, options, config) {
     const url = new URL(`${resolveBaseUrl(config)}${path}`);

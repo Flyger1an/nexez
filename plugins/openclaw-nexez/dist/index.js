@@ -102,7 +102,7 @@ export default defineToolPlugin({
         tool({
             name: 'nexez_validate_checkout',
             label: 'Validate Nexez Checkout',
-            description: 'Dry-run a Nexez checkout handoff without creating a real checkout session.',
+            description: 'Dry-run a Nexez checkout handoff without creating a real checkout session. Returns the checkout preview, or { ok: false, reason } when the offer cannot be validated.',
             parameters: checkoutSchema,
             optional: true,
             execute(params, config, context) {
@@ -112,7 +112,7 @@ export default defineToolPlugin({
         tool({
             name: 'nexez_validate_negotiation',
             label: 'Validate Nexez Negotiation',
-            description: 'Dry-run a Nexez negotiation request without submitting a real seller-facing proposal.',
+            description: 'Dry-run a Nexez negotiation request without submitting a real seller-facing proposal. Returns negotiation guidance, or { ok: false, reason } when the offer is not negotiable (use checkout instead).',
             parameters: negotiationSchema,
             optional: true,
             execute(params, config, context) {
