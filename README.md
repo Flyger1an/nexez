@@ -39,7 +39,7 @@ One source of truth. Two audiences: beautiful for humans, brutally structured fo
 - Supabase backend with clean schema
 - Production-ready error handling, logging, and webhooks
 - Published OpenClaw agent discovery skill: `openclaw skills install nexez-agent-discovery`
-- Published OpenClaw tool plugin: `openclaw plugins install clawhub:@nexez/openclaw-nexez`
+- Published OpenClaw tool plugin: `openclaw plugins install npm:@nexez/openclaw-nexez` (or `clawhub:@nexez/openclaw-nexez`)
 - Published TypeScript buyer-agent SDK: `npm install @nexez/agent-sdk`
 - Published Python buyer-agent SDK: `python -m pip install nexez-agent-sdk`
 - Copy-paste buyer-agent examples in `examples/agents`

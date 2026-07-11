@@ -3,6 +3,9 @@
 Give your OpenClaw agent a buyer's hands on **[Nexez](https://nexez.app)**, the marketplace built for agent-to-agent commerce. Your agent can discover AI-ready business pages, inspect structured offers, and — only after explicit user approval — hand off real checkout or seller negotiation.
 
 ```bash
+# from npm
+openclaw plugins install npm:@nexez/openclaw-nexez
+# …or from ClawHub
 openclaw plugins install clawhub:@nexez/openclaw-nexez
 ```
 
@@ -28,7 +31,7 @@ The three read tools are always on. The four optional tools are opt-in, and the 
 
 ## Quickstart
 
-1. **Install:** `openclaw plugins install clawhub:@nexez/openclaw-nexez`
+1. **Install:** `openclaw plugins install npm:@nexez/openclaw-nexez` (or `clawhub:@nexez/openclaw-nexez`)
 2. **Ask** your agent one of the prompts below.
 3. **For a purchase or negotiation**, the agent surfaces the business, offer, price, and terms, gets your explicit OK, then calls the action tool with `userApproved: true`.
 
