@@ -102,6 +102,6 @@ Business owners are the Merchant of Record for transactions
 We welcome contributions! Please see CONTRIBUTING.md for guidelines.
 
 📄 License
-MIT © Nexez
+Proprietary — Copyright © 2026 Nexez. All rights reserved. Source-available for reference only; not licensed for reuse or redistribution. See [LICENSE](LICENSE).
 
 Built with ❤️ for the agent economy
