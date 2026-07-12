@@ -77,6 +77,17 @@ export function parseAcpLineItems(lineItems: unknown): ParsedAcpLineItems {
   return { ok: true, slug: slug as string, items }
 }
 
+/** Extract the delegated payment credential from ACP `payment_data`. The Shared
+ * Payment Token lives at `payment_data.instrument.credential`; tolerate a couple of
+ * flatter shapes so a version skew doesn't drop a valid token. Returns null when
+ * absent/blank (the route rejects with a missing_payment error). */
+export function parseAcpPaymentToken(paymentData: unknown): string | null {
+  if (!paymentData || typeof paymentData !== 'object') return null
+  const p = paymentData as { instrument?: { credential?: unknown }; token?: unknown; credential?: unknown }
+  const candidate = p.instrument?.credential ?? p.token ?? p.credential
+  return typeof candidate === 'string' && candidate.trim() ? candidate.trim() : null
+}
+
 /** Parse the ACP buyer{name,email,phone} into the core's SessionBuyer (phone unused
  * in v1). Returns null when absent — the core re-sanitizes whatever we pass. */
 export function parseAcpBuyer(raw: unknown): SessionBuyer | null {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   parseAcpLineItems,
   parseAcpBuyer,
+  parseAcpPaymentToken,
   toAcpStatus,
   toAcpCheckoutSession,
   acpError,
@@ -61,6 +62,20 @@ describe('parseAcpBuyer', () => {
     expect(parseAcpBuyer({ email: 'd@x.com' })).toEqual({ name: undefined, email: 'd@x.com' })
     expect(parseAcpBuyer({})).toBeNull()
     expect(parseAcpBuyer(null)).toBeNull()
+  })
+})
+
+describe('parseAcpPaymentToken', () => {
+  it('extracts the credential from the standard + flatter shapes', () => {
+    expect(parseAcpPaymentToken({ instrument: { credential: 'vt_123' } })).toBe('vt_123')
+    expect(parseAcpPaymentToken({ token: '  vt_456  ' })).toBe('vt_456')
+    expect(parseAcpPaymentToken({ credential: 'vt_789' })).toBe('vt_789')
+  })
+  it('returns null when absent/blank/non-string', () => {
+    expect(parseAcpPaymentToken({})).toBeNull()
+    expect(parseAcpPaymentToken({ instrument: { credential: '' } })).toBeNull()
+    expect(parseAcpPaymentToken({ token: 123 })).toBeNull()
+    expect(parseAcpPaymentToken(null)).toBeNull()
   })
 })
 
