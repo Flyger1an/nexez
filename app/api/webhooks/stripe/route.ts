@@ -25,6 +25,7 @@ import { resolveOwnerNotifyEmail } from '../../../../lib/server/owner-email'
 import { sendOnceSystemEmail } from '../../../../lib/server/system-email'
 import { cancelCalendlyForRefund } from '../../../../lib/server/calendly-cancel-on-refund'
 import { releaseBillingCheckoutAttempt } from '../../../../lib/server/billing-checkout-attempt'
+import { acpOrderWebhookConfigured, acpStatusFromOrderStatus, sendAcpOrderEvent } from '../../../../lib/server/acp-order-webhook'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'placeholder')
 
@@ -631,9 +632,9 @@ export async function POST(request: NextRequest) {
       // what closes the "direct-checkout disputes/refunds vanish silently" hole.
       const { data: order } = await admin
         .from('checkout_orders')
-        .select('id, status, metadata, offer_name, page_id, currency, slug, buyer_email, access_token')
+        .select('id, status, metadata, offer_name, page_id, currency, slug, buyer_email, access_token, channel')
         .eq('stripe_payment_intent_id', piId)
-        .maybeSingle<{ id: string; status: string; metadata: Record<string, unknown> | null; offer_name: string | null; page_id: string | null; currency: string | null; slug: string | null; buyer_email: string | null; access_token: string | null }>()
+        .maybeSingle<{ id: string; status: string; metadata: Record<string, unknown> | null; offer_name: string | null; page_id: string | null; currency: string | null; slug: string | null; buyer_email: string | null; access_token: string | null; channel: string | null }>()
       if (!order) {
         return NextResponse.json({ received: true, type: event.type, matched: false }, { status: 200 })
       }
@@ -686,6 +687,30 @@ export async function POST(request: NextRequest) {
         console.warn('[Stripe Webhook] order reversal update failed:', oErr.message)
         await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
         return NextResponse.json({ error: 'order reversal update failed', type: event.type }, { status: 500 })
+      }
+      // A4: notify OpenAI of an ACP order's async status change (refund/dispute).
+      // Best-effort + dormant without ACP_ORDER_WEBHOOK_URL/SECRET; the durable state
+      // stays in checkout_orders regardless. The ACP checkout_session id comes from the
+      // persisted session row (indexed by PI), not the order.
+      if (order.channel === 'acp' && acpOrderWebhookConfigured()) {
+        const newStatus = (oUpdate.status as string | undefined) ?? order.status
+        const refundCents = event.type === 'charge.refunded' ? obj.amount_refunded ?? null : null
+        const orderCurrency = (order.currency || 'usd').toLowerCase()
+        after(async () => {
+          const { data: sess } = await admin
+            .from('checkout_sessions')
+            .select('id')
+            .eq('stripe_payment_intent_id', piId)
+            .maybeSingle<{ id: string }>()
+          if (!sess?.id) return
+          await sendAcpOrderEvent('order_updated', {
+            orderId: piId,
+            checkoutSessionId: sess.id,
+            permalinkUrl: order.access_token ? `${getBaseUrl()}/orders/${order.access_token}` : `${getBaseUrl()}/orders`,
+            status: acpStatusFromOrderStatus(newStatus),
+            refunds: refundCents != null && refundCents > 0 ? [{ type: 'refund', amount: refundCents, currency: orderCurrency }] : undefined,
+          })
+        })
       }
       if (oNotify && hasEmailEnv() && order.page_id) {
         const on = oNotify

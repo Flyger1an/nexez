@@ -428,6 +428,73 @@ describe('POST /api/webhooks/stripe', () => {
     })
   })
 
+  describe('ACP order-status webhook (A4)', () => {
+    const drain = async () => {
+      for (const cb of afterCbs) await cb()
+    }
+    let fetchSpy: ReturnType<typeof vi.fn>
+    beforeEach(() => {
+      vi.stubEnv('STRIPE_WEBHOOK_SECRET', 'whsec_test')
+      afterCbs.length = 0
+      hasSupabaseAdminEnv.mockReturnValue(true)
+      fetchSpy = vi.fn(async () => ({ ok: true, status: 200 }))
+      vi.stubGlobal('fetch', fetchSpy)
+    })
+    afterEach(() => vi.unstubAllGlobals())
+
+    function withAcpOrder(orderOver: Record<string, any> = {}) {
+      createAdminClient.mockReturnValue(
+        createSupabaseMock((ctx: QueryContext) => {
+          if (ctx.table === 'agent_negotiations') return { data: null, error: null }
+          if (ctx.table === 'checkout_orders' && ctx.op === 'select') {
+            return {
+              data: { id: 'ord_1', status: 'paid', metadata: {}, offer_name: 'X', page_id: 'pg1', currency: 'usd', slug: 'acme', buyer_email: null, access_token: 'tok', channel: 'acp', ...orderOver },
+              error: null,
+            }
+          }
+          if (ctx.table === 'checkout_sessions') return { data: { id: 'sess_1' }, error: null }
+          return { data: null, error: null }
+        }) as any,
+      )
+    }
+    const refundEvent = (id: string) => ({ id, type: 'charge.refunded', account: 'acct_seller', data: { object: { payment_intent: 'pi_1', amount: 9000, amount_refunded: 9000 } } })
+
+    it('POSTs order_updated (status canceled + refunds) to OpenAI on a full refund', async () => {
+      vi.stubEnv('ACP_ORDER_WEBHOOK_URL', 'https://openai.example/orders')
+      vi.stubEnv('ACP_ORDER_WEBHOOK_SECRET', 's3cret')
+      withAcpOrder()
+      constructEvent.mockReturnValue(refundEvent('evt_acp_r'))
+      await POST(post({ sig: 'good', body: '{}' }))
+      await drain()
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      const [url, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit]
+      expect(url).toBe('https://openai.example/orders')
+      const body = JSON.parse(init.body as string)
+      expect(body.type).toBe('order_updated')
+      expect(body.data).toMatchObject({ type: 'order', id: 'pi_1', checkout_session_id: 'sess_1', status: 'canceled' })
+      expect(body.data.refunds[0]).toMatchObject({ amount: 9000, currency: 'usd' })
+      expect((init.headers as Record<string, string>).signature).toBeTruthy()
+    })
+
+    it('does NOT fire when the order webhook is unconfigured (dormant)', async () => {
+      withAcpOrder()
+      constructEvent.mockReturnValue(refundEvent('evt_acp_r2'))
+      await POST(post({ sig: 'good', body: '{}' }))
+      await drain()
+      expect(fetchSpy).not.toHaveBeenCalled()
+    })
+
+    it('does NOT fire for a non-ACP (agent_checkout) order', async () => {
+      vi.stubEnv('ACP_ORDER_WEBHOOK_URL', 'https://openai.example/orders')
+      vi.stubEnv('ACP_ORDER_WEBHOOK_SECRET', 's3cret')
+      withAcpOrder({ channel: 'agent_checkout' })
+      constructEvent.mockReturnValue(refundEvent('evt_ac_r'))
+      await POST(post({ sig: 'good', body: '{}' }))
+      await drain()
+      expect(fetchSpy).not.toHaveBeenCalled()
+    })
+  })
+
   // Cancel-on-refund: only a FULL refund / lost dispute (status → 'refunded') on a
   // Calendly-linked negotiation releases the calendar hold. Partials never do.
   describe('escrow reversals - Calendly cancel-on-refund', () => {
