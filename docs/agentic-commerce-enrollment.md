@@ -76,11 +76,15 @@ ACP charge shape would need a decision).
    `payment_intent.succeeded` is in the subscribed events. (Refunds/disputes already
    match by PaymentIntent id, so those inherit for free.)
 
-4. **Build + wire A4 (order-status webhook).** Small remaining code task — deferred
-   until now because it needs OpenAI's real URL/secret. It emits
-   `order_created`/`order_updated` (HMAC-signed) from the Stripe webhook's order-persist
-   path + the refund route, so ACP order status stays in sync. Env: the OpenAI webhook
-   URL + signing secret from Step 1. (Ping me to build this once you have them.)
+4. **Order-status webhook (A4 — already built, dormant).** Set the two env vars from
+   Step 1 and it turns on:
+   - `ACP_ORDER_WEBHOOK_URL` = OpenAI's order-webhook URL.
+   - `ACP_ORDER_WEBHOOK_SECRET` = the signing secret.
+   It emits `order_updated` (base64-HMAC-signed) from the Stripe webhook's refund/
+   dispute path so ACP order status (refunds, disputes) stays in sync with OpenAI.
+   Dormant + best-effort without those vars. *(Confirm OpenAI's exact signature header
+   name/encoding at enrollment — the default is a base64 HMAC-SHA256 of the body; a
+   1-line change if theirs differs.)*
 
 5. **Confirm SPT** (Step 0). If platform-only, resolve the Connect question first.
 
@@ -122,6 +126,8 @@ ACP charge shape would need a decision).
 |---|---|---|
 | `ACP_SHARED_SECRET` | Vercel prod | Lifts ACP 401 (verifies OpenAI's Bearer) |
 | `ACP_CHECKOUT_ENABLED` = `true` | Vercel prod | Feed `is_eligible_checkout` + manifest `checkout_status: live` |
+| `ACP_ORDER_WEBHOOK_URL` | Vercel prod | Turns on A4 (merchant→OpenAI order_updated on refund/dispute) |
+| `ACP_ORDER_WEBHOOK_SECRET` | Vercel prod | Signs the A4 order webhook (base64 HMAC) |
 | `UCP_SHARED_SECRET` | Vercel prod | Lifts UCP 401 (verifies Google's M2M Bearer) |
 | `UCP_CHECKOUT_ENABLED` = `true` | Vercel prod | UCP feed/manifest checkout-eligible |
 | `STRIPE_WEBHOOK_SECRET_CONNECT` | Vercel prod (**already set**) | Connect webhook — just **add** `payment_intent.succeeded` to its subscribed events |
