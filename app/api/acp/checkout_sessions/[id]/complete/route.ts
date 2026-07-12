@@ -17,7 +17,7 @@ import {
   isSessionExpired,
   markSessionExpired,
 } from '../../../../../../lib/server/checkout-session-store'
-import { persistAcpOrder } from '../../../../../../lib/server/acp-order'
+import { persistCommerceOrder } from '../../../../../../lib/server/commerce-order'
 import { verifyAcpRequest } from '../../../../../../lib/acp/auth'
 import { ACP_API_VERSION } from '../../../../../../lib/acp/constants'
 import { parseAcpBuyer, parseAcpPaymentToken, toAcpCheckoutSession, acpError, type AcpOrderRef } from '../../../../../../lib/acp/wire'
@@ -120,7 +120,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   // key (same PI, no second charge).
   const completed = markSessionCompleted(session)
   await updateSessionSnapshot(admin, id, completed, { stripePaymentIntentId: settled.paymentIntentId })
-  const accessToken = await persistAcpOrder(admin, {
+  const accessToken = await persistCommerceOrder(admin, {
+    channel: 'acp',
     ownerId: context.context.ownerId ?? '',
     pageId: page.id,
     slug: row.slug,
