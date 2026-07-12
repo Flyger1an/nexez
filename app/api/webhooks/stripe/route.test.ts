@@ -703,4 +703,102 @@ describe('POST /api/webhooks/stripe', () => {
       expect(contexts.some((c) => c.table === 'checkout_events')).toBe(false)
     })
   })
+
+  describe('payment_intent.succeeded (ACP/UCP settlement)', () => {
+    function withDb(handler: (ctx: QueryContext) => { data?: any; error?: any } | undefined) {
+      const contexts: QueryContext[] = []
+      hasSupabaseAdminEnv.mockReturnValue(true)
+      createAdminClient.mockReturnValue(
+        createSupabaseMock((ctx: QueryContext) => {
+          contexts.push(ctx)
+          return handler(ctx) ?? { data: null, error: null }
+        }) as any,
+      )
+      return contexts
+    }
+    beforeEach(() => vi.stubEnv('STRIPE_WEBHOOK_SECRET', 'whsec_test'))
+
+    const piEvent = (metadata: Record<string, string>, over: Record<string, any> = {}) => ({
+      id: 'evt_pi',
+      type: 'payment_intent.succeeded',
+      account: 'acct_seller',
+      data: { object: { id: 'pi_777', amount: 120000, currency: 'usd', status: 'succeeded', metadata, ...over } },
+    })
+    const fullMeta = {
+      nexez_session_id: 'sess_abc',
+      nexez_owner_id: 'owner-1',
+      nexez_page_id: 'pg1',
+      nexez_page_slug: 'acme',
+      nexez_offer_name: 'Strategy Session',
+      nexez_offer_key: 'services-0',
+      nexez_application_fee_cents: '12000',
+      nexez_commission_percent: '10',
+      nexez_source: 'acp',
+      nexez_buyer_email: 'buyer@x.com',
+    }
+
+    it('persists an ACP order keyed on the PI (amount + channel from the PI, not a session)', async () => {
+      const contexts = withDb(() => undefined)
+      constructEvent.mockReturnValue(piEvent(fullMeta))
+      const res = await POST(post({ sig: 'good', body: '{}' }))
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ order: true, status: 'paid', channel: 'acp' })
+      const upsert = contexts.find((c) => c.table === 'checkout_orders' && c.op === 'upsert')!
+      expect(upsert).toBeTruthy()
+      expect(upsert.payload).toMatchObject({
+        owner_id: 'owner-1',
+        page_id: 'pg1',
+        slug: 'acme',
+        offer_name: 'Strategy Session',
+        offer_key: 'services-0',
+        stripe_payment_intent_id: 'pi_777',
+        stripe_connect_account_id: 'acct_seller',
+        amount_cents: 120000,
+        currency: 'usd',
+        application_fee_cents: 12000,
+        commission_percent: 10,
+        status: 'paid',
+        channel: 'acp',
+        buyer_email: 'buyer@x.com',
+      })
+      // No hosted Checkout Session id is set for a delegated-token charge.
+      expect('stripe_session_id' in upsert.payload).toBe(false)
+    })
+
+    it('ignores a PI without nexez_session_id (a hosted-checkout / negotiation PI never double-persists)', async () => {
+      const contexts = withDb(() => undefined)
+      constructEvent.mockReturnValue(piEvent({ some: 'thing' }))
+      const res = await POST(post({ sig: 'good', body: '{}' }))
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ order: false, reason: 'not a commerce-core session' })
+      expect(contexts.some((c) => c.table === 'checkout_orders')).toBe(false)
+    })
+
+    it('nulls channel when nexez_source is absent or forged (CHECK-guarded)', async () => {
+      const contexts = withDb(() => undefined)
+      constructEvent.mockReturnValue(piEvent({ ...fullMeta, nexez_source: 'evil' }))
+      await POST(post({ sig: 'good', body: '{}' }))
+      const upsert = contexts.find((c) => c.table === 'checkout_orders' && c.op === 'upsert')!
+      expect(upsert.payload.channel).toBeNull()
+    })
+
+    it('order:false when the owner metadata is empty (no charge attribution)', async () => {
+      const contexts = withDb(() => undefined)
+      constructEvent.mockReturnValue(piEvent({ ...fullMeta, nexez_owner_id: '' }))
+      const res = await POST(post({ sig: 'good', body: '{}' }))
+      expect(await res.json()).toMatchObject({ order: false, reason: 'missing owner/amount' })
+      expect(contexts.some((c) => c.table === 'checkout_orders')).toBe(false)
+    })
+
+    it('releases the idempotency ledger when the order upsert 500s (Stripe can retry, not swallow)', async () => {
+      const contexts = withDb((ctx) => {
+        if (ctx.table === 'checkout_orders' && ctx.op === 'upsert') return { error: { message: 'boom' } }
+        return undefined
+      })
+      constructEvent.mockReturnValue(piEvent(fullMeta))
+      const res = await POST(post({ sig: 'good', body: '{}' }))
+      expect(res.status).toBe(500)
+      expect(contexts.some((c) => c.table === 'stripe_webhook_events' && c.op === 'delete')).toBe(true)
+    })
+  })
 })

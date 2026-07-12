@@ -371,6 +371,7 @@ export async function POST(request: NextRequest) {
         application_fee_cents: Number(session.metadata.nexez_application_fee_cents || 0) || null,
         commission_percent: Number(session.metadata.nexez_commission_percent || 0) || null,
         status: 'paid',
+        channel: 'agent_checkout',
         ...(buyerEmail ? { buyer_email: buyerEmail } : {}),
         ...(session.metadata.nexez_buyer_name ? { buyer_name: session.metadata.nexez_buyer_name } : {}),
         ...(session.metadata.nexez_buyer_reference ? { buyer_reference: session.metadata.nexez_buyer_reference } : {}),
@@ -436,6 +437,120 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ received: true, type: event.type }, { status: 200 })
+  }
+
+  // Agentic-commerce protocol sale (ACP/UCP): the buyer's agent handed over a
+  // delegated payment credential and the settlement bridge (SF2) confirmed a
+  // PaymentIntent DIRECTLY on the seller's connected account - there is NO hosted
+  // Checkout Session. Persist the durable order exactly like the hosted-checkout path
+  // so it's refundable / dispute-tracked in-app (the reversal handler already matches
+  // on stripe_payment_intent_id). Discriminate on nexez_session_id, which the money
+  // core always stamps (settlement-bridge buildChargeMetadata), NOT nexez_source,
+  // which an adapter controls. A hosted-Checkout PI carries no PI-level metadata, so
+  // this never double-persists a checkout.session.completed sale.
+  if (event.type === 'payment_intent.succeeded') {
+    const pi = event.data.object as Stripe.PaymentIntent
+    const md = pi.metadata || {}
+    if (!md.nexez_session_id) {
+      // Not a commerce-core charge (hosted-Checkout / negotiation PIs keep their
+      // metadata on the session, not the PI) - pass through cleanly.
+      return NextResponse.json({ received: true, type: event.type, order: false, reason: 'not a commerce-core session' }, { status: 200 })
+    }
+    if (!hasSupabaseAdminEnv()) {
+      return NextResponse.json({ received: true, type: event.type, note: 'SUPABASE_SERVICE_ROLE_KEY required' }, { status: 200 })
+    }
+    const ownerId = md.nexez_owner_id || null
+    if (!ownerId || !pi.amount) {
+      return NextResponse.json({ received: true, type: event.type, order: false, reason: 'missing owner/amount' }, { status: 200 })
+    }
+    const admin = createAdminClient()
+    // channel is set only from the trusted enum; an adapter that omits/forges
+    // nexez_source just yields a null channel (never a bogus value; CHECK-guarded).
+    const channel = md.nexez_source === 'acp' || md.nexez_source === 'ucp' ? md.nexez_source : null
+    const buyerEmail = md.nexez_buyer_email || null
+    const orderRow = {
+      owner_id: ownerId,
+      page_id: md.nexez_page_id || null,
+      slug: md.nexez_page_slug || null,
+      offer_name: md.nexez_offer_name || null,
+      offer_key: md.nexez_offer_key || null,
+      // No Checkout Session for a delegated-token charge; the PI is the durable key.
+      stripe_payment_intent_id: pi.id,
+      stripe_connect_account_id: (event as { account?: string }).account ?? null,
+      amount_cents: pi.amount,
+      currency: (pi.currency || 'usd').toLowerCase(),
+      application_fee_cents: Number(md.nexez_application_fee_cents || 0) || null,
+      commission_percent: Number(md.nexez_commission_percent || 0) || null,
+      status: 'paid',
+      channel,
+      ...(buyerEmail ? { buyer_email: buyerEmail } : {}),
+      ...(md.nexez_buyer_name ? { buyer_name: md.nexez_buyer_name } : {}),
+      ...(md.nexez_buyer_reference ? { buyer_reference: md.nexez_buyer_reference } : {}),
+      ...(md.nexez_buyer_agent ? { buyer_agent: md.nexez_buyer_agent } : {}),
+    }
+    // Upsert on the PI id (its unique partial index) so a Stripe redelivery is a
+    // no-op; access_token is column-DEFAULT-minted so a re-upsert can't clobber it.
+    const { error: orderErr } = await admin.from('checkout_orders').upsert(orderRow, { onConflict: 'stripe_payment_intent_id' })
+    if (orderErr) {
+      console.warn('[Stripe Webhook] ACP/UCP checkout_orders upsert failed:', orderErr.message)
+      await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
+      return NextResponse.json({ error: 'order persist failed', type: event.type }, { status: 500 })
+    }
+    // Mark the persisted session settled + link the PI (best-effort, idempotent).
+    after(() =>
+      admin.from('checkout_sessions').update({ status: 'completed', stripe_payment_intent_id: pi.id }).eq('id', md.nexez_session_id),
+    )
+    // Buyer receipt + portal link (same pattern as the hosted-checkout path, keyed on
+    // the PI). Gated on a captured buyer email + email env.
+    if (hasEmailEnv() && buyerEmail) {
+      after(async () => {
+        const { data: row } = await admin
+          .from('checkout_orders')
+          .select('access_token')
+          .eq('stripe_payment_intent_id', pi.id)
+          .maybeSingle<{ access_token: string | null }>()
+        if (!row?.access_token) return
+        const { data: page } = orderRow.page_id
+          ? await admin.from('pages').select('name').eq('id', orderRow.page_id as string).maybeSingle<{ name: string | null }>()
+          : { data: null }
+        const mail = await buildBuyerReceiptEmail({
+          businessName: page?.name || orderRow.slug || 'the seller',
+          offerName: orderRow.offer_name || 'Your purchase',
+          amount: formatCurrencyAmount(orderRow.amount_cents, orderRow.currency),
+          manageUrl: `${getBaseUrl()}/orders/${row.access_token}`,
+        })
+        await sendEmail({ to: buyerEmail, subject: mail.subject, html: mail.html, text: mail.text })
+        await sendPushToEmail(buyerEmail, {
+          title: 'Booking confirmed',
+          body: `Your purchase from ${page?.name || orderRow.slug || 'the seller'} is confirmed.`,
+          data: { type: 'order', token: row.access_token, status: 'paid' },
+          category: 'orders',
+        })
+      })
+    }
+    // Seller notify.
+    if (hasEmailEnv() && orderRow.page_id) {
+      after(async () => {
+        const { data: page } = await admin.from('pages').select('name, contact_email, owner_id').eq('id', orderRow.page_id as string).maybeSingle<{ name: string | null; contact_email: string | null; owner_id: string | null }>()
+        const ownerEmail = await resolveOwnerNotifyEmail({ contactEmail: page?.contact_email, ownerId: page?.owner_id })
+        if (!ownerEmail || !page) return
+        const mail = await buildEscrowFundedEmail({
+          businessName: page.name || orderRow.slug || 'your page',
+          offerName: orderRow.offer_name || 'Your offer',
+          amount: formatCurrencyAmount(orderRow.amount_cents, orderRow.currency),
+          held: false,
+          buyerAgent: md.nexez_buyer_agent || null,
+          inboxUrl: `${getBaseUrl()}/dashboard/finance`,
+        })
+        await sendEmail({ to: ownerEmail, subject: mail.subject, html: mail.html, text: mail.text })
+        await sendPushToUser(page.owner_id, {
+          title: 'Booking confirmed',
+          body: `${formatCurrencyAmount(orderRow.amount_cents, orderRow.currency)} · ${orderRow.offer_name || 'Your offer'}`,
+          data: { type: 'order', status: 'paid' },
+        })
+      })
+    }
+    return NextResponse.json({ received: true, type: event.type, order: true, status: 'paid', channel }, { status: 200 })
   }
 
   // Subscription invoice lifecycle - keep plan status fresh on payment success and
