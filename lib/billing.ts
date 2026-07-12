@@ -22,6 +22,7 @@ export const PLAN_FEATURES = [
   'whiteLabel',
   'prioritySupport',
   'sso',
+  'agenticCheckout', // transact via ChatGPT (ACP) + Google (UCP); discovery stays free
 ] as const
 
 export type PlanFeature = (typeof PLAN_FEATURES)[number]
@@ -43,6 +44,9 @@ const FEATURE_MIN_RANK: Record<PlanFeature, number> = {
   whiteLabel: 2,
   prioritySupport: 3,
   sso: 4,
+  // Discovery (being in the ChatGPT/Google feeds) is free for every published
+  // listing; TRANSACTING through the agent is the paid capability → Pro+.
+  agenticCheckout: 2,
 }
 
 export const FEATURE_LABELS: Record<PlanFeature, string> = {
@@ -58,6 +62,7 @@ export const FEATURE_LABELS: Record<PlanFeature, string> = {
   whiteLabel: 'White-label branding',
   prioritySupport: 'Priority support',
   sso: 'SSO / SAML',
+  agenticCheckout: 'Sell through ChatGPT & Google (agentic checkout)',
 }
 
 export type PlanLimits = {

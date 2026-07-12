@@ -38,9 +38,14 @@ export type AcpFeedItem = {
 }
 
 export type AcpFeedOptions = {
-  /** When false (default, pre-enrollment) every item is search-eligible but NOT
-   * checkout-eligible. */
+  /** The PROGRAM-level gate: false (default, pre-enrollment) → every item is
+   * search-eligible but NOT checkout-eligible, regardless of the seller. */
   checkoutEnabled?: boolean
+  /** The PER-SELLER gate: the set of slugs whose owner may transact (Pro+ AND a
+   * charge-ready Stripe Connect account). When provided, only these slugs can be
+   * checkout-eligible; when omitted, no per-seller gate is applied (the route always
+   * supplies a set — fail-closed — whenever `checkoutEnabled` is true). */
+  checkoutEligibleSlugs?: Set<string>
   /** ISO 3166-1 alpha-2; ACP Instant Checkout is US-only today. */
   storeCountry?: string
   targetCountries?: string[]
@@ -52,10 +57,13 @@ export function buildAcpFeedItems(pages: AcpFeedPage[], baseUrl: string, opts: A
   const storeCountry = (opts.storeCountry || 'US').toUpperCase()
   const targetCountries = (opts.targetCountries?.length ? opts.targetCountries : ['US']).map((c) => c.toUpperCase())
   const checkoutEnabled = Boolean(opts.checkoutEnabled)
+  const eligibleSlugs = opts.checkoutEligibleSlugs
 
   const items: AcpFeedItem[] = []
   for (const page of pages) {
     const sellerUrl = sanitizePublicUrl(page.website_url) || `${base}/${page.slug}`
+    // Per-seller gate: when a set is supplied, the seller must be in it (Pro+ + Connect).
+    const sellerEligible = eligibleSlugs ? eligibleSlugs.has(page.slug) : true
     for (const row of buildOfferFeedRows(page, baseUrl)) {
       const inStock = row.availability === 'in_stock'
       items.push({
@@ -69,7 +77,7 @@ export function buildAcpFeedItems(pages: AcpFeedPage[], baseUrl: string, opts: A
         // Discoverable now; checkout-eligible only once enrollment + SPT are live AND
         // the offer is in stock.
         is_eligible_search: true,
-        is_eligible_checkout: checkoutEnabled && inStock,
+        is_eligible_checkout: checkoutEnabled && inStock && sellerEligible,
         seller_name: row.sellerName,
         seller_url: sellerUrl,
         store_country: storeCountry,

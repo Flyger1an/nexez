@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, Copy, Globe2, Puzzle, Rocket, ShieldCheck } from 'lucide-react'
+import { ArrowUpRight, Bot, Check, Copy, Globe2, Puzzle, Rocket, ShieldCheck, Sparkles } from 'lucide-react'
 import type { AgentPage } from '../../lib/agent-page'
 import { buildAgentReadyKit, buildRedirectRecipes, buildCodeInjectionRecipes, type RecipeBlock, type InjectionRecipe } from '../../lib/agent-ready-kit'
+import { agenticCommerceStatus, type AgenticCommerceStatus } from '../../lib/agentic-commerce-status'
 import {
   generateWebsiteVerificationToken,
   verificationMetaTag,
@@ -37,6 +38,9 @@ export function WebsitePanel({
   const [method, setMethod] = useState<Method>('dns')
   const [busy, setBusy] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  // The checkout gates from settings-context (plan + Connect + each surface's program
+  // flag); the discovery/checkout STATUS is derived from these + the listing's published state.
+  const [agentic, setAgentic] = useState<{ planAllowsCheckout: boolean; connectReady: boolean; chatgptLive: boolean; googleLive: boolean } | null>(null)
 
   const host = websiteHostOf(page.website_url)
   const verifiedAt = page.website_verified_at ?? null
@@ -52,6 +56,16 @@ export function WebsitePanel({
   const [injectionTab, setInjectionTab] = useState<InjectionRecipe['id']>('wix')
   const injectionRecipe = injectionRecipes.find((r) => r.id === injectionTab) ?? injectionRecipes[0]
 
+  const agenticStatus: AgenticCommerceStatus | null = agentic
+    ? agenticCommerceStatus({
+        published: Boolean(page.is_published),
+        planAllowsCheckout: agentic.planAllowsCheckout,
+        connectReady: agentic.connectReady,
+        chatgptLive: agentic.chatgptLive,
+        googleLive: agentic.googleLive,
+      })
+    : null
+
   const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/pages/${pageId}/settings-context`)
@@ -59,6 +73,14 @@ export function WebsitePanel({
       const json = await res.json()
       if (typeof json?.secrets?.website_verification_token === 'string') {
         setToken(json.secrets.website_verification_token)
+      }
+      if (json?.agenticCommerce && typeof json.agenticCommerce === 'object') {
+        setAgentic({
+          planAllowsCheckout: Boolean(json.agenticCommerce.planAllowsCheckout),
+          connectReady: Boolean(json.agenticCommerce.connectReady),
+          chatgptLive: Boolean(json.agenticCommerce.chatgptLive),
+          googleLive: Boolean(json.agenticCommerce.googleLive),
+        })
       }
     } catch {
       /* non-fatal */
@@ -192,6 +214,10 @@ export function WebsitePanel({
           )}
         </div>
       ) : null}
+
+      {/* Agentic commerce — the ChatGPT + Google transaction layer (discovery is free,
+          checkout is the Pro upgrade). Renders the listing's true, live status. */}
+      {agenticStatus ? <AgenticCommerceCard status={agenticStatus} /> : null}
 
       {/* Serve LIVE artifacts on the merchant's own domain (the Phase-2 upgrade) */}
       <div>
@@ -337,6 +363,102 @@ export function WebsitePanel({
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * The "Sell through ChatGPT & Google" status card — the honest, wired state of this
+ * listing's two agentic-commerce layers. Discovery is free (every published listing is
+ * in the feeds); checkout is the Pro upgrade, gated on plan + payout-ready Connect +
+ * program go-live. The `status` is computed by the shared agenticCommerceStatus().
+ */
+function AgenticCommerceCard({ status }: { status: AgenticCommerceStatus }) {
+  const discoveryLive = status.discovery === 'live'
+
+  const surfaceName = (s: AgenticCommerceStatus['liveSurfaces'][number]) => (s === 'chatgpt' ? 'ChatGPT' : 'Google')
+
+  // Per checkout state: the line, an accent color, and (when the merchant can act) a CTA.
+  const checkout = (() => {
+    switch (status.checkout) {
+      case 'live': {
+        // Name ONLY the surfaces actually live; if just one is on, flag the other as pending.
+        const live = status.liveSurfaces.map(surfaceName).join(' & ')
+        const pending = status.liveSurfaces.length === 1 ? ` ${surfaceName(status.liveSurfaces[0] === 'chatgpt' ? 'google' : 'chatgpt')} switches on soon.` : ''
+        return { color: 'var(--ready)', line: `live on ${live} — buyers complete the purchase without leaving the chat.${pending}`, cta: null }
+      }
+      case 'needs_plan':
+        return {
+          color: 'var(--signal)',
+          line: 'upgrade to Pro to let agents complete the sale, not just discover you.',
+          cta: { href: '/dashboard/billing', label: 'Upgrade to Pro', primary: true },
+        }
+      case 'needs_payouts':
+        return {
+          color: 'var(--amber)',
+          line: 'connect Stripe payouts so agent orders can settle to your account.',
+          cta: { href: '/dashboard/finance', label: 'Connect payouts', primary: false },
+        }
+      case 'enrolling':
+        return {
+          color: 'var(--ready)',
+          line: 'you’re ready — Nexez is switching agentic checkout on across ChatGPT & Google. We’ll email you when it’s live.',
+          cta: null,
+        }
+      default: // 'unpublished'
+        return { color: 'var(--fg-muted)', line: 'publish this listing to turn on agent checkout.', cta: null }
+    }
+  })()
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+      <p className="flex items-center gap-2 text-sm font-semibold">
+        <Bot className="size-4" style={{ color: 'var(--signal)' }} /> Sell through ChatGPT &amp; Google
+      </p>
+      <p className="mt-0.5 text-xs text-[var(--fg-muted)]">
+        Agents <span className="text-[var(--fg)]">discover</span> your offers for free — and, on Pro, <span className="text-[var(--fg)]">complete checkout</span> right
+        inside ChatGPT and Google’s shopping surfaces.
+      </p>
+
+      {/* Discovery */}
+      <div className="mt-3 flex items-start gap-2 text-xs">
+        {discoveryLive ? (
+          <Check className="mt-0.5 size-3.5 shrink-0" style={{ color: 'var(--ready)' }} />
+        ) : (
+          <span className="mt-1 size-2 shrink-0 rounded-full" style={{ background: 'var(--fg-muted)' }} />
+        )}
+        <span className="text-[var(--fg-muted)]">
+          <span className="font-medium text-[var(--fg)]">Discovery</span> —{' '}
+          {discoveryLive ? 'live in the ChatGPT & Google product feeds.' : 'publish this listing to appear in agent feeds.'}
+        </span>
+      </div>
+
+      {/* Checkout */}
+      <div className="mt-2 flex items-start gap-2 text-xs">
+        {status.checkout === 'live' ? (
+          <Check className="mt-0.5 size-3.5 shrink-0" style={{ color: 'var(--ready)' }} />
+        ) : status.checkout === 'needs_plan' ? (
+          <Sparkles className="mt-0.5 size-3.5 shrink-0" style={{ color: checkout.color }} />
+        ) : (
+          <span className="mt-1 size-2 shrink-0 rounded-full" style={{ background: checkout.color }} />
+        )}
+        <span className="text-[var(--fg-muted)]">
+          <span className="font-medium text-[var(--fg)]">Checkout</span> — {checkout.line}
+        </span>
+      </div>
+
+      {checkout.cta ? (
+        <a
+          href={checkout.cta.href}
+          className={
+            checkout.cta.primary
+              ? 'mt-3 inline-flex items-center gap-1 rounded-md bg-[var(--signal-solid)] px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90'
+              : 'mt-3 inline-flex items-center gap-1 rounded-md border border-white/15 px-3 py-1.5 text-xs font-medium text-[var(--fg)] transition hover:border-white/30'
+          }
+        >
+          {checkout.cta.label} <ArrowUpRight className="size-3.5" />
+        </a>
+      ) : null}
     </div>
   )
 }

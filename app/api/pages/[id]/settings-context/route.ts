@@ -5,6 +5,7 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../../../utils/sup
 import { resolvePageAccess } from '../../../../../lib/server/page-access'
 import { getOwnerPlanId } from '../../../../../lib/server/plan'
 import { getPageIntegrationConnections } from '../../../../../lib/server/integration-connections'
+import { agenticProgramFlags, resolveOwnerCheckoutInputs } from '../../../../../lib/server/agentic-commerce-eligibility'
 import { enforceRateLimit } from '../../../../../lib/rate-limit'
 
 /**
@@ -32,7 +33,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
   if (!access) return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
 
   const admin = createAdminClient()
-  const [plan, { data: secrets }, integrations] = await Promise.all([
+  const [plan, { data: secrets }, integrations, checkoutInputs] = await Promise.all([
     getOwnerPlanId(admin, access.ownerId),
     admin
       .from('page_secrets')
@@ -44,6 +45,9 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     // Unified per-provider connection state for the Integrations panel (booleans
     // + timestamps only — never a credential value).
     getPageIntegrationConnections(access.pageId, access.ownerId),
+    // Raw gates for the agentic-commerce (ChatGPT/Google) status card — the client
+    // combines these with the listing's published state via agenticCommerceStatus().
+    resolveOwnerCheckoutInputs(admin, access.ownerId),
   ])
 
   return NextResponse.json({
@@ -51,6 +55,14 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     ownerId: access.ownerId,
     plan, // the OWNER's effective plan - drives the UI gates for owner + editor alike
     integrations,
+    // The gates the "Sell through ChatGPT & Google" card reads: the owner's plan +
+    // Connect readiness, and each surface's program flag (ChatGPT/Google enroll
+    // independently, so they're reported separately — never collapsed to one boolean).
+    agenticCommerce: {
+      planAllowsCheckout: checkoutInputs.planAllowsCheckout,
+      connectReady: checkoutInputs.connectReady,
+      ...agenticProgramFlags(),
+    },
     secrets: {
       calendly_webhook_secret: secrets?.calendly_webhook_secret ?? null,
       outbound_webhooks: secrets?.outbound_webhooks ?? null,

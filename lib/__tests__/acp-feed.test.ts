@@ -60,6 +60,21 @@ describe('buildAcpFeedItems', () => {
     expect(soldOut.is_eligible_checkout).toBe(false) // out of stock → never checkout-eligible
   })
 
+  it('per-seller gate: only slugs in checkoutEligibleSlugs are checkout-eligible', () => {
+    const a = makePage({ slug: 'acme', products: [] }) // in-stock Strategy Session
+    const b = makePage({ slug: 'beta', name: 'Beta Co', services: [offer({ name: 'Consult', price: '$300' })], products: [] })
+    const items = buildAcpFeedItems([a, b], BASE, { checkoutEnabled: true, checkoutEligibleSlugs: new Set(['acme']) })
+    expect(items.find((i) => i.item_id.startsWith('acme'))!.is_eligible_checkout).toBe(true)
+    expect(items.find((i) => i.item_id.startsWith('beta'))!.is_eligible_checkout).toBe(false)
+    // Search eligibility is unaffected by the checkout gate.
+    expect(items.every((i) => i.is_eligible_search)).toBe(true)
+  })
+
+  it('per-seller gate: an EMPTY eligible set blocks checkout for everyone (fail closed)', () => {
+    const items = buildAcpFeedItems([makePage()], BASE, { checkoutEnabled: true, checkoutEligibleSlugs: new Set() })
+    expect(items.every((i) => i.is_eligible_checkout === false)).toBe(true)
+  })
+
   it('falls back to the Nexez listing URL when the seller has no website', () => {
     const items = buildAcpFeedItems([makePage({ website_url: null })], BASE)
     expect(items[0].seller_url).toBe('https://nexez.app/acme')

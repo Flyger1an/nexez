@@ -49,6 +49,19 @@ describe('buildUcpFeedItems', () => {
     expect(enabled.find((i) => i.title === 'Sold Out Poster')!.is_eligible_checkout).toBe(false)
   })
 
+  it('per-seller gate: only slugs in checkoutEligibleSlugs are checkout-eligible', () => {
+    const a = makePage({ slug: 'acme', products: [] })
+    const b = makePage({ slug: 'beta', name: 'Beta Co', services: [offer({ name: 'Consult', price: '$300' })], products: [] })
+    const items = buildUcpFeedItems([a, b], BASE, { checkoutEnabled: true, checkoutEligibleSlugs: new Set(['acme']) })
+    expect(items.find((i) => i.id.startsWith('acme'))!.is_eligible_checkout).toBe(true)
+    expect(items.find((i) => i.id.startsWith('beta'))!.is_eligible_checkout).toBe(false)
+  })
+
+  it('per-seller gate: an EMPTY eligible set blocks checkout for everyone (fail closed)', () => {
+    const items = buildUcpFeedItems([makePage()], BASE, { checkoutEnabled: true, checkoutEligibleSlugs: new Set() })
+    expect(items.every((i) => i.is_eligible_checkout === false)).toBe(true)
+  })
+
   it('carries per-page currency into the Merchant price string (gbp)', () => {
     const page = makePage({ currency: 'gbp', services: [offer({ name: 'Audit', price: '$500' })], products: [] })
     expect(buildUcpFeedItems([page], BASE)[0].price).toBe('500.00 GBP')

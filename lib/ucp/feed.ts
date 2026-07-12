@@ -26,16 +26,25 @@ export type UcpFeedItem = {
   is_eligible_checkout: boolean
 }
 
-export type UcpFeedOptions = { checkoutEnabled?: boolean }
+export type UcpFeedOptions = {
+  /** PROGRAM-level gate (Merchant Center + UCP waitlist enrollment). */
+  checkoutEnabled?: boolean
+  /** PER-SELLER gate: slugs whose owner may transact (Pro+ + charge-ready Connect). When
+   * provided, only these slugs can be checkout-eligible. The route supplies it whenever
+   * `checkoutEnabled` is true (fail-closed). */
+  checkoutEligibleSlugs?: Set<string>
+}
 
 /** Project visible pages into UCP/Merchant-Center feed items (one per purchasable
  * offer). Inherits SF4's filtering: fixed priced offers only, sold-out → out_of_stock. */
 export function buildUcpFeedItems(pages: UcpFeedPage[], baseUrl: string, opts: UcpFeedOptions = {}): UcpFeedItem[] {
   const base = baseUrl.replace(/\/+$/, '')
   const checkoutEnabled = Boolean(opts.checkoutEnabled)
+  const eligibleSlugs = opts.checkoutEligibleSlugs
   const items: UcpFeedItem[] = []
   for (const page of pages) {
     const sellerUrl = sanitizePublicUrl(page.website_url) || `${base}/${page.slug}`
+    const sellerEligible = eligibleSlugs ? eligibleSlugs.has(page.slug) : true
     for (const row of buildOfferFeedRows(page, baseUrl)) {
       const inStock = row.availability === 'in_stock'
       items.push({
@@ -48,7 +57,7 @@ export function buildUcpFeedItems(pages: UcpFeedPage[], baseUrl: string, opts: U
         brand: row.sellerName,
         seller_url: sellerUrl,
         is_eligible_search: true,
-        is_eligible_checkout: checkoutEnabled && inStock,
+        is_eligible_checkout: checkoutEnabled && inStock && sellerEligible,
       })
     }
   }

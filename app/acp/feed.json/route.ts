@@ -2,6 +2,7 @@ import { AgentPage, getRequestBaseUrl } from '../../../lib/agent-page'
 import { publicLaunchVisiblePages } from '../../../lib/public-page-visibility'
 import { buildAcpFeedItems } from '../../../lib/acp/feed'
 import { ACP_API_VERSION, ACP_FEED_SCHEMA_VERSION, acpCheckoutEnabled } from '../../../lib/acp/constants'
+import { acpCheckoutEligibleSlugs } from '../../../lib/server/agentic-commerce-eligibility'
 import { ARTIFACT_CORS_HEADERS, artifactPreflight } from '../../../lib/artifact-cors'
 import { supabase } from '../../../lib/supabase'
 
@@ -24,7 +25,13 @@ export async function GET(request: Request) {
     .returns<AgentPage[]>()
 
   const visible = publicLaunchVisiblePages(pages)
-  const products = buildAcpFeedItems(visible, baseUrl, { checkoutEnabled: acpCheckoutEnabled() })
+  // Per-seller checkout gate: only Pro+ sellers with a charge-ready Stripe Connect account
+  // may transact. `null` when the ACP program itself is off (then nothing is checkout-eligible).
+  const eligibleSlugs = await acpCheckoutEligibleSlugs(visible.map((p) => p.slug))
+  const products = buildAcpFeedItems(visible, baseUrl, {
+    checkoutEnabled: acpCheckoutEnabled(),
+    checkoutEligibleSlugs: eligibleSlugs ?? undefined,
+  })
 
   return Response.json(
     {

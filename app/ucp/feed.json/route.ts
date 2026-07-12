@@ -2,6 +2,7 @@ import { AgentPage, getRequestBaseUrl } from '../../../lib/agent-page'
 import { publicLaunchVisiblePages } from '../../../lib/public-page-visibility'
 import { buildUcpFeedItems } from '../../../lib/ucp/feed'
 import { UCP_FEED_SCHEMA_VERSION, ucpCheckoutEnabled } from '../../../lib/ucp/constants'
+import { ucpCheckoutEligibleSlugs } from '../../../lib/server/agentic-commerce-eligibility'
 import { ARTIFACT_CORS_HEADERS, artifactPreflight } from '../../../lib/artifact-cors'
 import { supabase } from '../../../lib/supabase'
 
@@ -23,7 +24,12 @@ export async function GET(request: Request) {
     .returns<AgentPage[]>()
 
   const visible = publicLaunchVisiblePages(pages)
-  const products = buildUcpFeedItems(visible, baseUrl, { checkoutEnabled: ucpCheckoutEnabled() })
+  // Per-seller checkout gate: Pro+ with a charge-ready Stripe Connect account only.
+  const eligibleSlugs = await ucpCheckoutEligibleSlugs(visible.map((p) => p.slug))
+  const products = buildUcpFeedItems(visible, baseUrl, {
+    checkoutEnabled: ucpCheckoutEnabled(),
+    checkoutEligibleSlugs: eligibleSlugs ?? undefined,
+  })
 
   return Response.json(
     {
