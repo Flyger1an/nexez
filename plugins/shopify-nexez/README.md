@@ -27,12 +27,27 @@ the response to the live `nexez.app/<slug>/<artifact>` resource.
 | Route | Host | Purpose |
 | --- | --- | --- |
 | `GET /api/shopify/auth` | app.nexez.ai | OAuth install start (SSRF-pinned shop, CSRF state) |
-| `GET /api/shopify/callback` | app.nexez.ai | HMAC + state verify → offline token → `shopify_installs` |
+| `GET /api/shopify/callback` | app.nexez.ai | HMAC + state verify -> expiring offline credentials -> `shopify_installs` |
 | `POST /api/webhooks/shopify` | app.nexez.ai | `app/uninstalled` + GDPR (HMAC-verified) |
 | `GET /api/shopify/proxy` | app.nexez.ai | App-Proxy-signed artifact delivery |
 
-Data: `shopify_installs` (migration `20260711015728`) maps a shop domain → Nexez
-owner/listing + the encrypted offline token (service-role only).
+Data: `shopify_installs` (migrations `20260711015728` and `20260712222518`)
+maps a shop domain to a Nexez owner/listing plus encrypted, rotating offline
+credentials. The table is service-role only. Access tokens are refreshed before
+expiry, refresh-token rotation is persisted atomically, and uninstall/GDPR
+webhooks revoke the local connection state.
+
+## Catalog sync
+
+After a merchant links the installed shop to a Nexez listing, Nexez immediately
+imports the active, published storefront catalog for Pro accounts. The same OAuth
+installation powers later manual syncs from listing settings; merchants never
+paste an Admin API token into Nexez.
+
+Catalog reads use Shopify's GraphQL Admin API and preserve the store currency,
+product and variant IDs, storefront URLs, availability, sellable quantity, and up
+to ten variant tiers. Nexez stores the product URL as the preferred transaction
+path so buyers and agents complete the purchase on the merchant's Shopify store.
 
 ## Release and merchant activation
 
@@ -43,14 +58,17 @@ owner/listing + the encrypted offline token (service-role only).
    compliance webhook topics in `shopify.app.toml` synchronized with production.
 3. Run `shopify app deploy` (the theme extension has its own release lifecycle,
    separate from the Vercel `next build`).
-4. Install the app, link the shop to a Nexez listing, then use the post-link theme
-   editor button to activate and save the Agent-ready discovery app embed.
+4. Install the app, link the shop to a Nexez listing, confirm the initial catalog
+   sync, then use the post-link theme editor button to activate and save the
+   Agent-ready discovery app embed.
 5. Complete the App Store listing and review (screenshots, privacy policy, and
    the mandatory-webhook check), then a real `*.myshopify.com` install for
    end-to-end verification.
 
-Existing installations must approve OAuth again whenever the requested scopes
-change. The addition of `write_app_proxy` therefore requires reauthorization.
+Existing installations created before expiring offline tokens were enabled must
+approve OAuth again once. Installations must also approve OAuth whenever requested
+scopes change. The addition of `write_app_proxy` therefore requires
+reauthorization.
 
 ## Billing
 

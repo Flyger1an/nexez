@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { shopifyConfigured, verifyShopifyWebhookHmac } from '../../../../lib/server/shopify'
-import { markUninstalled } from '../../../../lib/server/shopify-install'
+import { markUninstalled, redactShop } from '../../../../lib/server/shopify-install'
 import { resolveShopDomain } from '../../../../lib/server/integration-importers'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 
@@ -25,8 +25,19 @@ export async function POST(request: Request) {
   const topic = request.headers.get('x-shopify-topic') || ''
   const shop = resolveShopDomain(request.headers.get('x-shopify-shop-domain') || '')
 
-  if ((topic === 'app/uninstalled' || topic === 'shop/redact') && shop && hasSupabaseAdminEnv()) {
-    await markUninstalled(createAdminClient(), shop, new Date().toISOString())
+  if ((topic === 'app/uninstalled' || topic === 'shop/redact') && shop) {
+    if (!hasSupabaseAdminEnv()) {
+      return NextResponse.json({ error: 'Shopify install storage is unavailable.' }, { status: 503 })
+    }
+    try {
+      const admin = createAdminClient()
+      if (topic === 'shop/redact') await redactShop(admin, shop)
+      else await markUninstalled(admin, shop, new Date().toISOString())
+    } catch {
+      // A 5xx asks Shopify to retry. Returning 200 here would silently retain a
+      // live token or shop record after a transient database failure.
+      return NextResponse.json({ error: 'Could not process the Shopify lifecycle event.' }, { status: 503 })
+    }
   }
   // customers/data_request + customers/redact: no Shopify customer PII is held → ack.
   return NextResponse.json({ ok: true })

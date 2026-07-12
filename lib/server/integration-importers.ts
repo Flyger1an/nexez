@@ -154,44 +154,161 @@ export function resolveShopDomain(shop: string): string | null {
   return /^[a-z0-9][a-z0-9-]{0,59}\.myshopify\.com$/.test(host) ? host : null
 }
 
-/** Live Shopify Admin catalog → offers (moved verbatim from the route). */
+type ShopifyVariantNode = {
+  id: string
+  title: string
+  price: string
+  availableForSale: boolean
+  sellableOnlineQuantity: number
+}
+
+type ShopifyProductNode = {
+  id: string
+  title: string
+  description: string
+  handle: string
+  onlineStoreUrl: string | null
+  variants: { nodes: ShopifyVariantNode[] }
+}
+
+type ShopifyCatalogResponse = {
+  data?: {
+    shop?: { currencyCode?: string }
+    products?: {
+      nodes?: ShopifyProductNode[]
+      pageInfo?: { hasNextPage?: boolean; endCursor?: string | null }
+    }
+  }
+  errors?: Array<{ message?: string }>
+}
+
+const SHOPIFY_PRODUCTS_QUERY = `
+  query NexezProducts($first: Int!, $after: String, $query: String!) {
+    shop { currencyCode }
+    products(first: $first, after: $after, query: $query, sortKey: TITLE) {
+      nodes {
+        id
+        title
+        description
+        handle
+        onlineStoreUrl
+        variants(first: 50) {
+          nodes {
+            id
+            title
+            price
+            availableForSale
+            sellableOnlineQuantity
+          }
+        }
+      }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+`
+
+function formatShopifyMoney(amount: string, currencyCode: string): string {
+  const value = Number(amount)
+  if (!Number.isFinite(value)) return 'See options'
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currencyCode,
+    }).format(value)
+  } catch {
+    return `${amount} ${currencyCode}`
+  }
+}
+
+function shopifyProductToOffer(product: ShopifyProductNode, shopDomain: string, currencyCode: string): OfferItem {
+  const variants = Array.isArray(product.variants?.nodes) ? product.variants.nodes : []
+  const priced = variants
+    .map((variant) => ({ variant, amount: Number(variant.price) }))
+    .filter((entry) => Number.isFinite(entry.amount))
+    .sort((a, b) => a.amount - b.amount)
+  const min = priced[0]
+  const max = priced[priced.length - 1]
+  const price = min
+    ? `${max && max.amount !== min.amount ? 'From ' : ''}${formatShopifyMoney(min.variant.price, currencyCode)}`
+    : 'See options'
+  const availableCount = variants.filter((variant) => variant.availableForSale).length
+  const availability: OfferItem['availability'] =
+    variants.length > 0 && availableCount === 0 ? 'sold_out' : availableCount < variants.length ? 'limited' : 'available'
+  const tiers = variants.length > 1
+    ? variants.slice(0, 10).map((variant) => ({
+        name: variant.title || 'Option',
+        price: formatShopifyMoney(variant.price, currencyCode),
+      }))
+    : undefined
+  const primaryVariant = priced.find((entry) => entry.variant.availableForSale)?.variant ?? min?.variant ?? variants[0]
+
+  return {
+    name: product.title,
+    description: (product.description || 'Shopify product').replace(/\s+/g, ' ').trim().slice(0, 280),
+    price,
+    url: product.onlineStoreUrl || `https://${shopDomain}/products/${encodeURIComponent(product.handle)}`,
+    source: 'shopify',
+    confidence: 0.98,
+    availability,
+    tiers,
+    prefer_original_for_this: true,
+    metadata: {
+      shopify_product_id: product.id,
+      shopify_variant_id: primaryVariant?.id ?? null,
+      shopify_currency: currencyCode.toLowerCase(),
+      shopify_shop: shopDomain,
+      shopify_sellable_quantity: variants.reduce((sum, variant) => sum + Math.max(0, Number(variant.sellableOnlineQuantity) || 0), 0),
+      commerce_provider: 'shopify',
+    },
+  }
+}
+
+/** Live Shopify GraphQL Admin catalog → published, agent-readable offers. */
 export async function importShopifyOffers(opts: { shop: string; accessToken: string; limit?: number }): Promise<ProviderOffers> {
   const shopDomain = resolveShopDomain(opts.shop)
   if (!shopDomain) return { ok: false, status: 400, error: 'Invalid Shopify store domain (expected your-store.myshopify.com).' }
   const safeLimit = Math.min(Math.max(1, Number(opts.limit) || 50), 250)
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 12_000)
   try {
-    const url = `https://${shopDomain}/admin/api/${SHOPIFY_API_VERSION}/products.json?limit=${safeLimit}&fields=id,title,body_html,handle,product_type,variants,images`
-    const res = await fetch(url, {
-      headers: { 'X-Shopify-Access-Token': opts.accessToken, 'Content-Type': 'application/json' },
-      // The token must never follow a redirect off *.myshopify.com.
-      redirect: 'error',
-    })
-    if (!res.ok) {
-      // Never reflect the upstream body (a read-SSRF exfil channel) — status only.
-      return { ok: false, status: 502, error: 'Failed to fetch from Shopify', upstreamStatus: res.status }
-    }
-    const data = await res.json()
-    const products = data.products || []
-    const offers: OfferItem[] = products.map((product: any) => {
-      const firstVariant = product.variants?.[0]
-      const price = firstVariant?.price ? `$${parseFloat(firstVariant.price).toFixed(0)}` : 'See options'
-      const description = product.body_html
-        ? product.body_html.replace(/<[^>]+>/g, ' ').trim().substring(0, 280)
-        : product.product_type || 'Shopify product'
-      const url = `https://${shopDomain}/products/${product.handle}`
-      let tiers = undefined
-      if (product.variants && product.variants.length > 1) {
-        tiers = product.variants.slice(0, 5).map((v: any) => ({
-          name: v.title || v.option1 || 'Option',
-          price: v.price ? `$${parseFloat(v.price).toFixed(0)}` : 'Custom',
-        }))
+    const offers: OfferItem[] = []
+    let after: string | null = null
+    let currencyCode = 'USD'
+
+    while (offers.length < safeLimit) {
+      const first = Math.min(50, safeLimit - offers.length)
+      const res = await fetch(`https://${shopDomain}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`, {
+        method: 'POST',
+        headers: { 'X-Shopify-Access-Token': opts.accessToken, 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          query: SHOPIFY_PRODUCTS_QUERY,
+          variables: { first, after, query: 'status:active published_status:published' },
+        }),
+        // The token must never follow a redirect off *.myshopify.com.
+        redirect: 'error',
+        signal: controller.signal,
+      })
+      if (!res.ok) {
+        // Never reflect the upstream body (a read-SSRF exfil channel) - status only.
+        return { ok: false, status: 502, error: 'Failed to fetch from Shopify', upstreamStatus: res.status }
       }
-      return { name: product.title, description, price, url, source: 'shopify', confidence: 0.92, tiers }
-    })
-    return { ok: true, offers, note: `Imported ${offers.length} products from Shopify.` }
+      const json = (await res.json()) as ShopifyCatalogResponse
+      if (json.errors?.length || !json.data?.products) {
+        return { ok: false, status: 502, error: 'Shopify rejected the catalog query.' }
+      }
+      currencyCode = String(json.data.shop?.currencyCode || currencyCode).toUpperCase()
+      const nodes = Array.isArray(json.data.products.nodes) ? json.data.products.nodes : []
+      offers.push(...nodes.slice(0, safeLimit - offers.length).map((product) => shopifyProductToOffer(product, shopDomain, currencyCode)))
+      const pageInfo = json.data.products.pageInfo
+      if (!pageInfo?.hasNextPage || !pageInfo.endCursor || nodes.length === 0) break
+      after = pageInfo.endCursor
+    }
+    return { ok: true, offers, note: `Imported ${offers.length} active storefront products from Shopify in ${currencyCode}.` }
   } catch (error) {
     console.error('Shopify import error:', error)
     return { ok: false, status: 500, error: 'Shopify import failed' }
+  } finally {
+    clearTimeout(timer)
   }
 }
 

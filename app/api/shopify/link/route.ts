@@ -53,10 +53,18 @@ export async function POST(request: Request) {
   const install = await getInstallByShop(admin, shop)
   if (!install) return NextResponse.json({ error: 'Shop not found. Reinstall the app.' }, { status: 404 })
 
+  const linkedAt = new Date().toISOString()
   const { error } = await admin
     .from('shopify_installs')
-    .update({ owner_id: user.id, page_id: pageId })
+    .update({
+      owner_id: access.ownerId,
+      page_id: pageId,
+      linked_at: linkedAt,
+      last_synced_at: null,
+      updated_at: linkedAt,
+    })
     .eq('shop_domain', shop)
+    .is('uninstalled_at', null)
   if (error) return NextResponse.json({ error: 'Could not link the shop.' }, { status: 500 })
 
   jar.delete('shopify_pending_shop')

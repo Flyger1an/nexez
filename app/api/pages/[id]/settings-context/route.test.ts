@@ -17,7 +17,17 @@ vi.mock('../../../../../lib/server/plan', () => ({ getOwnerPlanId: vi.fn(async (
 vi.mock('../../../../../utils/supabase/admin', () => ({
   hasSupabaseAdminEnv: vi.fn(() => true),
   createAdminClient: vi.fn(() => ({
-    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: refs.secrets }) }) }) }),
+    from: (table: string) => {
+      const query: any = {
+        select: () => query,
+        eq: () => query,
+        is: () => query,
+        order: () => query,
+        limit: () => query,
+        maybeSingle: async () => ({ data: table === 'page_secrets' ? refs.secrets : null }),
+      }
+      return query
+    },
   })),
 }))
 

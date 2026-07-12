@@ -4,10 +4,12 @@ const state = {
   cfg: true,
   pending: 'demo.myshopify.com' as string | null,
   user: { id: 'u1', email: 'a@b.co', email_confirmed_at: 'x' } as { id: string; email: string; email_confirmed_at: string } | null,
-  access: {} as unknown,
+  access: { ownerId: 'owner-1' } as unknown,
   install: { shop_domain: 'demo.myshopify.com' } as unknown,
 }
-const updateSpy = vi.fn(() => ({ eq: vi.fn(async () => ({ error: null })) }))
+const updateSpy = vi.fn(() => ({
+  eq: vi.fn(() => ({ is: vi.fn(async () => ({ error: null })) })),
+}))
 
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ get: () => ({ value: 'tok' }), delete: () => {} })) }))
 vi.mock('../../../../lib/server/shopify', () => ({ shopifyConfigured: () => state.cfg, readPendingShop: () => state.pending }))
@@ -27,7 +29,7 @@ describe('POST /api/shopify/link', () => {
     state.cfg = true
     state.pending = 'demo.myshopify.com'
     state.user = { id: 'u1', email: 'a@b.co', email_confirmed_at: 'x' }
-    state.access = {}
+    state.access = { ownerId: 'owner-1' }
     state.install = { shop_domain: 'demo.myshopify.com' }
     updateSpy.mockClear()
   })
@@ -55,6 +57,12 @@ describe('POST /api/shopify/link', () => {
   it('links owner_id + page_id on success', async () => {
     const res = await post({ pageId: 'p1' })
     expect(res.status).toBe(200)
-    expect(updateSpy).toHaveBeenCalledWith({ owner_id: 'u1', page_id: 'p1' })
+    expect(updateSpy).toHaveBeenCalledWith(expect.objectContaining({
+      owner_id: 'owner-1',
+      page_id: 'p1',
+      linked_at: expect.any(String),
+      last_synced_at: null,
+      updated_at: expect.any(String),
+    }))
   })
 })

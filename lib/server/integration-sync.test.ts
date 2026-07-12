@@ -4,17 +4,20 @@ import { createSupabaseMock } from '../../test/supabase-mock'
 const h = vi.hoisted(() => ({
   configured: true,
   calendlyPat: 'pat' as string | null,
+  installedShopify: null as { shop: string; accessToken: string } | null,
   shopifyCreds: { shop: 'acme.myshopify.com', token: 'shpat_x' } as { shop: string; token: string } | null,
   squareCreds: { accessToken: 'sq_x' } as { accessToken: string } | null,
   acuityCreds: { userId: 'u', apiKey: 'k' } as { userId: string; apiKey: string } | null,
   imported: { ok: true, offers: [] as any[], note: 'n' } as any,
+  importInput: null as any,
   busy: [] as any,
   page: { id: 'pg1', slug: 'acme', services: [] as any[], next_available: null } as any,
   pagesUpdate: null as any,
   secretsUpdate: null as any,
+  shopifySyncedAt: null as string | null,
 }))
 
-vi.mock('./integration-importers', () => ({ importIntegrationOffers: async () => h.imported }))
+vi.mock('./integration-importers', () => ({ importIntegrationOffers: async (input: any) => { h.importInput = input; return h.imported } }))
 vi.mock('./page-integration-credentials', () => ({
   integrationCredentialsConfigured: () => h.configured,
   getCalendlyPat: async () => h.calendlyPat,
@@ -24,6 +27,10 @@ vi.mock('./page-integration-credentials', () => ({
 }))
 vi.mock('./calendly-write', () => ({ fetchCalendlyBusy: async () => h.busy }))
 vi.mock('../observability', () => ({ captureEvent: vi.fn() }))
+vi.mock('./shopify-install', () => ({
+  getShopifyInstallCredentials: async () => h.installedShopify,
+  markShopifySynced: async (_admin: unknown, _pageId: string, at: string) => { h.shopifySyncedAt = at },
+}))
 
 import { syncPageIntegration } from './integration-sync'
 
@@ -43,12 +50,15 @@ describe('syncPageIntegration', () => {
   beforeEach(() => {
     h.configured = true
     h.calendlyPat = 'pat'
+    h.installedShopify = null
     h.shopifyCreds = { shop: 'acme.myshopify.com', token: 'shpat_x' }
     h.imported = { ok: true, offers: [calOffer()], note: 'Imported 1' }
+    h.importInput = null
     h.busy = [{ start: '2026-07-08T14:00:00Z', end: '2026-07-08T15:00:00Z' }]
     h.page = { id: 'pg1', slug: 'acme', services: [{ name: 'Existing', price: '$99', description: '', url: '' }], next_available: null }
     h.pagesUpdate = null
     h.secretsUpdate = null
+    h.shopifySyncedAt = null
   })
 
   it('503 when credential storage is not configured (dormant)', async () => {
@@ -79,7 +89,9 @@ describe('syncPageIntegration', () => {
     expect(h.secretsUpdate.calendly_synced_at).toBeTruthy()
   })
 
-  it('shopify: imports offers, NO availability, NO calendly cursor stamp', async () => {
+  it('shopify: prefers the installed OAuth credential and records the successful sync', async () => {
+    h.installedShopify = { shop: 'oauth-shop.myshopify.com', accessToken: 'oauth-token' }
+    h.shopifyCreds = null
     h.imported = { ok: true, offers: [shopOffer()], note: 'Imported 1' }
     const r = await syncPageIntegration(admin(), 'shopify', 'pg1')
     expect(r).toMatchObject({ ok: true, provider: 'shopify', imported: 1, availabilitySynced: false })
@@ -87,6 +99,8 @@ describe('syncPageIntegration', () => {
     expect(h.pagesUpdate.services.find((o: any) => o.name === 'Mug').source).toBe('shopify')
     expect('next_available' in h.pagesUpdate).toBe(false)
     expect(h.secretsUpdate).toBeNull() // shopify doesn't touch the calendly cursor
+    expect(h.shopifySyncedAt).toBeTruthy()
+    expect(h.importInput).toEqual({ provider: 'shopify', shop: 'oauth-shop.myshopify.com', accessToken: 'oauth-token' })
   })
 
   it('calendly: preserves a hand-written availability note', async () => {

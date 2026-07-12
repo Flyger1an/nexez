@@ -6,11 +6,12 @@ vi.mock('../../utils/supabase/admin', () => ({ createAdminClient: vi.fn(), hasSu
 import { getPageIntegrationConnections } from './integration-connections'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 
-function drive(secrets: any, billing: any) {
+function drive(secrets: any, billing: any, shopifyInstall: any = null) {
   vi.mocked(hasSupabaseAdminEnv).mockReturnValue(true)
   vi.mocked(createAdminClient).mockReturnValue(
     createSupabaseMock((ctx: any) => {
       if (ctx.table === 'page_secrets') return { data: secrets, error: null }
+      if (ctx.table === 'shopify_installs') return { data: shopifyInstall, error: null }
       if (ctx.table === 'billing_subscriptions') return { data: billing, error: null }
       return { data: null, error: null }
     }) as any,
@@ -51,6 +52,21 @@ describe('getPageIntegrationConnections', () => {
     drive({ calendly_pat_encrypted: null, shopify_credentials_encrypted: 'v1.y', calendly_synced_at: null }, null)
     const c = byProvider(await getPageIntegrationConnections('pg1', 'o1'))
     expect(c.shopify.connected).toBe(true)
+  })
+
+  it('prefers an OAuth app installation and exposes its last successful sync', async () => {
+    drive(
+      { calendly_pat_encrypted: null, shopify_credentials_encrypted: null, calendly_synced_at: null },
+      null,
+      { last_synced_at: '2026-07-12T18:00:00Z' },
+    )
+    const c = byProvider(await getPageIntegrationConnections('pg1', 'o1'))
+    expect(c.shopify).toMatchObject({
+      connected: true,
+      kind: 'oauth',
+      canSync: true,
+      lastSyncedAt: '2026-07-12T18:00:00Z',
+    })
   })
 
   it('includes Square + Acuity as token providers (connected reflects the stored blob)', async () => {

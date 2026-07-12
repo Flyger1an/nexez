@@ -122,7 +122,7 @@ export function ShopifyImporter() {
     } catch {}
   }, [])
 
-  async function handleShopifyImport() {
+  async function handleShopifyImport(tokenOverride?: string) {
     if (!shopifyUrl.trim()) return
     setShopifyLoading(true)
     setShopifyResult(null)
@@ -130,8 +130,9 @@ export function ShopifyImporter() {
     try {
       // Authenticated import pulls the full private catalog; otherwise fall back
       // to the public catalog via the general site importer.
-      const request = shopifyToken.trim()
-        ? { url: '/api/integrations/shopify/import', body: { shop: shopifyUrl.trim(), accessToken: shopifyToken.trim() } }
+      const effectiveToken = (tokenOverride ?? shopifyToken).trim()
+      const request = effectiveToken
+        ? { url: '/api/integrations/shopify/import', body: { shop: shopifyUrl.trim(), accessToken: effectiveToken } }
         : { url: '/api/tools/import-site', body: { url: shopifyUrl.trim(), industry: 'retail shopify' } }
 
       const res = await fetch(request.url, {
@@ -171,7 +172,7 @@ export function ShopifyImporter() {
           className="flex-1 input"
         />
         <button
-          onClick={handleShopifyImport}
+          onClick={() => void handleShopifyImport()}
           disabled={shopifyLoading || !shopifyUrl.trim()}
           className="btn-primary bg-[var(--signal)] text-zinc-950 hover:bg-[var(--signal)]"
         >
@@ -180,10 +181,8 @@ export function ShopifyImporter() {
         {shopifyConnected && (
           <button
             onClick={() => {
-              prompt('Paste Shopify Admin token for re-sync (or leave empty for public):')
-              if (shopifyUrl) {
-                setTimeout(() => handleShopifyImport(), 50)
-              }
+              const token = prompt('Paste Shopify Admin token for re-sync (or leave empty for public):')
+              if (token !== null && shopifyUrl) void handleShopifyImport(token)
             }}
             disabled={shopifyLoading}
             className="rounded-lg border border-[var(--signal)]/40 px-4 py-2 text-sm text-[var(--signal)] hover:bg-white/5"

@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from 'react'
 // scattered across the editor / Tools / legacy Settings section.
 
 type Provider = 'calendly' | 'shopify' | 'square' | 'acuity' | 'stripe'
-type Kind = 'token' | 'connect'
+type Kind = 'token' | 'oauth' | 'connect'
 type Connection = {
   provider: Provider
   label: string
@@ -194,16 +194,18 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
                     {busy === `${c.provider}:sync` ? 'Syncing…' : 'Sync now'}
                   </button>
                 ) : null}
-                <button
-                  type="button"
-                  disabled={isBusy}
-                  onClick={() => tokenProvider && disconnect(tokenProvider)}
-                  className="shrink-0 rounded-lg border border-white/15 px-3 py-1.5 text-sm text-zinc-300 transition hover:bg-white/10 disabled:opacity-40"
-                >
-                  {busy === `${c.provider}:disconnect` ? 'Disconnecting…' : 'Disconnect'}
-                </button>
+                {tokenProvider ? (
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() => disconnect(tokenProvider)}
+                    className="shrink-0 rounded-lg border border-white/15 px-3 py-1.5 text-sm text-zinc-300 transition hover:bg-white/10 disabled:opacity-40"
+                  >
+                    {busy === `${c.provider}:disconnect` ? 'Disconnecting…' : 'Disconnect'}
+                  </button>
+                ) : null}
                 <span className="text-[10px] text-zinc-500">
-                  {c.autoSync ? 'Auto-syncs in the background' : 'Manual re-sync'}
+                  {c.kind === 'oauth' ? 'Installed securely through Shopify' : c.autoSync ? 'Auto-syncs in the background' : 'Manual re-sync'}
                   {last ? ` · last synced ${last}` : ''}
                 </span>
               </div>

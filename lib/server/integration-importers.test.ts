@@ -119,17 +119,68 @@ describe('importShopifyOffers', () => {
     expect(spy).not.toHaveBeenCalled()
   })
 
-  it('maps products (first variant → price, extra variants → tiers)', async () => {
+  it('maps active published GraphQL products with currency, availability, stable ids, and canonical URLs', async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse({
-      products: [{ title: 'Tee', body_html: '<p>Soft</p>', handle: 'tee', variants: [{ price: '20.00', title: 'S' }, { price: '22.00', title: 'L' }] }],
+      data: {
+        shop: { currencyCode: 'USD' },
+        products: {
+          nodes: [{
+            id: 'gid://shopify/Product/1',
+            title: 'Tee',
+            description: 'Soft cotton tee',
+            handle: 'tee',
+            onlineStoreUrl: 'https://shop.acme.test/products/tee',
+            variants: { nodes: [
+              { id: 'gid://shopify/ProductVariant/1', price: '20.00', title: 'S', availableForSale: true, sellableOnlineQuantity: 4 },
+              { id: 'gid://shopify/ProductVariant/2', price: '22.00', title: 'L', availableForSale: false, sellableOnlineQuantity: 0 },
+            ] },
+          }],
+          pageInfo: { hasNextPage: false, endCursor: null },
+        },
+      },
     }))
     vi.stubGlobal('fetch', fetchMock)
     const r = await importShopifyOffers({ shop: 'acme.myshopify.com', accessToken: 't' })
     expect(r.ok).toBe(true)
     if (!r.ok) return
-    expect(fetchMock.mock.calls[0][0]).toContain('/admin/api/2026-07/products.json')
-    expect(r.offers[0]).toMatchObject({ name: 'Tee', price: '$20', source: 'shopify' })
+    expect(fetchMock.mock.calls[0][0]).toContain('/admin/api/2026-07/graphql.json')
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).variables.query).toBe('status:active published_status:published')
+    expect(r.offers[0]).toMatchObject({
+      name: 'Tee',
+      price: 'From $20.00',
+      url: 'https://shop.acme.test/products/tee',
+      source: 'shopify',
+      availability: 'limited',
+      prefer_original_for_this: true,
+      metadata: {
+        shopify_product_id: 'gid://shopify/Product/1',
+        shopify_variant_id: 'gid://shopify/ProductVariant/1',
+        shopify_currency: 'usd',
+        commerce_provider: 'shopify',
+      },
+    })
     expect(r.offers[0].tiers).toHaveLength(2)
+  })
+
+  it('paginates the GraphQL catalog up to the requested limit', async () => {
+    const product = (id: number) => ({
+      id: `gid://shopify/Product/${id}`,
+      title: `Product ${id}`,
+      description: '',
+      handle: `product-${id}`,
+      onlineStoreUrl: null,
+      variants: { nodes: [{ id: `gid://shopify/ProductVariant/${id}`, title: 'Default', price: '9.99', availableForSale: true, sellableOnlineQuantity: 1 }] },
+    })
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ data: { shop: { currencyCode: 'CAD' }, products: { nodes: [product(1)], pageInfo: { hasNextPage: true, endCursor: 'next' } } } }))
+      .mockResolvedValueOnce(jsonResponse({ data: { shop: { currencyCode: 'CAD' }, products: { nodes: [product(2)], pageInfo: { hasNextPage: false, endCursor: null } } } }))
+    vi.stubGlobal('fetch', fetchMock)
+    const r = await importShopifyOffers({ shop: 'acme.myshopify.com', accessToken: 't', limit: 2 })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).variables.after).toBe('next')
+    expect(r.offers.map((offer) => offer.name)).toEqual(['Product 1', 'Product 2'])
   })
 
   it('an upstream non-2xx is a 502 that never reflects the body', async () => {

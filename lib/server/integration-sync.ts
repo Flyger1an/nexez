@@ -8,6 +8,7 @@ import { applyOfferAvailability, buildCalendlyNextAvailable } from '../calendly-
 import { mergeProviderOffersAcrossColumns } from '../integration-merge'
 import { parseAvailabilityWindows, type OfferItem } from '../agent-page'
 import { captureEvent } from '../observability'
+import { getShopifyInstallCredentials, markShopifySynced } from './shopify-install'
 
 const HORIZON_DAYS = 7
 
@@ -29,12 +30,18 @@ export type SyncResult =
 
 /** Build the import input from the page's STORED credentials, or null if the
  *  provider isn't connected for this page. Never takes a token from the caller. */
-async function resolveStoredInput(provider: SyncProvider, pageId: string): Promise<IntegrationIngestInput | null> {
+async function resolveStoredInput(
+  admin: SupabaseClient,
+  provider: SyncProvider,
+  pageId: string,
+): Promise<IntegrationIngestInput | null> {
   if (provider === 'calendly') {
     const token = await getCalendlyPat(pageId)
     return token ? { provider: 'calendly', token } : null
   }
   if (provider === 'shopify') {
+    const installed = await getShopifyInstallCredentials(admin, pageId)
+    if (installed) return { provider: 'shopify', shop: installed.shop, accessToken: installed.accessToken }
     const creds = await getShopifyCreds(pageId)
     return creds ? { provider: 'shopify', shop: creds.shop, accessToken: creds.token } : null
   }
@@ -60,7 +67,7 @@ export async function syncPageIntegration(admin: SupabaseClient, provider: SyncP
   if (!integrationCredentialsConfigured()) {
     return { ok: false, status: 503, error: 'Integration credential storage is not configured on this deployment.' }
   }
-  const input = await resolveStoredInput(provider, pageId)
+  const input = await resolveStoredInput(admin, provider, pageId)
   if (!input) {
     return { ok: false, status: 400, error: `Connect ${PROVIDER_LABEL[provider]} in Settings before syncing.` }
   }
@@ -121,6 +128,13 @@ export async function syncPageIntegration(admin: SupabaseClient, provider: SyncP
   // Advance the Calendly rotation cursor so the background cron doesn't immediately re-run it.
   if (provider === 'calendly') {
     await admin.from('page_secrets').update({ calendly_synced_at: nowIso }).eq('page_id', pageId)
+  } else if (provider === 'shopify') {
+    try {
+      await markShopifySynced(admin, pageId, nowIso)
+    } catch {
+      // The catalog write succeeded; a stale health timestamp should not turn a
+      // successful merchant sync into an error.
+    }
   }
 
   captureEvent('integration.manual_sync', { provider, slug: page.slug, imported: imported.offers.length, windows: windows.length })

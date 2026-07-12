@@ -6,6 +6,9 @@ import { upsertInstall } from '../../../../lib/server/shopify-install'
 import { appUrl } from '../../../../lib/site'
 import { createClient } from '../../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
+import { hasSecretCryptoKey } from '../../../../lib/server/secret-crypto'
+
+const TOKEN_EXCHANGE_TIMEOUT_MS = 10_000
 
 /**
  * Shopify OAuth callback: verifies the request HMAC + CSRF `state`, exchanges the
@@ -17,6 +20,9 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supaba
 export async function GET(request: Request) {
   if (!shopifyConfigured()) {
     return NextResponse.json({ error: 'Shopify app is not configured.' }, { status: 404 })
+  }
+  if (!hasSupabaseAdminEnv() || !hasSecretCryptoKey()) {
+    return NextResponse.json({ error: 'Shopify credential storage is not configured.' }, { status: 503 })
   }
   const params = new URL(request.url).searchParams
   const shop = resolveShopDomain(params.get('shop') || '')
@@ -39,23 +45,46 @@ export async function GET(request: Request) {
   }
 
   let token = ''
+  let refreshToken = ''
+  let expiresIn = 0
+  let refreshTokenExpiresIn = 0
   let scope = ''
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), TOKEN_EXCHANGE_TIMEOUT_MS)
   try {
+    const body = new URLSearchParams({
+      client_id: shopifyApiKey(),
+      client_secret: process.env.SHOPIFY_API_SECRET || '',
+      code,
+      expiring: '1',
+    })
     const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({ client_id: shopifyApiKey(), client_secret: process.env.SHOPIFY_API_SECRET, code }),
+      headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
+      body,
       redirect: 'error',
+      signal: controller.signal,
     })
     if (!res.ok) return NextResponse.json({ error: 'Token exchange failed.' }, { status: 502 })
-    const json = (await res.json()) as { access_token?: string; scope?: string }
+    const json = (await res.json()) as {
+      access_token?: string
+      refresh_token?: string
+      expires_in?: number
+      refresh_token_expires_in?: number
+      scope?: string
+    }
     token = String(json.access_token || '')
+    refreshToken = String(json.refresh_token || '')
+    expiresIn = Number(json.expires_in || 0)
+    refreshTokenExpiresIn = Number(json.refresh_token_expires_in || 0)
     scope = String(json.scope || '')
   } catch {
     return NextResponse.json({ error: 'Token exchange error.' }, { status: 502 })
+  } finally {
+    clearTimeout(timer)
   }
-  if (!token) {
-    return NextResponse.json({ error: 'No access token returned.' }, { status: 502 })
+  if (!token || !refreshToken || expiresIn <= 0 || refreshTokenExpiresIn <= 0) {
+    return NextResponse.json({ error: 'Shopify did not return rotating offline credentials.' }, { status: 502 })
   }
 
   // Link the install to the signed-in Nexez owner if there is one (the OAuth
@@ -70,8 +99,18 @@ export async function GET(request: Request) {
     /* not signed in */
   }
 
-  if (hasSupabaseAdminEnv()) {
-    await upsertInstall(createAdminClient(), { shop, offlineToken: token, scope, ownerId: ownerId ?? undefined })
+  try {
+    await upsertInstall(createAdminClient(), {
+      shop,
+      offlineToken: token,
+      refreshToken,
+      expiresIn,
+      refreshTokenExpiresIn,
+      scope,
+      ownerId: ownerId ?? undefined,
+    })
+  } catch {
+    return NextResponse.json({ error: 'Could not save the Shopify installation.' }, { status: 503 })
   }
   jar.delete('shopify_oauth_state')
   // Signed proof that THIS browser just installed THIS shop → authorizes the
