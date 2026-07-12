@@ -109,6 +109,14 @@ describe('canonicalHostFor', () => {
     expect(canonicalHostFor('/negotiate/abc-123')).toBe(AGENT_RUNTIME_HOST)
   })
 
+  it('routes the ACP/UCP agentic-commerce surfaces to the agent runtime host', () => {
+    // The product feed + the merchant-hosted checkout-session endpoints (called by
+    // OpenAI/Google) belong on nexez.app next to /api/checkout.
+    expect(canonicalHostFor('/acp/feed.json')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/api/acp/checkout_sessions')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/api/ucp/checkout-sessions')).toBe(AGENT_RUNTIME_HOST)
+  })
+
   it('routes the buyer order portal to the runtime, but keeps owner /api/orders/* on the app host', () => {
     // The buyer portal (public, token-gated) lives on the agent runtime…
     expect(canonicalHostFor('/orders')).toBe(AGENT_RUNTIME_HOST)

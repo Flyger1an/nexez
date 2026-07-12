@@ -108,10 +108,16 @@ const APP_API_PREFIXES = [
 
 // `/orders` is the public buyer order portal - buyer-facing, cookie-isolated, lives
 // on the agent runtime next to `/checkout` (where the buyer already is).
-const AGENT_RUNTIME_PREFIXES = ['/checkout', '/negotiate', '/orders', '/store', '/.well-known'] as const
+// `/acp` = the OpenAI Agentic Commerce Protocol product feed (agent-ingested flat
+// file); it belongs on the agent runtime next to /checkout, canonical on nexez.app.
+const AGENT_RUNTIME_PREFIXES = ['/checkout', '/negotiate', '/orders', '/store', '/acp', '/.well-known'] as const
 
 const AGENT_RUNTIME_API_PREFIXES = [
   '/api/agent-search',
+  // ACP + UCP agentic-commerce protocol endpoints (merchant-hosted checkout sessions,
+  // called by OpenAI/Google) live on the agent runtime alongside /api/checkout.
+  '/api/acp',
+  '/api/ucp',
   '/api/checkout',
   '/api/cron',
   '/api/negotiations',
