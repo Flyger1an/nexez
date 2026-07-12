@@ -69,12 +69,19 @@ export function mapCustomDomainPath(slug: string, pathname: string): string {
   if (pathname === '/mcp.json') return `/${slug}/mcp.json`
   if (pathname === '/llms.txt') return `/${slug}/llms.txt`
   if (pathname === '/openapi.json') return `/${slug}/openapi.json`
+  // The standard discovery probe path — answer it with the listing's live manifest.
+  if (pathname === '/.well-known/agent.json') return `/${slug}/agent.json`
+  if (pathname === '/.well-known/mcp.json') return `/${slug}/mcp.json`
   return pathname
 }
 
 // Agent artifacts served at a page's root on a custom domain.
 export const DOMAIN_ARTIFACTS = ['agent.json', 'mcp.json', 'llms.txt', 'openapi.json'] as const
 export type DomainArtifact = (typeof DOMAIN_ARTIFACTS)[number]
+
+// Artifacts that agents probe under the conventional `/.well-known/` prefix. Only
+// agent.json + mcp.json live there (llms.txt/openapi.json are served at the root).
+const WELL_KNOWN_ARTIFACTS: readonly DomainArtifact[] = ['agent.json', 'mcp.json']
 
 /**
  * Decompose an incoming custom-domain pathname into the `domain_path` it
@@ -100,6 +107,15 @@ export function resolveDomainPath(
   const isArtifact = (s: string): s is DomainArtifact =>
     (DOMAIN_ARTIFACTS as readonly string[]).includes(s)
 
+  // `/.well-known/*` is NEVER a listing basePath. The standard discovery probes
+  // (agent.json/mcp.json) map to the ROOT page's artifact; anything else under
+  // /.well-known is unowned (null → passthrough). Handled early so the generic
+  // `/<seg>/<artifact>` rule can't mistake `.well-known` for a sub-page.
+  if (segments[0] === '.well-known') {
+    return segments.length === 2 && (WELL_KNOWN_ARTIFACTS as readonly string[]).includes(segments[1]!)
+      ? { basePath: '/', artifact: segments[1] as DomainArtifact }
+      : null
+  }
   // /<artifact> at the domain root
   if (segments.length === 1 && isArtifact(segments[0]!)) {
     return { basePath: '/', artifact: segments[0] as DomainArtifact }

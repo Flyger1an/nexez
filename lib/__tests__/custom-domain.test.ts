@@ -177,3 +177,36 @@ describe('buildCustomDomainRewrite', () => {
     expect(buildCustomDomainRewrite(map, '/checkout/x')).toBeNull()
   })
 })
+
+describe('.well-known discovery-probe parity (P2)', () => {
+  const map = { '/': 'home-slug' }
+
+  it('resolveDomainPath treats /.well-known/agent.json + mcp.json as ROOT artifacts', () => {
+    expect(resolveDomainPath('/.well-known/agent.json')).toEqual({ basePath: '/', artifact: 'agent.json' })
+    expect(resolveDomainPath('/.well-known/mcp.json')).toEqual({ basePath: '/', artifact: 'mcp.json' })
+  })
+
+  it('does NOT treat .well-known as a sub-page basePath', () => {
+    // The generic /<seg>/<artifact> rule must not fire — .well-known is not a listing.
+    const resolved = resolveDomainPath('/.well-known/agent.json')
+    expect(resolved?.basePath).not.toBe('/.well-known')
+  })
+
+  it('only agent.json + mcp.json live under /.well-known (llms/openapi do not)', () => {
+    // llms.txt/openapi.json aren't conventionally under /.well-known → unowned.
+    expect(resolveDomainPath('/.well-known/llms.txt')).toBeNull()
+    expect(resolveDomainPath('/.well-known/openapi.json')).toBeNull()
+    expect(resolveDomainPath('/.well-known/random.json')).toBeNull()
+  })
+
+  it('the proxy rewrite answers the probe with the listing manifest', () => {
+    expect(buildCustomDomainRewrite(map, '/.well-known/agent.json')).toBe('/home-slug/agent.json')
+    expect(buildCustomDomainRewrite(map, '/.well-known/mcp.json')).toBe('/home-slug/mcp.json')
+  })
+
+  it('mapCustomDomainPath maps the well-known probe paths too', () => {
+    expect(mapCustomDomainPath('acme', '/.well-known/agent.json')).toBe('/acme/agent.json')
+    expect(mapCustomDomainPath('acme', '/.well-known/mcp.json')).toBe('/acme/mcp.json')
+    expect(mapCustomDomainPath('acme', '/.well-known/llms.txt')).toBe('/.well-known/llms.txt') // passthrough
+  })
+})
