@@ -132,6 +132,61 @@ export function buildRedirectRecipes(page: AgentPage, opts: { baseUrl?: string }
   ]
 }
 
+/** A copy-paste HEAD snippet + where to paste it, for a hosted site builder that
+ * can't add server redirects or serve /.well-known files. */
+export type InjectionRecipe = {
+  id: 'wix' | 'squarespace' | 'generic'
+  title: string
+  /** Where in the platform's UI to paste the snippet. */
+  instructions: string
+  language: 'html'
+  content: string
+}
+
+/**
+ * Head code-injection recipes for HOSTED site builders (Wix, Squarespace, and any
+ * "header code" box). These platforms don't let you add server redirects or host a
+ * /.well-known file, so the redirect recipes don't apply — instead the merchant
+ * injects the JSON-LD (the single biggest legibility win) + the manifest link tag
+ * site-wide. Pure + deterministic; derives only from public listing data.
+ */
+export function buildCodeInjectionRecipes(page: AgentPage, opts: { baseUrl?: string } = {}): InjectionRecipe[] {
+  const base = (opts.baseUrl ?? getBaseUrl()).replace(/\/$/, '')
+  const slug = page.slug
+  const agentJsonUrl = `${base}/${slug}/agent.json`
+  const name = page.name || slug
+  // The two <head> blocks a hosted builder can inject: structured data + discovery link.
+  const headSnippet = [
+    '<!-- Nexez — make this site agent-legible (structured offers + manifest link) -->',
+    `<script type="application/ld+json">${safeJsonScript(buildJsonLd(page, base))}</script>`,
+    `<link rel="alternate" type="application/json" href="${agentJsonUrl}" title="${escapeHtmlAttr(name)} — agent manifest">`,
+  ].join('\n')
+
+  return [
+    {
+      id: 'wix',
+      title: 'Wix',
+      instructions: 'Wix dashboard → Settings → Custom Code → + Add Custom Code. Paste below, set “Place Code in” to Head, and apply to All pages.',
+      language: 'html',
+      content: headSnippet,
+    },
+    {
+      id: 'squarespace',
+      title: 'Squarespace',
+      instructions: 'Squarespace → Settings → Advanced → Code Injection. Paste into the Header box and save.',
+      language: 'html',
+      content: headSnippet,
+    },
+    {
+      id: 'generic',
+      title: 'Any site builder',
+      instructions: 'Paste into your platform’s site-wide “header code” / custom <head> box (Webflow, Framer, Carrd, GoDaddy, etc.).',
+      language: 'html',
+      content: headSnippet,
+    },
+  ]
+}
+
 export function buildAgentReadyKit(page: AgentPage, opts: { baseUrl?: string } = {}): KitBlock[] {
   const base = (opts.baseUrl ?? getBaseUrl()).replace(/\/$/, '')
   const slug = page.slug

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, Copy, Globe2, Puzzle, Rocket, ShieldCheck } from 'lucide-react'
 import type { AgentPage } from '../../lib/agent-page'
-import { buildAgentReadyKit, buildRedirectRecipes, type RecipeBlock } from '../../lib/agent-ready-kit'
+import { buildAgentReadyKit, buildRedirectRecipes, buildCodeInjectionRecipes, type RecipeBlock, type InjectionRecipe } from '../../lib/agent-ready-kit'
 import {
   generateWebsiteVerificationToken,
   verificationMetaTag,
@@ -45,6 +45,12 @@ export function WebsitePanel({
   const recipes = useMemo(() => buildRedirectRecipes(page), [page])
   const [recipeTab, setRecipeTab] = useState<RecipeBlock['id']>('apache')
   const recipe = recipes.find((r) => r.id === recipeTab) ?? recipes[0]
+
+  // Hosted site builders (Wix/Squarespace) can't add redirects or /.well-known —
+  // they inject a <head> snippet instead.
+  const injectionRecipes = useMemo(() => buildCodeInjectionRecipes(page), [page])
+  const [injectionTab, setInjectionTab] = useState<InjectionRecipe['id']>('wix')
+  const injectionRecipe = injectionRecipes.find((r) => r.id === injectionTab) ?? injectionRecipes[0]
 
   const load = useCallback(async () => {
     try {
@@ -250,6 +256,48 @@ export function WebsitePanel({
           {token ? (
             <div className="mt-2">
               <Artifact id="wp-token" label="Verification token (optional — the plugin can serve the file-method proof)" value={token} copiedId={copiedId} onCopy={copy} />
+            </div>
+          ) : null}
+        </div>
+
+        {/* Hosted builders (Wix, Squarespace): no server config — inject a <head> snippet. */}
+        <div className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3">
+          <p className="flex items-center gap-2 text-sm font-medium">
+            <Puzzle className="size-4 text-[var(--fg-muted)]" /> On Wix or Squarespace?
+          </p>
+          <p className="mt-0.5 text-xs text-[var(--fg-muted)]">
+            These builders don’t allow redirect rules, so paste this <span className="font-mono">&lt;head&gt;</span> snippet (your
+            structured offers + manifest link) into their code-injection box instead. Pick your platform:
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {injectionRecipes.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => setInjectionTab(r.id)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition ${injectionTab === r.id ? 'bg-[var(--signal)] text-black' : 'border border-white/15 text-[var(--fg-muted)]'}`}
+              >
+                {r.title}
+              </button>
+            ))}
+          </div>
+          {injectionRecipe ? (
+            <div className="mt-2">
+              <div className="flex items-start justify-between gap-3">
+                <p className="min-w-0 text-xs text-[var(--fg-muted)]">{injectionRecipe.instructions}</p>
+                <button
+                  type="button"
+                  onClick={() => copy(`inject-${injectionRecipe.id}`, injectionRecipe.content)}
+                  className="shrink-0 rounded-md border border-white/15 p-1.5 text-[var(--fg-muted)] transition hover:text-[var(--fg)]"
+                  aria-label={`Copy ${injectionRecipe.title} snippet`}
+                  title="Copy"
+                >
+                  {copiedId === `inject-${injectionRecipe.id}` ? <Check className="size-4" style={{ color: 'var(--ready)' }} /> : <Copy className="size-4" />}
+                </button>
+              </div>
+              <pre className="mt-2 max-h-56 overflow-auto rounded-md bg-black/40 p-2 font-mono text-[11px] leading-5 text-[var(--fg-muted)]">
+                {injectionRecipe.content}
+              </pre>
             </div>
           ) : null}
         </div>

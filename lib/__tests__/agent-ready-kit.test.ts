@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildAgentReadyKit, buildArtifactRedirects, buildRedirectRecipes } from '../agent-ready-kit'
+import { buildAgentReadyKit, buildArtifactRedirects, buildRedirectRecipes, buildCodeInjectionRecipes } from '../agent-ready-kit'
 import type { AgentPage } from '../agent-page'
 
 function page(over: Partial<AgentPage> = {}): AgentPage {
@@ -131,5 +131,45 @@ describe('buildRedirectRecipes', () => {
 
   it('is deterministic (pure)', () => {
     expect(buildRedirectRecipes(page(), { baseUrl: BASE })).toEqual(buildRedirectRecipes(page(), { baseUrl: BASE }))
+  })
+})
+
+describe('buildCodeInjectionRecipes (hosted builders)', () => {
+  it('covers Wix, Squarespace, and a generic fallback', () => {
+    const recipes = buildCodeInjectionRecipes(page(), { baseUrl: BASE })
+    expect(recipes.map((r) => r.id)).toEqual(['wix', 'squarespace', 'generic'])
+    for (const r of recipes) {
+      expect(r.title).toBeTruthy()
+      expect(r.instructions).toBeTruthy()
+      expect(r.language).toBe('html')
+    }
+  })
+
+  it('each recipe is the same head snippet: JSON-LD + manifest link anchored at the listing', () => {
+    const recipes = buildCodeInjectionRecipes(page(), { baseUrl: BASE })
+    const contents = new Set(recipes.map((r) => r.content))
+    expect(contents.size).toBe(1) // identical head snippet across platforms
+    const snippet = recipes[0].content
+    expect(snippet).toContain('<script type="application/ld+json">')
+    expect(snippet).toContain('<link rel="alternate" type="application/json"')
+    expect(snippet).toContain(`${BASE}/${page().slug}/agent.json`)
+  })
+
+  it('escapes the business name in the manifest link attribute (no injection)', () => {
+    const snippet = buildCodeInjectionRecipes(page({ name: 'Ray\'s "Auto" <x" onmouseover=alert(1)' }), { baseUrl: BASE })[0].content
+    // The name's own <, " are escaped so they can't break OUT of the title attribute.
+    expect(snippet).not.toContain('<x"')
+    expect(snippet).toContain('&quot;')
+    expect(snippet).toContain('&lt;x')
+  })
+
+  it('platform instructions name the right code-injection path', () => {
+    const byId = Object.fromEntries(buildCodeInjectionRecipes(page(), { baseUrl: BASE }).map((r) => [r.id, r.instructions]))
+    expect(byId.wix).toMatch(/Custom Code/i)
+    expect(byId.squarespace).toMatch(/Code Injection/i)
+  })
+
+  it('is deterministic (pure)', () => {
+    expect(buildCodeInjectionRecipes(page(), { baseUrl: BASE })).toEqual(buildCodeInjectionRecipes(page(), { baseUrl: BASE }))
   })
 })
