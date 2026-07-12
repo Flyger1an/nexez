@@ -1,6 +1,8 @@
 import { getBaseUrl, getCheckoutOffers, type AgentPage } from './agent-page'
 import { buildAgentDistributionLinks } from './agent-distribution'
 import { agentArtifactHref } from './custom-domain'
+import { ACP_API_VERSION, acpCheckoutEnabled } from './acp/constants'
+import { ucpCheckoutEnabled } from './ucp/constants'
 
 export function buildNexezCapabilities() {
   const baseUrl = getBaseUrl()
@@ -62,6 +64,27 @@ export function buildNexezCapabilities() {
         supports_dry_run: true,
       },
     ],
+    // Agentic-commerce protocol surfaces (OpenAI ACP + Google UCP). The product
+    // feeds are always live for discovery/indexing; the checkout-session endpoints
+    // are fail-closed dormant until the platform completes each program's enrollment
+    // (shared secret + partner status), reflected in `checkout_status`.
+    agentic_commerce: {
+      acp: {
+        protocol: 'OpenAI Agentic Commerce Protocol',
+        api_version: ACP_API_VERSION,
+        product_feed_url: `${baseUrl}/acp/feed.json`,
+        checkout_sessions_url: `${baseUrl}/api/acp/checkout_sessions`,
+        authentication: 'bearer',
+        checkout_status: acpCheckoutEnabled() ? 'live' : 'search_only',
+      },
+      ucp: {
+        protocol: 'Google Universal Commerce Protocol',
+        product_feed_url: `${baseUrl}/ucp/feed.json`,
+        checkout_sessions_url: `${baseUrl}/api/ucp/checkout-sessions`,
+        authentication: 'bearer',
+        checkout_status: ucpCheckoutEnabled() ? 'live' : 'search_only',
+      },
+    },
     privacy: {
       published_pages_are_public: true,
       checkout_events_are_owner_readable: true,

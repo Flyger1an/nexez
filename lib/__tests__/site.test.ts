@@ -113,6 +113,7 @@ describe('canonicalHostFor', () => {
     // The product feed + the merchant-hosted checkout-session endpoints (called by
     // OpenAI/Google) belong on nexez.app next to /api/checkout.
     expect(canonicalHostFor('/acp/feed.json')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/ucp/feed.json')).toBe(AGENT_RUNTIME_HOST)
     expect(canonicalHostFor('/api/acp/checkout_sessions')).toBe(AGENT_RUNTIME_HOST)
     expect(canonicalHostFor('/api/ucp/checkout-sessions')).toBe(AGENT_RUNTIME_HOST)
   })

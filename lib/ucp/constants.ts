@@ -7,6 +7,7 @@
 // exactly like ACP's Shared Payment Token.
 
 export const UCP_SESSION_SCHEMA_VERSION = 'ucp.checkout-session.v1'
+export const UCP_FEED_SCHEMA_VERSION = 'ucp.product-feed.v1'
 
 /** UCP requires terms + privacy links on the session. Platform-level URLs (Nexez is
  * the checkout facilitator) on the marketing host. */
