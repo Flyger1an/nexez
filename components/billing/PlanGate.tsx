@@ -27,11 +27,13 @@ type PlanGateProps = {
 
 // Enterprise isn't self-serve - its "upgrade" is a sales conversation, not a
 // checkout link (a checkout deep-link for Enterprise silently does nothing).
-function upgradeHref(planId: PlanId) {
+// Exported so bespoke upgrade surfaces (e.g. the agentic-checkout modal) share
+// the exact same destination semantics.
+export function upgradeHref(planId: PlanId) {
   if (planId === 'enterprise') return appUrl('/support?topic=enterprise')
   return appUrl(`/dashboard/billing?plan=${planId}`)
 }
-function upgradeCta(planId: PlanId, planName: string) {
+export function upgradeCta(planId: PlanId, planName: string) {
   return planId === 'enterprise' ? 'Talk to sales' : `Upgrade to ${planName}`
 }
 // The default "this lives on plan X" body, shared by the gate teaser and the

@@ -131,7 +131,7 @@ export const billingPlans: BillingPlan[] = [
     cadence: 'month',
     envVar: 'STRIPE_PRICE_PRO',
     blurb: 'For teams running services, bookings, and paid offers.',
-    features: ['25 published listings', 'Team collaboration (3 seats)', 'White-label branding', 'Integrations, webhooks & API', 'Negotiation & smart pricing'],
+    features: ['Agentic Checkout — sell inside ChatGPT & Google', '25 published listings', 'Team collaboration (3 seats)', 'White-label branding', 'Integrations, webhooks & API', 'Negotiation & smart pricing'],
     limits: { pages: 25, customDomains: 5, teamSeats: 3 },
     commissionPercent: 6,
   },

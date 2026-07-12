@@ -100,6 +100,54 @@ export default function PricingPage() {
           })}
         </div>
 
+        {/* Agentic Checkout — the Pro benefit callout. Copy source:
+            docs/agentic-commerce-upgrade-copy.md; commission numbers rendered from the
+            billing catalog so they can never drift from what's actually charged. */}
+        {(() => {
+          const launch = billingPlans.find((p) => p.id === 'launch')!
+          const pro = billingPlans.find((p) => p.id === 'pro')!
+          const rows: { label: string; launch: React.ReactNode; pro: React.ReactNode }[] = [
+            { label: 'Listed in ChatGPT & Google agent feeds', launch: <Check className="mx-auto size-4" style={{ color: 'var(--ready)' }} />, pro: <Check className="mx-auto size-4" style={{ color: 'var(--ready)' }} /> },
+            { label: 'Agents can complete checkout', launch: <span className="text-zinc-600">—</span>, pro: <Check className="mx-auto size-4" style={{ color: 'var(--ready)' }} /> },
+            { label: 'Transaction commission', launch: `${launch.commissionPercent}%`, pro: <span className="font-semibold">{pro.commissionPercent}%</span> },
+          ]
+          return (
+            <div className="glass mb-16 rounded-3xl p-8 md:p-12">
+              <div className="grid items-center gap-8 md:grid-cols-2">
+                <div>
+                  <div className="chip mx-0" style={{ color: 'var(--signal)' }}>New — Agentic Checkout</div>
+                  <h2 className="mt-4 text-3xl font-semibold tracking-tight">Turn agent traffic into agent sales.</h2>
+                  <p className="mt-3 text-sm text-[#9CA3AF]">
+                    Every published listing already shows up when ChatGPT and Google&rsquo;s shopping agents look for what you sell.{' '}
+                    <span className="text-white">Pro lets those agents close the sale</span> — buyers check out and pay without ever
+                    leaving the chat, settled straight to your Stripe account. You also pay the lowest commission of the core plans:{' '}
+                    <span className="text-white">{pro.commissionPercent}%</span>.
+                  </p>
+                  <p className="mt-3 text-xs italic text-zinc-500">Discovery is free forever. Pro is what makes you buyable.</p>
+                </div>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-xs uppercase tracking-wide text-zinc-500">
+                      <th className="pb-2 text-left font-medium">&nbsp;</th>
+                      <th className="pb-2 text-center font-medium">{launch.name}</th>
+                      <th className="pb-2 text-center font-medium" style={{ color: 'var(--signal)' }}>{pro.name}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row) => (
+                      <tr key={row.label} className="border-t border-white/10">
+                        <td className="py-3 pr-3 text-[#9CA3AF]">{row.label}</td>
+                        <td className="py-3 text-center">{row.launch}</td>
+                        <td className="py-3 text-center">{row.pro}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Platform Fees Section */}
         <div className="glass prism rounded-3xl p-8 md:p-12">
           <div className="text-center">

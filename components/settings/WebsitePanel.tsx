@@ -5,6 +5,8 @@ import { ArrowUpRight, Bot, Check, Copy, Globe2, Puzzle, Rocket, ShieldCheck, Sp
 import type { AgentPage } from '../../lib/agent-page'
 import { buildAgentReadyKit, buildRedirectRecipes, buildCodeInjectionRecipes, type RecipeBlock, type InjectionRecipe } from '../../lib/agent-ready-kit'
 import { agenticCommerceStatus, type AgenticCommerceStatus } from '../../lib/agentic-commerce-status'
+import { AgenticCheckoutUpgradeModal } from '../billing/AgenticCheckoutUpgradeModal'
+import type { PlanId } from '../../lib/billing'
 import {
   generateWebsiteVerificationToken,
   verificationMetaTag,
@@ -41,6 +43,10 @@ export function WebsitePanel({
   // The checkout gates from settings-context (plan + Connect + each surface's program
   // flag); the discovery/checkout STATUS is derived from these + the listing's published state.
   const [agentic, setAgentic] = useState<{ planAllowsCheckout: boolean; connectReady: boolean; chatgptLive: boolean; googleLive: boolean } | null>(null)
+  // The OWNER's effective plan (from the same fetch) — the upgrade modal derives the
+  // honest commission comparison (e.g. Launch 8% → Pro 6%) from it.
+  const [ownerPlan, setOwnerPlan] = useState<PlanId | null>(null)
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
 
   const host = websiteHostOf(page.website_url)
   const verifiedAt = page.website_verified_at ?? null
@@ -82,6 +88,7 @@ export function WebsitePanel({
           googleLive: Boolean(json.agenticCommerce.googleLive),
         })
       }
+      if (typeof json?.plan === 'string') setOwnerPlan(json.plan as PlanId)
     } catch {
       /* non-fatal */
     }
@@ -217,7 +224,8 @@ export function WebsitePanel({
 
       {/* Agentic commerce — the ChatGPT + Google transaction layer (discovery is free,
           checkout is the Pro upgrade). Renders the listing's true, live status. */}
-      {agenticStatus ? <AgenticCommerceCard status={agenticStatus} /> : null}
+      {agenticStatus ? <AgenticCommerceCard status={agenticStatus} onUpgrade={() => setUpgradeOpen(true)} /> : null}
+      <AgenticCheckoutUpgradeModal open={upgradeOpen} onClose={() => setUpgradeOpen(false)} currentPlan={ownerPlan} />
 
       {/* Serve LIVE artifacts on the merchant's own domain (the Phase-2 upgrade) */}
       <div>
@@ -373,7 +381,10 @@ export function WebsitePanel({
  * in the feeds); checkout is the Pro upgrade, gated on plan + payout-ready Connect +
  * program go-live. The `status` is computed by the shared agenticCommerceStatus().
  */
-function AgenticCommerceCard({ status }: { status: AgenticCommerceStatus }) {
+/** A card CTA is either a navigation (href) or an in-place action (onClick). */
+type CardCta = { label: string; primary: boolean } & ({ href: string } | { onClick: () => void })
+
+function AgenticCommerceCard({ status, onUpgrade }: { status: AgenticCommerceStatus; onUpgrade: () => void }) {
   const discoveryLive = status.discovery === 'live'
 
   const surfaceName = (s: AgenticCommerceStatus['liveSurfaces'][number]) => (s === 'chatgpt' ? 'ChatGPT' : 'Google')
@@ -388,16 +399,17 @@ function AgenticCommerceCard({ status }: { status: AgenticCommerceStatus }) {
         return { color: 'var(--ready)', line: `live on ${live} — buyers complete the purchase without leaving the chat.${pending}`, cta: null }
       }
       case 'needs_plan':
+        // Opens the benefit-led upgrade modal (not a bare billing link).
         return {
           color: 'var(--signal)',
           line: 'upgrade to Pro to let agents complete the sale, not just discover you.',
-          cta: { href: '/dashboard/billing', label: 'Upgrade to Pro', primary: true },
+          cta: { onClick: onUpgrade, label: 'Upgrade to Pro', primary: true } as CardCta,
         }
       case 'needs_payouts':
         return {
           color: 'var(--amber)',
           line: 'connect Stripe payouts so agent orders can settle to your account.',
-          cta: { href: '/dashboard/finance', label: 'Connect payouts', primary: false },
+          cta: { href: '/dashboard/finance', label: 'Connect payouts', primary: false } as CardCta,
         }
       case 'enrolling':
         return {
@@ -448,16 +460,20 @@ function AgenticCommerceCard({ status }: { status: AgenticCommerceStatus }) {
       </div>
 
       {checkout.cta ? (
-        <a
-          href={checkout.cta.href}
-          className={
-            checkout.cta.primary
-              ? 'mt-3 inline-flex items-center gap-1 rounded-md bg-[var(--signal-solid)] px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90'
-              : 'mt-3 inline-flex items-center gap-1 rounded-md border border-white/15 px-3 py-1.5 text-xs font-medium text-[var(--fg)] transition hover:border-white/30'
-          }
-        >
-          {checkout.cta.label} <ArrowUpRight className="size-3.5" />
-        </a>
+        (() => {
+          const cls = checkout.cta.primary
+            ? 'mt-3 inline-flex items-center gap-1 rounded-md bg-[var(--signal-solid)] px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90'
+            : 'mt-3 inline-flex items-center gap-1 rounded-md border border-white/15 px-3 py-1.5 text-xs font-medium text-[var(--fg)] transition hover:border-white/30'
+          return 'href' in checkout.cta ? (
+            <a href={checkout.cta.href} className={cls}>
+              {checkout.cta.label} <ArrowUpRight className="size-3.5" />
+            </a>
+          ) : (
+            <button type="button" onClick={checkout.cta.onClick} className={cls}>
+              {checkout.cta.label} <ArrowUpRight className="size-3.5" />
+            </button>
+          )
+        })()
       ) : null}
     </div>
   )
