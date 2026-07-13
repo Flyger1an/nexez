@@ -3,7 +3,7 @@ import { ArrowRight, BookOpen } from 'lucide-react'
 import { learnArticles } from '../../lib/learn-content'
 import { marketingUrl } from '../../lib/site'
 
-const metaTitle = 'Learn — guides to selling through AI agents'
+const metaTitle = 'Learn: guides to selling through AI agents'
 const metaDescription =
   'Practical guides to agentic commerce: selling through ChatGPT and Google, ACP and UCP enrollment, MCP, llms.txt, and making any business bookable by AI agents.'
 
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: marketingUrl('/learn'),
   },
-  // Page-level openGraph replaces the layout's wholesale (shallow merge) — re-carry type/siteName.
+  // Page-level openGraph replaces the layout's wholesale (shallow merge), so re-carry type/siteName.
   openGraph: {
     type: 'website',
     siteName: 'Nexez',
@@ -56,7 +56,7 @@ export default function LearnHubPage() {
             Guides to selling through AI agents.
           </h1>
           <p className="mt-4 max-w-2xl text-muted-foreground">
-            How agentic commerce actually works — and how to make your business discoverable, understandable, and
+            How agentic commerce actually works, and how to make your business discoverable, understandable, and
             bookable by the agents doing the buying.
           </p>
         </div>

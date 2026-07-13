@@ -6,7 +6,7 @@ export const acpEnrollmentGuide: LearnArticle = {
   metaDescription:
     'A merchant-side guide to OpenAI’s ACP: the four surfaces you build, the enrollment path, honest effort estimates, and the gotchas that bite real integrations.',
   title: 'The Agentic Commerce Protocol (ACP): an enrollment guide for merchants',
-  dek: 'ACP is how ChatGPT buys from you: your feed, your checkout API, your Stripe account, OpenAI’s buyer. Here’s what you actually build, how enrollment works, and where implementations go wrong — written by a team that shipped one.',
+  dek: 'ACP is how ChatGPT buys from you: your feed, your checkout API, your Stripe account, OpenAI’s buyer. Here’s what you actually build, how enrollment works, and where implementations go wrong, written by a team that shipped one.',
   category: 'Agentic commerce',
   publishedAt: '2026-07-13',
   updatedAt: '2026-07-13',
@@ -14,7 +14,7 @@ export const acpEnrollmentGuide: LearnArticle = {
   blocks: [
     {
       type: 'p',
-      text: 'In September 2025, OpenAI launched Instant Checkout in ChatGPT, built on the Agentic Commerce Protocol (ACP) — an open specification it developed with Stripe. The promise to merchants is direct: a ChatGPT user asks for something, your product appears, and they buy it inside the conversation while the order lands in your systems like any other sale.',
+      text: 'In September 2025, OpenAI launched Instant Checkout in ChatGPT, built on the Agentic Commerce Protocol (ACP), an open specification it developed with Stripe. The promise to merchants is direct: a ChatGPT user asks for something, your product appears, and they buy it inside the conversation while the order lands in your systems like any other sale.',
     },
     {
       type: 'p',
@@ -22,16 +22,16 @@ export const acpEnrollmentGuide: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'The official docs tell you what the API looks like. What they don’t give you is the merchant-side view: what you actually have to build, what enrollment involves, and where implementations break. We built and shipped a complete ACP implementation at Nexez — feed, checkout sessions, order webhooks, settlement — so this guide comes from doing the work, not paraphrasing the spec.',
+      text: 'The official docs tell you what the API looks like. What they don’t give you is the merchant-side view: what you actually have to build, what enrollment involves, and where implementations break. We built and shipped a complete ACP implementation at Nexez, including feeds, checkout sessions, order webhooks, and settlement. This guide comes from doing the work, not paraphrasing the spec.',
     },
     { type: 'h2', text: 'What ACP actually is (and what it isn’t)' },
     {
       type: 'p',
-      text: 'ACP is a REST contract between an AI application and a merchant. The AI surface — ChatGPT today, in principle anything that speaks the protocol — discovers your products through a feed you publish, runs a checkout against an API you host, and hands you a payment credential at the end. You fulfill the order, you answer the support emails, you process the refunds.',
+      text: 'ACP is a REST contract between an AI application and a merchant. The AI surface, whether ChatGPT today or anything else that speaks the protocol, discovers your products through a feed you publish, runs a checkout against an API you host, and hands you a payment credential at the end. You fulfill the order, you answer the support emails, you process the refunds.',
     },
     {
       type: 'p',
-      text: 'The most important design decision sits in that last sentence: you remain the merchant of record. OpenAI is not a marketplace. It never takes custody of the money or the customer. Per OpenAI’s launch announcement, the buyer pays the same price they would on your site and merchants pay a small fee on completed purchases, while discovery costs nothing. Your fraud, tax, and chargeback obligations don’t move — and neither does your customer relationship.',
+      text: 'The most important design decision sits in that last sentence: you remain the merchant of record. OpenAI is not a marketplace. It never takes custody of the money or the customer. Per OpenAI’s launch announcement, the buyer pays the same price they would on your site and merchants pay a small fee on completed purchases, while discovery costs nothing. Your fraud, tax, and chargeback obligations don’t move. Neither does your customer relationship.',
     },
     {
       type: 'p',
@@ -39,12 +39,12 @@ export const acpEnrollmentGuide: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'Two things ACP is not. It’s not a switch you flip in a dashboard — it’s an API integration with a partner-approval gate in front of it. And it’s not the only protocol in this space: Google’s UCP and the Model Context Protocol solve adjacent problems, and it’s worth understanding [how UCP, ACP, and MCP differ](/learn/ucp-vs-acp-vs-mcp) before committing engineering time to any of them.',
+      text: 'Two things ACP is not. It’s not a switch you flip in a dashboard; it’s an API integration with a partner-approval gate in front of it. And it’s not the only protocol in this space: Google’s UCP and the Model Context Protocol solve adjacent problems, and it’s worth understanding [how UCP, ACP, and MCP differ](/learn/ucp-vs-acp-vs-mcp) before committing engineering time to any of them.',
     },
     { type: 'h2', text: 'The four surfaces you have to build' },
     {
       type: 'p',
-      text: 'A working ACP integration is four distinct pieces. None is individually hard, but they have to agree with each other exactly — most integration pain comes from surfaces disagreeing: a feed price that doesn’t match the checkout total, an order status that never gets reported back.',
+      text: 'A working ACP integration is four distinct pieces. None is individually hard, but they have to agree with each other exactly. Most integration pain comes from surfaces disagreeing: a feed price that doesn’t match the checkout total, an order status that never gets reported back.',
     },
     {
       type: 'table',
@@ -79,7 +79,7 @@ export const acpEnrollmentGuide: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'Treat the feed as a cache of your catalog living in someone else’s system. It goes stale the moment you change a price — which is exactly why the protocol makes your checkout API, not the feed, the source of truth for money.',
+      text: 'Treat the feed as a cache of your catalog living in someone else’s system. It goes stale the moment you change a price, which is exactly why the protocol makes your checkout API, not the feed, the source of truth for money.',
     },
     { type: 'h3', text: 'The checkout_sessions API' },
     {
@@ -93,12 +93,12 @@ export const acpEnrollmentGuide: LearnArticle = {
     { type: 'h3', text: 'Order webhooks' },
     {
       type: 'p',
-      text: 'After money moves, the relationship inverts: now you call OpenAI. At enrollment they give you a webhook URL and an HMAC signing secret, and your job is to push signed order events whenever state changes — confirmed, shipped, refunded, disputed. Skip this and the buyer’s order view in ChatGPT silently goes stale, which turns into support tickets on your side, not theirs.',
+      text: 'After money moves, the relationship inverts: now you call OpenAI. At enrollment they give you a webhook URL and an HMAC signing secret, and your job is to push signed order events whenever state changes: confirmed, shipped, refunded, or disputed. Skip this and the buyer’s order view in ChatGPT silently goes stale, which turns into support tickets on your side, not theirs.',
     },
     { type: 'h3', text: 'Settlement' },
     {
       type: 'p',
-      text: 'At the complete step you receive the delegated token and create a PaymentIntent with it as the payment method on your own Stripe account. The money settles exactly where your web orders settle, and refunds ride your existing rails. This is the leg teams assume is easy and then get wrong — see the idempotency gotcha below.',
+      text: 'At the complete step you receive the delegated token and create a PaymentIntent with it as the payment method on your own Stripe account. The money settles exactly where your web orders settle, and refunds ride your existing rails. This is the leg teams assume is easy and then get wrong. See the idempotency gotcha below.',
     },
     { type: 'h2', text: 'The enrollment path, step by step' },
     {
@@ -110,10 +110,10 @@ export const acpEnrollmentGuide: LearnArticle = {
       items: [
         'Apply to the program. You describe your business, catalog, and technical setup. There’s no published approval timeline, so start this before you build, not after.',
         'Publish your product feed and give OpenAI the URL. Discovery-eligible items can start appearing in ChatGPT independent of checkout approval.',
-        'Stand up the checkout_sessions endpoints — create, retrieve, update, complete, cancel — behind Bearer auth that fails closed with a 401 until credentials exist.',
+        'Stand up the checkout_sessions endpoints for create, retrieve, update, complete, and cancel behind Bearer auth that fails closed with a 401 until credentials exist.',
         'Receive credentials: the Bearer key OpenAI presents on every request, a request-signing secret, and their order-webhook URL plus HMAC secret for your outbound events.',
         'Wire settlement. Confirm with Stripe that Shared Payment Tokens work with your account structure, then charge the token at the complete step.',
-        'Certify with a test payment credential: session created, completed, a real test-mode charge, a durable order record, a buyer receipt — the full loop before any real delegated token.',
+        'Certify with a test payment credential: session created, completed, a real test-mode charge, a durable order record, and a buyer receipt. Complete the full loop before using any real delegated token.',
         'Flip checkout eligibility in your feed only after the smoke test passes end to end.',
       ],
     },
@@ -121,7 +121,7 @@ export const acpEnrollmentGuide: LearnArticle = {
       type: 'callout',
       tone: 'ready',
       title: 'Discovery doesn’t wait for checkout',
-      text: 'Feed ingestion and checkout enrollment are decoupled. Your products can be findable in ChatGPT while your checkout credentials are still in review — so publish the feed first and treat checkout as phase two, not a blocker.',
+      text: 'Feed ingestion and checkout enrollment are decoupled. Your products can be findable in ChatGPT while your checkout credentials are still in review, so publish the feed first and treat checkout as phase two, not a blocker.',
     },
     { type: 'h2', text: 'How much work is it, honestly?' },
     {
@@ -140,7 +140,7 @@ export const acpEnrollmentGuide: LearnArticle = {
         ],
         [
           'Wait for your platform',
-          'Nothing — Shopify-class platforms are wiring ACP for their merchants',
+          'Nothing; Shopify-class platforms are wiring ACP for their merchants',
           'Handled upstream',
           'Zero effort, zero control over timing or eligibility',
         ],
@@ -172,19 +172,19 @@ export const acpEnrollmentGuide: LearnArticle = {
       type: 'callout',
       tone: 'amber',
       title: 'Idempotency is not optional',
-      text: 'Networks retry. If OpenAI replays a complete call and your endpoint charges twice, that’s a double charge on a real buyer. Key every settlement on the session id — a Stripe idempotency key plus a unique index on the PaymentIntent works — so a replayed complete returns the original order, never a second charge.',
+      text: 'Networks retry. If OpenAI replays a complete call and your endpoint charges twice, that’s a double charge on a real buyer. Key every settlement on the session id. A Stripe idempotency key plus a unique index on the PaymentIntent works, so a replayed complete returns the original order, never a second charge.',
     },
     {
       type: 'callout',
       tone: 'amber',
       title: 'One session, one merchant',
-      text: 'An ACP checkout session belongs to a single merchant. If you run anything multi-tenant — a marketplace, multiple storefronts, even two brands on one backend — validate that every item in a session resolves to the same seller and reject mixed carts outright rather than attempting split settlement.',
+      text: 'An ACP checkout session belongs to a single merchant. If you run anything multi-tenant, such as a marketplace, multiple storefronts, or even two brands on one backend, validate that every item in a session resolves to the same seller and reject mixed carts outright rather than attempting split settlement.',
     },
     {
       type: 'callout',
       tone: 'amber',
       title: 'Feed prices drift; checkout is truth',
-      text: 'OpenAI ingests your feed on its schedule, not yours, so between refreshes ChatGPT may quote a stale price. Your checkout must recompute totals server-side from the live catalog — and when they differ from what the buyer saw, return the corrected total with a buyer-facing message instead of silently charging the feed price.',
+      text: 'OpenAI ingests your feed on its schedule, not yours, so between refreshes ChatGPT may quote a stale price. Your checkout must recompute totals server-side from the live catalog. When they differ from what the buyer saw, return the corrected total with a buyer-facing message instead of silently charging the feed price.',
     },
     {
       type: 'callout',
@@ -199,11 +199,11 @@ export const acpEnrollmentGuide: LearnArticle = {
     { type: 'h2', text: 'What to do while your application is in review' },
     {
       type: 'p',
-      text: 'Enrollment timing isn’t in your control. Discovery is. The same structured catalog data that feeds ACP makes your site legible to every other agent — Claude, Gemini, Perplexity, browser agents — through JSON-LD, llms.txt, and clean machine-readable pages. Even before ChatGPT can check out with you, agents can find you, compare you, and send buyers to the checkout you already have.',
+      text: 'Enrollment timing isn’t in your control. Discovery is. The same structured catalog data that feeds ACP makes your site legible to every other agent, including Claude, Gemini, Perplexity, and browser agents, through JSON-LD, llms.txt, and clean machine-readable pages. Even before ChatGPT can check out with you, agents can find you, compare you, and send buyers to the checkout you already have.',
     },
     {
       type: 'p',
-      text: 'That groundwork is measurable: run your site through a [free agent-legibility scan](/scan) to see what agents can currently extract from it, and read [what llms.txt actually does](/learn/what-is-llms-txt) before adding one. If you sell services rather than products, the deeper question is bookings — [how AI agents book service businesses](/learn/ai-agents-book-service-businesses) covers that side, and [selling on ChatGPT without Shopify](/learn/sell-on-chatgpt-without-shopify) covers the storefront question.',
+      text: 'That groundwork is measurable: run your site through a [free agent-legibility scan](/scan) to see what agents can currently extract from it, and read [what llms.txt actually does](/learn/what-is-llms-txt) before adding one. If you sell services rather than products, the deeper question is bookings. [How AI agents book service businesses](/learn/ai-agents-book-service-businesses) covers that side, and [selling on ChatGPT without Shopify](/learn/sell-on-chatgpt-without-shopify) covers the storefront question.',
     },
     {
       type: 'p',
@@ -212,7 +212,7 @@ export const acpEnrollmentGuide: LearnArticle = {
     {
       type: 'cta',
       title: 'See what AI agents can read on your site today',
-      text: 'The free Nexez scanner reads your website the way an agent does and scores what it can actually extract — offers, prices, booking info, structured data. No signup, results in about a minute.',
+      text: 'The free Nexez scanner reads your website the way an agent does and scores what it can actually extract: offers, prices, booking info, and structured data. No signup, results in about a minute.',
       href: '/scan',
       label: 'Scan your website free',
     },
@@ -226,7 +226,7 @@ export const acpEnrollmentGuide: LearnArticle = {
     {
       question: 'Who is the merchant of record for ACP orders?',
       answer:
-        'You are. OpenAI passes you the buyer and a payment credential, but the charge lands on your processor account — so refunds, chargebacks, sales tax, and customer service remain yours, exactly like an order from your own website.',
+        'You are. OpenAI passes you the buyer and a payment credential, but the charge lands on your processor account. Refunds, chargebacks, sales tax, and customer service remain yours, exactly like an order from your own website.',
     },
     {
       question: 'How long does ACP enrollment take?',
@@ -236,7 +236,7 @@ export const acpEnrollmentGuide: LearnArticle = {
     {
       question: 'Can service businesses use ACP, or is it just physical products?',
       answer:
-        'The feed format is product-shaped, but a bookable service — a consult, a class, a session — models cleanly as an offer with a price. The real work is fulfillment: a booking needs scheduling, not shipping. That’s the gap platforms like Nexez cover with calendar-backed offers and real scheduling links minted at checkout.',
+        'The feed format is product-shaped, but a bookable service such as a consult, class, or session models cleanly as an offer with a price. The real work is fulfillment: a booking needs scheduling, not shipping. That’s the gap platforms like Nexez cover with calendar-backed offers and real scheduling links minted at checkout.',
     },
     {
       question: 'What’s the difference between ACP and Google’s UCP?',
@@ -246,7 +246,7 @@ export const acpEnrollmentGuide: LearnArticle = {
     {
       question: 'What does ACP cost merchants?',
       answer:
-        'There’s no listing fee; the cost is the integration itself. OpenAI has said buyers pay the same price they’d pay on your site and merchants pay a small fee on completed purchases — discovery placement costs nothing.',
+        'There’s no listing fee; the cost is the integration itself. OpenAI has said buyers pay the same price they’d pay on your site and merchants pay a small fee on completed purchases, while discovery placement costs nothing.',
     },
   ],
 }

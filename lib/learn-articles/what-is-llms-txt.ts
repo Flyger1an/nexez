@@ -5,7 +5,7 @@ export const whatIsLlmsTxt: LearnArticle = {
   metaTitle: 'What Is llms.txt? Do You Actually Need One?',
   metaDescription:
     'llms.txt explained honestly: the spec, what Ahrefs and Google actually found, what AI agents really consume instead, and where the file belongs in your stack.',
-  title: 'What is llms.txt — and do you actually need one in 2026?',
+  title: 'What is llms.txt, and do you actually need one in 2026?',
   dek: 'The honest answer is nuanced: llms.txt is a ten-minute, zero-risk addition with no evidence behind it, sitting inside an agent-readiness stack where other artifacts demonstrably matter more. Here is what the file is, what the data shows, and what to prioritize.',
   category: 'Agent readiness',
   publishedAt: '2026-07-13',

@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react'
 import type { ArticleBlock, LearnArticle } from '../../lib/learn-content'
 
-// Server-only renderer for the typed /learn article blocks — one place owns the
+// Server-only renderer for the typed /learn article blocks. One place owns the
 // prose styling so every article stays consistent.
 
 // The ONLY inline syntax articles may use: markdown links `[label](href)`.
-// Everything else in text is rendered verbatim (no HTML — content is data).
+// Everything else in text is rendered verbatim (no HTML; content is data).
 function withLinks(text: string): ReactNode[] {
   const parts: ReactNode[] = []
   const re = /\[([^\]]+)\]\(([^)\s]+)\)/g

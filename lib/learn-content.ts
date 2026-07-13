@@ -1,6 +1,6 @@
 // The /learn content model. Articles are TYPED DATA (not freeform TSX): a single
 // renderer (components/learn/ArticleRenderer) turns blocks into consistently-styled
-// prose, and the same data drives metadata, Article JSON-LD, and FAQPage schema —
+// prose, and the same data drives metadata, Article JSON-LD, and FAQPage schema,
 // so on-page copy and structured data can never diverge.
 
 export type ArticleBlock =
@@ -16,7 +16,7 @@ export type ArticleBlock =
     }
   | { type: 'code'; language?: string; content: string }
   | {
-      /** Highlighted aside — tone maps to the brand palette (signal=persimmon, ready=teal, amber=caution). */
+      /** Highlighted aside; tone maps to the brand palette (signal=persimmon, ready=teal, amber=caution). */
       type: 'callout'
       tone: 'signal' | 'ready' | 'amber'
       title?: string
@@ -42,7 +42,7 @@ export type LearnArticle = {
   /** One-paragraph dek under the H1, also the hub-card blurb. */
   dek: string
   category: 'Agentic commerce' | 'Agent readiness' | 'Guides'
-  /** ISO date — surfaced on-page and in Article JSON-LD (recency is a ranking signal here). */
+  /** ISO date surfaced on-page and in Article JSON-LD (recency is a ranking signal here). */
   publishedAt: string
   updatedAt: string
   /** ~minutes to read, shown on the hub card. */
@@ -52,7 +52,7 @@ export type LearnArticle = {
   faqs: { question: string; answer: string }[]
 }
 
-// Registry — hub + [slug] routes + sitemap all read this one list.
+// Registry: hub + [slug] routes + sitemap all read this one list.
 import { sellOnChatgptWithoutShopify } from './learn-articles/sell-on-chatgpt-without-shopify'
 import { aiAgentsBookServiceBusinesses } from './learn-articles/ai-agents-book-service-businesses'
 import { acpEnrollmentGuide } from './learn-articles/acp-enrollment-guide'
