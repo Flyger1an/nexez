@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../../../../lib/rate-limit', () => ({ enforceRateLimit: vi.fn(async () => null) }))
-vi.mock('../../../../../lib/server/plan', () => ({ ownerAllows: vi.fn(async () => true) }))
 vi.mock('../../../../../lib/server/shopify', () => ({
   shopifyConfigured: vi.fn(() => true),
   verifyShopifySessionToken: vi.fn(),
@@ -20,7 +19,6 @@ vi.mock('../../../../../utils/supabase/admin', () => ({
 }))
 
 import { POST } from './route'
-import { ownerAllows } from '../../../../../lib/server/plan'
 import { verifyShopifySessionToken } from '../../../../../lib/server/shopify'
 import {
   getInstallByShop,
@@ -37,7 +35,6 @@ const request = () => new Request('https://app.nexez.ai/api/shopify/session/sync
 describe('POST /api/shopify/session/sync', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(ownerAllows).mockResolvedValue(true)
     vi.mocked(verifyShopifySessionToken).mockReturnValue({
       shop: 'demo.myshopify.com',
       userId: '42',
@@ -68,14 +65,6 @@ describe('POST /api/shopify/session/sync', () => {
   it('requires a valid Shopify session token', async () => {
     vi.mocked(verifyShopifySessionToken).mockReturnValue(null)
     expect((await POST(request())).status).toBe(401)
-  })
-
-  it('returns a stable billing gate instead of attempting sync when integrations are disabled', async () => {
-    vi.mocked(ownerAllows).mockResolvedValue(false)
-    const response = await POST(request())
-    expect(response.status).toBe(402)
-    expect(await response.json()).toMatchObject({ code: 'billing_required' })
-    expect(syncPageIntegration).not.toHaveBeenCalled()
   })
 
   it('syncs only the shop proven by the App Bridge token', async () => {

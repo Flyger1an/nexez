@@ -7,6 +7,8 @@ import {
   getShopifyInstallCredentials,
   getShopifyInstallCredentialsByShop,
   issueShopifyLinkToken,
+  markUninstalled,
+  redactShop,
   upsertInstall,
 } from './shopify-install'
 
@@ -191,5 +193,84 @@ describe('Shopify install token lifecycle', () => {
     expect(storedHash).not.toBe(token)
     await expect(consumeShopifyLinkToken(admin as any, token)).resolves.toBe('demo.myshopify.com')
     await expect(consumeShopifyLinkToken(admin as any, token)).resolves.toBeNull()
+  })
+
+  it('revokes credentials and removes only the uninstalled shop catalog', async () => {
+    let installUpdate: Record<string, unknown> | null = null
+    let pageUpdate: Record<string, unknown> | null = null
+    const admin = createSupabaseMock((ctx) => {
+      if (ctx.table === 'shopify_installs' && ctx.op === 'update') {
+        installUpdate = ctx.payload
+        return { data: { page_id: 'page-1' }, error: null }
+      }
+      if (ctx.table === 'pages' && ctx.op === 'select') {
+        return {
+          data: {
+            id: 'page-1',
+            updated_at: '2026-07-13T12:00:00Z',
+            services: [{ name: 'Manual service', source: undefined }],
+            products: [
+              { name: 'Demo mug', source: 'shopify', metadata: { shopify_shop: 'demo.myshopify.com' } },
+              { name: 'Legacy import', source: 'shopify' },
+              { name: 'Other store tee', source: 'shopify', metadata: { shopify_shop: 'other.myshopify.com' } },
+              { name: 'Manual product', source: undefined },
+            ],
+          },
+          error: null,
+        }
+      }
+      if (ctx.table === 'pages' && ctx.op === 'update') {
+        pageUpdate = ctx.payload
+        return { data: { id: 'page-1' }, error: null }
+      }
+      return { data: null, error: null }
+    })
+
+    await markUninstalled(admin as any, 'demo.myshopify.com', '2026-07-13T13:00:00Z')
+
+    expect(installUpdate).toMatchObject({
+      uninstalled_at: '2026-07-13T13:00:00Z',
+      offline_token_encrypted: null,
+      refresh_token_encrypted: null,
+      link_token_hash: null,
+    })
+    expect(installUpdate).not.toHaveProperty('owner_id')
+    expect(installUpdate).not.toHaveProperty('page_id')
+    expect((pageUpdate as any).services.map((offer: any) => offer.name)).toEqual(['Manual service'])
+    expect((pageUpdate as any).products.map((offer: any) => offer.name)).toEqual(['Other store tee', 'Manual product'])
+  })
+
+  it('removes residual shop offers before deleting the redacted install', async () => {
+    const operations: string[] = []
+    const admin = createSupabaseMock((ctx) => {
+      if (ctx.table === 'shopify_installs' && ctx.op === 'select') {
+        operations.push('read-install')
+        return { data: { page_id: 'page-1' }, error: null }
+      }
+      if (ctx.table === 'pages' && ctx.op === 'select') {
+        operations.push('read-page')
+        return {
+          data: {
+            id: 'page-1',
+            updated_at: '2026-07-13T12:00:00Z',
+            services: [],
+            products: [{ name: 'Demo mug', source: 'shopify', metadata: { shopify_shop: 'demo.myshopify.com' } }],
+          },
+          error: null,
+        }
+      }
+      if (ctx.table === 'pages' && ctx.op === 'update') {
+        operations.push('remove-offers')
+        return { data: { id: 'page-1' }, error: null }
+      }
+      if (ctx.table === 'shopify_installs' && ctx.op === 'delete') {
+        operations.push('delete-install')
+        return { data: null, error: null }
+      }
+      return { data: null, error: null }
+    })
+
+    await redactShop(admin as any, 'demo.myshopify.com')
+    expect(operations).toEqual(['read-install', 'read-page', 'remove-offers', 'delete-install'])
   })
 })

@@ -17,7 +17,11 @@ const password = process.env.E2E_PASSWORD
 
 test.describe('create fork (talk vs form)', () => {
   test('/create defaults to Talk it through and switches to the wizard', async ({ page }) => {
+    // The mode switch is a client event. Wait for the intake resume request so
+    // the button is hydrated before clicking it.
+    const hydrated = page.waitForResponse((r) => r.url().includes('/api/agents/intake/threads'))
     await page.goto('/create', { waitUntil: 'domcontentloaded' })
+    await hydrated
     await expect(page.getByTestId('create-talk-mode')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Talk your listing into existence' })).toBeVisible()
     await expect(page.getByText('Start with my site')).toBeVisible()

@@ -50,9 +50,9 @@ atomically cleared on first use.
 ## Catalog sync
 
 After a merchant links the installed shop to a Nexez listing, Nexez immediately
-imports the active, published storefront catalog for Pro accounts. The same OAuth
-installation powers later manual syncs from listing settings; merchants never
-paste an Admin API token into Nexez.
+imports the active, published storefront catalog at no additional connector
+charge. The same OAuth installation powers later manual syncs from listing
+settings; merchants never paste an Admin API token into Nexez.
 
 Product create, update, and delete webhooks enqueue a debounced catalog refresh.
 A bounded five-minute worker reconciles up to 250 active products per pass,
@@ -88,11 +88,14 @@ approve OAuth again once. Installations must also approve OAuth whenever request
 scopes change. The addition of `write_app_proxy` therefore requires
 reauthorization.
 
-## App Store billing gate
+## App Store billing model
 
-The existing Nexez subscription remains Stripe-backed, and Shopify catalog sync
-currently respects that entitlement. Do not submit this configuration as a paid
-public App Store app: Shopify requires public-app charges to use Shopify Managed
-Pricing or the Shopify Billing API. Before submission, choose and implement one
-of the documented paths: a free connector, Shopify-native billing with an
-entitlement bridge, or non-App-Store custom distribution.
+The Shopify-installed connector is free: account linking, initial import, manual
+sync, webhook reconciliation, theme discovery links, and the signed storefront
+proxy do not depend on a Nexez subscription. This avoids off-platform billing for
+the public app's Shopify functionality. Manually supplied Shopify credentials are
+part of Nexez's separate integrations product and are not used by this app.
+
+Before App Store submission, confirm whether Shopify classifies Nexez's external
+agent-discovery distribution as a Sales Channel. That classification is separate
+from the connector billing implementation.

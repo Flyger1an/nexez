@@ -1,6 +1,7 @@
 import 'server-only'
 import crypto from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { OfferItem } from '../agent-page'
 import { decryptSecret, encryptSecret } from './secret-crypto'
 
 /**
@@ -381,9 +382,51 @@ export async function markShopifySynced(
   if (error) throw new Error('Could not record the Shopify sync time.')
 }
 
-/** Mark a shop uninstalled and remove every live credential/link immediately. */
+function belongsToShop(offer: OfferItem, shop: string): boolean {
+  if (offer.source !== 'shopify') return false
+  const offerShop = typeof offer.metadata?.shopify_shop === 'string'
+    ? offer.metadata.shopify_shop.trim().toLowerCase()
+    : ''
+  // Legacy Shopify imports predate shop-scoped metadata. The installation's
+  // page mapping is the only remaining ownership proof, so remove those too.
+  return !offerShop || offerShop === shop.trim().toLowerCase()
+}
+
+export async function removeShopifyCatalogFromPage(
+  admin: Pick<SupabaseClient, 'from'>,
+  pageId: string | null,
+  shop: string,
+): Promise<void> {
+  if (!pageId) return
+  const { data: page, error: readError } = await admin
+    .from('pages')
+    .select('id, services, products, updated_at')
+    .eq('id', pageId)
+    .maybeSingle<{ id: string; services: OfferItem[] | null; products: OfferItem[] | null; updated_at: string }>()
+  if (readError) throw new Error('Could not read the linked listing during Shopify cleanup.')
+  if (!page) return
+
+  const services = (page.services ?? []).filter((offer) => !belongsToShop(offer, shop))
+  const products = (page.products ?? []).filter((offer) => !belongsToShop(offer, shop))
+  if (services.length === (page.services ?? []).length && products.length === (page.products ?? []).length) return
+
+  const { data: written, error: writeError } = await admin
+    .from('pages')
+    .update({ services, products })
+    .eq('id', page.id)
+    .eq('updated_at', page.updated_at)
+    .select('id')
+    .maybeSingle<{ id: string }>()
+  if (writeError || !written) {
+    throw new Error('Could not remove Shopify catalog data from the linked listing.')
+  }
+}
+
+/** Mark a shop uninstalled, revoke every live credential/link immediately, and
+ * remove its imported offers. owner_id/page_id remain only as service-role
+ * cleanup pointers until Shopify sends the final shop/redact webhook. */
 export async function markUninstalled(admin: Pick<SupabaseClient, 'from'>, shop: string, at: string): Promise<void> {
-  const { error } = await admin
+  const { data, error } = await admin
     .from('shopify_installs')
     .update({
       uninstalled_at: at,
@@ -391,8 +434,6 @@ export async function markUninstalled(admin: Pick<SupabaseClient, 'from'>, shop:
       refresh_token_encrypted: null,
       access_token_expires_at: null,
       refresh_token_expires_at: null,
-      owner_id: null,
-      page_id: null,
       linked_at: null,
       last_synced_at: null,
       link_token_hash: null,
@@ -400,11 +441,23 @@ export async function markUninstalled(admin: Pick<SupabaseClient, 'from'>, shop:
       updated_at: at,
     })
     .eq('shop_domain', shop)
+    .select('page_id')
+    .maybeSingle<{ page_id: string | null }>()
   if (error) throw new Error('Could not mark the Shopify installation uninstalled.')
+  await removeShopifyCatalogFromPage(admin, data?.page_id ?? null, shop)
 }
 
-/** `shop/redact` is the final privacy deletion, not another soft uninstall. */
+/** `shop/redact` removes any remaining catalog copy before deleting the final
+ * service-role-only installation record. Idempotent when uninstall cleanup
+ * already removed the offers or the install no longer exists. */
 export async function redactShop(admin: Pick<SupabaseClient, 'from'>, shop: string): Promise<void> {
+  const { data, error: readError } = await admin
+    .from('shopify_installs')
+    .select('page_id')
+    .eq('shop_domain', shop)
+    .maybeSingle<{ page_id: string | null }>()
+  if (readError) throw new Error('Could not read the Shopify installation for redaction.')
+  await removeShopifyCatalogFromPage(admin, data?.page_id ?? null, shop)
   const { error } = await admin.from('shopify_installs').delete().eq('shop_domain', shop)
   if (error) throw new Error('Could not redact the Shopify installation.')
 }

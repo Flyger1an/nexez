@@ -4,14 +4,16 @@ import { createClient } from '../../../../../../../utils/supabase/server'
 import { createAdminClient } from '../../../../../../../utils/supabase/admin'
 import { gateIntegrationImport } from '../../../../../../../lib/server/integration-importers'
 import { syncPageIntegration, isSyncProvider } from '../../../../../../../lib/server/integration-sync'
+import { getShopifyInstallCredentials } from '../../../../../../../lib/server/shopify-install'
 import { enforceRateLimit } from '../../../../../../../lib/rate-limit'
 
 /**
  * One per-listing "Sync now" for every stored-credential integration
  * (calendly, shopify): pulls the seller's live catalog (and Calendly
  * availability) from the STORED per-page credential — never re-prompts for a
- * token. Owner/editor + Pro gated, rate-limited. Dormant without
- * INTEGRATION_SECRET_KEY; 400 if the provider isn't connected for this page.
+ * token. Owner/editor authorized, rate-limited, and Pro gated except for an
+ * OAuth-installed Shopify app connection. Dormant without INTEGRATION_SECRET_KEY;
+ * 400 if the provider isn't connected for this page.
  */
 export async function POST(request: Request, ctx: { params: Promise<{ id: string; provider: string }> }) {
   const limited = await enforceRateLimit(request, 'integration-sync', 10, 60_000)
@@ -35,7 +37,16 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     pageId,
     proMessage: 'Syncing integrations is a Pro feature. Upgrade to pull live catalogs + availability.',
   })
-  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status })
+  if (!gate.ok) {
+    // Shopify's public app connector is free. A 402 proves the shared gate has
+    // already authorized this owner/editor; bypass only when this exact listing
+    // has a live OAuth installation. Manually supplied Shopify tokens and every
+    // other integration retain their existing Nexez plan requirement.
+    const installedShopify = provider === 'shopify' && gate.status === 402
+      ? await getShopifyInstallCredentials(createAdminClient(), pageId)
+      : null
+    if (!installedShopify) return NextResponse.json({ error: gate.error }, { status: gate.status })
+  }
 
   const admin = createAdminClient()
   const result = await syncPageIntegration(admin, provider, pageId)

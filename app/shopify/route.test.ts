@@ -23,6 +23,8 @@ describe('GET /shopify embedded app shell', () => {
     )
     expect(html).toContain('<meta name="shopify-api-key" content="client-id">')
     expect(html.indexOf('shopifycloud/app-bridge.js')).toBeLessThan(html.indexOf('(() => {'))
+    expect(html).toContain("window.open(url, '_top')")
+    expect(html).not.toContain('separate secure tab')
     expect(html).not.toContain('super-secret')
   })
 })

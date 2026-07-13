@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   },
 }
 
-const LAST_UPDATED = 'July 10, 2026'
+const LAST_UPDATED = 'July 13, 2026'
 
 const sections: { heading: string; body: string[] }[] = [
   {
@@ -31,6 +31,7 @@ const sections: { heading: string; body: string[] }[] = [
     heading: '2. Information You Provide',
     body: [
       'Account details: your name, company/business name, industry, and email when you sign up (including via Sign in with Apple or Google, which share your email and basic profile). Business content: the offers, descriptions, FAQs, and other information you publish. Configuration: custom domains, integration settings, and API key names.',
+      'Connected stores: when you install the Nexez Shopify app, we process your shop domain, installation status, encrypted access credentials, and the active product catalog you choose to publish through your Nexez listing. Catalog data can include product names, descriptions, variants, prices, availability, inventory signals, currency, and storefront URLs. Nexez requests read-only product access and does not request Shopify customer or order data.',
       'Buyer activity (Nexxi app): the messages you send your buyer agent, your standing preferences (budget, interests, timing, location), and the buyer details you approve for a purchase or negotiation (such as your email and order references).',
     ],
   },
@@ -70,13 +71,13 @@ const sections: { heading: string; body: string[] }[] = [
   {
     heading: '8. Service Providers',
     body: [
-      'We use trusted processors to run the Service: Supabase (database + authentication), our hosting provider, Expo (mobile builds + push delivery), Sentry (opt-in crash/error monitoring), a large-language-model provider (buyer-agent requests), a third-party search provider (optional external discovery), and - where you enable them - payment and scheduling providers such as Stripe and Calendly. These providers process data on our behalf under their own terms.',
+      'We use trusted processors to run the Service: Supabase (database + authentication), our hosting provider, Expo (mobile builds + push delivery), Sentry (opt-in crash/error monitoring), a large-language-model provider (buyer-agent requests), a third-party search provider (optional external discovery), and - where you enable them - commerce, payment, and scheduling providers such as Shopify, Stripe, and Calendly. These providers process data on our behalf under their own terms.',
     ],
   },
   {
     heading: '9. Data Retention & Deletion',
     body: [
-      'We retain account and content data for as long as your account is active. You can delete listings at any time. You can permanently delete your account in the Nexxi app (Profile → Delete account) or via the dashboard - this removes your account, agent data, preferences, and any listings you own, and anonymizes your buyer details on past transaction records, except where retention is required by law.',
+      'We retain account and content data for as long as your account is active. You can delete listings at any time. Uninstalling the Nexez Shopify app revokes its stored credentials, disconnects the shop, and removes that shop’s imported offers from the linked listing. Shopify’s final shop-redaction request deletes the remaining installation record. You can permanently delete your account in the Nexxi app (Profile → Delete account) or via the dashboard - this removes your account, agent data, preferences, and any listings you own, and anonymizes your buyer details on past transaction records, except where retention is required by law.',
     ],
   },
   {
@@ -114,11 +115,6 @@ export default function PrivacyPage() {
         </a>
         <h1 className="mt-8 text-4xl font-semibold tracking-tight">Privacy Policy</h1>
         <p className="mt-2 text-sm text-zinc-400">Last updated: {LAST_UPDATED}</p>
-
-        <div className="mt-6 rounded-lg border border-[var(--amber)]/20 bg-[var(--amber)]/5 p-4 text-xs text-[var(--amber)]/90">
-          This is a general template provided for convenience and is not legal advice. Have it reviewed by counsel
-          before relying on it for your business.
-        </div>
 
         <div className="mt-8 space-y-8">
           {sections.map((s) => (

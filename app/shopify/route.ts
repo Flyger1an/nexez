@@ -74,6 +74,7 @@ function shell(apiKey: string) {
       const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
       const formatDate = (value) => value ? new Intl.DateTimeFormat(undefined,{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)) : 'Not synced yet';
       const openExternal = (url) => window.open(url, '_blank', 'noopener,noreferrer');
+      const openTopLevel = (url) => window.open(url, '_top');
 
       function renderError(message) {
         appStatus.textContent = 'Needs attention';
@@ -87,9 +88,8 @@ function shell(apiKey: string) {
       function renderLink(data) {
         appStatus.textContent = 'Account link needed';
         shopLabel.textContent = data.shop;
-        app.innerHTML = '<div class="hero"><h1>Connect this store to Nexez</h1><p>Choose the Nexez listing that should receive this Shopify catalog. Sign-in opens in a separate secure tab, then you can return here.</p><div class="actions"><button class="btn primary" id="connect">Continue to Nexez</button><button class="btn" id="refresh">I connected it</button></div><div class="notice">Nexez reads your active products and publishes agent-readable discovery links. Checkout stays on your Shopify store.</div></div>';
-        document.getElementById('connect').addEventListener('click', () => openExternal(data.connectUrl));
-        document.getElementById('refresh').addEventListener('click', load);
+        app.innerHTML = '<div class="hero"><h1>Connect this store to Nexez</h1><p>Continue to choose the Nexez listing that should receive this Shopify catalog. You will leave Shopify briefly to complete the secure account link.</p><div class="actions"><button class="btn primary" id="connect">Continue to Nexez</button></div><div class="notice">Nexez reads your active products and publishes agent-readable discovery links. Checkout stays on your Shopify store.</div></div>';
+        document.getElementById('connect').addEventListener('click', () => openTopLevel(data.connectUrl));
       }
 
       function renderLinked(data) {

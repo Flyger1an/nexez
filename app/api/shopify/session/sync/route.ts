@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { enforceRateLimit } from '../../../../../lib/rate-limit'
-import { ownerAllows } from '../../../../../lib/server/plan'
 import { shopifyConfigured, verifyShopifySessionToken } from '../../../../../lib/server/shopify'
 import {
   getInstallByShop,
@@ -32,15 +31,6 @@ export async function POST(request: Request) {
   const install = await getInstallByShop(admin, session.shop)
   if (!install?.owner_id || !install.page_id) {
     return json({ error: 'Connect this store to a Nexez listing before syncing.' }, 409)
-  }
-  if (!(await ownerAllows(admin, install.owner_id, 'integrations'))) {
-    return json(
-      {
-        error: 'Catalog sync is not enabled for this Nexez account.',
-        code: 'billing_required',
-      },
-      402,
-    )
   }
 
   const credentials = await getShopifyInstallCredentialsByShop(admin, session.shop)

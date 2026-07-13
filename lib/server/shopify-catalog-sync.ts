@@ -2,7 +2,6 @@ import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { captureEvent } from '../observability'
 import { syncPageIntegration } from './integration-sync'
-import { ownerAllows } from './plan'
 import { getShopifyInstallCredentialsByShop } from './shopify-install'
 
 export const SHOPIFY_CATALOG_TOPICS = [
@@ -181,12 +180,6 @@ export async function processPendingShopifyCatalogSyncs(
         run.failed += 1
         continue
       }
-      if (!(await ownerAllows(admin, job.owner_id, 'integrations'))) {
-        await failJob(admin, job, 'Shopify auto-sync requires a plan with live integrations.', attemptedAt, attemptedAt, false)
-        run.skipped += 1
-        continue
-      }
-
       const credentials = await getShopifyInstallCredentialsByShop(admin, job.shop_domain)
       if (!credentials) {
         await failJob(admin, job, 'Reconnect Shopify to resume automatic catalog sync.', attemptedAt, attemptedAt, true)

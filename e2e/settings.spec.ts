@@ -77,16 +77,12 @@ test.describe('page settings', () => {
     expect(pageErrors, `Uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([])
   })
 
-  test('calendar availability API returns agent-readable windows', async ({ request }) => {
+  test('calendar availability API blocks anonymous requests', async ({ request }) => {
     const res = await request.post('/api/integrations/google-calendar/availability', {
       data: { calendarId: 'e2e-calendar@example.com' },
     })
-    expect(res.ok()).toBe(true)
-
+    expect(res.status()).toBe(401)
     const json = await res.json()
-    expect(json.success).toBe(true)
-    expect(json.availability.calendar_id).toBe('e2e-calendar@example.com')
-    expect(json.availability.windows.length).toBeGreaterThan(0)
-    expect(json.note).not.toMatch(/Phase 3 stub/i)
+    expect(json.error).toBe('Authentication required')
   })
 })

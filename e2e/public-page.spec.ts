@@ -10,7 +10,7 @@ test.describe('public surface', () => {
     await expect(page).toHaveTitle(/Nexez/)
     await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
     // primary CTA is reachable
-    await expect(page.getByRole('link', { name: /get started free/i }).first()).toBeVisible()
+    await expect(page.getByRole('link', { name: /list your offers/i }).first()).toBeVisible()
 
     expect(pageErrors, `Uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([])
   })

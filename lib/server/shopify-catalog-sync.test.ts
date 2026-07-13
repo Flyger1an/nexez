@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createSupabaseMock } from '../../test/supabase-mock'
 
 const h = vi.hoisted(() => ({
-  allowed: true,
   credentials: { shop: 'demo.myshopify.com', accessToken: 'token' } as { shop: string; accessToken: string } | null,
   syncResult: { ok: true, provider: 'shopify', imported: 2, windows: 0, availabilitySynced: false, note: 'ok' } as any,
   syncError: null as Error | null,
@@ -14,7 +13,6 @@ vi.mock('./integration-sync', () => ({
     return h.syncResult
   }),
 }))
-vi.mock('./plan', () => ({ ownerAllows: vi.fn(async () => h.allowed) }))
 vi.mock('./shopify-install', () => ({ getShopifyInstallCredentialsByShop: vi.fn(async () => h.credentials) }))
 vi.mock('../observability', () => ({ captureEvent: vi.fn() }))
 
@@ -22,7 +20,14 @@ import { processPendingShopifyCatalogSyncs, queueShopifyCatalogSync } from './sh
 import { syncPageIntegration } from './integration-sync'
 import { getShopifyInstallCredentialsByShop } from './shopify-install'
 
-const pendingJob = {
+const pendingJob: {
+  shop_domain: string
+  owner_id: string | null
+  page_id: string | null
+  catalog_sync_pending_at: string
+  catalog_sync_attempted_at: string | null
+  catalog_sync_attempts: number
+} = {
   shop_domain: 'demo.myshopify.com',
   owner_id: 'owner-1',
   page_id: 'page-1',
@@ -46,7 +51,6 @@ function admin(updates: any[], jobs = [pendingJob]) {
 describe('Shopify catalog sync queue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    h.allowed = true
     h.credentials = { shop: 'demo.myshopify.com', accessToken: 'token' }
     h.syncResult = { ok: true, provider: 'shopify', imported: 2, windows: 0, availabilitySynced: false, note: 'ok' }
     h.syncError = null
@@ -125,12 +129,11 @@ describe('Shopify catalog sync queue', () => {
     })
   })
 
-  it('does not run background imports after the owner loses integration access', async () => {
-    h.allowed = false
+  it('fails closed when a queued installation is no longer linked', async () => {
     const updates: any[] = []
-    const result = await processPendingShopifyCatalogSyncs(admin(updates), 4)
+    const result = await processPendingShopifyCatalogSyncs(admin(updates, [{ ...pendingJob, owner_id: null }]), 4)
 
-    expect(result).toMatchObject({ claimed: 1, synced: 0, skipped: 1 })
+    expect(result).toMatchObject({ claimed: 1, synced: 0, failed: 1 })
     expect(syncPageIntegration).not.toHaveBeenCalled()
     expect(updates.find((u) => u.catalog_sync_error)?.catalog_sync_pending_at).toBeNull()
   })

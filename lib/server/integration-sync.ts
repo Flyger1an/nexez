@@ -67,8 +67,10 @@ export type SyncOptions = {
  * Sync a page's offers (and, for Calendly, availability) from the STORED per-page
  * credential — the shared engine behind both the generic
  * /api/pages/[id]/integrations/[provider]/sync route and the legacy
- * /api/pages/[id]/calendly/sync route. Caller MUST authorize edit access + Pro
- * first (via gateIntegrationImport). Dormant without INTEGRATION_SECRET_KEY.
+ * /api/pages/[id]/calendly/sync route. Caller MUST authorize edit access and
+ * enforce the provider entitlement first. The installed Shopify app is a free
+ * connector; manually stored credentials and other providers remain plan gated.
+ * Dormant without INTEGRATION_SECRET_KEY.
  *
  * The merge only ever manages this provider's own offers (mergeProviderOffers) —
  * a same-named manual offer is never clobbered.

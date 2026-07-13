@@ -36,16 +36,11 @@ export function ShopifyLinkClient({
       const data = await res.json().catch(() => ({}))
       if (res.ok && data?.ok) {
         setDone(true)
-        setSyncStatus('Connected. Importing your active Shopify products…')
-        const syncRes = await fetch(`/api/pages/${encodeURIComponent(pageId)}/integrations/shopify/sync`, { method: 'POST' })
-        const syncData = await syncRes.json().catch(() => ({}))
-        if (syncRes.ok) {
-          const count = Number(syncData?.imported || 0)
+        if (data?.sync?.status === 'synced') {
+          const count = Number(data.sync.imported || 0)
           setSyncStatus(`Catalog synced. ${count} active product${count === 1 ? '' : 's'} imported.`)
-        } else if (syncRes.status === 402) {
-          setSyncStatus('Store connected. Upgrade to Pro when you are ready to import and re-sync the catalog.')
         } else {
-          setSyncStatus(`Store connected, but the first catalog sync needs attention. ${syncData?.error || 'Try Sync now in listing settings.'}`)
+          setSyncStatus(`Store connected, but the first catalog sync needs attention. ${data?.sync?.error || 'Try Sync now in Shopify.'}`)
         }
       } else {
         setMsg(data?.error || 'Could not connect. Try again.')

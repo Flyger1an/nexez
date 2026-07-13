@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   },
 }
 
-const LAST_UPDATED = 'June 3, 2026'
+const LAST_UPDATED = 'July 13, 2026'
 
 const sections: { heading: string; body: string[] }[] = [
   {
@@ -55,7 +55,7 @@ const sections: { heading: string; body: string[] }[] = [
   {
     heading: '6. Payments & Agent Transactions',
     body: [
-      'Certain features rely on third-party providers (e.g., Stripe, Calendly). Your use of those features is also subject to their terms. Where Nexez facilitates agent-driven checkout or negotiation, you remain the merchant of record for transactions with your buyers unless stated otherwise.',
+      'Certain features rely on third-party providers, including Shopify, Stripe, and Calendly. Your use of those features is also subject to their terms. Shopify-origin product purchases remain on the merchant’s Shopify storefront and use Shopify checkout. Where Nexez facilitates agent-driven checkout or negotiation outside that flow, you remain the merchant of record for transactions with your buyers unless stated otherwise.',
     ],
   },
   {
@@ -91,11 +91,6 @@ export default function TermsPage() {
         </a>
         <h1 className="mt-8 text-4xl font-semibold tracking-tight">Terms of Service</h1>
         <p className="mt-2 text-sm text-[var(--fg-muted)]">Last updated: {LAST_UPDATED}</p>
-
-        <div className="mt-6 rounded-lg border border-[var(--amber)]/20 bg-[var(--amber)]/5 p-4 text-xs text-[var(--amber)]/90">
-          This is a general template provided for convenience and is not legal advice. Have it reviewed by counsel
-          before relying on it for your business.
-        </div>
 
         <div className="mt-8 space-y-8">
           {sections.map((s) => (

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const h = vi.hoisted(() => ({
   user: { id: 'u1', email: 'o@x.com', email_confirmed_at: 't' } as any,
   gate: { ok: true } as any,
+  installedShopify: null as { shop: string; accessToken: string } | null,
   result: { ok: true, provider: 'shopify', imported: 3, windows: 0, availabilitySynced: false, note: 'Imported 3' } as any,
   syncArgs: null as any,
 }))
@@ -12,6 +13,9 @@ vi.mock('../../../../../../../lib/rate-limit', () => ({ enforceRateLimit: async 
 vi.mock('../../../../../../../utils/supabase/server', () => ({ createClient: () => ({ auth: { getUser: async () => ({ data: { user: h.user } }) } }) }))
 vi.mock('../../../../../../../utils/supabase/admin', () => ({ createAdminClient: () => ({}) }))
 vi.mock('../../../../../../../lib/server/integration-importers', () => ({ gateIntegrationImport: async () => h.gate }))
+vi.mock('../../../../../../../lib/server/shopify-install', () => ({
+  getShopifyInstallCredentials: async () => h.installedShopify,
+}))
 vi.mock('../../../../../../../lib/server/integration-sync', () => ({
   isSyncProvider: (p: string) => p === 'calendly' || p === 'shopify',
   syncPageIntegration: async (_admin: any, provider: string, pageId: string) => { h.syncArgs = { provider, pageId }; return h.result },
@@ -26,6 +30,7 @@ describe('POST /api/pages/[id]/integrations/[provider]/sync', () => {
   beforeEach(() => {
     h.user = { id: 'u1', email: 'o@x.com', email_confirmed_at: 't' }
     h.gate = { ok: true }
+    h.installedShopify = null
     h.result = { ok: true, provider: 'shopify', imported: 3, windows: 0, availabilitySynced: false, note: 'Imported 3' }
     h.syncArgs = null
   })
@@ -46,6 +51,14 @@ describe('POST /api/pages/[id]/integrations/[provider]/sync', () => {
     const res = await POST(req(), ctx('shopify'))
     expect(res.status).toBe(402)
     expect(h.syncArgs).toBeNull()
+  })
+
+  it('allows a free Shopify sync only for a live OAuth app installation', async () => {
+    h.gate = { ok: false, status: 402, error: 'Upgrade to Pro' }
+    h.installedShopify = { shop: 'demo.myshopify.com', accessToken: 'token' }
+    const res = await POST(req(), ctx('shopify'))
+    expect(res.status).toBe(200)
+    expect(h.syncArgs).toEqual({ provider: 'shopify', pageId: 'pg1' })
   })
 
   it('delegates to syncPageIntegration and returns its result', async () => {

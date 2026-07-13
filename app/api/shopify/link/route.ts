@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { readPendingShop, shopifyConfigured } from '../../../../lib/server/shopify'
-import { getInstallByShop } from '../../../../lib/server/shopify-install'
+import {
+  getInstallByShop,
+  getShopifyInstallCredentialsByShop,
+  markShopifySynced,
+  removeShopifyCatalogFromPage,
+} from '../../../../lib/server/shopify-install'
+import { syncPageIntegration } from '../../../../lib/server/integration-sync'
 import { resolvePageAccess } from '../../../../lib/server/page-access'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 import { createClient } from '../../../../utils/supabase/server'
@@ -53,6 +59,37 @@ export async function POST(request: Request) {
   const install = await getInstallByShop(admin, shop)
   if (!install) return NextResponse.json({ error: 'Shop not found. Reinstall the app.' }, { status: 404 })
 
+  const { data: conflictingInstall, error: conflictError } = await admin
+    .from('shopify_installs')
+    .select('shop_domain')
+    .eq('page_id', pageId)
+    .is('uninstalled_at', null)
+    .neq('shop_domain', shop)
+    .limit(1)
+    .maybeSingle<{ shop_domain: string }>()
+  if (conflictError) return NextResponse.json({ error: 'Could not verify the listing connection.' }, { status: 500 })
+  if (conflictingInstall) {
+    return NextResponse.json(
+      { error: 'That listing is already connected to another Shopify store. Choose a different listing.' },
+      { status: 409 },
+    )
+  }
+
+  if (install.page_id && install.page_id !== pageId) {
+    try {
+      await removeShopifyCatalogFromPage(admin, install.page_id, shop)
+    } catch (cleanupError) {
+      console.error('[shopify-link] previous listing cleanup failed', {
+        shop,
+        error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
+      })
+      return NextResponse.json(
+        { error: 'Could not move this store from its previous listing. Try again.' },
+        { status: 503 },
+      )
+    }
+  }
+
   const linkedAt = new Date().toISOString()
   const { error } = await admin
     .from('shopify_installs')
@@ -65,8 +102,52 @@ export async function POST(request: Request) {
     })
     .eq('shop_domain', shop)
     .is('uninstalled_at', null)
-  if (error) return NextResponse.json({ error: 'Could not link the shop.' }, { status: 500 })
+  if (error) {
+    const status = (error as { code?: string }).code === '23505' ? 409 : 500
+    const message = status === 409
+      ? 'That listing is already connected to another Shopify store. Choose a different listing.'
+      : 'Could not link the shop.'
+    return NextResponse.json({ error: message }, { status })
+  }
+
+  let sync:
+    | { status: 'synced'; imported: number; syncedAt: string; note: string | null }
+    | { status: 'attention'; error: string }
+  try {
+    const credentials = await getShopifyInstallCredentialsByShop(admin, shop)
+    if (!credentials) {
+      sync = { status: 'attention', error: 'Reconnect the Shopify app to import the catalog.' }
+    } else {
+      const result = await syncPageIntegration(admin, 'shopify', pageId, {
+        shopifyCredentials: credentials,
+      })
+      if (result.ok) {
+        const syncedAt = new Date().toISOString()
+        await markShopifySynced(admin, pageId, syncedAt, {
+          shop,
+          clearCatalogSyncState: true,
+        })
+        sync = {
+          status: 'synced',
+          imported: result.imported,
+          syncedAt,
+          note: result.note,
+        }
+      } else {
+        sync = { status: 'attention', error: result.error }
+      }
+    }
+  } catch (syncError) {
+    console.error('[shopify-link] initial catalog sync failed', {
+      shop,
+      error: syncError instanceof Error ? syncError.message : String(syncError),
+    })
+    sync = {
+      status: 'attention',
+      error: 'The store is connected, but the first catalog sync needs another try.',
+    }
+  }
 
   jar.delete('shopify_pending_shop')
-  return NextResponse.json({ ok: true, shop, pageId })
+  return NextResponse.json({ ok: true, shop, pageId, sync })
 }
