@@ -3,40 +3,22 @@
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import { NexezLogo } from './NexezLogo'
 import { ThemeToggle } from './ThemeToggle'
+import { hasSupabaseAuthCookieInDocument } from '../lib/auth-cookie'
 import { appUrl } from '../lib/site'
-import { createClient } from '../utils/supabase/client'
 
 // Marketing chrome for the nexez.ai surfaces (discovery/simulator/support/legal).
 // Modeled on the homepage nav so the marketing domain stays visually consistent.
 
+// Cookie-presence heuristic on purpose — importing the supabase-js client here put
+// its entire browser bundle (~240KB raw) on EVERY marketing page just to pick the
+// nav CTA. Same fidelity as the proxy/PlatformFrame checks: a stale cookie shows
+// the signed-in CTA, and the real auth gate still validates on click-through.
 function useAuthedUser(): boolean | null {
   const [authed, setAuthed] = useState<boolean | null>(null)
-
   useEffect(() => {
-    const supabase = createClient()
-    let active = true
-
-    supabase.auth
-      .getUser()
-      .then(({ data }) => {
-        if (active) setAuthed(Boolean(data.user))
-      })
-      .catch(() => {
-        if (active) setAuthed(false)
-      })
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active) setAuthed(Boolean(session?.user))
-    })
-
-    return () => {
-      active = false
-      subscription.unsubscribe()
-    }
+    // Post-hydration read (an initializer would mismatch the static server HTML).
+    setAuthed(hasSupabaseAuthCookieInDocument())
   }, [])
-
   return authed
 }
 

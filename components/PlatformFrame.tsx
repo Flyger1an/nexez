@@ -1,8 +1,9 @@
 'use client'
 
-import { ReactNode } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import { hasSupabaseAuthCookieInDocument } from '../lib/auth-cookie'
 import { isDualPath, isMarketingPath } from '../lib/site'
 
 // The heavy chrome is code-split and only loaded where it's used:
@@ -18,17 +19,21 @@ const MarketingShell = dynamic(() => import('./MarketingShell').then((m) => m.Ma
 // surfaces moved to MarketingShell as part of the nexez.ai / app.nexez.ai split.
 const platformPrefixes = ['/dashboard', '/create']
 
-// `hasSession` is resolved on the server (root layout reads the Supabase session
-// cookie) so the shell choice is correct on first paint - no flash between the
-// marketing and dashboard chrome on the dual discovery surfaces.
-export function PlatformFrame({
-  children,
-  hasSession = false,
-}: {
-  children: ReactNode
-  hasSession?: boolean
-}) {
+// The session is detected CLIENT-side (document.cookie) after hydration. It only
+// affects the 4 dual discovery surfaces' chrome; resolving it in the root layout
+// via cookies() — the previous design — forced the ENTIRE route tree dynamic and
+// blocked static prerendering of the marketing site. Trade-off: a signed-in
+// visitor on a dual page sees the marketing chrome for one paint before the
+// dashboard nav swaps in (anonymous visitors — the overwhelming majority on
+// these public surfaces — see no flash at all).
+export function PlatformFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname()
+  const [hasSession, setHasSession] = useState(false)
+  useEffect(() => {
+    // Post-hydration on purpose: reading the cookie in a state initializer would
+    // mismatch the (static, anonymous) server HTML and break hydration.
+    setHasSession(hasSupabaseAuthCookieInDocument())
+  }, [])
 
   // Dual discovery surfaces: signed-in visitors get the in-app dashboard nav
   // (and the proxy keeps them on the app host); anonymous visitors get the
