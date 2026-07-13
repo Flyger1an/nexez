@@ -7,6 +7,7 @@ import {
   getCheckoutOffer,
   getCheckoutOfferKey,
   getOfferDestination,
+  getPreferredOriginalOfferUrl,
   getRequestBaseUrl,
 } from '../../../lib/agent-page'
 import { parseMoney, toStripeDescription } from '../../../lib/checkout'
@@ -100,14 +101,13 @@ export async function POST(request: Request) {
     }
   }
 
-  // Prefer verified custom domain base when the request host matches, else hardened canonical (prevents arbitrary XFH reflection).
-  // Prefer verified custom domain base when the request host matches, else hardened canonical (prevents arbitrary XFH reflection).
-  let baseUrl = getRequestBaseUrl(request)
-  // Note: page not yet fetched here; custom base resolved post-fetch in artifact routes where branding matters most.
-  // Note: page not yet fetched here; custom base would be resolved in caller if needed for per-page branding.
-  // For now, canonical is safe default for transactional URLs.
+  // Keep Nexez transaction URLs on the hardened request base. A preferred
+  // provider handoff is resolved independently below.
+  const baseUrl = getRequestBaseUrl(request)
   const checkoutUrl = `${baseUrl}/checkout/${page.slug}?offer=${offerKey}`
   const successUrl = `${baseUrl}/checkout/${page.slug}/success?session_id={CHECKOUT_SESSION_ID}&offer=${offerKey}`
+  const preferredOriginalUrl = getPreferredOriginalOfferUrl(page, offer)
+  const forceProviderHandoff = Boolean(preferredOriginalUrl)
   let destination = getOfferDestination(page, offer)
   // Single-use scheduling links: for a Calendly-sourced offer on a page that has
   // connected a PAT, mint a one-time booking link so the reusable public
@@ -184,7 +184,7 @@ export async function POST(request: Request) {
   if (input.dryRun) {
     return NextResponse.json({
       ok: true,
-      provider: getDryRunProvider(destination, amountCents, connectAccountId),
+      provider: forceProviderHandoff ? 'provider_ready' : getDryRunProvider(destination, amountCents, connectAccountId),
       checkoutUrl,
       actionUrl: destination || null,
       currency,
@@ -196,7 +196,10 @@ export async function POST(request: Request) {
     })
   }
 
-  if (process.env.STRIPE_SECRET_KEY && amountCents && connectAccountId) {
+  // Provider-preferred offers (Shopify imports in particular) must remain on
+  // the provider rails. Charging through Stripe here would create no Shopify
+  // order and would not update Shopify inventory.
+  if (!forceProviderHandoff && process.env.STRIPE_SECRET_KEY && amountCents && connectAccountId) {
     try {
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
       const applicationFeeAmount = calculateApplicationFeeCents(amountCents, commissionPercent)
@@ -320,10 +323,11 @@ export async function POST(request: Request) {
   }
 
   if (destination) {
+    const intentionalProviderHandoff = forceProviderHandoff
     const redirectLog = await logCheckoutEvent({
       page,
       offer,
-      eventType: process.env.STRIPE_SECRET_KEY ? 'stripe_missing_config' : 'provider_redirect',
+      eventType: intentionalProviderHandoff || !process.env.STRIPE_SECRET_KEY ? 'provider_redirect' : 'stripe_missing_config',
       userAgent,
       referrer,
       query: input.query || null,
@@ -332,10 +336,11 @@ export async function POST(request: Request) {
       metadata: {
         amount_cents: amountCents,
         stripe_configured: Boolean(process.env.STRIPE_SECRET_KEY),
+        prefer_original: intentionalProviderHandoff,
       },
     })
 
-    return respondWithDestination(wantsJson, destination, process.env.STRIPE_SECRET_KEY ? 'stripe_missing_price' : 'provider_redirect', {
+    return respondWithDestination(wantsJson, destination, intentionalProviderHandoff || !process.env.STRIPE_SECRET_KEY ? 'provider_redirect' : 'stripe_missing_price', {
       checkoutAttemptLogged: attemptLog.ok,
       providerRedirectLogged: redirectLog.ok,
     })

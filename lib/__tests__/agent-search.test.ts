@@ -23,6 +23,31 @@ describe('searchAgentPages', () => {
     expect(res[0].marketplace?.supports_checkout).toBe(true)
   })
 
+  it('returns Shopify imports as products with their preferred provider checkout', () => {
+    const shopifyUrl = 'https://nexez-tester.myshopify.com/products/agent-ready-cap'
+    const shopify = mk({
+      slug: 'shopify-store',
+      name: 'Shopify Store',
+      services: [{
+        name: 'Agent-ready cap',
+        description: 'A cap',
+        price: '$30',
+        url: shopifyUrl,
+        source: 'shopify',
+        prefer_original_for_this: true,
+        metadata: { commerce_provider: 'shopify' },
+      }],
+    })
+
+    const res = searchAgentPages([shopify], 'agent ready cap', 10, 'https://nexez.test')
+    expect(res[0].offer).toMatchObject({
+      type: 'product',
+      checkout_url: shopifyUrl,
+      provider_url: shopifyUrl,
+    })
+    expect(res[0].offer?.action.endpoint).toBe('https://nexez.test/api/checkout')
+  })
+
   it('breaks ties toward higher readiness (quality-aware)', () => {
     // Two equally-irrelevant pages (empty query → score 1 each); the more complete one ranks first.
     const bare = mk({ slug: 'bare', name: 'Bare', services: [] })

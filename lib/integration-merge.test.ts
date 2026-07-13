@@ -52,10 +52,10 @@ describe('mergeProviderOffers', () => {
 })
 
 describe('mergeProviderOffersAcrossColumns', () => {
-  it('adds a new provider offer to services (default), leaving products untouched', () => {
+  it('adds a new Shopify offer to products, leaving existing manual products untouched', () => {
     const out = mergeProviderOffersAcrossColumns([], [o({ name: 'Handmade', price: '$40', source: undefined })], [o({ name: 'Mug', price: '$12' })], 'shopify')
-    expect(out.services.map((x) => x.name)).toEqual(['Mug'])
-    expect(out.products.map((x) => x.name)).toEqual(['Handmade']) // manual product preserved, not duplicated
+    expect(out.services).toHaveLength(0)
+    expect(out.products.map((x) => x.name)).toEqual(['Handmade', 'Mug'])
   })
 
   it('updates an existing provider offer IN products in place — never duplicates into services', () => {
@@ -71,9 +71,21 @@ describe('mergeProviderOffersAcrossColumns', () => {
     const products = [o({ name: 'Widget', price: '$9', source: undefined }), o({ name: 'Mug', price: '$10', source: 'shopify' })]
     const out = mergeProviderOffersAcrossColumns(services, products, [o({ name: 'Mug', price: '$11' }), o({ name: 'Tee', price: '$20' })], 'shopify')
     expect(out.services.find((x) => x.name === 'Consulting')!.price).toBe('$500')
-    expect(out.services.find((x) => x.name === 'Tee')).toBeTruthy() // new → services
+    expect(out.products.find((x) => x.name === 'Tee')).toBeTruthy() // new Shopify item → products
     expect(out.products.find((x) => x.name === 'Widget')!.price).toBe('$9')
     expect(out.products.find((x) => x.name === 'Mug')!.price).toBe('$11') // updated in products
     expect(out.services.find((x) => x.name === 'Mug')).toBeUndefined() // no cross-column dup
+  })
+
+  it('keeps a legacy Shopify item in services so its stable offer key does not change', () => {
+    const services = [o({ name: 'Legacy Mug', price: '$10', url: 'https://old', source: 'shopify' })]
+    const out = mergeProviderOffersAcrossColumns(services, [], [
+      o({ name: 'Legacy Mug', price: '$12', url: 'https://new' }),
+      o({ name: 'New Tee', price: '$20', url: 'https://tee' }),
+    ], 'shopify')
+
+    expect(out.services).toHaveLength(1)
+    expect(out.services[0]).toMatchObject({ name: 'Legacy Mug', price: '$12', url: 'https://new' })
+    expect(out.products.map((x) => x.name)).toEqual(['New Tee'])
   })
 })

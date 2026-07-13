@@ -2,7 +2,7 @@
 // (stateless "Streamable HTTP" style). Pure request→response so it's testable;
 // the route handles I/O + loading the page. Beyond the static mcp.json, this
 // lets MCP-native agents call initialize / tools/list / resources/* directly.
-import { AgentPage, getBaseUrl, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath } from './agent-page'
+import { AgentPage, getBaseUrl, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getPreferredOriginalOfferUrl } from './agent-page'
 
 export const MCP_PROTOCOL_VERSION = '2024-11-05'
 
@@ -110,8 +110,7 @@ export function handleMcpRequest(
       const offer = getCheckoutOffers(page).find((o) => getCheckoutOfferKey(o.kind, o.index) === offerKey)
       if (name === 'book_offer') {
         if (!offer) return err(id, -32602, `Unknown offer: ${offerKey}`)
-        const useOriginal = offer.prefer_original_for_this || (page.prefer_original_site && !!offer.url)
-        const target = useOriginal && offer.url ? offer.url : `${getBaseUrl()}${getCheckoutPath(page.slug, offer.kind, offer.index)}`
+        const target = getPreferredOriginalOfferUrl(page, offer) || `${getBaseUrl()}${getCheckoutPath(page.slug, offer.kind, offer.index)}`
         return ok(id, { content: [{ type: 'text', text: `Booking target for "${offer.name}": ${target}` }] })
       }
       if (name === 'negotiate_offer') {
@@ -243,8 +242,7 @@ export function handleStorefrontMcpRequest(
         if (!listing) return err(id, -32602, `Unknown listing in this storefront: ${slug}`)
         const offer = getCheckoutOffers(listing).find((o) => getCheckoutOfferKey(o.kind, o.index) === offerKey)
         if (!offer) return err(id, -32602, `Unknown offer: ${offerKey}`)
-        const useOriginal = offer.prefer_original_for_this || (listing.prefer_original_site && !!offer.url)
-        const target = useOriginal && offer.url ? offer.url : `${getBaseUrl()}${getCheckoutPath(listing.slug, offer.kind, offer.index)}`
+        const target = getPreferredOriginalOfferUrl(listing, offer) || `${getBaseUrl()}${getCheckoutPath(listing.slug, offer.kind, offer.index)}`
         return ok(id, { content: [{ type: 'text', text: `Booking target for "${offer.name}" (${listing.name}): ${target}` }] })
       }
       if (name === 'negotiate_offer') {

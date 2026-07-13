@@ -191,6 +191,79 @@ describe('POST /api/checkout - buyer identity propagation', () => {
     expect(res.status).toBe(200)
     expect(stripeCalls[0].params.customer_email).toBeUndefined()
   })
+
+  it('keeps a provider-preferred Shopify product on Shopify even when Stripe Connect is ready', async () => {
+    const shopifyUrl = 'https://nexez-tester.myshopify.com/products/agent-ready-cap'
+    const shopifyPage = {
+      ...fixedPage(),
+      services: [
+        {
+          ...fixedPage().services[0],
+          name: 'Agent-ready cap',
+          url: shopifyUrl,
+          source: 'shopify',
+          prefer_original_for_this: true,
+          metadata: { commerce_provider: 'shopify', shopify_product_id: 'gid://shopify/Product/1' },
+        },
+      ],
+    }
+    adminRef.handler = (c: QueryContext) => {
+      if (c.table === 'pages') return { data: shopifyPage, error: null }
+      if (c.table === 'billing_subscriptions') {
+        return {
+          data: {
+            plan_id: 'free',
+            status: 'active',
+            stripe_connect_account_id: 'acct_test',
+            stripe_connect_charges_enabled: true,
+          },
+          error: null,
+        }
+      }
+      return { data: null, error: null, count: 0 }
+    }
+
+    const res = await POST(post({ slug: 'demo', offer: 'services-0' }))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ url: shopifyUrl, provider: 'provider_redirect' })
+    expect(stripeCalls).toHaveLength(0)
+  })
+
+  it('reports a provider-preferred Shopify product as provider-ready during a dry run', async () => {
+    const shopifyUrl = 'https://nexez-tester.myshopify.com/products/agent-ready-cap'
+    const shopifyPage = {
+      ...fixedPage(),
+      services: [
+        {
+          ...fixedPage().services[0],
+          url: shopifyUrl,
+          source: 'shopify',
+          prefer_original_for_this: true,
+          metadata: { commerce_provider: 'shopify' },
+        },
+      ],
+    }
+    adminRef.handler = (c: QueryContext) => {
+      if (c.table === 'pages') return { data: shopifyPage, error: null }
+      if (c.table === 'billing_subscriptions') {
+        return {
+          data: {
+            plan_id: 'free',
+            status: 'active',
+            stripe_connect_account_id: 'acct_test',
+            stripe_connect_charges_enabled: true,
+          },
+          error: null,
+        }
+      }
+      return { data: null, error: null, count: 0 }
+    }
+
+    const res = await POST(post({ slug: 'demo', offer: 'services-0', dryRun: true }))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ provider: 'provider_ready', actionUrl: shopifyUrl })
+    expect(stripeCalls).toHaveLength(0)
+  })
 })
 
 describe('POST /api/checkout - single-use Calendly links', () => {

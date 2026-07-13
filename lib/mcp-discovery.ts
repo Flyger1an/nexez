@@ -1,10 +1,10 @@
-import { AgentPage, getBaseUrl, getCheckoutOffers, getCheckoutPath, getOfferCount } from './agent-page'
+import { AgentPage, getAgentOfferType, getBaseUrl, getCheckoutOffers, getCheckoutPath, getOfferCount, getPreferredOriginalOfferUrl } from './agent-page'
 import { buildAgentDistributionLinks } from './agent-distribution'
 import { getAgentJsonPath } from './agent-manifest'
 
 export type McpDiscoveryPage = Pick<
   AgentPage,
-  'name' | 'slug' | 'description' | 'location' | 'products' | 'services' | 'created_at' | 'mcp_enabled'
+  'name' | 'slug' | 'description' | 'location' | 'products' | 'services' | 'created_at' | 'mcp_enabled' | 'prefer_original_site'
 >
 
 export function buildMcpDiscoveryPage(page: McpDiscoveryPage, baseUrl = getBaseUrl()) {
@@ -26,9 +26,9 @@ export function buildMcpDiscoveryPage(page: McpDiscoveryPage, baseUrl = getBaseU
     },
     offers: offers.map((offer) => ({
       name: offer.name,
-      kind: offer.kind === 'services' ? 'service' : 'product',
+      kind: getAgentOfferType(offer),
       offer_key: `${offer.kind}-${offer.index}`,
-      checkout_url: `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
+      checkout_url: getPreferredOriginalOfferUrl(page, offer) || `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
       mcp_resource_uri: `${baseUrl}/${page.slug}#offer-${offer.index}`,
     })),
     created_at: page.created_at || null,

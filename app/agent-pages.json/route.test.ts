@@ -110,4 +110,33 @@ describe('GET /agent-pages.json', () => {
     })
     expect(body.pages[1].rating_summary).toBeNull()
   })
+
+  it('indexes a provider-preferred Shopify import as a product with its Shopify URL', async () => {
+    const shopifyUrl = 'https://nexez-tester.myshopify.com/products/agent-ready-cap'
+    dbRef.pages = [{
+      ...pages[0],
+      services: [{
+        name: 'Agent-ready cap',
+        description: 'A cap',
+        price: '$30',
+        url: shopifyUrl,
+        source: 'shopify',
+        prefer_original_for_this: true,
+        metadata: { commerce_provider: 'shopify' },
+      }],
+      prefer_original_site: false,
+    }]
+
+    const res = await GET(new Request('https://nexez.app/agent-pages.json'))
+    const body = await res.json()
+
+    expect(body.pages[0].checkout_urls[0]).toMatchObject({
+      type: 'product',
+      url: shopifyUrl,
+      provider_url: shopifyUrl,
+      prefer_original_for_this: true,
+    })
+    expect(body.pages[0].checkout_urls[0].action.endpoint).toMatch(/^https:\/\/.+\/api\/checkout$/)
+    expect(body.pages[0].checkout_urls[0].action.endpoint).not.toBe(shopifyUrl)
+  })
 })

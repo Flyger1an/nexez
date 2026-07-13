@@ -548,6 +548,32 @@ export function getOfferDestination(page: Pick<AgentPage, 'cta_url' | 'website_u
   return ''
 }
 
+/**
+ * Return the offer-level provider URL only when the seller explicitly prefers
+ * the original provider. This deliberately does not fall back to a page CTA:
+ * an imported Shopify product must keep its exact product URL and must never be
+ * converted into an unrelated page-level checkout.
+ */
+export function getPreferredOriginalOfferUrl(
+  page: Pick<AgentPage, 'prefer_original_site'>,
+  offer?: Pick<OfferItem, 'url' | 'prefer_original_for_this'> | null,
+) {
+  const offerUrl = sanitizePublicUrl(offer?.url)
+  if (!offerUrl) return ''
+  return offer?.prefer_original_for_this || page.prefer_original_site ? offerUrl : ''
+}
+
+/** Shopify catalog items remain products even when a legacy sync stored them
+ * in the services JSON column. The structured commerce metadata is the semantic
+ * source of truth for agent-facing type labels. */
+export function getAgentOfferType(offer: Pick<CheckoutOffer, 'kind' | 'source' | 'metadata'>): 'service' | 'product' {
+  const commerceProvider = typeof offer.metadata?.commerce_provider === 'string'
+    ? offer.metadata.commerce_provider.toLowerCase()
+    : ''
+  if (offer.source === 'shopify' || commerceProvider === 'shopify') return 'product'
+  return offer.kind === 'services' ? 'service' : 'product'
+}
+
 export type ReadinessCriterion = {
   id: string
   label: string

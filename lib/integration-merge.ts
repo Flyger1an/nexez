@@ -35,9 +35,10 @@ export function mergeProviderOffers(existing: OfferItem[], incoming: OfferItem[]
  * provider offer as valid in EITHER column. So a sync must update a provider
  * offer wherever it already lives and must NOT add a duplicate to the other
  * column. Incoming offers that already exist as this provider's offers in
- * `products` are merged there; everything else flows to `services` (updated in
- * place if present, appended if new). Non-provider offers in both columns are
- * preserved.
+ * `products` are merged there. New Shopify catalog items default to `products`;
+ * service-oriented providers default to `services`. Existing provider offers
+ * stay in their current column so a re-sync never changes stable offer keys.
+ * Non-provider offers in both columns are preserved.
  */
 export function mergeProviderOffersAcrossColumns(
   services: OfferItem[],
@@ -45,9 +46,17 @@ export function mergeProviderOffersAcrossColumns(
   incoming: OfferItem[],
   provider: string,
 ): { services: OfferItem[]; products: OfferItem[] } {
-  const prodProviderNames = new Set(products.filter((o) => o.source === provider).map((o) => o.name.toLowerCase()))
-  const toProducts = incoming.filter((o) => prodProviderNames.has(o.name.toLowerCase()))
-  const toServices = incoming.filter((o) => !prodProviderNames.has(o.name.toLowerCase()))
+  const productProviderNames = new Set(products.filter((o) => o.source === provider).map((o) => o.name.toLowerCase()))
+  const serviceProviderNames = new Set(services.filter((o) => o.source === provider).map((o) => o.name.toLowerCase()))
+  const defaultToProducts = provider === 'shopify'
+  const toProducts = incoming.filter((o) => {
+    const name = o.name.toLowerCase()
+    return productProviderNames.has(name) || (!serviceProviderNames.has(name) && defaultToProducts)
+  })
+  const toServices = incoming.filter((o) => {
+    const name = o.name.toLowerCase()
+    return serviceProviderNames.has(name) || (!productProviderNames.has(name) && !defaultToProducts)
+  })
   return {
     services: mergeProviderOffers(services, toServices, provider),
     products: mergeProviderOffers(products, toProducts, provider),

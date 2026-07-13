@@ -96,7 +96,8 @@ describe('syncPageIntegration', () => {
     const r = await syncPageIntegration(admin(), 'shopify', 'pg1')
     expect(r).toMatchObject({ ok: true, provider: 'shopify', imported: 1, availabilitySynced: false })
     expect(h.pagesUpdate.services.find((o: any) => o.name === 'Existing')).toBeTruthy()
-    expect(h.pagesUpdate.services.find((o: any) => o.name === 'Mug').source).toBe('shopify')
+    expect(h.pagesUpdate.products.find((o: any) => o.name === 'Mug').source).toBe('shopify')
+    expect(h.pagesUpdate.services.find((o: any) => o.name === 'Mug')).toBeUndefined()
     expect('next_available' in h.pagesUpdate).toBe(false)
     expect(h.secretsUpdate).toBeNull() // shopify doesn't touch the calendly cursor
     expect(h.shopifySyncedAt).toBeTruthy()

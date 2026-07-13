@@ -10,6 +10,7 @@ const page: McpDiscoveryPage = {
   services: [{ name: 'Strategy Session', description: 'One hour strategy call', price: '$299', url: '' }],
   created_at: '2026-06-03T00:00:00.000Z',
   mcp_enabled: true,
+  prefer_original_site: false,
 }
 
 describe('MCP discovery helpers', () => {
@@ -46,5 +47,28 @@ describe('MCP discovery helpers', () => {
     expect(catalog.sdks.typescript.name).toBe('@nexez/agent-sdk')
     expect(catalog.sdks.python.name).toBe('nexez-agent-sdk')
     expect(catalog.examples.sourcePath).toBe('examples/agents')
+  })
+
+  it('describes a provider-preferred Shopify import as a product and uses its Shopify URL', () => {
+    const shopifyUrl = 'https://nexez-tester.myshopify.com/products/agent-ready-cap'
+    const entry = buildMcpDiscoveryPage({
+      ...page,
+      services: [{
+        name: 'Agent-ready cap',
+        description: 'A cap',
+        price: '$30',
+        url: shopifyUrl,
+        source: 'shopify',
+        prefer_original_for_this: true,
+        metadata: { commerce_provider: 'shopify' },
+      }],
+      products: [],
+    }, 'https://nexez.test')
+
+    expect(entry.offers[0]).toMatchObject({
+      kind: 'product',
+      offer_key: 'services-0',
+      checkout_url: shopifyUrl,
+    })
   })
 })

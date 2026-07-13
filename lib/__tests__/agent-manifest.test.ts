@@ -45,6 +45,31 @@ describe('buildAgentPagePayload', () => {
     expect(payload.offers[0].action.endpoint).toContain('/api/checkout')
   })
 
+  it('keeps provider-preferred Shopify products on Shopify while preserving the Nexez action API', () => {
+    const shopifyUrl = 'https://nexez-tester.myshopify.com/products/agent-ready-cap'
+    const shopifyPayload = buildAgentPagePayload({
+      ...page,
+      services: [{
+        name: 'Agent-ready cap',
+        description: 'A cap',
+        price: '$30',
+        url: shopifyUrl,
+        source: 'shopify',
+        prefer_original_for_this: true,
+        metadata: { commerce_provider: 'shopify' },
+      }],
+    } as AgentPage, 'https://nexez.app') as any
+
+    expect(shopifyPayload.offers[0]).toMatchObject({
+      type: 'product',
+      checkout_url: shopifyUrl,
+      provider_url: shopifyUrl,
+      prefer_original_for_this: true,
+    })
+    expect(shopifyPayload.offers[0].action.endpoint).toMatch(/^https:\/\/.+\/api\/checkout$/)
+    expect(shopifyPayload.offers[0].action.endpoint).not.toBe(shopifyUrl)
+  })
+
   it('surfaces the settlement currency on the page block and each offer', () => {
     // no currency on the page → defaults to usd (so an agent never assumes blindly)
     expect(payload.page.currency).toBe('usd')

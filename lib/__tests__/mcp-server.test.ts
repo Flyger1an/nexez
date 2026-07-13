@@ -41,6 +41,26 @@ describe('handleMcpRequest', () => {
     const r = handleMcpRequest(page, base, { id: 4, method: 'tools/call', params: { name: 'book_offer', arguments: { offer: 'services-0' } } })
     expect((r.result as any).content[0].text).toContain('/checkout/acme')
   })
+  it('tools/call book_offer honors an offer-level provider preference', () => {
+    const shopifyUrl = 'https://nexez-tester.myshopify.com/products/agent-ready-cap'
+    const shopifyPage = {
+      ...page,
+      services: [{
+        name: 'Agent-ready cap',
+        description: 'A cap',
+        price: '$30',
+        url: shopifyUrl,
+        source: 'shopify',
+        prefer_original_for_this: true,
+      }],
+    } as AgentPage
+    const r = handleMcpRequest(shopifyPage, base, {
+      id: 4,
+      method: 'tools/call',
+      params: { name: 'book_offer', arguments: { offer: 'services-0' } },
+    })
+    expect((r.result as any).content[0].text).toContain(shopifyUrl)
+  })
   it('unknown method → JSON-RPC error', () => {
     const r = handleMcpRequest(page, base, { id: 5, method: 'bogus' })
     expect(r.error?.code).toBe(-32601)

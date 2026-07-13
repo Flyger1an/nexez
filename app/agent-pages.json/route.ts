@@ -1,4 +1,4 @@
-import { AgentPage, getCertification, getCheckoutOffers, getCheckoutPath, getOfferCount, getRequestBaseUrl } from '../../lib/agent-page'
+import { AgentPage, getAgentOfferType, getCertification, getCheckoutOffers, getCheckoutPath, getOfferCount, getOfferDestination, getPreferredOriginalOfferUrl, getRequestBaseUrl } from '../../lib/agent-page'
 import { buildAgentStorefrontRef, getAgentJsonPath } from '../../lib/agent-manifest'
 import { buildAgentDistributionLinks } from '../../lib/agent-distribution'
 import { normalizeCurrency } from '../../lib/currency'
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   // so agents can shortlist from the index without fetching every per-page manifest.
   const { data: pages } = await supabase
     .from('pages_public')
-    .select('name, slug, description, location, products, services, created_at, currency, website_url, cta_url, audience, industry, contact_email, faqs, is_published')
+    .select('name, slug, description, location, products, services, created_at, currency, website_url, cta_url, audience, industry, contact_email, faqs, is_published, prefer_original_site')
     .eq('is_published', true)
     .order('created_at', { ascending: false })
     .returns<AgentPage[]>()
@@ -75,10 +75,12 @@ export async function GET(request: Request) {
           offer_count: getOfferCount(page),
           checkout_urls: getCheckoutOffers(page).map((offer) => ({
             offer: offer.name,
-            type: offer.kind === 'services' ? 'service' : 'product',
+            type: getAgentOfferType(offer),
             price: offer.price || null,
             currency,
-            url: `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
+            url: getPreferredOriginalOfferUrl(page, offer) || `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
+            provider_url: getOfferDestination(page, offer) || null,
+            prefer_original_for_this: Boolean(offer.prefer_original_for_this),
             action: {
               method: 'POST',
               endpoint: `${baseUrl}/api/checkout`,

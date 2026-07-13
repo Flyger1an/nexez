@@ -5,8 +5,10 @@ import {
   getCheckoutOfferKey,
   getCheckoutOffers,
   getCheckoutPath,
+  getAgentOfferType,
   getCertification,
   getOfferDestination,
+  getPreferredOriginalOfferUrl,
   parseAvailabilityWindows,
   resolvePreferredContact,
 } from './agent-page'
@@ -135,12 +137,13 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: 
   // Only advertise negotiation when the owner's plan allows it AND this offer is
   // negotiable - otherwise an agent would POST /api/negotiations and get a 403.
   const isNegotiable = (offer as { offerType?: string }).offerType === 'negotiable'
-  const checkoutUrl = absoluteRuntimeUrl(platformBase, getCheckoutPath(page.slug, offer.kind, offer.index))
+  const preferredOriginalUrl = getPreferredOriginalOfferUrl(page, offer)
+  const checkoutUrl = preferredOriginalUrl || absoluteRuntimeUrl(platformBase, getCheckoutPath(page.slug, offer.kind, offer.index))
   const providerUrl = getOfferDestination(page, offer) || null
 
   return {
     key: offerKey,
-    type: offer.kind === 'services' ? 'service' : 'product',
+    type: getAgentOfferType(offer),
     name: offer.name,
     description: offer.description || null,
     // Speech-ready phrasing for voice agents (advanced LLM-powered using platform's configured LLM when page llm_opt_in + key, else deterministic).

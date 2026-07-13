@@ -5,7 +5,9 @@ import {
   getCheckoutOfferKey,
   getCheckoutOffers,
   getCheckoutPath,
+  getAgentOfferType,
   getOfferDestination,
+  getPreferredOriginalOfferUrl,
   getReadinessScore,
 } from './agent-page'
 import { buildAgentStorefrontRef, getAgentJsonPath, type AgentStorefrontRef } from './agent-manifest'
@@ -110,6 +112,7 @@ export function searchAgentPages(pages: AgentPage[], query: string, limit = 10, 
 
 export function buildResult(page: AgentPage, offer: CheckoutOffer | null, score: number, baseUrl: string, options: AgentSearchOptions = {}): AgentSearchResult {
   const offerKey = offer ? getCheckoutOfferKey(offer.kind, offer.index) : ''
+  const preferredOriginalUrl = offer ? getPreferredOriginalOfferUrl(page, offer) : ''
   const locationMatch = options.location ? getPageLocationMatch(page, options.location) : null
   const storefrontHandle = options.storefrontHandles?.get(page.slug)
   const storefront = storefrontHandle ? buildAgentStorefrontRef(storefrontHandle, baseUrl) : null
@@ -137,11 +140,11 @@ export function buildResult(page: AgentPage, offer: CheckoutOffer | null, score:
     offer: offer
       ? {
           key: offerKey,
-          type: offer.kind === 'services' ? 'service' : 'product',
+          type: getAgentOfferType(offer),
           name: offer.name,
           description: offer.description || null,
           price: offer.price || null,
-          checkout_url: `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
+          checkout_url: preferredOriginalUrl || `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
           provider_url: getOfferDestination(page, offer) || null,
           action: {
             method: 'POST',
