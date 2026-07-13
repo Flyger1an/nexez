@@ -3,6 +3,10 @@
 Makes a Shopify store agent-legible via the merchant's [Nexez](https://nexez.ai)
 listing. Two parts:
 
+- **Embedded app home** (`/shopify`) runs inside Shopify admin with the latest
+  App Bridge, authenticates every backend request with a short-lived Shopify ID
+  token, and exposes account linking, catalog status, manual sync, theme setup,
+  and the storefront agent endpoint.
 - **Theme app extension** (`extensions/agent-ready/`) ships same-origin manifest
   and agent-summary discovery links, plus an optional verification `<meta>`, in
   the storefront `<head>`.
@@ -26,6 +30,10 @@ the response to the live `nexez.app/<slug>/<artifact>` resource.
 
 | Route | Host | Purpose |
 | --- | --- | --- |
+| `GET /shopify` | app.nexez.ai | Embedded, cookie-independent App Bridge home |
+| `POST /api/shopify/session` | app.nexez.ai | Verify Shopify ID token, exchange/refresh offline credentials, load shop state |
+| `POST /api/shopify/session/sync` | app.nexez.ai | Exact-shop catalog refresh authenticated by the Shopify session |
+| `GET /api/shopify/claim` | app.nexez.ai | Consume a one-time token and continue top-level Nexez account linking |
 | `GET /api/shopify/auth` | app.nexez.ai | OAuth install start (SSRF-pinned shop, CSRF state) |
 | `GET /api/shopify/callback` | app.nexez.ai | HMAC + state verify -> expiring offline credentials -> `shopify_installs` |
 | `POST /api/webhooks/shopify` | app.nexez.ai | `app/uninstalled` + GDPR (HMAC-verified) |
@@ -35,7 +43,9 @@ Data: `shopify_installs` (migrations `20260711015728` and `20260712222518`)
 maps a shop domain to a Nexez owner/listing plus encrypted, rotating offline
 credentials. The table is service-role only. Access tokens are refreshed before
 expiry, refresh-token rotation is persisted atomically, and uninstall/GDPR
-webhooks revoke the local connection state.
+webhooks revoke the local connection state. Embedded account-link tokens are
+random, stored only as SHA-256 digests, expire after ten minutes, and are
+atomically cleared on first use.
 
 ## Catalog sync
 
@@ -62,7 +72,7 @@ path so buyers and agents complete the purchase on the merchant's Shopify store.
 1. Create the app in your **Shopify Partner** dashboard; copy Client ID/secret and
    set `SHOPIFY_API_KEY` / `SHOPIFY_API_SECRET` in the Nexez environment, plus
    `INTEGRATION_SECRET_KEY` for token encryption.
-2. Keep the `read_products,write_app_proxy` scopes, redirect URL, App Proxy,
+2. Keep the embedded App URL, `read_products,write_app_proxy` scopes, redirect URL, App Proxy,
    compliance topics, and catalog-change webhooks in `shopify.app.toml`
    synchronized with production.
 3. Run `shopify app deploy` (the theme extension has its own release lifecycle,
@@ -70,18 +80,19 @@ path so buyers and agents complete the purchase on the merchant's Shopify store.
 4. Install the app, link the shop to a Nexez listing, confirm the initial catalog
    sync, then use the post-link theme editor button to activate and save the
    Agent-ready discovery app embed.
-5. Complete the App Store listing and review (screenshots, privacy policy, and
-   the mandatory-webhook check), then a real `*.myshopify.com` install for
-   end-to-end verification.
+5. Resolve every blocking decision in `APP_STORE_READINESS.md`, then complete the
+   listing, screencast, test credentials, privacy details, and quality checks.
 
 Existing installations created before expiring offline tokens were enabled must
 approve OAuth again once. Installations must also approve OAuth whenever requested
 scopes change. The addition of `write_app_proxy` therefore requires
 reauthorization.
 
-## Billing
+## App Store billing gate
 
-Keep **Stripe** as the single entitlement source of truth. A Shopify install maps
-to an existing Nexez owner/listing and does **not** mint entitlements. The
-merchant still needs a Nexez Pro plan (Stripe) for catalog sync. This avoids a
-second, unsynced entitlement source (`getOwnerBillingState` only reads Stripe).
+The existing Nexez subscription remains Stripe-backed, and Shopify catalog sync
+currently respects that entitlement. Do not submit this configuration as a paid
+public App Store app: Shopify requires public-app charges to use Shopify Managed
+Pricing or the Shopify Billing API. Before submission, choose and implement one
+of the documented paths: a free connector, Shopify-native billing with an
+entitlement bridge, or non-App-Store custom distribution.

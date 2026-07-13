@@ -61,7 +61,7 @@ export default async function ShopifyLinkPage() {
             <span className="font-medium text-[var(--fg)]">{shop}</span> is connected.{' '}
             {currentListing ? (
               <>
-                It’s currently linked to <span className="font-medium text-[var(--fg)]">{currentListing.name || currentListing.slug}</span> — pick a
+                It’s currently linked to <span className="font-medium text-[var(--fg)]">{currentListing.name || currentListing.slug}</span>. Pick a
                 different listing below to change it.
               </>
             ) : (

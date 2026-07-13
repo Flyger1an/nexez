@@ -1,4 +1,5 @@
 import 'server-only'
+import crypto from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { decryptSecret, encryptSecret } from './secret-crypto'
 
@@ -19,6 +20,11 @@ export type ShopifyInstall = {
   uninstalled_at: string | null
   linked_at?: string | null
   last_synced_at?: string | null
+  catalog_sync_pending_at?: string | null
+  catalog_sync_attempted_at?: string | null
+  catalog_sync_attempts?: number | null
+  catalog_sync_error?: string | null
+  catalog_sync_topic?: string | null
 }
 
 type ShopifyTokenRow = ShopifyInstall & {
@@ -35,6 +41,7 @@ export type ShopifyInstallCredentials = {
 
 const TOKEN_REFRESH_SKEW_MS = 2 * 60 * 1000
 const SHOPIFY_TOKEN_TIMEOUT_MS = 10_000
+const SHOPIFY_LINK_TOKEN_TTL_MS = 10 * 60 * 1000
 
 function encryptRequired(value: string): string {
   const encrypted = encryptSecret(value)
@@ -53,7 +60,7 @@ export async function getInstallByShop(
 ): Promise<ShopifyInstall | null> {
   const { data } = await admin
     .from('shopify_installs')
-    .select('shop_domain, owner_id, page_id, scope, uninstalled_at')
+    .select('shop_domain, owner_id, page_id, scope, uninstalled_at, linked_at, last_synced_at, catalog_sync_pending_at, catalog_sync_attempted_at, catalog_sync_attempts, catalog_sync_error, catalog_sync_topic')
     .eq('shop_domain', shop)
     .is('uninstalled_at', null)
     .maybeSingle()
@@ -107,12 +114,142 @@ export async function upsertInstall(
     row.page_id = null
     row.linked_at = null
     row.last_synced_at = null
+    row.link_token_hash = null
+    row.link_token_expires_at = null
   }
   // Only in the payload (and therefore ON CONFLICT update) when provided.
   if (input.ownerId !== undefined) row.owner_id = input.ownerId
   if (input.pageId !== undefined) row.page_id = input.pageId
   const { error } = await admin.from('shopify_installs').upsert(row, { onConflict: 'shop_domain' })
   if (error) throw new Error('Could not save the Shopify installation.')
+}
+
+/** Exchange an App Bridge ID token for rotating offline credentials. Embedded
+ * apps use this instead of a cookie-backed authorization-code callback. */
+export async function exchangeShopifySessionToken(
+  admin: Pick<SupabaseClient, 'from'>,
+  shop: string,
+  subjectToken: string,
+): Promise<void> {
+  const clientId = process.env.SHOPIFY_API_KEY
+  const clientSecret = process.env.SHOPIFY_API_SECRET
+  if (!clientId || !clientSecret || !subjectToken) throw new Error('Shopify token exchange is not configured.')
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), SHOPIFY_TOKEN_TIMEOUT_MS)
+  try {
+    const body = new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+      subject_token: subjectToken,
+      subject_token_type: 'urn:ietf:params:oauth:token-type:id_token',
+      requested_token_type: 'urn:shopify:params:oauth:token-type:offline-access-token',
+      expiring: '1',
+    })
+    const response = await fetch(`https://${shop}/admin/oauth/access_token`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
+      body,
+      redirect: 'error',
+      signal: controller.signal,
+    })
+    if (!response.ok) throw new Error('Shopify token exchange failed.')
+    const json = (await response.json()) as {
+      access_token?: string
+      refresh_token?: string
+      expires_in?: number
+      refresh_token_expires_in?: number
+      scope?: string
+    }
+    const accessToken = String(json.access_token || '')
+    const refreshToken = String(json.refresh_token || '')
+    const expiresIn = Number(json.expires_in || 0)
+    const refreshTokenExpiresIn = Number(json.refresh_token_expires_in || 0)
+    if (!accessToken || !refreshToken || expiresIn <= 0 || refreshTokenExpiresIn <= 0) {
+      throw new Error('Shopify returned incomplete offline credentials.')
+    }
+    await upsertInstall(admin, {
+      shop,
+      offlineToken: accessToken,
+      refreshToken,
+      expiresIn,
+      refreshTokenExpiresIn,
+      scope: String(json.scope || ''),
+    })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** Ensure an embedded app session has a usable offline install. Existing
+ * credentials are reused or refreshed; token exchange is the recovery path. */
+export async function ensureShopifySessionInstall(
+  admin: Pick<SupabaseClient, 'from'>,
+  shop: string,
+  subjectToken: string,
+): Promise<ShopifyInstall> {
+  const credentials = await getShopifyInstallCredentialsByShop(admin, shop)
+  if (!credentials) await exchangeShopifySessionToken(admin, shop, subjectToken)
+  const install = await getInstallByShop(admin, shop)
+  if (!install) throw new Error('Could not establish the Shopify installation.')
+  return install
+}
+
+function hashLinkToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex')
+}
+
+/** Mint a short-lived, single-use credential for moving from the Shopify iframe
+ * into Nexez's top-level account-link flow without third-party cookies. */
+export async function issueShopifyLinkToken(
+  admin: Pick<SupabaseClient, 'from'>,
+  shop: string,
+): Promise<string> {
+  const token = crypto.randomBytes(32).toString('base64url')
+  const now = new Date()
+  const { data, error } = await admin
+    .from('shopify_installs')
+    .update({
+      link_token_hash: hashLinkToken(token),
+      link_token_expires_at: new Date(now.getTime() + SHOPIFY_LINK_TOKEN_TTL_MS).toISOString(),
+      updated_at: now.toISOString(),
+    })
+    .eq('shop_domain', shop)
+    .is('uninstalled_at', null)
+    .select('shop_domain')
+    .maybeSingle<{ shop_domain: string }>()
+  if (error || !data) throw new Error('Could not create the Shopify account-link session.')
+  return token
+}
+
+/** Consume a link credential exactly once. The compare-and-clear update makes
+ * concurrent replays fail after the first successful claimant. */
+export async function consumeShopifyLinkToken(
+  admin: Pick<SupabaseClient, 'from'>,
+  token: string,
+): Promise<string | null> {
+  if (!/^[A-Za-z0-9_-]{40,64}$/.test(token)) return null
+  const tokenHash = hashLinkToken(token)
+  const now = new Date().toISOString()
+  const { data: row, error: readError } = await admin
+    .from('shopify_installs')
+    .select('shop_domain, link_token_expires_at')
+    .eq('link_token_hash', tokenHash)
+    .is('uninstalled_at', null)
+    .maybeSingle<{ shop_domain: string; link_token_expires_at: string | null }>()
+  if (readError || !row?.link_token_expires_at || row.link_token_expires_at <= now) return null
+
+  const { data, error } = await admin
+    .from('shopify_installs')
+    .update({ link_token_hash: null, link_token_expires_at: null, updated_at: now })
+    .eq('shop_domain', row.shop_domain)
+    .eq('link_token_hash', tokenHash)
+    .is('uninstalled_at', null)
+    .select('shop_domain')
+    .maybeSingle<{ shop_domain: string }>()
+  if (error || !data) return null
+  return data.shop_domain
 }
 
 async function refreshInstallToken(
@@ -258,6 +395,8 @@ export async function markUninstalled(admin: Pick<SupabaseClient, 'from'>, shop:
       page_id: null,
       linked_at: null,
       last_synced_at: null,
+      link_token_hash: null,
+      link_token_expires_at: null,
       updated_at: at,
     })
     .eq('shop_domain', shop)

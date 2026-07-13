@@ -21,8 +21,88 @@ export function shopifyApiKey(): string {
   return process.env.SHOPIFY_API_KEY || ''
 }
 
+export type ShopifySession = {
+  shop: string
+  userId: string
+  sessionId: string
+  expiresAt: number
+}
+
 function timingSafeEqualBuf(a: Buffer, b: Buffer): boolean {
   return a.length > 0 && a.length === b.length && crypto.timingSafeEqual(a, b)
+}
+
+/**
+ * Verify the short-lived OpenID Connect ID token that App Bridge adds to
+ * embedded-app fetch requests. The token proves both the shop and Shopify admin
+ * user without relying on third-party cookies inside the admin iframe.
+ */
+export function verifyShopifySessionToken(token: string | null | undefined): ShopifySession | null {
+  const secret = process.env.SHOPIFY_API_SECRET
+  const clientId = process.env.SHOPIFY_API_KEY
+  if (!secret || !clientId || !token) return null
+
+  const parts = token.split('.')
+  if (parts.length !== 3) return null
+  const [encodedHeader, encodedPayload, encodedSignature] = parts
+
+  try {
+    const header = JSON.parse(Buffer.from(encodedHeader, 'base64url').toString('utf8')) as {
+      alg?: unknown
+      typ?: unknown
+    }
+    const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')) as {
+      aud?: unknown
+      dest?: unknown
+      exp?: unknown
+      iat?: unknown
+      iss?: unknown
+      nbf?: unknown
+      sid?: unknown
+      sub?: unknown
+    }
+    if (header.alg !== 'HS256' || (header.typ !== undefined && header.typ !== 'JWT')) return null
+
+    const expected = crypto
+      .createHmac('sha256', secret)
+      .update(`${encodedHeader}.${encodedPayload}`)
+      .digest()
+    const supplied = Buffer.from(encodedSignature, 'base64url')
+    if (!timingSafeEqualBuf(expected, supplied)) return null
+
+    const now = Math.floor(Date.now() / 1000)
+    const leewaySeconds = 5
+    const exp = Number(payload.exp)
+    const iat = Number(payload.iat)
+    const nbf = Number(payload.nbf)
+    if (!Number.isFinite(exp) || !Number.isFinite(iat) || !Number.isFinite(nbf)) return null
+    if (exp <= now - leewaySeconds || nbf > now + leewaySeconds || iat > now + leewaySeconds) return null
+    // Shopify ID tokens currently live for one minute. A five-minute ceiling
+    // catches forged or accidentally persisted bearer tokens without being
+    // brittle to a small platform-side lifetime change.
+    if (exp <= iat || exp - iat > 5 * 60) return null
+    if (payload.aud !== clientId) return null
+
+    if (typeof payload.dest !== 'string' || typeof payload.iss !== 'string') return null
+    const dest = new URL(payload.dest)
+    const issuer = new URL(payload.iss)
+    if (
+      dest.protocol !== 'https:' ||
+      issuer.protocol !== 'https:' ||
+      dest.hostname !== issuer.hostname ||
+      !issuer.pathname.startsWith('/admin') ||
+      !MYSHOPIFY_RE.test(dest.hostname)
+    ) {
+      return null
+    }
+
+    const userId = String(payload.sub || '')
+    const sessionId = String(payload.sid || '')
+    if (!userId || !sessionId) return null
+    return { shop: dest.hostname, userId, sessionId, expiresAt: exp }
+  } catch {
+    return null
+  }
 }
 
 /**
