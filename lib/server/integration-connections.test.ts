@@ -64,9 +64,33 @@ describe('getPageIntegrationConnections', () => {
     expect(c.shopify).toMatchObject({
       connected: true,
       kind: 'oauth',
+      autoSync: true,
       canSync: true,
       lastSyncedAt: '2026-07-12T18:00:00Z',
+      syncStatus: 'idle',
     })
+  })
+
+  it('surfaces queued and failed Shopify auto-sync health without exposing credentials', async () => {
+    drive(
+      { calendly_pat_encrypted: null, shopify_credentials_encrypted: null, calendly_synced_at: null },
+      null,
+      {
+        last_synced_at: '2026-07-12T18:00:00Z',
+        catalog_sync_pending_at: '2026-07-13T12:00:00Z',
+        catalog_sync_error: null,
+      },
+    )
+    let c = byProvider(await getPageIntegrationConnections('pg1', 'o1'))
+    expect(c.shopify).toMatchObject({ autoSync: true, syncStatus: 'pending', syncError: null })
+
+    drive(
+      { calendly_pat_encrypted: null, shopify_credentials_encrypted: null, calendly_synced_at: null },
+      null,
+      { last_synced_at: null, catalog_sync_pending_at: null, catalog_sync_error: 'Reconnect Shopify.' },
+    )
+    c = byProvider(await getPageIntegrationConnections('pg1', 'o1'))
+    expect(c.shopify).toMatchObject({ syncStatus: 'attention', syncError: 'Reconnect Shopify.' })
   })
 
   it('includes Square + Acuity as token providers (connected reflects the stored blob)', async () => {

@@ -160,6 +160,7 @@ describe('importShopifyOffers', () => {
       },
     })
     expect(r.offers[0].tiers).toHaveLength(2)
+    expect(r.catalogComplete).toBe(true)
   })
 
   it('paginates the GraphQL catalog up to the requested limit', async () => {
@@ -181,6 +182,39 @@ describe('importShopifyOffers', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(JSON.parse(fetchMock.mock.calls[1][1].body).variables.after).toBe('next')
     expect(r.offers.map((offer) => offer.name)).toEqual(['Product 1', 'Product 2'])
+    expect(r.catalogComplete).toBe(true)
+  })
+
+  it('marks a limit-truncated Shopify catalog as incomplete', async () => {
+    const product = {
+      id: 'gid://shopify/Product/1',
+      title: 'Product 1',
+      description: '',
+      handle: 'product-1',
+      onlineStoreUrl: null,
+      variants: { nodes: [{ id: 'gid://shopify/ProductVariant/1', title: 'Default', price: '9.99', availableForSale: true, sellableOnlineQuantity: 1 }] },
+    }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse({
+      data: { shop: { currencyCode: 'USD' }, products: { nodes: [product], pageInfo: { hasNextPage: true, endCursor: 'next' } } },
+    })))
+
+    const r = await importShopifyOffers({ shop: 'acme.myshopify.com', accessToken: 't', limit: 1 })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.catalogComplete).toBe(false)
+    expect(r.note).toContain('Imported the first 1')
+  })
+
+  it('fails closed when Shopify claims another page but omits its cursor', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(jsonResponse({
+      data: {
+        shop: { currencyCode: 'USD' },
+        products: { nodes: [], pageInfo: { hasNextPage: true, endCursor: null } },
+      },
+    })))
+
+    const r = await importShopifyOffers({ shop: 'acme.myshopify.com', accessToken: 't' })
+    expect(r).toMatchObject({ ok: false, status: 502, error: 'Shopify returned incomplete catalog pagination.' })
   })
 
   it('an upstream non-2xx is a 502 that never reflects the body', async () => {

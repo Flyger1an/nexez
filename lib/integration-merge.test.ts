@@ -88,4 +88,48 @@ describe('mergeProviderOffersAcrossColumns', () => {
     expect(out.services[0]).toMatchObject({ name: 'Legacy Mug', price: '$12', url: 'https://new' })
     expect(out.products.map((x) => x.name)).toEqual(['New Tee'])
   })
+
+  it('matches a renamed Shopify product by stable product ID and refreshes commerce fields', () => {
+    const products = [o({
+      name: 'Old title',
+      description: 'Short old copy',
+      price: '$10',
+      url: 'https://old',
+      source: 'shopify',
+      availability: 'available',
+      tiers: [{ name: 'Small', price: '$10' }],
+      metadata: { shopify_product_id: 'gid://shopify/Product/1', shopify_shop: 'demo.myshopify.com' },
+    })]
+    const incoming = [o({
+      name: 'New title',
+      description: 'Fresh copy',
+      price: '$12',
+      url: 'https://new',
+      availability: 'limited',
+      tiers: [{ name: 'Large', price: '$12' }],
+      metadata: { shopify_product_id: 'gid://shopify/Product/1', shopify_shop: 'demo.myshopify.com' },
+    })]
+    const out = mergeProviderOffersAcrossColumns([], products, incoming, 'shopify', {
+      scope: 'demo.myshopify.com',
+      pruneMissing: true,
+    })
+
+    expect(out.products).toHaveLength(1)
+    expect(out.products[0]).toMatchObject({ name: 'New title', price: '$12', url: 'https://new', availability: 'limited' })
+    expect(out.products[0].tiers).toEqual([{ name: 'Large', price: '$12' }])
+  })
+
+  it('prunes missing products only for the exact Shopify shop', () => {
+    const products = [
+      o({ name: 'Manual', source: undefined }),
+      o({ name: 'Delete me', source: 'shopify', metadata: { shopify_product_id: 'p1', shopify_shop: 'demo.myshopify.com' } }),
+      o({ name: 'Other shop', source: 'shopify', metadata: { shopify_product_id: 'p2', shopify_shop: 'other.myshopify.com' } }),
+    ]
+    const out = mergeProviderOffersAcrossColumns([], products, [], 'shopify', {
+      scope: 'demo.myshopify.com',
+      pruneMissing: true,
+    })
+
+    expect(out.products.map((x) => x.name)).toEqual(['Manual', 'Other shop'])
+  })
 })

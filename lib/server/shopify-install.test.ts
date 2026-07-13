@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createSupabaseMock } from '../../test/supabase-mock'
 import { encryptSecret } from './secret-crypto'
-import { getShopifyInstallCredentials, upsertInstall } from './shopify-install'
+import { getShopifyInstallCredentials, getShopifyInstallCredentialsByShop, upsertInstall } from './shopify-install'
 
 const KEY = '11'.repeat(32)
 
@@ -47,8 +47,9 @@ describe('Shopify install token lifecycle', () => {
       last_synced_at: null,
       uninstalled_at: null,
     })
-    expect(upserted?.offline_token_encrypted).not.toBe('access-1')
-    expect(upserted?.refresh_token_encrypted).not.toBe('refresh-1')
+    const stored = upserted as Record<string, unknown> | null
+    expect(stored?.offline_token_encrypted).not.toBe('access-1')
+    expect(stored?.refresh_token_encrypted).not.toBe('refresh-1')
   })
 
   it('refreshes an expiring offline token and persists the rotated pair', async () => {
@@ -93,7 +94,32 @@ describe('Shopify install token lifecycle', () => {
     expect(credentials).toEqual({ shop: 'demo.myshopify.com', accessToken: 'access-2' })
     expect(String(vi.mocked(fetch).mock.calls[0][1]?.body)).toContain('grant_type=refresh_token')
     expect(updated).toMatchObject({ scope: 'read_products,write_app_proxy' })
-    expect(updated?.offline_token_encrypted).not.toBe('access-2')
-    expect(updated?.refresh_token_encrypted).not.toBe('refresh-2')
+    const rotated = updated as Record<string, unknown> | null
+    expect(rotated?.offline_token_encrypted).not.toBe('access-2')
+    expect(rotated?.refresh_token_encrypted).not.toBe('refresh-2')
+  })
+
+  it('resolves a fresh credential by exact shop for webhook-triggered syncs', async () => {
+    const admin = createSupabaseMock(() => ({
+      data: {
+        shop_domain: 'second.myshopify.com',
+        owner_id: 'owner-1',
+        page_id: 'page-1',
+        scope: 'read_products',
+        uninstalled_at: null,
+        linked_at: '2026-07-12T00:00:00Z',
+        last_synced_at: null,
+        offline_token_encrypted: encryptSecret('shop-specific-access'),
+        refresh_token_encrypted: encryptSecret('refresh-1'),
+        access_token_expires_at: '2099-07-01T00:00:00Z',
+        refresh_token_expires_at: '2099-10-01T00:00:00Z',
+      },
+      error: null,
+    }))
+
+    await expect(getShopifyInstallCredentialsByShop(admin as any, 'second.myshopify.com')).resolves.toEqual({
+      shop: 'second.myshopify.com',
+      accessToken: 'shop-specific-access',
+    })
   })
 })

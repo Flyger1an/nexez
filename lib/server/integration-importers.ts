@@ -55,7 +55,7 @@ export async function gateIntegrationImport(opts: {
 export type ProviderOffers =
   // `lines` (the legacy pipe-format array) is only produced + consumed by the
   // Calendly route; every other caller reads `offers` + `note`.
-  | { ok: true; offers: OfferItem[]; note: string; lines?: string[] }
+  | { ok: true; offers: OfferItem[]; note: string; lines?: string[]; catalogComplete?: boolean }
   | { ok: false; status: number; error: string; upstreamStatus?: number }
 
 // Calendly's v2 API returns event-type fields at the resource top level
@@ -274,6 +274,7 @@ export async function importShopifyOffers(opts: { shop: string; accessToken: str
     const offers: OfferItem[] = []
     let after: string | null = null
     let currencyCode = 'USD'
+    let catalogComplete = false
 
     while (offers.length < safeLimit) {
       const first = Math.min(50, safeLimit - offers.length)
@@ -300,10 +301,21 @@ export async function importShopifyOffers(opts: { shop: string; accessToken: str
       const nodes = Array.isArray(json.data.products.nodes) ? json.data.products.nodes : []
       offers.push(...nodes.slice(0, safeLimit - offers.length).map((product) => shopifyProductToOffer(product, shopDomain, currencyCode)))
       const pageInfo = json.data.products.pageInfo
-      if (!pageInfo?.hasNextPage || !pageInfo.endCursor || nodes.length === 0) break
+      if (!pageInfo?.hasNextPage) {
+        catalogComplete = true
+        break
+      }
+      if (!pageInfo.endCursor || nodes.length === 0) {
+        return { ok: false, status: 502, error: 'Shopify returned incomplete catalog pagination.' }
+      }
       after = pageInfo.endCursor
     }
-    return { ok: true, offers, note: `Imported ${offers.length} active storefront products from Shopify in ${currencyCode}.` }
+    return {
+      ok: true,
+      offers,
+      catalogComplete,
+      note: `${catalogComplete ? 'Imported' : 'Imported the first'} ${offers.length} active storefront products from Shopify in ${currencyCode}.`,
+    }
   } catch (error) {
     console.error('Shopify import error:', error)
     return { ok: false, status: 500, error: 'Shopify import failed' }

@@ -15,6 +15,8 @@ const h = vi.hoisted(() => ({
   pagesUpdate: null as any,
   secretsUpdate: null as any,
   shopifySyncedAt: null as string | null,
+  shopifySyncOptions: null as any,
+  pagesWriteConflict: false,
 }))
 
 vi.mock('./integration-importers', () => ({ importIntegrationOffers: async (input: any) => { h.importInput = input; return h.imported } }))
@@ -29,7 +31,10 @@ vi.mock('./calendly-write', () => ({ fetchCalendlyBusy: async () => h.busy }))
 vi.mock('../observability', () => ({ captureEvent: vi.fn() }))
 vi.mock('./shopify-install', () => ({
   getShopifyInstallCredentials: async () => h.installedShopify,
-  markShopifySynced: async (_admin: unknown, _pageId: string, at: string) => { h.shopifySyncedAt = at },
+  markShopifySynced: async (_admin: unknown, _pageId: string, at: string, options: unknown) => {
+    h.shopifySyncedAt = at
+    h.shopifySyncOptions = options
+  },
 }))
 
 import { syncPageIntegration } from './integration-sync'
@@ -37,7 +42,10 @@ import { syncPageIntegration } from './integration-sync'
 function admin() {
   return createSupabaseMock((ctx: any) => {
     if (ctx.table === 'pages' && ctx.op === 'select') return { data: h.page, error: null }
-    if (ctx.table === 'pages' && ctx.op === 'update') { h.pagesUpdate = ctx.payload; return { data: null, error: null } }
+    if (ctx.table === 'pages' && ctx.op === 'update') {
+      h.pagesUpdate = ctx.payload
+      return { data: h.pagesWriteConflict ? null : { id: 'pg1' }, error: null }
+    }
     if (ctx.table === 'page_secrets' && ctx.op === 'update') { h.secretsUpdate = ctx.payload; return { data: null, error: null } }
     return { data: null, error: null }
   }) as any
@@ -55,10 +63,12 @@ describe('syncPageIntegration', () => {
     h.imported = { ok: true, offers: [calOffer()], note: 'Imported 1' }
     h.importInput = null
     h.busy = [{ start: '2026-07-08T14:00:00Z', end: '2026-07-08T15:00:00Z' }]
-    h.page = { id: 'pg1', slug: 'acme', services: [{ name: 'Existing', price: '$99', description: '', url: '' }], next_available: null }
+    h.page = { id: 'pg1', slug: 'acme', services: [{ name: 'Existing', price: '$99', description: '', url: '' }], next_available: null, updated_at: '2026-07-13T12:00:00Z' }
     h.pagesUpdate = null
     h.secretsUpdate = null
     h.shopifySyncedAt = null
+    h.shopifySyncOptions = null
+    h.pagesWriteConflict = false
   })
 
   it('503 when credential storage is not configured (dormant)', async () => {
@@ -77,6 +87,14 @@ describe('syncPageIntegration', () => {
     h.imported = { ok: false, status: 502, error: 'Calendly rejected the request' }
     expect(await syncPageIntegration(admin(), 'calendly', 'pg1')).toMatchObject({ ok: false, status: 502 })
     expect(h.pagesUpdate).toBeNull() // nothing written
+  })
+
+  it('returns a retryable conflict instead of overwriting a page edited during sync', async () => {
+    h.pagesWriteConflict = true
+    const result = await syncPageIntegration(admin(), 'shopify', 'pg1')
+
+    expect(result).toMatchObject({ ok: false, status: 409 })
+    expect(h.shopifySyncedAt).toBeNull()
   })
 
   it('calendly: imports offers (preserving existing), syncs availability windows + stamps the cursor', async () => {
@@ -101,7 +119,8 @@ describe('syncPageIntegration', () => {
     expect('next_available' in h.pagesUpdate).toBe(false)
     expect(h.secretsUpdate).toBeNull() // shopify doesn't touch the calendly cursor
     expect(h.shopifySyncedAt).toBeTruthy()
-    expect(h.importInput).toEqual({ provider: 'shopify', shop: 'oauth-shop.myshopify.com', accessToken: 'oauth-token' })
+    expect(h.shopifySyncOptions).toEqual({ shop: 'oauth-shop.myshopify.com', clearCatalogSyncState: true })
+    expect(h.importInput).toEqual({ provider: 'shopify', shop: 'oauth-shop.myshopify.com', accessToken: 'oauth-token', limit: 250 })
   })
 
   it('calendly: preserves a hand-written availability note', async () => {
@@ -125,10 +144,54 @@ describe('syncPageIntegration', () => {
 
   it('updates a provider offer that already lives in products — no cross-column duplicate', async () => {
     h.imported = { ok: true, offers: [shopOffer()], note: 'Imported 1' } // "Mug"
-    h.page = { id: 'pg1', slug: 'acme', services: [], products: [{ name: 'Mug', price: '$10', description: '', url: 'https://old', source: 'shopify' }], next_available: null }
+    h.page = { id: 'pg1', slug: 'acme', services: [], products: [{ name: 'Mug', price: '$10', description: '', url: 'https://old', source: 'shopify' }], next_available: null, updated_at: '2026-07-13T12:00:00Z' }
     const r = await syncPageIntegration(admin(), 'shopify', 'pg1')
     expect(r.ok).toBe(true)
     expect(h.pagesUpdate.products.filter((o: any) => o.name === 'Mug')).toHaveLength(1) // refreshed in products
     expect((h.pagesUpdate.services ?? []).find((o: any) => o.name === 'Mug')).toBeUndefined() // not duplicated to services
+  })
+
+  it('shopify: removes products no longer present in the complete active catalog', async () => {
+    h.imported = { ok: true, offers: [{
+      ...shopOffer(),
+      metadata: { shopify_product_id: 'p1', shopify_shop: 'acme.myshopify.com' },
+    }], note: 'Imported 1', catalogComplete: true }
+    h.page = {
+      id: 'pg1',
+      slug: 'acme',
+      services: [],
+      products: [
+        { ...shopOffer(), metadata: { shopify_product_id: 'p1', shopify_shop: 'acme.myshopify.com' } },
+        { ...shopOffer(), name: 'Deleted Tee', metadata: { shopify_product_id: 'p2', shopify_shop: 'acme.myshopify.com' } },
+      ],
+      next_available: null,
+      updated_at: '2026-07-13T12:00:00Z',
+    }
+
+    const r = await syncPageIntegration(admin(), 'shopify', 'pg1')
+    expect(r.ok).toBe(true)
+    expect(h.pagesUpdate.products.map((offer: any) => offer.name)).toEqual(['Mug'])
+  })
+
+  it('shopify: never prunes unseen products from a capped catalog response', async () => {
+    h.imported = { ok: true, offers: [{
+      ...shopOffer(),
+      metadata: { shopify_product_id: 'p1', shopify_shop: 'acme.myshopify.com' },
+    }], note: 'Imported the first 1', catalogComplete: false }
+    h.page = {
+      id: 'pg1',
+      slug: 'acme',
+      services: [],
+      products: [
+        { ...shopOffer(), metadata: { shopify_product_id: 'p1', shopify_shop: 'acme.myshopify.com' } },
+        { ...shopOffer(), name: 'Outside fetch window', metadata: { shopify_product_id: 'p2', shopify_shop: 'acme.myshopify.com' } },
+      ],
+      next_available: null,
+      updated_at: '2026-07-13T12:00:00Z',
+    }
+
+    const r = await syncPageIntegration(admin(), 'shopify', 'pg1')
+    expect(r.ok).toBe(true)
+    expect(h.pagesUpdate.products.map((offer: any) => offer.name)).toEqual(['Mug', 'Outside fetch window'])
   })
 })

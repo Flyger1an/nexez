@@ -173,6 +173,18 @@ async function refreshInstallToken(
   }
 }
 
+async function credentialsFromRow(
+  admin: Pick<SupabaseClient, 'from'>,
+  row: ShopifyTokenRow,
+): Promise<ShopifyInstallCredentials | null> {
+  const accessToken = decryptSecret(row.offline_token_encrypted)
+  const expires = row.access_token_expires_at ? Date.parse(row.access_token_expires_at) : Number.POSITIVE_INFINITY
+  if (accessToken && expires > Date.now() + TOKEN_REFRESH_SKEW_MS) {
+    return { shop: row.shop_domain, accessToken }
+  }
+  return refreshInstallToken(admin, row)
+}
+
 /** Resolve an active OAuth install for a listing, refreshing its rotating token
  * before expiry. Manual page_secrets credentials remain a fallback in the sync
  * layer for merchants that have not installed the app. */
@@ -190,24 +202,45 @@ export async function getShopifyInstallCredentials(
     .maybeSingle<ShopifyTokenRow>()
   if (error || !data) return null
 
-  const accessToken = decryptSecret(data.offline_token_encrypted)
-  const expires = data.access_token_expires_at ? Date.parse(data.access_token_expires_at) : Number.POSITIVE_INFINITY
-  if (accessToken && expires > Date.now() + TOKEN_REFRESH_SKEW_MS) {
-    return { shop: data.shop_domain, accessToken }
-  }
-  return refreshInstallToken(admin, data)
+  return credentialsFromRow(admin, data)
+}
+
+/** Resolve rotating OAuth credentials for one exact shop. Catalog webhooks use
+ * this instead of page lookup so two installed shops can never cross-sync. */
+export async function getShopifyInstallCredentialsByShop(
+  admin: Pick<SupabaseClient, 'from'>,
+  shop: string,
+): Promise<ShopifyInstallCredentials | null> {
+  const { data, error } = await admin
+    .from('shopify_installs')
+    .select('shop_domain, owner_id, page_id, scope, uninstalled_at, linked_at, last_synced_at, offline_token_encrypted, refresh_token_encrypted, access_token_expires_at, refresh_token_expires_at')
+    .eq('shop_domain', shop)
+    .is('uninstalled_at', null)
+    .maybeSingle<ShopifyTokenRow>()
+  if (error || !data) return null
+  return credentialsFromRow(admin, data)
 }
 
 export async function markShopifySynced(
   admin: Pick<SupabaseClient, 'from'>,
   pageId: string,
   at: string,
+  options: { shop?: string; clearCatalogSyncState?: boolean } = {},
 ): Promise<void> {
-  const { error } = await admin
+  const updates: Record<string, unknown> = { last_synced_at: at, updated_at: at }
+  if (options.clearCatalogSyncState) {
+    updates.catalog_sync_pending_at = null
+    updates.catalog_sync_attempted_at = null
+    updates.catalog_sync_attempts = 0
+    updates.catalog_sync_error = null
+  }
+  let query = admin
     .from('shopify_installs')
-    .update({ last_synced_at: at, updated_at: at })
+    .update(updates)
     .eq('page_id', pageId)
     .is('uninstalled_at', null)
+  if (options.shop) query = query.eq('shop_domain', options.shop)
+  const { error } = await query
   if (error) throw new Error('Could not record the Shopify sync time.')
 }
 

@@ -44,6 +44,14 @@ imports the active, published storefront catalog for Pro accounts. The same OAut
 installation powers later manual syncs from listing settings; merchants never
 paste an Admin API token into Nexez.
 
+Product create, update, and delete webhooks enqueue a debounced catalog refresh.
+A bounded five-minute worker reconciles up to 250 active products per pass,
+retries transient failures, and reports attention state in listing settings.
+Webhook requests never wait on the Shopify Admin API. Deleted or unpublished
+Shopify items are pruned only when Shopify confirms the fetched catalog is
+complete, and only from that exact shop; manual offers and other connected shops
+remain untouched.
+
 Catalog reads use Shopify's GraphQL Admin API and preserve the store currency,
 product and variant IDs, storefront URLs, availability, sellable quantity, and up
 to ten variant tiers. Nexez stores the product URL as the preferred transaction
@@ -54,8 +62,9 @@ path so buyers and agents complete the purchase on the merchant's Shopify store.
 1. Create the app in your **Shopify Partner** dashboard; copy Client ID/secret and
    set `SHOPIFY_API_KEY` / `SHOPIFY_API_SECRET` in the Nexez environment, plus
    `INTEGRATION_SECRET_KEY` for token encryption.
-2. Keep the `read_products,write_app_proxy` scopes, redirect URL, App Proxy, and
-   compliance webhook topics in `shopify.app.toml` synchronized with production.
+2. Keep the `read_products,write_app_proxy` scopes, redirect URL, App Proxy,
+   compliance topics, and catalog-change webhooks in `shopify.app.toml`
+   synchronized with production.
 3. Run `shopify app deploy` (the theme extension has its own release lifecycle,
    separate from the Vercel `next build`).
 4. Install the app, link the shop to a Nexez listing, confirm the initial catalog

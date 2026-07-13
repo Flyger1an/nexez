@@ -20,6 +20,24 @@ api_version = "2026-07"
   compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
   uri = "https://app.nexez.ai/api/webhooks/shopify"
 
+  [[webhooks.subscriptions]]
+  name = "product-created"
+  topics = [ "products/create" ]
+  uri = "https://app.nexez.ai/api/webhooks/shopify"
+  include_fields = [ "id", "updated_at" ]
+
+  [[webhooks.subscriptions]]
+  name = "product-updated"
+  topics = [ "products/update" ]
+  uri = "https://app.nexez.ai/api/webhooks/shopify"
+  include_fields = [ "id", "updated_at" ]
+
+  [[webhooks.subscriptions]]
+  name = "product-deleted"
+  topics = [ "products/delete" ]
+  uri = "https://app.nexez.ai/api/webhooks/shopify"
+  include_fields = [ "id", "updated_at" ]
+
 [app_proxy]
 url = "https://app.nexez.ai/api/shopify/proxy"
 subpath = "nexez"

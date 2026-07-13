@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { shopifyConfigured, verifyShopifyWebhookHmac } from '../../../../lib/server/shopify'
 import { markUninstalled, redactShop } from '../../../../lib/server/shopify-install'
+import { isShopifyCatalogTopic, queueShopifyCatalogSync } from '../../../../lib/server/shopify-catalog-sync'
 import { resolveShopDomain } from '../../../../lib/server/integration-importers'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 
@@ -24,15 +25,19 @@ export async function POST(request: Request) {
 
   const topic = request.headers.get('x-shopify-topic') || ''
   const shop = resolveShopDomain(request.headers.get('x-shopify-shop-domain') || '')
+  const isLifecycleTopic = topic === 'app/uninstalled' || topic === 'shop/redact'
+  const isCatalogTopic = isShopifyCatalogTopic(topic)
+  let queued = false
 
-  if ((topic === 'app/uninstalled' || topic === 'shop/redact') && shop) {
+  if ((isLifecycleTopic || isCatalogTopic) && shop) {
     if (!hasSupabaseAdminEnv()) {
       return NextResponse.json({ error: 'Shopify install storage is unavailable.' }, { status: 503 })
     }
     try {
       const admin = createAdminClient()
       if (topic === 'shop/redact') await redactShop(admin, shop)
-      else await markUninstalled(admin, shop, new Date().toISOString())
+      else if (topic === 'app/uninstalled') await markUninstalled(admin, shop, new Date().toISOString())
+      else if (isCatalogTopic) queued = await queueShopifyCatalogSync(admin, shop, topic)
     } catch {
       // A 5xx asks Shopify to retry. Returning 200 here would silently retain a
       // live token or shop record after a transient database failure.
@@ -40,5 +45,5 @@ export async function POST(request: Request) {
     }
   }
   // customers/data_request + customers/redact: no Shopify customer PII is held → ack.
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, ...(isCatalogTopic ? { queued } : {}) })
 }

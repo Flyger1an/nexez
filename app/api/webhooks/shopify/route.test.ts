@@ -3,10 +3,15 @@ import crypto from 'node:crypto'
 
 vi.mock('../../../../utils/supabase/admin', () => ({ createAdminClient: vi.fn(() => ({})), hasSupabaseAdminEnv: vi.fn(() => false) }))
 vi.mock('../../../../lib/server/shopify-install', () => ({ markUninstalled: vi.fn(), redactShop: vi.fn() }))
+vi.mock('../../../../lib/server/shopify-catalog-sync', () => ({
+  isShopifyCatalogTopic: (topic: string) => ['products/create', 'products/update', 'products/delete'].includes(topic),
+  queueShopifyCatalogSync: vi.fn(async () => true),
+}))
 
 import { POST } from './route'
 import { hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { markUninstalled, redactShop } from '../../../../lib/server/shopify-install'
+import { queueShopifyCatalogSync } from '../../../../lib/server/shopify-catalog-sync'
 
 const req = (headers: Record<string, string> = {}, body = '{}') =>
   new Request('https://nexez.app/api/webhooks/shopify', {
@@ -19,6 +24,7 @@ describe('POST /api/webhooks/shopify (inert until configured)', () => {
   beforeEach(() => {
     vi.unstubAllEnvs()
     vi.clearAllMocks()
+    vi.mocked(hasSupabaseAdminEnv).mockReturnValue(false)
   })
 
   it('404 when Shopify is not configured (fail closed)', async () => {
@@ -66,5 +72,22 @@ describe('POST /api/webhooks/shopify (inert until configured)', () => {
       'x-shopify-topic': 'app/uninstalled',
     }, body))
     expect(response.status).toBe(503)
+  })
+
+  it('queues product changes and acknowledges before any catalog fetch', async () => {
+    vi.stubEnv('SHOPIFY_API_KEY', 'k')
+    vi.stubEnv('SHOPIFY_API_SECRET', 's')
+    vi.mocked(hasSupabaseAdminEnv).mockReturnValue(true)
+    const body = JSON.stringify({ id: 123, updated_at: '2026-07-13T12:00:00Z' })
+    const hmac = crypto.createHmac('sha256', 's').update(body).digest('base64')
+    const response = await POST(req({
+      'x-shopify-hmac-sha256': hmac,
+      'x-shopify-shop-domain': 'demo.myshopify.com',
+      'x-shopify-topic': 'products/update',
+    }, body))
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ ok: true, queued: true })
+    expect(queueShopifyCatalogSync).toHaveBeenCalledWith(expect.anything(), 'demo.myshopify.com', 'products/update')
   })
 })

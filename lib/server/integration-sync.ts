@@ -8,7 +8,7 @@ import { applyOfferAvailability, buildCalendlyNextAvailable } from '../calendly-
 import { mergeProviderOffersAcrossColumns } from '../integration-merge'
 import { parseAvailabilityWindows, type OfferItem } from '../agent-page'
 import { captureEvent } from '../observability'
-import { getShopifyInstallCredentials, markShopifySynced } from './shopify-install'
+import { getShopifyInstallCredentials, markShopifySynced, type ShopifyInstallCredentials } from './shopify-install'
 
 const HORIZON_DAYS = 7
 
@@ -34,16 +34,20 @@ async function resolveStoredInput(
   admin: SupabaseClient,
   provider: SyncProvider,
   pageId: string,
+  options: SyncOptions = {},
 ): Promise<IntegrationIngestInput | null> {
   if (provider === 'calendly') {
     const token = await getCalendlyPat(pageId)
     return token ? { provider: 'calendly', token } : null
   }
   if (provider === 'shopify') {
+    if (options.shopifyCredentials) {
+      return { provider: 'shopify', shop: options.shopifyCredentials.shop, accessToken: options.shopifyCredentials.accessToken, limit: 250 }
+    }
     const installed = await getShopifyInstallCredentials(admin, pageId)
-    if (installed) return { provider: 'shopify', shop: installed.shop, accessToken: installed.accessToken }
+    if (installed) return { provider: 'shopify', shop: installed.shop, accessToken: installed.accessToken, limit: 250 }
     const creds = await getShopifyCreds(pageId)
-    return creds ? { provider: 'shopify', shop: creds.shop, accessToken: creds.token } : null
+    return creds ? { provider: 'shopify', shop: creds.shop, accessToken: creds.token, limit: 250 } : null
   }
   if (provider === 'square') {
     const creds = await getSquareCreds(pageId)
@@ -51,6 +55,12 @@ async function resolveStoredInput(
   }
   const creds = await getAcuityCreds(pageId)
   return creds ? { provider: 'acuity', userId: creds.userId, apiKey: creds.apiKey } : null
+}
+
+export type SyncOptions = {
+  /** Internal webhook worker override. User-facing syncs resolve the installed
+   * shop from the listing as before. */
+  shopifyCredentials?: ShopifyInstallCredentials
 }
 
 /**
@@ -63,11 +73,16 @@ async function resolveStoredInput(
  * The merge only ever manages this provider's own offers (mergeProviderOffers) —
  * a same-named manual offer is never clobbered.
  */
-export async function syncPageIntegration(admin: SupabaseClient, provider: SyncProvider, pageId: string): Promise<SyncResult> {
+export async function syncPageIntegration(
+  admin: SupabaseClient,
+  provider: SyncProvider,
+  pageId: string,
+  options: SyncOptions = {},
+): Promise<SyncResult> {
   if (!integrationCredentialsConfigured()) {
     return { ok: false, status: 503, error: 'Integration credential storage is not configured on this deployment.' }
   }
-  const input = await resolveStoredInput(admin, provider, pageId)
+  const input = await resolveStoredInput(admin, provider, pageId, options)
   if (!input) {
     return { ok: false, status: 400, error: `Connect ${PROVIDER_LABEL[provider]} in Settings before syncing.` }
   }
@@ -77,15 +92,21 @@ export async function syncPageIntegration(admin: SupabaseClient, provider: SyncP
 
   const { data: page } = await admin
     .from('pages')
-    .select('id, slug, services, products, next_available')
+    .select('id, slug, services, products, next_available, updated_at')
     .eq('id', pageId)
-    .maybeSingle<{ id: string; slug: string; services: OfferItem[] | null; products: OfferItem[] | null; next_available: string | null }>()
+    .maybeSingle<{ id: string; slug: string; services: OfferItem[] | null; products: OfferItem[] | null; next_available: string | null; updated_at: string }>()
   if (!page) return { ok: false, status: 404, error: 'Page not found.' }
 
   // Column-aware merge: update a provider offer wherever it already lives
   // (services OR products) and never duplicate across columns — the webhook/cron
   // treat a provider offer as valid in either.
-  const merged = mergeProviderOffersAcrossColumns(page.services ?? [], page.products ?? [], imported.offers, provider)
+  const shopifyScope = input.provider === 'shopify' ? input.shop : undefined
+  const merged = mergeProviderOffersAcrossColumns(page.services ?? [], page.products ?? [], imported.offers, provider, {
+    scope: shopifyScope,
+    // A Shopify result can be intentionally capped. Absence is authoritative
+    // only after the importer reached the end of the active catalog.
+    pruneMissing: provider === 'shopify' && imported.catalogComplete === true,
+  })
   let services = merged.services
   let products = merged.products
   const nowIso = new Date().toISOString()
@@ -122,15 +143,29 @@ export async function syncPageIntegration(admin: SupabaseClient, provider: SyncP
 
   update.services = services
   update.products = products
-  const { error: writeErr } = await admin.from('pages').update(update).eq('id', pageId)
+  const { data: written, error: writeErr } = await admin
+    .from('pages')
+    .update(update)
+    .eq('id', pageId)
+    .eq('updated_at', page.updated_at)
+    .select('id')
+    .maybeSingle<{ id: string }>()
   if (writeErr) return { ok: false, status: 500, error: 'Could not save the synced offers.' }
+  if (!written) {
+    return { ok: false, status: 409, error: 'This page changed during the sync. Nexez will retry with the latest version.' }
+  }
 
   // Advance the Calendly rotation cursor so the background cron doesn't immediately re-run it.
   if (provider === 'calendly') {
     await admin.from('page_secrets').update({ calendly_synced_at: nowIso }).eq('page_id', pageId)
   } else if (provider === 'shopify') {
     try {
-      await markShopifySynced(admin, pageId, nowIso)
+      await markShopifySynced(admin, pageId, nowIso, {
+        shop: input.provider === 'shopify' ? input.shop : undefined,
+        // A successful seller-triggered retry clears stale attention state. The
+        // background worker owns its claim and clears it atomically afterward.
+        clearCatalogSyncState: !options.shopifyCredentials,
+      })
     } catch {
       // The catalog write succeeded; a stale health timestamp should not turn a
       // successful merchant sync into an error.

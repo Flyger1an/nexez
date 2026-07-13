@@ -17,6 +17,8 @@ type Connection = {
   autoSync: boolean
   canSync: boolean
   lastSyncedAt: string | null
+  syncStatus?: 'idle' | 'pending' | 'attention'
+  syncError?: string | null
 }
 
 const HELP: Record<Provider, string> = {
@@ -205,9 +207,20 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
                   </button>
                 ) : null}
                 <span className="text-[10px] text-zinc-500">
-                  {c.kind === 'oauth' ? 'Installed securely through Shopify' : c.autoSync ? 'Auto-syncs in the background' : 'Manual re-sync'}
+                  {c.syncStatus === 'pending'
+                    ? 'Catalog update queued'
+                    : c.syncStatus === 'attention'
+                      ? 'Auto-sync needs attention'
+                      : c.autoSync
+                        ? 'Auto-syncs in the background'
+                        : c.kind === 'oauth'
+                          ? 'Installed securely through Shopify'
+                          : 'Manual re-sync'}
                   {last ? ` · last synced ${last}` : ''}
                 </span>
+                {c.syncStatus === 'attention' && c.syncError ? (
+                  <span role="alert" className="w-full text-[10px] text-[var(--caution)]">{c.syncError}</span>
+                ) : null}
               </div>
             ) : (
               <div className="mt-2 flex flex-col gap-2">

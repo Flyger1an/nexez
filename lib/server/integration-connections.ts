@@ -18,6 +18,8 @@ export type IntegrationConnectionState = {
   /** A stored-credential "Sync now" is available (no token re-entry). */
   canSync: boolean
   lastSyncedAt: string | null
+  syncStatus?: 'idle' | 'pending' | 'attention'
+  syncError?: string | null
 }
 
 /**
@@ -37,12 +39,12 @@ export async function getPageIntegrationConnections(pageId: string, ownerId: str
       .maybeSingle<{ calendly_pat_encrypted: string | null; shopify_credentials_encrypted: string | null; square_credentials_encrypted: string | null; acuity_credentials_encrypted: string | null; calendly_synced_at: string | null }>(),
     admin
       .from('shopify_installs')
-      .select('last_synced_at')
+      .select('last_synced_at, catalog_sync_pending_at, catalog_sync_error')
       .eq('page_id', pageId)
       .is('uninstalled_at', null)
       .order('linked_at', { ascending: false })
       .limit(1)
-      .maybeSingle<{ last_synced_at: string | null }>(),
+      .maybeSingle<{ last_synced_at: string | null; catalog_sync_pending_at: string | null; catalog_sync_error: string | null }>(),
     ownerId
       ? admin
           .from('billing_subscriptions')
@@ -63,9 +65,15 @@ export async function getPageIntegrationConnections(pageId: string, ownerId: str
       label: 'Shopify',
       connected: Boolean(shopifyInstall || secrets?.shopify_credentials_encrypted),
       kind: shopifyInstall ? 'oauth' : 'token',
-      autoSync: false,
+      autoSync: Boolean(shopifyInstall),
       canSync: true,
       lastSyncedAt: shopifyInstall?.last_synced_at ?? null,
+      syncStatus: shopifyInstall?.catalog_sync_error
+        ? 'attention'
+        : shopifyInstall?.catalog_sync_pending_at
+          ? 'pending'
+          : 'idle',
+      syncError: shopifyInstall?.catalog_sync_error ?? null,
     },
     { provider: 'square', label: 'Square', connected: Boolean(secrets?.square_credentials_encrypted), kind: 'token', autoSync: false, canSync: true, lastSyncedAt: null },
     { provider: 'acuity', label: 'Acuity', connected: Boolean(secrets?.acuity_credentials_encrypted), kind: 'token', autoSync: false, canSync: true, lastSyncedAt: null },
