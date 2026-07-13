@@ -97,10 +97,29 @@ function shell(apiKey: string) {
         const sync = data.sync || {};
         appStatus.textContent = sync.error ? 'Needs attention' : sync.pending ? 'Sync queued' : 'Connected';
         shopLabel.textContent = data.shop;
-        app.innerHTML = '<div class="hero"><h1>'+escapeHtml(listingName)+'</h1><p>Your Shopify catalog is linked to Nexez. Keep the catalog current, enable storefront discovery, and inspect the same endpoint AI agents receive.</p>'+(sync.error?'<div class="notice warning" id="sync-notice">'+escapeHtml(sync.error)+'</div>':'<div class="notice" id="sync-notice">Last catalog sync: '+escapeHtml(formatDate(sync.lastSyncedAt))+'</div>')+'</div><div class="grid"><section class="step"><p class="step-label">Catalog</p><h2>Keep offers current</h2><p>Active product details, prices, variants, and availability sync into the linked listing.</p><div class="actions"><button class="btn" id="sync">Sync now</button></div></section><section class="step"><p class="step-label">Storefront</p><h2>Enable discovery links</h2><p>Activate the theme app embed so agents can find the manifest from your storefront.</p><div class="actions"><button class="btn" id="theme">Open theme editor</button></div></section><section class="step"><p class="step-label">Agent endpoint</p><h2>Inspect the live artifact</h2><p>'+escapeHtml(data.storefrontArtifactUrl)+'</p><div class="actions"><button class="btn" id="artifact">Open endpoint</button></div></section></div>';
+        app.innerHTML = '<div class="hero"><h1>'+escapeHtml(listingName)+'</h1><p>Your Shopify catalog is linked to Nexez. Keep the catalog current, enable storefront discovery, and inspect the same endpoint AI agents receive.</p>'+(sync.error?'<div class="notice warning" id="sync-notice">'+escapeHtml(sync.error)+'</div>':'<div class="notice" id="sync-notice">Last catalog sync: '+escapeHtml(formatDate(sync.lastSyncedAt))+'</div>')+'<div class="actions"><button class="btn" id="change-listing">Change listing</button></div></div><div class="grid"><section class="step"><p class="step-label">Catalog</p><h2>Keep offers current</h2><p>Active product details, prices, variants, and availability sync into the linked listing.</p><div class="actions"><button class="btn" id="sync">Sync now</button></div></section><section class="step"><p class="step-label">Storefront</p><h2>Enable discovery links</h2><p>Activate the theme app embed so agents can find the manifest from your storefront.</p><div class="actions"><button class="btn" id="theme">Open theme editor</button></div></section><section class="step"><p class="step-label">Agent endpoint</p><h2>Inspect the live artifact</h2><p>'+escapeHtml(data.storefrontArtifactUrl)+'</p><div class="actions"><button class="btn" id="artifact">Open endpoint</button></div></section></div>';
         document.getElementById('theme').addEventListener('click', () => openExternal(data.themeEditorUrl));
         document.getElementById('artifact').addEventListener('click', () => openExternal(data.storefrontArtifactUrl));
         document.getElementById('sync').addEventListener('click', syncNow);
+        document.getElementById('change-listing').addEventListener('click', changeListing);
+      }
+
+      async function changeListing() {
+        const button = document.getElementById('change-listing');
+        const notice = document.getElementById('sync-notice');
+        button.disabled = true;
+        button.textContent = 'Opening Nexez';
+        try {
+          const response = await fetch('/api/shopify/session/relink', { method:'POST' });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok || !data.connectUrl) throw new Error(data.error || 'The listing picker could not open.');
+          openTopLevel(data.connectUrl);
+        } catch (error) {
+          notice.className = 'notice error';
+          notice.textContent = error instanceof Error ? error.message : 'The listing picker could not open.';
+          button.disabled = false;
+          button.textContent = 'Change listing';
+        }
       }
 
       async function syncNow() {
