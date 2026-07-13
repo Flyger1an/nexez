@@ -7,9 +7,14 @@ import { marketingUrl } from '../../lib/site'
 
 const content = marketingPages['agent-readiness']
 
+// SERP copy (≤160-char description; content.description is longer on-page hero copy).
+const metaTitle = 'AI Agent Readiness'
+const metaDescription =
+  'What makes a website legible to AI agents — the readiness checklist, scoring, and the artifacts (agent.json, llms.txt, JSON-LD) that make you transactable.'
+
 export const metadata: Metadata = {
-  title: 'AI Agent Readiness',
-  description: content.description,
+  title: metaTitle,
+  description: metaDescription,
   alternates: {
     canonical: marketingUrl('/agent-readiness'),
   },
@@ -18,8 +23,8 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'Nexez',
     url: marketingUrl('/agent-readiness'),
-    title: 'AI Agent Readiness',
-    description: content.description,
+    title: metaTitle,
+    description: metaDescription,
   },
 }
 

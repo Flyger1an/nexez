@@ -8,7 +8,7 @@ import { LocalDate } from './LocalDate'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
-  title: 'Your orders · Nexez',
+  title: 'Your orders', // root template appends ' · Nexez'
   robots: { index: false, follow: false },
 }
 

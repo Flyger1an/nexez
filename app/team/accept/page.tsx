@@ -5,7 +5,7 @@ import { createClient } from '../../../utils/supabase/server'
 import { AcceptInvite } from './AcceptInvite'
 
 export const metadata: Metadata = {
-  title: 'Accept invitation | Nexez',
+  title: 'Accept invitation', // root template appends ' · Nexez'
   description: 'Accept your Nexez team invitation.',
 }
 

@@ -6,9 +6,14 @@ import { marketingUrl } from '../../lib/site'
 
 const content = marketingPages.enterprise
 
+// SERP copy (≤60-char title incl. the layout's ' · Nexez'; ≤160-char description).
+const metaTitle = 'Enterprise agent commerce'
+const metaDescription =
+  'Roll out agent-legible, transactable listings across your organization — SSO, custom terms, dedicated support, and volume pricing.'
+
 export const metadata: Metadata = {
-  title: 'Enterprise',
-  description: content.description,
+  title: metaTitle,
+  description: metaDescription,
   alternates: {
     canonical: marketingUrl('/enterprise'),
   },
@@ -17,8 +22,8 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'Nexez',
     url: marketingUrl('/enterprise'),
-    title: 'Enterprise',
-    description: content.description,
+    title: metaTitle,
+    description: metaDescription,
   },
 }
 

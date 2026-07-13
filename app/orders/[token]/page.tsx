@@ -17,7 +17,7 @@ import { BuyerReviewCard } from './BuyerReviewCard'
 // Private, per-buyer page keyed by an unguessable token - never index, never cache.
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
-  title: 'Your order · Nexez',
+  title: 'Your order', // root template appends ' · Nexez'
   robots: { index: false, follow: false },
 }
 

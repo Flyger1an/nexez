@@ -6,9 +6,14 @@ import { marketingUrl } from '../../lib/site'
 
 const content = marketingPages.security
 
+// SERP copy (≤160-char description; content.description is longer on-page hero copy).
+const metaTitle = 'Security and Trust'
+const metaDescription =
+  'How Nexez protects your data and payments — Stripe-powered checkout, row-level security, encrypted credentials, and least-privilege access throughout.'
+
 export const metadata: Metadata = {
-  title: 'Security and Trust',
-  description: content.description,
+  title: metaTitle,
+  description: metaDescription,
   alternates: {
     canonical: marketingUrl('/security'),
   },
@@ -17,8 +22,8 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'Nexez',
     url: marketingUrl('/security'),
-    title: 'Security and Trust',
-    description: content.description,
+    title: metaTitle,
+    description: metaDescription,
   },
 }
 

@@ -6,9 +6,15 @@ import { marketingUrl } from '../../lib/site'
 
 const content = marketingPages.integrations
 
+// SERP copy (≤60-char title incl. the layout's ' · Nexez'; ≤160-char description).
+// Distinct from content.description, which is on-page hero copy.
+const metaTitle = 'Integrations — Stripe, Calendly, Shopify & more'
+const metaDescription =
+  'Connect Stripe, Calendly, Shopify, Square and Acuity to your agent-ready listing — synced offers, live availability, and payments without custom code.'
+
 export const metadata: Metadata = {
-  title: 'Integrations',
-  description: content.description,
+  title: metaTitle,
+  description: metaDescription,
   alternates: {
     canonical: marketingUrl('/integrations'),
   },
@@ -17,8 +23,8 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'Nexez',
     url: marketingUrl('/integrations'),
-    title: 'Integrations',
-    description: content.description,
+    title: metaTitle,
+    description: metaDescription,
   },
 }
 

@@ -548,6 +548,14 @@ export const marketingPages: Record<string, MarketingPageContent> = {
   },
 }
 
+/** /pricing "Common questions" — single source for BOTH the rendered Q&A (PricingClient)
+ *  and the page's FAQPage JSON-LD, so the schema can never drift from what's visible. */
+export const pricingFaqs = [
+  { question: 'Do I pay if no one books?', answer: 'No. Only transaction fees on successful agent bookings/payments.' },
+  { question: 'Can I change plans later?', answer: 'Yes, upgrade or downgrade from your Billing page. Prorated billing.' },
+  { question: 'What if I need custom pricing?', answer: 'Enterprise plans are fully customizable. Reach out via support.' },
+] as const
+
 export type UseCasePage = {
   slug: string
   label: string

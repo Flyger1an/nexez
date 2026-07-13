@@ -39,8 +39,23 @@ export default async function UseCaseDetailPage({ params }: UseCaseProps) {
   const useCase = getUseCase(slug)
   if (!useCase) notFound()
 
+  // Service schema from the same content the page renders — never invented copy.
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    name: `Agent-ready listings for ${useCase.label.toLowerCase()}`,
+    description: useCase.description,
+    url: marketingUrl(`/use-cases/${useCase.slug}`),
+    provider: { '@type': 'Organization', name: 'Nexez', url: marketingUrl('/') },
+    audience: { '@type': 'BusinessAudience', name: useCase.label },
+  }
+
   return (
     <main className="min-h-screen">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, '\\u003c') }}
+      />
       <section className="relative overflow-hidden border-b border-border">
         <div className="pointer-events-none absolute inset-0 z-0">
           <div className="nx-grid" />

@@ -6,9 +6,14 @@ import { marketingUrl } from '../../lib/site'
 
 const content = marketingPages.compare
 
+// SERP copy (≤60-char title incl. the layout's ' · Nexez' — no double branding; ≤160-char description).
+const metaTitle = 'Nexez vs websites, directories & SEO pages'
+const metaDescription =
+  'How an agent-ready Nexez listing compares to a traditional website, directory profile, or SEO landing page when AI agents do the buying.'
+
 export const metadata: Metadata = {
-  title: 'Compare Nexez',
-  description: content.description,
+  title: metaTitle,
+  description: metaDescription,
   alternates: {
     canonical: marketingUrl('/compare'),
   },
@@ -17,8 +22,8 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'Nexez',
     url: marketingUrl('/compare'),
-    title: 'Compare Nexez',
-    description: content.description,
+    title: metaTitle,
+    description: metaDescription,
   },
 }
 

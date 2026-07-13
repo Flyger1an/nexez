@@ -4,7 +4,7 @@ import { appUrl, marketingUrl } from '../../lib/site'
 import { useCases } from '../../lib/marketing-content'
 
 export const metadata: Metadata = {
-  title: 'Use Cases',
+  title: 'Use cases — agent-ready listings by industry',
   description:
     'Explore how consultants, agencies, coaches, local services, SaaS teams, and marketplaces use Nexez to publish AI-readable buying listings.',
   alternates: {
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'Nexez',
     url: marketingUrl('/use-cases'),
-    title: 'Use Cases',
+    title: 'Use cases — agent-ready listings by industry',
     description:
       'Explore how consultants, agencies, coaches, local services, SaaS teams, and marketplaces use Nexez to publish AI-readable buying listings.',
   },

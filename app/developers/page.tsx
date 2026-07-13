@@ -6,9 +6,14 @@ import { marketingUrl } from '../../lib/site'
 
 const content = marketingPages.developers
 
+// SERP copy (≤60-char title incl. the layout's ' · Nexez'; ≤160-char description).
+const metaTitle = 'Developer APIs for agent-ready listings'
+const metaDescription =
+  'REST APIs, webhooks, MCP servers, and machine-readable artifacts — agent.json, llms.txt, OpenAPI — for building on the Nexez agent-commerce layer.'
+
 export const metadata: Metadata = {
-  title: 'Developers',
-  description: content.description,
+  title: metaTitle,
+  description: metaDescription,
   alternates: {
     canonical: marketingUrl('/developers'),
   },
@@ -17,8 +22,8 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'Nexez',
     url: marketingUrl('/developers'),
-    title: 'Developers',
-    description: content.description,
+    title: metaTitle,
+    description: metaDescription,
   },
 }
 

@@ -8,6 +8,12 @@ import { isPayable } from '../../../lib/settlement'
 import { sanitizeAgentDecision, sanitizeNegotiationMessageContent } from '../../../lib/negotiation-sanitize'
 import PendingPoller from './PendingPoller'
 
+// Private negotiation thread keyed by an unguessable token credential - never index
+// (URLs leak via referrers/shared logs; same convention as the buyer order portal).
+export const metadata = {
+  robots: { index: false, follow: false },
+}
+
 /**
  * Persistent Negotiation Page - /negotiate/{negotiation_id}?token={status_token}
  *

@@ -7,9 +7,14 @@ import { marketingUrl } from '../../lib/site'
 
 const content = marketingPages.examples
 
+// SERP copy (≤160-char description; content.description is longer on-page hero copy).
+const metaTitle = 'Agent Page Examples and Templates'
+const metaDescription =
+  'Real agent-ready listing examples across consulting, services, and bookings — see the structure AI agents parse and copy the template for your business.'
+
 export const metadata: Metadata = {
-  title: 'Agent Page Examples and Templates',
-  description: content.description,
+  title: metaTitle,
+  description: metaDescription,
   alternates: {
     canonical: marketingUrl('/examples'),
   },
@@ -18,8 +23,8 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'Nexez',
     url: marketingUrl('/examples'),
-    title: 'Agent Page Examples and Templates',
-    description: content.description,
+    title: metaTitle,
+    description: metaDescription,
   },
 }
 

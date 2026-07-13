@@ -8,7 +8,8 @@ import { DiscoveryTabs } from '../../components/DiscoveryTabs'
 
 export const metadata: Metadata = {
   title: 'Agent-Ready Leaderboard',
-  description: 'The most agent-ready businesses on Nexez, ranked by readiness and trust.',
+  description:
+    'The most agent-ready businesses on Nexez, ranked by readiness score and trust signals — see who leads each industry and how your listing stacks up.',
   alternates: {
     canonical: marketingUrl('/leaderboard'),
   },
@@ -18,7 +19,8 @@ export const metadata: Metadata = {
     siteName: 'Nexez',
     url: marketingUrl('/leaderboard'),
     title: 'Agent-Ready Leaderboard',
-    description: 'The most agent-ready businesses on Nexez, ranked by readiness and trust.',
+    description:
+      'The most agent-ready businesses on Nexez, ranked by readiness score and trust signals — see who leads each industry and how your listing stacks up.',
   },
 }
 
@@ -48,9 +50,28 @@ export default async function LeaderboardPage({ searchParams }: Props) {
     .sort((a, b) => b.readiness - a.readiness || b.trust - a.trust)
     .slice(0, 100)
 
+  // ItemList over exactly the rows rendered below (capped at the same slice).
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'Agent-Ready Leaderboard',
+    itemListOrder: 'https://schema.org/ItemListOrderDescending',
+    numberOfItems: ranked.length,
+    itemListElement: ranked.map((entry, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: entry.page.name,
+      url: agentRuntimeUrl(`/${entry.page.slug}`),
+    })),
+  }
+
   return (
     <main className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="mx-auto max-w-4xl px-6 py-10">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, '\\u003c') }}
+        />
         <DiscoveryTabs />
         <header className="flex items-center gap-3">
           <Trophy className="size-7 text-[var(--amber)]" />

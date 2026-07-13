@@ -54,15 +54,52 @@ export function buildPlatformAgentManifest() {
   }
 }
 
-/** Schema.org graph used by the marketing homepage and scanner self-checks. */
-export function buildPlatformStructuredData() {
+/** The plans AggregateOffer, shared by the homepage graph and /pricing's own JSON-LD
+ *  so the advertised price range is derived from the billing catalog in exactly one place. */
+export function buildPlansAggregateOffer() {
   // Self-serve paid tiers only: Free is retired and Enterprise is custom-priced,
   // so the advertised price range is launch → scale (matches /pricing).
   const paidPlans = billingPlans.filter((plan) => plan.id !== 'free' && plan.id !== 'enterprise')
   const prices = paidPlans.map((plan) => planPriceNumber(plan.price))
   return {
+    '@type': 'AggregateOffer',
+    name: 'Nexez plans',
+    description: 'Paid plans for agent-ready business storefronts, each starting with a 7-day free trial.',
+    lowPrice: Math.min(...prices),
+    highPrice: Math.max(...prices),
+    priceCurrency: 'USD',
+    offerCount: paidPlans.length,
+    availability: 'https://schema.org/InStock',
+    url: marketingUrl('/pricing'),
+    potentialAction: {
+      '@type': 'RegisterAction',
+      name: 'Create an agent-ready storefront',
+      target: appUrl('/create'),
+    },
+  }
+}
+
+/** Schema.org graph used by the marketing homepage and scanner self-checks. */
+export function buildPlatformStructuredData() {
+  return {
     '@context': 'https://schema.org',
     '@graph': [
+      {
+        '@type': 'WebSite',
+        '@id': `${marketingUrl('/')}#website`,
+        name: 'Nexez',
+        url: marketingUrl('/'),
+        publisher: { '@id': `${marketingUrl('/')}#organization` },
+        // /discovery?q= is the site's real search surface.
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: {
+            '@type': 'EntryPoint',
+            urlTemplate: marketingUrl('/discovery?q={search_term_string}'),
+          },
+          'query-input': 'required name=search_term_string',
+        },
+      },
       {
         '@type': 'Organization',
         '@id': `${marketingUrl('/')}#organization`,
@@ -86,22 +123,7 @@ export function buildPlatformStructuredData() {
         description: 'Publish agent-readable products and services with measurable buyer actions.',
         provider: { '@id': `${marketingUrl('/')}#organization` },
         dateModified: PLATFORM_CONTENT_DATE,
-        offers: {
-          '@type': 'AggregateOffer',
-          name: 'Nexez plans',
-          description: 'Paid plans for agent-ready business storefronts, each starting with a 7-day free trial.',
-          lowPrice: Math.min(...prices),
-          highPrice: Math.max(...prices),
-          priceCurrency: 'USD',
-          offerCount: paidPlans.length,
-          availability: 'https://schema.org/InStock',
-          url: marketingUrl('/pricing'),
-          potentialAction: {
-            '@type': 'RegisterAction',
-            name: 'Create an agent-ready storefront',
-            target: appUrl('/create'),
-          },
-        },
+        offers: buildPlansAggregateOffer(),
       },
     ],
   }

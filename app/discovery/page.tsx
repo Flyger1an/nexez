@@ -37,7 +37,8 @@ function trendingScore(result: AgentSearchResult): number {
 
 export const metadata: Metadata = {
   title: 'Discovery - Browse agent-ready offers',
-  description: 'Search, browse trending, and discover agent-optimized offers from businesses across Nexez.',
+  description:
+    'Browse the live directory of agent-ready businesses — search by category, compare readiness scores, and transact with listings built for AI agents.',
   alternates: {
     // Unparameterized on purpose: the page links ?q=/?category=/?sort= permutations
     // of itself, and this canonical dedupes them all to the bare listing URL.
@@ -49,7 +50,8 @@ export const metadata: Metadata = {
     siteName: 'Nexez',
     url: marketingUrl('/discovery'),
     title: 'Discovery - Browse agent-ready offers',
-    description: 'Search, browse trending, and discover agent-optimized offers from businesses across Nexez.',
+    description:
+      'Browse the live directory of agent-ready businesses — search by category, compare readiness scores, and transact with listings built for AI agents.',
   },
 }
 

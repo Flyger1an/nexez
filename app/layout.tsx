@@ -23,8 +23,9 @@ export const metadata: Metadata = {
     default: "Nexez - Listings built for AI agents",
     template: "%s · Nexez",
   },
+  // ≤160 chars — this is the homepage's (and any metadata-less page's) SERP snippet.
   description:
-    "Create a clean, structured listing that AI agents can understand and act on - host it on your own domain or a Nexez link. JSON-LD, llms.txt, agent.json, and an MCP endpoint from one source of truth.",
+    "Create a structured listing AI agents can understand and buy from — JSON-LD, llms.txt, agent.json, and an MCP endpoint from one source of truth.",
   applicationName: "Nexez",
   keywords: [
     "AI agents",
@@ -47,9 +48,12 @@ export const metadata: Metadata = {
     url: marketingUrl("/"),
   },
   twitter: {
+    // Card type only — no title/description here. The layout's twitter object
+    // shallow-merges over every page, so hardcoding text would override each
+    // page's own copy on share cards. Next's postProcessMetadata auto-fills
+    // twitter title/description/images from the resolved openGraph (the
+    // homepage falls back to the openGraph block above).
     card: "summary_large_image",
-    title: "Nexez - Listings built for AI agents",
-    description: "A clean, structured listing that AI agents can understand and act on.",
   },
 };
 

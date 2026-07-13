@@ -9,10 +9,10 @@ type PageProps = { params: Promise<{ handle: string }> }
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { handle } = await params
   const resolved = await loadStorefrontByHandle(handle)
-  if (!resolved) return { title: 'Storefront not found | Nexez' }
+  if (!resolved) return { title: 'Storefront not found' } // root template appends ' · Nexez'
   const name = resolved.storefront.display_name || resolved.storefront.handle
   return {
-    title: `${name} - agent storefront | Nexez`,
+    title: `${name} - agent storefront`,
     description: resolved.storefront.description || `Browse ${name}'s AI-ready listings on Nexez.`,
   }
 }

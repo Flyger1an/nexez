@@ -1,4 +1,5 @@
 import { AgentPage, getBaseUrl, getCheckoutPath, schemaAvailability } from './agent-page'
+import { parseMoney } from './checkout'
 import { normalizeDomainPath } from './custom-domain'
 import { normalizeCurrency } from './currency'
 import { priceValidUntil } from './freshness'
@@ -29,15 +30,20 @@ export function buildJsonLd(
     const perOfferPrefer = !!item.prefer_original_for_this
     const useOriginal = perOfferPrefer || (pagePrefer && !!item.url)
     const effectiveUrl = useOriginal && item.url ? item.url : `${baseUrl}${getCheckoutPath(page.slug, kind, index)}`
+    // schema.org Offer.price must be NUMERIC ("1200" not "$1,200") to qualify for
+    // rich results — same parse the settlement core uses, so the advertised number
+    // can't diverge from what checkout charges. Unparsable prices ("Contact us",
+    // negotiable) omit price entirely rather than emit an invalid value.
+    const numericPrice = parseMoney(item.price)
     return {
       '@type': 'Offer',
       name: item.name,
       description: item.description || undefined,
-      price: item.price || undefined,
+      price: numericPrice ?? undefined,
       // schema.org Offer.price is ambiguous without priceCurrency - surface the page
       // settlement currency (matches the checkout page's JSON-LD).
-      priceCurrency: item.price ? normalizeCurrency((page as { currency?: string | null }).currency).toUpperCase() : undefined,
-      priceValidUntil: item.price ? validUntil : undefined,
+      priceCurrency: numericPrice != null ? normalizeCurrency((page as { currency?: string | null }).currency).toUpperCase() : undefined,
+      priceValidUntil: numericPrice != null ? validUntil : undefined,
       availability: schemaAvailability(item.availability),
       url: effectiveUrl,
       potentialAction: {

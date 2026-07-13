@@ -3,6 +3,7 @@
 import React from 'react'
 import { Check, Star } from 'lucide-react'
 import { billingPlans } from '../../lib/billing'
+import { pricingFaqs } from '../../lib/marketing-content'
 import { appUrl } from '../../lib/site'
 
 export default function PricingClient() {
@@ -192,18 +193,12 @@ export default function PricingClient() {
           <div>
             <h3 className="font-semibold">Common questions</h3>
             <div className="mt-4 space-y-4 text-sm">
-              <div>
-                <div className="font-medium">Do I pay if no one books?</div>
-                <div className="text-[#9CA3AF]">No. Only transaction fees on successful agent bookings/payments.</div>
-              </div>
-              <div>
-                <div className="font-medium">Can I change plans later?</div>
-                <div className="text-[#9CA3AF]">Yes, upgrade or downgrade from your Billing page. Prorated billing.</div>
-              </div>
-              <div>
-                <div className="font-medium">What if I need custom pricing?</div>
-                <div className="text-[#9CA3AF]">Enterprise plans are fully customizable. Reach out via support.</div>
-              </div>
+              {pricingFaqs.map((faq) => (
+                <div key={faq.question}>
+                  <div className="font-medium">{faq.question}</div>
+                  <div className="text-[#9CA3AF]">{faq.answer}</div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

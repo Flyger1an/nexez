@@ -62,6 +62,21 @@ export function MarketingContentPage({
 
       {content.faq?.length ? (
         <section className="border-b border-border bg-white/[0.015]">
+          {/* FAQPage schema built from the SAME faq array rendered below — they can't diverge. */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                '@context': 'https://schema.org',
+                '@type': 'FAQPage',
+                mainEntity: content.faq.map((item) => ({
+                  '@type': 'Question',
+                  name: item.title,
+                  acceptedAnswer: { '@type': 'Answer', text: item.copy },
+                })),
+              }).replace(/</g, '\\u003c'),
+            }}
+          />
           <div className="mx-auto max-w-7xl px-5 py-16 md:py-20">
             <div className="mb-8 max-w-2xl">
               <p className="text-sm font-medium" style={{ color: tone(accent) }}>Questions</p>

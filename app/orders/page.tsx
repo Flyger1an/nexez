@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { OrdersLookupForm } from './OrdersLookupForm'
 
 export const metadata: Metadata = {
-  title: 'Find your orders · Nexez',
+  title: 'Find your orders', // root template appends ' · Nexez'
   robots: { index: false, follow: false },
 }
 

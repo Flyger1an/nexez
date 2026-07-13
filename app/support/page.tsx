@@ -1,9 +1,15 @@
 import { SupportDesk } from '../../components/SupportDesk'
 import { marketingUrl } from '../../lib/site'
 
+// Single-sourced meta copy: <title> ≤60 chars with the layout's ' · Nexez' template,
+// description ≤160 chars, mirrored into openGraph below (page OG replaces the layout's).
+const metaTitle = 'Support - Help with agent-ready listings'
+const metaDescription =
+  'Get AI-assisted help with your Nexez workspace and agent-ready listings - Nexez AI attempts a fix first, then packages the context into a ticket for a human.'
+
 export const metadata = {
-  title: 'Support',
-  description: 'Get AI-assisted Nexez support or create a support ticket with listing context attached.',
+  title: metaTitle,
+  description: metaDescription,
   alternates: {
     canonical: marketingUrl('/support'),
   },
@@ -12,8 +18,8 @@ export const metadata = {
     type: 'website',
     siteName: 'Nexez',
     url: marketingUrl('/support'),
-    title: 'Support',
-    description: 'Get AI-assisted Nexez support or create a support ticket with listing context attached.',
+    title: metaTitle,
+    description: metaDescription,
   },
 }
 
