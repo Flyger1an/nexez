@@ -59,7 +59,7 @@ const MARKETING_PREFIXES = [
 // visitor on the app host for these, and PlatformFrame picks the matching shell.
 const DUAL_PREFIXES = ['/discovery', '/leaderboard', '/simulator', '/support'] as const
 
-const APP_PREFIXES = ['/dashboard', '/create', '/login', '/auth', '/onboard', '/nexie', '/team'] as const
+const APP_PREFIXES = ['/dashboard', '/create', '/login', '/auth', '/onboard', '/nexie', '/team', '/shopify'] as const
 
 const MARKETING_API_PREFIXES = [
   '/api/directory',
@@ -93,6 +93,11 @@ const APP_API_PREFIXES = [
   '/api/payment-method',
   '/api/readiness',
   '/api/settings',
+  // Shopify Admin embeds the app at /shopify and App Bridge authenticates its
+  // same-origin /api/shopify requests. Both surfaces must stay on APP_HOST;
+  // redirecting the frame to the agent runtime prevents App Bridge from issuing
+  // a session token and leaves the embedded app waiting indefinitely.
+  '/api/shopify',
   '/api/subscription',
   '/api/test-outbound',
   '/api/tools',
