@@ -76,6 +76,8 @@ describe('GET /agent-pages.json', () => {
 
     const res = await GET(new Request('https://nexez.app/agent-pages.json'))
     expect(res.status).toBe(200)
+    // Out of Google's index (agents discover this via .well-known, not search).
+    expect(res.headers.get('x-robots-tag')).toBe('noindex')
     const body = await res.json()
 
     expect(loadStorefrontHandlesForSlugs).toHaveBeenCalledWith(['demo', 'solo'])

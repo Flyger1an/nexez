@@ -1,0 +1,51 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+const { dbRef } = vi.hoisted(() => ({
+  dbRef: { handler: (_c: any) => ({ data: [] as any[], error: null }) as { data?: any; error?: any } },
+}))
+
+vi.mock('../../../lib/supabase', async () => {
+  const { createSupabaseMock } = await import('../../../test/supabase-mock')
+  return { supabase: createSupabaseMock((c) => dbRef.handler(c)) }
+})
+vi.mock('../../../lib/rate-limit', () => ({
+  enforceRateLimit: vi.fn(async () => null),
+}))
+vi.mock('../../../lib/server/storefront', () => ({
+  loadStorefrontHandlesForSlugs: vi.fn(async () => new Map()),
+}))
+vi.mock('../../../lib/server/reviews', () => ({
+  loadReviewSummariesForSlugs: vi.fn(async () => new Map()),
+}))
+
+import { GET } from './route'
+
+const pages = [
+  {
+    name: 'Demo Co',
+    slug: 'demo',
+    description: 'Consulting for startups.',
+    location: 'Remote',
+    products: [],
+    services: [{ name: 'Consult', price: '$100', description: 'A call', url: '' }],
+    faqs: [],
+    is_published: true,
+    created_at: '2026-01-01T00:00:00Z',
+  },
+]
+
+describe('GET /api/agent-search', () => {
+  beforeEach(() => {
+    dbRef.handler = (ctx: any) => (ctx.table === 'pages_public' ? { data: pages, error: null } : { data: null, error: null })
+  })
+
+  it('returns results cached + noindexed (agents still query it; Google never indexes it)', async () => {
+    const res = await GET(new Request('https://nexez.test/api/agent-search?q=consult'))
+    expect(res.status).toBe(200)
+    expect(res.headers.get('cache-control')).toContain('public')
+    expect(res.headers.get('x-robots-tag')).toBe('noindex')
+    const body = await res.json()
+    expect(body.schema_version).toBe('nexez.agent-search.v1')
+    expect(body.result_count).toBeGreaterThan(0)
+  })
+})

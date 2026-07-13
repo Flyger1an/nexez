@@ -1,4 +1,15 @@
+import { billingPlans } from './billing'
 import { agentRuntimeUrl, appUrl, marketingUrl } from './site'
+
+// Stable content date for the homepage structured data (a per-render timestamp
+// would falsely signal "always fresh" to crawlers). Update when the advertised
+// platform content meaningfully changes.
+const PLATFORM_CONTENT_DATE = '2026-07-13'
+
+// Display prices in the billing catalog are strings like '$19'.
+function planPriceNumber(price: string): number {
+  return Number(price.replace(/[^0-9.]/g, ''))
+}
 
 /** Root discovery document for Nexez as an agent-commerce platform. */
 export function buildPlatformAgentManifest() {
@@ -45,6 +56,10 @@ export function buildPlatformAgentManifest() {
 
 /** Schema.org graph used by the marketing homepage and scanner self-checks. */
 export function buildPlatformStructuredData() {
+  // Self-serve paid tiers only: Free is retired and Enterprise is custom-priced,
+  // so the advertised price range is launch → scale (matches /pricing).
+  const paidPlans = billingPlans.filter((plan) => plan.id !== 'free' && plan.id !== 'enterprise')
+  const prices = paidPlans.map((plan) => planPriceNumber(plan.price))
   return {
     '@context': 'https://schema.org',
     '@graph': [
@@ -70,13 +85,15 @@ export function buildPlatformStructuredData() {
         operatingSystem: 'Web',
         description: 'Publish agent-readable products and services with measurable buyer actions.',
         provider: { '@id': `${marketingUrl('/')}#organization` },
-        dateModified: new Date().toISOString(),
+        dateModified: PLATFORM_CONTENT_DATE,
         offers: {
-          '@type': 'Offer',
-          name: 'Nexez Free',
-          description: 'Create and publish an agent-ready business storefront.',
-          price: 0,
+          '@type': 'AggregateOffer',
+          name: 'Nexez plans',
+          description: 'Paid plans for agent-ready business storefronts, each starting with a 7-day free trial.',
+          lowPrice: Math.min(...prices),
+          highPrice: Math.max(...prices),
           priceCurrency: 'USD',
+          offerCount: paidPlans.length,
           availability: 'https://schema.org/InStock',
           url: marketingUrl('/pricing'),
           potentialAction: {

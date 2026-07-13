@@ -1,8 +1,20 @@
 import { SupportDesk } from '../../components/SupportDesk'
+import { marketingUrl } from '../../lib/site'
 
 export const metadata = {
   title: 'Support',
   description: 'Get AI-assisted Nexez support or create a support ticket with listing context attached.',
+  alternates: {
+    canonical: marketingUrl('/support'),
+  },
+  // Page-level openGraph replaces the layout's wholesale (shallow merge) — re-carry type/siteName.
+  openGraph: {
+    type: 'website',
+    siteName: 'Nexez',
+    url: marketingUrl('/support'),
+    title: 'Support',
+    description: 'Get AI-assisted Nexez support or create a support ticket with listing context attached.',
+  },
 }
 
 export default function SupportPage() {

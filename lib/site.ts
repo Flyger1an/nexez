@@ -40,6 +40,7 @@ const MARKETING_PREFIXES = [
   '/pricing',
   '/privacy',
   '/scan',
+  '/security',
   '/terms',
   '/design',
   '/discovery',

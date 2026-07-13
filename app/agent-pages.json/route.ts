@@ -103,6 +103,8 @@ export async function GET(request: Request) {
         'Cache-Control': 'public, max-age=120, s-maxage=300',
         // Base URL reflects the request host - vary the CDN cache key on it.
         Vary: 'x-forwarded-host',
+        // Out of Google's index; agents still fetch/crawl this freely.
+        'X-Robots-Tag': 'noindex',
       },
     },
   )

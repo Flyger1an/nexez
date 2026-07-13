@@ -3,12 +3,24 @@ import { MarketingContentPage } from '../../components/marketing/MarketingConten
 import { AgentReadinessProof } from '../../components/marketing/ConversionProofSections'
 import { ReadinessHero } from '../../components/marketing/heroes'
 import { marketingPages } from '../../lib/marketing-content'
+import { marketingUrl } from '../../lib/site'
 
 const content = marketingPages['agent-readiness']
 
 export const metadata: Metadata = {
   title: 'AI Agent Readiness',
   description: content.description,
+  alternates: {
+    canonical: marketingUrl('/agent-readiness'),
+  },
+  // Page-level openGraph replaces the layout's wholesale (shallow merge) — re-carry type/siteName.
+  openGraph: {
+    type: 'website',
+    siteName: 'Nexez',
+    url: marketingUrl('/agent-readiness'),
+    title: 'AI Agent Readiness',
+    description: content.description,
+  },
 }
 
 export default function AgentReadinessPage() {

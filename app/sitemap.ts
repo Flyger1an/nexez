@@ -1,7 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { headers } from 'next/headers'
-import { AgentPage, getCheckoutOffers, getCheckoutPath } from '../lib/agent-page'
-import { getAgentJsonPath } from '../lib/agent-manifest'
+import { AgentPage } from '../lib/agent-page'
 import { useCases } from '../lib/marketing-content'
 import { publicLaunchVisiblePages } from '../lib/public-page-visibility'
 import { supabase } from '../lib/supabase'
@@ -16,11 +15,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const isApp = host === APP_HOST || host === `www.${APP_HOST}`
 
   if (isMarketing) {
+    // No lastModified: an always-now timestamp is distrusted/ignored by Google,
+    // and omitting it is valid sitemap XML.
     const entry = (
       path: string,
       priority: number,
       changeFrequency: 'daily' | 'weekly' | 'monthly',
-    ): MetadataRoute.Sitemap[number] => ({ url: marketingUrl(path), lastModified: new Date(), changeFrequency, priority })
+    ): MetadataRoute.Sitemap[number] => ({ url: marketingUrl(path), changeFrequency, priority })
     return [
       entry('/', 1, 'daily'),
       entry('/scan', 0.9, 'weekly'),
@@ -48,43 +49,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   if (isApp) return []
 
-  // Public agent sitemap is always rooted at nexez.app.
+  // Public agent sitemap is always rooted at nexez.app. Google only gets the
+  // indexable HTML listing pages: /checkout URLs are thin transactional pages
+  // (noindexed, canonical → the listing), and agents discover the JSON/API
+  // artifacts via .well-known + <link rel="alternate"> + /agent-pages.json,
+  // not the Google sitemap.
   const baseUrl = agentRuntimeUrl('/').replace(/\/$/, '')
   const { data: pages } = await supabase
     .from('pages_public')
-    .select('slug, created_at, updated_at, products, services')
+    .select('slug, created_at, updated_at')
     .eq('is_published', true)
-    .returns<Pick<AgentPage, 'slug' | 'created_at' | 'updated_at' | 'products' | 'services'>[]>()
+    .returns<Pick<AgentPage, 'slug' | 'created_at' | 'updated_at'>[]>()
 
   const lastMod = (page: { updated_at?: string | null; created_at?: string | null }) =>
-    page.updated_at ? new Date(page.updated_at) : page.created_at ? new Date(page.created_at) : new Date()
+    page.updated_at ? new Date(page.updated_at) : page.created_at ? new Date(page.created_at) : undefined
 
-  const visiblePages = publicLaunchVisiblePages(pages)
-
-  return [
-    { url: `${baseUrl}/agent-pages.json`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.7 },
-    { url: `${baseUrl}/openapi.json`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.6 },
-    { url: `${baseUrl}/.well-known/nexez.json`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.6 },
-    { url: `${baseUrl}/api/agent-search`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.6 },
-    ...visiblePages.map((page) => ({
-      url: `${baseUrl}/${page.slug}`,
-      lastModified: lastMod(page),
-      changeFrequency: 'weekly' as const,
-      priority: 0.8,
-    })),
-    ...visiblePages.map((page) => ({
-      url: `${baseUrl}${getAgentJsonPath(page.slug)}`,
-      lastModified: lastMod(page),
-      changeFrequency: 'weekly' as const,
-      priority: 0.6,
-    })),
-    ...visiblePages.flatMap((page) =>
-      getCheckoutOffers(page).map((offer) => ({
-        url: `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
-        lastModified: lastMod(page),
-        changeFrequency: 'weekly' as const,
-        priority: 0.5,
-      })),
-    ),
-  ]
+  return publicLaunchVisiblePages(pages).map((page) => ({
+    url: `${baseUrl}/${page.slug}`,
+    lastModified: lastMod(page),
+    changeFrequency: 'weekly' as const,
+    priority: 0.8,
+  }))
 }

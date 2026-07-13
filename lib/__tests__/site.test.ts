@@ -15,9 +15,16 @@ import {
 
 describe('isMarketingPath', () => {
   it('treats the homepage + marketing prefixes as marketing', () => {
-    for (const p of ['/', '/pricing', '/pricing/teams', '/discovery', '/leaderboard', '/simulator', '/support', '/privacy', '/terms', '/design', '/blog/x', '/docs']) {
+    for (const p of ['/', '/pricing', '/pricing/teams', '/discovery', '/leaderboard', '/simulator', '/support', '/privacy', '/security', '/terms', '/design', '/blog/x', '/docs']) {
       expect(isMarketingPath(p), p).toBe(true)
     }
+  })
+
+  it('keeps /security on the marketing host (it is in the marketing sitemap)', () => {
+    // Regression: /security was missing from MARKETING_PREFIXES, so nexez.ai/security
+    // 308-bounced to nexez.app while the sitemap advertised the nexez.ai URL.
+    expect(isMarketingPath('/security')).toBe(true)
+    expect(canonicalHostFor('/security')).toBe(MARKETING_HOST)
   })
 
   it('treats app/runtime routes as NOT marketing', () => {

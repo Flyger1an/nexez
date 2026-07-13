@@ -43,6 +43,8 @@ export async function GET() {
   return Response.json(body, {
     headers: {
       'Cache-Control': 'public, max-age=120, s-maxage=600',
+      // Out of Google's index; agents still fetch/crawl this freely.
+      'X-Robots-Tag': 'noindex',
     },
   })
 }

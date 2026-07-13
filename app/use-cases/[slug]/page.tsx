@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { ArrowRight, CheckCircle2, Search } from 'lucide-react'
-import { appUrl } from '../../../lib/site'
+import { appUrl, marketingUrl } from '../../../lib/site'
 import { getUseCase, useCases } from '../../../lib/marketing-content'
 
 type UseCaseProps = {
@@ -20,6 +20,17 @@ export async function generateMetadata({ params }: UseCaseProps): Promise<Metada
   return {
     title: `${useCase.label} Use Case`,
     description: useCase.description,
+    alternates: {
+      canonical: marketingUrl(`/use-cases/${useCase.slug}`),
+    },
+    // Page-level openGraph replaces the layout's wholesale (shallow merge) — re-carry type/siteName.
+    openGraph: {
+      type: 'website',
+      siteName: 'Nexez',
+      url: marketingUrl(`/use-cases/${useCase.slug}`),
+      title: `${useCase.label} Use Case`,
+      description: useCase.description,
+    },
   }
 }
 

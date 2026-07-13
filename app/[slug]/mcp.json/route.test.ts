@@ -71,6 +71,7 @@ describe('GET /[slug]/mcp.json', () => {
     dbRef.handler = () => ({ data: { ...basePage, mcp_enabled: true }, error: null })
     const res = await GET(req(), ctx('demo'))
     expect(res.status).toBe(200)
+    expect(res.headers.get('x-robots-tag')).toBe('noindex')
     const body = await res.json()
     expect(body.protocol_version).toBeTruthy()
     expect(Array.isArray(body.resources)).toBe(true)

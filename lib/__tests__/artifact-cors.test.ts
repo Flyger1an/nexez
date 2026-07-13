@@ -6,6 +6,10 @@ describe('artifact CORS helpers', () => {
     expect(ARTIFACT_CORS_HEADERS['Access-Control-Allow-Origin']).toBe('*')
   })
 
+  it('keeps artifacts out of Google\'s index while staying agent-fetchable', () => {
+    expect(ARTIFACT_CORS_HEADERS['X-Robots-Tag']).toBe('noindex')
+  })
+
   it('artifactPreflight → 204 with GET/OPTIONS methods allowed', () => {
     const res = artifactPreflight()
     expect(res.status).toBe(204)

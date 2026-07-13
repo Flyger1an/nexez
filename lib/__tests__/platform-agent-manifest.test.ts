@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { billingPlans } from '../billing'
 import { buildPlatformAgentManifest, buildPlatformStructuredData } from '../platform-agent-manifest'
 import { extractStructuredEvidence } from '../server/site-scan'
 
@@ -25,5 +26,34 @@ describe('Nexez first-party agent evidence', () => {
     expect(evidence.hasStructuredContact).toBe(true)
     expect(evidence.hasStructuredPolicies).toBe(true)
     expect(evidence.dates.length).toBeGreaterThan(0)
+  })
+
+  it('advertises the live paid-plan price range, not the retired Free plan', () => {
+    const graph = buildPlatformStructuredData()
+    const software = graph['@graph'].find(
+      (node) => node['@type'] === 'SoftwareApplication',
+    ) as Record<string, unknown>
+    const offers = software.offers as Record<string, unknown>
+    const paidPrices = billingPlans
+      .filter((plan) => plan.id !== 'free' && plan.id !== 'enterprise')
+      .map((plan) => Number(plan.price.replace(/[^0-9.]/g, '')))
+
+    expect(offers['@type']).toBe('AggregateOffer')
+    expect(offers.lowPrice).toBe(Math.min(...paidPrices))
+    expect(offers.highPrice).toBe(Math.max(...paidPrices))
+    expect(offers.lowPrice).toBeGreaterThan(0)
+    expect(offers.priceCurrency).toBe('USD')
+    expect(offers.offerCount).toBe(paidPrices.length)
+    expect(JSON.stringify(graph)).not.toContain('Nexez Free')
+  })
+
+  it('emits a stable content date, not the render timestamp', () => {
+    const pick = () =>
+      buildPlatformStructuredData()['@graph'].find(
+        (node) => node['@type'] === 'SoftwareApplication',
+      ) as Record<string, unknown>
+    const software = pick()
+    expect(software.dateModified).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(pick().dateModified).toBe(software.dateModified)
   })
 })

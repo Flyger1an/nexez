@@ -41,6 +41,7 @@ describe('GET /[slug]/embed.json', () => {
     expect(res.status).toBe(200)
     expect(res.headers.get('access-control-allow-origin')).toBe('*')
     expect((res.headers.get('vary') || '').toLowerCase()).toContain('x-forwarded-host')
+    expect(res.headers.get('x-robots-tag')).toBe('noindex')
 
     const body = await res.json()
     expect(body.ok).toBe(true)

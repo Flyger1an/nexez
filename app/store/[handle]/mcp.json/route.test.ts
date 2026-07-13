@@ -29,6 +29,7 @@ describe('GET /store/[handle]/mcp.json', () => {
     const res = await GET(req(), ctx('acme-store'))
     expect(res.status).toBe(200)
     expect((res.headers.get('vary') || '').toLowerCase()).toContain('x-forwarded-host')
+    expect(res.headers.get('x-robots-tag')).toBe('noindex')
     const j = await res.json()
     expect(j._nexez.mcp_endpoint).toMatch(/\/store\/acme-store\/mcp$/)
     expect(j.tools.find((t: { name: string }) => t.name === 'book_offer').inputSchema.required).toEqual(['slug', 'offer'])

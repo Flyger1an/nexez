@@ -113,6 +113,8 @@ export async function GET(_request: Request, { params }: RouteProps) {
       'Content-Type': 'application/json',
       'Cache-Control': 'public, max-age=300, s-maxage=3600',
       Vary: 'x-forwarded-host',
+      // Out of Google's index; agents still fetch/crawl this freely.
+      'X-Robots-Tag': 'noindex',
     },
   })
 }

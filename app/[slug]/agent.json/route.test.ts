@@ -81,6 +81,8 @@ describe('GET /[slug]/agent.json', () => {
     // keeping the host-poison guard.
     expect(res.headers.get('access-control-allow-origin')).toBe('*')
     expect((res.headers.get('vary') || '').toLowerCase()).toContain('x-forwarded-host')
+    // Out of Google's index, but still crawlable/fetchable by agents.
+    expect(res.headers.get('x-robots-tag')).toBe('noindex')
     const body = await res.json()
     expect(JSON.stringify(body)).toContain('demo') // references the page
   })

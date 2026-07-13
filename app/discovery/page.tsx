@@ -13,7 +13,7 @@ import { LocationFilter } from './LocationFilter'
 import { FavoriteButton } from '../../components/FavoriteButton'
 import { TrackedDirectoryLink } from '../../components/TrackedDirectoryLink'
 import { DiscoveryTabs } from '../../components/DiscoveryTabs'
-import { agentRuntimeUrl, appUrl } from '../../lib/site'
+import { agentRuntimeUrl, appUrl, marketingUrl } from '../../lib/site'
 
 type DirectoryProps = {
   searchParams: Promise<{ q?: string; type?: string; category?: string; min_readiness?: string; sort?: string; location?: string }>
@@ -38,6 +38,19 @@ function trendingScore(result: AgentSearchResult): number {
 export const metadata: Metadata = {
   title: 'Discovery - Browse agent-ready offers',
   description: 'Search, browse trending, and discover agent-optimized offers from businesses across Nexez.',
+  alternates: {
+    // Unparameterized on purpose: the page links ?q=/?category=/?sort= permutations
+    // of itself, and this canonical dedupes them all to the bare listing URL.
+    canonical: marketingUrl('/discovery'),
+  },
+  // Page-level openGraph replaces the layout's wholesale (shallow merge) — re-carry type/siteName.
+  openGraph: {
+    type: 'website',
+    siteName: 'Nexez',
+    url: marketingUrl('/discovery'),
+    title: 'Discovery - Browse agent-ready offers',
+    description: 'Search, browse trending, and discover agent-optimized offers from businesses across Nexez.',
+  },
 }
 
 export default async function DirectoryPage({ searchParams }: DirectoryProps) {

@@ -11,7 +11,8 @@ import {
   Handshake,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
-import { appUrl } from '../lib/site'
+import type { Metadata } from 'next'
+import { appUrl, marketingUrl } from '../lib/site'
 import { buildPlatformStructuredData } from '../lib/platform-agent-manifest'
 import { SimulatorTeaser } from '../components/SimulatorTeaser'
 import { AgentXray } from '../components/home/AgentXray'
@@ -23,6 +24,23 @@ import { ShaderBackdrop } from '../components/home/ShaderBackdrop'
 
 // Marketing homepage: fully static (fast on nexez.ai). The always-live listing
 // directory lives on /discovery.
+
+// Title/description stay inherited from the root layout; this pins the canonical
+// (and og:url) to the marketing host — metadataBase resolves to nexez.app.
+export const metadata: Metadata = {
+  alternates: {
+    canonical: marketingUrl('/'),
+  },
+  // Page-level openGraph replaces the layout's wholesale (shallow merge) — re-carry type/siteName.
+  openGraph: {
+    type: 'website',
+    siteName: 'Nexez',
+    url: marketingUrl('/'),
+    title: 'Nexez - Listings built for AI agents',
+    description:
+      'A clean, structured listing that AI agents can understand and act on. Host it on your domain or Nexez.',
+  },
+}
 
 type Feature = {
   title: string

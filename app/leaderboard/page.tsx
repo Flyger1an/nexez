@@ -3,12 +3,23 @@ import { Trophy } from 'lucide-react'
 import { AgentPage, PUBLIC_PAGE_SELECT, getOfferCount, getReadinessScore, getTrustScore } from '../../lib/agent-page'
 import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
 import { supabase } from '../../lib/supabase'
-import { agentRuntimeUrl, appUrl } from '../../lib/site'
+import { agentRuntimeUrl, appUrl, marketingUrl } from '../../lib/site'
 import { DiscoveryTabs } from '../../components/DiscoveryTabs'
 
 export const metadata: Metadata = {
   title: 'Agent-Ready Leaderboard',
   description: 'The most agent-ready businesses on Nexez, ranked by readiness and trust.',
+  alternates: {
+    canonical: marketingUrl('/leaderboard'),
+  },
+  // Page-level openGraph replaces the layout's wholesale (shallow merge) — re-carry type/siteName.
+  openGraph: {
+    type: 'website',
+    siteName: 'Nexez',
+    url: marketingUrl('/leaderboard'),
+    title: 'Agent-Ready Leaderboard',
+    description: 'The most agent-ready businesses on Nexez, ranked by readiness and trust.',
+  },
 }
 
 type Props = { searchParams?: Promise<{ industry?: string }> }

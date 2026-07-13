@@ -28,6 +28,7 @@ import { normalizeCurrency, toStripeAmount, formatCurrencyAmount, toMajorAmount 
 import { priceValidUntil } from '../../../lib/freshness'
 import { logCheckoutEvent } from '../../../lib/server/log-checkout-event'
 import { safeJsonScript } from '../../../lib/safe-json'
+import { agentRuntimeUrl } from '../../../lib/site'
 import { supabase } from '../../../lib/supabase'
 
 type PageProps = {
@@ -59,9 +60,14 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   return {
     title: `${offer?.name ?? page.name} checkout`,
     description: `Agent-friendly checkout context for ${offer?.name ?? page.name}.`,
+    // Thin transactional page: keep it out of the index (it can outrank the
+    // listing / read as a soft 404) and canonicalize to the parent listing.
     robots: {
-      index: true,
+      index: false,
       follow: true,
+    },
+    alternates: {
+      canonical: agentRuntimeUrl(`/${slug}`),
     },
   }
 }

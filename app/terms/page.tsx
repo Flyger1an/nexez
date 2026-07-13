@@ -1,9 +1,21 @@
 import type { Metadata } from 'next'
 import { ArrowLeft } from 'lucide-react'
+import { marketingUrl } from '../../lib/site'
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
   description: 'The terms governing your use of the Nexez platform.',
+  alternates: {
+    canonical: marketingUrl('/terms'),
+  },
+  // Page-level openGraph replaces the layout's wholesale (shallow merge) — re-carry type/siteName.
+  openGraph: {
+    type: 'website',
+    siteName: 'Nexez',
+    url: marketingUrl('/terms'),
+    title: 'Terms of Service',
+    description: 'The terms governing your use of the Nexez platform.',
+  },
 }
 
 const LAST_UPDATED = 'June 3, 2026'

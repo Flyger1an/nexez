@@ -74,6 +74,8 @@ export async function GET(request: Request) {
     {
       headers: {
         'Cache-Control': 'public, max-age=60, s-maxage=180',
+        // Out of Google's index; agents still fetch/crawl this freely.
+        'X-Robots-Tag': 'noindex',
       },
     },
   )

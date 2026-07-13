@@ -1,12 +1,24 @@
 import type { Metadata } from 'next'
 import { ArrowRight, Bot, CheckCircle2 } from 'lucide-react'
-import { appUrl } from '../../lib/site'
+import { appUrl, marketingUrl } from '../../lib/site'
 import { useCases } from '../../lib/marketing-content'
 
 export const metadata: Metadata = {
   title: 'Use Cases',
   description:
     'Explore how consultants, agencies, coaches, local services, SaaS teams, and marketplaces use Nexez to publish AI-readable buying listings.',
+  alternates: {
+    canonical: marketingUrl('/use-cases'),
+  },
+  // Page-level openGraph replaces the layout's wholesale (shallow merge) — re-carry type/siteName.
+  openGraph: {
+    type: 'website',
+    siteName: 'Nexez',
+    url: marketingUrl('/use-cases'),
+    title: 'Use Cases',
+    description:
+      'Explore how consultants, agencies, coaches, local services, SaaS teams, and marketplaces use Nexez to publish AI-readable buying listings.',
+  },
 }
 
 export default function UseCasesPage() {

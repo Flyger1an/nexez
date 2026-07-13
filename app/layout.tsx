@@ -4,6 +4,7 @@ import { Schibsted_Grotesk, Instrument_Sans, JetBrains_Mono } from "next/font/go
 import { PlatformFrame } from "../components/PlatformFrame";
 import { DesignSystemFx } from "../components/DesignSystemFx";
 import { hasSupabaseAuthCookie } from "../lib/auth-cookie";
+import { marketingUrl } from "../lib/site";
 import { THEME_NO_FLASH_SCRIPT } from "../lib/theme";
 import "./globals.css";
 
@@ -14,7 +15,10 @@ const fontBody = Instrument_Sans({ variable: "--font-instrument", subsets: ["lat
 const fontMono = JetBrains_Mono({ variable: "--font-jetbrains", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://nexez.app"),
+  // Marketing host: relative metadata URLs (og:url, file-convention OG images)
+  // must resolve to nexez.ai. Agent-runtime pages ([slug]) set absolute URLs
+  // themselves, which ignore metadataBase.
+  metadataBase: new URL(marketingUrl("/")),
   title: {
     default: "Nexez - Listings built for AI agents",
     template: "%s · Nexez",
@@ -40,7 +44,7 @@ export const metadata: Metadata = {
     title: "Nexez - Listings built for AI agents",
     description:
       "A clean, structured listing that AI agents can understand and act on. Host it on your domain or Nexez.",
-    url: "/",
+    url: marketingUrl("/"),
   },
   twitter: {
     card: "summary_large_image",

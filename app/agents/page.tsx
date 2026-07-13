@@ -28,6 +28,15 @@ export const metadata: Metadata = {
   alternates: {
     canonical: marketingUrl('/agents'),
   },
+  // Page-level openGraph replaces the layout's wholesale (shallow merge) — re-carry type/siteName.
+  openGraph: {
+    type: 'website',
+    siteName: 'Nexez',
+    url: marketingUrl('/agents'),
+    title: 'AI Agent Access',
+    description:
+      'Install the Nexez OpenClaw plugin and discovery skill, then use Nexez agent APIs, manifests, llms.txt, OpenAPI, and MCP discovery to find and act on agent-ready offers.',
+  },
 }
 
 const distribution = buildAgentDistributionLinks()

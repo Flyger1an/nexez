@@ -10,6 +10,9 @@
 /** Spread into an artifact route's response `headers` to allow cross-origin GET. */
 export const ARTIFACT_CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
+  // Keep the JSON artifacts out of Google's index. noindex and crawlability are
+  // independent: robots.txt still allows these, so agents keep fetching them.
+  'X-Robots-Tag': 'noindex',
 } as const
 
 /** Preflight response for the artifact routes (shared OPTIONS handler). */

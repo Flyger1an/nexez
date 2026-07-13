@@ -19,6 +19,15 @@ export const metadata: Metadata = {
   alternates: {
     canonical: marketingUrl('/developers/buyer-approval'),
   },
+  // Page-level openGraph replaces the layout's wholesale (shallow merge) — re-carry type/siteName.
+  openGraph: {
+    type: 'website',
+    siteName: 'Nexez',
+    url: marketingUrl('/developers/buyer-approval'),
+    title: 'Buyer Approval UX',
+    description:
+      'Nexez buyer approval patterns help agent builders render clear consent before checkout, booking, contact sharing, or negotiation submission.',
+  },
 }
 
 const approvalSchema = {
