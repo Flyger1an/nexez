@@ -62,7 +62,7 @@ function shell(apiKey: string) {
     <section class="panel" aria-live="polite" id="app">
       <div class="hero"><div class="skeleton short"></div><div class="skeleton"></div><div class="skeleton"></div></div>
     </section>
-    <footer class="meta"><span>Catalog access is read-only.</span><a href="https://nexez.ai/privacy" target="_blank" rel="noreferrer">Privacy</a><a href="https://nexez.ai/support" target="_blank" rel="noreferrer">Support</a></footer>
+    <footer class="meta"><span>Catalog access is read-only. Storefront agent links become public after your Online Store is unlocked.</span><a href="https://nexez.ai/privacy" target="_blank" rel="noreferrer">Privacy</a><a href="https://nexez.ai/support" target="_blank" rel="noreferrer">Support</a></footer>
   </main>
   <script>
     (() => {

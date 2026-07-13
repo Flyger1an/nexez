@@ -83,6 +83,8 @@ Shopify-origin purchase around Shopify checkout.
 - [ ] Run the Partner Dashboard automated quality checks and mandatory-webhook test.
 - [ ] Test fresh install, uninstall, reinstall, token refresh, link expiry, manual
   sync, webhook sync, product deletion, theme activation, and mobile admin.
+- [ ] Unlock the review store and confirm `/apps/nexez/agent.json` resolves to
+  structured data without a storefront-password redirect.
 
 ## Release commands
 

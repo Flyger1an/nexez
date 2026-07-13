@@ -8,6 +8,7 @@ submitted to Shopify. Replace every angle-bracket placeholder before submission.
 - Shopify confirms regular-app versus Sales Channel classification.
 - The current Nexez server release and Shopify app version are both live.
 - The one-active-shop-per-listing migration is applied.
+- The review store is unlocked and its storefront agent endpoint is public.
 - Partner Dashboard automated checks and mandatory-webhook tests pass.
 - A fresh install, uninstall, and reinstall pass on a development store.
 - Reviewer credentials below are tested in a private browser window.
@@ -27,6 +28,8 @@ The Shopify connector itself is free and does not require a Nexez plan upgrade.
 ## Store prerequisites
 
 - An Online Store sales channel with an active theme
+- Storefront password protection disabled so the app-proxy artifact is publicly
+  crawlable during review
 - At least two active, published products
 - One product with multiple variants if possible
 - No real customer or order data is required
