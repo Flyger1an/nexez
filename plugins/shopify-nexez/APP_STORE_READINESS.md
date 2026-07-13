@@ -33,6 +33,9 @@ Last reviewed against Shopify's public requirements: 2026-07-13.
 - [x] Privacy and support destinations are visible from the embedded app.
 - [x] Account linking uses a user-initiated top-level navigation supported by the
   current Shopify App Bridge Navigation API, with no popup dependency.
+- [x] An authenticated Shopify admin can change the linked Nexez listing without
+  uninstalling the app. Nexez authentication and listing edit access are checked
+  again before the move, and only the old Shopify-imported catalog is removed.
 
 ## Submission blocker requiring Shopify confirmation
 
@@ -68,18 +71,26 @@ Shopify-origin purchase around Shopify checkout.
 Validation evidence from 2026-07-13:
 
 - Shopify CLI `app build` passed the production config and theme-extension checks.
-- The Shopify-focused suite passed: 16 test files, 65 tests.
-- The live embedded app authenticated, loaded the connected listing, and completed
-  a manual sync with 13 active products imported.
+- The full suite passed after the relink work: 254 test files, 1,971 tests. Lint,
+  palette guard, TypeScript, and the production build also passed.
+- The live embedded app authenticated, moved from the negotiation gauntlet to the
+  dedicated `Shopify Review Catalog`, and completed a manual sync with 13 active
+  products imported. The gauntlet retained its 64 non-Shopify offers.
 - The theme editor showed `Agent-ready discovery` enabled with `/apps/nexez` as
   the storefront proxy path.
-- Desktop proofs were captured for the connected app, successful catalog sync,
-  and enabled theme app embed under `app-store-media/draft/`. The final icon is
-  under `app-store-media/`. Final listing screenshots still require a dedicated
-  review catalog and an unlocked storefront endpoint.
+- The review catalog is published. Its public page, `agent.json`, and `llms.txt`
+  return 200; the agent artifact contains all 13 products; and a checkout dry run
+  resolves to the original Shopify product URL.
+- Four final 1600 x 900 desktop captures are under `app-store-media/final/`. The
+  final icon is under `app-store-media/`.
+- Public distribution is selected in Partner Dashboard. Shopify now requires the
+  App Store registration declarations and one-time $19 payment before the listing
+  editor and submission checklist are available.
 
 - [ ] Confirm regular-app versus Sales Channel classification with Shopify.
 - [x] Implement and test the free-connector billing path.
+- [ ] Complete Shopify App Store registration with truthful business/account
+  declarations and the one-time registration payment.
 - [ ] Mark the Online Store sales channel as required because the theme app embed
   and app proxy depend on a storefront.
 - [ ] Add an emergency developer contact.
@@ -87,7 +98,8 @@ Validation evidence from 2026-07-13:
 - [ ] Enter the verified legal, support, and data-use URLs in Partner Dashboard.
 - [x] Prepare truthful listing copy without rankings, guarantees, or statistics
   in `APP_STORE_LISTING.md`.
-- [ ] Capture required desktop and mobile screenshots.
+- [x] Capture final desktop screenshots.
+- [ ] Capture the required mobile-admin screenshot set.
 - [x] Prepare the English onboarding screencast script and complete reviewer flow
   in `REVIEWER_GUIDE.md`.
 - [ ] Record the onboarding screencast: install, connect account, choose listing,
@@ -97,8 +109,10 @@ Validation evidence from 2026-07-13:
 - [ ] Test fresh install, uninstall, reinstall, token refresh, link expiry, webhook
   sync, product deletion, and mobile admin. Manual sync and theme activation are
   verified.
-- [ ] Unlock the review store and confirm `/apps/nexez/agent.json` resolves to
-  structured data without a storefront-password redirect.
+- [ ] Move the review store to an unlock-eligible Shopify state, disable password
+  protection, and confirm `/apps/nexez/agent.json` resolves to structured data
+  without a storefront-password redirect. Shopify currently disables the
+  password toggle because the store is in development.
 
 ## Release commands
 
