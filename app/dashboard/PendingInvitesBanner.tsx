@@ -8,7 +8,7 @@ import { createClient } from '../../utils/supabase/client'
 /**
  * Surfaces the signed-in user's PENDING team invitations with an Accept action - for
  * invitees who never opened (or lost) the invite email. Self-contained: reads its own
- * data via the "invitees read own invites" RLS (own verified email), and Accept POSTs to
+ * data via the invitee-read RLS (own verified email), and Accept POSTs to
  * /api/team/accept (service-role flips pending -> accepted) then refreshes so the freshly
  * shared pages appear. A merely-pending invite no longer grants access, so this is the
  * in-app path to the access the owner intended.

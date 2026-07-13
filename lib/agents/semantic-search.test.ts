@@ -1,5 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { embedText, isEmbeddingsConfigured, mergeRankedResults } from './semantic-search'
+const h = vi.hoisted(() => ({
+  adminRpc: vi.fn(),
+}))
+
+vi.mock('../../utils/supabase/admin', () => ({
+  createAdminClient: () => ({ rpc: h.adminRpc }),
+}))
+
+import { embedText, isEmbeddingsConfigured, mergeRankedResults, semanticSearch } from './semantic-search'
 import type { AgentSearchResult } from '../agent-search'
 
 function r(slug: string, score: number, offerKey?: string): AgentSearchResult {
@@ -12,6 +20,7 @@ function r(slug: string, score: number, offerKey?: string): AgentSearchResult {
 
 describe('embeddings gating (no key → lexical fallback)', () => {
   beforeEach(() => {
+    h.adminRpc.mockReset()
     delete process.env.EMBEDDINGS_API_KEY
     delete process.env.OPENAI_API_KEY
   })
@@ -35,6 +44,21 @@ describe('embeddings gating (no key → lexical fallback)', () => {
     process.env.EMBEDDINGS_API_KEY = 'sk-test'
     vi.stubGlobal('fetch', vi.fn(async () => new Response('nope', { status: 500 })))
     expect(await embedText('hello')).toBeNull()
+  })
+
+  it('calls the privileged vector matcher through the server admin client', async () => {
+    process.env.EMBEDDINGS_API_KEY = 'sk-test'
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: [{ embedding: Array(1536).fill(0.1) }] })))
+    h.adminRpc.mockResolvedValue({ data: [], error: null })
+    const userRpc = vi.fn()
+
+    await expect(semanticSearch({ rpc: userRpc } as never, 'strategy help', 5, 'https://nexez.app')).resolves.toEqual([])
+
+    expect(h.adminRpc).toHaveBeenCalledWith('match_nexie_pages', {
+      query_embedding: Array(1536).fill(0.1),
+      match_count: 20,
+    })
+    expect(userRpc).not.toHaveBeenCalled()
   })
 })
 

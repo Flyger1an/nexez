@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { AgentPage, PUBLIC_PAGE_SELECT, getCheckoutOffers } from '../agent-page'
 import { buildResult, type AgentSearchResult } from '../agent-search'
 import { publicLaunchVisiblePages } from '../public-page-visibility'
+import { createAdminClient } from '../../utils/supabase/admin'
 
 // pgvector semantic retrieval for the Nexxi agent. Env-gated: with no embeddings key this
 // is a no-op and the caller falls back to lexical search, so prod is unaffected until the
@@ -78,7 +79,11 @@ export async function semanticSearch(
   if (!queryEmbedding) return []
 
   try {
-    const { data: matches, error } = await db.rpc('match_nexie_pages', {
+    // The vector matcher is SECURITY DEFINER because the source table is not
+    // directly exposed. Keep that privileged RPC service-role-only; the
+    // authenticated client is still used below for the public projection.
+    const admin = createAdminClient()
+    const { data: matches, error } = await admin.rpc('match_nexie_pages', {
       query_embedding: queryEmbedding,
       match_count: Math.max(limit * 4, 20),
     })

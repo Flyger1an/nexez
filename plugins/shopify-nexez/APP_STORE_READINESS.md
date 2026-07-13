@@ -65,6 +65,19 @@ Shopify-origin purchase around Shopify checkout.
 
 ## Partner Dashboard and listing work
 
+Validation evidence from 2026-07-13:
+
+- Shopify CLI `app build` passed the production config and theme-extension checks.
+- The Shopify-focused suite passed: 16 test files, 65 tests.
+- The live embedded app authenticated, loaded the connected listing, and completed
+  a manual sync with 13 active products imported.
+- The theme editor showed `Agent-ready discovery` enabled with `/apps/nexez` as
+  the storefront proxy path.
+- Desktop proofs were captured for the connected app, successful catalog sync,
+  and enabled theme app embed under `app-store-media/draft/`. The final icon is
+  under `app-store-media/`. Final listing screenshots still require a dedicated
+  review catalog and an unlocked storefront endpoint.
+
 - [ ] Confirm regular-app versus Sales Channel classification with Shopify.
 - [x] Implement and test the free-connector billing path.
 - [ ] Mark the Online Store sales channel as required because the theme app embed
@@ -81,8 +94,9 @@ Shopify-origin purchase around Shopify checkout.
   sync catalog, enable app embed, inspect agent endpoint.
 - [ ] Provide durable review credentials with access to the complete feature set.
 - [ ] Run the Partner Dashboard automated quality checks and mandatory-webhook test.
-- [ ] Test fresh install, uninstall, reinstall, token refresh, link expiry, manual
-  sync, webhook sync, product deletion, theme activation, and mobile admin.
+- [ ] Test fresh install, uninstall, reinstall, token refresh, link expiry, webhook
+  sync, product deletion, and mobile admin. Manual sync and theme activation are
+  verified.
 - [ ] Unlock the review store and confirm `/apps/nexez/agent.json` resolves to
   structured data without a storefront-password redirect.
 

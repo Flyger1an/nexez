@@ -9,8 +9,8 @@ import { enforceRateLimit } from '../../../../lib/rate-limit'
 /**
  * Create a team invite AND notify the invitee. Invites were previously a silent
  * client-side DB write - the teammate was never told, so collaboration never
- * started. This inserts via the OWNER's session client (so the "owners manage own
- * invites" RLS + the Pro/admin plan-gate trigger still apply), then emails the
+ * started. This inserts via the OWNER's session client (so owner-scoped invite
+ * RLS + the Pro/admin plan-gate trigger still apply), then emails the
  * invitee a link to sign in/up with that exact address (the access RLS keys on the
  * JWT email). Unlisted /api/* → app host, so the owner session is preserved.
  */
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, invite: existing, alreadyInvited: true, emailed: false })
   }
 
-  // Insert through the owner's session client → RLS ("owners manage own invites") +
+  // Insert through the owner's session client -> owner-scoped RLS +
   // the trg_enforce_team_collaboration plan gate both apply. The gate raises a
   // check_violation (23514) for both the Pro feature gate and the per-plan seat limit;
   // surface either as 402 (with the DB's own message) so the UI can prompt an upgrade.
