@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { headers } from 'next/headers'
 import { AgentPage } from '../lib/agent-page'
+import { learnArticles } from '../lib/learn-content'
 import { useCases } from '../lib/marketing-content'
 import { publicLaunchVisiblePages } from '../lib/public-page-visibility'
 import { supabase } from '../lib/supabase'
@@ -38,6 +39,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       entry('/security', 0.7, 'monthly'),
       entry('/compare', 0.7, 'monthly'),
       entry('/enterprise', 0.65, 'monthly'),
+      entry('/learn', 0.85, 'weekly'),
+      // Articles carry REAL content dates (the one marketing surface where we have them).
+      ...learnArticles.map((article) => ({
+        url: marketingUrl(`/learn/${article.slug}`),
+        lastModified: new Date(`${article.updatedAt}T00:00:00Z`),
+        changeFrequency: 'monthly' as const,
+        priority: 0.8,
+      })),
       entry('/discovery', 0.8, 'daily'),
       entry('/leaderboard', 0.6, 'daily'),
       entry('/simulator', 0.5, 'weekly'),

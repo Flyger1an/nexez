@@ -48,6 +48,7 @@ const MARKETING_PREFIXES = [
   '/simulator',
   '/support',
   '/use-cases',
+  '/learn', // guides + content hub
   '/blog', // future content
   '/docs', // future docs
 ] as const

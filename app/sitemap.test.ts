@@ -29,15 +29,32 @@ describe('sitemap()', () => {
     dbRef.handler = (ctx: any) => (ctx.table === 'pages_public' ? { data: pages, error: null } : { data: null, error: null })
   })
 
-  it('marketing host: marketing URLs only, with NO lastModified (always-now is distrusted by Google)', async () => {
+  it('marketing host: marketing URLs only; lastModified ONLY on /learn articles (real content dates — always-now is distrusted by Google)', async () => {
     hostRef.host = MARKETING_HOST
     const entries = await sitemap()
     expect(entries.length).toBeGreaterThan(0)
     for (const entry of entries) {
       expect(entry.url.startsWith(`https://${MARKETING_HOST}/`)).toBe(true)
-      expect(entry.lastModified).toBeUndefined()
+      if (entry.url.includes('/learn/')) {
+        // Articles are the one marketing surface with a genuine content date.
+        expect(entry.lastModified).toBeInstanceOf(Date)
+      } else {
+        expect(entry.lastModified).toBeUndefined()
+      }
     }
-    expect(entries.map((e) => e.url)).toContain(`https://${MARKETING_HOST}/pricing`)
+    const urls = entries.map((e) => e.url)
+    expect(urls).toContain(`https://${MARKETING_HOST}/pricing`)
+    expect(urls).toContain(`https://${MARKETING_HOST}/learn`)
+    expect(urls.some((u) => u.includes('/learn/'))).toBe(true)
+  })
+
+  it('learn article lastmod is the article updatedAt, not now()', async () => {
+    hostRef.host = MARKETING_HOST
+    const { learnArticles } = await import('../lib/learn-content')
+    const entries = await sitemap()
+    const first = learnArticles[0]
+    const entry = entries.find((e) => e.url.endsWith(`/learn/${first.slug}`))
+    expect(entry?.lastModified).toEqual(new Date(`${first.updatedAt}T00:00:00Z`))
   })
 
   it('app host: empty (the authenticated app is kept out of search)', async () => {

@@ -27,8 +27,8 @@ const navLinks = [
   { label: 'How it works', href: '/how-it-works' },
   { label: 'Use cases', href: '/use-cases' },
   { label: 'Discovery', href: '/discovery' },
+  { label: 'Learn', href: '/learn' },
   { label: 'Pricing', href: '/pricing' },
-  { label: 'Simulator', href: '/simulator' },
 ]
 
 export function MarketingShell({ children }: { children: ReactNode }) {
@@ -190,6 +190,7 @@ function MarketingFooter({ authed }: { authed: boolean | null }) {
             ['Discovery', '/discovery'],
             ['Leaderboard', '/leaderboard'],
             ['Simulator', '/simulator'],
+            ['Learn', '/learn'],
             ['Agent access', '/agents'],
             ['Pricing', '/pricing'],
           ]}
