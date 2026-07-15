@@ -3,6 +3,7 @@
 import { Fragment, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import {
+  Activity,
   BarChart3,
   Bot,
   Compass,
@@ -56,6 +57,7 @@ const navItems = [
   { href: '/dashboard/integrations', label: 'Integrations', icon: Link2 },
   { href: '/dashboard/tools', label: 'Tools', icon: Wrench },
   { href: '/dashboard/billing', label: 'Billing', icon: CreditCard },
+  { href: '/dashboard/launch-control', label: 'Launch Control', icon: Activity, adminOnly: true },
   { href: '/support', label: 'Support', icon: HelpCircle, mobile: true },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ]
@@ -74,6 +76,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
   const [pinAnimating, setPinAnimating] = useState(false)
   const pinTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [authed, setAuthed] = useState<boolean | null>(null)
+  const [platformAdmin, setPlatformAdmin] = useState(false)
   const [openNegotiations, setOpenNegotiations] = useState(0)
 
   useEffect(() => {
@@ -111,14 +114,28 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false
-    createClient()
-      .auth.getUser()
-      .then(({ data }) => {
-        if (!cancelled) setAuthed(Boolean(data.user))
-      })
-      .catch(() => {
-        if (!cancelled) setAuthed(false)
-      })
+    async function loadViewer() {
+      const supabase = createClient()
+      const { data } = await supabase.auth.getUser()
+      if (cancelled) return
+      setAuthed(Boolean(data.user))
+      if (!data.user) {
+        setPlatformAdmin(false)
+        return
+      }
+      const { data: admin } = await supabase
+        .from('platform_admins')
+        .select('user_id')
+        .eq('user_id', data.user.id)
+        .maybeSingle<{ user_id: string }>()
+      if (!cancelled) setPlatformAdmin(Boolean(admin))
+    }
+    loadViewer().catch(() => {
+      if (!cancelled) {
+        setAuthed(false)
+        setPlatformAdmin(false)
+      }
+    })
     return () => {
       cancelled = true
     }
@@ -127,7 +144,10 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
   // Dashboard items (href under /dashboard) only appear for signed-in users.
   // Public items (Create, Marketplace, Directory, Leaderboard, Simulator, Support)
   // always show. Until auth resolves, show only public items (no flash of the menu).
-  const visibleNav = navItems.filter((item) => !item.href.startsWith('/dashboard') || authed === true)
+  const visibleNav = navItems.filter((item) =>
+    (!item.href.startsWith('/dashboard') || authed === true) &&
+    (!('adminOnly' in item) || item.adminOnly !== true || platformAdmin),
+  )
 
   function togglePinned() {
     setPinAnimating(true)
