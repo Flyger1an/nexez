@@ -1,0 +1,42 @@
+name: OpenClaw Package Publish
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "plugins/openclaw-nexez/**"
+      - ".github/workflows/openclaw-package-publish.yml"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  dry-run:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      id-token: write
+    uses: openclaw/clawhub/.github/workflows/package-publish.yml@e22f28d6a12654923abaa1127d61b70fd3e57147
+    with:
+      source: ${{ github.event.pull_request.head.repo.full_name }}
+      ref: ${{ github.event.pull_request.head.sha }}
+      source_path: plugins/openclaw-nexez
+      owner: nexez
+      dry_run: true
+      inspector_artifact_name: nexez-openclaw-inspector-pr
+      publish_json_artifact_name: nexez-openclaw-publish-dry-run
+
+  publish:
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      id-token: write
+    uses: openclaw/clawhub/.github/workflows/package-publish.yml@e22f28d6a12654923abaa1127d61b70fd3e57147
+    with:
+      source: ${{ github.repository }}
+      ref: ${{ github.sha }}
+      source_path: plugins/openclaw-nexez
+      owner: nexez
+      dry_run: false
+      inspector_artifact_name: nexez-openclaw-inspector-release
+      publish_json_artifact_name: nexez-openclaw-publish-release
