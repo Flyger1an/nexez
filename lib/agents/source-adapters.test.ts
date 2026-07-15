@@ -12,6 +12,8 @@ import type { AgentSearchResult } from '../agent-search'
 function result(score: number, slug: string): AgentSearchResult {
   return {
     score,
+    matched_query_terms: [],
+    match_reasons: [],
     page: { name: slug, slug, url: `https://x/${slug}`, agent_json_url: '', description: null, audience: null, location: null, contact_email: null },
     offer: null,
   }

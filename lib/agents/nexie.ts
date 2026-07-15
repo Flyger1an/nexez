@@ -8,6 +8,7 @@ import { extractMemorySignals, mergeMemorySignals } from './nexie-memory'
 import { normalizePreferences, preferencesPromptBlock } from './nexie-preferences'
 import { searchAllSources } from './source-adapters'
 import { agentRuntimeUrl } from '../site'
+import { executeApprovalBoundAction } from '../approval-bound-action'
 
 type Db = SupabaseClient
 
@@ -528,9 +529,10 @@ async function handleApprovalDecision(
   const buyer: NexieBuyer = { email: ctx.userEmail, userId: ctx.userId }
   const actionStartedAt = Date.now()
   try {
+    const idempotencyKey = `nexie:${approval.id}:approved-action`
     const actionResult = approval.tool_name === 'initiate_negotiation'
-      ? await executeNegotiation(approval.payload, buyer)
-      : await executeBooking(approval.payload, buyer)
+      ? await executeNegotiation(approval.payload, buyer, idempotencyKey)
+      : await executeBooking(approval.payload, buyer, idempotencyKey)
     captureEvent('nexie.action', { tool: approval.tool_name, ok: true, latencyMs: Date.now() - actionStartedAt })
 
     await db
@@ -722,29 +724,31 @@ async function createApproval(
   return approvalToCard(data)
 }
 
-export async function executeNegotiation(payload: Record<string, unknown>, buyer: NexieBuyer) {
-  const res = await fetch(`${agentRuntimeBaseUrl()}/api/negotiations`, {
-    method: 'POST',
+export async function executeNegotiation(
+  payload: Record<string, unknown>,
+  buyer: NexieBuyer,
+  idempotencyKey?: string,
+) {
+  const input = {
+    slug: stringValue(payload.slug),
+    offer: stringValue(payload.offer),
+    buyerAgent: 'Nexxi',
+    query: stringValue(payload.query) || 'Buyer proposal via Nexxi',
+    requestedTerms: objectValue(payload.requestedTerms),
+    budget: stringValue(payload.budget),
+    timeline: stringValue(payload.timeline),
+    // The authenticated buyer's account email is the contact of record (not the
+    // LLM payload), so the negotiation is attributable and the buyer gets updates.
+    contact: buyer.email || stringValue(payload.contact),
+  }
+  const { result: json } = await executeApprovalBoundAction({
+    url: `${agentRuntimeBaseUrl()}/api/negotiations`,
+    input,
+    idempotencyKey,
     headers: {
-      'content-type': 'application/json',
-      accept: 'application/json',
       'user-agent': 'Nexxi-Mobile-Agent/1.0',
     },
-    body: JSON.stringify({
-      slug: stringValue(payload.slug),
-      offer: stringValue(payload.offer),
-      buyerAgent: 'Nexxi',
-      query: stringValue(payload.query) || 'Buyer proposal via Nexxi',
-      requestedTerms: objectValue(payload.requestedTerms),
-      budget: stringValue(payload.budget),
-      timeline: stringValue(payload.timeline),
-      // The authenticated buyer's account email is the contact of record (not the
-      // LLM payload), so the negotiation is attributable and the buyer gets updates.
-      contact: buyer.email || stringValue(payload.contact),
-    }),
   })
-  const json = await safeJson(res)
-  if (!res.ok) throw new Error(stringValue(json.error) || `Negotiation failed with HTTP ${res.status}`)
   return {
     ...json,
     message: stringValue(json.message) || 'Proposal submitted.',
@@ -752,28 +756,29 @@ export async function executeNegotiation(payload: Record<string, unknown>, buyer
   }
 }
 
-export async function executeBooking(payload: Record<string, unknown>, buyer: NexieBuyer) {
-  const res = await fetch(`${agentRuntimeBaseUrl()}/api/checkout`, {
-    method: 'POST',
+export async function executeBooking(
+  payload: Record<string, unknown>,
+  buyer: NexieBuyer,
+  idempotencyKey?: string,
+) {
+  const input = {
+    slug: stringValue(payload.slug),
+    offer: stringValue(payload.offer),
+    query: stringValue(payload.query) || 'Buyer booking via Nexxi',
+    // Authenticated buyer identity (from the session, not the LLM payload) is
+    // passed to Stripe and order metadata so the purchase remains attributable.
+    buyerEmail: buyer.email || undefined,
+    buyerReference: buyer.userId,
+    buyerAgent: 'Nexxi',
+  }
+  const { result: json } = await executeApprovalBoundAction({
+    url: `${agentRuntimeBaseUrl()}/api/checkout`,
+    input,
+    idempotencyKey,
     headers: {
-      'content-type': 'application/json',
-      accept: 'application/json',
       'user-agent': 'Nexxi-Mobile-Agent/1.0',
     },
-    body: JSON.stringify({
-      slug: stringValue(payload.slug),
-      offer: stringValue(payload.offer),
-      query: stringValue(payload.query) || 'Buyer booking via Nexxi',
-      // Authenticated buyer identity (from the session, not the LLM payload) → Stripe
-      // customer_email + nexez_buyer_* metadata, so the order links to this account
-      // and surfaces in the buyer's Nexxi Orders.
-      buyerEmail: buyer.email || undefined,
-      buyerReference: buyer.userId,
-      buyerAgent: 'Nexxi',
-    }),
   })
-  const json = await safeJson(res)
-  if (!res.ok) throw new Error(stringValue(json.error) || `Booking handoff failed with HTTP ${res.status}`)
   return {
     ...json,
     message: stringValue(json.url) ? 'Checkout or booking handoff created.' : 'Booking request prepared.',
@@ -987,15 +992,6 @@ function parseToolArgs(value: string): Record<string, unknown> {
   try {
     const parsed = JSON.parse(value || '{}')
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
-  } catch {
-    return {}
-  }
-}
-
-async function safeJson(res: Response): Promise<Record<string, any>> {
-  try {
-    const json = await res.json()
-    return json && typeof json === 'object' ? json : {}
   } catch {
     return {}
   }

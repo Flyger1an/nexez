@@ -7,6 +7,7 @@ import { formatNegotiationAmount } from '../../../lib/negotiations'
 import { isPayable } from '../../../lib/settlement'
 import { sanitizeAgentDecision, sanitizeNegotiationMessageContent } from '../../../lib/negotiation-sanitize'
 import PendingPoller from './PendingPoller'
+import { ApprovedActionForm } from '../../../components/ApprovedActionForm'
 
 // Private negotiation thread keyed by an unguessable token credential - never index
 // (URLs leak via referrers/shared logs; same convention as the buyer order portal).
@@ -320,7 +321,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
           <h3 className="font-semibold mb-2">Continue this negotiation</h3>
           <p className="text-sm text-[var(--fg-muted)] mb-4">Submit a follow-up proposal, counter, or clarification. The LLM will remember the entire history.</p>
 
-          <form method="post" action="/api/negotiations" className="grid gap-4">
+          <ApprovedActionForm action="/api/negotiations" className="grid gap-4">
             <input type="hidden" name="slug" value={negotiation.slug} />
             <input type="hidden" name="offer" value={negotiation.offer_key} />
             <input type="hidden" name="negotiationId" value={id} />
@@ -335,7 +336,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
 
             <button type="submit" className="btn-primary">Submit follow-up to the negotiation engine</button>
             <p className="text-[10px] text-[var(--fg-muted-2)]">This will append to the history above and invoke the intelligent LLM with full context.</p>
-          </form>
+          </ApprovedActionForm>
         </div>
 
         <div className="mt-8 text-xs text-[var(--fg-muted-2)]">

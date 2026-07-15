@@ -1,9 +1,10 @@
 #!/usr/bin/env node
+import { randomUUID } from 'node:crypto'
 /**
  * Opt-in load test for POST /api/negotiations (Burst 3b).
  *
  * Fires N proposals at a bounded concurrency against a TARGET (default nexez.app),
- * measuring POST latency (p50/p95/max) and the 429 rate, then polls a sample of
+ * measuring approval-bound action latency (p50/p95/max) and the 429 rate, then polls a sample of
  * statusUrls to confirm the async decisions land. Because the LLM decision is now
  * async, POST latency should stay low and flat regardless of provider latency.
  *
@@ -55,24 +56,50 @@ async function runPool(items, concurrency, worker) {
 async function postProposal(args, i) {
   const started = Date.now()
   try {
-    const res = await fetch(`${args.url}/api/negotiations`, {
+    const url = `${args.url}/api/negotiations`
+    const payload = {
+      slug: args.slug,
+      offer: args.offer,
+      buyerAgent: `loadtest-${i}`,
+      query: `load test proposal ${i}`,
+      budget: args.budget,
+    }
+    const validation = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ ...payload, dryRun: true }),
+    })
+    const validationBody = await readJson(validation)
+    if (!validation.ok) {
+      return { ok: false, status: validation.status, ms: Date.now() - started, error: validationBody.error }
+    }
+    if (validationBody.approvalTokenRequired === true && !validationBody.approvalToken) {
+      return { ok: false, status: 502, ms: Date.now() - started, error: 'Approval token was required but not issued.' }
+    }
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json',
+        'idempotency-key': `loadtest:${args.runId}:${i}`,
+      },
       body: JSON.stringify({
-        slug: args.slug,
-        offer: args.offer,
-        buyerAgent: `loadtest-${i}`,
-        query: `load test proposal ${i}`,
-        budget: args.budget,
+        ...payload,
+        dryRun: false,
+        ...(validationBody.approvalToken ? { approvalToken: validationBody.approvalToken } : {}),
       }),
     })
     const ms = Date.now() - started
-    let body = {}
-    try { body = await res.json() } catch {}
+    const body = await readJson(res)
     return { ok: res.ok, status: res.status, ms, id: body.negotiationId, token: body.statusToken }
   } catch (err) {
     return { ok: false, status: 0, ms: Date.now() - started, error: String(err?.message || err) }
   }
+}
+
+async function readJson(response) {
+  try { return await response.json() } catch { return {} }
 }
 
 async function pollDecision(args, r) {
@@ -100,6 +127,8 @@ async function main() {
     process.exit(args.help ? 0 : 1)
   }
 
+  args.runId = randomUUID()
+
   console.log(`Load test → ${args.url} slug=${args.slug} offer=${args.offer} n=${args.n} concurrency=${args.concurrency}`)
   const t0 = Date.now()
   const results = await runPool(Array.from({ length: args.n }, (_, i) => i), args.concurrency, (i) => postProposal(args, i))
@@ -112,7 +141,7 @@ async function main() {
 
   console.log('\n=== POST results ===')
   console.log(`total=${results.length}  ok=${ok.length}  429=${rate429}  errors=${errors}  wall=${wallMs}ms  throughput=${(results.length / (wallMs / 1000)).toFixed(1)}/s`)
-  console.log(`POST latency ms — p50=${pct(latencies, 50)}  p95=${pct(latencies, 95)}  max=${latencies.at(-1) ?? 0}`)
+  console.log(`Approval + POST latency ms: p50=${pct(latencies, 50)}  p95=${pct(latencies, 95)}  max=${latencies.at(-1) ?? 0}`)
 
   // Poll a sample of the successful negotiations to confirm async decisions land.
   const sample = ok.filter((r) => r.id && r.token).slice(0, 5)

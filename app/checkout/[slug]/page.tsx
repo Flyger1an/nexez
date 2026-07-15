@@ -30,6 +30,7 @@ import { logCheckoutEvent } from '../../../lib/server/log-checkout-event'
 import { safeJsonScript } from '../../../lib/safe-json'
 import { agentRuntimeUrl } from '../../../lib/site'
 import { supabase } from '../../../lib/supabase'
+import { ApprovedActionForm } from '../../../components/ApprovedActionForm'
 
 type PageProps = {
   params: Promise<{ slug: string }>
@@ -238,7 +239,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
               ) : null}
 
               {canContinue ? (
-                <form action="/api/checkout" method="post" className="mt-6">
+                <ApprovedActionForm action="/api/checkout" className="mt-6">
                   <input type="hidden" name="slug" value={page.slug} />
                   <input type="hidden" name="offer" value={offerKey} />
                   <input type="hidden" name="query" value="agent_checkout_confirm" />
@@ -249,7 +250,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
                     Confirm & Continue
                     <ArrowRight className="size-4" />
                   </button>
-                </form>
+                </ApprovedActionForm>
               ) : (
                 <button
                   disabled

@@ -6,19 +6,28 @@ import { executeBooking, executeNegotiation } from './nexie'
 // someone else. The hard guarantee is that buyer identity is injected from the
 // authenticated SESSION at execution time and the LLM payload's identity fields are ignored.
 
-function captureFetch(): { body: () => Record<string, unknown> } {
-  const store: { body?: Record<string, unknown> } = {}
+function captureFetch(): {
+  body: () => Record<string, unknown>
+  calls: () => Array<{ body: Record<string, unknown>; headers: Headers }>
+} {
+  const calls: Array<{ body: Record<string, unknown>; headers: Headers }> = []
   vi.stubGlobal(
     'fetch',
     vi.fn(async (_url: string, opts: RequestInit) => {
-      store.body = JSON.parse(opts.body as string)
-      return new Response(JSON.stringify({ ok: true, message: 'done', url: 'https://nexez.app/x' }), {
+      calls.push({ body: JSON.parse(opts.body as string), headers: new Headers(opts.headers) })
+      const responseBody = calls.length === 1
+        ? { ok: true, approvalTokenRequired: true, approvalToken: 'v1.payload.signature' }
+        : { ok: true, message: 'done', url: 'https://nexez.app/x' }
+      return new Response(JSON.stringify(responseBody), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       })
     }),
   )
-  return { body: () => store.body ?? {} }
+  return {
+    body: () => calls.at(-1)?.body ?? {},
+    calls: () => calls,
+  }
 }
 
 describe('Nexxi money-path safety - buyer identity comes from the session, never the LLM payload', () => {
@@ -42,6 +51,10 @@ describe('Nexxi money-path safety - buyer identity comes from the session, never
     expect(body.buyerAgent).toBe('Nexxi')
     expect(JSON.stringify(body)).not.toContain('victim')
     expect(JSON.stringify(body)).not.toContain('NotNexxi')
+    expect(cap.calls()).toHaveLength(2)
+    expect(cap.calls()[0].body.dryRun).toBe(true)
+    expect(cap.calls()[1].body.approvalToken).toBe('v1.payload.signature')
+    expect(cap.calls()[1].headers.get('idempotency-key')).toMatch(/^nexez-action:/)
   })
 
   it('executeNegotiation uses the session contact, not a payload-injected contact', async () => {
@@ -54,6 +67,7 @@ describe('Nexxi money-path safety - buyer identity comes from the session, never
     expect(body.contact).toBe('real@buyer.com')
     expect(body.buyerAgent).toBe('Nexxi')
     expect(JSON.stringify(body)).not.toContain('victim')
+    expect(cap.calls()).toHaveLength(2)
   })
 
   it('executeNegotiation only falls back to the payload contact when there is no session email', async () => {

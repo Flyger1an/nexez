@@ -26,6 +26,7 @@ import { planAllows } from '../../lib/billing'
 import { getPagePrivateMeta } from '../../lib/server/page-private-meta'
 import { loadReviewSummaryForSlug } from '../../lib/server/reviews'
 import type { ReviewSummary } from '../../lib/reviews'
+import { ApprovedActionForm } from '../../components/ApprovedActionForm'
 
 type PageProps = {
   params: Promise<{ slug: string }>
@@ -501,7 +502,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
               </p>
             ) : null}
 
-            <form method="post" action="/api/negotiations" className="card mt-6 grid gap-4 !p-6 sm:grid-cols-2">
+            <ApprovedActionForm action="/api/negotiations" className="card mt-6 grid gap-4 !p-6 sm:grid-cols-2">
               <input type="hidden" name="slug" value={page.slug} />
 
               <label className="block text-sm sm:col-span-2">
@@ -571,7 +572,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
               >
                 Send proposal
               </button>
-            </form>
+            </ApprovedActionForm>
           </section>
         ) : null}
 
