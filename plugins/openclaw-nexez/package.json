@@ -1,13 +1,12 @@
 {
   "name": "@nexez/openclaw-nexez",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "OpenClaw tool plugin for discovering Nexez agent pages and safely handing off checkout or negotiation intent.",
   "type": "module",
   "files": [
     "dist",
     "openclaw.plugin.json",
-    "README.md",
-    "scripts"
+    "README.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
