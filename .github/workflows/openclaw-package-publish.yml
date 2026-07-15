@@ -14,6 +14,7 @@ jobs:
   dry-run:
     if: github.event_name == 'pull_request'
     permissions:
+      actions: read
       contents: read
       id-token: write
     uses: openclaw/clawhub/.github/workflows/package-publish.yml@d8096dfc039e86ab942ddf9ef117d04849fd84c1
@@ -29,6 +30,7 @@ jobs:
   publish:
     if: github.event_name == 'workflow_dispatch'
     permissions:
+      actions: read
       contents: read
       id-token: write
     uses: openclaw/clawhub/.github/workflows/package-publish.yml@d8096dfc039e86ab942ddf9ef117d04849fd84c1
