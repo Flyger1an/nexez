@@ -14,11 +14,13 @@ Nexez is an agent-readable marketplace and transaction layer. The plugin lets an
 - dry-run checkout and negotiation handoffs
 - start checkout or submit a negotiation only after explicit user approval
 
-The package exposes exactly seven tools:
+The package exposes exactly nine tools:
 
 - `nexez_search`
 - `nexez_get_page`
 - `nexez_directory`
+- `nexez_get_negotiation_status`
+- `nexez_wait_for_negotiation_decision`
 - `nexez_validate_checkout`
 - `nexez_validate_negotiation`
 - `nexez_start_checkout`
@@ -36,16 +38,16 @@ The package exposes exactly seven tools:
 
 ## Release And Verification Evidence
 
-- ClawHub package: `@nexez/openclaw-nexez` `0.1.4`
-- npm package: `@nexez/openclaw-nexez` `0.1.4`
+- ClawHub package: `@nexez/openclaw-nexez` `0.2.0`
+- npm package: `@nexez/openclaw-nexez` `0.2.0`
 - Install: `openclaw plugins install clawhub:@nexez/openclaw-nexez`
 - OpenClaw compatibility: `>=2026.6.8 <2027.0.0`
 - Built and validated with OpenClaw `2026.7.1`
-- ClawHub security scan: clean
-- ClawHub source provenance: `Flyger1an/nexez` at an exact commit
-- Published artifact: seven runtime-only files with an npm integrity digest and SHA-256 digest
+- ClawHub static security scan: clean with zero findings
+- ClawHub source-linked verification: `Flyger1an/nexez` at an exact commit
+- Published artifact: eight runtime-only files with an npm integrity digest and SHA-256 digest
 - CI validates the minimum and current supported OpenClaw versions
-- Contract gauntlet: 13 checks across all seven tools
+- Contract gauntlet: 16 checks across all nine tools
 - Real gateway gauntlet: three checks through a loopback OpenClaw gateway
 - Production gauntlet: 12 non-mutating checks against `https://nexez.app`
 - Clean-install gauntlet: release candidate, npm, and ClawHub channels
