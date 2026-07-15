@@ -20,6 +20,16 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/
 import { ownerAllows, getOwnerBillingState } from '../../../lib/server/plan'
 import { negotiationService } from '../../../lib/negotiation.service'
 import { captureError } from '../../../lib/observability'
+import {
+  actionRequestHash,
+  actionApprovalRequired,
+  actionApprovalSecret,
+  approvalInput,
+  issueActionApprovalToken,
+  parsePublicActionIdempotencyKey,
+  scopedIdempotencyHash,
+  verifyActionApprovalToken,
+} from '../../../lib/action-approval'
 
 // The LLM decision runs in an `after()` callback (and a backstop cron). On Vercel
 // `after` extends the invocation via waitUntil, so the route needs headroom beyond
@@ -40,6 +50,8 @@ type NegotiationInput = {
   negotiationId?: string
   /** Credential issued at creation; required to continue an existing negotiation. */
   statusToken?: string
+  /** Short-lived token returned by a matching dry-run validation. */
+  approvalToken?: string
 }
 
 async function getPublishedPage(slug: string) {
@@ -77,11 +89,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
   }
 
+  if (!input.buyerAgent) input.buyerAgent = cleanAgentHeader(request.headers.get('x-nexez-buyer-agent')) || undefined
+
   // Cap untrusted buyer fields at the single entry point - this bounds both the
   // persisted message log and the LLM prompt (prompt-stuffing / cost guard, and
   // limits what an injection payload can carry). Done before rate limiting so the
   // per-agent key uses the capped buyerAgent.
   Object.assign(input, sanitizeBuyerInput(input))
+
+  const idempotency = parsePublicActionIdempotencyKey(request)
+  if (!idempotency.ok) {
+    return NextResponse.json({ error: idempotency.error, code: 'invalid_idempotency_key' }, { status: 400 })
+  }
 
   const platformBase = getBaseUrl()
   let baseUrl = platformBase
@@ -141,6 +160,35 @@ export async function POST(request: Request) {
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
   const proposedPriceCents = parseMoneyCents(input.budget)
 
+  if (!input.dryRun) {
+    const approvalSecret = actionApprovalSecret()
+    if (actionApprovalRequired() && !approvalSecret) {
+      return NextResponse.json(
+        { error: 'Action approval is required but not configured.', code: 'approval_not_configured' },
+        { status: 503 },
+      )
+    }
+    if (actionApprovalRequired() && !input.approvalToken) {
+      return NextResponse.json(
+        { error: 'Validate this negotiation and obtain buyer approval before submitting it.', code: 'approval_required' },
+        { status: 403 },
+      )
+    }
+    if (input.approvalToken) {
+      const approval = verifyActionApprovalToken(
+        input.approvalToken,
+        'negotiation',
+        input as Record<string, unknown>,
+      )
+      if (!approval.ok) {
+        return NextResponse.json(
+          { error: 'Negotiation approval is invalid, expired, or does not match this action.', code: 'approval_invalid' },
+          { status: 403 },
+        )
+      }
+    }
+  }
+
   // Legacy dry-run semantics: validate the proposal without persisting anything.
   // Short-circuit before the negotiation service - it inserts agent_negotiations +
   // negotiation_messages rows, none of which a dry run may do. Page + offer
@@ -150,11 +198,20 @@ export async function POST(request: Request) {
       { offerType: offer.offerType, rules: offer.rules, price: offer.price },
       { proposedPriceCents },
     )
+    const approval = issueActionApprovalToken('negotiation', approvalInput(input as Record<string, unknown>))
+    if (actionApprovalRequired() && !approval) {
+      return NextResponse.json(
+        { error: 'Action approval is required but not configured.', code: 'approval_not_configured' },
+        { status: 503 },
+      )
+    }
     return NextResponse.json({
       ok: true,
       dryRun: true,
       rulesEvaluation,
       publicPageUrl: `${baseUrl}/${page.slug}`,
+      approvalTokenRequired: actionApprovalRequired(),
+      ...(approval ?? {}),
     })
   }
 
@@ -166,6 +223,7 @@ export async function POST(request: Request) {
     budget: input.budget,
     contact: input.contact,
     buyerAgent: input.buyerAgent,
+    agentClient: cleanAgentHeader(request.headers.get('x-nexez-client')),
   }
 
   try {
@@ -178,16 +236,24 @@ export async function POST(request: Request) {
       buyerProposal,
       negotiationId: input.negotiationId,
       statusToken: input.statusToken,
+      idempotencyKeyHash: idempotency.key
+        ? scopedIdempotencyHash('negotiation', `${input.slug}:${input.negotiationId || 'new'}`, idempotency.key)
+        : undefined,
+      idempotencyRequestHash: idempotency.key
+        ? actionRequestHash('negotiation', input as Record<string, unknown>)
+        : undefined,
     })
 
     // Phase 2 (async): produce the decision after the response is sent. The
     // backstop cron (/api/cron/process-negotiations) re-drives it if this never
     // runs (instance death); the atomic claim makes the two safe to both fire.
-    after(() =>
-      negotiationService.runDecision(result.negotiationId).catch((e) =>
-        captureError(e instanceof Error ? e : new Error(String(e)), { negotiationId: result.negotiationId, phase: 'after' }),
-      ),
-    )
+    if (!result.replayed) {
+      after(() =>
+        negotiationService.runDecision(result.negotiationId).catch((e) =>
+          captureError(e instanceof Error ? e : new Error(String(e)), { negotiationId: result.negotiationId, phase: 'after' }),
+        ),
+      )
+    }
 
     // Notify the owner of a fresh proposal (continuations don't re-notify). Resolve the
     // recipient with a fallback to the owner's ACCOUNT email - many pages never set an
@@ -195,7 +261,7 @@ export async function POST(request: Request) {
     // root cause of the missed proposal emails). Send INLINE (awaited) so delivery never
     // depends on after() flushing; try/catch so a send failure can't break the buyer's
     // submission. (First-proposal only, so the latency cost is bounded.)
-    if (!input.negotiationId) {
+    if (!input.negotiationId && !result.replayed) {
       try {
           const ownerEmail = await resolveOwnerNotifyEmail({
             contactEmail: (page as { contact_email?: string | null }).contact_email,
@@ -261,6 +327,8 @@ export async function POST(request: Request) {
       publicPageUrl: `${baseUrl}/${page.slug}`,
       next: getNextStep(escrowMode),
       message: 'Proposal received. Poll statusUrl for the seller decision.',
+      replayed: result.replayed,
+      idempotencyKeyAccepted: Boolean(idempotency.key),
       ...(result.statusToken ? { statusToken: result.statusToken, statusUrl } : {}),
     })
   } catch (err: any) {
@@ -274,7 +342,10 @@ export async function POST(request: Request) {
         )
       }
       return NextResponse.json(
-        { error: err.message || 'A decision is already in progress for this negotiation.' },
+        {
+          error: err.message || 'A decision is already in progress for this negotiation.',
+          ...(err.code ? { code: err.code } : {}),
+        },
         { status: 409 },
       )
     }
@@ -318,7 +389,13 @@ async function readNegotiationInput(request: Request): Promise<NegotiationInput>
     // them a follow-up would silently fork a brand-new negotiation.
     negotiationId: String(form.get('negotiationId') || '') || undefined,
     statusToken: String(form.get('statusToken') || '') || undefined,
+    approvalToken: String(form.get('approvalToken') || '') || undefined,
   }
+}
+
+function cleanAgentHeader(value: string | null) {
+  if (!value) return null
+  return value.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 120) || null
 }
 
 function getNextStep(escrowMode: string) {

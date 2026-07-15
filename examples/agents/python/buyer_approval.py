@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from typing import Any, Dict, Optional
+from uuid import uuid4
 
 from nexez_agent_sdk import NexezApiError, create_client
 
@@ -61,7 +62,9 @@ def main() -> None:
         submitted = nexez.submit_negotiation(
             proposal,
             contact=contact_to_share,
+            approval_token=dry_run.get("approvalToken"),
             user_approved=True,
+            idempotency_key=uuid4().hex,
         )
         print(
             {
@@ -93,7 +96,9 @@ def main() -> None:
             offer=proposal["offer"],
             query=proposal["query"],
             buyer_email=contact_to_share or None,
+            approval_token=dry_run.get("approvalToken"),
             user_approved=True,
+            idempotency_key=uuid4().hex,
         )
         print(
             {

@@ -15,6 +15,12 @@ const matches = await nexez.search('book a strategy session next week', {
   limit: 5,
 })
 
+const directory = await nexez.browseDirectory({
+  category: 'professional',
+  minReadiness: 80,
+  location: 'Chicago, IL',
+})
+
 const first = matches.results[0]
 if (!first?.offer) {
   console.log('No actionable Nexez offer found.')
@@ -39,14 +45,30 @@ Never guess a fallback offer key when search returns no offer. Refresh the page 
 
 ## Approved actions
 
-Dry runs do not start checkout or submit a proposal. After rendering the exact seller, offer, terms, destination, and data being shared, wait for explicit buyer approval and pass `userApproved: true`:
+Dry runs do not start checkout or submit a proposal. After rendering the exact seller, offer, terms, destination, and data being shared, wait for explicit buyer approval. Forward the validation token and use one stable retry key for that action:
 
 ```ts
+const checkoutValidation = await nexez.validateCheckout({
+  slug: 'acme',
+  offer: 'services-0',
+  query: 'Book the selected service.',
+})
+
 const checkout = await nexez.startCheckout({
   slug: 'acme',
   offer: 'services-0',
   query: 'Book the selected service.',
+  approvalToken: checkoutValidation.approvalToken,
   userApproved: true,
+}, {
+  idempotencyKey: crypto.randomUUID(),
+})
+
+const negotiationValidation = await nexez.validateNegotiation({
+  slug: 'acme',
+  offer: 'services-0',
+  budget: 'USD 900',
+  timeline: 'next week',
 })
 
 const submitted = await nexez.submitNegotiation({
@@ -54,7 +76,10 @@ const submitted = await nexez.submitNegotiation({
   offer: 'services-0',
   budget: 'USD 900',
   timeline: 'next week',
+  approvalToken: negotiationValidation.approvalToken,
   userApproved: true,
+}, {
+  idempotencyKey: crypto.randomUUID(),
 })
 
 if (submitted.statusToken) {
@@ -68,7 +93,23 @@ if (submitted.statusToken) {
 }
 ```
 
-`startCheckout` and `submitNegotiation` reject calls without literal `userApproved: true` and always send `dryRun: false`. Treat negotiation `statusToken` values as bearer credentials: do not log them or expose them in buyer-facing output.
+`startCheckout` and `submitNegotiation` reject calls without literal `userApproved: true` and always send `dryRun: false`. Approval tokens bind the validated commercial terms; buyer identity can be added only after consent. Treat negotiation `statusToken` values as bearer credentials: do not log them or expose them in buyer-facing output.
+
+## Agent framework tools
+
+The optional `@nexez/agent-sdk/tools` export provides one canonical nine-tool contract with no framework runtime dependency:
+
+```ts
+import { jsonSchema } from 'ai'
+import { createNexezClient } from '@nexez/agent-sdk'
+import { createOpenAiFunctionTools, createVercelAiSdkTools } from '@nexez/agent-sdk/tools'
+
+const client = createNexezClient({ buyerAgent: 'buyer-agent' })
+const vercelTools = createVercelAiSdkTools(jsonSchema, client)
+const openAiTools = createOpenAiFunctionTools()
+```
+
+`createNexezAgentToolExecutors(client)` is available for other runtimes. Unknown tool inputs are stripped before requests, and the action executors preserve approval and idempotency controls.
 
 ## Cancellation and timeouts
 
@@ -88,13 +129,14 @@ Negotiation polling is bounded: `waitForNegotiationDecision` defaults to 30 seco
 
 ## Search location behavior
 
-`location` currently performs text matching against seller locations and offer service areas. `lat` and `lng` are accepted and echoed as coordinate context, but they do not currently filter or distance-rank results.
+`location` currently performs text matching against seller locations and offer service areas. Search also supports category, industry, minimum readiness/trust, verification, checkout/negotiation capability, and price-band filters. Each result includes `matched_query_terms` and `match_reasons`. `lat` and `lng` are accepted and echoed as coordinate context, but they do not currently filter or distance-rank results.
 
 ## API
 
 The following are available as client methods and standalone exports:
 
 - `searchNexez(query, options)` / `client.search(query, options)`
+- `browseDirectory(options)` / `client.browseDirectory(options)`
 - `getAgentPage(slug, options)` / `client.getAgentPage(slug, options)`
 - `validateCheckout(input, options)` / `client.validateCheckout(input, options)`
 - `startCheckout({ ...input, userApproved: true }, options)` / `client.startCheckout(...)`

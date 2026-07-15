@@ -53,7 +53,10 @@ if (approval.action_type === 'submit_negotiation') {
   const submitted = await nexez.submitNegotiation({
     ...proposal,
     contact: contactToShare,
+    approvalToken: getApprovalToken(dryRun),
     userApproved: true,
+  }, {
+    idempotencyKey: crypto.randomUUID(),
   })
   console.log({
     submitted: {
@@ -79,7 +82,10 @@ if (approval.action_type === 'submit_negotiation') {
     offer: proposal.offer,
     query: proposal.query,
     buyerEmail: contactToShare || undefined,
+    approvalToken: getApprovalToken(dryRun),
     userApproved: true,
+  }, {
+    idempotencyKey: crypto.randomUUID(),
   })
   console.log({
     checkout: {
@@ -90,6 +96,12 @@ if (approval.action_type === 'submit_negotiation') {
 }
 
 type ApprovalActionType = 'submit_negotiation' | 'open_checkout'
+
+function getApprovalToken(value: unknown) {
+  if (!value || typeof value !== 'object') return undefined
+  const token = (value as { approvalToken?: unknown }).approvalToken
+  return typeof token === 'string' ? token : undefined
+}
 
 type ApprovalSummaryInput = {
   actionType: ApprovalActionType

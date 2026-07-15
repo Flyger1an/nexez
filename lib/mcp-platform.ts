@@ -37,6 +37,14 @@ const TOOLS = [
         limit: { type: 'number', description: 'Max results (default 10)' },
         lat: { type: 'number' },
         lng: { type: 'number' },
+        category: { type: 'string', enum: ['all', 'professional', 'consumer'] },
+        industry: { type: 'string' },
+        min_readiness: { type: 'integer', minimum: 0, maximum: 100 },
+        min_trust: { type: 'integer', minimum: 0, maximum: 100 },
+        verified: { type: 'boolean' },
+        supports_checkout: { type: 'boolean' },
+        supports_negotiation: { type: 'boolean' },
+        price_band: { type: 'string', enum: ['free', 'under_100', '100_500', '500_2000', '2000_plus', 'custom'] },
       },
       required: ['q'],
     },
@@ -102,7 +110,11 @@ function platformResources(baseUrl: string) {
 }
 
 async function fetchJson(url: string, init: RequestInit | undefined, clientIp: string | undefined): Promise<{ status: number; body: unknown }> {
-  const headers: Record<string, string> = { accept: 'application/json', ...(init?.headers as Record<string, string> | undefined) }
+  const headers: Record<string, string> = {
+    accept: 'application/json',
+    'x-nexez-client': 'platform-mcp/1.0.0',
+    ...(init?.headers as Record<string, string> | undefined),
+  }
   // Forward the real caller IP so the underlying endpoint's rate limit keys on the
   // buyer-agent, not this server (Vercel would otherwise share one bucket).
   if (clientIp) headers['x-forwarded-for'] = clientIp
@@ -156,7 +168,21 @@ export async function handlePlatformMcpRequest(
       try {
         if (name === 'nexez_search') {
           const u = new URL(marketingUrl('/api/agent-search'))
-          for (const k of ['q', 'location', 'limit', 'lat', 'lng']) if (args[k] != null) u.searchParams.set(k, String(args[k]))
+          for (const k of [
+            'q',
+            'location',
+            'limit',
+            'lat',
+            'lng',
+            'category',
+            'industry',
+            'min_readiness',
+            'min_trust',
+            'verified',
+            'supports_checkout',
+            'supports_negotiation',
+            'price_band',
+          ]) if (args[k] != null) u.searchParams.set(k, String(args[k]))
           return textResult(id, (await fetchJson(u.toString(), undefined, ip)).body)
         }
         if (name === 'nexez_directory') {

@@ -22,8 +22,8 @@ const uniqueResults = [
 const candidates = await Promise.all(
   uniqueResults.slice(0, 5).map(async (result) => {
     const manifest = await nexez.getAgentPage(result.page.slug)
-    const offerKey = result.offer?.key ?? manifest.offers[0]?.key ?? 'services-0'
-    const offer = manifest.offers.find((item) => item.key === offerKey) ?? manifest.offers[0]
+    const offerKey = result.offer?.key ?? manifest.offers[0]?.key
+    const offer = offerKey ? manifest.offers.find((item) => item.key === offerKey) : undefined
 
     return {
       result,

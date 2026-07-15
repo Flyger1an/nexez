@@ -5,7 +5,7 @@ Copy-paste workflows for buyer agents and agent builders.
 ## Flows
 
 - Search by buyer intent.
-- Search with a buyer location text filter; optionally attach lat/lng as context metadata.
+- Search with location, industry, quality, capability, and price-band filters; optionally attach lat/lng as context metadata.
 - Fetch the selected page's `agent.json`.
 - Build a short ranked list for the buyer.
 - Dry-run checkout or negotiation.
@@ -60,7 +60,7 @@ python examples/agents/python/buyer_approval.py
 
 The examples output a `nexez.buyer-approval.v1` object with seller details, offer terms, dry-run results, risk notes, the exact pending contact handoff, and buyer-facing copy. A buyer agent should render that summary and wait for an explicit approval event before performing the next action. Contact details are omitted from dry-run requests and are added only to an approval-gated checkout or negotiation call.
 
-Checkout validation may record an analytics attempt, but it does not create a checkout session, contact the seller, or move money. The approved action uses `startCheckout` / `start_checkout`; negotiation submission uses the same explicit approval gate and bounded polling.
+Checkout validation may record an analytics attempt, but it does not create a checkout session, contact the seller, or move money. A validation may also return a short-lived commercial-action token. The approved action forwards that token, uses `startCheckout` / `start_checkout`, and supplies a stable idempotency key. Negotiation submission uses the same controls and bounded polling.
 
 ## Location-Aware Discovery
 

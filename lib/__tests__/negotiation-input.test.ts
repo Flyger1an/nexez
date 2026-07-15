@@ -24,6 +24,14 @@ describe('sanitizeBuyerInput', () => {
     expect(r.requestedTerms).toEqual({ note: '<omitted: oversized requestedTerms>' })
   })
 
+  it('fails closed when requestedTerms are too deeply nested to serialize', () => {
+    let nested: Record<string, unknown> = {}
+    for (let index = 0; index < 20_000; index += 1) nested = { next: nested }
+    const r = sanitizeBuyerInput({ requestedTerms: nested })
+    expect(r.truncated).toBe(true)
+    expect(r.requestedTerms).toEqual({ note: '<omitted: invalid requestedTerms>' })
+  })
+
   it('strips C0 control characters but preserves tab/newline', () => {
     // NUL + BEL injected between "hello" and the space; tab/newline must survive.
     const ctrl = 'hello' + String.fromCharCode(0, 7) + ' world' + String.fromCharCode(10) + 'line2' + String.fromCharCode(9) + 'tab'

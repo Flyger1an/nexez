@@ -161,7 +161,7 @@ await check('bounded concurrent discovery remains healthy', async () => {
   assert.ok(responses.every((result) => result?.schema_version === 'nexez.agent-search.v1'))
 })
 
-console.log(`\nOpenClaw production gauntlet passed: ${passed} checks, 7 tools, 0 mutations.`)
+console.log(`\nOpenClaw production gauntlet passed: ${passed} checks, 9 tools, 0 mutations.`)
 console.log(`Base URL: ${baseUrl}`)
 console.log(`Checkout fixture: ${checkoutFixture.slug}/${checkoutFixture.offer}`)
 console.log(`Negotiation fixture: ${negotiationFixture.slug}/${negotiationFixture.offer}`)

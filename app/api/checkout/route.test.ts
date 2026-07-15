@@ -63,12 +63,70 @@ const fixedPage = (rules?: Record<string, unknown>) => ({
   is_published: true,
 })
 
-const post = (body: unknown) =>
+const post = (body: unknown, headers: Record<string, string> = {}) =>
   new Request('https://nexez.test/api/checkout', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', accept: 'application/json' },
+    headers: { 'content-type': 'application/json', accept: 'application/json', ...headers },
     body: JSON.stringify(body),
   })
+
+describe('POST /api/checkout - agent action safety', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    stripeCalls.length = 0
+    const { hasSupabaseAdminEnv } = await import('../../../utils/supabase/admin')
+    vi.mocked(hasSupabaseAdminEnv).mockReturnValue(true)
+    adminRef.handler = (c: QueryContext) =>
+      c.table === 'pages' ? { data: fixedPage(), error: null } : { data: null, error: null, count: 0 }
+  })
+
+  afterEach(() => vi.unstubAllEnvs())
+
+  it('binds a required approval token to the exact validated checkout', async () => {
+    vi.stubEnv('NEXEZ_ACTION_APPROVAL_SECRET', 'route-test-secret-with-at-least-thirty-two-characters')
+    vi.stubEnv('NEXEZ_REQUIRE_ACTION_APPROVAL_TOKEN', 'true')
+
+    const preview = await POST(post({ slug: 'demo', offer: 'services-0', query: 'Book this.', dryRun: true }))
+    expect(preview.status).toBe(200)
+    const validation = await preview.json()
+    expect(validation.approvalTokenRequired).toBe(true)
+    expect(validation.approvalToken).toMatch(/^v1\./)
+
+    const approved = await POST(post({
+      slug: 'demo',
+      offer: 'services-0',
+      query: 'Book this.',
+      approvalToken: validation.approvalToken,
+    }))
+    expect(approved.status).toBe(200)
+
+    const changed = await POST(post({
+      slug: 'demo',
+      offer: 'services-0',
+      query: 'Book a different scope.',
+      approvalToken: validation.approvalToken,
+    }))
+    expect(changed.status).toBe(403)
+    expect((await changed.json()).code).toBe('approval_invalid')
+  })
+
+  it('fails closed when approval enforcement is enabled without its secret', async () => {
+    vi.stubEnv('NEXEZ_ACTION_APPROVAL_SECRET', '')
+    vi.stubEnv('NEXEZ_REQUIRE_ACTION_APPROVAL_TOKEN', 'true')
+    const res = await POST(post({ slug: 'demo', offer: 'services-0' }))
+    expect(res.status).toBe(503)
+    expect((await res.json()).code).toBe('approval_not_configured')
+  })
+
+  it('rejects malformed idempotency keys before creating a checkout', async () => {
+    const res = await POST(post(
+      { slug: 'demo', offer: 'services-0' },
+      { 'idempotency-key': 'short' },
+    ))
+    expect(res.status).toBe(400)
+    expect((await res.json()).code).toBe('invalid_idempotency_key')
+  })
+})
 
 describe('POST /api/checkout - Smart Rules calendar protection', () => {
   beforeEach(() => {
@@ -165,6 +223,18 @@ describe('POST /api/checkout - buyer identity propagation', () => {
     expect(params.metadata.nexez_buyer_name).toBe('Acme Buyer')
     expect(params.metadata.nexez_buyer_reference).toBe('PO-9')
     expect(params.metadata.nexez_buyer_agent).toBe('shopbot/2')
+  })
+
+  it('scopes and hashes the retry key before forwarding it to Stripe', async () => {
+    const rawKey = 'buyer-order-1234567890'
+    const res = await POST(post(
+      { slug: 'demo', offer: 'services-0' },
+      { 'idempotency-key': rawKey },
+    ))
+    expect(res.status).toBe(200)
+    expect(stripeCalls).toHaveLength(1)
+    expect(stripeCalls[0].opts.idempotencyKey).toMatch(/^nexez_checkout_[a-f0-9]{64}$/)
+    expect(stripeCalls[0].opts.idempotencyKey).not.toContain(rawKey)
   })
 
   it('omits buyer fields when none are provided', async () => {

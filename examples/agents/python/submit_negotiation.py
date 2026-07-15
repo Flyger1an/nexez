@@ -1,4 +1,5 @@
 from nexez_agent_sdk import NexezApiError, create_client
+from uuid import uuid4
 
 
 def main() -> None:
@@ -30,7 +31,9 @@ def main() -> None:
     submitted = nexez.submit_negotiation(
         proposal,
         contact="buyer@example.com",
+        approval_token=dry_run.get("approvalToken"),
         user_approved=True,
+        idempotency_key=uuid4().hex,
     )
     print(
         {

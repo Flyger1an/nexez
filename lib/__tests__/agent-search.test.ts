@@ -102,6 +102,40 @@ describe('searchAgentPages', () => {
     expect(res[0].page.slug).toBe('trusted')
     expect(res[0].page.rating_summary?.count).toBe(20)
   })
+
+  it('filters on published marketplace signals and explains each match', () => {
+    const negotiable = mk({
+      slug: 'verified-strategy',
+      name: 'Verified Strategy',
+      industry: 'Management Consulting',
+      custom_domain_verified: true,
+      description: 'Strategy consulting for operators',
+      services: [{
+        name: 'Strategy sprint',
+        description: 'Planning workshop',
+        price: '$300',
+        url: '',
+        offerType: 'negotiable',
+      }],
+    })
+
+    const res = searchAgentPages([plumber, negotiable], 'strategy workshop', 10, 'https://nexez.test', {
+      industry: 'consulting',
+      verified: true,
+      supportsCheckout: true,
+      supportsNegotiation: true,
+      priceBand: '100_500',
+    })
+
+    expect(res).toHaveLength(1)
+    expect(res[0].page.slug).toBe('verified-strategy')
+    expect(res[0].matched_query_terms).toEqual(['strategy', 'workshop'])
+    expect(res[0].match_reasons).toEqual(expect.arrayContaining([
+      expect.stringMatching(/query terms/i),
+      expect.stringMatching(/verification/i),
+      expect.stringMatching(/negotiation/i),
+    ]))
+  })
 })
 
 describe('analyzeQueryRank (win-the-query)', () => {

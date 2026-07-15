@@ -1,6 +1,6 @@
 import { Type } from 'typebox';
 import { defineToolPlugin } from 'openclaw/plugin-sdk/tool-plugin';
-import { browseDirectory, getAgentPage, searchAgentPages, startCheckout, submitNegotiation, validateCheckout, validateNegotiation, } from './nexez-client.js';
+import { browseDirectory, getAgentPage, getNegotiationStatus, searchAgentPages, startCheckout, submitNegotiation, validateCheckout, validateNegotiation, waitForNegotiationDecision, } from './nexez-client.js';
 const configSchema = Type.Object({
     baseUrl: Type.Optional(Type.String({ description: 'Optional Nexez API base URL. Defaults to https://nexez.app.' })),
     userAgent: Type.Optional(Type.String({ description: 'Optional User-Agent sent to Nexez public endpoints.' })),
@@ -11,6 +11,25 @@ const querySchema = Type.Object({
     limit: Type.Optional(Type.Number({ minimum: 1, maximum: 50, description: 'Maximum number of results.' })),
     lat: Type.Optional(Type.Number({ description: 'Optional buyer latitude.' })),
     lng: Type.Optional(Type.Number({ description: 'Optional buyer longitude.' })),
+    category: Type.Optional(Type.Union([
+        Type.Literal('all'),
+        Type.Literal('professional'),
+        Type.Literal('consumer'),
+    ], { description: 'Marketplace category.' })),
+    industry: Type.Optional(Type.String({ description: 'Industry or niche filter.' })),
+    minReadiness: Type.Optional(Type.Number({ minimum: 0, maximum: 100, description: 'Minimum agent-readiness score.' })),
+    minTrust: Type.Optional(Type.Number({ minimum: 0, maximum: 100, description: 'Minimum trust score.' })),
+    verified: Type.Optional(Type.Boolean({ description: 'Require or exclude seller verification signals.' })),
+    supportsCheckout: Type.Optional(Type.Boolean({ description: 'Require or exclude checkout-ready offers.' })),
+    supportsNegotiation: Type.Optional(Type.Boolean({ description: 'Require or exclude negotiable offers.' })),
+    priceBand: Type.Optional(Type.Union([
+        Type.Literal('free'),
+        Type.Literal('under_100'),
+        Type.Literal('100_500'),
+        Type.Literal('500_2000'),
+        Type.Literal('2000_plus'),
+        Type.Literal('custom'),
+    ], { description: 'Marketplace price band.' })),
 }, { additionalProperties: false });
 const checkoutSchema = Type.Object({
     slug: Type.String({ description: 'Nexez page slug.' }),
@@ -29,6 +48,8 @@ const approvedCheckoutSchema = Type.Object({
     buyerName: Type.Optional(Type.String({ description: 'Buyer name or organization, only after user approval.' })),
     buyerReference: Type.Optional(Type.String({ description: 'Optional buyer-side order/reference id.' })),
     buyerAgent: Type.Optional(Type.String({ description: 'Agent identifier. Defaults to openclaw.' })),
+    approvalToken: Type.Optional(Type.String({ description: 'Short-lived token returned by nexez_validate_checkout for this exact action.' })),
+    idempotencyKey: Type.Optional(Type.String({ minLength: 16, maxLength: 255, description: 'Stable retry key for this exact checkout action.' })),
     userApproved: Type.Boolean({ description: 'Must be true only after explicit user approval of business, offer, price, and contact details.' }),
 }, { additionalProperties: false });
 const requestedTermsSchema = Type.Record(Type.String(), Type.Unsafe({}));
@@ -41,6 +62,8 @@ const negotiationSchema = Type.Object({
     contact: Type.Optional(Type.String({ description: 'Buyer contact info, only after user approval.' })),
     buyerAgent: Type.Optional(Type.String({ description: 'Agent identifier. Defaults to openclaw.' })),
     requestedTerms: Type.Optional(requestedTermsSchema),
+    negotiationId: Type.Optional(Type.String({ description: 'Existing negotiation id when submitting a follow-up turn.' })),
+    statusToken: Type.Optional(Type.String({ description: 'Private status token required for an existing negotiation.' })),
 }, { additionalProperties: false });
 const approvedNegotiationSchema = Type.Object({
     slug: Type.String({ description: 'Nexez page slug.' }),
@@ -51,7 +74,15 @@ const approvedNegotiationSchema = Type.Object({
     contact: Type.Optional(Type.String({ description: 'Buyer contact info, only after user approval.' })),
     buyerAgent: Type.Optional(Type.String({ description: 'Agent identifier. Defaults to openclaw.' })),
     requestedTerms: Type.Optional(requestedTermsSchema),
+    negotiationId: Type.Optional(Type.String({ description: 'Existing negotiation id when submitting a follow-up turn.' })),
+    statusToken: Type.Optional(Type.String({ description: 'Private status token required for an existing negotiation.' })),
+    approvalToken: Type.Optional(Type.String({ description: 'Short-lived token returned by nexez_validate_negotiation for this exact action.' })),
+    idempotencyKey: Type.Optional(Type.String({ minLength: 16, maxLength: 255, description: 'Stable retry key for this exact negotiation turn.' })),
     userApproved: Type.Boolean({ description: 'Must be true only after explicit user approval of seller, offer, requested terms, budget, timeline, and contact details.' }),
+}, { additionalProperties: false });
+const negotiationStatusSchema = Type.Object({
+    negotiationId: Type.String({ description: 'Negotiation id returned by nexez_submit_negotiation.' }),
+    statusToken: Type.String({ description: 'Private bearer token returned once at negotiation creation. Never display or log it.' }),
 }, { additionalProperties: false });
 export default defineToolPlugin({
     id: 'nexez',
@@ -97,6 +128,29 @@ export default defineToolPlugin({
             }, { additionalProperties: false }),
             execute(params, config, context) {
                 return browseDirectory(params, config, context.signal);
+            },
+        }),
+        tool({
+            name: 'nexez_get_negotiation_status',
+            label: 'Get Nexez Negotiation Status',
+            description: 'Read the latest decision for a submitted negotiation using its private status credential.',
+            parameters: negotiationStatusSchema,
+            execute(params, config, context) {
+                return getNegotiationStatus(params, config, context.signal);
+            },
+        }),
+        tool({
+            name: 'nexez_wait_for_negotiation_decision',
+            label: 'Wait for Nexez Negotiation Decision',
+            description: 'Poll a submitted negotiation until its asynchronous seller decision is ready or the bounded wait expires.',
+            parameters: Type.Object({
+                negotiationId: Type.String({ description: 'Negotiation id returned by nexez_submit_negotiation.' }),
+                statusToken: Type.String({ description: 'Private bearer token returned once at negotiation creation. Never display or log it.' }),
+                timeoutMs: Type.Optional(Type.Number({ minimum: 1, maximum: 300000, description: 'Overall wait deadline in milliseconds. Defaults to 30000.' })),
+                intervalMs: Type.Optional(Type.Number({ minimum: 1000, maximum: 30000, description: 'Polling interval in milliseconds. Defaults to 1000.' })),
+            }, { additionalProperties: false }),
+            execute(params, config, context) {
+                return waitForNegotiationDecision(params, config, context.signal);
             },
         }),
         tool({

@@ -8,13 +8,13 @@ const matches = await nexez.search('remote launch strategy consultant under 3000
 })
 
 const first = matches.results[0]
-if (!first) {
-  console.log('No Nexez matches found.')
+if (!first?.offer) {
+  console.log('No actionable Nexez offer found.')
   process.exit(0)
 }
 
 const slug = first.page.slug
-const offerKey = first.offer?.key ?? 'services-0'
+const offerKey = first.offer.key
 const page = await nexez.getAgentPage(slug)
 const offer = page.offers.find((item) => item.key === offerKey)
 

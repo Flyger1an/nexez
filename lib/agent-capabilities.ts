@@ -111,6 +111,7 @@ function checkoutRequestSchema(pin?: { slug: string; offerKeys: string[]; offerL
       buyerName: { type: 'string', description: 'Optional buyer or business name recorded on the order.' },
       buyerReference: { type: 'string', description: 'Optional buyer-side reference / order id; also stamped on the Stripe session (client_reference_id).' },
       buyerAgent: { type: 'string', description: 'Optional identifier for the buying agent.' },
+      approvalToken: { type: 'string', description: 'Short-lived token returned by a matching dry-run validation.' },
       dryRun: {
         type: 'boolean',
         description: 'When true, validate and log checkout intent without creating a Stripe session or redirecting.',
@@ -133,6 +134,9 @@ function negotiationRequestSchema(pin?: { slug: string; offerKeys: string[] }) {
       budget: { type: 'string' },
       timeline: { type: 'string' },
       contact: { type: 'string' },
+      negotiationId: { type: 'string', description: 'Existing negotiation id for a follow-up turn.' },
+      statusToken: { type: 'string', description: 'Private bearer token for an existing negotiation.' },
+      approvalToken: { type: 'string', description: 'Short-lived token returned by a matching dry-run validation.' },
       dryRun: { type: 'boolean', default: false },
     },
   }
@@ -148,6 +152,9 @@ const CHECKOUT_RESPONSE_SCHEMA = {
     actionUrl: { type: ['string', 'null'] },
     stripeConfigured: { type: 'boolean' },
     checkoutSessionId: { type: 'string' },
+    approvalTokenRequired: { type: 'boolean' },
+    approvalToken: { type: 'string' },
+    approvalExpiresAt: { type: 'string', format: 'date-time' },
     events: { type: 'object', additionalProperties: { type: 'boolean' } },
   },
 }
@@ -173,7 +180,27 @@ const AGENT_NEGOTIATION_RESPONSE_SCHEMA = {
     stripeConfigured: { type: 'boolean' },
     next: { type: 'string' },
     publicPageUrl: { type: 'string' },
+    replayed: { type: 'boolean' },
+    idempotencyKeyAccepted: { type: 'boolean' },
+    approvalTokenRequired: { type: 'boolean' },
+    approvalToken: { type: 'string' },
+    approvalExpiresAt: { type: 'string', format: 'date-time' },
   },
+}
+
+function actionIdempotencyHeader() {
+  return {
+    name: 'Idempotency-Key',
+    in: 'header',
+    required: false,
+    schema: {
+      type: 'string',
+      minLength: 16,
+      maxLength: 255,
+      pattern: '^[A-Za-z0-9._~:-]+$',
+    },
+    description: 'Stable retry key for this exact action. Reuse only when retrying the same approved payload.',
+  }
 }
 
 export function buildOpenApiSpec() {
@@ -228,6 +255,24 @@ export function buildOpenApiSpec() {
               required: false,
               schema: { type: 'number' },
               description: 'Optional buyer longitude for future location-aware clients. Use with location when available.',
+            },
+            {
+              name: 'category',
+              in: 'query',
+              required: false,
+              schema: { type: 'string', enum: ['all', 'professional', 'consumer'] },
+            },
+            { name: 'industry', in: 'query', required: false, schema: { type: 'string' } },
+            { name: 'min_readiness', in: 'query', required: false, schema: { type: 'integer', minimum: 0, maximum: 100 } },
+            { name: 'min_trust', in: 'query', required: false, schema: { type: 'integer', minimum: 0, maximum: 100 } },
+            { name: 'verified', in: 'query', required: false, schema: { type: 'boolean' } },
+            { name: 'supports_checkout', in: 'query', required: false, schema: { type: 'boolean' } },
+            { name: 'supports_negotiation', in: 'query', required: false, schema: { type: 'boolean' } },
+            {
+              name: 'price_band',
+              in: 'query',
+              required: false,
+              schema: { type: 'string', enum: ['free', 'under_100', '100_500', '500_2000', '2000_plus', 'custom'] },
             },
           ],
           responses: {
@@ -303,6 +348,7 @@ export function buildOpenApiSpec() {
         post: {
           summary: 'Start checkout handoff for an offer',
           operationId: 'startAgentCheckout',
+          parameters: [actionIdempotencyHeader()],
           requestBody: {
             required: true,
             content: {
@@ -329,6 +375,7 @@ export function buildOpenApiSpec() {
         post: {
           summary: 'Create an agent-to-agent proposal',
           operationId: 'createAgentNegotiation',
+          parameters: [actionIdempotencyHeader()],
           requestBody: {
             required: true,
             content: {
@@ -451,6 +498,7 @@ export function buildOpenApiSpec() {
             schema_version: { type: 'string' },
             query: { type: 'string' },
             result_count: { type: 'integer' },
+            filters: { type: 'object' },
             results: {
               type: 'array',
               items: { $ref: '#/components/schemas/AgentSearchResult' },
@@ -461,6 +509,8 @@ export function buildOpenApiSpec() {
           type: 'object',
           properties: {
             score: { type: 'number' },
+            matched_query_terms: { type: 'array', items: { type: 'string' } },
+            match_reasons: { type: 'array', items: { type: 'string' } },
             page: { type: 'object' },
             offer: { type: ['object', 'null'] },
           },
@@ -574,6 +624,7 @@ export function buildPageOpenApiSpec(
         post: {
           summary: `Start checkout for a ${page.name || page.slug} offer`,
           operationId: 'startAgentCheckout',
+          parameters: [actionIdempotencyHeader()],
           requestBody: {
             required: true,
             content: {
@@ -604,6 +655,7 @@ export function buildPageOpenApiSpec(
               post: {
                 summary: `Open a proposal with ${page.name || page.slug}`,
                 operationId: 'createAgentNegotiation',
+                parameters: [actionIdempotencyHeader()],
                 requestBody: {
                   required: true,
                   content: {

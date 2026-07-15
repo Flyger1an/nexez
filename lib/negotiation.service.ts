@@ -90,14 +90,25 @@ export class NegotiationService {
     buyerProposal: any; // { proposedPriceCents?, query, timeline, contact, ... }
     negotiationId?: string;
     statusToken?: string;
+    idempotencyKeyHash?: string;
+    idempotencyRequestHash?: string;
   }): Promise<{
     negotiationId: string;
     status: string;
     decisionPending: true;
     persistentLink: string;
     statusToken?: string;
+    replayed: boolean;
   }> {
-    const { slug, offerKey, buyerProposal, negotiationId, statusToken } = params;
+    const {
+      slug,
+      offerKey,
+      buyerProposal,
+      negotiationId,
+      statusToken,
+      idempotencyKeyHash,
+      idempotencyRequestHash,
+    } = params;
 
     const page = await this.loadPublishedPage(slug);
     if (!page) throw new Error('Page not found or not published');
@@ -109,6 +120,13 @@ export class NegotiationService {
     if (negotiationId) {
       // Token-as-credential check (throws a 404-shaped error on mismatch).
       negotiation = await this.loadNegotiation(negotiationId, statusToken);
+      if (idempotencyKeyHash) {
+        const replayMessage = await this.loadBuyerMessageByIdempotencyHash(negotiation.id, idempotencyKeyHash);
+        if (replayMessage) {
+          this.assertIdempotencyRequest(replayMessage.idempotency_request_hash, idempotencyRequestHash);
+          return this.proposalResult(negotiation, true);
+        }
+      }
       // One decision at a time: a follow-up while the prior one is still being
       // produced would race two LLM turns against the same history. Make the
       // agent poll for the in-flight decision first.
@@ -129,9 +147,25 @@ export class NegotiationService {
       }
     }
 
+    if (!negotiation && idempotencyKeyHash) {
+      const replay = await this.loadNegotiationByIdempotencyHash(idempotencyKeyHash);
+      if (replay) {
+        this.assertIdempotencyRequest(replay.idempotency_request_hash, idempotencyRequestHash);
+        return this.proposalResult(replay, true);
+      }
+    }
+
     if (!negotiation) {
       // Fresh negotiations are created already pending (saves a round-trip).
-      negotiation = await this.createNewNegotiation(page, offer, offerKey, buyerProposal);
+      negotiation = await this.createNewNegotiation(
+        page,
+        offer,
+        offerKey,
+        buyerProposal,
+        idempotencyKeyHash,
+        idempotencyRequestHash,
+      );
+      if (negotiation.__replayed) return this.proposalResult(negotiation, true);
     } else {
       // Continuation: re-arm the pending flag for the new buyer turn.
       await this.withRetry('queue decision', { negotiationId: negotiation.id }, () =>
@@ -149,19 +183,29 @@ export class NegotiationService {
     }
 
     // Persist the buyer's turn now; the seller (LLM) turn is appended by runDecision.
-    await this.withRetry('insert buyer turn', { negotiationId: negotiation.id }, () =>
-      this.db()
-        .from('negotiation_messages')
-        .insert([{ negotiation_id: negotiation.id, role: 'buyer', content: buyerProposal }]),
-    );
+    try {
+      const messageResult = await this.withRetry('insert buyer turn', { negotiationId: negotiation.id }, () =>
+        this.db()
+          .from('negotiation_messages')
+          .insert([{
+            negotiation_id: negotiation.id,
+            role: 'buyer',
+            content: buyerProposal,
+            ...(idempotencyKeyHash ? { idempotency_key_hash: idempotencyKeyHash } : {}),
+            ...(idempotencyRequestHash ? { idempotency_request_hash: idempotencyRequestHash } : {}),
+          }]),
+      );
+      if (messageResult.error) throw messageResult.error;
+    } catch (error: any) {
+      if (idempotencyKeyHash && error?.code === '23505') {
+        const replayMessage = await this.loadBuyerMessageByIdempotencyHash(negotiation.id, idempotencyKeyHash);
+        this.assertIdempotencyRequest(replayMessage?.idempotency_request_hash, idempotencyRequestHash);
+        return this.proposalResult(negotiation, true);
+      }
+      throw error;
+    }
 
-    return {
-      negotiationId: negotiation.id,
-      status: negotiation.status || 'negotiation',
-      decisionPending: true,
-      persistentLink: this.buildPersistentLink(negotiation.id, negotiation.status_token),
-      statusToken: negotiation.status_token || undefined,
-    };
+    return this.proposalResult(negotiation, false);
   }
 
   /**
@@ -495,7 +539,33 @@ export class NegotiationService {
     return data;
   }
 
-  private async createNewNegotiation(page: any, offer: any, offerKey: string, proposal: any) {
+  private async loadNegotiationByIdempotencyHash(idempotencyKeyHash: string) {
+    const { data } = await this.db()
+      .from('agent_negotiations')
+      .select('*')
+      .eq('idempotency_key_hash', idempotencyKeyHash)
+      .maybeSingle();
+    return data || null;
+  }
+
+  private async loadBuyerMessageByIdempotencyHash(negotiationId: string, idempotencyKeyHash: string) {
+    const { data } = await this.db()
+      .from('negotiation_messages')
+      .select('id, idempotency_request_hash')
+      .eq('negotiation_id', negotiationId)
+      .eq('idempotency_key_hash', idempotencyKeyHash)
+      .maybeSingle();
+    return data || null;
+  }
+
+  private async createNewNegotiation(
+    page: any,
+    offer: any,
+    offerKey: string,
+    proposal: any,
+    idempotencyKeyHash?: string,
+    idempotencyRequestHash?: string,
+  ) {
     const id = randomUUID();
     const statusToken = randomUUID().replace(/-/g, '');
 
@@ -528,19 +598,53 @@ export class NegotiationService {
       escrow_mode: process.env.STRIPE_SECRET_KEY ? 'manual_capture_ready' : 'not_configured',
       amount_cents: null,
       status_token: statusToken,
+      ...(idempotencyKeyHash ? { idempotency_key_hash: idempotencyKeyHash } : {}),
+      ...(idempotencyRequestHash ? { idempotency_request_hash: idempotencyRequestHash } : {}),
       // Created already awaiting an async decision (runDecision will claim it).
       decision_pending: true,
       decision_requested_at: new Date().toISOString(),
       metadata: {
         conversation: [],
         source: 'intelligent_negotiation_v2',
+        ...(proposal.agentClient ? { agent_client: proposal.agentClient } : {}),
       },
     };
 
     const { error } = await this.db().from('agent_negotiations').insert(negotiation);
-    if (error) throw error;
+    if (error) {
+      if (idempotencyKeyHash && error.code === '23505') {
+        const replay = await this.loadNegotiationByIdempotencyHash(idempotencyKeyHash);
+        if (replay) {
+          this.assertIdempotencyRequest(replay.idempotency_request_hash, idempotencyRequestHash);
+          return { ...replay, __replayed: true };
+        }
+      }
+      throw error;
+    }
 
     return { ...negotiation, status_token: statusToken };
+  }
+
+  private proposalResult(negotiation: any, replayed: boolean) {
+    return {
+      negotiationId: negotiation.id,
+      status: negotiation.status || 'negotiation',
+      decisionPending: true as const,
+      persistentLink: this.buildPersistentLink(negotiation.id, negotiation.status_token),
+      statusToken: negotiation.status_token || undefined,
+      replayed,
+    };
+  }
+
+  private assertIdempotencyRequest(storedHash?: string | null, suppliedHash?: string) {
+    if (storedHash && suppliedHash && storedHash === suppliedHash) return;
+    const conflict = new Error('This Idempotency-Key was already used for a different negotiation action.') as Error & {
+      status: number;
+      code: string;
+    };
+    conflict.status = 409;
+    conflict.code = 'idempotency_conflict';
+    throw conflict;
   }
 
   private buildPersistentLink(id: string, statusToken?: string | null): string {

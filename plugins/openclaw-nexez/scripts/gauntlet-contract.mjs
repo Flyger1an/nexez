@@ -7,6 +7,8 @@ const EXPECTED_TOOLS = [
   'nexez_search',
   'nexez_get_page',
   'nexez_directory',
+  'nexez_get_negotiation_status',
+  'nexez_wait_for_negotiation_decision',
   'nexez_validate_checkout',
   'nexez_validate_negotiation',
   'nexez_start_checkout',
@@ -21,6 +23,7 @@ const OPTIONAL_TOOLS = new Set([
 ])
 
 const observed = []
+const statusPolls = new Map()
 const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url || '/', 'http://127.0.0.1')
@@ -30,6 +33,9 @@ const server = createServer(async (request, response) => {
       pathname: url.pathname,
       query: Object.fromEntries(url.searchParams),
       userAgent: request.headers['user-agent'],
+      nexezClient: request.headers['x-nexez-client'],
+      buyerAgent: request.headers['x-nexez-buyer-agent'],
+      idempotencyKey: request.headers['idempotency-key'],
       body,
     })
 
@@ -80,6 +86,20 @@ const server = createServer(async (request, response) => {
       })
     }
 
+    if (url.pathname === '/api/negotiations/status') {
+      const id = url.searchParams.get('id') || ''
+      const count = (statusPolls.get(id) || 0) + 1
+      statusPolls.set(id, count)
+      if (id === 'missing') return json(response, 404, { error: 'Negotiation not found.' })
+      return json(response, 200, {
+        id,
+        status: count > 1 || id === 'ready' ? 'agreement_proposed' : 'negotiation',
+        decisionPending: id !== 'ready' && count === 1,
+        decisionSeq: count > 1 || id === 'ready' ? 1 : 0,
+        decision: count > 1 || id === 'ready' ? { action: 'counter', reasoning: 'Fixture decision.' } : null,
+      })
+    }
+
     return json(response, 404, { error: 'Unknown gauntlet route.' })
   } catch (error) {
     return json(response, 500, { error: error instanceof Error ? error.message : String(error) })
@@ -109,7 +129,7 @@ plugin.register({
 let passed = 0
 
 try {
-  await check('registers the exact seven-tool contract', async () => {
+  await check('registers the exact nine-tool contract', async () => {
     assert.deepEqual([...registered.keys()], EXPECTED_TOOLS)
     for (const name of EXPECTED_TOOLS) {
       assert.equal(Boolean(registered.get(name)?.options.optional), OPTIONAL_TOOLS.has(name))
@@ -123,10 +143,26 @@ try {
       limit: 999,
       lat: 30.2672,
       lng: -97.7431,
+      category: 'professional',
+      industry: 'consulting',
+      minReadiness: 75,
+      minTrust: 70,
+      verified: true,
+      supportsCheckout: true,
+      supportsNegotiation: false,
+      priceBand: '500_2000',
     })
     assert.equal(result.received.limit, '50')
     assert.equal(result.received.location, 'Austin, Texas')
     assert.equal(result.received.lat, '30.2672')
+    assert.equal(result.received.category, 'professional')
+    assert.equal(result.received.industry, 'consulting')
+    assert.equal(result.received.min_readiness, '75')
+    assert.equal(result.received.min_trust, '70')
+    assert.equal(result.received.verified, 'true')
+    assert.equal(result.received.supports_checkout, 'true')
+    assert.equal(result.received.supports_negotiation, 'false')
+    assert.equal(result.received.price_band, '500_2000')
   })
 
   await check('directory clamps readiness and sends supported filters', async () => {
@@ -144,6 +180,32 @@ try {
     assert.match(result.path, /gauntlet%20page%2F..%2F..%2Fprivate\/agent\.json$/)
   })
 
+  await check('reads negotiation status without exposing its bearer token in errors', async () => {
+    const result = await invoke('nexez_get_negotiation_status', {
+      negotiationId: 'ready',
+      statusToken: 'secret/token+?',
+    })
+    assert.equal(result.decisionPending, false)
+    assert.equal(lastRequest().query.token, 'secret/token+?')
+
+    await assert.rejects(
+      invoke('nexez_get_negotiation_status', { negotiationId: 'missing', statusToken: 'do-not-leak' }),
+      (error) => error?.name === 'NexezApiError' && !error.url.includes('do-not-leak') && error.url.includes('%5Bredacted%5D'),
+    )
+  })
+
+  await check('waits through a pending negotiation decision', async () => {
+    const result = await invoke('nexez_wait_for_negotiation_decision', {
+      negotiationId: 'wait-once',
+      statusToken: 'status-token',
+      timeoutMs: 3_000,
+      intervalMs: 1_000,
+    })
+    assert.equal(result.decisionPending, false)
+    assert.equal(result.decision.action, 'counter')
+    assert.equal(statusPolls.get('wait-once'), 2)
+  })
+
   await check('checkout validation always forces a dry run', async () => {
     const result = await invoke('nexez_validate_checkout', {
       slug: 'fixture',
@@ -153,6 +215,8 @@ try {
     assert.equal(result.received.dryRun, true)
     assert.equal(result.received.buyerAgent, 'openclaw')
     assert.equal(lastRequest().userAgent, 'Nexez OpenClaw Contract Gauntlet/1.0')
+    assert.equal(lastRequest().nexezClient, 'openclaw-plugin/0.2.0')
+    assert.equal(lastRequest().buyerAgent, 'openclaw')
   })
 
   await check('HTTP validation failures become structured branch results', async () => {
@@ -209,11 +273,16 @@ try {
       slug: 'fixture',
       offer: 'services-0',
       dryRun: true,
+      approvalToken: 'checkout-approval-token',
+      idempotencyKey: 'checkout-retry-1234567890',
       userApproved: true,
     })
     assert.equal(result.received.dryRun, false)
     assert.equal(result.received.userApproved, undefined)
+    assert.equal(result.received.idempotencyKey, undefined)
+    assert.equal(result.received.approvalToken, 'checkout-approval-token')
     assert.equal(result.received.buyerAgent, 'openclaw')
+    assert.equal(lastRequest().idempotencyKey, 'checkout-retry-1234567890')
   })
 
   await check('approved negotiation posts a mutation without forwarding the approval flag', async () => {
@@ -222,11 +291,30 @@ try {
       offer: 'negotiable',
       budget: '$500',
       dryRun: true,
+      approvalToken: 'negotiation-approval-token',
+      idempotencyKey: 'negotiation-retry-1234567890',
       userApproved: true,
     })
     assert.equal(result.received.dryRun, false)
     assert.equal(result.received.userApproved, undefined)
+    assert.equal(result.received.idempotencyKey, undefined)
+    assert.equal(result.received.approvalToken, 'negotiation-approval-token')
     assert.equal(result.received.buyerAgent, 'openclaw')
+    assert.equal(lastRequest().idempotencyKey, 'negotiation-retry-1234567890')
+  })
+
+  await check('malformed retry keys fail before the action reaches the network', async () => {
+    const before = observed.length
+    await assert.rejects(
+      invoke('nexez_start_checkout', {
+        slug: 'fixture',
+        offer: 'services-0',
+        userApproved: true,
+        idempotencyKey: 'short',
+      }),
+      /idempotencyKey/,
+    )
+    assert.equal(observed.length, before)
   })
 
   await check('action HTTP failures remain hard tool errors', async () => {
@@ -240,7 +328,7 @@ try {
     )
   })
 
-  console.log(`\nOpenClaw contract gauntlet passed: ${passed} checks, 7 tools, 0 production mutations.`)
+  console.log(`\nOpenClaw contract gauntlet passed: ${passed} checks, 9 tools, 0 production mutations.`)
 } finally {
   await new Promise((resolve, reject) => {
     server.close((error) => (error ? reject(error) : resolve()))

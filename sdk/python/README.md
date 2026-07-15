@@ -17,31 +17,40 @@ matches = nexez.search(
     limit=5,
 )
 
-first = matches["results"][0]
+first = matches["results"][0] if matches["results"] else None
+if not first or not first.get("offer"):
+    raise RuntimeError("No actionable Nexez offer was found.")
+
 page = nexez.get_agent_page(first["page"]["slug"])
+offer_key = first["offer"]["key"]
+if not any(offer.get("key") == offer_key for offer in page.get("offers", [])):
+    raise RuntimeError("The selected offer is no longer available.")
 
 validation = nexez.validate_checkout(
     slug=first["page"]["slug"],
-    offer=first["offer"]["key"] if first.get("offer") else "services-0",
+    offer=offer_key,
     query="Buyer wants a strategy session next week.",
 )
 ```
 
-Side-effecting calls require a separate, explicit approval flag:
+Side-effecting calls require a separate, explicit approval flag. Forward the dry-run token and use one stable retry key for that exact action:
 
 ```python
 checkout = nexez.start_checkout(
     slug=first["page"]["slug"],
-    offer=first["offer"]["key"] if first.get("offer") else "services-0",
-    query="Buyer approved opening checkout.",
+    offer=offer_key,
+    query="Buyer wants a strategy session next week.",
+    approval_token=validation.get("approvalToken"),
     user_approved=True,
+    idempotency_key="buyer-order-1234567890",
 )
 ```
 
 ## API
 
 - `create_client(base_url=..., buyer_agent=..., timeout=..., transport=...)` - create a client. Defaults to `https://nexez.app`.
-- `search_nexez(query, **options)` - search published agent pages by buyer intent. `location` filters textually; `lat`/`lng` are currently returned as location context and do not filter results.
+- `search_nexez(query, **options)` - search published agent pages by buyer intent, category, industry, readiness/trust, verification, checkout/negotiation capability, price band, and text location. `lat`/`lng` are context only.
+- `browse_directory(**options)` - browse published pages by category, minimum readiness, query, and location.
 - `get_agent_page(slug, **options)` - fetch `/{slug}/agent.json`.
 - `validate_checkout(payload=None, **kwargs)` - dry-run checkout through `/api/checkout`.
 - `start_checkout(payload=None, user_approved=True, **kwargs)` - start checkout only after explicit buyer approval.
@@ -59,6 +68,7 @@ Client methods accept Pythonic `snake_case` aliases for API fields:
 - `requested_terms` -> `requestedTerms`
 - `negotiation_id` -> `negotiationId`
 - `status_token` -> `statusToken`
+- `approval_token` -> `approvalToken`
 
 `user_approved` is a local SDK safety gate. It is stripped before the request and is never sent to Nexez. The package also exports `TypedDict` contracts for checkout, negotiation, search, manifests, and status responses.
 
@@ -66,7 +76,7 @@ Custom `base_url` values may include a deployment path prefix, such as `https://
 
 ## Safety
 
-Use `validate_checkout` or `validate_negotiation` before side-effecting actions. `start_checkout` and `submit_negotiation` reject calls unless their keyword-only `user_approved=True` gate is present and always send `dryRun: false`. An approval-like value embedded in a payload does not satisfy this gate.
+Use `validate_checkout` or `validate_negotiation` before side-effecting actions. `start_checkout` and `submit_negotiation` reject calls unless their keyword-only `user_approved=True` gate is present and always send `dryRun: false`. An approval-like value embedded in a payload does not satisfy this gate. Approval tokens bind validated commercial terms while allowing buyer identity to remain local until consent.
 
 Treat `statusToken` as a bearer credential: never log it or show it in buyer-facing output. SDK-generated API, transport, and protocol errors redact the token from their public `url` attribute. `wait_for_negotiation_decision` raises `TimeoutError` when its bounded wait expires.
 

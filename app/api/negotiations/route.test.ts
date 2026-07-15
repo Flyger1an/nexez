@@ -58,6 +58,7 @@ vi.mock('../../../lib/negotiation.service', () => ({
         decisionPending: true,
         persistentLink: `https://test/negotiate/${id}?token=${PERSISTED_STATUS_TOKEN}`,
         statusToken: PERSISTED_STATUS_TOKEN,
+        replayed: false,
       }
     }),
     // Fires inside after() (a no-op in tests) - present so the route reference resolves.
@@ -77,10 +78,10 @@ const pageWithOffer = {
   contact_email: null,
 }
 
-const post = (body: unknown) =>
+const post = (body: unknown, headers: Record<string, string> = {}) =>
   new Request('https://nexez.test/api/negotiations', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', accept: 'application/json' },
+    headers: { 'content-type': 'application/json', accept: 'application/json', ...headers },
     body: JSON.stringify(body),
   })
 
@@ -172,6 +173,73 @@ describe('POST /api/negotiations', () => {
     const { negotiationService } = await import('../../../lib/negotiation.service')
     expect(negotiationService.submitProposal).not.toHaveBeenCalled()
     expect(ops.some((o) => o.includes('insert'))).toBe(false)
+  })
+
+  it('binds a required approval token to the exact validated proposal', async () => {
+    vi.stubEnv('NEXEZ_ACTION_APPROVAL_SECRET', 'route-test-secret-with-at-least-thirty-two-characters')
+    vi.stubEnv('NEXEZ_REQUIRE_ACTION_APPROVAL_TOKEN', 'true')
+    dbRef.handler = (ctx: QueryContext) =>
+      ctx.table === 'pages' ? { data: pageWithOffer, error: null } : { data: null, error: null }
+
+    const preview = await POST(post({
+      slug: 'demo',
+      offer: 'services-0',
+      budget: '$90',
+      query: 'Keep the original scope.',
+      dryRun: true,
+    }))
+    const validation = await preview.json()
+    expect(validation.approvalTokenRequired).toBe(true)
+    expect(validation.approvalToken).toMatch(/^v1\./)
+
+    const approved = await POST(post({
+      slug: 'demo',
+      offer: 'services-0',
+      budget: '$90',
+      query: 'Keep the original scope.',
+      approvalToken: validation.approvalToken,
+    }))
+    expect(approved.status).toBe(200)
+
+    const changed = await POST(post({
+      slug: 'demo',
+      offer: 'services-0',
+      budget: '$75',
+      query: 'Keep the original scope.',
+      approvalToken: validation.approvalToken,
+    }))
+    expect(changed.status).toBe(403)
+    expect((await changed.json()).code).toBe('approval_invalid')
+  })
+
+  it('hashes accepted retry keys and reports replay-safe action metadata', async () => {
+    dbRef.handler = (ctx: QueryContext) =>
+      ctx.table === 'pages' ? { data: pageWithOffer, error: null } : { data: null, error: null }
+    const rawKey = 'proposal-turn-1234567890'
+    const res = await POST(post(
+      { slug: 'demo', offer: 'services-0', budget: '$90' },
+      { 'idempotency-key': rawKey, 'x-nexez-client': 'openclaw-plugin/0.2.0' },
+    ))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ idempotencyKeyAccepted: true, replayed: false })
+
+    const { negotiationService } = await import('../../../lib/negotiation.service')
+    const params = (negotiationService.submitProposal as any).mock.calls[0][0]
+    expect(params.idempotencyKeyHash).toMatch(/^[a-f0-9]{64}$/)
+    expect(params.idempotencyKeyHash).not.toContain(rawKey)
+    expect(params.idempotencyRequestHash).toMatch(/^[a-f0-9]{64}$/)
+    expect(params.buyerProposal.agentClient).toBe('openclaw-plugin/0.2.0')
+  })
+
+  it('rejects malformed idempotency keys before invoking the negotiation service', async () => {
+    const { negotiationService } = await import('../../../lib/negotiation.service')
+    const res = await POST(post(
+      { slug: 'demo', offer: 'services-0' },
+      { 'idempotency-key': 'short' },
+    ))
+    expect(res.status).toBe(400)
+    expect((await res.json()).code).toBe('invalid_idempotency_key')
+    expect(negotiationService.submitProposal).not.toHaveBeenCalled()
   })
 
   it('fresh proposal returns the async pending shape (decision is polled, not inline)', async () => {

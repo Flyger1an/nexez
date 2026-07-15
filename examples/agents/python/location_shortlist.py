@@ -26,10 +26,8 @@ def main() -> None:
         unique_results.append(result)
     for result in unique_results[:5]:
         manifest = nexez.get_agent_page(result["page"]["slug"])
-        offer_key = (result.get("offer") or {}).get("key") or (manifest.get("offers") or [{}])[0].get("key") or "services-0"
-        offer = next((item for item in manifest.get("offers", []) if item.get("key") == offer_key), None)
-        if offer is None and manifest.get("offers"):
-            offer = manifest["offers"][0]
+        offer_key = (result.get("offer") or {}).get("key") or (manifest.get("offers") or [{}])[0].get("key")
+        offer = next((item for item in manifest.get("offers", []) if offer_key and item.get("key") == offer_key), None)
 
         candidates.append(
             {

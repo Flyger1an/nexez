@@ -40,6 +40,8 @@ function externalResult(opts: {
 }): AgentSearchResult {
   return {
     score: opts.score,
+    matched_query_terms: [],
+    match_reasons: [`Discovered via ${opts.source.label}; external result is not Nexez-transactable`],
     source: opts.source,
     page: {
       name: opts.name,

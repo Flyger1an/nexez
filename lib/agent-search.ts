@@ -11,12 +11,19 @@ import {
   getReadinessScore,
 } from './agent-page'
 import { buildAgentStorefrontRef, getAgentJsonPath, type AgentStorefrontRef } from './agent-manifest'
-import { summarizeMarketplacePage, type MarketplaceSummary } from './marketplace'
+import {
+  summarizeMarketplacePage,
+  type MarketplaceCategory,
+  type MarketplacePriceBand,
+  type MarketplaceSummary,
+} from './marketplace'
 import { getPageLocationMatch, type LocationMatch } from './location-filter'
 import type { ReviewSummary } from './reviews'
 
 export type AgentSearchResult = {
   score: number
+  matched_query_terms: string[]
+  match_reasons: string[]
   /** Which source surfaced this result (set by searchAllSources). Absent = the Nexez marketplace. */
   source?: { id: string; label: string }
   page: {
@@ -61,10 +68,19 @@ export type AgentSearchResult = {
   } | null
 }
 
-type AgentSearchOptions = {
+export type AgentSearchOptions = {
   location?: string | null
   storefrontHandles?: Map<string, string>
   reviewSummaries?: Map<string, ReviewSummary>
+  category?: MarketplaceCategory | 'all'
+  industry?: string | null
+  minReadiness?: number | null
+  minTrust?: number | null
+  verified?: boolean | null
+  supportsCheckout?: boolean | null
+  supportsNegotiation?: boolean | null
+  priceBand?: MarketplacePriceBand | null
+  queryTokens?: string[]
 }
 
 export function searchAgentPages(pages: AgentPage[], query: string, limit = 10, baseUrl = getBaseUrl(), options: AgentSearchOptions = {}) {
@@ -77,6 +93,8 @@ export function searchAgentPages(pages: AgentPage[], query: string, limit = 10, 
     const offers = getCheckoutOffers(page)
     const readiness = getReadinessScore(page)
     const reputation = options.reviewSummaries?.get(page.slug)?.reputation_score ?? 0
+    const marketplace = summarizeMarketplacePage(page)
+    if (!matchesSearchFilters(page, marketplace, options)) continue
     const pageScore = scoreText(
       tokens,
       [page.name, page.slug, page.description, page.audience, page.location, page.contact_email].join(' '),
@@ -84,7 +102,11 @@ export function searchAgentPages(pages: AgentPage[], query: string, limit = 10, 
 
     if (!offers.length) {
       if (pageScore > 0 || !tokens.length) {
-        scored.push({ result: buildResult(page, null, pageScore || 1, baseUrl, options), readiness, reputation })
+        scored.push({
+          result: buildResult(page, null, pageScore || 1, baseUrl, { ...options, queryTokens: tokens }, marketplace),
+          readiness,
+          reputation,
+        })
       }
       continue
     }
@@ -93,7 +115,11 @@ export function searchAgentPages(pages: AgentPage[], query: string, limit = 10, 
       const offerScore = scoreOffer(tokens, page, offer)
 
       if (offerScore > 0 || !tokens.length) {
-        scored.push({ result: buildResult(page, offer, offerScore || pageScore || 1, baseUrl, options), readiness, reputation })
+        scored.push({
+          result: buildResult(page, offer, offerScore || pageScore || 1, baseUrl, { ...options, queryTokens: tokens }, marketplace),
+          readiness,
+          reputation,
+        })
       }
     }
   }
@@ -110,16 +136,27 @@ export function searchAgentPages(pages: AgentPage[], query: string, limit = 10, 
     .map((s) => s.result)
 }
 
-export function buildResult(page: AgentPage, offer: CheckoutOffer | null, score: number, baseUrl: string, options: AgentSearchOptions = {}): AgentSearchResult {
+export function buildResult(
+  page: AgentPage,
+  offer: CheckoutOffer | null,
+  score: number,
+  baseUrl: string,
+  options: AgentSearchOptions = {},
+  marketplace = summarizeMarketplacePage(page),
+): AgentSearchResult {
   const offerKey = offer ? getCheckoutOfferKey(offer.kind, offer.index) : ''
   const preferredOriginalUrl = offer ? getPreferredOriginalOfferUrl(page, offer) : ''
   const locationMatch = options.location ? getPageLocationMatch(page, options.location) : null
   const storefrontHandle = options.storefrontHandles?.get(page.slug)
   const storefront = storefrontHandle ? buildAgentStorefrontRef(storefrontHandle, baseUrl) : null
   const reviewSummary = options.reviewSummaries?.get(page.slug) ?? null
+  const matchedQueryTerms = getMatchedQueryTerms(options.queryTokens ?? [], page, offer)
+  const matchReasons = buildMatchReasons(matchedQueryTerms, marketplace, locationMatch, options)
 
   return {
     score,
+    matched_query_terms: matchedQueryTerms,
+    match_reasons: matchReasons,
     page: {
       name: page.name,
       slug: page.slug,
@@ -135,7 +172,7 @@ export function buildResult(page: AgentPage, offer: CheckoutOffer | null, score:
       ...(storefront ? { storefront } : {}),
       rating_summary: reviewSummary?.count ? reviewSummary : null,
     },
-    marketplace: summarizeMarketplacePage(page),
+    marketplace,
     location_match: locationMatch,
     offer: offer
       ? {
@@ -163,6 +200,61 @@ export function buildResult(page: AgentPage, offer: CheckoutOffer | null, score:
         }
       : null,
   }
+}
+
+function matchesSearchFilters(page: AgentPage, summary: MarketplaceSummary, options: AgentSearchOptions) {
+  if (options.category && options.category !== 'all' && summary.category !== options.category) return false
+  if (options.industry) {
+    const industry = page.industry?.trim().toLowerCase() ?? ''
+    if (!industry.includes(options.industry.trim().toLowerCase())) return false
+  }
+  if (options.minReadiness != null && summary.readiness < options.minReadiness) return false
+  if (options.minTrust != null && summary.trust_score < options.minTrust) return false
+  if (options.verified != null && summary.verified !== options.verified) return false
+  if (options.supportsCheckout != null && summary.supports_checkout !== options.supportsCheckout) return false
+  if (options.supportsNegotiation != null && summary.supports_negotiation !== options.supportsNegotiation) return false
+  if (options.priceBand && summary.price_band !== options.priceBand) return false
+  return true
+}
+
+function getMatchedQueryTerms(tokens: string[], page: AgentPage, offer: CheckoutOffer | null) {
+  if (!tokens.length) return []
+  const haystack = [
+    page.name,
+    page.slug,
+    page.description,
+    page.audience,
+    page.location,
+    page.industry,
+    offer?.name,
+    offer?.description,
+    offer?.price,
+  ].filter(Boolean).join(' ').toLowerCase()
+  return [...new Set(tokens.filter((token) => haystack.includes(token)))]
+}
+
+function buildMatchReasons(
+  matchedTerms: string[],
+  summary: MarketplaceSummary,
+  locationMatch: LocationMatch | null,
+  options: AgentSearchOptions,
+) {
+  const reasons: string[] = []
+  if (matchedTerms.length) reasons.push(`Matches query terms: ${matchedTerms.join(', ')}`)
+  if (locationMatch?.matched) reasons.push(`Matches location or service area: ${locationMatch.query}`)
+  if (options.category && options.category !== 'all') reasons.push(`Matches ${options.category} category`)
+  if (options.industry) reasons.push(`Matches industry: ${summary.industry || options.industry}`)
+  if (options.minReadiness != null) reasons.push(`Readiness ${summary.readiness} meets minimum ${options.minReadiness}`)
+  if (options.minTrust != null) reasons.push(`Trust score ${summary.trust_score} meets minimum ${options.minTrust}`)
+  if (options.verified === true) reasons.push('Seller verification signal present')
+  if (options.verified === false) reasons.push('Seller has no verification signal')
+  if (options.supportsCheckout === true) reasons.push('Supports checkout or booking')
+  if (options.supportsCheckout === false) reasons.push('Does not expose checkout or booking')
+  if (options.supportsNegotiation === true) reasons.push('Supports negotiation')
+  if (options.supportsNegotiation === false) reasons.push('Fixed-price or non-negotiable offers only')
+  if (options.priceBand) reasons.push(`Matches price band: ${options.priceBand}`)
+  if (!reasons.length) reasons.push('Published agent-readable offer')
+  return reasons
 }
 
 function scoreOffer(tokens: string[], page: AgentPage, offer: CheckoutOffer) {

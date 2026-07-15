@@ -60,7 +60,9 @@ export function sanitizeBuyerInput(input: BuyerInputFields): SanitizedBuyerInput
     try {
       serialized = JSON.stringify(input.requestedTerms)
     } catch {
-      serialized = ''
+      out.requestedTerms = { note: '<omitted: invalid requestedTerms>' }
+      truncated = true
+      return { ...out, truncated }
     }
     if (serialized.length > REQUESTED_TERMS_MAX) {
       out.requestedTerms = { note: '<omitted: oversized requestedTerms>' }

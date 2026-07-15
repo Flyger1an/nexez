@@ -5,13 +5,15 @@ export const NEXEZ_REPOSITORY_URL = 'https://github.com/Flyger1an/nexez'
 export const NEXEZ_OPENCLAW_PLUGIN = {
   name: '@nexez/openclaw-nexez',
   displayName: 'Nexez OpenClaw Plugin',
-  version: '0.1.2',
+  version: '0.2.0',
   installCommand: 'openclaw plugins install clawhub:@nexez/openclaw-nexez',
   purpose: 'Native tools for search, page fetch, checkout validation, and negotiation handoff.',
   tools: [
     'nexez_search',
     'nexez_get_page',
     'nexez_directory',
+    'nexez_get_negotiation_status',
+    'nexez_wait_for_negotiation_decision',
     'nexez_validate_checkout',
     'nexez_validate_negotiation',
     'nexez_start_checkout',
@@ -22,7 +24,7 @@ export const NEXEZ_OPENCLAW_PLUGIN = {
 export const NEXEZ_OPENCLAW_SKILL = {
   slug: 'nexez-agent-discovery',
   displayName: 'Nexez Agent Discovery',
-  version: '0.1.0',
+  version: '0.3.0',
   installCommand: 'openclaw skills install nexez-agent-discovery',
   purpose: 'Instructions and rubrics for discovering, comparing, and safely acting on Nexez agent pages.',
 } as const
@@ -30,7 +32,7 @@ export const NEXEZ_OPENCLAW_SKILL = {
 export const NEXEZ_TYPESCRIPT_SDK = {
   name: '@nexez/agent-sdk',
   displayName: 'Nexez Agent SDK',
-  version: '0.1.0',
+  version: '0.3.0',
   status: 'published',
   installCommand: 'npm install @nexez/agent-sdk',
   npmUrl: 'https://www.npmjs.com/package/@nexez/agent-sdk',
@@ -43,7 +45,7 @@ export const NEXEZ_PYTHON_SDK = {
   name: 'nexez-agent-sdk',
   moduleName: 'nexez_agent_sdk',
   displayName: 'Nexez Python Agent SDK',
-  version: '0.1.0',
+  version: '0.3.0',
   status: 'published',
   installCommand: 'python -m pip install nexez-agent-sdk',
   pypiUrl: 'https://pypi.org/project/nexez-agent-sdk/',

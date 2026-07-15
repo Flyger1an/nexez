@@ -5,13 +5,13 @@ def main() -> None:
     nexez = create_client(buyer_agent="nexez-python-example")
 
     matches = nexez.search("remote launch strategy consultant under 3000", limit=5, location="Remote")
-    if not matches.get("results"):
-        print("No Nexez matches found.")
+    if not matches.get("results") or not matches["results"][0].get("offer"):
+        print("No actionable Nexez offer found.")
         return
 
     first = matches["results"][0]
     slug = first["page"]["slug"]
-    offer_key = (first.get("offer") or {}).get("key", "services-0")
+    offer_key = first["offer"]["key"]
 
     page = nexez.get_agent_page(slug)
     offer = next((item for item in page.get("offers", []) if item.get("key") == offer_key), None)

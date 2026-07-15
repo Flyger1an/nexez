@@ -11,6 +11,8 @@ const expectedTools = [
   'nexez_search',
   'nexez_get_page',
   'nexez_directory',
+  'nexez_get_negotiation_status',
+  'nexez_wait_for_negotiation_decision',
   'nexez_validate_checkout',
   'nexez_validate_negotiation',
   'nexez_start_checkout',

@@ -28,6 +28,22 @@ describe('buildOpenApiSpec - programmatic API (G21)', () => {
     expect(spec.paths['/api/checkout']).toBeDefined()
   })
 
+  it('documents structured discovery filters and action retry safety', () => {
+    const search = spec.paths['/api/agent-search'].get as { parameters?: Array<{ name: string }> }
+    expect(search.parameters?.map((parameter) => parameter.name)).toEqual(expect.arrayContaining([
+      'industry',
+      'min_readiness',
+      'min_trust',
+      'verified',
+      'supports_checkout',
+      'supports_negotiation',
+      'price_band',
+    ]))
+
+    const checkout = spec.paths['/api/checkout'].post as { parameters?: Array<{ name: string; in: string }> }
+    expect(checkout.parameters).toContainEqual(expect.objectContaining({ name: 'Idempotency-Key', in: 'header' }))
+  })
+
   it('advertises OpenClaw distribution metadata', () => {
     const distribution = spec.info['x-nexez-agent-distribution'] as {
       docs_url: string
@@ -46,9 +62,9 @@ describe('buildOpenApiSpec - programmatic API (G21)', () => {
     expect(distribution.openclaw.plugin.name).toBe('@nexez/openclaw-nexez')
     expect(distribution.openclaw.skill.slug).toBe('nexez-agent-discovery')
     expect(distribution.sdks.typescript.name).toBe('@nexez/agent-sdk')
-    expect(distribution.sdks.typescript.version).toBe('0.1.0')
+    expect(distribution.sdks.typescript.version).toBe('0.3.0')
     expect(distribution.sdks.python.name).toBe('nexez-agent-sdk')
-    expect(distribution.sdks.python.version).toBe('0.1.0')
+    expect(distribution.sdks.python.version).toBe('0.3.0')
     expect(distribution.examples.sourcePath).toBe('examples/agents')
   })
 })

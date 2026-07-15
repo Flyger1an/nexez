@@ -13,6 +13,7 @@ from nexez_agent_sdk import (  # noqa: E402
     NexezProtocolError,
     NexezTransportError,
     __version__,
+    browse_directory,
     create_client,
     get_agent_page,
     get_negotiation_status,
@@ -95,6 +96,10 @@ class NexezPythonSdkTest(unittest.TestCase):
             transport.calls[0]["headers"]["user-agent"],
             f"nexez-agent-sdk-python/{__version__}",
         )
+        self.assertEqual(
+            transport.calls[0]["headers"]["x-nexez-client"],
+            f"python-sdk/{__version__}",
+        )
 
     def test_rejects_invalid_search_arguments(self):
         transport = FakeTransport({"results": []})
@@ -112,6 +117,68 @@ class NexezPythonSdkTest(unittest.TestCase):
             with self.subTest(args=args, kwargs=kwargs):
                 with self.assertRaises(error_type):
                     search_nexez(*args, transport=transport, **kwargs)
+        self.assertEqual(transport.calls, [])
+
+    def test_searches_with_structured_marketplace_filters(self):
+        transport = FakeTransport({"schema_version": "nexez.agent-search.v1", "results": []})
+        search_nexez(
+            "strategy",
+            category="professional",
+            industry="management consulting",
+            min_readiness=75,
+            min_trust=70,
+            verified=True,
+            supports_checkout=True,
+            supports_negotiation=False,
+            price_band="500_2000",
+            transport=transport,
+        )
+        self.assertIn("category=professional", transport.calls[0]["url"])
+        self.assertIn("industry=management+consulting", transport.calls[0]["url"])
+        self.assertIn("min_readiness=75", transport.calls[0]["url"])
+        self.assertIn("min_trust=70", transport.calls[0]["url"])
+        self.assertIn("verified=true", transport.calls[0]["url"])
+        self.assertIn("supports_checkout=true", transport.calls[0]["url"])
+        self.assertIn("supports_negotiation=false", transport.calls[0]["url"])
+        self.assertIn("price_band=500_2000", transport.calls[0]["url"])
+
+    def test_browses_directory_with_supported_filters(self):
+        transport = FakeTransport({"schema_version": "nexez.directory.v2", "results": []})
+
+        result = browse_directory(
+            query="strategy",
+            category="professional",
+            min_readiness=80,
+            location="Chicago, IL",
+            lat=41.88,
+            lng=-87.63,
+            base_url="https://agent.example/runtime/",
+            transport=transport,
+        )
+
+        self.assertEqual(result["schema_version"], "nexez.directory.v2")
+        self.assertEqual(
+            transport.calls[0]["url"],
+            "https://agent.example/runtime/api/directory?"
+            "category=professional&q=strategy&min_readiness=80&location=Chicago%2C+IL&lat=41.88&lng=-87.63",
+        )
+
+    def test_rejects_invalid_directory_arguments_before_fetching(self):
+        transport = FakeTransport({"results": []})
+        invalid_calls = [
+            ({"query": ""}, ValueError),
+            ({"category": "enterprise"}, ValueError),
+            ({"min_readiness": True}, TypeError),
+            ({"min_readiness": -1}, ValueError),
+            ({"min_readiness": 101}, ValueError),
+            ({"location": ""}, ValueError),
+            ({"lat": 91}, ValueError),
+            ({"lng": -181}, ValueError),
+        ]
+        for kwargs, error_type in invalid_calls:
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaises(error_type):
+                    browse_directory(transport=transport, **kwargs)
         self.assertEqual(transport.calls, [])
 
     def test_fetches_agent_page_manifest_by_slug(self):
@@ -231,12 +298,33 @@ class NexezPythonSdkTest(unittest.TestCase):
             start_checkout(payload, user_approved=1, transport=transport)
         self.assertEqual(transport.calls, [])
 
-        started = start_checkout(payload, user_approved=True, transport=transport)
+        started = start_checkout(
+            payload,
+            approval_token="approval-token",
+            user_approved=True,
+            idempotency_key="buyer-order-1234567890",
+            buyer_agent="python-gauntlet",
+            transport=transport,
+        )
         self.assertEqual(started["url"], response["url"])
         self.assertEqual(started["checkoutSessionId"], "cs_123")
         self.assertEqual(transport.calls[0]["body"]["dryRun"], False)
         self.assertNotIn("userApproved", transport.calls[0]["body"])
         self.assertNotIn("user_approved", transport.calls[0]["body"])
+        self.assertEqual(transport.calls[0]["body"]["approvalToken"], "approval-token")
+        self.assertEqual(transport.calls[0]["headers"]["idempotency-key"], "buyer-order-1234567890")
+        self.assertEqual(transport.calls[0]["headers"]["x-nexez-buyer-agent"], "python-gauntlet")
+
+    def test_rejects_malformed_action_idempotency_key_before_transport(self):
+        transport = FakeTransport({"ok": True})
+        with self.assertRaisesRegex(ValueError, "idempotency_key"):
+            start_checkout(
+                {"slug": "acme", "offer": "services-0"},
+                user_approved=True,
+                idempotency_key="short",
+                transport=transport,
+            )
+        self.assertEqual(transport.calls, [])
 
     def test_dry_runs_negotiation_validation(self):
         transport = FakeTransport({"ok": True, "dryRun": True})

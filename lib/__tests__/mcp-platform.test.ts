@@ -40,10 +40,23 @@ describe('handlePlatformMcpRequest', () => {
   })
 
   it('nexez_search forwards to agent-search with the caller IP', async () => {
-    const r = await call('tools/call', { name: 'nexez_search', arguments: { q: 'plumber', limit: 5 } })
+    const r = await call('tools/call', {
+      name: 'nexez_search',
+      arguments: {
+        q: 'plumber',
+        limit: 5,
+        verified: true,
+        supports_checkout: true,
+        min_trust: 70,
+      },
+    })
     expect(calls[0].url).toContain('/api/agent-search')
     expect(calls[0].url).toContain('q=plumber')
+    expect(calls[0].url).toContain('verified=true')
+    expect(calls[0].url).toContain('supports_checkout=true')
+    expect(calls[0].url).toContain('min_trust=70')
     expect((calls[0].init?.headers as Record<string, string>)['x-forwarded-for']).toBe('1.2.3.4')
+    expect((calls[0].init?.headers as Record<string, string>)['x-nexez-client']).toBe('platform-mcp/1.0.0')
     expect((r.result as { content: { type: string }[] }).content[0].type).toBe('text')
   })
 

@@ -67,4 +67,41 @@ describe('GET /api/agent-search', () => {
     expect(body.search_url).toContain('lng=-87.6298')
     expect(body.usage.note).toContain('context metadata only')
   })
+
+  it('applies structured filters and returns an explainable canonical search URL', async () => {
+    const filteredPages = [{
+      ...pages[0],
+      industry: 'Management Consulting',
+      custom_domain_verified: true,
+      services: [{
+        ...pages[0].services[0],
+        offerType: 'negotiable',
+      }],
+    }]
+    dbRef.handler = (ctx: any) =>
+      ctx.table === 'pages_public' ? { data: filteredPages, error: null } : { data: null, error: null }
+
+    const res = await GET(new Request(
+      'https://nexez.test/api/agent-search?q=consult&industry=consulting&verified=true&supports_negotiation=true&price_band=100_500&min_readiness=10',
+    ))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.result_count).toBe(1)
+    expect(body.filters).toMatchObject({
+      industry: 'consulting',
+      verified: true,
+      supports_negotiation: true,
+      price_band: '100_500',
+      min_readiness: 10,
+    })
+    expect(body.results[0].match_reasons.length).toBeGreaterThan(0)
+    expect(body.search_url).toContain('supports_negotiation=true')
+  })
+
+  it('rejects invalid structured filter values', async () => {
+    const res = await GET(new Request('https://nexez.test/api/agent-search?q=consult&verified=yes'))
+    expect(res.status).toBe(400)
+    expect((await res.json()).code).toBe('invalid_search_filter')
+  })
 })

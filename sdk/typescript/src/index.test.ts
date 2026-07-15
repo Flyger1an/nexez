@@ -3,6 +3,7 @@ import {
   NexezApiError,
   NexezApprovalError,
   NexezTimeoutError,
+  browseDirectory,
   createNexezClient,
   getAgentPage,
   getNegotiationStatus,
@@ -75,6 +76,68 @@ describe('Nexez TypeScript SDK', () => {
       'https://agent.example/nexez/v1/api/agent-search?q=strategy+session&limit=3&location=Chicago%2C+IL&lat=41.88&lng=-87.63',
     )
     expect(calls[0].init?.method).toBe('GET')
+    expect(new Headers(calls[0].init?.headers).get('x-nexez-client')).toBe('typescript-sdk/0.3.0')
+  })
+
+  it('forwards structured marketplace filters without changing their meaning', async () => {
+    const { calls, fetchImpl } = captureFetch({
+      schema_version: 'nexez.agent-search.v1',
+      location_filter: { active: false, query: null, lat: null, lng: null, matching: 'none' },
+      filters: {},
+      results: [],
+    })
+
+    await searchNexez('strategy', {
+      fetch: fetchImpl,
+      category: 'professional',
+      industry: 'management consulting',
+      minReadiness: 75,
+      minTrust: 70,
+      verified: true,
+      supportsCheckout: true,
+      supportsNegotiation: false,
+      priceBand: '500_2000',
+    })
+
+    const url = new URL(calls[0].url)
+    expect(Object.fromEntries(url.searchParams)).toMatchObject({
+      category: 'professional',
+      industry: 'management consulting',
+      min_readiness: '75',
+      min_trust: '70',
+      verified: 'true',
+      supports_checkout: 'true',
+      supports_negotiation: 'false',
+      price_band: '500_2000',
+    })
+  })
+
+  it('browses the directory with category, readiness, and location filters', async () => {
+    const { calls, fetchImpl } = captureFetch({
+      schema_version: 'nexez.directory.v2',
+      count: 0,
+      filters: { category: 'professional', q: 'strategy', min_readiness: 80, location: 'Chicago, IL' },
+      location_filter: { active: true, query: 'Chicago, IL', lat: 41.88, lng: -87.63, matching: 'text' },
+      marketplace: {},
+      results: [],
+      note: 'Published pages.',
+    })
+
+    const result = await browseDirectory({
+      baseUrl: 'https://agent.example/nexez/v1/',
+      fetch: fetchImpl,
+      query: 'strategy',
+      category: 'professional',
+      minReadiness: 80,
+      location: 'Chicago, IL',
+      lat: 41.88,
+      lng: -87.63,
+    })
+
+    expect(result.schema_version).toBe('nexez.directory.v2')
+    expect(calls[0].url).toBe(
+      'https://agent.example/nexez/v1/api/directory?q=strategy&category=professional&min_readiness=80&location=Chicago%2C+IL&lat=41.88&lng=-87.63',
+    )
   })
 
   it('accepts only HTTP(S) base URLs without queries or fragments', () => {
@@ -153,12 +216,40 @@ describe('Nexez TypeScript SDK', () => {
     expect(calls).toHaveLength(0)
 
     await startCheckout(
-      { slug: 'acme', offer: 'services-0', userApproved: true, dryRun: true } as never,
-      { baseUrl: 'https://nexez.test', fetch: fetchImpl },
+      {
+        slug: 'acme',
+        offer: 'services-0',
+        approvalToken: 'approval-token',
+        userApproved: true,
+        dryRun: true,
+      } as never,
+      {
+        baseUrl: 'https://nexez.test',
+        fetch: fetchImpl,
+        buyerAgent: 'buyer-agent/1',
+        idempotencyKey: 'buyer-order-1234567890',
+      },
     )
 
-    expect(calls[0].body).toMatchObject({ slug: 'acme', offer: 'services-0', dryRun: false })
+    expect(calls[0].body).toMatchObject({
+      slug: 'acme',
+      offer: 'services-0',
+      approvalToken: 'approval-token',
+      dryRun: false,
+    })
     expect(calls[0].body).not.toHaveProperty('userApproved')
+    const headers = new Headers(calls[0].init?.headers)
+    expect(headers.get('idempotency-key')).toBe('buyer-order-1234567890')
+    expect(headers.get('x-nexez-buyer-agent')).toBe('buyer-agent/1')
+  })
+
+  it('rejects malformed idempotency keys before an action reaches the network', async () => {
+    const { calls, fetchImpl } = captureFetch({ url: 'https://seller.example/book' })
+    await expect(startCheckout(
+      { slug: 'acme', offer: 'services-0', userApproved: true },
+      { fetch: fetchImpl, idempotencyKey: 'short' },
+    )).rejects.toThrow('idempotencyKey')
+    expect(calls).toHaveLength(0)
   })
 
   it('normalizes a non-negotiable dry run into an actionable rejection', async () => {

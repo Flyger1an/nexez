@@ -27,7 +27,10 @@ if (!approvedByBuyer) {
 const submitted = await nexez.submitNegotiation({
   ...proposal,
   contact: 'buyer@example.com',
+  approvalToken: dryRun.approvalToken,
   userApproved: true,
+}, {
+  idempotencyKey: crypto.randomUUID(),
 })
 console.log({
   submitted: {

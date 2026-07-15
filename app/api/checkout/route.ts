@@ -24,6 +24,15 @@ import { getOwnerPlanId, getOwnerBillingState } from '../../../lib/server/plan'
 import { billingPlans } from '../../../lib/billing'
 import { getCalendlyPat, integrationCredentialsConfigured } from '../../../lib/server/page-integration-credentials'
 import { createCalendlySchedulingLink } from '../../../lib/server/calendly-write'
+import {
+  actionApprovalRequired,
+  actionApprovalSecret,
+  approvalInput,
+  issueActionApprovalToken,
+  parsePublicActionIdempotencyKey,
+  scopedIdempotencyHash,
+  verifyActionApprovalToken,
+} from '../../../lib/action-approval'
 
 type CheckoutInput = {
   slug: string
@@ -36,6 +45,7 @@ type CheckoutInput = {
   buyerName?: string
   buyerReference?: string
   buyerAgent?: string
+  approvalToken?: string
 }
 
 async function getPublishedPage(slug: string) {
@@ -60,7 +70,12 @@ export async function POST(request: Request) {
   const contentType = request.headers.get('content-type') || ''
   const wantsJson = contentType.includes('application/json') || request.headers.get('accept')?.includes('application/json')
   const input = await readCheckoutInput(request)
-  const buyer = parseBuyerIdentity(input)
+  const idempotency = parsePublicActionIdempotencyKey(request)
+  if (!idempotency.ok) return NextResponse.json({ error: idempotency.error, code: 'invalid_idempotency_key' }, { status: 400 })
+  const buyer = parseBuyerIdentity({
+    ...input,
+    buyerAgent: input.buyerAgent || request.headers.get('x-nexez-buyer-agent') || undefined,
+  })
 
   if (!input.slug || !input.offer) {
     return NextResponse.json({ error: 'Missing checkout page or offer.' }, { status: 400 })
@@ -79,6 +94,35 @@ export async function POST(request: Request) {
   }
 
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
+
+  if (!input.dryRun) {
+    const approvalSecret = actionApprovalSecret()
+    if (actionApprovalRequired() && !approvalSecret) {
+      return NextResponse.json(
+        { error: 'Action approval is required but not configured.', code: 'approval_not_configured' },
+        { status: 503 },
+      )
+    }
+    if (actionApprovalRequired() && !input.approvalToken) {
+      return NextResponse.json(
+        { error: 'Validate this checkout and obtain buyer approval before starting it.', code: 'approval_required' },
+        { status: 403 },
+      )
+    }
+    if (input.approvalToken) {
+      const approval = verifyActionApprovalToken(
+        input.approvalToken,
+        'checkout',
+        input as Record<string, unknown>,
+      )
+      if (!approval.ok) {
+        return NextResponse.json(
+          { error: 'Checkout approval is invalid, expired, or does not match this action.', code: 'approval_invalid' },
+          { status: 403 },
+        )
+      }
+    }
+  }
 
   // Smart Rules: calendar protection (Phase 1) - weekly booking cap + blackout
   // dates. Counting booked events needs the service-role client (events are
@@ -140,6 +184,9 @@ export async function POST(request: Request) {
       accept: request.headers.get('accept'),
       source: input.dryRun ? 'agent_simulator' : 'agent_checkout',
       dry_run: Boolean(input.dryRun),
+      buyer_agent: buyer.agent,
+      agent_client: cleanAgentHeader(request.headers.get('x-nexez-client')),
+      idempotency_key_present: Boolean(idempotency.key),
     },
   })
 
@@ -182,6 +229,13 @@ export async function POST(request: Request) {
   const commissionPercent = getCommissionPercentForPlan(ownerPlanId)
 
   if (input.dryRun) {
+    const approval = issueActionApprovalToken('checkout', approvalInput(input as Record<string, unknown>))
+    if (actionApprovalRequired() && !approval) {
+      return NextResponse.json(
+        { error: 'Action approval is required but not configured.', code: 'approval_not_configured' },
+        { status: 503 },
+      )
+    }
     return NextResponse.json({
       ok: true,
       provider: forceProviderHandoff ? 'provider_ready' : getDryRunProvider(destination, amountCents, connectAccountId),
@@ -193,6 +247,8 @@ export async function POST(request: Request) {
       events: {
         checkoutAttemptLogged: attemptLog.ok,
       },
+      approvalTokenRequired: actionApprovalRequired(),
+      ...(approval ?? {}),
     })
   }
 
@@ -261,7 +317,13 @@ export async function POST(request: Request) {
       if (buyer.reference) sessionParams.client_reference_id = buyer.reference
       Object.assign(sessionParams.metadata, buyerMetadata(buyer))
 
-      const session = await stripe.checkout.sessions.create(sessionParams, { stripeAccount: connectAccountId })
+      const stripeIdempotencyKey = idempotency.key
+        ? `nexez_checkout_${scopedIdempotencyHash('checkout', page.slug, idempotency.key)}`
+        : undefined
+      const session = await stripe.checkout.sessions.create(sessionParams, {
+        stripeAccount: connectAccountId,
+        ...(stripeIdempotencyKey ? { idempotencyKey: stripeIdempotencyKey } : {}),
+      })
 
       const sessionLog = await logCheckoutEvent({
         page,
@@ -293,6 +355,12 @@ export async function POST(request: Request) {
 
       return redirectTo(session.url || checkoutUrl)
     } catch (error) {
+      if (idempotency.key && isStripeIdempotencyConflict(error)) {
+        return NextResponse.json(
+          { error: 'This Idempotency-Key was already used for a different checkout action.', code: 'idempotency_conflict' },
+          { status: 409 },
+        )
+      }
       const errorLog = await logCheckoutEvent({
         page,
         offer,
@@ -382,6 +450,7 @@ async function readCheckoutInput(request: Request): Promise<CheckoutInput> {
       buyerName: str(body.buyerName),
       buyerReference: str(body.buyerReference),
       buyerAgent: str(body.buyerAgent),
+      approvalToken: str(body.approvalToken),
     }
   }
 
@@ -396,7 +465,19 @@ async function readCheckoutInput(request: Request): Promise<CheckoutInput> {
     buyerName: str(formData.get('buyerName')),
     buyerReference: str(formData.get('buyerReference')),
     buyerAgent: str(formData.get('buyerAgent')),
+    approvalToken: str(formData.get('approvalToken')),
   }
+}
+
+function cleanAgentHeader(value: string | null) {
+  if (!value) return null
+  return value.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 120) || null
+}
+
+function isStripeIdempotencyConflict(error: unknown) {
+  if (!error || typeof error !== 'object') return false
+  const candidate = error as { code?: unknown; type?: unknown }
+  return candidate.code === 'idempotency_key_in_use' || candidate.type === 'StripeIdempotencyError'
 }
 
 // Mint a single-use Calendly booking link when the resolved offer is a Calendly

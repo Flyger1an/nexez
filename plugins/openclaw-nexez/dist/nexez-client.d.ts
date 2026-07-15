@@ -15,6 +15,10 @@ export declare class NexezApprovalError extends Error {
     readonly status = 403;
     constructor(action: string);
 }
+export declare class NexezTimeoutError extends Error {
+    readonly timeoutMs: number;
+    constructor(timeoutMs: number);
+}
 export declare function resolveBaseUrl(config?: NexezPluginConfig): string;
 export declare function searchAgentPages(params: {
     query?: string;
@@ -22,6 +26,14 @@ export declare function searchAgentPages(params: {
     limit?: number;
     lat?: number;
     lng?: number;
+    category?: 'all' | 'professional' | 'consumer';
+    industry?: string;
+    minReadiness?: number;
+    minTrust?: number;
+    verified?: boolean;
+    supportsCheckout?: boolean;
+    supportsNegotiation?: boolean;
+    priceBand?: 'free' | 'under_100' | '100_500' | '500_2000' | '2000_plus' | 'custom';
 }, config?: NexezPluginConfig, signal?: AbortSignal): Promise<any>;
 export declare function browseDirectory(params: {
     query?: string;
@@ -37,11 +49,25 @@ export declare function getAgentPage(params: {
 export declare function validateCheckout(params: CheckoutInput, config?: NexezPluginConfig, signal?: AbortSignal): Promise<any>;
 export declare function startCheckout(params: CheckoutInput & {
     userApproved: boolean;
+    idempotencyKey?: string;
 }, config?: NexezPluginConfig, signal?: AbortSignal): Promise<any>;
 export declare function validateNegotiation(params: NegotiationInput, config?: NexezPluginConfig, signal?: AbortSignal): Promise<any>;
 export declare function submitNegotiation(params: NegotiationInput & {
     userApproved: boolean;
+    idempotencyKey?: string;
 }, config?: NexezPluginConfig, signal?: AbortSignal): Promise<any>;
+export declare function getNegotiationStatus(params: {
+    negotiationId: string;
+    statusToken: string;
+}, config?: NexezPluginConfig, signal?: AbortSignal): Promise<any>;
+export declare function waitForNegotiationDecision(params: {
+    negotiationId: string;
+    statusToken: string;
+    timeoutMs?: number;
+    intervalMs?: number;
+}, config?: NexezPluginConfig, signal?: AbortSignal): Promise<{
+    decisionPending: boolean;
+}>;
 type CheckoutInput = {
     slug: string;
     offer: string;
@@ -50,6 +76,7 @@ type CheckoutInput = {
     buyerName?: string;
     buyerReference?: string;
     buyerAgent?: string;
+    approvalToken?: string;
 };
 type NegotiationInput = {
     slug: string;
@@ -60,5 +87,8 @@ type NegotiationInput = {
     contact?: string;
     buyerAgent?: string;
     requestedTerms?: Record<string, JsonValue>;
+    negotiationId?: string;
+    statusToken?: string;
+    approvalToken?: string;
 };
 export {};

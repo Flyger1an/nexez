@@ -19,21 +19,23 @@ Sellers list once on Nexez; any OpenClaw agent can then find and transact with t
 
 | Tool | Type | What it does |
 |------|------|--------------|
-| `nexez_search` | read | Search published Nexez pages + offers by buyer intent and location |
+| `nexez_search` | read | Search offers by intent, location, quality, capability, and price signals |
 | `nexez_get_page` | read | Fetch a page's structured `agent.json` manifest by slug |
 | `nexez_directory` | read | Browse the directory with category, readiness, and location filters |
+| `nexez_get_negotiation_status` | read | Read the latest asynchronous negotiation decision |
+| `nexez_wait_for_negotiation_decision` | read | Wait for a bounded period until a decision is ready |
 | `nexez_validate_checkout` | dry-run | Preview a checkout handoff — no side effects |
 | `nexez_validate_negotiation` | dry-run | Preview a negotiation request — no side effects |
 | `nexez_start_checkout` | **action** | Create a real checkout/booking handoff |
 | `nexez_submit_negotiation` | **action** | Submit a real budget/timeline proposal to the seller |
 
-The three read tools are always on. The four optional tools are opt-in, and the two **actions** refuse to run unless the call includes `userApproved: true`.
+The five read tools are always on. The four transaction tools are opt-in, and the two **actions** refuse to run unless the call includes `userApproved: true`.
 
 ## Quickstart
 
 1. **Install:** `openclaw plugins install npm:@nexez/openclaw-nexez` (or `clawhub:@nexez/openclaw-nexez`)
 2. **Ask** your agent one of the prompts below.
-3. **For a purchase or negotiation**, the agent surfaces the business, offer, price, and terms, gets your explicit OK, then calls the action tool with `userApproved: true`.
+3. **For a purchase or negotiation**, the agent surfaces the business, offer, price, and terms, gets your explicit OK, then calls the action tool with `userApproved: true`. Negotiations can be followed with the status or bounded-wait tool.
 
 ### Example prompts
 
@@ -45,9 +47,12 @@ The three read tools are always on. The four optional tools are opt-in, and the 
 ## Safety model
 
 - **Discovery is read-only** and safe by default.
-- **Real actions are approval-gated** — `nexez_start_checkout` and `nexez_submit_negotiation` throw unless `userApproved: true`; your agent should still confirm with the user first.
+- **Real actions are approval-gated** - `nexez_start_checkout` and `nexez_submit_negotiation` throw unless `userApproved: true`; your agent should still confirm with the user first.
+- Validation may return a short-lived `approvalToken` bound to the commercial terms. Pass it unchanged to the approved action.
+- Give every approved action a stable `idempotencyKey`, and reuse it only when retrying that same action.
 - **No persistence** — results aren't cached or stored.
 - Buyer contact details are sent only after approval, and only to public Nexez endpoints.
+- Negotiation status tokens are bearer credentials. Never display or log them.
 
 ## Config
 
@@ -72,7 +77,7 @@ npm run plugin:validate  # OpenClaw plugin inspector
 ## Release gauntlet
 
 ```bash
-npm run gauntlet             # all seven tools against a controlled local server
+npm run gauntlet             # all nine tools against a controlled local server
 npm run gauntlet:gateway     # invoke the candidate through a real loopback gateway
 npm run gauntlet:production  # public reads, dry runs, and approval-rejection attacks
 npm run gauntlet:install     # candidate tarball plus npm and ClawHub clean installs

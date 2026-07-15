@@ -224,6 +224,31 @@ describe('NegotiationService.submitProposal (sync phase - no LLM)', () => {
       }),
     ).rejects.toMatchObject({ status: 409 })
   })
+
+  it('replays an identical idempotent proposal and rejects changed terms with the same key', async () => {
+    const state = seedNegotiationDb(demoPage())
+    const service = new NegotiationService(okLLM({ action: 'counter', reasoning: 'r' }))
+    const params = {
+      slug: 'demo',
+      offerKey: 'services-0',
+      buyerProposal: { proposedPriceCents: 9000 },
+      idempotencyKeyHash: 'a'.repeat(64),
+      idempotencyRequestHash: 'b'.repeat(64),
+    }
+
+    const created = await service.submitProposal(params)
+    const replayed = await service.submitProposal(params)
+    expect(created.replayed).toBe(false)
+    expect(replayed.replayed).toBe(true)
+    expect(replayed.negotiationId).toBe(created.negotiationId)
+    expect(state.messages).toHaveLength(1)
+
+    await expect(service.submitProposal({
+      ...params,
+      buyerProposal: { proposedPriceCents: 7500 },
+      idempotencyRequestHash: 'c'.repeat(64),
+    })).rejects.toMatchObject({ status: 409, code: 'idempotency_conflict' })
+  })
 })
 
 describe('NegotiationService.runDecision (async phase - LLM + claim)', () => {

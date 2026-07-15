@@ -11,7 +11,7 @@ from urllib.request import Request, urlopen
 
 NEXEZ_DEFAULT_BASE_URL = "https://nexez.app"
 NEXEZ_MAX_DECISION_WAIT_SECONDS = 300.0
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 JsonObject = Dict[str, Any]
 TransportResult = Tuple[int, Mapping[str, str], bytes]
@@ -29,6 +29,7 @@ class CheckoutInput(_OfferReference, total=False):
     buyerName: str
     buyerReference: str
     buyerAgent: str
+    approvalToken: str
 
 
 class NegotiationInput(_OfferReference, total=False):
@@ -40,6 +41,7 @@ class NegotiationInput(_OfferReference, total=False):
     contact: str
     negotiationId: str
     statusToken: str
+    approvalToken: str
 
 
 class NexezSearchResponse(TypedDict, total=False):
@@ -51,6 +53,16 @@ class NexezSearchResponse(TypedDict, total=False):
     location_filter: JsonObject
     results: List[JsonObject]
     usage: JsonObject
+
+
+class NexezDirectoryResponse(TypedDict, total=False):
+    schema_version: str
+    count: int
+    filters: JsonObject
+    location_filter: JsonObject
+    marketplace: JsonObject
+    results: List[JsonObject]
+    note: str
 
 
 class AgentPageManifest(TypedDict, total=False):
@@ -79,6 +91,9 @@ class CheckoutResponse(TypedDict, total=False):
     events: Dict[str, bool]
     error: str
     code: str
+    approvalTokenRequired: bool
+    approvalToken: str
+    approvalExpiresAt: str
 
 
 class NegotiationDryRunResponse(TypedDict, total=False):
@@ -87,6 +102,9 @@ class NegotiationDryRunResponse(TypedDict, total=False):
     rulesEvaluation: Any
     publicPageUrl: str
     error: str
+    approvalTokenRequired: bool
+    approvalToken: str
+    approvalExpiresAt: str
 
 
 class NegotiationSubmitResponse(TypedDict, total=False):
@@ -103,6 +121,8 @@ class NegotiationSubmitResponse(TypedDict, total=False):
     message: str
     statusToken: str
     statusUrl: str
+    replayed: bool
+    idempotencyKeyAccepted: bool
     error: str
 
 
@@ -180,6 +200,14 @@ class NexezClient:
         *,
         limit: Optional[int] = None,
         location: Optional[str] = None,
+        category: str = "all",
+        industry: Optional[str] = None,
+        min_readiness: Optional[int] = None,
+        min_trust: Optional[int] = None,
+        verified: Optional[bool] = None,
+        supports_checkout: Optional[bool] = None,
+        supports_negotiation: Optional[bool] = None,
+        price_band: Optional[str] = None,
         lat: Optional[float] = None,
         lng: Optional[float] = None,
     ) -> NexezSearchResponse:
@@ -191,6 +219,23 @@ class NexezClient:
                 raise ValueError("limit must be between 1 and 50.")
         if location is not None:
             _require_text(location, "location", max_length=300)
+        if category not in {"all", "professional", "consumer"}:
+            raise ValueError("category must be all, professional, or consumer.")
+        if industry is not None:
+            _require_text(industry, "industry", max_length=100)
+        _optional_score(min_readiness, "min_readiness")
+        _optional_score(min_trust, "min_trust")
+        for value, label in (
+            (verified, "verified"),
+            (supports_checkout, "supports_checkout"),
+            (supports_negotiation, "supports_negotiation"),
+        ):
+            if value is not None and not isinstance(value, bool):
+                raise TypeError(f"{label} must be a boolean.")
+        if price_band is not None and price_band not in {
+            "free", "under_100", "100_500", "500_2000", "2000_plus", "custom"
+        }:
+            raise ValueError("price_band is not supported.")
         if lat is not None:
             lat = _bounded_number(lat, "lat", -90, 90)
         if lng is not None:
@@ -201,11 +246,66 @@ class NexezClient:
             params["limit"] = limit
         if location is not None:
             params["location"] = location
+        if category != "all":
+            params["category"] = category
+        if industry is not None:
+            params["industry"] = industry
+        if min_readiness is not None:
+            params["min_readiness"] = min_readiness
+        if min_trust is not None:
+            params["min_trust"] = min_trust
+        if verified is not None:
+            params["verified"] = str(verified).lower()
+        if supports_checkout is not None:
+            params["supports_checkout"] = str(supports_checkout).lower()
+        if supports_negotiation is not None:
+            params["supports_negotiation"] = str(supports_negotiation).lower()
+        if price_band is not None:
+            params["price_band"] = price_band
         if lat is not None:
             params["lat"] = lat
         if lng is not None:
             params["lng"] = lng
         return cast(NexezSearchResponse, self._request_json(f"/api/agent-search?{urlencode(params)}"))
+
+    def browse_directory(
+        self,
+        *,
+        query: Optional[str] = None,
+        category: str = "all",
+        min_readiness: Optional[int] = None,
+        location: Optional[str] = None,
+        lat: Optional[float] = None,
+        lng: Optional[float] = None,
+    ) -> NexezDirectoryResponse:
+        if query is not None:
+            _require_text(query, "query", max_length=2_000)
+        if category not in {"all", "professional", "consumer"}:
+            raise ValueError("category must be all, professional, or consumer.")
+        if min_readiness is not None:
+            if isinstance(min_readiness, bool) or not isinstance(min_readiness, int):
+                raise TypeError("min_readiness must be an integer between 0 and 100.")
+            if min_readiness < 0 or min_readiness > 100:
+                raise ValueError("min_readiness must be between 0 and 100.")
+        if location is not None:
+            _require_text(location, "location", max_length=300)
+        if lat is not None:
+            lat = _bounded_number(lat, "lat", -90, 90)
+        if lng is not None:
+            lng = _bounded_number(lng, "lng", -180, 180)
+
+        params: Dict[str, Any] = {"category": category}
+        if query is not None:
+            params["q"] = query
+        if min_readiness is not None:
+            params["min_readiness"] = min_readiness
+        if location is not None:
+            params["location"] = location
+        if lat is not None:
+            params["lat"] = lat
+        if lng is not None:
+            params["lng"] = lng
+        return cast(NexezDirectoryResponse, self._request_json(f"/api/directory?{urlencode(params)}"))
 
     def get_agent_page(self, slug: str) -> AgentPageManifest:
         _validate_slug(slug)
@@ -228,6 +328,7 @@ class NexezClient:
         payload: Optional[Mapping[str, Any]] = None,
         *,
         user_approved: bool = False,
+        idempotency_key: Optional[str] = None,
         **kwargs: Any,
     ) -> CheckoutResponse:
         _require_approval(user_approved, "start_checkout")
@@ -236,7 +337,15 @@ class NexezClient:
         body.pop("userApproved", None)
         self._inject_buyer_agent(body)
         body["dryRun"] = False
-        return cast(CheckoutResponse, self._request_json("/api/checkout", method="POST", body=body))
+        return cast(
+            CheckoutResponse,
+            self._request_json(
+                "/api/checkout",
+                method="POST",
+                body=body,
+                idempotency_key=idempotency_key,
+            ),
+        )
 
     def validate_negotiation(
         self,
@@ -258,6 +367,7 @@ class NexezClient:
         payload: Optional[Mapping[str, Any]] = None,
         *,
         user_approved: bool = False,
+        idempotency_key: Optional[str] = None,
         **kwargs: Any,
     ) -> NegotiationSubmitResponse:
         _require_approval(user_approved, "submit_negotiation")
@@ -268,7 +378,12 @@ class NexezClient:
         body["dryRun"] = False
         return cast(
             NegotiationSubmitResponse,
-            self._request_json("/api/negotiations", method="POST", body=body),
+            self._request_json(
+                "/api/negotiations",
+                method="POST",
+                body=body,
+                idempotency_key=idempotency_key,
+            ),
         )
 
     def get_negotiation_status(self, negotiation_id: str, status_token: str) -> NegotiationStatusResponse:
@@ -328,6 +443,7 @@ class NexezClient:
         method: str = "GET",
         body: Optional[JsonObject] = None,
         request_timeout: Optional[float] = None,
+        idempotency_key: Optional[str] = None,
     ) -> JsonObject:
         url = _resolve_url(self.base_url, path)
         safe_url = _redact_url(url)
@@ -335,7 +451,12 @@ class NexezClient:
         headers = {
             "accept": "application/json",
             "user-agent": f"nexez-agent-sdk-python/{__version__}",
+            "x-nexez-client": f"python-sdk/{__version__}",
         }
+        if self.buyer_agent:
+            headers["x-nexez-buyer-agent"] = self.buyer_agent
+        if idempotency_key is not None:
+            headers["idempotency-key"] = _validate_idempotency_key(idempotency_key)
         if raw_body is not None:
             headers["content-type"] = "application/json"
 
@@ -401,6 +522,14 @@ def search_nexez(
     *,
     limit: Optional[int] = None,
     location: Optional[str] = None,
+    category: str = "all",
+    industry: Optional[str] = None,
+    min_readiness: Optional[int] = None,
+    min_trust: Optional[int] = None,
+    verified: Optional[bool] = None,
+    supports_checkout: Optional[bool] = None,
+    supports_negotiation: Optional[bool] = None,
+    price_band: Optional[str] = None,
     lat: Optional[float] = None,
     lng: Optional[float] = None,
     base_url: str = NEXEZ_DEFAULT_BASE_URL,
@@ -409,7 +538,45 @@ def search_nexez(
     transport: Optional[Transport] = None,
 ) -> NexezSearchResponse:
     client = NexezClient(base_url, buyer_agent=buyer_agent, timeout=timeout, transport=transport)
-    return client.search(query, limit=limit, location=location, lat=lat, lng=lng)
+    return client.search(
+        query,
+        limit=limit,
+        location=location,
+        category=category,
+        industry=industry,
+        min_readiness=min_readiness,
+        min_trust=min_trust,
+        verified=verified,
+        supports_checkout=supports_checkout,
+        supports_negotiation=supports_negotiation,
+        price_band=price_band,
+        lat=lat,
+        lng=lng,
+    )
+
+
+def browse_directory(
+    *,
+    query: Optional[str] = None,
+    category: str = "all",
+    min_readiness: Optional[int] = None,
+    location: Optional[str] = None,
+    lat: Optional[float] = None,
+    lng: Optional[float] = None,
+    base_url: str = NEXEZ_DEFAULT_BASE_URL,
+    buyer_agent: Optional[str] = None,
+    timeout: float = 15,
+    transport: Optional[Transport] = None,
+) -> NexezDirectoryResponse:
+    client = NexezClient(base_url, buyer_agent=buyer_agent, timeout=timeout, transport=transport)
+    return client.browse_directory(
+        query=query,
+        category=category,
+        min_readiness=min_readiness,
+        location=location,
+        lat=lat,
+        lng=lng,
+    )
 
 
 def get_agent_page(
@@ -441,6 +608,7 @@ def start_checkout(
     payload: Optional[Mapping[str, Any]] = None,
     *,
     user_approved: bool = False,
+    idempotency_key: Optional[str] = None,
     base_url: str = NEXEZ_DEFAULT_BASE_URL,
     buyer_agent: Optional[str] = None,
     timeout: float = 15,
@@ -448,7 +616,12 @@ def start_checkout(
     **kwargs: Any,
 ) -> CheckoutResponse:
     client = NexezClient(base_url, buyer_agent=buyer_agent, timeout=timeout, transport=transport)
-    return client.start_checkout(payload, user_approved=user_approved, **kwargs)
+    return client.start_checkout(
+        payload,
+        user_approved=user_approved,
+        idempotency_key=idempotency_key,
+        **kwargs,
+    )
 
 
 def validate_negotiation(
@@ -468,6 +641,7 @@ def submit_negotiation(
     payload: Optional[Mapping[str, Any]] = None,
     *,
     user_approved: bool = False,
+    idempotency_key: Optional[str] = None,
     base_url: str = NEXEZ_DEFAULT_BASE_URL,
     buyer_agent: Optional[str] = None,
     timeout: float = 15,
@@ -475,7 +649,12 @@ def submit_negotiation(
     **kwargs: Any,
 ) -> NegotiationSubmitResponse:
     client = NexezClient(base_url, buyer_agent=buyer_agent, timeout=timeout, transport=transport)
-    return client.submit_negotiation(payload, user_approved=user_approved, **kwargs)
+    return client.submit_negotiation(
+        payload,
+        user_approved=user_approved,
+        idempotency_key=idempotency_key,
+        **kwargs,
+    )
 
 
 def get_negotiation_status(
@@ -540,6 +719,7 @@ _ALIASES = {
     "requested_terms": "requestedTerms",
     "negotiation_id": "negotiationId",
     "status_token": "statusToken",
+    "approval_token": "approvalToken",
     "user_approved": "userApproved",
 }
 
@@ -579,6 +759,7 @@ def _validate_action_payload(body: JsonObject, action: str) -> None:
         ("contact", "contact", 500),
         ("negotiationId", "negotiation id", 200),
         ("statusToken", "status token", 512),
+        ("approvalToken", "approval token", 2_048),
     ):
         value = body.get(key)
         if value is not None:
@@ -691,6 +872,24 @@ def _require_approval(value: bool, action: str) -> None:
         raise ValueError(f"{action} requires explicit buyer approval: user_approved must be True.")
 
 
+def _validate_idempotency_key(value: Any) -> str:
+    if not isinstance(value, str):
+        raise TypeError("idempotency_key must be a string.")
+    key = value.strip()
+    if not re.fullmatch(r"[A-Za-z0-9._~:-]{16,255}", key):
+        raise ValueError("idempotency_key must contain 16 to 255 safe token characters.")
+    return key
+
+
+def _optional_score(value: Any, label: str) -> None:
+    if value is None:
+        return
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{label} must be an integer between 0 and 100.")
+    if value < 0 or value > 100:
+        raise ValueError(f"{label} must be between 0 and 100.")
+
+
 __all__ = [
     "AgentPageManifest",
     "CheckoutInput",
@@ -703,12 +902,14 @@ __all__ = [
     "NegotiationSubmitResponse",
     "NexezApiError",
     "NexezClient",
+    "NexezDirectoryResponse",
     "NexezError",
     "NexezProtocolError",
     "NexezSearchResponse",
     "NexezTransportError",
     "Transport",
     "__version__",
+    "browse_directory",
     "create_client",
     "create_nexez_client",
     "get_agent_page",

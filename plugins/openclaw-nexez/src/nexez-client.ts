@@ -13,6 +13,12 @@ export type JsonValue =
 
 type QueryValue = string | number | boolean | null | undefined
 
+const MAX_DECISION_WAIT_MS = 5 * 60_000
+const MIN_POLL_INTERVAL_MS = 1_000
+const MAX_POLL_INTERVAL_MS = 30_000
+const NEXEZ_PLUGIN_VERSION = '0.2.0'
+const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9._~:-]{16,255}$/
+
 export class NexezApiError extends Error {
   readonly status: number
   readonly url: string
@@ -38,13 +44,29 @@ export class NexezApprovalError extends Error {
   }
 }
 
+export class NexezTimeoutError extends Error {
+  readonly timeoutMs: number
+
+  constructor(timeoutMs: number) {
+    super(`Nexez negotiation decision was still pending after ${timeoutMs}ms.`)
+    this.name = 'NexezTimeoutError'
+    this.timeoutMs = timeoutMs
+  }
+}
+
 export function resolveBaseUrl(config?: NexezPluginConfig) {
   const raw = config?.baseUrl || process.env.NEXEZ_BASE_URL || 'https://nexez.app'
   const parsed = new URL(raw)
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error('Nexez baseUrl must use http or https.')
   }
-  return parsed.origin + parsed.pathname.replace(/\/$/, '')
+  if (parsed.username || parsed.password) {
+    throw new Error('Nexez baseUrl must not include credentials.')
+  }
+  if (parsed.search || parsed.hash) {
+    throw new Error('Nexez baseUrl must not include a query string or fragment.')
+  }
+  return parsed.origin + parsed.pathname.replace(/\/+$/, '')
 }
 
 export async function searchAgentPages(
@@ -54,6 +76,14 @@ export async function searchAgentPages(
     limit?: number
     lat?: number
     lng?: number
+    category?: 'all' | 'professional' | 'consumer'
+    industry?: string
+    minReadiness?: number
+    minTrust?: number
+    verified?: boolean
+    supportsCheckout?: boolean
+    supportsNegotiation?: boolean
+    priceBand?: 'free' | 'under_100' | '100_500' | '500_2000' | '2000_plus' | 'custom'
   },
   config?: NexezPluginConfig,
   signal?: AbortSignal,
@@ -65,6 +95,14 @@ export async function searchAgentPages(
       limit: clampLimit(params.limit, 10),
       lat: params.lat,
       lng: params.lng,
+      category: params.category === 'all' ? undefined : params.category,
+      industry: params.industry,
+      min_readiness: clampReadiness(params.minReadiness),
+      min_trust: clampReadiness(params.minTrust),
+      verified: params.verified,
+      supports_checkout: params.supportsCheckout,
+      supports_negotiation: params.supportsNegotiation,
+      price_band: params.priceBand,
     },
     signal,
   }, config)
@@ -112,13 +150,19 @@ export async function validateCheckout(
 }
 
 export async function startCheckout(
-  params: CheckoutInput & { userApproved: boolean },
+  params: CheckoutInput & { userApproved: boolean; idempotencyKey?: string },
   config?: NexezPluginConfig,
   signal?: AbortSignal,
 ) {
   assertApproved(params.userApproved, 'checkout')
-  const { userApproved: _userApproved, ...input } = params
-  return postJson('/api/checkout', { ...input, dryRun: false, buyerAgent: input.buyerAgent || 'openclaw' }, config, signal)
+  const { userApproved: _userApproved, idempotencyKey, ...input } = params
+  return postJson(
+    '/api/checkout',
+    { ...input, dryRun: false, buyerAgent: input.buyerAgent || 'openclaw' },
+    config,
+    signal,
+    idempotencyKey,
+  )
 }
 
 export async function validateNegotiation(
@@ -148,13 +192,66 @@ export async function validateNegotiation(
 }
 
 export async function submitNegotiation(
-  params: NegotiationInput & { userApproved: boolean },
+  params: NegotiationInput & { userApproved: boolean; idempotencyKey?: string },
   config?: NexezPluginConfig,
   signal?: AbortSignal,
 ) {
   assertApproved(params.userApproved, 'negotiation')
-  const { userApproved: _userApproved, ...input } = params
-  return postJson('/api/negotiations', { ...input, dryRun: false, buyerAgent: input.buyerAgent || 'openclaw' }, config, signal)
+  const { userApproved: _userApproved, idempotencyKey, ...input } = params
+  return postJson(
+    '/api/negotiations',
+    { ...input, dryRun: false, buyerAgent: input.buyerAgent || 'openclaw' },
+    config,
+    signal,
+    idempotencyKey,
+  )
+}
+
+export async function getNegotiationStatus(
+  params: { negotiationId: string; statusToken: string },
+  config?: NexezPluginConfig,
+  signal?: AbortSignal,
+) {
+  assertOpaqueValue(params.negotiationId, 'negotiation id')
+  assertOpaqueValue(params.statusToken, 'status token')
+  const result = await requestJson('/api/negotiations/status', {
+    query: { id: params.negotiationId, token: params.statusToken },
+    signal,
+  }, config)
+  if (!result || typeof result !== 'object' || typeof (result as { decisionPending?: unknown }).decisionPending !== 'boolean') {
+    throw new NexezApiError(
+      'Nexez returned an invalid negotiation status response.',
+      200,
+      `${resolveBaseUrl(config)}/api/negotiations/status`,
+      JSON.stringify(result).slice(0, 1000),
+    )
+  }
+  return result
+}
+
+export async function waitForNegotiationDecision(
+  params: {
+    negotiationId: string
+    statusToken: string
+    timeoutMs?: number
+    intervalMs?: number
+  },
+  config?: NexezPluginConfig,
+  signal?: AbortSignal,
+) {
+  const timeoutMs = boundedInteger(params.timeoutMs ?? 30_000, 'timeoutMs', 1, MAX_DECISION_WAIT_MS)
+  const intervalMs = boundedInteger(params.intervalMs ?? 1_000, 'intervalMs', MIN_POLL_INTERVAL_MS, MAX_POLL_INTERVAL_MS)
+  const startedAt = Date.now()
+
+  while (true) {
+    throwIfAborted(signal)
+    if (Date.now() - startedAt >= timeoutMs) throw new NexezTimeoutError(timeoutMs)
+    const status = await getNegotiationStatus(params, config, signal) as { decisionPending: boolean }
+    if (!status.decisionPending) return status
+    const remainingMs = timeoutMs - (Date.now() - startedAt)
+    if (remainingMs <= 0) throw new NexezTimeoutError(timeoutMs)
+    await abortableDelay(Math.min(intervalMs, remainingMs), signal)
+  }
 }
 
 type CheckoutInput = {
@@ -165,6 +262,7 @@ type CheckoutInput = {
   buyerName?: string
   buyerReference?: string
   buyerAgent?: string
+  approvalToken?: string
 }
 
 type NegotiationInput = {
@@ -176,6 +274,9 @@ type NegotiationInput = {
   contact?: string
   buyerAgent?: string
   requestedTerms?: Record<string, JsonValue>
+  negotiationId?: string
+  statusToken?: string
+  approvalToken?: string
 }
 
 async function postJson(
@@ -183,11 +284,14 @@ async function postJson(
   body: Record<string, unknown>,
   config?: NexezPluginConfig,
   signal?: AbortSignal,
+  idempotencyKey?: string,
 ) {
   return requestJson(path, {
     method: 'POST',
     body,
     signal,
+    buyerAgent: typeof body.buyerAgent === 'string' ? body.buyerAgent : undefined,
+    idempotencyKey,
   }, config)
 }
 
@@ -227,6 +331,8 @@ async function requestJson(
     query?: Record<string, QueryValue>
     body?: Record<string, unknown>
     signal?: AbortSignal
+    buyerAgent?: string
+    idempotencyKey?: string
   },
   config?: NexezPluginConfig,
 ) {
@@ -237,12 +343,18 @@ async function requestJson(
     }
   }
 
+  const idempotencyKey = options.idempotencyKey
+    ? validateIdempotencyKey(options.idempotencyKey)
+    : undefined
   const response = await fetch(url, {
     method: options.method || 'GET',
     signal: options.signal,
     headers: {
       Accept: 'application/json',
       'User-Agent': config?.userAgent || 'OpenClaw Nexez Plugin',
+      'x-nexez-client': `openclaw-plugin/${NEXEZ_PLUGIN_VERSION}`,
+      ...(options.buyerAgent ? { 'x-nexez-buyer-agent': options.buyerAgent } : {}),
+      ...(idempotencyKey ? { 'idempotency-key': idempotencyKey } : {}),
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
@@ -250,13 +362,13 @@ async function requestJson(
 
   const text = await response.text()
   if (!response.ok) {
-    throw new NexezApiError(`Nexez request failed with ${response.status}.`, response.status, url.toString(), text.slice(0, 1000))
+    throw new NexezApiError(`Nexez request failed with ${response.status}.`, response.status, redactSensitiveUrl(url), text.slice(0, 1000))
   }
 
   try {
     return JSON.parse(text)
   } catch {
-    throw new NexezApiError('Nexez returned a non-JSON response.', response.status, url.toString(), text.slice(0, 1000))
+    throw new NexezApiError('Nexez returned a non-JSON response.', response.status, redactSensitiveUrl(url), text.slice(0, 1000))
   }
 }
 
@@ -274,6 +386,59 @@ function assertApproved(userApproved: boolean, action: string) {
   if (userApproved !== true) {
     throw new NexezApprovalError(action)
   }
+}
+
+function validateIdempotencyKey(value: string) {
+  const key = value.trim()
+  if (!IDEMPOTENCY_KEY_RE.test(key)) {
+    throw new Error('Nexez idempotencyKey must contain 16 to 255 safe token characters.')
+  }
+  return key
+}
+
+function assertOpaqueValue(value: string, label: string) {
+  if (
+    typeof value !== 'string' ||
+    value.length === 0 ||
+    value.length > 2_048 ||
+    value.trim() !== value ||
+    /[\u0000-\u001f\u007f]/.test(value)
+  ) {
+    throw new Error(`Invalid Nexez ${label}.`)
+  }
+}
+
+function boundedInteger(value: number, label: string, minimum: number, maximum: number) {
+  if (!Number.isFinite(value) || value < minimum || value > maximum) {
+    throw new RangeError(`${label} must be between ${minimum} and ${maximum} milliseconds.`)
+  }
+  return Math.floor(value)
+}
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) throw signal.reason ?? new DOMException('The operation was aborted.', 'AbortError')
+}
+
+function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
+  throwIfAborted(signal)
+  if (!signal) return new Promise((resolve) => setTimeout(resolve, ms))
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timeout)
+      reject(signal.reason ?? new DOMException('The operation was aborted.', 'AbortError'))
+    }
+    const timeout = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
+function redactSensitiveUrl(url: URL) {
+  const safe = new URL(url)
+  if (safe.searchParams.has('token')) safe.searchParams.set('token', '[redacted]')
+  return safe.toString()
 }
 
 function hasRuleReason(value: unknown, reason: string) {

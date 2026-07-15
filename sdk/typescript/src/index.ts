@@ -1,4 +1,5 @@
 export const NEXEZ_DEFAULT_BASE_URL = 'https://nexez.app'
+export const NEXEZ_SDK_VERSION = '0.3.0'
 export const NEXEZ_DEFAULT_TIMEOUT_MS = 15_000
 export const NEXEZ_DEFAULT_WAIT_TIMEOUT_MS = 30_000
 export const NEXEZ_DEFAULT_POLL_INTERVAL_MS = 1_000
@@ -21,6 +22,11 @@ export type NexezRequestOptions = {
   timeoutMs?: number
 }
 
+export type NexezActionOptions = NexezRequestOptions & {
+  /** Stable high-entropy key used to collapse a retried checkout or negotiation action. */
+  idempotencyKey?: string
+}
+
 export type NexezClientOptions = {
   /** Public Nexez agent runtime. Defaults to https://nexez.app. Paths are preserved for proxy deployments. */
   baseUrl?: string
@@ -34,6 +40,28 @@ export type NexezClientOptions = {
 
 export type SearchOptions = NexezRequestOptions & {
   limit?: number
+  location?: string
+  category?: DirectoryCategory
+  industry?: string
+  minReadiness?: number
+  minTrust?: number
+  verified?: boolean
+  supportsCheckout?: boolean
+  supportsNegotiation?: boolean
+  priceBand?: NexezMarketplacePriceBand
+  /** Coordinate context echoed by the API; coordinates do not currently filter results. */
+  lat?: number
+  /** Coordinate context echoed by the API; coordinates do not currently filter results. */
+  lng?: number
+}
+
+export type DirectoryCategory = 'all' | 'professional' | 'consumer'
+export type NexezMarketplacePriceBand = 'free' | 'under_100' | '100_500' | '500_2000' | '2000_plus' | 'custom'
+
+export type DirectoryOptions = NexezRequestOptions & {
+  query?: string
+  category?: DirectoryCategory
+  minReadiness?: number
   location?: string
   /** Coordinate context echoed by the API; coordinates do not currently filter results. */
   lat?: number
@@ -59,11 +87,61 @@ export type NexezSearchResponse = {
   schema_version: 'nexez.agent-search.v1'
   generated_at: string
   query: string
+  filters?: {
+    category: DirectoryCategory
+    industry: string | null
+    min_readiness: number | null
+    min_trust: number | null
+    verified: boolean | null
+    supports_checkout: boolean | null
+    supports_negotiation: boolean | null
+    price_band: NexezMarketplacePriceBand | null
+  }
   result_count: number
   search_url?: string
   location_filter: NexezLocationFilter
   results: NexezSearchResult[]
   usage?: NexezSearchUsage
+}
+
+export type NexezDirectoryEntry = {
+  name: string
+  slug: string
+  description: string | null
+  url: string
+  agent_json_url: string
+  readiness: number
+  industry: string | null
+  location: string | null
+  audience: string | null
+  offer_count: number
+  last_booking_at: string | null
+  has_recent_activity: boolean
+  custom_domain: string | null
+  agent_optimized: boolean
+  prefer_original_default: boolean
+  trust_score: number
+  verified: boolean
+  has_credentials: boolean
+  rating_summary: NexezRatingSummary | null
+  marketplace: JsonObject
+  location_match: NexezLocationMatch | null
+  storefront?: NexezStorefrontReference
+}
+
+export type NexezDirectoryResponse = {
+  schema_version: 'nexez.directory.v2'
+  count: number
+  filters: {
+    category: DirectoryCategory
+    q: string | null
+    min_readiness: number | null
+    location: string | null
+  }
+  location_filter: NexezLocationFilter
+  marketplace: JsonObject
+  results: NexezDirectoryEntry[]
+  note: string
 }
 
 export type NexezStorefrontReference = {
@@ -108,7 +186,7 @@ export type NexezMarketplaceSummary = {
   has_recent_activity: boolean
   supports_checkout: boolean
   supports_negotiation: boolean
-  price_band: 'free' | 'under_100' | '100_500' | '500_2000' | '2000_plus' | 'custom'
+  price_band: NexezMarketplacePriceBand
   badges: string[]
 }
 
@@ -123,6 +201,8 @@ export type NexezLocationMatch = {
 
 export type NexezSearchResult = {
   score: number
+  matched_query_terms: string[]
+  match_reasons: string[]
   source?: { id: string; label: string }
   page: {
     name: string
@@ -285,6 +365,8 @@ export type CheckoutInput = {
   buyerName?: string
   buyerReference?: string
   buyerAgent?: string
+  /** Short-lived token returned by validateCheckout for this exact payload. */
+  approvalToken?: string
 }
 
 /** @deprecated Use CheckoutInput. */
@@ -304,6 +386,9 @@ export type CheckoutValidationResponse = {
   stripeConfigured: boolean
   connectReady: boolean
   events: Record<string, boolean>
+  approvalTokenRequired?: boolean
+  approvalToken?: string
+  approvalExpiresAt?: string
   error?: string
   code?: string
 }
@@ -326,6 +411,8 @@ export type NegotiationInput = {
   contact?: string
   negotiationId?: string
   statusToken?: string
+  /** Short-lived token returned by validateNegotiation for this exact payload. */
+  approvalToken?: string
 }
 
 export type ApprovedNegotiationInput = NegotiationInput & {
@@ -349,6 +436,9 @@ export type NegotiationDryRunResponse = {
   /** Human-readable branch guidance added by the SDK for a rejected validation. */
   reason?: string
   error?: string
+  approvalTokenRequired?: boolean
+  approvalToken?: string
+  approvalExpiresAt?: string
 }
 
 export type NegotiationStatus =
@@ -433,6 +523,8 @@ export type NegotiationSubmitResponse = {
   publicPageUrl: string
   next: string
   message: string
+  replayed?: boolean
+  idempotencyKeyAccepted?: boolean
   statusToken?: string
   statusUrl?: string
 }
@@ -477,6 +569,7 @@ export class NexezTimeoutError extends Error {
 type InternalRequestOptions = NexezRequestOptions & {
   method?: 'GET' | 'POST'
   body?: Record<string, unknown>
+  idempotencyKey?: string
 }
 
 export class NexezClient {
@@ -488,6 +581,7 @@ export class NexezClient {
   constructor(options: NexezClientOptions = {}) {
     this.baseUrl = normalizeBaseUrl(options.baseUrl ?? NEXEZ_DEFAULT_BASE_URL)
     this.fetchImpl = options.fetch ?? getGlobalFetch()
+    if (options.buyerAgent != null) assertClientLabel(options.buyerAgent, 'buyerAgent')
     this.buyerAgent = options.buyerAgent
     this.requestTimeoutMs = normalizeDuration(
       options.timeoutMs ?? NEXEZ_DEFAULT_TIMEOUT_MS,
@@ -502,10 +596,30 @@ export class NexezClient {
     url.searchParams.set('q', query)
     if (options.limit != null) url.searchParams.set('limit', String(options.limit))
     if (options.location) url.searchParams.set('location', options.location)
+    if (options.category) url.searchParams.set('category', options.category)
+    if (options.industry) url.searchParams.set('industry', options.industry)
+    if (options.minReadiness != null) url.searchParams.set('min_readiness', String(options.minReadiness))
+    if (options.minTrust != null) url.searchParams.set('min_trust', String(options.minTrust))
+    if (options.verified != null) url.searchParams.set('verified', String(options.verified))
+    if (options.supportsCheckout != null) url.searchParams.set('supports_checkout', String(options.supportsCheckout))
+    if (options.supportsNegotiation != null) url.searchParams.set('supports_negotiation', String(options.supportsNegotiation))
+    if (options.priceBand) url.searchParams.set('price_band', options.priceBand)
     if (options.lat != null) url.searchParams.set('lat', String(options.lat))
     if (options.lng != null) url.searchParams.set('lng', String(options.lng))
 
     return this.request<NexezSearchResponse>(url, options)
+  }
+
+  async browseDirectory(options: DirectoryOptions = {}): Promise<NexezDirectoryResponse> {
+    const url = this.resolveUrl('api/directory')
+    if (options.query) url.searchParams.set('q', options.query)
+    if (options.category) url.searchParams.set('category', options.category)
+    if (options.minReadiness != null) url.searchParams.set('min_readiness', String(options.minReadiness))
+    if (options.location) url.searchParams.set('location', options.location)
+    if (options.lat != null) url.searchParams.set('lat', String(options.lat))
+    if (options.lng != null) url.searchParams.set('lng', String(options.lng))
+
+    return this.request<NexezDirectoryResponse>(url, options)
   }
 
   async getAgentPage(slug: string, options: NexezRequestOptions = {}): Promise<AgentPageManifest> {
@@ -530,13 +644,14 @@ export class NexezClient {
 
   async startCheckout(
     input: ApprovedCheckoutInput,
-    options: NexezRequestOptions = {},
+    options: NexezActionOptions = {},
   ): Promise<CheckoutStartResponse> {
     assertApproved(input.userApproved, 'checkout')
     const { userApproved: _userApproved, ...checkout } = input
     return this.request<CheckoutStartResponse>(this.resolveUrl('api/checkout'), {
       ...options,
       method: 'POST',
+      idempotencyKey: options.idempotencyKey,
       body: {
         ...checkout,
         buyerAgent: checkout.buyerAgent ?? this.buyerAgent,
@@ -573,13 +688,14 @@ export class NexezClient {
 
   async submitNegotiation(
     input: ApprovedNegotiationInput,
-    options: NexezRequestOptions = {},
+    options: NexezActionOptions = {},
   ): Promise<NegotiationSubmitResponse> {
     assertApproved(input.userApproved, 'negotiation')
     const { userApproved: _userApproved, ...proposal } = input
     return this.request<NegotiationSubmitResponse>(this.resolveUrl('api/negotiations'), {
       ...options,
       method: 'POST',
+      idempotencyKey: options.idempotencyKey,
       body: {
         ...proposal,
         buyerAgent: proposal.buyerAgent ?? this.buyerAgent,
@@ -655,17 +771,21 @@ export class NexezClient {
       1,
       NEXEZ_MAX_REQUEST_TIMEOUT_MS,
     )
+    const headers: Record<string, string> = {
+      accept: 'application/json',
+      'x-nexez-client': `typescript-sdk/${NEXEZ_SDK_VERSION}`,
+    }
+    if (options.body) headers['content-type'] = 'application/json'
+    const requestBuyerAgent = typeof options.body?.buyerAgent === 'string' ? options.body.buyerAgent : this.buyerAgent
+    if (requestBuyerAgent) headers['x-nexez-buyer-agent'] = requestBuyerAgent
+    if (options.idempotencyKey) headers['idempotency-key'] = normalizeIdempotencyKey(options.idempotencyKey)
+
     const response = await fetchWithControls(
       this.fetchImpl,
       url,
       {
         method: options.method ?? 'GET',
-        headers: options.body
-          ? {
-              accept: 'application/json',
-              'content-type': 'application/json',
-            }
-          : { accept: 'application/json' },
+        headers,
         body: options.body ? JSON.stringify(options.body) : undefined,
       },
       options.signal,
@@ -703,6 +823,17 @@ export function searchNexez(
   })
 }
 
+export function browseDirectory(
+  options?: DirectoryOptions & NexezClientOptions,
+): Promise<NexezDirectoryResponse> {
+  const { baseUrl, fetch, buyerAgent, timeoutMs, signal, ...directoryOptions } = options ?? {}
+  return new NexezClient({ baseUrl, fetch, buyerAgent, timeoutMs }).browseDirectory({
+    ...directoryOptions,
+    signal,
+    timeoutMs,
+  })
+}
+
 export function getAgentPage(
   slug: string,
   options?: NexezClientOptions & NexezRequestOptions,
@@ -721,9 +852,9 @@ export function validateCheckout(
 
 export function startCheckout(
   input: ApprovedCheckoutInput,
-  options?: NexezClientOptions & NexezRequestOptions,
+  options?: NexezClientOptions & NexezActionOptions,
 ): Promise<CheckoutStartResponse> {
-  const { client, request } = splitCallOptions(options)
+  const { client, request } = splitActionCallOptions(options)
   return client.startCheckout(input, request)
 }
 
@@ -737,9 +868,9 @@ export function validateNegotiation(
 
 export function submitNegotiation(
   input: ApprovedNegotiationInput,
-  options?: NexezClientOptions & NexezRequestOptions,
+  options?: NexezClientOptions & NexezActionOptions,
 ): Promise<NegotiationSubmitResponse> {
-  const { client, request } = splitCallOptions(options)
+  const { client, request } = splitActionCallOptions(options)
   return client.submitNegotiation(input, request)
 }
 
@@ -763,6 +894,14 @@ function splitCallOptions(options?: NexezClientOptions & NexezRequestOptions) {
   return {
     client: new NexezClient({ baseUrl, fetch, buyerAgent, timeoutMs }),
     request: { timeoutMs, signal },
+  }
+}
+
+function splitActionCallOptions(options?: NexezClientOptions & NexezActionOptions) {
+  const { baseUrl, fetch, buyerAgent, timeoutMs, signal, idempotencyKey } = options ?? {}
+  return {
+    client: new NexezClient({ baseUrl, fetch, buyerAgent, timeoutMs }),
+    request: { timeoutMs, signal, idempotencyKey },
   }
 }
 
@@ -876,6 +1015,20 @@ function assertOpaqueValue(value: string, label: string) {
   ) {
     throw new Error(`Invalid Nexez ${label}.`)
   }
+}
+
+function assertClientLabel(value: string, label: string) {
+  if (!value || value.length > 120 || value.trim() !== value || /[\u0000-\u001f\u007f]/.test(value)) {
+    throw new Error(`Invalid Nexez ${label}.`)
+  }
+}
+
+function normalizeIdempotencyKey(value: string) {
+  const key = typeof value === 'string' ? value.trim() : ''
+  if (!/^[A-Za-z0-9._~:-]{16,255}$/.test(key)) {
+    throw new Error('Nexez idempotencyKey must contain 16 to 255 safe token characters.')
+  }
+  return key
 }
 
 function assertApproved(value: unknown, action: 'checkout' | 'negotiation'): asserts value is true {

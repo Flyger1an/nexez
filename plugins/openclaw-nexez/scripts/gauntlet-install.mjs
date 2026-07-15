@@ -10,6 +10,19 @@ const openclaw = path.join(root, 'node_modules', '.bin', 'openclaw')
 const scratch = mkdtempSync(path.join(tmpdir(), 'nexez-openclaw-install-gauntlet-'))
 const localPackage = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'))
 let publishedVersion
+let publishedTools
+
+const candidateTools = [
+  'nexez_search',
+  'nexez_get_page',
+  'nexez_directory',
+  'nexez_get_negotiation_status',
+  'nexez_wait_for_negotiation_decision',
+  'nexez_validate_checkout',
+  'nexez_validate_negotiation',
+  'nexez_start_checkout',
+  'nexez_submit_negotiation',
+]
 
 try {
   const candidate = packCandidate()
@@ -47,15 +60,12 @@ try {
       publishedVersion ||= plugin.version
       assert.equal(plugin.version, publishedVersion, 'npm and ClawHub must resolve the same version.')
     }
-    assert.deepEqual(plugin.contracts?.tools, [
-      'nexez_search',
-      'nexez_get_page',
-      'nexez_directory',
-      'nexez_validate_checkout',
-      'nexez_validate_negotiation',
-      'nexez_start_checkout',
-      'nexez_submit_negotiation',
-    ])
+    if (channel.expectedVersion) {
+      assert.deepEqual(plugin.contracts?.tools, candidateTools)
+    } else {
+      publishedTools ||= plugin.contracts?.tools
+      assert.deepEqual(plugin.contracts?.tools, publishedTools, 'npm and ClawHub must expose the same tool contract.')
+    }
 
     const doctor = run(['plugins', 'doctor'], env)
     assert.match(doctor, /No plugin issues detected\./)
