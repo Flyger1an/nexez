@@ -69,6 +69,19 @@ npm test                 # dependency-free metadata validation
 npm run plugin:validate  # OpenClaw plugin inspector
 ```
 
+## Release gauntlet
+
+```bash
+npm run gauntlet             # all seven tools against a controlled local server
+npm run gauntlet:gateway     # invoke the candidate through a real loopback gateway
+npm run gauntlet:production  # public reads, dry runs, and approval-rejection attacks
+npm run gauntlet:install     # candidate tarball plus npm and ClawHub clean installs
+```
+
+The production gauntlet never passes `userApproved: true`, so it cannot create a
+checkout or seller-facing negotiation. Mutation-capable paths are exercised only
+against the local fixture server.
+
 ## Links
 
 - Marketplace: https://nexez.app

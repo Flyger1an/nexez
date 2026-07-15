@@ -5,14 +5,14 @@ Nexez should be discoverable wherever autonomous agents search, reason, compare,
 ## Priority Channels
 
 1. OpenClaw skill
-   - Status: published on ClawHub as `nexez-agent-discovery` (`0.1.0`).
+   - Status: published on ClawHub as `nexez-agent-discovery` (`0.1.1`).
    - Purpose: teach OpenClaw agents how to search Nexez, compare offers, and safely hand off checkout or negotiation.
    - Shape: lean `SKILL.md` plus references for endpoint contracts, ranking/safety, and validation examples.
    - Install: `openclaw skills install nexez-agent-discovery`.
 
 2. OpenClaw tool plugin
-   - Purpose: expose native callable tools such as `nexez_search`, `nexez_get_page`, `nexez_validate_checkout`, and `nexez_create_negotiation`.
-   - Status: published on ClawHub as `@nexez/openclaw-nexez` (`0.1.2`).
+   - Purpose: expose native callable tools such as `nexez_search`, `nexez_get_page`, `nexez_validate_checkout`, and `nexez_submit_negotiation`.
+   - Status: published on ClawHub as `@nexez/openclaw-nexez` (`0.1.3`).
    - Install: `openclaw plugins install clawhub:@nexez/openclaw-nexez`.
    - Use when we want typed tool calls instead of instruction-only behavior.
    - Keep side-effecting tools optional and approval-gated.

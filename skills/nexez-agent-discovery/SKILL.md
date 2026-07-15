@@ -1,7 +1,7 @@
 ---
 name: nexez-agent-discovery
 description: Discover Nexez agent pages, compare AI-ready offers, and safely hand off booking, checkout, or negotiation intent.
-version: 0.1.0
+version: 0.1.1
 metadata:
   openclaw:
     homepage: https://nexez.ai

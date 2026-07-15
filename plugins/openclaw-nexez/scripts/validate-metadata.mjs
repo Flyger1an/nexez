@@ -25,6 +25,7 @@ const optionalTools = new Set([
 ])
 
 assert(pkg.type === 'module', 'package.json must use ESM.')
+assert(pkg.version === manifest.version, 'package.json and openclaw.plugin.json versions must match.')
 assert(pkg.openclaw?.extensions?.includes('./dist/index.js'), 'package.json openclaw.extensions must include ./dist/index.js.')
 assert(manifest.id === 'nexez', 'Manifest id must be nexez.')
 assert(Array.isArray(manifest.contracts?.tools), 'Manifest contracts.tools must be an array.')

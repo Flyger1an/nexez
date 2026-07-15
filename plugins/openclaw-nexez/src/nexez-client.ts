@@ -27,6 +27,17 @@ export class NexezApiError extends Error {
   }
 }
 
+export class NexezApprovalError extends Error {
+  readonly status = 403
+
+  constructor(action: string) {
+    super(`Refusing to start ${action}. The tool input must include userApproved: true after explicit user approval.`)
+    // OpenClaw recognizes this stable error name and preserves the 403 plus the
+    // actionable message instead of collapsing the refusal into a 500.
+    this.name = 'ToolAuthorizationError'
+  }
+}
+
 export function resolveBaseUrl(config?: NexezPluginConfig) {
   const raw = config?.baseUrl || process.env.NEXEZ_BASE_URL || 'https://nexez.app'
   const parsed = new URL(raw)
@@ -106,7 +117,8 @@ export async function startCheckout(
   signal?: AbortSignal,
 ) {
   assertApproved(params.userApproved, 'checkout')
-  return postJson('/api/checkout', { ...params, dryRun: false, buyerAgent: params.buyerAgent || 'openclaw' }, config, signal)
+  const { userApproved: _userApproved, ...input } = params
+  return postJson('/api/checkout', { ...input, dryRun: false, buyerAgent: input.buyerAgent || 'openclaw' }, config, signal)
 }
 
 export async function validateNegotiation(
@@ -114,7 +126,25 @@ export async function validateNegotiation(
   config?: NexezPluginConfig,
   signal?: AbortSignal,
 ) {
-  return dryRunResult('/api/negotiations', { ...params, buyerAgent: params.buyerAgent || 'openclaw' }, config, signal)
+  const result = await dryRunResult(
+    '/api/negotiations',
+    { ...params, buyerAgent: params.buyerAgent || 'openclaw' },
+    config,
+    signal,
+  )
+
+  // Nexez validates non-negotiable offers with HTTP 200 and a stable rules
+  // reason. Normalize that into the tool's documented branch signal so an
+  // agent does not mistake a valid dry run for permission to negotiate.
+  if (hasRuleReason(result, 'offer_not_negotiable')) {
+    return {
+      ...result,
+      ok: false,
+      reason: 'This offer does not accept negotiation. Use checkout at the listed price.',
+    }
+  }
+
+  return result
 }
 
 export async function submitNegotiation(
@@ -123,7 +153,8 @@ export async function submitNegotiation(
   signal?: AbortSignal,
 ) {
   assertApproved(params.userApproved, 'negotiation')
-  return postJson('/api/negotiations', { ...params, dryRun: false, buyerAgent: params.buyerAgent || 'openclaw' }, config, signal)
+  const { userApproved: _userApproved, ...input } = params
+  return postJson('/api/negotiations', { ...input, dryRun: false, buyerAgent: input.buyerAgent || 'openclaw' }, config, signal)
 }
 
 type CheckoutInput = {
@@ -241,6 +272,14 @@ function clampReadiness(value: number | undefined) {
 
 function assertApproved(userApproved: boolean, action: string) {
   if (userApproved !== true) {
-    throw new Error(`Refusing to start ${action}. The tool input must include userApproved: true after explicit user approval.`)
+    throw new NexezApprovalError(action)
   }
+}
+
+function hasRuleReason(value: unknown, reason: string) {
+  if (!value || typeof value !== 'object') return false
+  const rulesEvaluation = (value as { rulesEvaluation?: unknown }).rulesEvaluation
+  if (!rulesEvaluation || typeof rulesEvaluation !== 'object') return false
+  const reasons = (rulesEvaluation as { reasons?: unknown }).reasons
+  return Array.isArray(reasons) && reasons.includes(reason)
 }

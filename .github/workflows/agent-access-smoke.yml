@@ -25,3 +25,19 @@ jobs:
       - run: npm ci
       - name: Smoke public agent access
         run: npm run smoke:agent-access
+
+  openclaw-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      NEXEZ_BASE_URL: https://nexez.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: plugins/openclaw-nexez/package-lock.json
+      - run: npm ci --prefix plugins/openclaw-nexez
+      - name: Run non-mutating OpenClaw production gauntlet
+        run: npm run gauntlet:production --prefix plugins/openclaw-nexez

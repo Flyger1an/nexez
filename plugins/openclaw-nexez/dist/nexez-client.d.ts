@@ -11,6 +11,10 @@ export declare class NexezApiError extends Error {
     readonly body: string;
     constructor(message: string, status: number, url: string, body: string);
 }
+export declare class NexezApprovalError extends Error {
+    readonly status = 403;
+    constructor(action: string);
+}
 export declare function resolveBaseUrl(config?: NexezPluginConfig): string;
 export declare function searchAgentPages(params: {
     query?: string;

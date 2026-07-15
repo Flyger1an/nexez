@@ -34,3 +34,27 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+
+  openclaw-plugin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        openclaw-version: ['2026.6.8', '2026.7.1']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: plugins/openclaw-nexez/package-lock.json
+      - run: npm ci --prefix plugins/openclaw-nexez
+      - name: Select OpenClaw ${{ matrix.openclaw-version }}
+        run: npm install --no-save "openclaw@${{ matrix.openclaw-version }}" --prefix plugins/openclaw-nexez
+      - name: OpenClaw contract gauntlet
+        run: npm run gauntlet --prefix plugins/openclaw-nexez
+      - name: OpenClaw gateway gauntlet
+        run: npm run gauntlet:gateway --prefix plugins/openclaw-nexez
+      - name: OpenClaw plugin validator
+        run: npm run plugin:validate --prefix plugins/openclaw-nexez
