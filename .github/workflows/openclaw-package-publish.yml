@@ -22,7 +22,6 @@ jobs:
       source: ${{ github.event.pull_request.head.repo.full_name }}
       ref: ${{ github.event.pull_request.head.sha }}
       source_path: plugins/openclaw-nexez
-      owner: nexez
       dry_run: true
       inspector_artifact_name: nexez-openclaw-inspector-pr
       publish_json_artifact_name: nexez-openclaw-publish-dry-run
@@ -38,7 +37,6 @@ jobs:
       source: ${{ github.repository }}
       ref: ${{ github.sha }}
       source_path: plugins/openclaw-nexez
-      owner: nexez
       dry_run: false
       inspector_artifact_name: nexez-openclaw-inspector-release
       publish_json_artifact_name: nexez-openclaw-publish-release
