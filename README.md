@@ -2,7 +2,7 @@
 
 **Pages AI agents can actually book from.**
 
-Nexez is the infrastructure layer for **agentic commerce**. Businesses create clean, structured agent-ready pages alongside their main website. AI agents (ChatGPT, Claude, Grok, Perplexity, etc.) can discover offers, negotiate, and complete bookings autonomously.
+Nexez is the infrastructure layer for **agentic commerce**. Businesses create clean, structured agent-ready listings alongside their main website. AI agents (ChatGPT, Claude, Grok, Perplexity, etc.) can discover offers, negotiate, and complete bookings autonomously.
 
 One source of truth. Two audiences: beautiful for humans, brutally structured for agents.
 
@@ -11,7 +11,7 @@ One source of truth. Two audiences: beautiful for humans, brutally structured fo
 ## ✨ Features
 
 ### Core
-- **Agent-optimized pages** with JSON-LD, llms.txt, agent.json, MCP endpoint, and semantic HTML
+- **Agent-optimized listings** with JSON-LD, llms.txt, agent.json, MCP endpoint, and semantic HTML
 - **Hybrid booking system**:
   - Fixed Pricing → instant direct booking
   - Negotiable services → smart rules + LLM-powered negotiation
@@ -61,41 +61,7 @@ One source of truth. Two audiences: beautiful for humans, brutally structured fo
 
 ## 🚀 Quick Start
 
-```bash
-git clone https://github.com/yourusername/nexez.git
-cd nexez
-npm install
-cp .env.example .env.local
-# Fill in your Supabase, Stripe, and LLM keys
-npm run dev
-Visit http://localhost:3000 to start creating agent pages.
 
-📋 How It Works
-
-Connect your offers (Calendly, Stripe, Shopify, CSV, or manual)
-Define rules per offer (pricing floors, availability, scope limits)
-Publish – on Nexez subdomain or your own custom domain
-Agents discover & negotiate – fixed offers book instantly, negotiable offers go through smart rules + LLM
-Get paid – platform commission is automatically deducted, rest goes to you
-
-
-💰 Revenue Model
-
-Subscription: Free, Launch, Pro, Scale, Enterprise (contact sales for Enterprise)
-Platform Commission: Applied to every successful agent-driven transaction (configurable per plan, including Free)
-Business owners are the Merchant of Record for transactions
-
-
-🛣 Roadmap
-
- Agent detection & analytics
- Negotiations inbox
- LLM pluggable architecture
- Full Smart Rules Engine + LLM auto-actions
- Persistent negotiation UI + structured JSON for agents
- Advanced escrow & dispute handling
- Marketplace directory of agent pages
- OpenClaw / autonomous agent workflow distribution
 
 
 🤝 Contributing
