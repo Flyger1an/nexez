@@ -5,6 +5,8 @@ const AGENT_BASE = trimBase(process.env.NEXEZ_AGENT_BASE || 'https://nexez.app')
 const TEST_SLUG = process.env.NEXEZ_AGENT_SMOKE_SLUG || 'nexez-agent-negotiation-lab'
 const TEST_OFFER = process.env.NEXEZ_AGENT_SMOKE_OFFER || 'services-0'
 const TIMEOUT_MS = Number(process.env.NEXEZ_AGENT_SMOKE_TIMEOUT_MS || 15_000)
+const EXPECTED_TYPESCRIPT_SDK_VERSION = process.env.NEXEZ_EXPECTED_TYPESCRIPT_SDK_VERSION || '0.1.0'
+const EXPECTED_PYTHON_SDK_VERSION = process.env.NEXEZ_EXPECTED_PYTHON_SDK_VERSION || '0.1.0'
 
 const checks = []
 
@@ -22,15 +24,19 @@ await check('global llms.txt advertises machine surfaces', async () => {
   assertIncludes(text, `${AGENT_BASE}/agent-pages.json`, 'agent index')
   assertIncludes(text, `${AGENT_BASE}/openapi.json`, 'OpenAPI')
   assertIncludes(text, `${AGENT_BASE}/.well-known/mcp.json`, 'MCP discovery')
+  assertIncludes(text, `TypeScript SDK: @nexez/agent-sdk (${EXPECTED_TYPESCRIPT_SDK_VERSION})`, 'TypeScript SDK version')
   assertIncludes(text, 'npm install @nexez/agent-sdk', 'TypeScript SDK install')
+  assertIncludes(text, `Python SDK: nexez-agent-sdk (${EXPECTED_PYTHON_SDK_VERSION})`, 'Python SDK version')
   assertIncludes(text, 'python -m pip install nexez-agent-sdk', 'Python SDK install')
 })
 
 await check('capabilities manifest exposes SDKs and examples', async () => {
   const json = await fetchJson(`${AGENT_BASE}/.well-known/nexez.json`)
   assertEqual(json.sdks?.typescript?.status, 'published', 'TypeScript SDK status')
+  assertEqual(json.sdks?.typescript?.version, EXPECTED_TYPESCRIPT_SDK_VERSION, 'TypeScript SDK version')
   assertEqual(json.sdks?.typescript?.installCommand, 'npm install @nexez/agent-sdk', 'TypeScript SDK install')
   assertEqual(json.sdks?.python?.status, 'published', 'Python SDK status')
+  assertEqual(json.sdks?.python?.version, EXPECTED_PYTHON_SDK_VERSION, 'Python SDK version')
   assertEqual(json.sdks?.python?.installCommand, 'python -m pip install nexez-agent-sdk', 'Python SDK install')
   assertEqual(json.examples?.sourcePath, 'examples/agents', 'examples path')
 })
@@ -38,14 +44,18 @@ await check('capabilities manifest exposes SDKs and examples', async () => {
 await check('MCP discovery catalog exposes SDKs and examples', async () => {
   const json = await fetchJson(`${AGENT_BASE}/.well-known/mcp.json`)
   assertEqual(json.sdks?.typescript?.name, '@nexez/agent-sdk', 'TypeScript SDK name')
+  assertEqual(json.sdks?.typescript?.version, EXPECTED_TYPESCRIPT_SDK_VERSION, 'TypeScript SDK version')
   assertEqual(json.sdks?.python?.name, 'nexez-agent-sdk', 'Python SDK name')
+  assertEqual(json.sdks?.python?.version, EXPECTED_PYTHON_SDK_VERSION, 'Python SDK version')
   assertEqual(json.examples?.sourcePath, 'examples/agents', 'examples path')
 })
 
 await check('OpenAPI advertises agent distribution', async () => {
   const json = await fetchJson(`${AGENT_BASE}/openapi.json`)
   const distribution = json.info?.['x-nexez-agent-distribution']
+  assertEqual(distribution?.sdks?.typescript?.version, EXPECTED_TYPESCRIPT_SDK_VERSION, 'TypeScript SDK version')
   assertEqual(distribution?.sdks?.typescript?.installCommand, 'npm install @nexez/agent-sdk', 'TypeScript SDK install')
+  assertEqual(distribution?.sdks?.python?.version, EXPECTED_PYTHON_SDK_VERSION, 'Python SDK version')
   assertEqual(distribution?.sdks?.python?.installCommand, 'python -m pip install nexez-agent-sdk', 'Python SDK install')
   assertEqual(distribution?.examples?.sourcePath, 'examples/agents', 'examples path')
 })
@@ -53,20 +63,22 @@ await check('OpenAPI advertises agent distribution', async () => {
 await check('agent index advertises agent distribution', async () => {
   const json = await fetchJson(`${AGENT_BASE}/agent-pages.json`)
   assertEqual(json.sdks?.typescript?.status, 'published', 'TypeScript SDK status')
+  assertEqual(json.sdks?.typescript?.version, EXPECTED_TYPESCRIPT_SDK_VERSION, 'TypeScript SDK version')
   assertEqual(json.sdks?.python?.status, 'published', 'Python SDK status')
+  assertEqual(json.sdks?.python?.version, EXPECTED_PYTHON_SDK_VERSION, 'Python SDK version')
   assertEqual(json.examples?.sourcePath, 'examples/agents', 'examples path')
 })
 
 await check('npm package is available', async () => {
   const json = await fetchJson('https://registry.npmjs.org/%40nexez%2Fagent-sdk')
-  assertEqual(json?.['dist-tags']?.latest, '0.1.0', 'latest npm version')
-  assert(Boolean(json?.versions?.['0.1.0']), 'npm version 0.1.0 is missing')
+  assertEqual(json?.['dist-tags']?.latest, EXPECTED_TYPESCRIPT_SDK_VERSION, 'latest npm version')
+  assert(Boolean(json?.versions?.[EXPECTED_TYPESCRIPT_SDK_VERSION]), `npm version ${EXPECTED_TYPESCRIPT_SDK_VERSION} is missing`)
 })
 
 await check('PyPI package is available', async () => {
   const json = await fetchJson('https://pypi.org/pypi/nexez-agent-sdk/json')
-  assertEqual(json?.info?.version, '0.1.0', 'latest PyPI version')
-  assert(Boolean(json?.releases?.['0.1.0']), 'PyPI version 0.1.0 is missing')
+  assertEqual(json?.info?.version, EXPECTED_PYTHON_SDK_VERSION, 'latest PyPI version')
+  assert(Boolean(json?.releases?.[EXPECTED_PYTHON_SDK_VERSION]), `PyPI version ${EXPECTED_PYTHON_SDK_VERSION} is missing`)
 })
 
 await check('seeded negotiation page exposes safe public manifest', async () => {

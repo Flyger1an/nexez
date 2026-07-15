@@ -55,7 +55,10 @@ const approvalSchema = {
     requested_terms: {
       scope: 'Discovery call, offer review, and dry-run guidance.',
     },
-    contact_shared: true,
+    contact_shared: false,
+    contact_share_status: 'pending_approval',
+    contact_to_share: 'buyer@example.com',
+    contact_destination: 'Nexez Agent Negotiation Lab',
   },
   dry_run: {
     ok: true,
@@ -68,12 +71,12 @@ const approvalSchema = {
   risk_notes: [
     'No money should move before the buyer approves.',
     'No buyer contact details should be sent before approval.',
-    'Dry-run validation is safe; real checkout, booking, contact, or negotiation submission is not.',
+    'Dry-run validation may log an analytics attempt, but it does not create checkout, seller contact, or a negotiation.',
   ],
   buyer_copy: {
     title: 'Nexez Agent Negotiation Lab - AI Agent Negotiation Sprint',
     body:
-      'I found AI Agent Negotiation Sprint from Nexez Agent Negotiation Lab at $2,500. I can send this proposal to the seller using your budget (USD 2100) and timeline (next week).',
+      'I found AI Agent Negotiation Sprint from Nexez Agent Negotiation Lab at $2,500. I can send this proposal using your budget (USD 2100) and timeline (next week). This will share buyer@example.com with Nexez Agent Negotiation Lab.',
     confirmation_question: 'Do you approve this proposal submission?',
     approve_label: 'Approve negotiation submission',
     cancel_label: 'Cancel',
@@ -85,33 +88,57 @@ const schemaText = JSON.stringify(approvalSchema, null, 2)
 const typescriptExample = `import { createNexezClient } from '@nexez/agent-sdk'
 
 const nexez = createNexezClient({ buyerAgent: 'buyer-agent' })
+const contactToShare = 'buyer@example.com'
 
-const dryRun = await nexez.validateNegotiation({
+const proposal = {
   slug: 'nexez-agent-negotiation-lab',
   offer: 'services-0',
   query: 'Buyer wants a one-week agent negotiation sprint.',
   budget: 'USD 2100',
   timeline: 'next week',
-  contact: 'buyer@example.com',
-})
+}
+
+const dryRun = await nexez.validateNegotiation(proposal)
 
 const approval = {
   schema_version: 'nexez.buyer-approval.v1',
   requires_buyer_approval: true,
   action_type: 'submit_negotiation',
+  proposal: {
+    ...proposal,
+    contact_shared: false,
+    contact_share_status: 'pending_approval',
+    contact_to_share: contactToShare,
+    contact_destination: 'Nexez Agent Negotiation Lab',
+  },
   dry_run: dryRun,
   buyer_copy: {
     title: 'AI Agent Negotiation Sprint',
-    body: 'I can send this proposal using your budget and timeline.',
+    body: 'I can send this proposal and buyer@example.com to Nexez Agent Negotiation Lab.',
     confirmation_question: 'Do you approve this proposal submission?',
     approve_label: 'Approve negotiation submission',
     cancel_label: 'Cancel',
   },
 }
 
-// Render approval.buyer_copy and wait for explicit buyer approval.
-// Only after approval:
-// await nexez.submitNegotiation(proposal)`
+// Replace this false value with the result of a real UI or voice approval event.
+const approvedByBuyer = false
+if (!approvedByBuyer) throw new Error('Buyer approval is required before submission.')
+
+const submitted = await nexez.submitNegotiation({
+  ...proposal,
+  contact: contactToShare,
+  userApproved: true,
+})
+
+if (submitted.negotiationId && submitted.statusToken) {
+  await nexez.waitForNegotiationDecision({
+    negotiationId: submitted.negotiationId,
+    statusToken: submitted.statusToken,
+    timeoutMs: 30_000,
+    intervalMs: 2_000,
+  })
+}`
 
 const approvalVariants = [
   {
@@ -145,7 +172,7 @@ const approvalVariants = [
 ]
 
 const approvalRules = [
-  'Dry-run validation can happen before approval.',
+  'Dry-run validation can happen before approval. Checkout validation may record an analytics attempt, but it does not create a session or contact the seller.',
   'Opening checkout requires approval.',
   'Submitting negotiation terms requires approval.',
   'Sharing contact or location requires approval.',
@@ -158,7 +185,7 @@ const schemaFields = [
   ['action_type', 'The side effect the buyer is approving.'],
   ['seller', 'Name, public URL, website, and location.'],
   ['offer', 'Offer key, title, price, summary, and checkout URL.'],
-  ['proposal', 'Budget, timeline, buyer request, and contact-sharing status.'],
+  ['proposal', 'Budget, timeline, buyer request, plus the exact contact, destination, and pending approval status.'],
   ['dry_run', 'Validation result from checkout or negotiation endpoint.'],
   ['risk_notes', 'Short warnings the agent should not hide.'],
   ['buyer_copy', 'Human-facing title, body, question, and button labels.'],
@@ -398,7 +425,8 @@ function ApprovalCardPreview() {
       <div className="mt-4 rounded-lg border border-[var(--warning)]/25 bg-[var(--warning)]/10 p-4">
         <p className="text-sm font-medium text-[var(--warning)]">Before I send this</p>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          I will share your proposal terms and contact details with the seller. No payment starts from this step.
+          I will share your proposal terms and buyer@example.com with Nexez Agent Negotiation Lab. No payment starts
+          from this step.
         </p>
       </div>
 

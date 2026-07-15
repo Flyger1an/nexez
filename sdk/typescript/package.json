@@ -1,6 +1,6 @@
 {
   "name": "@nexez/agent-sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "TypeScript client for Nexez agent discovery, checkout validation, and negotiation handoff.",
   "license": "MIT",
   "type": "module",
@@ -9,6 +9,7 @@
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
+    "LICENSE",
     "README.md"
   ],
   "exports": {
@@ -19,9 +20,11 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run src/index.test.ts"
+    "test": "vitest run src/index.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.8"
   }
 }

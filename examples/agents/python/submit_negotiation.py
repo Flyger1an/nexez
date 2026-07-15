@@ -1,13 +1,4 @@
-import json
-from urllib.request import Request, urlopen
-
 from nexez_agent_sdk import NexezApiError, create_client
-
-
-def fetch_json(url: str) -> dict:
-    request = Request(url, headers={"accept": "application/json", "user-agent": "nexez-python-example"})
-    with urlopen(request, timeout=15) as response:
-        return json.loads(response.read().decode("utf-8"))
 
 
 def main() -> None:
@@ -21,7 +12,6 @@ def main() -> None:
         "query": "Buyer wants a one-week agent negotiation sprint.",
         "budget": "USD 2100",
         "timeline": "next week",
-        "contact": "buyer@example.com",
         "requested_terms": {
             "scope": "Discovery call, agent-readable offer review, and dry-run guidance.",
         },
@@ -37,12 +27,35 @@ def main() -> None:
         print("Buyer approval required before submit_negotiation.")
         return
 
-    submitted = nexez.submit_negotiation(proposal)
-    print({"submitted": submitted})
+    submitted = nexez.submit_negotiation(
+        proposal,
+        contact="buyer@example.com",
+        user_approved=True,
+    )
+    print(
+        {
+            "submitted": {
+                "ok": submitted.get("ok"),
+                "status": submitted.get("status"),
+                "negotiationId": submitted.get("negotiationId"),
+                "decisionPending": submitted.get("decisionPending"),
+            }
+        }
+    )
 
-    status_url = submitted.get("statusUrl")
-    if status_url:
-        print({"status": fetch_json(status_url)})
+    negotiation_id = submitted.get("negotiationId")
+    status_token = submitted.get("statusToken")
+    if negotiation_id and status_token:
+        try:
+            status = nexez.wait_for_negotiation_decision(
+                negotiation_id,
+                status_token,
+                timeout=30.0,
+                poll_interval=2.0,
+            )
+            print({"status": status})
+        except TimeoutError:
+            print({"status": "timed_out", "next": "Check this negotiation again later."})
 
 
 if __name__ == "__main__":

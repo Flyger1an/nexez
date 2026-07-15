@@ -48,4 +48,23 @@ describe('GET /api/agent-search', () => {
     expect(body.schema_version).toBe('nexez.agent-search.v1')
     expect(body.result_count).toBeGreaterThan(0)
   })
+
+  it('returns coordinates as context without claiming they filter results', async () => {
+    const res = await GET(
+      new Request('https://nexez.test/api/agent-search?q=consult&lat=41.8781&lng=-87.6298'),
+    )
+    const body = await res.json()
+
+    expect(body.result_count).toBeGreaterThan(0)
+    expect(body.location_filter).toMatchObject({
+      active: false,
+      query: null,
+      lat: 41.8781,
+      lng: -87.6298,
+    })
+    expect(body.location_filter.matching).toContain('do not filter or rerank')
+    expect(body.search_url).toContain('lat=41.8781')
+    expect(body.search_url).toContain('lng=-87.6298')
+    expect(body.usage.note).toContain('context metadata only')
+  })
 })

@@ -17,14 +17,14 @@ const slug = first.page.slug
 const offerKey = first.offer?.key ?? 'services-0'
 const page = await nexez.getAgentPage(slug)
 const offer = page.offers.find((item) => item.key === offerKey)
-const acceptsNegotiation = Boolean((offer as { accepts_negotiation?: boolean } | undefined)?.accepts_negotiation)
 
 if (!offer) {
   console.log(`Page ${slug} loaded, but offer ${offerKey} was not found.`)
   process.exit(0)
 }
 
-const validation = acceptsNegotiation
+const supportsNegotiation = Boolean(offer.negotiation_action)
+const validation = supportsNegotiation
   ? await nexez.validateNegotiation({
       slug,
       offer: offerKey,
@@ -41,6 +41,6 @@ const validation = acceptsNegotiation
 console.log({
   page: slug,
   offer: offerKey,
-  action: acceptsNegotiation ? 'negotiation' : 'checkout',
+  action: supportsNegotiation ? 'negotiation' : 'checkout',
   validationOk: validation.ok,
 })

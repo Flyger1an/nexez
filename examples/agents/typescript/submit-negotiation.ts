@@ -8,7 +8,6 @@ const proposal = {
   query: 'Buyer wants a one-week agent negotiation sprint.',
   budget: 'USD 2100',
   timeline: 'next week',
-  contact: 'buyer@example.com',
   requestedTerms: {
     scope: 'Discovery call, agent-readable offer review, and dry-run guidance.',
   },
@@ -25,12 +24,26 @@ if (!approvedByBuyer) {
   process.exit(0)
 }
 
-const submitted = await nexez.submitNegotiation(proposal)
-console.log({ submitted })
+const submitted = await nexez.submitNegotiation({
+  ...proposal,
+  contact: 'buyer@example.com',
+  userApproved: true,
+})
+console.log({
+  submitted: {
+    ok: submitted.ok,
+    status: submitted.status,
+    negotiationId: submitted.negotiationId,
+    decisionPending: submitted.decisionPending,
+  },
+})
 
-if (submitted.statusUrl) {
-  const status = await fetch(submitted.statusUrl, {
-    headers: { accept: 'application/json', 'user-agent': 'nexez-typescript-example' },
-  }).then((res) => res.json())
+if (submitted.negotiationId && submitted.statusToken) {
+  const status = await nexez.waitForNegotiationDecision({
+    negotiationId: submitted.negotiationId,
+    statusToken: submitted.statusToken,
+    timeoutMs: 30_000,
+    intervalMs: 2_000,
+  })
   console.log({ status })
 }

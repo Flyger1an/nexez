@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from nexez_agent_sdk import NexezApiError, create_client
 
@@ -16,11 +16,11 @@ def main() -> None:
         "query": os.getenv("NEXEZ_APPROVAL_QUERY", "Buyer wants a one-week agent negotiation sprint."),
         "budget": os.getenv("NEXEZ_APPROVAL_BUDGET", "USD 2100"),
         "timeline": os.getenv("NEXEZ_APPROVAL_TIMELINE", "next week"),
-        "contact": os.getenv("NEXEZ_APPROVAL_CONTACT", "buyer@example.com"),
         "requested_terms": {
             "scope": "Discovery call, agent-readable offer review, and dry-run guidance.",
         },
     }
+    contact_to_share = os.getenv("NEXEZ_APPROVAL_CONTACT", "buyer@example.com")
 
     manifest = nexez.get_agent_page(proposal["slug"])
     offer = next((item for item in manifest.get("offers", []) if item.get("key") == proposal["offer"]), None)
@@ -36,7 +36,6 @@ def main() -> None:
             slug=proposal["slug"],
             offer=proposal["offer"],
             query=proposal["query"],
-            buyer_email=proposal["contact"],
         )
         action_type = "open_checkout"
 
@@ -45,6 +44,7 @@ def main() -> None:
         manifest=manifest,
         offer=offer,
         proposal=proposal,
+        contact_to_share=contact_to_share or None,
         dry_run=dry_run,
     )
 
@@ -58,10 +58,51 @@ def main() -> None:
         return
 
     if approval["action_type"] == "submit_negotiation":
-        submitted = nexez.submit_negotiation(proposal)
-        print({"submitted": submitted})
+        submitted = nexez.submit_negotiation(
+            proposal,
+            contact=contact_to_share,
+            user_approved=True,
+        )
+        print(
+            {
+                "submitted": {
+                    "ok": submitted.get("ok"),
+                    "status": submitted.get("status"),
+                    "negotiationId": submitted.get("negotiationId"),
+                    "decisionPending": submitted.get("decisionPending"),
+                }
+            }
+        )
+
+        negotiation_id = submitted.get("negotiationId")
+        status_token = submitted.get("statusToken")
+        if negotiation_id and status_token:
+            try:
+                status = nexez.wait_for_negotiation_decision(
+                    negotiation_id,
+                    status_token,
+                    timeout=30.0,
+                    poll_interval=2.0,
+                )
+                print({"status": status})
+            except TimeoutError:
+                print({"status": "timed_out", "next": "Check this negotiation again later."})
     else:
-        print({"open_checkout_url": offer.get("checkout_url")})
+        checkout = nexez.start_checkout(
+            slug=proposal["slug"],
+            offer=proposal["offer"],
+            query=proposal["query"],
+            buyer_email=contact_to_share or None,
+            user_approved=True,
+        )
+        print(
+            {
+                "checkout": {
+                    "provider": checkout.get("provider"),
+                    "url": checkout.get("url"),
+                }
+            }
+        )
 
 
 def build_buyer_approval_summary(
@@ -70,6 +111,7 @@ def build_buyer_approval_summary(
     manifest: Dict[str, Any],
     offer: Dict[str, Any],
     proposal: Dict[str, Any],
+    contact_to_share: Optional[str],
     dry_run: Dict[str, Any],
 ) -> Dict[str, Any]:
     seller_name = manifest["page"]["name"]
@@ -77,6 +119,12 @@ def build_buyer_approval_summary(
     is_negotiation = action_type == "submit_negotiation"
     action_label = "Approve negotiation submission" if is_negotiation else "Approve checkout handoff"
     action_description = "send this proposal to the seller" if is_negotiation else "open the seller checkout or booking flow"
+    contact_destination = seller_name if is_negotiation else offer.get("checkout_url")
+    contact_notice = (
+        f" This will share {contact_to_share} with {contact_destination}."
+        if contact_to_share
+        else ""
+    )
 
     return {
         "schema_version": "nexez.buyer-approval.v1",
@@ -101,20 +149,23 @@ def build_buyer_approval_summary(
             "budget": proposal["budget"],
             "timeline": proposal["timeline"],
             "requested_terms": proposal.get("requested_terms"),
-            "contact_shared": bool(proposal.get("contact")),
+            "contact_shared": False,
+            "contact_share_status": "pending_approval" if contact_to_share else "not_included",
+            "contact_to_share": contact_to_share,
+            "contact_destination": contact_destination if contact_to_share else None,
         },
         "dry_run": dry_run,
         "risk_notes": [
             "No money should move before the buyer approves.",
             "No buyer contact details should be sent before approval.",
-            "Dry-run validation is safe; real checkout, booking, contact, or negotiation submission is not.",
+            "Dry-run validation may log an analytics attempt, but it does not create checkout, seller contact, or a negotiation.",
         ],
         "buyer_copy": {
             "title": f"{seller_name} - {offer['name']}",
             "body": (
                 f"I found {offer['name']} from {seller_name} at {offer_price}. "
                 f"I can {action_description} using your budget ({proposal['budget']}) "
-                f"and timeline ({proposal['timeline']})."
+                f"and timeline ({proposal['timeline']}).{contact_notice}"
             ),
             "confirmation_question": f"Do you approve this {'proposal submission' if is_negotiation else 'checkout handoff'}?",
             "approve_label": action_label,

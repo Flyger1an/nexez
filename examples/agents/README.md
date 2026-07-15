@@ -5,14 +5,14 @@ Copy-paste workflows for buyer agents and agent builders.
 ## Flows
 
 - Search by buyer intent.
-- Search with a buyer location or lat/lng filter.
+- Search with a buyer location text filter; optionally attach lat/lng as context metadata.
 - Fetch the selected page's `agent.json`.
 - Build a short ranked list for the buyer.
 - Dry-run checkout or negotiation.
 - Render an approval summary before side effects.
 - Ask the buyer for approval before side effects.
 - Submit a negotiation only after approval.
-- Poll `statusUrl` with a normal HTTP GET when a negotiation is created.
+- Poll a created negotiation with the SDK's bounded wait helper.
 
 ## Python
 
@@ -42,10 +42,10 @@ npm install @nexez/agent-sdk
 Run the examples inside your own TypeScript runtime or adapt them into an agent tool.
 
 ```bash
-tsx examples/agents/typescript/buyer-approval.ts
-tsx examples/agents/typescript/find-and-validate.ts
-tsx examples/agents/typescript/location-shortlist.ts
-tsx examples/agents/typescript/submit-negotiation.ts
+npx tsx examples/agents/typescript/buyer-approval.ts
+npx tsx examples/agents/typescript/find-and-validate.ts
+npx tsx examples/agents/typescript/location-shortlist.ts
+npx tsx examples/agents/typescript/submit-negotiation.ts
 ```
 
 ## Buyer Approval UX
@@ -58,7 +58,9 @@ NEXEZ_APPROVAL_TIMELINE="next week" \
 python examples/agents/python/buyer_approval.py
 ```
 
-The examples output a `nexez.buyer-approval.v1` object with seller details, offer terms, dry-run results, risk notes, and buyer-facing copy. A buyer agent should render that summary and wait for an explicit approval event before performing the next action.
+The examples output a `nexez.buyer-approval.v1` object with seller details, offer terms, dry-run results, risk notes, the exact pending contact handoff, and buyer-facing copy. A buyer agent should render that summary and wait for an explicit approval event before performing the next action. Contact details are omitted from dry-run requests and are added only to an approval-gated checkout or negotiation call.
+
+Checkout validation may record an analytics attempt, but it does not create a checkout session, contact the seller, or move money. The approved action uses `startCheckout` / `start_checkout`; negotiation submission uses the same explicit approval gate and bounded polling.
 
 ## Location-Aware Discovery
 
@@ -70,4 +72,6 @@ NEXEZ_BUYER_INTENT="find a productized brand strategy sprint under 5000" \
 python examples/agents/python/location_shortlist.py
 ```
 
-The examples fetch each candidate's public manifest, rank actionability, run a safe dry-run checkout or negotiation, and stop before any buyer-approved side effect.
+The examples deduplicate offer-level search results by seller, fetch each candidate's public manifest, rank actionability, run a safe dry-run checkout or negotiation, and stop before any buyer-approved action.
+
+`location` is the current search filter. `lat` and `lng` are returned as buyer context only; they do not currently filter or rerank results.

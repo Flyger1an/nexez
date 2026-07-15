@@ -60,6 +60,18 @@ describe('location filtering', () => {
     expect(match.mode).toBe('broad')
   })
 
+  it('does not treat the "us" inside Austin as a broad location term', () => {
+    const match = getPageLocationMatch(page({ location: 'Austin, Texas' }), 'DFW Metroplex')
+    expect(match.matched).toBe(false)
+    expect(match.mode).toBe('none')
+  })
+
+  it('still treats a standalone US service area as broad', () => {
+    const match = getPageLocationMatch(page({ location: 'US nationwide' }), 'DFW Metroplex')
+    expect(match.matched).toBe(true)
+    expect(match.mode).toBe('broad')
+  })
+
   it('filters pages by page location and offer service area', () => {
     const chicago = page({ slug: 'chi', location: 'Chicago, IL' })
     const serviceArea = page({ slug: 'svc', services: [{ name: 'Home visit', description: '', price: '', url: '', serviceArea: 'Chicago metro' }] })

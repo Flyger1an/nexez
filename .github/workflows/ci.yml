@@ -58,3 +58,65 @@ jobs:
         run: npm run gauntlet:gateway --prefix plugins/openclaw-nexez
       - name: OpenClaw plugin validator
         run: npm run plugin:validate --prefix plugins/openclaw-nexez
+
+  typescript-agent-sdk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sdk/typescript/package-lock.json
+      - run: npm ci --prefix sdk/typescript
+      - name: Cross-language source version parity
+        run: npm run check:agent-sdk-versions
+      - name: SDK unit tests
+        run: npm test --prefix sdk/typescript
+      - name: SDK build
+        run: npm run build --prefix sdk/typescript
+      - name: Pack SDK artifact
+        id: pack
+        working-directory: sdk/typescript
+        run: echo "tarball=$(npm pack --silent)" >> "$GITHUB_OUTPUT"
+      - name: Installed-tarball smoke
+        shell: bash
+        run: |
+          smoke_dir="$(mktemp -d)"
+          npm install --ignore-scripts --no-audit --no-fund --prefix "$smoke_dir" "$GITHUB_WORKSPACE/sdk/typescript/${{ steps.pack.outputs.tarball }}"
+          cd "$smoke_dir"
+          node --input-type=module -e "const sdk = await import('@nexez/agent-sdk'); const pkg = JSON.parse(await (await import('node:fs/promises')).readFile('node_modules/@nexez/agent-sdk/package.json', 'utf8')); if (pkg.name !== '@nexez/agent-sdk' || typeof sdk.createNexezClient !== 'function' || typeof sdk.startCheckout !== 'function' || typeof sdk.waitForNegotiationDecision !== 'function') process.exit(1)"
+
+  python-agent-sdk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: sdk/python/pyproject.toml
+      - name: SDK unit tests
+        run: python -m unittest discover -s sdk/python/tests -v
+      - name: Install package validation tools
+        run: python -m pip install --upgrade build twine
+      - name: Build wheel and source distribution
+        run: python -m build --outdir dist/python sdk/python
+      - name: Validate package metadata
+        run: python -m twine check dist/python/*
+      - name: Installed-wheel smoke
+        shell: bash
+        run: |
+          python -m pip install --force-reinstall --no-deps dist/python/*.whl
+          python -c "import importlib.metadata as metadata, importlib.resources as resources, nexez_agent_sdk as sdk; assert metadata.version('nexez-agent-sdk') == sdk.__version__; assert hasattr(sdk.NexezClient, 'start_checkout'); assert hasattr(sdk.NexezClient, 'wait_for_negotiation_decision'); assert resources.files('nexez_agent_sdk').joinpath('py.typed').is_file()"
+      - name: Installed-sdist smoke
+        shell: bash
+        run: |
+          python -m pip install --force-reinstall --no-deps dist/python/*.tar.gz
+          python -c "import importlib.metadata as metadata, nexez_agent_sdk as sdk; assert metadata.version('nexez-agent-sdk') == sdk.__version__; assert hasattr(sdk, 'start_checkout'); assert hasattr(sdk, 'wait_for_negotiation_decision')"

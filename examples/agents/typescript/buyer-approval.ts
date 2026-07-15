@@ -8,11 +8,11 @@ const proposal = {
   query: process.env.NEXEZ_APPROVAL_QUERY ?? 'Buyer wants a one-week agent negotiation sprint.',
   budget: process.env.NEXEZ_APPROVAL_BUDGET ?? 'USD 2100',
   timeline: process.env.NEXEZ_APPROVAL_TIMELINE ?? 'next week',
-  contact: process.env.NEXEZ_APPROVAL_CONTACT ?? 'buyer@example.com',
   requestedTerms: {
     scope: 'Discovery call, agent-readable offer review, and dry-run guidance.',
   },
 }
+const contactToShare = process.env.NEXEZ_APPROVAL_CONTACT ?? 'buyer@example.com'
 
 const manifest = await nexez.getAgentPage(proposal.slug)
 const offer = manifest.offers.find((item) => item.key === proposal.offer)
@@ -28,7 +28,6 @@ const dryRun = offer.negotiation_action
       slug: proposal.slug,
       offer: proposal.offer,
       query: proposal.query,
-      buyerEmail: proposal.contact,
     })
 
 const approval = buildBuyerApprovalSummary({
@@ -36,6 +35,7 @@ const approval = buildBuyerApprovalSummary({
   manifest,
   offer,
   proposal,
+  contactToShare: contactToShare || null,
   dryRun,
 })
 
@@ -50,10 +50,43 @@ if (!approvedByBuyer) {
 }
 
 if (approval.action_type === 'submit_negotiation') {
-  const submitted = await nexez.submitNegotiation(proposal)
-  console.log({ submitted })
+  const submitted = await nexez.submitNegotiation({
+    ...proposal,
+    contact: contactToShare,
+    userApproved: true,
+  })
+  console.log({
+    submitted: {
+      ok: submitted.ok,
+      status: submitted.status,
+      negotiationId: submitted.negotiationId,
+      decisionPending: submitted.decisionPending,
+    },
+  })
+
+  if (submitted.negotiationId && submitted.statusToken) {
+    const status = await nexez.waitForNegotiationDecision({
+      negotiationId: submitted.negotiationId,
+      statusToken: submitted.statusToken,
+      timeoutMs: 30_000,
+      intervalMs: 2_000,
+    })
+    console.log({ status })
+  }
 } else {
-  console.log({ openCheckoutUrl: offer.checkout_url })
+  const checkout = await nexez.startCheckout({
+    slug: proposal.slug,
+    offer: proposal.offer,
+    query: proposal.query,
+    buyerEmail: contactToShare || undefined,
+    userApproved: true,
+  })
+  console.log({
+    checkout: {
+      provider: checkout.provider,
+      url: checkout.url,
+    },
+  })
 }
 
 type ApprovalActionType = 'submit_negotiation' | 'open_checkout'
@@ -63,6 +96,7 @@ type ApprovalSummaryInput = {
   manifest: AgentPageManifest
   offer: AgentPageOffer
   proposal: typeof proposal
+  contactToShare: string | null
   dryRun: unknown
 }
 
@@ -75,6 +109,11 @@ function buildBuyerApprovalSummary(input: ApprovalSummaryInput) {
     input.actionType === 'submit_negotiation'
       ? 'send this proposal to the seller'
       : 'open the seller checkout or booking flow'
+  const contactDestination =
+    input.actionType === 'submit_negotiation' ? sellerName : input.offer.checkout_url
+  const contactNotice = input.contactToShare
+    ? ` This will share ${input.contactToShare} with ${contactDestination}.`
+    : ''
 
   return {
     schema_version: 'nexez.buyer-approval.v1',
@@ -99,17 +138,20 @@ function buildBuyerApprovalSummary(input: ApprovalSummaryInput) {
       budget: input.proposal.budget,
       timeline: input.proposal.timeline,
       requested_terms: input.proposal.requestedTerms,
-      contact_shared: Boolean(input.proposal.contact),
+      contact_shared: false,
+      contact_share_status: input.contactToShare ? 'pending_approval' : 'not_included',
+      contact_to_share: input.contactToShare,
+      contact_destination: input.contactToShare ? contactDestination : null,
     },
     dry_run: input.dryRun,
     risk_notes: [
       'No money should move before the buyer approves.',
       'No buyer contact details should be sent before approval.',
-      'Dry-run validation is safe; real checkout, booking, contact, or negotiation submission is not.',
+      'Dry-run validation may log an analytics attempt, but it does not create checkout, seller contact, or a negotiation.',
     ],
     buyer_copy: {
       title: `${sellerName} - ${input.offer.name}`,
-      body: `I found ${input.offer.name} from ${sellerName} at ${offerPrice}. I can ${actionDescription} using your budget (${input.proposal.budget}) and timeline (${input.proposal.timeline}).`,
+      body: `I found ${input.offer.name} from ${sellerName} at ${offerPrice}. I can ${actionDescription} using your budget (${input.proposal.budget}) and timeline (${input.proposal.timeline}).${contactNotice}`,
       confirmation_question: `Do you approve this ${input.actionType === 'submit_negotiation' ? 'proposal submission' : 'checkout handoff'}?`,
       approve_label: actionLabel,
       cancel_label: 'Cancel',

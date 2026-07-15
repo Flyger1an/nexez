@@ -2,9 +2,11 @@
   "name": "@nexez/openclaw-nexez",
   "version": "0.1.4",
   "description": "OpenClaw tool plugin for discovering Nexez agent pages and safely handing off checkout or negotiation intent.",
+  "license": "MIT",
   "type": "module",
   "files": [
     "dist",
+    "LICENSE",
     "openclaw.plugin.json",
     "README.md"
   ],

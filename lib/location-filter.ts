@@ -153,14 +153,16 @@ export function getPageLocationMatch(page: Pick<AgentPage, 'location' | 'service
     const normalized = normalizeLocationText(value)
     if (!normalized) continue
 
-    const isBroad = BROAD_LOCATION_TERMS.some((term) => normalized.includes(term))
+    const isBroad = BROAD_LOCATION_TERMS.some((term) => containsNormalizedPhrase(normalized, term))
     if (isBroad && best.confidence < 0.35) {
       best = { active: true, query, matched: true, confidence: 0.35, mode: 'broad', matched_values: [value] }
     }
 
-    const direct = normalized.includes(queryNormalized) || queryNormalized.includes(normalized)
+    const direct =
+      containsNormalizedPhrase(normalized, queryNormalized) ||
+      containsNormalizedPhrase(queryNormalized, normalized)
     const valueTerms = new Set(locationTokens(value))
-    const matchedTerms = queryTerms.filter((term) => valueTerms.has(term) || normalized.includes(term))
+    const matchedTerms = queryTerms.filter((term) => valueTerms.has(term))
     const confidence = queryTerms.length ? matchedTerms.length / queryTerms.length : 0
 
     if (direct || confidence >= 0.5) {
@@ -194,10 +196,16 @@ export function locationFilterMeta(locationQuery: string | null | undefined, coo
     query: query || null,
     lat: typeof coords?.lat === 'number' && Number.isFinite(coords.lat) ? coords.lat : null,
     lng: typeof coords?.lng === 'number' && Number.isFinite(coords.lng) ? coords.lng : null,
-    matching: 'Text match against page location and offer service areas. Remote/nationwide offers remain eligible.',
+    matching:
+      'Text match against page location and offer service areas. Remote/nationwide offers remain eligible. lat/lng are returned as context only and do not filter or rerank results.',
   }
 }
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function containsNormalizedPhrase(value: string, phrase: string) {
+  if (!value || !phrase) return false
+  return ` ${value} `.includes(` ${phrase} `)
 }

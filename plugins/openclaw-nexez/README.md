@@ -86,3 +86,7 @@ against the local fixture server.
 
 - Marketplace: https://nexez.app
 - Source & issues: https://github.com/Flyger1an/nexez/tree/main/plugins/openclaw-nexez
+
+## License
+
+The plugin source in this package is licensed under the MIT License. Use of Nexez hosted APIs and services is governed separately by the [Nexez Terms of Service](https://nexez.ai/terms). The MIT License does not grant rights to Nexez trademarks, logos, hosted services, or service data.

@@ -11,8 +11,16 @@ const matches = await nexez.search(buyerIntent, {
   limit: 8,
 })
 
+const uniqueResults = [
+  ...matches.results
+    .reduce((pages, result) => {
+      if (!pages.has(result.page.slug)) pages.set(result.page.slug, result)
+      return pages
+    }, new Map<string, NexezSearchResult>())
+    .values(),
+]
 const candidates = await Promise.all(
-  matches.results.slice(0, 5).map(async (result) => {
+  uniqueResults.slice(0, 5).map(async (result) => {
     const manifest = await nexez.getAgentPage(result.page.slug)
     const offerKey = result.offer?.key ?? manifest.offers[0]?.key ?? 'services-0'
     const offer = manifest.offers.find((item) => item.key === offerKey) ?? manifest.offers[0]
@@ -51,11 +59,9 @@ if (!top?.offer) {
   process.exit(0)
 }
 
-const acceptsNegotiation = Boolean(
-  (top.offer as { accepts_negotiation?: boolean }).accepts_negotiation || top.offer.negotiation_action,
-)
+const supportsNegotiation = Boolean(top.offer.negotiation_action)
 
-const validation = acceptsNegotiation
+const validation = supportsNegotiation
   ? await nexez.validateNegotiation({
       slug: top.result.page.slug,
       offer: top.offer.key,
@@ -75,18 +81,18 @@ const validation = acceptsNegotiation
     })
 
 console.log({
-  recommendedNextStep: acceptsNegotiation ? 'ask buyer to approve negotiation submission' : 'ask buyer to approve checkout handoff',
+  recommendedNextStep: supportsNegotiation ? 'ask buyer to approve negotiation submission' : 'ask buyer to approve checkout handoff',
   selectedPage: top.result.page.slug,
   selectedOffer: top.offer.key,
   dryRun: validation,
 })
 
 function scoreCandidate(result: NexezSearchResult, manifest: AgentPageManifest): number {
-  const locationSignal = result.location_match ? 12 : 0
+  const locationSignal = (result.location_match?.confidence ?? 0) * 12
   const actionSignal = result.offer?.action || manifest.offers.some((offer) => offer.action || offer.negotiation_action) ? 10 : 0
   const priceSignal = result.offer?.price || manifest.offers.some((offer) => offer.price) ? 6 : 0
   const faqSignal = manifest.faqs?.length ? 3 : 0
-  const readiness = readNumber((manifest.certification as { score?: unknown } | undefined)?.score)
+  const readiness = readNumber(manifest.certification?.readiness)
 
   return Math.round((result.score || 0) + locationSignal + actionSignal + priceSignal + faqSignal + readiness / 10)
 }

@@ -19,7 +19,7 @@ def main() -> None:
         print(f"Page {slug} loaded, but offer {offer_key} was not found.")
         return
 
-    if offer.get("accepts_negotiation"):
+    if offer.get("negotiation_action"):
         validation = nexez.validate_negotiation(
             slug=slug,
             offer=offer_key,

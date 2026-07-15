@@ -52,6 +52,8 @@ export async function GET(request: Request) {
   })
   const searchParams = new URLSearchParams({ q: query })
   if (location) searchParams.set('location', location)
+  if (lat != null) searchParams.set('lat', String(lat))
+  if (lng != null) searchParams.set('lng', String(lng))
 
   return Response.json(
     {
@@ -68,7 +70,7 @@ export async function GET(request: Request) {
       usage: {
         method: 'GET',
         example: `${baseUrl}/api/agent-search?q=plumbing&location=Chicago%2C%20IL`,
-        note: 'Returns published AI-readable pages and offer-level checkout actions. Pass location to filter by page location and offer service areas.',
+        note: 'Returns published AI-readable pages and offer-level checkout actions. Pass location to filter by page location and offer service areas. lat/lng are context metadata only and do not filter or rerank results.',
       },
     },
     {

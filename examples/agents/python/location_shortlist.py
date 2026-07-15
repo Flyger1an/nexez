@@ -16,7 +16,15 @@ def main() -> None:
     matches = nexez.search(buyer_intent, location=buyer_location, limit=8)
     candidates: List[Dict[str, Any]] = []
 
-    for result in matches.get("results", [])[:5]:
+    unique_results = []
+    seen_slugs = set()
+    for result in matches.get("results", []):
+        slug = result["page"]["slug"]
+        if slug in seen_slugs:
+            continue
+        seen_slugs.add(slug)
+        unique_results.append(result)
+    for result in unique_results[:5]:
         manifest = nexez.get_agent_page(result["page"]["slug"])
         offer_key = (result.get("offer") or {}).get("key") or (manifest.get("offers") or [{}])[0].get("key") or "services-0"
         offer = next((item for item in manifest.get("offers", []) if item.get("key") == offer_key), None)
@@ -59,9 +67,9 @@ def main() -> None:
 
     top = shortlist[0]
     offer = top["offer"]
-    accepts_negotiation = bool(offer.get("accepts_negotiation") or offer.get("negotiation_action"))
+    supports_negotiation = bool(offer.get("negotiation_action"))
 
-    if accepts_negotiation:
+    if supports_negotiation:
         validation = nexez.validate_negotiation(
             slug=top["result"]["page"]["slug"],
             offer=offer["key"],
@@ -95,11 +103,11 @@ def main() -> None:
 
 def score_candidate(result: Dict[str, Any], manifest: Dict[str, Any]) -> int:
     offers = manifest.get("offers") or []
-    location_signal = 12 if result.get("location_match") else 0
+    location_signal = float((result.get("location_match") or {}).get("confidence") or 0) * 12
     action_signal = 10 if (result.get("offer") or {}).get("action") or any(item.get("action") or item.get("negotiation_action") for item in offers) else 0
     price_signal = 6 if (result.get("offer") or {}).get("price") or any(item.get("price") for item in offers) else 0
     faq_signal = 3 if manifest.get("faqs") else 0
-    readiness = manifest.get("certification", {}).get("score", 0)
+    readiness = manifest.get("certification", {}).get("readiness", 0)
     readiness_signal = readiness / 10 if isinstance(readiness, (int, float)) else 0
 
     return round(float(result.get("score") or 0) + location_signal + action_signal + price_signal + faq_signal + readiness_signal)
