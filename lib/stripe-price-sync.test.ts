@@ -60,6 +60,26 @@ describe('applyPriceToOffers', () => {
     const { offers: next, changed } = applyPriceToOffers([productKeyed], target())
     expect(changed).toBe(1)
     expect(next[0].price).toBe('$55')
+    expect(next[0].metadata?.stripe_price_id).toBe('price_1')
+  })
+
+  it('replaces the stored Price id when Stripe changes a Product default_price', () => {
+    const { offers: next, changed } = applyPriceToOffers(
+      [offer({ metadata: { stripe_price_id: 'price_old', stripe_product_id: 'prod_1' } })],
+      target({ priceId: 'price_new', matchPriceId: 'price_old', priceStr: '$65' }),
+    )
+    expect(changed).toBe(1)
+    expect(next[0].price).toBe('$65')
+    expect(next[0].metadata).toMatchObject({ stripe_price_id: 'price_new', stripe_product_id: 'prod_1' })
+  })
+
+  it('updates the stored Price id even when the replacement amount is unchanged', () => {
+    const { offers: next, changed } = applyPriceToOffers(
+      [offer({ price: '$55', metadata: { stripe_price_id: 'price_old', stripe_product_id: 'prod_1' } })],
+      target({ priceId: 'price_new', matchPriceId: 'price_old' }),
+    )
+    expect(changed).toBe(1)
+    expect(next[0].metadata?.stripe_price_id).toBe('price_new')
   })
 
   it("never clobbers a sibling price's offer via the product fallback (monthly vs yearly)", () => {

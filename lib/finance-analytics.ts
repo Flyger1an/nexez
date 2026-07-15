@@ -1,24 +1,64 @@
 // Marketplace financial roll-ups for the Finance dashboard. Pure + client-safe
-// (like lib/negotiation-metrics.ts) so they're unit-testable and can run in either
-// a server page or a client island. GMV = the value of created Stripe checkout
-// sessions (purchase intent at Stripe), excluding dry-run simulator events.
+// so they're unit-testable and can run in either a server page or a client island.
+// Direct GMV comes only from durable, paid checkout_orders that Stripe has proven
+// are live-mode. Telemetry such as "checkout started" is never treated as revenue.
 //
 // HARD RULE: never sum amounts ACROSS currencies - amount_cents is the page's
 // settlement-currency smallest unit (per lib/currency), so cross-currency sums are
 // meaningless. Everything here buckets BY currency.
-import type { CheckoutEvent } from './checkout-events'
-import { getAgentName, getAmountCents, isDryRunEvent } from './analytics'
 import { normalizeCurrency, minorToStripeAmount } from './currency'
 import { calculateApplicationFeeCents } from './stripe-billing'
 
-/** A created Stripe checkout session for a real (non-simulator) purchase. */
-function isRevenueEvent(event: CheckoutEvent): boolean {
-  return !isDryRunEvent(event) && event.event_type === 'stripe_session_created'
+export type DirectFinanceRow = {
+  id: string
+  page_id?: string | null
+  status: string
+  channel?: string | null
+  amount_cents: number
+  refunded_cents?: number | null
+  currency: string | null
+  slug?: string | null
+  offer_name?: string | null
+  offer_key?: string | null
+  buyer_agent?: string | null
+  buyer_name?: string | null
+  buyer_email?: string | null
+  buyer_reference?: string | null
+  commission_percent?: number | null
+  application_fee_cents?: number | null
+  stripe_livemode: boolean | null
+  created_at: string
 }
 
-/** The settlement currency recorded on the event (default usd for pre-currency events). */
-function eventCurrency(event: CheckoutEvent): string {
-  return normalizeCurrency(event.metadata?.currency as string | undefined)
+function isLiveOrder(order: DirectFinanceRow): boolean {
+  return order.stripe_livemode === true && Number.isFinite(order.amount_cents) && order.amount_cents > 0
+}
+
+function orderCurrency(order: DirectFinanceRow): string {
+  return normalizeCurrency(order.currency)
+}
+
+/** Amount still attributable to the seller after refunds or an open dispute. */
+function orderRemainingCents(order: DirectFinanceRow): number {
+  if (order.status === 'disputed') return 0
+  const refunded = order.status === 'refunded' && !order.refunded_cents
+    ? order.amount_cents
+    : Math.max(0, Number(order.refunded_cents) || 0)
+  return Math.max(0, order.amount_cents - Math.min(order.amount_cents, refunded))
+}
+
+/** Stripe proportionally returns an application fee on partial refunds. */
+function retainedFeeCents(order: DirectFinanceRow, fallbackCommissionPct: number): number {
+  const remaining = orderRemainingCents(order)
+  if (remaining <= 0) return 0
+  const snapshot = Number(order.application_fee_cents)
+  if (order.application_fee_cents != null && Number.isFinite(snapshot) && snapshot >= 0) {
+    return Math.round((snapshot * remaining) / order.amount_cents)
+  }
+  const commissionPct = order.commission_percent != null && Number.isFinite(Number(order.commission_percent))
+    ? Number(order.commission_percent)
+    : fallbackCommissionPct
+  return calculateApplicationFeeCents(remaining, commissionPct)
 }
 
 function dateKey(date: Date): string {
@@ -32,6 +72,7 @@ export type CurrencyFinanceRow = {
   currency: string
   gmvCents: number
   orders: number
+  refundedCents: number
   nexezFeeCents: number
   netCents: number
   aovCents: number
@@ -48,35 +89,38 @@ export type CurrencyFinanceRow = {
  * Rollups/ledgers prefer snapshot when present for historical accuracy. Fallback to
  * current plan derivation for legacy rows.
  */
-export function rollupFinanceByCurrency(events: CheckoutEvent[], commissionPct: number): CurrencyFinanceRow[] {
-  const map = new Map<string, { gmvCents: number; orders: number }>()
-  for (const event of events) {
-    if (!isRevenueEvent(event)) continue
-    const code = eventCurrency(event)
-    const row = map.get(code) ?? { gmvCents: 0, orders: 0 }
-    row.gmvCents += getAmountCents(event)
+export function rollupFinanceByCurrency(orders: DirectFinanceRow[], commissionPct: number): CurrencyFinanceRow[] {
+  const map = new Map<string, { gmvCents: number; orders: number; refundedCents: number; feeCents: number; netCents: number }>()
+  for (const order of orders) {
+    if (!isLiveOrder(order)) continue
+    const code = orderCurrency(order)
+    const row = map.get(code) ?? { gmvCents: 0, orders: 0, refundedCents: 0, feeCents: 0, netCents: 0 }
+    const remaining = orderRemainingCents(order)
+    const fee = retainedFeeCents(order, commissionPct)
+    row.gmvCents += order.amount_cents
     row.orders += 1
+    row.refundedCents += order.amount_cents - remaining
+    row.feeCents += fee
+    row.netCents += Math.max(0, remaining - fee)
     map.set(code, row)
   }
   return [...map.entries()]
-    .map(([currency, { gmvCents, orders }]) => {
-      const nexezFeeCents = calculateApplicationFeeCents(gmvCents, commissionPct)
-      return {
-        currency,
-        gmvCents,
-        orders,
-        nexezFeeCents,
-        netCents: gmvCents - nexezFeeCents,
-        aovCents: orders ? Math.round(gmvCents / orders) : 0,
-      }
-    })
+    .map(([currency, row]) => ({
+      currency,
+      gmvCents: row.gmvCents,
+      orders: row.orders,
+      refundedCents: row.refundedCents,
+      nexezFeeCents: row.feeCents,
+      netCents: row.netCents,
+      aovCents: row.orders ? Math.round(row.gmvCents / row.orders) : 0,
+    }))
     .sort((a, b) => b.gmvCents - a.gmvCents)
 }
 
 export type DailyRevenuePoint = { label: string; dateKey: string; revenueCents: number; orders: number }
 
 /** Per-day GMV series for the trend chart; optionally scoped to one currency. */
-export function getDailyRevenueSeries(events: CheckoutEvent[], days = 30, currency?: string): DailyRevenuePoint[] {
+export function getDailyRevenueSeries(orders: DirectFinanceRow[], days = 30, currency?: string): DailyRevenuePoint[] {
   const now = new Date()
   const points: DailyRevenuePoint[] = []
   for (let index = days - 1; index >= 0; index -= 1) {
@@ -92,12 +136,12 @@ export function getDailyRevenueSeries(events: CheckoutEvent[], days = 30, curren
   }
   const byKey = new Map(points.map((point) => [point.dateKey, point]))
   const want = currency ? normalizeCurrency(currency) : null
-  for (const event of events) {
-    if (!isRevenueEvent(event)) continue
-    if (want && eventCurrency(event) !== want) continue
-    const point = byKey.get(dateKey(new Date(event.created_at)))
+  for (const order of orders) {
+    if (!isLiveOrder(order)) continue
+    if (want && orderCurrency(order) !== want) continue
+    const point = byKey.get(dateKey(new Date(order.created_at)))
     if (point) {
-      point.revenueCents += getAmountCents(event)
+      point.revenueCents += order.amount_cents
       point.orders += 1
     }
   }
@@ -107,17 +151,23 @@ export function getDailyRevenueSeries(events: CheckoutEvent[], days = 30, curren
 export type OfferRevenue = { name: string; pageSlug: string; offerKey: string; revenueCents: number; orders: number }
 
 /** Top offers ranked by GMV (not event count); optionally scoped to one currency. */
-export function getTopOffersByRevenueCents(events: CheckoutEvent[], currency?: string): OfferRevenue[] {
+export function getTopOffersByRevenueCents(orders: DirectFinanceRow[], currency?: string): OfferRevenue[] {
   const map = new Map<string, OfferRevenue>()
   const want = currency ? normalizeCurrency(currency) : null
-  for (const event of events) {
-    if (!isRevenueEvent(event) || event.offer_key === 'page') continue
-    if (want && eventCurrency(event) !== want) continue
-    const key = `${event.slug}:${event.offer_key}`
+  for (const order of orders) {
+    if (!isLiveOrder(order) || order.offer_key === 'page') continue
+    if (want && orderCurrency(order) !== want) continue
+    const key = `${order.slug ?? ''}:${order.offer_key ?? ''}`
     const row =
       map.get(key) ??
-      ({ name: event.offer_name || event.offer_key, pageSlug: event.slug, offerKey: event.offer_key, revenueCents: 0, orders: 0 } satisfies OfferRevenue)
-    row.revenueCents += getAmountCents(event)
+      ({
+        name: order.offer_name || order.offer_key || 'Order',
+        pageSlug: order.slug ?? '',
+        offerKey: order.offer_key ?? 'offer',
+        revenueCents: 0,
+        orders: 0,
+      } satisfies OfferRevenue)
+    row.revenueCents += order.amount_cents
     row.orders += 1
     map.set(key, row)
   }
@@ -125,12 +175,12 @@ export function getTopOffersByRevenueCents(events: CheckoutEvent[], currency?: s
 }
 
 /** Distinct settlement currencies seen in revenue events, dominant (by GMV) first. */
-export function getCurrencyOptions(events: CheckoutEvent[]): string[] {
+export function getCurrencyOptions(orders: DirectFinanceRow[]): string[] {
   const gmv = new Map<string, number>()
-  for (const event of events) {
-    if (!isRevenueEvent(event)) continue
-    const code = eventCurrency(event)
-    gmv.set(code, (gmv.get(code) ?? 0) + getAmountCents(event))
+  for (const order of orders) {
+    if (!isLiveOrder(order)) continue
+    const code = orderCurrency(order)
+    gmv.set(code, (gmv.get(code) ?? 0) + order.amount_cents)
   }
   return [...gmv.entries()].sort((a, b) => b[1] - a[1]).map(([code]) => code)
 }
@@ -150,6 +200,9 @@ export type NegotiationFinanceRow = {
   offer_name?: string | null
   buyer_agent?: string | null
   created_at?: string | null
+  stripe_livemode: boolean | null
+  commission_percent?: number | null
+  application_fee_cents?: number | null
 }
 
 export type NegotiationCurrencyRow = {
@@ -174,7 +227,7 @@ const AGREED_STATUSES = new Set(['agreement_proposed', 'held', 'complete'])
 export function rollupNegotiationsByCurrency(negs: NegotiationFinanceRow[]): NegotiationCurrencyRow[] {
   const map = new Map<string, NegotiationCurrencyRow>()
   for (const n of negs) {
-    if (!n.amount_cents) continue
+    if (!n.amount_cents || n.stripe_livemode !== true) continue
     const currency = normalizeCurrency(n.currency)
     const row =
       map.get(currency) ??
@@ -219,7 +272,7 @@ export type LedgerEntry = {
   currency: string
   feeCents: number
   netCents: number
-  status: string | null // negotiation status (negotiated rows only)
+  status: string | null
   isReversal: boolean
 }
 
@@ -227,7 +280,7 @@ export type LedgerEntry = {
 const LEDGER_NEG_STATUSES = new Set(['held', 'complete', 'refunded', 'disputed'])
 
 /**
- * Interleave the DIRECT checkout channel (checkout_events) and the NEGOTIATED
+ * Interleave the DIRECT checkout channel (checkout_orders) and the NEGOTIATED
  * escrow channel (agent_negotiations) into one time-ordered ledger - the living
  * record of marketplace activity. Fee prefers charge-time snapshot if present on the
  * row (post 20260627 migration), else derives from passed current plan rate.
@@ -236,33 +289,35 @@ const LEDGER_NEG_STATUSES = new Set(['held', 'complete', 'refunded', 'disputed']
  * as independent rows). Skips dry-run + amount-less rows.
  */
 export function buildMarketplaceLedger(
-  events: CheckoutEvent[],
+  orders: DirectFinanceRow[],
   negs: NegotiationFinanceRow[],
   commissionPct: number,
   limit = 25,
 ): LedgerEntry[] {
   const entries: LedgerEntry[] = []
-  for (const event of events) {
-    if (!isRevenueEvent(event)) continue
-    const amountCents = getAmountCents(event)
-    const feeCents = calculateApplicationFeeCents(amountCents, commissionPct)
+  for (const order of orders) {
+    if (!isLiveOrder(order)) continue
+    const amountCents = order.amount_cents
+    const remainingCents = orderRemainingCents(order)
+    const feeCents = retainedFeeCents(order, commissionPct)
+    const buyerLabel = order.buyer_agent || order.buyer_name || order.buyer_email || order.buyer_reference || 'Buyer'
     entries.push({
-      id: event.id,
+      id: order.id,
       channel: 'direct',
-      timestamp: event.created_at,
-      offerName: event.offer_name || event.offer_key,
-      pageSlug: event.slug,
-      buyerLabel: getAgentName(event.agent_user_agent),
+      timestamp: order.created_at,
+      offerName: order.offer_name || order.offer_key || 'Order',
+      pageSlug: order.slug ?? '',
+      buyerLabel: buyerLabel.slice(0, 72),
       amountCents,
-      currency: eventCurrency(event),
+      currency: orderCurrency(order),
       feeCents,
-      netCents: amountCents - feeCents,
-      status: null,
-      isReversal: false,
+      netCents: Math.max(0, remainingCents - feeCents),
+      status: order.status,
+      isReversal: remainingCents === 0,
     })
   }
   for (const n of negs) {
-    if (!n.amount_cents || !LEDGER_NEG_STATUSES.has(n.status)) continue
+    if (!n.amount_cents || n.stripe_livemode !== true || !LEDGER_NEG_STATUSES.has(n.status)) continue
     // Convert the app's major×100 amount to the Stripe smallest unit so it lines up
     // with the (already smallest-unit) application_fee_cents snapshot + the display
     // formatter; otherwise zero-decimal currencies mis-state amount/fee/net.

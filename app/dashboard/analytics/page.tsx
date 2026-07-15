@@ -25,7 +25,6 @@ import {
   formatEventDate,
   getAgentName,
   getCheckoutAttemptCount,
-  getConversionCount,
   getDailyEventSeries,
   getDiscoveryActionStats,
   getDiscoveryClickCount,
@@ -38,9 +37,7 @@ import {
   previousPeriodBounds,
   pctDelta,
   type KpiDelta,
-  getRevenueCents,
   getRevenueCurrency,
-  getAgentDrivenRevenueCents,
   getSignalLabel,
   getTopOfferStats,
 } from '../../../lib/analytics'
@@ -56,6 +53,11 @@ import { agentRuntimeUrl, appUrl } from '../../../lib/site'
 import { getOwnerPlanId } from '../../../lib/server/plan'
 import { planAllows } from '../../../lib/billing'
 import { ProBadge } from '../../../components/billing/PlanGate'
+import {
+  getCurrencyOptions as getOrderCurrencyOptions,
+  rollupFinanceByCurrency,
+  type DirectFinanceRow,
+} from '../../../lib/finance-analytics'
 
 type AnalyticsPageProps = {
   searchParams: Promise<AnalyticsSearchParams>
@@ -137,6 +139,18 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     .limit(500)
     .returns<CheckoutEvent[]>()
 
+  let liveOrdersQuery = supabase
+    .from('checkout_orders')
+    .select('id, page_id, offer_name, offer_key, amount_cents, currency, status, channel, slug, refunded_cents, buyer_email, buyer_name, buyer_reference, buyer_agent, commission_percent, application_fee_cents, stripe_livemode, created_at')
+    .eq('owner_id', user.id)
+    .eq('stripe_livemode', true)
+    .gte('created_at', cutoff.toISOString())
+  if (until) liveOrdersQuery = liveOrdersQuery.lte('created_at', until.toISOString())
+  const { data: liveOrderRows } = await liveOrdersQuery
+    .order('created_at', { ascending: false })
+    .limit(1000)
+    .returns<DirectFinanceRow[]>()
+
   let agentVisitsQuery = supabase
     .from('agent_visits')
     .select('*')
@@ -152,12 +166,14 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     .from('agent_negotiations')
     .select('status, created_at')
     .eq('owner_id', user.id)
+    .or('stripe_livemode.is.null,stripe_livemode.eq.true')
     .gte('created_at', cutoff.toISOString())
   if (until) negotiationsQuery = negotiationsQuery.lte('created_at', until.toISOString())
   const { data: negotiationRows, error: negotiationError } = await negotiationsQuery
     .returns<Pick<AgentNegotiation, 'status'>[]>()
 
   const events = checkoutEvents ?? []
+  const liveOrders = liveOrderRows ?? []
   const agentVisits = agentVisitError && isMissingRelationError(agentVisitError) ? [] : (agentVisitRows ?? [])
   const negotiations =
     negotiationError && isMissingRelationError(negotiationError) ? [] : negotiationRows ?? []
@@ -188,6 +204,16 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     pageId: selectedPageId || undefined,
     traffic: selectedTraffic,
   })
+  const queryNeedle = filters.q?.trim().toLowerCase() || ''
+  const filteredOrders = selectedAction === 'all' || selectedAction === 'stripe_session_created'
+    ? liveOrders.filter((order) => {
+        if (selectedPageId && order.page_id !== selectedPageId) return false
+        if (!queryNeedle) return true
+        return [order.offer_name, order.offer_key, order.slug, order.buyer_agent, order.buyer_name, order.buyer_email]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(queryNeedle))
+      })
+    : []
   const trafficSplit = getTrafficSplit(filteredAgentVisits)
   const agentTypeBreakdown = getAgentTypeBreakdown(filteredAgentVisits)
   const topAgentVisitPages = getTopPagesByAgentVisits(filteredAgentVisits, ownedPages).slice(0, 6)
@@ -205,26 +231,42 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const unservedQueries = getUnservedQueries(topQueries, offerTexts)
   const discoveryClicks = getDiscoveryClickCount(filteredEvents)
   const attemptCount = getCheckoutAttemptCount(filteredEvents)
-  const conversionCount = getConversionCount(filteredEvents)
-  const conversionRate = filteredEvents.length
-    ? ((conversionCount / Math.max(attemptCount || filteredEvents.length, 1)) * 100).toFixed(1)
-    : '0.0'
+  const conversionCount = filteredOrders.length
+  const conversionRate = attemptCount > 0
+    ? ((conversionCount / attemptCount) * 100).toFixed(1)
+    : conversionCount > 0 ? '100.0' : '0.0'
   // Resolve the settlement currency FIRST and scope every rollup to it - the
   // KPI renders one currency code, so amounts settling in other currencies
   // must not be mixed into the number (they're different units).
-  const revenueCurrency = getRevenueCurrency(filteredEvents)
-  const revenueCents = getRevenueCents(filteredEvents, revenueCurrency)
+  const revenueCurrency = getOrderCurrencyOptions(filteredOrders)[0] ?? getRevenueCurrency(filteredEvents)
+  const revenueRow = rollupFinanceByCurrency(filteredOrders, 0).find((row) => row.currency === revenueCurrency)
+  const revenueCents = revenueRow?.gmvCents ?? 0
   const pipelineCents = getPipelineCents(filteredEvents, revenueCurrency)
-  const agentRevenueCents = getAgentDrivenRevenueCents(filteredEvents, revenueCurrency)
-  const agentSharePct = 15 // platform share on agent-driven transactions
-  const agentShareCents = Math.round(agentRevenueCents * (agentSharePct / 100))
+  const agentRevenueCents = revenueCents
+  const agentShareCents = revenueRow?.nexezFeeCents ?? 0
   const money = (cents: number) => formatCurrencyAmount(cents, revenueCurrency)
-  const popularService = getTopOfferStats(filteredEvents)[0]?.name || 'No offer activity yet'
+  const offerActivity = getTopOfferStats(filteredEvents)
+  const paidByOffer = new Map<string, number>()
+  for (const order of filteredOrders) {
+    const key = `${order.slug ?? ''}:${order.offer_name ?? order.offer_key ?? ''}`
+    paidByOffer.set(key, (paidByOffer.get(key) ?? 0) + 1)
+  }
+  const popularService = offerActivity[0]?.name || 'No offer activity yet'
   const dailySeries = mergeVisitCountsIntoDailySeries(getDailyEventSeries(filteredEvents, 10), filteredAgentVisits)
+  for (const point of dailySeries) point.conversions = 0
+  for (const order of filteredOrders) {
+    const point = dailySeries.find((item) => item.dateKey === formatLocalDateKey(new Date(order.created_at)))
+    if (point) point.conversions += 1
+  }
   const discoveryActions = getDiscoveryActionStats(filteredEvents)
   const discoverySurfaces = getDiscoverySurfaceStats(filteredEvents)
   const discoveryToIntentRate = discoveryClicks ? Math.round((attemptCount / discoveryClicks) * 100) : 0
-  const topOffers = getTopOfferStats(filteredEvents).slice(0, 5)
+  const topOffers = offerActivity
+    .map((offer) => ({
+      ...offer,
+      conversions: paidByOffer.get(`${offer.pageSlug}:${offer.name}`) ?? 0,
+    }))
+    .slice(0, 5)
   const maxDailyEvents = Math.max(...dailySeries.map((point) => point.total), 1)
   const maxOfferEvents = Math.max(...topOffers.map((offer) => offer.total), 1)
 
@@ -248,7 +290,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   let conversionDelta: KpiDelta | null = null
   let agentRevenueDelta: KpiDelta | null = null
   if (prevBounds) {
-    const [{ data: prevCheckoutRows }, { data: prevVisitRows }] = await Promise.all([
+    const [{ data: prevCheckoutRows }, { data: prevVisitRows }, { data: prevOrderRows }] = await Promise.all([
       supabase
         .from('checkout_events')
         .select('*')
@@ -267,6 +309,16 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         .order('created_at', { ascending: false })
         .limit(1000)
         .returns<AgentVisit[]>(),
+      supabase
+        .from('checkout_orders')
+        .select('id, page_id, offer_name, offer_key, amount_cents, currency, status, channel, slug, refunded_cents, buyer_email, buyer_name, buyer_reference, buyer_agent, commission_percent, application_fee_cents, stripe_livemode, created_at')
+        .eq('owner_id', user.id)
+        .eq('stripe_livemode', true)
+        .gte('created_at', prevBounds.cutoff.toISOString())
+        .lt('created_at', prevBounds.until.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1000)
+        .returns<DirectFinanceRow[]>(),
     ])
     const prevEvents = filterAnalyticsEvents(prevCheckoutRows ?? [], {
       query: filters.q,
@@ -278,11 +330,20 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       pageId: selectedPageId || undefined,
       traffic: selectedTraffic,
     })
+    const prevOrders = selectedAction === 'all' || selectedAction === 'stripe_session_created'
+      ? (prevOrderRows ?? []).filter((order) => {
+          if (selectedPageId && order.page_id !== selectedPageId) return false
+          if (!queryNeedle) return true
+          return [order.offer_name, order.offer_key, order.slug, order.buyer_agent, order.buyer_name, order.buyer_email]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(queryNeedle))
+        })
+      : []
     const prevAttempts = getCheckoutAttemptCount(prevEvents)
-    const prevConversions = getConversionCount(prevEvents)
-    const prevConversionRate = prevEvents.length
-      ? (prevConversions / Math.max(prevAttempts || prevEvents.length, 1)) * 100
-      : 0
+    const prevConversions = prevOrders.length
+    const prevConversionRate = prevAttempts > 0 ? (prevConversions / prevAttempts) * 100 : prevConversions > 0 ? 100 : 0
+    const prevRevenueCents = rollupFinanceByCurrency(prevOrders, 0)
+      .find((row) => row.currency === revenueCurrency)?.gmvCents ?? 0
     signalsDelta = pctDelta(
       filteredEvents.length + filteredAgentVisits.length,
       prevEvents.length + prevVisits.length,
@@ -291,9 +352,9 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     agentVisitsDelta = pctDelta(agentPageVisits, getTrafficSplit(prevVisits).ai, periodLabel)
     // The prev period sums in the SAME currency as the current one, so the
     // delta compares like units even if the workspace switched currencies.
-    revenueDelta = pctDelta(revenueCents, getRevenueCents(prevEvents, revenueCurrency), periodLabel)
+    revenueDelta = pctDelta(revenueCents, prevRevenueCents, periodLabel)
     conversionDelta = pctDelta(Number(conversionRate), prevConversionRate, periodLabel)
-    agentRevenueDelta = pctDelta(agentRevenueCents, getAgentDrivenRevenueCents(prevEvents, revenueCurrency), periodLabel)
+    agentRevenueDelta = pctDelta(agentRevenueCents, prevRevenueCents, periodLabel)
   }
 
   // One-line takeaway from the biggest movers (drives the insight band).
@@ -589,10 +650,10 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           <Kpi title="Tracked Signals" value={(filteredEvents.length + filteredAgentVisits.length).toLocaleString()} delta={signalsDelta} note={`${events.length + agentVisits.length} total stored`} tone="strong" />
           <Kpi title="AI Agent Visits" value={agentPageVisits.toLocaleString()} delta={agentVisitsDelta} note={`${trafficSplit.human} human/unknown visits`} />
           <Kpi title="Discovery Clicks" value={discoveryClicks.toLocaleString()} note="Directory + Marketplace clickthroughs" />
-          <Kpi title="Conversion Rate" value={`${conversionRate}%`} delta={conversionDelta} note={`${conversionCount} conversions`} />
+          <Kpi title="Conversion Rate" value={`${conversionRate}%`} delta={conversionDelta} note={`${conversionCount} Stripe-confirmed orders`} />
           <Kpi title="Most Active Offer" value={popularService} note={`${offerCount || 0} offers listed`} />
-          <Kpi title="Tracked Revenue" value={money(revenueCents)} delta={revenueDelta} note={`${money(pipelineCents)} pipeline`} tone="strong" />
-          <Kpi title="Agent-Driven Revenue" value={money(agentRevenueCents)} delta={agentRevenueDelta} note={`${agentSharePct}% estimated platform share = ${money(agentShareCents)}`} />
+          <Kpi title="Tracked Revenue" value={money(revenueCents)} delta={revenueDelta} note={`${money(pipelineCents)} intent pipeline`} tone="strong" />
+          <Kpi title="Agent-Driven Revenue" value={money(agentRevenueCents)} delta={agentRevenueDelta} note={`${money(agentShareCents)} recorded platform fees`} />
           <Kpi
             title="Negotiations"
             value={negotiationSummary.total.toLocaleString()}

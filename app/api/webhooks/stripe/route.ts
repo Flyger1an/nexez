@@ -82,7 +82,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Bi-directional catalog sync: a price changed in Stripe → refresh every
+  // Bi-directional catalog sync: a price changed in Stripe, or a Product moved
+  // to a replacement default Price, refresh every
   // offer imported with that stripe_price_id (or, for product-keyed imports,
   // that stripe_product_id), so listings track Stripe without a manual
   // re-import. Connect events (event.account) are tenancy-scoped to that
@@ -90,15 +91,9 @@ export async function POST(request: NextRequest) {
   // (the importer authenticates with the platform key, and Stripe ids are
   // globally unique). Already-current offers count as unchanged, so Stripe
   // redeliveries are no-ops even past the event ledger.
-  if (event.type === 'price.updated' || event.type === 'price.created') {
+  if (event.type === 'price.updated' || event.type === 'price.created' || event.type === 'product.updated') {
     if (!hasSupabaseAdminEnv()) {
       return NextResponse.json({ received: true, type: event.type, note: 'SUPABASE_SERVICE_ROLE_KEY required' }, { status: 200 })
-    }
-    const price = event.data.object as Stripe.Price
-    if (price.active === false) {
-      // Deactivating a price shouldn't rewrite listings - leaving the last
-      // synced price standing is the safe read; the owner re-imports to change it.
-      return NextResponse.json({ received: true, type: event.type, skipped: 'inactive price' }, { status: 200 })
     }
     const admin = createAdminClient()
     const connectedAccount = (event as { account?: string }).account ?? null
@@ -115,9 +110,42 @@ export async function POST(request: NextRequest) {
       ownerId = sub.owner_id
     }
 
+    let price: Stripe.Price
+    let matchPriceId: string | null = null
+    if (event.type === 'product.updated') {
+      const product = event.data.object as Stripe.Product
+      const previous = (event.data as { previous_attributes?: { default_price?: string | { id?: string } | null } })
+        .previous_attributes?.default_price
+      matchPriceId = stripeObjectId(previous)
+      const nextPriceId = stripeObjectId(product.default_price)
+      if (!matchPriceId || !nextPriceId || matchPriceId === nextPriceId) {
+        return NextResponse.json({ received: true, type: event.type, skipped: 'default price unchanged' }, { status: 200 })
+      }
+      try {
+        price = await stripe.prices.retrieve(
+          nextPriceId,
+          {},
+          connectedAccount ? { stripeAccount: connectedAccount } : undefined,
+        )
+      } catch (error) {
+        await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
+        console.warn('[Stripe Webhook] replacement price lookup failed:', error instanceof Error ? error.message : error)
+        return NextResponse.json({ error: 'replacement price lookup failed', type: event.type }, { status: 500 })
+      }
+    } else {
+      price = event.data.object as Stripe.Price
+    }
+
+    if (price.active === false) {
+      // Deactivating a price shouldn't rewrite listings - leaving the last
+      // synced price standing is the safe read; the owner re-imports to change it.
+      return NextResponse.json({ received: true, type: event.type, skipped: 'inactive price' }, { status: 200 })
+    }
+
     const productId = typeof price.product === 'string' ? price.product : price.product?.id ?? null
     const target = {
       priceId: price.id,
+      matchPriceId,
       productId,
       priceStr: formatStripePriceString(price),
       syncedAt: new Date().toISOString(),
@@ -127,8 +155,10 @@ export async function POST(request: NextRequest) {
     // index-friendly lookups instead of scanning every page per price event.
     type PriceSyncPageRow = { id: string; slug: string; owner_id: string | null; services: OfferItem[] | null; products: OfferItem[] | null }
     const markers: Array<Record<string, unknown>> = [{ metadata: { stripe_price_id: price.id } }]
+    if (matchPriceId) markers.push({ metadata: { stripe_price_id: matchPriceId } })
     if (productId) markers.push({ metadata: { stripe_product_id: productId } })
     const candidates = new Map<string, PriceSyncPageRow>()
+    let lookupFailed = false
     for (const column of ['services', 'products'] as const) {
       for (const marker of markers) {
         let query = admin.from('pages').select('id, slug, owner_id, services, products').contains(column, [marker])
@@ -136,14 +166,20 @@ export async function POST(request: NextRequest) {
         const { data: rows, error } = await query
         if (error) {
           console.warn(`[Stripe Webhook] price sync ${column} lookup failed:`, error.message)
+          lookupFailed = true
           continue
         }
         for (const row of (rows ?? []) as PriceSyncPageRow[]) candidates.set(row.id, row)
       }
     }
+    if (lookupFailed) {
+      await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
+      return NextResponse.json({ error: 'price sync lookup failed', type: event.type }, { status: 500 })
+    }
 
     let offersUpdated = 0
     let pagesTouched = 0
+    let updateFailed = false
     for (const row of candidates.values()) {
       const services = applyPriceToOffers(row.services ?? [], target)
       const products = applyPriceToOffers(row.products ?? [], target)
@@ -156,6 +192,7 @@ export async function POST(request: NextRequest) {
         .eq('id', row.id)
       if (updateErr) {
         console.warn('[Stripe Webhook] price sync update failed for page', row.slug, updateErr.message)
+        updateFailed = true
         continue
       }
       offersUpdated += changed
@@ -174,6 +211,7 @@ export async function POST(request: NextRequest) {
         metadata: {
           source: 'stripe_webhook',
           price_id: price.id,
+          previous_price_id: matchPriceId,
           product_id: productId,
           new_price: target.priceStr,
           changes,
@@ -182,6 +220,10 @@ export async function POST(request: NextRequest) {
       if (eventError) {
         console.warn('[Stripe Webhook] Failed to log price sync for page', row.slug, eventError.message)
       }
+    }
+    if (updateFailed) {
+      await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
+      return NextResponse.json({ error: 'price sync update failed', type: event.type }, { status: 500 })
     }
     captureEvent('integration.price_synced', {
       provider: 'stripe',
@@ -263,6 +305,7 @@ export async function POST(request: NextRequest) {
           status: nextStatus,
           escrow_mode: nextEscrowMode,
           stripe_payment_intent_id: piId,
+          stripe_livemode: session.livemode,
           ...(buyerEmail ? { buyer_email: buyerEmail } : {}),
           commission_percent: Number(session.metadata?.nexez_commission_percent || 0) || null,
           application_fee_cents: Number(session.metadata?.nexez_application_fee_cents || 0) || null,
@@ -371,6 +414,7 @@ export async function POST(request: NextRequest) {
         currency: (session.currency || 'usd').toLowerCase(),
         application_fee_cents: Number(session.metadata.nexez_application_fee_cents || 0) || null,
         commission_percent: Number(session.metadata.nexez_commission_percent || 0) || null,
+        stripe_livemode: session.livemode,
         status: 'paid',
         channel: 'agent_checkout',
         ...(buyerEmail ? { buyer_email: buyerEmail } : {}),
@@ -482,6 +526,7 @@ export async function POST(request: NextRequest) {
       currency: (pi.currency || 'usd').toLowerCase(),
       application_fee_cents: Number(md.nexez_application_fee_cents || 0) || null,
       commission_percent: Number(md.nexez_commission_percent || 0) || null,
+      stripe_livemode: pi.livemode,
       status: 'paid',
       channel,
       ...(buyerEmail ? { buyer_email: buyerEmail } : {}),
@@ -499,7 +544,10 @@ export async function POST(request: NextRequest) {
     }
     // Mark the persisted session settled + link the PI (best-effort, idempotent).
     after(() =>
-      admin.from('checkout_sessions').update({ status: 'completed', stripe_payment_intent_id: pi.id }).eq('id', md.nexez_session_id),
+      admin
+        .from('checkout_sessions')
+        .update({ status: 'completed', stripe_payment_intent_id: pi.id, stripe_livemode: pi.livemode })
+        .eq('id', md.nexez_session_id),
     )
     // Buyer receipt + portal link (same pattern as the hosted-checkout path, keyed on
     // the PI). Gated on a captured buyer email + email env.

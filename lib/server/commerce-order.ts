@@ -23,6 +23,7 @@ export type CommerceOrderInput = {
   currency: string
   applicationFeeCents: number
   commissionPercent: number
+  livemode: boolean
   buyer: SessionBuyer | null
 }
 
@@ -43,6 +44,7 @@ export async function persistCommerceOrder(admin: Pick<SupabaseClient, 'from'>, 
     currency: (input.currency || 'usd').toLowerCase(),
     application_fee_cents: input.applicationFeeCents || null,
     commission_percent: input.commissionPercent || null,
+    stripe_livemode: input.livemode,
     status: 'paid',
     channel: input.channel,
     ...(buyer?.email ? { buyer_email: buyer.email.toLowerCase() } : {}),

@@ -54,6 +54,68 @@ export async function GET(request: Request) {
     return connectByOwner.get(ownerId) || undefined
   }
 
+  // Historical provenance pass. Financial reporting is fail-closed and only counts
+  // rows Stripe proves came from live mode. Resolve a bounded set of legacy rows on
+  // every run so genuine production sales become reportable without trusting names,
+  // timestamps, or application metadata.
+  let provenanceBackfilled = 0
+  let provenanceUnresolved = 0
+  const { data: unknownOrders } = await admin
+    .from('checkout_orders')
+    .select('id, owner_id, stripe_payment_intent_id, stripe_session_id, stripe_connect_account_id')
+    .is('stripe_livemode', null)
+    .order('created_at', { ascending: false })
+    .limit(LIMIT)
+  for (const row of unknownOrders ?? []) {
+    try {
+      const stripeAccount = row.stripe_connect_account_id || (await connectFor(row.owner_id))
+      const options = stripeAccount ? { stripeAccount } : undefined
+      const livemode = row.stripe_payment_intent_id
+        ? (await stripe.paymentIntents.retrieve(row.stripe_payment_intent_id as string, {}, options)).livemode
+        : row.stripe_session_id
+          ? (await stripe.checkout.sessions.retrieve(row.stripe_session_id as string, undefined, options)).livemode
+          : null
+      if (typeof livemode === 'boolean') {
+        const { error: updateError } = await admin
+          .from('checkout_orders')
+          .update({ stripe_livemode: livemode })
+          .eq('id', row.id)
+          .is('stripe_livemode', null)
+        if (!updateError) provenanceBackfilled += 1
+      } else {
+        provenanceUnresolved += 1
+      }
+    } catch {
+      provenanceUnresolved += 1
+    }
+  }
+
+  const { data: unknownNegotiations } = await admin
+    .from('agent_negotiations')
+    .select('id, owner_id, stripe_payment_intent_id')
+    .is('stripe_livemode', null)
+    .not('stripe_payment_intent_id', 'is', null)
+    .order('updated_at', { ascending: false })
+    .limit(LIMIT)
+  for (const row of unknownNegotiations ?? []) {
+    try {
+      const stripeAccount = await connectFor(row.owner_id)
+      const pi = await stripe.paymentIntents.retrieve(
+        row.stripe_payment_intent_id as string,
+        {},
+        stripeAccount ? { stripeAccount } : undefined,
+      )
+      const { error: updateError } = await admin
+        .from('agent_negotiations')
+        .update({ stripe_livemode: pi.livemode })
+        .eq('id', row.id)
+        .is('stripe_livemode', null)
+      if (!updateError) provenanceBackfilled += 1
+    } catch {
+      provenanceUnresolved += 1
+    }
+  }
+
   // Backfill pass: a paid Checkout session whose webhook never landed (e.g. the
   // connected-account endpoint wasn't configured) leaves the negotiation with a
   // session id but NO payment intent - invisible to the PI-based scan below, so a
@@ -80,7 +142,11 @@ export async function GET(request: Request) {
       if (session.payment_status === 'paid' && piId) {
         const { error: upErr } = await admin
           .from('agent_negotiations')
-          .update({ stripe_payment_intent_id: piId, updated_at: new Date().toISOString() })
+          .update({
+            stripe_payment_intent_id: piId,
+            stripe_livemode: session.livemode,
+            updated_at: new Date().toISOString(),
+          })
           .eq('id', row.id)
           .is('stripe_payment_intent_id', null)
         if (!upErr) backfilled += 1
@@ -95,7 +161,7 @@ export async function GET(request: Request) {
   // money). Newest first, bounded.
   const { data, error } = await admin
     .from('agent_negotiations')
-    .select('id, owner_id, status, settlement_state, stripe_payment_intent_id')
+    .select('id, owner_id, status, settlement_state, stripe_payment_intent_id, stripe_livemode')
     .not('stripe_payment_intent_id', 'is', null)
     .in('status', ['agreement_proposed', 'held'])
     .order('updated_at', { ascending: false })
@@ -126,6 +192,14 @@ export async function GET(request: Request) {
       const charge = pi.latest_charge && typeof pi.latest_charge !== 'string' ? pi.latest_charge : null
       refunded = Boolean(charge?.refunded || (charge?.amount_refunded ?? 0) > 0)
       disputed = Boolean(charge?.disputed)
+      if (row.stripe_livemode == null) {
+        const { error: provenanceError } = await admin
+          .from('agent_negotiations')
+          .update({ stripe_livemode: pi.livemode })
+          .eq('id', row.id)
+          .is('stripe_livemode', null)
+        if (!provenanceError) provenanceBackfilled += 1
+      }
     } catch {
       piStatus = null // unreadable - the helper decides whether that's alert-worthy
     }
@@ -156,5 +230,15 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, scanned: rows.length, backfilled, healed, alerted, actions, ran_at: new Date().toISOString() })
+  return NextResponse.json({
+    ok: true,
+    scanned: rows.length,
+    backfilled,
+    provenanceBackfilled,
+    provenanceUnresolved,
+    healed,
+    alerted,
+    actions,
+    ran_at: new Date().toISOString(),
+  })
 }

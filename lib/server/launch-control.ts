@@ -37,6 +37,7 @@ type OrderRow = {
   slug: string | null
   created_at: string
   updated_at: string | null
+  stripe_livemode: boolean | null
 }
 type NegotiationRow = {
   id: string
@@ -49,6 +50,7 @@ type NegotiationRow = {
   slug: string
   created_at: string
   updated_at: string | null
+  stripe_livemode: boolean | null
 }
 type BillingRow = {
   owner_id: string
@@ -223,13 +225,14 @@ async function loadOperationalSources(nowIso: string) {
       .returns<CheckoutEventRow[]>()),
     safeSource<OrderRow>('order ledger', async () => admin
       .from('checkout_orders')
-      .select('id,status,channel,refunded_cents,offer_name,slug,created_at,updated_at')
+      .select('id,status,channel,refunded_cents,offer_name,slug,created_at,updated_at,stripe_livemode')
+      .eq('stripe_livemode', true)
       .order('created_at', { ascending: false })
       .limit(1_000)
       .returns<OrderRow[]>()),
     safeSource<NegotiationRow>('negotiation ledger', async () => admin
       .from('agent_negotiations')
-      .select('id,status,decision_pending,decision_requested_at,stripe_payment_intent_id,refunded_cents,offer_name,slug,created_at,updated_at')
+      .select('id,status,decision_pending,decision_requested_at,stripe_payment_intent_id,refunded_cents,offer_name,slug,created_at,updated_at,stripe_livemode')
       .order('created_at', { ascending: false })
       .limit(2_000)
       .returns<NegotiationRow[]>()),
@@ -326,6 +329,7 @@ function buildMetrics(sources: OperationalSources, nowIso: string): LaunchMetric
   const checkoutEvents = sources.checkoutEvents.rows
   const orders = sources.orders.rows
   const negotiations = sources.negotiations.rows
+  const liveNegotiations = negotiations.filter((row) => row.stripe_livemode === true)
   const billing = sources.billing.rows
   const shopify = sources.shopify.rows.filter((row) => !row.uninstalled_at)
   const outbound = sources.outboundWebhooks.rows.filter((row) => row.active)
@@ -344,10 +348,10 @@ function buildMetrics(sources: OperationalSources, nowIso: string): LaunchMetric
     negotiations: negotiations.length,
     pendingNegotiationDecisions: negotiations.filter((row) => row.decision_pending).length,
     staleNegotiationDecisions: negotiations.filter((row) => row.decision_pending && timestamp(row.decision_requested_at || row.updated_at || row.created_at) < staleNegotiationBefore).length,
-    completedNegotiations: negotiations.filter((row) => TERMINAL_NEGOTIATION_STATUSES.has(row.status)).length,
-    heldNegotiations: negotiations.filter((row) => row.status === 'held').length,
-    paymentBackedNegotiations: negotiations.filter((row) => Boolean(row.stripe_payment_intent_id) && ['held', 'complete', 'refunded', 'disputed'].includes(row.status)).length,
-    refundedNegotiations: negotiations.filter((row) => row.status === 'refunded' || Number(row.refunded_cents) > 0).length,
+    completedNegotiations: liveNegotiations.filter((row) => TERMINAL_NEGOTIATION_STATUSES.has(row.status)).length,
+    heldNegotiations: liveNegotiations.filter((row) => row.status === 'held').length,
+    paymentBackedNegotiations: liveNegotiations.filter((row) => Boolean(row.stripe_payment_intent_id) && ['held', 'complete', 'refunded', 'disputed'].includes(row.status)).length,
+    refundedNegotiations: liveNegotiations.filter((row) => row.status === 'refunded' || Number(row.refunded_cents) > 0).length,
     activeSubscriptions: billing.filter((row) => ACTIVE_SUBSCRIPTION_STATUSES.has(row.status)).length,
     subscriptionRecords: billing.filter((row) => Boolean(row.stripe_subscription_id)).length,
     connectChargeReady: billing.filter((row) => row.stripe_connect_charges_enabled === true).length,

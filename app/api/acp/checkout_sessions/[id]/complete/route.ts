@@ -119,7 +119,10 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   // is the money record, and a retried /complete self-heals via the same idempotency
   // key (same PI, no second charge).
   const completed = markSessionCompleted(session)
-  await updateSessionSnapshot(admin, id, completed, { stripePaymentIntentId: settled.paymentIntentId })
+  await updateSessionSnapshot(admin, id, completed, {
+    stripePaymentIntentId: settled.paymentIntentId,
+    stripeLivemode: settled.livemode,
+  })
   const accessToken = await persistCommerceOrder(admin, {
     channel: 'acp',
     ownerId: context.context.ownerId ?? '',
@@ -133,6 +136,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     currency: settled.currency,
     applicationFeeCents: settled.applicationFee,
     commissionPercent: context.context.commissionPercent,
+    livemode: settled.livemode,
     buyer: completed.buyer,
   })
 

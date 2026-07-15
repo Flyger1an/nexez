@@ -55,6 +55,7 @@ describe('sessionInsertValues', () => {
       api_version: '2026-04-17',
       expires_at: '2026-07-12T01:00:00.000Z',
       stripe_payment_intent_id: null,
+      stripe_livemode: null,
     })
     expect(values.line_items).toHaveLength(1)
     expect(values.totals.total).toBe(120000)
@@ -66,6 +67,7 @@ describe('sessionInsertValues', () => {
     expect(values.idempotency_key).toBeNull()
     expect(values.api_version).toBeNull()
     expect(values.stripe_payment_intent_id).toBeNull()
+    expect(values.stripe_livemode).toBeNull()
   })
 })
 
@@ -79,8 +81,9 @@ describe('sessionUpdateValues', () => {
       buyer: null,
       totals: s.totals,
     })
-    const withPi = sessionUpdateValues(s, { stripePaymentIntentId: 'pi_9' })
+    const withPi = sessionUpdateValues(s, { stripePaymentIntentId: 'pi_9', stripeLivemode: false })
     expect(withPi.stripe_payment_intent_id).toBe('pi_9')
+    expect(withPi.stripe_livemode).toBe(false)
   })
 })
 
@@ -98,6 +101,7 @@ describe('rowToSession', () => {
     totals: { currency: 'usd', subtotal: 120000, tax: 0, total: 120000 },
     idempotency_key: null,
     stripe_payment_intent_id: null,
+    stripe_livemode: null,
     api_version: null,
     expires_at: '2026-07-12T01:00:00.000Z',
   }

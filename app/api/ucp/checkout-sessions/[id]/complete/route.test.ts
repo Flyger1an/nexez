@@ -26,7 +26,7 @@ const ROW = {
   totals: { currency: 'usd', subtotal: 120000, tax: 0, total: 120000 }, buyer: null, stripe_payment_intent_id: null, expires_at: '2999-01-01T00:00:00.000Z',
 }
 const OK_CONTEXT = { ok: true, context: { pageId: 'pg1', ownerId: 'owner-1', connectAccountId: 'acct_seller', commissionPercent: 10 } }
-const OK_SETTLE = { ok: true, paymentIntentId: 'pi_1', amount: 120000, applicationFee: 12000, currency: 'usd' }
+const OK_SETTLE = { ok: true, paymentIntentId: 'pi_1', amount: 120000, applicationFee: 12000, currency: 'usd', livemode: false }
 
 function adminMock(handler: (ctx: QueryContext) => { data?: any; error?: any } | undefined) {
   return createSupabaseMock((ctx) => handler(ctx) ?? { data: null, error: null }) as any
@@ -83,8 +83,8 @@ describe('POST /api/ucp/checkout-sessions/[id]/complete', () => {
     expect(body.order.permalink_url).toMatch(/\/orders\/tok123$/)
     const [, payment] = settleSessionToPaymentIntent.mock.calls[0]
     expect(payment).toEqual({ token: 'gp_123', kind: 'google_pay' })
-    expect(spy.getOrderUpsert()).toMatchObject({ channel: 'ucp', stripe_payment_intent_id: 'pi_1', status: 'paid' })
-    expect(spy.getSessionUpdate()).toMatchObject({ status: 'completed', stripe_payment_intent_id: 'pi_1' })
+    expect(spy.getOrderUpsert()).toMatchObject({ channel: 'ucp', stripe_payment_intent_id: 'pi_1', stripe_livemode: false, status: 'paid' })
+    expect(spy.getSessionUpdate()).toMatchObject({ status: 'completed', stripe_payment_intent_id: 'pi_1', stripe_livemode: false })
   })
 
   it('400 when the Google Pay credential is missing', async () => {

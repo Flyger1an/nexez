@@ -7,28 +7,35 @@ import {
   rollupNegotiationsByCurrency,
   getReversalRate,
   buildMarketplaceLedger,
+  type DirectFinanceRow,
   type NegotiationFinanceRow,
 } from '../finance-analytics'
-import type { CheckoutEvent } from '../checkout-events'
 
-function ev(over: Partial<CheckoutEvent> & { amount_cents?: number; currency?: string; dryRun?: boolean }): CheckoutEvent {
-  const { amount_cents, currency, dryRun, ...rest } = over
+function order(over: Partial<DirectFinanceRow> = {}): DirectFinanceRow {
   return {
-    id: 'e', page_id: 'p', owner_id: 'o', slug: 'acme', offer_key: 'services-0', offer_name: 'Consult',
-    offer_kind: 'services', event_type: 'stripe_session_created', agent_user_agent: null, referrer: null,
-    query: null, checkout_url: null, provider_url: null, stripe_session_id: null,
-    metadata: { amount_cents, currency, ...(dryRun ? { dry_run: true } : {}) },
+    id: 'o',
+    page_id: 'p',
+    slug: 'acme',
+    offer_key: 'services-0',
+    offer_name: 'Consult',
+    status: 'paid',
+    amount_cents: 1000,
+    refunded_cents: 0,
+    currency: 'usd',
+    commission_percent: null,
+    application_fee_cents: null,
+    stripe_livemode: true,
     created_at: new Date().toISOString(),
-    ...rest,
-  } as CheckoutEvent
+    ...over,
+  }
 }
 
 describe('rollupFinanceByCurrency', () => {
   it('buckets GMV / orders / commission / net / AOV by currency and never sums across them', () => {
     const events = [
-      ev({ amount_cents: 5000, currency: 'usd' }),
-      ev({ amount_cents: 3000, currency: 'usd' }),
-      ev({ amount_cents: 10000, currency: 'gbp' }),
+      order({ amount_cents: 5000, currency: 'usd' }),
+      order({ amount_cents: 3000, currency: 'usd' }),
+      order({ amount_cents: 10000, currency: 'gbp' }),
     ]
     const rows = rollupFinanceByCurrency(events, 10) // 10% commission
     expect(rows.map((r) => r.currency)).toEqual(['gbp', 'usd']) // sorted by GMV desc (10000 > 8000)
@@ -43,19 +50,29 @@ describe('rollupFinanceByCurrency', () => {
     expect(gbp.nexezFeeCents).toBe(1000)
   })
 
-  it('excludes dry-run (simulator) events and non-revenue event types', () => {
-    const events = [
-      ev({ amount_cents: 5000, currency: 'usd' }),
-      ev({ amount_cents: 9999, currency: 'usd', dryRun: true }),
-      ev({ amount_cents: 9999, currency: 'usd', event_type: 'checkout_attempt' }),
+  it('fails closed for test-mode and unverified historical orders', () => {
+    const orders = [
+      order({ amount_cents: 5000, currency: 'usd' }),
+      order({ amount_cents: 9999, currency: 'usd', stripe_livemode: false }),
+      order({ amount_cents: 9999, currency: 'usd', stripe_livemode: null }),
     ]
-    const rows = rollupFinanceByCurrency(events, 15)
+    const rows = rollupFinanceByCurrency(orders, 15)
     expect(rows).toHaveLength(1)
     expect(rows[0].gmvCents).toBe(5000)
   })
 
-  it('treats pre-currency events (no currency) as usd, zero-decimal kept as-is', () => {
-    const rows = rollupFinanceByCurrency([ev({ amount_cents: 1000, currency: 'jpy' }), ev({ amount_cents: 5000 })], 6)
+  it('reduces seller net and the retained application fee proportionally after a partial refund', () => {
+    const [row] = rollupFinanceByCurrency([
+      order({ amount_cents: 10000, refunded_cents: 2500, application_fee_cents: 1000 }),
+    ], 15)
+    expect(row.gmvCents).toBe(10000)
+    expect(row.refundedCents).toBe(2500)
+    expect(row.nexezFeeCents).toBe(750)
+    expect(row.netCents).toBe(6750)
+  })
+
+  it('treats missing currency as usd and keeps zero-decimal units unchanged', () => {
+    const rows = rollupFinanceByCurrency([order({ amount_cents: 1000, currency: 'jpy' }), order({ amount_cents: 5000, currency: null })], 6)
     expect(rows.find((r) => r.currency === 'jpy')!.gmvCents).toBe(1000)
     expect(rows.find((r) => r.currency === 'usd')!.gmvCents).toBe(5000)
   })
@@ -64,10 +81,10 @@ describe('rollupFinanceByCurrency', () => {
 describe('getTopOffersByRevenueCents', () => {
   it('ranks offers by GMV, optionally scoped to one currency, skipping the page key', () => {
     const events = [
-      ev({ amount_cents: 5000, currency: 'usd', offer_key: 'services-0', offer_name: 'Consult' }),
-      ev({ amount_cents: 9000, currency: 'usd', offer_key: 'products-0', offer_name: 'Kit' }),
-      ev({ amount_cents: 9999, currency: 'usd', offer_key: 'page' }),
-      ev({ amount_cents: 7000, currency: 'gbp', offer_key: 'services-0', offer_name: 'Consult' }),
+      order({ amount_cents: 5000, currency: 'usd', offer_key: 'services-0', offer_name: 'Consult' }),
+      order({ amount_cents: 9000, currency: 'usd', offer_key: 'products-0', offer_name: 'Kit' }),
+      order({ amount_cents: 9999, currency: 'usd', offer_key: 'page' }),
+      order({ amount_cents: 7000, currency: 'gbp', offer_key: 'services-0', offer_name: 'Consult' }),
     ]
     const usd = getTopOffersByRevenueCents(events, 'usd')
     expect(usd.map((o) => o.offerKey)).toEqual(['products-0', 'services-0'])
@@ -77,7 +94,7 @@ describe('getTopOffersByRevenueCents', () => {
 })
 
 function neg(over: Partial<NegotiationFinanceRow>): NegotiationFinanceRow {
-  return { status: 'complete', amount_cents: 1000, currency: 'usd', slug: 'acme', offer_name: 'Consult', buyer_agent: 'Acme', created_at: '2026-06-10T00:00:00Z', ...over }
+  return { status: 'complete', amount_cents: 1000, currency: 'usd', slug: 'acme', offer_name: 'Consult', buyer_agent: 'Acme', created_at: '2026-06-10T00:00:00Z', stripe_livemode: true, ...over }
 }
 
 describe('rollupNegotiationsByCurrency', () => {
@@ -100,6 +117,16 @@ describe('rollupNegotiationsByCurrency', () => {
     const gbp = rows.find((r) => r.currency === 'gbp')!
     expect(gbp.agreedCents).toBe(2000)
     expect(gbp.heldCents).toBe(0)
+  })
+
+  it('excludes test-mode and unverified funded negotiations', () => {
+    const rows = rollupNegotiationsByCurrency([
+      neg({ amount_cents: 1000, stripe_livemode: true }),
+      neg({ amount_cents: 9000, stripe_livemode: false }),
+      neg({ amount_cents: 9000, stripe_livemode: null }),
+    ])
+    expect(rows).toHaveLength(1)
+    expect(rows[0].completeCents).toBe(1000)
   })
 
   it('converts the app major×100 amount to the smallest unit for zero-decimal currencies (JPY)', () => {
@@ -125,16 +152,16 @@ describe('getReversalRate', () => {
 
 describe('buildMarketplaceLedger', () => {
   it('interleaves direct + negotiated rows time-desc with derived fee/net and flags reversals', () => {
-    const events = [
-      ev({ amount_cents: 10000, currency: 'usd', offer_name: 'Kit', created_at: '2026-06-12T00:00:00Z', id: 'd1' }),
-      ev({ amount_cents: 9999, currency: 'usd', dryRun: true, id: 'd2' }), // dry-run excluded
+    const orders = [
+      order({ amount_cents: 10000, currency: 'usd', offer_name: 'Kit', created_at: '2026-06-12T00:00:00Z', id: 'd1' }),
+      order({ amount_cents: 9999, currency: 'usd', stripe_livemode: false, id: 'd2' }),
     ]
     const negs = [
       neg({ id: 'n1', status: 'complete', amount_cents: 4000, currency: 'usd', created_at: '2026-06-13T00:00:00Z', offer_name: 'Deal', buyer_agent: 'Claude' }),
       neg({ id: 'n2', status: 'refunded', amount_cents: 2000, currency: 'usd', created_at: '2026-06-11T00:00:00Z', buyer_agent: null }),
       neg({ id: 'n3', status: 'negotiation', amount_cents: 5000, currency: 'usd' }), // not a money event → excluded
     ]
-    const ledger = buildMarketplaceLedger(events, negs, 10) // 10% commission
+    const ledger = buildMarketplaceLedger(orders, negs, 10) // 10% commission
     expect(ledger.map((e) => e.id)).toEqual(['neg-n1', 'd1', 'neg-n2']) // time desc
     const direct = ledger.find((e) => e.id === 'd1')!
     expect(direct.channel).toBe('direct')
@@ -162,22 +189,22 @@ describe('buildMarketplaceLedger', () => {
   })
 
   it('respects the limit (most recent first)', () => {
-    const events = Array.from({ length: 30 }, (_, i) =>
-      ev({ amount_cents: 100, currency: 'usd', id: `e${i}`, created_at: `2026-06-${String((i % 28) + 1).padStart(2, '0')}T00:00:00Z` }),
+    const orders = Array.from({ length: 30 }, (_, i) =>
+      order({ amount_cents: 100, currency: 'usd', id: `e${i}`, created_at: `2026-06-${String((i % 28) + 1).padStart(2, '0')}T00:00:00Z` }),
     )
-    expect(buildMarketplaceLedger(events, [], 10, 25)).toHaveLength(25)
+    expect(buildMarketplaceLedger(orders, [], 10, 25)).toHaveLength(25)
   })
 })
 
 describe('getDailyRevenueSeries + getCurrencyOptions', () => {
   it('produces a dated GMV series with the requested number of points', () => {
-    const series = getDailyRevenueSeries([ev({ amount_cents: 5000, currency: 'usd' })], 7)
+    const series = getDailyRevenueSeries([order({ amount_cents: 5000, currency: 'usd' })], 7)
     expect(series).toHaveLength(7)
     expect(series[series.length - 1].revenueCents).toBe(5000) // today's bucket
   })
 
   it('lists currencies dominant-first', () => {
-    const events = [ev({ amount_cents: 1000, currency: 'usd' }), ev({ amount_cents: 9000, currency: 'gbp' })]
-    expect(getCurrencyOptions(events)).toEqual(['gbp', 'usd'])
+    const orders = [order({ amount_cents: 1000, currency: 'usd' }), order({ amount_cents: 9000, currency: 'gbp' })]
+    expect(getCurrencyOptions(orders)).toEqual(['gbp', 'usd'])
   })
 })

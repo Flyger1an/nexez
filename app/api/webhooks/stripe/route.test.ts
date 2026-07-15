@@ -4,6 +4,7 @@ import { createSupabaseMock, type QueryContext } from '../../../../test/supabase
 const {
   constructEvent,
   retrieveSubscription,
+  retrievePrice,
   hasSupabaseAdminEnv,
   createAdminClient,
   adminFrom,
@@ -12,6 +13,7 @@ const {
 } = vi.hoisted(() => ({
   constructEvent: vi.fn(),
   retrieveSubscription: vi.fn(),
+  retrievePrice: vi.fn(),
   hasSupabaseAdminEnv: vi.fn(),
   createAdminClient: vi.fn(),
   adminFrom: vi.fn(),
@@ -22,6 +24,7 @@ vi.mock('stripe', () => ({
   default: class {
     webhooks = { constructEvent }
     subscriptions = { retrieve: retrieveSubscription }
+    prices = { retrieve: retrievePrice }
   },
 }))
 vi.mock('../../../../utils/supabase/admin', () => ({ createAdminClient, hasSupabaseAdminEnv }))
@@ -313,6 +316,7 @@ describe('POST /api/webhooks/stripe', () => {
             id: 'cs_current',
             amount_total: 90000,
             currency: 'usd',
+            livemode: false,
             payment_status: 'paid',
             payment_intent: 'pi_1',
             metadata: {
@@ -326,7 +330,7 @@ describe('POST /api/webhooks/stripe', () => {
 
       const res = await POST(post({ sig: 'good', body: '{}' }))
       expect(res.status).toBe(200)
-      expect(getUpd()).toMatchObject({ status: 'complete', escrow_mode: 'captured', stripe_payment_intent_id: 'pi_1' })
+      expect(getUpd()).toMatchObject({ status: 'complete', escrow_mode: 'captured', stripe_payment_intent_id: 'pi_1', stripe_livemode: false })
     })
 
     it('ignores stale completed sessions with an old amount', async () => {
@@ -581,7 +585,7 @@ describe('POST /api/webhooks/stripe', () => {
         account: 'acct_x',
         data: {
           object: {
-            id: 'cs_dc', payment_status: 'paid', payment_intent: 'pi_dc', amount_total: 5000, currency: 'usd',
+            id: 'cs_dc', payment_status: 'paid', payment_intent: 'pi_dc', amount_total: 5000, currency: 'usd', livemode: true,
             metadata: { nexez_source: 'agent_checkout', nexez_owner_id: 'owner-1', nexez_page_id: 'pg1', nexez_page_slug: 'acme', nexez_offer_name: 'Audit', nexez_offer_key: 's0', nexez_application_fee_cents: '750' },
           },
         },
@@ -589,7 +593,7 @@ describe('POST /api/webhooks/stripe', () => {
       const res = await POST(post({ sig: 'good', body: '{}' }))
       expect(res.status).toBe(200)
       expect(await res.json()).toMatchObject({ order: true, status: 'paid' })
-      expect(upserted).toMatchObject({ owner_id: 'owner-1', stripe_session_id: 'cs_dc', stripe_payment_intent_id: 'pi_dc', amount_cents: 5000, currency: 'usd', status: 'paid', application_fee_cents: 750, stripe_connect_account_id: 'acct_x' })
+      expect(upserted).toMatchObject({ owner_id: 'owner-1', stripe_session_id: 'cs_dc', stripe_payment_intent_id: 'pi_dc', amount_cents: 5000, currency: 'usd', status: 'paid', application_fee_cents: 750, stripe_connect_account_id: 'acct_x', stripe_livemode: true })
     })
 
     it('charge.refunded with no negotiation but a matching ORDER → order refunded', async () => {
@@ -706,6 +710,42 @@ describe('POST /api/webhooks/stripe', () => {
       expect(update.payload.products[0].price).toBe('$55')
     })
 
+    it('product.updated follows an explicit default_price replacement and rotates the stored Price id', async () => {
+      const page = {
+        id: 'pg4',
+        slug: 'delta',
+        owner_id: 'owner-4',
+        services: [stripeOffer({ metadata: { stripe_price_id: 'price_old', stripe_product_id: 'prod_1' } })],
+        products: [],
+      }
+      const contexts = withDb((ctx) => {
+        if (ctx.table === 'pages' && ctx.op === 'select') {
+          const marker = ctx.calls.find((call) => call[0] === 'contains')?.[2]?.[0]
+          const oldPrice = marker?.metadata?.stripe_price_id === 'price_old'
+          return { data: containsColumn(ctx) === 'services' && oldPrice ? [page] : [], error: null }
+        }
+        return undefined
+      })
+      retrievePrice.mockResolvedValue({ id: 'price_new', active: true, unit_amount: 6500, recurring: null, product: 'prod_1' })
+      constructEvent.mockReturnValue({
+        id: 'evt_product_default',
+        type: 'product.updated',
+        data: {
+          object: { id: 'prod_1', default_price: 'price_new' },
+          previous_attributes: { default_price: 'price_old' },
+        },
+      })
+      const res = await POST(post({ sig: 'good', body: '{}' }))
+      expect(await res.json()).toMatchObject({ type: 'product.updated', offersUpdated: 1, pagesTouched: 1 })
+      expect(retrievePrice).toHaveBeenCalledWith('price_new', {}, undefined)
+      const update = contexts.find((ctx) => ctx.table === 'pages' && ctx.op === 'update')!
+      expect(update.payload.services[0]).toMatchObject({ price: '$65' })
+      expect(update.payload.services[0].metadata).toMatchObject({
+        stripe_price_id: 'price_new',
+        stripe_product_id: 'prod_1',
+      })
+    })
+
     it('unknown connected account → acknowledged, pages never queried (no cross-tenant writes)', async () => {
       const contexts = withDb((ctx) => {
         if (ctx.table === 'billing_subscriptions') return { data: null, error: null }
@@ -789,7 +829,7 @@ describe('POST /api/webhooks/stripe', () => {
       id: 'evt_pi',
       type: 'payment_intent.succeeded',
       account: 'acct_seller',
-      data: { object: { id: 'pi_777', amount: 120000, currency: 'usd', status: 'succeeded', metadata, ...over } },
+      data: { object: { id: 'pi_777', amount: 120000, currency: 'usd', status: 'succeeded', livemode: false, metadata, ...over } },
     })
     const fullMeta = {
       nexez_session_id: 'sess_abc',
@@ -826,6 +866,7 @@ describe('POST /api/webhooks/stripe', () => {
         commission_percent: 10,
         status: 'paid',
         channel: 'acp',
+        stripe_livemode: false,
         buyer_email: 'buyer@x.com',
       })
       // No hosted Checkout Session id is set for a delegated-token charge.

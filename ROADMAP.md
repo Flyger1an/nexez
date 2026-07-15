@@ -70,6 +70,8 @@ The core platform is built and in launch-certification mode. Public storefronts 
 - Admin-only **Launch Control** at `/dashboard/launch-control`: redacted configuration checks, live Stripe Price-mode verification, commerce evidence, queue health, incidents, and worker status using existing ledgers.
 - `npm run certify:commerce`: live API/artifact checks, checkout and negotiation dry runs, mandatory token issuance, tokenless-live denial, and read-only Stripe Price verification.
 - Owner-run certification runbook in `docs/commerce-certification.md`, separating safe automation from deliberate subscription, payment, escrow, refund, price-sync, and protocol lifecycle checks.
+- Stripe-mode provenance on orders, escrow, and ACP/UCP sessions. Finance, Analytics, and Launch Control count only Stripe-proven live transactions; test and unverified history fail closed.
+- Replacement-price synchronization follows explicit Stripe Product `default_price` changes, rotates the linked Price ID, and remains idempotent on redelivery.
 
 ## Active roadmap
 
@@ -77,7 +79,7 @@ Ranked by launch leverage.
 
 ### P0 - Launch gate
 
-1. **Finish owner-run commerce certification.** Record one authenticated paid-plan subscribe/portal/cancel lifecycle; one low-value direct Connect order with partial then full refund; one negotiation agreement-to-fund-to-capture/reconcile lifecycle; one Stripe price update/redelivery; and one ACP/UCP idempotent checkout lifecycle.
+1. **Finish owner-run commerce certification.** Record one authenticated paid-plan subscribe/portal/cancel lifecycle; one low-value direct Connect order with partial then full refund; one negotiation agreement-to-fund-to-capture/reconcile lifecycle; one Stripe default-Price replacement/redelivery; and one ACP/UCP idempotent checkout lifecycle.
 2. **Curate marketplace supply.** Publish 20-30 high-quality launch storefronts across representative industries and regions. Remove or exclude deliberate QA listings from public discovery.
 3. **Establish the release ritual.** Require Launch Control with no required blockers, the automated commerce gauntlet, full test/build gates, and post-deploy public storefront plus artifact verification for every production candidate.
 

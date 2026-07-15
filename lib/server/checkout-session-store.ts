@@ -34,6 +34,7 @@ export type CheckoutSessionRow = {
   totals: SessionTotals
   idempotency_key: string | null
   stripe_payment_intent_id: string | null
+  stripe_livemode: boolean | null
   api_version: string | null
   expires_at: string
   created_at?: string
@@ -49,6 +50,7 @@ export type PersistSessionMeta = {
   /** ISO timestamp; use defaultSessionExpiry() unless a protocol token caps it sooner. */
   expiresAt: string
   stripePaymentIntentId?: string | null
+  stripeLivemode?: boolean | null
 }
 
 // ---------------------------------------------------------------------------
@@ -70,6 +72,7 @@ export function sessionInsertValues(session: CheckoutSession, meta: PersistSessi
     totals: session.totals,
     idempotency_key: meta.idempotencyKey ?? null,
     stripe_payment_intent_id: meta.stripePaymentIntentId ?? null,
+    stripe_livemode: meta.stripeLivemode ?? null,
     api_version: meta.apiVersion ?? null,
     expires_at: meta.expiresAt,
   }
@@ -77,7 +80,10 @@ export function sessionInsertValues(session: CheckoutSession, meta: PersistSessi
 
 /** The mutable snapshot to write on an update/complete. Never touches id/channel/
  * page_id/expiry - those are create-time immutable. */
-export function sessionUpdateValues(session: CheckoutSession, extra?: { stripePaymentIntentId?: string | null }) {
+export function sessionUpdateValues(
+  session: CheckoutSession,
+  extra?: { stripePaymentIntentId?: string | null; stripeLivemode?: boolean | null },
+) {
   return {
     status: session.status,
     currency: session.currency,
@@ -85,6 +91,7 @@ export function sessionUpdateValues(session: CheckoutSession, extra?: { stripePa
     buyer: session.buyer,
     totals: session.totals,
     ...(extra?.stripePaymentIntentId ? { stripe_payment_intent_id: extra.stripePaymentIntentId } : {}),
+    ...(typeof extra?.stripeLivemode === 'boolean' ? { stripe_livemode: extra.stripeLivemode } : {}),
   }
 }
 
@@ -158,7 +165,7 @@ export async function updateSessionSnapshot(
   admin: Admin,
   id: string,
   session: CheckoutSession,
-  extra?: { stripePaymentIntentId?: string | null },
+  extra?: { stripePaymentIntentId?: string | null; stripeLivemode?: boolean | null },
 ): Promise<boolean> {
   const { error } = await admin
     .from('checkout_sessions')

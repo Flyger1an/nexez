@@ -94,7 +94,14 @@ export function createSettlementBridge(stripe: SettlementStripe): SettleCheckout
       if (!SETTLEABLE_STATUSES.has(intent.status)) {
         return { ok: false, code: 'stripe_error', message: `Payment could not be completed (status: ${intent.status}).` }
       }
-      return { ok: true, paymentIntentId: intent.id, amount, applicationFee, currency: session.currency }
+      return {
+        ok: true,
+        paymentIntentId: intent.id,
+        amount,
+        applicationFee,
+        currency: session.currency,
+        livemode: intent.livemode,
+      }
     } catch (error) {
       return { ok: false, code: 'stripe_error', message: error instanceof Error ? error.message : 'Unknown Stripe error.' }
     }

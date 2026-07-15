@@ -41,7 +41,7 @@ const ROW = {
   expires_at: '2999-01-01T00:00:00.000Z',
 }
 const OK_CONTEXT = { ok: true, context: { pageId: 'pg1', ownerId: 'owner-1', connectAccountId: 'acct_seller', commissionPercent: 10 } }
-const OK_SETTLE = { ok: true, paymentIntentId: 'pi_1', amount: 120000, applicationFee: 12000, currency: 'usd' }
+const OK_SETTLE = { ok: true, paymentIntentId: 'pi_1', amount: 120000, applicationFee: 12000, currency: 'usd', livemode: false }
 
 function adminMock(handler: (ctx: QueryContext) => { data?: any; error?: any } | undefined) {
   return createSupabaseMock((ctx) => handler(ctx) ?? { data: null, error: null }) as any
@@ -104,8 +104,8 @@ describe('POST /api/acp/checkout_sessions/[id]/complete', () => {
     expect(context.connectAccountId).toBe('acct_seller')
     expect(passedSession.buyer).toMatchObject({ email: 'b@x.com' })
     // Session marked completed + PI linked; durable order persisted under 'acp'.
-    expect(spy.getSessionUpdate()).toMatchObject({ status: 'completed', stripe_payment_intent_id: 'pi_1' })
-    expect(spy.getOrderUpsert()).toMatchObject({ channel: 'acp', stripe_payment_intent_id: 'pi_1', amount_cents: 120000, application_fee_cents: 12000, status: 'paid' })
+    expect(spy.getSessionUpdate()).toMatchObject({ status: 'completed', stripe_payment_intent_id: 'pi_1', stripe_livemode: false })
+    expect(spy.getOrderUpsert()).toMatchObject({ channel: 'acp', stripe_payment_intent_id: 'pi_1', amount_cents: 120000, application_fee_cents: 12000, stripe_livemode: false, status: 'paid' })
   })
 
   it('400 when payment_data is missing', async () => {

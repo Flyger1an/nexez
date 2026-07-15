@@ -66,7 +66,8 @@ These checks can move real test funds and therefore require deliberate owner act
 4. Confirm the charge belongs to the seller Connect account.
 5. Confirm the Nexez application fee matches the seller plan.
 6. Confirm one durable `checkout_orders` row, buyer receipt, order portal, and seller Finance entry.
-7. Replay the same idempotency key and confirm no duplicate order or charge.
+7. Confirm `stripe_livemode = true` on the durable order.
+8. Replay the same idempotency key and confirm no duplicate order or charge.
 
 ### 3. Partial and full refund
 
@@ -88,10 +89,12 @@ These checks can move real test funds and therefore require deliberate owner act
 
 ### 5. Stripe price synchronization
 
-1. Change the certification Price in Stripe.
-2. Confirm `price.updated` reaches the correct webhook endpoint.
-3. Confirm exactly one linked offer changes and one `stripe_price_sync` checkout event is recorded.
-4. Redeliver the event and confirm idempotency prevents a duplicate application.
+1. Create a replacement Price for the certification Product in Stripe. Stripe Price amounts are immutable.
+2. Set the replacement as the Product's default Price.
+3. Confirm `product.updated` reaches the correct webhook endpoint with the prior and replacement `default_price` IDs.
+4. Confirm exactly one linked offer changes its amount and stored `stripe_price_id`, and one `stripe_price_sync` event is recorded.
+5. Redeliver the same event and confirm the webhook ledger prevents a duplicate application.
+6. Create a parallel non-default Price and confirm Nexez does not overwrite the linked offer.
 
 ### 6. ACP and UCP
 

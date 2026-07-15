@@ -1,8 +1,8 @@
 // Bi-directional Stripe sync - the inbound half (Stripe → Nexez), pure.
 // Offers imported from Stripe carry stable identifiers in
 // metadata.stripe_price_id / metadata.stripe_product_id (set by
-// /api/integrations/stripe/import); when a `price.updated`/`price.created`
-// webhook arrives, these helpers refresh every matching offer so listings
+// /api/integrations/stripe/import); when a Price update or Product default-price
+// replacement arrives, these helpers refresh every matching offer so listings
 // track Stripe without a manual re-import. The outbound half already exists:
 // checkout writes PaymentIntents onto the seller's connected account.
 import type { OfferItem } from './agent-page'
@@ -26,6 +26,8 @@ export function formatStripePriceString(price: Pick<StripePriceLike, 'unit_amoun
 
 export type PriceSyncTarget = {
   priceId: string
+  /** Previous Price id when a Product switches its default_price. */
+  matchPriceId?: string | null
   /** The price's parent product - fallback match for product-keyed imports. */
   productId?: string | null
   /** Pre-formatted via formatStripePriceString. */
@@ -46,7 +48,8 @@ export type PriceSyncResult = {
  * Apply a fresh Stripe price to every offer imported from Stripe.
  * - Match requires `source === 'stripe'` - an owner who clears the source has
  *   deliberately detached the offer, and it stops syncing.
- * - Primary key: metadata.stripe_price_id === priceId. Fallback: an offer with
+ * - Primary key: metadata.stripe_price_id === matchPriceId (when replacing a
+ *   Product default) or priceId. Fallback: an offer with
  *   NO price id of its own matches on stripe_product_id (product-keyed
  *   imports). Requiring the absence fixes the multi-price clobber - a
  *   product's monthly offer must not be rewritten by its yearly price's event.
@@ -61,14 +64,19 @@ export function applyPriceToOffers(offers: OfferItem[], target: PriceSyncTarget)
   const next = offers.map((offer) => {
     if (offer.source !== 'stripe') return offer
     const meta = offer.metadata || {}
-    const byPrice = meta.stripe_price_id === target.priceId
+    const byPrice = meta.stripe_price_id === (target.matchPriceId || target.priceId)
     const byProduct = !meta.stripe_price_id && target.productId && meta.stripe_product_id === target.productId
-    if ((!byPrice && !byProduct) || offer.price === target.priceStr) return offer
+    const priceIdChanged = byPrice && meta.stripe_price_id !== target.priceId
+    if ((!byPrice && !byProduct) || (offer.price === target.priceStr && !priceIdChanged)) return offer
     changes.push({ name: offer.name, from: offer.price || '', to: target.priceStr })
     const updated: OfferItem = {
       ...offer,
       price: target.priceStr,
-      metadata: target.syncedAt ? { ...meta, last_stripe_sync: target.syncedAt } : offer.metadata,
+      metadata: {
+        ...meta,
+        ...(byPrice || byProduct ? { stripe_price_id: target.priceId } : {}),
+        ...(target.syncedAt ? { last_stripe_sync: target.syncedAt } : {}),
+      },
     }
     if (
       offer.tiers &&

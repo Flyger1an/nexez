@@ -49,7 +49,7 @@ function fakeStripe(impl?: (params: any, options: any) => any) {
     paymentIntents: {
       create: (async (params: any, options: any) => {
         calls.push({ params, options })
-        return impl ? impl(params, options) : { id: 'pi_success', status: 'succeeded' }
+        return impl ? impl(params, options) : { id: 'pi_success', status: 'succeeded', livemode: false }
       }) as any,
     },
   }
@@ -67,6 +67,7 @@ describe('settlement bridge — happy path', () => {
       amount: 120000,
       applicationFee: calculateApplicationFeeCents(120000, 10),
       currency: 'usd',
+      livemode: false,
     })
     expect(result.ok && result.applicationFee).toBe(12000) // 10% of 120000
 
@@ -157,7 +158,7 @@ describe('settlement bridge — happy path', () => {
   })
 
   it('accepts a manual-capture authorization (requires_capture)', async () => {
-    const stripe = fakeStripe(() => ({ id: 'pi_auth', status: 'requires_capture' }))
+    const stripe = fakeStripe(() => ({ id: 'pi_auth', status: 'requires_capture', livemode: false }))
     const result = await createSettlementBridge(stripe)(readySession(), PAYMENT, baseContext())
     expect(result).toMatchObject({ ok: true, paymentIntentId: 'pi_auth' })
   })

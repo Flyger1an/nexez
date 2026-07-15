@@ -415,6 +415,8 @@ export type SettlementResult =
       amount: number
       applicationFee: number
       currency: string
+      /** Stripe's immutable environment provenance for the settled PaymentIntent. */
+      livemode: boolean
     }
   | {
       ok: false
