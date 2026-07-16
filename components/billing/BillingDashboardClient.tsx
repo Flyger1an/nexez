@@ -400,8 +400,9 @@ export default function BillingDashboardClient({
             <MoneyFlowStep label="Net to you" value={formatCurrencyAmount(Math.max(0, agentRevenueCents - platformFeesCents), revenueCurrency)} sub="paid out to your Stripe" tone="ready" />
           </div>
           <p className="mt-4 border-t border-[var(--bd-10)] pt-3 text-xs text-[var(--fg-muted)]">
-            Transaction fees are separate from your <span className="text-white">{activePlan?.name ?? 'Free'}</span> subscription
-            {activePlan?.cadence ? ` (${activePlan.price}/${activePlan.cadence})` : ''} - that’s what you pay Nexez to run your listings.
+            Transaction fees are separate from your{' '}
+            <span className="text-white">{hasEnterpriseOverride ? 'Enterprise access' : `${activePlan?.name ?? 'Free'} subscription`}</span>
+            {!hasEnterpriseOverride && activePlan?.cadence ? ` (${activePlan.price}/${activePlan.cadence})` : ''}. They apply only to transactions Nexez processes through your listings.
           </p>
         </GlassCard>
 
@@ -438,7 +439,7 @@ export default function BillingDashboardClient({
               <span className="text-[var(--fg-muted)]">this month</span>
             </div>
             <div className="mt-4 text-sm text-[var(--fg-muted)]">
-              You keep 85–96% of every transaction depending on plan. Connect your Stripe account in the
+              You keep 85–98% of every transaction depending on plan. Connect your Stripe account in the
               <span className="text-white"> Platform Fees</span> tab to receive payouts directly.
             </div>
             <button
