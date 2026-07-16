@@ -1,25 +1,48 @@
 import { describe, it, expect } from 'vitest'
-import { applyPriceToOffers, formatStripePriceString } from './stripe-price-sync'
+import {
+  applyPriceToOffers,
+  formatStripePriceString,
+  serializeStripeOfferMarker,
+} from './stripe-price-sync'
 import type { OfferItem } from './agent-page'
 
 // The formatter must stay byte-identical to /api/integrations/stripe/import -
 // a webhook sync and a manual re-import producing different strings would make
 // every redelivery look like a change.
 describe('formatStripePriceString', () => {
-  it('formats one-time amounts like the importer ($ + whole dollars)', () => {
+  it('preserves whole dollars and cents', () => {
     expect(formatStripePriceString({ unit_amount: 4000 })).toBe('$40')
-    expect(formatStripePriceString({ unit_amount: 4999 })).toBe('$50') // toFixed(0) rounds
+    expect(formatStripePriceString({ unit_amount: 4999 })).toBe('$49.99')
+    expect(formatStripePriceString({ unit_amount: 125 })).toBe('$1.25')
   })
 
   it('appends the recurring interval', () => {
     expect(formatStripePriceString({ unit_amount: 4000, recurring: { interval: 'month' } })).toBe('$40 / month')
-    expect(formatStripePriceString({ unit_amount: 120000, recurring: { interval: 'year' } })).toBe('$1200 / year')
+    expect(formatStripePriceString({ unit_amount: 120000, recurring: { interval: 'year' } })).toBe('$1,200 / year')
   })
 
-  it('matches importer truthiness: null AND $0 prices read Custom, interval still appended', () => {
+  it('keeps null as Custom and a real zero amount as $0', () => {
     expect(formatStripePriceString({ unit_amount: null })).toBe('Custom')
-    expect(formatStripePriceString({ unit_amount: 0 })).toBe('Custom')
+    expect(formatStripePriceString({ unit_amount: 0 })).toBe('$0')
     expect(formatStripePriceString({ unit_amount: null, recurring: { interval: 'month' } })).toBe('Custom / month')
+  })
+
+  it('uses the Stripe currency when formatting', () => {
+    expect(formatStripePriceString({ unit_amount: 4999, currency: 'eur' })).toBe('€49.99')
+    expect(formatStripePriceString({ unit_amount: 1200, currency: 'jpy' })).toBe('¥1,200')
+    expect(formatStripePriceString({ unit_amount: 1200, currency: 'krw' })).toBe('₩1,200')
+    expect(formatStripePriceString({ unit_amount: 4999, currency: 'pln' })).toContain('49.99')
+    expect(formatStripePriceString({ unit_amount: 4999, currency: 'pln' })).toContain('PLN')
+  })
+})
+
+describe('serializeStripeOfferMarker', () => {
+  it('serializes nested markers as JSONB arrays instead of PostgreSQL arrays', () => {
+    const marker = { metadata: { stripe_price_id: 'price_1' } }
+    const serialized = serializeStripeOfferMarker(marker)
+    expect(serialized).toBe('[{"metadata":{"stripe_price_id":"price_1"}}]')
+    expect(JSON.parse(serialized)).toEqual([marker])
+    expect(serialized).not.toContain('[object Object]')
   })
 })
 

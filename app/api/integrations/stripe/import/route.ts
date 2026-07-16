@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../../utils/supabase/server'
 import { gateIntegrationImport } from '../../../../../lib/server/integration-importers'
+import { formatStripePriceString } from '../../../../../lib/stripe-price-sync'
 
 /**
  * Stripe Import for Nexez agent pages (lean MVP).
@@ -80,11 +81,7 @@ export async function POST(request: Request) {
         const prices = await stripe.prices.list({ product: product.id, active: true, limit: 3 })
 
 	        for (const price of prices.data) {
-	          const amount = price.unit_amount ? (price.unit_amount / 100).toFixed(0) : null
-	          let priceStr = amount ? `$${amount}` : 'Custom'
-          if (price.recurring?.interval) {
-            priceStr += ` / ${price.recurring.interval}`
-	          }
+	          const priceStr = formatStripePriceString(price)
 	          const name = product.name + (price.nickname ? ` (${price.nickname})` : '')
 	          lines.push(`${name} | ${priceStr} | ${product.description || 'Stripe product'} | ${product.url || ''}`)
 	          meta.stripe_samples.push({ product_id: product.id, price_id: price.id })
@@ -96,10 +93,9 @@ export async function POST(request: Request) {
 	      const prices = await stripe.prices.list({ product: body.productId, active: true, limit: 5 })
 
       for (const price of prices.data) {
-        const priceStr = price.unit_amount ? `$${(price.unit_amount / 100).toFixed(0)}` : 'Custom'
-        const interval = price.recurring?.interval ? ` / ${price.recurring.interval}` : ''
+        const priceStr = formatStripePriceString(price)
 	        lines.push(
-	          `${product.name} ${price.nickname ? `(${price.nickname})` : ''} | ${priceStr}${interval} | ${product.description || 'Imported Stripe product'} | ${product.url || ''}`
+	          `${product.name} ${price.nickname ? `(${price.nickname})` : ''} | ${priceStr} | ${product.description || 'Imported Stripe product'} | ${product.url || ''}`
 	        )
 	        meta.stripe_samples.push({ product_id: product.id, price_id: price.id })
 	      }
@@ -111,10 +107,9 @@ export async function POST(request: Request) {
         try {
           const price = await stripe.prices.retrieve(pid, { expand: ['product'] })
           const prod = price.product as Stripe.Product
-          const priceStr = price.unit_amount ? `$${(price.unit_amount / 100).toFixed(0)}` : 'Custom'
-	          const interval = price.recurring?.interval ? ` / ${price.recurring.interval}` : ''
+	          const priceStr = formatStripePriceString(price)
 	          const name = prod.name || 'Stripe item'
-	          lines.push(`${name} | ${priceStr}${interval} | ${prod.description || 'Payment link / service from Stripe'} | ${prod.url || `https://buy.stripe.com/${pid}`}`)
+	          lines.push(`${name} | ${priceStr} | ${prod.description || 'Payment link / service from Stripe'} | ${prod.url || `https://buy.stripe.com/${pid}`}`)
 	          meta.stripe_samples.push({ product_id: prod.id, price_id: price.id })
 	        } catch (e: any) {
 	          lines.push(`Unknown Stripe price ${pid} | Custom | Could not retrieve details (check ID) | `)

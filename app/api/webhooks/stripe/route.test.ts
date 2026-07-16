@@ -650,6 +650,15 @@ describe('POST /api/webhooks/stripe', () => {
       return contexts
     }
     const containsColumn = (ctx: QueryContext) => ctx.calls.find((c) => c[0] === 'contains')?.[1]
+    const containsMarker = (ctx: QueryContext) => {
+      const value = ctx.calls.find((c) => c[0] === 'contains')?.[2]
+      if (typeof value !== 'string') return value?.[0]
+      try {
+        return JSON.parse(value)?.[0]
+      } catch {
+        return undefined
+      }
+    }
 
     beforeEach(() => vi.stubEnv('STRIPE_WEBHOOK_SECRET', 'whsec_test'))
 
@@ -697,7 +706,7 @@ describe('POST /api/webhooks/stripe', () => {
       }
       const contexts = withDb((ctx) => {
         if (ctx.table === 'pages' && ctx.op === 'select') {
-          const marker = ctx.calls.find((c) => c[0] === 'contains')?.[2]?.[0]
+          const marker = containsMarker(ctx)
           const byProduct = marker?.metadata?.stripe_product_id === 'prod_1'
           return { data: containsColumn(ctx) === 'products' && byProduct ? [page] : [], error: null }
         }
@@ -720,7 +729,7 @@ describe('POST /api/webhooks/stripe', () => {
       }
       const contexts = withDb((ctx) => {
         if (ctx.table === 'pages' && ctx.op === 'select') {
-          const marker = ctx.calls.find((call) => call[0] === 'contains')?.[2]?.[0]
+          const marker = containsMarker(ctx)
           const oldPrice = marker?.metadata?.stripe_price_id === 'price_old'
           return { data: containsColumn(ctx) === 'services' && oldPrice ? [page] : [], error: null }
         }

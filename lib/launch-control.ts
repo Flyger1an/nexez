@@ -47,6 +47,7 @@ export type LaunchMetrics = {
   stripeWebhookEvents: number
   latestStripeWebhookAt: string | null
   stripePriceWebhookEvents: number
+  stripePriceSyncEvents: number
   checkoutStripeErrors24h: number
   checkoutOrders: number
   directOrders: number
@@ -54,6 +55,9 @@ export type LaunchMetrics = {
   refundedOrders: number
   disputedOrders: number
   protocolOrders: number
+  sandboxProtocolOrders: number
+  acpProtocolOrders: number
+  ucpProtocolOrders: number
   negotiations: number
   pendingNegotiationDecisions: number
   staleNegotiationDecisions: number
@@ -115,6 +119,28 @@ const READY_WEIGHT: Record<LaunchStatus, number> = {
   attention: 0.55,
   unknown: 0.25,
   blocked: 0,
+}
+
+const STRIPE_CATALOG_SYNC_EVENT_TYPES = new Set([
+  'price.created',
+  'price.updated',
+  'product.updated',
+])
+
+export function isStripeCatalogSyncEvent(type: string | null): boolean {
+  return type != null && STRIPE_CATALOG_SYNC_EVENT_TYPES.has(type)
+}
+
+const SETTLED_ORDER_STATUSES = new Set(['paid', 'refunded', 'disputed'])
+
+export function isSettledProtocolOrder(order: {
+  channel: string | null
+  status: string
+  stripe_livemode: boolean | null
+}): boolean {
+  return order.stripe_livemode != null
+    && (order.channel === 'acp' || order.channel === 'ucp')
+    && SETTLED_ORDER_STATUSES.has(order.status)
 }
 
 export function buildConfigurationChecks(input: LaunchConfigurationInput): LaunchCheck[] {
@@ -460,28 +486,32 @@ export function buildCertificationChecks(
     {
       id: 'cert-price-sync',
       label: 'Stripe price synchronization',
-      detail: 'A Stripe price update should reach Nexez and leave both webhook and listing audit evidence.',
+      detail: 'A Stripe default-price replacement should reach Nexez and leave both webhook and listing audit evidence.',
       evidence: sources.stripeWebhooks
-        ? `${metrics.stripePriceWebhookEvents} Stripe price events are present in the webhook ledger.`
+        ? `${metrics.stripePriceWebhookEvents} Stripe catalog webhook events and ${metrics.stripePriceSyncEvents} linked-offer audit events are present.`
         : 'Stripe webhook evidence is unavailable.',
       status: !sources.stripeWebhooks
         ? 'unknown'
-        : metrics.stripePriceWebhookEvents > 0
+        : metrics.stripePriceWebhookEvents > 0 && metrics.stripePriceSyncEvents > 0
           ? 'ready'
           : 'attention',
       required: false,
-      action: 'Update a certification Price in Stripe and confirm the linked offer and checkout audit event change once.',
+      action: 'Replace a certification Product default Price and confirm the linked offer and checkout audit event change once.',
     },
     {
       id: 'cert-protocol',
       label: 'ACP and UCP checkout lifecycle',
       detail: 'Protocol-created sessions must preserve idempotency and settle into the same durable seller order ledger.',
       evidence: sources.orders
-        ? `${metrics.protocolOrders} durable orders were attributed to ACP or UCP.`
+        ? `${metrics.acpProtocolOrders} ACP and ${metrics.ucpProtocolOrders} UCP orders are proven (${metrics.protocolOrders} live, ${metrics.sandboxProtocolOrders} sandbox).`
         : 'Protocol order evidence is unavailable.',
-      status: !sources.orders ? 'unknown' : metrics.protocolOrders > 0 ? 'ready' : 'attention',
+      status: !sources.orders
+        ? 'unknown'
+        : metrics.acpProtocolOrders > 0 && metrics.ucpProtocolOrders > 0
+          ? 'ready'
+          : 'attention',
       required: false,
-      action: 'Run one sandbox ACP or UCP create, update, and complete sequence with a replayed idempotency key.',
+      action: 'Run one sandbox ACP and one sandbox UCP create, update, and complete sequence with replayed idempotency keys.',
     },
   ]
 }

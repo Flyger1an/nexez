@@ -6,22 +6,46 @@
 // track Stripe without a manual re-import. The outbound half already exists:
 // checkout writes PaymentIntents onto the seller's connected account.
 import type { OfferItem } from './agent-page'
+import { isZeroDecimalCurrency } from './currency'
 
 export type StripePriceLike = {
   id: string
   unit_amount?: number | null
+  currency?: string | null
   recurring?: { interval?: string | null } | null
   active?: boolean
 }
 
-/** Format a Stripe price the exact way the importer does ("$40", "$40 / month",
- *  "Custom", "Custom / month") so a webhook sync is byte-identical to a manual
- *  re-import - truthiness on unit_amount (a $0 price reads Custom) and the
- *  interval appended unconditionally, both matching stripe/import/route.ts. */
-export function formatStripePriceString(price: Pick<StripePriceLike, 'unit_amount' | 'recurring'>): string {
-  const amount = price.unit_amount ? `$${(price.unit_amount / 100).toFixed(0)}` : 'Custom'
+function formatStripeAmount(amount: number, currency: string | null | undefined): string {
+  const code = /^[a-z]{3}$/i.test(currency || '') ? currency!.toLowerCase() : 'usd'
+  const major = isZeroDecimalCurrency(code) ? amount : amount / 100
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: code.toUpperCase(),
+      maximumFractionDigits: isZeroDecimalCurrency(code) ? 0 : Number.isInteger(major) ? 0 : 2,
+    }).format(major)
+  } catch {
+    return `${major} ${code.toUpperCase()}`
+  }
+}
+
+/** Format a Stripe price once for imports and webhook sync. Preserve cents and
+ * zero-decimal currencies; `null` means custom pricing while a real zero amount
+ * remains `$0`. */
+export function formatStripePriceString(price: Pick<StripePriceLike, 'unit_amount' | 'currency' | 'recurring'>): string {
+  const amount = price.unit_amount == null
+    ? 'Custom'
+    : formatStripeAmount(price.unit_amount, price.currency)
   const interval = price.recurring?.interval
   return interval ? `${amount} / ${interval}` : amount
+}
+
+/** Supabase's `contains()` treats JavaScript arrays as PostgreSQL arrays. JSONB
+ * offer arrays therefore need to be passed as a serialized JSON value or nested
+ * markers become invalid `[object Object]` text at PostgREST. */
+export function serializeStripeOfferMarker(marker: Record<string, unknown>): string {
+  return JSON.stringify([marker])
 }
 
 export type PriceSyncTarget = {

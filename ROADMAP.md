@@ -72,6 +72,7 @@ The core platform is built and in launch-certification mode. Public storefronts 
 - Owner-run certification runbook in `docs/commerce-certification.md`, separating safe automation from deliberate subscription, payment, escrow, refund, price-sync, and protocol lifecycle checks.
 - Stripe-mode provenance on orders, escrow, and ACP/UCP sessions. Finance, Analytics, and Launch Control count only Stripe-proven live transactions; test and unverified history fail closed.
 - Replacement-price synchronization follows explicit Stripe Product `default_price` changes, rotates the linked Price ID, and remains idempotent on redelivery.
+- ACP and UCP sandbox settlement is certified independently for both channels, including create and completion replay. Default-Price replacement, linked-offer audit, duplicate delivery, and parallel-Price isolation are also certified in Stripe test mode. This evidence is excluded from all live revenue reporting.
 
 ## Active roadmap
 
@@ -79,7 +80,7 @@ Ranked by launch leverage.
 
 ### P0 - Launch gate
 
-1. **Finish owner-run commerce certification.** Record one authenticated paid-plan subscribe/portal/cancel lifecycle; one low-value direct Connect order with partial then full refund; one negotiation agreement-to-fund-to-capture/reconcile lifecycle; one Stripe default-Price replacement/redelivery; and one ACP/UCP idempotent checkout lifecycle.
+1. **Finish the live owner-run commerce gates.** Sandbox ACP plus UCP settlement and Stripe default-Price replacement/replay are certified. Still record one authenticated paid-plan subscribe/portal/cancel lifecycle, a partial then full refund of a proven low-value live direct order, and one fresh low-value negotiation agreement through funding and terminal reconciliation.
 2. **Curate marketplace supply.** Publish 20-30 high-quality launch storefronts across representative industries and regions. Remove or exclude deliberate QA listings from public discovery.
 3. **Establish the release ritual.** Require Launch Control with no required blockers, the automated commerce gauntlet, full test/build gates, and post-deploy public storefront plus artifact verification for every production candidate.
 
@@ -87,7 +88,7 @@ Ranked by launch leverage.
 
 1. **Prove demand and trust.** Publish a real agent-discovery-to-conversion case study and formalize the seller-facing "Nexez Certified Agent-Ready" standard.
 2. **Strengthen ranking.** Tune marketplace and Nexxi ranking with real conversion, location, availability, verified-purchase review, response quality, and freshness evidence. Prevent sparse-data feedback loops.
-3. **Integration proof.** Verify exactly-once Stripe price sync in production, add timezone-aware Calendly business hours, and monitor Shopify queue health through Launch Control.
+3. **Integration proof.** Keep the certified Stripe price-sync replay monitored in Launch Control, add timezone-aware Calendly business hours, and monitor Shopify queue health through Launch Control.
 4. **Mobile distribution.** Complete store builds, physical-device push checks, release review, deep-link validation, and parity checks for the seller mobile app.
 5. **Notification control.** Add seller preferences for transaction, negotiation, integration, review, and marketing notifications without weakening mandatory money-state notices.
 

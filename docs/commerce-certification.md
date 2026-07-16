@@ -46,7 +46,15 @@ A failed automated check blocks release. A skipped local Stripe catalog check do
 
 ## Owner-run lifecycle gate
 
-These checks can move real test funds and therefore require deliberate owner action. Use the lowest practical amount and retain Stripe event IDs plus screenshots or release notes as evidence.
+These checks can move real funds unless they are explicitly labeled sandbox-only and therefore require deliberate owner action. Use the lowest practical amount and retain Stripe event IDs plus release notes as evidence.
+
+### Current evidence (2026-07-15)
+
+- **Certified in Stripe test mode:** ACP and UCP create, update, complete, create replay, and completion replay. Each channel produced exactly one completed session and one paid `$1` order with `stripe_livemode = false`.
+- **Certified in Stripe test mode:** a Product default-Price replacement from `$1.00` to `$1.25`, one linked-offer `stripe_price_sync` audit, exact webhook replay deduplication, and isolation from a parallel non-default `$9.99` Price.
+- **Still owner-run:** paid-plan subscribe/portal/cancel, partial then full refund of a proven live direct order, and a fresh low-value negotiation through funding and terminal reconciliation.
+
+Sandbox protocol orders prove adapter conformance only. They may satisfy the optional ACP/UCP Launch Control gate, but they must never contribute to live order counts, GMV, revenue, fees, refunds, or seller Finance totals. Price-sync certification requires both a catalog webhook ledger row and a linked-offer audit row; either one alone is incomplete proof.
 
 ### 1. Subscription billing
 
@@ -87,7 +95,7 @@ These checks can move real test funds and therefore require deliberate owner act
 6. Confirm fee, receipt, seller notification, buyer status, and reconciliation behavior.
 7. Repeat with one out-of-rules proposal and confirm the deterministic rule clamp wins over any LLM suggestion.
 
-### 5. Stripe price synchronization
+### 5. Stripe price synchronization (certified in test mode)
 
 1. Create a replacement Price for the certification Product in Stripe. Stripe Price amounts are immutable.
 2. Set the replacement as the Product's default Price.
@@ -96,12 +104,12 @@ These checks can move real test funds and therefore require deliberate owner act
 5. Redeliver the same event and confirm the webhook ledger prevents a duplicate application.
 6. Create a parallel non-default Price and confirm Nexez does not overwrite the linked offer.
 
-### 6. ACP and UCP
+### 6. ACP and UCP (certified in test mode)
 
-1. Create a protocol checkout session with an idempotency key.
+1. Create one ACP and one UCP checkout session with distinct idempotency keys.
 2. Replay the create and confirm the original session returns.
 3. Update and complete the session with a delegated payment token in the safe test environment.
-4. Confirm the durable order carries the correct `acp` or `ucp` channel and seller ownership.
+4. Confirm each durable order carries the correct `acp` or `ucp` channel, seller ownership, and `stripe_livemode = false` provenance.
 5. Replay completion and confirm no duplicate order.
 
 ## Environment separation

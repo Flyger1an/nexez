@@ -19,7 +19,11 @@ import {
   sendEmail,
 } from '../../../../lib/email'
 import { captureEvent } from '../../../../lib/observability'
-import { applyPriceToOffers, formatStripePriceString } from '../../../../lib/stripe-price-sync'
+import {
+  applyPriceToOffers,
+  formatStripePriceString,
+  serializeStripeOfferMarker,
+} from '../../../../lib/stripe-price-sync'
 import { sendPushToEmail, sendPushToUser } from '../../../../lib/push'
 import { resolveOwnerNotifyEmail } from '../../../../lib/server/owner-email'
 import { sendOnceSystemEmail } from '../../../../lib/server/system-email'
@@ -161,7 +165,10 @@ export async function POST(request: NextRequest) {
     let lookupFailed = false
     for (const column of ['services', 'products'] as const) {
       for (const marker of markers) {
-        let query = admin.from('pages').select('id, slug, owner_id, services, products').contains(column, [marker])
+        let query = admin
+          .from('pages')
+          .select('id, slug, owner_id, services, products')
+          .contains(column, serializeStripeOfferMarker(marker))
         if (ownerId) query = query.eq('owner_id', ownerId)
         const { data: rows, error } = await query
         if (error) {

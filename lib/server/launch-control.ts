@@ -5,6 +5,8 @@ import {
   buildCertificationChecks,
   buildConfigurationChecks,
   buildOperationalChecks,
+  isSettledProtocolOrder,
+  isStripeCatalogSyncEvent,
   summarizeLaunchChecks,
   type LaunchConfigurationInput,
   type LaunchControlSnapshot,
@@ -226,7 +228,6 @@ async function loadOperationalSources(nowIso: string) {
     safeSource<OrderRow>('order ledger', async () => admin
       .from('checkout_orders')
       .select('id,status,channel,refunded_cents,offer_name,slug,created_at,updated_at,stripe_livemode')
-      .eq('stripe_livemode', true)
       .order('created_at', { ascending: false })
       .limit(1_000)
       .returns<OrderRow[]>()),
@@ -328,6 +329,8 @@ function buildMetrics(sources: OperationalSources, nowIso: string): LaunchMetric
   const stripeWebhooks = sources.stripeWebhooks.rows
   const checkoutEvents = sources.checkoutEvents.rows
   const orders = sources.orders.rows
+  const liveOrders = orders.filter((row) => row.stripe_livemode === true)
+  const provenProtocolOrders = orders.filter(isSettledProtocolOrder)
   const negotiations = sources.negotiations.rows
   const liveNegotiations = negotiations.filter((row) => row.stripe_livemode === true)
   const billing = sources.billing.rows
@@ -337,14 +340,18 @@ function buildMetrics(sources: OperationalSources, nowIso: string): LaunchMetric
   return {
     stripeWebhookEvents: stripeWebhooks.length,
     latestStripeWebhookAt: stripeWebhooks[0]?.received_at ?? null,
-    stripePriceWebhookEvents: stripeWebhooks.filter((row) => row.type === 'price.created' || row.type === 'price.updated').length,
+    stripePriceWebhookEvents: stripeWebhooks.filter((row) => isStripeCatalogSyncEvent(row.type)).length,
+    stripePriceSyncEvents: checkoutEvents.filter((row) => row.event_type === 'stripe_price_sync').length,
     checkoutStripeErrors24h: checkoutEvents.filter((row) => row.event_type === 'stripe_error').length,
-    checkoutOrders: orders.length,
-    directOrders: orders.filter((row) => row.channel == null || row.channel === 'agent_checkout').length,
-    paidOrders: orders.filter((row) => row.status === 'paid').length,
-    refundedOrders: orders.filter((row) => row.status === 'refunded' || Number(row.refunded_cents) > 0).length,
-    disputedOrders: orders.filter((row) => row.status === 'disputed').length,
-    protocolOrders: orders.filter((row) => row.channel === 'acp' || row.channel === 'ucp').length,
+    checkoutOrders: liveOrders.length,
+    directOrders: liveOrders.filter((row) => row.channel == null || row.channel === 'agent_checkout').length,
+    paidOrders: liveOrders.filter((row) => row.status === 'paid').length,
+    refundedOrders: liveOrders.filter((row) => row.status === 'refunded' || Number(row.refunded_cents) > 0).length,
+    disputedOrders: liveOrders.filter((row) => row.status === 'disputed').length,
+    protocolOrders: provenProtocolOrders.filter((row) => row.stripe_livemode === true).length,
+    sandboxProtocolOrders: provenProtocolOrders.filter((row) => row.stripe_livemode === false).length,
+    acpProtocolOrders: provenProtocolOrders.filter((row) => row.channel === 'acp').length,
+    ucpProtocolOrders: provenProtocolOrders.filter((row) => row.channel === 'ucp').length,
     negotiations: negotiations.length,
     pendingNegotiationDecisions: negotiations.filter((row) => row.decision_pending).length,
     staleNegotiationDecisions: negotiations.filter((row) => row.decision_pending && timestamp(row.decision_requested_at || row.updated_at || row.created_at) < staleNegotiationBefore).length,
