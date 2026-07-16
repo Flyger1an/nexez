@@ -90,6 +90,15 @@ export function getSubscriptionPeriod(subscription: Stripe.Subscription | null |
   }
 }
 
+/**
+ * Stripe can schedule an end-of-service cancellation with either the legacy
+ * cancel_at_period_end flag or an explicit cancel_at timestamp. Treat both as
+ * a pending cancellation so the dashboard never claims the plan will renew.
+ */
+export function hasScheduledCancellation(subscription: Stripe.Subscription | null | undefined): boolean {
+  return Boolean(subscription?.cancel_at_period_end || subscription?.cancel_at)
+}
+
 export function buildBillingSubscriptionRow(input: {
   ownerId: string
   session?: Stripe.Checkout.Session | null
@@ -114,7 +123,7 @@ export function buildBillingSubscriptionRow(input: {
     status,
     current_period_start: period.currentPeriodStart,
     current_period_end: period.currentPeriodEnd,
-    cancel_at_period_end: Boolean(subscription?.cancel_at_period_end),
+    cancel_at_period_end: hasScheduledCancellation(subscription),
     checkout_session_id: session?.id ?? null,
     latest_invoice_id: stripeObjectId(subscription?.latest_invoice) ?? stripeObjectId(session?.invoice),
     metadata: {

@@ -97,6 +97,7 @@ interface BillingDashboardClientProps {
   configuredPlanIds: string[]
   initialPlanId?: string | null
   connectSuccess?: boolean
+  hasEnterpriseOverride?: boolean
 }
 
 export default function BillingDashboardClient({
@@ -112,6 +113,7 @@ export default function BillingDashboardClient({
   configuredPlanIds,
   initialPlanId,
   connectSuccess,
+  hasEnterpriseOverride = false,
 }: BillingDashboardClientProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabId>('overview')
@@ -269,8 +271,16 @@ export default function BillingDashboardClient({
 
   const OverviewTab = () => {
     const planName = activePlan?.name ?? 'Free'
-    const priceLine = activePlan ? `${activePlan.price}/${activePlan.cadence}` : 'No subscription'
-    const status = billingStatusCopy(billingState?.status)
+    const paidSubscriptionPlan = billingPlans.find((plan) => plan.id === billingState?.plan_id)
+    const priceLine = hasEnterpriseOverride
+      ? 'Grandfathered access'
+      : activePlan
+        ? `${activePlan.price}/${activePlan.cadence}`
+        : 'No subscription'
+    const billingStatus = billingStatusCopy(billingState?.status)
+    const status = hasEnterpriseOverride
+      ? { label: 'Granted', tone: 'ok' as const }
+      : billingStatus
     const statusPillClass =
       status.tone === 'ok'
         ? 'border-[var(--ready)]/40 bg-[var(--ready)]/10 text-[var(--ready)]'
@@ -280,7 +290,7 @@ export default function BillingDashboardClient({
     // Recovery banner for states that need the user to act (past_due/unpaid →
     // update payment; incomplete → finish checkout). Drives the dead-until-now
     // billingStatusCopy helper.
-    const needsAction = status.tone === 'warn'
+    const needsAction = billingStatus.tone === 'warn'
     const isIncomplete = billingState?.status === 'incomplete'
     const periodEnd = billingState?.current_period_end
       ? new Intl.DateTimeFormat('en', { month: 'long', day: 'numeric', year: 'numeric' }).format(
@@ -333,24 +343,36 @@ export default function BillingDashboardClient({
                 </span>
               </div>
               <div className="mt-2 text-3xl text-[var(--fg-muted)] tracking-tight">{priceLine}</div>
-              {periodEnd && (
+              {periodEnd && !hasEnterpriseOverride && (
                 <p className="mt-3 flex items-center gap-2 text-sm text-[var(--fg-muted)]">
                   <Calendar className="size-4" />
                   {billingState?.cancel_at_period_end ? 'Cancels' : 'Renews'} on {periodEnd}
                 </p>
               )}
+              {periodEnd && hasEnterpriseOverride && billingState?.stripe_subscription_id && (
+                <p className="mt-3 flex items-center gap-2 text-sm text-[var(--fg-muted)]">
+                  <Calendar className="size-4" />
+                  Separate {paidSubscriptionPlan?.name ?? 'paid'} subscription {billingState.cancel_at_period_end ? 'cancels' : 'renews'} on {periodEnd}
+                </p>
+              )}
               <p className="mt-1 text-sm text-[var(--fg-muted)]">
-                {activePlan?.cadence ? `Billed ${activePlan.cadence} • Cancel anytime via Stripe portal` : 'No active subscription • Upgrade anytime'}
+                {hasEnterpriseOverride
+                  ? 'Enterprise privileges remain active independently of Stripe billing.'
+                  : activePlan?.cadence
+                    ? `Billed ${activePlan.cadence} • Cancel anytime via Stripe portal`
+                    : 'No active subscription • Upgrade anytime'}
               </p>
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <button
-                onClick={() => setActiveTab('plans')}
-                className="inline-flex items-center gap-2 rounded-2xl bg-[var(--signal-solid)] px-8 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:opacity-80"
-              >
-                <ArrowUp className="size-4" /> Upgrade plan
-              </button>
+              {activePlan?.id !== 'enterprise' && (
+                <button
+                  onClick={() => setActiveTab('plans')}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-[var(--signal-solid)] px-8 py-3 text-sm font-semibold text-white transition hover:opacity-90 active:opacity-80"
+                >
+                  <ArrowUp className="size-4" /> Upgrade plan
+                </button>
+              )}
               {billingState?.stripe_subscription_id && (
                 <form action="/api/billing/portal" method="post">
                   <button className="rounded-2xl border border-[var(--bd-15)] px-6 py-3 text-sm hover:bg-white/5 transition">

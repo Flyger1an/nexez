@@ -129,6 +129,52 @@ describe('GET /api/cron/reconcile-billing — trial-expiry pause pass', () => {
     expect(upserts.every((p) => p.plan_id !== null)).toBe(true)
   })
 
+  it('heals a scheduled-cancellation flag that drifted from Stripe', async () => {
+    const upserts: any[] = []
+    vi.stubEnv('STRIPE_PRICE_LAUNCH', 'price_launch')
+    vi.mocked(createAdminClient).mockReturnValue(
+      createSupabaseMock((ctx) => {
+        if (ctx.op === 'upsert') {
+          upserts.push(ctx.payload)
+          return { error: null }
+        }
+        const isMainLoop = ctx.calls.some((c) => c[0] === 'not')
+        if (isMainLoop) {
+          return {
+            data: [{
+              owner_id: 'cancel-owner',
+              stripe_customer_id: 'cus_cancel',
+              stripe_subscription_id: 'sub_cancel',
+              plan_id: 'launch',
+              status: 'active',
+              cancel_at_period_end: false,
+            }],
+          }
+        }
+        return { data: [] }
+      }) as any,
+    )
+    subscriptionsList.mockResolvedValue({
+      data: [{
+        id: 'sub_cancel',
+        status: 'active',
+        customer: 'cus_cancel',
+        cancel_at_period_end: false,
+        cancel_at: 1_786_920_857,
+        metadata: { nexez_plan: 'launch', nexez_price_id: 'price_launch' },
+        items: { data: [{ price: { id: 'price_launch' }, current_period_start: 1, current_period_end: 2 }] },
+      }],
+    })
+
+    const res = await GET(cronReq())
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.healed).toBe(1)
+    expect(upserts).toHaveLength(1)
+    expect(upserts[0].cancel_at_period_end).toBe(true)
+  })
+
   it('orders by the oldest reconciliation cursor and stamps every scanned row', async () => {
     const mainSelectCalls: QueryContext['calls'][] = []
     const cursorWrites: any[] = []

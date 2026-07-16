@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
+  buildBillingSubscriptionRow,
+  hasScheduledCancellation,
   LIVE_SUBSCRIPTION_STATUSES,
   isDbManagedBillingStatus,
   pickLiveStripeSubscription,
@@ -50,6 +52,30 @@ describe('isDbManagedBillingStatus', () => {
     for (const status of ['active', 'past_due', 'unpaid', 'canceled', 'incomplete', 'incomplete_expired', null, undefined]) {
       expect(isDbManagedBillingStatus(status)).toBe(false)
     }
+  })
+})
+
+describe('scheduled cancellation normalization', () => {
+  it('recognizes both Stripe cancellation representations', () => {
+    expect(hasScheduledCancellation({ cancel_at_period_end: true } as any)).toBe(true)
+    expect(hasScheduledCancellation({ cancel_at_period_end: false, cancel_at: 1_786_920_857 } as any)).toBe(true)
+    expect(hasScheduledCancellation({ cancel_at_period_end: false, cancel_at: null } as any)).toBe(false)
+  })
+
+  it('persists an explicit cancel_at timestamp as a pending period-end cancellation', () => {
+    const row = buildBillingSubscriptionRow({
+      ownerId: 'owner-1',
+      fallbackPlanId: 'launch',
+      subscription: {
+        id: 'sub_1',
+        status: 'active',
+        cancel_at_period_end: false,
+        cancel_at: 1_786_920_857,
+        items: { data: [] },
+      } as any,
+    })
+
+    expect(row.cancel_at_period_end).toBe(true)
   })
 })
 

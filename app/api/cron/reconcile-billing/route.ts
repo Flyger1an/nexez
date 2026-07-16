@@ -71,7 +71,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await admin
     .from('billing_subscriptions')
-    .select('owner_id, stripe_customer_id, stripe_subscription_id, plan_id, status, last_reconciled_at')
+    .select('owner_id, stripe_customer_id, stripe_subscription_id, plan_id, status, cancel_at_period_end, last_reconciled_at')
     .not('stripe_customer_id', 'is', null)
     // Fair rotation: never keep scanning the newest LIMIT rows forever. Null/oldest
     // cursors go first, and every inspected row is stamped in the loop's finally block.
@@ -143,7 +143,12 @@ export async function GET(request: Request) {
         eventType: 'reconcile',
       })
 
-      if (rebuilt.plan_id !== row.plan_id || rebuilt.status !== row.status || rebuilt.stripe_subscription_id !== row.stripe_subscription_id) {
+      if (
+        rebuilt.plan_id !== row.plan_id ||
+        rebuilt.status !== row.status ||
+        rebuilt.stripe_subscription_id !== row.stripe_subscription_id ||
+        rebuilt.cancel_at_period_end !== Boolean(row.cancel_at_period_end)
+      ) {
         const { error: upErr } = await admin
           .from('billing_subscriptions')
           .upsert(rebuilt, { onConflict: 'owner_id' })

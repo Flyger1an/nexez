@@ -80,12 +80,11 @@ export default async function BillingPage({ searchParams }: BillingProps) {
   const stripeReadiness = getStripeBillingReadiness()
   const stripeReady = stripeReadiness.subscriptionCheckoutReady
   const configuredPlanIds = stripeReadiness.configuredPlans.map((plan) => plan.id)
-  // Only treat the stored plan as ACTIVE when the subscription is in a live state.
-  // An abandoned/incomplete or canceled row must not show a plan the user isn't on
-  // (it would otherwise inherit the plan_id written during checkout creation).
-  // isLive is the trial-expiry-aware "conferring now" check (an expired trial is NOT live).
-  const hasLiveSubscription = trialState.isLive && Boolean(trialState.chosenPlanId)
-  const activePlan = hasLiveSubscription ? billingPlans.find((plan) => plan.id === trialState.chosenPlanId) : undefined
+  // Show the effective entitlement plan, not merely the paid Stripe row. This matters
+  // for platform-admin/grandfathered Enterprise accounts, whose separate self-serve
+  // subscription must never make the dashboard claim their access is Free or Launch.
+  const activePlan = billingPlans.find((plan) => plan.id === trialState.planId)
+  const hasEnterpriseOverride = trialState.planId === 'enterprise' && billingState?.plan_id !== 'enterprise'
 
   // Page limit comes from the billing catalog (single source of truth); 999 is the
   // client's "unlimited" sentinel, so map the catalog's Infinity onto it.
@@ -200,6 +199,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
           configuredPlanIds={configuredPlanIds}
           initialPlanId={initialPlanFromQuery}
           connectSuccess={connectSuccess}
+          hasEnterpriseOverride={hasEnterpriseOverride}
         />
       </div>
     </main>
