@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { AgentPage } from '../lib/agent-page'
 import { learnArticles } from '../lib/learn-content'
 import { useCases } from '../lib/marketing-content'
+import { scanPlatforms } from '../lib/scan-platforms'
 import { publicLaunchVisiblePages } from '../lib/public-page-visibility'
 import { supabase } from '../lib/supabase'
 import { AGENT_RUNTIME_HOST, APP_HOST, MARKETING_HOST, agentRuntimeUrl, marketingUrl } from '../lib/site'
@@ -26,6 +27,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     return [
       entry('/', 1, 'daily'),
       entry('/scan', 0.9, 'weekly'),
+      ...scanPlatforms.map((p) => entry(`/scan/${p.slug}`, 0.8, 'monthly')),
+      entry('/tools/llms-txt-generator', 0.8, 'monthly'),
       entry('/agents', 0.9, 'weekly'),
       entry('/how-it-works', 0.9, 'weekly'),
       entry('/use-cases', 0.85, 'weekly'),

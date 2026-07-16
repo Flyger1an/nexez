@@ -49,6 +49,7 @@ const MARKETING_PREFIXES = [
   '/support',
   '/use-cases',
   '/learn', // guides + content hub
+  '/tools', // free lead-magnet tools (llms.txt generator, …)
   '/blog', // future content
   '/docs', // future docs
 ] as const
@@ -65,6 +66,7 @@ const MARKETING_API_PREFIXES = [
   '/api/directory',
   '/api/public-simulate',
   '/api/scan',
+  '/api/tools',
   '/api/simulate-llm',
   '/api/simulate-url',
   '/api/support',

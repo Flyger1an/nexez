@@ -42,6 +42,25 @@ No. It only adds structured data to your `<head>` and redirects a handful of mac
 = What if I already have an /llms.txt file? =
 Your existing file is served by your web server and is left untouched — the plugin only handles artifact paths that would otherwise 404.
 
+== External services ==
+
+This plugin connects to **Nexez** (nexez.app), the service that hosts your listing's public agent artifacts.
+
+* **What is sent and when:** the only request the plugin ever makes is a server-side GET to `https://nexez.app/<your-slug>/embed.json` — the public embed manifest of the listing slug *you* configured — to fetch your listing's JSON-LD and manifest link. It is fetched when the cached copy expires. The request contains no visitor data, no admin data, and no site content; only the slug you entered determines the URL.
+* **What is received:** your own listing's public structured data (the same JSON anyone can fetch from that URL).
+* **No tracking:** the plugin sends no analytics, telemetry, or personal data anywhere, and makes no requests from your visitors' browsers.
+* **Service provider:** Nexez — [terms of service](https://nexez.ai/terms), [privacy policy](https://nexez.ai/privacy).
+
+== Screenshots ==
+
+1. Settings screen: paste your Nexez listing slug and optional verification token.
+2. The injected JSON-LD and manifest link as agents see them in your page head.
+
+== Upgrade Notice ==
+
+= 1.0.0 =
+Initial release.
+
 == Changelog ==
 
 = 1.0.0 =
