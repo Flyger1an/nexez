@@ -19,7 +19,7 @@ import type { BillingPlan } from '../../lib/billing'
  * 1. Parent calls /api/billing/create-subscription with plan -> gets clientSecret
  * 2. Mounts this <Elements> wrapper + inner form
  * 3. User enters card details in PaymentElement
- * 4. On submit: stripe.confirmPayment({ elements, clientSecret, confirmParams, redirect: 'if_required' })
+ * 4. On submit: validate Elements, then confirm the payment
  * 5. On success: parent can refresh billing state (webhook will have updated billing_subscriptions)
  *
  * IMPORTANT:
@@ -40,7 +40,7 @@ interface EmbeddedSubscriptionFormProps {
   onCancel?: () => void
 }
 
-function CheckoutFormInner({ clientSecret, onSuccess, onCancel }: { clientSecret: string; onSuccess?: () => void; onCancel?: () => void }) {
+export function CheckoutFormInner({ clientSecret, onSuccess, onCancel }: { clientSecret: string; onSuccess?: () => void; onCancel?: () => void }) {
   const stripe = useStripe()
   const elements = useElements()
   const [isLoading, setIsLoading] = useState(false)
@@ -57,6 +57,16 @@ function CheckoutFormInner({ clientSecret, onSuccess, onCancel }: { clientSecret
     setErrorMessage(null)
 
     try {
+      // Deferred Payment Elements must be submitted before confirmPayment.
+      // Keep this as the first awaited operation after the customer clicks pay.
+      const { error: submitError } = await elements.submit()
+
+      if (submitError) {
+        console.error('[EmbeddedSubscription] elements submit error', submitError)
+        setErrorMessage(submitError.message || 'Please check your payment details and try again.')
+        return
+      }
+
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         clientSecret,
