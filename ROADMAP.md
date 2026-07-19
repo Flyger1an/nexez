@@ -8,7 +8,7 @@ This document tracks product direction and launch status. Use [HANDOFF.md](HANDO
 
 ## Current standing
 
-The core platform is built and its live commercial lifecycles are certified. Public storefronts remain fast and semantic on `nexez.app`; seller management lives on `app.nexez.ai`; marketing and public education live on `nexez.ai`. The release-certificate ledger and shared workflow credential are active; the next milestone is deploying the verifier, recording the first green baseline, improving marketplace density, and proving demand with launch-quality supply.
+The core platform is built and its live commercial lifecycles are certified. Public storefronts remain fast and semantic on `nexez.app`; seller management lives on `app.nexez.ai`; marketing and public education live on `nexez.ai`. Automated release certification is active with a 100% first production baseline. The next milestone is improving marketplace density and proving demand with launch-quality supply.
 
 ## Quality bars
 
@@ -75,6 +75,7 @@ The core platform is built and its live commercial lifecycles are certified. Pub
 - ACP and UCP sandbox settlement is certified independently for both channels, including create and completion replay. Default-Price replacement, linked-offer audit, duplicate delivery, and parallel-Price isolation are also certified in Stripe test mode. This evidence is excluded from all live revenue reporting.
 - Live subscription, portal cancellation, partial/full refund, and negotiation funding/reconciliation lifecycles are owner-certified and reflected in Launch Control.
 - Automated release certification ties successful source gates to the exact deployed revision, verifies all three hosts and agent artifacts, records the authoritative Launch Control verdict in an append-only ledger, and preserves a workflow artifact for each production candidate.
+- The first production release certificate passed on commit `92fe535`: Launch Control scored 100, all 32 required checks passed, and the durable ledger recorded the exact deployed revision with zero failures.
 
 ## Active roadmap
 
@@ -82,8 +83,7 @@ Ranked by launch leverage.
 
 ### P0 - Launch gate
 
-1. **Complete the release ritual.** Deploy the verifier, record the first green production baseline, and make the release workflow a required operational check. The append-only evidence ledger and shared certification credential are already active.
-2. **Curate marketplace supply.** Publish 20-30 high-quality launch storefronts across representative industries and regions. Remove or exclude deliberate QA listings from public discovery.
+1. **Curate marketplace supply.** Publish 20-30 high-quality launch storefronts across representative industries and regions. Remove or exclude deliberate QA listings from public discovery.
 
 ### P1 - Launch strength
 

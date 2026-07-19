@@ -2,6 +2,10 @@
 
 Release certification turns the production readiness snapshot into an exact, durable verdict for one deployed Git revision. It is deliberately separate from deployment: a build can finish while a queue, webhook, artifact, or canonical host is unhealthy. A release is certified only when both source verification and live production evidence are green.
 
+## Activation baseline
+
+Release certification entered production on 2026-07-19. The first automated certificate matched commit `92fe53587d91d57f98637c05596eca4fdb5e57ad` to the running revision, reported Launch Control at 100, and passed all 32 required checks with zero failures. The append-only ledger record is `433c2d3d-2186-41a8-ad66-24221d137c89`.
+
 ## What runs
 
 The `Release Certification` workflow starts after the main `CI` workflow completes for a trusted push to `main`. It records a red release when source CI failed instead of silently ignoring a production candidate. It:
