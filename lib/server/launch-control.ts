@@ -17,6 +17,7 @@ import {
 import { APP_HOST, AGENT_RUNTIME_HOST, MARKETING_HOST } from '../site'
 import { getStripeBillingReadiness } from './billing-readiness'
 import { hasSecretCryptoKey } from './secret-crypto'
+import { hasReleaseCertificationSecret } from './release-certification-auth'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 
 type Source<T> = { available: true; rows: T[] } | { available: false; rows: T[] }
@@ -154,6 +155,7 @@ async function getConfigurationInput(): Promise<LaunchConfigurationInput> {
     stripeCatalogDetail: stripeCatalog.detail,
     actionApprovalSecret: Boolean(process.env.NEXEZ_ACTION_APPROVAL_SECRET && process.env.NEXEZ_ACTION_APPROVAL_SECRET.length >= 32),
     actionApprovalRequired: process.env.NEXEZ_REQUIRE_ACTION_APPROVAL_TOKEN === 'true',
+    releaseCertificationSecret: hasReleaseCertificationSecret(),
     cronSecret: Boolean(process.env.CRON_SECRET),
     email: Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM),
     observability: Boolean(process.env.OBSERVABILITY_WEBHOOK_URL),

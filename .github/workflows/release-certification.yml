@@ -1,0 +1,75 @@
+name: Release Certification
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-certification-${{ github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_placeholder' }}
+      NEXT_PUBLIC_SITE_URL: https://nexez.app
+      NEXEZ_RELEASE_CERT_SECRET: ${{ secrets.NEXEZ_RELEASE_CERT_SECRET }}
+      NEXEZ_COMMIT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      NEXEZ_CI_CONCLUSION: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion || 'success' }}
+      NEXEZ_RELEASE_SOURCE: ${{ github.event_name == 'workflow_run' && 'github' || 'manual' }}
+      NEXEZ_RELEASE_IDEMPOTENCY_KEY: github-${{ github.run_id }}-${{ github.run_attempt }}
+      NEXEZ_WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      NEXEZ_TRIGGERED_BY: ${{ github.event.workflow_run.actor.login || github.actor }}
+      NEXEZ_RELEASE_WAIT_MS: '600000'
+      NEXEZ_RELEASE_REPORT_PATH: release-certification.json
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Automatic runs inherit a successful CI result. A manual recovery run
+      # proves the same source gates itself before touching production evidence.
+      - name: Manual source verification
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          npm run lint -- --quiet
+          npm run lint:palette
+          npx tsc --noEmit --incremental false
+          npm test
+          npm run build
+
+      - name: Certify deployed production
+        id: certify
+        continue-on-error: true
+        run: npm run certify:release
+
+      - name: Upload release evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-certification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-certification.json
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Enforce release verdict
+        if: steps.certify.outcome != 'success'
+        run: exit 1

@@ -23,6 +23,7 @@ export type LaunchConfigurationInput = {
   stripeCatalogDetail: string
   actionApprovalSecret: boolean
   actionApprovalRequired: boolean
+  releaseCertificationSecret: boolean
   cronSecret: boolean
   email: boolean
   observability: boolean
@@ -201,6 +202,17 @@ export function buildConfigurationChecks(input: LaunchConfigurationInput): Launc
       status: input.actionApprovalSecret && input.actionApprovalRequired ? 'ready' : 'blocked',
       required: true,
       action: 'Set NEXEZ_ACTION_APPROVAL_SECRET and NEXEZ_REQUIRE_ACTION_APPROVAL_TOKEN=true, then redeploy.',
+    },
+    {
+      id: 'release-certification',
+      label: 'Release certification ingress',
+      detail: 'The post-deploy verifier writes signed, append-only evidence without exposing operational state publicly.',
+      evidence: input.releaseCertificationSecret
+        ? 'A dedicated release-certification secret is configured.'
+        : 'The release-certification endpoint is dormant.',
+      status: input.releaseCertificationSecret ? 'ready' : 'blocked',
+      required: true,
+      action: 'Set the same 32-byte NEXEZ_RELEASE_CERT_SECRET in production and GitHub Actions, then redeploy.',
     },
     {
       id: 'background-jobs',

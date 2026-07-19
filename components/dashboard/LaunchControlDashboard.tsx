@@ -8,13 +8,14 @@ import {
   CreditCard,
   Database,
   ExternalLink,
+  GitCommitHorizontal,
   RefreshCw,
   ShieldCheck,
-  Store,
   TerminalSquare,
   Webhook,
 } from 'lucide-react'
 import { relativeAge, type LaunchCheck, type LaunchControlSnapshot, type LaunchStatus } from '../../lib/launch-control'
+import type { ReleaseCertificationRecord } from '../../lib/release-certification'
 
 const STATUS_STYLE: Record<LaunchStatus, { label: string; className: string; Icon: typeof CheckCircle2 }> = {
   ready: {
@@ -39,7 +40,13 @@ const STATUS_STYLE: Record<LaunchStatus, { label: string; className: string; Ico
   },
 }
 
-export function LaunchControlDashboard({ snapshot }: { snapshot: LaunchControlSnapshot }) {
+export function LaunchControlDashboard({
+  snapshot,
+  releases,
+}: {
+  snapshot: LaunchControlSnapshot
+  releases: ReleaseCertificationRecord[]
+}) {
   const headline = snapshot.summary.status === 'ready'
     ? 'Launch systems are ready'
     : snapshot.summary.status === 'blocked'
@@ -103,6 +110,35 @@ export function LaunchControlDashboard({ snapshot }: { snapshot: LaunchControlSn
             detail={`${snapshot.metrics.staleNegotiationDecisions + snapshot.metrics.shopifyStale} outside normal window`}
             status={workerRollup(snapshot.operations)}
           />
+        </section>
+
+        <section className="border-t border-border py-8" aria-labelledby="release-certificates-heading">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <SectionHeading
+              icon={GitCommitHorizontal}
+              id="release-certificates-heading"
+              title="Release certificates"
+              detail="Every production candidate is tied to an exact Git revision, live probes, and the authoritative Launch Control snapshot."
+            />
+            <code className="inline-flex min-h-9 w-fit items-center rounded-md border border-border bg-black/30 px-3 font-mono text-xs text-[var(--fg-soft)]">
+              npm run certify:release
+            </code>
+          </div>
+          {releases.length ? (
+            <div className="overflow-hidden rounded-lg border border-border bg-white/[0.025] backdrop-blur-xl">
+              {releases.map((release) => <ReleaseRow key={release.id} release={release} />)}
+            </div>
+          ) : (
+            <div className="flex min-h-32 items-center gap-4 rounded-lg border border-border bg-white/[0.025] px-5 backdrop-blur-xl">
+              <GitCommitHorizontal className="size-5 shrink-0 text-[var(--fg-muted)]" />
+              <div>
+                <p className="text-sm font-medium">No automated release certificate yet</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">
+                  The first successful post-CI production run will create the immutable baseline.
+                </p>
+              </div>
+            </div>
+          )}
         </section>
 
         <section className="border-t border-border py-8" aria-labelledby="configuration-heading">
@@ -209,11 +245,11 @@ export function LaunchControlDashboard({ snapshot }: { snapshot: LaunchControlSn
             />
             <ol className="space-y-3 rounded-lg border border-border bg-white/[0.025] p-4 text-sm backdrop-blur-xl">
               {[
-                'Run the commerce gauntlet against nexez.app.',
-                'Clear every required blocker and stale queue.',
-                'Complete the owner-run subscription and refund checks.',
-                'Run lint, typecheck, tests, build, and browser verification.',
-                'Deploy, then verify a public listing and every agent artifact.',
+                'Merge a production candidate only after the source CI gates pass.',
+                'Wait until the exact Git revision is serving on the production deployment.',
+                'Verify all three hosts, a public storefront, and every agent artifact.',
+                'Run the approval-safety commerce gauntlet without moving live money.',
+                'Attach Launch Control state and retain the green or red release record.',
               ].map((step, index) => (
                 <li key={step} className="flex gap-3 text-[var(--fg-soft)]">
                   <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-black/25 font-mono text-[11px] text-[var(--fg-muted)]">
@@ -236,6 +272,53 @@ export function LaunchControlDashboard({ snapshot }: { snapshot: LaunchControlSn
         </footer>
       </div>
     </main>
+  )
+}
+
+function ReleaseRow({ release }: { release: ReleaseCertificationRecord }) {
+  const status: LaunchStatus = release.status === 'passed' ? 'ready' : 'blocked'
+  return (
+    <article className="grid gap-3 border-b border-border px-4 py-4 last:border-b-0 md:grid-cols-[minmax(150px,0.55fr)_minmax(0,1fr)_auto] md:items-center">
+      <div className="flex min-w-0 items-center gap-3">
+        <StatusPill status={status} label={release.status === 'passed' ? 'Certified' : 'Failed'} />
+        <div className="min-w-0">
+          <p className="truncate font-mono text-sm font-medium text-foreground">{release.commitSha.slice(0, 12)}</p>
+          <p className="mt-1 text-[11px] text-[var(--fg-muted-2)]">{release.source} · {release.environment}</p>
+        </div>
+      </div>
+      <div>
+        <p className="text-xs leading-5 text-[var(--fg-soft)]">
+          Launch Control {release.launchScore}% · {release.checkCount} checks · {release.requiredFailedCount} required failures
+        </p>
+        <p className="mt-1 text-xs text-[var(--fg-muted-2)]">
+          {new Date(release.completedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' })} UTC
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <a
+          href={release.deploymentUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex size-8 items-center justify-center rounded-md border border-border text-[var(--fg-muted)] transition hover:bg-white/[0.06] hover:text-foreground"
+          title="Open certified deployment"
+          aria-label={`Open deployment for ${release.commitSha.slice(0, 12)}`}
+        >
+          <ExternalLink className="size-3.5" />
+        </a>
+        {release.workflowUrl ? (
+          <a
+            href={release.workflowUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex size-8 items-center justify-center rounded-md border border-border text-[var(--fg-muted)] transition hover:bg-white/[0.06] hover:text-foreground"
+            title="Open certification workflow"
+            aria-label={`Open certification workflow for ${release.commitSha.slice(0, 12)}`}
+          >
+            <TerminalSquare className="size-3.5" />
+          </a>
+        ) : null}
+      </div>
+    </article>
   )
 }
 

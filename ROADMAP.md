@@ -1,6 +1,6 @@
 # Nexez Roadmap
 
-_Last reconciled: 2026-07-15_
+_Last reconciled: 2026-07-18_
 
 **Mission:** Make any business legible and transactable to autonomous agents without forcing it to replace its human website. Nexez provides structured storefronts, agent artifacts, transaction rails, seller operations, and distribution into agent workflows.
 
@@ -8,7 +8,7 @@ This document tracks product direction and launch status. Use [HANDOFF.md](HANDO
 
 ## Current standing
 
-The core platform is built and in launch-certification mode. Public storefronts remain fast and semantic on `nexez.app`; seller management lives on `app.nexez.ai`; marketing and public education live on `nexez.ai`. The next milestone is not broad feature expansion. It is proving every commercial lifecycle, improving marketplace density, and turning operational signals into a repeatable release discipline.
+The core platform is built and its live commercial lifecycles are certified. Public storefronts remain fast and semantic on `nexez.app`; seller management lives on `app.nexez.ai`; marketing and public education live on `nexez.ai`. The release-certificate ledger and shared workflow credential are active; the next milestone is deploying the verifier, recording the first green baseline, improving marketplace density, and proving demand with launch-quality supply.
 
 ## Quality bars
 
@@ -73,6 +73,8 @@ The core platform is built and in launch-certification mode. Public storefronts 
 - Stripe-mode provenance on orders, escrow, and ACP/UCP sessions. Finance, Analytics, and Launch Control count only Stripe-proven live transactions; test and unverified history fail closed.
 - Replacement-price synchronization follows explicit Stripe Product `default_price` changes, rotates the linked Price ID, and remains idempotent on redelivery.
 - ACP and UCP sandbox settlement is certified independently for both channels, including create and completion replay. Default-Price replacement, linked-offer audit, duplicate delivery, and parallel-Price isolation are also certified in Stripe test mode. This evidence is excluded from all live revenue reporting.
+- Live subscription, portal cancellation, partial/full refund, and negotiation funding/reconciliation lifecycles are owner-certified and reflected in Launch Control.
+- Automated release certification ties successful source gates to the exact deployed revision, verifies all three hosts and agent artifacts, records the authoritative Launch Control verdict in an append-only ledger, and preserves a workflow artifact for each production candidate.
 
 ## Active roadmap
 
@@ -80,9 +82,8 @@ Ranked by launch leverage.
 
 ### P0 - Launch gate
 
-1. **Finish the live owner-run commerce gates.** Sandbox ACP plus UCP settlement and Stripe default-Price replacement/replay are certified. Still record one authenticated paid-plan subscribe/portal/cancel lifecycle, a partial then full refund of a proven low-value live direct order, and one fresh low-value negotiation agreement through funding and terminal reconciliation.
+1. **Complete the release ritual.** Deploy the verifier, record the first green production baseline, and make the release workflow a required operational check. The append-only evidence ledger and shared certification credential are already active.
 2. **Curate marketplace supply.** Publish 20-30 high-quality launch storefronts across representative industries and regions. Remove or exclude deliberate QA listings from public discovery.
-3. **Establish the release ritual.** Require Launch Control with no required blockers, the automated commerce gauntlet, full test/build gates, and post-deploy public storefront plus artifact verification for every production candidate.
 
 ### P1 - Launch strength
 

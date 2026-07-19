@@ -48,11 +48,13 @@ A failed automated check blocks release. A skipped local Stripe catalog check do
 
 These checks can move real funds unless they are explicitly labeled sandbox-only and therefore require deliberate owner action. Use the lowest practical amount and retain Stripe event IDs plus release notes as evidence.
 
-### Current evidence (2026-07-15)
+### Current evidence (2026-07-18)
 
 - **Certified in Stripe test mode:** ACP and UCP create, update, complete, create replay, and completion replay. Each channel produced exactly one completed session and one paid `$1` order with `stripe_livemode = false`.
 - **Certified in Stripe test mode:** a Product default-Price replacement from `$1.00` to `$1.25`, one linked-offer `stripe_price_sync` audit, exact webhook replay deduplication, and isolation from a parallel non-default `$9.99` Price.
-- **Still owner-run:** paid-plan subscribe/portal/cancel, partial then full refund of a proven live direct order, and a fresh low-value negotiation through funding and terminal reconciliation.
+- **Certified in Stripe live mode:** paid-plan subscription, webhook entitlement sync, Customer Portal access, and cancel-at-period-end reconciliation.
+- **Certified in Stripe live mode:** partial then full refund of a proven low-value direct order, including refundable remainder and fee reversal.
+- **Certified in Stripe live mode:** a fresh low-value negotiation agreement through funding and terminal reconciliation.
 
 Sandbox protocol orders prove adapter conformance only. They may satisfy the optional ACP/UCP Launch Control gate, but they must never contribute to live order counts, GMV, revenue, fees, refunds, or seller Finance totals. Price-sync certification requires both a catalog webhook ledger row and a linked-offer audit row; either one alone is incomplete proof.
 
@@ -123,6 +125,8 @@ Keep test and live Stripe objects isolated. A key and all Price IDs must belong 
 5. run the automated gate against `https://nexez.app`;
 6. run only the minimal low-value live checks required for the changed money path;
 7. verify Launch Control, the public listing, `agent.json`, `llms.txt`, MCP, OpenAPI, and the agent index.
+
+The recurring post-CI implementation is documented in [release-certification.md](release-certification.md). It rechecks public contracts and durable state without repeating live-money actions on every deployment.
 
 ## Go / no-go
 

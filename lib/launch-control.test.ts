@@ -47,6 +47,7 @@ function configuration(overrides: Partial<LaunchConfigurationInput> = {}): Launc
     stripeCatalogDetail: '3 active recurring Prices match the live Stripe key.',
     actionApprovalSecret: true,
     actionApprovalRequired: true,
+    releaseCertificationSecret: true,
     cronSecret: true,
     email: true,
     observability: true,

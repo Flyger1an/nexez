@@ -11,6 +11,7 @@
     "lint:palette": "node scripts/check-palette.mjs",
     "check:agent-sdk-versions": "node scripts/check-agent-sdk-versions.mjs",
     "certify:commerce": "node scripts/certify-commerce.mjs",
+    "certify:release": "node scripts/certify-release.mjs",
     "smoke:agent-access": "node scripts/smoke-agent-access.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
