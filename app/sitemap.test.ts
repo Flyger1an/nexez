@@ -21,6 +21,8 @@ const pages = [
   { slug: 'solo', created_at: '2026-02-01T00:00:00Z', updated_at: null },
   // Internal QA seed - must stay out of discovery surfaces.
   { slug: 'qa-gauntlet-63', created_at: '2026-03-01T00:00:00Z', updated_at: '2026-03-02T00:00:00Z' },
+  // Human-curated exclusion - direct page remains valid but is absent from discovery.
+  { slug: 'direct-only', created_at: '2026-04-01T00:00:00Z', updated_at: '2026-04-02T00:00:00Z', marketplace_discoverable: false },
 ]
 
 describe('sitemap()', () => {
@@ -89,5 +91,6 @@ describe('sitemap()', () => {
   it('filters internal QA seed pages out of the runtime sitemap', async () => {
     const entries = await sitemap()
     expect(entries.map((e) => e.url).some((u) => u.includes('qa-gauntlet'))).toBe(false)
+    expect(entries.map((e) => e.url).some((u) => u.endsWith('/direct-only'))).toBe(false)
   })
 })

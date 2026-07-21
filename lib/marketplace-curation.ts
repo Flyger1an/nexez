@@ -78,12 +78,13 @@ export type MarketplaceCurationQueue = {
 const INTERNAL_SLUG_PATTERNS = [
   /^qa\d{1,4}[-_]\d{1,4}$/i,
   /^(qa|test|seed|gauntlet|red[-_]?team|adversarial)([-_]|$)/i,
+  /^(simulation|simulated|synthetic)([-_]|$)/i,
   /^nexez-agent-negotiation-lab$/i,
   /^shopify-review-catalog$/i,
 ]
 
 const PLACEHOLDER_PATTERNS = [
-  /\b(copy|demo|example|sample|placeholder|untitled)\b/i,
+  /\b(copy|demo|example|sample|simulation|simulated|synthetic|placeholder|untitled)\b/i,
   /^abc(?:\s|$)/i,
   /lorem ipsum/i,
 ]

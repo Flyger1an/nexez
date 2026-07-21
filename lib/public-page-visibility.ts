@@ -3,6 +3,7 @@ import type { AgentPage } from './agent-page'
 const INTERNAL_SEED_SLUGS = [
   /^qa\d{1,4}[-_]\d{1,4}$/i,
   /^(qa|test|seed|gauntlet|red[-_]?team|adversarial)([-_]|$)/i,
+  /^(simulation|simulated|synthetic)([-_]|$)/i,
   /^nexez-agent-negotiation-lab$/i,
   /^shopify-review-catalog$/i,
 ]

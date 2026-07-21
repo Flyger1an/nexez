@@ -40,6 +40,14 @@ function projectionOutputColumns(sql: string): string[] {
     })
 }
 
+function sourceFiles(root: string): string[] {
+  return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(root, entry.name)
+    if (entry.isDirectory()) return sourceFiles(path)
+    return /\.(ts|tsx)$/.test(entry.name) && !entry.name.includes('.test.') ? [path] : []
+  })
+}
+
 describe('pages_public projection ⊇ PUBLIC_PAGE_SELECT (the SEV1 coupling guard)', () => {
   it('every column the public/agent surface selects exists in the latest pages_public projection', () => {
     const dir = join(process.cwd(), 'supabase', 'migrations')
@@ -72,5 +80,34 @@ describe('pages_public projection ⊇ PUBLIC_PAGE_SELECT (the SEV1 coupling guar
     const selectCols = PUBLIC_PAGE_SELECT.split(',').map((c) => c.trim()).filter(Boolean)
     expect(selectCols).not.toContain('owner_id')
     expect(selectCols).not.toContain('google_calendar_id')
+  })
+
+  it('keeps the curation flag in every custom discovery projection', () => {
+    const offenders: string[] = []
+    for (const file of [...sourceFiles(join(process.cwd(), 'app')), ...sourceFiles(join(process.cwd(), 'lib'))]) {
+      const source = readFileSync(file, 'utf8')
+      if (!source.includes('publicLaunchVisiblePages') || !source.includes("from('pages_public')")) continue
+
+      const projections = [...source.matchAll(/\.from\(['"]pages_public['"]\)[\s\S]{0,700}?\.select\(([\s\S]*?)\)\s*\./g)]
+      if (projections.length === 0) {
+        offenders.push(`${file}: no inspectable pages_public projection`)
+        continue
+      }
+      for (const projection of projections) {
+        const selected = projection[1]
+        // The simulator has a backward-compatibility detail lookup that predates
+        // marketplace curation. It never supplies the ranked discovery field.
+        if (file.endsWith('/app/simulator/SimulatorClient.tsx') && selected.trim() === 'BASIC_OWNER_PAGE_SELECT') continue
+        if (!selected.includes('PUBLIC_PAGE_SELECT') && !selected.includes('marketplace_discoverable')) {
+          offenders.push(`${file}: ${selected.trim()}`)
+        }
+      }
+    }
+
+    expect(
+      offenders,
+      'A discovery surface calls publicLaunchVisiblePages() without selecting marketplace_discoverable. ' +
+        'The helper then fails open for curated direct-only listings.',
+    ).toEqual([])
   })
 })

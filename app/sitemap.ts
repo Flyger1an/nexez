@@ -69,9 +69,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = agentRuntimeUrl('/').replace(/\/$/, '')
   const { data: pages } = await supabase
     .from('pages_public')
-    .select('slug, created_at, updated_at')
+    .select('slug, created_at, updated_at, marketplace_discoverable')
     .eq('is_published', true)
-    .returns<Pick<AgentPage, 'slug' | 'created_at' | 'updated_at'>[]>()
+    .returns<Pick<AgentPage, 'slug' | 'created_at' | 'updated_at' | 'marketplace_discoverable'>[]>()
 
   const lastMod = (page: { updated_at?: string | null; created_at?: string | null }) =>
     page.updated_at ? new Date(page.updated_at) : page.created_at ? new Date(page.created_at) : undefined

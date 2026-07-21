@@ -143,9 +143,15 @@ export async function loadPublicStorefronts(limit = 60): Promise<StorefrontSumma
   if (!storefronts?.length) return []
   const { data: pubPages } = await admin
     .from('pages')
-    .select('storefront_id, owner_id')
+    .select('id, storefront_id, owner_id')
     .eq('is_published', true)
-    .returns<Array<{ storefront_id: string | null; owner_id: string | null }>>()
+    .returns<Array<{ id: string; storefront_id: string | null; owner_id: string | null }>>()
+  const { data: excludedRows } = await admin
+    .from('marketplace_curations')
+    .select('page_id')
+    .eq('status', 'excluded')
+    .returns<Array<{ page_id: string }>>()
+  const excludedPageIds = new Set((excludedRows ?? []).map((row) => row.page_id))
   // Paused storefronts (expired no-card trials) are offline - drop their listings from the
   // directory count so they leave discovery, mirroring the pages_public serving gate. Only
   // trial-origin rows can pause, so this set is small.
@@ -175,7 +181,7 @@ export async function loadPublicStorefronts(limit = 60): Promise<StorefrontSumma
   }
   const counts = new Map<string, number>()
   for (const p of pubPages ?? []) {
-    if (p.storefront_id && !(p.owner_id && pausedOwners.has(p.owner_id))) {
+    if (p.storefront_id && !excludedPageIds.has(p.id) && !(p.owner_id && pausedOwners.has(p.owner_id))) {
       counts.set(p.storefront_id, (counts.get(p.storefront_id) ?? 0) + 1)
     }
   }

@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
   const { data: pages } = await supabase
     .from('pages_public')
-    .select('name, slug, description, products, services, currency, website_url, is_published')
+    .select('name, slug, description, products, services, currency, website_url, is_published, marketplace_discoverable')
     .eq('is_published', true)
     .order('created_at', { ascending: false })
     .returns<AgentPage[]>()

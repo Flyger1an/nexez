@@ -18,6 +18,7 @@ describe('public marketplace visibility', () => {
   it('keeps unmistakable internal fixtures out as defense in depth', () => {
     expect(isPublicLaunchVisiblePage({ slug: 'qa12-42' })).toBe(false)
     expect(isPublicLaunchVisiblePage({ slug: 'gauntlet-negotiation-lab' })).toBe(false)
+    expect(isPublicLaunchVisiblePage({ slug: 'simulation-northstar-strategy' })).toBe(false)
     expect(isPublicLaunchVisiblePage({ slug: 'nexez-agent-negotiation-lab' })).toBe(false)
     expect(isPublicLaunchVisiblePage({ slug: 'shopify-review-catalog' })).toBe(false)
   })

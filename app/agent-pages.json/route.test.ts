@@ -60,6 +60,24 @@ const pages = [
     faqs: [],
     is_published: true,
   },
+  {
+    name: 'Direct Only Co',
+    slug: 'direct-only-co',
+    description: 'A directly reachable listing excluded from marketplace discovery.',
+    location: 'Remote',
+    products: [],
+    services: [{ name: 'Private consult', price: '$100', description: 'A direct-only call', url: '' }],
+    created_at: '2026-01-01T00:00:00Z',
+    currency: 'usd',
+    website_url: 'https://direct-only.example.com',
+    cta_url: 'https://direct-only.example.com/book',
+    audience: 'invited buyers',
+    industry: 'Consulting',
+    contact_email: 'hi@direct-only.example.com',
+    faqs: [],
+    is_published: true,
+    marketplace_discoverable: false,
+  },
 ]
 
 describe('GET /agent-pages.json', () => {
@@ -86,6 +104,7 @@ describe('GET /agent-pages.json', () => {
     expect(body.pages[0].storefront_url).toMatch(/^https:\/\/.+\/store\/demo-store$/)
     expect(body.pages[0].storefront_agent_json_url).toMatch(/^https:\/\/.+\/store\/demo-store\/agent\.json$/)
     expect(body.pages[1].storefront_handle).toBeUndefined()
+    expect(body.pages.map((page: { slug: string }) => page.slug)).not.toContain('direct-only-co')
   })
 
   it('adds rating summaries when verified reviews exist', async () => {

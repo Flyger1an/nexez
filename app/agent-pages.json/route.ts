@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   // so agents can shortlist from the index without fetching every per-page manifest.
   const { data: pages } = await supabase
     .from('pages_public')
-    .select('name, slug, description, location, products, services, created_at, currency, website_url, cta_url, audience, industry, contact_email, faqs, is_published, prefer_original_site')
+    .select('name, slug, description, location, products, services, created_at, currency, website_url, cta_url, audience, industry, contact_email, faqs, is_published, prefer_original_site, marketplace_discoverable')
     .eq('is_published', true)
     .order('created_at', { ascending: false })
     .returns<AgentPage[]>()

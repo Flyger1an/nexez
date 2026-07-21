@@ -53,6 +53,16 @@ describe('marketplace quality assessment', () => {
     expect(fixture.suggestedStatus).toBe('excluded')
     expect(fixture.flags.map((flag) => flag.id)).toContain('internal_fixture')
 
+    const simulation = assessMarketplacePage(page({
+      name: '[Simulation] Northstar Strategy',
+      slug: 'simulation-northstar-strategy',
+    }), { now: NOW })
+    expect(simulation.suggestedStatus).toBe('excluded')
+    expect(simulation.flags.map((flag) => flag.id)).toEqual(expect.arrayContaining([
+      'internal_fixture',
+      'placeholder_identity',
+    ]))
+
     const ordinary = assessMarketplacePage(page({ slug: 'austin-mobility-massage', name: 'Mobility Massage Austin' }), { now: NOW })
     expect(ordinary.flags.map((flag) => flag.id)).not.toContain('internal_fixture')
   })
