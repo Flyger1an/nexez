@@ -8,7 +8,7 @@ This document tracks product direction and launch status. Use [HANDOFF.md](HANDO
 
 ## Current standing
 
-The core platform is built and its live commercial lifecycles are certified. Public storefronts remain fast and semantic on `nexez.app`; seller management lives on `app.nexez.ai`; marketing and public education live on `nexez.ai`. Automated release certification is active with a 100% production baseline. Marketplace curation now has a private review ledger, quality checks, an operator queue, and a discovery-only exclusion gate. The next milestone is using that system to build launch-quality supply and prove demand.
+The core platform is built and its live commercial lifecycles are certified. Public storefronts remain fast and semantic on `nexez.app`; seller management lives on `app.nexez.ai`; marketing and public education live on `nexez.ai`. Automated release certification is active with a 100% production baseline. Marketplace curation is deployed with a private review ledger, quality checks, an operator queue, and a discovery-only exclusion gate. The first seven discoverable listings have been reviewed: 2 are certified and 5 retain explicit remediation blockers. The next milestone is growing this launch-quality supply and proving demand.
 
 ## Quality bars
 
@@ -85,7 +85,7 @@ Ranked by launch leverage.
 
 ### P0 - Launch gate
 
-1. **Curate launch inventory.** Publish and certify 20-30 high-quality storefronts across representative industries and regions. Current live baseline: 7 discoverable listings, 3 internal fixtures retained as direct-only, and 0 marketplace-certified listings.
+1. **Curate launch inventory.** Publish and certify 20-30 high-quality storefronts across representative industries and regions. Current live baseline: 7 discoverable listings, 3 internal fixtures retained as direct-only, 2 marketplace-certified listings, and 5 unreviewed listings with quality blockers.
 
 ### P1 - Launch strength
 
