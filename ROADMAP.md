@@ -8,7 +8,7 @@ This document tracks product direction and launch status. Use [HANDOFF.md](HANDO
 
 ## Current standing
 
-The core platform is built and its live commercial lifecycles are certified. Public storefronts remain fast and semantic on `nexez.app`; seller management lives on `app.nexez.ai`; marketing and public education live on `nexez.ai`. Automated release certification is active with a 100% production baseline. Marketplace curation is deployed with a private review ledger, quality checks, an operator queue, and a discovery-only exclusion gate. The first seven discoverable listings have been reviewed: 2 are certified and 5 retain explicit remediation blockers. The next milestone is growing this launch-quality supply and proving demand.
+The core platform is built and its live commercial lifecycles are certified. Public storefronts remain fast and semantic on `nexez.app`; seller management lives on `app.nexez.ai`; marketing and public education live on `nexez.ai`. Automated release certification is active with a 100% production baseline. Marketplace curation is deployed with a private review ledger, quality checks, an operator queue, and a discovery-only exclusion gate. Kismet Pros is the sole approved real launch listing; the other 9 published evaluation and QA pages remain direct-only. A separate 19-listing simulation catalog covers product testing across five world regions without entering discovery, transactions, certification counts, or launch-supply metrics. The next milestone is growing real launch-quality supply and proving demand.
 
 ## Quality bars
 
@@ -85,7 +85,7 @@ Ranked by launch leverage.
 
 ### P0 - Launch gate
 
-1. **Curate launch inventory.** Publish and certify 20-30 high-quality storefronts across representative industries and regions. Current live baseline: 7 discoverable listings, 3 internal fixtures retained as direct-only, 2 marketplace-certified listings, and 5 unreviewed listings with quality blockers.
+1. **Curate launch inventory.** Publish and certify 20-30 high-quality storefronts across representative industries and regions. Current live baseline: 1 discoverable and marketplace-certified listing (Kismet Pros), plus 9 published evaluation/QA pages retained as direct-only. The 19 synthetic scenarios are test fixtures and do not count toward this target.
 
 ### P1 - Launch strength
 
