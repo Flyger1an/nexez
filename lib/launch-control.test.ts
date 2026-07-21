@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildCertificationChecks,
   buildConfigurationChecks,
+  buildMarketplaceCurationCheck,
   buildOperationalChecks,
   isSettledProtocolOrder,
   isStripeCatalogSyncEvent,
@@ -166,6 +167,23 @@ describe('Launch Control operations', () => {
   it('uses unknown instead of inventing health when a data source is unavailable', () => {
     const checks = buildOperationalChecks(metrics(), sources(false), NOW)
     expect(checks.every((check) => check.status === 'unknown')).toBe(true)
+  })
+
+  it('tracks curated launch supply without turning the inventory target into a release blocker', () => {
+    const attention = buildMarketplaceCurationCheck({
+      available: true,
+      summary: { total: 10, unreviewed: 5, candidate: 2, certified: 0, excluded: 3 },
+    })
+    const ready = buildMarketplaceCurationCheck({
+      available: true,
+      summary: { total: 24, unreviewed: 0, candidate: 1, certified: 20, excluded: 3 },
+    })
+    expect(attention).toMatchObject({ status: 'attention', required: false })
+    expect(ready.status).toBe('ready')
+    expect(buildMarketplaceCurationCheck({
+      available: false,
+      summary: { total: 0, unreviewed: 0, candidate: 0, certified: 0, excluded: 0 },
+    }).status).toBe('unknown')
   })
 })
 

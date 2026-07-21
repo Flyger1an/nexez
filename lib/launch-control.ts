@@ -115,6 +115,17 @@ export type LaunchControlSnapshot = {
   incidents: LaunchIncident[]
 }
 
+type MarketplaceCurationSignal = {
+  available: boolean
+  summary: {
+    total: number
+    unreviewed: number
+    candidate: number
+    certified: number
+    excluded: number
+  }
+}
+
 const READY_WEIGHT: Record<LaunchStatus, number> = {
   ready: 1,
   attention: 0.55,
@@ -406,6 +417,24 @@ export function buildOperationalChecks(
       action: 'Triage urgent tickets before widening launch traffic.',
     },
   ]
+}
+
+export function buildMarketplaceCurationCheck(signal: MarketplaceCurationSignal): LaunchCheck {
+  const target = 20
+  const ready = signal.available
+    && signal.summary.certified >= target
+    && signal.summary.unreviewed === 0
+  return {
+    id: 'marketplace-curation',
+    label: 'Marketplace launch supply',
+    detail: 'Published listings need an explicit quality decision before marketplace traffic widens.',
+    evidence: signal.available
+      ? `${signal.summary.certified} certified, ${signal.summary.candidate} candidates, ${signal.summary.unreviewed} unreviewed, and ${signal.summary.excluded} excluded.`
+      : 'The marketplace curation ledger is unavailable.',
+    status: !signal.available ? 'unknown' : ready ? 'ready' : 'attention',
+    required: false,
+    action: `Certify at least ${target} launch listings and clear the unreviewed queue.`,
+  }
 }
 
 export function buildCertificationChecks(

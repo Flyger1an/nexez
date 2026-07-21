@@ -35,6 +35,7 @@ const PUBLIC_PAGE_COLUMNS = [
   'llm_opt_in',
   'currency',
   'preferred_contact',
+  'marketplace_discoverable',
 ]
 
 // Public/agent-facing columns only. Owner-private routing, billing, and
@@ -258,6 +259,7 @@ export type AgentPage = {
   location: string | null
   contact_email: string | null
   preferred_contact?: PreferredContact | null   // Which channel agents should use first to reach a human; null = auto (derive)
+  marketplace_discoverable?: boolean // Public discovery gate; false does not disable the direct storefront.
   industry?: string | null          // NEW: Helps with templates & AI copy for consumer vs professional services
   prefer_original_site?: boolean    // NEW: When true, booking CTAs link to the original website instead of Nexez checkout
   products: OfferItem[] | null

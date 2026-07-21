@@ -15,7 +15,9 @@ import {
   Webhook,
 } from 'lucide-react'
 import { relativeAge, type LaunchCheck, type LaunchControlSnapshot, type LaunchStatus } from '../../lib/launch-control'
+import type { MarketplaceCurationQueue } from '../../lib/marketplace-curation'
 import type { ReleaseCertificationRecord } from '../../lib/release-certification'
+import { MarketplaceCurationPanel } from './MarketplaceCurationPanel'
 
 const STATUS_STYLE: Record<LaunchStatus, { label: string; className: string; Icon: typeof CheckCircle2 }> = {
   ready: {
@@ -43,9 +45,11 @@ const STATUS_STYLE: Record<LaunchStatus, { label: string; className: string; Ico
 export function LaunchControlDashboard({
   snapshot,
   releases,
+  marketplaceCuration,
 }: {
   snapshot: LaunchControlSnapshot
   releases: ReleaseCertificationRecord[]
+  marketplaceCuration: MarketplaceCurationQueue
 }) {
   const headline = snapshot.summary.status === 'ready'
     ? 'Launch systems are ready'
@@ -111,6 +115,8 @@ export function LaunchControlDashboard({
             status={workerRollup(snapshot.operations)}
           />
         </section>
+
+        <MarketplaceCurationPanel queue={marketplaceCuration} />
 
         <section className="border-t border-border py-8" aria-labelledby="release-certificates-heading">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">

@@ -5,6 +5,7 @@ const redirect = vi.hoisted(() => vi.fn((location: string) => { throw new Error(
 const notFound = vi.hoisted(() => vi.fn(() => { throw new Error('NEXT_NOT_FOUND') }))
 const getSnapshot = vi.hoisted(() => vi.fn(async () => ({ generatedAt: '2026-07-15T00:00:00.000Z' })))
 const getReleaseHistory = vi.hoisted(() => vi.fn(async () => []))
+const getMarketplaceCuration = vi.hoisted(() => vi.fn(async () => ({ available: true, items: [] })))
 
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({})) }))
 vi.mock('next/navigation', () => ({ redirect, notFound }))
@@ -13,6 +14,7 @@ vi.mock('../../../utils/supabase/server', () => ({
 }))
 vi.mock('../../../lib/server/plan', () => ({ isPlatformAdmin: vi.fn(async () => refs.admin) }))
 vi.mock('../../../lib/server/launch-control', () => ({ getLaunchControlSnapshot: getSnapshot }))
+vi.mock('../../../lib/server/marketplace-curation', () => ({ getMarketplaceCurationQueue: getMarketplaceCuration }))
 vi.mock('../../../lib/server/release-certification', () => ({ getReleaseCertificationHistory: getReleaseHistory }))
 vi.mock('../../../components/dashboard/LaunchControlDashboard', () => ({
   LaunchControlDashboard: ({ snapshot }: { snapshot: { generatedAt: string } }) => <div>{snapshot.generatedAt}</div>,
@@ -32,6 +34,7 @@ describe('LaunchControlPage admin boundary', () => {
     await expect(LaunchControlPage()).rejects.toThrow('NEXT_REDIRECT:/login?next=/dashboard/launch-control')
     expect(getSnapshot).not.toHaveBeenCalled()
     expect(getReleaseHistory).not.toHaveBeenCalled()
+    expect(getMarketplaceCuration).not.toHaveBeenCalled()
   })
 
   it('returns not found for an authenticated non-admin', async () => {
@@ -39,11 +42,13 @@ describe('LaunchControlPage admin boundary', () => {
     await expect(LaunchControlPage()).rejects.toThrow('NEXT_NOT_FOUND')
     expect(getSnapshot).not.toHaveBeenCalled()
     expect(getReleaseHistory).not.toHaveBeenCalled()
+    expect(getMarketplaceCuration).not.toHaveBeenCalled()
   })
 
   it('loads the redacted snapshot for a platform admin', async () => {
     await expect(LaunchControlPage()).resolves.toBeTruthy()
     expect(getSnapshot).toHaveBeenCalledOnce()
     expect(getReleaseHistory).toHaveBeenCalledOnce()
+    expect(getMarketplaceCuration).toHaveBeenCalledOnce()
   })
 })

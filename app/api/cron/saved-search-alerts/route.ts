@@ -62,6 +62,7 @@ export async function GET(request: Request) {
       .select('slug, name, description, industry, location, created_at')
       .eq('is_published', true)
       .eq('serving', true)
+      .eq('marketplace_discoverable', true)
       .gt('created_at', sinceIso)
       .order('created_at', { ascending: false })
       .limit(PAGE_LIMIT)

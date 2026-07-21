@@ -64,6 +64,7 @@ export async function GET(request: Request) {
       .select('slug, name, description, industry, location')
       .eq('is_published', true)
       .eq('serving', true)
+      .eq('marketplace_discoverable', true)
       .order('created_at', { ascending: false })
       .limit(PAGE_LIMIT)
       .returns<CatalogPage[]>()

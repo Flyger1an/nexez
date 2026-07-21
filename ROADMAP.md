@@ -1,6 +1,6 @@
 # Nexez Roadmap
 
-_Last reconciled: 2026-07-18_
+_Last reconciled: 2026-07-21_
 
 **Mission:** Make any business legible and transactable to autonomous agents without forcing it to replace its human website. Nexez provides structured storefronts, agent artifacts, transaction rails, seller operations, and distribution into agent workflows.
 
@@ -8,7 +8,7 @@ This document tracks product direction and launch status. Use [HANDOFF.md](HANDO
 
 ## Current standing
 
-The core platform is built and its live commercial lifecycles are certified. Public storefronts remain fast and semantic on `nexez.app`; seller management lives on `app.nexez.ai`; marketing and public education live on `nexez.ai`. Automated release certification is active with a 100% first production baseline. The next milestone is improving marketplace density and proving demand with launch-quality supply.
+The core platform is built and its live commercial lifecycles are certified. Public storefronts remain fast and semantic on `nexez.app`; seller management lives on `app.nexez.ai`; marketing and public education live on `nexez.ai`. Automated release certification is active with a 100% production baseline. Marketplace curation now has a private review ledger, quality checks, an operator queue, and a discovery-only exclusion gate. The next milestone is using that system to build launch-quality supply and prove demand.
 
 ## Quality bars
 
@@ -41,6 +41,7 @@ The core platform is built and its live commercial lifecycles are certified. Pub
 - Searchable directory and marketplace with professional/consumer facets, category, offer type, readiness, trust, worldwide location filtering, geolocation, favorites, related listings, and click attribution.
 - Nexxi buyer-agent search with transactable-first ranking, Nexez and web sources, semantic plus lexical retrieval, structured memory, streaming, voice, and approval-aware actions.
 - Reviews restricted to verified purchasers, seller responses, moderation state, aggregate ratings, and ranking inputs.
+- Admin marketplace curation with deterministic quality flags, explicit unreviewed/candidate/certified/excluded states, private notes, append-only decisions, and discovery-only exclusions that preserve direct storefront access.
 
 ### Commerce and seller operations
 
@@ -76,6 +77,7 @@ The core platform is built and its live commercial lifecycles are certified. Pub
 - Live subscription, portal cancellation, partial/full refund, and negotiation funding/reconciliation lifecycles are owner-certified and reflected in Launch Control.
 - Automated release certification ties successful source gates to the exact deployed revision, verifies all three hosts and agent artifacts, records the authoritative Launch Control verdict in an append-only ledger, and preserves a workflow artifact for each production candidate.
 - The first production release certificate passed on commit `92fe535`: Launch Control scored 100, all 32 required checks passed, and the durable ledger recorded the exact deployed revision with zero failures.
+- Launch Control now exposes the marketplace review queue and a non-blocking inventory signal that stays visible until at least 20 listings are certified and no supply remains unreviewed.
 
 ## Active roadmap
 
@@ -83,7 +85,7 @@ Ranked by launch leverage.
 
 ### P0 - Launch gate
 
-1. **Curate marketplace supply.** Publish 20-30 high-quality launch storefronts across representative industries and regions. Remove or exclude deliberate QA listings from public discovery.
+1. **Curate launch inventory.** Publish and certify 20-30 high-quality storefronts across representative industries and regions. Current live baseline: 7 discoverable listings, 3 internal fixtures retained as direct-only, and 0 marketplace-certified listings.
 
 ### P1 - Launch strength
 

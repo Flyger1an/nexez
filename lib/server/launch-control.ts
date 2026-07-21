@@ -4,6 +4,7 @@ import { billingPlans, getPlanPriceId, isStripePriceId } from '../billing'
 import {
   buildCertificationChecks,
   buildConfigurationChecks,
+  buildMarketplaceCurationCheck,
   buildOperationalChecks,
   isSettledProtocolOrder,
   isStripeCatalogSyncEvent,
@@ -16,6 +17,7 @@ import {
 } from '../launch-control'
 import { APP_HOST, AGENT_RUNTIME_HOST, MARKETING_HOST } from '../site'
 import { getStripeBillingReadiness } from './billing-readiness'
+import { getMarketplaceCurationQueue } from './marketplace-curation'
 import { hasSecretCryptoKey } from './secret-crypto'
 import { hasReleaseCertificationSecret } from './release-certification-auth'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
@@ -100,7 +102,10 @@ const TERMINAL_NEGOTIATION_STATUSES = new Set(['complete', 'refunded'])
 
 export async function getLaunchControlSnapshot(): Promise<LaunchControlSnapshot> {
   const generatedAt = new Date().toISOString()
-  const configurationInput = await getConfigurationInput()
+  const [configurationInput, marketplaceCuration] = await Promise.all([
+    getConfigurationInput(),
+    getMarketplaceCurationQueue(),
+  ])
   const configuration = buildConfigurationChecks(configurationInput)
 
   const sources = hasSupabaseAdminEnv()
@@ -108,7 +113,10 @@ export async function getLaunchControlSnapshot(): Promise<LaunchControlSnapshot>
     : emptySources()
   const availability = sourceAvailability(sources)
   const metrics = buildMetrics(sources, generatedAt)
-  const operations = buildOperationalChecks(metrics, availability, generatedAt)
+  const operations = [
+    ...buildOperationalChecks(metrics, availability, generatedAt),
+    buildMarketplaceCurationCheck(marketplaceCuration),
+  ]
   const certification = buildCertificationChecks(metrics, availability, configuration)
   const summary = summarizeLaunchChecks([...configuration, ...operations, ...certification])
 

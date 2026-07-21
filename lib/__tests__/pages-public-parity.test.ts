@@ -43,14 +43,20 @@ function projectionOutputColumns(sql: string): string[] {
 describe('pages_public projection ⊇ PUBLIC_PAGE_SELECT (the SEV1 coupling guard)', () => {
   it('every column the public/agent surface selects exists in the latest pages_public projection', () => {
     const dir = join(process.cwd(), 'supabase', 'migrations')
-    const defining = readdirSync(dir)
+    const migrations = readdirSync(dir)
       .filter((f) => f.endsWith('.sql'))
       .sort() // timestamp-prefixed → chronological
-      .filter((f) => /create\s+(?:or\s+replace\s+view|table)\s+public\.pages_public/i.test(readFileSync(join(dir, f), 'utf8')))
+    const defining = migrations.filter((f) => /create\s+(?:or\s+replace\s+view|table)\s+public\.pages_public/i.test(readFileSync(join(dir, f), 'utf8')))
     expect(defining.length, 'no migration defines the pages_public projection').toBeGreaterThan(0)
 
     const latest = defining[defining.length - 1]
     const viewCols = new Set(projectionOutputColumns(readFileSync(join(dir, latest), 'utf8')))
+    for (const migration of migrations.slice(migrations.indexOf(latest) + 1)) {
+      const sql = readFileSync(join(dir, migration), 'utf8')
+      for (const alter of sql.matchAll(/alter table public\.pages_public\s+add column (?:if not exists )?([a-z_]+)/gi)) {
+        viewCols.add(alter[1])
+      }
+    }
     const selectCols = PUBLIC_PAGE_SELECT.split(',').map((c) => c.trim()).filter(Boolean)
 
     const missing = selectCols.filter((c) => !viewCols.has(c))
