@@ -1,6 +1,6 @@
 # Nexez Roadmap
 
-_Last reconciled: 2026-07-21_
+_Last reconciled: 2026-07-25_
 
 **Mission:** Make any business legible and transactable to autonomous agents without forcing it to replace its human website. Nexez provides structured storefronts, agent artifacts, transaction rails, seller operations, and distribution into agent workflows.
 
@@ -8,7 +8,7 @@ This document tracks product direction and launch status. Use [HANDOFF.md](HANDO
 
 ## Current standing
 
-The core platform is built and its live commercial lifecycles are certified. Public storefronts remain fast and semantic on `nexez.app`; seller management lives on `app.nexez.ai`; marketing and public education live on `nexez.ai`. Automated release certification is active with a 100% production baseline. Marketplace curation is deployed with a private review ledger, quality checks, an operator queue, and a discovery-only exclusion gate. Kismet Pros is the sole approved real launch listing; the other 9 published evaluation and QA pages remain direct-only. A separate 19-listing simulation catalog covers product testing across five world regions without entering discovery, transactions, certification counts, or launch-supply metrics. The next milestone is growing real launch-quality supply and proving demand.
+The core platform is built and its live commercial lifecycles are certified. Public storefronts remain fast and semantic on `nexez.app`; seller management lives on `app.nexez.ai`; marketing and public education live on `nexez.ai`. Automated release certification is active with a 100% production baseline. Marketplace curation is deployed with a private review ledger, quality checks, an operator queue, and a discovery-only exclusion gate. The seller-facing Nexez Certified Agent-Ready standard is versioned, continuously evaluated, and machine-verifiable without conflating technical readiness, identity trust, or human marketplace review. Kismet Pros is the sole approved real launch listing; the other 9 published evaluation and QA pages remain direct-only. A separate 19-listing simulation catalog covers product testing across five world regions without entering discovery, transactions, certification counts, or launch-supply metrics. The next milestone is growing real launch-quality supply and proving demand.
 
 ## Quality bars
 
@@ -32,6 +32,7 @@ The core platform is built and its live commercial lifecycles are certified. Pub
 ### Agent legibility and distribution
 
 - Per-storefront JSON-LD, `llms.txt`, `agent.json`, `openapi.json`, MCP JSON-RPC, badge artifacts, and global agent index.
+- Versioned Nexez Certified Agent-Ready standard with continuous 11-check evaluation, honest certified/readiness badge states, machine-readable verification, seller remediation, and a public methodology.
 - OpenClaw plugin and skill, published TypeScript and Python SDKs, examples, registry metadata, and agent-access smoke coverage.
 - ACP and UCP feeds and checkout-session adapters with persisted idempotent sessions and durable order attribution.
 - Public scanner, simulator, developer pages, comparison content, and agent-readiness guidance.
@@ -89,7 +90,7 @@ Ranked by launch leverage.
 
 ### P1 - Launch strength
 
-1. **Prove demand and trust.** Publish a real agent-discovery-to-conversion case study and formalize the seller-facing "Nexez Certified Agent-Ready" standard.
+1. **Prove demand.** Publish a real agent-discovery-to-conversion case study using production evidence without inventing attribution or outcomes.
 2. **Strengthen ranking.** Tune marketplace and Nexxi ranking with real conversion, location, availability, verified-purchase review, response quality, and freshness evidence. Prevent sparse-data feedback loops.
 3. **Integration proof.** Keep the certified Stripe price-sync replay monitored in Launch Control, add timezone-aware Calendly business hours, and monitor Shopify queue health through Launch Control.
 4. **Mobile distribution.** Complete store builds, physical-device push checks, release review, deep-link validation, and parity checks for the seller mobile app.

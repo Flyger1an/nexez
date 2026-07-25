@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getReadinessScore, getTrustScore } from '../../../lib/agent-page'
+import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getCertification, getTrustScore } from '../../../lib/agent-page'
 import { supabase } from '../../../lib/supabase'
 
 /**
@@ -25,20 +25,33 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     )
   }
 
+  const certification = getCertification(page)
+
   return NextResponse.json(
     {
+      schema_version: 'nexez.agent-ready-verification.v1',
       issuer: 'nexez',
       valid: true,
+      certified: certification.certified,
+      status: certification.status,
       slug: page.slug,
       name: page.name,
       page_url: `${base}/${page.slug}`,
       agent_json_url: `${base}/${page.slug}/agent.json`,
       badge_svg_url: `${base}/${page.slug}/badge.svg`,
-      readiness: getReadinessScore(page),
+      standard: certification.standard,
+      criteria: {
+        met: certification.criteria_met,
+        total: certification.criteria_total,
+        missing: certification.missing,
+      },
+      readiness: certification.readiness,
       trust: getTrustScore(page),
-      domain_verified: Boolean(page.custom_domain_verified),
-      custom_domain: page.custom_domain_verified ? page.custom_domain || null : null,
-      issued_at: new Date().toISOString(),
+      identity_verification: {
+        domain_verified: Boolean(page.custom_domain_verified),
+        custom_domain: page.custom_domain_verified ? page.custom_domain || null : null,
+      },
+      evaluated_at: new Date().toISOString(),
     },
     { headers: { 'Cache-Control': 'public, max-age=300, s-maxage=1800' } },
   )

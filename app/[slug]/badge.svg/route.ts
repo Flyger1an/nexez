@@ -1,11 +1,12 @@
-import { AgentPage, PUBLIC_PAGE_SELECT, getReadinessScore } from '../../../lib/agent-page'
+import { AgentPage, PUBLIC_PAGE_SELECT, getCertification } from '../../../lib/agent-page'
 import { buildAgentReadyBadgeSvg } from '../../../lib/badge'
 import { supabase } from '../../../lib/supabase'
 
 /**
  * Embeddable Agent-Ready badge: GET /<slug>/badge.svg
  * Businesses embed it on their human site, typically wrapped in a link back to
- * the agent page. Reflects live readiness + verified status.
+ * the agent page. The certified claim appears only while every standard check
+ * passes; incomplete pages receive a plain readiness badge.
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
@@ -16,9 +17,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     .eq('is_published', true)
     .single<AgentPage>()
 
-  const score = page ? getReadinessScore(page) : 0
+  const certification = page ? getCertification(page) : null
+  const score = certification?.readiness ?? 0
   const verified = page ? Boolean(page.custom_domain_verified) : false
-  const svg = buildAgentReadyBadgeSvg(score, verified)
+  const svg = buildAgentReadyBadgeSvg(score, verified, certification?.certified ?? false)
 
   return new Response(svg, {
     headers: {

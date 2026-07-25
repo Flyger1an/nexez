@@ -54,8 +54,8 @@ export function ReadinessChecklist({ criteria, score }: { criteria: ReadinessCri
 
       <p className="mt-3 text-xs text-zinc-500">
         {allMet
-          ? 'All set - hit Publish to go live and earn the Certified Agent-Ready badge.'
-          : `${metCount} of ${criteria.length} ready - finish the rest for a Certified Agent-Ready badge.`}
+          ? 'Every required check passes. The certified claim remains live while the listing stays complete and published.'
+          : `${metCount} of ${criteria.length} checks pass. Complete the rest to earn the Certified Agent-Ready badge.`}
       </p>
     </div>
   )

@@ -1,4 +1,5 @@
-import { ArrowRight, Bot, CheckCircle2, Code2, FileText, ScanLine, Sparkles, Target } from 'lucide-react'
+import { ArrowRight, BadgeCheck, Bot, CheckCircle2, Code2, FileText, ScanLine, ShieldCheck, Sparkles, Target } from 'lucide-react'
+import { AGENT_READY_STANDARD, getReadinessCriteria } from '../../lib/agent-page'
 import { appUrl } from '../../lib/site'
 
 const badSignals = [
@@ -152,6 +153,130 @@ export function AgentReadinessProof() {
               </p>
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+const standardCriteria = getReadinessCriteria({})
+const certificationAreas = [
+  {
+    title: 'Identity',
+    description: 'Agents can identify the business and resolve its canonical source.',
+    criteria: standardCriteria.filter((item) => ['name', 'slug', 'description', 'website_url'].includes(item.id)),
+  },
+  {
+    title: 'Buyer match',
+    description: 'The listing states who it serves, where it operates, and how it should be categorized.',
+    criteria: standardCriteria.filter((item) => ['audience', 'industry', 'location_or_contact'].includes(item.id)),
+  },
+  {
+    title: 'Offer clarity',
+    description: 'At least one explicit offer and practical buyer questions are available to compare.',
+    criteria: standardCriteria.filter((item) => ['offers', 'faqs'].includes(item.id)),
+  },
+  {
+    title: 'Action and access',
+    description: 'A buyer has a clear next action and agents can reach the live listing.',
+    criteria: standardCriteria.filter((item) => ['cta_url', 'publish'].includes(item.id)),
+  },
+]
+
+export function AgentReadyCertificationStandard() {
+  return (
+    <section id="certification-standard" className="scroll-mt-24 border-b border-border">
+      <div className="mx-auto max-w-7xl px-5 py-16 md:py-20">
+        <div className="grid gap-8 lg:grid-cols-[1fr_0.72fr] lg:items-start">
+          <div>
+            <div className="flex items-center gap-2 text-[var(--signal)]">
+              <BadgeCheck className="size-5" />
+              <p className="text-sm font-medium">{AGENT_READY_STANDARD.label}</p>
+            </div>
+            <h2 className="mt-3 max-w-3xl text-3xl font-semibold md:text-5xl">
+              A live standard, not a one-time sticker.
+            </h2>
+            <p className="mt-4 max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
+              Certification confirms that a published listing carries the identity, offer, buyer context, and action
+              fields an agent needs to proceed without inventing missing facts. Nexez evaluates it continuously, so
+              the claim disappears if a required check stops passing.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-border bg-white/[0.03] p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="font-mono text-xs text-muted-foreground">{AGENT_READY_STANDARD.id}</p>
+                <p className="mt-1 text-lg font-medium">Standard {AGENT_READY_STANDARD.version}</p>
+              </div>
+              <div className="flex size-11 items-center justify-center rounded-md border border-[var(--ready)]/30 bg-[var(--ready)]/10">
+                <ShieldCheck className="size-5 text-[var(--ready)]" />
+              </div>
+            </div>
+            <dl className="mt-5 grid grid-cols-2 gap-3">
+              <div className="rounded-md border border-border bg-black/20 p-3">
+                <dt className="text-xs text-muted-foreground">Required score</dt>
+                <dd className="mt-1 font-mono text-xl font-semibold text-[var(--ready)]">{AGENT_READY_STANDARD.threshold}%</dd>
+              </div>
+              <div className="rounded-md border border-border bg-black/20 p-3">
+                <dt className="text-xs text-muted-foreground">Required checks</dt>
+                <dd className="mt-1 font-mono text-xl font-semibold text-[var(--ready)]">{standardCriteria.length}</dd>
+              </div>
+            </dl>
+            <p className="mt-4 text-xs leading-5 text-muted-foreground">
+              Every badge has a live <code className="font-mono text-foreground">badge.json</code> verification
+              record. Agents can inspect the standard version, current status, score, and any missing checks.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {certificationAreas.map((area) => (
+            <div key={area.title} className="nx-tile p-5">
+              <h3 className="text-base font-medium">{area.title}</h3>
+              <p className="mt-2 min-h-12 text-xs leading-5 text-muted-foreground">{area.description}</p>
+              <ul className="mt-4 space-y-2">
+                {area.criteria.map((criterion) => (
+                  <li key={criterion.id} className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="size-4 shrink-0 text-[var(--ready)]" />
+                    {criterion.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-8 grid gap-4 border-y border-border py-6 md:grid-cols-3">
+          <div>
+            <p className="text-sm font-medium">Technical certification</p>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              Confirms complete, published agent-readable buying context. It is deterministic and revocable.
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium">Trust and verification</p>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              Measures separate evidence such as domain control, reviewed credentials, and completed transactions.
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium">Marketplace curation</p>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              Governs discovery eligibility through a separate human quality review. Certification alone does not
+              guarantee ranking or marketplace admission.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <a href={appUrl('/create')} className="btn-primary h-11 px-5">
+            Build a certifiable listing
+            <ArrowRight className="size-4" />
+          </a>
+          <a href="/scan" className="btn-secondary h-11 px-5">
+            Scan your current site
+          </a>
         </div>
       </div>
     </section>

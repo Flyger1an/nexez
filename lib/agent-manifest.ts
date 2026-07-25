@@ -114,7 +114,8 @@ export function buildAgentPagePayload(
     ...(opts.storefront ? { storefront: opts.storefront } : {}),
     // Agent memory/context (if present on page)
     memory_context: (page as any).agent_memory || null,
-    // "Nexez Certified Agent-Ready" trust signal (published + 95%+ readiness).
+    // Live technical certification. Trust verification and marketplace curation
+    // remain separate signals.
     certification: getCertification(page),
   }
 }

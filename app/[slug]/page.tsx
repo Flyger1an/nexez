@@ -201,6 +201,8 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
       ? getCheckoutPath(page.slug, 'products', 0)
       : ''
   const reviewSummary = await loadReviewSummaryForSlug(page.slug, 3)
+  const certification = getCertification(page)
+  const certificationVerificationUrl = `${getBaseUrl()}/${page.slug}/badge.json`
   const jsonLd = buildJsonLd(page, effectiveBase, domainPath, { services: hiddenServices, products: hiddenProducts }, reviewSummary)
   const branding = await resolveBranding(page, onCustomHost, domainPath)
   const accentStyle = branding.accent_color
@@ -302,10 +304,15 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
                 Trust Score: {getTrustScore(page, trustEvents)}/100
                 {(page as any).verification_details?.domain_verified ? ' · ✓ Domain verified' : ''}
               </span>
-              {getCertification(page).certified && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-3 py-0.5 text-xs text-[var(--ready)]">
-                  ✅ Nexez Certified Agent-Ready
-                </span>
+              {certification.certified && (
+                <a
+                  href={certificationVerificationUrl}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-3 py-0.5 text-xs text-[var(--ready)] hover:border-[var(--ready)]/60"
+                  aria-label={`Verify ${certification.label}`}
+                >
+                  <CheckCircle2 className="size-3.5" />
+                  {certification.label}
+                </a>
               )}
               {reviewSummary.count && reviewSummary.average != null ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--amber)]/30 bg-[var(--amber)]/10 px-3 py-0.5 text-xs text-[var(--amber)]">

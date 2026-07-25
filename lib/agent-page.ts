@@ -584,6 +584,14 @@ export type ReadinessCriterion = {
   hint: string
 }
 
+export const AGENT_READY_STANDARD = {
+  id: 'nexez.agent-ready',
+  version: '2026.1',
+  label: 'Nexez Certified Agent-Ready',
+  threshold: 100,
+  url: 'https://nexez.ai/agent-readiness#certification-standard',
+} as const
+
 /**
  * Per-criterion readiness breakdown - the single source of truth for both the
  * numeric score and the "what's still missing" checklist on /create. Keep the
@@ -618,23 +626,50 @@ export function getReadinessScore(page: Partial<AgentPage>) {
 export type Certification = {
   certified: boolean
   level: 'agent-ready' | null
+  status: 'certified' | 'incomplete' | 'unpublished'
   readiness: number
   label: string | null
+  standard: {
+    id: typeof AGENT_READY_STANDARD.id
+    version: typeof AGENT_READY_STANDARD.version
+    threshold: typeof AGENT_READY_STANDARD.threshold
+    url: typeof AGENT_READY_STANDARD.url
+  }
+  criteria_met: number
+  criteria_total: number
+  missing: Array<Pick<ReadinessCriterion, 'id' | 'label' | 'hint'>>
 }
 
 /**
- * "Nexez Certified Agent-Ready" - earned by published pages that clear a 95%
- * readiness bar. A simple, deterministic trust signal surfaced on the public
- * page, agent.json, and the directory.
+ * "Nexez Certified Agent-Ready" is a live technical certification. A listing
+ * earns it only while every required readiness check passes and the listing is
+ * published. Identity verification, Trust Score, and marketplace curation are
+ * separate signals and must not be implied by this result.
  */
 export function getCertification(page: Partial<AgentPage>): Certification {
-  const readiness = getReadinessScore(page)
-  const certified = Boolean(page.is_published) && readiness >= 95
+  const criteria = getReadinessCriteria(page)
+  const met = criteria.filter((criterion) => criterion.met)
+  const readiness = Math.round((met.length / criteria.length) * 100)
+  const certified = Boolean(page.is_published) && met.length === criteria.length
+  const status = certified ? 'certified' : page.is_published ? 'incomplete' : 'unpublished'
+
   return {
     certified,
     level: certified ? 'agent-ready' : null,
+    status,
     readiness,
-    label: certified ? 'Nexez Certified Agent-Ready' : null,
+    label: certified ? AGENT_READY_STANDARD.label : null,
+    standard: {
+      id: AGENT_READY_STANDARD.id,
+      version: AGENT_READY_STANDARD.version,
+      threshold: AGENT_READY_STANDARD.threshold,
+      url: AGENT_READY_STANDARD.url,
+    },
+    criteria_met: met.length,
+    criteria_total: criteria.length,
+    missing: criteria
+      .filter((criterion) => !criterion.met)
+      .map(({ id, label, hint }) => ({ id, label, hint })),
   }
 }
 

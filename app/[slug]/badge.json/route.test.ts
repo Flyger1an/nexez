@@ -43,13 +43,45 @@ describe('GET /[slug]/badge.json', () => {
     expect((await res.json()).valid).toBe(false)
   })
 
-  it('returns a signed-looking badge with live readiness/trust for a published page', async () => {
+  it('returns a live, versioned certification record for a published page', async () => {
     dbRef.handler = () => ({ data: demoPage, error: null })
     const res = await GET(req(), ctx('demo'))
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body).toMatchObject({ issuer: 'nexez', valid: true, slug: 'demo', name: 'Demo Co' })
+    expect(body).toMatchObject({
+      schema_version: 'nexez.agent-ready-verification.v1',
+      issuer: 'nexez',
+      valid: true,
+      certified: true,
+      status: 'certified',
+      slug: 'demo',
+      name: 'Demo Co',
+      standard: {
+        id: 'nexez.agent-ready',
+        version: '2026.1',
+        threshold: 100,
+      },
+      criteria: { met: 11, total: 11, missing: [] },
+    })
     expect(typeof body.readiness).toBe('number')
     expect(typeof body.trust).toBe('number')
+    expect(body.issued_at).toBeUndefined()
+    expect(typeof body.evaluated_at).toBe('string')
+  })
+
+  it('keeps the verification record valid without claiming certification for an incomplete page', async () => {
+    dbRef.handler = () => ({ data: { ...demoPage, cta_url: null }, error: null })
+    const res = await GET(req(), ctx('demo'))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({
+      valid: true,
+      certified: false,
+      status: 'incomplete',
+      criteria: {
+        met: 10,
+        total: 11,
+        missing: [expect.objectContaining({ id: 'cta_url' })],
+      },
+    })
   })
 })

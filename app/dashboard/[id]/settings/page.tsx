@@ -14,7 +14,15 @@ import {
   Settings,
   ShieldCheck,
 } from 'lucide-react'
-import { AgentPage, OWNER_PAGE_SELECT, PreferredContact, getBaseUrl, normalizeSlug } from '../../../../lib/agent-page'
+import {
+  AGENT_READY_STANDARD,
+  AgentPage,
+  OWNER_PAGE_SELECT,
+  PreferredContact,
+  getBaseUrl,
+  getCertification,
+  normalizeSlug,
+} from '../../../../lib/agent-page'
 import { normalizeDomainPath } from '../../../../lib/custom-domain'
 import { normalizeBranding } from '../../../../lib/branding'
 import { deploymentChangeAt, summarizeDeployments } from '../../../../lib/deployments'
@@ -130,6 +138,7 @@ export default function PageSettings({ params }: PageProps) {
   const agentJsonUrl = `${getBaseUrl()}${getAgentJsonPath(cleanSlug || page?.slug || '')}`
   const searchUrl = `${getBaseUrl()}/api/agent-search?q=${encodeURIComponent(name || page?.name || 'service')}`
   const hasCalendarId = googleCalendarId.trim().length > 0
+  const certification = page ? getCertification(page) : null
 
   async function handleLogoFileUpload(file: File) {
     if (!file.type.startsWith('image/')) {
@@ -983,13 +992,46 @@ export default function PageSettings({ params }: PageProps) {
               </div>
 
               <div className="mt-4 border-t border-white/10 pt-4">
-                <p className="text-xs uppercase tracking-widest text-zinc-400">Agent-Ready badge</p>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs uppercase tracking-widest text-zinc-400">Agent-Ready certification</p>
+                  <span
+                    className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                      certification?.certified
+                        ? 'border-[var(--ready)]/30 bg-[var(--ready)]/10 text-[var(--ready)]'
+                        : 'border-white/10 bg-white/[0.04] text-zinc-400'
+                    }`}
+                  >
+                    {certification?.certified
+                      ? 'Certified'
+                      : `${certification?.criteria_met ?? 0}/${certification?.criteria_total ?? 11} checks`}
+                  </span>
+                </div>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`${publicUrl}/badge.svg`} alt="Agent-Ready badge" className="mt-2 h-7" />
+                <img
+                  src={`${publicUrl}/badge.svg`}
+                  alt={certification?.certified ? 'Nexez Certified Agent-Ready badge' : 'Nexez readiness badge'}
+                  className="mt-2 h-7"
+                />
                 <pre className="mt-2 overflow-x-auto rounded bg-black/40 p-2 text-[10px] text-zinc-400">{`<a href="${publicUrl}"><img src="${publicUrl}/badge.svg" alt="Agent-Ready" height="28"></a>`}</pre>
-                <p className="mt-1 text-[10px] text-zinc-500">Put this on your human website to show you’re agent-ready and link buyers’ agents to this listing.</p>
+                <p className="mt-2 text-[10px] leading-4 text-zinc-500">
+                  {certification?.certified
+                    ? `This listing passes every required check in standard ${AGENT_READY_STANDARD.version}. The badge is evaluated live and links agents back to this listing.`
+                    : 'The badge shows your current readiness without claiming certification. Complete every required check and publish the listing to earn the certified version.'}
+                </p>
+                {!certification?.certified && certification?.missing.length ? (
+                  <div className="mt-2 rounded border border-white/10 bg-black/20 p-2">
+                    <p className="text-[10px] font-medium text-zinc-300">Next checks</p>
+                    <ul className="mt-1 space-y-1 text-[10px] text-zinc-500">
+                      {certification.missing.slice(0, 3).map((item) => (
+                        <li key={item.id}>{item.label}: {item.hint}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 <p className="mt-1 text-[10px] text-zinc-500">
-                  Verify authenticity: <a href={`${publicUrl}/badge.json`} className="text-[var(--signal)] hover:underline">{`${publicUrl}/badge.json`}</a> (issuer, live readiness, verified status).
+                  <a href={AGENT_READY_STANDARD.url} className="text-[var(--signal)] hover:underline">Read the standard</a>
+                  {' · '}
+                  <a href={`${publicUrl}/badge.json`} className="text-[var(--signal)] hover:underline">Verify this badge</a>
                 </p>
               </div>
             </div>

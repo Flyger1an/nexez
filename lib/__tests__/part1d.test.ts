@@ -19,23 +19,42 @@ const completePage: Partial<AgentPage> = {
 }
 
 describe('getCertification', () => {
-  it('certifies a published page at 95%+ readiness', () => {
+  it('certifies a published page only when every standard check passes', () => {
     const cert = getCertification(completePage)
     expect(cert.certified).toBe(true)
     expect(cert.level).toBe('agent-ready')
-    expect(cert.readiness).toBeGreaterThanOrEqual(95)
+    expect(cert.status).toBe('certified')
+    expect(cert.readiness).toBe(100)
     expect(cert.label).toBe('Nexez Certified Agent-Ready')
+    expect(cert.standard).toMatchObject({
+      id: 'nexez.agent-ready',
+      version: '2026.1',
+      threshold: 100,
+    })
+    expect(cert.criteria_met).toBe(cert.criteria_total)
+    expect(cert.missing).toEqual([])
   })
 
   it('does not certify an unpublished page even at full readiness', () => {
     const cert = getCertification({ ...completePage, is_published: false })
     expect(cert.certified).toBe(false)
+    expect(cert.status).toBe('unpublished')
     expect(cert.label).toBeNull()
+    expect(cert.missing).toEqual([
+      expect.objectContaining({ id: 'publish', label: 'Published' }),
+    ])
   })
 
   it('does not certify a sparse page', () => {
     const cert = getCertification({ name: 'Bare', slug: 'bare', is_published: true })
     expect(cert.certified).toBe(false)
+    expect(cert.status).toBe('incomplete')
+    expect(cert.missing).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'description' }),
+        expect.objectContaining({ id: 'offers' }),
+      ]),
+    )
   })
 })
 
