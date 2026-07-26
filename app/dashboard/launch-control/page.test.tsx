@@ -6,6 +6,7 @@ const notFound = vi.hoisted(() => vi.fn(() => { throw new Error('NEXT_NOT_FOUND'
 const getSnapshot = vi.hoisted(() => vi.fn(async () => ({ generatedAt: '2026-07-15T00:00:00.000Z' })))
 const getReleaseHistory = vi.hoisted(() => vi.fn(async () => []))
 const getMarketplaceCuration = vi.hoisted(() => vi.fn(async () => ({ available: true, items: [] })))
+const getGrowthControl = vi.hoisted(() => vi.fn(async () => ({ available: true, generatedAt: '2026-07-15T00:00:00.000Z' })))
 
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({})) }))
 vi.mock('next/navigation', () => ({ redirect, notFound }))
@@ -14,6 +15,7 @@ vi.mock('../../../utils/supabase/server', () => ({
 }))
 vi.mock('../../../lib/server/plan', () => ({ isPlatformAdmin: vi.fn(async () => refs.admin) }))
 vi.mock('../../../lib/server/launch-control', () => ({ getLaunchControlSnapshot: getSnapshot }))
+vi.mock('../../../lib/server/growth-control', () => ({ getGrowthControlSnapshot: getGrowthControl }))
 vi.mock('../../../lib/server/marketplace-curation', () => ({ getMarketplaceCurationQueue: getMarketplaceCuration }))
 vi.mock('../../../lib/server/release-certification', () => ({ getReleaseCertificationHistory: getReleaseHistory }))
 vi.mock('../../../components/dashboard/LaunchControlDashboard', () => ({
@@ -35,6 +37,7 @@ describe('LaunchControlPage admin boundary', () => {
     expect(getSnapshot).not.toHaveBeenCalled()
     expect(getReleaseHistory).not.toHaveBeenCalled()
     expect(getMarketplaceCuration).not.toHaveBeenCalled()
+    expect(getGrowthControl).not.toHaveBeenCalled()
   })
 
   it('returns not found for an authenticated non-admin', async () => {
@@ -43,6 +46,7 @@ describe('LaunchControlPage admin boundary', () => {
     expect(getSnapshot).not.toHaveBeenCalled()
     expect(getReleaseHistory).not.toHaveBeenCalled()
     expect(getMarketplaceCuration).not.toHaveBeenCalled()
+    expect(getGrowthControl).not.toHaveBeenCalled()
   })
 
   it('loads the redacted snapshot for a platform admin', async () => {
@@ -50,5 +54,6 @@ describe('LaunchControlPage admin boundary', () => {
     expect(getSnapshot).toHaveBeenCalledOnce()
     expect(getReleaseHistory).toHaveBeenCalledOnce()
     expect(getMarketplaceCuration).toHaveBeenCalledOnce()
+    expect(getGrowthControl).toHaveBeenCalledOnce()
   })
 })

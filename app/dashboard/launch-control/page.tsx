@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
 import { LaunchControlDashboard } from '../../../components/dashboard/LaunchControlDashboard'
+import { getGrowthControlSnapshot } from '../../../lib/server/growth-control'
 import { getLaunchControlSnapshot } from '../../../lib/server/launch-control'
 import { getMarketplaceCurationQueue } from '../../../lib/server/marketplace-curation'
 import { getReleaseCertificationHistory } from '../../../lib/server/release-certification'
@@ -20,10 +21,18 @@ export default async function LaunchControlPage() {
   if (!user) redirect('/login?next=/dashboard/launch-control')
   if (!(await isPlatformAdmin(supabase, user.id))) notFound()
 
-  const [snapshot, releases, marketplaceCuration] = await Promise.all([
+  const [snapshot, releases, marketplaceCuration, growthControl] = await Promise.all([
     getLaunchControlSnapshot(),
     getReleaseCertificationHistory(),
     getMarketplaceCurationQueue(),
+    getGrowthControlSnapshot(),
   ])
-  return <LaunchControlDashboard snapshot={snapshot} releases={releases} marketplaceCuration={marketplaceCuration} />
+  return (
+    <LaunchControlDashboard
+      snapshot={snapshot}
+      releases={releases}
+      marketplaceCuration={marketplaceCuration}
+      growthControl={growthControl}
+    />
+  )
 }

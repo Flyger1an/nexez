@@ -14,9 +14,11 @@ import {
   TerminalSquare,
   Webhook,
 } from 'lucide-react'
+import type { GrowthControlSnapshot } from '../../lib/growth-control'
 import { relativeAge, type LaunchCheck, type LaunchControlSnapshot, type LaunchStatus } from '../../lib/launch-control'
 import type { MarketplaceCurationQueue } from '../../lib/marketplace-curation'
 import type { ReleaseCertificationRecord } from '../../lib/release-certification'
+import { GrowthControlPanel } from './GrowthControlPanel'
 import { MarketplaceCurationPanel } from './MarketplaceCurationPanel'
 
 const STATUS_STYLE: Record<LaunchStatus, { label: string; className: string; Icon: typeof CheckCircle2 }> = {
@@ -46,10 +48,12 @@ export function LaunchControlDashboard({
   snapshot,
   releases,
   marketplaceCuration,
+  growthControl,
 }: {
   snapshot: LaunchControlSnapshot
   releases: ReleaseCertificationRecord[]
   marketplaceCuration: MarketplaceCurationQueue
+  growthControl: GrowthControlSnapshot
 }) {
   const headline = snapshot.summary.status === 'ready'
     ? 'Launch systems are ready'
@@ -115,6 +119,8 @@ export function LaunchControlDashboard({
             status={workerRollup(snapshot.operations)}
           />
         </section>
+
+        <GrowthControlPanel initialSnapshot={growthControl} />
 
         <MarketplaceCurationPanel queue={marketplaceCuration} />
 

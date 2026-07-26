@@ -8,7 +8,7 @@ This document tracks product direction and launch status. Use [HANDOFF.md](HANDO
 
 ## Current standing
 
-The core platform is built and its live commercial lifecycles are certified. Public storefronts remain fast and semantic on `nexez.app`; seller management lives on `app.nexez.ai`; marketing and public education live on `nexez.ai`. Automated release certification is active with a 100% production baseline. Marketplace curation is deployed with a private review ledger, quality checks, an operator queue, and a discovery-only exclusion gate. The seller-facing Nexez Certified Agent-Ready standard is versioned, continuously evaluated, and machine-verifiable without conflating technical readiness, identity trust, or human marketplace review. Kismet Pros is the sole approved real launch listing; the other 9 published evaluation and QA pages remain direct-only. A separate 19-listing simulation catalog covers product testing across five world regions without entering discovery, transactions, certification counts, or launch-supply metrics. The next milestone is growing real launch-quality supply and proving demand.
+The core platform is built and its live commercial lifecycles are certified. Public storefronts remain fast and semantic on `nexez.app`; seller management lives on `app.nexez.ai`; marketing and public education live on `nexez.ai`. Automated release certification is active with a 100% production baseline. Marketplace curation is deployed with a private review ledger, quality checks, an operator queue, and a discovery-only exclusion gate. The seller-facing Nexez Certified Agent-Ready standard is versioned, continuously evaluated, and machine-verifiable without conflating technical readiness, identity trust, or human marketplace review. Complimentary Launch acquisition now has an admin-only Growth Control plane and a rollback-safe live-schema activation gauntlet. Kismet Pros is the sole approved real launch listing; the other 9 published evaluation and QA pages remain direct-only. A separate 19-listing simulation catalog covers product testing across five world regions without entering discovery, transactions, certification counts, or launch-supply metrics. The next milestone is growing real launch-quality supply and proving demand.
 
 ## Quality bars
 
@@ -80,6 +80,8 @@ The core platform is built and its live commercial lifecycles are certified. Pub
 - Automated release certification ties successful source gates to the exact deployed revision, verifies all three hosts and agent artifacts, records the authoritative Launch Control verdict in an append-only ledger, and preserves a workflow artifact for each production candidate.
 - The first production release certificate passed on commit `92fe535`: Launch Control scored 100, all 32 required checks passed, and the durable ledger recorded the exact deployed revision with zero failures.
 - Launch Control now exposes the marketplace review queue and a non-blocking inventory signal that stays visible until at least 20 listings are certified and no supply remains unreviewed.
+- Launch Control includes **Growth Control** for complimentary Launch grants: redacted activation and invitation telemetry, capacity and paid-conversion signals, lifecycle activity, and append-only operator controls for pause, resume, signup close, capacity, and terminal campaign end.
+- `supabase/tests/seller_growth_gauntlet.sql` certifies welcome activation, verified-business deduplication, paid-plan precedence, email-bound referrals, self/wrong-email/pass-limit rejection, pause/resume idempotency, capacity enforcement, Free fallback, aggregate telemetry, and terminal campaign behavior inside one fully rolled-back production-schema transaction.
 
 ## Active roadmap
 
@@ -96,7 +98,7 @@ Ranked by launch leverage.
 3. **Integration proof.** Keep the certified Stripe price-sync replay monitored in Launch Control, add timezone-aware Calendly business hours, and monitor Shopify queue health through Launch Control.
 4. **Mobile distribution.** Complete store builds, physical-device push checks, release review, deep-link validation, and parity checks for the seller mobile app.
 5. **Notification control.** Add seller preferences for transaction, negotiation, integration, review, and marketing notifications without weakening mandatory money-state notices.
-6. **Free activation loop monitoring.** After rollout, monitor qualification, abuse rejection, invitation delivery, activation, paid conversion, expiry notices, and Free fallback outcomes before expanding the campaign cap.
+6. **Free activation loop monitoring.** The control plane and 15-case live-schema baseline are complete. Monitor real qualification, abuse rejection, invitation delivery, activation, paid conversion, expiry notices, and Free fallback outcomes in Growth Control before expanding the campaign cap.
 
 ### P2 - Post-launch expansion
 
