@@ -57,13 +57,24 @@ export async function POST(request: Request) {
   const slugs = (owned ?? []).map((p) => p.slug)
   // Clone under the PAGE OWNER (not the caller). The published-page-limit trigger keys
   // on owner_id, so the owner's quota governs (admins are unlimited).
-  const { data: created, error } = await admin
-    .from('pages')
-    .insert(buildDuplicatePayload(source, access.ownerId, slugs))
-    .select('id, slug')
-    .single<{ id: string; slug: string }>()
-  if (error || !created) {
+  //
+  // The payload dedupes against the OWNER's slugs, but pages.slug is GLOBALLY unique -
+  // another owner may hold the candidate. On a unique violation (23505), add the
+  // conflicted slug to the exclusion set and rebuild, so the deterministic suffix walk
+  // converges instead of surfacing a 500.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const payload = buildDuplicatePayload(source, access.ownerId, slugs)
+    const { data: created, error } = await admin
+      .from('pages')
+      .insert(payload)
+      .select('id, slug')
+      .single<{ id: string; slug: string }>()
+    if (created) return NextResponse.json({ ok: true, id: created.id, slug: created.slug })
+    if ((error as { code?: string } | null)?.code === '23505') {
+      slugs.push(payload.slug)
+      continue
+    }
     return NextResponse.json({ error: error?.message || 'Could not duplicate the page.' }, { status: 500 })
   }
-  return NextResponse.json({ ok: true, id: created.id, slug: created.slug })
+  return NextResponse.json({ error: 'Could not find a free name for the copy - try again.' }, { status: 409 })
 }
