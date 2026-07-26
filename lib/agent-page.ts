@@ -330,6 +330,34 @@ export function normalizeSlug(value: string) {
     .replace(/(^-|-$)+/g, '')
 }
 
+/**
+ * Slugs a listing may NOT claim: every top-level route segment on the platform
+ * (a listing slugged "learn" would be silently shadowed by the static route and
+ * become unreachable — Next's static routes win over the dynamic [slug]) plus
+ * config-redirect sources and a small future/safety set. A sync test
+ * (lib/__tests__/reserved-slugs.test.ts) fails the build if a new app/ route
+ * segment is added without reserving it here.
+ */
+export const RESERVED_SLUGS = new Set([
+  // Current top-level app routes.
+  'acp', 'agent-readiness', 'agents', 'api', 'auth', 'checkout', 'compare',
+  'create', 'dashboard', 'design', 'developers', 'discovery', 'enterprise',
+  'examples', 'growth-control-preview', 'how-it-works', 'integrations',
+  'invite', 'leaderboard', 'learn', 'login', 'mcp', 'negotiate', 'nexie',
+  'onboard', 'orders', 'pricing', 'privacy', 'scan', 'security', 'shopify',
+  'simulator', 'store', 'support', 'team', 'terms', 'tools', 'ucp', 'use-cases',
+  // next.config redirect sources (consolidated routes).
+  'directory', 'marketplace', 'competitors',
+  // Reserved for future routes + generic safety.
+  'blog', 'docs', 'admin', 'settings', 'account', 'billing', 'help', 'status',
+  'app', 'www', 'assets', 'static', 'well-known', 'nexez',
+])
+
+/** True when a (normalized) slug collides with a platform route and must not be minted. */
+export function isReservedSlug(slug: string): boolean {
+  return RESERVED_SLUGS.has(slug)
+}
+
 export function splitLines(value: string): string[] {
   return value
     .split('\n')

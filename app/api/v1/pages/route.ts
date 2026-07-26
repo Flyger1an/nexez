@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '../../../../utils/supabase/admin'
 import { authenticateApiKey } from '../../../../lib/server/api-auth'
-import { SERVER_PAGE_SELECT, getBaseUrl, normalizeSlug } from '../../../../lib/agent-page'
+import { SERVER_PAGE_SELECT, getBaseUrl, isReservedSlug, normalizeSlug } from '../../../../lib/agent-page'
 import { isPageLimitError, pickWritablePageFields, wantsCustomDomain } from '../../../../lib/api-pages'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 import { ownerAllows } from '../../../../lib/server/plan'
@@ -10,6 +10,8 @@ async function uniqueSlug(admin: ReturnType<typeof createAdminClient>, base: str
   const root = normalizeSlug(base) || 'page'
   for (let i = 0; i < 50; i++) {
     const candidate = i === 0 ? root : `${root}-${i + 1}`
+    // Reserved platform routes count as taken (a shadowed slug is unreachable).
+    if (isReservedSlug(candidate)) continue
     const { data } = await admin.from('pages').select('id').eq('slug', candidate).maybeSingle()
     if (!data) return candidate
   }

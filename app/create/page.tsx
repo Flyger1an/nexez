@@ -18,6 +18,7 @@ import {
 import {
   getReadinessScore,
   getReadinessCriteria,
+  isReservedSlug,
   normalizeSlug,
   OfferItem,
   formatFaqLines,
@@ -328,6 +329,14 @@ export default function CreatePage() {
     }
 
     const cleanSlug = normalizeSlug(slug || name)
+    // Platform route segments can't be listing slugs — the static route would
+    // shadow the listing and make it unreachable.
+    if (isReservedSlug(cleanSlug)) {
+      closePendingPublicPageTab(publicPageTab)
+      setPublishError(`"${cleanSlug}" is a reserved word on Nexez — pick a different link name for your listing.`)
+      setLoading(false)
+      return
+    }
     const insertPage = (isPublished: boolean) =>
       supabase.from('pages').insert({
         owner_id: user.id,
