@@ -203,9 +203,8 @@ export async function POST(request: Request) {
   let ownerPlanId: Awaited<ReturnType<typeof getOwnerPlanId>> = 'free'
   if (hasSupabaseAdminEnv() && page.owner_id) {
     const admin = createAdminClient()
-    // A paused seller (expired no-card trial) is offline - block checkout even if an agent
-    // holds a cached checkout URL. The public listing already 404s via the serving gate;
-    // this closes the service-role-read bypass on the money path.
+    // Compatibility hook for an explicit operational suspension. Billing expiry
+    // itself falls back to Free and remains orderable.
     if ((await getOwnerBillingState(admin, page.owner_id)).isPaused) {
       return NextResponse.json(
         { error: 'This seller’s storefront is paused and not accepting orders right now.' },

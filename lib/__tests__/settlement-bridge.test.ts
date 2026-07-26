@@ -215,9 +215,18 @@ describe('settlement bridge — Stripe failures', () => {
  * (getOwnerBillingState / getOwnerPlanId both read via `.from(...).select().eq().maybeSingle()`)
  * plus the resolver's own connect query - no vi.mock needed. */
 function fakeAdmin(opts: { platformAdmin?: boolean; sub?: Record<string, unknown> | null }) {
-  const single = (data: unknown) => ({
-    select: () => ({ eq: () => ({ maybeSingle: async () => ({ data, error: null }) }) }),
-  })
+  const single = (data: unknown) => {
+    const builder: any = {
+      select: () => builder,
+      eq: () => builder,
+      lte: () => builder,
+      gt: () => builder,
+      order: () => builder,
+      limit: () => builder,
+      maybeSingle: async () => ({ data, error: null }),
+    }
+    return builder
+  }
   return {
     from: (table: string) => {
       if (table === 'platform_admins') return single(opts.platformAdmin ? { user_id: 'owner_1' } : null)
@@ -252,12 +261,14 @@ describe('resolveSettlementContext — lifted account gates', () => {
     expect(res.context.commissionPercent).toBeTypeOf('number')
   })
 
-  it('blocks a paused (expired trial-origin) seller before any charge', async () => {
+  it('uses the Free commission after a paid-plan trial expires', async () => {
     const res = await resolveSettlementContext(
       fakeAdmin({ sub: { ...CONNECTED, status: 'paused', account_origin: 'trial' } }),
       { pageId: 'page_1', ownerId: 'owner_1' },
     )
-    expect(res).toMatchObject({ ok: false, code: 'paused' })
+    expect(res.ok).toBe(true)
+    if (!res.ok) throw new Error('expected Free fallback context')
+    expect(res.context.commissionPercent).toBe(15)
   })
 
   it('blocks a seller whose Connect account cannot accept charges', async () => {

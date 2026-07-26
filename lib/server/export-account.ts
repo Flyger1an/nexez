@@ -43,6 +43,8 @@ const SELLER_OWNER_ID_TABLES = [
   'agent_negotiations',
   'intake_sessions',
   'outbound_webhooks',
+  'promotional_plan_grants',
+  'seller_growth_events',
   'sent_system_emails',
   'team_invites',
 ] as const
@@ -121,6 +123,49 @@ export async function exportUserAccount(
   for (const table of SELLER_OWNER_ID_TABLES) {
     const { data: rows } = await admin.from(table).select('*').eq('owner_id', userId).limit(ROW_CAP)
     put('seller', table, rows)
+  }
+
+  // Seller-acquisition invitations use inviter_owner_id / accepted_by_owner_id
+  // instead of the usual owner_id. Export only owner-safe columns: token_hash is
+  // a live bearer credential and must never appear in a data archive.
+  const growthInviteFields =
+    'id, campaign_id, inviter_owner_id, inviter_business_name, invitee_email, status, expires_at, accepted_by_owner_id, accepted_at, qualified_at, invitee_grant_id, delivery_count, last_sent_at, created_at, updated_at'
+  const { data: sentGrowthInvites } = await admin
+    .from('seller_growth_invites')
+    .select(growthInviteFields)
+    .eq('inviter_owner_id', userId)
+    .limit(ROW_CAP)
+  put('seller', 'seller_growth_invites_as_sender', sentGrowthInvites)
+  const { data: acceptedGrowthInvites } = await admin
+    .from('seller_growth_invites')
+    .select(growthInviteFields)
+    .eq('accepted_by_owner_id', userId)
+    .limit(ROW_CAP)
+  put('seller', 'seller_growth_invites_as_recipient', acceptedGrowthInvites)
+  if (email) {
+    const { data: addressedGrowthInvites } = await admin
+      .from('seller_growth_invites')
+      .select(growthInviteFields)
+      .ilike('invitee_email', escapeLike(email))
+      .limit(ROW_CAP)
+    put('seller', 'seller_growth_invites_addressed_to_email', addressedGrowthInvites)
+  } else {
+    put('seller', 'seller_growth_invites_addressed_to_email', [])
+  }
+
+  const grantIds = ((data.promotional_plan_grants ?? []) as Array<{ id?: string }>)
+    .map((grant) => grant.id)
+    .filter((id): id is string => Boolean(id))
+  if (grantIds.length) {
+    const [{ data: claims }, { data: notices }] = await Promise.all([
+      admin.from('seller_growth_business_claims').select('*').in('grant_id', grantIds).limit(ROW_CAP),
+      admin.from('promotional_grant_notices').select('*').in('grant_id', grantIds).limit(ROW_CAP),
+    ])
+    put('seller', 'seller_growth_business_claims', claims)
+    put('seller', 'promotional_grant_notices', notices)
+  } else {
+    put('seller', 'seller_growth_business_claims', [])
+    put('seller', 'promotional_grant_notices', [])
   }
 
   for (const table of ACCOUNT_USER_ID_TABLES) {

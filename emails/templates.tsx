@@ -165,6 +165,59 @@ export function TeamInviteEmail(p: { lead: string; inviteeEmail: string; acceptU
   )
 }
 
+// ── Seller growth: complimentary Launch invitation ──────────────────────────────
+export function SellerGrowthInviteEmail(p: {
+  inviterBusinessName: string
+  inviteeEmail: string
+  durationLabel: string
+  claimUrl: string
+}) {
+  return (
+    <BrandedEmail preview={`${p.inviterBusinessName} sent you complimentary Nexez Launch access.`}>
+      <EmailHeading tone="positive">Complimentary Launch access for your business</EmailHeading>
+      <Lead>
+        <strong>{p.inviterBusinessName}</strong> invited your business to use Nexez Launch for {p.durationLabel} at no
+        subscription cost. Publish an agent-ready listing and verify your business to activate it.
+      </Lead>
+      <Text style={{ ...styles.lead, fontSize: '13px', color: BRAND.fgMuted }}>
+        Claim this pass using <strong>{p.inviteeEmail}</strong>. The invitation is for a separate business account and does
+        not grant access to the sender&apos;s workspace.
+      </Text>
+      <PrimaryButton href={p.claimUrl}>Claim your Launch pass</PrimaryButton>
+      <FinePrint>No card is required. When complimentary access ends, the account returns to Free unless you choose a paid plan.</FinePrint>
+    </BrandedEmail>
+  )
+}
+
+// ── Seller growth: promotional grant expiry notice ──────────────────────────────
+export function PromotionExpiryEmail(p: {
+  businessName: string
+  daysBefore: number
+  endsOn: string
+  fallbackListingName: string | null
+  billingUrl: string
+}) {
+  const timing = p.daysBefore === 1 ? 'tomorrow' : `in ${p.daysBefore} days`
+  return (
+    <BrandedEmail preview={`Your complimentary Nexez Launch access ends ${timing}.`}>
+      <EmailHeading tone="caution">Your Launch access ends {timing}</EmailHeading>
+      <Lead>
+        <strong>{p.businessName}</strong> will return to the Free plan on {p.endsOn}. There is no automatic charge and your
+        business stays on Nexez.
+      </Lead>
+      <InfoRows
+        rows={[
+          ['Plan after promotion', 'Free'],
+          ['Listing kept published', p.fallbackListingName || 'Your oldest published listing'],
+          ['Automatic charge', 'None'],
+        ]}
+      />
+      <PrimaryButton href={p.billingUrl}>Review plans and fallback listing</PrimaryButton>
+      <FinePrint>Drafts and extra listings are preserved. You can publish them again whenever your plan limit increases.</FinePrint>
+    </BrandedEmail>
+  )
+}
+
 // ── New-user welcome (branded; ready to wire to a send-once signup trigger) ──────
 export function WelcomeEmail(p: { name?: string | null; createUrl: string }) {
   const greeting = p.name ? `Welcome to Nexez, ${p.name}.` : 'Welcome to Nexez.'

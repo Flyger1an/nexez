@@ -155,7 +155,7 @@ export type ResolveSettlementResult =
   | { ok: false; code: 'paused' | 'no_connect'; message: string }
 
 /** Lift the direct-checkout route's up-front guards into one shared resolver both
- * protocol adapters call: a paused seller (expired no-card trial) is offline; the
+ * protocol adapters call: an explicitly suspended seller is offline; the
  * commission percent comes from the owner's status-aware plan; and a charge only
  * ever routes to a Connect account that can actually ACCEPT one (charges_enabled).
  * Keeping this here means an adapter cannot forget the pause/connect gate. Takes an
@@ -167,8 +167,8 @@ export async function resolveSettlementContext(
 ): Promise<ResolveSettlementResult> {
   const ownerId = input.ownerId ?? null
 
-  // A paused seller is offline - block even a cached/handed-off session, exactly as
-  // the direct-checkout route's 402 does on the money path.
+  // Preserve the explicit suspension guard for a future moderation state. Ordinary
+  // billing or promotional expiry falls back to Free and does not enter this path.
   const billingState = await getOwnerBillingState(admin, ownerId)
   if (billingState.isPaused) {
     return { ok: false, code: 'paused', message: 'This seller’s storefront is paused and not accepting orders right now.' }

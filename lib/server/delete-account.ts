@@ -48,7 +48,9 @@ const SELLER_OWNER_ID_TABLES = [
   'outbound_webhooks',
   'page_secrets',
   'pages',
+  'promotional_plan_grants',
   'published_page_grandfather',
+  'seller_growth_events',
   'sent_system_emails',
   'storefronts',
   'support_tickets',
@@ -206,10 +208,32 @@ export async function deleteUserAccount(userId: string, email: string | null): P
     const { error } = await admin.from(table).delete().eq('owner_id', userId)
     if (error) errors.push({ scope: `delete:${table}`, message: error.message })
   }
+  // Growth invitations use role-specific ownership columns rather than owner_id.
+  const { error: sentGrowthInviteError } = await admin
+    .from('seller_growth_invites')
+    .delete()
+    .eq('inviter_owner_id', userId)
+  if (sentGrowthInviteError) {
+    errors.push({ scope: 'delete:seller_growth_invites:sent', message: sentGrowthInviteError.message })
+  }
+  const { error: acceptedGrowthInviteError } = await admin
+    .from('seller_growth_invites')
+    .delete()
+    .eq('accepted_by_owner_id', userId)
+  if (acceptedGrowthInviteError) {
+    errors.push({ scope: 'delete:seller_growth_invites:accepted', message: acceptedGrowthInviteError.message })
+  }
   if (email) {
     // Invites the user RECEIVED (keyed by their email, not owner_id).
     const { error } = await admin.from('team_invites').delete().ilike('email', escapeLike(email))
     if (error) errors.push({ scope: 'delete:team_invites:received', message: error.message })
+    const { error: growthInviteError } = await admin
+      .from('seller_growth_invites')
+      .delete()
+      .ilike('invitee_email', escapeLike(email))
+    if (growthInviteError) {
+      errors.push({ scope: 'delete:seller_growth_invites:received', message: growthInviteError.message })
+    }
   }
 
   const authUserDeleted = await deleteAuthUser(admin, userId)

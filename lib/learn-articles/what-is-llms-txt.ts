@@ -214,7 +214,7 @@ export const whatIsLlmsTxt: LearnArticle = {
     {
       type: 'cta',
       title: 'Skip the checklist, ship the stack',
-      text: 'Nexez turns your existing website into agent-legible, agent-transactable listings: JSON-LD, llms.txt, agent.json, OpenAPI, MCP, and ACP/UCP feeds from one setup, with real Stripe checkout and Calendly-backed scheduling behind them. Free 7-day trial, no card required.',
+      text: 'Nexez turns your existing website into agent-legible, agent-transactable listings: JSON-LD, llms.txt, agent.json, OpenAPI, MCP, and ACP/UCP feeds from one setup, with real Stripe checkout and Calendly-backed scheduling behind them. Start on Free with no card; paid plans include a 7-day trial.',
       href: '/how-it-works',
       label: 'See how it works',
     },

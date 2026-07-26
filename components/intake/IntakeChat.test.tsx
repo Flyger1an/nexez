@@ -89,7 +89,7 @@ describe('IntakeChat - setup', () => {
     render(<IntakeChat />)
     fireEvent.click(screen.getByText('Start from scratch'))
     await waitFor(() => expect(screen.getByText(/Sign in to start your interview/)).toBeInTheDocument())
-    expect(screen.getByText('Start your free trial')).toHaveAttribute('href', '/onboard?next=/create')
+    expect(screen.getByText('Create Free account')).toHaveAttribute('href', '/onboard?next=/create')
   })
 
   it('surfaces a start failure inline and stays on setup', async () => {

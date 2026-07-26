@@ -8,7 +8,7 @@ const refs = vi.hoisted(() => ({
 const trial = vi.hoisted(() => ({
   ensure: vi.fn(),
   hasBilling: vi.fn(),
-  isTrialable: vi.fn((value: unknown) => ['launch', 'pro', 'scale'].includes(String(value))),
+  isSelectable: vi.fn((value: unknown) => ['free', 'launch', 'pro', 'scale'].includes(String(value))),
 }))
 
 vi.mock('next/server', async (importOriginal) => {
@@ -25,9 +25,9 @@ vi.mock('../../../utils/supabase/server', () => ({
   }),
 }))
 vi.mock('../../../lib/server/trial', () => ({
-  ensureTrialSeeded: trial.ensure,
+  ensureBillingSeeded: trial.ensure,
   hasBillingAccount: trial.hasBilling,
-  isTrialablePlan: trial.isTrialable,
+  isSelectablePlan: trial.isSelectable,
 }))
 vi.mock('../../../lib/server/system-email', () => ({ sendOnceSystemEmail: vi.fn() }))
 vi.mock('../../../lib/email', () => ({ buildWelcomeEmail: vi.fn() }))
@@ -65,12 +65,22 @@ describe('GET /auth/callback plan routing', () => {
     expect(response.headers.get('location')).toBe('https://app.nexez.test/dashboard')
   })
 
-  it('treats invalid, Free, and Enterprise metadata as no self-serve plan choice', async () => {
-    for (const plan of ['made-up', 'free', 'enterprise']) {
+  it('treats invalid and Enterprise metadata as no self-serve plan choice', async () => {
+    for (const plan of ['made-up', 'enterprise']) {
       refs.user.user_metadata = { plan }
       const response = await GET(callback())
       expect(response.headers.get('location')).toBe('https://app.nexez.test/onboard?next=%2Fdashboard')
     }
+  })
+
+  it('seeds a recent explicit Free choice before continuing', async () => {
+    refs.user.created_at = new Date().toISOString()
+    refs.user.user_metadata = { plan: 'free' }
+
+    const response = await GET(callback())
+
+    expect(trial.ensure).toHaveBeenCalledWith('user-1', 'free')
+    expect(response.headers.get('location')).toBe('https://app.nexez.test/dashboard')
   })
 
   it('seeds a recent explicit paid-plan choice before continuing', async () => {

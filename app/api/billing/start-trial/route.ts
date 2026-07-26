@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
-import { getBillingPlan, isSelfServePlanId } from '../../../../lib/billing'
+import { getBillingPlan } from '../../../../lib/billing'
+import { isSelectablePlan } from '../../../../lib/server/trial'
 
 const TRIAL_DAYS = 7
 
@@ -36,11 +37,12 @@ export async function GET() {
 }
 
 /**
- * Start a new account's 7-day, no-card trial of the plan it picked at signup (Shopify-style).
+ * Initialize the plan explicitly selected at signup. Free becomes a durable active
+ * account; paid self-serve plans start the existing seven-day no-card trial.
  * Idempotent + one-per-account: it ONLY seeds a trial when the account has no billing row at
  * all. A row already present means the account is grandfathered ('legacy'), already trialing,
- * or already subscribed - none of which we overwrite (a legacy user upgrades via checkout, not
- * by starting a fresh trial that would later pause away their grandfathered access).
+ * or already subscribed - none of which we overwrite (a legacy user upgrades via checkout,
+ * not by replacing established billing state with a fresh trial).
  *
  * Service-role write: RLS blocks client inserts on billing_subscriptions, and the resolvers
  * key entitlements off this row, so it must be written server-side.
@@ -53,14 +55,14 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
   if (!hasSupabaseAdminEnv()) {
-    return NextResponse.json({ error: 'Trials are not available on this deployment.' }, { status: 503 })
+    return NextResponse.json({ error: 'Billing setup is unavailable on this deployment.' }, { status: 503 })
   }
 
   const body = (await request.json().catch(() => ({}))) as { plan?: string; planId?: string }
   const plan = getBillingPlan(String(body.plan || body.planId || ''))
-  if (!plan || !isSelfServePlanId(plan.id)) {
+  if (!plan || !isSelectablePlan(plan.id)) {
     return NextResponse.json(
-      { error: 'Pick a trialable plan (Launch, Pro, or Scale).' },
+      { error: 'Pick Free, Launch, Pro, or Scale.' },
       { status: 400 },
     )
   }
@@ -77,16 +79,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, alreadyHadAccount: true, planId: existing.plan_id, status: existing.status })
   }
 
-  const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 86_400_000).toISOString()
+  const isFree = plan.id === 'free'
+  const trialEndsAt = isFree ? null : new Date(Date.now() + TRIAL_DAYS * 86_400_000).toISOString()
   const { data, error } = await admin
     .from('billing_subscriptions')
     .insert({
       owner_id: user.id,
       plan_id: plan.id,
-      status: 'trialing',
+      status: isFree ? 'active' : 'trialing',
       trial_ends_at: trialEndsAt,
-      account_origin: 'trial',
-      metadata: { source: 'start-trial' },
+      account_origin: isFree ? 'free' : 'trial',
+      metadata: { source: 'start-trial', billing_kind: isFree ? 'free' : 'trial' },
     })
     .select('plan_id, status, trial_ends_at')
     .maybeSingle()

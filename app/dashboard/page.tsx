@@ -5,6 +5,8 @@ import { AgentPage, BASIC_OWNER_PAGE_SELECT, OWNER_PAGE_SELECT } from '../../lib
 import { AgentVisit } from '../../lib/agent-visits'
 import { CheckoutEvent } from '../../lib/checkout-events'
 import { analyticsRangeBounds } from '../../lib/analytics'
+import { emptySellerGrowthState, getSellerGrowthState } from '../../lib/server/seller-growth'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 import { DashboardClient, DashboardInitial } from './DashboardClient'
 
 // Server component: authenticates + fetches the dashboard's data in one parallel
@@ -23,13 +25,21 @@ export default async function DashboardPage() {
   const meta = (user.user_metadata ?? {}) as { full_name?: string; company?: string }
   const displayName = meta.full_name || meta.company || user.email || ''
 
-  const [pageRes, eventRes, visitRes, invitesRes, negRes, intakeRes] = await Promise.all([
+  const growthPromise = hasSupabaseAdminEnv()
+    ? getSellerGrowthState(createAdminClient(), user.id, {
+        createdAt: user.created_at,
+        emailConfirmedAt: user.email_confirmed_at,
+      })
+    : Promise.resolve(emptySellerGrowthState())
+
+  const [pageRes, eventRes, visitRes, invitesRes, negRes, intakeRes, growthState] = await Promise.all([
     supabase.from('pages').select(OWNER_PAGE_SELECT).eq('owner_id', user.id).order('created_at', { ascending: false }).returns<AgentPage[]>(),
     supabase.from('checkout_events').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(100).returns<CheckoutEvent[]>(),
     supabase.from('agent_visits').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1000).returns<AgentVisit[]>(),
     supabase.from('team_invites').select('owner_id').eq('email', (user.email ?? '').toLowerCase()).eq('status', 'accepted'),
     supabase.from('agent_negotiations').select('id', { count: 'exact', head: true }).eq('owner_id', user.id).in('status', ['negotiation', 'agreement_proposed', 'held']),
     supabase.from('intake_sessions').select('id', { count: 'exact', head: true }).eq('owner_id', user.id).eq('status', 'handed_off'),
+    growthPromise,
   ])
 
   // Fall back to the basic select if newer optional columns aren't migrated yet.
@@ -72,6 +82,7 @@ export default async function DashboardPage() {
     todayCutoff,
     // interview_completed (intake spec §8): any interview that reached handoff.
     interviewCompleted: intakeRes.error ? false : (intakeRes.count ?? 0) > 0,
+    growthState,
   }
 
   return <DashboardClient initial={initial} />

@@ -14,7 +14,7 @@ import { createAdminClient } from '../../../../utils/supabase/admin'
 
 const cronReq = () => new Request('https://nexez.test/api/cron/reconcile-billing')
 
-describe('GET /api/cron/reconcile-billing — trial-expiry pause pass', () => {
+describe('GET /api/cron/reconcile-billing - trial-expiry fallback pass', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_ready')
@@ -22,7 +22,7 @@ describe('GET /api/cron/reconcile-billing — trial-expiry pause pass', () => {
   })
   afterEach(() => vi.unstubAllEnvs())
 
-  it('pauses an expired no-card trial that carries a lingering stripe_customer_id (abandoned payment sheet), and does NOT filter that row out', async () => {
+  it('expires a no-card trial with a lingering Stripe customer without filtering it out', async () => {
     const updates: Array<{ payload: any; eqs: Record<string, any> }> = []
     let expirySelectCalls: QueryContext['calls'] = []
 
@@ -47,11 +47,11 @@ describe('GET /api/cron/reconcile-billing — trial-expiry pause pass', () => {
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body.pausedTrials).toBe(1)
+    expect(body.expiredTrials).toBe(1)
 
-    // The row WAS paused, guarded so a just-landed conversion ('active') is never clobbered.
+    // The row is closed, guarded so a just-landed conversion ('active') is never clobbered.
     expect(updates).toHaveLength(1)
-    expect(updates[0].payload).toEqual({ status: 'paused' })
+    expect(updates[0].payload).toEqual({ status: 'expired' })
     expect(updates[0].eqs).toEqual({ owner_id: 'trial-owner-1', status: 'trialing' })
 
     // The expiry query scopes to expired no-card trials ONLY — and must NOT re-add the
@@ -62,7 +62,7 @@ describe('GET /api/cron/reconcile-billing — trial-expiry pause pass', () => {
     expect(expirySelectCalls.some((c) => c[0] === 'is' && c[1] === 'stripe_customer_id')).toBe(false)
   })
 
-  it('leaves a still-paused row alone in the main loop (no live sub, db-managed, no subscription id)', async () => {
+  it('leaves an expired trial alone in the main loop (no live sub, db-managed, no subscription id)', async () => {
     const updates: Array<{ payload: any; eqs: Record<string, any> }> = []
     vi.mocked(createAdminClient).mockReturnValue(
       createSupabaseMock((ctx) => {
@@ -72,7 +72,7 @@ describe('GET /api/cron/reconcile-billing — trial-expiry pause pass', () => {
         }
         const isMainLoop = ctx.calls.some((c) => c[0] === 'not')
         if (isMainLoop) {
-          return { data: [{ owner_id: 'paused-1', stripe_customer_id: 'cus_x', stripe_subscription_id: null, plan_id: null, status: 'paused' }] }
+          return { data: [{ owner_id: 'expired-1', stripe_customer_id: 'cus_x', stripe_subscription_id: null, plan_id: null, status: 'expired' }] }
         }
         return { data: [] } // no expired trials this run
       }) as any,
@@ -84,8 +84,8 @@ describe('GET /api/cron/reconcile-billing — trial-expiry pause pass', () => {
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body.pausedTrials).toBe(0)
-    // The paused row must not be healed to 'canceled' or reactivated. The only write is
+    expect(body.expiredTrials).toBe(0)
+    // The expired row must not be healed to 'canceled' or reactivated. The only write is
     // the fair-rotation cursor stamp proving this row was inspected.
     expect(updates).toHaveLength(1)
     expect(updates[0].payload).toEqual({ last_reconciled_at: expect.any(String) })

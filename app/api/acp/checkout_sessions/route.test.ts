@@ -107,18 +107,19 @@ describe('POST /api/acp/checkout_sessions', () => {
     expect((await res.json()).code).toBe('merchant_not_found')
   })
 
-  it('409 merchant_unavailable when the seller is paused', async () => {
+  it('keeps an expired-trial seller orderable on the Free fallback', async () => {
     createAdminClient.mockReturnValue(
       adminMock((ctx) => {
         if (ctx.table === 'pages') return { data: PAGE }
         if (ctx.table === 'platform_admins') return { data: null }
         if (ctx.table === 'billing_subscriptions') return { data: { plan_id: 'pro', status: 'paused', trial_ends_at: null, account_origin: 'trial' } }
+        if (ctx.table === 'checkout_sessions' && ctx.op === 'insert') return { data: { ...ctx.payload } }
         return { data: null }
       }),
     )
     const res = await POST(req({ line_items: [{ id: 'acme:services-0' }] }))
-    expect(res.status).toBe(409)
-    expect((await res.json()).code).toBe('merchant_unavailable')
+    expect(res.status).toBe(201)
+    expect((await res.json()).status).toBe('ready_for_payment')
   })
 
   it('replays the original session on a repeated Idempotency-Key (never a 2nd session)', async () => {

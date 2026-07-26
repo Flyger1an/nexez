@@ -28,23 +28,23 @@ describe('Nexez first-party agent evidence', () => {
     expect(evidence.dates.length).toBeGreaterThan(0)
   })
 
-  it('advertises the live paid-plan price range, not the retired Free plan', () => {
+  it('advertises the live Free-through-Scale price range', () => {
     const graph = buildPlatformStructuredData()
     const software = graph['@graph'].find(
       (node) => node['@type'] === 'SoftwareApplication',
     ) as Record<string, unknown>
     const offers = software.offers as Record<string, unknown>
-    const paidPrices = billingPlans
-      .filter((plan) => plan.id !== 'free' && plan.id !== 'enterprise')
+    const selectablePrices = billingPlans
+      .filter((plan) => plan.id !== 'enterprise')
       .map((plan) => Number(plan.price.replace(/[^0-9.]/g, '')))
 
     expect(offers['@type']).toBe('AggregateOffer')
-    expect(offers.lowPrice).toBe(Math.min(...paidPrices))
-    expect(offers.highPrice).toBe(Math.max(...paidPrices))
-    expect(offers.lowPrice).toBeGreaterThan(0)
+    expect(offers.lowPrice).toBe(Math.min(...selectablePrices))
+    expect(offers.highPrice).toBe(Math.max(...selectablePrices))
+    expect(offers.lowPrice).toBe(0)
     expect(offers.priceCurrency).toBe('USD')
-    expect(offers.offerCount).toBe(paidPrices.length)
-    expect(JSON.stringify(graph)).not.toContain('Nexez Free')
+    expect(offers.offerCount).toBe(selectablePrices.length)
+    expect(JSON.stringify(graph)).toContain('Free and paid plans')
   })
 
   it('emits a WebSite node with a SearchAction targeting /discovery', () => {

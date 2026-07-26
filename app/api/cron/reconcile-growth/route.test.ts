@@ -1,0 +1,92 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createSupabaseMock, type QueryContext } from '../../../../test/supabase-mock'
+
+const refs = vi.hoisted(() => ({
+  createAdminClient: vi.fn(),
+  getOwnerPlanId: vi.fn(),
+}))
+
+vi.mock('../../../../utils/supabase/admin', () => ({
+  hasSupabaseAdminEnv: vi.fn(() => true),
+  createAdminClient: refs.createAdminClient,
+}))
+vi.mock('../../../../lib/server/plan', () => ({
+  getOwnerPlanId: refs.getOwnerPlanId,
+}))
+vi.mock('../../../../lib/email', () => ({
+  hasEmailEnv: vi.fn(() => false),
+  buildPromotionExpiryEmail: vi.fn(),
+  sendEmail: vi.fn(),
+}))
+vi.mock('../../../../lib/server/owner-email', () => ({
+  resolveOwnerNotifyEmail: vi.fn(),
+}))
+
+import { GET } from './route'
+
+const cronRequest = (authorization?: string) => new Request(
+  'https://nexez.app/api/cron/reconcile-growth',
+  { headers: authorization ? { authorization } : {} },
+)
+
+describe('GET /api/cron/reconcile-growth', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.stubEnv('CRON_SECRET', 'cron-secret')
+    refs.getOwnerPlanId.mockResolvedValue('free')
+  })
+  afterEach(() => vi.unstubAllEnvs())
+
+  it('rejects a scheduled call without the cron bearer', async () => {
+    expect((await GET(cronRequest())).status).toBe(401)
+  })
+
+  it('expires a grant and preserves one selected Free listing without deleting drafts', async () => {
+    const grant = {
+      id: 'grant-1',
+      campaign_id: 'campaign-1',
+      owner_id: 'owner-1',
+      plan_id: 'launch',
+      ends_at: '2026-01-01T00:00:00.000Z',
+      fallback_page_id: 'page-2',
+    }
+    const pages = [
+      { id: 'page-1', owner_id: 'owner-1', name: 'First', slug: 'first', is_published: true, created_at: '2026-01-01T00:00:00Z' },
+      { id: 'page-2', owner_id: 'owner-1', name: 'Primary', slug: 'primary', is_published: true, created_at: '2026-01-02T00:00:00Z' },
+      { id: 'draft-1', owner_id: 'owner-1', name: 'Saved draft', slug: 'draft', is_published: false, created_at: '2026-01-03T00:00:00Z' },
+    ]
+    const writes: Array<{ table: string; op: string; payload: any; calls: QueryContext['calls'] }> = []
+    refs.createAdminClient.mockReturnValue(createSupabaseMock((ctx) => {
+      if (ctx.op !== 'select') {
+        writes.push({ table: ctx.table, op: ctx.op, payload: ctx.payload, calls: [...ctx.calls] })
+      }
+      if (ctx.table === 'seller_growth_invites') return { data: [], error: null }
+      if (ctx.table === 'promotional_plan_grants' && ctx.op === 'select') {
+        const isNoticeQuery = ctx.calls.some((call) => call[0] === 'gt' && call[1] === 'ends_at')
+        return { data: isNoticeQuery ? [] : [grant], error: null }
+      }
+      if (ctx.table === 'promotional_plan_grants' && ctx.op === 'update') {
+        return { data: { id: grant.id }, error: null }
+      }
+      if (ctx.table === 'pages' && ctx.op === 'select') return { data: pages, error: null }
+      if (ctx.table === 'published_page_grandfather') return { data: [], error: null }
+      return { data: null, error: null }
+    }) as any)
+
+    const response = await GET(cronRequest('Bearer cron-secret'))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body).toMatchObject({
+      ok: true,
+      grantsExpired: 1,
+      fallbackListingsApplied: 1,
+    })
+    const pageWrite = writes.find((write) => write.table === 'pages' && write.op === 'update')
+    expect(pageWrite?.payload).toEqual({ is_published: false })
+    expect(pageWrite?.calls).toContainEqual(['in', 'id', ['page-1']])
+    expect(writes.some((write) => write.table === 'pages' && write.op === 'delete')).toBe(false)
+    const grantWrite = writes.find((write) => write.table === 'promotional_plan_grants' && write.op === 'update')
+    expect(grantWrite?.payload).toMatchObject({ status: 'expired', fallback_page_id: 'page-2' })
+  })
+})

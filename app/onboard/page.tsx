@@ -41,7 +41,7 @@ function scorePassword(pw: string): { score: number; label: string; color: strin
 }
 
 const steps: Array<{ num: Step; title: string; text: string; icon: ReactNode }> = [
-  { num: 1, title: 'Plan', text: 'Pick the launch lane.', icon: <Sparkles className="size-4" /> },
+  { num: 1, title: 'Plan', text: 'Choose how to begin.', icon: <Sparkles className="size-4" /> },
   { num: 2, title: 'Account', text: 'Create your workspace.', icon: <User className="size-4" /> },
   { num: 3, title: 'Payments', text: 'Prepare direct checkout.', icon: <WalletCards className="size-4" /> },
   { num: 4, title: 'Launch', text: 'Start building listings.', icon: <Rocket className="size-4" /> },
@@ -57,7 +57,7 @@ const launchChecklist = [
 export default function OnboardPage() {
   const router = useRouter()
   const [step, setStep] = useState<Step>(1)
-  const [selectedPlanId, setSelectedPlanId] = useState('pro')
+  const [selectedPlanId, setSelectedPlanId] = useState('free')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -73,8 +73,8 @@ export default function OnboardPage() {
   const [authedPlanPick, setAuthedPlanPick] = useState(false)
   const [authedEmail, setAuthedEmail] = useState('')
 
-  const trialablePlans = useMemo(() => billingPlans.filter((p) => p.id !== 'free' && p.id !== 'enterprise'), [])
-  const selectedPlan = billingPlans.find((p) => p.id === selectedPlanId) || trialablePlans[0]
+  const selectablePlans = useMemo(() => billingPlans.filter((p) => p.id !== 'enterprise'), [])
+  const selectedPlan = billingPlans.find((p) => p.id === selectedPlanId) || selectablePlans[0]
   const postSignupPath = nextPath
   const strength = useMemo(() => scorePassword(password), [password])
   const progress = Math.round((step / steps.length) * 100)
@@ -82,7 +82,7 @@ export default function OnboardPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const planParam = params.get('plan')
-    if (planParam && trialablePlans.some((p) => p.id === planParam)) setSelectedPlanId(planParam)
+    if (planParam && selectablePlans.some((p) => p.id === planParam)) setSelectedPlanId(planParam)
     const next = safeNextPath(params.get('next'))
     if (next) setNextPath(next)
     let cancelled = false
@@ -108,7 +108,7 @@ export default function OnboardPage() {
     return () => {
       cancelled = true
     }
-  }, [router, trialablePlans])
+  }, [router, selectablePlans])
 
   function validateAccount() {
     if (!fullName.trim()) return 'Enter your full name.'
@@ -150,8 +150,8 @@ export default function OnboardPage() {
         return
       }
 
-      // Non-fatal: the auth-callback + dashboard backstops re-seed the trial from
-      // the plan saved in user_metadata, so a transient failure self-heals. Still
+      // Non-fatal: the auth-callback + dashboard backstops persist the selected
+      // billing state from user_metadata, so a transient failure self-heals. Still
       // validate the response (parity with the signUp / connect calls) and log a
       // non-OK instead of silently swallowing it.
       const trialRes = await fetch('/api/billing/start-trial', {
@@ -160,7 +160,7 @@ export default function OnboardPage() {
         body: JSON.stringify({ plan: selectedPlanId }),
       }).catch(() => null)
       if (!trialRes || !trialRes.ok) {
-        console.warn('[onboard] start-trial did not confirm; relying on the seed backstop', trialRes?.status ?? 'network')
+        console.warn('[onboard] billing initialization did not confirm; relying on the seed backstop', trialRes?.status ?? 'network')
       }
 
       setStep(3)
@@ -169,8 +169,8 @@ export default function OnboardPage() {
     }
   }
 
-  // Authed plan-less path (OAuth first-touch): the account already exists, so picking a
-  // plan IS the trial start - skip the Account step entirely and go straight to Payments.
+  // Authed plan-less path (OAuth first-touch): the account already exists, so persist
+  // the explicit Free/trial choice and skip the Account step.
   async function handleAuthedPlanContinue() {
     if (loading) return
     setLoading(true)
@@ -185,7 +185,7 @@ export default function OnboardPage() {
         ? ((await res.json().catch(() => ({}))) as { error?: string; alreadyHadAccount?: boolean; planId?: string | null })
         : null
       if (!res || !res.ok) {
-        setError(data?.error || 'Could not start your trial. Please try again.')
+        setError(data?.error || 'Could not initialize your plan. Please try again.')
         return
       }
       // A billing row already existed (double-click, or back-and-repick after the first
@@ -257,7 +257,7 @@ export default function OnboardPage() {
             </div>
             <h1 className="nx-onboard-lead-title">Build your agent-ready storefront.</h1>
             <p className="nx-onboard-lead-copy">
-              Pick a plan, create your workspace, prepare direct payments, then land inside Nexez ready to publish.
+              Start free, create your workspace, prepare direct payments, then publish a business agents can understand.
             </p>
 
             <div className="nx-onboard-meter">
@@ -313,14 +313,16 @@ export default function OnboardPage() {
                   <p className="nx-onboard-kicker">Step {step} of 4</p>
                   <h2 className="nx-onboard-heading">
                     {step === 1
-                      ? 'Choose your launch plan'
+                      ? 'Choose your starting plan'
                       : step === 2
                         ? needsEmailConfirm
                           ? 'Confirm your email'
                           : 'Create your account'
                         : step === 3
                           ? 'Prepare direct payments'
-                          : 'Your trial is live'}
+                          : selectedPlan.id === 'free'
+                            ? 'Your workspace is ready'
+                            : 'Your trial is live'}
                   </h2>
                 </div>
                 <StatusPill step={step} />
@@ -329,7 +331,7 @@ export default function OnboardPage() {
               <div className="nx-onboard-main-body">
                 {step === 1 ? (
                   <PlanStep
-                    trialablePlans={trialablePlans}
+                    selectablePlans={selectablePlans}
                     selectedPlanId={selectedPlanId}
                     onSelect={setSelectedPlanId}
                     onContinue={authedPlanPick ? handleAuthedPlanContinue : () => setStep(2)}
@@ -340,7 +342,12 @@ export default function OnboardPage() {
                 ) : null}
 
                 {step === 2 && needsEmailConfirm ? (
-                  <EmailConfirmStep email={email} selectedPlanName={selectedPlan.name} onBack={() => setNeedsEmailConfirm(false)} />
+                  <EmailConfirmStep
+                    email={email}
+                    selectedPlanName={selectedPlan.name}
+                    isFree={selectedPlan.id === 'free'}
+                    onBack={() => setNeedsEmailConfirm(false)}
+                  />
                 ) : null}
 
                 {step === 2 && !needsEmailConfirm ? (
@@ -387,7 +394,7 @@ export default function OnboardPage() {
 }
 
 function PlanStep({
-  trialablePlans,
+  selectablePlans,
   selectedPlanId,
   onSelect,
   onContinue,
@@ -395,7 +402,7 @@ function PlanStep({
   error = '',
   authedEmail = '',
 }: {
-  trialablePlans: typeof billingPlans
+  selectablePlans: typeof billingPlans
   selectedPlanId: string
   onSelect: (id: string) => void
   onContinue: () => void
@@ -408,15 +415,15 @@ function PlanStep({
       <p className="max-w-2xl text-sm leading-6 text-[var(--nx-auth-muted)]">
         {authedEmail ? (
           <>
-            Signed in as <span className="font-medium text-[var(--nx-auth-text)]">{authedEmail}</span> — pick a plan to
-            start your 7-day trial. No card is required today, and you can change plans anytime from Billing.
+            Signed in as <span className="font-medium text-[var(--nx-auth-text)]">{authedEmail}</span>. Start permanently
+            on Free or choose a seven-day paid-plan trial. No card is required today.
           </>
         ) : (
-          <>Start with a 7-day trial. No card is required today, and you can upgrade, downgrade, or cancel from Billing.</>
+          <>Start permanently on Free or choose a seven-day paid-plan trial. Verified Free businesses can unlock Launch for six months.</>
         )}
       </p>
       <div className="nx-onboard-plan-grid">
-        {trialablePlans.map((plan) => {
+        {selectablePlans.map((plan) => {
           const isSelected = selectedPlanId === plan.id
           const isPopular = plan.id === 'pro'
           return (
@@ -432,6 +439,7 @@ function PlanStep({
                   <p className="mt-1 text-xs leading-5 text-[var(--nx-auth-muted)]">{plan.blurb}</p>
                 </div>
                 {isPopular ? <span className="nx-auth-live">Best fit</span> : null}
+                {plan.id === 'free' ? <span className="nx-auth-live">Start here</span> : null}
               </div>
               <div className="mt-6">
                 <span className="text-4xl font-semibold tracking-[-0.04em]">{plan.price}</span>
@@ -445,6 +453,11 @@ function PlanStep({
                   </li>
                 ))}
               </ul>
+              {plan.id === 'free' ? (
+                <p className="mt-4 rounded-xl border border-[var(--nx-auth-ready)]/20 bg-[var(--nx-auth-ready)]/10 p-3 text-xs leading-5 text-[var(--nx-auth-soft)]">
+                  Verify and publish your business to activate six complimentary months of Launch access.
+                </p>
+              ) : null}
               <div className="mt-auto pt-6">
                 <span className={`inline-flex w-full items-center justify-center gap-2 rounded-[17px] px-4 py-3 text-sm font-semibold transition ${isSelected ? 'bg-[#fafafa] text-[#050505]' : 'border border-[var(--nx-auth-line)] text-[var(--nx-auth-muted)] group-hover:text-[var(--nx-auth-text)]'}`}>
                   {isSelected ? 'Selected' : 'Select plan'}
@@ -462,8 +475,8 @@ function PlanStep({
               <Gauge className="size-5" />
             </span>
             <div>
-              <p className="font-semibold">Trial includes</p>
-              <p className="text-xs text-[var(--nx-auth-muted)]">Everything needed to publish your first listing.</p>
+              <p className="font-semibold">Build before you pay</p>
+              <p className="text-xs text-[var(--nx-auth-muted)]">Free includes the core publishing and agent-readiness tools.</p>
             </div>
           </div>
           <a href="/pricing" className="text-sm font-medium text-[var(--nx-auth-muted)] underline decoration-white/25 underline-offset-4 hover:text-[var(--nx-auth-text)] hover:decoration-white">
@@ -489,7 +502,11 @@ function PlanStep({
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <button type="button" onClick={onContinue} disabled={loading} className="nx-auth-primary disabled:cursor-not-allowed disabled:opacity-60">
           {loading ? <Loader2 className="size-4 animate-spin" /> : null}
-          {authedEmail ? 'Start my trial with this plan' : 'Continue with selected plan'}
+          {selectedPlanId === 'free'
+            ? 'Start Free'
+            : authedEmail
+              ? 'Start my trial'
+              : 'Continue with selected plan'}
           {!loading ? <ArrowRight className="size-4" /> : null}
         </button>
         {!authedEmail ? (
@@ -502,7 +519,17 @@ function PlanStep({
   )
 }
 
-function EmailConfirmStep({ email, selectedPlanName, onBack }: { email: string; selectedPlanName: string; onBack: () => void }) {
+function EmailConfirmStep({
+  email,
+  selectedPlanName,
+  isFree,
+  onBack,
+}: {
+  email: string
+  selectedPlanName: string
+  isFree: boolean
+  onBack: () => void
+}) {
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div>
@@ -511,7 +538,7 @@ function EmailConfirmStep({ email, selectedPlanName, onBack }: { email: string; 
         </div>
         <h3 className="mt-6 text-3xl font-semibold tracking-[-0.04em]">Check your inbox.</h3>
         <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--nx-auth-muted)]">
-          We sent a confirmation link to <span className="font-medium text-[var(--nx-auth-text)]">{email}</span>. Confirm your email to activate the workspace and start your 7-day {selectedPlanName} trial.
+          We sent a confirmation link to <span className="font-medium text-[var(--nx-auth-text)]">{email}</span>. Confirm your email to activate your {isFree ? 'Free workspace' : `seven-day ${selectedPlanName} trial`}.
         </p>
         <button type="button" onClick={onBack} className="nx-auth-ghost-button mt-6">
           <ArrowLeft className="size-4" />
@@ -641,7 +668,7 @@ function AccountStep(props: {
         <div className="mt-4 space-y-3">
           <SecurityRow icon={<ShieldCheck className="size-4" />} title="Session protected" text="Private tools stay behind auth." />
           <SecurityRow icon={<BadgeCheck className="size-4" />} title="Public pages stay crawlable" text="Agent pages remain clean and fast." />
-          <SecurityRow icon={<Gauge className="size-4" />} title="Trial starts after signup" text="No card required to begin." />
+          <SecurityRow icon={<Gauge className="size-4" />} title="No card required" text="Free remains available after promotional access." />
         </div>
       </div>
     </div>
@@ -699,18 +726,23 @@ function PaymentsStep(props: { loading: boolean; error: string; onConnect: () =>
 }
 
 function LaunchStep({ selectedPlan, onDashboard }: { selectedPlan: (typeof billingPlans)[number]; onDashboard: () => void }) {
+  const isFree = selectedPlan.id === 'free'
   return (
     <div className="text-center">
       <div className="mx-auto flex size-16 items-center justify-center rounded-3xl border border-[var(--nx-auth-ready)]/30 bg-[var(--nx-auth-ready)]/10 text-[var(--nx-auth-ready)]">
         <Rocket className="size-8" />
       </div>
-      <h3 className="mt-6 text-4xl font-semibold tracking-[-0.05em]">Your trial is live.</h3>
+      <h3 className="mt-6 text-4xl font-semibold tracking-[-0.05em]">
+        {isFree ? 'Your workspace is ready.' : 'Your trial is live.'}
+      </h3>
       <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[var(--nx-auth-muted)]">
-        Your 7-day {selectedPlan.name} trial is ready. Build your first listing, publish the agent-readable page, then track which AI traffic turns into real demand.
+        {isFree
+          ? 'Build and publish your first agent-readable listing. Verify your business to activate six months of Launch access and two business invite passes.'
+          : `Your seven-day ${selectedPlan.name} trial is ready. Build your first listing, publish it, then track which AI traffic turns into real demand.`}
       </p>
       <div className="mx-auto mt-8 grid max-w-3xl gap-3 text-left sm:grid-cols-3">
         {[
-          ['Plan', `${selectedPlan.name} trial`],
+          ['Plan', isFree ? 'Free, no expiry' : `${selectedPlan.name} trial`],
           ['Next move', 'Create listing'],
           ['Payments', 'Connect anytime'],
         ].map(([label, value]) => (

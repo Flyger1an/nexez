@@ -49,6 +49,7 @@ describe('authenticateApiKey', () => {
       createSupabaseMock((ctx) => {
         if (ctx.table === 'platform_admins') return { data: null } // not an admin
         if (ctx.table === 'billing_subscriptions') return { data: { plan_id: 'pro', status: 'active' } }
+        if (ctx.table === 'promotional_plan_grants') return { data: null }
         if (ctx.op === 'select') {
           lookedUpHash = ctx.eqs.key_hash
           return { data: { id: 'k1', owner_id: 'owner-123', revoked_at: null } }
@@ -66,6 +67,7 @@ describe('authenticateApiKey', () => {
       createSupabaseMock((ctx) => {
         if (ctx.table === 'platform_admins') return { data: null } // not an admin
         if (ctx.table === 'billing_subscriptions') return { data: { plan_id: 'free', status: 'active' } }
+        if (ctx.table === 'promotional_plan_grants') return { data: null }
         if (ctx.op === 'select') return { data: { id: 'k1', owner_id: 'owner-123', revoked_at: null } }
         return { data: null }
       }) as any,

@@ -3,18 +3,37 @@ import { createSupabaseMock, type QueryContext } from '../../test/supabase-mock'
 import { getOwnerPlanId, getOwnerBillingState, ownerAllows, isPlatformAdmin } from './plan'
 
 type SubRow = { plan_id: string; status: string; trial_ends_at?: string | null; account_origin?: string | null }
+type GrantRow = {
+  id: string
+  campaign_id: string
+  plan_id: string
+  source: 'welcome' | 'referral' | 'admin'
+  starts_at: string
+  ends_at: string
+  fallback_page_id: string | null
+}
 const future = () => new Date(Date.now() + 86_400_000).toISOString()
 const past = () => new Date(Date.now() - 86_400_000).toISOString()
+const launchGrant = (): GrantRow => ({
+  id: 'grant-1',
+  campaign_id: 'campaign-1',
+  plan_id: 'launch',
+  source: 'welcome',
+  starts_at: past(),
+  ends_at: future(),
+  fallback_page_id: null,
+})
 
 // Build a client where `admin` decides the platform_admins row and `sub` the
 // billing_subscriptions row. `adminError` simulates a missing/erroring table.
-function client(opts: { admin?: boolean; sub?: SubRow | null; adminError?: boolean }) {
+function client(opts: { admin?: boolean; sub?: SubRow | null; grant?: GrantRow | null; adminError?: boolean }) {
   return createSupabaseMock((ctx: QueryContext) => {
     if (ctx.table === 'platform_admins') {
       if (opts.adminError) return { data: null, error: { message: 'relation "platform_admins" does not exist' } }
       return { data: opts.admin ? { user_id: 'owner-1' } : null, error: null }
     }
     if (ctx.table === 'billing_subscriptions') return { data: opts.sub ?? null, error: null }
+    if (ctx.table === 'promotional_plan_grants') return { data: opts.grant ?? null, error: null }
     return { data: null, error: null }
   }) as any
 }
@@ -80,15 +99,64 @@ describe('getOwnerPlanId - trials & paused', () => {
   })
 })
 
+describe('getOwnerPlanId - promotional grants', () => {
+  it('confers a live Launch grant without manufacturing a Stripe subscription', async () => {
+    expect(await getOwnerPlanId(client({ sub: null, grant: launchGrant() }), 'owner-1')).toBe('launch')
+  })
+
+  it('keeps the higher paid plan when a lower grant is also live', async () => {
+    expect(await getOwnerPlanId(client({
+      sub: { plan_id: 'pro', status: 'active' },
+      grant: launchGrant(),
+    }), 'owner-1')).toBe('pro')
+  })
+
+  it('falls back to the live grant after a paid plan stops conferring', async () => {
+    expect(await getOwnerPlanId(client({
+      sub: { plan_id: 'pro', status: 'canceled' },
+      grant: launchGrant(),
+    }), 'owner-1')).toBe('launch')
+  })
+
+  it('ignores an expired grant', async () => {
+    expect(await getOwnerPlanId(client({
+      sub: null,
+      grant: { ...launchGrant(), starts_at: past(), ends_at: past() },
+    }), 'owner-1')).toBe('free')
+  })
+})
+
 describe('getOwnerBillingState', () => {
   it('reports an in-window trial', async () => {
     const s = await getOwnerBillingState(client({ sub: { plan_id: 'pro', status: 'trialing', trial_ends_at: future(), account_origin: 'trial' } }), 'owner-1')
     expect(s).toMatchObject({ planId: 'pro', chosenPlanId: 'pro', isLive: true, isTrialing: true, isPaused: false })
     expect(s.trialEndsAt).toBeTruthy()
   })
-  it('reports an expired trial as paused (trial origin) - gating drops to free', async () => {
+  it('reports an expired trial as a Free fallback without pausing the storefront', async () => {
     const s = await getOwnerBillingState(client({ sub: { plan_id: 'pro', status: 'trialing', trial_ends_at: past(), account_origin: 'trial' } }), 'owner-1')
-    expect(s).toMatchObject({ planId: 'free', chosenPlanId: 'pro', isLive: false, isTrialing: false, isPaused: true })
+    expect(s).toMatchObject({
+      planId: 'free',
+      chosenPlanId: 'pro',
+      isLive: false,
+      isTrialing: false,
+      isPaused: false,
+      isTrialExpired: true,
+    })
+  })
+  it('reports promotional access and its fixed expiration', async () => {
+    const grant = launchGrant()
+    const s = await getOwnerBillingState(client({ sub: null, grant }), 'owner-1')
+    expect(s).toMatchObject({
+      planId: 'launch',
+      isLive: true,
+      isPaused: false,
+      promotion: {
+        id: grant.id,
+        planId: 'launch',
+        source: 'welcome',
+        endsAt: grant.ends_at,
+      },
+    })
   })
   it('a legacy account NEVER pauses (grandfathered to free)', async () => {
     const s = await getOwnerBillingState(client({ sub: { plan_id: 'free', status: 'canceled', account_origin: 'legacy' } }), 'owner-1')

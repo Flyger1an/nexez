@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { safeNextPath } from '../../../lib/safe-redirect'
 import { sendOnceSystemEmail } from '../../../lib/server/system-email'
 import { buildWelcomeEmail } from '../../../lib/email'
-import { ensureTrialSeeded, hasBillingAccount, isTrialablePlan } from '../../../lib/server/trial'
+import { ensureBillingSeeded, hasBillingAccount, isSelectablePlan } from '../../../lib/server/trial'
 
 // A user counts as "new" (gets the welcome) only if their account was created very
 // recently - so an existing user signing in again never gets a backfill blast, and
@@ -48,17 +48,13 @@ export async function GET(request: Request) {
     const createdMs = user?.created_at ? Date.parse(user.created_at) : NaN
     const isNew = Boolean(user?.id) && Number.isFinite(createdMs) && Date.now() - createdMs < WELCOME_WINDOW_MS
 
-    // Seed the no-card trial for a brand-new confirmed account BEFORE redirecting, so the
-    // email-confirmation signup path shows the trial on its FIRST dashboard load (not a
-    // one-render "Free" flash from the layout-seed racing the page read). Awaited - a single
-    // fast idempotent insert. ONLY when the user explicitly picked a plan at signup (the
-    // /onboard email path stamps it into user_metadata) - an OAuth first-touch (Continue
-    // with Google) never chose one and is routed through onboarding below instead of being
-    // silently defaulted. Existing users (created > 24h) are never auto-trialed here.
+    // Persist the plan explicitly selected during onboarding before redirecting.
+    // Free becomes a durable account state; paid choices start their no-card trial.
+    // Plan-less OAuth accounts still return to onboarding instead of being defaulted.
     const planMeta = user?.user_metadata?.plan
-    const chosePlan = isTrialablePlan(planMeta)
+    const chosePlan = isSelectablePlan(planMeta)
     if (isNew && user && chosePlan) {
-      await ensureTrialSeeded(user.id, planMeta)
+      await ensureBillingSeeded(user.id, planMeta)
     }
 
     if (isNew && user?.email) {

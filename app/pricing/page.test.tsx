@@ -7,7 +7,8 @@ describe('/pricing metadata', () => {
     expect(metadata.title).toMatch(/pricing/i)
     // Root layout applies the '%s · Nexez' template - no double-branding here.
     expect(String(metadata.title)).not.toMatch(/nexez/i)
-    expect(metadata.description).toMatch(/7-day free trial/i)
+    expect(metadata.description).toMatch(/start free/i)
+    expect(metadata.description).toMatch(/paid.*7 days.*no card/i)
     expect(metadata.description).toMatch(/agentic checkout/i)
     expect(metadata.alternates?.canonical).toBe(marketingUrl('/pricing'))
     expect(metadata.openGraph?.url).toBe(marketingUrl('/pricing'))

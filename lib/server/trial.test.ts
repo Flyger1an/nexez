@@ -6,7 +6,7 @@ vi.mock('../../utils/supabase/admin', () => ({
   hasSupabaseAdminEnv: vi.fn(),
 }))
 
-import { ensureTrialSeeded, isTrialablePlan } from './trial'
+import { ensureBillingSeeded, isSelectablePlan, isTrialablePlan } from './trial'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 
 describe('trial seeding', () => {
@@ -26,12 +26,21 @@ describe('trial seeding', () => {
     expect(isTrialablePlan('made-up')).toBe(false)
   })
 
+  it('recognizes Free and paid self-serve plans as selectable', () => {
+    expect(isSelectablePlan('free')).toBe(true)
+    expect(isSelectablePlan('launch')).toBe(true)
+    expect(isSelectablePlan('pro')).toBe(true)
+    expect(isSelectablePlan('scale')).toBe(true)
+    expect(isSelectablePlan('enterprise')).toBe(false)
+    expect(isSelectablePlan('made-up')).toBe(false)
+  })
+
   it('never invents a Pro trial when plan metadata is missing or invalid', async () => {
     const admin = createSupabaseMock(() => ({ data: null, error: null }))
     vi.mocked(createAdminClient).mockReturnValue(admin as any)
 
-    expect(await ensureTrialSeeded('owner-1', undefined)).toBe(false)
-    expect(await ensureTrialSeeded('owner-1', 'made-up')).toBe(false)
+    expect(await ensureBillingSeeded('owner-1', undefined)).toBe(false)
+    expect(await ensureBillingSeeded('owner-1', 'made-up')).toBe(false)
     expect(admin.from).not.toHaveBeenCalled()
   })
 
@@ -47,10 +56,30 @@ describe('trial seeding', () => {
       }) as any,
     )
 
-    expect(await ensureTrialSeeded('owner-1', 'scale')).toBe(true)
+    expect(await ensureBillingSeeded('owner-1', 'scale')).toBe(true)
     expect(writes).toHaveLength(1)
     expect(writes[0]?.payload).toMatchObject({ owner_id: 'owner-1', plan_id: 'scale', status: 'trialing' })
-    expect(await ensureTrialSeeded('owner-1', 'pro')).toBe(false)
+    expect(await ensureBillingSeeded('owner-1', 'pro')).toBe(false)
     expect(writes).toHaveLength(1)
+  })
+
+  it('seeds Free as active with no trial expiry', async () => {
+    const writes: QueryContext[] = []
+    vi.mocked(createAdminClient).mockReturnValue(
+      createSupabaseMock((ctx) => {
+        if (ctx.op === 'select') return { data: null, error: null }
+        writes.push({ ...ctx, calls: [...ctx.calls] })
+        return { data: null, error: null }
+      }) as any,
+    )
+
+    expect(await ensureBillingSeeded('owner-1', 'free')).toBe(true)
+    expect(writes[0]?.payload).toMatchObject({
+      owner_id: 'owner-1',
+      plan_id: 'free',
+      status: 'active',
+      trial_ends_at: null,
+      account_origin: 'free',
+    })
   })
 })

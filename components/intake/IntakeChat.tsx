@@ -226,7 +226,7 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl
             Sign in to start your interview. Your progress saves to your account and resumes on any device.
             <div className="mt-3 flex flex-col gap-2">
               <a href="/onboard?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-white font-medium text-zinc-950 hover:bg-zinc-200">
-                Start your free trial
+                Create Free account
               </a>
               <a href="/login?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-[var(--bd-15)] text-sm text-[var(--fg)] hover:bg-[var(--ov-05)]">
                 I already have an account

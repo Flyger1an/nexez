@@ -7,9 +7,7 @@ import { pricingFaqs } from '../../lib/marketing-content'
 import { appUrl } from '../../lib/site'
 
 export default function PricingClient() {
-  // Free is retired - paid plans only, each starting with a 7-day no-card trial.
-  // Enterprise routes to sales.
-  const tiers = billingPlans.filter((p) => p.id !== 'free')
+  const tiers = billingPlans
 
   return (
     <main className="min-h-screen">
@@ -19,13 +17,13 @@ export default function PricingClient() {
           <div className="eyebrow justify-center">Plans &amp; pricing</div>
           <h1 className="display mt-4">Simple, transparent pricing.</h1>
           <p className="lede mx-auto mt-4 text-center">
-            Start any plan with a 7-day free trial - no credit card required.
+            Start on Free with no time limit. Verify and publish your business to unlock six complimentary months of Launch access.
           </p>
-          <div className="mt-4 text-sm" style={{ color: 'var(--ready)' }}>No hidden fees. Cancel anytime.</div>
+          <div className="mt-4 text-sm" style={{ color: 'var(--ready)' }}>No card required. No automatic promotional renewal.</div>
         </div>
 
         {/* Main Pricing Tiers */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-16">
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-5 mb-16">
           {tiers.map((plan, planIndex) => {
             const isPopular = plan.id === 'pro'
             const isEnterprise = plan.id === 'enterprise'
@@ -92,10 +90,14 @@ export default function PricingClient() {
                   href={isEnterprise ? '/support' : appUrl(`/onboard?plan=${plan.id}`)}
                   className={`mt-8 w-full ${isPopular ? 'btn-primary' : 'btn-secondary'}`}
                 >
-                  {isEnterprise ? 'Contact sales' : 'Start free trial'}
+                  {isEnterprise ? 'Contact sales' : plan.id === 'free' ? 'Start Free' : 'Start 7-day trial'}
                 </a>
 
-                {!isEnterprise && <p className="mt-2 text-center text-[10px] text-zinc-500">7-day free trial · no credit card</p>}
+                {!isEnterprise && (
+                  <p className="mt-2 text-center text-[10px] text-zinc-500">
+                    {plan.id === 'free' ? 'No expiry · 15% transaction fee' : '7-day trial · no credit card'}
+                  </p>
+                )}
               </div>
             )
           })}
@@ -161,8 +163,8 @@ export default function PricingClient() {
 
           {/* Commission ladder - rendered from the billing catalog (single source
               of truth) so the advertised rate always matches what's actually charged. */}
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {billingPlans.filter((plan) => plan.id !== 'free').map((plan) => (
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            {billingPlans.map((plan) => (
               <div key={plan.id} className="glass rounded-2xl p-5">
                 <div className="text-sm font-medium" style={{ color: 'var(--ready)' }}>{plan.name}</div>
                 <div className="mt-2 text-3xl font-semibold">{plan.commissionPercent}%</div>
@@ -185,9 +187,9 @@ export default function PricingClient() {
             <h3 className="font-semibold">Trusted by growing businesses</h3>
             <ul className="mt-4 space-y-2 text-sm text-[#9CA3AF]">
               <li>• Secure payments powered by Stripe</li>
-              <li>• 30-day money-back on annual plans</li>
+              <li>• Free plan with no time limit</li>
               <li>• Cancel or downgrade anytime</li>
-              <li>• No long-term lock-in</li>
+              <li>• Promotional Launch access never auto-charges</li>
             </ul>
           </div>
           <div>
@@ -204,10 +206,10 @@ export default function PricingClient() {
         </div>
 
         <div className="mt-12 text-center">
-          <a href={appUrl('/onboard?plan=pro')} className="btn-primary">
-            Start your free trial
+          <a href={appUrl('/onboard?plan=free')} className="btn-primary">
+            Start Free
           </a>
-          <p className="mt-2 text-xs text-zinc-500">7-day free trial · no credit card required.</p>
+          <p className="mt-2 text-xs text-zinc-500">Publish and verify to activate six complimentary months of Launch.</p>
         </div>
       </div>
     </main>

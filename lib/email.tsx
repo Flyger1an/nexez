@@ -15,6 +15,8 @@ import {
   WelcomeEmail,
   StripeConnectedEmail,
   StaleListingEmail,
+  SellerGrowthInviteEmail,
+  PromotionExpiryEmail,
 } from '../emails/templates'
 
 // Gated transactional email (Resend-compatible). Dormant unless RESEND_API_KEY
@@ -347,6 +349,77 @@ export async function buildTeamInviteEmail(opts: {
     `Accept the invite: ${acceptUrl}`,
   ].join('\n')
   const html = await renderHtml(<TeamInviteEmail lead={lead} inviteeEmail={inviteeEmail} acceptUrl={acceptUrl} />, text)
+  return { subject, html, text }
+}
+
+// ── Seller growth: invite another business to complimentary Launch access ──────
+export async function buildSellerGrowthInviteEmail(opts: {
+  inviterBusinessName: string
+  inviteeEmail: string
+  durationDays: number
+  claimUrl: string
+}): Promise<Built> {
+  const { inviterBusinessName, inviteeEmail, durationDays, claimUrl } = opts
+  const durationLabel = durationDays === 180 ? 'six months' : `${durationDays} days`
+  const subject = `${inviterBusinessName} sent your business complimentary Nexez Launch access`
+  const text = [
+    `${inviterBusinessName} invited your business to use Nexez Launch for ${durationLabel} at no subscription cost.`,
+    '',
+    'Publish an agent-ready listing and verify your business to activate the pass. No card is required.',
+    '',
+    `Claim it using this exact email address (${inviteeEmail}): ${claimUrl}`,
+    '',
+    "This invitation creates a separate business account. It does not grant access to the sender's workspace.",
+    'When complimentary access ends, the account returns to Free unless you choose a paid plan.',
+  ].join('\n')
+  const html = await renderHtml(
+    <SellerGrowthInviteEmail
+      inviterBusinessName={inviterBusinessName}
+      inviteeEmail={inviteeEmail}
+      durationLabel={durationLabel}
+      claimUrl={claimUrl}
+    />,
+    text,
+  )
+  return { subject, html, text }
+}
+
+// ── Seller growth: reminder before a promotional plan returns to Free ───────────
+export async function buildPromotionExpiryEmail(opts: {
+  businessName: string
+  daysBefore: number
+  endsAt: string
+  fallbackListingName?: string | null
+  billingUrl: string
+}): Promise<Built> {
+  const { businessName, daysBefore, endsAt, fallbackListingName = null, billingUrl } = opts
+  const timing = daysBefore === 1 ? 'tomorrow' : `in ${daysBefore} days`
+  const endsOn = new Intl.DateTimeFormat('en', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(endsAt))
+  const subject = `Your complimentary Nexez Launch access ends ${timing}`
+  const text = [
+    `${businessName} will return to the Free plan on ${endsOn}.`,
+    '',
+    'There is no automatic charge and your business stays on Nexez.',
+    `Listing kept published: ${fallbackListingName || 'your oldest published listing'}`,
+    'Drafts and extra listings are preserved.',
+    '',
+    `Review plans and your fallback listing: ${billingUrl}`,
+  ].join('\n')
+  const html = await renderHtml(
+    <PromotionExpiryEmail
+      businessName={businessName}
+      daysBefore={daysBefore}
+      endsOn={endsOn}
+      fallbackListingName={fallbackListingName}
+      billingUrl={billingUrl}
+    />,
+    text,
+  )
   return { subject, html, text }
 }
 

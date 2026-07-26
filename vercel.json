@@ -3,6 +3,7 @@
     { "path": "/api/cron/freshness", "schedule": "0 8 * * *" },
     { "path": "/api/cron/reconcile-escrow", "schedule": "0 * * * *" },
     { "path": "/api/cron/reconcile-billing", "schedule": "30 * * * *" },
+    { "path": "/api/cron/reconcile-growth", "schedule": "10 * * * *" },
     { "path": "/api/cron/process-negotiations", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/saved-search-alerts", "schedule": "0 */6 * * *" },
     { "path": "/api/cron/agent-tasks", "schedule": "15 */6 * * *" },

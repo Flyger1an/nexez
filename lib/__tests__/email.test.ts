@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { buildEscrowFundedEmail, buildMoneyEventEmail, buildNegotiationEmail, hasEmailEnv, sendEmail } from '../email'
+import {
+  buildEscrowFundedEmail,
+  buildMoneyEventEmail,
+  buildNegotiationEmail,
+  buildSellerGrowthInviteEmail,
+  hasEmailEnv,
+  sendEmail,
+} from '../email'
 
 describe('email gating', () => {
   const original = process.env.RESEND_API_KEY
@@ -100,5 +107,20 @@ describe('buildMoneyEventEmail', () => {
     const mail = await buildMoneyEventEmail({ kind: 'dispute_closed', businessName: 'Apex', offerName: 'Audit', detail: 'You won - funds retained.', inboxUrl: 'https://nexez.app/dashboard/negotiations' })
     expect(mail.subject).toBe('Dispute resolved: Audit')
     expect(mail.text).toContain('You won')
+  })
+})
+
+describe('buildSellerGrowthInviteEmail', () => {
+  it('presents a 180-day campaign as six months across text and HTML', async () => {
+    const mail = await buildSellerGrowthInviteEmail({
+      inviterBusinessName: 'Apex Advisory',
+      inviteeEmail: 'owner@example.com',
+      durationDays: 180,
+      claimUrl: 'https://app.nexez.ai/invite/claim/token',
+    })
+
+    expect(mail.text).toContain('for six months at no subscription cost')
+    expect(mail.html.replaceAll('<!-- -->', '')).toContain('for six months')
+    expect(`${mail.subject}\n${mail.text}\n${mail.html}`).not.toMatch(/180 days|Launch year|promotional year/i)
   })
 })

@@ -43,15 +43,15 @@ export async function GET(request: Request) {
   const admin = createAdminClient()
   const stripe = new Stripe(stripeKey)
 
-  // Trial-expiry pass: flip expired no-card trials to 'paused' (storefront offline). The
-  // status flip fires the serving-resync trigger → the seller's public listings go offline
-  // until they subscribe. Scope is EXACT via account_origin='trial' + status='trialing' +
+  // Trial-expiry pass: close expired no-card trials. The effective plan now falls
+  // back to a live promotion or Free; storefronts are no longer taken fully offline.
+  // Scope is exact via account_origin='trial' + status='trialing' +
   // expired trial_ends_at (only ever set on no-card trials) — do NOT also filter on a null
   // stripe_customer_id: a trial that merely opened (and abandoned) the embedded payment
   // sheet now carries a customer id while still 'trialing', and excluding it here let it
-  // serve for free forever past expiry (the pause never fired). The .eq('status','trialing')
+  // retain trial features forever past expiry. The .eq('status','trialing')
   // guard on the UPDATE still prevents clobbering a conversion that just landed as 'active'.
-  let pausedTrials = 0
+  let expiredTrials = 0
   const { data: expired } = await admin
     .from('billing_subscriptions')
     .select('owner_id')
@@ -63,10 +63,10 @@ export async function GET(request: Request) {
   for (const r of expired ?? []) {
     const { error: pErr } = await admin
       .from('billing_subscriptions')
-      .update({ status: 'paused' })
+      .update({ status: 'expired' })
       .eq('owner_id', r.owner_id)
       .eq('status', 'trialing')
-    if (!pErr) pausedTrials += 1
+    if (!pErr) expiredTrials += 1
   }
 
   const { data, error } = await admin
@@ -180,5 +180,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, scanned: rows.length, healed, unchanged, alerted, pausedTrials, actions, ran_at: new Date().toISOString() })
+  return NextResponse.json({ ok: true, scanned: rows.length, healed, unchanged, alerted, expiredTrials, actions, ran_at: new Date().toISOString() })
 }

@@ -190,7 +190,7 @@ export const aiAgentsBookServiceBusinesses: LearnArticle = {
     {
       type: 'cta',
       title: 'Make your services agent-bookable',
-      text: 'Nexez turns your existing website’s services into structured, schedulable, checkout-ready listings: JSON-LD, agent.json, a per-merchant MCP server, ACP and UCP feeds, real Calendly availability, and Stripe checkout with you as merchant of record. Free 7-day trial; discovery is free on every plan.',
+      text: 'Nexez turns your existing website’s services into structured, schedulable, checkout-ready listings: JSON-LD, agent.json, a per-merchant MCP server, ACP and UCP feeds, real Calendly availability, and Stripe checkout with you as merchant of record. Start on Free with no card; paid plans include a 7-day trial.',
       href: '/how-it-works',
       label: 'See how it works',
     },

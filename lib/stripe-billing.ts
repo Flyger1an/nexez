@@ -48,12 +48,12 @@ export function shouldSkipSubscriptionSync(status: string | null | undefined): b
 }
 
 /**
- * DB-managed lifecycle states (the no-card trial and its expiry pause) have no Stripe
+ * DB-managed lifecycle states (the no-card trial and its recorded expiry) have no Stripe
  * subscription behind them - Stripe silence is EXPECTED and must not be "reconciled"
  * into canceled/incomplete. Only a live Stripe subscription may overwrite these.
  */
 export function isDbManagedBillingStatus(status: string | null | undefined): boolean {
-  return status === 'trialing' || status === 'paused'
+  return status === 'trialing' || status === 'paused' || status === 'expired'
 }
 
 export function getPlanIdForStripePrice(priceId: string | null | undefined): BillingPlan['id'] | null {
@@ -144,6 +144,9 @@ export function billingStatusCopy(status: string | null | undefined) {
     case 'canceled':
     case 'incomplete_expired':
       return { label: 'Canceled', tone: 'muted' as const }
+    case 'expired':
+    case 'paused':
+      return { label: 'Trial ended', tone: 'muted' as const }
     case 'incomplete':
       return { label: 'Checkout incomplete', tone: 'warn' as const }
     default:

@@ -227,7 +227,7 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
     setMessage('')
     const supabase = createClient()
     // Preserve the post-auth destination through the OAuth round-trip; the shared
-    // /auth/callback route exchanges the code, seeds the trial for new accounts,
+    // /auth/callback exchanges the code, persists the selected Free/trial plan,
     // and honors ?next (open-redirect-guarded server-side).
     const next = safeNextPath(new URLSearchParams(window.location.search).get('next') || nextPath)
     const callback = new URL('/auth/callback', window.location.origin)
@@ -271,7 +271,7 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
               Simulator
             </a>
             <a href={mode === 'signin' ? onboardingHref : modeHref('signin')} className="nx-auth-secondary">
-              {mode === 'signin' ? 'Start trial' : 'Sign in'}
+              {mode === 'signin' ? 'Start Free' : 'Sign in'}
             </a>
           </nav>
         </header>
@@ -306,7 +306,7 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
                       Sign in
                     </a>
                     <a href={onboardingHref} aria-current={mode === 'signup' ? 'true' : undefined}>
-                      Start trial
+                      Start Free
                     </a>
                   </div>
                 ) : null}
@@ -496,7 +496,7 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
                 </form>
 
                 {/* Cross-sell only where it isn't already offered: the Sign in / Start
-                    trial toggle above covers signin mode, so this shows only for
+                    Free toggle above covers signin mode, so this shows only for
                     signup + reset. De-boxed (subtle tint, no border) for calm. */}
                 {mode !== 'signin' ? (
                   <div className="mt-5 rounded-[18px] bg-white/[0.03] p-4 text-sm text-[var(--nx-auth-muted)]">

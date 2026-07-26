@@ -145,11 +145,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'This page is not accepting offers - use the listed price to book or buy.' }, { status: 403 })
   }
 
-  // Pause gate: a paused seller (expired no-card trial) is offline - the public
-  // listing already 404s via the serving projection, so an agent shouldn't be
-  // able to open a proposal thread + fire a seller notification against it
-  // either. Mirrors the 402 the checkout route returns. Only reachable with the
-  // admin client (public buyer-facing route); no admin env -> local dev, skip.
+  // Compatibility gate for an explicit operational suspension. Billing expiry
+  // falls back to Free and does not suppress negotiation.
   if (admin && ownerId && (await getOwnerBillingState(admin, ownerId)).isPaused) {
     return NextResponse.json(
       { error: 'This seller’s storefront is paused and not accepting offers right now.' },

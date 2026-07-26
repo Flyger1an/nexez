@@ -72,15 +72,16 @@ describe('POST /api/ucp/checkout-sessions', () => {
     expect(createAdminClient).not.toHaveBeenCalled()
   })
 
-  it('409 when the seller is paused', async () => {
+  it('keeps an expired-trial seller orderable on the Free fallback', async () => {
     createAdminClient.mockReturnValue(
       adminMock((c) => {
         if (c.table === 'pages') return { data: PAGE }
         if (c.table === 'platform_admins') return { data: null }
         if (c.table === 'billing_subscriptions') return { data: { plan_id: 'pro', status: 'paused', trial_ends_at: null, account_origin: 'trial' } }
+        if (c.table === 'checkout_sessions' && c.op === 'insert') return { data: { ...c.payload } }
         return { data: null }
       }),
     )
-    expect((await POST(req({ line_items: [{ item: { id: 'acme:services-0' } }] }))).status).toBe(409)
+    expect((await POST(req({ line_items: [{ item: { id: 'acme:services-0' } }] }))).status).toBe(201)
   })
 })

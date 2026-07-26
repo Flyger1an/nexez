@@ -8,7 +8,7 @@ const refs = vi.hoisted(() => ({
 const trial = vi.hoisted(() => ({
   ensure: vi.fn(),
   hasBilling: vi.fn(),
-  isTrialable: vi.fn((value: unknown) => ['launch', 'pro', 'scale'].includes(String(value))),
+  isSelectable: vi.fn((value: unknown) => ['free', 'launch', 'pro', 'scale'].includes(String(value))),
 }))
 const redirect = vi.hoisted(() => vi.fn((location: string) => {
   throw new Error(`NEXT_REDIRECT:${location}`)
@@ -21,9 +21,9 @@ vi.mock('../../utils/supabase/server', () => ({
 }))
 vi.mock('../../lib/server/plan', () => ({ getOwnerPlanId: vi.fn(async () => refs.plan) }))
 vi.mock('../../lib/server/trial', () => ({
-  ensureTrialSeeded: trial.ensure,
+  ensureBillingSeeded: trial.ensure,
   hasBillingAccount: trial.hasBilling,
-  isTrialablePlan: trial.isTrialable,
+  isSelectablePlan: trial.isSelectable,
 }))
 vi.mock('../../components/billing/PlanProvider', () => ({ PlanProvider: ({ children }: any) => children }))
 
@@ -50,6 +50,15 @@ describe('DashboardLayout plan gate', () => {
 
     await expect(DashboardLayout({ children: null })).resolves.toBeTruthy()
     expect(trial.ensure).toHaveBeenCalledWith('user-1', 'pro')
+    expect(redirect).not.toHaveBeenCalled()
+  })
+
+  it('seeds an explicit Free selection and continues', async () => {
+    refs.user.user_metadata = { plan: 'free' }
+    trial.ensure.mockResolvedValue(true)
+
+    await expect(DashboardLayout({ children: null })).resolves.toBeTruthy()
+    expect(trial.ensure).toHaveBeenCalledWith('user-1', 'free')
     expect(redirect).not.toHaveBeenCalled()
   })
 

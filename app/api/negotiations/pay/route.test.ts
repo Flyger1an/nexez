@@ -153,14 +153,14 @@ describe('POST /api/negotiations/pay', () => {
     expect(stripeRef.create).not.toHaveBeenCalled()
   })
 
-  it('402 when the seller is paused (expired no-card trial) - no escrow session created', async () => {
-    // The pause flips billing status only; the negotiation stays payable and Connect stays
-    // enabled, so without the gate the buyer's persistent token would still fund a suppressed
-    // storefront. Must 402 before any Stripe session - same as /api/checkout.
+  it('funds through the Free fallback when a no-card trial has expired', async () => {
+    // Billing expiry no longer suppresses a business. A connected seller remains
+    // payable at the Free commission rate while their paid-plan trial is inactive.
     db(NEG, { plan_id: 'pro', status: 'paused', account_origin: 'trial', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true })
     const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))
-    expect(res.status).toBe(402)
-    expect(stripeRef.create).not.toHaveBeenCalled()
+    expect(res.status).toBe(200)
+    const [params] = (stripeRef.create as any).mock.calls[0]
+    expect(params.payment_intent_data.application_fee_amount).toBe(13500)
   })
 
   it('approved (high value): manual-capture hold, metadata "hold"', async () => {

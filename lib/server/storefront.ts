@@ -27,9 +27,8 @@ export async function loadStorefrontByHandle(
     .maybeSingle<Storefront>()
   if (!storefront) return null
 
-  // A paused storefront (expired no-card trial) goes offline - return no listings, matching
-  // the pages_public `serving` gate the anon surfaces enforce. is_published is untouched, so
-  // reactivating brings the listings straight back. Legacy/active owners never pause.
+  // Compatibility hook for an explicit operational suspension. Billing expiry
+  // falls back to Free, so ordinary lifecycle changes do not enter this branch.
   const billing = await getOwnerBillingState(admin, storefront.owner_id)
   if (billing.isPaused) return { storefront, listings: [] }
 
@@ -152,36 +151,9 @@ export async function loadPublicStorefronts(limit = 60): Promise<StorefrontSumma
     .eq('status', 'excluded')
     .returns<Array<{ page_id: string }>>()
   const excludedPageIds = new Set((excludedRows ?? []).map((row) => row.page_id))
-  // Paused storefronts (expired no-card trials) are offline - drop their listings from the
-  // directory count so they leave discovery, mirroring the pages_public serving gate. Only
-  // trial-origin rows can pause, so this set is small.
-  const { data: pausedRows } = await admin
-    .from('billing_subscriptions')
-    .select('owner_id, status, trial_ends_at')
-    .eq('account_origin', 'trial')
-    .in('status', ['paused', 'trialing'])
-    .returns<Array<{ owner_id: string; status: string; trial_ends_at: string | null }>>()
-  const nowMs = Date.now()
-  const pausedOwners = new Set(
-    (pausedRows ?? [])
-      .filter((r) => r.status === 'paused' || (r.status === 'trialing' && r.trial_ends_at != null && new Date(r.trial_ends_at).getTime() < nowMs))
-      .map((r) => r.owner_id),
-  )
-  // Platform admins are NEVER paused - private.nz_owner_is_paused (the serving-flag gate)
-  // exempts them, so their storefront stays online. Mirror that here or the directory would
-  // drift: an admin whose billing row happens to read paused/expired-trial would keep serving
-  // yet vanish from discovery. Only probe the (small) paused set.
-  if (pausedOwners.size > 0) {
-    const { data: admins } = await admin
-      .from('platform_admins')
-      .select('user_id')
-      .in('user_id', [...pausedOwners])
-      .returns<Array<{ user_id: string }>>()
-    for (const a of admins ?? []) pausedOwners.delete(a.user_id)
-  }
   const counts = new Map<string, number>()
   for (const p of pubPages ?? []) {
-    if (p.storefront_id && !excludedPageIds.has(p.id) && !(p.owner_id && pausedOwners.has(p.owner_id))) {
+    if (p.storefront_id && !excludedPageIds.has(p.id)) {
       counts.set(p.storefront_id, (counts.get(p.storefront_id) ?? 0) + 1)
     }
   }

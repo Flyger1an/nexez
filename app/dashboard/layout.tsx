@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '../../utils/supabase/server'
 import { getOwnerPlanId } from '../../lib/server/plan'
-import { ensureTrialSeeded, hasBillingAccount, isTrialablePlan } from '../../lib/server/trial'
+import { ensureBillingSeeded, hasBillingAccount, isSelectablePlan } from '../../lib/server/trial'
 import { PlanProvider } from '../../components/billing/PlanProvider'
 
 /**
@@ -36,9 +36,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
     if (plan === 'free' && user?.id) {
       const planMeta = user.user_metadata?.plan
       const hasBilling = await hasBillingAccount(user.id)
-      if (!hasBilling && !isTrialablePlan(planMeta)) {
+      if (!hasBilling && !isSelectablePlan(planMeta)) {
         needsPlanSelection = true
-      } else if (!hasBilling && await ensureTrialSeeded(user.id, planMeta)) {
+      } else if (!hasBilling && await ensureBillingSeeded(user.id, planMeta)) {
         plan = await getOwnerPlanId(supabase, user.id)
       }
     }

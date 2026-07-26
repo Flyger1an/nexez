@@ -47,6 +47,7 @@ import type { BillingSubscription } from '../../lib/stripe-billing'
 import { billingStatusCopy } from '../../lib/stripe-billing'
 import { billingPlans } from '../../lib/billing'
 import { formatCurrencyAmount } from '../../lib/currency'
+import type { PromotionalPlanGrant } from '../../lib/server/plan'
 
 // Tab definition (order matches user spec)
 const TABS = [
@@ -98,6 +99,8 @@ interface BillingDashboardClientProps {
   initialPlanId?: string | null
   connectSuccess?: boolean
   hasEnterpriseOverride?: boolean
+  promotion?: PromotionalPlanGrant | null
+  fallbackPages?: Array<{ id: string; name: string }>
 }
 
 export default function BillingDashboardClient({
@@ -114,6 +117,8 @@ export default function BillingDashboardClient({
   initialPlanId,
   connectSuccess,
   hasEnterpriseOverride = false,
+  promotion = null,
+  fallbackPages = [],
 }: BillingDashboardClientProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabId>('overview')
@@ -124,6 +129,9 @@ export default function BillingDashboardClient({
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [checkoutSuccess, setCheckoutSuccess] = useState<string | null>(null)
+  const [fallbackPageId, setFallbackPageId] = useState(promotion?.fallbackPageId ?? fallbackPages[0]?.id ?? '')
+  const [fallbackSaving, setFallbackSaving] = useState(false)
+  const [fallbackFeedback, setFallbackFeedback] = useState<string | null>(null)
 
   // Real Stripe invoices passed from the server (empty when none / Stripe not configured).
   const invoices = invoicesProp
@@ -267,6 +275,29 @@ export default function BillingDashboardClient({
     document.body.removeChild(form)
   }
 
+  async function saveFallbackPage(pageId: string) {
+    if (!pageId || fallbackSaving) return
+    const previousPageId = fallbackPageId
+    setFallbackPageId(pageId)
+    setFallbackSaving(true)
+    setFallbackFeedback(null)
+    try {
+      const response = await fetch('/api/billing/promotion/fallback-page', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ pageId }),
+      })
+      const body = (await response.json().catch(() => ({}))) as { error?: string }
+      if (!response.ok) setFallbackPageId(previousPageId)
+      setFallbackFeedback(response.ok ? 'Fallback listing saved.' : body.error || 'Could not save this listing.')
+    } catch {
+      setFallbackPageId(previousPageId)
+      setFallbackFeedback('Could not save this listing. Check your connection and try again.')
+    } finally {
+      setFallbackSaving(false)
+    }
+  }
+
   // ========== TAB CONTENT COMPONENTS (kept inside for a single cohesive file while remaining scannable) ==========
 
   const OverviewTab = () => {
@@ -274,12 +305,16 @@ export default function BillingDashboardClient({
     const paidSubscriptionPlan = billingPlans.find((plan) => plan.id === billingState?.plan_id)
     const priceLine = hasEnterpriseOverride
       ? 'Grandfathered access'
+      : promotion
+        ? '$0 during promotion'
       : activePlan
         ? `${activePlan.price}/${activePlan.cadence}`
         : 'No subscription'
     const billingStatus = billingStatusCopy(billingState?.status)
     const status = hasEnterpriseOverride
       ? { label: 'Granted', tone: 'ok' as const }
+      : promotion
+        ? { label: 'Promotional', tone: 'ok' as const }
       : billingStatus
     const statusPillClass =
       status.tone === 'ok'
@@ -292,10 +327,9 @@ export default function BillingDashboardClient({
     // billingStatusCopy helper.
     const needsAction = billingStatus.tone === 'warn'
     const isIncomplete = billingState?.status === 'incomplete'
-    const periodEnd = billingState?.current_period_end
-      ? new Intl.DateTimeFormat('en', { month: 'long', day: 'numeric', year: 'numeric' }).format(
-          new Date(billingState.current_period_end)
-        )
+    const periodEndSource = promotion?.endsAt ?? billingState?.current_period_end
+    const periodEnd = periodEndSource
+      ? new Intl.DateTimeFormat('en', { month: 'long', day: 'numeric', year: 'numeric' }).format(new Date(periodEndSource))
       : null
 
     return (
@@ -343,7 +377,13 @@ export default function BillingDashboardClient({
                 </span>
               </div>
               <div className="mt-2 text-3xl text-[var(--fg-muted)] tracking-tight">{priceLine}</div>
-              {periodEnd && !hasEnterpriseOverride && (
+              {periodEnd && promotion && (
+                <p className="mt-3 flex items-center gap-2 text-sm text-[var(--fg-muted)]">
+                  <Calendar className="size-4" />
+                  Complimentary through {periodEnd}
+                </p>
+              )}
+              {periodEnd && !promotion && !hasEnterpriseOverride && (
                 <p className="mt-3 flex items-center gap-2 text-sm text-[var(--fg-muted)]">
                   <Calendar className="size-4" />
                   {billingState?.cancel_at_period_end ? 'Cancels' : 'Renews'} on {periodEnd}
@@ -358,6 +398,8 @@ export default function BillingDashboardClient({
               <p className="mt-1 text-sm text-[var(--fg-muted)]">
                 {hasEnterpriseOverride
                   ? 'Enterprise privileges remain active independently of Stripe billing.'
+                  : promotion
+                    ? 'Returns to Free when the promotion ends. No automatic charge.'
                   : activePlan?.cadence
                     ? `Billed ${activePlan.cadence} • Cancel anytime via Stripe portal`
                     : 'No active subscription • Upgrade anytime'}
@@ -389,6 +431,37 @@ export default function BillingDashboardClient({
             </div>
           </div>
         </GlassCard>
+
+        {promotion && fallbackPages.length > 1 && (
+          <GlassCard className="p-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="max-w-xl">
+                <div className="text-sm font-medium text-white">Free-plan fallback listing</div>
+                <p className="mt-1 text-sm leading-6 text-[var(--fg-muted)]">
+                  Choose the listing that stays published if you return to Free. Every other listing remains saved as a draft.
+                </p>
+              </div>
+              <div className="w-full md:max-w-sm">
+                <label htmlFor="promotion-fallback-page" className="sr-only">Fallback listing</label>
+                <div className="flex items-center gap-2">
+                  <select
+                    id="promotion-fallback-page"
+                    value={fallbackPageId}
+                    onChange={(event) => saveFallbackPage(event.target.value)}
+                    disabled={fallbackSaving}
+                    className="h-10 min-w-0 flex-1 rounded-lg border border-[var(--bd-15)] bg-[#11141a] px-3 text-sm text-white outline-none focus:border-[var(--signal)] disabled:opacity-60"
+                  >
+                    {fallbackPages.map((page) => (
+                      <option key={page.id} value={page.id}>{page.name}</option>
+                    ))}
+                  </select>
+                  {fallbackSaving && <Loader2 className="size-4 animate-spin text-[var(--signal)]" />}
+                </div>
+                {fallbackFeedback && <p className="mt-2 text-xs text-[var(--fg-muted)]">{fallbackFeedback}</p>}
+              </div>
+            </div>
+          </GlassCard>
+        )}
 
         {/* How money flows - the dual-revenue model in one glance */}
         <GlassCard className="p-6">
@@ -467,11 +540,21 @@ export default function BillingDashboardClient({
                 </div>
               </div>
             </div>
-            <form action="/api/billing/portal" method="post">
-              <button className="rounded-2xl border border-[var(--bd-15)] px-5 py-2.5 text-sm hover:bg-white/5 transition">
-                Update payment method →
+            {billingState?.stripe_customer_id ? (
+              <form action="/api/billing/portal" method="post">
+                <button className="rounded-2xl border border-[var(--bd-15)] px-5 py-2.5 text-sm hover:bg-white/5 transition">
+                  Update payment method →
+                </button>
+              </form>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setActiveTab('plans')}
+                className="rounded-2xl border border-[var(--bd-15)] px-5 py-2.5 text-sm hover:bg-white/5 transition"
+              >
+                Choose a paid plan
               </button>
-            </form>
+            )}
           </div>
         </GlassCard>
       </div>
@@ -748,6 +831,30 @@ export default function BillingDashboardClient({
                     >
                       Contact sales
                     </a>
+                  ) : plan.id === 'free' ? (
+                    promotion && !billingState?.stripe_subscription_id ? (
+                      <button
+                        type="button"
+                        disabled
+                        className="w-full rounded-2xl border border-[var(--bd-15)] py-3 text-sm text-[var(--fg-muted)] opacity-70"
+                      >
+                        Automatic fallback
+                      </button>
+                    ) : billingState?.stripe_subscription_id ? (
+                      <form action="/api/billing/portal" method="post">
+                        <button className="w-full rounded-2xl border border-[var(--bd-15)] py-3 text-sm hover:bg-white/5 transition">
+                          Manage downgrade in Stripe
+                        </button>
+                      </form>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        className="w-full rounded-2xl border border-[var(--bd-15)] py-3 text-sm text-[var(--fg-muted)] opacity-70"
+                      >
+                        No subscription to cancel
+                      </button>
+                    )
                   ) : (
                     <button
                       onClick={() => startEmbeddedCheckout(plan.id)}

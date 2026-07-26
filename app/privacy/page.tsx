@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   },
 }
 
-const LAST_UPDATED = 'July 13, 2026'
+const LAST_UPDATED = 'July 25, 2026'
 
 const sections: { heading: string; body: string[] }[] = [
   {
@@ -31,6 +31,7 @@ const sections: { heading: string; body: string[] }[] = [
     heading: '2. Information You Provide',
     body: [
       'Account details: your name, company/business name, industry, and email when you sign up (including via Sign in with Apple or Google, which share your email and basic profile). Business content: the offers, descriptions, FAQs, and other information you publish. Configuration: custom domains, integration settings, and API key names.',
+      'Launch pass invitations: when a business invites another business, we process the recipient business email, sender business name, delivery and claim status, and campaign eligibility records. Invitation tokens are stored as one-way hashes. To prevent duplicate promotional claims, we record verified business identity signals such as a verified website or custom domain, connected Shopify store, or charges-enabled Stripe account.',
       'Connected stores: when you install the Nexez Shopify app, we process your shop domain, installation status, encrypted access credentials, and the active product catalog you choose to publish through your Nexez listing. Catalog data can include product names, descriptions, variants, prices, availability, inventory signals, currency, and storefront URLs. Nexez requests read-only product access and does not request Shopify customer or order data.',
       'Buyer activity (Nexxi app): the messages you send your buyer agent, your standing preferences (budget, interests, timing, location), and the buyer details you approve for a purchase or negotiation (such as your email and order references).',
     ],
@@ -53,7 +54,7 @@ const sections: { heading: string; body: string[] }[] = [
   {
     heading: '5. How We Use Information',
     body: [
-      'To operate and improve the Service; to run your buyer agent and generate recommendations; to send notifications about your orders (when enabled); to generate agent-readable artifacts and analytics; to provide support; to detect and prevent abuse; and to communicate with you about your account.',
+      'To operate and improve the Service; to run your buyer agent and generate recommendations; to send notifications about your orders (when enabled); to generate agent-readable artifacts and analytics; to administer plans, promotional access, and business invitations; to provide support; to detect and prevent abuse; and to communicate with you about your account.',
     ],
   },
   {
@@ -77,7 +78,7 @@ const sections: { heading: string; body: string[] }[] = [
   {
     heading: '9. Data Retention & Deletion',
     body: [
-      'We retain account and content data for as long as your account is active. You can delete listings at any time. Uninstalling the Nexez Shopify app revokes its stored credentials, disconnects the shop, and removes that shop’s imported offers from the linked listing. Shopify’s final shop-redaction request deletes the remaining installation record. You can permanently delete your account in the Nexxi app (Profile → Delete account) or via the dashboard - this removes your account, agent data, preferences, and any listings you own, and anonymizes your buyer details on past transaction records, except where retention is required by law.',
+      'We retain account and content data for as long as your account is active. You can delete listings at any time. Uninstalling the Nexez Shopify app revokes its stored credentials, disconnects the shop, and removes that shop’s imported offers from the linked listing. Shopify’s final shop-redaction request deletes the remaining installation record. Promotional grant, invitation, and verified-business claim records are retained while needed to administer the campaign and prevent duplicate claims. You can permanently delete your account in the Nexxi app (Profile → Delete account) or via the dashboard - this removes your account, agent data, preferences, invitations, and any listings you own, and anonymizes your buyer details on past transaction records, except where retention is required by law.',
     ],
   },
   {

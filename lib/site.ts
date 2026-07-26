@@ -60,7 +60,7 @@ const MARKETING_PREFIXES = [
 // visitor on the app host for these, and PlatformFrame picks the matching shell.
 const DUAL_PREFIXES = ['/discovery', '/leaderboard', '/simulator', '/support'] as const
 
-const APP_PREFIXES = ['/dashboard', '/create', '/login', '/auth', '/onboard', '/nexie', '/team', '/shopify'] as const
+const APP_PREFIXES = ['/dashboard', '/create', '/login', '/auth', '/onboard', '/invite', '/nexie', '/team', '/shopify'] as const
 
 const MARKETING_API_PREFIXES = [
   '/api/directory',
@@ -83,6 +83,7 @@ const APP_API_PREFIXES = [
   '/api/custom-domain',
   '/api/dashboard',
   '/api/integrations',
+  '/api/growth-invites',
   // Owner-only negotiation actions are called from the dashboard (app host) where
   // the session cookie lives - NOT by agents. They must resolve to APP_HOST even
   // though they sit under /api/negotiations (an agent-runtime prefix); listed here

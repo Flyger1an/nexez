@@ -41,6 +41,17 @@ function mockAdmin(rows: Row[], plan: { plan_id: string; status: string } | null
           },
         }
       }
+      if (table === 'promotional_plan_grants') {
+        const chain: any = {
+          eq: () => chain,
+          lte: () => chain,
+          gt: () => chain,
+          order: () => chain,
+          limit: () => chain,
+          maybeSingle: async () => ({ data: null, error: null }),
+        }
+        return { select: () => chain }
+      }
       return {
         select() {
           return {

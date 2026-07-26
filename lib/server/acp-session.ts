@@ -45,8 +45,8 @@ export async function loadAcpPageName(slug: string): Promise<string | null> {
   return data?.name ?? null
 }
 
-/** True when the merchant is paused (expired no-card trial) and offline. Fails open
- * (not paused) without service-role env, matching the direct-checkout gate. */
+/** Compatibility hook for an explicit operational suspension. Billing and
+ * promotional expiry return a merchant to Free instead of taking them offline. */
 export async function isMerchantPaused(ownerId: string | null | undefined): Promise<boolean> {
   if (!ownerId || !hasSupabaseAdminEnv()) return false
   const billing = await getOwnerBillingState(createAdminClient(), ownerId)

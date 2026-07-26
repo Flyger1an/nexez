@@ -86,6 +86,8 @@ describe('canonicalHostFor', () => {
     expect(canonicalHostFor('/api/billing')).toBe(APP_HOST)
     expect(canonicalHostFor('/shopify')).toBe(APP_HOST)
     expect(canonicalHostFor('/api/shopify/session')).toBe(APP_HOST)
+    expect(canonicalHostFor('/invite/claim')).toBe(APP_HOST)
+    expect(canonicalHostFor('/api/growth-invites/claim')).toBe(APP_HOST)
 
     expect(canonicalHostFor('/some-slug')).toBe(AGENT_RUNTIME_HOST)
     expect(canonicalHostFor('/agent-pages.json')).toBe(AGENT_RUNTIME_HOST)
@@ -170,6 +172,7 @@ describe('isAppPath', () => {
     expect(isAppPath('/dashboard/settings')).toBe(true)
     expect(isAppPath('/create')).toBe(true)
     expect(isAppPath('/shopify')).toBe(true)
+    expect(isAppPath('/invite/claim')).toBe(true)
     expect(isAppPath('/some-slug')).toBe(false)
   })
 })

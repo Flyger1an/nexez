@@ -4,7 +4,7 @@ import { agentRuntimeUrl, appUrl, marketingUrl } from './site'
 // Stable content date for the homepage structured data (a per-render timestamp
 // would falsely signal "always fresh" to crawlers). Update when the advertised
 // platform content meaningfully changes.
-const PLATFORM_CONTENT_DATE = '2026-07-13'
+const PLATFORM_CONTENT_DATE = '2026-07-25'
 
 // Display prices in the billing catalog are strings like '$19'.
 function planPriceNumber(price: string): number {
@@ -57,18 +57,18 @@ export function buildPlatformAgentManifest() {
 /** The plans AggregateOffer, shared by the homepage graph and /pricing's own JSON-LD
  *  so the advertised price range is derived from the billing catalog in exactly one place. */
 export function buildPlansAggregateOffer() {
-  // Self-serve paid tiers only: Free is retired and Enterprise is custom-priced,
-  // so the advertised price range is launch → scale (matches /pricing).
-  const paidPlans = billingPlans.filter((plan) => plan.id !== 'free' && plan.id !== 'enterprise')
-  const prices = paidPlans.map((plan) => planPriceNumber(plan.price))
+  // Enterprise is custom-priced. Free through Scale are concrete, selectable
+  // tiers and must all be represented in the same machine-readable offer.
+  const selectablePlans = billingPlans.filter((plan) => plan.id !== 'enterprise')
+  const prices = selectablePlans.map((plan) => planPriceNumber(plan.price))
   return {
     '@type': 'AggregateOffer',
     name: 'Nexez plans',
-    description: 'Paid plans for agent-ready business storefronts, each starting with a 7-day free trial.',
+    description: 'Free and paid plans for agent-ready business storefronts. Paid plans include a 7-day no-card trial.',
     lowPrice: Math.min(...prices),
     highPrice: Math.max(...prices),
     priceCurrency: 'USD',
-    offerCount: paidPlans.length,
+    offerCount: selectablePlans.length,
     availability: 'https://schema.org/InStock',
     url: marketingUrl('/pricing'),
     potentialAction: {

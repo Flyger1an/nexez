@@ -59,6 +59,8 @@ vi.mock('../../../utils/supabase/admin', () => {
       },
       order: () => builder,
       limit: () => builder,
+      lte: () => builder,
+      gt: () => builder,
       returns: () =>
         Promise.resolve({
           data: state.isOwnedQuery ? adminRef.ownedPages : adminRef.domainPages,
@@ -66,7 +68,12 @@ vi.mock('../../../utils/supabase/admin', () => {
         }),
       maybeSingle: () =>
         Promise.resolve({
-          data: table === 'platform_admins' ? adminRef.platformAdmin : adminRef.subscription,
+          data:
+            table === 'platform_admins'
+              ? adminRef.platformAdmin
+              : table === 'promotional_plan_grants'
+                ? null
+                : adminRef.subscription,
           error: null,
         }),
     }

@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   },
 }
 
-const LAST_UPDATED = 'July 13, 2026'
+const LAST_UPDATED = 'July 25, 2026'
 
 const sections: { heading: string; body: string[] }[] = [
   {
@@ -56,6 +56,7 @@ const sections: { heading: string; body: string[] }[] = [
     heading: '6. Payments & Agent Transactions',
     body: [
       'Certain features rely on third-party providers, including Shopify, Stripe, and Calendly. Your use of those features is also subject to their terms. Shopify-origin product purchases remain on the merchant’s Shopify storefront and use Shopify checkout. Where Nexez facilitates agent-driven checkout or negotiation outside that flow, you remain the merchant of record for transactions with your buyers unless stated otherwise.',
+      'Free and paid plans have different listing, feature, and transaction-fee limits. Paid subscriptions renew until canceled through the billing portal. Promotional Launch access is time-limited, requires a verified business, is limited to one claim per eligible business and campaign, and may not be sold or transferred. Launch pass invitations are bound to the recipient email and create a separate business account, not workspace access. Promotional access does not create an automatic charge; when it ends, the account returns to the then-current Free plan unless a paid plan is chosen. We may reject or revoke fraudulent, duplicate, or abusive claims.',
     ],
   },
   {

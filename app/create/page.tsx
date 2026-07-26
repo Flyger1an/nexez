@@ -808,13 +808,13 @@ export default function CreatePage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div className="card w-full max-w-md !p-7 text-center">
             <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--signal)] to-[var(--ready)] text-lg font-bold text-[#0A0A0F]">N</div>
-            <h2 className="mt-4 text-2xl font-semibold">Start your free trial to publish</h2>
+            <h2 className="mt-4 text-2xl font-semibold">Create a Free account to publish</h2>
             <p className="mt-2 text-sm leading-6 text-zinc-400">
-              Your listing is saved. Start a 7-day free trial (no card) to publish it and unlock your dashboard, analytics, and custom domains. It will carry straight over to your new account.
+              Your listing is saved. Create a Free account to publish one listing and open your dashboard. Verify your business to unlock six complimentary months of Launch tools.
             </p>
             <div className="mt-6 flex flex-col gap-2">
               <a href="/onboard?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-gradient-to-r from-[var(--signal)] to-[var(--ready)] px-5 font-medium text-[#0A0A0F] hover:opacity-90">
-                Start free trial
+                Create Free account
               </a>
               <a href="/login?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-white/15 px-5 text-sm font-medium text-white hover:bg-white/5">
                 I already have an account, sign in

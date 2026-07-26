@@ -26,6 +26,8 @@ import { OnboardingChecklist } from '../../components/OnboardingChecklist'
 import { buildNotifications } from '../../lib/notifications'
 import { agentRuntimeUrl } from '../../lib/site'
 import { publishErrorMessage } from '../../lib/publish-error'
+import type { SellerGrowthState } from '../../lib/server/seller-growth'
+import { SellerGrowthInvites } from '../../components/growth/SellerGrowthInvites'
 
 export type DashboardInitial = {
   pages: AgentPage[]
@@ -40,6 +42,7 @@ export type DashboardInitial = {
   // An intake interview reached handed_off - counts toward the create step in
   // the onboarding checklist (intake spec §8).
   interviewCompleted?: boolean
+  growthState?: SellerGrowthState
 }
 
 // Overview shows a bounded recent set; full management (with pagination) lives
@@ -323,6 +326,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
           </div>
         </section>
         <OnboardingChecklist pages={pages} interviewCompleted={initial?.interviewCompleted} />
+        {initial?.growthState && <SellerGrowthInvites initialState={initial.growthState} />}
             {pages.length === 0 ? (
               <NewUserHero name={displayName} />
             ) : (

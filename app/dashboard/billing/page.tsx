@@ -4,7 +4,11 @@ import { AgentPage, OWNER_PAGE_SELECT, getOfferCount } from '../../../lib/agent-
 import { billingPlans, getPlanLimits } from '../../../lib/billing'
 import { getStripeBillingReadiness } from '../../../lib/server/billing-readiness'
 import { getOwnerBillingState } from '../../../lib/server/plan'
-import { BillingSubscription, getCommissionPercentForPlan } from '../../../lib/stripe-billing'
+import {
+  BillingSubscription,
+  getCommissionPercentForPlan,
+  LIVE_SUBSCRIPTION_STATUSES,
+} from '../../../lib/stripe-billing'
 import {
   getAgentDrivenRevenueCents,
   getAgentPageVisitCount,
@@ -62,8 +66,21 @@ export default async function BillingPage({ searchParams }: BillingProps) {
     ? Math.max(0, Math.ceil((new Date(trialState.trialEndsAt).getTime() - new Date().getTime()) / 86_400_000))
     : 0
   const trialPlanName = billingPlans.find((p) => p.id === trialState.chosenPlanId)?.name ?? 'plan'
+  const hasLiveStripeSubscription = Boolean(
+    billingState?.stripe_subscription_id
+    && LIVE_SUBSCRIPTION_STATUSES.includes(
+      billingState.status as (typeof LIVE_SUBSCRIPTION_STATUSES)[number],
+    ),
+  )
+  const effectivePromotion =
+    trialState.promotion
+    && trialState.planId === trialState.promotion.planId
+    && !hasLiveStripeSubscription
+      ? trialState.promotion
+      : null
 
-  const pageCount = pages?.length ?? 0
+  const publishedPages = (pages ?? []).filter((page) => page.is_published)
+  const pageCount = publishedPages.length
   const offerCount = pages?.reduce((sum, page) => sum + getOfferCount(page), 0) ?? 0
 
   // Real this-month engagement + platform-fee figures (replace the old placeholders).
@@ -163,24 +180,24 @@ export default async function BillingPage({ searchParams }: BillingProps) {
           </div>
         )}
 
-        {/* Trial / paused lifecycle banners (Shopify-style) */}
-        {trialState.isTrialing && (
+        {/* Trial and Free-fallback lifecycle banners */}
+        {trialState.isTrialing && !effectivePromotion && (
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--amber)]/40 bg-[var(--amber)]/10 px-4 py-3 text-sm">
             <span className="text-white">
-              <span className="font-semibold">{trialDaysLeft} day{trialDaysLeft === 1 ? '' : 's'} left</span> in your {trialPlanName} trial - add a payment method to keep your storefront live after it ends.
+              <span className="font-semibold">{trialDaysLeft} day{trialDaysLeft === 1 ? '' : 's'} left</span> in your {trialPlanName} trial. Add a payment method to keep this plan after it ends.
             </span>
             <a href={`?plan=${trialState.chosenPlanId}`} className="rounded-xl bg-[var(--amber)] px-4 py-1.5 font-medium text-zinc-950">
               Add payment method
             </a>
           </div>
         )}
-        {trialState.isPaused && (
+        {trialState.isTrialExpired && !effectivePromotion && trialState.planId === 'free' && (
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--amber)]/40 bg-[var(--amber)]/10 px-4 py-3 text-sm">
             <span className="text-white">
-              <span className="font-semibold">Your storefront is paused.</span> Your trial ended - choose a plan to bring your listings back online.
+              <span className="font-semibold">Your paid-plan trial ended.</span> Your account returned to Free and your primary listing remains live.
             </span>
             <a href={`?plan=${trialState.chosenPlanId ?? 'pro'}`} className="rounded-xl bg-[var(--amber)] px-4 py-1.5 font-medium text-zinc-950">
-              Choose a plan to go live
+              Choose a paid plan
             </a>
           </div>
         )}
@@ -200,6 +217,11 @@ export default async function BillingPage({ searchParams }: BillingProps) {
           initialPlanId={initialPlanFromQuery}
           connectSuccess={connectSuccess}
           hasEnterpriseOverride={hasEnterpriseOverride}
+          promotion={effectivePromotion}
+          fallbackPages={publishedPages.map((page) => ({
+            id: page.id,
+            name: page.name || page.slug || 'Untitled listing',
+          }))}
         />
       </div>
     </main>

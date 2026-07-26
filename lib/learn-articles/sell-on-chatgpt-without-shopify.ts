@@ -85,7 +85,7 @@ export const sellOnChatgptWithoutShopify: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'The honest tradeoffs: you are relying on a layer you do not control, and it costs money past the 7-day trial. Discovery is included on every plan; agentic checkout is a Pro feature (details on the [pricing page](/pricing)). What you get for that is hours-to-live instead of weeks, and one catalog feeding every protocol as the landscape keeps shifting.',
+      text: 'The honest tradeoffs: you are relying on a layer you do not control, and advanced capabilities require a paid plan after the trial. The Free plan includes discovery; agentic checkout is a Pro feature (details on the [pricing page](/pricing)). What you get for that is hours-to-live instead of weeks, and one catalog feeding every protocol as the landscape keeps shifting.',
     },
     {
       type: 'cta',
@@ -175,7 +175,7 @@ export const sellOnChatgptWithoutShopify: LearnArticle = {
     {
       type: 'cta',
       title: 'Make your offers agent-ready in an afternoon',
-      text: 'Nexez turns what you already sell into listings agents can read and transact: JSON-LD, agent.json, llms.txt, ACP and UCP feeds, an MCP server, and Stripe checkout with you as merchant of record. 7-day free trial, no card required.',
+      text: 'Nexez turns what you already sell into listings agents can read and transact: JSON-LD, agent.json, llms.txt, ACP and UCP feeds, an MCP server, and Stripe checkout with you as merchant of record. Start on Free with no card; paid plans include a 7-day trial.',
       href: '/how-it-works',
       label: 'See how it works',
     },

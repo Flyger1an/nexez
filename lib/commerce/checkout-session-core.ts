@@ -378,12 +378,12 @@ export type DelegatedPayment = {
 
 /** Everything the settlement layer needs beyond the resolved session. These are
  * resolved from the database by the bridge (owner plan → commission percent,
- * Connect account, pause state) - deliberately NOT the pure core's concern, so a
+ * Connect account, suspension state) - deliberately NOT the pure core's concern, so a
  * protocol adapter never re-derives money/eligibility logic.
  *
  * INVARIANT: obtain this ONLY from `resolveSettlementContext` (settlement-bridge).
- * That resolver is where the paused-seller and charges_enabled gates live - a
- * hand-constructed context skips them and can charge a paused seller. Never build one
+ * That resolver is where the suspension and charges_enabled gates live - a
+ * hand-constructed context skips them and can charge an ineligible seller. Never build one
  * directly for a live charge. */
 export type SettlementContext = {
   pageId: string

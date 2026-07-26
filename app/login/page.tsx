@@ -36,9 +36,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     if (user) redirect(safeNextPath(nextPath))
   }
 
-  // Every NEW signup goes through onboarding (plan choice → no-card trial), so the retired
-  // Free tier is never silently passed to a new account. A direct /login?mode=signup link
-  // (or LoginForm's "Create an account") lands on /onboard, carrying any `next`.
+  // Every new signup goes through onboarding so Free or a paid trial is an explicit
+  // choice. A direct /login?mode=signup link (or LoginForm's "Create an account")
+  // lands on /onboard, carrying any `next`.
   if (initialMode === 'signup') {
     const safe = safeNextPath(nextPath, '')
     redirect(safe ? `/onboard?next=${encodeURIComponent(safe)}` : '/onboard')

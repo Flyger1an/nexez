@@ -553,6 +553,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
 export const pricingFaqs = [
   { question: 'Do I pay if no one books?', answer: 'No. Only transaction fees on successful agent bookings/payments.' },
   { question: 'Can I change plans later?', answer: 'Yes, upgrade or downgrade from your Billing page. Prorated billing.' },
+  { question: 'How does complimentary Launch access work?', answer: 'Start on Free, then verify and publish your business. Eligible businesses receive six months of Launch access with no card and no automatic charge. Afterward, the account returns to Free unless upgraded.' },
   { question: 'What if I need custom pricing?', answer: 'Enterprise plans are fully customizable. Reach out via support.' },
 ] as const
 

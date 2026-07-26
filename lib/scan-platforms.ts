@@ -34,7 +34,7 @@ export const scanPlatforms: ScanPlatform[] = [
       'WordPress is the easiest platform to fix: plugins can inject head markup AND handle URL routing server-side, so both structured data and artifact paths are automatable.',
     fixSteps: [
       'Run the free scan below to see exactly which checks your site passes and fails today.',
-      'Create your structured listing on Nexez (a 7-day free trial, no card) — it becomes the single source of truth for your offers.',
+      'Create your structured listing on the Nexez Free plan, with no card required. It becomes the single source of truth for your offers.',
       'Install the Nexez Agent-Ready plugin, paste your listing slug, and it injects your live JSON-LD into every page head and 301-redirects the artifact paths (/.well-known/agent.json, /llms.txt, /openapi.json) to your always-current listing.',
       'Verify your domain from Nexez Settings (the plugin serves the file-method proof — no DNS edits needed).',
       'Re-run the scan to confirm the score.',

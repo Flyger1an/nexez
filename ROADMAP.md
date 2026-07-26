@@ -50,6 +50,7 @@ The core platform is built and its live commercial lifecycles are certified. Pub
 - Persistent negotiation threads, deterministic rules, LLM-assisted decisions clamped by owner rules, status polling, owner override, and asynchronous worker recovery.
 - Escrow/manual capture lifecycle, hourly reconciliation, direct order ledger, buyer order portal, receipts, recourse requests, disputes, partial/full refunds, and fee reversal.
 - Subscription billing, embedded payment, plan changes, portal access, billing history, usage, Connect status, Finance dashboard, and multi-currency seller reporting.
+- Durable Free fallback, verified-business complimentary six-month Launch grants, two email-bound business passes, bounded referral delivery, expiry notices, and preserved draft/listing state.
 - Short-lived payload-bound approval tokens plus idempotency keys across checkout, negotiation, web clients, SDKs, and agent clients. Mandatory production enforcement is live.
 
 ### Integrations and automation
@@ -95,6 +96,7 @@ Ranked by launch leverage.
 3. **Integration proof.** Keep the certified Stripe price-sync replay monitored in Launch Control, add timezone-aware Calendly business hours, and monitor Shopify queue health through Launch Control.
 4. **Mobile distribution.** Complete store builds, physical-device push checks, release review, deep-link validation, and parity checks for the seller mobile app.
 5. **Notification control.** Add seller preferences for transaction, negotiation, integration, review, and marketing notifications without weakening mandatory money-state notices.
+6. **Free activation loop monitoring.** After rollout, monitor qualification, abuse rejection, invitation delivery, activation, paid conversion, expiry notices, and Free fallback outcomes before expanding the campaign cap.
 
 ### P2 - Post-launch expansion
 
