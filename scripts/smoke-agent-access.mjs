@@ -112,10 +112,23 @@ await check('seeded negotiation page exposes safe public manifest', async () => 
   assert(!('minPrice' in offer), 'private minPrice leaked into agent.json')
 })
 
-await check('agent search finds seeded negotiation page', async () => {
-  const json = await fetchJson(`${AGENT_BASE}/api/agent-search?q=agent%20negotiation%20sprint%20remote&limit=5`)
-  const hit = json.results?.find((result) => result.page?.slug === TEST_SLUG)
-  assert(Boolean(hit), `search did not return ${TEST_SLUG}`)
+await check('agent search serves structured discovery results', async () => {
+  // Structural check against real published inventory. The seeded fixture is
+  // deliberately NOT findable here: lib/public-page-visibility.ts blocklists
+  // internal QA seeds from every discovery surface while keeping their direct
+  // URLs (agent.json, negotiation API) fully functional.
+  const json = await fetchJson(`${AGENT_BASE}/api/agent-search?q=book%20a%20service&limit=5`)
+  assertEqual(json.schema_version, 'nexez.agent-search.v1', 'search schema version')
+  assert(Array.isArray(json.results) && json.results.length > 0, 'search returned no results')
+  const first = json.results[0]
+  assert(Boolean(first?.page?.slug), 'first search result is missing page.slug')
+  assert(Boolean(first?.offer?.key), 'first search result is missing offer.key')
+})
+
+await check('internal QA fixtures stay hidden from discovery', async () => {
+  const json = await fetchJson(`${AGENT_BASE}/api/agent-search?q=agent%20negotiation%20sprint%20remote&limit=50`)
+  const leaked = json.results?.find((result) => result.page?.slug === TEST_SLUG)
+  assert(!leaked, `internal seed ${TEST_SLUG} leaked into public search results`)
 })
 
 await check('negotiation dry-run auto-accepts seeded valid proposal', async () => {
