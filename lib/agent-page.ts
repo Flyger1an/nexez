@@ -35,6 +35,12 @@ const PUBLIC_PAGE_COLUMNS = [
   'llm_opt_in',
   'currency',
   'preferred_contact',
+  // Schema contract: this column exists on BOTH pages and pages_public
+  // (migration 20260805225300). On the base pages table it is an inert
+  // default-true placeholder so owner selects don't 42703; the authoritative
+  // value lives on pages_public, derived from marketplace_curations by
+  // trg_derive_marketplace_discoverable / trg_sync_marketplace_discoverable.
+  // Never read it from pages for visibility decisions.
   'marketplace_discoverable',
 ]
 
