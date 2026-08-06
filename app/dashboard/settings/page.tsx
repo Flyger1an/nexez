@@ -9,7 +9,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { cookies } from 'next/headers'
-import { AgentPage, OWNER_PAGE_SELECT, getBaseUrl, getOfferCount, getReadinessScore } from '../../../lib/agent-page'
+import { AgentPage, BASIC_OWNER_PAGE_SELECT, OWNER_PAGE_SELECT, getBaseUrl, getOfferCount, getReadinessScore } from '../../../lib/agent-page'
 import { createClient } from '../../../utils/supabase/server'
 import { ProfileSettings } from '../../../components/ProfileSettings'
 import { AccountDataControls } from '../../../components/AccountDataControls'
@@ -45,12 +45,25 @@ export default async function AccountSettingsPage() {
 
   const currentPlan = await getOwnerPlanId(supabase, user.id)
 
-  const { data: pages } = await supabase
+  const pageRes = await supabase
     .from('pages')
     .select(OWNER_PAGE_SELECT)
     .eq('owner_id', user.id)
     .order('created_at', { ascending: false })
     .returns<AgentPage[]>()
+
+  // Degrade gracefully (like dashboard + listings) instead of rendering an empty
+  // settings page when the rich select fails — e.g. schema drift on one column.
+  let pages = pageRes.error ? null : pageRes.data
+  if (pageRes.error) {
+    const basic = await supabase
+      .from('pages')
+      .select(BASIC_OWNER_PAGE_SELECT)
+      .eq('owner_id', user.id)
+      .order('created_at', { ascending: false })
+      .returns<AgentPage[]>()
+    pages = basic.data
+  }
 
   // The owner's storefronts (Phase 4: an account owns 1..N) + each one's published-listing
   // count, oldest first. Powers the multi-storefront StorefrontSettings editor + picker.
