@@ -6,12 +6,24 @@ const typescriptPackage = readJson('sdk/typescript/package.json')
 const typescriptLock = readJson('sdk/typescript/package-lock.json')
 const pythonSource = readFileSync('sdk/python/src/nexez_agent_sdk/__init__.py', 'utf8')
 const pythonVersion = pythonSource.match(/^__version__\s*=\s*["']([^"']+)["']/m)?.[1]
+// The advertised versions every public surface (llms.txt, /.well-known/*,
+// openapi.json, agent-pages.json) serves come from lib/agent-distribution.ts.
+// Check them here too so they can't drift from the shipped SDKs.
+const distributionSource = readFileSync('lib/agent-distribution.ts', 'utf8')
+const distributionTypescriptVersion = distributionSource.match(
+  /NEXEZ_TYPESCRIPT_SDK\s*=\s*\{[\s\S]*?version:\s*'([^']+)'/,
+)?.[1]
+const distributionPythonVersion = distributionSource.match(
+  /NEXEZ_PYTHON_SDK\s*=\s*\{[\s\S]*?version:\s*'([^']+)'/,
+)?.[1]
 
 const versions = {
   'TypeScript package': typescriptPackage.version,
   'TypeScript lockfile': typescriptLock.version,
   'TypeScript lockfile root': typescriptLock.packages?.['']?.version,
   'Python package': pythonVersion,
+  'agent-distribution.ts TypeScript': distributionTypescriptVersion,
+  'agent-distribution.ts Python': distributionPythonVersion,
 }
 
 const invalid = Object.entries(versions).filter(

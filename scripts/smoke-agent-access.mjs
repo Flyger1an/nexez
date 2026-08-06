@@ -1,12 +1,32 @@
 #!/usr/bin/env node
 
+import { readFileSync } from 'node:fs'
+
 const MARKETING_BASE = trimBase(process.env.NEXEZ_MARKETING_BASE || 'https://nexez.ai')
 const AGENT_BASE = trimBase(process.env.NEXEZ_AGENT_BASE || 'https://nexez.app')
 const TEST_SLUG = process.env.NEXEZ_AGENT_SMOKE_SLUG || 'nexez-agent-negotiation-lab'
 const TEST_OFFER = process.env.NEXEZ_AGENT_SMOKE_OFFER || 'services-0'
 const TIMEOUT_MS = Number(process.env.NEXEZ_AGENT_SMOKE_TIMEOUT_MS || 15_000)
-const EXPECTED_TYPESCRIPT_SDK_VERSION = process.env.NEXEZ_EXPECTED_TYPESCRIPT_SDK_VERSION || '0.1.0'
-const EXPECTED_PYTHON_SDK_VERSION = process.env.NEXEZ_EXPECTED_PYTHON_SDK_VERSION || '0.1.0'
+// Default expected SDK versions to what THIS checkout ships (the same sources
+// scripts/check-agent-sdk-versions.mjs verifies), not a hardcoded literal.
+// The 0.1.0 -> 0.3.0 release silently broke every version assertion in this
+// smoke for weeks because the old hardcoded defaults were never bumped. Env
+// vars still override for pinning a specific release.
+const EXPECTED_TYPESCRIPT_SDK_VERSION =
+  process.env.NEXEZ_EXPECTED_TYPESCRIPT_SDK_VERSION || repoTypescriptSdkVersion()
+const EXPECTED_PYTHON_SDK_VERSION =
+  process.env.NEXEZ_EXPECTED_PYTHON_SDK_VERSION || repoPythonSdkVersion()
+
+function repoTypescriptSdkVersion() {
+  return JSON.parse(readFileSync('sdk/typescript/package.json', 'utf8')).version
+}
+
+function repoPythonSdkVersion() {
+  const source = readFileSync('sdk/python/src/nexez_agent_sdk/__init__.py', 'utf8')
+  const version = source.match(/^__version__\s*=\s*["']([^"']+)["']/m)?.[1]
+  if (!version) throw new Error('Could not read __version__ from sdk/python/src/nexez_agent_sdk/__init__.py')
+  return version
+}
 
 const checks = []
 

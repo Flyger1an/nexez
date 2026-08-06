@@ -54,10 +54,12 @@ describe('POST /api/growth-invites', () => {
   })
 
   it('stores only the token hash and returns the one-time raw claim URL to its owner', async () => {
-    let insertPayload: Record<string, unknown> | null = null
+    // Captured via object property (not a `let` reassigned in a closure) so TS
+    // control-flow analysis doesn't narrow the read at the assertion site to null.
+    const captured: { insert?: Record<string, unknown> } = {}
     refs.createAdminClient.mockReturnValue(createSupabaseMock((ctx: QueryContext) => {
       if (ctx.table === 'seller_growth_invites' && ctx.op === 'insert') {
-        insertPayload = ctx.payload
+        captured.insert = ctx.payload
         return {
           data: {
             id: 'invite-1',
@@ -88,7 +90,7 @@ describe('POST /api/growth-invites', () => {
       emailed: false,
       invite: { email: 'new@example.com', status: 'pending' },
     })
-    expect(insertPayload).toMatchObject({
+    expect(captured.insert).toMatchObject({
       campaign_id: 'campaign-1',
       inviter_owner_id: 'owner-1',
       inviter_business_name: 'Acme Studio',
@@ -97,7 +99,7 @@ describe('POST /api/growth-invites', () => {
     })
     const rawToken = new URL(body.claimUrl).pathname.split('/').pop() || ''
     expect(rawToken).toMatch(/^[A-Za-z0-9_-]{40,64}$/)
-    expect(insertPayload?.token_hash).toBe(hashSellerGrowthInviteToken(rawToken))
-    expect(JSON.stringify(insertPayload)).not.toContain(rawToken)
+    expect(captured.insert?.token_hash).toBe(hashSellerGrowthInviteToken(rawToken))
+    expect(JSON.stringify(captured.insert)).not.toContain(rawToken)
   })
 })
