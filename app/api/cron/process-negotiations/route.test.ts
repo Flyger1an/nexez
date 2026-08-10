@@ -18,21 +18,31 @@ import { captureError } from '../../../../lib/observability'
 
 const SECRET = 'cron-secret-xyz'
 const minsAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString()
+const daysAgo = (d: number) => new Date(Date.now() - d * 24 * 60 * 60_000).toISOString()
 const get = (auth?: string) =>
   new Request('https://nexez.test/api/cron/process-negotiations', auth ? { headers: { authorization: auth } } : undefined)
 
 /**
- * The cron issues three agent_negotiations reads: the stale-pending SCAN
+ * The cron issues three agent_negotiations reads - the stale-pending SCAN
  * (select 'id, decision_requested_at'), the backlog COUNT (head:true), and the
- * OLDEST pending lookup (select 'decision_requested_at'). Route each here.
+ * OLDEST pending lookup (select 'decision_requested_at') - plus one write: the
+ * EXPIRY SWEEP (update ... in(status).lt(updated_at).select('id')). Route each
+ * here; the sweep is distinguished by op === 'update' so it can never shadow
+ * the scan's captured context.
  */
 function adminMock(opts: {
   scanRows?: Array<{ id: string; decision_requested_at: string }>
   backlog?: number
   oldestPendingAt?: string | null
+  expiredRows?: Array<{ id: string }>
   onScan?: (ctx: QueryContext) => void
+  onSweep?: (ctx: QueryContext) => void
 }) {
   return createSupabaseMock((ctx: QueryContext) => {
+    if (ctx.op === 'update') {
+      opts.onSweep?.(ctx)
+      return { data: opts.expiredRows ?? [], error: null }
+    }
     const sel = ctx.calls.find((c) => c[0] === 'select') as [string, string, any?] | undefined
     const proj = sel?.[1]
     const selOpts = sel?.[2]
@@ -72,7 +82,7 @@ describe('GET /api/cron/process-negotiations', () => {
     const res = await GET(get(`Bearer ${SECRET}`))
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body).toMatchObject({ ok: true, scanned: 2, processed: 2, stuck: 0, backlog: 2 })
+    expect(body).toMatchObject({ ok: true, scanned: 2, processed: 2, stuck: 0, backlog: 2, expired: 0 })
 
     expect(scan!.eqs.decision_pending).toBe(true)
     expect(scan!.calls.some(([m, col]) => m === 'lt' && col === 'decision_requested_at')).toBe(true)
@@ -104,5 +114,45 @@ describe('GET /api/cron/process-negotiations', () => {
     const body = await (await GET(get(`Bearer ${SECRET}`))).json()
     expect(body.backlog).toBe(5)
     expect(captureError).not.toHaveBeenCalled()
+  })
+
+  it('expires abandoned open negotiations (in-status update, updated_at cutoff, count reported)', async () => {
+    let sweep: QueryContext | null = null
+    vi.mocked(createAdminClient).mockReturnValue(
+      adminMock({
+        scanRows: [],
+        backlog: 0,
+        oldestPendingAt: null,
+        expiredRows: [{ id: 'old-1' }, { id: 'old-2' }],
+        onSweep: (ctx) => (sweep = ctx),
+      }) as any,
+    )
+
+    const body = await (await GET(get(`Bearer ${SECRET}`))).json()
+    expect(body.expired).toBe(2)
+
+    // The sweep only touches pre-funding open states, cuts on updated_at (any
+    // activity keeps a deal alive), and releases pending/lease alongside.
+    expect(sweep!.payload).toMatchObject({ status: 'expired', decision_pending: false, decision_claimed_at: null })
+    expect(sweep!.calls.some(([m, col, v]) => m === 'in' && col === 'status' && Array.isArray(v) && v.includes('negotiation') && v.includes('agreement_proposed'))).toBe(true)
+    expect(sweep!.calls.some(([m, col]) => m === 'lt' && col === 'updated_at')).toBe(true)
+    // Never alerted for a clean sweep.
+    expect(captureError).not.toHaveBeenCalled()
+  })
+
+  it('alerts but still returns ok when the expiry sweep write fails', async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      createSupabaseMock((ctx: QueryContext) => {
+        if (ctx.op === 'update') return { data: null, error: { message: 'sweep write failed' } }
+        const sel = ctx.calls.find((c) => c[0] === 'select') as [string, string, any?] | undefined
+        if (sel?.[2]?.head) return { count: 0, error: null }
+        if (sel?.[1] === 'decision_requested_at') return { data: null, error: null }
+        return { data: [], error: null }
+      }) as any,
+    )
+    const res = await GET(get(`Bearer ${SECRET}`))
+    expect(res.status).toBe(200)
+    expect((await res.json()).expired).toBe(0)
+    expect(captureError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ dbError: 'sweep write failed' }))
   })
 })
