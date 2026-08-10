@@ -357,18 +357,18 @@ export default function BuyerApprovalPage() {
             </p>
             <div className="mt-6 grid gap-3">
               <a
-                href="https://github.com/Flyger1an/nexez/blob/main/examples/agents/typescript/buyer-approval.ts"
+                href="https://github.com/nexez-ai/nexez-agent-examples/blob/main/typescript/buyer-approval.ts"
                 className="rounded-lg border border-border bg-white/[0.03] p-4 transition hover:border-[var(--signal)]/40 hover:bg-white/[0.055]"
               >
                 <p className="text-sm font-medium">TypeScript buyer approval</p>
-                <p className="mt-1 font-mono text-[11px] text-muted-foreground">examples/agents/typescript/buyer-approval.ts</p>
+                <p className="mt-1 font-mono text-[11px] text-muted-foreground">typescript/buyer-approval.ts</p>
               </a>
               <a
-                href="https://github.com/Flyger1an/nexez/blob/main/examples/agents/python/buyer_approval.py"
+                href="https://github.com/nexez-ai/nexez-agent-examples/blob/main/python/buyer_approval.py"
                 className="rounded-lg border border-border bg-white/[0.03] p-4 transition hover:border-[var(--signal)]/40 hover:bg-white/[0.055]"
               >
                 <p className="text-sm font-medium">Python buyer approval</p>
-                <p className="mt-1 font-mono text-[11px] text-muted-foreground">examples/agents/python/buyer_approval.py</p>
+                <p className="mt-1 font-mono text-[11px] text-muted-foreground">python/buyer_approval.py</p>
               </a>
               <a
                 href={agentRuntimeUrl('/openapi.json')}
