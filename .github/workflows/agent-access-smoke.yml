@@ -21,6 +21,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          check-latest: true
           cache: npm
       - run: npm ci
       - name: Smoke public agent access
@@ -36,6 +37,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          check-latest: true
           cache: npm
           cache-dependency-path: plugins/openclaw-nexez/package-lock.json
       - run: npm ci --prefix plugins/openclaw-nexez
