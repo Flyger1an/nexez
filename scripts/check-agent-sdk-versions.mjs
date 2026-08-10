@@ -9,6 +9,8 @@ const pythonVersion = pythonSource.match(/^__version__\s*=\s*["']([^"']+)["']/m)
 // The advertised versions every public surface (llms.txt, /.well-known/*,
 // openapi.json, agent-pages.json) serves come from lib/agent-distribution.ts.
 // Check them here too so they can't drift from the shipped SDKs.
+const typescriptSource = readFileSync('sdk/typescript/src/index.ts', 'utf8')
+const typescriptSourceVersion = typescriptSource.match(/NEXEZ_SDK_VERSION = '([^']+)'/)?.[1]
 const distributionSource = readFileSync('lib/agent-distribution.ts', 'utf8')
 const distributionTypescriptVersion = distributionSource.match(
   /NEXEZ_TYPESCRIPT_SDK\s*=\s*\{[\s\S]*?version:\s*'([^']+)'/,
@@ -21,6 +23,7 @@ const versions = {
   'TypeScript package': typescriptPackage.version,
   'TypeScript lockfile': typescriptLock.version,
   'TypeScript lockfile root': typescriptLock.packages?.['']?.version,
+  'TypeScript source constant': typescriptSourceVersion,
   'Python package': pythonVersion,
   'agent-distribution.ts TypeScript': distributionTypescriptVersion,
   'agent-distribution.ts Python': distributionPythonVersion,
