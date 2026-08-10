@@ -44,7 +44,7 @@ The package exposes exactly nine tools:
 - OpenClaw compatibility: `>=2026.6.8 <2027.0.0`
 - Built and validated with OpenClaw `2026.7.1`
 - ClawHub static security scan: clean with zero findings
-- ClawHub source-linked verification: `Flyger1an/nexez` at an exact commit
+- ClawHub source-linked verification: `nexez-ai/nexez` at an exact commit
 - Published artifact: eight runtime-only files with an npm integrity digest and SHA-256 digest
 - CI validates the minimum and current supported OpenClaw versions
 - Contract gauntlet: 16 checks across all nine tools

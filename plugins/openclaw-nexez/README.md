@@ -90,7 +90,7 @@ against the local fixture server.
 ## Links
 
 - Marketplace: https://nexez.app
-- Source & issues: https://github.com/Flyger1an/nexez/tree/main/plugins/openclaw-nexez
+- Support & issues: https://nexez.ai/support
 
 ## License
 
