@@ -16,6 +16,11 @@ const STUCK_MS = 15 * 60_000
 // Aggregate backlog above this (across ALL owners, beyond this run's LIMIT) is an
 // ops signal the async engine isn't keeping up - alert proactively.
 const BACKLOG_ALERT_THRESHOLD = 25
+// Open negotiations (negotiation / agreement_proposed) untouched this long are
+// abandoned - close them as 'expired' so the seller's "open deals" view, the
+// content-replay window, and /api/negotiations/pay all reflect reality (an agent
+// must not be able to fund a weeks-old agreement whose price no longer stands).
+const EXPIRE_OPEN_AFTER_MS = 14 * 24 * 60 * 60_000
 export const maxDuration = 60
 
 /**
@@ -82,6 +87,31 @@ export async function GET(request: Request) {
     }
   }
 
+  // Expiry sweep: close abandoned open negotiations. Only rows in a pre-funding
+  // state qualify ('held' and terminal states are untouchable), and the cutoff is
+  // on updated_at so ANY activity (buyer turn, seller decision, owner edit) keeps
+  // a deal alive. Clearing decision_pending/claim releases any zombie lease with
+  // it. The status route already explains 'expired' to a returning agent, and the
+  // pay route only funds agreement_proposed - so expiry also hard-stops funding
+  // of stale agreements.
+  let expired = 0
+  const { data: expiredRows, error: expireError } = await admin
+    .from('agent_negotiations')
+    .update({
+      status: 'expired',
+      decision_pending: false,
+      decision_claimed_at: null,
+      updated_at: new Date(now).toISOString(),
+    })
+    .in('status', ['negotiation', 'agreement_proposed'])
+    .lt('updated_at', new Date(now - EXPIRE_OPEN_AFTER_MS).toISOString())
+    .select('id')
+  if (expireError) {
+    captureError(new Error('negotiation expiry sweep failed'), { dbError: expireError.message })
+  } else {
+    expired = (expiredRows ?? []).length
+  }
+
   // Aggregate health (cheap: the partial index on decision_pending). Counts the
   // WHOLE pending backlog - including rows beyond this run's LIMIT - plus the oldest
   // pending age, and alerts once per run when unhealthy. This is distinct from the
@@ -107,5 +137,5 @@ export async function GET(request: Request) {
     captureError(new Error('negotiation decision backlog'), { backlog, oldestPendingMs })
   }
 
-  return NextResponse.json({ ok: true, scanned: rows.length, processed, stuck, backlog, oldestPendingMs, ran_at: new Date(now).toISOString() })
+  return NextResponse.json({ ok: true, scanned: rows.length, processed, stuck, expired, backlog, oldestPendingMs, ran_at: new Date(now).toISOString() })
 }
