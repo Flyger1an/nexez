@@ -58,6 +58,9 @@ import { aiAgentsBookServiceBusinesses } from './learn-articles/ai-agents-book-s
 import { acpEnrollmentGuide } from './learn-articles/acp-enrollment-guide'
 import { ucpVsAcpVsMcp } from './learn-articles/ucp-vs-acp-vs-mcp'
 import { whatIsLlmsTxt } from './learn-articles/what-is-llms-txt'
+import { whatIsAgenticCommerce } from './learn-articles/what-is-agentic-commerce'
+import { generativeEngineOptimization } from './learn-articles/generative-engine-optimization'
+import { whatIsAnMcpServer } from './learn-articles/what-is-an-mcp-server'
 
 export const learnArticles: LearnArticle[] = [
   aiAgentsBookServiceBusinesses,
@@ -65,6 +68,9 @@ export const learnArticles: LearnArticle[] = [
   acpEnrollmentGuide,
   ucpVsAcpVsMcp,
   whatIsLlmsTxt,
+  whatIsAgenticCommerce,
+  generativeEngineOptimization,
+  whatIsAnMcpServer,
 ]
 
 export function getLearnArticle(slug: string): LearnArticle | undefined {
