@@ -19,6 +19,12 @@ import {
   type NegotiationRulesEvaluation,
   type NegotiationStatusResponse,
 } from './index'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
+const PACKAGE_VERSION = JSON.parse(
+  readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8'),
+).version as string
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {
@@ -76,7 +82,7 @@ describe('Nexez TypeScript SDK', () => {
       'https://agent.example/nexez/v1/api/agent-search?q=strategy+session&limit=3&location=Chicago%2C+IL&lat=41.88&lng=-87.63',
     )
     expect(calls[0].init?.method).toBe('GET')
-    expect(new Headers(calls[0].init?.headers).get('x-nexez-client')).toBe('typescript-sdk/0.3.0')
+    expect(new Headers(calls[0].init?.headers).get('x-nexez-client')).toBe(`typescript-sdk/${PACKAGE_VERSION}`)
   })
 
   it('forwards structured marketplace filters without changing their meaning', async () => {
