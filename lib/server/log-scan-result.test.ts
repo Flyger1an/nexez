@@ -73,8 +73,10 @@ describe('buildScanResultRow', () => {
     expect(row.robots).toEqual(robots)
     expect(row.has_meta_description).toBe(false)
     expect(row.llms_txt_ok).toBe(false)
-    // No request-derived identifiers may ever creep into this row.
-    expect(Object.keys(row).some((key) => /ip|user_agent|referrer|owner/i.test(key))).toBe(false)
+    // No request-derived identifiers may ever creep into this row. Boundary-anchored
+    // on underscores: a bare substring match would false-positive on the "ip" inside
+    // has_meta_description.
+    expect(Object.keys(row).some((key) => /(?:^|_)(?:ip|ua|user_agent|referrer|owner)(?:_|$)/i.test(key))).toBe(false)
   })
 
   it('is stable for dedupe: same host hashes identically regardless of case', () => {
