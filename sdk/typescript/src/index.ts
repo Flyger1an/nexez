@@ -1,5 +1,5 @@
 export const NEXEZ_DEFAULT_BASE_URL = 'https://nexez.app'
-export const NEXEZ_SDK_VERSION = '0.3.0'
+export const NEXEZ_SDK_VERSION = '0.3.1'
 export const NEXEZ_DEFAULT_TIMEOUT_MS = 15_000
 export const NEXEZ_DEFAULT_WAIT_TIMEOUT_MS = 30_000
 export const NEXEZ_DEFAULT_POLL_INTERVAL_MS = 1_000
@@ -936,7 +936,7 @@ async function fetchWithControls(
       externalAbort = () => {
         const error = getAbortReason(externalSignal)
         controller.abort(error)
-        reject(error)
+        reject(error as Error)
       }
       externalSignal.addEventListener('abort', externalAbort, { once: true })
     }
