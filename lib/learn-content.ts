@@ -61,6 +61,8 @@ import { whatIsLlmsTxt } from './learn-articles/what-is-llms-txt'
 import { whatIsAgenticCommerce } from './learn-articles/what-is-agentic-commerce'
 import { generativeEngineOptimization } from './learn-articles/generative-engine-optimization'
 import { whatIsAnMcpServer } from './learn-articles/what-is-an-mcp-server'
+import { getRecommendedByChatgpt } from './learn-articles/get-recommended-by-chatgpt'
+import { jsonLdForAiAgents } from './learn-articles/json-ld-for-ai-agents'
 
 export const learnArticles: LearnArticle[] = [
   aiAgentsBookServiceBusinesses,
@@ -71,6 +73,8 @@ export const learnArticles: LearnArticle[] = [
   whatIsAgenticCommerce,
   generativeEngineOptimization,
   whatIsAnMcpServer,
+  getRecommendedByChatgpt,
+  jsonLdForAiAgents,
 ]
 
 export function getLearnArticle(slug: string): LearnArticle | undefined {
