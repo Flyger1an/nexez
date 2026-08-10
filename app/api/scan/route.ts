@@ -3,6 +3,7 @@ import { enforceRateLimit } from '../../../lib/rate-limit'
 import { gatherSiteSignals, normalizeScanUrl } from '../../../lib/server/site-scan'
 import { AGENT_BOTS, evaluateCrawlability } from '../../../lib/crawlability'
 import { captureError, captureEvent } from '../../../lib/observability'
+import { scheduleScanResultPersist } from '../../../lib/server/log-scan-result'
 
 // One page fetch plus bounded agent-manifest, API, llms.txt, and robots probes.
 export const maxDuration = 30
@@ -44,6 +45,15 @@ export async function POST(request: Request) {
 
     const report = evaluateCrawlability(result.signals)
     captureEvent('scan.run', { host: new URL(result.origin).host, score: report.score, ms: result.elapsedMs })
+
+    // Anonymized aggregate persistence, scheduled after the response is sent so
+    // scan latency is untouched. Failures log via captureError, never surface.
+    scheduleScanResultPersist({
+      origin: result.origin,
+      elapsedMs: result.elapsedMs,
+      signals: result.signals,
+      report,
+    })
 
     return NextResponse.json(
       {
