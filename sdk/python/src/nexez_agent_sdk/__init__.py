@@ -11,7 +11,7 @@ from urllib.request import Request, urlopen
 
 NEXEZ_DEFAULT_BASE_URL = "https://nexez.app"
 NEXEZ_MAX_DECISION_WAIT_SECONDS = 300.0
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 JsonObject = Dict[str, Any]
 TransportResult = Tuple[int, Mapping[str, str], bytes]
