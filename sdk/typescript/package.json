@@ -1,6 +1,6 @@
 {
   "name": "@nexez/agent-sdk",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "TypeScript client for Nexez agent discovery, checkout validation, and negotiation handoff.",
   "license": "MIT",
   "type": "module",
@@ -30,5 +30,9 @@
   "devDependencies": {
     "typescript": "^5",
     "vitest": "^4.1.8"
+  },
+  "homepage": "https://nexez.ai/agents",
+  "bugs": {
+    "url": "https://nexez.ai/support"
   }
 }
