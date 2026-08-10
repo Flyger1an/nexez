@@ -102,9 +102,10 @@ const TERMINAL_NEGOTIATION_STATUSES = new Set(['complete', 'refunded'])
 
 export async function getLaunchControlSnapshot(): Promise<LaunchControlSnapshot> {
   const generatedAt = new Date().toISOString()
-  const [configurationInput, marketplaceCuration] = await Promise.all([
+  const [configurationInput, marketplaceCuration, stripeWebhookEndpointsEnabled] = await Promise.all([
     getConfigurationInput(),
     getMarketplaceCurationQueue(),
+    verifyStripeWebhookEndpoints(),
   ])
   const configuration = buildConfigurationChecks(configurationInput)
 
@@ -112,7 +113,7 @@ export async function getLaunchControlSnapshot(): Promise<LaunchControlSnapshot>
     ? await loadOperationalSources(generatedAt)
     : emptySources()
   const availability = sourceAvailability(sources)
-  const metrics = buildMetrics(sources, generatedAt)
+  const metrics = buildMetrics(sources, generatedAt, stripeWebhookEndpointsEnabled)
   const operations = [
     ...buildOperationalChecks(metrics, availability, generatedAt),
     buildMarketplaceCurationCheck(marketplaceCuration),
@@ -214,6 +215,43 @@ async function verifyStripeCatalog(
       verified: null,
       detail: 'Price IDs have valid format, but Stripe could not be reached for mode verification.',
     }
+  }
+}
+
+/** The path every Nexez Stripe endpoint targets (platform + Connect destinations). */
+const STRIPE_WEBHOOK_PATH = '/api/webhooks/stripe'
+
+/**
+ * Traffic-independent Stripe delivery health: ask Stripe directly whether the
+ * app's webhook endpoints are enabled. Powers the idle-aware stripe-delivery
+ * check - a quiet account with verified-enabled endpoints stays 'ready', and an
+ * endpoint Stripe reports DISABLED blocks certification even with zero traffic.
+ * Returns:
+ *   true  - at least one matching endpoint, all matching are 'enabled'
+ *   false - at least one matching endpoint is disabled
+ *   null  - unverifiable (no key, API unreachable, or no matching endpoints:
+ *           v2 event destinations may not appear in the classic list - treated
+ *           as unverifiable, never as failed)
+ */
+async function verifyStripeWebhookEndpoints(
+  secretKey = process.env.STRIPE_SECRET_KEY || '',
+): Promise<boolean | null> {
+  if (!secretKey) return null
+  try {
+    const response = await fetch('https://api.stripe.com/v1/webhook_endpoints?limit=100', {
+      headers: { Authorization: `Bearer ${secretKey}` },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5_000),
+    })
+    if (!response.ok) return null
+    const body = await response.json() as { data?: Array<{ url?: string; status?: string }> }
+    const matching = (body.data ?? []).filter(
+      (endpoint) => typeof endpoint.url === 'string' && endpoint.url.includes(STRIPE_WEBHOOK_PATH),
+    )
+    if (matching.length === 0) return null
+    return matching.every((endpoint) => endpoint.status === 'enabled')
+  } catch {
+    return null
   }
 }
 
@@ -332,7 +370,11 @@ function sourceAvailability(sources: OperationalSources): LaunchSourceAvailabili
   }
 }
 
-function buildMetrics(sources: OperationalSources, nowIso: string): LaunchMetrics {
+function buildMetrics(
+  sources: OperationalSources,
+  nowIso: string,
+  stripeWebhookEndpointsEnabled: boolean | null,
+): LaunchMetrics {
   const now = Date.parse(nowIso)
   const staleNegotiationBefore = now - 10 * 60_000
   const staleShopifyBefore = now - 15 * 60_000
@@ -350,6 +392,7 @@ function buildMetrics(sources: OperationalSources, nowIso: string): LaunchMetric
   return {
     stripeWebhookEvents: stripeWebhooks.length,
     latestStripeWebhookAt: stripeWebhooks[0]?.received_at ?? null,
+    stripeWebhookEndpointsEnabled,
     stripePriceWebhookEvents: stripeWebhooks.filter((row) => isStripeCatalogSyncEvent(row.type)).length,
     stripePriceSyncEvents: checkoutEvents.filter((row) => row.event_type === 'stripe_price_sync').length,
     checkoutStripeErrors24h: checkoutEvents.filter((row) => row.event_type === 'stripe_error').length,
