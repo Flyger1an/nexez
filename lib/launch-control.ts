@@ -47,6 +47,12 @@ export type LaunchSourceAvailability = {
 export type LaunchMetrics = {
   stripeWebhookEvents: number
   latestStripeWebhookAt: string | null
+  /** Direct Stripe-API verification of the app's webhook endpoints: true = every
+   * matching endpoint reports enabled; false = at least one reports disabled;
+   * null = could not be verified (API unreachable, no key, or destinations not
+   * visible to the classic endpoint list). This is the delivery-health signal
+   * that does not depend on organic traffic - a quiet account stays provable. */
+  stripeWebhookEndpointsEnabled: boolean | null
   stripePriceWebhookEvents: number
   stripePriceSyncEvents: number
   checkoutStripeErrors24h: number
@@ -290,15 +296,27 @@ export function buildOperationalChecks(
   nowIso: string,
 ): LaunchCheck[] {
   const webhookAgeHours = ageHours(metrics.latestStripeWebhookAt, nowIso)
+  const endpointsEnabled = metrics.stripeWebhookEndpointsEnabled
+  // Delivery health, not traffic recency. A quiet account produces zero webhooks
+  // legitimately (this failed certification for a healthy-but-idle week), so
+  // silence alone never fails the check. What DOES fail it is a verified broken
+  // pipe: Stripe reporting the app endpoint disabled. Recency still confers
+  // ready directly (organic or dashboard test events both count); an idle ledger
+  // stays ready as long as the endpoints verify enabled, and degrades to
+  // attention only when idle AND unverifiable.
   const webhookStatus: LaunchStatus = !sources.stripeWebhooks
     ? 'unknown'
-    : metrics.stripeWebhookEvents === 0 || webhookAgeHours == null
-      ? 'attention'
-      : webhookAgeHours > 24 * 7
-        ? 'blocked'
-        : webhookAgeHours > 72
-          ? 'attention'
-          : 'ready'
+    : endpointsEnabled === false
+      ? 'blocked'
+      : metrics.stripeWebhookEvents === 0 || webhookAgeHours == null
+        ? endpointsEnabled === true
+          ? 'ready'
+          : 'attention'
+        : webhookAgeHours <= 72
+          ? 'ready'
+          : endpointsEnabled === true
+            ? 'ready'
+            : 'attention'
 
   const workerStatus: LaunchStatus = !sources.negotiations
     ? 'unknown'
@@ -328,15 +346,19 @@ export function buildOperationalChecks(
     {
       id: 'stripe-delivery',
       label: 'Stripe event delivery',
-      detail: 'The idempotency ledger proves signed events are reaching and completing the webhook handler.',
+      detail: 'Delivery health is proven by the idempotency ledger when events flow, and by Stripe-verified endpoint status when the account is idle.',
       evidence: !sources.stripeWebhooks
         ? 'Stripe event ledger is unavailable.'
-        : metrics.latestStripeWebhookAt
-          ? `${metrics.stripeWebhookEvents} recorded events; latest ${relativeAge(metrics.latestStripeWebhookAt, nowIso)}.`
-          : 'No Stripe events are recorded.',
+        : endpointsEnabled === false
+          ? 'Stripe reports a webhook endpoint for this app as DISABLED.'
+          : metrics.latestStripeWebhookAt
+            ? `${metrics.stripeWebhookEvents} recorded events; latest ${relativeAge(metrics.latestStripeWebhookAt, nowIso)}${webhookAgeHours != null && webhookAgeHours > 72 ? endpointsEnabled === true ? ' (idle; endpoints verified enabled)' : ' (idle; endpoint status unverified)' : ''}.`
+            : endpointsEnabled === true
+              ? 'No events recorded yet; Stripe verifies the webhook endpoints as enabled.'
+              : 'No Stripe events are recorded and endpoint status could not be verified.',
       status: webhookStatus,
       required: true,
-      action: 'Inspect Stripe endpoint deliveries and the production webhook signing secrets.',
+      action: 'Inspect Stripe endpoint deliveries and the production webhook signing secrets, or send a dashboard test event to prove the pipe.',
     },
     {
       id: 'checkout-errors',
