@@ -36,6 +36,12 @@ import {
 // the response to finish the LLM round-trip (~p95 5.5s) before the function ends.
 export const maxDuration = 60
 
+// Retry-loop tripwire: this many fresh negotiations from one named agent on one
+// page inside the window is an integration stuck in a loop (it should be polling
+// statusUrl / paying, not re-creating). Alert ops via Sentry.
+const RETRY_LOOP_WINDOW_MS = 10 * 60_000
+const RETRY_LOOP_THRESHOLD = 3
+
 type NegotiationInput = {
   slug: string
   offer: string
@@ -236,9 +242,11 @@ export async function POST(request: Request) {
       idempotencyKeyHash: idempotency.key
         ? scopedIdempotencyHash('negotiation', `${input.slug}:${input.negotiationId || 'new'}`, idempotency.key)
         : undefined,
-      idempotencyRequestHash: idempotency.key
-        ? actionRequestHash('negotiation', input as Record<string, unknown>)
-        : undefined,
+      // Always computed (not only when an Idempotency-Key is sent): the service's
+      // content-based replay uses it to collapse retry loops from agents that
+      // rotate their key per attempt or send none at all - the key-scoped hash
+      // alone let byte-identical retries fork a new negotiation every time.
+      idempotencyRequestHash: actionRequestHash('negotiation', input as Record<string, unknown>),
     })
 
     // Phase 2 (async): produce the decision after the response is sent. The
@@ -290,6 +298,34 @@ export async function POST(request: Request) {
       } catch {
         // swallow - a push failure must not affect the negotiation flow
       }
+
+      // Retry-loop tripwire (deferred, observability-only). The content-replay
+      // collapse in negotiationService absorbs byte-identical retries; this catches
+      // NEAR-identical ones (an agent "trying something different" each attempt)
+      // and pages ops via Sentry instead of leaving it to a later debug session.
+      after(async () => {
+        try {
+          if (!admin) return
+          const windowStart = new Date(Date.now() - RETRY_LOOP_WINDOW_MS).toISOString()
+          const { count } = await admin
+            .from('agent_negotiations')
+            .select('id', { count: 'exact', head: true })
+            .eq('slug', input.slug)
+            .eq('buyer_agent', input.buyerAgent || 'Unknown Agent')
+            .gte('created_at', windowStart)
+          if ((count ?? 0) >= RETRY_LOOP_THRESHOLD) {
+            captureError(new Error('possible buyer-agent retry loop'), {
+              slug: input.slug,
+              buyerAgent: input.buyerAgent || 'Unknown Agent',
+              negotiationsInWindow: count,
+              windowMs: RETRY_LOOP_WINDOW_MS,
+              latestNegotiationId: result.negotiationId,
+            })
+          }
+        } catch {
+          // observability only - never affects the buyer response
+        }
+      })
     }
 
     const statusUrl = result.statusToken
@@ -323,7 +359,9 @@ export async function POST(request: Request) {
       stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
       publicPageUrl: `${baseUrl}/${page.slug}`,
       next: getNextStep(escrowMode),
-      message: 'Proposal received. Poll statusUrl for the seller decision.',
+      message: result.replayed
+        ? 'This proposal was already received (matched an open negotiation with identical content). Poll statusUrl for the seller decision - do not resubmit.'
+        : 'Proposal received. Poll statusUrl for the seller decision.',
       replayed: result.replayed,
       idempotencyKeyAccepted: Boolean(idempotency.key),
       ...(result.statusToken ? { statusToken: result.statusToken, statusUrl } : {}),
