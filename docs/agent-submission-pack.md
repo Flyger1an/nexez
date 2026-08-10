@@ -41,10 +41,9 @@ python -m pip install nexez-agent-sdk
 - OpenClaw skill: `nexez-agent-discovery`
 - TypeScript SDK: https://www.npmjs.com/package/@nexez/agent-sdk
 - Python SDK: https://pypi.org/project/nexez-agent-sdk/
-- Source repository: https://github.com/Flyger1an/nexez
-- Agent examples: https://github.com/Flyger1an/nexez/tree/main/examples/agents
-- Location-aware shortlist examples: `examples/agents/typescript/location-shortlist.ts` and `examples/agents/python/location_shortlist.py`
-- Buyer approval examples: `examples/agents/typescript/buyer-approval.ts` and `examples/agents/python/buyer_approval.py`
+- Agent examples repository: https://github.com/nexez-ai/nexez-agent-examples
+- Location-aware shortlist examples: `typescript/location-shortlist.ts` and `python/location_shortlist.py` in the examples repository
+- Buyer approval examples: `typescript/buyer-approval.ts` and `python/buyer_approval.py` in the examples repository
 
 ## Agent Workflow
 
