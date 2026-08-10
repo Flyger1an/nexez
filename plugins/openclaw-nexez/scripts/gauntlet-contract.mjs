@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 
+import { readFileSync } from 'node:fs'
+
 import plugin from '../dist/index.js'
+
+const PLUGIN_VERSION = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+).version
 
 const EXPECTED_TOOLS = [
   'nexez_search',
@@ -215,7 +221,7 @@ try {
     assert.equal(result.received.dryRun, true)
     assert.equal(result.received.buyerAgent, 'openclaw')
     assert.equal(lastRequest().userAgent, 'Nexez OpenClaw Contract Gauntlet/1.0')
-    assert.equal(lastRequest().nexezClient, 'openclaw-plugin/0.2.0')
+    assert.equal(lastRequest().nexezClient, `openclaw-plugin/${PLUGIN_VERSION}`)
     assert.equal(lastRequest().buyerAgent, 'openclaw')
   })
 
