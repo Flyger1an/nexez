@@ -49,6 +49,7 @@ function snapshot(overrides: Partial<LaunchControlSnapshot> = {}): LaunchControl
     metrics: {
       stripeWebhookEvents: 0,
       latestStripeWebhookAt: null,
+      stripeWebhookEndpointsEnabled: null,
       stripePriceWebhookEvents: 0,
       stripePriceSyncEvents: 0,
       checkoutStripeErrors24h: 0,
