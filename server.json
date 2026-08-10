@@ -5,10 +5,6 @@
   "description": "Search merchants, inspect structured offers, and validate checkout or negotiation before buying.",
   "version": "1.0.0",
   "websiteUrl": "https://nexez.ai/agents",
-  "repository": {
-    "url": "https://github.com/Flyger1an/nexez",
-    "source": "github"
-  },
   "remotes": [
     {
       "type": "streamable-http",
