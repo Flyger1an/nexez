@@ -155,6 +155,19 @@ export class NegotiationService {
       }
     }
 
+    // Content-based retry collapse: an agent that mints a FRESH Idempotency-Key per
+    // retry (or sends none at all) defeats the key-hash replay above and forks a
+    // duplicate negotiation per attempt (observed in production: one buyer agent,
+    // four byte-identical proposals in three minutes, four open negotiations, none
+    // funded). If an OPEN negotiation with the byte-identical request (same slug +
+    // offer + request hash) was created inside the replay window, hand back THAT
+    // negotiation - replayed, with its original status token - instead of forking,
+    // so the retrying agent recovers its credential and can resume polling / paying.
+    if (!negotiation && idempotencyRequestHash) {
+      const dup = await this.loadOpenDuplicateByRequestHash(slug, offerKey, idempotencyRequestHash);
+      if (dup) return this.proposalResult(dup, true);
+    }
+
     if (!negotiation) {
       // Fresh negotiations are created already pending (saves a round-trip).
       negotiation = await this.createNewNegotiation(
@@ -234,6 +247,9 @@ export class NegotiationService {
 
   /** A claim lease longer than the LLM ever takes (p95 ~6s, maxDuration 60s). */
   private static readonly CLAIM_LEASE_MS = 90_000;
+
+  /** Identical-content retries collapse onto the same open negotiation inside this window. */
+  private static readonly DUPLICATE_REPLAY_WINDOW_MS = 60 * 60_000;
 
   /**
    * Atomically claim a pending decision via a short LEASE. The conditional UPDATE
@@ -544,6 +560,30 @@ export class NegotiationService {
       .from('agent_negotiations')
       .select('*')
       .eq('idempotency_key_hash', idempotencyKeyHash)
+      .maybeSingle();
+    return data || null;
+  }
+
+  /**
+   * Find a recent OPEN negotiation created from a byte-identical request
+   * (slug + offer + request hash). Used to collapse agent retry loops that
+   * rotate their Idempotency-Key (or send none) - see submitProposal. Backed by
+   * the partial index idx_agent_negotiations_replay. Scoped to OPEN statuses so
+   * a buyer can legitimately re-propose after a decline / expiry, and to the
+   * replay window so a genuine identical re-order later is never swallowed.
+   */
+  private async loadOpenDuplicateByRequestHash(slug: string, offerKey: string, requestHash: string) {
+    const cutoff = new Date(Date.now() - NegotiationService.DUPLICATE_REPLAY_WINDOW_MS).toISOString();
+    const { data } = await this.db()
+      .from('agent_negotiations')
+      .select('*')
+      .eq('slug', slug)
+      .eq('offer_key', offerKey)
+      .eq('idempotency_request_hash', requestHash)
+      .in('status', ['negotiation', 'agreement_proposed'])
+      .gte('created_at', cutoff)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
     return data || null;
   }
