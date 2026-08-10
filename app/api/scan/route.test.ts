@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 let rateLimited = false
 const gatherSiteSignals = vi.fn()
+const scheduleScanResultPersist = vi.fn()
 
 vi.mock('../../../lib/rate-limit', () => ({
   enforceRateLimit: vi.fn(async () => (rateLimited ? new Response('rate', { status: 429 }) : null)),
@@ -14,6 +15,9 @@ vi.mock('../../../lib/server/site-scan', () => ({
   },
 }))
 vi.mock('../../../lib/observability', () => ({ captureEvent: vi.fn(), captureError: vi.fn() }))
+vi.mock('../../../lib/server/log-scan-result', () => ({
+  scheduleScanResultPersist: (...a: unknown[]) => scheduleScanResultPersist(...a),
+}))
 
 import { POST } from './route'
 
@@ -39,6 +43,7 @@ describe('POST /api/scan (public anonymous scanner)', () => {
     rateLimited = true
     expect((await POST(post({ url: 'x.com' }))).status).toBe(429)
     expect(gatherSiteSignals).not.toHaveBeenCalled()
+    expect(scheduleScanResultPersist).not.toHaveBeenCalled()
   })
 
   it('400 on invalid JSON', async () => {
@@ -51,6 +56,8 @@ describe('POST /api/scan (public anonymous scanner)', () => {
     const res = await POST(post({ url: 'http://169.254.169.254/' }))
     expect(res.status).toBe(400)
     expect((await res.json()).error).toMatch(/blocked/i)
+    // Failed scans must never be persisted.
+    expect(scheduleScanResultPersist).not.toHaveBeenCalled()
   })
 
   it('returns score + checks + blockedBots and NO raw page body', async () => {
@@ -103,5 +110,10 @@ describe('POST /api/scan (public anonymous scanner)', () => {
     const raw = JSON.stringify(json)
     expect(raw).not.toContain('<html')
     expect(raw).not.toContain('<body')
+    // Completed scans schedule exactly one anonymized persistence call.
+    expect(scheduleScanResultPersist).toHaveBeenCalledTimes(1)
+    expect(scheduleScanResultPersist).toHaveBeenCalledWith(
+      expect.objectContaining({ origin: 'https://acme.com', report: expect.objectContaining({ version: 2 }) }),
+    )
   })
 })
