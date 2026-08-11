@@ -225,7 +225,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     faq: [
       { title: 'Will unpublished listings be crawled?', copy: 'No. The public runtime is built around published records and explicit public artifacts.' },
       { title: 'Can users verify custom domains?', copy: 'Yes. Custom domains use verification checks before they are marked live.' },
-      { title: 'Should secret keys appear in settings text?', copy: 'No. User-facing settings should explain outcomes, not expose operational secret names.' },
+      { title: 'Where do my API keys and secrets live?', copy: 'Server-side only. Secrets never appear in public listings, client code, or crawlable artifacts.' },
     ],
     finalCtaTitle: 'Public to agents. Private where it should be.',
     finalCtaCopy: 'Nexez gives businesses a discoverable public surface without turning the dashboard into a public target.',
@@ -287,7 +287,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     ],
     faq: [
       { title: 'Do I need integrations to launch?', copy: 'No. Manual listings are enough for launch. Integrations make listings easier to keep fresh.' },
-      { title: 'Can I review imported data?', copy: 'Yes. Importers should help draft the listing, not silently publish it.' },
+      { title: 'Can I review imported data?', copy: 'Yes. Imports create a draft you review, edit, and approve. Nothing publishes without you.' },
       { title: 'Will more integrations be added?', copy: 'Yes. The roadmap favors integrations that reduce listing maintenance and improve buyer action quality.' },
     ],
     finalCtaTitle: 'Set it once, then keep the listing fresh.',
@@ -541,7 +541,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     faq: [
       { title: 'Who is Enterprise for?', copy: 'Teams managing many listings, locations, clients, merchants, or high-value workflows.' },
       { title: 'Can pricing be customized?', copy: 'Yes. Enterprise plans can include custom transaction terms, limits, onboarding, and support.' },
-      { title: 'Can Nexez support private directories?', copy: 'That is a natural enterprise direction for agencies, marketplaces, and partner networks.' },
+      { title: 'Can Nexez support private directories?', copy: 'Yes. Private directories for agencies, marketplaces, and partner networks are on the enterprise roadmap.' },
     ],
     finalCtaTitle: 'Turn many businesses into one structured agent-ready network.',
     finalCtaCopy: 'Enterprise Nexez helps teams publish, govern, and measure listings at scale.',
