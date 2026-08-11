@@ -1,0 +1,104 @@
+# ============================================================
+# sdk-publish.yml v2. Replace the previous file's contents
+# entirely at .github/workflows/sdk-publish.yml
+#
+# Changes from v1:
+#  - npm: removed --provenance (it validates a repository field
+#    that sdk/typescript/package.json does not have, and it
+#    publicly references the source repo, which is private).
+#    This was the likely npm-side failure.
+#  - npm: added an early "npm whoami" step so a bad or missing
+#    NPM_TOKEN fails loudly at the first step, not at publish.
+#  - pypi: trusted publishing kept as primary. If you did NOT
+#    register the trusted publisher on pypi.org, either do that
+#    (project nexez-agent-sdk > Publishing > add publisher:
+#    owner nexez-ai, repo nexez, workflow sdk-publish.yml,
+#    environment blank) OR use the token fallback: create a
+#    PyPI API token scoped to the project, save it as repo
+#    secret PYPI_TOKEN, and swap the publish step for the
+#    commented alternative below.
+#
+# npm token requirements: a Granular Access Token with
+# read/write on the @nexez packages, or a classic token of
+# type "Automation" (bypasses 2FA-on-publish). A "Publish"
+# classic token fails in CI if the account requires 2FA.
+# ============================================================
+
+name: SDK Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Which registries to publish to
+        type: choice
+        options:
+          - both
+          - npm
+          - pypi
+        default: both
+
+permissions: {}
+
+jobs:
+  npm:
+    if: inputs.target == 'both' || inputs.target == 'npm'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: sdk/typescript
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          check-latest: true
+          registry-url: https://registry.npmjs.org
+      - name: Verify npm auth before doing anything
+        run: npm whoami
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Install SDK dev dependencies
+        run: npm install --no-audit --no-fund
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Show version being published
+        run: node -p "require('./package.json').version"
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  pypi:
+    if: inputs.target == 'both' || inputs.target == 'pypi'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write # PyPI trusted publishing (remove if using token fallback)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade build
+          python -m build sdk/python
+      - name: Publish to PyPI (trusted publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: sdk/python/dist
+      # ---- Token fallback: if you skipped trusted publisher
+      # ---- registration, delete the step above, uncomment this
+      # ---- one, and add repo secret PYPI_TOKEN.
+      # - name: Publish to PyPI (API token)
+      #   uses: pypa/gh-action-pypi-publish@release/v1
+      #   with:
+      #     packages-dir: sdk/python/dist
+      #     password: ${{ secrets.PYPI_TOKEN }}
