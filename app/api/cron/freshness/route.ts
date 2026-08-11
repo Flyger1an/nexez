@@ -6,6 +6,8 @@ import { analyzeSite } from '../../../../lib/importer'
 import { buildStaleListingEmail, hasEmailEnv, sendEmail } from '../../../../lib/email'
 import { resolveOwnerNotifyEmail } from '../../../../lib/server/owner-email'
 import { appUrl } from '../../../../lib/site'
+import { hasInngestEnv, inngest } from '../../../../lib/inngest/client'
+import { FRESHNESS_NUDGE, buildFreshnessNudgeData } from '../../../../lib/inngest/events'
 
 // How many of the stalest pages to actually re-fetch + drift-check per run
 // (bounded to keep the cron fast and polite - no blind overwrites).
@@ -28,6 +30,11 @@ export const maxDuration = 60
  * site (stale + has website_url), AND nudges the owner of each stale listing to
  * re-interview it - a SELLER-facet email (never the buyer notifications feed),
  * cooldown-gated per page so a page is nudged at most once per window.
+ *
+ * When Inngest is configured, each due nudge is emitted as a durable
+ * FRESHNESS_NUDGE event (retried send + ledger stamp in lib/inngest/functions/
+ * freshness-nudge) instead of sending inline; the inline path remains the
+ * fallback so the job keeps working with no Inngest keys set.
  *
  * Protected: scheduled runs must send `Authorization: Bearer ${CRON_SECRET}`.
  * Local development may run without the secret; production never should.
@@ -79,6 +86,7 @@ export async function GET(request: Request) {
   // via page_freshness_nudges so each page is nudged at most once per window.
   // Best-effort - a send/ledger failure is logged, never breaks this response.
   let nudged = 0
+  let nudgesQueued = 0
   const nudgeErrors: string[] = []
   if (hasEmailEnv() && stale.length) {
     const stalePageIds = stale.map(({ page }) => page.id)
@@ -93,35 +101,59 @@ export async function GET(request: Request) {
       .filter(({ page }) => page.owner_id && staleNudgeDue(byPage.get(page.id)?.last_nudged_at))
       .slice(0, NUDGE_LIMIT)
 
-    await Promise.all(
-      due.map(async ({ page }) => {
+    // Durable path: hand each nudge to the job runner (retried send, ledger
+    // stamped there after a successful send). Falls through to the inline path
+    // only if the emit itself fails.
+    let emitted = false
+    if (hasInngestEnv() && due.length) {
+      const events = due
+        .map(({ page }) => buildFreshnessNudgeData(page, byPage.get(page.id)?.nudge_count ?? 0))
+        .filter((d): d is NonNullable<typeof d> => d !== null)
+        .map((data) => ({ name: FRESHNESS_NUDGE, data }))
+      if (events.length) {
         try {
-          const to = await resolveOwnerNotifyEmail({ contactEmail: page.contact_email, ownerId: page.owner_id })
-          if (!to) return
-          const mail = await buildStaleListingEmail({
-            businessName: page.name || page.slug,
-            listingName: page.name || page.slug,
-            freshnessLabel: freshnessLabel(page),
-            reinterviewUrl: appUrl(`/create?reinterview=${page.id}`),
-            editUrl: appUrl(`/dashboard/${page.id}`),
-          })
-          const res = await sendEmail({ to, subject: mail.subject, html: mail.html, text: mail.text })
-          if (!res.ok) {
-            nudgeErrors.push(page.slug)
-            return
-          }
-          // Stamp the cooldown clock only after a successful send.
-          const prior = byPage.get(page.id)?.nudge_count ?? 0
-          await admin.from('page_freshness_nudges').upsert(
-            { page_id: page.id, owner_id: page.owner_id, last_nudged_at: new Date().toISOString(), nudge_count: prior + 1 },
-            { onConflict: 'page_id' },
-          )
-          nudged += 1
-        } catch {
-          nudgeErrors.push(page.slug)
+          await inngest.send(events)
+          nudgesQueued = events.length
+          emitted = true
+        } catch (e) {
+          console.warn('[Freshness] Inngest emit failed - falling back to inline nudges:', e)
         }
-      }),
-    )
+      } else {
+        emitted = true
+      }
+    }
+
+    if (!emitted) {
+      await Promise.all(
+        due.map(async ({ page }) => {
+          try {
+            const to = await resolveOwnerNotifyEmail({ contactEmail: page.contact_email, ownerId: page.owner_id })
+            if (!to) return
+            const mail = await buildStaleListingEmail({
+              businessName: page.name || page.slug,
+              listingName: page.name || page.slug,
+              freshnessLabel: freshnessLabel(page),
+              reinterviewUrl: appUrl(`/create?reinterview=${page.id}`),
+              editUrl: appUrl(`/dashboard/${page.id}`),
+            })
+            const res = await sendEmail({ to, subject: mail.subject, html: mail.html, text: mail.text })
+            if (!res.ok) {
+              nudgeErrors.push(page.slug)
+              return
+            }
+            // Stamp the cooldown clock only after a successful send.
+            const prior = byPage.get(page.id)?.nudge_count ?? 0
+            await admin.from('page_freshness_nudges').upsert(
+              { page_id: page.id, owner_id: page.owner_id, last_nudged_at: new Date().toISOString(), nudge_count: prior + 1 },
+              { onConflict: 'page_id' },
+            )
+            nudged += 1
+          } catch {
+            nudgeErrors.push(page.slug)
+          }
+        }),
+      )
+    }
   }
 
   return NextResponse.json({
@@ -133,6 +165,7 @@ export async function GET(request: Request) {
     drift_checked: driftChecks.length,
     drift: driftChecks,
     nudged,
+    nudges_queued: nudgesQueued,
     ...(nudgeErrors.length ? { nudge_errors: nudgeErrors } : {}),
     ran_at: new Date().toISOString(),
   })
