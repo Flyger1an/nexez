@@ -53,6 +53,7 @@ export type LearnArticle = {
 }
 
 // Registry: hub + [slug] routes + sitemap all read this one list.
+import { agentReadinessStudy2026 } from './learn-articles/agent-readiness-study-2026'
 import { sellOnChatgptWithoutShopify } from './learn-articles/sell-on-chatgpt-without-shopify'
 import { aiAgentsBookServiceBusinesses } from './learn-articles/ai-agents-book-service-businesses'
 import { acpEnrollmentGuide } from './learn-articles/acp-enrollment-guide'
@@ -65,6 +66,7 @@ import { getRecommendedByChatgpt } from './learn-articles/get-recommended-by-cha
 import { jsonLdForAiAgents } from './learn-articles/json-ld-for-ai-agents'
 
 export const learnArticles: LearnArticle[] = [
+  agentReadinessStudy2026,
   aiAgentsBookServiceBusinesses,
   sellOnChatgptWithoutShopify,
   acpEnrollmentGuide,
