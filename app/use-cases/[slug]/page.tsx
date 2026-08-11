@@ -39,15 +39,27 @@ export default async function UseCaseDetailPage({ params }: UseCaseProps) {
   const useCase = getUseCase(slug)
   if (!useCase) notFound()
 
-  // Service schema from the same content the page renders — never invented copy.
+  // Service + FAQPage schema from the same content the page renders — never invented copy.
   const structuredData = {
     '@context': 'https://schema.org',
-    '@type': 'Service',
-    name: `Agent-ready listings for ${useCase.label.toLowerCase()}`,
-    description: useCase.description,
-    url: marketingUrl(`/use-cases/${useCase.slug}`),
-    provider: { '@type': 'Organization', name: 'Nexez', url: marketingUrl('/') },
-    audience: { '@type': 'BusinessAudience', name: useCase.label },
+    '@graph': [
+      {
+        '@type': 'Service',
+        name: `Agent-ready listings for ${useCase.label.toLowerCase()}`,
+        description: useCase.description,
+        url: marketingUrl(`/use-cases/${useCase.slug}`),
+        provider: { '@type': 'Organization', name: 'Nexez', url: marketingUrl('/') },
+        audience: { '@type': 'BusinessAudience', name: useCase.label },
+      },
+      {
+        '@type': 'FAQPage',
+        mainEntity: useCase.faq.map((item) => ({
+          '@type': 'Question',
+          name: item.title,
+          acceptedAnswer: { '@type': 'Answer', text: item.copy },
+        })),
+      },
+    ],
   }
 
   return (
@@ -94,6 +106,18 @@ export default async function UseCaseDetailPage({ params }: UseCaseProps) {
         </div>
       </section>
 
+      <section className="border-b border-border bg-white/[0.015]">
+        <div className="mx-auto max-w-7xl px-5 py-14 md:py-16">
+          <p className="text-sm font-medium text-muted-foreground">The problem</p>
+          <h2 className="mt-2 max-w-3xl text-3xl font-semibold tracking-[-0.045em] md:text-4xl">
+            What the agent sees today.
+          </h2>
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-muted-foreground md:text-base">
+            {useCase.pain}
+          </p>
+        </div>
+      </section>
+
       <section className="border-b border-border">
         <div className="mx-auto grid max-w-7xl gap-8 px-5 py-16 md:py-20 lg:grid-cols-2">
           <div>
@@ -103,9 +127,12 @@ export default async function UseCaseDetailPage({ params }: UseCaseProps) {
             </h2>
             <div className="mt-6 grid gap-3">
               {useCase.offers.map((offer) => (
-                <div key={offer} className="flex items-center gap-3 rounded-lg border border-border bg-white/[0.03] p-4">
-                  <CheckCircle2 className="size-5 text-[var(--ready)]" />
-                  <span className="text-sm font-medium">{offer}</span>
+                <div key={offer.title} className="rounded-lg border border-border bg-white/[0.03] p-4">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="size-5 shrink-0 text-[var(--ready)]" />
+                    <span className="text-sm font-medium">{offer.title}</span>
+                  </div>
+                  <p className="mt-2 pl-8 text-sm leading-6 text-muted-foreground">{offer.copy}</p>
                 </div>
               ))}
             </div>
@@ -118,12 +145,32 @@ export default async function UseCaseDetailPage({ params }: UseCaseProps) {
             </h2>
             <div className="mt-6 grid gap-3">
               {useCase.pageMustProve.map((proof) => (
-                <div key={proof} className="flex items-center gap-3 rounded-lg border border-border bg-white/[0.03] p-4">
-                  <CheckCircle2 className="size-5 text-[var(--signal)]" />
-                  <span className="text-sm font-medium">{proof}</span>
+                <div key={proof.title} className="rounded-lg border border-border bg-white/[0.03] p-4">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="size-5 shrink-0 text-[var(--signal)]" />
+                    <span className="text-sm font-medium">{proof.title}</span>
+                  </div>
+                  <p className="mt-2 pl-8 text-sm leading-6 text-muted-foreground">{proof.copy}</p>
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-border">
+        <div className="mx-auto max-w-7xl px-5 py-16 md:py-20">
+          <p className="text-sm font-medium text-muted-foreground">Common questions</p>
+          <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em] md:text-5xl">
+            Asked by {useCase.label.toLowerCase()} like you.
+          </h2>
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            {useCase.faq.map((item) => (
+              <div key={item.title} className="rounded-lg border border-border bg-white/[0.02] p-5">
+                <h3 className="font-medium">{item.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.copy}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
