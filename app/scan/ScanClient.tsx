@@ -36,6 +36,14 @@ type DeepResult = ScanResult & { llmAssisted: boolean; comprehension?: Comprehen
 
 const DIMENSION_ORDER: DimensionKey[] = ['discovery', 'understanding', 'transactability', 'trust']
 
+// Pre-scan explainer: what each dimension means in buyer terms, no jargon.
+const DIMENSION_EXPLAINERS: Array<[string, string]> = [
+  ['Discovery', 'Can crawlers and AI agents reach your pages at all, or are they blocked before they start?'],
+  ['Understanding', 'Can an agent pull your actual offers, prices, and policies out of the page?'],
+  ['Transactability', 'Is there a booking or checkout path an agent can follow all the way to the end?'],
+  ['Trust', 'Do contact details, policies, and freshness signals hold up when an agent verifies them?'],
+]
+
 function scoreTone(score: number): { color: string; label: string } {
   if (score >= 85) return { color: 'var(--ready)', label: 'Agent-ready' }
   if (score >= 60) return { color: 'var(--amber)', label: 'Needs a few fixes' }
@@ -351,7 +359,31 @@ export function ScanClient({ initialUrl = '' }: { initialUrl?: string }) {
         </section>
       ) : null}
 
-      {!result && !loading ? <p className="mt-10 text-center text-xs text-[var(--fg-muted)]">Try your homepage, an offer page, or a competitor site.</p> : null}
+      {!result && !loading ? (
+        <section className="mt-12">
+          <p className="text-center text-xs text-[var(--fg-muted)]">Try your homepage, an offer page, or a competitor site.</p>
+
+          <p className="mt-12 text-center text-xs font-semibold uppercase tracking-[0.12em] text-[var(--fg-muted)]">
+            What the scan checks
+          </p>
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            {DIMENSION_EXPLAINERS.map(([title, copy]) => (
+              <div key={title} className="rounded-[16px] border border-[var(--bd-10)] bg-[var(--ov-03)] p-5">
+                <p className="text-sm font-semibold">{title}</p>
+                <p className="mt-1.5 text-sm leading-6 text-[var(--fg-muted)]">{copy}</p>
+              </div>
+            ))}
+          </div>
+
+          <p className="mx-auto mt-8 max-w-2xl text-center text-sm leading-6 text-[var(--fg-muted)]">
+            Most sites fail this test. We scanned 652 small-business websites for our 2026 agent-readiness study: 30.7% were
+            completely invisible to AI agents, and only 4.1% published pricing an agent could read.{' '}
+            <a href="/learn/agent-readiness-study-2026" className="underline underline-offset-4 hover:text-[var(--signal)]">
+              Read the study
+            </a>
+          </p>
+        </section>
+      ) : null}
     </main>
   )
 }
