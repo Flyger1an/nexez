@@ -563,9 +563,11 @@ export type UseCasePage = {
   templateId: CreateTemplateId
   title: string
   description: string
+  pain: string
   buyerIntent: string
-  offers: string[]
-  pageMustProve: string[]
+  offers: MarketingCard[]
+  pageMustProve: MarketingCard[]
+  faq: MarketingCard[]
   cta: string
 }
 
@@ -577,9 +579,24 @@ export const useCases: UseCasePage[] = [
     title: 'Consulting listings agents can compare in seconds.',
     description:
       'Package strategy calls, audits, and retainers into clear offers with scope, price signal, buyer fit, and booking path.',
+    pain:
+      'Your expertise lives in paragraphs, case studies, and a contact form. When a buyer asks an AI assistant for a consultant who can start next week and explain pricing up front, none of that is legible. The agent needs scope, a price signal, and a booking link it can verify, and most consulting sites offer a phone number.',
     buyerIntent: 'Find a B2B consultant who can help next week and explain pricing before booking.',
-    offers: ['Strategy session', 'Fractional advisory retainer', 'Fixed-scope audit'],
-    pageMustProve: ['Expertise and niche', 'Outcome and deliverables', 'Availability and price signal'],
+    offers: [
+      { title: 'Strategy session', copy: 'A one-time call with a set duration, a clear outcome, a price, and a calendar link. The easiest yes an agent can recommend.' },
+      { title: 'Fractional advisory retainer', copy: 'Ongoing support with scope, response time, and a monthly price, so an agent can match you to a budget without a discovery call.' },
+      { title: 'Fixed-scope audit', copy: 'A defined diagnostic with deliverables, a timeline, and a checkout or proposal request. High trust, low ambiguity.' },
+    ],
+    pageMustProve: [
+      { title: 'Expertise and niche', copy: 'Who you help and what you do best, in one sentence an agent can repeat to its buyer.' },
+      { title: 'Outcome and deliverables', copy: 'What the client walks away with. Agents do not recommend vague.' },
+      { title: 'Availability and price signal', copy: 'Even a starting price beats silence. An agent cannot compare a number that is not there.' },
+    ],
+    faq: [
+      { title: 'Do I have to publish exact prices?', copy: 'No. A starting price, a range, or a paid scoping call all work. Agents just need something to compare, and silence reads as a dead end.' },
+      { title: 'What if my work is too custom to package?', copy: 'Package the first step instead. A paid scoping call or a fixed audit gives agents a concrete offer, and the custom engagement follows from there.' },
+      { title: 'Will this compete with my main website?', copy: 'No. The listing links back to your site and does one job: giving agents a clean, current version of your offers.' },
+    ],
     cta: 'Create a consulting listing',
   },
   {
@@ -589,9 +606,24 @@ export const useCases: UseCasePage[] = [
     title: 'Agency offers that do not get buried in a bloated site.',
     description:
       'Turn service menus, packages, audits, retainers, and implementation work into structured listings agents can recommend.',
+    pain:
+      'Agency sites are built to impress people: showreels, case studies, and a services page with nine capabilities and zero prices. An agent shortlisting agencies for a client cannot rank a vibe. It ranks scope, price signal, and a clear way to start, and the agency that publishes those wins the shortlist.',
     buyerIntent: 'Shortlist an agency for launch support, compare packages, and request a proposal.',
-    offers: ['Growth audit', 'Launch sprint', 'Monthly execution retainer'],
-    pageMustProve: ['Target client', 'Scope boundaries', 'Proposal or checkout path'],
+    offers: [
+      { title: 'Growth audit', copy: 'A fixed-price diagnostic that shows how you think. Easy to compare, easy to buy, and a natural door into bigger work.' },
+      { title: 'Launch sprint', copy: 'A defined engagement with a timeline and a deliverable list, so agents can match you to a deadline.' },
+      { title: 'Monthly execution retainer', copy: 'Recurring scope with response times and reporting cadence spelled out. This is what retainer buyers actually compare.' },
+    ],
+    pageMustProve: [
+      { title: 'Target client', copy: 'The company size, stage, and industry you do your best work for. Fit is the first filter agents apply.' },
+      { title: 'Scope boundaries', copy: 'What is included and what is not. Clear edges prevent bad-fit inquiries that waste both sides.' },
+      { title: 'Proposal or checkout path', copy: 'A way to start that an agent can act on: book a call, request a proposal, or check out directly.' },
+    ],
+    faq: [
+      { title: 'We sell custom engagements. How does that fit?', copy: 'List entry points, not your whole capability deck. An audit, a sprint, and a retainer cover most of the ways a client can start with you.' },
+      { title: 'Can we manage listings for our clients too?', copy: 'Yes. Agencies run listings for clients as part of the service, and multi-listing workflows are built for exactly that.' },
+      { title: 'Will agents really shortlist agencies?', copy: 'Buying assistants already compare providers when asked. The question is whether your offers are legible when it happens.' },
+    ],
     cta: 'Create an agency listing',
   },
   {
@@ -601,9 +633,24 @@ export const useCases: UseCasePage[] = [
     title: 'Coaching listings with clear programs and next steps.',
     description:
       'Help agents understand session types, program length, fit, pricing, booking rules, and what a buyer should expect.',
+    pain:
+      'Coaching sites lean on story and testimonials, which is what human buyers need. But when someone asks an assistant for a coach with a specific specialty, budget, and format, the agent looks for session types, prices, and booking rules. If those live in a PDF or a discovery call, you are invisible to that search.',
     buyerIntent: 'Book a coach with a specific specialty, budget, and meeting format.',
-    offers: ['Intro session', 'Program package', 'Monthly coaching membership'],
-    pageMustProve: ['Specialty and fit', 'Session format', 'Booking and cancellation rules'],
+    offers: [
+      { title: 'Intro session', copy: 'A low-commitment first call with a price and a calendar link. The offer agents recommend to a hesitant buyer.' },
+      { title: 'Program package', copy: 'A defined arc: length, cadence, format, outcome, and price. Comparable at a glance.' },
+      { title: 'Monthly coaching membership', copy: 'Recurring support with clear terms, so budget-matched buyers can start without a back-and-forth.' },
+    ],
+    pageMustProve: [
+      { title: 'Specialty and fit', copy: 'The specific problem you coach and who it is for. Career transitions for engineers beats life coaching every time.' },
+      { title: 'Session format', copy: 'Video, in person, group size, and session length. Format is a hard filter for most buyers.' },
+      { title: 'Booking and cancellation rules', copy: 'Reschedule windows, refunds, and how to book. Agents check policies before recommending a stranger.' },
+    ],
+    faq: [
+      { title: 'My coaching is personal. Can a listing capture that?', copy: 'It does not have to. The listing gets you found and booked for the intro session. The connection happens on the call.' },
+      { title: 'Do I need a website first?', copy: 'No. Your listing can be your entire public offer, on a Nexez link or your own domain.' },
+      { title: 'What if my prices vary by client?', copy: 'Publish the intro session at a fixed price and mark programs with a starting price. That is enough for an agent to compare.' },
+    ],
     cta: 'Create a coaching listing',
   },
   {
@@ -613,9 +660,24 @@ export const useCases: UseCasePage[] = [
     title: 'Local service listings agents can safely book.',
     description:
       'Make service area, availability, job types, estimates, emergency rules, and contact paths explicit for buyer assistants.',
+    pain:
+      'A homeowner tells an assistant to find a plumber who can come Thursday. The agent needs your service area, availability, job types, and whether Thursday is even possible. Most local sites answer with a photo gallery and a contact form. The business that publishes the facts gets the booking.',
     buyerIntent: 'Find a local provider available for a specific job, location, and timeline.',
-    offers: ['Emergency visit', 'Standard service call', 'Quote request'],
-    pageMustProve: ['Service area', 'Availability window', 'Estimate or payment rules'],
+    offers: [
+      { title: 'Emergency visit', copy: 'After-hours availability, response time, and the call-out fee stated up front. The highest-intent search there is.' },
+      { title: 'Standard service call', copy: 'Common jobs with typical pricing and a booking or callback path.' },
+      { title: 'Quote request', copy: 'For bigger jobs: what you need from the customer, how fast you respond, and what happens next.' },
+    ],
+    pageMustProve: [
+      { title: 'Service area', copy: 'ZIP codes, radius, or neighborhoods. The first question every local request starts with.' },
+      { title: 'Availability window', copy: 'Days, hours, emergency rules, and current lead time. Stale availability kills trust instantly.' },
+      { title: 'Estimate or payment rules', copy: 'Free or paid estimates, deposits, and accepted payment. No surprises at the door.' },
+    ],
+    faq: [
+      { title: 'I get my work from referrals. Why bother?', copy: 'Referrals are moving to assistants too: find me someone like the electrician my neighbor used. A listing makes you findable when that ask happens.' },
+      { title: 'My availability changes daily.', copy: 'Connect your calendar and the listing updates itself. That is the point: agents see current availability, not last month.' },
+      { title: 'Can an agent actually book me?', copy: 'Yes, through your booking link or calendar integration. For jobs that need a human first, it hands off to a call or quote request.' },
+    ],
     cta: 'Create a local service listing',
   },
   {
@@ -625,9 +687,24 @@ export const useCases: UseCasePage[] = [
     title: 'SaaS implementation and service offers built for agent-led evaluation.',
     description:
       'Clarify plans, implementation packages, integrations, support tiers, and sales handoffs for agents comparing software options.',
+    pain:
+      'Software evaluation is going agent-first: compare these three tools for a 20-person team and tell me the real cost. Pricing pages built for humans, with toggles, asterisks, and contact-us tiers, do not survive that comparison. The tool that states plans, limits, and implementation cost in structured form gets shortlisted.',
     buyerIntent: 'Compare tools, understand implementation cost, and choose the right plan or sales path.',
-    offers: ['Starter plan', 'Implementation package', 'Enterprise onboarding'],
-    pageMustProve: ['Use case fit', 'Plan limits', 'Integration and support path'],
+    offers: [
+      { title: 'Starter plan', copy: 'Entry price, seat and usage limits, and what is not included. The tier agents check first for fit.' },
+      { title: 'Implementation package', copy: 'Setup scope, timeline, and cost. The number every real evaluation needs and few sites publish.' },
+      { title: 'Enterprise onboarding', copy: 'What the sales path involves, so agents can route bigger buyers to a human with context attached.' },
+    ],
+    pageMustProve: [
+      { title: 'Use case fit', copy: 'The team size, stage, and problem you are built for. Agents filter on fit before they compare features.' },
+      { title: 'Plan limits', copy: 'Seats, usage, and feature boundaries in plain terms. Limits buried today surface as churn later.' },
+      { title: 'Integration and support path', copy: 'What it connects to and what support each plan includes. Standard evaluation questions, answered up front.' },
+    ],
+    faq: [
+      { title: 'Our pricing is usage-based and complicated.', copy: 'Publish a worked example: a team of 20 typically pays about this much. Agents and buyers both reason better from examples than from formulas.' },
+      { title: 'Will this expose our pricing to competitors?', copy: 'Your competitors already know your pricing. The buyer agent that cannot read it is the one you are losing.' },
+      { title: 'We sell through demos. Does this bypass sales?', copy: 'No, it feeds sales. The listing qualifies fit and cost up front, so demo requests arrive warmer.' },
+    ],
     cta: 'Create a SaaS listing',
   },
   {
@@ -637,9 +714,24 @@ export const useCases: UseCasePage[] = [
     title: 'Marketplace listings that agents can understand as structured inventory.',
     description:
       'Expose providers, merchants, packages, availability, and trust signals in a format agents can search, compare, and route.',
+    pain:
+      'Your providers are your inventory, but to an agent your marketplace is one opaque page. When an assistant is asked to find a provider for a specific request, it cannot browse your filters. Structured listings per provider turn the whole catalog into something agents can search, compare, and route buyers into.',
     buyerIntent: 'Find the right provider or merchant for a request without manually browsing every listing.',
-    offers: ['Provider profile', 'Featured package', 'Quote or booking handoff'],
-    pageMustProve: ['Provider eligibility', 'Trust and verification', 'Clear handoff path'],
+    offers: [
+      { title: 'Provider profile', copy: 'Each provider as a structured record: services, area, pricing signal, and trust markers.' },
+      { title: 'Featured package', copy: 'Your best-converting offers as standalone, directly bookable listings.' },
+      { title: 'Quote or booking handoff', copy: 'A clear route from an agent match into your marketplace flow, keeping the transaction in your system.' },
+    ],
+    pageMustProve: [
+      { title: 'Provider eligibility', copy: 'Who is allowed on the platform and what vetting they pass. Agents read gatekeeping as trust.' },
+      { title: 'Trust and verification', copy: 'Reviews, verification badges, and completion signals in machine-readable form.' },
+      { title: 'Clear handoff path', copy: 'Where the agent sends the buyer and what happens next. Ambiguous handoffs lose the transaction.' },
+    ],
+    faq: [
+      { title: 'Does this disintermediate us?', copy: 'The opposite. Handoffs route through your marketplace flow, so you keep the relationship and the transaction while gaining agent-side discovery.' },
+      { title: 'We have hundreds of providers.', copy: 'That is the enterprise fit: bulk listing workflows, shared templates, and portfolio-level reporting.' },
+      { title: 'Which providers should go first?', copy: 'Your most complete profiles: clear services, prices, availability, and reviews. They perform best and set the pattern for the rest.' },
+    ],
     cta: 'Create marketplace-ready listings',
   },
 ]
