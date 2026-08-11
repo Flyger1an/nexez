@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     siteName: "Nexez",
     title: "Nexez - Listings built for AI agents",
     description:
-      "A clean, structured listing that AI agents can understand and act on. Host it on your domain or Nexez.",
+      "A structured storefront AI agents can read, trust, and buy from. Host it on your domain or Nexez.",
     url: marketingUrl("/"),
   },
   twitter: {

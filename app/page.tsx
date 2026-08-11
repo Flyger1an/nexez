@@ -549,7 +549,7 @@ export default function NexezHome() {
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a href={appUrl('/create')} className="btn-primary h-11 px-5">
-              Deploy your listing
+              List your offers
             </a>
             <a href="/support" className="btn-secondary h-11 px-5">Talk to us</a>
           </div>

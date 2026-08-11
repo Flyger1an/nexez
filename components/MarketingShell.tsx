@@ -191,6 +191,7 @@ function MarketingFooter({ authed }: { authed: boolean | null }) {
             ['Leaderboard', '/leaderboard'],
             ['Simulator', '/simulator'],
             ['Learn', '/learn'],
+            ['llms.txt generator', '/tools/llms-txt-generator'],
             ['Agent access', '/agents'],
             ['Pricing', '/pricing'],
           ]}
