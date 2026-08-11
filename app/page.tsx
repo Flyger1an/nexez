@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     url: marketingUrl('/'),
     title: 'Nexez - Listings built for AI agents',
     description:
-      'A clean, structured listing that AI agents can understand and act on. Host it on your domain or Nexez.',
+      'A structured storefront AI agents can read, trust, and buy from. Host it on your domain or Nexez.',
   },
 }
 
@@ -68,7 +68,7 @@ const keyFeatures: Feature[] = [
   },
   {
     title: 'Competitor Analysis',
-    copy: 'See how agents compare your offer.',
+    copy: 'See how agents stack your offer against rivals, and exactly where you win or lose the comparison.',
     Icon: Search,
   },
   {
@@ -78,12 +78,12 @@ const keyFeatures: Feature[] = [
   },
   {
     title: 'Custom Domains',
-    copy: 'Publish on a trusted branded URL.',
+    copy: 'Publish on your own domain, so agents and buyers land on a brand they already trust.',
     Icon: Globe2,
   },
   {
     title: 'Trust Score',
-    copy: 'Surface quality signals agents can read.',
+    copy: 'Turn reviews, policies, and reliability into quality signals agents weigh before they buy.',
     Icon: ShieldCheck,
   },
 ]
@@ -115,12 +115,12 @@ const marqueeModels = [
 const pinnedStories: Feature[] = [
   {
     title: 'Set it once. Sell on autopilot.',
-    copy: 'Configure your offers a single time. Your listing stays live, structured, and agent-ready around the clock, with zero ongoing upkeep.',
+    copy: 'Configure your offers once. Your listing stays live, structured, and agent-ready around the clock, no upkeep required.',
     Icon: Sparkles,
   },
   {
     title: 'Your listing never goes stale.',
-    copy: 'Connect Stripe, Shopify, your calendar, or store, and prices, availability, and offers refresh themselves the instant anything changes. No agent ever sees an old price.',
+    copy: 'Connect Stripe, Shopify, your calendar, or store, and prices, availability, and offers refresh the instant anything changes. No agent ever sees an old price.',
     Icon: RefreshCw,
   },
   {
@@ -136,9 +136,9 @@ const pinnedStories: Feature[] = [
 ]
 
 const problemCards = [
-  { title: 'Websites hide intent', copy: 'Menus, scripts, and vague copy bury what agents need.' },
-  { title: 'Agents need structure', copy: 'Offers, prices, proof, policies, and actions must be explicit.' },
-  { title: 'Nexez makes it readable', copy: 'Publish one clean layer built for discovery and conversion.' },
+  { title: 'Websites hide intent', copy: 'Menus, popups, and vague copy bury the facts agents need to say yes.' },
+  { title: 'Agents need structure', copy: 'Offers, prices, proof, policies, and actions must be explicit, or the agent moves on.' },
+  { title: 'Nexez makes you legible', copy: 'One clean layer agents can parse, compare, and transact with.' },
 ]
 
 const valueBullets = [
@@ -194,7 +194,7 @@ export default function NexezHome() {
                 Get found by the agents <span className="nx-accent-text">doing the buying.</span>
               </h1>
               <p className="mt-6 max-w-xl text-base leading-7 text-muted-foreground md:text-lg">
-                Nexez puts your business in front of the AI buyer agents shopping for real customers, turning agent conversations into closed sales.
+                AI agents already shop on behalf of real customers. Nexez makes your business the one they find, compare, and buy from.
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <a href={appUrl('/create')} className="btn-primary h-11 px-5">
@@ -521,7 +521,7 @@ export default function NexezHome() {
             Ask what a buyer would. Watch the agent answer with your offers.
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-            Ask a buyer question. Watch Nexez resolve offers, prices, and actions instantly.
+            Test your listing against real buyer intent, the same way ChatGPT, Claude, and Perplexity will read it in the wild.
           </p>
           <div className="mt-8">
             <SimulatorTeaser />
