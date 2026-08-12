@@ -45,6 +45,29 @@ export function verificationTxtHost(host: string): string {
   return `_nexez-verify.${host}`
 }
 
+/** The bare label to type into a registrar's "Host"/"Name" field. */
+export const VERIFICATION_TXT_LABEL = '_nexez-verify'
+
+/**
+ * Most registrars (Namecheap, GoDaddy, Cloudflare, Squarespace...) append the zone
+ * to whatever goes in the Host field. Pasting the full FQDN therefore creates
+ * `_nexez-verify.example.com.example.com`, which resolves fine but is invisible to
+ * the check at the real name. This is the single most common verification failure,
+ * so we probe for it explicitly and tell the owner exactly what to change.
+ */
+export function doubledVerificationTxtHost(host: string): string {
+  return `_nexez-verify.${host}.${host}`
+}
+
+/** Guidance shown when the token was found at the doubled (zone-appended) name. */
+export function doubledRecordMessage(host: string): string {
+  return (
+    `Found your token at ${doubledVerificationTxtHost(host)}. Your DNS provider appended ` +
+    `"${host}" to the name automatically. Edit that record and set the Host/Name field to ` +
+    `just "${VERIFICATION_TXT_LABEL}" (nothing else), then verify again.`
+  )
+}
+
 /** The exact `.well-known` file path merchants publish for file verification. */
 export const WELL_KNOWN_VERIFY_PATH = '/.well-known/nexez-verify.txt'
 

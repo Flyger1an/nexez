@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  doubledRecordMessage,
+  doubledVerificationTxtHost,
   generateWebsiteVerificationToken,
   isWellFormedWebsiteToken,
   matchesVerificationFile,
   matchesVerificationMeta,
   verificationMetaTag,
+  VERIFICATION_TXT_LABEL,
   verificationTxtHost,
   websiteHostOf,
   WEBSITE_TOKEN_PREFIX,
@@ -88,5 +91,28 @@ describe('matchesVerificationFile', () => {
 describe('verificationMetaTag', () => {
   it('renders the exact copy-paste tag', () => {
     expect(verificationMetaTag('T')).toBe('<meta name="nexez-site-verification" content="T">')
+  })
+})
+
+describe('doubled (zone-appended) TXT record detection', () => {
+  it('builds the doubled host most registrars create from a pasted FQDN', () => {
+    expect(doubledVerificationTxtHost('kismetpros.com')).toBe('_nexez-verify.kismetpros.com.kismetpros.com')
+    expect(doubledVerificationTxtHost('agents.acme.co.uk')).toBe('_nexez-verify.agents.acme.co.uk.agents.acme.co.uk')
+  })
+
+  it('is distinct from the correct host', () => {
+    const host = 'kismetpros.com'
+    expect(doubledVerificationTxtHost(host)).not.toBe(verificationTxtHost(host))
+    expect(doubledVerificationTxtHost(host).startsWith(verificationTxtHost(host))).toBe(true)
+  })
+
+  it('tells the owner the exact bare label to use', () => {
+    const message = doubledRecordMessage('kismetpros.com')
+    expect(message).toContain('_nexez-verify.kismetpros.com.kismetpros.com')
+    expect(message).toContain(`just "${VERIFICATION_TXT_LABEL}"`)
+    expect(VERIFICATION_TXT_LABEL).toBe('_nexez-verify')
+    // The bare label must not carry a trailing dot or the zone.
+    expect(VERIFICATION_TXT_LABEL.endsWith('.')).toBe(false)
+    expect(VERIFICATION_TXT_LABEL).not.toContain('kismetpros')
   })
 })
