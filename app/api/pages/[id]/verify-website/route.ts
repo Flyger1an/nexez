@@ -11,6 +11,8 @@ import { readBodyCapped } from '../../../../../lib/server/site-scan'
 import { captureEvent } from '../../../../../lib/observability'
 import { APP_HOST, MARKETING_HOST, AGENT_RUNTIME_HOST } from '../../../../../lib/site'
 import {
+  doubledRecordMessage,
+  doubledVerificationTxtHost,
   matchesVerificationFile,
   matchesVerificationMeta,
   verificationTxtHost,
@@ -121,10 +123,22 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
 
   try {
     if (method === 'dns') {
-      const records = await resolveTxt(verificationTxtHost(host2))
+      const records = await resolveTxt(verificationTxtHost(host2)).catch((err) => {
+        // ENOTFOUND/ENODATA here is the normal "nothing published yet" case; we
+        // still want to probe the doubled name below before reporting failure.
+        if (err?.code === 'ENOTFOUND' || err?.code === 'ENODATA') return [] as string[][]
+        throw err
+      })
       const flat = records.map((chunks) => chunks.join('').trim())
       matched = flat.some((val) => val === expected)
-      if (!matched) detail = 'TXT record not found or token did not match yet (DNS can take a few minutes).'
+      if (!matched) {
+        // Probe the zone-appended name before blaming propagation.
+        const doubled = await resolveTxt(doubledVerificationTxtHost(host2)).catch(() => [] as string[][])
+        const doubledFlat = doubled.map((chunks) => chunks.join('').trim())
+        detail = doubledFlat.some((val) => val === expected)
+          ? doubledRecordMessage(host2)
+          : 'TXT record not found or token did not match yet (DNS can take a few minutes).'
+      }
     } else if (method === 'meta') {
       const urlError = getImportUrlError(normalizedSite) || (await getResolvedImportUrlError(normalizedSite))
       if (urlError) return NextResponse.json({ error: urlError }, { status: 400 })
