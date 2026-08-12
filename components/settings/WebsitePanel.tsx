@@ -9,6 +9,7 @@ import { AgenticCheckoutUpgradeModal } from '../billing/AgenticCheckoutUpgradeMo
 import type { PlanId } from '../../lib/billing'
 import {
   generateWebsiteVerificationToken,
+  VERIFICATION_TXT_LABEL,
   verificationMetaTag,
   verificationTxtHost,
   websiteHostOf,
@@ -156,7 +157,6 @@ export function WebsitePanel({
   }
 
   const metaTag = token ? verificationMetaTag(token) : ''
-  const txtRecord = token && host ? `${verificationTxtHost(host)}  TXT  "${token}"` : ''
 
   return (
     <div className="space-y-5">
@@ -207,7 +207,16 @@ export function WebsitePanel({
               </div>
 
               {method === 'dns' ? (
-                <Artifact id="v-dns" label="Add this DNS TXT record at your domain provider:" value={txtRecord} copiedId={copiedId} onCopy={copy} />
+                <div className="space-y-2">
+                  <Artifact id="v-dns-host" label="DNS TXT record, Host / Name field:" value={VERIFICATION_TXT_LABEL} copiedId={copiedId} onCopy={copy} />
+                  <Artifact id="v-dns-value" label="Value field:" value={token} copiedId={copiedId} onCopy={copy} />
+                  <p className="text-[11px] leading-relaxed text-[var(--fg-muted-2)]">
+                    Enter the Host exactly as <code className="text-[var(--fg-muted)]">{VERIFICATION_TXT_LABEL}</code> with nothing after it.
+                    Most providers (Namecheap, GoDaddy, Cloudflare) add <code className="text-[var(--fg-muted)]">{host}</code> for you,
+                    so pasting the full name creates <code className="text-[var(--fg-muted)]">{verificationTxtHost(host || '')}.{host}</code> and verification will not find it.
+                    The finished record reads <code className="text-[var(--fg-muted)]">{verificationTxtHost(host || '')}</code>.
+                  </p>
+                </div>
               ) : method === 'meta' ? (
                 <Artifact id="v-meta" label="Add this tag inside your site’s <head>:" value={metaTag} copiedId={copiedId} onCopy={copy} />
               ) : (
