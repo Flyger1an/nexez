@@ -64,8 +64,10 @@ import { generativeEngineOptimization } from './learn-articles/generative-engine
 import { whatIsAnMcpServer } from './learn-articles/what-is-an-mcp-server'
 import { getRecommendedByChatgpt } from './learn-articles/get-recommended-by-chatgpt'
 import { jsonLdForAiAgents } from './learn-articles/json-ld-for-ai-agents'
+import { whatIsAgentJson } from './learn-articles/what-is-agent-json'
 
 export const learnArticles: LearnArticle[] = [
+  whatIsAgentJson,
   agentReadinessStudy2026,
   aiAgentsBookServiceBusinesses,
   sellOnChatgptWithoutShopify,
