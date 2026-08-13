@@ -69,6 +69,8 @@ export function mapCustomDomainPath(slug: string, pathname: string): string {
   if (pathname === '/mcp.json') return `/${slug}/mcp.json`
   if (pathname === '/llms.txt') return `/${slug}/llms.txt`
   if (pathname === '/openapi.json') return `/${slug}/openapi.json`
+  // The live JSON-RPC MCP server, not a static artifact.
+  if (pathname === '/mcp') return `/${slug}/mcp`
   // The standard discovery probe path — answer it with the listing's live manifest.
   if (pathname === '/.well-known/agent.json') return `/${slug}/agent.json`
   if (pathname === '/.well-known/mcp.json') return `/${slug}/mcp.json`
@@ -97,6 +99,18 @@ const WELL_KNOWN_ARTIFACTS: readonly DomainArtifact[] = ['agent.json', 'mcp.json
  */
 export const WELL_KNOWN_ONLY_ARTIFACTS = ['ai-catalog.json'] as const
 export type WellKnownOnlyArtifact = (typeof WELL_KNOWN_ONLY_ARTIFACTS)[number]
+
+/**
+ * LIVE endpoints served under a listing on a custom domain. These are servers,
+ * not files, so they are matched separately from DOMAIN_ARTIFACTS and stay out
+ * of the artifact href helpers (which are about static documents).
+ *
+ * `/mcp` is the JSON-RPC MCP server. Without this the manifest could only
+ * advertise a path that 308s to the platform, which works solely because agents
+ * follow redirects and costs an extra cross-origin hop on every call.
+ */
+export const DOMAIN_LIVE_ENDPOINTS = ['mcp'] as const
+export type DomainLiveEndpoint = (typeof DOMAIN_LIVE_ENDPOINTS)[number]
 
 const WELL_KNOWN_PREFIX = '/.well-known/'
 
@@ -164,6 +178,19 @@ function domainScopedEntrySlug(map: Record<string, string>): string | null {
   return paths.length ? (map[paths[0]!] ?? null) : null
 }
 
+/** `/mcp` at the domain root, or `/<domain_path>/mcp` for a sub-page listing. */
+function resolveLiveEndpoint(clean: string): { basePath: string; endpoint: DomainLiveEndpoint } | null {
+  const segments = clean.split('/').filter(Boolean)
+  if (!segments.length || segments[0] === '.well-known') return null
+
+  const last = segments[segments.length - 1]!
+  if (!(DOMAIN_LIVE_ENDPOINTS as readonly string[]).includes(last)) return null
+
+  if (segments.length === 1) return { basePath: '/', endpoint: last as DomainLiveEndpoint }
+  if (segments.length === 2) return { basePath: `/${segments[0]}`, endpoint: last as DomainLiveEndpoint }
+  return null
+}
+
 /**
  * Given a domain's path→slug map and an incoming pathname, return the internal
  * rewrite target (or null to pass through). Powers multi-page custom domains.
@@ -182,6 +209,17 @@ export function buildCustomDomainRewrite(
     if ((WELL_KNOWN_ONLY_ARTIFACTS as readonly string[]).includes(name)) {
       const slug = domainScopedEntrySlug(map)
       return slug ? `/${slug}/${name}` : null
+    }
+  }
+
+  // Live endpoints, but ONLY when the path is not itself a registered
+  // domain_path: a merchant who chose the literal domain_path `/mcp` keeps their
+  // page, and their listing's server stays reachable at `/mcp/mcp`.
+  if (!(clean in map)) {
+    const live = resolveLiveEndpoint(clean)
+    if (live) {
+      const liveSlug = map[live.basePath]
+      return liveSlug ? `/${liveSlug}/${live.endpoint}` : null
     }
   }
 
