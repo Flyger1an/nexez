@@ -7,7 +7,7 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/
 import { ownerAllows } from '../../../lib/server/plan'
 import { resolvePageAccess } from '../../../lib/server/page-access'
 import { enforceRateLimit } from '../../../lib/rate-limit'
-import { doubledRecordMessage, doubledVerificationTxtHost } from '../../../lib/website-verification'
+import { findDoubledRecordMessage } from '../../../lib/server/doubled-txt-probe'
 
 const resolveTxt = promisify(dns.resolveTxt)
 
@@ -145,16 +145,6 @@ export async function POST(request: NextRequest) {
 
   const verifyHost = getVerifyHost(domain)
 
-  /** Probe the zone-appended name most registrars create from a pasted FQDN. */
-  async function foundAtDoubledHost(): Promise<boolean> {
-    try {
-      const doubled = await resolveTxt(doubledVerificationTxtHost(domain))
-      return doubled.map((chunks) => chunks.join('').trim()).some((val) => val === expected)
-    } catch {
-      return false
-    }
-  }
-
   try {
     // Real DNS TXT lookup (works in Node / Vercel serverless)
     const records = await resolveTxt(verifyHost)
@@ -194,24 +184,26 @@ export async function POST(request: NextRequest) {
         domain,
         verifyHost,
         found: flat,
-        message: (await foundAtDoubledHost())
-          ? doubledRecordMessage(domain)
-          : 'TXT record found but token did not match. Make sure the exact value (including nexez-verify- prefix) is set and DNS has propagated.',
+        message:
+          (await findDoubledRecordMessage(domain, expected)) ||
+          'TXT record found but token did not match. Make sure the exact value (including nexez-verify- prefix) is set and DNS has propagated.',
       }, { status: 200 }) // 200 so client can show helpful message
     }
   } catch (err: any) {
     // Common: ENOTFOUND, no records yet, DNS propagation delay, private DNS, etc.
-    // Before blaming propagation, probe the zone-appended name: registrars that
-    // auto-append the domain turn a pasted FQDN into _nexez-verify.d.com.d.com,
-    // which resolves fine but is invisible here. That is the single most common
-    // cause of a "record published but never verifies" report.
+    // Before blaming propagation, probe every zone-appended variant: registrars that
+    // auto-append the ZONE turn a pasted record name into _nexez-verify.d.com.d.com
+    // (or _nexez-verify.shop.d.com.d.com for a subdomain), which resolves fine but is
+    // invisible here. That is the single most common cause of a "record published but
+    // never verifies" report.
     console.warn('[verify-custom-domain] DNS lookup failed for', verifyHost, err?.code || err?.message)
-    if (await foundAtDoubledHost()) {
+    const doubledMessage = await findDoubledRecordMessage(domain, expected)
+    if (doubledMessage) {
       return NextResponse.json({
         verified: false,
         domain,
         verifyHost,
-        message: doubledRecordMessage(domain),
+        message: doubledMessage,
         code: 'DOUBLED_RECORD_NAME',
       }, { status: 200 })
     }
