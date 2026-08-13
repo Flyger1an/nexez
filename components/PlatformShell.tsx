@@ -252,42 +252,39 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
         </aside>
 
         <div className="min-w-0 pb-16 md:pb-0">
+          {/* Single row from md up: search sits inline with the actions. The brand
+              lockup lives in the sidebar rail (md:flex), so the header carries no
+              second logo. */}
           <header className="nx-nav sticky top-0 z-40 border-b border-border px-4 py-3 backdrop-blur-xl lg:px-6">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="flex items-center justify-between gap-3 xl:hidden">
-                <a href="/dashboard" className="flex items-center gap-2">
-                  <div className="flex size-7 items-center justify-center rounded-md border border-border bg-white text-black"><NexezLogo className="size-5" /></div>
-                  <span className="text-sm font-medium">Nexez</span>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center justify-end gap-3 md:hidden">
+                <ThemeToggle />
+                <a href="/create" className="inline-flex h-8 items-center gap-2 rounded-md bg-white px-3 text-xs font-medium text-black">
+                  <Plus className="size-3.5" />
+                  New
                 </a>
-                <div className="flex items-center gap-2">
-                  <ThemeToggle />
-                  <a href="/create" className="inline-flex h-8 items-center gap-2 rounded-md bg-white px-3 text-xs font-medium text-black">
-                    <Plus className="size-3.5" />
-                    New
-                  </a>
-                  {authed ? (
-                    <form action="/auth/signout" method="post">
-                      <button
-                        type="submit"
-                        aria-label="Sign out"
-                        title="Sign out"
-                        className="inline-flex size-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-white/5 hover:text-white"
-                      >
-                        <LogOut className="size-4" />
-                      </button>
-                    </form>
-                  ) : (
-                    <a
-                      href="/login"
-                      className="inline-flex h-8 items-center rounded-md border border-border px-3 text-xs font-medium text-white hover:bg-white/5"
+                {authed ? (
+                  <form action="/auth/signout" method="post">
+                    <button
+                      type="submit"
+                      aria-label="Sign out"
+                      title="Sign out"
+                      className="inline-flex size-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-white/5 hover:text-white"
                     >
-                      Sign in
-                    </a>
-                  )}
-                </div>
+                      <LogOut className="size-4" />
+                    </button>
+                  </form>
+                ) : (
+                  <a
+                    href="/login"
+                    className="inline-flex h-8 items-center rounded-md border border-border px-3 text-xs font-medium text-white hover:bg-white/5"
+                  >
+                    Sign in
+                  </a>
+                )}
               </div>
               {authed ? <QuickPageSearch /> : <div className="flex-1" />}
-              <div className="hidden items-center gap-2 xl:flex">
+              <div className="hidden shrink-0 items-center gap-2 md:flex">
                 <ThemeToggle />
                 <a href="/create" className="inline-flex h-9 items-center gap-2 rounded-md bg-white px-3 text-sm font-medium text-black hover:bg-zinc-200">
                   <Plus className="size-4" />
@@ -455,8 +452,10 @@ function QuickPageSearch() {
   const showResults = focused && (query.trim().length > 0 || pages.length > 0)
 
   return (
-    <form onSubmit={handleSubmit} className="relative w-full max-w-2xl">
-      <label htmlFor="platform-page-search" className="mb-1 block text-xs font-medium text-muted-foreground">
+    <form onSubmit={handleSubmit} className="relative w-full min-w-0 max-w-2xl">
+      {/* Visually hidden: the placeholder already names the field, and a visible
+          label would stack above the input and break the row alignment. */}
+      <label htmlFor="platform-page-search" className="sr-only">
         Search listings
       </label>
       <div className="relative">
@@ -482,12 +481,13 @@ function QuickPageSearch() {
           aria-describedby="platform-page-search-hint"
         />
       </div>
-      {/* Keyboard hint is desktop-only - hide on phones (no ⌘K / Enter there). */}
-      <p id="platform-page-search-hint" className="mt-1 hidden items-center gap-1.5 text-[11px] text-muted-foreground sm:flex">
+      {/* Keyboard hint is desktop-only - hide on phones and tablets (no physical
+          keyboard there) so the row stays the height of the input itself. */}
+      <p id="platform-page-search-hint" className="mt-1 hidden items-center gap-1.5 text-[11px] text-muted-foreground xl:flex">
         Press <kbd className="rounded border border-border bg-black/40 px-1 font-mono text-[10px]">⌘K</kbd> to search, Enter to open the first match.
       </p>
       {showResults ? (
-        <div className="absolute left-0 right-0 top-[64px] z-50 overflow-hidden rounded-md border border-border bg-[#111] shadow-2xl sm:top-[84px]">
+        <div className="absolute left-0 right-0 top-[44px] z-50 overflow-hidden rounded-md border border-border bg-[#111] shadow-2xl">
           {hits.length ? (
             hits.map((page, index) => (
               <div
