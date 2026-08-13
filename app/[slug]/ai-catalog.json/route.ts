@@ -17,11 +17,13 @@ import { supabase } from '../../../lib/supabase'
  *     middle.
  *
  * Gating is publication + MCP, matching the sibling agent.json and mcp.json
- * routes. Marketplace curation deliberately does NOT apply here: this is the
+ * routes. Marketplace curation deliberately does NOT apply: this is the
  * merchant describing themselves on their own domain, not Nexez vouching for
  * them inside a shared index (that is the platform catalog's job).
  *
  * The response depends on the Host header, so it MUST carry Vary.
+ * X-Robots-Tag is NOT set here: ARTIFACT_CORS_HEADERS already carries
+ * `noindex`, and setting it twice is a type error (the later spread wins).
  */
 
 type CatalogRow = ArdDomainListing & {
@@ -50,7 +52,7 @@ export async function GET(
   if (!anchor || !anchor.mcp_enabled) {
     return NextResponse.json(
       { error: 'No ARD catalog for this listing (not found, unpublished, or MCP disabled)' },
-      { status: 404, headers: ARTIFACT_CORS_HEADERS },
+      { status: 404, headers: { ...ARTIFACT_CORS_HEADERS } },
     )
   }
 
@@ -94,7 +96,6 @@ export async function GET(
       // Output is host-dependent (brand domain vs platform) - never let the CDN
       // serve one host's catalog to another.
       Vary: 'x-forwarded-host',
-      'X-Robots-Tag': 'noindex',
       ...ARTIFACT_CORS_HEADERS,
     },
   })
