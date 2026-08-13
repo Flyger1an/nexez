@@ -252,9 +252,9 @@ export function ScanClient({ initialUrl = '' }: { initialUrl?: string }) {
     <main className="mx-auto w-full max-w-4xl px-5 py-16 sm:py-24">
       <div className="text-center">
         <p className="eyebrow text-[var(--signal)]">Free scan | no signup | no AI cost</p>
-        <h1 className="display mt-4 text-balance">Can AI agents understand and buy from your site?</h1>
+        <h1 className="display mt-4 text-balance">Your site is built for humans. Agents can&apos;t read it.</h1>
         <p className="lede mx-auto mt-4 max-w-2xl">
-          Test whether agents can discover your business, understand real offers, and reach a working purchase or booking path.
+          See what ChatGPT, Perplexity, and buyer agents actually pull from your site: your offers, your prices, and whether they can reach a checkout at all.
         </p>
       </div>
 
@@ -271,7 +271,7 @@ export function ScanClient({ initialUrl = '' }: { initialUrl?: string }) {
         />
         <button type="submit" disabled={loading || !url.trim()} className="btn-primary min-h-[52px] px-6 disabled:opacity-60">
           {loading ? <Loader2 className="size-4 animate-spin" /> : null}
-          {loading ? 'Scanning...' : 'Scan my site'}
+          {loading ? 'Scanning...' : 'See what agents see'}
           {!loading ? <ArrowRight className="size-4" /> : null}
         </button>
       </form>
