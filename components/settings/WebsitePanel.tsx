@@ -208,13 +208,15 @@ export function WebsitePanel({
 
               {method === 'dns' ? (
                 <div className="space-y-2">
-                  <Artifact id="v-dns-host" label="DNS TXT record, Host / Name field:" value={VERIFICATION_TXT_LABEL} copiedId={copiedId} onCopy={copy} />
-                  <Artifact id="v-dns-value" label="Value field:" value={token} copiedId={copiedId} onCopy={copy} />
+                  <Artifact id="v-dns-host" label="DNS TXT record name:" value={verificationTxtHost(host || '')} copiedId={copiedId} onCopy={copy} />
+                  <Artifact id="v-dns-value" label="Value:" value={token} copiedId={copiedId} onCopy={copy} />
                   <p className="text-[11px] leading-relaxed text-[var(--fg-muted-2)]">
-                    Enter the Host exactly as <code className="text-[var(--fg-muted)]">{VERIFICATION_TXT_LABEL}</code> with nothing after it.
-                    Most providers (Namecheap, GoDaddy, Cloudflare) add <code className="text-[var(--fg-muted)]">{host}</code> for you,
-                    so pasting the full name creates <code className="text-[var(--fg-muted)]">{verificationTxtHost(host || '')}.{host}</code> and verification will not find it.
-                    The finished record reads <code className="text-[var(--fg-muted)]">{verificationTxtHost(host || '')}</code>.
+                    The finished record must read exactly <code className="text-[var(--fg-muted)]">{verificationTxtHost(host || '')}</code>.
+                    Many providers (Namecheap, GoDaddy, Cloudflare) append your DNS zone to whatever you type in the Host
+                    field, which doubles the name and stops it from verifying. If yours does, type only the part before
+                    your zone, so <code className="text-[var(--fg-muted)]">{VERIFICATION_TXT_LABEL}</code> when you manage{' '}
+                    <code className="text-[var(--fg-muted)]">{host}</code> itself. Verify anyway if you are unsure: we detect a
+                    doubled record and tell you the exact value to use.
                   </p>
                 </div>
               ) : method === 'meta' ? (
