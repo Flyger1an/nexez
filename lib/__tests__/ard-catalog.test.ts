@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ARD_DEFAULT_LIMITS, ArdListing, ArdStorefront, buildAiCatalog, isArdPublishable } from '../ard-catalog'
+import { isInternalMarketplaceFixture, isPlaceholderIdentity } from '../marketplace-curation'
 
 // Mirrors the published ai-catalog 1.0 schema constraints. These are the rules a
 // registry will validate against, so they are asserted directly rather than
@@ -131,11 +132,25 @@ describe('ARD publishability gate', () => {
     expect(isArdPublishable({ slug, name })).toBe(true)
   })
 
-  it('does not judge a listing by its description prose', () => {
-    // "for example" in a description must not exclude a real business.
-    expect(
-      isArdPublishable({ slug: 'real-bakery', name: 'Real Bakery' }),
-    ).toBe(true)
+  // Parity is the point: one gate must never admit what the other withholds.
+  it('agrees with marketplace curation on every identity decision', () => {
+    const cases = [
+      { slug: 'kismetpros', name: 'Kismet Pros', description: 'Housekeeping in DFW.' },
+      { slug: 'gauntlet-negotiation-lab', name: 'Gauntlet', description: 'Load testing.' },
+      { slug: 'abc-consulting-copy', name: 'abc consulting (Copy)', description: '' },
+      { slug: 'demo-bakery', name: 'Bakery', description: 'A demo listing.' },
+      { slug: 'real-bakery', name: 'Real Bakery', description: 'Wedding cakes, for example.' },
+    ]
+
+    for (const probe of cases) {
+      const curationWouldHold = isInternalMarketplaceFixture(probe) || isPlaceholderIdentity(probe)
+      expect(isArdPublishable(probe)).toBe(!curationWouldHold)
+    }
+  })
+
+  it('now honors description signals, matching curation', () => {
+    // Withheld by curation for the description alone, so withheld here too.
+    expect(isArdPublishable({ slug: 'sunrise-cafe', name: 'Sunrise Cafe', description: 'A sample listing.' })).toBe(false)
   })
 
   it('filters fixtures out of the built catalog entirely', () => {

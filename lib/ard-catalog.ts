@@ -1,5 +1,5 @@
 import { getBaseUrl } from './agent-page'
-import { isInternalMarketplaceFixture } from './marketplace-curation'
+import { isInternalMarketplaceFixture, isPlaceholderIdentity } from './marketplace-curation'
 import { marketingUrl } from './site'
 
 /**
@@ -33,18 +33,6 @@ const OPENAPI_JSON = 'application/openapi+json'
 
 /** Keeps the document a sane size for registry crawlers. */
 export const ARD_DEFAULT_LIMITS = { storefronts: 60, listings: 200 } as const
-
-/**
- * Placeholder identity guard, deliberately NARROWER than the marketplace
- * curation heuristic: it reads name and slug only, never the description.
- * Description prose legitimately contains words like "example" and "sample"
- * ("for example, we handle..."), and excluding a real merchant from external
- * discovery is a worse failure here than letting one scratch listing through.
- * The QA/gauntlet blocklist itself is NOT duplicated: it is imported from
- * marketplace-curation so the two surfaces cannot drift apart.
- */
-const PLACEHOLDER_IDENTITY = /\b(copy|demo|example|sample|placeholder|untitled|lorem)\b/i
-const PLACEHOLDER_PREFIX = /^abc(?:[\s-]|$)/i
 
 export type ArdListing = {
   name: string
@@ -84,18 +72,19 @@ export type AiCatalog = {
 
 /**
  * An ARD catalog is crawled by third-party registries, which makes it the most
- * externally visible discovery surface we publish. It must honor the same
- * exclusions as the marketplace: QA fixtures, seeded gauntlet pages, and
- * obvious scratch listings never leave the building.
+ * externally visible discovery surface we publish. It applies the SAME identity
+ * guards as marketplace curation, imported rather than re-declared so the two
+ * surfaces cannot drift: QA/gauntlet fixtures and placeholder identities are
+ * both excluded.
+ *
+ * Note that curation scans the description as well as the name and slug, so a
+ * listing whose description contains "example" or "sample" is withheld here.
+ * That is intentional parity, not an oversight: the same listing is already
+ * held back from the marketplace, and one gate deciding differently from the
+ * other is the failure mode worth avoiding.
  */
-export function isArdPublishable(entity: { name?: string | null; slug?: string | null }): boolean {
-  const slug = (entity.slug ?? '').trim()
-  const name = (entity.name ?? '').trim()
-  if (slug.length < 2) return false
-  if (isInternalMarketplaceFixture({ slug })) return false
-  if (PLACEHOLDER_IDENTITY.test(`${name} ${slug}`)) return false
-  if (PLACEHOLDER_PREFIX.test(name) || PLACEHOLDER_PREFIX.test(slug)) return false
-  return true
+export function isArdPublishable(entity: { name?: string | null; slug?: string | null; description?: string | null }): boolean {
+  return !isInternalMarketplaceFixture(entity) && !isPlaceholderIdentity(entity)
 }
 
 /** URN segments are restricted; map anything else to a hyphen so a merchant

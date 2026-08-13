@@ -75,6 +75,15 @@ export type MarketplaceCurationQueue = {
   summary: MarketplaceCurationSummary
 }
 
+/** Minimal structural shape for the identity guards, so non-page callers (the
+ *  ARD catalog builder, storefront handles) can reuse them without
+ *  constructing a full AgentPage. AgentPage still satisfies it. */
+export type MarketplaceIdentityProbe = {
+  name?: string | null
+  slug?: string | null
+  description?: string | null
+}
+
 const INTERNAL_SLUG_PATTERNS = [
   /^qa\d{1,4}[-_]\d{1,4}$/i,
   /^(qa|test|seed|gauntlet|red[-_]?team|adversarial)([-_]|$)/i,
@@ -99,12 +108,12 @@ export function normalizeMarketplaceName(value: string | null | undefined) {
   return clean(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
-export function isInternalMarketplaceFixture(page: Pick<AgentPage, 'slug'>) {
+export function isInternalMarketplaceFixture(page: MarketplaceIdentityProbe) {
   const slug = clean(page.slug)
   return Boolean(slug && INTERNAL_SLUG_PATTERNS.some((pattern) => pattern.test(slug)))
 }
 
-function isPlaceholderIdentity(page: Pick<AgentPage, 'name' | 'slug' | 'description'>) {
+export function isPlaceholderIdentity(page: MarketplaceIdentityProbe) {
   const identity = `${clean(page.name)} ${clean(page.slug)} ${clean(page.description)}`
   return clean(page.slug).length < 2 || PLACEHOLDER_PATTERNS.some((pattern) => pattern.test(identity))
 }
