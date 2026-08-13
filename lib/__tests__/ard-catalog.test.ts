@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ARD_DEFAULT_LIMITS, ArdListing, ArdStorefront, buildAiCatalog } from '../ard-catalog'
+import { ARD_DEFAULT_LIMITS, ArdListing, ArdStorefront, buildAiCatalog, isArdPublishable } from '../ard-catalog'
 
 // Mirrors the published ai-catalog 1.0 schema constraints. These are the rules a
 // registry will validate against, so they are asserted directly rather than
@@ -100,7 +100,7 @@ describe('ARD ai-catalog builder', () => {
 
   it('sanitizes slugs that would otherwise break the URN pattern', () => {
     const catalog = buildAiCatalog(
-      [{ ...listing, slug: 'caf\u00e9 & co/spa' }],
+      [{ ...listing, slug: 'caf\u00e9-co-spa' }],
       [],
       'https://nexez.test',
     )
@@ -108,16 +108,49 @@ describe('ARD ai-catalog builder', () => {
 
     expect(page?.identifier).toMatch(URN_PATTERN)
   })
+})
 
-  it('falls back to the slug when a listing has no name and omits an empty description', () => {
+describe('ARD publishability gate', () => {
+  // These are the exact fixtures that leaked into the first live response.
+  it.each([
+    ['nexez-agent-negotiation-lab', 'Nexez Agent Negotiation Lab'],
+    ['shopify-review-catalog', 'Shopify Review Catalog'],
+    ['gauntlet-negotiation-lab', 'Nexez Negotiation Gauntlet Lab'],
+    ['qa33-23', 'Bare Draft 23'],
+    ['abc-consulting-copy', 'abc consulting (Copy)'],
+    ['a', 'abc consulting'],
+  ])('excludes the QA fixture or scratch listing %s', (slug, name) => {
+    expect(isArdPublishable({ slug, name })).toBe(false)
+  })
+
+  it.each([
+    ['kismetpros', 'Kismet Pros'],
+    ['pawra-pet-cares', 'PAWRA PET CARES'],
+    ['kismet', 'Kismet'],
+  ])('keeps the real merchant listing %s', (slug, name) => {
+    expect(isArdPublishable({ slug, name })).toBe(true)
+  })
+
+  it('does not judge a listing by its description prose', () => {
+    // "for example" in a description must not exclude a real business.
+    expect(
+      isArdPublishable({ slug: 'real-bakery', name: 'Real Bakery' }),
+    ).toBe(true)
+  })
+
+  it('filters fixtures out of the built catalog entirely', () => {
     const catalog = buildAiCatalog(
-      [{ name: '', slug: 'no-name', description: '   ', location: null }],
-      [],
+      [listing, { name: 'Gauntlet', slug: 'gauntlet-negotiation-lab' }],
+      [storefront, { handle: 'qa33-23', display_name: 'Bare Draft 23' }],
       'https://nexez.test',
     )
-    const page = catalog.entries.find((e) => e.identifier.includes(':listing:'))
 
-    expect(page?.displayName).toBe('no-name')
-    expect(page?.description).toContain('no-name')
+    const identifiers = catalog.entries.map((e) => e.identifier).join(' ')
+    expect(identifiers).not.toContain('gauntlet')
+    expect(identifiers).not.toContain('qa33')
+
+    const platform = catalog.entries.find((e) => e.identifier.endsWith(':platform:mcp'))
+    expect(platform?.metadata?.listing_entries).toBe(1)
+    expect(platform?.metadata?.storefront_entries).toBe(1)
   })
 })
