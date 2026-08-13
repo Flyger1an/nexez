@@ -24,6 +24,12 @@ import { supabase } from '../../../lib/supabase'
  * deterministic, fidelity-preserving patterns as agent.json.
  * 
  * Route: GET /<slug>/mcp.json (public, published pages only, cached).
+ *
+ * URL construction: every advertised URL comes from `payload.page`, which is
+ * already host-correct (brand domain serves artifacts at the domain root, the
+ * platform serves them under /<slug>). Do NOT hand-build `${base}/${slug}/...`
+ * here: on a verified custom domain that produced a doubled path like
+ * `https://brand.com/<slug>/agent.json`, which the proxy does not own.
  */
 
 export async function GET(
@@ -68,6 +74,10 @@ export async function GET(
     reviewSummary,
   })
 
+  // Host-correct, already resolved by buildAgentPagePayload for both the brand
+  // domain and the platform. Single source of truth for every URI below.
+  const pageUrl = payload.page.url
+
   // MCP-flavored wrapper: resources for offers + context, tools for actions.
   // Agents supporting MCP can use this as context/resources.
   const mcpManifest = {
@@ -83,13 +93,15 @@ export async function GET(
     },
     resources: [
       {
-        uri: `${base}/${slug}/agent.json`,
+        uri: payload.page.agent_json_url,
         name: 'Agent JSON Manifest',
         description: 'Full structured agent-ready data including offers, availability, and actions.',
         mimeType: 'application/json',
       },
       {
-        uri: `${base}/llms.txt`,
+        // The LISTING's llms.txt, not the platform-wide one. On a brand domain
+        // these coincided; on the platform they did not.
+        uri: payload.page.llms_url,
         name: 'LLM Instructions',
         description: 'Plain-text instructions optimized for LLMs/agents.',
         mimeType: 'text/plain',
@@ -105,7 +117,7 @@ export async function GET(
           ]
         : []),
       ... (payload.offers || []).map((offer: any, idx: number) => ({
-        uri: `${base}/${slug}#offer-${idx}`,
+        uri: `${pageUrl}#offer-${idx}`,
         name: offer.name,
         description: offer.description || offer.name,
         mimeType: 'application/json',
@@ -160,10 +172,11 @@ export async function GET(
     _nexez: {
       // Passthrough of the rich Nexez payload for agents that understand both MCP + Nexez format.
       nexez_payload: payload,
-      public_url: `${base}/${slug}`,
+      public_url: pageUrl,
       mcp_enabled: true,
       // Live JSON-RPC 2.0 MCP endpoint (initialize / tools/* / resources/*).
-      mcp_endpoint: `${base}/${slug}/mcp`,
+      // Resolves directly on a brand domain now that the proxy owns /mcp.
+      mcp_endpoint: `${pageUrl}/mcp`,
     },
   }
 
