@@ -375,6 +375,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
       'Global index: /agent-pages.json for published listings.',
       'Search: /api/agent-search?q={intent} for buyer-intent discovery.',
       'Per-listing artifacts: /{slug}/agent.json, /{slug}/llms.txt, /{slug}/mcp.json.',
+      'Registry discovery: /.well-known/ai-catalog.json for ARD-compatible crawlers.',
     ],
     sections: [
       {
@@ -415,6 +416,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
       { title: 'Are public APIs authenticated?', copy: 'Public discovery APIs are open by design. Account and management APIs require authentication.' },
       { title: 'Can I build an agent on top of Nexez?', copy: 'Yes. Nexez is designed to be a clean offer source for agents, search tools, and buying assistants.' },
       { title: 'How should agents ask for approval?', copy: 'Use the buyer approval pattern to show seller, offer, price, terms, risk notes, and the exact next action before side effects.' },
+      { title: 'Do you support Agentic Resource Discovery?', copy: 'Yes. Nexez publishes an ARD ai-catalog manifest at /.well-known/ai-catalog.json listing the platform MCP server, the search API, and every published storefront and listing MCP endpoint, so registries can index them by capability.' },
       { title: 'Where should crawlers start?', copy: 'Start with https://nexez.app/llms.txt, /agent-pages.json, and /openapi.json.' },
     ],
     finalCtaTitle: 'Stop scraping. Start with structured intent.',
