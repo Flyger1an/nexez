@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   doubledRecordMessage,
+  doubledVerificationTxtCandidates,
   doubledVerificationTxtHost,
   generateWebsiteVerificationToken,
   isWellFormedWebsiteToken,
@@ -9,6 +10,7 @@ import {
   verificationMetaTag,
   VERIFICATION_TXT_LABEL,
   verificationTxtHost,
+  verificationTxtLabelForZone,
   websiteHostOf,
   WEBSITE_TOKEN_PREFIX,
 } from '../website-verification'
@@ -97,7 +99,6 @@ describe('verificationMetaTag', () => {
 describe('doubled (zone-appended) TXT record detection', () => {
   it('builds the doubled host most registrars create from a pasted FQDN', () => {
     expect(doubledVerificationTxtHost('kismetpros.com')).toBe('_nexez-verify.kismetpros.com.kismetpros.com')
-    expect(doubledVerificationTxtHost('agents.acme.co.uk')).toBe('_nexez-verify.agents.acme.co.uk.agents.acme.co.uk')
   })
 
   it('is distinct from the correct host', () => {
@@ -106,13 +107,49 @@ describe('doubled (zone-appended) TXT record detection', () => {
     expect(doubledVerificationTxtHost(host).startsWith(verificationTxtHost(host))).toBe(true)
   })
 
-  it('tells the owner the exact bare label to use', () => {
-    const message = doubledRecordMessage('kismetpros.com')
-    expect(message).toContain('_nexez-verify.kismetpros.com.kismetpros.com')
-    expect(message).toContain(`just "${VERIFICATION_TXT_LABEL}"`)
+  it('covers every plausible parent zone, most specific first', () => {
+    // Apex site: the only plausible zone is the host itself.
+    expect(doubledVerificationTxtCandidates('kismetpros.com')).toEqual([
+      { doubledHost: '_nexez-verify.kismetpros.com.kismetpros.com', zone: 'kismetpros.com' },
+    ])
+
+    // Subdomain site: the provider appends the ZONE, which may be either the
+    // subdomain (delegated) or the registrable domain. Both must be probed.
+    const sub = doubledVerificationTxtCandidates('shop.example.com')
+    expect(sub).toEqual([
+      { doubledHost: '_nexez-verify.shop.example.com.shop.example.com', zone: 'shop.example.com' },
+      { doubledHost: '_nexez-verify.shop.example.com.example.com', zone: 'example.com' },
+    ])
+  })
+
+  it('derives the exact Host label from the matched zone', () => {
+    // Apex: bare label.
+    expect(verificationTxtLabelForZone('kismetpros.com', 'kismetpros.com')).toBe('_nexez-verify')
+    // Subdomain in the registrable zone: label keeps the subdomain part. This is
+    // the case the first version of this guidance got wrong.
+    expect(verificationTxtLabelForZone('shop.example.com', 'example.com')).toBe('_nexez-verify.shop')
+    expect(verificationTxtLabelForZone('a.b.example.com', 'example.com')).toBe('_nexez-verify.a.b')
+    // Delegated subdomain zone: bare label again.
+    expect(verificationTxtLabelForZone('shop.example.com', 'shop.example.com')).toBe('_nexez-verify')
+  })
+
+  it('names the right label for apex and subdomain sites', () => {
+    const apex = doubledRecordMessage('kismetpros.com', 'kismetpros.com')
+    expect(apex).toContain('_nexez-verify.kismetpros.com.kismetpros.com')
+    expect(apex).toContain('just "_nexez-verify"')
+
+    const subdomain = doubledRecordMessage('shop.example.com', 'example.com')
+    expect(subdomain).toContain('_nexez-verify.shop.example.com.example.com')
+    expect(subdomain).toContain('just "_nexez-verify.shop"')
+    // Regression: must NOT tell a subdomain site to use the bare apex label.
+    expect(subdomain).not.toContain('just "_nexez-verify"')
+  })
+
+  it('defaults the zone to the host so apex callers stay correct', () => {
+    expect(doubledRecordMessage('kismetpros.com')).toBe(doubledRecordMessage('kismetpros.com', 'kismetpros.com'))
+  })
+
+  it('exports the leading label unchanged', () => {
     expect(VERIFICATION_TXT_LABEL).toBe('_nexez-verify')
-    // The bare label must not carry a trailing dot or the zone.
-    expect(VERIFICATION_TXT_LABEL.endsWith('.')).toBe(false)
-    expect(VERIFICATION_TXT_LABEL).not.toContain('kismetpros')
   })
 })
