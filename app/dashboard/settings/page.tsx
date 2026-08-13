@@ -160,7 +160,6 @@ export default async function AccountSettingsPage() {
                   <h2 className="text-xl font-semibold">Custom Domains</h2>
                 </div>
                 <div className="mt-5 space-y-3 text-sm">
-                  <ConfigRow label="Suggested CNAME" value="agent.yourdomain.com -> cname.vercel-dns.com" />
                   <ConfigRow label="Fallback URL" value={baseUrl} />
                   <ConfigRow label="Status" value="Ready for domain mapping" />
                 </div>
