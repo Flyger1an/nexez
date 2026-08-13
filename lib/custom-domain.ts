@@ -72,6 +72,8 @@ export function mapCustomDomainPath(slug: string, pathname: string): string {
   // The standard discovery probe path — answer it with the listing's live manifest.
   if (pathname === '/.well-known/agent.json') return `/${slug}/agent.json`
   if (pathname === '/.well-known/mcp.json') return `/${slug}/mcp.json`
+  // ARD catalog: only ever under /.well-known/, never at the domain root.
+  if (pathname === '/.well-known/ai-catalog.json') return `/${slug}/ai-catalog.json`
   return pathname
 }
 
@@ -82,6 +84,21 @@ export type DomainArtifact = (typeof DOMAIN_ARTIFACTS)[number]
 // Artifacts that agents probe under the conventional `/.well-known/` prefix. Only
 // agent.json + mcp.json live there (llms.txt/openapi.json are served at the root).
 const WELL_KNOWN_ARTIFACTS: readonly DomainArtifact[] = ['agent.json', 'mcp.json']
+
+/**
+ * Artifacts that exist ONLY under `/.well-known/` and describe the whole HOST
+ * rather than one listing.
+ *
+ * ARD fixes ai-catalog.json at `/.well-known/`, and a catalog enumerates every
+ * resource on the domain, so it is deliberately NOT a DomainArtifact: there is
+ * no `/ai-catalog.json` at the root and no `/pricing/ai-catalog.json` per
+ * sub-page. On a multi-listing domain the single catalog covers them all, which
+ * is why the rewrite below resolves against the domain rather than a basePath.
+ */
+export const WELL_KNOWN_ONLY_ARTIFACTS = ['ai-catalog.json'] as const
+export type WellKnownOnlyArtifact = (typeof WELL_KNOWN_ONLY_ARTIFACTS)[number]
+
+const WELL_KNOWN_PREFIX = '/.well-known/'
 
 /**
  * Decompose an incoming custom-domain pathname into the `domain_path` it
@@ -111,6 +128,8 @@ export function resolveDomainPath(
   // (agent.json/mcp.json) map to the ROOT page's artifact; anything else under
   // /.well-known is unowned (null → passthrough). Handled early so the generic
   // `/<seg>/<artifact>` rule can't mistake `.well-known` for a sub-page.
+  // Domain-scoped artifacts (ai-catalog.json) are resolved by
+  // buildCustomDomainRewrite BEFORE this function is consulted.
   if (segments[0] === '.well-known') {
     return segments.length === 2 && (WELL_KNOWN_ARTIFACTS as readonly string[]).includes(segments[1]!)
       ? { basePath: '/', artifact: segments[1] as DomainArtifact }
@@ -133,6 +152,19 @@ export function resolveDomainPath(
 }
 
 /**
+ * Entry-point slug for a domain-scoped artifact. Prefers the root listing; falls
+ * back to the first path alphabetically so a domain that only hosts sub-pages
+ * (no `/` listing) still serves its catalog instead of 308-ing to the platform.
+ * The route re-resolves the full listing set from the Host header, so any
+ * listing on the domain is a valid entry point.
+ */
+function domainScopedEntrySlug(map: Record<string, string>): string | null {
+  if (map['/']) return map['/']
+  const paths = Object.keys(map).sort()
+  return paths.length ? (map[paths[0]!] ?? null) : null
+}
+
+/**
  * Given a domain's path→slug map and an incoming pathname, return the internal
  * rewrite target (or null to pass through). Powers multi-page custom domains.
  */
@@ -140,11 +172,23 @@ export function buildCustomDomainRewrite(
   pathToSlug: Map<string, string> | Record<string, string>,
   pathname: string,
 ): string | null {
+  const map = pathToSlug instanceof Map ? Object.fromEntries(pathToSlug) : pathToSlug
+  const clean = (pathname || '/').replace(/\/+$/, '') || '/'
+
+  // Domain-scoped well-known artifacts first: they belong to the host, so they
+  // resolve against the domain's listing set rather than a single basePath.
+  if (clean.startsWith(WELL_KNOWN_PREFIX)) {
+    const name = clean.slice(WELL_KNOWN_PREFIX.length)
+    if ((WELL_KNOWN_ONLY_ARTIFACTS as readonly string[]).includes(name)) {
+      const slug = domainScopedEntrySlug(map)
+      return slug ? `/${slug}/${name}` : null
+    }
+  }
+
   const resolved = resolveDomainPath(pathname)
   if (!resolved) return null
 
-  const slug =
-    pathToSlug instanceof Map ? pathToSlug.get(resolved.basePath) : pathToSlug[resolved.basePath]
+  const slug = map[resolved.basePath]
   if (!slug) return null
 
   return resolved.artifact ? `/${slug}/${resolved.artifact}` : `/${slug}`
