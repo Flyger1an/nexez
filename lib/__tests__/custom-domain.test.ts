@@ -176,6 +176,12 @@ describe('buildCustomDomainRewrite', () => {
     expect(buildCustomDomainRewrite(map, '/unknown')).toBeNull()
     expect(buildCustomDomainRewrite(map, '/checkout/x')).toBeNull()
   })
+  it('still accepts a Map as well as a plain object', () => {
+    const asMap = new Map([['/', 'home-slug'], ['/pricing', 'pricing-slug']])
+    expect(buildCustomDomainRewrite(asMap, '/')).toBe('/home-slug')
+    expect(buildCustomDomainRewrite(asMap, '/pricing/mcp.json')).toBe('/pricing-slug/mcp.json')
+    expect(buildCustomDomainRewrite(asMap, '/.well-known/ai-catalog.json')).toBe('/home-slug/ai-catalog.json')
+  })
 })
 
 describe('.well-known discovery-probe parity (P2)', () => {
@@ -187,13 +193,13 @@ describe('.well-known discovery-probe parity (P2)', () => {
   })
 
   it('does NOT treat .well-known as a sub-page basePath', () => {
-    // The generic /<seg>/<artifact> rule must not fire — .well-known is not a listing.
+    // The generic /<seg>/<artifact> rule must not fire - .well-known is not a listing.
     const resolved = resolveDomainPath('/.well-known/agent.json')
     expect(resolved?.basePath).not.toBe('/.well-known')
   })
 
   it('only agent.json + mcp.json live under /.well-known (llms/openapi do not)', () => {
-    // llms.txt/openapi.json aren't conventionally under /.well-known → unowned.
+    // llms.txt/openapi.json aren't conventionally under /.well-known -> unowned.
     expect(resolveDomainPath('/.well-known/llms.txt')).toBeNull()
     expect(resolveDomainPath('/.well-known/openapi.json')).toBeNull()
     expect(resolveDomainPath('/.well-known/random.json')).toBeNull()
@@ -208,5 +214,59 @@ describe('.well-known discovery-probe parity (P2)', () => {
     expect(mapCustomDomainPath('acme', '/.well-known/agent.json')).toBe('/acme/agent.json')
     expect(mapCustomDomainPath('acme', '/.well-known/mcp.json')).toBe('/acme/mcp.json')
     expect(mapCustomDomainPath('acme', '/.well-known/llms.txt')).toBe('/.well-known/llms.txt') // passthrough
+  })
+})
+
+describe('ARD catalog is a domain-scoped well-known artifact', () => {
+  const rootDomain = { '/': 'home-slug', '/pricing': 'pricing-slug' }
+
+  it('rewrites the spec path to the listing catalog route', () => {
+    expect(buildCustomDomainRewrite(rootDomain, '/.well-known/ai-catalog.json')).toBe('/home-slug/ai-catalog.json')
+  })
+
+  it('regression: the probe no longer falls through to a platform redirect', () => {
+    // Before this existed, resolveDomainPath returned null for the catalog path,
+    // the proxy 308'd to nexez.app, and a merchant-domain probe answered with the
+    // WHOLE platform catalog. Null here means that redirect is back.
+    expect(buildCustomDomainRewrite(rootDomain, '/.well-known/ai-catalog.json')).not.toBeNull()
+  })
+
+  it('resolves for a domain that hosts only sub-pages (no root listing)', () => {
+    // Entry-point fallback: any listing on the host can anchor the catalog, since
+    // the route re-resolves the full set from the Host header.
+    const subOnly = { '/pricing': 'pricing-slug', '/booking': 'booking-slug' }
+    expect(buildCustomDomainRewrite(subOnly, '/.well-known/ai-catalog.json')).toBe('/booking-slug/ai-catalog.json')
+  })
+
+  it('is deterministic when several sub-pages could anchor it', () => {
+    const subOnly = { '/pricing': 'pricing-slug', '/booking': 'booking-slug' }
+    const first = buildCustomDomainRewrite(subOnly, '/.well-known/ai-catalog.json')
+    const second = buildCustomDomainRewrite({ '/booking': 'booking-slug', '/pricing': 'pricing-slug' }, '/.well-known/ai-catalog.json')
+    expect(first).toBe(second)
+  })
+
+  it('returns null for a domain with no listings at all', () => {
+    expect(buildCustomDomainRewrite({}, '/.well-known/ai-catalog.json')).toBeNull()
+  })
+
+  it('tolerates a trailing slash on the probe path', () => {
+    expect(buildCustomDomainRewrite(rootDomain, '/.well-known/ai-catalog.json/')).toBe('/home-slug/ai-catalog.json')
+  })
+
+  it('is NOT served at the domain root or under a sub-page', () => {
+    // ARD fixes the location at /.well-known/. Anything else stays unowned so we
+    // do not invent a second address for the same document.
+    expect(buildCustomDomainRewrite(rootDomain, '/ai-catalog.json')).toBeNull()
+    expect(buildCustomDomainRewrite(rootDomain, '/pricing/ai-catalog.json')).toBeNull()
+    expect(resolveDomainPath('/ai-catalog.json')).toEqual({ basePath: '/ai-catalog.json', artifact: null })
+  })
+
+  it('does not widen the other well-known paths', () => {
+    expect(buildCustomDomainRewrite(rootDomain, '/.well-known/llms.txt')).toBeNull()
+    expect(buildCustomDomainRewrite(rootDomain, '/.well-known/security.txt')).toBeNull()
+  })
+
+  it('mapCustomDomainPath maps it for the legacy single-page path', () => {
+    expect(mapCustomDomainPath('acme', '/.well-known/ai-catalog.json')).toBe('/acme/ai-catalog.json')
   })
 })
