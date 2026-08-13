@@ -10,9 +10,8 @@ import { getImportUrlError, getResolvedImportUrlError, safeFetch } from '../../.
 import { readBodyCapped } from '../../../../../lib/server/site-scan'
 import { captureEvent } from '../../../../../lib/observability'
 import { APP_HOST, MARKETING_HOST, AGENT_RUNTIME_HOST } from '../../../../../lib/site'
+import { findDoubledRecordMessage } from '../../../../../lib/server/doubled-txt-probe'
 import {
-  doubledRecordMessage,
-  doubledVerificationTxtHost,
   matchesVerificationFile,
   matchesVerificationMeta,
   verificationTxtHost,
@@ -132,12 +131,10 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       const flat = records.map((chunks) => chunks.join('').trim())
       matched = flat.some((val) => val === expected)
       if (!matched) {
-        // Probe the zone-appended name before blaming propagation.
-        const doubled = await resolveTxt(doubledVerificationTxtHost(host2)).catch(() => [] as string[][])
-        const doubledFlat = doubled.map((chunks) => chunks.join('').trim())
-        detail = doubledFlat.some((val) => val === expected)
-          ? doubledRecordMessage(host2)
-          : 'TXT record not found or token did not match yet (DNS can take a few minutes).'
+        // Probe every zone-appended variant before blaming propagation.
+        detail =
+          (await findDoubledRecordMessage(host2, expected)) ||
+          'TXT record not found or token did not match yet (DNS can take a few minutes).'
       }
     } else if (method === 'meta') {
       const urlError = getImportUrlError(normalizedSite) || (await getResolvedImportUrlError(normalizedSite))
