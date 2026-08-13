@@ -45,26 +45,59 @@ export function verificationTxtHost(host: string): string {
   return `_nexez-verify.${host}`
 }
 
-/** The bare label to type into a registrar's "Host"/"Name" field. */
+/** The leading label of the verification record, before the host. */
 export const VERIFICATION_TXT_LABEL = '_nexez-verify'
 
 /**
- * Most registrars (Namecheap, GoDaddy, Cloudflare, Squarespace...) append the zone
- * to whatever goes in the Host field. Pasting the full FQDN therefore creates
- * `_nexez-verify.example.com.example.com`, which resolves fine but is invisible to
- * the check at the real name. This is the single most common verification failure,
- * so we probe for it explicitly and tell the owner exactly what to change.
+ * Most registrars (Namecheap, GoDaddy, Cloudflare, Squarespace...) append the DNS
+ * ZONE to whatever goes in the Host field. Pasting the full record name therefore
+ * creates a doubled name that resolves fine but is invisible to the check at the
+ * real name. This is the single most common verification failure.
+ *
+ * The appended suffix is the zone, NOT necessarily the host: for a site at the
+ * apex (kismetpros.com) the doubled name is `_nexez-verify.kismetpros.com.kismetpros.com`,
+ * but for a site on a subdomain (shop.example.com in zone example.com) it is
+ * `_nexez-verify.shop.example.com.example.com`. We cannot know the zone up front,
+ * so we generate one candidate per possible parent zone and probe each.
  */
-export function doubledVerificationTxtHost(host: string): string {
-  return `_nexez-verify.${host}.${host}`
+export function doubledVerificationTxtCandidates(host: string): Array<{ doubledHost: string; zone: string }> {
+  const labels = host.split('.').filter(Boolean)
+  const candidates: Array<{ doubledHost: string; zone: string }> = []
+  // Every suffix with at least two labels is a plausible zone (example.com,
+  // shop.example.com, ...). Longest first so the most specific zone wins.
+  for (let i = 0; i <= labels.length - 2; i += 1) {
+    const zone = labels.slice(i).join('.')
+    candidates.push({ doubledHost: `${verificationTxtHost(host)}.${zone}`, zone })
+  }
+  return candidates
 }
 
-/** Guidance shown when the token was found at the doubled (zone-appended) name. */
-export function doubledRecordMessage(host: string): string {
+/**
+ * The value to type into a registrar's Host/Name field, given the zone that
+ * provider appends. Apex site: `_nexez-verify`. Subdomain site: `_nexez-verify.shop`.
+ */
+export function verificationTxtLabelForZone(host: string, zone: string): string {
+  const full = verificationTxtHost(host)
+  if (zone && full.endsWith(`.${zone}`)) return full.slice(0, -1 * (zone.length + 1))
+  return full
+}
+
+/** Back-compat helper: the apex-zone candidate. */
+export function doubledVerificationTxtHost(host: string): string {
+  return `${verificationTxtHost(host)}.${host}`
+}
+
+/**
+ * Guidance shown when the token was found at a doubled (zone-appended) name.
+ * The zone is evidence, not a guess: it comes from whichever candidate matched,
+ * so the label below is exact for both apex and subdomain sites.
+ */
+export function doubledRecordMessage(host: string, zone: string = host): string {
+  const label = verificationTxtLabelForZone(host, zone)
   return (
-    `Found your token at ${doubledVerificationTxtHost(host)}. Your DNS provider appended ` +
-    `"${host}" to the name automatically. Edit that record and set the Host/Name field to ` +
-    `just "${VERIFICATION_TXT_LABEL}" (nothing else), then verify again.`
+    `Found your token at ${verificationTxtHost(host)}.${zone}. Your DNS provider appended ` +
+    `"${zone}" to the name automatically. Edit that record and set the Host/Name field to ` +
+    `just "${label}" (nothing else), then verify again.`
   )
 }
 
