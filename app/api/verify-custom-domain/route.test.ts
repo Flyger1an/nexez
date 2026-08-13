@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { serverUserRef, adminRef, adminUpdates, accessRef } = vi.hoisted(() => ({
+const { serverUserRef, adminRef, adminUpdates, accessRef, providerRef } = vi.hoisted(() => ({
   serverUserRef: { user: { id: 'user_1', email: 'owner@acme.com' } as any },
   adminRef: {
     handler: (_ctx: any): { data: any; error: any } => ({ data: null, error: null }),
@@ -8,6 +8,10 @@ const { serverUserRef, adminRef, adminUpdates, accessRef } = vi.hoisted(() => ({
   adminUpdates: [] as Array<{ table: string; payload: any; eqs: Record<string, any> }>,
   // resolvePageAccess result. Default: the caller IS the owner of page_1.
   accessRef: { value: { pageId: 'page_1', ownerId: 'owner_1', role: 'owner' } as any },
+  providerRef: {
+    configured: false,
+    status: { verificationMethod: 'unknown' } as any,
+  },
 }))
 
 vi.mock('dns', () => ({ default: { resolveTxt: vi.fn() } }))
@@ -35,6 +39,10 @@ vi.mock('../../../utils/supabase/admin', async () => {
 // The security primitive: authoritatively resolves the page owner from the caller.
 vi.mock('../../../lib/server/page-access', () => ({
   resolvePageAccess: vi.fn(async () => accessRef.value),
+}))
+vi.mock('../../../lib/vercel-domains', () => ({
+  isVercelDomainConfigured: vi.fn(() => providerRef.configured),
+  getDomainStatus: vi.fn(async () => providerRef.status),
 }))
 
 import dns from 'dns'
@@ -102,6 +110,8 @@ describe('POST /api/verify-custom-domain', () => {
     vi.clearAllMocks()
     serverUserRef.user = { id: 'user_1', email: 'owner@acme.com' }
     accessRef.value = { pageId: 'page_1', ownerId: 'owner_1', role: 'owner' }
+    providerRef.configured = false
+    providerRef.status = { verificationMethod: 'unknown' }
     mockOwnerPage()
   })
 
@@ -134,6 +144,26 @@ describe('POST /api/verify-custom-domain', () => {
         }),
       ])
     )
+  })
+
+  it('rejects the conflicting TXT flow when Vercel identifies a CNAME subdomain', async () => {
+    providerRef.configured = true
+    providerRef.status = { verificationMethod: 'cname' }
+
+    const res = await POST(post({
+      pageId: 'page_1',
+      customDomain: 'agents.acme.com',
+      token: 'nexez-verify-abc123',
+    }))
+
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({
+      verified: false,
+      verificationMethod: 'cname',
+      code: 'CNAME_VERIFICATION_REQUIRED',
+    })
+    expect(dns.resolveTxt).not.toHaveBeenCalled()
+    expect(adminUpdates).toHaveLength(0)
   })
 
   it('an editor-collaborator verifies against the OWNER id (not their own)', async () => {

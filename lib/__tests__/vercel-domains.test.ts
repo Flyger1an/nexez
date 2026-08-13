@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deriveDomainState } from '../vercel-domains'
+import { deriveDomainState, isCnameProviderProof, type VercelDomainStatus } from '../vercel-domains'
 
 describe('deriveDomainState', () => {
   it('is unconfigured with no domain', () => {
@@ -15,7 +15,14 @@ describe('deriveDomainState', () => {
   })
 
   describe('provider configured (authoritative)', () => {
-    const base = { hasDomain: true, ownershipVerified: false, providerConfigured: true }
+    const base = {
+      hasDomain: true,
+      ownershipVerified: false,
+      providerConfigured: true,
+      providerConfigChecked: true,
+      verificationMethod: 'cname' as const,
+      configuredBy: 'CNAME' as const,
+    }
 
     it('pending DNS when not attached', () => {
       expect(deriveDomainState({ ...base, attached: false }).state).toBe('pending_dns')
@@ -31,10 +38,61 @@ describe('deriveDomainState', () => {
       ).toBe('verifying')
     })
 
+    it('does not treat a failed configuration check as live', () => {
+      expect(
+        deriveDomainState({
+          ...base,
+          attached: true,
+          providerVerified: true,
+          providerConfigChecked: false,
+          misconfigured: null,
+        }).state,
+      ).toBe('error')
+    })
+
+    it('requires TXT ownership for an apex even when its A record is healthy', () => {
+      expect(
+        deriveDomainState({
+          ...base,
+          attached: true,
+          providerVerified: true,
+          verificationMethod: 'txt',
+          configuredBy: 'A',
+          ownershipVerified: false,
+          misconfigured: false,
+        }).state,
+      ).toBe('verifying')
+    })
+
     it('live when attached + verified + not misconfigured', () => {
       expect(
         deriveDomainState({ ...base, attached: true, misconfigured: false, providerVerified: true }).state,
       ).toBe('live')
+    })
+  })
+
+  describe('CNAME provider proof', () => {
+    const status: VercelDomainStatus = {
+      attached: true,
+      verified: true,
+      configChecked: true,
+      misconfigured: false,
+      configuredBy: 'CNAME',
+      apexName: 'acme.com',
+      verificationMethod: 'cname',
+      requiredRecords: [],
+      recommendedCNAME: ['project.vercel-dns-017.com'],
+      recommendedIPv4: [],
+    }
+
+    it('accepts only the complete healthy CNAME signal', () => {
+      expect(isCnameProviderProof(status)).toBe(true)
+      expect(isCnameProviderProof({ ...status, configChecked: false })).toBe(false)
+      expect(isCnameProviderProof({ ...status, verified: false })).toBe(false)
+      expect(isCnameProviderProof({ ...status, misconfigured: true })).toBe(false)
+      expect(isCnameProviderProof({ ...status, configuredBy: 'http' })).toBe(false)
+      expect(isCnameProviderProof({ ...status, verificationMethod: 'txt' })).toBe(false)
+      expect(isCnameProviderProof({ ...status, error: 'provider error' })).toBe(false)
     })
   })
 

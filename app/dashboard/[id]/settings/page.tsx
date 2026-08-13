@@ -77,7 +77,12 @@ export default function PageSettings({ params }: PageProps) {
         label: string
         detail: string
         providerConfigured: boolean
+        ownershipVerified: boolean
+        verifiedAt?: string | null
+        verificationMethod: 'cname' | 'txt' | 'unknown'
+        legacyTxtBlocksCname: boolean
         requiredRecords: Array<{ type: string; name?: string; value?: string }>
+        routingRecords: Array<{ type: string; name?: string; value?: string }>
       }
   >(null)
   const [crawlLoading, setCrawlLoading] = useState(false)
@@ -358,7 +363,7 @@ export default function PageSettings({ params }: PageProps) {
       const res = await fetch('/api/custom-domain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, domain: customDomain.trim() }),
+        body: JSON.stringify({ action, domain: customDomain.trim(), pageId: id }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -370,8 +375,22 @@ export default function PageSettings({ params }: PageProps) {
         label: data.label,
         detail: data.detail,
         providerConfigured: data.providerConfigured,
+        ownershipVerified: Boolean(data.ownershipVerified),
+        verifiedAt: data.verifiedAt || null,
+        verificationMethod: data.verificationMethod || 'unknown',
+        legacyTxtBlocksCname: Boolean(data.legacyTxtBlocksCname),
         requiredRecords: data.requiredRecords || [],
+        routingRecords: data.routingRecords || [],
       })
+      setDomainVerified(Boolean(data.ownershipVerified))
+      if (data.ownershipVerified && data.verificationMethod === 'cname') {
+        setDomainVerificationToken('')
+        setPage((current) =>
+          current
+            ? { ...current, custom_domain_verified: data.verifiedAt || current.custom_domain_verified || new Date().toISOString() }
+            : current,
+        )
+      }
       setMessage(`${data.label}: ${data.detail}`)
     } catch (e: any) {
       setMessage('Domain action failed: ' + (e.message || 'network error'))
@@ -559,6 +578,21 @@ export default function PageSettings({ params }: PageProps) {
     )
   }
 
+  // Verification belongs to the saved hostname. Editing the input must never
+  // carry the old domain's verified badge onto a different, unsaved host.
+  const savedCustomDomain = (page.custom_domain || '').trim().toLowerCase()
+  const typedCustomDomain = customDomain
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .split('/')[0]
+    .split(':')[0]
+  const showDomainVerified =
+    domainVerified && Boolean(typedCustomDomain) && typedCustomDomain === savedCustomDomain
+  const showTxtVerification =
+    domainStatus?.verificationMethod === 'txt' ||
+    Boolean(domainStatus && !domainStatus.providerConfigured && domainStatus.verificationMethod === 'unknown')
+
   return (
     <main className="min-h-screen bg-[#090b10] text-white" data-testid="page-settings-screen">
       <div className="mx-auto max-w-6xl px-6 py-8">
@@ -664,29 +698,49 @@ export default function PageSettings({ params }: PageProps) {
                   <div className="flex flex-wrap gap-2">
                     <input
                       value={customDomain}
-                      onChange={(e) => setCustomDomain(e.target.value)}
+                      onChange={(e) => {
+                        setCustomDomain(e.target.value)
+                        setDomainStatus(null)
+                      }}
                       placeholder="agents.yourcompany.com"
                       className="mt-1 w-full min-w-0 flex-1 rounded border border-white/15 bg-black/30 px-2 py-1 text-sm sm:w-auto"
                     />
-                    <button
-                      type="button"
-                      onClick={generateDomainVerificationToken}
-                      className="mt-1 rounded border border-white/20 px-3 py-1 text-xs text-zinc-200 hover:bg-white/5"
-                    >
-                      Generate token
-                    </button>
-                    <button
-                      type="button"
-                      disabled={verifyingDomain || !domainVerificationToken}
-                      onClick={verifyCustomDomain}
-                      className="mt-1 rounded border border-[var(--ready)]/40 px-3 py-1 text-xs text-[var(--ready)] hover:bg-[var(--ready)]/10 disabled:opacity-50"
-                    >
-                      {verifyingDomain ? 'Checking DNS...' : 'Verify now'}
-                    </button>
+                    {showDomainVerified ? (
+                      <span
+                        className="mt-1 inline-flex items-center gap-1 rounded border border-[var(--ready)]/40 bg-[var(--ready)]/10 px-3 py-1 text-xs text-[var(--ready)]"
+                        title={page.custom_domain_verified ? `Verified ${new Date(page.custom_domain_verified as string).toLocaleString()}` : 'Verified'}
+                      >
+                        ✓ Verified
+                      </span>
+                    ) : null}
                   </div>
                   <p className="mt-1 text-[10px] text-zinc-500">
-                    Point this subdomain to Nexez, then add the TXT record to prove ownership.
+                    {domainStatus?.verificationMethod === 'cname'
+                      ? 'This subdomain uses one CNAME record. No Nexez TXT token is required.'
+                      : domainStatus?.verificationMethod === 'txt'
+                        ? 'This apex domain uses its routing record plus a Nexez TXT ownership check.'
+                        : 'Save the domain, then attach it below to detect the correct DNS setup.'}
                   </p>
+
+                  {showTxtVerification ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={generateDomainVerificationToken}
+                        className="rounded border border-white/20 px-3 py-1 text-xs text-zinc-200 hover:bg-white/5"
+                      >
+                        Generate TXT token
+                      </button>
+                      <button
+                        type="button"
+                        disabled={verifyingDomain || !domainVerificationToken}
+                        onClick={verifyCustomDomain}
+                        className="rounded border border-[var(--ready)]/40 px-3 py-1 text-xs text-[var(--ready)] hover:bg-[var(--ready)]/10 disabled:opacity-50"
+                      >
+                        {verifyingDomain ? 'Checking DNS...' : 'Verify TXT now'}
+                      </button>
+                    </div>
+                  ) : null}
 
                   <div className="mt-2 flex items-center gap-2">
                     <label className="text-[10px] uppercase tracking-widest text-zinc-400">Path on domain</label>
@@ -701,6 +755,37 @@ export default function PageSettings({ params }: PageProps) {
                       e.g. “/” or “/pricing” - host several listings on one domain.
                     </span>
                   </div>
+
+                  {domainStatus?.verificationMethod === 'cname' && domainStatus.routingRecords.length ? (
+                    <div className="mt-3 rounded border border-[var(--signal)]/30 bg-[var(--signal)]/5 p-3 text-[11px]">
+                      <div className="font-medium text-zinc-200">Add this DNS CNAME record</div>
+                      {domainStatus.routingRecords.map((record, index) => (
+                        <div key={`${record.type}-${index}`} className="mt-2 grid gap-1 sm:grid-cols-2">
+                          <div>
+                            <div className="text-[10px] text-zinc-500">Name / Host</div>
+                            <code className="block break-all rounded bg-black/40 p-1 text-[var(--ready)]">
+                              {record.name}
+                            </code>
+                          </div>
+                          <div>
+                            <div className="text-[10px] text-zinc-500">Target / Value</div>
+                            <code className="block break-all rounded bg-black/40 p-1 text-[var(--ready)]">
+                              {record.value}
+                            </code>
+                          </div>
+                        </div>
+                      ))}
+                      <p className="mt-2 text-[10px] text-zinc-500">
+                        Some DNS providers append your zone automatically. If yours does, enter only the host portion instead of the full name.
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {domainStatus?.legacyTxtBlocksCname ? (
+                    <div className="mt-2 rounded border border-[var(--amber)]/40 bg-[var(--amber)]/10 p-2 text-[11px] text-[var(--amber)]">
+                      Remove the legacy <code>_nexez-verify.{typedCustomDomain}</code> TXT record before publishing the CNAME. DNS does not allow that child TXT record beneath a CNAME host.
+                    </div>
+                  ) : null}
 
                   {/* C10: white-label branding */}
                   <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
@@ -798,21 +883,35 @@ export default function PageSettings({ params }: PageProps) {
                     </p>
                   </div>
 
-                  {domainVerificationToken && (
+                  {showTxtVerification && domainVerificationToken && (
                     <div className="mt-2 rounded border border-[var(--amber)]/30 bg-[var(--amber)]/5 p-2 text-[11px] text-[var(--amber)]">
                       <div className="font-medium mb-1">Add this DNS TXT record:</div>
+                      <div className="text-[10px] text-[var(--amber)]/80">Record name</div>
                       <code className="block bg-black/40 p-1 rounded text-[var(--ready)] break-all">
-                        _nexez-verify.{(customDomain || '').replace(/^https?:\/\//, '').split('/')[0].split(':')[0]} &nbsp; TXT &nbsp; "{domainVerificationToken}"
+                        _nexez-verify.{typedCustomDomain}
                       </code>
-                      <div className="mt-1 text-[10px] text-[var(--amber)]/80">Use low TTL (300). Wait for propagation, then Verify.</div>
+                      <div className="mt-1 text-[10px] text-[var(--amber)]/80">Value</div>
+                      <code className="block bg-black/40 p-1 rounded text-[var(--ready)] break-all">
+                        {domainVerificationToken}
+                      </code>
+                      <div className="mt-1 text-[10px] text-[var(--amber)]/80">
+                        Many providers append your DNS zone to the Host field. If yours does, enter only the part before your zone. Use a low TTL (300), then Verify.
+                      </div>
                     </div>
                   )}
 
                   <div className="mt-1 flex items-center gap-2 text-[10px]">
-                    {customDomain && domainVerified ? (
+                    {showDomainVerified ? (
                       <span className="text-[var(--ready)]">✓ Verified - custom domain ownership confirmed.</span>
                     ) : customDomain ? (
-                      <span className="text-zinc-400">Status: {domainVerificationToken ? 'Token ready - awaiting DNS verify' : 'Pending verification'}</span>
+                      <span className="text-zinc-400">
+                        Status:{' '}
+                        {domainStatus?.verificationMethod === 'cname'
+                          ? domainStatus.label
+                          : domainVerificationToken && showTxtVerification
+                            ? 'Token ready - awaiting DNS verify'
+                            : domainStatus?.label || 'Pending setup detection'}
+                      </span>
                     ) : null}
                   </div>
 
@@ -828,7 +927,7 @@ export default function PageSettings({ params }: PageProps) {
                             onClick={() => callDomainAction('attach')}
                             className="rounded border border-[var(--signal)]/40 px-2.5 py-1 text-[11px] text-[var(--signal)] hover:bg-[var(--signal)]/10 disabled:opacity-50"
                           >
-                            {domainProvisioning ? 'Working…' : 'Attach & provision SSL'}
+                            {domainProvisioning ? 'Working…' : 'Attach & detect DNS'}
                           </button>
                           <button
                             type="button"
@@ -843,7 +942,7 @@ export default function PageSettings({ params }: PageProps) {
 
                       {(() => {
                         const currentState =
-                          domainStatus?.state ?? (domainVerified ? 'verifying' : 'pending_dns')
+                          domainStatus?.state ?? (showDomainVerified ? 'verifying' : 'pending_dns')
                         const steps = [
                           { key: 'pending_dns', label: 'Pending DNS' },
                           { key: 'verifying', label: 'Verifying' },
@@ -882,19 +981,30 @@ export default function PageSettings({ params }: PageProps) {
                         <p className="mt-2 text-[11px] text-zinc-400">{domainStatus.detail}</p>
                       ) : (
                         <p className="mt-2 text-[11px] text-zinc-500">
-                          Click “Attach & provision SSL” to connect this domain and start secure hosting.
+                          Click “Attach & detect DNS” to connect this domain and receive the correct record instructions.
                         </p>
                       )}
 
                       {domainStatus && !domainStatus.providerConfigured ? (
                         <p className="mt-1 text-[10px] text-[var(--amber)]/80">
-                          Automatic SSL setup is not available for this project. Ownership is verified; point the domain at your host to finish SSL.
+                          Automatic SSL setup is not available for this project. Use the TXT ownership flow above, then configure hosting manually.
                         </p>
+                      ) : null}
+
+                      {domainStatus?.verificationMethod === 'txt' && domainStatus.routingRecords.length ? (
+                        <div className="mt-2 space-y-1">
+                          <div className="text-[10px] font-medium text-zinc-300">Routing records:</div>
+                          {domainStatus.routingRecords.map((record, index) => (
+                            <code key={index} className="block break-all rounded bg-black/40 p-1 text-[10px] text-[var(--ready)]">
+                              {record.type} {record.name ?? ''} {record.value ?? ''}
+                            </code>
+                          ))}
+                        </div>
                       ) : null}
 
                       {domainStatus?.requiredRecords?.length ? (
                         <div className="mt-2 space-y-1">
-                          <div className="text-[10px] font-medium text-zinc-300">Add these DNS records:</div>
+                          <div className="text-[10px] font-medium text-zinc-300">Additional Vercel access-verification records:</div>
                           {domainStatus.requiredRecords.map((r, i) => (
                             <code key={i} className="block break-all rounded bg-black/40 p-1 text-[10px] text-[var(--ready)]">
                               {r.type} {r.name ?? ''} {r.value ?? ''}

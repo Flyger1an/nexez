@@ -8,6 +8,7 @@ import { ownerAllows } from '../../../lib/server/plan'
 import { resolvePageAccess } from '../../../lib/server/page-access'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 import { findDoubledRecordMessage } from '../../../lib/server/doubled-txt-probe'
+import { getDomainStatus, isVercelDomainConfigured } from '../../../lib/vercel-domains'
 
 const resolveTxt = promisify(dns.resolveTxt)
 
@@ -125,6 +126,25 @@ export async function POST(request: NextRequest) {
   }
   if (!page) {
     return NextResponse.json({ error: 'Save this domain on a page you own before verifying it.' }, { status: 403 })
+  }
+
+  // A subdomain served through Vercel's CNAME path proves ownership through its
+  // healthy provider attachment. Publishing a Nexez TXT record below that CNAME
+  // is invalid DNS, so reject the legacy flow before reading or checking a token.
+  if (isVercelDomainConfigured()) {
+    const providerStatus = await getDomainStatus(domain)
+    if (providerStatus.verificationMethod === 'cname') {
+      return NextResponse.json(
+        {
+          verified: false,
+          domain,
+          verificationMethod: 'cname',
+          code: 'CNAME_VERIFICATION_REQUIRED',
+          message: 'TXT verification is not needed for this subdomain. Point its CNAME to cname.nexez.app, then check connection status.',
+        },
+        { status: 409 },
+      )
+    }
   }
 
   const { data: secrets } = await admin

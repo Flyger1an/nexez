@@ -5,6 +5,7 @@ import {
   addDomainToProject,
   deriveDomainState,
   getDomainStatus,
+  isCnameProviderProof,
   isVercelDomainConfigured,
   removeDomainFromProject,
   type VercelDomainStatus,
@@ -13,11 +14,14 @@ import { getOwnerPlanId } from '../../../lib/server/plan'
 import { getPlanLimits, planAllows } from '../../../lib/billing'
 import { resolvePageAccess } from '../../../lib/server/page-access'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
+import { hasLegacyCustomDomainTxt } from '../../../lib/server/doubled-txt-probe'
+
+const NEXEZ_CNAME = 'cname.nexez.app'
 
 /**
  * A2 - Custom domain provisioning (owner OR editor-collaborator).
  *
- * POST { action: 'attach' | 'status' | 'remove', domain }
+ * POST { action: 'attach' | 'status' | 'remove', domain, pageId? }
  * - Resolves the page that uses this domain (service-role, by custom_domain) and
  *   authorizes the caller as the page OWNER or a non-revoked EDITOR invitee via
  *   resolvePageAccess. A collaborator inherits the page OWNER's plan + acts on the
@@ -37,7 +41,7 @@ function normalizeDomain(input: string): string {
 }
 
 export async function POST(request: Request) {
-  let body: { action?: string; domain?: string }
+  let body: { action?: string; domain?: string; pageId?: string }
   try {
     body = await request.json()
   } catch {
@@ -72,10 +76,14 @@ export async function POST(request: Request) {
   // we NEVER trust an owner_id from the client. The resolved page id is then handed to
   // resolvePageAccess, which authorizes the caller as the page's OWNER or a non-revoked
   // EDITOR invitee. (A domain may host several pages, so take the first match.)
-  const { data: domainPages } = await admin
+  let pageQuery = admin
     .from('pages')
     .select('id, custom_domain, custom_domain_verified')
     .eq('custom_domain', domain)
+
+  if (body.pageId) pageQuery = pageQuery.eq('id', body.pageId)
+
+  const { data: domainPages } = await pageQuery
     .limit(1)
     .returns<Array<{ id: string; custom_domain: string; custom_domain_verified: string | null }>>()
 
@@ -130,16 +138,68 @@ export async function POST(request: Request) {
   }
 
   const providerConfigured = isVercelDomainConfigured()
-  const ownershipVerified = Boolean(page.custom_domain_verified)
+  let ownershipVerified = Boolean(page.custom_domain_verified)
+  let verifiedAt = page.custom_domain_verified
 
-  let status: VercelDomainStatus = { attached: false, verified: false, misconfigured: false, requiredRecords: [] }
+  let status: VercelDomainStatus = {
+    attached: false,
+    verified: false,
+    configChecked: false,
+    misconfigured: null,
+    configuredBy: null,
+    verificationMethod: 'unknown',
+    requiredRecords: [],
+    recommendedCNAME: [],
+    recommendedIPv4: [],
+  }
 
   if (providerConfigured && action !== 'remove') {
     status = action === 'attach' ? await addDomainToProject(domain) : await getDomainStatus(domain)
   } else if (providerConfigured && action === 'remove') {
     const removed = await removeDomainFromProject(domain)
+    if (removed.ok) {
+      const { error: clearError } = await admin
+        .from('pages')
+        .update({ custom_domain_verified: null })
+        .eq('id', access.pageId)
+        .eq('owner_id', access.ownerId)
+        .eq('custom_domain', domain)
+      if (clearError) {
+        return NextResponse.json({ error: 'Domain detached, but its verification state could not be cleared.' }, { status: 500 })
+      }
+    }
     return NextResponse.json({ ok: removed.ok, removed: removed.ok, error: removed.error })
   }
+
+  // For a subdomain, a healthy CNAME attachment is the ownership proof. Only a
+  // fully checked provider response can persist verification; missing config
+  // data or a provider error must never become a false-positive "Live" state.
+  if (isCnameProviderProof(status) && !ownershipVerified) {
+    verifiedAt = new Date().toISOString()
+    const { error: verifyError } = await admin
+      .from('pages')
+      .update({ custom_domain_verified: verifiedAt })
+      .eq('id', access.pageId)
+      .eq('owner_id', access.ownerId)
+      .eq('custom_domain', domain)
+
+    if (verifyError) {
+      return NextResponse.json({ error: 'Domain routing is verified, but saving verification failed.' }, { status: 500 })
+    }
+
+    await admin
+      .from('page_secrets')
+      .update({ domain_verification_token: null, updated_at: verifiedAt })
+      .eq('page_id', access.pageId)
+      .eq('owner_id', access.ownerId)
+
+    ownershipVerified = true
+  }
+
+  const legacyTxtBlocksCname =
+    status.verificationMethod === 'cname' && !isCnameProviderProof(status)
+      ? await hasLegacyCustomDomainTxt(domain)
+      : false
 
   const derived = deriveDomainState({
     hasDomain: true,
@@ -147,6 +207,9 @@ export async function POST(request: Request) {
     providerConfigured,
     attached: status.attached,
     providerVerified: status.verified,
+    providerConfigChecked: status.configChecked,
+    verificationMethod: status.verificationMethod,
+    configuredBy: status.configuredBy,
     misconfigured: status.misconfigured,
     errored: Boolean(status.error && status.error !== 'not_configured'),
   })
@@ -156,10 +219,19 @@ export async function POST(request: Request) {
     domain,
     providerConfigured,
     ownershipVerified,
+    verifiedAt,
+    verificationMethod: status.verificationMethod,
+    legacyTxtBlocksCname,
     provider: providerConfigured ? status : null,
     state: derived.state,
     label: derived.label,
     detail: derived.detail,
     requiredRecords: status.requiredRecords,
+    routingRecords:
+      status.verificationMethod === 'cname'
+        ? [{ type: 'CNAME', name: domain, value: NEXEZ_CNAME }]
+        : status.verificationMethod === 'txt'
+          ? status.recommendedIPv4.map((value) => ({ type: 'A', name: domain, value }))
+          : [],
   })
 }

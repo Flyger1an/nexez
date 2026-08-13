@@ -6,6 +6,24 @@ import { doubledVerificationTxtCandidates, doubledRecordMessage } from '../websi
 const resolveTxt = promisify(dns.resolveTxt)
 
 /**
+ * Detect a legacy Nexez custom-domain token below a CNAME candidate. That child
+ * record prevents standards-compliant DNS providers from publishing the CNAME.
+ * Website-verification tokens use a different prefix and are intentionally not
+ * treated as this blocker.
+ */
+export async function hasLegacyCustomDomainTxt(host: string): Promise<boolean> {
+  if (!host) return false
+  try {
+    const records = await resolveTxt(`_nexez-verify.${host}`)
+    return records
+      .map((chunks) => chunks.join('').trim())
+      .some((value) => value.startsWith('nexez-verify-'))
+  } catch {
+    return false
+  }
+}
+
+/**
  * Look for the expected token at any zone-appended ("doubled") variant of the
  * verification record name. Returns the ready-to-show guidance naming the exact
  * Host/Name value to use, or null when nothing matches.
