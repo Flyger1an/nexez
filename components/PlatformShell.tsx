@@ -252,36 +252,46 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
         </aside>
 
         <div className="min-w-0 pb-16 md:pb-0">
-          {/* Single row from md up: search sits inline with the actions. The brand
-              lockup lives in the sidebar rail (md:flex), so the header carries no
-              second logo. */}
+          {/* Single row from md up: search sits inline with the actions, and the
+              brand comes from the sidebar rail. Below md the rail collapses to a
+              bottom icon strip with no wordmark, so the phone header carries the
+              lockup itself. It sits in its own row above the search field, which
+              is the stacked layout phones want anyway. */}
           <header className="nx-nav sticky top-0 z-40 border-b border-border px-4 py-3 backdrop-blur-xl lg:px-6">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-center justify-end gap-3 md:hidden">
-                <ThemeToggle />
-                <a href="/create" className="inline-flex h-8 items-center gap-2 rounded-md bg-white px-3 text-xs font-medium text-black">
-                  <Plus className="size-3.5" />
-                  New
+              <div className="flex items-center justify-between gap-3 md:hidden">
+                <a href="/dashboard" className="flex items-center gap-2" title="Nexez home">
+                  <div className="flex size-7 items-center justify-center rounded-md border border-border bg-white text-black">
+                    <NexezLogo className="size-5" />
+                  </div>
+                  <span className="text-sm font-medium">Nexez</span>
                 </a>
-                {authed ? (
-                  <form action="/auth/signout" method="post">
-                    <button
-                      type="submit"
-                      aria-label="Sign out"
-                      title="Sign out"
-                      className="inline-flex size-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-white/5 hover:text-white"
-                    >
-                      <LogOut className="size-4" />
-                    </button>
-                  </form>
-                ) : (
-                  <a
-                    href="/login"
-                    className="inline-flex h-8 items-center rounded-md border border-border px-3 text-xs font-medium text-white hover:bg-white/5"
-                  >
-                    Sign in
+                <div className="flex items-center gap-2">
+                  <ThemeToggle />
+                  <a href="/create" className="inline-flex h-8 items-center gap-2 rounded-md bg-white px-3 text-xs font-medium text-black">
+                    <Plus className="size-3.5" />
+                    New
                   </a>
-                )}
+                  {authed ? (
+                    <form action="/auth/signout" method="post">
+                      <button
+                        type="submit"
+                        aria-label="Sign out"
+                        title="Sign out"
+                        className="inline-flex size-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-white/5 hover:text-white"
+                      >
+                        <LogOut className="size-4" />
+                      </button>
+                    </form>
+                  ) : (
+                    <a
+                      href="/login"
+                      className="inline-flex h-8 items-center rounded-md border border-border px-3 text-xs font-medium text-white hover:bg-white/5"
+                    >
+                      Sign in
+                    </a>
+                  )}
+                </div>
               </div>
               {authed ? <QuickPageSearch /> : <div className="flex-1" />}
               <div className="hidden shrink-0 items-center gap-2 md:flex">
