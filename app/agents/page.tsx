@@ -24,7 +24,7 @@ import { agentRuntimeUrl, appUrl, marketingUrl } from '../../lib/site'
 export const metadata: Metadata = {
   title: 'AI Agent Access',
   description:
-    'Install the Nexez OpenClaw plugin and discovery skill, then use Nexez agent APIs, manifests, llms.txt, OpenAPI, and MCP discovery to find and act on agent-ready offers.',
+    'Install the Nexez OpenClaw plugin and discovery skill, then use Nexez agent APIs, manifests, llms.txt, OpenAPI, ARD catalog, and MCP discovery to find and act on agent-ready offers.',
   alternates: {
     canonical: marketingUrl('/agents'),
   },
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     url: marketingUrl('/agents'),
     title: 'AI Agent Access',
     description:
-      'Install the Nexez OpenClaw plugin and discovery skill, then use Nexez agent APIs, manifests, llms.txt, OpenAPI, and MCP discovery to find and act on agent-ready offers.',
+      'Install the Nexez OpenClaw plugin and discovery skill, then use Nexez agent APIs, manifests, llms.txt, OpenAPI, ARD catalog, and MCP discovery to find and act on agent-ready offers.',
   },
 }
 
@@ -140,6 +140,12 @@ const endpoints = [
     copy: 'Discovery catalog for pages exposing MCP-compatible resources.',
   },
   {
+    label: 'ARD catalog',
+    href: agentRuntimeUrl('/.well-known/ai-catalog.json'),
+    value: `${distribution.runtime_base_url}/.well-known/ai-catalog.json`,
+    copy: 'Agentic Resource Discovery manifest so registries can index every Nexez MCP server by capability.',
+  },
+  {
     label: 'Capabilities',
     href: distribution.capabilities_url,
     value: distribution.capabilities_url,
@@ -219,6 +225,7 @@ const manifestPreview = {
     llms: distribution.llms_url,
     openapi: distribution.openapi_url,
     mcp: distribution.mcp_discovery_url,
+    ard_catalog: `${distribution.runtime_base_url}/.well-known/ai-catalog.json`,
   },
 }
 
@@ -279,7 +286,7 @@ export default function AgentAccessPage() {
               name: 'Nexez',
               url: marketingUrl('/'),
             },
-            about: ['AI agent commerce', 'OpenClaw', 'llms.txt', 'MCP', 'OpenAPI'],
+            about: ['AI agent commerce', 'OpenClaw', 'llms.txt', 'MCP', 'OpenAPI', 'Agentic Resource Discovery'],
           }),
         }}
       />
@@ -557,11 +564,11 @@ export default function AgentAccessPage() {
             <div className="nx-tile p-6">
               <div className="flex items-center gap-3">
                 <Code2 className="size-5 text-[var(--signal)]" />
-                <p className="font-medium">For builders</p>
+                <p className="font-medium">For registries</p>
               </div>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Use OpenAPI, MCP discovery, and the OpenClaw plugin together when you need typed actions plus readable
-                context.
+                The ARD catalog at /.well-known/ai-catalog.json lists every Nexez MCP server with its capabilities and
+                representative queries, so a discovery service can index the whole network from one document.
               </p>
             </div>
           </div>
