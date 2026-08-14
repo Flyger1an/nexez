@@ -5,6 +5,7 @@ import {
   getEffectiveBaseUrl,
   hostLookupCandidates,
   isCustomHost,
+  isMalformedRequestPath,
   isPlatformHost,
   mapCustomDomainPath,
   normalizeDomainPath,
@@ -268,5 +269,66 @@ describe('ARD catalog is a domain-scoped well-known artifact', () => {
 
   it('mapCustomDomainPath maps it for the legacy single-page path', () => {
     expect(mapCustomDomainPath('acme', '/.well-known/ai-catalog.json')).toBe('/acme/ai-catalog.json')
+  })
+})
+
+// Seven production runtime error groups came from a trailing encoded backslash on
+// the discovery artifact paths. The path reached the Next.js launcher, which threw
+// MODULE_NOT_FOUND on `pages/agent.json%5C.js` instead of answering 404.
+describe('isMalformedRequestPath', () => {
+  it('rejects the trailing encoded backslash that caused the production errors', () => {
+    expect(isMalformedRequestPath('/agent.json%5C')).toBe(true)
+    expect(isMalformedRequestPath('/agent-pages.json%5C')).toBe(true)
+    expect(isMalformedRequestPath('/.well-known/nexez.json%5C')).toBe(true)
+  })
+
+  it('rejects a lowercase or literal backslash just the same', () => {
+    expect(isMalformedRequestPath('/agent.json%5c')).toBe(true)
+    expect(isMalformedRequestPath('/agent.json\\')).toBe(true)
+  })
+
+  it('rejects encoded control characters', () => {
+    expect(isMalformedRequestPath('/agent.json%00')).toBe(true)
+    expect(isMalformedRequestPath('/agent.json%0A')).toBe(true)
+    expect(isMalformedRequestPath('/agent.json%7F')).toBe(true)
+  })
+
+  it('rejects a path that cannot be percent-decoded at all', () => {
+    expect(isMalformedRequestPath('/agent.json%ZZ')).toBe(true)
+    expect(isMalformedRequestPath('/%E0%A4%A')).toBe(true)
+  })
+
+  it('leaves every legitimate path alone', () => {
+    expect(isMalformedRequestPath('/')).toBe(false)
+    expect(isMalformedRequestPath('/agent.json')).toBe(false)
+    expect(isMalformedRequestPath('/.well-known/ai-catalog.json')).toBe(false)
+    expect(isMalformedRequestPath('/pricing/mcp.json')).toBe(false)
+    // Percent-encoding is fine in itself: only what it decodes to matters.
+    expect(isMalformedRequestPath('/caf%C3%A9')).toBe(false)
+    expect(isMalformedRequestPath('/a%20b')).toBe(false)
+  })
+
+  it('treats empty input as unremarkable rather than malformed', () => {
+    expect(isMalformedRequestPath('')).toBe(false)
+    expect(isMalformedRequestPath(null)).toBe(false)
+    expect(isMalformedRequestPath(undefined)).toBe(false)
+  })
+})
+
+describe('malformed paths never become a rewrite target', () => {
+  const domain = { '/': 'acme', '/pricing': 'acme-pricing' }
+
+  it('resolveDomainPath returns null instead of inventing a basePath', () => {
+    expect(resolveDomainPath('/agent.json%5C')).toBeNull()
+    expect(resolveDomainPath('/pricing%5C/agent.json')).toBeNull()
+  })
+
+  it('buildCustomDomainRewrite passes through rather than rewriting', () => {
+    expect(buildCustomDomainRewrite(domain, '/agent.json%5C')).toBeNull()
+    expect(buildCustomDomainRewrite(domain, '/.well-known/ai-catalog.json%5C')).toBeNull()
+    expect(buildCustomDomainRewrite(domain, '/mcp%5C')).toBeNull()
+    // The clean equivalents still resolve, so the guard is not over-broad.
+    expect(buildCustomDomainRewrite(domain, '/agent.json')).toBe('/acme/agent.json')
+    expect(buildCustomDomainRewrite(domain, '/.well-known/ai-catalog.json')).toBe('/acme/ai-catalog.json')
   })
 })
