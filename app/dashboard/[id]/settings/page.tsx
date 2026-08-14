@@ -35,6 +35,7 @@ import { IntegrationsPanel } from '../../../../components/settings/IntegrationsP
 import { WebsitePanel } from '../../../../components/settings/WebsitePanel'
 import { BrandingPanel } from '../../../../components/settings/BrandingPanel'
 import { DomainConnectionPanel } from '../../../../components/settings/DomainConnectionPanel'
+import { AvailabilityPanel, stripAvailabilityMarker } from '../../../../components/settings/AvailabilityPanel'
 import {
   OutboundWebhooksPanel,
   type OutboundEndpoint,
@@ -123,7 +124,6 @@ export default function PageSettings({ params }: PageProps) {
   // Google Calendar availability state.
   const [googleCalendarId, setGoogleCalendarId] = useState('')
   const [availabilityNote, setAvailabilityNote] = useState('')
-  const [availabilitySaving, setAvailabilitySaving] = useState(false)
 
   // Phase 5: Real custom domain verification state (persisted on page)
   const [domainVerificationToken, setDomainVerificationToken] = useState('')
@@ -198,7 +198,6 @@ export default function PageSettings({ params }: PageProps) {
   const publicUrl = `${getBaseUrl()}/${cleanSlug || page?.slug || ''}`
   const agentJsonUrl = `${getBaseUrl()}${getAgentJsonPath(cleanSlug || page?.slug || '')}`
   const searchUrl = `${getBaseUrl()}/api/agent-search?q=${encodeURIComponent(name || page?.name || 'service')}`
-  const hasCalendarId = googleCalendarId.trim().length > 0
   const certification = page ? getCertification(page) : null
 
   const manifestPreview = useMemo(() => {
@@ -1412,107 +1411,15 @@ export default function PageSettings({ params }: PageProps) {
               />
 
               {/* Google Calendar Availability */}
-              <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4" data-testid="availability-panel">
-                <div className="text-sm font-medium text-[var(--ready)] mb-2">Google Calendar Availability</div>
-                <p className="text-[10px] text-zinc-400 mb-3">Enter a Google Calendar ID to create agent-readable availability windows, or leave it blank and save a manual availability note. Both appear on the public listing and in agent data.</p>
-
-                <div className="space-y-2 mb-3">
-                  <label className="block text-[11px] text-zinc-400">
-                    Calendar ID
-                    <input
-                      type="text"
-                      value={googleCalendarId}
-                      onChange={(e) => setGoogleCalendarId(e.target.value)}
-                      placeholder="Calendar ID (e.g. yourname@gmail.com or abc123@group.calendar.google.com)"
-                      className="mt-1 w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm text-white"
-                      data-testid="google-calendar-id-input"
-                    />
-                  </label>
-                  <label className="block text-[11px] text-zinc-400">
-                    Availability note
-                    <input
-                      type="text"
-                      value={availabilityNote}
-                      onChange={(e) => setAvailabilityNote(e.target.value)}
-                      placeholder="Next available: This week, or specific dates/slots"
-                      className="mt-1 w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm text-white"
-                      data-testid="availability-note-input"
-                    />
-                  </label>
-                </div>
-
-                <button
-                  type="button"
-                  disabled={availabilitySaving}
-                  onClick={async () => {
-                    if (!page) return
-                    setAvailabilitySaving(true)
-                    setMessage('')
-                    try {
-                      let finalNote = availabilityNote || ''
-                      let importedAvailability: any = null
-
-                      const calendarId = googleCalendarId.trim()
-
-                      if (calendarId) {
-                        const res = await fetch('/api/integrations/google-calendar/availability', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ calendarId }),
-                        })
-                        const data = await res.json()
-                        if (!res.ok) throw new Error(data?.error || 'Import failed')
-                        importedAvailability = data.availability
-                        finalNote = data.next_available || data.availability?.summary_note || finalNote
-
-                        // Persist structured windows for agents using a compact marker (same pattern as ||TIERS|| for zero-schema fidelity)
-                        if (importedAvailability?.windows?.length) {
-                          const compact = JSON.stringify(importedAvailability.windows)
-                          finalNote = `${finalNote} ||WINDOWS||${compact}`
-                        }
-                      }
-
-                      const payload: any = {
-                        next_available: finalNote || null,
-                        google_calendar_id: calendarId || null,
-                      }
-
-                      const supabase = createClient()
-                      const { data: savedAvailability, error } = await supabase
-                        .from('pages')
-                        .update(payload)
-                        .eq('id', page.id)
-                        .select('id')
-                        .single()
-
-                      if (!error && savedAvailability) {
-                        setAvailabilityNote(stripAvailabilityMarker(finalNote))
-                        setGoogleCalendarId(calendarId)
-                        setPage({
-                          ...page,
-                          next_available: finalNote || null,
-                          google_calendar_id: calendarId || null,
-                        } as AgentPage)
-                      }
-
-                      const successMsg = calendarId
-                        ? `Availability imported from Google Calendar • ${importedAvailability?.windows?.length || 0} windows • Last synced just now.`
-                        : 'Availability saved. Visible on the public listing and in agent data.'
-
-                      setMessage(error || !savedAvailability ? error?.message || 'Availability was not saved.' : successMsg)
-                    } catch (e: any) {
-                      setMessage('Failed to import availability: ' + e.message)
-                    } finally {
-                      setAvailabilitySaving(false)
-                    }
-                  }}
-                  className="mt-1 w-full rounded-lg border border-[var(--ready)]/40 px-4 py-1.5 text-sm text-[var(--ready)] hover:bg-[var(--ready)]/10 disabled:opacity-60"
-                  data-testid="availability-save-button"
-                >
-                  {availabilitySaving ? 'Saving...' : hasCalendarId ? 'Import Availability from Google Calendar' : 'Save Manual Availability'}
-                </button>
-                <p className="mt-1 text-[10px] text-zinc-500">Calendar ID, imported windows, and manual notes are stored on the listing and appear for agents immediately.</p>
-              </div>
+              <AvailabilityPanel
+                pageId={page?.id}
+                calendarId={googleCalendarId}
+                setCalendarId={setGoogleCalendarId}
+                note={availabilityNote}
+                setNote={setAvailabilityNote}
+                onMessage={setMessage}
+                onPersisted={(patch) => setPage((current) => (current ? ({ ...current, ...patch } as AgentPage) : current))}
+              />
 
               <div className="rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4 sm:p-5">
                 <label htmlFor="calendly-webhook-secret" className="text-sm font-medium text-[var(--fg)]">
@@ -1871,10 +1778,6 @@ function LinkPanel({
       </div>
     </div>
   )
-}
-
-function stripAvailabilityMarker(note: string | null | undefined) {
-  return (note || '').split('||WINDOWS||')[0].trim()
 }
 
 function DisabledRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
