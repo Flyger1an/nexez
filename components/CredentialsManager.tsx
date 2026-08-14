@@ -9,12 +9,13 @@ type Doc = string | CredentialRecord
 const STATUS_STYLE: Record<string, { label: string; cls: string }> = {
   verified: { label: 'Reviewed ✓', cls: 'bg-[var(--ready)]/15 text-[var(--ready)]' },
   pending: { label: 'Pending review', cls: 'bg-[var(--amber)]/15 text-[var(--amber)]' },
-  rejected: { label: 'Not accepted', cls: 'bg-red-500/15 text-red-400' },
+  rejected: { label: 'Not accepted', cls: 'bg-[var(--danger-fill)] text-[var(--danger)]' },
 }
 
-// Owner-facing credential manager: upload a document → it's LLM-reviewed →
-// only 'verified' docs boost the trust score. Owners can optionally expose a
-// reviewed document publicly (per credential).
+// Owner-facing credential manager: upload a document → it receives an automated
+// review. A `verified` review status is descriptive metadata only; it does not
+// independently verify the seller or affect Trust Score. Owners can optionally
+// expose a reviewed document publicly (per credential).
 export function CredentialsManager({
   pageId,
   docs,
@@ -127,10 +128,9 @@ export function CredentialsManager({
         </button>
         <span className="text-[10px] text-[var(--fg-muted-2)]">PNG/JPEG/WebP or PDF, max 8MB</span>
       </div>
-      {error ? <p className="mt-1 text-[10px] text-red-400">{error}</p> : null}
+      {error ? <p className="mt-1 text-[10px] text-[var(--danger)]">{error}</p> : null}
       <p className="mt-1.5 text-[10px] text-[var(--fg-muted-2)]">
-        Each upload is reviewed by an LLM (type, issuer, holder match, expiry). Only <span className="text-[var(--ready)]">reviewed</span> credentials
-        add to your Trust Score - a self-typed name never does. Documents stay private unless you tick “show publicly.”
+        Each upload receives an automated document review (type, issuer, holder match, and expiry). Review results add context, but do not independently verify your identity or affect Trust Score. Documents stay private unless you tick “show publicly.”
       </p>
     </div>
   )

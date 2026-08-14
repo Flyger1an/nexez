@@ -1068,6 +1068,19 @@ html.light:not(:has(.public-agent-page)) .nx-chip { color: #0e7490; }
 
   /* design-system accents (dark) */
   --signal: #FF6A33; --ready: #5FEAD3; --amber: #FFD9A8;
+  /* Semantic binary controls stay legible inside .nx-dash, where --signal is
+     intentionally remapped to the foreground color. */
+  --control-on: var(--ready);
+  --control-on-thumb: #071713;
+  --control-off: rgba(255,255,255,.14);
+  --control-off-border: rgba(255,255,255,.18);
+  --control-off-thumb: #FAFAFA;
+  --control-focus: color-mix(in srgb, var(--ready) 55%, transparent);
+  --control-thumb-shadow: 0 1px 3px rgba(0,0,0,.32);
+  --settings-panel-shadow: inset 0 1px 0 var(--edge-soft);
+  --danger: #FCA5A5;
+  --danger-border: rgba(248,113,113,.3);
+  --danger-fill: rgba(248,113,113,.1);
   --prism: linear-gradient(90deg, #FF6A33, #5FEAD3 55%, #FFD9A8);
   --sheen: rgba(255,255,255,.13); --card-glow: rgba(255,255,255,.035);
   --text-dim: rgba(238,241,248,.66);
@@ -1100,6 +1113,15 @@ html.light:not(:has(.public-agent-page)) .nx-chip { color: #0e7490; }
 }
 html.light {
   --signal: #FF6A33; --ready: #0E9F87; --amber: #C8862F;
+  --control-on-thumb: #FFFFFF;
+  --control-off: rgba(13,16,22,.18);
+  --control-off-border: rgba(13,16,22,.24);
+  --control-off-thumb: #FFFFFF;
+  --control-thumb-shadow: 0 1px 3px rgba(13,16,22,.28);
+  --settings-panel-shadow: inset 0 1px 0 var(--edge-soft);
+  --danger: #B91C1C;
+  --danger-border: rgba(185,28,28,.28);
+  --danger-fill: rgba(185,28,28,.08);
   --prism: linear-gradient(90deg, #FF6A33, #15B79E 55%, #E8A94C);
   --sheen: rgba(255,255,255,.32); --card-glow: rgba(255,106,51,.05);
   --text-dim: rgba(13,16,22,.58);
@@ -1118,6 +1140,16 @@ html.light {
   --pri-border: rgba(255,106,51,.36); --pri-glow: 0 10px 28px -12px rgba(255,106,51,.2);
   --pri-glow-hi: 0 14px 38px -14px rgba(255,106,51,.3);
 }
+
+/* Listing settings previously relied on 9–11px roadmap-era helper copy. Keep
+   tertiary text readable without changing the density of the rest of the app. */
+.nx-listing-settings .text-\[9px\],
+.nx-listing-settings .text-\[10px\],
+.nx-listing-settings .text-\[11px\] {
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
 /* code/data wells + the new tokens stay dark on agent pages, in any theme (rule 5) */
 .public-agent-page {
   --signal: #FF6A33; --ready: #5FEAD3; --amber: #FFD9A8;

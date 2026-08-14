@@ -37,6 +37,7 @@ const GROWTH_ACTION_LABELS: Record<GrowthControlAction, string> = {
   end: 'Growth campaign ended',
   set_capacity: 'Growth capacity updated',
   set_signup_close: 'Growth signup window updated',
+  set_enrollment_mode: 'Growth enrollment mode updated',
 }
 
 const MARKETPLACE_STATUS_LABELS: Record<MarketplaceCurationStatus, string> = {

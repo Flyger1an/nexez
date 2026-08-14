@@ -13,6 +13,7 @@ import {
   Save,
   Settings,
   ShieldCheck,
+  X,
 } from 'lucide-react'
 import {
   AGENT_READY_STANDARD,
@@ -36,10 +37,27 @@ import { planAllows } from '../../../../lib/billing'
 import { ProBadge } from '../../../../components/billing/PlanGate'
 import { usePlan } from '../../../../components/billing/PlanProvider'
 import { SUPPORTED_CURRENCIES, normalizeCurrency } from '../../../../lib/currency'
+import {
+  SettingRow,
+  SettingsNav,
+  SettingsSection,
+  SettingsSwitch,
+  StatusPill,
+} from '../../../../components/settings/SettingsPrimitives'
 
 type PageProps = {
   params: Promise<{ id: string }>
 }
+
+const SETTINGS_SECTIONS = [
+  { id: 'general', label: 'General', icon: Settings },
+  { id: 'brand-domain', label: 'Brand & domain', icon: Globe2 },
+  { id: 'agent-experience', label: 'Agent experience', icon: Bot },
+  { id: 'commerce-integrations', label: 'Commerce & integrations', icon: ExternalLink },
+  { id: 'trust-verification', label: 'Trust & verification', icon: ShieldCheck },
+  { id: 'team-history', label: 'Team & history', icon: History },
+  { id: 'developer', label: 'Developer', icon: Code2 },
+] as const
 
 export default function PageSettings({ params }: PageProps) {
   // The EFFECTIVE plan governing this page's feature gates is the page OWNER's, not
@@ -128,6 +146,9 @@ export default function PageSettings({ params }: PageProps) {
 
   // LLM opt-in flag state (clean, for UI refresh after toggle)
   const [llmOptIn, setLlmOptIn] = useState(false)
+  const [llmSaving, setLlmSaving] = useState(false)
+  const [mcpSaving, setMcpSaving] = useState(false)
+  const [activeSection, setActiveSection] = useState<(typeof SETTINGS_SECTIONS)[number]['id']>('general')
 
   useEffect(() => {
     params.then(({ id }) => setId(id))
@@ -137,6 +158,44 @@ export default function PageSettings({ params }: PageProps) {
     if (!id) return
     loadPage(id)
   }, [id])
+
+  useEffect(() => {
+    if (loading || !page) return
+
+    const sectionIds = SETTINGS_SECTIONS.map((section) => section.id)
+    const syncFromHash = () => {
+      const next = window.location.hash.slice(1)
+      if (sectionIds.includes(next as (typeof sectionIds)[number])) {
+        setActiveSection(next as (typeof SETTINGS_SECTIONS)[number]['id'])
+      } else if (!next) {
+        setActiveSection('general')
+      }
+    }
+
+    syncFromHash()
+    window.addEventListener('hashchange', syncFromHash)
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
+        if (visible?.target.id) {
+          setActiveSection(visible.target.id as (typeof SETTINGS_SECTIONS)[number]['id'])
+        }
+      },
+      { rootMargin: '-18% 0px -68% 0px', threshold: [0, 0.15, 0.5] },
+    )
+
+    for (const sectionId of sectionIds) {
+      const element = document.getElementById(sectionId)
+      if (element) observer.observe(element)
+    }
+
+    return () => {
+      window.removeEventListener('hashchange', syncFromHash)
+      observer.disconnect()
+    }
+  }, [loading, page])
 
   const cleanSlug = normalizeSlug(slug || name)
   const publicUrl = `${getBaseUrl()}/${cleanSlug || page?.slug || ''}`
@@ -472,8 +531,14 @@ export default function PageSettings({ params }: PageProps) {
     const previousDomain = (page.custom_domain || '').trim().toLowerCase()
     const nextDomain = (customDomain || '').trim().toLowerCase()
     const domainChanged = previousDomain !== nextDomain
+    const branding = normalizeBranding({
+      brand_name: brandName,
+      accent_color: accentColor,
+      logo_url: logoUrl,
+      hide_nexez_badge: hideNexezBadge,
+    })
     const supabase = createClient()
-    const { error } = await supabase
+    const { data: savedRow, error } = await supabase
       .from('pages')
       .update({
         name,
@@ -486,47 +551,127 @@ export default function PageSettings({ params }: PageProps) {
         is_published: isPublished,
         custom_domain: customDomain || null,
 	        domain_path: normalizeDomainPath(domainPath),
-	        branding: normalizeBranding({
-	          brand_name: brandName,
-	          accent_color: accentColor,
-	          logo_url: logoUrl,
-	          hide_nexez_badge: hideNexezBadge,
-	        }),
+	        branding,
 	        prefer_original_site: preferOriginalSite,
-	        verification_details: verificationDetails || null,
 	      })
 	      .eq('id', page.id)
-	    const { error: secretError } = error
-	      ? { error: null }
-	      : await upsertPageSecrets({
-            calendly_webhook_secret: calendlyWebhookSecret || null,
-            ...(domainChanged ? { domain_verification_token: null } : {}),
-          })
+        .select('id')
+        .single()
 
-	    setSaving(false)
-	    setMessage(error ? error.message : secretError ? secretError.message : 'Settings saved.')
+    if (error || !savedRow) {
+      setSaving(false)
+      setMessage(`Settings could not be saved: ${error?.message || 'the listing was not updated'}.`)
+      return
+    }
 
-	    if (!error && !secretError) {
-        if (domainChanged) {
-          setDomainVerified(false)
-          setDomainVerificationToken('')
-          setDomainStatus(null)
-        }
-	      setPage({
-	        ...page,
+    const { error: secretError } = await upsertPageSecrets({
+      calendly_webhook_secret: calendlyWebhookSecret || null,
+      ...(domainChanged ? { domain_verification_token: null } : {}),
+    })
+
+    if (domainChanged) {
+      setDomainVerified(false)
+      setDomainStatus(null)
+      if (!secretError) setDomainVerificationToken('')
+    }
+    setPage({
+	      ...page,
         name,
         slug: cleanSlug,
         website_url: websiteUrl,
         cta_url: ctaUrl || websiteUrl,
         cta_label: ctaLabel || 'Visit website',
-	        contact_email: contactEmail,
-	        is_published: isPublished,
-          custom_domain: customDomain || null,
-          custom_domain_verified: domainChanged ? null : page.custom_domain_verified,
-          domain_path: normalizeDomainPath(domainPath),
-	        calendly_webhook_secret: calendlyWebhookSecret || null,
-	      })
-	    }
+	      contact_email: contactEmail,
+        preferred_contact: preferredContact || null,
+	      is_published: isPublished,
+        custom_domain: customDomain || null,
+        custom_domain_verified: domainChanged ? null : page.custom_domain_verified,
+        domain_path: normalizeDomainPath(domainPath),
+        branding,
+        prefer_original_site: preferOriginalSite,
+	      calendly_webhook_secret: secretError ? page.calendly_webhook_secret : calendlyWebhookSecret || null,
+	    })
+    setSaving(false)
+    setMessage(
+      secretError
+        ? `Listing settings saved, but the private Calendly setting was not saved: ${secretError.message}`
+        : 'Listing settings saved.',
+    )
+	}
+
+  async function updateMcpEnabled(next: boolean) {
+    if (!page || mcpSaving) return
+
+    const previous = Boolean(page.mcp_enabled)
+    setMcpSaving(true)
+    setMessage('')
+    setPage((current) => (current ? { ...current, mcp_enabled: next } : current))
+
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('pages')
+        .update({ mcp_enabled: next })
+        .eq('id', page.id)
+        .select('id, mcp_enabled')
+        .single()
+
+      if (error || !data) {
+        setPage((current) => (current ? { ...current, mcp_enabled: previous } : current))
+        setMessage('MCP setting could not be saved. Nothing changed — please try again.')
+        return
+      }
+
+      setPage((current) => (current ? { ...current, mcp_enabled: Boolean(data.mcp_enabled) } : current))
+      setMessage(
+        next
+          ? 'MCP support enabled. Compatible agents can now discover richer listing context.'
+          : 'MCP support disabled for this listing.',
+      )
+    } catch {
+      setPage((current) => (current ? { ...current, mcp_enabled: previous } : current))
+      setMessage('MCP setting could not be saved. Nothing changed — please try again.')
+    } finally {
+      setMcpSaving(false)
+    }
+  }
+
+  async function updateLlmOptIn(next: boolean) {
+    if (!page || llmSaving) return
+
+    const previous = llmOptIn
+    setLlmOptIn(next)
+    setLlmSaving(true)
+    setMessage('')
+
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('pages')
+        .update({ llm_opt_in: next })
+        .eq('id', page.id)
+        .select('llm_opt_in')
+        .single()
+
+      if (error || !data) {
+        setLlmOptIn(previous)
+        setMessage('AI assist setting could not be saved. Nothing changed — please try again.')
+        return
+      }
+
+      const persisted = Boolean(data.llm_opt_in)
+      setLlmOptIn(persisted)
+      setMessage(
+        persisted
+          ? 'Advanced AI assist enabled for this listing.'
+          : 'Advanced AI assist disabled for this listing.',
+      )
+    } catch {
+      setLlmOptIn(previous)
+      setMessage('AI assist setting could not be saved. Nothing changed — please try again.')
+    } finally {
+      setLlmSaving(false)
+    }
   }
 
 	  async function copy(label: string, value: string) {
@@ -558,9 +703,9 @@ export default function PageSettings({ params }: PageProps) {
 	    }
 	  }
 
-	  if (loading) {
+  if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#090b10] text-white">
+      <main className="flex min-h-screen items-center justify-center bg-[var(--bg)] text-[var(--fg)]">
         Loading settings...
       </main>
     )
@@ -568,7 +713,7 @@ export default function PageSettings({ params }: PageProps) {
 
   if (!page) {
     return (
-      <main className="min-h-screen bg-[#090b10] px-6 py-12 text-white">
+      <main className="min-h-screen bg-[var(--bg)] px-6 py-12 text-[var(--fg)]">
         <div className="mx-auto max-w-2xl">
           <p className="rounded-lg border border-white/10 bg-white/[0.04] p-6 text-zinc-300">
             {message || 'Listing not found.'}
@@ -592,104 +737,231 @@ export default function PageSettings({ params }: PageProps) {
   const showTxtVerification =
     domainStatus?.verificationMethod === 'txt' ||
     Boolean(domainStatus && !domainStatus.providerConfigured && domainStatus.verificationMethod === 'unknown')
+  const visibilityChanged = isPublished !== Boolean(page.is_published)
+  const visibilityStatus = visibilityChanged
+    ? isPublished
+      ? 'Will publish after saving'
+      : 'Will unpublish after saving'
+    : isPublished
+      ? 'Published'
+      : 'Draft'
+  const reviewedCredentialCount = Array.isArray(verificationDetails.docs_provided)
+    ? verificationDetails.docs_provided.filter(
+        (document: any) => document && typeof document === 'object' && document.status === 'verified',
+      ).length
+    : 0
 
   return (
-    <main className="min-h-screen bg-[#090b10] text-white" data-testid="page-settings-screen">
-      <div className="mx-auto max-w-6xl px-6 py-8">
-        <div className="flex justify-end">
-          <div className="flex flex-wrap gap-3">
-            <a href={`/dashboard/${page.id}`} className={topButtonClass}>
-              Edit Listing
-            </a>
-            <a href={agentRuntimeUrl(`/${page.slug}`)} className={topButtonClass}>
-              <ExternalLink className="size-4" />
-              Public Listing
-            </a>
-          </div>
-        </div>
-
-        <section className="mt-8 grid gap-6 lg:grid-cols-[0.82fr_1.18fr]">
-          <aside className="space-y-5 min-w-0">
-            <div>
-              <p className="flex items-center gap-2 text-sm text-[var(--signal)]">
-                <Settings className="size-4" />
-                Listing Settings
+    <main className="nx-listing-settings min-h-screen bg-[var(--bg)] text-[var(--fg)]" data-testid="page-settings-screen">
+      <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-7 sm:py-9">
+        <header className="overflow-hidden rounded-[var(--r-card)] border border-[var(--line-soft)] bg-[var(--glass)] p-5 shadow-none sm:p-7">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-3xl">
+              <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.16em] text-[var(--fg-muted)]">
+                <span className="h-px w-7 bg-[var(--prism)]" aria-hidden="true" />
+                Listing settings
               </p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight">{page.name}</h1>
-              {pageRole !== 'owner' && (
-                <span className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-[var(--signal)]/30 bg-[var(--signal)]/10 px-2.5 py-1 text-xs font-medium text-[var(--signal)]">
-                  {pageRole === 'editor' ? 'Editing as collaborator' : 'View-only access'}
-                </span>
-              )}
+              <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{page.name}</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">
+                Shape how this listing appears, how agents understand it, and where customers complete the next step.
+              </p>
             </div>
+            <div className="flex flex-wrap gap-3">
+              <a href={`/dashboard/${page.id}`} className={topButtonClass}>
+                Edit Listing
+              </a>
+              <a href={agentRuntimeUrl(`/${page.slug}`)} className={topButtonClass} target="_blank" rel="noreferrer">
+                <ExternalLink className="size-4" />
+                Public Listing
+              </a>
+            </div>
+          </div>
+          <div className="mt-6 flex flex-wrap gap-2 border-t border-[var(--line-soft)] pt-5">
+            <StatusPill
+              label={visibilityStatus}
+              tone={visibilityChanged ? 'attention' : isPublished ? 'ready' : 'neutral'}
+            />
+            <StatusPill
+              label={pageRole === 'owner' ? 'Owner access' : pageRole === 'editor' ? 'Collaborator access' : 'View only'}
+              tone={pageRole === 'viewer' ? 'attention' : 'neutral'}
+            />
+            <StatusPill
+              label={showDomainVerified ? 'Domain verified' : customDomain ? 'Domain needs verification' : 'Platform domain'}
+              tone={showDomainVerified ? 'ready' : customDomain ? 'attention' : 'neutral'}
+            />
+            <StatusPill
+              label={certification?.certified ? 'Agent-Ready certified' : `${certification?.criteria_met ?? 0}/${certification?.criteria_total ?? 11} readiness checks`}
+              tone={certification?.certified ? 'ready' : 'neutral'}
+            />
+          </div>
+        </header>
 
-            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium">Visibility</p>
-                  <p className="mt-1 text-sm text-zinc-500">{isPublished ? 'Published' : 'Draft'}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsPublished((value) => !value)}
-                  className={`relative h-7 w-12 rounded-full transition ${isPublished ? 'bg-[var(--signal)]' : 'bg-zinc-700'}`}
-                  aria-label="Toggle published status"
-                  title="Toggle published status"
+        {message ? (
+          <div
+            className="fixed inset-x-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-50 mx-auto flex max-w-xl items-start gap-3 rounded-2xl border border-[var(--line)] bg-[var(--glass-strong)] px-4 py-3 text-sm text-[var(--fg-soft)] shadow-[var(--settings-panel-shadow)] backdrop-blur-xl sm:inset-x-auto sm:bottom-6 sm:right-6 sm:mx-0 sm:max-w-md"
+            role="status"
+            aria-live="polite"
+          >
+            <span className="min-w-0 flex-1">{message}</span>
+            <button
+              type="button"
+              onClick={() => setMessage('')}
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-[var(--fg-muted)] outline-none hover:bg-[var(--fill-1)] hover:text-[var(--fg)] focus-visible:ring-2 focus-visible:ring-[var(--control-focus)]"
+              aria-label="Dismiss notification"
+            >
+              <X className="size-4" aria-hidden="true" />
+            </button>
+          </div>
+        ) : null}
+
+        <div className="mt-8 grid min-w-0 grid-cols-[minmax(0,1fr)] items-start gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <aside className="sticky top-16 z-30 min-w-0 max-w-full lg:top-24">
+            <SettingsNav
+              items={SETTINGS_SECTIONS}
+              activeId={activeSection}
+              onNavigate={(sectionId) => setActiveSection(sectionId as (typeof SETTINGS_SECTIONS)[number]['id'])}
+              ariaLabel="Listing settings sections"
+            />
+          </aside>
+
+          <div className="grid min-w-0 gap-8">
+          <div className="min-w-0 space-y-8">
+            <SettingsSection
+              id="general"
+              title="General"
+              description="The essential identity, contact path, visibility, and checkout defaults for this listing."
+              icon={Settings}
+              status={<StatusPill label={visibilityStatus} tone={visibilityChanged ? 'attention' : isPublished ? 'ready' : 'neutral'} />}
+            >
+              <form onSubmit={saveSettings} className="space-y-6 p-5 sm:p-6">
+              <SettingRow
+                label="Listing visibility"
+                description="Draft listings stay private. Published listings are available to buyers, crawlers, and compatible agents after you save."
+                htmlFor="listing-visibility"
+                className="!px-0 !py-0"
+              >
+                <SettingsSwitch
+                  id="listing-visibility"
+                  checked={isPublished}
+                  onCheckedChange={setIsPublished}
+                  label="Listing visibility"
+                  checkedLabel={visibilityChanged ? 'Publish on save' : 'Published'}
+                  uncheckedLabel={visibilityChanged ? 'Unpublish on save' : 'Draft'}
+                />
+              </SettingRow>
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <Field label="Listing name">
+                  <input id="listing-name" value={name} onChange={(event) => setName(event.target.value)} className={inputClass} required />
+                </Field>
+                <Field label="Slug">
+                  <input id="listing-slug" value={slug} onChange={(event) => setSlug(normalizeSlug(event.target.value))} className={inputClass} required />
+                </Field>
+              </div>
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <Field label="Main website">
+                  <input id="website-url" type="url" value={websiteUrl} onChange={(event) => setWebsiteUrl(event.target.value)} className={inputClass} />
+                </Field>
+                <Field label="Action URL">
+                  <input id="cta-url" type="url" value={ctaUrl} onChange={(event) => setCtaUrl(event.target.value)} className={inputClass} />
+                </Field>
+              </div>
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <Field label="Action label">
+                  <input id="cta-label" value={ctaLabel} onChange={(event) => setCtaLabel(event.target.value)} className={inputClass} />
+                </Field>
+                <Field label="Contact email">
+                  <input id="contact-email" type="email" value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} className={inputClass} />
+                </Field>
+              </div>
+
+              <Field label="Preferred contact for agents">
+                <select
+                  id="preferred-contact"
+                  value={preferredContact}
+                  onChange={(event) => setPreferredContact(event.target.value as '' | PreferredContact)}
+                  className={`${inputClass} [color-scheme:dark]`}
                 >
-                  <span
-                    className={`absolute top-1 size-5 rounded-full bg-white transition ${
-                      isPublished ? 'left-6' : 'left-1'
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
+                  <option value="">Auto (recommended)</option>
+                  {contactEmail.trim() ? <option value="email">{`Email - ${contactEmail.trim()}`}</option> : null}
+                  {ctaUrl.trim() ? <option value="cta">{`Primary action${ctaLabel.trim() ? ` - ${ctaLabel.trim()}` : ''}`}</option> : null}
+                  {websiteUrl.trim() ? <option value="website">Website</option> : null}
+                </select>
+              </Field>
+              <p className="text-sm leading-6 text-[var(--fg-muted)]">
+                Auto chooses email first, then your primary action, then your website. This preference is included in agent.json and llms.txt.
+              </p>
 
-            <LinkPanel title="Agent links" links={
-              ([
-                ['Public listing', publicUrl],
-                ['Agent JSON', agentJsonUrl],
-                ['Search API', searchUrl],
-                ['OpenAPI', `${getBaseUrl()}/openapi.json`],
-                ...((page as any)?.mcp_enabled ? [
-                  ['MCP Manifest', `${getBaseUrl()}/${cleanSlug || page?.slug || ''}/mcp.json`],
-                  ['MCP Discovery', `${getBaseUrl()}/.well-known/mcp.json`],
-                ] : []),
-              ] as [string, string][])
-            } copied={copied} onCopy={copy} />
+              <SettingRow
+                label="Settlement currency"
+                description="The currency buyers are charged in at checkout for this listing's offers. Currency saves immediately."
+                htmlFor="settlement-currency"
+              >
+                <select
+                  id="settlement-currency"
+                  value={currency}
+                  onChange={async (event) => {
+                    if (!page) return
+                    const next = normalizeCurrency(event.target.value)
+                    const previous = currency
+                    setCurrency(next)
+                    const supabase = createClient()
+                    const { data: savedCurrency, error } = await supabase
+                      .from('pages')
+                      .update({ currency: next })
+                      .eq('id', page.id)
+                      .select('currency')
+                      .single()
+                    if (error || !savedCurrency) {
+                      setCurrency(previous)
+                      setMessage('Currency could not be saved. Please try again.')
+                    } else {
+                      setCurrency(normalizeCurrency(savedCurrency.currency))
+                      setMessage(`Checkout currency set to ${normalizeCurrency(savedCurrency.currency).toUpperCase()}.`)
+                    }
+                  }}
+                  className={`${inputClass} [color-scheme:dark]`}
+                >
+                  {SUPPORTED_CURRENCIES.map((supportedCurrency) => (
+                    <option key={supportedCurrency.code} value={supportedCurrency.code}>{supportedCurrency.label}</option>
+                  ))}
+                </select>
+              </SettingRow>
 
-            <div className="rounded-lg border border-[var(--signal)]/20 bg-[var(--signal)]/10 p-5">
-              <div className="flex items-center gap-2 text-[var(--signal)]">
-                <ShieldCheck className="size-5" />
-                <h2 className="font-semibold">Advanced</h2>
-              </div>
-              <div className="mt-4 space-y-3 text-sm">
-                <div>
-                  <p className="text-xs uppercase tracking-widest text-zinc-400">Settlement currency</p>
-                  <p className="mt-0.5 text-[11px] text-zinc-500">The currency buyers are charged in at checkout for this listing's offers.</p>
-                  <select
-                    value={currency}
-                    onChange={async (e) => {
-                      if (!page) return
-                      const next = normalizeCurrency(e.target.value)
-                      const previous = currency
-                      setCurrency(next)
-                      const supabase = createClient()
-                      const { error } = await supabase.from('pages').update({ currency: next }).eq('id', page.id)
-                      if (error) {
-                        setCurrency(previous)
-                        setMessage('Currency could not be saved. Please try again.')
-                      } else {
-                        setMessage(`Checkout currency set to ${next.toUpperCase()}.`)
-                      }
-                    }}
-                    className="mt-2 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-white [color-scheme:dark]"
-                  >
-                    {SUPPORTED_CURRENCIES.map((c) => (
-                      <option key={c.code} value={c.code}>{c.label}</option>
-                    ))}
-                  </select>
+              <button
+                type="submit"
+                disabled={saving}
+                className="btn-primary w-full px-5 py-3 disabled:opacity-60"
+              >
+                {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                {saving ? 'Saving...' : 'Save listing settings'}
+              </button>
+              </form>
+            </SettingsSection>
+
+            <SettingsSection
+              id="brand-domain"
+              title="Brand & domain"
+              description="Connect a trusted hostname and carry your identity through every buyer and agent touchpoint."
+              icon={Globe2}
+              status={
+                <StatusPill
+                  label={showDomainVerified ? 'Domain verified' : customDomain ? 'Verification needed' : 'Using Nexez URL'}
+                  tone={showDomainVerified ? 'ready' : customDomain ? 'attention' : 'neutral'}
+                />
+              }
+              footer={
+                <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--fg-muted)]">
+                  <span>Domain and branding edits are staged with the listing.</span>
+                  <a href="#general" className="font-medium text-[var(--fg)] underline-offset-4 hover:underline">Review and save</a>
                 </div>
+              }
+              contentClassName="space-y-5 divide-y-0 p-4 sm:p-5"
+            >
+              <div className="rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4 sm:p-5">
+              <div className="space-y-3 text-sm">
                 <div>
                   <p className="flex items-center gap-2 text-xs uppercase tracking-widest text-zinc-400">
                     Custom domain
@@ -869,15 +1141,26 @@ export default function PageSettings({ params }: PageProps) {
                         <p className="mt-0.5 text-[9px] text-zinc-500">Upload a logo, detect one from your website, or paste any public https image URL. Remove clears it.</p>
                       </label>
                     </div>
-                    <label className="mt-2 flex items-center gap-2 text-[11px] text-zinc-300">
-                      <input
-                        type="checkbox"
+                    <SettingRow
+                      label="Nexez attribution"
+                      description={
+                        <span className="inline-flex flex-wrap items-center gap-2">
+                          Hide the Nexez header link for a fully white-label listing. Saves with the listing settings.
+                          {!planAllows(plan, 'removeBadge') ? <ProBadge feature="removeBadge" /> : null}
+                        </span>
+                      }
+                      htmlFor="hide-nexez-attribution"
+                      className="mt-4 rounded-xl border border-[var(--line-soft)] bg-[var(--glass)]"
+                    >
+                      <SettingsSwitch
+                        id="hide-nexez-attribution"
                         checked={hideNexezBadge}
-                        onChange={(e) => setHideNexezBadge(e.target.checked)}
+                        onCheckedChange={setHideNexezBadge}
+                        label="Nexez attribution"
+                        checkedLabel="Hidden"
+                        uncheckedLabel="Shown"
                       />
-                      Hide the “Nexez” header link (full white-label)
-                      {!planAllows(plan, 'removeBadge') && <ProBadge feature="removeBadge" />}
-                    </label>
+                    </SettingRow>
                     <p className="mt-1 text-[10px] text-zinc-500">
                       Invalid colors/URLs are ignored on render (hex + http(s) only). Save to apply.
                     </p>
@@ -1065,42 +1348,6 @@ export default function PageSettings({ params }: PageProps) {
                   ) : null}
                 </div>
 
-                {/* Phase 7 MCP toggle (minimal) */}
-                <div className="mt-4 border-t border-white/10 pt-4">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={!!(page as any)?.mcp_enabled || false}
-                      onChange={async (e) => {
-                        const val = e.target.checked
-                        try {
-                          const sb = createClient()
-                          await sb.from('pages').update({ mcp_enabled: val }).eq('id', id)
-                          setMessage(val ? 'MCP support enabled. Agents that understand MCP can discover richer context.' : 'MCP disabled.')
-                          // reload to reflect
-                          window.location.reload()
-                        } catch {}
-                      }}
-                      className="accent-[var(--signal)]"
-                    />
-                    <span>Enable MCP structured data</span>
-                  </label>
-                  <p className="text-[10px] text-zinc-500 mt-1">When on, compatible AI agents can discover richer listing context and offer actions.</p>
-                  {!!(page as any)?.mcp_enabled && (
-                    <p className="text-[10px] text-[var(--signal)] mt-1">
-                      Global discovery: <a href="/.well-known/mcp.json" className="underline">/.well-known/mcp.json</a>
-                    </p>
-                  )}
-                </div>
-                <DisabledRow icon={<Bot className="size-4" />} label="Access" value="Public links, no key required" />
-              </div>
-
-              <div className="mt-4 border-t border-white/10 pt-4">
-                <p className="text-xs uppercase tracking-widest text-zinc-400">Quick embed (iframe)</p>
-                <pre className="mt-1 overflow-x-auto rounded bg-black/40 p-2 text-[10px] text-zinc-400">{`<iframe src="${publicUrl}" width="100%" height="800" style="border:1px solid #222;"></iframe>`}</pre>
-                <p className="mt-1 text-[10px] text-zinc-500">Embed the clean agent view on your main site. Agents still see the canonical Nexez URL.</p>
-              </div>
-
               <div className="mt-4 border-t border-white/10 pt-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs uppercase tracking-widest text-zinc-400">Agent-Ready certification</p>
@@ -1145,55 +1392,25 @@ export default function PageSettings({ params }: PageProps) {
                 </p>
               </div>
             </div>
-          </aside>
+            </div>
+            </SettingsSection>
+          </div>
 
-          <div className="space-y-5 min-w-0">
-            <form onSubmit={saveSettings} className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
-              <div className="grid gap-5 md:grid-cols-2">
-                <Field label="Listing name">
-                  <input value={name} onChange={(event) => setName(event.target.value)} className={inputClass} required />
-                </Field>
-                <Field label="Slug">
-                  <input value={slug} onChange={(event) => setSlug(normalizeSlug(event.target.value))} className={inputClass} required />
-                </Field>
-              </div>
-
-              <div className="mt-5 grid gap-5 md:grid-cols-2">
-                <Field label="Main website">
-                  <input type="url" value={websiteUrl} onChange={(event) => setWebsiteUrl(event.target.value)} className={inputClass} />
-                </Field>
-                <Field label="Action URL">
-                  <input type="url" value={ctaUrl} onChange={(event) => setCtaUrl(event.target.value)} className={inputClass} />
-                </Field>
-              </div>
-
-              <div className="mt-5 grid gap-5 md:grid-cols-2">
-                <Field label="Action label">
-                  <input value={ctaLabel} onChange={(event) => setCtaLabel(event.target.value)} className={inputClass} />
-                </Field>
-                <Field label="Contact email">
-                  <input type="email" value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} className={inputClass} />
-                </Field>
-              </div>
-
-              <div className="mt-5">
-                <Field label="Preferred contact for agents">
-                  <select
-                    value={preferredContact}
-                    onChange={(event) => setPreferredContact(event.target.value as '' | PreferredContact)}
-                    className={`${inputClass} [color-scheme:dark]`}
-                  >
-                    <option value="">Auto (recommended)</option>
-                    {contactEmail.trim() ? <option value="email">{`Email - ${contactEmail.trim()}`}</option> : null}
-                    {ctaUrl.trim() ? <option value="cta">{`Primary action${ctaLabel.trim() ? ` - ${ctaLabel.trim()}` : ''}`}</option> : null}
-                    {websiteUrl.trim() ? <option value="website">Website</option> : null}
-                  </select>
-                </Field>
-                <p className="mt-1 text-[11px] text-zinc-500">
-                  Which channel AI agents use first to reach you. Auto picks email, then your action button, then your website. Surfaced in this listing&apos;s agent.json and llms.txt.
-                </p>
-              </div>
-
+          <div className="min-w-0 space-y-8">
+            <div className="space-y-8">
+              <SettingsSection
+                id="agent-experience"
+                title="Agent experience"
+                description="Control the context agents receive and the handoff customers experience beyond the listing."
+                icon={Bot}
+                status={<StatusPill label={preferOriginalSite ? 'Original-site handoff' : 'Nexez checkout'} tone="neutral" />}
+                footer={
+                  <p className="text-sm text-[var(--fg-muted)]">
+                    Website verification, memory, and AI Assist save in place. The original-site preference is staged and saves from <a href="#general" className="font-medium text-[var(--fg)] underline-offset-4 hover:underline">General</a>.
+                  </p>
+                }
+                contentClassName="space-y-5 divide-y-0 p-4 sm:p-5"
+              >
               {/* Plugin pivot: verify your existing website + copy-paste Agent-Ready Kit. */}
               {page ? (
                 <div className="rounded-lg border border-white/10 bg-white/[0.02] p-5">
@@ -1214,18 +1431,15 @@ export default function PageSettings({ params }: PageProps) {
                 </div>
 
                 <div className="space-y-4 text-sm">
-                  <div>
-                    <label className="flex items-center gap-2 text-zinc-300">
-                      <input
-                        type="checkbox"
-                        checked={preferOriginalSite}
-                        onChange={(e) => setPreferOriginalSite(e.target.checked)}
-                        className="accent-[var(--signal)]"
-                      />
-                      Prefer linking bookings to my original website (listing default)
-                    </label>
-                    <p className="text-xs text-[#9CA3AF] mt-1">Listing-level default. Granular per-offer overrides live in the Visual Offer Builder (higher precedence for agents & visitors).</p>
-                  </div>
+                  <SettingsSwitch
+                    id="prefer-original-site"
+                    checked={preferOriginalSite}
+                    onCheckedChange={setPreferOriginalSite}
+                    label="Prefer the original website"
+                    description="Listing-level default. Per-offer choices in the Visual Offer Builder take precedence."
+                    checkedLabel="Original site"
+                    uncheckedLabel="Nexez checkout"
+                  />
 
                   <div>
                     <p className="text-xs uppercase tracking-widest text-zinc-400 mb-1.5">Iframe embed (recommended)</p>
@@ -1291,74 +1505,117 @@ export default function PageSettings({ params }: PageProps) {
                 </div>
               </div>
 
-              {message ? <p className="mt-5 rounded-lg border border-white/10 bg-black/30 p-3 text-sm text-zinc-300">{message}</p> : null}
-
-              <button
-                type="submit"
-                disabled={saving}
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--signal)] px-5 py-3 font-semibold text-zinc-950 hover:bg-[var(--signal)] disabled:opacity-60"
-              >
-                {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-                {saving ? 'Saving...' : 'Save settings'}
-              </button>
-
-              {/* Deployments timeline + rollback */}
-              {(page as any)?.versions?.length > 0 && (
-                <div className="mt-8 rounded-lg border border-white/10 bg-white/[0.02] p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <History className="size-4 text-[var(--signal)]" />
-                    <span className="font-semibold">Deployments</span>
-                    <span className="text-[10px] text-zinc-500">Last 10 saves · newest first</span>
-                  </div>
-                  <div className="space-y-2 max-h-72 overflow-auto text-sm">
-                    {summarizeDeployments((page as any).versions).map((d) => (
-                      <div
-                        key={d.index}
-                        className={`flex items-center justify-between rounded border p-2 ${
-                          d.isCurrent ? 'border-[var(--ready)]/30 bg-[var(--ready)]/5' : 'border-white/10 bg-black/20'
-                        }`}
-                      >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="truncate text-zinc-200">{d.name}</span>
-                            {d.isCurrent ? (
-                              <span className="rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-2 py-0.5 text-[9px] text-[var(--ready)]">
-                                Live now
-                              </span>
-                            ) : null}
-                          </div>
-                          <div className="text-[10px] text-zinc-500">
-                            {new Date(d.timestamp).toLocaleString()} · {d.offerCount} offer
-                            {d.offerCount === 1 ? '' : 's'} · {deploymentChangeAt((page as any).versions, d.index)}
-                          </div>
-                        </div>
-                        {d.isCurrent ? (
-                          <span className="text-[10px] text-zinc-500">current</span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              sessionStorage.setItem(
-                                'nexez_restore_version',
-                                JSON.stringify((page as any).versions[d.index]),
-                              )
-                              window.location.href = `/dashboard/${id}?restore=true`
-                            }}
-                            className="shrink-0 text-xs rounded border border-white/20 px-3 py-1 hover:bg-white/10"
-                          >
-                            Roll back
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <p className="mt-2 text-[10px] text-zinc-500">
-                    Each save creates a version. “Roll back” loads that version into the editor so you can review
-                    it before publishing again.
-                  </p>
+              <div className="rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4 sm:p-5">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <p className="font-medium text-[var(--fg)]">Agent memory & context</p>
+                  <StatusPill label="Public" tone="attention" />
                 </div>
-              )}
+                <p className="mb-3 text-xs leading-5 text-[var(--fg-muted)]">
+                  Notes, buyer preferences, restrictions, and common objections are published in this listing&apos;s
+                  agent.json. Keep private pricing strategy and internal notes out.
+                </p>
+                <label htmlFor="agent-memory" className="sr-only">Public agent memory and context</label>
+                <textarea
+                  id="agent-memory"
+                  className="min-h-28 w-full rounded-xl border border-[var(--line)] bg-[var(--glass)] p-3 text-sm leading-6 text-[var(--fg)]"
+                  placeholder="e.g. Prefers async over live calls for first meetings. Common question: turnaround time."
+                  value={memoryNotes}
+                  onChange={(event) => setMemoryNotes(event.target.value)}
+                />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!page) return
+                      const supabase = createClient()
+                      const memory = { notes: memoryNotes, updated: new Date().toISOString() }
+                      const { data: savedMemory, error } = await supabase
+                        .from('pages')
+                        .update({ agent_memory: memory })
+                        .eq('id', page.id)
+                        .select('id')
+                        .single()
+                      setMessage(
+                        error || !savedMemory
+                          ? `Save failed: ${error?.message || 'the listing was not updated'}`
+                          : 'Agent memory saved. It is public in agent.json and readable by anyone.',
+                      )
+                    }}
+                    className="btn-secondary px-3 py-2 text-xs"
+                  >
+                    Save memory context
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!page) return
+                      try {
+                        const response = await fetch('/api/ai/suggest', {
+                          method: 'POST',
+                          headers: { 'content-type': 'application/json' },
+                          body: JSON.stringify({ pageId: page.id, kind: 'memory' }),
+                        })
+                        const data = await response.json()
+                        if (!response.ok) {
+                          setMessage(data.error || 'AI suggestion is unavailable right now.')
+                          return
+                        }
+                        if (data.suggestion) {
+                          setMemoryNotes(String(data.suggestion).trim())
+                          setMessage('AI suggested memory notes. Edit and save when ready.')
+                        }
+                      } catch {
+                        setMessage('AI suggestion failed. You can continue editing manually.')
+                      }
+                    }}
+                    className="btn-secondary px-3 py-2 text-xs"
+                  >
+                    Suggest with AI
+                  </button>
+                </div>
+              </div>
 
+              <SettingRow
+                label="Advanced AI Assist"
+                description={
+                  <span className="inline-flex flex-wrap items-center gap-2">
+                    Allow Nexez to improve listing copy, agent summaries, imports, and simulator responses.
+                    {!planAllows(plan, 'aiFeatures') ? <ProBadge feature="aiFeatures" /> : null}
+                  </span>
+                }
+                htmlFor="advanced-ai-assist"
+              >
+                <SettingsSwitch
+                  id="advanced-ai-assist"
+                  checked={llmOptIn}
+                  onCheckedChange={updateLlmOptIn}
+                  label="Advanced AI Assist"
+                  checkedLabel="Enabled"
+                  uncheckedLabel="Disabled"
+                  pending={llmSaving}
+                  pendingLabel="Saving"
+                />
+              </SettingRow>
+              </SettingsSection>
+
+              <SettingsSection
+                id="commerce-integrations"
+                title="Commerce & integrations"
+                description="Keep offers, availability, booking automation, and outbound systems in sync."
+                icon={ExternalLink}
+                status={
+                  <StatusPill
+                    label={outboundEndpoints.length ? `${outboundEndpoints.length} webhook${outboundEndpoints.length === 1 ? '' : 's'}` : 'No webhooks'}
+                    tone={outboundEndpoints.length ? 'ready' : 'neutral'}
+                  />
+                }
+                footer={
+                  <p className="text-sm text-[var(--fg-muted)]">
+                    Integrations, webhooks, and availability save in place. The Calendly signing secret is staged and saves from <a href="#general" className="font-medium text-[var(--fg)] underline-offset-4 hover:underline">General</a>.
+                  </p>
+                }
+                contentClassName="space-y-5 divide-y-0 p-4 sm:p-5"
+              >
               <button
                 type="button"
                 onClick={async () => {
@@ -1630,12 +1887,14 @@ export default function PageSettings({ params }: PageProps) {
                       }
 
                       const supabase = createClient()
-                      const { error } = await supabase
+                      const { data: savedAvailability, error } = await supabase
                         .from('pages')
                         .update(payload)
                         .eq('id', page.id)
+                        .select('id')
+                        .single()
 
-                      if (!error) {
+                      if (!error && savedAvailability) {
                         setAvailabilityNote(stripAvailabilityMarker(finalNote))
                         setGoogleCalendarId(calendarId)
                         setPage({
@@ -1649,7 +1908,7 @@ export default function PageSettings({ params }: PageProps) {
                         ? `Availability imported from Google Calendar • ${importedAvailability?.windows?.length || 0} windows • Last synced just now.`
                         : 'Availability saved. Visible on the public listing and in agent data.'
 
-                      setMessage(error ? error.message : successMsg)
+                      setMessage(error || !savedAvailability ? error?.message || 'Availability was not saved.' : successMsg)
                     } catch (e: any) {
                       setMessage('Failed to import availability: ' + e.message)
                     } finally {
@@ -1664,143 +1923,155 @@ export default function PageSettings({ params }: PageProps) {
                 <p className="mt-1 text-[10px] text-zinc-500">Calendar ID, imported windows, and manual notes are stored on the listing and appear for agents immediately.</p>
               </div>
 
-              {/* Get Verified flow for Trust Score (polished) */}
-              <div className="mt-6 rounded-lg border border-[var(--amber)]/30 bg-[var(--amber)]/5 p-4">
-                <div className="text-sm font-medium text-[var(--amber)] mb-2 flex items-center gap-2">
-                  Get Verified (boosts Trust Score)
-                  <span className="text-[10px] text-[var(--amber)]">+ up to +25 from signals</span>
-                </div>
-                <p className="text-[10px] text-zinc-400 mb-3">Add trust signals shown on public listings, the directory, and analyzer comparisons. Booking activity also improves this over time.</p>
-
-                {/* Live preview impact */}
-                <div className="mb-3 text-xs bg-black/30 p-2 rounded border border-white/10">
-                  Current signals impact: Email {verificationDetails.email_verified ? '+10' : '0'} • Domain { (verificationDetails.domain_verified || domainVerified) ? '+15' : '0' } • Credentials {(verificationDetails.docs_provided || []).some((d: any) => d && typeof d === 'object' && d.status === 'verified') ? '+10' : '0'} • (readiness base 60% + events)
-                </div>
-
-                <div className="space-y-3">
-                  <label className="flex items-center gap-2 text-xs">
-                    <input type="checkbox" checked={!!verificationDetails.email_verified} onChange={(e) => setVerificationDetails({...verificationDetails, email_verified: e.target.checked})} />
-                    Email verified
-                  </label>
-                  <label className="flex items-center gap-2 text-xs">
-                    <input type="checkbox" checked={!!verificationDetails.domain_verified} onChange={(e) => setVerificationDetails({...verificationDetails, domain_verified: e.target.checked})} />
-                    Domain verified (see custom domain above)
-                  </label>
-
-                  {/* Upload + LLM-review credentials (only 'verified' boost the score). */}
-                  {page ? (
-                    <CredentialsManager
-                      pageId={page.id}
-                      docs={verificationDetails.docs_provided || []}
-                      onChange={(docs) => setVerificationDetails({ ...verificationDetails, docs_provided: docs })}
-                    />
-                  ) : null}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!page) return
-                    const supabase = createClient()
-                    const updated = {...verificationDetails, last_updated: new Date().toISOString()}
-                    const { error } = await supabase.from('pages').update({ verification_details: updated }).eq('id', page.id)
-                    if (!error) {
-                      setVerificationDetails(updated)
-                      setMessage('Verification details saved. Trust score updated (visible on public + directory).')
-                    } else {
-                      setMessage('Save failed: ' + error.message)
-                    }
-                  }}
-                  className="mt-3 w-full rounded border border-[var(--amber)]/40 px-3 py-1.5 text-xs text-[var(--amber)] hover:bg-[var(--amber)]/10"
-                >
-                  Save Verification Signals (updates Trust immediately)
-                </button>
-                <p className="mt-1 text-[10px] text-center text-zinc-500">Also improves your position vs competitors in Analyzer results.</p>
-              </div>
-
-              {/* Agent Memory & Context System */}
-              <div className="mt-6 rounded-lg border border-zinc-300/30 bg-zinc-400/5 p-4">
-                <div className="font-medium text-zinc-200 mb-1 flex items-center gap-2">Agent Memory & Context <span className="rounded bg-[var(--amber)]/15 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-[var(--amber)]">Public</span></div>
-                <p className="text-[10px] text-zinc-400 mb-2">Notes, buyer preferences, restrictions, common objections, or “always mention X.” <span className="text-[var(--amber)]/90">Public - published in this listing’s <code>agent.json</code> and readable by anyone, so keep private pricing strategy and internal notes out.</span></p>
-                <textarea
-                  className="w-full h-20 rounded border border-white/15 bg-black/30 p-2 text-sm font-mono"
-                  placeholder="e.g. Prefers async over live calls for first meetings. Common question: turnaround time. Restrictions: no weekends."
-                  value={memoryNotes}
-                  onChange={(e) => setMemoryNotes(e.target.value)}
-                />
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!page) return
-                    const supabase = createClient()
-                    const mem = { notes: memoryNotes, updated: new Date().toISOString() }
-                    const { error } = await supabase.from('pages').update({ agent_memory: mem }).eq('id', page.id)
-                    if (!error) {
-                      setMessage('Agent memory saved - it’s public (published in your agent.json) and readable by anyone, not just agents.')
-                    } else {
-                      setMessage('Save failed: ' + error.message)
-                    }
-                  }}
-                  className="mt-2 text-xs rounded border border-white/20 px-3 py-1 hover:bg-white/5"
-                >
-                  Save Memory Context
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!page) return
-                    // Server-side, gated AI suggestion (auth + aiFeatures + llm_opt_in).
-                    try {
-                      const res = await fetch('/api/ai/suggest', {
-                        method: 'POST',
-                        headers: { 'content-type': 'application/json' },
-                        body: JSON.stringify({ pageId: page.id, kind: 'memory' }),
-                      })
-                      const data = await res.json()
-                      if (!res.ok) {
-                        setMessage(data.error || 'AI suggestion is unavailable right now.')
-                        return
-                      }
-                      if (data.suggestion) {
-                        setMemoryNotes(String(data.suggestion).trim())
-                        setMessage('AI suggested memory notes. Edit and save when ready.')
-                      }
-                    } catch {
-                      setMessage('AI suggestion failed (falling back to manual).')
-                    }
-                  }}
-                  className="mt-2 ml-2 text-xs rounded border border-white/20 px-3 py-1 hover:bg-white/5"
-                >
-                  Suggest with AI
-                </button>
-                <p className="mt-1 text-[10px] text-zinc-500">These notes help agents keep important context consistent. They are world-readable - keep anything confidential out.</p>
-              </div>
-
-              {/* AI assist opt-in */}
-              <div className="mt-2 text-xs p-2 border border-white/10 rounded">
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={llmOptIn} onChange={async (e) => {
-                    if (!page) return
-                    const checked = e.target.checked
-                    const previous = llmOptIn
-                    setLlmOptIn(checked)
-                    const supabase = createClient()
-                    const { error } = await supabase.from('pages').update({ llm_opt_in: checked }).eq('id', page.id)
-                    if (error) {
-                      setLlmOptIn(previous)
-                      setMessage('AI assist setting could not be saved. Please try again.')
-                      return
-                    }
-                    setMessage(checked ? 'Advanced AI assist enabled for this listing.' : 'Advanced AI assist disabled for this listing.')
-                  }} />
-                  Enable Advanced AI Assist
-                  {!planAllows(plan, 'aiFeatures') && <ProBadge feature="aiFeatures" />}
+              <div className="rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4 sm:p-5">
+                <label htmlFor="calendly-webhook-secret" className="text-sm font-medium text-[var(--fg)]">
+                  Calendly webhook secret
                 </label>
-                <span className="text-[10px] text-zinc-500">Allow Nexez to use AI to improve listing copy, agent summaries, importer results, and simulator responses for this listing. You can turn this off anytime.</span>
+                <p className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">
+                  Paste the signing secret from Calendly so Nexez can verify incoming booking events for this listing.
+                </p>
+                <input
+                  id="calendly-webhook-secret"
+                  type="password"
+                  value={calendlyWebhookSecret}
+                  onChange={(event) => setCalendlyWebhookSecret(event.target.value)}
+                  placeholder="Paste Calendly signing secret"
+                  className={`${inputClass} mt-3 font-mono`}
+                />
+                <p className="mt-2 text-xs text-[var(--fg-muted)]">
+                  This secret is staged with the listing settings. Save it from General, then use your listing slug in the Calendly webhook URL.
+                </p>
               </div>
+              </SettingsSection>
+
+              <SettingsSection
+                id="trust-verification"
+                title="Trust & verification"
+                description="Verification is earned from server-confirmed ownership checks. Credential reviews add context, but are not seller verification."
+                icon={ShieldCheck}
+                status={
+                  <StatusPill
+                    label={`${reviewedCredentialCount} reviewed credential${reviewedCredentialCount === 1 ? '' : 's'}`}
+                    tone="neutral"
+                  />
+                }
+                contentClassName="space-y-5 divide-y-0 p-4 sm:p-5"
+              >
+                <div className="divide-y divide-[var(--line-soft)] rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)] px-4 sm:px-5">
+                  <SettingRow
+                    label="Website ownership"
+                    description={page.website_verified_at
+                      ? `Confirmed ${new Date(page.website_verified_at as string).toLocaleDateString()}`
+                      : 'Run the ownership check in Agent experience to verify your existing website.'}
+                  >
+                    <StatusPill
+                      label={page.website_verified_at ? 'Verified' : 'Not verified'}
+                      tone={page.website_verified_at ? 'ready' : 'attention'}
+                    />
+                  </SettingRow>
+                  <SettingRow
+                    label="Custom domain ownership"
+                    description={customDomain
+                      ? 'Derived from the saved hostname and its server-side DNS verification result.'
+                      : 'Add a custom hostname in Brand & domain to begin verification.'}
+                  >
+                    <StatusPill
+                      label={showDomainVerified ? 'Verified' : customDomain ? 'Pending' : 'Not configured'}
+                      tone={showDomainVerified ? 'ready' : customDomain ? 'attention' : 'neutral'}
+                    />
+                  </SettingRow>
+                  <SettingRow
+                    label="Reviewed credentials"
+                    description="Automated review adds document context, but does not independently verify the seller or affect Trust Score."
+                  >
+                    <StatusPill
+                      label={`${reviewedCredentialCount} reviewed`}
+                      tone="neutral"
+                    />
+                  </SettingRow>
+                </div>
+
+                <div className="rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4 sm:p-5">
+                  <CredentialsManager
+                    pageId={page.id}
+                    docs={verificationDetails.docs_provided || []}
+                    onChange={(docs) => setVerificationDetails({ ...verificationDetails, docs_provided: docs })}
+                  />
+                </div>
+              </SettingsSection>
+
+              <SettingsSection
+                id="team-history"
+                title="Team & history"
+                description="Review listing versions, restore earlier work, and coordinate approval requests."
+                icon={History}
+                status={
+                  <StatusPill
+                    label={`${(page as any)?.team_collaboration?.approvals?.filter((approval: any) => approval.status === 'pending').length || 0} pending`}
+                    tone={(page as any)?.team_collaboration?.approvals?.some((approval: any) => approval.status === 'pending') ? 'attention' : 'neutral'}
+                  />
+                }
+                contentClassName="space-y-5 divide-y-0 p-4 sm:p-5"
+              >
+              {(page as any)?.versions?.length > 0 ? (
+                <div className="rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4 sm:p-5">
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <History className="size-4 text-[var(--signal)]" />
+                    <span className="font-semibold">Deployments</span>
+                    <span className="text-xs text-[var(--fg-muted)]">Last 10 saves · newest first</span>
+                  </div>
+                  <div className="max-h-72 space-y-2 overflow-auto text-sm">
+                    {summarizeDeployments((page as any).versions).map((deployment) => (
+                      <div
+                        key={deployment.index}
+                        className={`flex items-center justify-between gap-3 rounded-xl border p-3 ${
+                          deployment.isCurrent
+                            ? 'border-[var(--ready)]/30 bg-[var(--ready)]/5'
+                            : 'border-[var(--line-soft)] bg-[var(--glass)]'
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate text-[var(--fg)]">{deployment.name}</span>
+                            {deployment.isCurrent ? <StatusPill label="Live now" tone="ready" /> : null}
+                          </div>
+                          <div className="mt-1 text-xs text-[var(--fg-muted)]">
+                            {new Date(deployment.timestamp).toLocaleString()} · {deployment.offerCount} offer
+                            {deployment.offerCount === 1 ? '' : 's'} · {deploymentChangeAt((page as any).versions, deployment.index)}
+                          </div>
+                        </div>
+                        {deployment.isCurrent ? (
+                          <span className="text-xs text-[var(--fg-muted)]">Current</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              sessionStorage.setItem(
+                                'nexez_restore_version',
+                                JSON.stringify((page as any).versions[deployment.index]),
+                              )
+                              window.location.href = `/dashboard/${id}?restore=true`
+                            }}
+                            className="btn-secondary shrink-0 px-3 py-2 text-xs"
+                          >
+                            Roll back
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs leading-5 text-[var(--fg-muted)]">
+                    Rollback opens the selected version in the editor so you can review it before publishing again.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-[var(--line)] bg-[var(--fill-1)] p-5 text-sm text-[var(--fg-muted)]">
+                  Deployment history appears here after the listing has saved versions.
+                </div>
+              )}
 
               {/* Advanced Team Collaboration & Approval Workflows (full) */}
-              <div className="mt-6 rounded-lg border border-zinc-300/30 bg-zinc-400/5 p-4">
+              <div className="rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4 sm:p-5">
                 <div className="font-medium text-zinc-200 mb-1">Team Approvals & Collaboration</div>
                 <p className="text-[10px] text-zinc-400 mb-2">Request and manage approvals for changes like offer updates or pricing. Approvals appear in editor health checks and team review surfaces.</p>
 
@@ -1846,8 +2117,13 @@ export default function PageSettings({ params }: PageProps) {
                       ts: new Date().toISOString(),
                     }
                     const updated = { ...current, approvals: [...(current.approvals || []), newApproval] }
-                    const { error } = await supabase.from('pages').update({ team_collaboration: updated }).eq('id', page.id)
-                    if (!error) {
+                    const { data: savedCollaboration, error } = await supabase
+                      .from('pages')
+                      .update({ team_collaboration: updated })
+                      .eq('id', page.id)
+                      .select('id')
+                      .single()
+                    if (!error && savedCollaboration) {
                       setMessage('Approval request added. Team members can review it in the editor.')
                       // local state update for immediate UI
                       const currentPage = page as any
@@ -1868,8 +2144,17 @@ export default function PageSettings({ params }: PageProps) {
                     const current = (page as any).team_collaboration || { approvals: [] }
                     const updatedApprovals = (current.approvals || []).map((a: any) => a.status === 'pending' ? { ...a, status: 'approved' } : a)
                     const updated = { ...current, approvals: updatedApprovals }
-                    await supabase.from('pages').update({ team_collaboration: updated }).eq('id', page.id)
-                    setMessage('All pending marked approved. Changes can now be published.')
+                    const { data: savedCollaboration, error } = await supabase
+                      .from('pages')
+                      .update({ team_collaboration: updated })
+                      .eq('id', page.id)
+                      .select('id')
+                      .single()
+                    if (error || !savedCollaboration) {
+                      setMessage(`Approvals could not be updated: ${error?.message || 'the listing was not updated'}.`)
+                      return
+                    }
+                    setMessage('All pending approvals are marked approved. Changes can now be published.')
                     const currentPage2 = page as any
                     setPage({ ...currentPage2, team_collaboration: updated } as any)
                   }}
@@ -1878,44 +2163,83 @@ export default function PageSettings({ params }: PageProps) {
                   Approve All Pending
                 </button>
               </div>
+              </SettingsSection>
 
-              {/* Calendly webhook signature verification */}
-              <div className="mt-6 rounded-lg border border-[var(--signal)]/30 bg-[var(--signal)]/5 p-4">
-                <div className="text-sm font-medium text-[var(--signal)] mb-2">Calendly webhook secret</div>
-                <p className="text-[10px] text-zinc-400 mb-2">Paste the signing secret from Calendly so Nexez can verify incoming booking events for this listing.</p>
-                <input
-                  type="password"
-                  value={calendlyWebhookSecret}
-                  onChange={(e) => setCalendlyWebhookSecret(e.target.value)}
-	                  placeholder="Paste Calendly signing secret"
-                  className="w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm font-mono"
+              <SettingsSection
+                id="developer"
+                title="Developer"
+                description="Copy canonical machine-readable endpoints and control protocol discovery for compatible agents."
+                icon={Code2}
+                status={<StatusPill label={(page as any)?.mcp_enabled ? 'MCP enabled' : 'Public endpoints'} tone={(page as any)?.mcp_enabled ? 'ready' : 'neutral'} />}
+                contentClassName="space-y-5 divide-y-0 p-4 sm:p-5"
+              >
+                <LinkPanel
+                  title="Agent links"
+                  links={([
+                    ['Public listing', publicUrl],
+                    ['Agent JSON', agentJsonUrl],
+                    ['Search API', searchUrl],
+                    ['OpenAPI', `${getBaseUrl()}/openapi.json`],
+                    ...((page as any)?.mcp_enabled
+                      ? [
+                          ['MCP Manifest', `${getBaseUrl()}/${cleanSlug || page.slug}/mcp.json`],
+                          ['MCP Discovery', `${getBaseUrl()}/.well-known/mcp.json`],
+                        ]
+                      : []),
+                  ] as [string, string][])}
+                  copied={copied}
+                  onCopy={copy}
                 />
-                <p className="mt-1 text-[10px] text-zinc-500">Save settings after pasting the secret. Use your listing slug when setting up the Calendly webhook URL.</p>
-              </div>
 
-            </form>
-
-            <section className="rounded-lg border border-white/10 bg-white/[0.04]">
-              <div className="flex items-center justify-between border-b border-white/10 p-5">
-                <div className="flex items-center gap-2">
-                  <Code2 className="size-5 text-[var(--signal)]" />
-                  <h2 className="font-semibold">Agent Manifest Preview</h2>
+                <div className="divide-y divide-[var(--line-soft)] rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)] px-4 sm:px-5">
+                  <SettingRow
+                    label="MCP structured data"
+                    description="Compatible AI agents can discover richer listing context and offer actions."
+                    htmlFor="mcp-structured-data"
+                  >
+                    <SettingsSwitch
+                      id="mcp-structured-data"
+                      checked={Boolean((page as any)?.mcp_enabled)}
+                      onCheckedChange={updateMcpEnabled}
+                      label="MCP structured data"
+                      checkedLabel="Enabled"
+                      uncheckedLabel="Disabled"
+                      pending={mcpSaving}
+                      pendingLabel="Saving"
+                    />
+                  </SettingRow>
+                  <SettingRow
+                    label="Agent access"
+                    description="Machine-readable listing links are available without a private API key."
+                  >
+                    <StatusPill label="Public links" tone="neutral" />
+                  </SettingRow>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => copy('Manifest', manifestPreview)}
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-zinc-300 hover:bg-white/10"
-                >
-                  {copied === 'Manifest' ? <Check className="size-4 text-[var(--ready)]" /> : <Copy className="size-4" />}
-                  Copy
-                </button>
-              </div>
-              <pre className="max-h-[560px] overflow-auto p-5 text-xs leading-6 text-[var(--signal)]">
-                {manifestPreview}
-              </pre>
-            </section>
+
+                <section className="overflow-hidden rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)]">
+                  <div className="flex items-center justify-between border-b border-[var(--line-soft)] p-5">
+                    <div className="flex items-center gap-2">
+                      <Code2 className="size-5 text-[var(--signal)]" />
+                      <h2 className="font-semibold">Agent Manifest Preview</h2>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => copy('Manifest', manifestPreview)}
+                      className="btn-secondary px-3 py-2 text-sm"
+                    >
+                      {copied === 'Manifest' ? <Check className="size-4 text-[var(--ready)]" /> : <Copy className="size-4" />}
+                      Copy
+                    </button>
+                  </div>
+                  <pre className="max-h-[560px] overflow-auto p-5 text-xs leading-6 text-[var(--signal)]">
+                    {manifestPreview}
+                  </pre>
+                </section>
+              </SettingsSection>
           </div>
-        </section>
+        </div>
+        </div>
+      </div>
       </div>
     </main>
   )

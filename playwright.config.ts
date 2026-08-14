@@ -3,14 +3,23 @@ import { readFileSync } from 'node:fs'
 
 // The authed specs read E2E_EMAIL/E2E_PASSWORD from the environment. Locally
 // those live in the gitignored .env.local (the standing "E2E Runner" test
-// seller) — load the E2E_* keys from there when the shell doesn't provide
-// them, so `npx playwright test` just works without exporting anything.
-// Shell/CI env always wins; no secrets are ever committed.
+// seller). Load only the test credentials and public Supabase connection keys
+// needed to create disposable RLS-owned fixtures, so `npx playwright test`
+// works without exporting anything. Shell/CI env always wins; no secrets are
+// ever committed.
 try {
+  const localE2EKeys = new Set([
+    'E2E_EMAIL',
+    'E2E_PASSWORD',
+    'NEXT_PUBLIC_SUPABASE_URL',
+    'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+  ])
   // cwd-relative like testDir below — playwright runs from the repo root.
   for (const line of readFileSync('.env.local', 'utf8').split('\n')) {
-    const match = line.match(/^(E2E_[A-Z_]+)=(.*)$/)
-    if (match && !process.env[match[1]]) process.env[match[1]] = match[2].trim()
+    const match = line.match(/^([A-Z][A-Z0-9_]+)=(.*)$/)
+    if (match && localE2EKeys.has(match[1]) && !process.env[match[1]]) {
+      process.env[match[1]] = match[2].trim()
+    }
   }
 } catch {
   // no .env.local (CI) — the authed specs self-skip without creds

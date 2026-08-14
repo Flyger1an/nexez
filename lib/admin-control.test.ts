@@ -14,6 +14,7 @@ describe('admin control presentation helpers', () => {
     expect(growthAdminActionLabel('end')).toBe('Growth campaign ended')
     expect(growthAdminActionLabel('set_capacity')).toBe('Growth capacity updated')
     expect(growthAdminActionLabel('set_signup_close')).toBe('Growth signup window updated')
+    expect(growthAdminActionLabel('set_enrollment_mode')).toBe('Growth enrollment mode updated')
   })
 
   it('labels and classifies marketplace decisions', () => {

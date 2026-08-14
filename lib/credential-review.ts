@@ -7,9 +7,10 @@ import { llmComplete, llmVisionCompleteDetailed } from './llm'
 //
 // Fail-safe by construction: anything other than a confident, legitimate,
 // unexpired, matching credential returns 'pending' or 'rejected'. Only a clear
-// pass returns 'verified' (the one status that boosts the trust score), so a
-// missing key, model error, scanned/blank file, or unparseable result can never
-// inflate trust.
+// pass returns 'verified' (meaning the automated review completed), so a missing
+// key, model error, scanned/blank file, or unparseable result can never masquerade
+// as a reviewed document. This status is not authority-grade verification and does
+// not affect Trust Score.
 
 export type CredentialVerdict = {
   type?: string
