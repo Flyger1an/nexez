@@ -5,6 +5,7 @@ import { updateSession } from './utils/supabase/middleware'
 import {
   buildCustomDomainRewrite,
   hostLookupCandidates,
+  isMalformedRequestPath,
   isPlatformHost,
   normalizeDomainPath,
   normalizeHost,
@@ -103,6 +104,15 @@ function hasPlatformSession(request: NextRequest): boolean {
 }
 
 export async function proxy(request: NextRequest) {
+  // Reject malformed paths before anything else looks at them. `/agent.json%5C`
+  // and friends otherwise reach the Next.js launcher, which throws
+  // MODULE_NOT_FOUND trying to require `pages/agent.json%5C.js` and turns a
+  // scanner probe into a production error group. A 404 is the honest answer and
+  // costs nothing: no DB read, no rewrite, no redirect to a canonical host.
+  if (isMalformedRequestPath(request.nextUrl.pathname)) {
+    return new NextResponse(null, { status: 404 })
+  }
+
   const host = request.headers.get('host') || ''
   const abBucket = ensureAbBucket(request)
 

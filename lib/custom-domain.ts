@@ -114,6 +114,40 @@ export type DomainLiveEndpoint = (typeof DOMAIN_LIVE_ENDPOINTS)[number]
 
 const WELL_KNOWN_PREFIX = '/.well-known/'
 
+// A backslash or a control character anywhere in a decoded pathname. Neither can
+// appear in a path we serve: slugs are constrained at the DB level and every
+// artifact name is a fixed literal.
+// eslint-disable-next-line no-control-regex
+const MALFORMED_PATH_CHARS = /[\\\u0000-\u001f\u007f]/
+
+/**
+ * True for a request path that cannot possibly address anything we serve, so it
+ * must be rejected before the router sees it.
+ *
+ * The motivating case is a trailing encoded backslash, `/agent.json%5C`. It
+ * survives routing as a literal filename and the Next.js launcher throws
+ * MODULE_NOT_FOUND trying to require `pages/agent.json%5C.js`, which surfaces as
+ * a runtime error group rather than the 404 it should be. Seven such groups were
+ * live in production across `/agent.json`, `/agent-pages.json`, and
+ * `/.well-known/nexez.json`: exactly the discovery paths an external scanner
+ * probes, and nothing in this repo emits them.
+ *
+ * Percent-decoding is the point. The raw pathname holds `%5C`, which is
+ * harmless-looking; only the decoded form shows the backslash. A sequence that
+ * cannot be decoded at all (`%ZZ`) is malformed by the same standard.
+ */
+export function isMalformedRequestPath(pathname: string | null | undefined): boolean {
+  if (!pathname) return false
+  if (MALFORMED_PATH_CHARS.test(pathname)) return true
+  let decoded: string
+  try {
+    decoded = decodeURIComponent(pathname)
+  } catch {
+    return true
+  }
+  return MALFORMED_PATH_CHARS.test(decoded)
+}
+
 /**
  * Decompose an incoming custom-domain pathname into the `domain_path` it
  * targets plus an optional agent artifact. Supports root + one level of
@@ -130,6 +164,9 @@ const WELL_KNOWN_PREFIX = '/.well-known/'
 export function resolveDomainPath(
   pathname: string,
 ): { basePath: string; artifact: DomainArtifact | null } | null {
+  // Defence in depth: proxy() already 404s these before routing, but a malformed
+  // path must never be turned into a rewrite target by any caller.
+  if (isMalformedRequestPath(pathname)) return null
   const clean = (pathname || '/').replace(/\/+$/, '') || '/'
 
   if (clean === '/') return { basePath: '/', artifact: null }
@@ -199,6 +236,7 @@ export function buildCustomDomainRewrite(
   pathToSlug: Map<string, string> | Record<string, string>,
   pathname: string,
 ): string | null {
+  if (isMalformedRequestPath(pathname)) return null
   const map = pathToSlug instanceof Map ? Object.fromEntries(pathToSlug) : pathToSlug
   const clean = (pathname || '/').replace(/\/+$/, '') || '/'
 
