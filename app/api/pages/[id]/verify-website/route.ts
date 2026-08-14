@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies, headers } from 'next/headers'
 import dns from 'dns'
 import { promisify } from 'util'
-import { createClient } from '../../../../../utils/supabase/server'
-import { createAdminClient, hasSupabaseAdminEnv } from '../../../../../utils/supabase/admin'
-import { resolvePageAccess } from '../../../../../lib/server/page-access'
+import { requirePageAccess } from '../../../../../lib/server/require-page-access'
 import { enforceRateLimit } from '../../../../../lib/rate-limit'
 import { getImportUrlError, getResolvedImportUrlError, safeFetch } from '../../../../../lib/importer'
 import { readBodyCapped } from '../../../../../lib/server/site-scan'
@@ -55,32 +53,14 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     return NextResponse.json({ error: 'method must be one of dns, meta, file' }, { status: 400 })
   }
 
-  if (!hasSupabaseAdminEnv()) {
-    return NextResponse.json({ error: 'Website verification is not configured on this deployment.' }, { status: 503 })
-  }
-
-  const cookieStore = await cookies()
   const host = (await headers()).get('host')
-  const supabase = createClient(cookieStore, host)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-  }
-
-  const access = await resolvePageAccess({
+  const gate = await requirePageAccess({
     pageId,
-    userId: user.id,
-    userEmail: user.email,
-    userEmailConfirmedAt: user.email_confirmed_at,
-    requireEditor: true,
+    host,
+    unavailableMessage: 'Website verification is not configured on this deployment.',
   })
-  if (!access) {
-    return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
-  }
-
-  const admin = createAdminClient()
+  if (!gate.ok) return gate.response
+  const { access, admin } = gate
 
   const { data: page, error: pageError } = await admin
     .from('pages')

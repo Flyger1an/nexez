@@ -4,7 +4,10 @@ const state = {
   cfg: true,
   pending: 'demo.myshopify.com' as string | null,
   user: { id: 'u1', email: 'a@b.co', email_confirmed_at: 'x' } as { id: string; email: string; email_confirmed_at: string } | null,
-  access: { ownerId: 'owner-1' } as unknown,
+  // resolvePageAccess always returns the authoritative pageId (see PageAccess);
+  // the route now inserts THAT rather than the client-supplied one, so the mock
+  // has to carry it.
+  access: { pageId: 'p1', ownerId: 'owner-1', role: 'owner' } as unknown,
   install: { shop_domain: 'demo.myshopify.com', page_id: null } as any,
   conflictingInstall: null as { shop_domain: string } | null,
   credentials: { shop: 'demo.myshopify.com', accessToken: 'access-token' } as { shop: string; accessToken: string } | null,
@@ -53,7 +56,7 @@ describe('POST /api/shopify/link', () => {
     state.cfg = true
     state.pending = 'demo.myshopify.com'
     state.user = { id: 'u1', email: 'a@b.co', email_confirmed_at: 'x' }
-    state.access = { ownerId: 'owner-1' }
+    state.access = { pageId: 'p1', ownerId: 'owner-1', role: 'owner' }
     state.install = { shop_domain: 'demo.myshopify.com', page_id: null }
     state.conflictingInstall = null
     state.credentials = { shop: 'demo.myshopify.com', accessToken: 'access-token' }

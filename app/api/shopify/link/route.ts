@@ -11,7 +11,7 @@ import { syncPageIntegration } from '../../../../lib/server/integration-sync'
 import { resolvePageAccess } from '../../../../lib/server/page-access'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 import { createClient } from '../../../../utils/supabase/server'
-import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
+import { requirePageAccess } from '../../../../lib/server/require-page-access'
 
 /**
  * Link the just-installed Shopify shop to one of the signed-in owner's listings.
@@ -35,27 +35,27 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-  if (!hasSupabaseAdminEnv()) return NextResponse.json({ error: 'Not available.' }, { status: 503 })
 
   const shop = readPendingShop(jar.get('shopify_pending_shop')?.value)
   if (!shop) {
     return NextResponse.json({ error: 'No pending Shopify connection. Reinstall the app from Shopify.' }, { status: 400 })
   }
 
-  const body = (await request.json().catch(() => ({}))) as { pageId?: unknown }
-  const pageId = typeof body.pageId === 'string' ? body.pageId : ''
-  if (!pageId) return NextResponse.json({ error: 'Pick a listing to connect.' }, { status: 400 })
-
-  const access = await resolvePageAccess({
-    pageId,
-    userId: user.id,
-    userEmail: user.email,
-    userEmailConfirmedAt: user.email_confirmed_at,
-    requireEditor: true,
+  // The pending-shop cookie and the listing pick are read inside the resolver so
+  // their 400s keep firing before authorization, exactly as before.
+  const gate = await requirePageAccess({
+    pageId: async () => {
+      const body = (await request.json().catch(() => ({}))) as { pageId?: unknown }
+      const requested = typeof body.pageId === 'string' ? body.pageId : ''
+      if (!requested) return NextResponse.json({ error: 'Pick a listing to connect.' }, { status: 400 })
+      return requested
+    },
+    unavailableMessage: 'Not available.',
+    denyMessage: 'You do not have access to that listing.',
   })
-  if (!access) return NextResponse.json({ error: 'You do not have access to that listing.' }, { status: 403 })
-
-  const admin = createAdminClient()
+  if (!gate.ok) return gate.response
+  const { access, admin } = gate
+  const pageId = access.pageId
   const install = await getInstallByShop(admin, shop)
   if (!install) return NextResponse.json({ error: 'Shop not found. Reinstall the app.' }, { status: 404 })
 
