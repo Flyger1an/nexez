@@ -25,8 +25,14 @@ export type BillingSubscription = {
 }
 
 /**
- * Stripe subscription statuses that mean "this is the customer's live subscription".
- * Mirrors the LIVE_STATUSES set the entitlement resolvers grant plans for.
+ * Stripe subscription statuses that mean "this row IS the customer's current
+ * subscription", i.e. the one a plan change must update rather than duplicate.
+ *
+ * This is deliberately NOT the entitlement rule. Whether a subscription confers
+ * its plan is subscriptionConfers() in lib/server/plan.ts, which is stricter: a
+ * 'trialing' row confers only inside its window. A trial that has expired is
+ * still the customer's current row (so it belongs here) while granting nothing.
+ * Do not reuse this set to gate a feature.
  */
 export const LIVE_SUBSCRIPTION_STATUSES = ['active', 'trialing', 'past_due', 'unpaid'] as const
 

@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { billingPlans, getPlanPriceId, isStripePriceId } from '../billing'
+import { LIVE_SUBSCRIPTION_STATUSES } from '../stripe-billing'
 import {
   buildCertificationChecks,
   buildConfigurationChecks,
@@ -97,7 +98,9 @@ type CheckoutSessionRow = {
   updated_at: string
 }
 
-const ACTIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing', 'past_due', 'unpaid'])
+// Counts how many billing rows are a customer's current subscription, for the ops
+// snapshot. Not an entitlement check: see subscriptionConfers() in ./plan for that.
+const ACTIVE_SUBSCRIPTION_STATUSES = new Set<string>(LIVE_SUBSCRIPTION_STATUSES)
 const TERMINAL_NEGOTIATION_STATUSES = new Set(['complete', 'refunded'])
 
 export async function getLaunchControlSnapshot(): Promise<LaunchControlSnapshot> {

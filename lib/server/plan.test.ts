@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { createSupabaseMock, type QueryContext } from '../../test/supabase-mock'
-import { getOwnerPlanId, getOwnerBillingState, ownerAllows, isPlatformAdmin } from './plan'
+import { getOwnerPlanId, getOwnerBillingState, ownerAllows, isPlatformAdmin, subscriptionConfers } from './plan'
+import { LIVE_SUBSCRIPTION_STATUSES } from '../stripe-billing'
 
 type SubRow = { plan_id: string; status: string; trial_ends_at?: string | null; account_origin?: string | null }
 type GrantRow = {
@@ -170,5 +171,44 @@ describe('getOwnerBillingState', () => {
   it('no subscription row → neutral free, not paused', async () => {
     const s = await getOwnerBillingState(client({ sub: null }), 'owner-1')
     expect(s).toMatchObject({ planId: 'free', chosenPlanId: null, isPaused: false, isLive: false })
+  })
+})
+
+// Regression guard for the two concepts that used to be conflated in this file.
+//
+// `LIVE_STATUSES` sat at the top of plan.ts describing itself as the source of truth
+// for entitlement, listed 'trialing' unconditionally, and was read by nothing. Its
+// comment claimed the SQL triggers mirrored it; migration 20260627007400 had already
+// moved them to the stricter conferring predicate. Anyone reaching for the
+// authoritative-looking constant would have granted plan access to an EXPIRED trial.
+//
+// These assertions pin the difference so the two cannot be re-merged by accident.
+describe('entitlement vs "current subscription row"', () => {
+  it('an expired trial does NOT confer its plan', () => {
+    expect(subscriptionConfers('trialing', past())).toBe(false)
+  })
+
+  it('a trial inside its window does confer', () => {
+    expect(subscriptionConfers('trialing', future())).toBe(true)
+    expect(subscriptionConfers('trialing', null)).toBe(true)
+  })
+
+  it('dunning states keep conferring, by policy', () => {
+    expect(subscriptionConfers('past_due', null)).toBe(true)
+    expect(subscriptionConfers('unpaid', null)).toBe(true)
+  })
+
+  it('dead states never confer', () => {
+    for (const status of ['canceled', 'incomplete', 'paused', 'expired']) {
+      expect(subscriptionConfers(status, future())).toBe(false)
+    }
+  })
+
+  it('the Stripe "current row" set is deliberately broader than entitlement', () => {
+    // An expired trial is still the row a plan change must UPDATE, so it belongs in
+    // LIVE_SUBSCRIPTION_STATUSES while conferring nothing. That gap is the whole
+    // reason these are two separate things.
+    expect((LIVE_SUBSCRIPTION_STATUSES as readonly string[]).includes('trialing')).toBe(true)
+    expect(subscriptionConfers('trialing', past())).toBe(false)
   })
 })
