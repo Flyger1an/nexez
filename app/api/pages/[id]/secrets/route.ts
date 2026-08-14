@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createClient } from '../../../../../utils/supabase/server'
-import { createAdminClient, hasSupabaseAdminEnv } from '../../../../../utils/supabase/admin'
-import { resolvePageAccess } from '../../../../../lib/server/page-access'
+import { requirePageAccess } from '../../../../../lib/server/require-page-access'
 import { enforceRateLimit } from '../../../../../lib/rate-limit'
 import { encryptSecret, hasSecretCryptoKey } from '../../../../../lib/server/secret-crypto'
 import { getCalendlyUser } from '../../../../../lib/server/calendly-write'
@@ -21,16 +18,10 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   if (limited) return limited
 
   const { id: pageId } = await ctx.params
-  const cookieStore = await cookies()
-  const supabase = createClient(cookieStore)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-  if (!hasSupabaseAdminEnv()) return NextResponse.json({ error: 'Not available.' }, { status: 503 })
 
-  const access = await resolvePageAccess({ pageId, userId: user.id, userEmail: user.email, userEmailConfirmedAt: user.email_confirmed_at, requireEditor: true })
-  if (!access) return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
+  const gate = await requirePageAccess({ pageId, unavailableMessage: 'Not available.' })
+  if (!gate.ok) return gate.response
+  const { access, admin } = gate
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
   // Whitelist: only the known secret columns, never owner_id/page_id from the client.
@@ -106,7 +97,6 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
 
   if (!Object.keys(values).length) return NextResponse.json({ error: 'No valid fields to update.' }, { status: 400 })
 
-  const admin = createAdminClient()
   const { error } = await admin.from('page_secrets').upsert(
     { page_id: access.pageId, owner_id: access.ownerId, ...values, updated_at: new Date().toISOString() },
     { onConflict: 'page_id' },

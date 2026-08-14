@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createClient } from '../../../../utils/supabase/server'
-import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
-import { resolvePageAccess } from '../../../../lib/server/page-access'
+import { requirePageAccess } from '../../../../lib/server/require-page-access'
 import { buildDuplicatePayload } from '../../../../lib/duplicate-page'
 import { OWNER_PAGE_SELECT, type AgentPage } from '../../../../lib/agent-page'
 import { enforceRateLimit, rateLimitShared } from '../../../../lib/rate-limit'
@@ -20,22 +17,20 @@ export async function POST(request: Request) {
   const limited = await enforceRateLimit(request, 'page-duplicate', 20, 60_000)
   if (limited) return limited
 
-  const cookieStore = await cookies()
-  const supabase = createClient(cookieStore)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-  if (!hasSupabaseAdminEnv()) {
-    return NextResponse.json({ error: 'Not available on this deployment.' }, { status: 503 })
-  }
-
-  const body = (await request.json().catch(() => ({}))) as { pageId?: string }
-  const pageId = String(body.pageId || '').trim()
-  if (!pageId) return NextResponse.json({ error: 'pageId is required.' }, { status: 400 })
-
-  const access = await resolvePageAccess({ pageId, userId: user.id, userEmail: user.email, userEmailConfirmedAt: user.email_confirmed_at, requireEditor: true })
-  if (!access) return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
+  // The body is read inside the resolver so the check order the tests rely on is
+  // preserved: 401 before 503 before the 400 for a missing pageId.
+  const gate = await requirePageAccess({
+    pageId: async () => {
+      const body = (await request.json().catch(() => ({}))) as { pageId?: string }
+      const requested = String(body.pageId || '').trim()
+      if (!requested) return NextResponse.json({ error: 'pageId is required.' }, { status: 400 })
+      return requested
+    },
+    unavailableMessage: 'Not available on this deployment.',
+  })
+  if (!gate.ok) return gate.response
+  const { access, admin } = gate
+  const pageId = access.pageId
 
   // Per-OWNER cap (on top of the per-IP limit) so an editor-collaborator can't inflate
   // the owner's workspace with cloned drafts (the publish-limit trigger only caps
@@ -45,7 +40,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Too many duplicates for this workspace right now - try again later.' }, { status: 429 })
   }
 
-  const admin = createAdminClient()
   // Load the source page (ownership already proven) + the OWNER's existing slugs, both
   // via the admin client so a collaborator can read the owner's rows.
   const [{ data: source }, { data: owned }] = await Promise.all([
