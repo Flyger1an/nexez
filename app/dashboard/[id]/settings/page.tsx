@@ -33,6 +33,7 @@ import { agentRuntimeUrl } from '../../../../lib/site'
 import { CredentialsManager } from '../../../../components/CredentialsManager'
 import { IntegrationsPanel } from '../../../../components/settings/IntegrationsPanel'
 import { WebsitePanel } from '../../../../components/settings/WebsitePanel'
+import { BrandingPanel } from '../../../../components/settings/BrandingPanel'
 import { planAllows } from '../../../../lib/billing'
 import { ProBadge } from '../../../../components/billing/PlanGate'
 import { usePlan } from '../../../../components/billing/PlanProvider'
@@ -91,7 +92,6 @@ export default function PageSettings({ params }: PageProps) {
   const [logoUrl, setLogoUrl] = useState('')
   const [hideNexezBadge, setHideNexezBadge] = useState(false)
   const [currency, setCurrency] = useState('usd')
-  const [uploadingLogo, setUploadingLogo] = useState(false)
   const [domainProvisioning, setDomainProvisioning] = useState(false)
   const [domainStatus, setDomainStatus] = useState<
     | null
@@ -207,67 +207,6 @@ export default function PageSettings({ params }: PageProps) {
   const searchUrl = `${getBaseUrl()}/api/agent-search?q=${encodeURIComponent(name || page?.name || 'service')}`
   const hasCalendarId = googleCalendarId.trim().length > 0
   const certification = page ? getCertification(page) : null
-
-  async function handleLogoFileUpload(file: File) {
-    if (!file.type.startsWith('image/')) {
-      setMessage('Please choose an image file (PNG, JPG, SVG, etc).')
-      return
-    }
-    setUploadingLogo(true)
-    setMessage('')
-    try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      const uid = user?.id || 'anon'
-      const ext = (file.name.split('.').pop() || 'png').toLowerCase()
-      const pageIdForPath = id || (page as any)?.id || 'new'
-      const path = `logos/${uid}/${pageIdForPath}-${Date.now()}.${ext}`
-      const { error: uploadError } = await supabase
-        .storage
-        .from('logos')
-        .upload(path, file, { upsert: true, contentType: file.type })
-      if (uploadError) throw uploadError
-      const { data: pub } = supabase.storage.from('logos').getPublicUrl(path)
-      if (pub?.publicUrl) {
-        setLogoUrl(pub.publicUrl)
-        setMessage('Logo file uploaded. Click Save Settings to persist branding.')
-      }
-    } catch (err: any) {
-      console.error(err)
-      setMessage(`Logo upload failed: ${err?.message || err}. Check that logo uploads are enabled for your account, or paste a public image URL.`)
-    } finally {
-      setUploadingLogo(false)
-    }
-  }
-
-  async function oneClickDetectLogo() {
-    if (!websiteUrl) {
-      setMessage('Add a Website URL above first (in the General section) to auto-detect logo.')
-      return
-    }
-    setUploadingLogo(true)
-    setMessage('')
-    try {
-      const res = await fetch('/api/tools/import-site', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: websiteUrl }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data?.ok) throw new Error(data?.error || 'Import failed')
-      const logo = data.suggestedPage?.logo_url
-      if (logo) {
-        setLogoUrl(logo)
-        setMessage('Logo detected from your website. Save settings to apply it.')
-      } else {
-        setMessage('Importer could not auto-detect a logo. Upload a file or paste a direct https URL.')
-      }
-    } catch (e: any) {
-      setMessage('One-click logo detect failed: ' + (e?.message || e) + '. You can still upload manually.')
-    } finally {
-      setUploadingLogo(false)
-    }
-  }
 
   const manifestPreview = useMemo(() => {
     if (!page) return '{}'
@@ -1130,111 +1069,19 @@ export default function PageSettings({ params }: PageProps) {
                   ) : null}
 
                   {/* C10: white-label branding */}
-                  <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <p className="flex items-center gap-2 text-[11px] font-medium text-zinc-200">
-                      Branding / White-label
-                      {!planAllows(plan, 'whiteLabel') && <ProBadge feature="whiteLabel" />}
-                    </p>
-                    <p className="mt-0.5 text-[10px] text-zinc-500">
-                      Applied to the public listing (especially on your custom domain).
-                    </p>
-                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <label className="block text-[11px]">
-                        <span className="text-zinc-400">Brand name</span>
-                        <input
-                          value={brandName}
-                          onChange={(e) => setBrandName(e.target.value)}
-                          placeholder="Apex Plumbing Co."
-                          className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
-                        />
-                      </label>
-                      <label className="block text-[11px]">
-                        <span className="text-zinc-400">Accent color (hex)</span>
-                        <input
-                          value={accentColor}
-                          onChange={(e) => setAccentColor(e.target.value)}
-                          placeholder="#7C3AED"
-                          className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
-                        />
-                      </label>
-                      <label className="block text-[11px] sm:col-span-2">
-                        <span className="text-zinc-400">Logo URL (https)</span>
-                        <input
-                          value={logoUrl}
-                          onChange={(e) => setLogoUrl(e.target.value)}
-                          placeholder="https://apexplumbing.com/logo.svg"
-                          className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
-                        />
-                        <div className="mt-1 flex flex-wrap items-center gap-2">
-                          <label className="cursor-pointer inline-flex items-center gap-1 rounded border border-white/20 px-2 py-1 text-[10px] hover:bg-white/5">
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              disabled={uploadingLogo}
-                              onChange={(e) => {
-                                const f = e.target.files?.[0]
-                                if (f) handleLogoFileUpload(f)
-                                // reset input so same file can be re-chosen
-                                e.target.value = ''
-                              }}
-                            />
-                            {uploadingLogo ? 'Uploading…' : '📁 Upload logo file'}
-                          </label>
-                          {logoUrl && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={logoUrl} alt="logo preview" className="h-6 w-auto rounded border border-white/10" />
-                          )}
-                          {logoUrl && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setLogoUrl('')
-                                setMessage('Logo removed - Save Settings to apply the change.')
-                              }}
-                              className="rounded border border-red-400/40 px-2 py-0.5 text-[10px] text-red-300 hover:bg-red-400/10"
-                            >
-                              Remove logo
-                            </button>
-                          )}
-                        </div>
-                        <div className="mt-1">
-                          <button
-                            type="button"
-                            onClick={oneClickDetectLogo}
-                            disabled={!websiteUrl || uploadingLogo}
-                            className="text-[10px] rounded border border-[var(--signal)]/40 px-2 py-0.5 text-[var(--signal)] hover:bg-[var(--signal)]/10 disabled:opacity-50"
-                          >
-                            ✨ One-click: detect logo from my website
-                          </button>
-                        </div>
-                        <p className="mt-0.5 text-[9px] text-zinc-500">Upload a logo, detect one from your website, or paste any public https image URL. Remove clears it.</p>
-                      </label>
-                    </div>
-                    <SettingRow
-                      label="Nexez attribution"
-                      description={
-                        <span className="inline-flex flex-wrap items-center gap-2">
-                          Hide the Nexez header link for a fully white-label listing. Saves with the listing settings.
-                          {!planAllows(plan, 'removeBadge') ? <ProBadge feature="removeBadge" /> : null}
-                        </span>
-                      }
-                      htmlFor="hide-nexez-attribution"
-                      className="mt-4 rounded-xl border border-[var(--line-soft)] bg-[var(--glass)]"
-                    >
-                      <SettingsSwitch
-                        id="hide-nexez-attribution"
-                        checked={hideNexezBadge}
-                        onCheckedChange={setHideNexezBadge}
-                        label="Nexez attribution"
-                        checkedLabel="Hidden"
-                        uncheckedLabel="Shown"
-                      />
-                    </SettingRow>
-                    <p className="mt-1 text-[10px] text-zinc-500">
-                      Invalid colors/URLs are ignored on render (hex + http(s) only). Save to apply.
-                    </p>
-                  </div>
+                  <BrandingPanel
+                    pageId={id}
+                    plan={plan}
+                    websiteUrl={websiteUrl}
+                    values={{ brandName, accentColor, logoUrl, hideNexezBadge }}
+                    onChange={(patch) => {
+                      if (patch.brandName !== undefined) setBrandName(patch.brandName)
+                      if (patch.accentColor !== undefined) setAccentColor(patch.accentColor)
+                      if (patch.logoUrl !== undefined) setLogoUrl(patch.logoUrl)
+                      if (patch.hideNexezBadge !== undefined) setHideNexezBadge(patch.hideNexezBadge)
+                    }}
+                    onMessage={setMessage}
+                  />
 
                   {showTxtVerification && domainVerificationToken && (
                     <div className="mt-2 rounded border border-[var(--amber)]/30 bg-[var(--amber)]/5 p-2 text-[11px] text-[var(--amber)]">
