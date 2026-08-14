@@ -29,6 +29,11 @@ jobs:
         run: npm run lint -- --quiet
       - name: Palette guard
         run: npm run lint:palette
+      - name: Dead code
+        # Fails only on orphaned FILES, which is unambiguous and currently zero.
+        # Unused exports are a judgement call (several flagged ones are load-bearing
+        # documentation anchors), so they stay an on-demand report: npm run lint:dead:all
+        run: npm run lint:dead
       - name: Typecheck
         run: npx tsc --noEmit --incremental false
       - name: Unit + route + component tests

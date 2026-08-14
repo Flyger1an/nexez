@@ -1,0 +1,25 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": [
+        "app/**/{page,layout,template,loading,error,not-found,global-error,route,default,sitemap,robots,opengraph-image,icon,apple-icon,manifest}.{ts,tsx}",
+        "scripts/**/*.mjs",
+        "e2e/**/*.spec.ts",
+        "**/*.test.{ts,tsx}"
+      ],
+      "project": [
+        "**/*.{ts,tsx}"
+      ]
+    }
+  },
+  "ignore": [
+    "apps/**",
+    "sdk/**",
+    "plugins/**",
+    "examples/**"
+  ],
+  "ignoreDependencies": [
+    ".*"
+  ]
+}
