@@ -4,7 +4,6 @@ import { AgentPage, SERVER_PAGE_SELECT } from '../agent-page'
 import { supabase } from '../supabase'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 import { getOwnerBillingState } from './plan'
-import type { AcpError } from '../acp/wire'
 
 // Shared server helpers for the ACP checkout_session routes (A2). Keeps the four
 // route files thin + consistent: one JSON+header shape, one page loader (with the
@@ -13,11 +12,6 @@ import type { AcpError } from '../acp/wire'
 /** ACP JSON response with the negotiated API-Version echoed back. */
 export function acpJson(body: unknown, status: number, apiVersion: string) {
   return NextResponse.json(body, { status, headers: { 'API-Version': apiVersion } })
-}
-
-/** Error response — the body IS the ACP error object {type,code,message,param}. */
-export function acpErrorResponse(error: AcpError, status: number, apiVersion: string) {
-  return acpJson(error, status, apiVersion)
 }
 
 /** Load a published listing with owner-private fields (rules, owner_id) the session

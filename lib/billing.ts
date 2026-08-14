@@ -189,11 +189,6 @@ export function minPlanForFeature(feature: PlanFeature): BillingPlan {
   return billingPlans.find((p) => p.rank >= minRank) ?? billingPlans[billingPlans.length - 1]
 }
 
-/** Human label for a listing limit (handles the unlimited sentinel). */
-export function formatLimit(value: number): string {
-  return Number.isFinite(value) ? String(value) : 'Unlimited'
-}
-
 export function getPlanPriceId(plan: BillingPlan) {
   // Support both private (STRIPE_PRICE_*) and public (NEXT_PUBLIC_STRIPE_PRICE_*) for client-side use in embedded UI.
   // Price IDs are safe to expose publicly (they are not secret keys).
