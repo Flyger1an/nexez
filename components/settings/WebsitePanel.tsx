@@ -157,6 +157,7 @@ export function WebsitePanel({
   }
 
   const metaTag = token ? verificationMetaTag(token) : ''
+  const verificationIsNext = Boolean(host && !verifiedAt)
 
   return (
     <div className="space-y-5">
@@ -185,10 +186,22 @@ export function WebsitePanel({
       </div>
 
       {/* Verify flow (hidden once verified) */}
-      {host && !verifiedAt ? (
-        <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+      {verificationIsNext ? (
+        <div
+          role="group"
+          className="settings-priority-card rounded-lg p-3"
+          aria-label="Recommended next step: verify website ownership"
+        >
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--fg-muted)]">
+            Recommended next step
+          </p>
           {!token ? (
-            <button type="button" onClick={generateToken} disabled={busy} className="btn-secondary px-4 py-2 text-sm disabled:opacity-60">
+            <button
+              type="button"
+              onClick={generateToken}
+              disabled={busy}
+              className="settings-emphasis-action rounded-lg px-4 py-2 text-sm disabled:opacity-60"
+            >
               Generate verification token
             </button>
           ) : (
@@ -199,7 +212,8 @@ export function WebsitePanel({
                     key={m}
                     type="button"
                     onClick={() => setMethod(m)}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition ${method === m ? 'bg-[var(--signal)] text-black' : 'border border-white/15 text-[var(--fg-muted)]'}`}
+                    aria-pressed={method === m}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition ${method === m ? 'settings-choice-active' : 'border-[var(--line)] text-[var(--fg-muted)]'}`}
                   >
                     {m === 'dns' ? 'DNS TXT' : m === 'meta' ? 'Meta tag' : 'File'}
                   </button>
@@ -225,7 +239,12 @@ export function WebsitePanel({
                 <Artifact id="v-file" label={`Upload a file at ${WELL_KNOWN_VERIFY_PATH} containing only:`} value={token} copiedId={copiedId} onCopy={copy} />
               )}
 
-              <button type="button" onClick={verify} disabled={busy} className="btn-primary px-4 py-2 text-sm disabled:opacity-60">
+              <button
+                type="button"
+                onClick={verify}
+                disabled={busy}
+                className="settings-emphasis-action rounded-lg px-4 py-2 text-sm disabled:opacity-60"
+              >
                 {busy ? 'Verifying…' : 'Verify now'}
               </button>
             </div>
@@ -235,13 +254,19 @@ export function WebsitePanel({
 
       {/* Agentic commerce — the ChatGPT + Google transaction layer (discovery is free,
           checkout is the Pro upgrade). Renders the listing's true, live status. */}
-      {agenticStatus ? <AgenticCommerceCard status={agenticStatus} onUpgrade={() => setUpgradeOpen(true)} /> : null}
+      {agenticStatus ? (
+        <AgenticCommerceCard
+          status={agenticStatus}
+          emphasizeCta={!verificationIsNext}
+          onUpgrade={() => setUpgradeOpen(true)}
+        />
+      ) : null}
       <AgenticCheckoutUpgradeModal open={upgradeOpen} onClose={() => setUpgradeOpen(false)} currentPlan={ownerPlan} />
 
       {/* Serve LIVE artifacts on the merchant's own domain (the Phase-2 upgrade) */}
       <div>
         <p className="mb-1 flex items-center gap-2 text-sm font-semibold">
-          <Rocket className="size-4" style={{ color: 'var(--signal)' }} /> Serve live artifacts on your own domain
+          <Rocket className="size-4 text-[var(--fg-muted)]" /> Serve live artifacts on your own domain
         </p>
         <p className="mb-3 text-xs text-[var(--fg-muted)]">
           Add one redirect rule and agents hitting <span className="font-mono">{host || 'yoursite.com'}/.well-known/agent.json</span>,{' '}
@@ -254,7 +279,8 @@ export function WebsitePanel({
               key={r.id}
               type="button"
               onClick={() => setRecipeTab(r.id)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition ${recipeTab === r.id ? 'bg-[var(--signal)] text-black' : 'border border-white/15 text-[var(--fg-muted)]'}`}
+              aria-pressed={recipeTab === r.id}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${recipeTab === r.id ? 'settings-choice-active' : 'border-[var(--line)] text-[var(--fg-muted)]'}`}
             >
               {r.title}
             </button>
@@ -320,7 +346,8 @@ export function WebsitePanel({
                 key={r.id}
                 type="button"
                 onClick={() => setInjectionTab(r.id)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition ${injectionTab === r.id ? 'bg-[var(--signal)] text-black' : 'border border-white/15 text-[var(--fg-muted)]'}`}
+                aria-pressed={injectionTab === r.id}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${injectionTab === r.id ? 'settings-choice-active' : 'border-[var(--line)] text-[var(--fg-muted)]'}`}
               >
                 {r.title}
               </button>
@@ -393,9 +420,17 @@ export function WebsitePanel({
  * program go-live. The `status` is computed by the shared agenticCommerceStatus().
  */
 /** A card CTA is either a navigation (href) or an in-place action (onClick). */
-type CardCta = { label: string; primary: boolean } & ({ href: string } | { onClick: () => void })
+type CardCta = { label: string } & ({ href: string } | { onClick: () => void })
 
-function AgenticCommerceCard({ status, onUpgrade }: { status: AgenticCommerceStatus; onUpgrade: () => void }) {
+function AgenticCommerceCard({
+  status,
+  emphasizeCta,
+  onUpgrade,
+}: {
+  status: AgenticCommerceStatus
+  emphasizeCta: boolean
+  onUpgrade: () => void
+}) {
   const discoveryLive = status.discovery === 'live'
 
   const surfaceName = (s: AgenticCommerceStatus['liveSurfaces'][number]) => (s === 'chatgpt' ? 'ChatGPT' : 'Google')
@@ -412,15 +447,15 @@ function AgenticCommerceCard({ status, onUpgrade }: { status: AgenticCommerceSta
       case 'needs_plan':
         // Opens the benefit-led upgrade modal (not a bare billing link).
         return {
-          color: 'var(--signal)',
+          color: 'var(--fg-muted)',
           line: 'upgrade to Pro to let agents complete the sale, not just discover you.',
-          cta: { onClick: onUpgrade, label: 'Upgrade to Pro', primary: true } as CardCta,
+          cta: { onClick: onUpgrade, label: 'Upgrade to Pro' } as CardCta,
         }
       case 'needs_payouts':
         return {
           color: 'var(--amber)',
           line: 'connect Stripe payouts so agent orders can settle to your account.',
-          cta: { href: '/dashboard/finance', label: 'Connect payouts', primary: false } as CardCta,
+          cta: { href: '/dashboard/finance', label: 'Connect payouts' } as CardCta,
         }
       case 'enrolling':
         return {
@@ -433,10 +468,21 @@ function AgenticCommerceCard({ status, onUpgrade }: { status: AgenticCommerceSta
     }
   })()
 
+  const actionIsNext = emphasizeCta && Boolean(checkout.cta)
+
   return (
-    <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+    <div
+      role={actionIsNext ? 'group' : undefined}
+      className={`rounded-lg p-3 ${actionIsNext ? 'settings-priority-card' : 'border border-[var(--line-soft)] bg-[var(--fill-1)]'}`}
+      aria-label={actionIsNext ? 'Recommended next step: enable agentic checkout' : undefined}
+    >
+      {actionIsNext ? (
+        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--fg-muted)]">
+          Recommended next step
+        </p>
+      ) : null}
       <p className="flex items-center gap-2 text-sm font-semibold">
-        <Bot className="size-4" style={{ color: 'var(--signal)' }} /> Sell through ChatGPT &amp; Google
+        <Bot className="size-4 text-[var(--fg-muted)]" /> Sell through ChatGPT &amp; Google
       </p>
       <p className="mt-0.5 text-xs text-[var(--fg-muted)]">
         Agents <span className="text-[var(--fg)]">discover</span> your offers for free — and, on Pro, <span className="text-[var(--fg)]">complete checkout</span> right
@@ -472,9 +518,9 @@ function AgenticCommerceCard({ status, onUpgrade }: { status: AgenticCommerceSta
 
       {checkout.cta ? (
         (() => {
-          const cls = checkout.cta.primary
-            ? 'mt-3 inline-flex items-center gap-1 rounded-md bg-[var(--signal-solid)] px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90'
-            : 'mt-3 inline-flex items-center gap-1 rounded-md border border-white/15 px-3 py-1.5 text-xs font-medium text-[var(--fg)] transition hover:border-white/30'
+          const cls = actionIsNext
+            ? 'settings-emphasis-action mt-3 inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold'
+            : 'btn-secondary mt-3 inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium'
           return 'href' in checkout.cta ? (
             <a href={checkout.cta.href} className={cls}>
               {checkout.cta.label} <ArrowUpRight className="size-3.5" />

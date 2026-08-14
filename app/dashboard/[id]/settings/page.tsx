@@ -49,6 +49,11 @@ type PageProps = {
   params: Promise<{ id: string }>
 }
 
+type OutboundTestResult = {
+  state: 'testing' | 'success' | 'failure'
+  message: string
+}
+
 const SETTINGS_SECTIONS = [
   { id: 'general', label: 'General', icon: Settings },
   { id: 'brand-domain', label: 'Brand & domain', icon: Globe2 },
@@ -117,8 +122,7 @@ export default function PageSettings({ params }: PageProps) {
   const [newOutboundUrl, setNewOutboundUrl] = useState('')
   const [newOutboundSecret, setNewOutboundSecret] = useState('')
   const [outboundSaving, setOutboundSaving] = useState(false)
-  const [testingEndpoint, setTestingEndpoint] = useState<number | null>(null)
-  const [testResults, setTestResults] = useState<Record<number, string>>({})
+  const [testResults, setTestResults] = useState<Record<string, OutboundTestResult>>({})
 
   // Real recent fires (from checkout_events) for visibility of outbound value
   const [recentOutboundFires, setRecentOutboundFires] = useState<any[]>([])
@@ -355,6 +359,7 @@ export default function PageSettings({ params }: PageProps) {
 
 	    // Phase 3: Load per-page outbound webhooks (support richer shape with optional secrets)
 	    const ob = activePage.outbound_webhooks
+    setTestResults({})
     if (ob) {
       const arr: OutboundEndpoint[] = Array.isArray(ob)
         ? ob.map((o: any) => (typeof o === 'string' ? { url: o } : { url: o?.url, secret: o?.secret })).filter((o) => o.url)
@@ -737,6 +742,14 @@ export default function PageSettings({ params }: PageProps) {
   const showTxtVerification =
     domainStatus?.verificationMethod === 'txt' ||
     Boolean(domainStatus && !domainStatus.providerConfigured && domainStatus.verificationMethod === 'unknown')
+  const domainAttachIsNext = Boolean(customDomain.trim() && !showDomainVerified && !domainStatus)
+  const domainCnameIsNext = Boolean(
+    !showDomainVerified &&
+    domainStatus?.verificationMethod === 'cname' &&
+    domainStatus.routingRecords.length,
+  )
+  const domainTxtGenerateIsNext = Boolean(showTxtVerification && !showDomainVerified && !domainVerificationToken)
+  const domainTxtVerifyIsNext = Boolean(showTxtVerification && !showDomainVerified && domainVerificationToken)
   const visibilityChanged = isPublished !== Boolean(page.is_published)
   const visibilityStatus = visibilityChanged
     ? isPublished
@@ -750,6 +763,31 @@ export default function PageSettings({ params }: PageProps) {
         (document: any) => document && typeof document === 'object' && document.status === 'verified',
       ).length
     : 0
+  const outboundTestStates = Object.values(testResults)
+  const failedOutboundTests = outboundTestStates.filter((result) => result.state === 'failure').length
+  const successfulOutboundTests = outboundTestStates.filter((result) => result.state === 'success').length
+  const testingOutboundEndpoints = outboundTestStates.filter((result) => result.state === 'testing').length
+  const outboundStatus: { label: string; tone: 'danger' | 'ready' | 'neutral' } = failedOutboundTests
+    ? {
+        label: `${failedOutboundTests} webhook test${failedOutboundTests === 1 ? '' : 's'} failed`,
+        tone: 'danger',
+      }
+    : successfulOutboundTests
+      ? {
+          label: `${successfulOutboundTests} webhook test${successfulOutboundTests === 1 ? '' : 's'} passed`,
+          tone: 'ready',
+        }
+      : testingOutboundEndpoints
+        ? {
+            label: `Testing ${testingOutboundEndpoints} webhook${testingOutboundEndpoints === 1 ? '' : 's'}`,
+            tone: 'neutral',
+          }
+        : {
+            label: outboundEndpoints.length
+              ? `${outboundEndpoints.length} webhook${outboundEndpoints.length === 1 ? '' : 's'} configured`
+              : 'No webhooks',
+            tone: 'neutral',
+          }
 
   return (
     <main className="nx-listing-settings min-h-screen bg-[var(--bg)] text-[var(--fg)]" data-testid="page-settings-screen">
@@ -828,6 +866,7 @@ export default function PageSettings({ params }: PageProps) {
           <div className="min-w-0 space-y-8">
             <SettingsSection
               id="general"
+              active={activeSection === 'general'}
               title="General"
               description="The essential identity, contact path, visibility, and checkout defaults for this listing."
               icon={Settings}
@@ -943,6 +982,7 @@ export default function PageSettings({ params }: PageProps) {
 
             <SettingsSection
               id="brand-domain"
+              active={activeSection === 'brand-domain'}
               title="Brand & domain"
               description="Connect a trusted hostname and carry your identity through every buyer and agent touchpoint."
               icon={Globe2}
@@ -995,11 +1035,24 @@ export default function PageSettings({ params }: PageProps) {
                   </p>
 
                   {showTxtVerification ? (
-                    <div className="mt-2 flex flex-wrap gap-2">
+                    <div
+                      role={domainTxtGenerateIsNext || domainTxtVerifyIsNext ? 'group' : undefined}
+                      aria-label={domainTxtGenerateIsNext || domainTxtVerifyIsNext ? 'Recommended next step: verify custom domain ownership' : undefined}
+                      className="mt-2 flex flex-wrap items-center gap-2"
+                    >
+                      {domainTxtGenerateIsNext || domainTxtVerifyIsNext ? (
+                        <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--fg-muted)]">
+                          Recommended next step
+                        </span>
+                      ) : null}
                       <button
                         type="button"
                         onClick={generateDomainVerificationToken}
-                        className="rounded border border-white/20 px-3 py-1 text-xs text-zinc-200 hover:bg-white/5"
+                        className={`rounded px-3 py-1 text-xs ${
+                          domainTxtGenerateIsNext
+                            ? 'settings-emphasis-action'
+                            : 'border border-[var(--line)] text-[var(--fg-muted)] hover:bg-[var(--fill-1)]'
+                        }`}
                       >
                         Generate TXT token
                       </button>
@@ -1007,7 +1060,11 @@ export default function PageSettings({ params }: PageProps) {
                         type="button"
                         disabled={verifyingDomain || !domainVerificationToken}
                         onClick={verifyCustomDomain}
-                        className="rounded border border-[var(--ready)]/40 px-3 py-1 text-xs text-[var(--ready)] hover:bg-[var(--ready)]/10 disabled:opacity-50"
+                        className={`rounded px-3 py-1 text-xs disabled:opacity-50 ${
+                          domainTxtVerifyIsNext
+                            ? 'settings-emphasis-action'
+                            : 'border border-[var(--ready)]/40 text-[var(--ready)] hover:bg-[var(--ready)]/10'
+                        }`}
                       >
                         {verifyingDomain ? 'Checking DNS...' : 'Verify TXT now'}
                       </button>
@@ -1029,7 +1086,20 @@ export default function PageSettings({ params }: PageProps) {
                   </div>
 
                   {domainStatus?.verificationMethod === 'cname' && domainStatus.routingRecords.length ? (
-                    <div className="mt-3 rounded border border-[var(--signal)]/30 bg-[var(--signal)]/5 p-3 text-[11px]">
+                    <div
+                      role={domainCnameIsNext ? 'group' : undefined}
+                      aria-label={domainCnameIsNext ? 'Recommended next step: add DNS CNAME record' : undefined}
+                      className={`mt-3 rounded p-3 text-[11px] ${
+                        domainCnameIsNext
+                          ? 'settings-priority-card'
+                          : 'border border-[var(--line-soft)] bg-[var(--fill-1)]'
+                      }`}
+                    >
+                      {domainCnameIsNext ? (
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--fg-muted)]">
+                          Recommended DNS step
+                        </p>
+                      ) : null}
                       <div className="font-medium text-zinc-200">Add this DNS CNAME record</div>
                       {domainStatus.routingRecords.map((record, index) => (
                         <div key={`${record.type}-${index}`} className="mt-2 grid gap-1 sm:grid-cols-2">
@@ -1200,7 +1270,20 @@ export default function PageSettings({ params }: PageProps) {
 
                   {/* A3: connection wizard - provider attach + SSL state machine */}
                   {customDomain ? (
-                    <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div
+                      role={domainAttachIsNext ? 'group' : undefined}
+                      aria-label={domainAttachIsNext ? 'Recommended next step: attach and detect DNS' : undefined}
+                      className={`mt-4 rounded-lg p-3 ${
+                        domainAttachIsNext
+                          ? 'settings-priority-card'
+                          : 'border border-[var(--line-soft)] bg-[var(--fill-1)]'
+                      }`}
+                    >
+                      {domainAttachIsNext ? (
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--fg-muted)]">
+                          Recommended next step
+                        </p>
+                      ) : null}
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-xs font-medium text-zinc-200">Connection & SSL</p>
                         <div className="flex gap-2">
@@ -1208,7 +1291,11 @@ export default function PageSettings({ params }: PageProps) {
                             type="button"
                             disabled={domainProvisioning}
                             onClick={() => callDomainAction('attach')}
-                            className="rounded border border-[var(--signal)]/40 px-2.5 py-1 text-[11px] text-[var(--signal)] hover:bg-[var(--signal)]/10 disabled:opacity-50"
+                            className={`rounded px-2.5 py-1 text-[11px] disabled:opacity-50 ${
+                              domainAttachIsNext
+                                ? 'settings-emphasis-action'
+                                : 'border border-[var(--line)] text-[var(--fg)] hover:bg-[var(--fill-1)]'
+                            }`}
                           >
                             {domainProvisioning ? 'Working…' : 'Attach & detect DNS'}
                           </button>
@@ -1400,6 +1487,7 @@ export default function PageSettings({ params }: PageProps) {
             <div className="space-y-8">
               <SettingsSection
                 id="agent-experience"
+                active={activeSection === 'agent-experience'}
                 title="Agent experience"
                 description="Control the context agents receive and the handoff customers experience beyond the listing."
                 icon={Bot}
@@ -1600,14 +1688,14 @@ export default function PageSettings({ params }: PageProps) {
 
               <SettingsSection
                 id="commerce-integrations"
+                active={activeSection === 'commerce-integrations'}
                 title="Commerce & integrations"
                 description="Keep offers, availability, booking automation, and outbound systems in sync."
                 icon={ExternalLink}
                 status={
-                  <StatusPill
-                    label={outboundEndpoints.length ? `${outboundEndpoints.length} webhook${outboundEndpoints.length === 1 ? '' : 's'}` : 'No webhooks'}
-                    tone={outboundEndpoints.length ? 'ready' : 'neutral'}
-                  />
+                  <span data-testid="outbound-webhook-summary" data-tone={outboundStatus.tone}>
+                    <StatusPill label={outboundStatus.label} tone={outboundStatus.tone} />
+                  </span>
                 }
                 footer={
                   <p className="text-sm text-[var(--fg-muted)]">
@@ -1697,8 +1785,12 @@ export default function PageSettings({ params }: PageProps) {
                 {outboundEndpoints.length > 0 && (
                   <div className="text-xs mb-3 space-y-1.5">
                     {outboundEndpoints.map((ep, i) => (
-                      <div key={i} className="rounded border border-white/10 bg-black/30 p-2">
-                        <div className="flex items-center justify-between font-mono text-[var(--ready)]/90">
+                      <div
+                        key={ep.url}
+                        className="rounded border border-white/10 bg-black/30 p-2"
+                        data-testid="outbound-webhook-row"
+                      >
+                        <div className="flex items-center justify-between font-mono text-[var(--fg-muted)]">
                           <span className="truncate text-[11px]">{ep.url}</span>
                           <div className="flex items-center gap-2">
                             {ep.secret && (
@@ -1708,10 +1800,12 @@ export default function PageSettings({ params }: PageProps) {
                             )}
                             <button
                               type="button"
-                              disabled={testingEndpoint === i}
+                              disabled={testResults[ep.url]?.state === 'testing'}
                               onClick={async () => {
-                                setTestingEndpoint(i)
-                                setTestResults(prev => ({ ...prev, [i]: 'Testing...' }))
+                                setTestResults((previous) => ({
+                                  ...previous,
+                                  [ep.url]: { state: 'testing', message: 'Testing…' },
+                                }))
                                 try {
                                   const res = await fetch('/api/test-outbound', {
                                     method: 'POST',
@@ -1725,33 +1819,59 @@ export default function PageSettings({ params }: PageProps) {
 	                                    }),
                                   })
                                   const data = await res.json()
-                                  const msg = data.success ? `✓ Sent (HTTP ${data.status})` : `✗ Failed: ${data.error || data.status}`
-                                  setTestResults(prev => ({ ...prev, [i]: msg }))
-                                  if (data.success) {
-                                    try { localStorage.setItem('nexez_last_outbound_fired', new Date().toISOString()) } catch {}
-                                  }
-                                } catch (e: any) {
-                                  setTestResults(prev => ({ ...prev, [i]: '✗ Network error' }))
-                                } finally {
-                                  setTestingEndpoint(null)
+                                  const nextResult: OutboundTestResult = data.success
+                                    ? { state: 'success', message: `✓ Sent (HTTP ${data.status})` }
+                                    : { state: 'failure', message: `✗ Failed: ${data.error || data.status}` }
+                                  setTestResults((previous) =>
+                                    previous[ep.url] ? { ...previous, [ep.url]: nextResult } : previous,
+                                  )
+                                } catch {
+                                  setTestResults((previous) =>
+                                    previous[ep.url]
+                                      ? {
+                                          ...previous,
+                                          [ep.url]: { state: 'failure', message: '✗ Network error' },
+                                        }
+                                      : previous,
+                                  )
                                 }
                               }}
-                              className="text-[10px] rounded border border-[var(--ready)]/40 px-1.5 py-0 text-[var(--ready)] hover:bg-[var(--ready)]/10 disabled:opacity-60"
+                              className="rounded border border-[var(--line)] px-1.5 py-0 text-[10px] text-[var(--fg)] hover:bg-[var(--fill-1)] disabled:opacity-60"
                             >
-                              {testingEndpoint === i ? '...' : 'Send Test'}
+                              {testResults[ep.url]?.state === 'testing' ? '...' : 'Send Test'}
                             </button>
                             <button
                               type="button"
-                              onClick={() => setOutboundEndpoints(prev => prev.filter((_, idx) => idx !== i))}
+                              onClick={() => {
+                                setOutboundEndpoints((previous) => previous.filter((_, index) => index !== i))
+                                setTestResults((previous) => {
+                                  const next = { ...previous }
+                                  delete next[ep.url]
+                                  return next
+                                })
+                              }}
                               className="text-[10px] text-zinc-400 hover:text-red-400"
                             >
                               remove
                             </button>
                           </div>
                         </div>
-                        {testResults[i] && (
-                          <div className="mt-1 text-[10px] text-[var(--ready)] font-mono">{testResults[i]}</div>
-                        )}
+                        {testResults[ep.url] ? (
+                          <div
+                            role={testResults[ep.url].state === 'failure' ? 'alert' : 'status'}
+                            data-testid="outbound-test-result"
+                            data-state={testResults[ep.url].state}
+                            className={`mt-1 font-mono text-[10px] ${
+                              testResults[ep.url].state === 'success'
+                                ? 'text-[var(--ready)]'
+                                : testResults[ep.url].state === 'failure'
+                                  ? 'text-[var(--danger)]'
+                                  : 'text-[var(--fg-muted)]'
+                            }`}
+                          >
+                            {testResults[ep.url].message}
+                          </div>
+                        ) : null}
                       </div>
                     ))}
                   </div>
@@ -1799,10 +1919,6 @@ export default function PageSettings({ params }: PageProps) {
 }`}</pre>
                   <p className="mt-1 text-[9px]">Use this shape when connecting custom automation.</p>
                 </details>
-                {typeof window !== 'undefined' && localStorage.getItem('nexez_last_outbound_fired') && (
-                  <p className="mt-1 text-[9px] text-[var(--ready)]">Last test fire: {new Date(localStorage.getItem('nexez_last_outbound_fired')!).toLocaleTimeString()}</p>
-                )}
-
                 {/* Real recent fires from DB (what actually triggered / would trigger your endpoints) */}
                 {recentOutboundFires.length > 0 && (
                   <div className="mt-4 border-t border-white/10 pt-3">
@@ -1946,6 +2062,7 @@ export default function PageSettings({ params }: PageProps) {
 
               <SettingsSection
                 id="trust-verification"
+                active={activeSection === 'trust-verification'}
                 title="Trust & verification"
                 description="Verification is earned from server-confirmed ownership checks. Credential reviews add context, but are not seller verification."
                 icon={ShieldCheck}
@@ -2002,6 +2119,7 @@ export default function PageSettings({ params }: PageProps) {
 
               <SettingsSection
                 id="team-history"
+                active={activeSection === 'team-history'}
                 title="Team & history"
                 description="Review listing versions, restore earlier work, and coordinate approval requests."
                 icon={History}
@@ -2167,6 +2285,7 @@ export default function PageSettings({ params }: PageProps) {
 
               <SettingsSection
                 id="developer"
+                active={activeSection === 'developer'}
                 title="Developer"
                 description="Copy canonical machine-readable endpoints and control protocol discovery for compatible agents."
                 icon={Code2}
