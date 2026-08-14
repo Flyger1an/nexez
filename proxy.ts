@@ -56,8 +56,23 @@ function persistAbBucket(response: NextResponse, value: string | null): NextResp
 const domainCache = new Map<string, { pathToSlug: Record<string, string>; expires: number }>()
 const CACHE_TTL_MS = 60_000
 
+/** Best identifier we can print for a failed lookup: PostgREST code, fetch cause, or message. */
+function describeLookupError(err: unknown): string {
+  if (!err) return 'unknown'
+  const e = err as { code?: string; message?: string; cause?: { code?: string } }
+  return e.code || e.cause?.code || e.message || 'unknown'
+}
+
 // Resolve a host to its { domain_path -> slug } map (all verified, published
 // pages on that domain). Supports multiple pages per domain (C9).
+//
+// Failures must never be cached. A single Supabase blip (observed:
+// `TypeError: fetch failed / ECONNRESET`) used to produce an empty map that was
+// then cached for the full TTL, so every custom-domain request on that edge
+// instance served nothing for a minute, silently. A hostname's mapping changes
+// rarely, so stale routing beats no routing: on failure we keep serving the last
+// known map and leave the cache untouched, which also makes the next request
+// retry instead of waiting out a negative cache entry.
 async function resolvePathMapForHost(host: string): Promise<Record<string, string>> {
   const key = normalizeHost(host)
   if (!key) return {}
@@ -65,7 +80,6 @@ async function resolvePathMapForHost(host: string): Promise<Record<string, strin
   const cached = domainCache.get(key)
   if (cached && cached.expires > Date.now()) return cached.pathToSlug
 
-  const pathToSlug: Record<string, string> = {}
   try {
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -77,7 +91,7 @@ async function resolvePathMapForHost(host: string): Promise<Record<string, strin
     // revoked (owner-private rules redaction), so querying `pages` here silently
     // fails (permission denied) and breaks custom-domain routing. `pages_public`
     // exposes the slug/domain_path/custom_domain(+verified)/is_published this needs.
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('pages_public')
       .select('slug, domain_path')
       .in('custom_domain', hostLookupCandidates(host))
@@ -85,15 +99,24 @@ async function resolvePathMapForHost(host: string): Promise<Record<string, strin
       .not('custom_domain_verified', 'is', null)
       .returns<Array<{ slug: string; domain_path: string | null }>>()
 
+    // PostgREST reports failures in the payload rather than throwing, so an
+    // errored response would otherwise look identical to "this host has no pages".
+    if (error) throw error
+
+    const pathToSlug: Record<string, string> = {}
     for (const row of data ?? []) {
       pathToSlug[normalizeDomainPath(row.domain_path)] = row.slug
     }
-  } catch {
-    // leave empty on failure
-  }
 
-  domainCache.set(key, { pathToSlug, expires: Date.now() + CACHE_TTL_MS })
-  return pathToSlug
+    // Only a successful query writes the cache.
+    domainCache.set(key, { pathToSlug, expires: Date.now() + CACHE_TTL_MS })
+    return pathToSlug
+  } catch (err) {
+    // Warn, never throw: a hard failure here would take the proxy down for
+    // platform hosts too. Serve the stale map if we have one.
+    console.warn('[proxy] custom-domain lookup failed for', key, describeLookupError(err))
+    return cached?.pathToSlug ?? {}
+  }
 }
 
 // Cheap "is this browser signed in?" check for the proxy: the Supabase session
