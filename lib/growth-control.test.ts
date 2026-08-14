@@ -27,6 +27,8 @@ describe('summarizeGrowthControl', () => {
       inviteQualificationRate: 20,
       deliveryRate: 80,
       paidConversionRate: 20,
+      cohortQualificationRate: 0,
+      cohortDeliveryRate: 0,
     })
   })
 

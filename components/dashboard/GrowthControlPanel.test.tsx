@@ -35,6 +35,7 @@ function snapshot(): GrowthControlSnapshot {
     maxGrants: 1000,
     startsAt: '2026-07-25T00:00:00.000Z',
     signupClosesAt: null,
+    enrollmentMode: 'open' as const,
     updatedAt: '2026-07-25T01:00:00.000Z',
   }
   return {
@@ -51,6 +52,7 @@ function snapshot(): GrowthControlSnapshot {
       createdAt: '2026-07-25T23:00:00.000Z',
     }],
     adminEvents: [],
+    cohortMembers: [],
     warnings: [],
   }
 }
@@ -66,12 +68,17 @@ describe('GrowthControlPanel', () => {
     fireEvent.click(screen.getByRole('tab', { name: /Activation funnel/ }))
     expect(screen.getByText('Invitation progression')).toBeInTheDocument()
 
+    fireEvent.click(screen.getByRole('tab', { name: /Private cohort/ }))
+    expect(screen.getByText('No businesses are in this cohort. Add the first verified-business candidate from the form.')).toBeInTheDocument()
+
     fireEvent.click(screen.getByRole('tab', { name: /Activity/ }))
     expect(screen.getByText('Free fallback applied')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('tab', { name: 'Controls' }))
     expect(screen.getByLabelText('Operational reason')).toBeInTheDocument()
     expect(screen.getByLabelText('Maximum campaign grants')).toHaveValue(1000)
+    expect(screen.getByRole('group', { name: 'Campaign enrollment mode' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Invite-only' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Pause campaign' })).toBeInTheDocument()
   })
 

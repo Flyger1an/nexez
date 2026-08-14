@@ -14,6 +14,7 @@ const campaign = {
   invite_expires_days: 14,
   starts_at: new Date(now - 86_400_000).toISOString(),
   signup_closes_at: null,
+  enrollment_mode: 'open',
 }
 const grant = {
   id: 'grant-1',
@@ -37,9 +38,10 @@ function adminFor(opts: {
   grant?: typeof grant | null
   acceptedInvite?: Record<string, unknown> | null
   sentInvites?: Array<Record<string, unknown>>
+  campaign?: typeof campaign
 }) {
   const db = createSupabaseMock((ctx) => {
-    if (ctx.table === 'seller_growth_campaigns') return { data: campaign, error: null }
+    if (ctx.table === 'seller_growth_campaigns') return { data: opts.campaign ?? campaign, error: null }
     if (ctx.table === 'promotional_plan_grants') return { data: opts.grant ?? null, error: null }
     if (ctx.table === 'pages') return { data: pages, error: null }
     if (ctx.table === 'billing_subscriptions') return { data: { stripe_connect_charges_enabled: false }, error: null }
@@ -67,6 +69,7 @@ describe('getSellerGrowthState', () => {
       qualified_at: null,
       delivery_count: 1,
       last_sent_at: new Date(now - 1_000).toISOString(),
+      invite_kind: 'referral',
     }
     const expiredInvite = {
       ...activeInvite,
@@ -112,6 +115,47 @@ describe('getSellerGrowthState', () => {
       campaignAccess: false,
       accessSource: 'none',
       eligible: false,
+    })
+  })
+
+  it('requires a claimed invitation when enrollment is invite-only', async () => {
+    const inviteOnlyCampaign = { ...campaign, enrollment_mode: 'invite_only' as const }
+    const direct = await getSellerGrowthState(adminFor({
+      grant: null,
+      campaign: inviteOnlyCampaign,
+    }), 'owner-1', {
+      createdAt: new Date(now).toISOString(),
+      emailConfirmedAt: new Date(now).toISOString(),
+    })
+    expect(direct.qualification).toMatchObject({
+      campaignAccess: false,
+      accessSource: 'none',
+      eligible: false,
+    })
+
+    const claimed = await getSellerGrowthState(adminFor({
+      grant: null,
+      campaign: inviteOnlyCampaign,
+      acceptedInvite: {
+        id: 'cohort-1',
+        campaign_id: campaign.id,
+        invitee_email: 'owner@example.com',
+        status: 'claimed',
+        expires_at: new Date(now + 86_400_000).toISOString(),
+        accepted_at: new Date(now - 1_000).toISOString(),
+        qualified_at: null,
+        delivery_count: 1,
+        last_sent_at: new Date(now - 2_000).toISOString(),
+        invite_kind: 'cohort',
+      },
+    }), 'owner-1', {
+      createdAt: new Date(now - 30 * 86_400_000).toISOString(),
+      emailConfirmedAt: new Date(now).toISOString(),
+    })
+    expect(claimed.qualification).toMatchObject({
+      campaignAccess: true,
+      accessSource: 'cohort',
+      eligible: true,
     })
   })
 })

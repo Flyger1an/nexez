@@ -15,6 +15,39 @@ const state = vi.hoisted(() => {
       campaign: { status: 'paused' },
       generatedAt: '2026-07-26T00:00:00.000Z',
     })),
+    applyCohort: vi.fn(async () => ({
+      snapshot: {
+        campaign: { grantDurationDays: 180 },
+        cohortMembers: [{
+          id: '33333333-3333-4333-8333-333333333333',
+          email: 'owner@acme.test',
+          label: 'Acme',
+          status: 'pending',
+          expiresAt: '2026-08-09T00:00:00.000Z',
+          acceptedAt: null,
+          qualifiedAt: null,
+          deliveryCount: 0,
+          lastSentAt: null,
+          createdAt: '2026-07-26T00:00:00.000Z',
+        }],
+      },
+      member: {
+        id: '33333333-3333-4333-8333-333333333333',
+        email: 'owner@acme.test',
+        label: 'Acme',
+        status: 'pending',
+        expiresAt: '2026-08-09T00:00:00.000Z',
+        acceptedAt: null,
+        qualifiedAt: null,
+        deliveryCount: 0,
+        lastSentAt: null,
+        createdAt: '2026-07-26T00:00:00.000Z',
+      },
+      token: 'secure_cohort_token_secure_cohort_token_123',
+      replayed: false,
+    })),
+    getSnapshot: vi.fn(),
+    recordDelivery: vi.fn(),
     GrowthControlError,
   }
 })
@@ -30,6 +63,16 @@ vi.mock('../../../../lib/rate-limit', () => ({
 vi.mock('../../../../lib/server/growth-control', () => ({
   GrowthControlError: state.GrowthControlError,
   applyGrowthCampaignControl: state.apply,
+  getGrowthControlSnapshot: state.getSnapshot,
+}))
+vi.mock('../../../../lib/server/growth-cohort', () => ({
+  applyGrowthCohortControl: state.applyCohort,
+  recordGrowthCohortDelivery: state.recordDelivery,
+}))
+vi.mock('../../../../lib/email', () => ({
+  hasEmailEnv: vi.fn(() => false),
+  buildSellerGrowthInviteEmail: vi.fn(),
+  sendEmail: vi.fn(),
 }))
 
 import { PATCH } from './route'
@@ -54,6 +97,7 @@ describe('PATCH /api/admin/growth-campaign', () => {
     state.user = { id: 'admin-1' }
     state.admin = true
     state.limited = null
+    state.getSnapshot.mockResolvedValue(null)
   })
 
   it('requires a same-origin browser request', async () => {
@@ -108,7 +152,36 @@ describe('PATCH /api/admin/growth-campaign', () => {
       idempotencyKey: IDEMPOTENCY_KEY,
       maxGrants: 1250,
       signupClosesAt: null,
+      enrollmentMode: null,
       actorId: 'admin-1',
+    })
+  })
+
+  it('creates an email-bound private cohort seat as the authenticated actor', async () => {
+    const response = await PATCH(request({
+      campaignId: CAMPAIGN_ID,
+      action: 'cohort_add',
+      reason: 'Opening cohort candidate',
+      idempotencyKey: IDEMPOTENCY_KEY,
+      email: 'OWNER@ACME.TEST',
+      label: 'Acme',
+    }))
+
+    expect(response.status).toBe(200)
+    expect(state.applyCohort).toHaveBeenCalledWith({
+      campaignId: CAMPAIGN_ID,
+      action: 'cohort_add',
+      reason: 'Opening cohort candidate',
+      idempotencyKey: IDEMPOTENCY_KEY,
+      email: 'OWNER@ACME.TEST',
+      label: 'Acme',
+      memberId: null,
+      actorId: 'admin-1',
+    })
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      emailed: false,
+      member: { email: 'owner@acme.test', status: 'pending' },
     })
   })
 

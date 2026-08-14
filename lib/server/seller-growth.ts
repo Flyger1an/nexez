@@ -30,6 +30,7 @@ export type SellerGrowthCampaignView = {
   inviteSlots: number
   inviteExpiresDays: number
   signupClosesAt: string | null
+  enrollmentMode: 'open' | 'invite_only'
 }
 
 export type SellerGrowthGrantView = {
@@ -47,7 +48,7 @@ export type SellerGrowthQualification = {
   identityVerified: boolean
   identityMethods: Array<'website' | 'custom_domain' | 'shopify' | 'stripe'>
   campaignAccess: boolean
-  accessSource: 'new_business' | 'invitation' | 'none'
+  accessSource: 'new_business' | 'cohort' | 'invitation' | 'none'
   eligible: boolean
 }
 
@@ -87,6 +88,7 @@ type CampaignRow = {
   invite_expires_days: number
   starts_at: string
   signup_closes_at: string | null
+  enrollment_mode: SellerGrowthCampaignView['enrollmentMode']
 }
 
 type GrantRow = {
@@ -109,6 +111,7 @@ type InviteRow = {
   qualified_at: string | null
   delivery_count: number
   last_sent_at: string | null
+  invite_kind: 'referral' | 'cohort'
 }
 
 type PageRow = {
@@ -166,6 +169,7 @@ function campaignView(row: CampaignRow): SellerGrowthCampaignView {
     inviteSlots: row.invite_slots,
     inviteExpiresDays: row.invite_expires_days,
     signupClosesAt: row.signup_closes_at,
+    enrollmentMode: row.enrollment_mode,
   }
 }
 
@@ -220,7 +224,7 @@ export async function getSellerGrowthState(
   const [activeCampaignRes, grantRes, pagesRes, billingRes, shopifyRes] = await Promise.all([
     admin
       .from('seller_growth_campaigns')
-      .select('id, campaign_key, name, status, grant_plan_id, grant_duration_days, invite_slots, invite_expires_days, starts_at, signup_closes_at')
+      .select('id, campaign_key, name, status, grant_plan_id, grant_duration_days, invite_slots, invite_expires_days, starts_at, signup_closes_at, enrollment_mode')
       .eq('status', 'active')
       .lte('starts_at', nowIso)
       .order('starts_at', { ascending: false })
@@ -261,7 +265,7 @@ export async function getSellerGrowthState(
   if (liveGrant && campaign?.id !== liveGrant.campaign_id) {
     const { data } = await admin
       .from('seller_growth_campaigns')
-      .select('id, campaign_key, name, status, grant_plan_id, grant_duration_days, invite_slots, invite_expires_days, starts_at, signup_closes_at')
+      .select('id, campaign_key, name, status, grant_plan_id, grant_duration_days, invite_slots, invite_expires_days, starts_at, signup_closes_at, enrollment_mode')
       .eq('id', liveGrant.campaign_id)
       .maybeSingle<CampaignRow>()
     campaign = data ?? campaign
@@ -272,14 +276,14 @@ export async function getSellerGrowthState(
   const [sentInvitesRes, acceptedInviteRes] = await Promise.all([
     admin
       .from('seller_growth_invites')
-      .select('id, campaign_id, invitee_email, status, expires_at, accepted_at, qualified_at, delivery_count, last_sent_at')
+      .select('id, campaign_id, invitee_email, status, expires_at, accepted_at, qualified_at, delivery_count, last_sent_at, invite_kind')
       .eq('campaign_id', campaign.id)
       .eq('inviter_owner_id', ownerId)
       .order('created_at', { ascending: true })
       .returns<InviteRow[]>(),
     admin
       .from('seller_growth_invites')
-      .select('id, campaign_id, invitee_email, status, expires_at, accepted_at, qualified_at, delivery_count, last_sent_at')
+      .select('id, campaign_id, invitee_email, status, expires_at, accepted_at, qualified_at, delivery_count, last_sent_at, invite_kind')
       .eq('campaign_id', campaign.id)
       .eq('accepted_by_owner_id', ownerId)
       .in('status', ['claimed', 'qualified'])
@@ -306,14 +310,19 @@ export async function getSellerGrowthState(
     campaign.status === 'active'
     && startsMs <= now.getTime()
     && (!campaign.signup_closes_at || closesMs >= now.getTime())
-  const campaignAccess = isNewBusiness || wasInvited
+  const campaignAccess = wasInvited || (campaign.enrollment_mode === 'open' && isNewBusiness)
+  const acceptedInviteKind = acceptedInviteRes.data?.invite_kind
   const qualification: SellerGrowthQualification = {
     emailVerified: Boolean(authFacts.emailConfirmedAt),
     publishedListing: pages.some((page) => page.is_published === true),
     identityVerified: identityMethods.length > 0,
     identityMethods,
     campaignAccess,
-    accessSource: wasInvited ? 'invitation' : isNewBusiness ? 'new_business' : 'none',
+    accessSource: wasInvited
+      ? acceptedInviteKind === 'cohort' ? 'cohort' : 'invitation'
+      : campaign.enrollment_mode === 'open' && isNewBusiness
+        ? 'new_business'
+        : 'none',
     eligible: campaignOpen
       && campaignAccess
       && Boolean(authFacts.emailConfirmedAt)

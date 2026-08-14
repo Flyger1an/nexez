@@ -27,7 +27,30 @@ the Stripe question below.
 
 ---
 
-## ⛔ STEP 0 — the one architectural blocker: confirm SPT-with-Connect with Stripe
+## ✅ STEP 0: RESOLVED (Stripe confirmed 2026-07-25): SPT composes with Connect + app fee
+
+**Stripe's answer:** *Yes*, a Shared Payment Token can be the payment credential on a
+**direct charge on a connected account with `application_fee_amount`**. The full amount
+lands on the connected account's balance, the `application_fee_amount` is pulled to the
+platform, and Stripe fees come off the connected account, i.e. exactly Nexez's
+seller-as-merchant-of-record model. No architectural change; the per-seller Connect
+commission model is confirmed to work for ACP.
+
+**⚠️ One implementation nuance the answer surfaced, reconcile before the real-token
+smoke test (ACP Step 6).** Stripe passes the SPT via
+`payment_method_data[shared_payment_granted_token]=<token>`, **not** as
+`payment_method=<token>`. The settlement bridge currently sends
+`payment_method: payment.token` and ignores `payment.kind`
+([lib/commerce/settlement-bridge.ts](../lib/commerce/settlement-bridge.ts) ~L70). This
+is correct for the Stripe **test PaymentMethod** (`pm_…`) the path was proven against,
+but a real SPT needs the `payment_method_data[shared_payment_granted_token]` shape,
+so branch on `payment.kind === 'shared_payment_token'`. Pin the exact token prefix
+(`vt_` vs `spt_`) and param name to what **OpenAI actually issues at enrollment** before
+making the change; it's a small, isolated branch (the `kind` discriminator is already
+threaded through). Do NOT flip `ACP_CHECKOUT_ENABLED=true` for real tokens until this
+line is proven with a live `/complete`.
+
+<details><summary>Original Step 0 question (kept for reference)</summary>
 
 Nexez's money model is **Stripe Connect with the seller as merchant-of-record**: a
 direct charge on the seller's connected account, with the platform commission taken
@@ -47,12 +70,15 @@ verbatim:
 >    **platform account**?
 > 3. Is there a Stripe **capability / enablement** required for SPT + Connect?
 
-**If yes** → no code change: the settlement bridge already accepts the token generically
-(`settleSessionToPaymentIntent(session, { token, kind: 'shared_payment_token' }, ctx)`),
-so a real `vt_` flows straight through.
+**If yes** → the settlement bridge accepts the token generically
+(`settleSessionToPaymentIntent(session, { token, kind: 'shared_payment_token' }, ctx)`);
+the only change is mapping an SPT `kind` to `payment_method_data[shared_payment_granted_token]`
+instead of `payment_method` (see the nuance note above).
 **If SPT is platform-account-only** → the per-seller Connect commission model may not
 compose for ACP; escalate before enrolling (the shared core is unaffected — only the
 ACP charge shape would need a decision).
+
+</details>
 
 ---
 
