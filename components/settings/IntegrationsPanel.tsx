@@ -69,6 +69,7 @@ function clearBody(provider: Exclude<Provider, 'stripe'>): Record<string, unknow
 
 export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string; isPro: boolean; onMessage?: (m: string) => void }) {
   const [connections, setConnections] = useState<Connection[] | null>(null)
+  const [contextLimited, setContextLimited] = useState(false)
   const [busy, setBusy] = useState<string | null>(null) // `${provider}:${action}`
   const [drafts, setDrafts] = useState<Record<string, string>>({}) // `${provider}:${fieldKey}` -> value
 
@@ -76,7 +77,8 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
     try {
       const res = await fetch(`/api/pages/${pageId}/settings-context`)
       if (!res.ok) return
-      const json = (await res.json()) as { integrations?: Connection[] }
+      const json = (await res.json()) as { integrations?: Connection[]; contextLimited?: boolean }
+      setContextLimited(json.contextLimited === true)
       if (Array.isArray(json.integrations)) setConnections(json.integrations)
     } catch {
       /* leave prior state */
@@ -159,7 +161,15 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
   }
 
   if (!connections) {
-    return <div className="text-[11px] text-zinc-400">Loading integrations…</div>
+    return <div className="text-xs text-[var(--fg-muted)]">Loading integrations…</div>
+  }
+
+  if (contextLimited) {
+    return (
+      <div role="status" className="rounded-lg border border-[var(--line)] bg-[var(--fill-1)] p-4 text-xs leading-5 text-[var(--fg-muted)]">
+        Integration connection status needs the server credential used by deployed environments. Your listing settings remain available, but connect and sync controls are hidden here.
+      </div>
+    )
   }
 
   return (
@@ -219,12 +229,12 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
                   {last ? ` · last synced ${last}` : ''}
                 </span>
                 {c.syncStatus === 'attention' && c.syncError ? (
-                  <span role="alert" className="w-full text-[10px] text-[var(--caution)]">{c.syncError}</span>
+                  <span role="alert" className="w-full text-[10px] text-[var(--amber)]">{c.syncError}</span>
                 ) : null}
               </div>
             ) : (
               <div className="mt-2 flex flex-col gap-2">
-                {!isPro ? <div className="text-[10px] text-[var(--caution)]">Connecting live integrations is a Pro feature.</div> : null}
+                {!isPro ? <div className="text-[10px] text-[var(--amber)]">Connecting live integrations is a Pro feature.</div> : null}
                 <div className="flex flex-col gap-2 sm:flex-row">
                   {tokenProvider &&
                     CONNECT_FIELDS[tokenProvider].map((f) => (

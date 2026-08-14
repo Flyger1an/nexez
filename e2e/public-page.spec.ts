@@ -84,14 +84,15 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
     const settingsPath = `/dashboard/${idMatch ? idMatch[1] : ''}/settings`
     await page.goto(settingsPath, { waitUntil: 'domcontentloaded' })
 
-    // Wait for settings LLM section + checkbox to be interactive
-    const checkbox = page.getByLabel(/advanced ai assist/i)
-    await expect(checkbox).toBeVisible({ timeout: 15000 })
+    // Wait for the accessible settings switch to be interactive.
+    const aiAssistSwitch = page.getByRole('switch', { name: /advanced ai assist/i })
+    await expect(aiAssistSwitch).toBeVisible({ timeout: 15000 })
 
     // Seed: ensure llm_opt_in is true for this page (direct update, no extra save)
-    const wasChecked = await checkbox.isChecked()
-    if (!wasChecked) {
-      await checkbox.check()
+    const wasEnabled = (await aiAssistSwitch.getAttribute('aria-checked')) === 'true'
+    if (!wasEnabled) {
+      await aiAssistSwitch.click()
+      await expect(aiAssistSwitch).toHaveAttribute('aria-checked', 'true')
       // Handler awaits the pages.update then sets the confirmation message
       await page.getByText(/Advanced AI assist enabled|LLM opt-in enabled/i).waitFor({ timeout: 10000 }).catch(() => {})
     }

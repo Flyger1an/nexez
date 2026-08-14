@@ -194,8 +194,9 @@ export type FaqItem = {
   answer: string
 }
 
-// A reviewed credential. Legacy entries are bare strings (self-reported, never
-// score-boosting); new entries are records carrying the LLM review verdict.
+// A seller-provided credential. Legacy entries are bare strings; new entries can
+// carry an automated review verdict. Neither shape is authority verification or
+// score-boosting evidence because the containing JSON is owner-writable.
 export type CredentialRecord = {
   id: string
   name: string
@@ -300,16 +301,17 @@ export type AgentPage = {
     llmEnhanced?: boolean
   }>
   mcp_enabled?: boolean // MCP structured data toggle for agents
-  // Trust score + verification (composite from readiness, verified flags, event completion rates)
+  // Seller-supplied verification claims and credential metadata. Nothing in this
+  // JSON object is authoritative trust evidence; server-backed proofs live in the
+  // dedicated custom_domain_verified / website_verified_at columns.
   trust_score?: number
   verification_details?: {
     email_verified?: boolean | string
     domain_verified?: boolean | string
-    // A credential is either a legacy/self-reported name (string) or a reviewed
-    // record. Only records with status 'verified' (set by the LLM review pass)
-    // count toward the trust score; strings are treated as self-reported.
+    // A credential is either a legacy/self-reported name (string) or an automated
+    // review record. Both remain seller claims and never contribute Trust Score.
     docs_provided?: Array<string | CredentialRecord>
-    completion_rate?: number // from events
+    completion_rate?: number // legacy owner-writable snapshot; not trusted for scoring
     last_updated?: string
   }
   // Advanced Phase 7 features (fully implemented with LLM where applicable)
@@ -762,30 +764,42 @@ export function parseAvailabilityWindows(note: string | null | undefined): Array
 }
 
 /**
+ * Verification evidence that is written only by server-side proof flows. Callers
+ * must pass a persisted page row, not a client-supplied page-shaped object, when
+ * using this result as an authorization or public-trust decision.
+ *
+ * `verification_details` is deliberately excluded: owners/editors can update that
+ * JSON field, so email/domain flags and credential review statuses inside it are
+ * claims, not authoritative proof.
+ */
+export function getServerVerificationEvidence(page: Partial<AgentPage>) {
+  const customDomainVerified = Boolean(page.custom_domain_verified)
+  const websiteVerified = Boolean(page.website_verified_at)
+
+  return {
+    customDomainVerified,
+    websiteVerified,
+    verified: customDomainVerified || websiteVerified,
+  }
+}
+
+/**
  * Compute composite Trust Score (0-100).
- * Base: readiness score.
- * + Verified signals (custom_domain_verified, verification_details.email/domain).
- * + Stub for completion_rate (from verification_details or future events aggregation).
- * Simple weighted formula for now; can be refined with analytics events.
- * Used in public pages, directory, editor, settings.
+ * Base: readiness score (up to 60).
+ * + Server-backed custom-domain proof (15).
+ * + Server-backed existing-website proof (10).
+ * + Completion derived from persisted events supplied by the caller (up to 5).
+ *
+ * Seller-writable `verification_details` never contributes trust points. In
+ * particular, self-asserted email/domain flags, credential statuses, and a stored
+ * completion rate are not verification evidence.
  */
 export function getTrustScore(page: Partial<AgentPage>, events?: any[]): number {
   const readiness = getReadinessScore(page)
   let score = readiness * 0.6 // base 60% weight
 
-  const v = (page as any).verification_details || {}
-  const hasDomain = !!(page.custom_domain_verified || v.domain_verified)
-  const hasEmail = !!v.email_verified
-  // Credentials only count toward trust once they've actually been REVIEWED.
-  // A self-reported entry (a bare filename string) must NOT boost the score -
-  // otherwise anyone lists a random file and inflates their ranking. The bonus
-  // applies only to credentials carrying a verified status (set by the LLM
-  // review pass); unreviewed / self-reported docs contribute nothing.
-  const hasVerifiedDocs =
-    Array.isArray(v.docs_provided) &&
-    v.docs_provided.some((d: any) => d && typeof d === 'object' && d.status === 'verified')
-
-  let completion = v.completion_rate || 0
+  const evidence = getServerVerificationEvidence(page)
+  let completion = 0
   if (events && events.length > 0) {
     // Real computation: completion rate from checkout_events (attempts vs conversions/success)
     const attempts = events.filter(e => e.event_type === 'checkout_attempt' || e.event_type === 'checkout_view').length
@@ -793,9 +807,8 @@ export function getTrustScore(page: Partial<AgentPage>, events?: any[]): number 
     if (attempts > 0) completion = Math.round((successes / attempts) * 100)
   }
 
-  if (hasDomain) score += 15
-  if (hasEmail) score += 10
-  if (hasVerifiedDocs) score += 10
+  if (evidence.customDomainVerified) score += 15
+  if (evidence.websiteVerified) score += 10
   score += Math.min(5, (completion / 100) * 5) // up to +5 from completion
 
   return Math.max(0, Math.min(100, Math.round(score)))

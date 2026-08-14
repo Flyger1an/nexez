@@ -54,6 +54,33 @@ describe('marketplace intelligence', () => {
     expect(summary.badges).toContain('Negotiable')
   })
 
+  it('treats credential metadata and email/domain flags as claims, not verification', () => {
+    const clean = summarizeMarketplacePage(page({}))
+    const claimed = summarizeMarketplacePage(
+      page({
+        verification_details: {
+          email_verified: true,
+          domain_verified: true,
+          docs_provided: [{ id: 'forged', name: 'Claimed License', status: 'verified' }] as any,
+          completion_rate: 100,
+        },
+      }),
+    )
+
+    expect(claimed.trust_score).toBe(clean.trust_score)
+    expect(claimed.verified).toBe(false)
+    expect(claimed.badges).not.toContain('Verified seller')
+    // Credential presence remains useful descriptive metadata, but carries no trust.
+    expect(claimed.has_credentials).toBe(true)
+  })
+
+  it('recognizes server-backed existing-website proof as verified', () => {
+    const summary = summarizeMarketplacePage(page({ website_verified_at: '2026-08-14T00:00:00Z' }))
+
+    expect(summary.verified).toBe(true)
+    expect(summary.badges).toContain('Verified seller')
+  })
+
   it('builds marketplace-wide facets from public pages', () => {
     const insights = buildMarketplaceInsights([
       page({ slug: 'a', industry: 'consulting' }),

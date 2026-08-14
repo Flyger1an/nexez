@@ -62,24 +62,29 @@ describe('getTrustScore', () => {
   it('base is 60% of readiness with no verification', () => {
     expect(getTrustScore(fullPage)).toBe(60) // readiness 100 * 0.6
   })
-  it('adds verification bonuses (domain +15, email +10); self-reported docs do NOT boost', () => {
+  it('adds bonuses only for server-backed domain and website proofs', () => {
     expect(getTrustScore({ ...fullPage, custom_domain_verified: '2026-01-01' })).toBe(75)
-    // A self-reported credential (bare filename string) must NOT boost the score.
+    expect(getTrustScore({ ...fullPage, website_verified_at: '2026-01-02' })).toBe(70)
     expect(
       getTrustScore({
         ...fullPage,
         custom_domain_verified: '2026-01-01',
-        verification_details: { email_verified: true, docs_provided: ['license.pdf'] },
+        website_verified_at: '2026-01-02',
       } as Partial<AgentPage>),
     ).toBe(85)
-    // Only a reviewed/verified credential (status: 'verified') adds +10.
+  })
+  it('ignores every owner-writable verification_details trust claim', () => {
     expect(
       getTrustScore({
         ...fullPage,
-        custom_domain_verified: '2026-01-01',
-        verification_details: { email_verified: true, docs_provided: [{ name: 'license.pdf', status: 'verified' }] },
+        verification_details: {
+          email_verified: true,
+          domain_verified: true,
+          docs_provided: [{ name: 'license.pdf', status: 'verified' }],
+          completion_rate: 100,
+        },
       } as Partial<AgentPage>),
-    ).toBe(95)
+    ).toBe(60)
   })
   it('derives completion rate from events (capped at +5)', () => {
     const events = [
@@ -93,7 +98,7 @@ describe('getTrustScore', () => {
   })
   it('clamps to 0-100', () => {
     const score = getTrustScore(
-      { ...fullPage, custom_domain_verified: 'x', verification_details: { email_verified: true, docs_provided: ['a'] } } as Partial<AgentPage>,
+      { ...fullPage, custom_domain_verified: 'x', website_verified_at: 'y' } as Partial<AgentPage>,
       [{ event_type: 'checkout_attempt' }, { event_type: 'stripe_session_created' }],
     )
     expect(score).toBeLessThanOrEqual(100)

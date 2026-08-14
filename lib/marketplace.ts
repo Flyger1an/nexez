@@ -5,6 +5,7 @@ import {
   getCheckoutOffers,
   getOfferCount,
   getReadinessScore,
+  getServerVerificationEvidence,
   getTrustScore,
 } from './agent-page'
 
@@ -118,10 +119,12 @@ export function summarizeMarketplacePage(page: AgentPage): MarketplaceSummary {
   const certification = getCertification(page)
   const offers = getCheckoutOffers(page)
   const verification = page.verification_details ?? {}
+  // Presence only: these are seller-provided credential claims. Their owner-writable
+  // status never makes the seller verified and never contributes to Trust Score.
   const hasCredentials =
     Array.isArray(verification.docs_provided) &&
-    verification.docs_provided.some((doc: any) => doc && typeof doc === 'object' && doc.status === 'verified')
-  const verified = Boolean(page.custom_domain_verified || verification.domain_verified || verification.email_verified)
+    verification.docs_provided.length > 0
+  const verified = getServerVerificationEvidence(page).verified
   const supportsNegotiation = offers.some((offer) => offer.offerType === 'negotiable')
   const supportsCheckout = offers.some((offer) => offer.availability !== 'sold_out')
 

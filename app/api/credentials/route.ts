@@ -10,8 +10,9 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/
 
 // Owner-managed, LLM-reviewed credentials for a page. Files live in the private
 // `credentials` bucket; the record (with the review verdict) is stored in
-// pages.verification_details.docs_provided. Only status 'verified' boosts the
-// trust score (see getTrustScore). All actions are authorized for the page OWNER
+// pages.verification_details.docs_provided. Status 'verified' means the automated
+// review passed; it does not independently verify the seller or affect Trust Score.
+// All actions are authorized for the page OWNER
 // OR a non-revoked editor-collaborator (via resolvePageAccess), and then act AS the
 // owner (owner's plan + owner's data) using the service-role client.
 
@@ -104,11 +105,11 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   // Plan gate (on the OWNER, not the acting collaborator): LLM credential review is
   // an AI feature (Launch+). Below that the file is still stored + listed, but stays
-  // 'pending' (no trust boost) - same fail-safe shape as a failed review, with a
+  // 'pending' (not reviewed) - same fail-safe shape as a failed review, with a
   // reason that nudges the upgrade.
   const aiAllowed = await ownerAllows(admin, access.ownerId, 'aiFeatures')
   // Fail-safe: any review failure → pending (never verified), so the file is
-  // stored + listed but does not boost trust until it actually passes review.
+  // stored + listed as pending until it actually passes review.
   const review = aiAllowed
     ? await reviewCredential({
         name: file.name,

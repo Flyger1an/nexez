@@ -12,8 +12,9 @@ import { enforceRateLimit } from '../../../../../lib/rate-limit'
  * Settings context for the page editor's Settings screen, collaborator-aware. Returns
  * the EFFECTIVE plan (the page OWNER's, so an editor sees the owner's entitlements not
  * their own) + the role + the owner-only page_secrets the UI needs (domain token,
- * calendly secret, outbound webhooks) - all behind resolvePageAccess(requireEditor),
- * read via the service-role client (an editor can't read page_secrets under RLS).
+ * calendly secret, outbound webhooks). Collaborator access is resolved with the
+ * service-role client. In a local owner session without that credential, the route
+ * safely degrades through owner RLS and marks integration status as unavailable.
  */
 export async function GET(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const limited = await enforceRateLimit(request, 'settings-context', 40, 60_000)
@@ -26,7 +27,52 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-  if (!hasSupabaseAdminEnv()) return NextResponse.json({ error: 'Not available.' }, { status: 503 })
+
+  if (!hasSupabaseAdminEnv()) {
+    // Safe local-development fallback: the authenticated client can read only rows
+    // granted by RLS. Re-check owner_id explicitly so an editor/viewer can never use
+    // this reduced path to obtain owner-only page_secrets. Collaborators continue to
+    // fail closed until the service-role resolver is available.
+    const { data: ownedPage } = await supabase
+      .from('pages')
+      .select('id, owner_id')
+      .eq('id', pageId)
+      .maybeSingle<{ id: string; owner_id: string | null }>()
+    if (!ownedPage || ownedPage.owner_id !== user.id) {
+      return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
+    }
+
+    const [plan, { data: secrets }] = await Promise.all([
+      getOwnerPlanId(supabase, user.id),
+      supabase
+        .from('page_secrets')
+        .select('calendly_webhook_secret, outbound_webhooks, domain_verification_token, website_verification_token')
+        .eq('page_id', pageId)
+        .maybeSingle<{
+          calendly_webhook_secret: string | null
+          outbound_webhooks: unknown
+          domain_verification_token: string | null
+          website_verification_token: string | null
+        }>(),
+    ])
+
+    return NextResponse.json({
+      role: 'owner',
+      ownerId: user.id,
+      plan,
+      contextLimited: true,
+      integrations: [],
+      secrets: {
+        calendly_webhook_secret: secrets?.calendly_webhook_secret ?? null,
+        outbound_webhooks: secrets?.outbound_webhooks ?? null,
+        domain_verification_token: secrets?.domain_verification_token ?? null,
+        website_verification_token: secrets?.website_verification_token ?? null,
+        // This boolean depends on a service-role-only encrypted column. Unknown
+        // must not be reported as connected in the limited context.
+        calendly_connected: false,
+      },
+    })
+  }
 
   // Settings is an editing surface → editors only (viewers are rejected).
   const access = await resolvePageAccess({ pageId, userId: user.id, userEmail: user.email, userEmailConfirmedAt: user.email_confirmed_at, requireEditor: true })

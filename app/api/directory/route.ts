@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getReadinessScore, getTrustScore } from '../../../lib/agent-page'
+import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getReadinessScore } from '../../../lib/agent-page'
 import { buildAgentStorefrontRef } from '../../../lib/agent-manifest'
 import { buildMarketplaceInsights, classifyMarketplaceCategory, summarizeMarketplacePage } from '../../../lib/marketplace'
 import { supabase } from '../../../lib/supabase'
@@ -88,9 +88,11 @@ export async function GET(request: Request) {
       // Agent-first extra signals
       agent_optimized: readiness >= 75,
       prefer_original_default: !!p.prefer_original_site,
-      trust_score: getTrustScore(p),
-      verified: !!( (p as any).verification_details?.domain_verified || (p as any).custom_domain_verified ),
-      has_credentials: Array.isArray((p as any).verification_details?.docs_provided) && (p as any).verification_details.docs_provided.length > 0,
+      trust_score: marketplace.trust_score,
+      // `marketplace.verified` is derived only from server-backed domain/website
+      // proof. Credential presence is disclosed separately and is not verification.
+      verified: marketplace.verified,
+      has_credentials: marketplace.has_credentials,
       rating_summary: reviewSummary?.count
         ? {
             average: reviewSummary.average,

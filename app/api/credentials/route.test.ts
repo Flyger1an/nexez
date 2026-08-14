@@ -164,7 +164,7 @@ describe('POST /api/credentials (collaborator-aware)', () => {
     expect(adminRef.captured.storageUploadPath).not.toMatch(/^editor-1\//)
   })
 
-  it('below the AI plan, the credential is stored as pending (no trust boost)', async () => {
+  it('below the AI plan, the credential is stored as pending without automated review', async () => {
     planRef.aiAllowed = false
     const res = await POST(postReq({ pageId: 'p1', file: pngFile() }))
     expect(res.status).toBe(201)

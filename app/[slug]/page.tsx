@@ -6,7 +6,7 @@ import { headers, cookies } from 'next/headers'
 import { createClient as createServerClient } from '../../utils/supabase/server'
 import { applyDraftOverlay } from '../../lib/draft'
 import { ArrowLeft, ArrowUpRight, Bot, CheckCircle2, Code2, Globe2, Handshake, LockKeyhole, Mail, MapPin, Star } from 'lucide-react'
-import { AgentPage, CredentialRecord, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, availabilityLabel, getBaseUrl, getCertification, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getTrustScore, parseAvailabilityWindows, sanitizePublicUrl, schemaAvailability } from '../../lib/agent-page'
+import { AgentPage, CredentialRecord, FaqItem, OfferItem, PUBLIC_PAGE_SELECT, availabilityLabel, getBaseUrl, getCertification, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getOfferCount, getServerVerificationEvidence, getTrustScore, parseAvailabilityWindows, sanitizePublicUrl, schemaAvailability } from '../../lib/agent-page'
 import { normalizeCurrency } from '../../lib/currency'
 import { priceValidUntil } from '../../lib/freshness'
 import { getAgentJsonPath } from '../../lib/agent-manifest'
@@ -202,6 +202,7 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
       : ''
   const reviewSummary = await loadReviewSummaryForSlug(page.slug, 3)
   const certification = getCertification(page)
+  const verificationEvidence = getServerVerificationEvidence(page)
   const certificationVerificationUrl = `${getBaseUrl()}/${page.slug}/badge.json`
   const jsonLd = buildJsonLd(page, effectiveBase, domainPath, { services: hiddenServices, products: hiddenProducts }, reviewSummary)
   const branding = await resolveBranding(page, onCustomHost, domainPath)
@@ -302,7 +303,11 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--amber)]/10 px-3 py-0.5 text-xs text-[var(--amber)]">
                 Trust Score: {getTrustScore(page, trustEvents)}/100
-                {(page as any).verification_details?.domain_verified ? ' · ✓ Domain verified' : ''}
+                {verificationEvidence.customDomainVerified
+                  ? ' · ✓ Custom domain verified'
+                  : verificationEvidence.websiteVerified
+                    ? ' · ✓ Website verified'
+                    : ''}
               </span>
               {certification.certified && (
                 <a
@@ -323,21 +328,20 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
             </div>
             {(() => {
               const docs = ((page as any).verification_details?.docs_provided ?? []) as Array<string | CredentialRecord>
-              const verified = docs.filter((d): d is CredentialRecord => typeof d === 'object' && d?.status === 'verified')
+              const reviewed = docs.filter((d): d is CredentialRecord => typeof d === 'object' && d?.status === 'verified')
               const selfReported = docs.filter((d): d is string => typeof d === 'string')
-              if (!verified.length && !selfReported.length) return null
+              if (!reviewed.length && !selfReported.length) return null
               return (
                 <div className="mt-2 space-y-1.5">
-                  {verified.length > 0 ? (
+                  {reviewed.length > 0 ? (
                     <div className="flex flex-wrap items-center gap-1.5">
-                      {verified.map((d) => (
+                      {reviewed.map((d) => (
                         <span
                           key={d.id}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-2.5 py-0.5 text-[11px] text-[var(--ready)]"
-                          title="LLM-reviewed credential (not authority-verified)"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--fill-1)] px-2.5 py-0.5 text-[11px] text-[var(--fg-muted)]"
+                          title="Seller-provided credential; automated review is not independent verification"
                         >
-                          ✓ Reviewed: {d.verdict?.type || d.name}
-                          {d.verdict?.issuer ? ` · ${d.verdict.issuer}` : ''}
+                          Seller provided: {d.name}
                           {d.public && d.file_path ? (
                             <a
                               href={`/api/credentials/view?slug=${encodeURIComponent(page.slug)}&id=${encodeURIComponent(d.id)}`}

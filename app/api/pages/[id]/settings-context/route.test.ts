@@ -3,19 +3,32 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const refs = vi.hoisted(() => ({
   user: { id: 'editor-2', email: 'mate@x.com' } as any,
   access: { pageId: 'p1', ownerId: 'owner-1', role: 'editor' } as any,
+  adminEnv: true,
   plan: 'enterprise',
+  ownedPage: { id: 'p1', owner_id: 'editor-2' } as any,
+  ownerSecrets: { calendly_webhook_secret: 'owner-cs', outbound_webhooks: [], domain_verification_token: 'owner-tok', website_verification_token: 'web-tok' } as any,
   secrets: { calendly_webhook_secret: 'cs', outbound_webhooks: [{ url: 'u' }], domain_verification_token: 'tok', calendly_pat_encrypted: 'v1.enc.crypt.tag' } as any,
 }))
 
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({ getAll: () => [], set: () => {} })) }))
 vi.mock('../../../../../utils/supabase/server', () => ({
-  createClient: vi.fn(() => ({ auth: { getUser: async () => ({ data: { user: refs.user } }) } })),
+  createClient: vi.fn(() => ({
+    auth: { getUser: async () => ({ data: { user: refs.user } }) },
+    from: (table: string) => {
+      const query: any = {
+        select: () => query,
+        eq: () => query,
+        maybeSingle: async () => ({ data: table === 'pages' ? refs.ownedPage : refs.ownerSecrets }),
+      }
+      return query
+    },
+  })),
 }))
 vi.mock('../../../../../lib/rate-limit', () => ({ enforceRateLimit: vi.fn(async () => null) }))
 vi.mock('../../../../../lib/server/page-access', () => ({ resolvePageAccess: vi.fn(async () => refs.access) }))
 vi.mock('../../../../../lib/server/plan', () => ({ getOwnerPlanId: vi.fn(async () => refs.plan) }))
 vi.mock('../../../../../utils/supabase/admin', () => ({
-  hasSupabaseAdminEnv: vi.fn(() => true),
+  hasSupabaseAdminEnv: vi.fn(() => refs.adminEnv),
   createAdminClient: vi.fn(() => ({
     from: (table: string) => {
       const query: any = {
@@ -41,6 +54,8 @@ describe('GET /api/pages/[id]/settings-context', () => {
     vi.clearAllMocks()
     refs.user = { id: 'editor-2', email: 'mate@x.com' }
     refs.access = { pageId: 'p1', ownerId: 'owner-1', role: 'editor' }
+    refs.adminEnv = true
+    refs.ownedPage = { id: 'p1', owner_id: 'editor-2' }
   })
 
   it('401 when not authenticated', async () => {
@@ -74,6 +89,31 @@ describe('GET /api/pages/[id]/settings-context', () => {
     expect(cal).toMatchObject({ connected: true, kind: 'token', canSync: true })
     // The encrypted PAT itself must never reach the client.
     expect(JSON.stringify(json)).not.toContain('v1.enc.crypt.tag')
+  })
+
+  it('falls back through RLS for the direct owner when the admin credential is absent', async () => {
+    refs.adminEnv = false
+    const res = await GET(req(), { params })
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toMatchObject({
+      role: 'owner',
+      ownerId: 'editor-2',
+      plan: 'enterprise',
+      contextLimited: true,
+      integrations: [],
+      secrets: {
+        calendly_webhook_secret: 'owner-cs',
+        domain_verification_token: 'owner-tok',
+        website_verification_token: 'web-tok',
+        calendly_connected: false,
+      },
+    })
+  })
+
+  it('keeps collaborators fail-closed without the admin credential', async () => {
+    refs.adminEnv = false
+    refs.ownedPage = { id: 'p1', owner_id: 'owner-1' }
+    expect((await GET(req(), { params })).status).toBe(403)
   })
 
   it('requires editor (passes requireEditor to the resolver)', async () => {
