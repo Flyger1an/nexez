@@ -3,8 +3,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '../../../../utils/supabase/server'
 import { isLlmConfigured, llmComplete } from '../../../../lib/llm'
 import { ownerAllows } from '../../../../lib/server/plan'
-import { resolvePageAccess } from '../../../../lib/server/page-access'
-import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
+import { requirePageAccess } from '../../../../lib/server/require-page-access'
 import { captureError } from '../../../../lib/observability'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 
@@ -35,35 +34,33 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-  let body: { pageId?: string; kind?: SuggestKind }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  const pageId = (body.pageId || '').trim()
-  const kind: SuggestKind = body.kind === 'approval-note' ? 'approval-note' : 'memory'
-  if (!pageId) return NextResponse.json({ error: 'pageId is required' }, { status: 400 })
+  // Held in an object: a `let` assigned only inside the resolver closure gets
+  // narrowed by control-flow analysis to its initializer type.
+  const parsed: { kind: SuggestKind } = { kind: 'memory' }
 
   // Authorize as owner OR a non-revoked editor-collaborator. This is the ONLY
-  // authorization - trust its result. Needs the service-role env to read the
-  // page/invite authoritatively.
-  if (!hasSupabaseAdminEnv()) {
-    return NextResponse.json({ error: 'AI is not configured.' }, { status: 503 })
-  }
-  const access = await resolvePageAccess({
-    pageId,
-    userId: user.id,
-    userEmail: user.email,
-    userEmailConfirmedAt: user.email_confirmed_at,
-    requireEditor: true,
+  // authorization - trust its result. The body is read inside the resolver, which
+  // runs after the service-role check rather than before it: a deployment that
+  // cannot authorize anyone answers 503 ahead of complaining about the payload.
+  const gate = await requirePageAccess({
+    pageId: async () => {
+      let body: { pageId?: string; kind?: SuggestKind }
+      try {
+        body = await request.json()
+      } catch {
+        return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+      }
+      parsed.kind = body.kind === 'approval-note' ? 'approval-note' : 'memory'
+      const requested = (body.pageId || '').trim()
+      if (!requested) return NextResponse.json({ error: 'pageId is required' }, { status: 400 })
+      return requested
+    },
+    unavailableMessage: 'AI is not configured.',
   })
-  if (!access) {
-    return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
-  }
-
-  const admin = createAdminClient()
+  if (!gate.ok) return gate.response
+  const { access, admin } = gate
+  const pageId = access.pageId
+  const kind = parsed.kind
 
   // Load the page scoped to the OWNER via the admin client - ownership is already
   // proven by resolvePageAccess (look it up by id), and the service-role read sees

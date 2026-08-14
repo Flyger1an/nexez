@@ -68,6 +68,8 @@ export type RequirePageAccessOptions = {
   requireEditor?: boolean
   /** Per-route copy for the 503, which merchants see. */
   unavailableMessage?: string
+  /** Per-route copy for the 403, for routes that say "listing" rather than "page". */
+  denyMessage?: string
   /** Forwarded to the session client so cookie options match the request host. */
   host?: string | null
 }
@@ -75,7 +77,13 @@ export type RequirePageAccessOptions = {
 const DENY_403 = 'You do not have edit access to this page.'
 
 export async function requirePageAccess(options: RequirePageAccessOptions): Promise<PageAccessResult> {
-  const { pageId, requireEditor = true, unavailableMessage = 'Service unavailable', host } = options
+  const {
+    pageId,
+    requireEditor = true,
+    unavailableMessage = 'Service unavailable',
+    denyMessage = DENY_403,
+    host,
+  } = options
 
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore, host)
@@ -114,7 +122,7 @@ export async function requirePageAccess(options: RequirePageAccessOptions): Prom
   })
 
   if (!access) {
-    return { ok: false, response: NextResponse.json({ error: DENY_403 }, { status: 403 }) }
+    return { ok: false, response: NextResponse.json({ error: denyMessage }, { status: 403 }) }
   }
 
   return { ok: true, user, access, admin }
