@@ -1,4 +1,4 @@
-import type { GrowthControlAction } from './growth-control'
+import type { GrowthAdminAction } from './growth-control'
 import type { MarketplaceCurationStatus } from './marketplace-curation'
 
 export type AdminAuditSource = 'growth' | 'marketplace' | 'release'
@@ -31,12 +31,19 @@ export type AdminGovernanceSnapshot = {
   warnings: string[]
 }
 
-const GROWTH_ACTION_LABELS: Record<GrowthControlAction, string> = {
+// Keyed by GrowthAdminAction, not GrowthControlAction: the cohort RPC writes its
+// cohort_* actions into the same seller_growth_campaign_admin_events table the audit
+// feed reads, so a control-only record would render those events with no title.
+const GROWTH_ACTION_LABELS: Record<GrowthAdminAction, string> = {
   pause: 'Growth campaign paused',
   resume: 'Growth campaign resumed',
   end: 'Growth campaign ended',
   set_capacity: 'Growth capacity updated',
   set_signup_close: 'Growth signup window updated',
+  set_enrollment_mode: 'Growth enrollment mode updated',
+  cohort_add: 'Cohort member invited',
+  cohort_resend: 'Cohort invite resent',
+  cohort_revoke: 'Cohort invite revoked',
 }
 
 const MARKETPLACE_STATUS_LABELS: Record<MarketplaceCurationStatus, string> = {
@@ -46,7 +53,7 @@ const MARKETPLACE_STATUS_LABELS: Record<MarketplaceCurationStatus, string> = {
   excluded: 'Marketplace listing excluded',
 }
 
-export function growthAdminActionLabel(action: GrowthControlAction): string {
+export function growthAdminActionLabel(action: GrowthAdminAction): string {
   return GROWTH_ACTION_LABELS[action]
 }
 

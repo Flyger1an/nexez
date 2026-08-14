@@ -1,6 +1,6 @@
 import 'server-only'
 
-import type { GrowthControlAction } from '../growth-control'
+import type { GrowthAdminAction } from '../growth-control'
 import type { MarketplaceCurationStatus } from '../marketplace-curation'
 import {
   emptyAdminGovernanceSnapshot,
@@ -21,7 +21,7 @@ type PlatformAdminRow = {
 
 type GrowthAdminRow = {
   id: number | string
-  action: GrowthControlAction
+  action: GrowthAdminAction
   reason: string
   actor_id: string | null
   created_at: string

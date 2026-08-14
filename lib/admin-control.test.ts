@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { GROWTH_COHORT_ACTIONS, GROWTH_CONTROL_ACTIONS } from './growth-control'
 import {
   growthAdminActionLabel,
   marketplaceAuditLabel,
@@ -14,6 +15,19 @@ describe('admin control presentation helpers', () => {
     expect(growthAdminActionLabel('end')).toBe('Growth campaign ended')
     expect(growthAdminActionLabel('set_capacity')).toBe('Growth capacity updated')
     expect(growthAdminActionLabel('set_signup_close')).toBe('Growth signup window updated')
+    expect(growthAdminActionLabel('set_enrollment_mode')).toBe('Growth enrollment mode updated')
+  })
+
+  it('labels cohort actions, which land in the same audit table as control actions', () => {
+    expect(growthAdminActionLabel('cohort_add')).toBe('Cohort member invited')
+    expect(growthAdminActionLabel('cohort_resend')).toBe('Cohort invite resent')
+    expect(growthAdminActionLabel('cohort_revoke')).toBe('Cohort invite revoked')
+  })
+
+  it('has a non-empty label for every action the audit feed can receive', () => {
+    for (const action of [...GROWTH_CONTROL_ACTIONS, ...GROWTH_COHORT_ACTIONS]) {
+      expect(growthAdminActionLabel(action)).toBeTruthy()
+    }
   })
 
   it('labels and classifies marketplace decisions', () => {
