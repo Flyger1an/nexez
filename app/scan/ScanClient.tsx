@@ -252,7 +252,10 @@ export function ScanClient({ initialUrl = '' }: { initialUrl?: string }) {
     <main className="mx-auto w-full max-w-4xl px-5 py-16 sm:py-24">
       <div className="text-center">
         <p className="eyebrow text-[var(--signal)]">Free scan | no signup | no AI cost</p>
-        <h1 className="display mt-4 text-balance">Your site is built for humans. Agents can&apos;t read it.</h1>
+        <h1 className="display mt-4 text-balance">
+          Your site is built for humans.{' '}
+          <span className="nx-accent-text mx-auto block w-fit">Agents can&apos;t read it.</span>
+        </h1>
         <p className="lede mx-auto mt-4 max-w-2xl">
           See what ChatGPT, Perplexity, and buyer agents actually pull from your site: your offers, your prices, and whether they can reach a checkout at all.
         </p>
