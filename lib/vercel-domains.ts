@@ -25,11 +25,53 @@ function teamQuery(): string {
 
 export type VercelDomainStatus = {
   attached: boolean
+  /** Vercel's project-use/access verification, not proof that DNS routes correctly. */
   verified: boolean
-  misconfigured: boolean
-  /** DNS records Vercel wants the user to set (CNAME/A/TXT), if any. */
+  /** True only when the domain configuration endpoint returned a valid response. */
+  configChecked: boolean
+  misconfigured: boolean | null
+  configuredBy: 'A' | 'CNAME' | 'dns-01' | 'http' | null
+  apexName?: string
+  verificationMethod: 'cname' | 'txt' | 'unknown'
+  /** Vercel project-access challenges. These are not ordinary routing records. */
   requiredRecords: Array<{ type: string; name?: string; value?: string }>
+  recommendedCNAME: string[]
+  recommendedIPv4: string[]
   error?: string
+}
+
+function emptyStatus(error?: string): VercelDomainStatus {
+  return {
+    attached: false,
+    verified: false,
+    configChecked: false,
+    misconfigured: null,
+    configuredBy: null,
+    verificationMethod: 'unknown',
+    requiredRecords: [],
+    recommendedCNAME: [],
+    recommendedIPv4: [],
+    ...(error ? { error } : {}),
+  }
+}
+
+function verificationMethodFor(domain: string, apexName: unknown): VercelDomainStatus['verificationMethod'] {
+  if (typeof apexName !== 'string' || !apexName.trim()) return 'unknown'
+  const normalizedApex = apexName.trim().toLowerCase().replace(/\.$/, '')
+  return normalizedApex === domain.trim().toLowerCase().replace(/\.$/, '') ? 'txt' : 'cname'
+}
+
+/** A conservative provider-backed ownership proof for CNAME-routed subdomains. */
+export function isCnameProviderProof(status: VercelDomainStatus, cnameConfigured: boolean): boolean {
+  return Boolean(
+    status.attached &&
+      status.verified &&
+      status.configChecked &&
+      status.misconfigured === false &&
+      status.verificationMethod === 'cname' &&
+      cnameConfigured &&
+      !status.error,
+  )
 }
 
 export type DomainState =
@@ -46,7 +88,11 @@ export type DomainStateInput = {
   providerConfigured: boolean
   attached?: boolean
   providerVerified?: boolean
-  misconfigured?: boolean
+  providerConfigChecked?: boolean
+  verificationMethod?: VercelDomainStatus['verificationMethod']
+  configuredBy?: VercelDomainStatus['configuredBy']
+  cnameConfigured?: boolean
+  misconfigured?: boolean | null
   errored?: boolean
 }
 
@@ -76,6 +122,13 @@ export function deriveDomainState(input: DomainStateInput): {
         detail: 'Attach the domain and point your DNS records at the host.',
       }
     }
+    if (!input.providerConfigChecked) {
+      return {
+        state: 'error',
+        label: 'Status unavailable',
+        detail: 'The domain is attached, but its DNS configuration could not be checked. Try again.',
+      }
+    }
     if (input.misconfigured) {
       return {
         state: 'pending_dns',
@@ -85,6 +138,21 @@ export function deriveDomainState(input: DomainStateInput): {
     }
     if (!input.providerVerified) {
       return { state: 'verifying', label: 'Verifying', detail: 'Confirming domain ownership with the host.' }
+    }
+
+    if (input.verificationMethod === 'cname' && !input.cnameConfigured) {
+      return {
+        state: 'pending_dns',
+        label: 'Pending CNAME',
+        detail: 'Point this subdomain to Nexez with the requested CNAME record.',
+      }
+    }
+    if (input.verificationMethod !== 'cname' && !input.ownershipVerified) {
+      return {
+        state: 'verifying',
+        label: 'Verify ownership',
+        detail: 'Routing is configured. Complete the Nexez TXT ownership check for this apex domain.',
+      }
     }
     return { state: 'live', label: 'Live', detail: 'Domain attached, verified, and serving over HTTPS.' }
   }
@@ -102,7 +170,7 @@ export function deriveDomainState(input: DomainStateInput): {
 
 export async function addDomainToProject(domain: string): Promise<VercelDomainStatus> {
   if (!isVercelDomainConfigured()) {
-    return { attached: false, verified: false, misconfigured: false, requiredRecords: [], error: 'not_configured' }
+    return emptyStatus('not_configured')
   }
 
   try {
@@ -115,30 +183,18 @@ export async function addDomainToProject(domain: string): Promise<VercelDomainSt
     // 409 = already added to this project, which is fine for our purposes.
     if (!res.ok && res.status !== 409) {
       const body = await res.json().catch(() => ({}))
-      return {
-        attached: false,
-        verified: false,
-        misconfigured: false,
-        requiredRecords: [],
-        error: body?.error?.message || `Vercel add-domain failed (${res.status})`,
-      }
+      return emptyStatus(body?.error?.message || `Vercel add-domain failed (${res.status})`)
     }
 
     return getDomainStatus(domain)
   } catch (err) {
-    return {
-      attached: false,
-      verified: false,
-      misconfigured: false,
-      requiredRecords: [],
-      error: err instanceof Error ? err.message : 'provider_error',
-    }
+    return emptyStatus(err instanceof Error ? err.message : 'provider_error')
   }
 }
 
 export async function getDomainStatus(domain: string): Promise<VercelDomainStatus> {
   if (!isVercelDomainConfigured()) {
-    return { attached: false, verified: false, misconfigured: false, requiredRecords: [], error: 'not_configured' }
+    return emptyStatus('not_configured')
   }
 
   try {
@@ -149,12 +205,12 @@ export async function getDomainStatus(domain: string): Promise<VercelDomainStatu
 
     if (!domainRes.ok) {
       // 404 → not attached yet (not an error condition for the wizard).
-      return { attached: false, verified: false, misconfigured: false, requiredRecords: [] }
+      return domainRes.status === 404
+        ? emptyStatus()
+        : emptyStatus(`Vercel domain status failed (${domainRes.status})`)
     }
 
     const domainData = await domainRes.json().catch(() => ({}))
-    const configData = configRes.ok ? await configRes.json().catch(() => ({})) : {}
-
     const verification = Array.isArray(domainData?.verification) ? domainData.verification : []
     const requiredRecords = verification.map((v: { type?: string; domain?: string; value?: string }) => ({
       type: v.type || 'TXT',
@@ -162,20 +218,51 @@ export async function getDomainStatus(domain: string): Promise<VercelDomainStatu
       value: v.value,
     }))
 
-    return {
+    const apexName = typeof domainData?.apexName === 'string' ? domainData.apexName : undefined
+    const verificationMethod = verificationMethodFor(domain, apexName)
+    const base = {
+      ...emptyStatus(),
       attached: true,
       verified: Boolean(domainData?.verified),
-      misconfigured: Boolean(configData?.misconfigured),
+      apexName,
+      verificationMethod,
       requiredRecords,
     }
-  } catch (err) {
-    return {
-      attached: false,
-      verified: false,
-      misconfigured: false,
-      requiredRecords: [],
-      error: err instanceof Error ? err.message : 'provider_error',
+
+    if (!configRes.ok) {
+      return { ...base, error: `Vercel domain configuration failed (${configRes.status})` }
     }
+
+    const configData = await configRes.json().catch(() => null)
+    if (!configData || typeof configData.misconfigured !== 'boolean') {
+      return { ...base, error: 'Vercel domain configuration returned an invalid response' }
+    }
+
+    const recommendedCNAME = Array.isArray(configData.recommendedCNAME)
+      ? configData.recommendedCNAME
+          .map((item: { value?: unknown }) => (typeof item?.value === 'string' ? item.value : ''))
+          .filter(Boolean)
+      : []
+    const recommendedIPv4 = Array.isArray(configData.recommendedIPv4)
+      ? configData.recommendedIPv4.flatMap((item: { value?: unknown }) =>
+          Array.isArray(item?.value) ? item.value.filter((value): value is string => typeof value === 'string') : [],
+        )
+      : []
+
+    const configuredBy = ['A', 'CNAME', 'dns-01', 'http'].includes(configData.configuredBy)
+      ? (configData.configuredBy as VercelDomainStatus['configuredBy'])
+      : null
+
+    return {
+      ...base,
+      configChecked: true,
+      misconfigured: configData.misconfigured,
+      configuredBy,
+      recommendedCNAME,
+      recommendedIPv4,
+    }
+  } catch (err) {
+    return emptyStatus(err instanceof Error ? err.message : 'provider_error')
   }
 }
 

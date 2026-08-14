@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 //   a stranger (null) gets 403.
 // - The plan gate + owner-scoped reads run against access.ownerId via the admin client.
 
-const { userRef, resolveRef, adminRef } = vi.hoisted(() => ({
+const { userRef, resolveRef, adminRef, providerRef, legacyRef, cnameRef } = vi.hoisted(() => ({
   // Logged-in session user (may be the owner OR an editor-collaborator).
   userRef: { user: { id: 'owner-1', email: 'owner@example.com' } as { id: string; email: string } | null },
   // resolvePageAccess result: owner | editor | null(stranger).
@@ -18,7 +18,25 @@ const { userRef, resolveRef, adminRef } = vi.hoisted(() => ({
     platformAdmin: null as any,
     subscription: null as any,
     ownedPages: [] as any[],
+    updates: [] as Array<{ table: string; payload: any; eqs: Record<string, any> }>,
+    updateError: null as any,
   },
+  providerRef: {
+    configured: false,
+    status: {
+      attached: false,
+      verified: false,
+      configChecked: false,
+      misconfigured: null,
+      configuredBy: null,
+      verificationMethod: 'unknown',
+      requiredRecords: [],
+      recommendedCNAME: [],
+      recommendedIPv4: [],
+    } as any,
+  },
+  legacyRef: { present: false },
+  cnameRef: { present: true },
 }))
 
 // Session client: only auth.getUser is used.
@@ -42,10 +60,29 @@ vi.mock('../../../utils/supabase/admin', () => {
   // (.eq('custom_domain', ...).returns -> domainPages) and the owned-domains count on
   // attach (.not(...).neq(...).returns -> ownedPages). Disambiguate by whether a
   // `.not`/`.neq` filter was applied (the owned-count query) vs the domain `.eq`.
-  const makeBuilder = (table: string, state: { isOwnedQuery: boolean }) => {
+  const makeBuilder = (
+    table: string,
+    state: { isOwnedQuery: boolean; op: 'select' | 'update'; payload?: any; eqs: Record<string, any> },
+  ) => {
+    const resolve = () => {
+      if (state.op === 'update') {
+        adminRef.updates.push({ table, payload: state.payload, eqs: state.eqs })
+        return Promise.resolve({ data: null, error: adminRef.updateError })
+      }
+      if (table === 'pages') {
+        return Promise.resolve({ data: state.isOwnedQuery ? adminRef.ownedPages : adminRef.domainPages, error: null })
+      }
+      return Promise.resolve({ data: null, error: null })
+    }
     const builder: any = {
       select: () => builder,
-      eq: (col: string) => {
+      update: (payload: any) => {
+        state.op = 'update'
+        state.payload = payload
+        return builder
+      },
+      eq: (col: string, value: any) => {
+        state.eqs[col] = value
         if (col === 'custom_domain') state.isOwnedQuery = false
         return builder
       },
@@ -61,11 +98,7 @@ vi.mock('../../../utils/supabase/admin', () => {
       limit: () => builder,
       lte: () => builder,
       gt: () => builder,
-      returns: () =>
-        Promise.resolve({
-          data: state.isOwnedQuery ? adminRef.ownedPages : adminRef.domainPages,
-          error: null,
-        }),
+      returns: () => resolve(),
       maybeSingle: () =>
         Promise.resolve({
           data:
@@ -76,24 +109,47 @@ vi.mock('../../../utils/supabase/admin', () => {
                 : adminRef.subscription,
           error: null,
         }),
+      then: (onFulfilled: any, onRejected: any) => resolve().then(onFulfilled, onRejected),
     }
     return builder
   }
   return {
     hasSupabaseAdminEnv: vi.fn(() => true),
     createAdminClient: vi.fn(() => ({
-      from: (table: string) => makeBuilder(table, { isOwnedQuery: false }),
+      from: (table: string) => makeBuilder(table, { isOwnedQuery: false, op: 'select', eqs: {} }),
     })),
   }
 })
 
-// Keep Vercel unconfigured so the route exercises auth/access/plan only (no network).
 vi.mock('../../../lib/vercel-domains', () => ({
-  isVercelDomainConfigured: vi.fn(() => false),
-  addDomainToProject: vi.fn(async () => ({ attached: false, verified: false, misconfigured: false, requiredRecords: [] })),
-  getDomainStatus: vi.fn(async () => ({ attached: false, verified: false, misconfigured: false, requiredRecords: [] })),
+  isVercelDomainConfigured: vi.fn(() => providerRef.configured),
+  addDomainToProject: vi.fn(async () => providerRef.status),
+  getDomainStatus: vi.fn(async () => providerRef.status),
   removeDomainFromProject: vi.fn(async () => ({ ok: true })),
-  deriveDomainState: vi.fn(() => ({ state: 'pending_dns', label: 'Pending DNS', detail: 'Point your DNS.' })),
+  isCnameProviderProof: vi.fn((status: any, cnameConfigured: boolean) =>
+    Boolean(
+      status.attached &&
+        status.verified &&
+        status.configChecked &&
+        status.misconfigured === false &&
+        status.verificationMethod === 'cname' &&
+        cnameConfigured &&
+        !status.error,
+    ),
+  ),
+  deriveDomainState: vi.fn((input: any) => ({
+    state: input.ownershipVerified && input.verificationMethod === 'cname' ? 'live' : 'pending_dns',
+    label: input.ownershipVerified ? 'Live' : 'Pending DNS',
+    detail: input.ownershipVerified ? 'Live.' : 'Point your DNS.',
+  })),
+}))
+
+vi.mock('../../../lib/server/doubled-txt-probe', () => ({
+  hasLegacyCustomDomainTxt: vi.fn(async () => legacyRef.present),
+}))
+
+vi.mock('../../../lib/server/cname-probe', () => ({
+  hasExpectedCname: vi.fn(async () => cnameRef.present),
 }))
 
 import { POST } from './route'
@@ -106,6 +162,20 @@ const post = (body: unknown) =>
     body: JSON.stringify(body),
   })
 
+const cnameStatus = (overrides: Record<string, unknown> = {}) => ({
+  attached: true,
+  verified: true,
+  configChecked: true,
+  misconfigured: false,
+  configuredBy: 'CNAME',
+  apexName: 'acme.com',
+  verificationMethod: 'cname',
+  requiredRecords: [],
+  recommendedCNAME: ['project.vercel-dns-017.com'],
+  recommendedIPv4: [],
+  ...overrides,
+})
+
 describe('POST /api/custom-domain (collaborator-aware)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -115,6 +185,22 @@ describe('POST /api/custom-domain (collaborator-aware)', () => {
     adminRef.platformAdmin = null
     adminRef.subscription = null
     adminRef.ownedPages = []
+    adminRef.updates = []
+    adminRef.updateError = null
+    providerRef.configured = false
+    providerRef.status = {
+      attached: false,
+      verified: false,
+      configChecked: false,
+      misconfigured: null,
+      configuredBy: null,
+      verificationMethod: 'unknown',
+      requiredRecords: [],
+      recommendedCNAME: [],
+      recommendedIPv4: [],
+    }
+    legacyRef.present = false
+    cnameRef.present = true
   })
 
   it('401 when there is no session user', async () => {
@@ -191,5 +277,109 @@ describe('POST /api/custom-domain (collaborator-aware)', () => {
     const res = await POST(post({ action: 'attach', domain: 'acme.com' }))
     expect(res.status).toBe(402)
     expect((await res.json()).upgrade).toBe('pro')
+  })
+
+  it('persists CNAME-backed verification only after the complete provider proof', async () => {
+    providerRef.configured = true
+    providerRef.status = cnameStatus()
+    adminRef.subscription = { plan_id: 'pro', status: 'active' }
+    adminRef.domainPages = [{ id: 'page-1', custom_domain: 'agents.acme.com', custom_domain_verified: null }]
+
+    const res = await POST(post({ action: 'status', domain: 'agents.acme.com', pageId: 'page-1' }))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body).toMatchObject({
+      ownershipVerified: true,
+      verificationMethod: 'cname',
+      state: 'live',
+      routingRecords: [{ type: 'CNAME', name: 'agents.acme.com', value: 'cname.nexez.app' }],
+    })
+    expect(adminRef.updates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          table: 'pages',
+          payload: expect.objectContaining({ custom_domain_verified: expect.any(String) }),
+          eqs: expect.objectContaining({ id: 'page-1', owner_id: 'owner-1', custom_domain: 'agents.acme.com' }),
+        }),
+        expect.objectContaining({
+          table: 'page_secrets',
+          payload: expect.objectContaining({ domain_verification_token: null }),
+          eqs: expect.objectContaining({ page_id: 'page-1', owner_id: 'owner-1' }),
+        }),
+      ]),
+    )
+  })
+
+  it('never persists verification when the provider configuration check failed', async () => {
+    providerRef.configured = true
+    providerRef.status = cnameStatus({ configChecked: false, misconfigured: null, error: 'config unavailable' })
+    adminRef.domainPages = [{ id: 'page-1', custom_domain: 'agents.acme.com', custom_domain_verified: null }]
+
+    const body = await (await POST(post({ action: 'status', domain: 'agents.acme.com', pageId: 'page-1' }))).json()
+
+    expect(body.ownershipVerified).toBe(false)
+    expect(adminRef.updates).toHaveLength(0)
+  })
+
+  it('never persists verification when DNS does not publish the requested CNAME', async () => {
+    providerRef.configured = true
+    providerRef.status = cnameStatus({ configuredBy: 'http' })
+    cnameRef.present = false
+    adminRef.domainPages = [{ id: 'page-1', custom_domain: 'agents.acme.com', custom_domain_verified: null }]
+
+    const body = await (await POST(post({ action: 'status', domain: 'agents.acme.com', pageId: 'page-1' }))).json()
+
+    expect(body.ownershipVerified).toBe(false)
+    expect(body.provider.cnameConfigured).toBe(false)
+    expect(adminRef.updates).toHaveLength(0)
+  })
+
+  it('keeps apex ownership on the TXT path even when its A record is configured', async () => {
+    providerRef.configured = true
+    providerRef.status = cnameStatus({
+      configuredBy: 'A',
+      apexName: 'acme.com',
+      verificationMethod: 'txt',
+      recommendedCNAME: [],
+      recommendedIPv4: ['76.76.21.21'],
+    })
+
+    const body = await (await POST(post({ action: 'status', domain: 'acme.com', pageId: 'page-1' }))).json()
+
+    expect(body).toMatchObject({
+      ownershipVerified: false,
+      verificationMethod: 'txt',
+      routingRecords: [{ type: 'A', name: 'acme.com', value: '76.76.21.21' }],
+    })
+    expect(adminRef.updates).toHaveLength(0)
+  })
+
+  it('reports a legacy Nexez TXT record that blocks a pending CNAME', async () => {
+    providerRef.configured = true
+    providerRef.status = cnameStatus({ misconfigured: true })
+    legacyRef.present = true
+    adminRef.domainPages = [{ id: 'page-1', custom_domain: 'agents.acme.com', custom_domain_verified: null }]
+
+    const body = await (await POST(post({ action: 'status', domain: 'agents.acme.com', pageId: 'page-1' }))).json()
+
+    expect(body.legacyTxtBlocksCname).toBe(true)
+    expect(adminRef.updates).toHaveLength(0)
+  })
+
+  it('clears persisted verification after a successful provider detach', async () => {
+    providerRef.configured = true
+    adminRef.domainPages = [{ id: 'page-1', custom_domain: 'agents.acme.com', custom_domain_verified: '2026-08-13T00:00:00Z' }]
+
+    const res = await POST(post({ action: 'remove', domain: 'agents.acme.com', pageId: 'page-1' }))
+
+    expect(res.status).toBe(200)
+    expect(adminRef.updates).toContainEqual(
+      expect.objectContaining({
+        table: 'pages',
+        payload: { custom_domain_verified: null },
+        eqs: expect.objectContaining({ id: 'page-1', owner_id: 'owner-1', custom_domain: 'agents.acme.com' }),
+      }),
+    )
   })
 })
