@@ -573,6 +573,19 @@ export type UseCasePage = {
   cta: string
 }
 
+/** Use-case pages segment on whether the vertical typically already has a website.
+ *
+ *  Established-site verticals (consultants, agencies, saas, marketplaces) lead with
+ *  "your site works for people, agents cannot read it" and never pitch hosting: those
+ *  merchants already have a site and a second indexed page reads as a threat, not a perk.
+ *
+ *  Thin-presence verticals (coaches, local-services) lead with the missing surface and
+ *  name hosting explicitly, because for them the listing is often the entire public
+ *  presence and "you do not have to build a site" is the objection remover.
+ *
+ *  Keep exactly three FAQ entries per vertical: the renderer grid is md:grid-cols-3,
+ *  and a fourth card orphans on desktop. Cover the opposite site status by widening an
+ *  existing answer rather than adding a card. */
 export const useCases: UseCasePage[] = [
   {
     slug: 'consultants',
@@ -597,7 +610,7 @@ export const useCases: UseCasePage[] = [
     faq: [
       { title: 'Do I have to publish exact prices?', copy: 'No. A starting price, a range, or a paid scoping call all work. Agents just need something to compare, and silence reads as a dead end.' },
       { title: 'What if my work is too custom to package?', copy: 'Package the first step instead. A paid scoping call or a fixed audit gives agents a concrete offer, and the custom engagement follows from there.' },
-      { title: 'Will this compete with my main website?', copy: 'No. The listing links back to your site and does one job: giving agents a clean, current version of your offers.' },
+      { title: 'Will this compete with my main website?', copy: 'No. The listing links back to your site and does one job: giving agents a clean, current version of your offers. If you do not have a site, it is hosted and can stand on its own at a Nexez link or your own domain.' },
     ],
     cta: 'Create a consulting listing',
   },
@@ -636,7 +649,7 @@ export const useCases: UseCasePage[] = [
     description:
       'Help agents understand session types, program length, fit, pricing, booking rules, and what a buyer should expect.',
     pain:
-      'Coaching sites lean on story and testimonials, which is what human buyers need. But when someone asks an assistant for a coach with a specific specialty, budget, and format, the agent looks for session types, prices, and booking rules. If those live in a PDF or a discovery call, you are invisible to that search.',
+      'Plenty of coaches run on a bio link, a booking page, and word of mouth, and that fills a roster fine. It does not answer an agent. When a buyer asks an assistant for a coach with a specific specialty, budget, and format, the agent is looking for session types, prices, and booking rules published somewhere it can read. A page of links gives it links.',
     buyerIntent: 'Book a coach with a specific specialty, budget, and meeting format.',
     offers: [
       { title: 'Intro session', copy: 'A low-commitment first call with a price and a calendar link. The offer agents recommend to a hesitant buyer.' },
@@ -650,7 +663,7 @@ export const useCases: UseCasePage[] = [
     ],
     faq: [
       { title: 'My coaching is personal. Can a listing capture that?', copy: 'It does not have to. The listing gets you found and booked for the intro session. The connection happens on the call.' },
-      { title: 'Do I need a website first?', copy: 'No. Your listing can be your entire public offer, on a Nexez link or your own domain.' },
+      { title: 'Do I need a website first?', copy: 'No. The listing is hosted for you: a live page with your programs, prices, and booking path, on a Nexez link or your own domain. For a lot of coaches it becomes the whole public presence.' },
       { title: 'What if my prices vary by client?', copy: 'Publish the intro session at a fixed price and mark programs with a starting price. That is enough for an agent to compare.' },
     ],
     cta: 'Create a coaching listing',
@@ -663,7 +676,7 @@ export const useCases: UseCasePage[] = [
     description:
       'Make service area, availability, job types, estimates, emergency rules, and contact paths explicit for buyer assistants.',
     pain:
-      'A homeowner tells an assistant to find a plumber who can come Thursday. The agent needs your service area, availability, job types, and whether Thursday is even possible. Most local sites answer with a photo gallery and a contact form. The business that publishes the facts gets the booking.',
+      'A homeowner tells an assistant to find a plumber who can come Thursday. The agent needs your service area, your hours, the jobs you take, and whether Thursday is possible. Plenty of local businesses have nowhere to put any of that: a social page, a map pin, and a phone that rings. The one who publishes the facts somewhere an agent can read them gets the booking.',
     buyerIntent: 'Find a local provider available for a specific job, location, and timeline.',
     offers: [
       { title: 'Emergency visit', copy: 'After-hours availability, response time, and the call-out fee stated up front. The highest-intent search there is.' },
@@ -676,7 +689,7 @@ export const useCases: UseCasePage[] = [
       { title: 'Estimate or payment rules', copy: 'Free or paid estimates, deposits, and accepted payment. No surprises at the door.' },
     ],
     faq: [
-      { title: 'I get my work from referrals. Why bother?', copy: 'Referrals are moving to assistants too: find me someone like the electrician my neighbor used. A listing makes you findable when that ask happens.' },
+      { title: 'I get my work from referrals. Why bother?', copy: 'Referrals are moving to assistants too: find me someone like the electrician my neighbor used. A listing makes you findable when that happens, and you do not need a website to have one. It is hosted, with a live URL you can put on a card or a truck.' },
       { title: 'My availability changes daily.', copy: 'Connect your calendar and the listing updates itself. That is the point: agents see current availability, not last month.' },
       { title: 'Can an agent actually book me?', copy: 'Yes, through your booking link or calendar integration. For jobs that need a human first, it hands off to a call or quote request.' },
     ],
