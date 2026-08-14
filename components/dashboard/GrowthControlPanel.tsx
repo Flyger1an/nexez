@@ -90,7 +90,7 @@ export function GrowthControlPanel({ initialSnapshot }: { initialSnapshot: Growt
 
   if (!snapshot.available || !campaign) {
     return (
-      <section className="border-t border-border py-8" aria-labelledby="growth-control-heading">
+      <section className="py-8" aria-labelledby="growth-control-heading">
         <SectionIntro status={campaign?.status ?? null} />
         <div className="flex min-h-32 items-start gap-4 rounded-lg border border-[var(--amber)]/25 bg-[var(--amber)]/[0.06] px-5 py-5">
           <AlertTriangle className="mt-0.5 size-5 shrink-0 text-[var(--amber)]" />
@@ -99,7 +99,7 @@ export function GrowthControlPanel({ initialSnapshot }: { initialSnapshot: Growt
               {campaign ? 'Campaign telemetry is unavailable' : 'No seller growth campaign found'}
             </p>
             <p className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">
-              {snapshot.warnings[0] || 'Confirm the Growth Control migration and server credentials, then refresh Launch Control.'}
+              {snapshot.warnings[0] || 'Confirm the Growth Control migration and server credentials, then refresh this page.'}
             </p>
           </div>
         </div>
@@ -163,7 +163,7 @@ export function GrowthControlPanel({ initialSnapshot }: { initialSnapshot: Growt
       : null
 
   return (
-    <section className="border-t border-border py-8" aria-labelledby="growth-control-heading">
+    <section className="py-8" aria-labelledby="growth-control-heading">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <SectionIntro status={campaign.status} />
         <div className="flex items-center gap-2">
@@ -481,7 +481,7 @@ function SectionIntro({ status }: { status: GrowthCampaignStatus | null }) {
       <div className="flex items-center gap-2 text-sm font-medium text-[var(--signal)]">
         <Activity className="size-4" /> Seller growth
       </div>
-      <h2 id="growth-control-heading" className="mt-2 text-xl font-semibold tracking-tight">Growth Control</h2>
+      <h1 id="growth-control-heading" className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Growth Control</h1>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">
         Monitor complimentary Launch activation, invitation quality, paid conversion, and Free fallback outcomes.
         {status === 'ended' ? ' This campaign is closed to new participants.' : ''}

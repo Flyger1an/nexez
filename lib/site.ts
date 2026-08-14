@@ -60,7 +60,7 @@ const MARKETING_PREFIXES = [
 // visitor on the app host for these, and PlatformFrame picks the matching shell.
 const DUAL_PREFIXES = ['/discovery', '/leaderboard', '/simulator', '/support'] as const
 
-const APP_PREFIXES = ['/dashboard', '/create', '/login', '/auth', '/onboard', '/invite', '/nexie', '/team', '/shopify'] as const
+const APP_PREFIXES = ['/admin', '/dashboard', '/create', '/login', '/auth', '/onboard', '/invite', '/nexie', '/team', '/shopify'] as const
 
 const MARKETING_API_PREFIXES = [
   '/api/directory',
