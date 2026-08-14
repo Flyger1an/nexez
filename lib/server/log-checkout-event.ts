@@ -5,6 +5,8 @@ import { fireOwnerOutboundWebhooks } from './outbound-webhooks'
 import { ownerAllows } from './plan'
 import type { CheckoutEventType } from '../checkout-events'
 import { getPagePrivateMeta } from './page-private-meta'
+import { hasInngestEnv, inngest } from '../inngest/client'
+import { OUTBOUND_WEBHOOKS_DISPATCH } from '../inngest/events'
 
 type LogCheckoutEventInput = {
   page: AgentPage
@@ -63,15 +65,6 @@ export async function logCheckoutEvent({
       const valuableEvents: CheckoutEventType[] = ['provider_redirect', 'stripe_session_created', 'checkout_attempt']
       if (valuableEvents.includes(eventType)) {
         try {
-          const { createAdminClient, hasSupabaseAdminEnv } = await import('../../utils/supabase/admin')
-          if (!hasSupabaseAdminEnv()) return { ok: !error, error }
-          const admin = createAdminClient()
-
-          // Outbound webhooks are Pro+ - re-check at dispatch time (not just at
-          // create time) so a downgraded owner stops receiving BOTH per-page and
-          // account-level deliveries. (fireOwnerOutboundWebhooks self-gates too.)
-          if (!ownerId || !(await ownerAllows(admin, ownerId, 'outboundWebhooks'))) return { ok: !error, error }
-
           const obPayload: OutboundWebhookPayload = {
             event: eventType === 'provider_redirect' ? 'booking.provider_redirect' : 'booking.checkout_initiated',
             timestamp: new Date().toISOString(),
@@ -89,33 +82,61 @@ export async function logCheckoutEvent({
             },
           }
 
-          // Per-page webhooks (configured in a page's Settings).
-          const { data: pageSecrets } = await admin
-            .from('page_secrets')
-            .select('outbound_webhooks')
-            .eq('page_id', page.id)
-            .maybeSingle()
-
-          const outbounds = (pageSecrets as any)?.outbound_webhooks
-          let endpoints: string[] = []
-          if (Array.isArray(outbounds)) {
-            endpoints = outbounds.map((o: any) => o?.url || o).filter(Boolean)
-          }
-
-          if (endpoints.length > 0) {
-            // Support richer shape {url, secret?} for signing (same as Calendly receiver)
-            const outboundsFull = (pageSecrets as any)?.outbound_webhooks || []
-            for (const ep of endpoints) {
-              const stored = Array.isArray(outboundsFull) ? outboundsFull.find((o: any) => (o?.url || o) === ep) : null
-              const secret = stored?.secret || null
-              const res = await fireOutboundWebhook(ep, secret, obPayload)
-              console.log(`[Checkout Events] Fired outbound ${obPayload.event} to ${ep} (secret: ${!!secret}):`, res)
+          // Durable path: hand the whole fan-out (plan gate, per-page + owner
+          // endpoints, delivery bookkeeping) to the job runner, where each
+          // delivery is a retried step (lib/inngest/functions/outbound-webhooks).
+          // Falls through to the inline path only if the emit itself fails.
+          let dispatched = false
+          if (hasInngestEnv()) {
+            try {
+              await inngest.send({
+                name: OUTBOUND_WEBHOOKS_DISPATCH,
+                data: { ownerId: ownerId ?? null, pageId: page.id, payload: obPayload },
+              })
+              dispatched = true
+            } catch (e) {
+              console.warn('[Checkout Events] Inngest emit failed - falling back to inline dispatch:', e)
             }
           }
 
-          // Account-level webhooks (Tools → Developer platform): fire for every
-          // valuable event across all of the owner's pages, page-config or not.
-          await fireOwnerOutboundWebhooks(admin, ownerId, obPayload)
+          if (!dispatched) {
+            const { createAdminClient, hasSupabaseAdminEnv } = await import('../../utils/supabase/admin')
+            if (!hasSupabaseAdminEnv()) return { ok: !error, error }
+            const admin = createAdminClient()
+
+            // Outbound webhooks are Pro+ - re-check at dispatch time (not just at
+            // create time) so a downgraded owner stops receiving BOTH per-page and
+            // account-level deliveries. (fireOwnerOutboundWebhooks self-gates too.)
+            if (!ownerId || !(await ownerAllows(admin, ownerId, 'outboundWebhooks'))) return { ok: !error, error }
+
+            // Per-page webhooks (configured in a page's Settings).
+            const { data: pageSecrets } = await admin
+              .from('page_secrets')
+              .select('outbound_webhooks')
+              .eq('page_id', page.id)
+              .maybeSingle()
+
+            const outbounds = (pageSecrets as any)?.outbound_webhooks
+            let endpoints: string[] = []
+            if (Array.isArray(outbounds)) {
+              endpoints = outbounds.map((o: any) => o?.url || o).filter(Boolean)
+            }
+
+            if (endpoints.length > 0) {
+              // Support richer shape {url, secret?} for signing (same as Calendly receiver)
+              const outboundsFull = (pageSecrets as any)?.outbound_webhooks || []
+              for (const ep of endpoints) {
+                const stored = Array.isArray(outboundsFull) ? outboundsFull.find((o: any) => (o?.url || o) === ep) : null
+                const secret = stored?.secret || null
+                const res = await fireOutboundWebhook(ep, secret, obPayload)
+                console.log(`[Checkout Events] Fired outbound ${obPayload.event} to ${ep} (secret: ${!!secret}):`, res)
+              }
+            }
+
+            // Account-level webhooks (Tools → Developer platform): fire for every
+            // valuable event across all of the owner's pages, page-config or not.
+            await fireOwnerOutboundWebhooks(admin, ownerId, obPayload)
+          }
         } catch (e) {
           console.warn('[Checkout Events] Outbound firing error (non-blocking):', e)
         }
