@@ -155,7 +155,7 @@ describe('proxy: custom-domain lookup failures', () => {
     )
   })
 
-  it('does not cache the failure: the very next request retries', async () => {
+  it('does not cache the failure: it retries once the backoff clears', async () => {
     const host = 'retry.example.com'
     await prime(host, 'acme')
 
@@ -163,14 +163,58 @@ describe('proxy: custom-domain lookup failures', () => {
     failWith(new Error('boom'))
     await proxy(request(`https://${host}/`, host))
 
-    // Still inside what would have been the failed entry's TTL. A cached failure
-    // would serve an empty map here without touching Supabase.
+    // Past the retry window but still well inside what would have been the failed
+    // entry's 60s TTL. A cached failure would serve an empty map from here on.
+    now += 3_100
     vi.mocked(createServerClient).mockClear()
     supabaseRef.respond = rows([{ slug: 'acme-v2', domain_path: '/' }])
     const res = await proxy(request(`https://${host}/`, host))
 
     expect(createServerClient).toHaveBeenCalled()
     expect(rewriteTarget(res)).toContain('/acme-v2')
+  })
+
+  // Removing the negative cache outright made a SUSTAINED outage worse than the bug
+  // it replaced: every request paid the full failure latency and logged. The backoff
+  // bounds both while the stale map keeps serving.
+  it('does not re-query on every request during a sustained outage', async () => {
+    const host = 'storm.example.com'
+    await prime(host, 'acme')
+
+    now += 61_000
+    failWith(Object.assign(new TypeError('fetch failed'), { cause: { code: 'ETIMEDOUT' } }))
+    await proxy(request(`https://${host}/`, host))
+
+    vi.mocked(createServerClient).mockClear()
+    warn.mockClear()
+    for (let i = 0; i < 5; i += 1) {
+      const res = await proxy(request(`https://${host}/`, host))
+      // Still routing correctly the whole time.
+      expect(rewriteTarget(res)).toContain('/acme')
+    }
+
+    expect(createServerClient).not.toHaveBeenCalled()
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('clears the backoff as soon as a query succeeds', async () => {
+    const host = 'recover.example.com'
+    await prime(host, 'acme')
+
+    now += 61_000
+    failWith(new Error('boom'))
+    await proxy(request(`https://${host}/`, host))
+
+    now += 3_100
+    supabaseRef.respond = rows([{ slug: 'acme', domain_path: '/' }])
+    await proxy(request(`https://${host}/`, host))
+
+    // Recovered, so the fresh entry is cached normally: no query, no backoff.
+    vi.mocked(createServerClient).mockClear()
+    now += 1_000
+    const res = await proxy(request(`https://${host}/`, host))
+    expect(createServerClient).not.toHaveBeenCalled()
+    expect(rewriteTarget(res)).toContain('/acme')
   })
 
   it('treats a PostgREST error payload as a failure, not as an empty domain', async () => {

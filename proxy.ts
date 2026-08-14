@@ -56,6 +56,24 @@ function persistAbBucket(response: NextResponse, value: string | null): NextResp
 const domainCache = new Map<string, { pathToSlug: Record<string, string>; expires: number }>()
 const CACHE_TTL_MS = 60_000
 
+// After a failed refresh, wait this long before querying again for the same host.
+// Without it, a SUSTAINED outage makes every request pay the full failure latency
+// and emit a warning, which is worse than the bug this replaced when the failure
+// mode is a timeout rather than a fast ECONNRESET. The stale map keeps serving
+// throughout, and the failure is still never written to domainCache, so the first
+// request after the backoff retries for real.
+const FAILURE_BACKOFF_MS = 3_000
+const failureBackoff = new Map<string, number>()
+
+// Both maps are keyed by host and never expire entries on their own. Edge instances
+// are ephemeral, but a long-lived one serving many hosts would grow without bound,
+// so drop everything once past a generous ceiling rather than tracking LRU order.
+const MAX_TRACKED_HOSTS = 1_000
+function evictIfOversized() {
+  if (domainCache.size > MAX_TRACKED_HOSTS) domainCache.clear()
+  if (failureBackoff.size > MAX_TRACKED_HOSTS) failureBackoff.clear()
+}
+
 /** Best identifier we can print for a failed lookup: PostgREST code, fetch cause, or message. */
 function describeLookupError(err: unknown): string {
   if (!err) return 'unknown'
@@ -79,6 +97,12 @@ async function resolvePathMapForHost(host: string): Promise<Record<string, strin
 
   const cached = domainCache.get(key)
   if (cached && cached.expires > Date.now()) return cached.pathToSlug
+
+  // Recently failed: serve stale without another round-trip. This is a retry
+  // schedule, NOT a cache of the failure - domainCache is still untouched, so the
+  // next attempt after the window returns real data rather than an empty map.
+  const retryAfter = failureBackoff.get(key)
+  if (retryAfter && retryAfter > Date.now()) return cached?.pathToSlug ?? {}
 
   try {
     const supabase = createServerClient(
@@ -109,11 +133,15 @@ async function resolvePathMapForHost(host: string): Promise<Record<string, strin
     }
 
     // Only a successful query writes the cache.
+    failureBackoff.delete(key)
     domainCache.set(key, { pathToSlug, expires: Date.now() + CACHE_TTL_MS })
+    evictIfOversized()
     return pathToSlug
   } catch (err) {
     // Warn, never throw: a hard failure here would take the proxy down for
     // platform hosts too. Serve the stale map if we have one.
+    failureBackoff.set(key, Date.now() + FAILURE_BACKOFF_MS)
+    evictIfOversized()
     console.warn('[proxy] custom-domain lookup failed for', key, describeLookupError(err))
     return cached?.pathToSlug ?? {}
   }
