@@ -172,22 +172,64 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
     )
   }
 
+  const priorityConnection =
+    connections.find(
+      (connection) =>
+        connection.kind !== 'connect' &&
+        connection.connected &&
+        connection.canSync &&
+        connection.syncStatus === 'attention',
+    ) ??
+    connections.find((connection) => !connection.connected && connection.kind === 'token' && isPro)
+
   return (
     <div className="flex flex-col gap-3">
       {connections.map((c) => {
         const last = timeAgo(c.lastSyncedAt)
         const isBusy = busy?.startsWith(`${c.provider}:`)
         const tokenProvider = c.kind === 'token' ? (c.provider as Exclude<Provider, 'stripe'>) : null
+        const isPriority = c.provider === priorityConnection?.provider
+        const connectedStatus = c.syncStatus === 'attention'
+          ? {
+              label: 'Needs attention',
+              className: 'border-[var(--amber)]/30 bg-[var(--amber)]/10 text-[var(--amber)]',
+            }
+          : c.syncStatus === 'pending'
+            ? {
+                label: 'Sync queued',
+                className: 'border-[var(--line)] bg-[var(--fill-1)] text-[var(--fg-muted)]',
+              }
+            : c.lastSyncedAt
+              ? {
+                  label: 'Synced',
+                  className: 'border-[var(--ready)]/30 bg-[var(--ready)]/10 text-[var(--ready)]',
+                }
+              : {
+                  label: 'Connected',
+                  className: 'border-[var(--line)] bg-[var(--fill-1)] text-[var(--fg-muted)]',
+                }
         return (
-          <div key={c.provider} className="rounded-lg border border-white/10 bg-black/20 p-3">
+          <div
+            key={c.provider}
+            role={isPriority ? 'group' : undefined}
+            className={`rounded-lg p-3 ${isPriority ? 'settings-priority-card' : 'border border-[var(--line-soft)] bg-[var(--fill-1)]'}`}
+            aria-label={isPriority ? `Recommended next step: ${c.label}` : undefined}
+          >
             <div className="flex items-center justify-between gap-2">
               <div className="text-sm font-medium">{c.label}</div>
               {c.connected ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--ready)]/15 px-2 py-0.5 text-[10px] font-medium text-[var(--ready)]">Connected</span>
+                <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${connectedStatus.className}`}>
+                  {connectedStatus.label}
+                </span>
               ) : (
-                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-zinc-400">Not connected</span>
+                <span className="rounded-full border border-[var(--line)] bg-[var(--fill-1)] px-2 py-0.5 text-[10px] text-[var(--fg-muted)]">Not connected</span>
               )}
             </div>
+            {isPriority ? (
+              <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--fg-muted)]">
+                Recommended next step
+              </p>
+            ) : null}
             <p className="mt-1 text-[10px] text-zinc-400">{HELP[c.provider]}</p>
 
             {c.kind === 'connect' ? (
@@ -201,7 +243,9 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
                     type="button"
                     disabled={isBusy}
                     onClick={() => sync(c.provider)}
-                    className="shrink-0 rounded-lg border border-[var(--signal)]/40 px-3 py-1.5 text-sm text-[var(--signal)] transition hover:bg-[var(--signal)]/10 disabled:opacity-40"
+                    aria-label={`Sync ${c.label}`}
+                    aria-busy={busy === `${c.provider}:sync` || undefined}
+                    className={`${isPriority ? 'settings-emphasis-action' : 'btn-secondary'} shrink-0 rounded-lg px-3 py-1.5 text-sm disabled:opacity-40`}
                   >
                     {busy === `${c.provider}:sync` ? 'Syncing…' : 'Sync now'}
                   </button>
@@ -211,7 +255,9 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
                     type="button"
                     disabled={isBusy}
                     onClick={() => disconnect(tokenProvider)}
-                    className="shrink-0 rounded-lg border border-white/15 px-3 py-1.5 text-sm text-zinc-300 transition hover:bg-white/10 disabled:opacity-40"
+                    aria-label={`Disconnect ${c.label}`}
+                    aria-busy={busy === `${c.provider}:disconnect` || undefined}
+                    className="btn-secondary shrink-0 px-3 py-1.5 text-sm disabled:opacity-40"
                   >
                     {busy === `${c.provider}:disconnect` ? 'Disconnecting…' : 'Disconnect'}
                   </button>
@@ -252,7 +298,9 @@ export function IntegrationsPanel({ pageId, isPro, onMessage }: { pageId: string
                   type="button"
                   disabled={isBusy || !isPro}
                   onClick={() => tokenProvider && connect(tokenProvider)}
-                  className="self-start rounded-lg bg-[var(--signal)]/90 px-3 py-1.5 text-sm font-medium text-black transition hover:brightness-110 disabled:opacity-40"
+                  aria-label={`Connect ${c.label}`}
+                  aria-busy={busy === `${c.provider}:connect` || undefined}
+                  className={`${isPriority ? 'settings-emphasis-action' : 'btn-secondary'} self-start rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-40`}
                 >
                   {busy === `${c.provider}:connect` ? 'Connecting…' : 'Connect'}
                 </button>

@@ -144,6 +144,28 @@ describe('settings layout primitives', () => {
     expect(screen.getByRole('button', { name: 'Save domain' })).toBeVisible()
   })
 
+  it('marks the active section in its accessible name and with a leading header marker', () => {
+    render(
+      <SettingsSection
+        id="active-domain"
+        title="Domain & brand"
+        active
+        activeLabel="Currently viewing"
+      >
+        <p>Domain controls</p>
+      </SettingsSection>,
+    )
+
+    const section = screen.getByRole('region', { name: 'Domain & brand' })
+    expect(section).toHaveAttribute('aria-current', 'location')
+    expect(section).toHaveAccessibleDescription('Currently viewing')
+    expect(section).not.toHaveClass('settings-priority-card')
+    expect(section.querySelector('header > span[aria-hidden="true"]')).toHaveClass(
+      'bg-[var(--settings-emphasis)]',
+      'w-0.5',
+    )
+  })
+
   it('associates a row label with its field', () => {
     render(
       <SettingRow label="Listing name" description="Shown publicly." htmlFor="listing-name">
@@ -179,12 +201,19 @@ describe('SettingsNav', () => {
     const integrations = screen.getByRole('link', { name: 'Integrations' })
     expect(general).toHaveAttribute('href', '#general')
     expect(general).toHaveAttribute('aria-current', 'location')
+    expect(general).toHaveClass('settings-choice-active', 'focus-visible:ring-[var(--settings-focus)]')
 
     fireEvent.click(integrations)
 
     expect(onNavigate).toHaveBeenCalledWith('integrations')
     expect(integrations).toHaveAttribute('aria-current', 'location')
+    expect(integrations).toHaveClass('settings-choice-active')
+    expect(integrations.querySelector('span[aria-hidden="true"]')).toHaveClass(
+      'bg-[var(--settings-emphasis)]',
+      'w-0.5',
+    )
     expect(general).not.toHaveAttribute('aria-current')
+    expect(general).not.toHaveClass('settings-choice-active')
   })
 
   it('honors a valid hash when mounted uncontrolled', async () => {

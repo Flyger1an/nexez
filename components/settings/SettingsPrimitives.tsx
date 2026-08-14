@@ -101,6 +101,8 @@ export type SettingsSectionProps = {
   title: string
   description?: string
   icon?: LucideIcon
+  active?: boolean
+  activeLabel?: string
   status?: ReactNode
   action?: ReactNode
   footer?: ReactNode
@@ -114,6 +116,8 @@ export function SettingsSection({
   title,
   description,
   icon: Icon,
+  active = false,
+  activeLabel = 'Current section',
   status,
   action,
   footer,
@@ -122,17 +126,29 @@ export function SettingsSection({
   contentClassName,
 }: SettingsSectionProps) {
   const headingId = `${id}-heading`
+  const activeStateId = `${id}-active-state`
 
   return (
     <section
       id={id}
       aria-labelledby={headingId}
+      aria-describedby={active ? activeStateId : undefined}
+      aria-current={active ? 'location' : undefined}
       className={classes(
         'scroll-mt-28 overflow-hidden rounded-[var(--r-card)] border border-[var(--line-soft)] bg-[var(--glass)] shadow-[var(--settings-panel-shadow)] backdrop-blur-[var(--blur-card)]',
         className,
       )}
     >
-      <header className="flex flex-col gap-4 border-b border-[var(--line-soft)] px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
+      <header className="relative flex flex-col gap-4 border-b border-[var(--line-soft)] px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
+        {active ? (
+          <>
+            <span id={activeStateId} className="sr-only">{activeLabel}</span>
+            <span
+              aria-hidden="true"
+              className="absolute inset-y-5 left-0 w-0.5 rounded-r-[var(--r-pill)] bg-[var(--settings-emphasis)]"
+            />
+          </>
+        ) : null}
         <div className="flex min-w-0 gap-3">
           {Icon ? (
             <span className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius)] border border-[var(--line-soft)] bg-[var(--fill-1)] text-[var(--fg-muted)]">
@@ -291,12 +307,18 @@ export function SettingsNav({
               onNavigate?.(item.id)
             }}
             className={classes(
-              'flex min-h-11 shrink-0 items-center gap-2 rounded-[var(--radius)] border px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--control-focus)] focus-visible:ring-inset lg:w-full',
+              'relative flex min-h-11 shrink-0 items-center gap-2 rounded-[var(--radius)] border px-3 text-sm font-medium outline-none transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-[var(--settings-focus)] focus-visible:ring-inset lg:w-full',
               active
-                ? 'border-[var(--line)] bg-[var(--fill-2)] text-[var(--fg)]'
+                ? 'settings-choice-active'
                 : 'border-transparent text-[var(--fg-muted)] hover:bg-[var(--fill-1)] hover:text-[var(--fg)]',
             )}
           >
+            {active ? (
+              <span
+                aria-hidden="true"
+                className="absolute inset-y-3 left-1 w-0.5 rounded-[var(--r-pill)] bg-[var(--settings-emphasis)]"
+              />
+            ) : null}
             {Icon ? <Icon className="size-4 shrink-0" aria-hidden="true" /> : null}
             <span className="whitespace-nowrap">{item.label}</span>
             {item.status ? <span className="ml-auto shrink-0">{item.status}</span> : null}

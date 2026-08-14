@@ -187,11 +187,30 @@ test.describe('page settings', () => {
     await expect(page).toHaveURL(/#developer$/)
     await expect(page.getByRole('heading', { name: 'General', exact: true })).toBeAttached()
     await expect(listingName).toHaveValue(`${originalName} — unsaved E2E draft`)
+    const developerSection = page.locator('#developer')
+    await expect(developerSection).toHaveAttribute('aria-current', 'location')
+    const developerStateId = await developerSection.getAttribute('aria-describedby')
+    expect(developerStateId).toBeTruthy()
+    await expect(page.locator(`#${developerStateId}`)).toHaveText('Current section')
+    await expect(developerSection.locator('header > span[aria-hidden="true"]')).toBeVisible()
 
     await page.goBack()
     await expect(listingName).toHaveValue(`${originalName} — unsaved E2E draft`)
     await expect(sectionNav.getByRole('link', { name: 'General' })).toHaveAttribute('aria-current', 'location')
+    await expect(page.locator('#general')).toHaveAttribute('aria-current', 'location')
     await listingName.fill(originalName)
+
+    const customDomainInput = page.getByPlaceholder('agents.yourcompany.com')
+    const originalCustomDomain = await customDomainInput.inputValue()
+    await customDomainInput.fill('agents.e2e-example.test')
+    const domainSetup = page.getByRole('group', { name: 'Recommended next step: attach and detect DNS' })
+    await expect(domainSetup).toHaveClass(/\bsettings-priority-card\b/)
+    await expect(domainSetup.getByRole('button', { name: 'Attach & detect DNS' })).toHaveClass(/\bsettings-emphasis-action\b/)
+    await customDomainInput.fill(originalCustomDomain)
+
+    const apacheRecipe = page.getByRole('button', { name: 'Apache (.htaccess)', exact: true })
+    await expect(apacheRecipe).toHaveAttribute('aria-pressed', 'true')
+    await expect(apacheRecipe).toHaveClass(/\bsettings-choice-active\b/)
 
     const visibility = page.getByRole('switch', { name: 'Listing visibility' })
     const initialChecked = (await visibility.getAttribute('aria-checked')) === 'true'
@@ -280,6 +299,68 @@ test.describe('page settings', () => {
       ).toBe(0)
     }
 
+  })
+
+  test('uses webhook colors only for observed test outcomes', async ({ page }) => {
+    await page.route('**/api/test-outbound', async (route) => {
+      const body = route.request().postDataJSON() as { endpoint?: string }
+      await new Promise((resolve) => setTimeout(resolve, 250))
+      const failed = body.endpoint?.includes('failure')
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(
+          failed
+            ? { success: false, status: 502, error: 'E2E delivery rejected' }
+            : { success: true, status: 204, error: null },
+        ),
+      })
+    })
+
+    await loginAndOpenFirstPageSettings(page)
+    await expect(page.getByTestId('page-settings-screen')).toBeVisible({ timeout: 15_000 })
+
+    const panel = page.getByTestId('outbound-webhooks-panel')
+    const summary = page.getByTestId('outbound-webhook-summary')
+    const urlInput = panel.getByPlaceholder(/hooks\.zapier/i)
+    const addButton = panel.getByRole('button', { name: 'Add' })
+    const unique = Date.now()
+
+    const successUrl = `https://hooks.example.com/nexez-e2e-success-${unique}`
+    await urlInput.fill(successUrl)
+    await addButton.click()
+    const successRow = panel.getByTestId('outbound-webhook-row').filter({ hasText: successUrl })
+    await expect(successRow).toBeVisible()
+    await expect(summary).toHaveAttribute('data-tone', 'neutral')
+    await expect(summary).toContainText(/webhooks? configured/)
+
+    await successRow.getByRole('button', { name: 'Send Test' }).click()
+    const successResult = successRow.getByTestId('outbound-test-result')
+    await expect(successResult).toHaveAttribute('data-state', 'testing')
+    await expect(successResult).toHaveClass(/text-\[var\(--fg-muted\)\]/)
+    await expect(summary).toHaveAttribute('data-tone', 'neutral')
+    await expect(successResult).toHaveAttribute('data-state', 'success')
+    await expect(successResult).toHaveClass(/text-\[var\(--ready\)\]/)
+    await expect(summary).toHaveAttribute('data-tone', 'ready')
+    await expect(summary).toContainText('1 webhook test passed')
+
+    await successRow.getByRole('button', { name: 'remove' }).click()
+    await expect(successRow).toHaveCount(0)
+    await expect(summary).toHaveAttribute('data-tone', 'neutral')
+
+    const failureUrl = `https://hooks.example.com/nexez-e2e-failure-${unique}`
+    await urlInput.fill(failureUrl)
+    await addButton.click()
+    const failureRow = panel.getByTestId('outbound-webhook-row').filter({ hasText: failureUrl })
+    await failureRow.getByRole('button', { name: 'Send Test' }).click()
+    const failureResult = failureRow.getByRole('alert')
+    await expect(failureResult).toHaveAttribute('data-state', 'failure')
+    await expect(failureResult).toHaveClass(/text-\[var\(--danger\)\]/)
+    await expect(summary).toHaveAttribute('data-tone', 'danger')
+    await expect(summary).toContainText('1 webhook test failed')
+
+    await failureRow.getByRole('button', { name: 'remove' }).click()
+    await expect(failureRow).toHaveCount(0)
   })
 
   test('calendar availability API blocks anonymous requests', async ({ request }) => {
