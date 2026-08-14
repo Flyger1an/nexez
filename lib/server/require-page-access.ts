@@ -48,6 +48,13 @@ export type PageAccessResult = PageAccessGrant | PageAccessDenial
  * exists, for routes that must look the page up themselves; returning a
  * NextResponse from it denies the request with that exact response, and
  * returning null/empty denies with the standard 403.
+ *
+ * ⚠️ The resolver receives a SERVICE-ROLE client and runs BEFORE any
+ * authorization decision has been made. Use it to identify which page is being
+ * addressed, and for nothing else. Never return owner data from it, never echo
+ * a row it read into an error message, and never let it write. The caller is
+ * authenticated at that point but has NOT yet been shown to have any access to
+ * the page it names.
  */
 export type PageIdSource =
   | string

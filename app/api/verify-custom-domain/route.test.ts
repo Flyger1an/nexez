@@ -265,6 +265,23 @@ describe('POST /api/verify-custom-domain', () => {
     expect((await POST(post({ pageId: 'page_1', customDomain: 'agents.acme.com' }))).status).toBe(401)
   })
 
+  // This route used to check the service-role env BEFORE authenticating, so an
+  // anonymous caller got a 503 naming the deployment's configuration. Going through
+  // requirePageAccess flipped that to 401, which is the better answer: whether this
+  // deployment has domain verification configured is not something to tell someone
+  // who has not signed in. Pinned so the order stays a decision, not an accident.
+  it('401s an anonymous caller ahead of any configuration check', async () => {
+    serverUserRef.user = null
+    const admin = await import('../../../utils/supabase/admin')
+
+    const res = await POST(post({ pageId: 'page_1', customDomain: 'agents.acme.com' }))
+    expect(res.status).toBe(401)
+    expect(await res.json()).toEqual({ error: 'Not authenticated' })
+    // Asserting the call never happens proves the ordering without stubbing a
+    // return value. An unconsumed mockReturnValueOnce would leak into the next test.
+    expect(admin.hasSupabaseAdminEnv).not.toHaveBeenCalled()
+  })
+
   it('403 when the domain is not saved on the owner page', async () => {
     const res = await POST(post({
       pageId: 'page_1',
