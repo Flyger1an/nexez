@@ -35,6 +35,11 @@ import { IntegrationsPanel } from '../../../../components/settings/IntegrationsP
 import { WebsitePanel } from '../../../../components/settings/WebsitePanel'
 import { BrandingPanel } from '../../../../components/settings/BrandingPanel'
 import { DomainConnectionPanel } from '../../../../components/settings/DomainConnectionPanel'
+import {
+  OutboundWebhooksPanel,
+  type OutboundEndpoint,
+  type OutboundTestResult,
+} from '../../../../components/settings/OutboundWebhooksPanel'
 import { planAllows } from '../../../../lib/billing'
 import { ProBadge } from '../../../../components/billing/PlanGate'
 import { usePlan } from '../../../../components/billing/PlanProvider'
@@ -49,11 +54,6 @@ import {
 
 type PageProps = {
   params: Promise<{ id: string }>
-}
-
-type OutboundTestResult = {
-  state: 'testing' | 'success' | 'failure'
-  message: string
 }
 
 const SETTINGS_SECTIONS = [
@@ -114,11 +114,7 @@ export default function PageSettings({ params }: PageProps) {
   const [copied, setCopied] = useState('')
 
   // Phase 3: Per-page outbound webhooks - now first-class (url + optional secret per endpoint)
-  type OutboundEndpoint = { url: string; secret?: string }
   const [outboundEndpoints, setOutboundEndpoints] = useState<OutboundEndpoint[]>([])
-  const [newOutboundUrl, setNewOutboundUrl] = useState('')
-  const [newOutboundSecret, setNewOutboundSecret] = useState('')
-  const [outboundSaving, setOutboundSaving] = useState(false)
   const [testResults, setTestResults] = useState<Record<string, OutboundTestResult>>({})
 
   // Real recent fires (from checkout_events) for visibility of outbound value
@@ -1402,202 +1398,18 @@ export default function PageSettings({ params }: PageProps) {
               </div>
 
               {/* Phase 3: Per-page outbound webhooks - FIRST CLASS (url + optional secret, real test button, auto-fired) */}
-              <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4" data-testid="outbound-webhooks-panel">
-                <div className="text-sm font-medium text-[var(--signal)] mb-2">Booking event webhooks</div>
-                <p className="text-[10px] text-zinc-400 mb-3">Send booking activity to Zapier, Make, n8n, or your own system. Add a signing secret when you want extra protection.</p>
-
-                {/* Add new endpoint with optional secret */}
-                <div className="space-y-2 mb-3">
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      value={newOutboundUrl}
-                      onChange={(e) => setNewOutboundUrl(e.target.value)}
-                      placeholder="https://hooks.zapier.com/... or https://yourapp.com/webhook"
-                      className="flex-1 rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (newOutboundUrl.trim()) {
-                          const newEp: OutboundEndpoint = { url: newOutboundUrl.trim() }
-                          if (newOutboundSecret.trim()) newEp.secret = newOutboundSecret.trim()
-                          setOutboundEndpoints(prev => {
-                            const exists = prev.some(e => e.url === newEp.url)
-                            return exists ? prev : [...prev, newEp]
-                          })
-                          setNewOutboundUrl('')
-                          setNewOutboundSecret('')
-                        }
-                      }}
-                      className="rounded border border-white/20 px-3 text-sm hover:bg-white/5"
-                    >
-                      Add
-                    </button>
-                  </div>
-                  <input
-                    type="password"
-                    value={newOutboundSecret}
-                    onChange={(e) => setNewOutboundSecret(e.target.value)}
-                    placeholder="Optional signing secret"
-                    className="w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm font-mono"
-                  />
-                </div>
-
-                {/* List with remove + Send Test per endpoint */}
-                {outboundEndpoints.length > 0 && (
-                  <div className="text-xs mb-3 space-y-1.5">
-                    {outboundEndpoints.map((ep, i) => (
-                      <div
-                        key={ep.url}
-                        className="rounded border border-white/10 bg-black/30 p-2"
-                        data-testid="outbound-webhook-row"
-                      >
-                        <div className="flex items-center justify-between font-mono text-[var(--fg-muted)]">
-                          <span className="truncate text-[11px]">{ep.url}</span>
-                          <div className="flex items-center gap-2">
-                            {ep.secret && (
-                              <span className="text-[9px] text-[var(--amber)]" data-testid={`outbound-secret-chip-${i}`}>
-                                secret
-                              </span>
-                            )}
-                            <button
-                              type="button"
-                              disabled={testResults[ep.url]?.state === 'testing'}
-                              onClick={async () => {
-                                setTestResults((previous) => ({
-                                  ...previous,
-                                  [ep.url]: { state: 'testing', message: 'Testing…' },
-                                }))
-                                try {
-                                  const res = await fetch('/api/test-outbound', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-	                                      endpoint: ep.url,
-	                                      secret: ep.secret || null,
-	                                      eventType: 'booking.received',
-	                                      pageId: page?.id,
-	                                      data: { test_source: 'settings_ui' },
-	                                    }),
-                                  })
-                                  const data = await res.json()
-                                  const nextResult: OutboundTestResult = data.success
-                                    ? { state: 'success', message: `✓ Sent (HTTP ${data.status})` }
-                                    : { state: 'failure', message: `✗ Failed: ${data.error || data.status}` }
-                                  setTestResults((previous) =>
-                                    previous[ep.url] ? { ...previous, [ep.url]: nextResult } : previous,
-                                  )
-                                } catch {
-                                  setTestResults((previous) =>
-                                    previous[ep.url]
-                                      ? {
-                                          ...previous,
-                                          [ep.url]: { state: 'failure', message: '✗ Network error' },
-                                        }
-                                      : previous,
-                                  )
-                                }
-                              }}
-                              className="rounded border border-[var(--line)] px-1.5 py-0 text-[10px] text-[var(--fg)] hover:bg-[var(--fill-1)] disabled:opacity-60"
-                            >
-                              {testResults[ep.url]?.state === 'testing' ? '...' : 'Send Test'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOutboundEndpoints((previous) => previous.filter((_, index) => index !== i))
-                                setTestResults((previous) => {
-                                  const next = { ...previous }
-                                  delete next[ep.url]
-                                  return next
-                                })
-                              }}
-                              className="text-[10px] text-zinc-400 hover:text-red-400"
-                            >
-                              remove
-                            </button>
-                          </div>
-                        </div>
-                        {testResults[ep.url] ? (
-                          <div
-                            role={testResults[ep.url].state === 'failure' ? 'alert' : 'status'}
-                            data-testid="outbound-test-result"
-                            data-state={testResults[ep.url].state}
-                            className={`mt-1 font-mono text-[10px] ${
-                              testResults[ep.url].state === 'success'
-                                ? 'text-[var(--ready)]'
-                                : testResults[ep.url].state === 'failure'
-                                  ? 'text-[var(--danger)]'
-                                  : 'text-[var(--fg-muted)]'
-                            }`}
-                          >
-                            {testResults[ep.url].message}
-                          </div>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  disabled={outboundSaving}
-                  onClick={async () => {
-                    if (!page) return
-                    setOutboundSaving(true)
-                    setMessage('')
-                    try {
-	                      const { error } = await upsertPageSecrets({ outbound_webhooks: outboundEndpoints })
-	                      setMessage(error ? error.message : `Saved ${outboundEndpoints.length} webhook URL${outboundEndpoints.length === 1 ? '' : 's'}. They fire automatically on real bookings.`)
-	                      if (!error) setPage({ ...page, outbound_webhooks: outboundEndpoints })
-                    } catch (e: any) {
-                      setMessage('Failed to save: ' + e.message)
-                    } finally {
-                      setOutboundSaving(false)
-                    }
-                  }}
-                  className="mt-1 w-full rounded-lg border border-[var(--signal)]/40 px-4 py-1.5 text-sm text-[var(--signal)] hover:bg-[var(--signal)]/10 disabled:opacity-60"
-                >
-                  {outboundSaving ? 'Saving...' : `Save ${outboundEndpoints.length} Webhook URL${outboundEndpoints.length === 1 ? '' : 's'}`}
-                </button>
-                <p className="mt-1 text-[10px] text-zinc-500">Webhook URLs and secrets are stored on this listing. Use "Send Test" to confirm delivery.</p>
-
-                {/* Example payloads for Zapier / Make / generic webhooks */}
-                <details className="mt-3 text-[10px] text-zinc-400">
-                  <summary className="cursor-pointer hover:text-zinc-200">Example JSON payload</summary>
-                  <pre className="mt-2 overflow-auto rounded bg-black/40 p-2 text-[9px] text-[var(--ready)]/90">
-{`// booking.received (fired on real events)
-{
-  "event": "booking.received",
-  "timestamp": "2026-...",
-  "page": { "id": "...", "slug": "...", "name": "..." },
-  "data": {
-    "event_type": "provider_redirect" | "stripe_session_created",
-    "offer_name": "...",
-    "offer_key": "services-0",
-    "amount": 45000,   // cents if available
-    "source": "nexez_checkout" | "calendly_webhook"
-  }
-}`}</pre>
-                  <p className="mt-1 text-[9px]">Use this shape when connecting custom automation.</p>
-                </details>
-                {/* Real recent fires from DB (what actually triggered / would trigger your endpoints) */}
-                {recentOutboundFires.length > 0 && (
-                  <div className="mt-4 border-t border-white/10 pt-3">
-                    <div className="text-[10px] uppercase tracking-widest text-[var(--signal)] mb-1.5">Recent booking events</div>
-                    <div className="space-y-1 text-[11px]">
-                      {recentOutboundFires.map((evt, i) => (
-                        <div key={i} className="flex justify-between text-[var(--signal)]/90">
-                          <span>{evt.event_type?.replace(/_/g, ' ')} - {evt.offer_name}</span>
-                          <span className="text-[var(--signal)]/60">{new Date(evt.created_at).toLocaleTimeString()}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-1 text-[9px] text-zinc-500">Saved webhook URLs receive these events automatically.</div>
-                  </div>
-                )}
-              </div>
+              <OutboundWebhooksPanel
+                slug={slug}
+                pageId={page?.id}
+                endpoints={outboundEndpoints}
+                setEndpoints={setOutboundEndpoints}
+                testResults={testResults}
+                setTestResults={setTestResults}
+                recentFires={recentOutboundFires}
+                upsertSecrets={upsertPageSecrets}
+                onMessage={setMessage}
+                onPersisted={(next) => setPage((current) => (current ? { ...current, outbound_webhooks: next } : current))}
+              />
 
               {/* Google Calendar Availability */}
               <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4" data-testid="availability-panel">
