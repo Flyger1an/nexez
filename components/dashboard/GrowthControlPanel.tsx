@@ -9,6 +9,7 @@ import {
   Clock3,
   Gift,
   History,
+  LockKeyhole,
   Loader2,
   MailCheck,
   Pause,
@@ -21,13 +22,15 @@ import {
   Users,
 } from 'lucide-react'
 import type {
+  GrowthAdminAction,
   GrowthCampaignStatus,
   GrowthControlAction,
   GrowthControlSnapshot,
 } from '../../lib/growth-control'
 import { relativeAge } from '../../lib/launch-control'
+import { GrowthCohortRoster } from './GrowthCohortRoster'
 
-type Tab = 'overview' | 'funnel' | 'activity' | 'controls'
+type Tab = 'overview' | 'funnel' | 'cohort' | 'activity' | 'controls'
 
 const STATUS_STYLE: Record<GrowthCampaignStatus, string> = {
   draft: 'border-border bg-white/[0.04] text-[var(--fg-muted)]',
@@ -36,12 +39,16 @@ const STATUS_STYLE: Record<GrowthCampaignStatus, string> = {
   ended: 'border-red-400/30 bg-red-400/10 text-red-300',
 }
 
-const ACTION_LABEL: Record<GrowthControlAction, string> = {
+const ACTION_LABEL: Record<GrowthAdminAction, string> = {
   pause: 'Campaign paused',
   resume: 'Campaign resumed',
   end: 'Campaign ended',
   set_capacity: 'Campaign capacity updated',
   set_signup_close: 'Signup window updated',
+  set_enrollment_mode: 'Enrollment mode updated',
+  cohort_add: 'Cohort member added',
+  cohort_resend: 'Cohort invitation renewed',
+  cohort_revoke: 'Cohort invitation revoked',
 }
 
 function formatDate(value: string | null): string {
@@ -84,9 +91,10 @@ export function GrowthControlPanel({ initialSnapshot }: { initialSnapshot: Growt
   const tabs = useMemo<Array<{ id: Tab; label: string; count?: number }>>(() => [
     { id: 'overview', label: 'Overview' },
     { id: 'funnel', label: 'Activation funnel' },
+    { id: 'cohort', label: 'Private cohort', count: snapshot.cohortMembers.length },
     { id: 'activity', label: 'Activity', count: snapshot.recentEvents.length },
     { id: 'controls', label: 'Controls' },
-  ], [snapshot.recentEvents.length])
+  ], [snapshot.cohortMembers.length, snapshot.recentEvents.length])
 
   if (!snapshot.available || !campaign) {
     return (
@@ -109,7 +117,11 @@ export function GrowthControlPanel({ initialSnapshot }: { initialSnapshot: Growt
 
   async function applyControl(
     action: GrowthControlAction,
-    fields: { maxGrants?: number; signupClosesAt?: string | null } = {},
+    fields: {
+      maxGrants?: number
+      signupClosesAt?: string | null
+      enrollmentMode?: 'open' | 'invite_only'
+    } = {},
   ) {
     if (!campaign || saving) return
     const cleanReason = reason.trim()
@@ -167,6 +179,9 @@ export function GrowthControlPanel({ initialSnapshot }: { initialSnapshot: Growt
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <SectionIntro status={campaign.status} />
         <div className="flex items-center gap-2">
+          <span className="inline-flex min-h-8 items-center rounded-full border border-border bg-white/[0.03] px-3 text-xs font-medium">
+            {campaign.enrollmentMode === 'invite_only' ? 'Invite-only' : 'Open enrollment'}
+          </span>
           <span className={`inline-flex min-h-8 items-center rounded-full border px-3 text-xs font-medium capitalize ${STATUS_STYLE[campaign.status]}`}>
             {campaign.status}
           </span>
@@ -236,11 +251,12 @@ export function GrowthControlPanel({ initialSnapshot }: { initialSnapshot: Growt
           </div>
 
           <div className="mt-5 overflow-hidden rounded-lg border border-border bg-white/[0.025]">
-            <div className="grid gap-px bg-border sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-px bg-border sm:grid-cols-2 xl:grid-cols-5">
               <Fact label="Grant" value={`${campaign.grantDurationDays} days of ${campaign.grantPlanId}`} />
               <Fact label="Business passes" value={`${campaign.inviteSlots} per activated business`} />
               <Fact label="Pass expiry" value={`${campaign.inviteExpiresDays} days`} />
               <Fact label="Signup window" value={formatDate(campaign.signupClosesAt)} />
+              <Fact label="Enrollment" value={campaign.enrollmentMode === 'invite_only' ? 'Invite-only cohort' : 'Open qualification'} />
             </div>
             <div className="border-t border-border px-4 py-4">
               <div className="flex items-center justify-between gap-4 text-xs">
@@ -265,7 +281,7 @@ export function GrowthControlPanel({ initialSnapshot }: { initialSnapshot: Growt
           <div className="overflow-hidden rounded-lg border border-border bg-white/[0.025]">
             <div className="border-b border-border px-4 py-3">
               <h3 className="text-sm font-medium">Invitation progression</h3>
-              <p className="mt-1 text-xs text-[var(--fg-muted)]">Unique passes moving from delivery to verified activation.</p>
+              <p className="mt-1 text-xs text-[var(--fg-muted)]">Seller referral passes moving from delivery to verified activation.</p>
             </div>
             <div className="space-y-4 p-4">
               <FunnelRow label="Created" value={metrics.invitesTotal} total={metrics.invitesTotal} />
@@ -294,6 +310,10 @@ export function GrowthControlPanel({ initialSnapshot }: { initialSnapshot: Growt
             </div>
           </div>
         </div>
+      ) : null}
+
+      {tab === 'cohort' ? (
+        <GrowthCohortRoster snapshot={snapshot} onSnapshot={setSnapshot} />
       ) : null}
 
       {tab === 'activity' ? (
@@ -376,6 +396,36 @@ export function GrowthControlPanel({ initialSnapshot }: { initialSnapshot: Growt
             </div>
 
             <div className="overflow-hidden rounded-lg border border-border bg-white/[0.025]">
+              <ControlRow
+                icon={LockKeyhole}
+                title="Enrollment access"
+                detail="Invite-only blocks direct welcome grants. Secure cohort and seller referral links remain eligible."
+              >
+                <div className="inline-flex h-10 overflow-hidden rounded-md border border-border bg-black/25 p-1" role="group" aria-label="Campaign enrollment mode">
+                  <button
+                    type="button"
+                    onClick={() => applyControl('set_enrollment_mode', { enrollmentMode: 'open' })}
+                    disabled={Boolean(saving) || campaign.status === 'ended' || campaign.enrollmentMode === 'open'}
+                    className={`min-w-20 rounded px-3 text-xs font-medium transition disabled:opacity-50 ${
+                      campaign.enrollmentMode === 'open' ? 'bg-white/10 text-foreground' : 'text-[var(--fg-muted)] hover:text-foreground'
+                    }`}
+                  >
+                    Open
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyControl('set_enrollment_mode', { enrollmentMode: 'invite_only' })}
+                    disabled={Boolean(saving) || campaign.status === 'ended' || campaign.enrollmentMode === 'invite_only'}
+                    className={`min-w-24 rounded px-3 text-xs font-medium transition disabled:opacity-50 ${
+                      campaign.enrollmentMode === 'invite_only' ? 'bg-[var(--signal)]/15 text-[var(--signal)]' : 'text-[var(--fg-muted)] hover:text-foreground'
+                    }`}
+                  >
+                    Invite-only
+                  </button>
+                </div>
+                {saving === 'set_enrollment_mode' ? <Loader2 className="size-4 animate-spin text-[var(--signal)]" /> : null}
+              </ControlRow>
+
               <ControlRow
                 icon={SlidersHorizontal}
                 title="Campaign capacity"

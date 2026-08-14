@@ -6,6 +6,9 @@ import {
   emptyGrowthControlSnapshot,
   summarizeGrowthControl,
   type GrowthCampaignStatus,
+  type GrowthAdminAction,
+  type GrowthCohortMember,
+  type GrowthCohortStatus,
   type GrowthControlAction,
   type GrowthControlAdminEvent,
   type GrowthControlCampaign,
@@ -29,6 +32,7 @@ type CampaignRow = {
   max_grants: number
   starts_at: string
   signup_closes_at: string | null
+  enrollment_mode: GrowthControlCampaign['enrollmentMode']
   updated_at: string
 }
 
@@ -41,10 +45,23 @@ type GrowthEventRow = {
 
 type AdminEventRow = {
   id: number | string
-  action: GrowthControlAction
+  action: GrowthAdminAction
   reason: string
   before_state: Record<string, unknown>
   after_state: Record<string, unknown>
+  created_at: string
+}
+
+type CohortRow = {
+  id: string
+  invitee_email: string
+  cohort_label: string | null
+  status: GrowthCohortStatus
+  expires_at: string
+  accepted_at: string | null
+  qualified_at: string | null
+  delivery_count: number
+  last_sent_at: string | null
   created_at: string
 }
 
@@ -58,6 +75,7 @@ export type ApplyGrowthControlInput = {
   idempotencyKey: string
   maxGrants?: number | null
   signupClosesAt?: string | null
+  enrollmentMode?: GrowthControlCampaign['enrollmentMode'] | null
 }
 
 export class GrowthControlError extends Error {
@@ -83,6 +101,7 @@ function campaignView(row: CampaignRow): GrowthControlCampaign {
     maxGrants: row.max_grants,
     startsAt: row.starts_at,
     signupClosesAt: row.signup_closes_at,
+    enrollmentMode: row.enrollment_mode,
     updatedAt: row.updated_at,
   }
 }
@@ -118,10 +137,33 @@ function normalizeMetrics(value: MetricsRpc | null | undefined): GrowthControlMe
     invitesDelivered: count(row.invites_delivered),
     invitesUndelivered: count(row.invites_undelivered),
     invitesCreated30d: count(row.invites_created_30d),
+    cohortTotal: count(row.cohort_total),
+    cohortPending: count(row.cohort_pending),
+    cohortClaimed: count(row.cohort_claimed),
+    cohortQualified: count(row.cohort_qualified),
+    cohortExpired: count(row.cohort_expired),
+    cohortRevoked: count(row.cohort_revoked),
+    cohortDelivered: count(row.cohort_delivered),
+    cohortUndelivered: count(row.cohort_undelivered),
     fallbackApplied: count(row.fallback_applied),
     grantExpiredEvents: count(row.grant_expired_events),
     noticesSent: count(row.notices_sent),
     latestEventAt: stringOrNull(row.latest_event_at),
+  }
+}
+
+function mapCohortMember(row: CohortRow): GrowthCohortMember {
+  return {
+    id: row.id,
+    email: row.invitee_email,
+    label: row.cohort_label,
+    status: row.status,
+    expiresAt: row.expires_at,
+    acceptedAt: row.accepted_at,
+    qualifiedAt: row.qualified_at,
+    deliveryCount: count(row.delivery_count),
+    lastSentAt: row.last_sent_at,
+    createdAt: row.created_at,
   }
 }
 
@@ -214,7 +256,7 @@ export async function getGrowthControlSnapshot(
   const admin = client ?? createAdminClient()
   const { data: campaignRow, error: campaignError } = await admin
     .from('seller_growth_campaigns')
-    .select('id, campaign_key, name, status, grant_plan_id, grant_duration_days, invite_slots, invite_expires_days, max_grants, starts_at, signup_closes_at, updated_at')
+    .select('id, campaign_key, name, status, grant_plan_id, grant_duration_days, invite_slots, invite_expires_days, max_grants, starts_at, signup_closes_at, enrollment_mode, updated_at')
     .order('starts_at', { ascending: false })
     .limit(1)
     .maybeSingle<CampaignRow>()
@@ -227,7 +269,7 @@ export async function getGrowthControlSnapshot(
   }
   if (!campaignRow) return { ...emptyGrowthControlSnapshot(true), generatedAt: new Date().toISOString() }
 
-  const [metricsResult, eventsResult, adminEventsResult] = await Promise.all([
+  const [metricsResult, eventsResult, adminEventsResult, cohortResult] = await Promise.all([
     admin.rpc('seller_growth_control_snapshot', { p_campaign_id: campaignRow.id }),
     admin
       .from('seller_growth_events')
@@ -243,12 +285,21 @@ export async function getGrowthControlSnapshot(
       .order('created_at', { ascending: false })
       .limit(12)
       .returns<AdminEventRow[]>(),
+    admin
+      .from('seller_growth_invites')
+      .select('id, invitee_email, cohort_label, status, expires_at, accepted_at, qualified_at, delivery_count, last_sent_at, created_at')
+      .eq('campaign_id', campaignRow.id)
+      .eq('invite_kind', 'cohort')
+      .order('created_at', { ascending: false })
+      .limit(100)
+      .returns<CohortRow[]>(),
   ])
 
   const warnings: string[] = []
   if (metricsResult.error) warnings.push('Campaign totals are unavailable.')
   if (eventsResult.error) warnings.push('Recent campaign activity is unavailable.')
   if (adminEventsResult.error) warnings.push('Operator audit history is unavailable.')
+  if (cohortResult.error) warnings.push('The private cohort roster is unavailable.')
 
   const campaign = campaignView(campaignRow)
   const metrics = metricsResult.error
@@ -263,6 +314,7 @@ export async function getGrowthControlSnapshot(
     summary: summarizeGrowthControl(campaign, metrics),
     recentEvents: (eventsResult.data ?? []).map(mapEvent),
     adminEvents: (adminEventsResult.data ?? []).map(mapAdminEvent),
+    cohortMembers: (cohortResult.data ?? []).map(mapCohortMember),
     warnings,
   }
 }
@@ -283,6 +335,7 @@ export async function applyGrowthCampaignControl(
     p_idempotency_key: input.idempotencyKey,
     p_max_grants: input.maxGrants ?? null,
     p_signup_closes_at: input.signupClosesAt ?? null,
+    p_enrollment_mode: input.enrollmentMode ?? null,
   })
 
   if (error) {

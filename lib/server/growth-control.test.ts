@@ -14,6 +14,7 @@ const campaign = {
   max_grants: 1000,
   starts_at: '2026-07-25T00:00:00.000Z',
   signup_closes_at: null,
+  enrollment_mode: 'open',
   updated_at: '2026-07-25T01:00:00.000Z',
 }
 
@@ -59,6 +60,7 @@ describe('getGrowthControlSnapshot', () => {
           error: null,
         }
       }
+      if (ctx.table === 'seller_growth_invites') return { data: [], error: null }
       return { data: null, error: null }
     }, {
       data: {
@@ -117,6 +119,7 @@ describe('getGrowthControlSnapshot', () => {
       'Campaign totals are unavailable.',
       'Recent campaign activity is unavailable.',
       'Operator audit history is unavailable.',
+      'The private cohort roster is unavailable.',
     ])
   })
 })

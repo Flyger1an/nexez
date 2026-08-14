@@ -4,10 +4,21 @@ export const GROWTH_CONTROL_ACTIONS = [
   'end',
   'set_capacity',
   'set_signup_close',
+  'set_enrollment_mode',
+] as const
+
+export const GROWTH_COHORT_ACTIONS = [
+  'cohort_add',
+  'cohort_resend',
+  'cohort_revoke',
 ] as const
 
 export type GrowthControlAction = (typeof GROWTH_CONTROL_ACTIONS)[number]
+export type GrowthCohortAction = (typeof GROWTH_COHORT_ACTIONS)[number]
+export type GrowthAdminAction = GrowthControlAction | GrowthCohortAction
 export type GrowthCampaignStatus = 'draft' | 'active' | 'paused' | 'ended'
+export type GrowthEnrollmentMode = 'open' | 'invite_only'
+export type GrowthCohortStatus = 'pending' | 'claimed' | 'qualified' | 'expired' | 'revoked'
 
 export type GrowthControlCampaign = {
   id: string
@@ -21,6 +32,7 @@ export type GrowthControlCampaign = {
   maxGrants: number
   startsAt: string
   signupClosesAt: string | null
+  enrollmentMode: GrowthEnrollmentMode
   updatedAt: string
 }
 
@@ -44,6 +56,14 @@ export type GrowthControlMetrics = {
   invitesDelivered: number
   invitesUndelivered: number
   invitesCreated30d: number
+  cohortTotal: number
+  cohortPending: number
+  cohortClaimed: number
+  cohortQualified: number
+  cohortExpired: number
+  cohortRevoked: number
+  cohortDelivered: number
+  cohortUndelivered: number
   fallbackApplied: number
   grantExpiredEvents: number
   noticesSent: number
@@ -60,10 +80,23 @@ export type GrowthControlEvent = {
 
 export type GrowthControlAdminEvent = {
   id: string
-  action: GrowthControlAction
+  action: GrowthAdminAction
   reason: string
   beforeStatus: GrowthCampaignStatus | null
   afterStatus: GrowthCampaignStatus | null
+  createdAt: string
+}
+
+export type GrowthCohortMember = {
+  id: string
+  email: string
+  label: string | null
+  status: GrowthCohortStatus
+  expiresAt: string
+  acceptedAt: string | null
+  qualifiedAt: string | null
+  deliveryCount: number
+  lastSentAt: string | null
   createdAt: string
 }
 
@@ -74,6 +107,8 @@ export type GrowthControlSummary = {
   inviteQualificationRate: number
   deliveryRate: number
   paidConversionRate: number
+  cohortQualificationRate: number
+  cohortDeliveryRate: number
 }
 
 export type GrowthControlSnapshot = {
@@ -84,6 +119,7 @@ export type GrowthControlSnapshot = {
   summary: GrowthControlSummary
   recentEvents: GrowthControlEvent[]
   adminEvents: GrowthControlAdminEvent[]
+  cohortMembers: GrowthCohortMember[]
   warnings: string[]
 }
 
@@ -107,6 +143,14 @@ export const EMPTY_GROWTH_METRICS: GrowthControlMetrics = {
   invitesDelivered: 0,
   invitesUndelivered: 0,
   invitesCreated30d: 0,
+  cohortTotal: 0,
+  cohortPending: 0,
+  cohortClaimed: 0,
+  cohortQualified: 0,
+  cohortExpired: 0,
+  cohortRevoked: 0,
+  cohortDelivered: 0,
+  cohortUndelivered: 0,
   fallbackApplied: 0,
   grantExpiredEvents: 0,
   noticesSent: 0,
@@ -133,6 +177,8 @@ export function summarizeGrowthControl(
     inviteQualificationRate: boundedRate(metrics.invitesQualified, metrics.invitesTotal),
     deliveryRate: boundedRate(metrics.invitesDelivered, metrics.invitesTotal),
     paidConversionRate: boundedRate(metrics.paidConversions, metrics.grantsTotal),
+    cohortQualificationRate: boundedRate(metrics.cohortQualified, metrics.cohortTotal),
+    cohortDeliveryRate: boundedRate(metrics.cohortDelivered, metrics.cohortTotal),
   }
 }
 
@@ -145,6 +191,7 @@ export function emptyGrowthControlSnapshot(available = false): GrowthControlSnap
     summary: summarizeGrowthControl(null, EMPTY_GROWTH_METRICS),
     recentEvents: [],
     adminEvents: [],
+    cohortMembers: [],
     warnings: [],
   }
 }
