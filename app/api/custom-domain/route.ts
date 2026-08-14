@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createClient } from '../../../utils/supabase/server'
 import {
   addDomainToProject,
   deriveDomainState,
@@ -12,8 +10,7 @@ import {
 } from '../../../lib/vercel-domains'
 import { getOwnerPlanId } from '../../../lib/server/plan'
 import { getPlanLimits, planAllows } from '../../../lib/billing'
-import { resolvePageAccess } from '../../../lib/server/page-access'
-import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
+import { requirePageAccess } from '../../../lib/server/require-page-access'
 import { hasLegacyCustomDomainTxt } from '../../../lib/server/doubled-txt-probe'
 import { hasExpectedCname } from '../../../lib/server/cname-probe'
 
@@ -55,57 +52,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'A valid domain is required' }, { status: 400 })
   }
 
-  const cookieStore = await cookies()
-  const supabase = createClient(cookieStore)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // The page that uses this domain is resolved service-role, by domain only: an
+  // owner_id from the client is never trusted. The id it yields is what gets
+  // authorized. (A domain may host several pages, so take the first match.)
+  let page!: { id: string; custom_domain: string; custom_domain_verified: string | null }
 
-  if (!user) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-  }
+  const gate = await requirePageAccess({
+    pageId: async (admin) => {
+      let pageQuery = admin
+        .from('pages')
+        .select('id, custom_domain, custom_domain_verified')
+        .eq('custom_domain', domain)
 
-  // All owner-scoped reads/writes go through the service-role client: a collaborator's
-  // session client cannot see the owner's rows under RLS, and resolvePageAccess is the
-  // authoritative (and only) authorization here.
-  if (!hasSupabaseAdminEnv()) {
-    return NextResponse.json({ error: 'Service unavailable' }, { status: 503 })
-  }
-  const admin = createAdminClient()
+      if (body.pageId) pageQuery = pageQuery.eq('id', body.pageId)
 
-  // Find the page that uses this domain authoritatively (service-role), by domain only -
-  // we NEVER trust an owner_id from the client. The resolved page id is then handed to
-  // resolvePageAccess, which authorizes the caller as the page's OWNER or a non-revoked
-  // EDITOR invitee. (A domain may host several pages, so take the first match.)
-  let pageQuery = admin
-    .from('pages')
-    .select('id, custom_domain, custom_domain_verified')
-    .eq('custom_domain', domain)
+      const { data: domainPages } = await pageQuery
+        .limit(1)
+        .returns<Array<{ id: string; custom_domain: string; custom_domain_verified: string | null }>>()
 
-  if (body.pageId) pageQuery = pageQuery.eq('id', body.pageId)
-
-  const { data: domainPages } = await pageQuery
-    .limit(1)
-    .returns<Array<{ id: string; custom_domain: string; custom_domain_verified: string | null }>>()
-
-  const page = domainPages?.[0]
-  if (!page) {
-    return NextResponse.json(
-      { error: 'No page you own uses this domain. Save the custom domain on the page first.' },
-      { status: 403 },
-    )
-  }
-
-  const access = await resolvePageAccess({
-    pageId: page.id,
-    userId: user.id,
-    userEmail: user.email,
-    userEmailConfirmedAt: user.email_confirmed_at,
-    requireEditor: true,
+      const match = domainPages?.[0]
+      if (!match) {
+        return NextResponse.json(
+          { error: 'No page you own uses this domain. Save the custom domain on the page first.' },
+          { status: 403 },
+        )
+      }
+      page = match
+      return page.id
+    },
   })
-  if (!access) {
-    return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
-  }
+  if (!gate.ok) return gate.response
+  const { access, admin } = gate
 
   // Plan gate ON THE OWNER (not the logged-in collaborator): attaching a NEW custom domain
   // requires Launch+ AND must stay within the OWNER's plan customDomains count. Status

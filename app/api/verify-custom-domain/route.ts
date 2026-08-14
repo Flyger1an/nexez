@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies, headers } from 'next/headers'
+import { headers } from 'next/headers'
 import dns from 'dns'
 import { promisify } from 'util'
-import { createClient } from '../../../utils/supabase/server'
-import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 import { ownerAllows } from '../../../lib/server/plan'
-import { resolvePageAccess } from '../../../lib/server/page-access'
+import { requirePageAccess } from '../../../lib/server/require-page-access'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 import { findDoubledRecordMessage } from '../../../lib/server/doubled-txt-probe'
 import { getDomainStatus, isVercelDomainConfigured } from '../../../lib/vercel-domains'
@@ -75,37 +73,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid domain' }, { status: 400 })
   }
 
-  if (!hasSupabaseAdminEnv()) {
-    return NextResponse.json({ error: 'Domain verification is not configured on this deployment.' }, { status: 503 })
-  }
-
-  const cookieStore = await cookies()
-  const host = (await headers()).get('host')
-  const supabase = createClient(cookieStore, host)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-  }
-
   // Authorize the caller against THIS page as owner OR a non-revoked editor-collaborator.
-  // resolvePageAccess decides authoritatively via the service-role client and returns the
-  // page's real owner; everything below acts as that owner. (Returns null without admin env,
-  // which is already guarded above with a 503.)
-  const access = await resolvePageAccess({
+  // The resolved owner is who everything below acts as; the caller's own id is never
+  // used to scope a read or a write.
+  const host = (await headers()).get('host')
+  const gate = await requirePageAccess({
     pageId,
-    userId: user.id,
-    userEmail: user.email,
-    userEmailConfirmedAt: user.email_confirmed_at,
-    requireEditor: true,
+    host,
+    unavailableMessage: 'Domain verification is not configured on this deployment.',
   })
-  if (!access) {
-    return NextResponse.json({ error: 'You do not have edit access to this page.' }, { status: 403 })
-  }
-
-  const admin = createAdminClient()
+  if (!gate.ok) return gate.response
+  const { access, admin } = gate
 
   // Plan gate: verifying (enabling) a custom domain requires Launch+ - gated on the
   // PAGE OWNER's plan (the collaborator inherits it), not the logged-in caller.
