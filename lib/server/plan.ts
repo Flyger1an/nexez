@@ -1,16 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getPlanRank, planAllows, type PlanFeature, type PlanId } from '../billing'
 
-// A subscription only confers its plan when it's in a LIVE state; an abandoned
-// 'incomplete' or 'canceled' row falls back to Free. This is the SINGLE source of
-// truth for "is this owner entitled to their plan", shared by entitlements
-// (getOwnerPlanId → gating), the transaction commission (checkout + pay routes),
-// and the billing dashboard guard. GRACE POLICY (intentional): past_due/unpaid
-// retain access + the plan commission rate during Stripe's dunning window so a
-// transient payment failure doesn't instantly downgrade a paying customer.
-// NOTE: the DB triggers (page-limit, team-collaboration) hardcode this same set
-// in SQL - keep them in sync with this constant.
-export const LIVE_STATUSES = new Set(['active', 'trialing', 'past_due', 'unpaid'])
+// A subscription only confers its plan when it's in a conferring state; an
+// abandoned 'incomplete' or 'canceled' row falls back to Free. subscriptionConfers
+// below is the SINGLE source of truth for "is this owner entitled to their plan",
+// shared by entitlements (getOwnerPlanId → gating), the transaction commission
+// (checkout + pay routes), and the billing dashboard guard.
 const VALID_PLANS = new Set<PlanId>(['free', 'launch', 'pro', 'scale', 'enterprise'])
 
 export type PromotionalPlanGrant = {
@@ -49,8 +44,10 @@ function normalizeGrant(row: PromotionalPlanGrantRow | null | undefined): Promot
 }
 
 /**
- * Does this subscription row CONFER its plan right now? active/past_due/unpaid always do
- * (the dunning grace policy). A 'trialing' row confers only while it's inside its window -
+ * Does this subscription row CONFER its plan right now? active/past_due/unpaid always do.
+ * GRACE POLICY (intentional): past_due/unpaid retain access + the plan commission rate
+ * through Stripe's dunning window, so a transient payment failure does not instantly
+ * downgrade a paying customer. A 'trialing' row confers only while it's inside its window -
  * an expired no-card trial (trial_ends_at in the past) does NOT, so the account falls
  * back to Free or an active promotion. 'paused'/'expired'/'canceled'/'incomplete'
  * never confer. MUST mirror the SQL
