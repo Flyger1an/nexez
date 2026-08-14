@@ -73,14 +73,14 @@ export function MarketplaceCurationPanel({ queue }: { queue: MarketplaceCuration
 
   if (!queue.available) {
     return (
-      <section className="border-t border-border py-8" aria-labelledby="marketplace-curation-heading">
+      <section id="marketplace-curation" className="border-t border-border py-8" aria-labelledby="marketplace-curation-heading">
         <SectionIntro />
         <div className="flex min-h-32 items-center gap-4 rounded-lg border border-[var(--amber)]/25 bg-[var(--amber)]/[0.06] px-5">
           <AlertTriangle className="size-5 shrink-0 text-[var(--amber)]" />
           <div>
             <p className="text-sm font-medium">Curation data is unavailable</p>
             <p className="mt-1 text-xs leading-5 text-[var(--fg-muted)]">
-              Confirm the marketplace curation migration and server credentials, then refresh Launch Control.
+              Confirm the marketplace curation migration and server credentials, then refresh this page.
             </p>
           </div>
         </div>
@@ -143,7 +143,7 @@ export function MarketplaceCurationPanel({ queue }: { queue: MarketplaceCuration
   ]
 
   return (
-    <section className="border-t border-border py-8" aria-labelledby="marketplace-curation-heading">
+    <section id="marketplace-curation" className="border-t border-border py-8" aria-labelledby="marketplace-curation-heading">
       <SectionIntro />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

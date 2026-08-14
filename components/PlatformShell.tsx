@@ -3,7 +3,6 @@
 import { Fragment, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  Activity,
   BarChart3,
   Bot,
   Compass,
@@ -19,6 +18,7 @@ import {
   Plus,
   Search,
   Settings,
+  ShieldCheck,
   Sparkles,
   Wallet,
   Wrench,
@@ -57,7 +57,7 @@ const navItems = [
   { href: '/dashboard/integrations', label: 'Integrations', icon: Link2 },
   { href: '/dashboard/tools', label: 'Tools', icon: Wrench },
   { href: '/dashboard/billing', label: 'Billing', icon: CreditCard },
-  { href: '/dashboard/launch-control', label: 'Launch Control', icon: Activity, adminOnly: true },
+  { href: '/admin', label: 'Admin Control', icon: ShieldCheck, adminOnly: true },
   { href: '/support', label: 'Support', icon: HelpCircle, mobile: true },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ]

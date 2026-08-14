@@ -28,7 +28,7 @@ describe('isMarketingPath', () => {
   })
 
   it('treats app/runtime routes as NOT marketing', () => {
-    for (const p of ['/dashboard', '/dashboard/x', '/negotiate/abc', '/checkout/foo', '/api/negotiations', '/login', '/onboard', '/create', '/some-agent-slug', '/agent.json']) {
+    for (const p of ['/admin', '/admin/launch', '/dashboard', '/dashboard/x', '/negotiate/abc', '/checkout/foo', '/api/negotiations', '/login', '/onboard', '/create', '/some-agent-slug', '/agent.json']) {
       expect(isMarketingPath(p), p).toBe(false)
     }
   })
@@ -82,6 +82,8 @@ describe('canonicalHostFor', () => {
     expect(canonicalHostFor('/api/simulate-url')).toBe(MARKETING_HOST)
 
     expect(canonicalHostFor('/dashboard')).toBe(APP_HOST)
+    expect(canonicalHostFor('/admin')).toBe(APP_HOST)
+    expect(canonicalHostFor('/admin/growth')).toBe(APP_HOST)
     expect(canonicalHostFor('/create')).toBe(APP_HOST)
     expect(canonicalHostFor('/api/billing')).toBe(APP_HOST)
     expect(canonicalHostFor('/shopify')).toBe(APP_HOST)
@@ -170,6 +172,8 @@ describe('isAppPath', () => {
   it('only flags human product routes', () => {
     expect(isAppPath('/dashboard')).toBe(true)
     expect(isAppPath('/dashboard/settings')).toBe(true)
+    expect(isAppPath('/admin')).toBe(true)
+    expect(isAppPath('/admin/audit')).toBe(true)
     expect(isAppPath('/create')).toBe(true)
     expect(isAppPath('/shopify')).toBe(true)
     expect(isAppPath('/invite/claim')).toBe(true)

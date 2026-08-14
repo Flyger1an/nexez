@@ -1,0 +1,177 @@
+import 'server-only'
+
+import type { GrowthControlAction } from '../growth-control'
+import type { MarketplaceCurationStatus } from '../marketplace-curation'
+import {
+  emptyAdminGovernanceSnapshot,
+  growthAdminActionLabel,
+  marketplaceAuditLabel,
+  marketplaceAuditTone,
+  sortAdminAuditEvents,
+  type AdminAuditEvent,
+  type AdminGovernanceSnapshot,
+} from '../admin-control'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
+
+type PlatformAdminRow = {
+  user_id: string
+  note: string | null
+  created_at: string
+}
+
+type GrowthAdminRow = {
+  id: number | string
+  action: GrowthControlAction
+  reason: string
+  actor_id: string | null
+  created_at: string
+}
+
+type MarketplaceAdminRow = {
+  id: number | string
+  page_id: string
+  from_status: MarketplaceCurationStatus | null
+  to_status: MarketplaceCurationStatus
+  reason: string | null
+  actor_id: string | null
+  created_at: string
+}
+
+type PageNameRow = {
+  id: string
+  name: string
+}
+
+type ReleaseRow = {
+  id: string
+  status: 'passed' | 'failed'
+  commit_sha: string
+  launch_score: number
+  required_failed_count: number
+  triggered_by: string | null
+  completed_at: string
+}
+
+const MAX_EVENTS_PER_SOURCE = 50
+const MAX_ACTOR_LOOKUPS = 40
+
+export async function getAdminGovernanceSnapshot(
+  client?: ReturnType<typeof createAdminClient>,
+): Promise<AdminGovernanceSnapshot> {
+  const empty = emptyAdminGovernanceSnapshot(false)
+  if (!client && !hasSupabaseAdminEnv()) {
+    return {
+      ...empty,
+      warnings: ['Server credentials are unavailable, so admin access and audit evidence could not be loaded.'],
+    }
+  }
+
+  const admin = client ?? createAdminClient()
+  const [operatorsResult, growthResult, marketplaceResult, releasesResult] = await Promise.all([
+    admin
+      .from('platform_admins')
+      .select('user_id, note, created_at')
+      .order('created_at', { ascending: true })
+      .returns<PlatformAdminRow[]>(),
+    admin
+      .from('seller_growth_campaign_admin_events')
+      .select('id, action, reason, actor_id, created_at')
+      .order('created_at', { ascending: false })
+      .limit(MAX_EVENTS_PER_SOURCE)
+      .returns<GrowthAdminRow[]>(),
+    admin
+      .from('marketplace_curation_events')
+      .select('id, page_id, from_status, to_status, reason, actor_id, created_at')
+      .order('created_at', { ascending: false })
+      .limit(MAX_EVENTS_PER_SOURCE)
+      .returns<MarketplaceAdminRow[]>(),
+    admin
+      .from('release_certifications')
+      .select('id, status, commit_sha, launch_score, required_failed_count, triggered_by, completed_at')
+      .order('completed_at', { ascending: false })
+      .limit(25)
+      .returns<ReleaseRow[]>(),
+  ])
+
+  const warnings: string[] = []
+  if (operatorsResult.error) warnings.push('Platform-admin membership is unavailable.')
+  if (growthResult.error) warnings.push('Growth operator history is unavailable.')
+  if (marketplaceResult.error) warnings.push('Marketplace operator history is unavailable.')
+  if (releasesResult.error) warnings.push('Release certification history is unavailable.')
+
+  const operatorRows = operatorsResult.data ?? []
+  const growthRows = growthResult.data ?? []
+  const marketplaceRows = marketplaceResult.data ?? []
+  const releaseRows = releasesResult.data ?? []
+  const pageIds = [...new Set(marketplaceRows.map((row) => row.page_id))]
+  const pageResult = pageIds.length
+    ? await admin.from('pages_public').select('id, name').in('id', pageIds).returns<PageNameRow[]>()
+    : { data: [] as PageNameRow[], error: null }
+  if (pageResult.error) warnings.push('Marketplace listing names are unavailable in the audit trail.')
+  const pageNames = new Map((pageResult.data ?? []).map((row) => [row.id, row.name]))
+
+  const actorIds = [...new Set([
+    ...operatorRows.map((row) => row.user_id),
+    ...growthRows.map((row) => row.actor_id),
+    ...marketplaceRows.map((row) => row.actor_id),
+  ].filter((value): value is string => Boolean(value)))].slice(0, MAX_ACTOR_LOOKUPS)
+
+  const actorEntries = await Promise.all(actorIds.map(async (userId) => {
+    const { data, error } = await admin.auth.admin.getUserById(userId)
+    return [userId, error ? null : data.user?.email ?? null] as const
+  }))
+  const actorEmails = new Map(actorEntries)
+
+  const events: AdminAuditEvent[] = [
+    ...growthRows.map((row): AdminAuditEvent => ({
+      id: `growth:${row.id}`,
+      source: 'growth',
+      title: growthAdminActionLabel(row.action),
+      detail: row.reason,
+      actorId: row.actor_id,
+      actorEmail: row.actor_id ? actorEmails.get(row.actor_id) ?? null : null,
+      createdAt: row.created_at,
+      tone: row.action === 'end' ? 'blocked' : row.action === 'pause' ? 'attention' : 'neutral',
+      href: '/admin/growth',
+    })),
+    ...marketplaceRows.map((row): AdminAuditEvent => {
+      const listing = pageNames.get(row.page_id) ?? `Listing ${row.page_id.slice(0, 8)}`
+      const transition = row.from_status ? `${row.from_status} → ${row.to_status}` : row.to_status
+      return {
+        id: `marketplace:${row.id}`,
+        source: 'marketplace',
+        title: marketplaceAuditLabel(row.to_status),
+        detail: `${listing} · ${transition}${row.reason ? ` · ${row.reason}` : ''}`,
+        actorId: row.actor_id,
+        actorEmail: row.actor_id ? actorEmails.get(row.actor_id) ?? null : null,
+        createdAt: row.created_at,
+        tone: marketplaceAuditTone(row.to_status),
+        href: '/admin/launch#marketplace-curation',
+      }
+    }),
+    ...releaseRows.map((row): AdminAuditEvent => ({
+      id: `release:${row.id}`,
+      source: 'release',
+      title: row.status === 'passed' ? 'Release certified' : 'Release certification failed',
+      detail: `${row.commit_sha.slice(0, 12)} · Launch Control ${Number(row.launch_score)}% · ${Number(row.required_failed_count)} required failures`,
+      actorId: null,
+      actorEmail: row.triggered_by,
+      createdAt: row.completed_at,
+      tone: row.status === 'passed' ? 'ready' : 'blocked',
+      href: '/admin/launch#release-certificates-heading',
+    })),
+  ]
+
+  return {
+    available: !operatorsResult.error,
+    generatedAt: new Date().toISOString(),
+    operators: operatorRows.map((row) => ({
+      userId: row.user_id,
+      email: actorEmails.get(row.user_id) ?? null,
+      note: row.note,
+      createdAt: row.created_at,
+    })),
+    events: sortAdminAuditEvents(events),
+    warnings,
+  }
+}
