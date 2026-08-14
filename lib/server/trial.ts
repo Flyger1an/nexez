@@ -71,5 +71,3 @@ export async function ensureBillingSeeded(ownerId: string | null | undefined, pl
   }
 }
 
-/** Backward-compatible name for older call sites. */
-export const ensureTrialSeeded = ensureBillingSeeded

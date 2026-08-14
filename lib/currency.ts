@@ -100,6 +100,3 @@ export function formatCurrencyAmount(smallestUnitAmount: number, currency: strin
   }
 }
 
-export function currencySymbol(currency: string): string {
-  return SUPPORTED_CURRENCIES.find((c) => c.code === normalizeCurrency(currency))?.symbol ?? '$'
-}
