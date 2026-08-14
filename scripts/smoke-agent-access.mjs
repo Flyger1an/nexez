@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { readFileSync } from 'node:fs'
+import { checkCnamePointer } from './check-cname-pointer.mjs'
 
 const MARKETING_BASE = trimBase(process.env.NEXEZ_MARKETING_BASE || 'https://nexez.ai')
 const AGENT_BASE = trimBase(process.env.NEXEZ_AGENT_BASE || 'https://nexez.app')
@@ -129,6 +130,14 @@ await check('internal QA fixtures stay hidden from discovery', async () => {
   const json = await fetchJson(`${AGENT_BASE}/api/agent-search?q=agent%20negotiation%20sprint%20remote&limit=50`)
   const leaked = json.results?.find((result) => result.page?.slug === TEST_SLUG)
   assert(!leaked, `internal seed ${TEST_SLUG} leaked into public search results`)
+})
+
+await check('merchant CNAME pointer matches the provider target', async () => {
+  // Runs here so it inherits this workflow's schedule. The pointer is a
+  // hand-maintained record; if the provider reshards the project it goes stale
+  // silently and every merchant custom domain breaks at once.
+  const result = await checkCnamePointer()
+  assert(result.ok, result.message)
 })
 
 await check('negotiation dry-run auto-accepts seeded valid proposal', async () => {
