@@ -62,14 +62,14 @@ function verificationMethodFor(domain: string, apexName: unknown): VercelDomainS
 }
 
 /** A conservative provider-backed ownership proof for CNAME-routed subdomains. */
-export function isCnameProviderProof(status: VercelDomainStatus): boolean {
+export function isCnameProviderProof(status: VercelDomainStatus, cnameConfigured: boolean): boolean {
   return Boolean(
     status.attached &&
       status.verified &&
       status.configChecked &&
       status.misconfigured === false &&
-      status.configuredBy === 'CNAME' &&
       status.verificationMethod === 'cname' &&
+      cnameConfigured &&
       !status.error,
   )
 }
@@ -91,6 +91,7 @@ export type DomainStateInput = {
   providerConfigChecked?: boolean
   verificationMethod?: VercelDomainStatus['verificationMethod']
   configuredBy?: VercelDomainStatus['configuredBy']
+  cnameConfigured?: boolean
   misconfigured?: boolean | null
   errored?: boolean
 }
@@ -139,7 +140,7 @@ export function deriveDomainState(input: DomainStateInput): {
       return { state: 'verifying', label: 'Verifying', detail: 'Confirming domain ownership with the host.' }
     }
 
-    if (input.verificationMethod === 'cname' && input.configuredBy !== 'CNAME') {
+    if (input.verificationMethod === 'cname' && !input.cnameConfigured) {
       return {
         state: 'pending_dns',
         label: 'Pending CNAME',

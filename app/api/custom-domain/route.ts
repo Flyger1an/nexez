@@ -15,6 +15,7 @@ import { getPlanLimits, planAllows } from '../../../lib/billing'
 import { resolvePageAccess } from '../../../lib/server/page-access'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 import { hasLegacyCustomDomainTxt } from '../../../lib/server/doubled-txt-probe'
+import { hasExpectedCname } from '../../../lib/server/cname-probe'
 
 const NEXEZ_CNAME = 'cname.nexez.app'
 
@@ -140,6 +141,7 @@ export async function POST(request: Request) {
   const providerConfigured = isVercelDomainConfigured()
   let ownershipVerified = Boolean(page.custom_domain_verified)
   let verifiedAt = page.custom_domain_verified
+  let cnameConfigured = false
 
   let status: VercelDomainStatus = {
     attached: false,
@@ -171,10 +173,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: removed.ok, removed: removed.ok, error: removed.error })
   }
 
+  if (status.verificationMethod === 'cname') {
+    cnameConfigured = await hasExpectedCname(domain, NEXEZ_CNAME)
+  }
+
   // For a subdomain, a healthy CNAME attachment is the ownership proof. Only a
   // fully checked provider response can persist verification; missing config
   // data or a provider error must never become a false-positive "Live" state.
-  if (isCnameProviderProof(status) && !ownershipVerified) {
+  if (isCnameProviderProof(status, cnameConfigured) && !ownershipVerified) {
     verifiedAt = new Date().toISOString()
     const { error: verifyError } = await admin
       .from('pages')
@@ -197,7 +203,7 @@ export async function POST(request: Request) {
   }
 
   const legacyTxtBlocksCname =
-    status.verificationMethod === 'cname' && !isCnameProviderProof(status)
+    status.verificationMethod === 'cname' && !isCnameProviderProof(status, cnameConfigured)
       ? await hasLegacyCustomDomainTxt(domain)
       : false
 
@@ -210,6 +216,7 @@ export async function POST(request: Request) {
     providerConfigChecked: status.configChecked,
     verificationMethod: status.verificationMethod,
     configuredBy: status.configuredBy,
+    cnameConfigured,
     misconfigured: status.misconfigured,
     errored: Boolean(status.error && status.error !== 'not_configured'),
   })
@@ -222,7 +229,7 @@ export async function POST(request: Request) {
     verifiedAt,
     verificationMethod: status.verificationMethod,
     legacyTxtBlocksCname,
-    provider: providerConfigured ? status : null,
+    provider: providerConfigured ? { ...status, cnameConfigured } : null,
     state: derived.state,
     label: derived.label,
     detail: derived.detail,

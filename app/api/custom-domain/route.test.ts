@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 //   a stranger (null) gets 403.
 // - The plan gate + owner-scoped reads run against access.ownerId via the admin client.
 
-const { userRef, resolveRef, adminRef, providerRef, legacyRef } = vi.hoisted(() => ({
+const { userRef, resolveRef, adminRef, providerRef, legacyRef, cnameRef } = vi.hoisted(() => ({
   // Logged-in session user (may be the owner OR an editor-collaborator).
   userRef: { user: { id: 'owner-1', email: 'owner@example.com' } as { id: string; email: string } | null },
   // resolvePageAccess result: owner | editor | null(stranger).
@@ -36,6 +36,7 @@ const { userRef, resolveRef, adminRef, providerRef, legacyRef } = vi.hoisted(() 
     } as any,
   },
   legacyRef: { present: false },
+  cnameRef: { present: true },
 }))
 
 // Session client: only auth.getUser is used.
@@ -125,14 +126,14 @@ vi.mock('../../../lib/vercel-domains', () => ({
   addDomainToProject: vi.fn(async () => providerRef.status),
   getDomainStatus: vi.fn(async () => providerRef.status),
   removeDomainFromProject: vi.fn(async () => ({ ok: true })),
-  isCnameProviderProof: vi.fn((status: any) =>
+  isCnameProviderProof: vi.fn((status: any, cnameConfigured: boolean) =>
     Boolean(
       status.attached &&
         status.verified &&
         status.configChecked &&
         status.misconfigured === false &&
-        status.configuredBy === 'CNAME' &&
         status.verificationMethod === 'cname' &&
+        cnameConfigured &&
         !status.error,
     ),
   ),
@@ -145,6 +146,10 @@ vi.mock('../../../lib/vercel-domains', () => ({
 
 vi.mock('../../../lib/server/doubled-txt-probe', () => ({
   hasLegacyCustomDomainTxt: vi.fn(async () => legacyRef.present),
+}))
+
+vi.mock('../../../lib/server/cname-probe', () => ({
+  hasExpectedCname: vi.fn(async () => cnameRef.present),
 }))
 
 import { POST } from './route'
@@ -195,6 +200,7 @@ describe('POST /api/custom-domain (collaborator-aware)', () => {
       recommendedIPv4: [],
     }
     legacyRef.present = false
+    cnameRef.present = true
   })
 
   it('401 when there is no session user', async () => {
@@ -313,6 +319,19 @@ describe('POST /api/custom-domain (collaborator-aware)', () => {
     const body = await (await POST(post({ action: 'status', domain: 'agents.acme.com', pageId: 'page-1' }))).json()
 
     expect(body.ownershipVerified).toBe(false)
+    expect(adminRef.updates).toHaveLength(0)
+  })
+
+  it('never persists verification when DNS does not publish the requested CNAME', async () => {
+    providerRef.configured = true
+    providerRef.status = cnameStatus({ configuredBy: 'http' })
+    cnameRef.present = false
+    adminRef.domainPages = [{ id: 'page-1', custom_domain: 'agents.acme.com', custom_domain_verified: null }]
+
+    const body = await (await POST(post({ action: 'status', domain: 'agents.acme.com', pageId: 'page-1' }))).json()
+
+    expect(body.ownershipVerified).toBe(false)
+    expect(body.provider.cnameConfigured).toBe(false)
     expect(adminRef.updates).toHaveLength(0)
   })
 

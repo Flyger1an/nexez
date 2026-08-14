@@ -22,6 +22,7 @@ describe('deriveDomainState', () => {
       providerConfigChecked: true,
       verificationMethod: 'cname' as const,
       configuredBy: 'CNAME' as const,
+      cnameConfigured: true,
     }
 
     it('pending DNS when not attached', () => {
@@ -86,13 +87,14 @@ describe('deriveDomainState', () => {
     }
 
     it('accepts only the complete healthy CNAME signal', () => {
-      expect(isCnameProviderProof(status)).toBe(true)
-      expect(isCnameProviderProof({ ...status, configChecked: false })).toBe(false)
-      expect(isCnameProviderProof({ ...status, verified: false })).toBe(false)
-      expect(isCnameProviderProof({ ...status, misconfigured: true })).toBe(false)
-      expect(isCnameProviderProof({ ...status, configuredBy: 'http' })).toBe(false)
-      expect(isCnameProviderProof({ ...status, verificationMethod: 'txt' })).toBe(false)
-      expect(isCnameProviderProof({ ...status, error: 'provider error' })).toBe(false)
+      expect(isCnameProviderProof(status, true)).toBe(true)
+      expect(isCnameProviderProof({ ...status, configChecked: false }, true)).toBe(false)
+      expect(isCnameProviderProof({ ...status, verified: false }, true)).toBe(false)
+      expect(isCnameProviderProof({ ...status, misconfigured: true }, true)).toBe(false)
+      expect(isCnameProviderProof({ ...status, configuredBy: 'http' }, true)).toBe(true)
+      expect(isCnameProviderProof({ ...status, verificationMethod: 'txt' }, true)).toBe(false)
+      expect(isCnameProviderProof({ ...status, error: 'provider error' }, true)).toBe(false)
+      expect(isCnameProviderProof(status, false)).toBe(false)
     })
   })
 

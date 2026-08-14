@@ -46,7 +46,7 @@ describe('getDomainStatus provider contract', () => {
       verificationMethod: 'cname',
       recommendedCNAME: ['project.vercel-dns-017.com'],
     })
-    expect(isCnameProviderProof(status)).toBe(true)
+    expect(isCnameProviderProof(status, true)).toBe(true)
   })
 
   it('keeps access-verification challenges separate from routing recommendations', async () => {
@@ -94,6 +94,6 @@ describe('getDomainStatus provider contract', () => {
       verificationMethod: 'cname',
     })
     expect(status.error).toMatch(/configuration failed/i)
-    expect(isCnameProviderProof(status)).toBe(false)
+    expect(isCnameProviderProof(status, true)).toBe(false)
   })
 })
