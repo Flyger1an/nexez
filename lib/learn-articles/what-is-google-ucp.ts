@@ -4,9 +4,9 @@ export const whatIsGoogleUcp: LearnArticle = {
   slug: 'what-is-google-ucp',
   metaTitle: 'What Is Google UCP? A Merchant Guide',
   metaDescription:
-    'Google UCP explained: the five capabilities, the January to May 2026 timeline, how to onboard through Merchant Center, and the adoption gap nobody mentions.',
+    'Google UCP explained: the five capabilities, the 2026 timeline, how to onboard through Merchant Center, and what 11,414 verified stores reveal about it.',
   title: 'What is Google UCP? The Universal Commerce Protocol, explained for merchants',
-  dek: 'UCP is the open standard Google and Shopify built so AI agents can search, cart, and buy from your store inside Gemini and AI Mode. Here is what it actually does, how to get on it, and the honest gap between how many stores have adopted it and how many can actually complete a sale.',
+  dek: 'UCP is the open standard Google and Shopify built so AI agents can search, cart, and buy from your store inside Gemini and AI Mode. Here is what it actually does, how to get on it, and what an independent census of every public UCP store says about where the ecosystem really stands.',
   category: 'Agentic commerce',
   publishedAt: '2026-08-14',
   updatedAt: '2026-08-14',
@@ -22,7 +22,7 @@ export const whatIsGoogleUcp: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'This guide covers the five capabilities, how UCP evolved across 2026, what onboarding actually looks like, and an honest look at the adoption data, including a July 2026 finding about the ecosystem that should change how you prioritize. For how UCP compares against OpenAI\u2019s ACP and the general-purpose MCP, the [protocol comparison guide](/learn/ucp-vs-acp-vs-mcp) covers that side by side.',
+      text: 'This guide covers the five capabilities, how UCP evolved across 2026, what onboarding actually looks like, and an honest look at the adoption data, including a July 2026 census of every public UCP store that should change how you prioritize. For how UCP compares against OpenAI\u2019s ACP and the general-purpose MCP, the [protocol comparison guide](/learn/ucp-vs-acp-vs-mcp) covers that side by side.',
     },
     { type: 'h2', text: 'The five capabilities' },
     {
@@ -89,10 +89,14 @@ export const whatIsGoogleUcp: LearnArticle = {
       href: '/scan',
       label: 'Scan your site free',
     },
-    { type: 'h2', text: 'The adoption gap nobody is talking about' },
+    { type: 'h2', text: 'The number that should reorder your priorities' },
     {
       type: 'p',
-      text: 'Here is the finding that should reorder your priorities. UCP Checker, an independent crawler that validates and grades every public UCP manifest it can find, published a state-of-the-ecosystem report in July 2026 covering 11,414 verified stores. Adoption growth was healthy and broad, and version discipline was remarkably good, with the ecosystem converged on a single spec revision six months in. Then the capability histogram turned into a cliff: checkout was declared nearly universally, but across all 11,414 verified stores, not one yet exposed a payment capability an agent could actually complete a purchase against.',
+      text: 'UCP Checker, an independent crawler that validates and grades every public UCP manifest it can find, published a state-of-the-ecosystem report covering 11,414 verified stores as a point-in-time census on July 7, 2026. Adoption growth was steep, up from 8,259 in June, and version discipline was remarkable: 99.7% of verified stores ran the same spec revision, 2026-04-08, which is rare for a six-month-old protocol. Then the capability histogram turned into a cliff. Checkout was declared nearly universally, but across all 11,414 verified stores, not one yet exposed a payment capability an agent could actually complete a purchase against.',
+    },
+    {
+      type: 'p',
+      text: 'UCP Checker reads that as encouraging rather than damning, and the reading is fair: eleven thousand stores have done the discovery, cart, and checkout integration work and standardized on one spec, so the fleet is staged at the payment line waiting for the payment rails and trust layer to settle. When that field flips, it flips against an installed base. But there is a second, equally true reading for a merchant deciding where to spend this quarter.',
     },
     {
       type: 'callout',
@@ -102,7 +106,7 @@ export const whatIsGoogleUcp: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'Two practical conclusions follow. First, the competitive bar is far lower than the adoption numbers suggest: being genuinely transactable, not just listed, is still a differentiator in 2026 rather than table stakes. Second, verify your own implementation from the outside rather than trusting your dashboard. Independent validators exist precisely because self-reported conformance and actual agent experience diverge.',
+      text: 'Two practical conclusions follow. First, the competitive bar is lower than the raw adoption count suggests: nobody has finished, so arriving now means arriving with the pack rather than behind it, and being genuinely transactable the moment the rails settle is still a differentiator. Second, verify your own implementation from the outside rather than trusting your dashboard. Independent validators exist precisely because self-reported conformance and actual agent experience diverge, and a manifest is a set of claims until something tests them.',
     },
     { type: 'h2', text: 'Should you prioritize UCP?' },
     {
@@ -158,7 +162,7 @@ export const whatIsGoogleUcp: LearnArticle = {
     {
       question: 'If thousands of stores already support UCP, am I too late?',
       answer:
-        'No, and the data suggests the opposite. An independent July 2026 audit of 11,414 verified UCP stores found that while checkout was declared almost universally, not one store yet exposed a payment capability an agent could actually complete a purchase against. Declared capability and functional capability are very different things, so being genuinely transactable remains a differentiator rather than table stakes.',
+        'No. An independent census of 11,414 verified UCP stores on July 7, 2026 found that while checkout was declared almost universally, not one store yet exposed a payment capability an agent could actually complete a purchase against. The ecosystem is staged at the payment line, waiting on payment rails and the trust layer, so declared capability and functional capability remain very different things. Arriving now means arriving with the pack rather than behind it.',
     },
   ],
 }
