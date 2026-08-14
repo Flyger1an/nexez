@@ -33,6 +33,14 @@ import { agentRuntimeUrl } from '../../../../lib/site'
 import { CredentialsManager } from '../../../../components/CredentialsManager'
 import { IntegrationsPanel } from '../../../../components/settings/IntegrationsPanel'
 import { WebsitePanel } from '../../../../components/settings/WebsitePanel'
+import { BrandingPanel } from '../../../../components/settings/BrandingPanel'
+import { DomainConnectionPanel } from '../../../../components/settings/DomainConnectionPanel'
+import { AvailabilityPanel, stripAvailabilityMarker } from '../../../../components/settings/AvailabilityPanel'
+import {
+  OutboundWebhooksPanel,
+  type OutboundEndpoint,
+  type OutboundTestResult,
+} from '../../../../components/settings/OutboundWebhooksPanel'
 import { planAllows } from '../../../../lib/billing'
 import { ProBadge } from '../../../../components/billing/PlanGate'
 import { usePlan } from '../../../../components/billing/PlanProvider'
@@ -47,11 +55,6 @@ import {
 
 type PageProps = {
   params: Promise<{ id: string }>
-}
-
-type OutboundTestResult = {
-  state: 'testing' | 'success' | 'failure'
-  message: string
 }
 
 const SETTINGS_SECTIONS = [
@@ -91,7 +94,6 @@ export default function PageSettings({ params }: PageProps) {
   const [logoUrl, setLogoUrl] = useState('')
   const [hideNexezBadge, setHideNexezBadge] = useState(false)
   const [currency, setCurrency] = useState('usd')
-  const [uploadingLogo, setUploadingLogo] = useState(false)
   const [domainProvisioning, setDomainProvisioning] = useState(false)
   const [domainStatus, setDomainStatus] = useState<
     | null
@@ -108,20 +110,12 @@ export default function PageSettings({ params }: PageProps) {
         routingRecords: Array<{ type: string; name?: string; value?: string }>
       }
   >(null)
-  const [crawlLoading, setCrawlLoading] = useState(false)
-  const [crawlReport, setCrawlReport] = useState<
-    null | { score: number; url: string; checks: Array<{ id: string; label: string; status: string; detail: string }> }
-  >(null)
   const [preferOriginalSite, setPreferOriginalSite] = useState(false)
   const [industry, setIndustry] = useState('')
   const [copied, setCopied] = useState('')
 
   // Phase 3: Per-page outbound webhooks - now first-class (url + optional secret per endpoint)
-  type OutboundEndpoint = { url: string; secret?: string }
   const [outboundEndpoints, setOutboundEndpoints] = useState<OutboundEndpoint[]>([])
-  const [newOutboundUrl, setNewOutboundUrl] = useState('')
-  const [newOutboundSecret, setNewOutboundSecret] = useState('')
-  const [outboundSaving, setOutboundSaving] = useState(false)
   const [testResults, setTestResults] = useState<Record<string, OutboundTestResult>>({})
 
   // Real recent fires (from checkout_events) for visibility of outbound value
@@ -130,7 +124,6 @@ export default function PageSettings({ params }: PageProps) {
   // Google Calendar availability state.
   const [googleCalendarId, setGoogleCalendarId] = useState('')
   const [availabilityNote, setAvailabilityNote] = useState('')
-  const [availabilitySaving, setAvailabilitySaving] = useState(false)
 
   // Phase 5: Real custom domain verification state (persisted on page)
   const [domainVerificationToken, setDomainVerificationToken] = useState('')
@@ -205,69 +198,7 @@ export default function PageSettings({ params }: PageProps) {
   const publicUrl = `${getBaseUrl()}/${cleanSlug || page?.slug || ''}`
   const agentJsonUrl = `${getBaseUrl()}${getAgentJsonPath(cleanSlug || page?.slug || '')}`
   const searchUrl = `${getBaseUrl()}/api/agent-search?q=${encodeURIComponent(name || page?.name || 'service')}`
-  const hasCalendarId = googleCalendarId.trim().length > 0
   const certification = page ? getCertification(page) : null
-
-  async function handleLogoFileUpload(file: File) {
-    if (!file.type.startsWith('image/')) {
-      setMessage('Please choose an image file (PNG, JPG, SVG, etc).')
-      return
-    }
-    setUploadingLogo(true)
-    setMessage('')
-    try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      const uid = user?.id || 'anon'
-      const ext = (file.name.split('.').pop() || 'png').toLowerCase()
-      const pageIdForPath = id || (page as any)?.id || 'new'
-      const path = `logos/${uid}/${pageIdForPath}-${Date.now()}.${ext}`
-      const { error: uploadError } = await supabase
-        .storage
-        .from('logos')
-        .upload(path, file, { upsert: true, contentType: file.type })
-      if (uploadError) throw uploadError
-      const { data: pub } = supabase.storage.from('logos').getPublicUrl(path)
-      if (pub?.publicUrl) {
-        setLogoUrl(pub.publicUrl)
-        setMessage('Logo file uploaded. Click Save Settings to persist branding.')
-      }
-    } catch (err: any) {
-      console.error(err)
-      setMessage(`Logo upload failed: ${err?.message || err}. Check that logo uploads are enabled for your account, or paste a public image URL.`)
-    } finally {
-      setUploadingLogo(false)
-    }
-  }
-
-  async function oneClickDetectLogo() {
-    if (!websiteUrl) {
-      setMessage('Add a Website URL above first (in the General section) to auto-detect logo.')
-      return
-    }
-    setUploadingLogo(true)
-    setMessage('')
-    try {
-      const res = await fetch('/api/tools/import-site', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: websiteUrl }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data?.ok) throw new Error(data?.error || 'Import failed')
-      const logo = data.suggestedPage?.logo_url
-      if (logo) {
-        setLogoUrl(logo)
-        setMessage('Logo detected from your website. Save settings to apply it.')
-      } else {
-        setMessage('Importer could not auto-detect a logo. Upload a file or paste a direct https URL.')
-      }
-    } catch (e: any) {
-      setMessage('One-click logo detect failed: ' + (e?.message || e) + '. You can still upload manually.')
-    } finally {
-      setUploadingLogo(false)
-    }
-  }
 
   const manifestPreview = useMemo(() => {
     if (!page) return '{}'
@@ -460,33 +391,6 @@ export default function PageSettings({ params }: PageProps) {
       setMessage('Domain action failed: ' + (e.message || 'network error'))
     } finally {
       setDomainProvisioning(false)
-    }
-  }
-
-  // B6: agent crawlability test (targets the custom domain when set, else the platform page).
-  async function runCrawlabilityTest() {
-    const target = customDomain.trim()
-      ? `https://${customDomain.trim().replace(/^https?:\/\//, '')}`
-      : publicUrl
-    setCrawlLoading(true)
-    setCrawlReport(null)
-    try {
-      const res = await fetch('/api/crawlability', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: target }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setMessage(data.error || 'Crawlability test failed.')
-        return
-      }
-      setCrawlReport({ score: data.score, url: data.url, checks: data.checks || [] })
-      setMessage(`Agent crawlability score: ${data.score}/100`)
-    } catch (e: any) {
-      setMessage('Crawlability test failed: ' + (e.message || 'network error'))
-    } finally {
-      setCrawlLoading(false)
     }
   }
 
@@ -1130,111 +1034,19 @@ export default function PageSettings({ params }: PageProps) {
                   ) : null}
 
                   {/* C10: white-label branding */}
-                  <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                    <p className="flex items-center gap-2 text-[11px] font-medium text-zinc-200">
-                      Branding / White-label
-                      {!planAllows(plan, 'whiteLabel') && <ProBadge feature="whiteLabel" />}
-                    </p>
-                    <p className="mt-0.5 text-[10px] text-zinc-500">
-                      Applied to the public listing (especially on your custom domain).
-                    </p>
-                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <label className="block text-[11px]">
-                        <span className="text-zinc-400">Brand name</span>
-                        <input
-                          value={brandName}
-                          onChange={(e) => setBrandName(e.target.value)}
-                          placeholder="Apex Plumbing Co."
-                          className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
-                        />
-                      </label>
-                      <label className="block text-[11px]">
-                        <span className="text-zinc-400">Accent color (hex)</span>
-                        <input
-                          value={accentColor}
-                          onChange={(e) => setAccentColor(e.target.value)}
-                          placeholder="#7C3AED"
-                          className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
-                        />
-                      </label>
-                      <label className="block text-[11px] sm:col-span-2">
-                        <span className="text-zinc-400">Logo URL (https)</span>
-                        <input
-                          value={logoUrl}
-                          onChange={(e) => setLogoUrl(e.target.value)}
-                          placeholder="https://apexplumbing.com/logo.svg"
-                          className="mt-1 w-full rounded border border-white/15 bg-black/30 px-2 py-1 text-sm"
-                        />
-                        <div className="mt-1 flex flex-wrap items-center gap-2">
-                          <label className="cursor-pointer inline-flex items-center gap-1 rounded border border-white/20 px-2 py-1 text-[10px] hover:bg-white/5">
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              disabled={uploadingLogo}
-                              onChange={(e) => {
-                                const f = e.target.files?.[0]
-                                if (f) handleLogoFileUpload(f)
-                                // reset input so same file can be re-chosen
-                                e.target.value = ''
-                              }}
-                            />
-                            {uploadingLogo ? 'Uploading…' : '📁 Upload logo file'}
-                          </label>
-                          {logoUrl && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={logoUrl} alt="logo preview" className="h-6 w-auto rounded border border-white/10" />
-                          )}
-                          {logoUrl && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setLogoUrl('')
-                                setMessage('Logo removed - Save Settings to apply the change.')
-                              }}
-                              className="rounded border border-red-400/40 px-2 py-0.5 text-[10px] text-red-300 hover:bg-red-400/10"
-                            >
-                              Remove logo
-                            </button>
-                          )}
-                        </div>
-                        <div className="mt-1">
-                          <button
-                            type="button"
-                            onClick={oneClickDetectLogo}
-                            disabled={!websiteUrl || uploadingLogo}
-                            className="text-[10px] rounded border border-[var(--signal)]/40 px-2 py-0.5 text-[var(--signal)] hover:bg-[var(--signal)]/10 disabled:opacity-50"
-                          >
-                            ✨ One-click: detect logo from my website
-                          </button>
-                        </div>
-                        <p className="mt-0.5 text-[9px] text-zinc-500">Upload a logo, detect one from your website, or paste any public https image URL. Remove clears it.</p>
-                      </label>
-                    </div>
-                    <SettingRow
-                      label="Nexez attribution"
-                      description={
-                        <span className="inline-flex flex-wrap items-center gap-2">
-                          Hide the Nexez header link for a fully white-label listing. Saves with the listing settings.
-                          {!planAllows(plan, 'removeBadge') ? <ProBadge feature="removeBadge" /> : null}
-                        </span>
-                      }
-                      htmlFor="hide-nexez-attribution"
-                      className="mt-4 rounded-xl border border-[var(--line-soft)] bg-[var(--glass)]"
-                    >
-                      <SettingsSwitch
-                        id="hide-nexez-attribution"
-                        checked={hideNexezBadge}
-                        onCheckedChange={setHideNexezBadge}
-                        label="Nexez attribution"
-                        checkedLabel="Hidden"
-                        uncheckedLabel="Shown"
-                      />
-                    </SettingRow>
-                    <p className="mt-1 text-[10px] text-zinc-500">
-                      Invalid colors/URLs are ignored on render (hex + http(s) only). Save to apply.
-                    </p>
-                  </div>
+                  <BrandingPanel
+                    pageId={id}
+                    plan={plan}
+                    websiteUrl={websiteUrl}
+                    values={{ brandName, accentColor, logoUrl, hideNexezBadge }}
+                    onChange={(patch) => {
+                      if (patch.brandName !== undefined) setBrandName(patch.brandName)
+                      if (patch.accentColor !== undefined) setAccentColor(patch.accentColor)
+                      if (patch.logoUrl !== undefined) setLogoUrl(patch.logoUrl)
+                      if (patch.hideNexezBadge !== undefined) setHideNexezBadge(patch.hideNexezBadge)
+                    }}
+                    onMessage={setMessage}
+                  />
 
                   {showTxtVerification && domainVerificationToken && (
                     <div className="mt-2 rounded border border-[var(--amber)]/30 bg-[var(--amber)]/5 p-2 text-[11px] text-[var(--amber)]">
@@ -1269,170 +1081,16 @@ export default function PageSettings({ params }: PageProps) {
                   </div>
 
                   {/* A3: connection wizard - provider attach + SSL state machine */}
-                  {customDomain ? (
-                    <div
-                      role={domainAttachIsNext ? 'group' : undefined}
-                      aria-label={domainAttachIsNext ? 'Recommended next step: attach and detect DNS' : undefined}
-                      className={`mt-4 rounded-lg p-3 ${
-                        domainAttachIsNext
-                          ? 'settings-priority-card'
-                          : 'border border-[var(--line-soft)] bg-[var(--fill-1)]'
-                      }`}
-                    >
-                      {domainAttachIsNext ? (
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--fg-muted)]">
-                          Recommended next step
-                        </p>
-                      ) : null}
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-medium text-zinc-200">Connection & SSL</p>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            disabled={domainProvisioning}
-                            onClick={() => callDomainAction('attach')}
-                            className={`rounded px-2.5 py-1 text-[11px] disabled:opacity-50 ${
-                              domainAttachIsNext
-                                ? 'settings-emphasis-action'
-                                : 'border border-[var(--line)] text-[var(--fg)] hover:bg-[var(--fill-1)]'
-                            }`}
-                          >
-                            {domainProvisioning ? 'Working…' : 'Attach & detect DNS'}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={domainProvisioning}
-                            onClick={() => callDomainAction('status')}
-                            className="rounded border border-white/20 px-2.5 py-1 text-[11px] text-zinc-200 hover:bg-white/5 disabled:opacity-50"
-                          >
-                            Check status
-                          </button>
-                        </div>
-                      </div>
-
-                      {(() => {
-                        const currentState =
-                          domainStatus?.state ?? (showDomainVerified ? 'verifying' : 'pending_dns')
-                        const steps = [
-                          { key: 'pending_dns', label: 'Pending DNS' },
-                          { key: 'verifying', label: 'Verifying' },
-                          { key: 'live', label: 'Live' },
-                        ]
-                        const order: Record<string, number> = { pending_dns: 0, verifying: 1, ssl_issuing: 1, live: 2 }
-                        const activeIdx = order[currentState] ?? 0
-                        const isError = currentState === 'error'
-                        return (
-                          <div className="mt-3 flex items-center gap-1">
-                            {steps.map((step, i) => (
-                              <div key={step.key} className="flex flex-1 items-center gap-1">
-                                <div
-                                  className={`h-1.5 flex-1 rounded-full ${
-                                    isError
-                                      ? 'bg-red-400/60'
-                                      : i <= activeIdx
-                                        ? 'bg-gradient-to-r from-[var(--signal)] to-[var(--ready)]'
-                                        : 'bg-white/10'
-                                  }`}
-                                />
-                                <span
-                                  className={`whitespace-nowrap text-[10px] ${
-                                    i <= activeIdx && !isError ? 'text-zinc-200' : 'text-zinc-500'
-                                  }`}
-                                >
-                                  {step.label}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )
-                      })()}
-
-                      {domainStatus ? (
-                        <p className="mt-2 text-[11px] text-zinc-400">{domainStatus.detail}</p>
-                      ) : (
-                        <p className="mt-2 text-[11px] text-zinc-500">
-                          Click “Attach & detect DNS” to connect this domain and receive the correct record instructions.
-                        </p>
-                      )}
-
-                      {domainStatus && !domainStatus.providerConfigured ? (
-                        <p className="mt-1 text-[10px] text-[var(--amber)]/80">
-                          Automatic SSL setup is not available for this project. Use the TXT ownership flow above, then configure hosting manually.
-                        </p>
-                      ) : null}
-
-                      {domainStatus?.verificationMethod === 'txt' && domainStatus.routingRecords.length ? (
-                        <div className="mt-2 space-y-1">
-                          <div className="text-[10px] font-medium text-zinc-300">Routing records:</div>
-                          {domainStatus.routingRecords.map((record, index) => (
-                            <code key={index} className="block break-all rounded bg-black/40 p-1 text-[10px] text-[var(--ready)]">
-                              {record.type} {record.name ?? ''} {record.value ?? ''}
-                            </code>
-                          ))}
-                        </div>
-                      ) : null}
-
-                      {domainStatus?.requiredRecords?.length ? (
-                        <div className="mt-2 space-y-1">
-                          <div className="text-[10px] font-medium text-zinc-300">Additional Vercel access-verification records:</div>
-                          {domainStatus.requiredRecords.map((r, i) => (
-                            <code key={i} className="block break-all rounded bg-black/40 p-1 text-[10px] text-[var(--ready)]">
-                              {r.type} {r.name ?? ''} {r.value ?? ''}
-                            </code>
-                          ))}
-                        </div>
-                      ) : null}
-
-                      {/* B6: agent crawlability test */}
-                      <div className="mt-3 border-t border-white/10 pt-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-[11px] text-zinc-300">Agent crawlability</p>
-                          <button
-                            type="button"
-                            disabled={crawlLoading}
-                            onClick={runCrawlabilityTest}
-                            className="rounded border border-[var(--signal)]/40 px-2.5 py-1 text-[11px] text-[var(--signal)] hover:bg-[var(--signal)]/10 disabled:opacity-50"
-                          >
-                            {crawlLoading ? 'Testing…' : 'Test agent crawlability'}
-                          </button>
-                        </div>
-                        {crawlReport ? (
-                          <div className="mt-2">
-                            <div className="text-[11px] text-zinc-300">
-                              Score:{' '}
-                              <span
-                                className={
-                                  crawlReport.score >= 80
-                                    ? 'text-[var(--ready)]'
-                                    : crawlReport.score >= 50
-                                      ? 'text-[var(--amber)]'
-                                      : 'text-red-300'
-                                }
-                              >
-                                {crawlReport.score}/100
-                              </span>{' '}
-                              <span className="text-zinc-500">({crawlReport.url})</span>
-                            </div>
-                            <ul className="mt-1 space-y-0.5">
-                              {crawlReport.checks.map((c) => (
-                                <li key={c.id} className="flex items-start gap-1.5 text-[10px]">
-                                  <span>
-                                    {c.status === 'pass' ? '✅' : c.status === 'warn' ? '🟡' : '❌'}
-                                  </span>
-                                  <span className="text-zinc-300">{c.label}</span>
-                                  <span className="text-zinc-500">- {c.detail}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        ) : (
-                          <p className="mt-1 text-[10px] text-zinc-500">
-                            Checks whether agents can reach the listing, read the agent files, and access it through robots.txt.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ) : null}
+                  <DomainConnectionPanel
+                    customDomain={customDomain}
+                    publicUrl={publicUrl}
+                    status={domainStatus}
+                    domainVerified={showDomainVerified}
+                    busy={domainProvisioning}
+                    attachIsNext={domainAttachIsNext}
+                    onAction={callDomainAction}
+                    onMessage={setMessage}
+                  />
                 </div>
 
               <div className="mt-4 border-t border-white/10 pt-4">
@@ -1739,305 +1397,29 @@ export default function PageSettings({ params }: PageProps) {
               </div>
 
               {/* Phase 3: Per-page outbound webhooks - FIRST CLASS (url + optional secret, real test button, auto-fired) */}
-              <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4" data-testid="outbound-webhooks-panel">
-                <div className="text-sm font-medium text-[var(--signal)] mb-2">Booking event webhooks</div>
-                <p className="text-[10px] text-zinc-400 mb-3">Send booking activity to Zapier, Make, n8n, or your own system. Add a signing secret when you want extra protection.</p>
-
-                {/* Add new endpoint with optional secret */}
-                <div className="space-y-2 mb-3">
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      value={newOutboundUrl}
-                      onChange={(e) => setNewOutboundUrl(e.target.value)}
-                      placeholder="https://hooks.zapier.com/... or https://yourapp.com/webhook"
-                      className="flex-1 rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (newOutboundUrl.trim()) {
-                          const newEp: OutboundEndpoint = { url: newOutboundUrl.trim() }
-                          if (newOutboundSecret.trim()) newEp.secret = newOutboundSecret.trim()
-                          setOutboundEndpoints(prev => {
-                            const exists = prev.some(e => e.url === newEp.url)
-                            return exists ? prev : [...prev, newEp]
-                          })
-                          setNewOutboundUrl('')
-                          setNewOutboundSecret('')
-                        }
-                      }}
-                      className="rounded border border-white/20 px-3 text-sm hover:bg-white/5"
-                    >
-                      Add
-                    </button>
-                  </div>
-                  <input
-                    type="password"
-                    value={newOutboundSecret}
-                    onChange={(e) => setNewOutboundSecret(e.target.value)}
-                    placeholder="Optional signing secret"
-                    className="w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm font-mono"
-                  />
-                </div>
-
-                {/* List with remove + Send Test per endpoint */}
-                {outboundEndpoints.length > 0 && (
-                  <div className="text-xs mb-3 space-y-1.5">
-                    {outboundEndpoints.map((ep, i) => (
-                      <div
-                        key={ep.url}
-                        className="rounded border border-white/10 bg-black/30 p-2"
-                        data-testid="outbound-webhook-row"
-                      >
-                        <div className="flex items-center justify-between font-mono text-[var(--fg-muted)]">
-                          <span className="truncate text-[11px]">{ep.url}</span>
-                          <div className="flex items-center gap-2">
-                            {ep.secret && (
-                              <span className="text-[9px] text-[var(--amber)]" data-testid={`outbound-secret-chip-${i}`}>
-                                secret
-                              </span>
-                            )}
-                            <button
-                              type="button"
-                              disabled={testResults[ep.url]?.state === 'testing'}
-                              onClick={async () => {
-                                setTestResults((previous) => ({
-                                  ...previous,
-                                  [ep.url]: { state: 'testing', message: 'Testing…' },
-                                }))
-                                try {
-                                  const res = await fetch('/api/test-outbound', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-	                                      endpoint: ep.url,
-	                                      secret: ep.secret || null,
-	                                      eventType: 'booking.received',
-	                                      pageId: page?.id,
-	                                      data: { test_source: 'settings_ui' },
-	                                    }),
-                                  })
-                                  const data = await res.json()
-                                  const nextResult: OutboundTestResult = data.success
-                                    ? { state: 'success', message: `✓ Sent (HTTP ${data.status})` }
-                                    : { state: 'failure', message: `✗ Failed: ${data.error || data.status}` }
-                                  setTestResults((previous) =>
-                                    previous[ep.url] ? { ...previous, [ep.url]: nextResult } : previous,
-                                  )
-                                } catch {
-                                  setTestResults((previous) =>
-                                    previous[ep.url]
-                                      ? {
-                                          ...previous,
-                                          [ep.url]: { state: 'failure', message: '✗ Network error' },
-                                        }
-                                      : previous,
-                                  )
-                                }
-                              }}
-                              className="rounded border border-[var(--line)] px-1.5 py-0 text-[10px] text-[var(--fg)] hover:bg-[var(--fill-1)] disabled:opacity-60"
-                            >
-                              {testResults[ep.url]?.state === 'testing' ? '...' : 'Send Test'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOutboundEndpoints((previous) => previous.filter((_, index) => index !== i))
-                                setTestResults((previous) => {
-                                  const next = { ...previous }
-                                  delete next[ep.url]
-                                  return next
-                                })
-                              }}
-                              className="text-[10px] text-zinc-400 hover:text-red-400"
-                            >
-                              remove
-                            </button>
-                          </div>
-                        </div>
-                        {testResults[ep.url] ? (
-                          <div
-                            role={testResults[ep.url].state === 'failure' ? 'alert' : 'status'}
-                            data-testid="outbound-test-result"
-                            data-state={testResults[ep.url].state}
-                            className={`mt-1 font-mono text-[10px] ${
-                              testResults[ep.url].state === 'success'
-                                ? 'text-[var(--ready)]'
-                                : testResults[ep.url].state === 'failure'
-                                  ? 'text-[var(--danger)]'
-                                  : 'text-[var(--fg-muted)]'
-                            }`}
-                          >
-                            {testResults[ep.url].message}
-                          </div>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  disabled={outboundSaving}
-                  onClick={async () => {
-                    if (!page) return
-                    setOutboundSaving(true)
-                    setMessage('')
-                    try {
-	                      const { error } = await upsertPageSecrets({ outbound_webhooks: outboundEndpoints })
-	                      setMessage(error ? error.message : `Saved ${outboundEndpoints.length} webhook URL${outboundEndpoints.length === 1 ? '' : 's'}. They fire automatically on real bookings.`)
-	                      if (!error) setPage({ ...page, outbound_webhooks: outboundEndpoints })
-                    } catch (e: any) {
-                      setMessage('Failed to save: ' + e.message)
-                    } finally {
-                      setOutboundSaving(false)
-                    }
-                  }}
-                  className="mt-1 w-full rounded-lg border border-[var(--signal)]/40 px-4 py-1.5 text-sm text-[var(--signal)] hover:bg-[var(--signal)]/10 disabled:opacity-60"
-                >
-                  {outboundSaving ? 'Saving...' : `Save ${outboundEndpoints.length} Webhook URL${outboundEndpoints.length === 1 ? '' : 's'}`}
-                </button>
-                <p className="mt-1 text-[10px] text-zinc-500">Webhook URLs and secrets are stored on this listing. Use "Send Test" to confirm delivery.</p>
-
-                {/* Example payloads for Zapier / Make / generic webhooks */}
-                <details className="mt-3 text-[10px] text-zinc-400">
-                  <summary className="cursor-pointer hover:text-zinc-200">Example JSON payload</summary>
-                  <pre className="mt-2 overflow-auto rounded bg-black/40 p-2 text-[9px] text-[var(--ready)]/90">
-{`// booking.received (fired on real events)
-{
-  "event": "booking.received",
-  "timestamp": "2026-...",
-  "page": { "id": "...", "slug": "...", "name": "..." },
-  "data": {
-    "event_type": "provider_redirect" | "stripe_session_created",
-    "offer_name": "...",
-    "offer_key": "services-0",
-    "amount": 45000,   // cents if available
-    "source": "nexez_checkout" | "calendly_webhook"
-  }
-}`}</pre>
-                  <p className="mt-1 text-[9px]">Use this shape when connecting custom automation.</p>
-                </details>
-                {/* Real recent fires from DB (what actually triggered / would trigger your endpoints) */}
-                {recentOutboundFires.length > 0 && (
-                  <div className="mt-4 border-t border-white/10 pt-3">
-                    <div className="text-[10px] uppercase tracking-widest text-[var(--signal)] mb-1.5">Recent booking events</div>
-                    <div className="space-y-1 text-[11px]">
-                      {recentOutboundFires.map((evt, i) => (
-                        <div key={i} className="flex justify-between text-[var(--signal)]/90">
-                          <span>{evt.event_type?.replace(/_/g, ' ')} - {evt.offer_name}</span>
-                          <span className="text-[var(--signal)]/60">{new Date(evt.created_at).toLocaleTimeString()}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-1 text-[9px] text-zinc-500">Saved webhook URLs receive these events automatically.</div>
-                  </div>
-                )}
-              </div>
+              <OutboundWebhooksPanel
+                slug={slug}
+                pageId={page?.id}
+                endpoints={outboundEndpoints}
+                setEndpoints={setOutboundEndpoints}
+                testResults={testResults}
+                setTestResults={setTestResults}
+                recentFires={recentOutboundFires}
+                upsertSecrets={upsertPageSecrets}
+                onMessage={setMessage}
+                onPersisted={(next) => setPage((current) => (current ? { ...current, outbound_webhooks: next } : current))}
+              />
 
               {/* Google Calendar Availability */}
-              <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4" data-testid="availability-panel">
-                <div className="text-sm font-medium text-[var(--ready)] mb-2">Google Calendar Availability</div>
-                <p className="text-[10px] text-zinc-400 mb-3">Enter a Google Calendar ID to create agent-readable availability windows, or leave it blank and save a manual availability note. Both appear on the public listing and in agent data.</p>
-
-                <div className="space-y-2 mb-3">
-                  <label className="block text-[11px] text-zinc-400">
-                    Calendar ID
-                    <input
-                      type="text"
-                      value={googleCalendarId}
-                      onChange={(e) => setGoogleCalendarId(e.target.value)}
-                      placeholder="Calendar ID (e.g. yourname@gmail.com or abc123@group.calendar.google.com)"
-                      className="mt-1 w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm text-white"
-                      data-testid="google-calendar-id-input"
-                    />
-                  </label>
-                  <label className="block text-[11px] text-zinc-400">
-                    Availability note
-                    <input
-                      type="text"
-                      value={availabilityNote}
-                      onChange={(e) => setAvailabilityNote(e.target.value)}
-                      placeholder="Next available: This week, or specific dates/slots"
-                      className="mt-1 w-full rounded border border-white/15 bg-black/30 px-3 py-1.5 text-sm text-white"
-                      data-testid="availability-note-input"
-                    />
-                  </label>
-                </div>
-
-                <button
-                  type="button"
-                  disabled={availabilitySaving}
-                  onClick={async () => {
-                    if (!page) return
-                    setAvailabilitySaving(true)
-                    setMessage('')
-                    try {
-                      let finalNote = availabilityNote || ''
-                      let importedAvailability: any = null
-
-                      const calendarId = googleCalendarId.trim()
-
-                      if (calendarId) {
-                        const res = await fetch('/api/integrations/google-calendar/availability', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ calendarId }),
-                        })
-                        const data = await res.json()
-                        if (!res.ok) throw new Error(data?.error || 'Import failed')
-                        importedAvailability = data.availability
-                        finalNote = data.next_available || data.availability?.summary_note || finalNote
-
-                        // Persist structured windows for agents using a compact marker (same pattern as ||TIERS|| for zero-schema fidelity)
-                        if (importedAvailability?.windows?.length) {
-                          const compact = JSON.stringify(importedAvailability.windows)
-                          finalNote = `${finalNote} ||WINDOWS||${compact}`
-                        }
-                      }
-
-                      const payload: any = {
-                        next_available: finalNote || null,
-                        google_calendar_id: calendarId || null,
-                      }
-
-                      const supabase = createClient()
-                      const { data: savedAvailability, error } = await supabase
-                        .from('pages')
-                        .update(payload)
-                        .eq('id', page.id)
-                        .select('id')
-                        .single()
-
-                      if (!error && savedAvailability) {
-                        setAvailabilityNote(stripAvailabilityMarker(finalNote))
-                        setGoogleCalendarId(calendarId)
-                        setPage({
-                          ...page,
-                          next_available: finalNote || null,
-                          google_calendar_id: calendarId || null,
-                        } as AgentPage)
-                      }
-
-                      const successMsg = calendarId
-                        ? `Availability imported from Google Calendar • ${importedAvailability?.windows?.length || 0} windows • Last synced just now.`
-                        : 'Availability saved. Visible on the public listing and in agent data.'
-
-                      setMessage(error || !savedAvailability ? error?.message || 'Availability was not saved.' : successMsg)
-                    } catch (e: any) {
-                      setMessage('Failed to import availability: ' + e.message)
-                    } finally {
-                      setAvailabilitySaving(false)
-                    }
-                  }}
-                  className="mt-1 w-full rounded-lg border border-[var(--ready)]/40 px-4 py-1.5 text-sm text-[var(--ready)] hover:bg-[var(--ready)]/10 disabled:opacity-60"
-                  data-testid="availability-save-button"
-                >
-                  {availabilitySaving ? 'Saving...' : hasCalendarId ? 'Import Availability from Google Calendar' : 'Save Manual Availability'}
-                </button>
-                <p className="mt-1 text-[10px] text-zinc-500">Calendar ID, imported windows, and manual notes are stored on the listing and appear for agents immediately.</p>
-              </div>
+              <AvailabilityPanel
+                pageId={page?.id}
+                calendarId={googleCalendarId}
+                setCalendarId={setGoogleCalendarId}
+                note={availabilityNote}
+                setNote={setAvailabilityNote}
+                onMessage={setMessage}
+                onPersisted={(patch) => setPage((current) => (current ? ({ ...current, ...patch } as AgentPage) : current))}
+              />
 
               <div className="rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4 sm:p-5">
                 <label htmlFor="calendly-webhook-secret" className="text-sm font-medium text-[var(--fg)]">
@@ -2396,10 +1778,6 @@ function LinkPanel({
       </div>
     </div>
   )
-}
-
-function stripAvailabilityMarker(note: string | null | undefined) {
-  return (note || '').split('||WINDOWS||')[0].trim()
 }
 
 function DisabledRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
