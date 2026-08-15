@@ -105,3 +105,30 @@ describe('getBillingPlan', () => {
     expect(getBillingPlan('nope')).toBeUndefined()
   })
 })
+
+// The account settings page advertised "Private API keys: Planned for Scale" long
+// after keys shipped, and after apiAccess moved Scale -> Pro (rank 3 -> 2). That copy
+// is now derived from minPlanForFeature rather than written by hand; these pin the
+// tiers the product surfaces actually claim, so a future rank move is caught here
+// instead of by a customer reading a stale promise.
+describe('tiers the UI advertises', () => {
+  it('apiAccess is Pro, not Scale', () => {
+    expect(minPlanForFeature('apiAccess').name).toBe('Pro')
+  })
+
+  it('the features that moved down from Scale are all Pro', () => {
+    for (const feature of ['teamCollaboration', 'whiteLabel', 'integrations', 'outboundWebhooks', 'negotiation', 'analyticsHistory'] as const) {
+      expect(minPlanForFeature(feature).name).toBe('Pro')
+    }
+  })
+
+  it('customDomain is still Launch', () => {
+    expect(minPlanForFeature('customDomain').name).toBe('Launch')
+  })
+
+  it('Scale and Enterprise still own what is genuinely theirs', () => {
+    expect(minPlanForFeature('prioritySupport').name).toBe('Scale')
+    expect(minPlanForFeature('sso').name).toBe('Enterprise')
+  })
+})
+
