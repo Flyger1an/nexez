@@ -772,7 +772,7 @@ export default function PageSettings({ params }: PageProps) {
               id="general"
               active={activeSection === 'general'}
               title="General"
-              description="The essential identity, contact path, visibility, and checkout defaults for this listing."
+              hint="The essential identity, contact path, visibility, and checkout defaults for this listing."
               icon={Settings}
               status={<StatusPill label={visibilityStatus} tone={visibilityChanged ? 'attention' : isPublished ? 'ready' : 'neutral'} />}
             >

@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from '../../test/dom'
 import userEvent from '@testing-library/user-event'
 import { CheckCircle2, Globe2 } from 'lucide-react'
 import {
+  SettingHint,
   SettingRow,
   SettingsNav,
   SettingsSection,
@@ -232,3 +233,93 @@ describe('SettingsNav', () => {
     expect(screen.getByRole('link', { name: 'General' })).not.toHaveAttribute('aria-current')
   })
 })
+
+describe('SettingHint', () => {
+  it('starts collapsed, with the panel hidden', () => {
+    render(<SettingHint label="About Brand & domain">Connect a trusted hostname.</SettingHint>)
+    const trigger = screen.getByRole('button', { name: 'About Brand & domain' })
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByText('Connect a trusted hostname.')).not.toBeVisible()
+  })
+
+  it('opens on click and reports it', async () => {
+    const user = userEvent.setup()
+    render(<SettingHint label="About Brand & domain">Connect a trusted hostname.</SettingHint>)
+    await user.click(screen.getByRole('button', { name: 'About Brand & domain' }))
+
+    expect(screen.getByRole('button', { name: 'About Brand & domain' }).getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByText('Connect a trusted hostname.')).toBeVisible()
+  })
+
+  it('is operable from the keyboard, not just the mouse', async () => {
+    const user = userEvent.setup()
+    render(<SettingHint label="About Brand & domain">Connect a trusted hostname.</SettingHint>)
+    await user.tab()
+    expect(screen.getByRole('button', { name: 'About Brand & domain' })).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(screen.getByText('Connect a trusted hostname.')).toBeVisible()
+  })
+
+  it('closes on Escape', async () => {
+    const user = userEvent.setup()
+    render(<SettingHint label="About Brand & domain">Connect a trusted hostname.</SettingHint>)
+    await user.click(screen.getByRole('button', { name: 'About Brand & domain' }))
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByText('Connect a trusted hostname.')).not.toBeVisible())
+  })
+
+  it('closes on a click outside', async () => {
+    const user = userEvent.setup()
+    render(
+      <div>
+        <SettingHint label="About Brand & domain">Connect a trusted hostname.</SettingHint>
+        <button type="button">elsewhere</button>
+      </div>,
+    )
+    await user.click(screen.getByRole('button', { name: 'About Brand & domain' }))
+    await user.click(screen.getByRole('button', { name: 'elsewhere' }))
+    await waitFor(() => expect(screen.queryByText('Connect a trusted hostname.')).not.toBeVisible())
+  })
+
+  it('stays open when the panel itself is clicked', async () => {
+    const user = userEvent.setup()
+    render(<SettingHint label="About Brand & domain">Connect a trusted hostname.</SettingHint>)
+    await user.click(screen.getByRole('button', { name: 'About Brand & domain' }))
+    await user.click(screen.getByText('Connect a trusted hostname.'))
+    expect(screen.getByText('Connect a trusted hostname.')).toBeVisible()
+  })
+
+  it('keeps aria-controls pointing at a real element while collapsed', () => {
+    // A dangling reference is worse than none: assistive tech following the
+    // relationship finds nothing and reports the control as broken.
+    render(<SettingHint label="About Brand & domain">Connect a trusted hostname.</SettingHint>)
+    const id = screen.getByRole('button', { name: 'About Brand & domain' }).getAttribute('aria-controls')
+    expect(id).toBeTruthy()
+    expect(document.getElementById(id!)).not.toBeNull()
+  })
+})
+
+describe('SettingsSection hint', () => {
+  it('collapses the blurb behind a disclosure when hint is used', async () => {
+    const user = userEvent.setup()
+    render(
+      <SettingsSection id="general" title="General" hint="Identity, contact path, and checkout defaults.">
+        <p>body</p>
+      </SettingsSection>,
+    )
+    expect(screen.queryByText('Identity, contact path, and checkout defaults.')).not.toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'About General' }))
+    expect(screen.getByText('Identity, contact path, and checkout defaults.')).toBeVisible()
+  })
+
+  it('still prints description inline, for prose that must not be hidden', () => {
+    render(
+      <SettingsSection id="general" title="General" description="Currency saves immediately.">
+        <p>body</p>
+      </SettingsSection>,
+    )
+    expect(screen.getByText('Currency saves immediately.')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'About General' })).toBeNull()
+  })
+})
+
