@@ -17,6 +17,7 @@ import { TeamInvites } from '../../../components/TeamInvites'
 import { StorefrontSettings, type StorefrontListing } from '../../../components/StorefrontSettings'
 import { loadStorefrontsForOwner } from '../../../lib/server/storefront'
 import { PlanGate } from '../../../components/billing/PlanGate'
+import { minPlanForFeature } from '../../../lib/billing'
 import { getOwnerPlanId } from '../../../lib/server/plan'
 
 const schemaSignals = [
@@ -172,7 +173,13 @@ export default async function AccountSettingsPage() {
                 </div>
                 <div className="mt-5 space-y-3 text-sm">
                   <ConfigRow label="Public APIs" value="No key required" />
-                  <ConfigRow label="Private API keys" value="Planned for Scale" />
+                  {/* Derived from FEATURE_MIN_RANK, not written by hand: this row read
+                      "Planned for Scale" long after keys shipped, and after apiAccess
+                      moved Scale -> Pro. Deriving it means the copy cannot drift again. */}
+                  <ConfigRow
+                    label="Private API keys"
+                    value={`${minPlanForFeature('apiAccess').name} and up - manage in Tools`}
+                  />
                   <ConfigRow label="Service role exposure" value="Never exposed" />
                 </div>
               </div>
