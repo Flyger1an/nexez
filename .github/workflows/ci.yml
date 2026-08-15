@@ -6,6 +6,17 @@ on:
   pull_request:
     branches: [main]
 
+# Supersede in-flight runs for the SAME pull request. Without this, rapid pushes to a
+# PR leave every superseded run burning to completion, which is the single largest
+# source of wasted minutes here.
+#
+# cancel-in-progress is scoped to pull_request on purpose. Release Certification is
+# triggered by `workflow_run` on CI completion, so cancelling a push-to-main run would
+# silently stop certification records from being written.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -47,7 +58,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        openclaw-version: ['2026.6.8', '2026.7.1']
+        # Current OpenClaw on a PR, both supported versions on push to main. Halves two
+        # gauntlet jobs per PR run while keeping full compatibility coverage on main.
+        openclaw-version: ${{ fromJSON(github.event_name == 'pull_request' && '["2026.7.1"]' || '["2026.6.8", "2026.7.1"]') }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -102,7 +115,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        # Floor and ceiling on a PR, the full support range on push to main. The
+        # in-between versions have never been the ones to break, and main still gets
+        # complete coverage before anything is released.
+        #
+        # Intentionally NOT moved to a nightly schedule: a nightly full CI run costs
+        # about nine job-runs a day, which is more than trimming this matrix saves.
+        python-version: ${{ fromJSON(github.event_name == 'pull_request' && '["3.9", "3.13"]' || '["3.9", "3.10", "3.11", "3.12", "3.13"]') }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
