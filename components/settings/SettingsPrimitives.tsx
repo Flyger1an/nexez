@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useId, useState, type ReactNode } from 'react'
-import { Loader2, type LucideIcon } from 'lucide-react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { Info, Loader2, type LucideIcon } from 'lucide-react'
 
 function classes(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(' ')
@@ -96,10 +96,93 @@ export function SettingsSwitch({
   )
 }
 
+export type SettingHintProps = {
+  /** The explanation itself. Keep it to what a section IS, never what an action DOES. */
+  children: ReactNode
+  /** Names the trigger for screen readers, e.g. "About Brand & domain". */
+  label: string
+  className?: string
+}
+
+/**
+ * A disclosure that hides a section's descriptive prose behind an info affordance.
+ *
+ * Deliberately "i" and not "!". This platform already spends the warning glyph on
+ * real problems (StatusPill 'attention'/'danger', the amber DNS blocks). Reusing
+ * it for neutral prose would teach owners the mark means "nothing is wrong", which
+ * is exactly the wrong lesson on a page where one of those blocks is telling them
+ * their domain has stopped resolving.
+ *
+ * Only ever hide what a section IS. Anything describing the CONSEQUENCE of an
+ * action stays inline: "Currency saves immediately" differs from every other field
+ * on the page, and behind a hover it is how somebody re-prices by accident.
+ *
+ * Click, not hover: hover has no touch equivalent and no keyboard equivalent. The
+ * trigger is a real button, the panel is bound with aria-controls/aria-expanded,
+ * Escape closes it, and so does a click outside.
+ */
+export function SettingHint({ children, label, className }: SettingHintProps) {
+  const [open, setOpen] = useState(false)
+  const generatedId = useId()
+  const panelId = `setting-hint-${generatedId}`
+  const wrapperRef = useRef<HTMLSpanElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    function onPointerDown(event: MouseEvent | TouchEvent) {
+      const node = wrapperRef.current
+      if (node && !node.contains(event.target as Node)) setOpen(false)
+    }
+
+    document.addEventListener('keydown', onKeyDown)
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('touchstart', onPointerDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('touchstart', onPointerDown)
+    }
+  }, [open])
+
+  return (
+    <span ref={wrapperRef} className={classes('relative inline-flex', className)}>
+      <button
+        type="button"
+        aria-label={label}
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen((current) => !current)}
+        className="inline-flex size-6 items-center justify-center rounded-[var(--r-pill)] text-[var(--fg-muted)] outline-none transition-colors hover:bg-[var(--fill-1)] hover:text-[var(--fg)] focus-visible:ring-2 focus-visible:ring-[var(--settings-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)] motion-reduce:transition-none"
+      >
+        <Info className="size-4" aria-hidden="true" />
+      </button>
+      {/*
+        Always rendered, hidden with `hidden`, so the id in aria-controls always
+        resolves. Assistive tech that follows the relationship while collapsed finds
+        a real element rather than a dangling reference.
+      */}
+      <span
+        id={panelId}
+        role="note"
+        hidden={!open}
+        className="absolute left-0 top-8 z-20 w-72 rounded-[var(--radius)] border border-[var(--line-soft)] bg-[var(--bg)] p-3 text-sm leading-6 text-[var(--fg-muted)] shadow-[var(--settings-panel-shadow)]"
+      >
+        {children}
+      </span>
+    </span>
+  )
+}
+
 export type SettingsSectionProps = {
   id: string
   title: string
   description?: string
+  /** Collapses the section blurb behind an info disclosure instead of printing it. */
+  hint?: ReactNode
   icon?: LucideIcon
   active?: boolean
   activeLabel?: string
@@ -115,6 +198,7 @@ export function SettingsSection({
   id,
   title,
   description,
+  hint,
   icon: Icon,
   active = false,
   activeLabel = 'Current section',
@@ -156,7 +240,10 @@ export function SettingsSection({
             </span>
           ) : null}
           <div className="min-w-0">
-            <h2 id={headingId} className="text-lg font-semibold tracking-tight text-[var(--fg)]">{title}</h2>
+            <div className="flex items-center gap-1.5">
+              <h2 id={headingId} className="text-lg font-semibold tracking-tight text-[var(--fg)]">{title}</h2>
+              {hint ? <SettingHint label={`About ${title}`}>{hint}</SettingHint> : null}
+            </div>
             {description ? (
               <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">{description}</p>
             ) : null}
