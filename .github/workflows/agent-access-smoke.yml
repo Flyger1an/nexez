@@ -4,7 +4,11 @@ on:
   workflow_dispatch:
   schedule:
     # Keep the public agent distribution surface honest without requiring secrets.
-    - cron: '17 */6 * * *'
+    # Daily rather than 6-hourly: these checks re-assert largely static facts (install
+    # strings, registry parity, the cname pointer), and four runs a day across two jobs
+    # was roughly 240 job-runs a month to catch drift that changes on the order of
+    # weeks. workflow_dispatch is still there for an on-demand check after a release.
+    - cron: '17 9 * * *'
 
 jobs:
   smoke:
