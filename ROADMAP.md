@@ -1,6 +1,6 @@
 # Nexez Roadmap
 
-_Last reconciled: 2026-08-15 against `origin/main` at `949d1e1`._
+_Last reconciled: 2026-08-15 against `origin/main` at `a1e1e9a`._
 
 **Mission:** Make any business legible and transactable to autonomous agents without forcing it to replace its human website. Nexez provides structured storefronts, agent artifacts, transaction rails, seller operations, and distribution into agent workflows.
 
@@ -81,6 +81,7 @@ The next milestone remains growing real launch-quality supply and proving demand
 - Simulator history, AI Copilot, competitor analysis, readiness/trust score, credentials, voice optimization, agent memory, leaderboard, and verification signals.
 - Team invites, accepted-only collaborator access, owner-entitlement inheritance on shared pages, approval workflows, notifications, support desk, account export/delete, and API keys.
 - Three-host auth/routing architecture, shared session on the `.nexez.ai` app family, cookie-isolated agent runtime, rate limiting, observability, security headers, RLS hardening, and public projection parity tests.
+- Trust framework in `docs/trust/`: control, data, and vendor registers, incident response, operating checklists, and a rollout plan, alongside a reconciled platform README.
 - `requirePageAccess` guard collapsing the authenticate/service-role/authorize preamble into one call returning a discriminated union, so a handler body can only be entered while holding a grant. It stays a guard rather than a wrapper because these routes do rate limiting and body parsing before authorization, and custom-domain needs the admin client to discover which page is even being addressed.
 - Owner-select schema guard: every column in the server, owner, and basic selects must exist on `public.pages` or the build fails, and settings degrades to the basic select when the rich one errors, matching its three sibling surfaces.
 - Vercel Speed Insights on the Next.js app.
