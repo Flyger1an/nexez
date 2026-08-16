@@ -587,16 +587,6 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
           </section>
         ) : null}
 
-        {(page as any).agent_memory && (
-          <section className="border-t border-white/10 py-8">
-            <h2 className="text-xl font-semibold">Agent Memory & Context</h2>
-            <div className="mt-3 text-sm text-[#9CA3AF] whitespace-pre-wrap card !p-4">
-              {(page as any).agent_memory.notes || JSON.stringify((page as any).agent_memory)}
-            </div>
-            <p className="text-[10px] text-zinc-500 mt-1">This context is included for agents in manifests, mcp.json and simulator. Update in page Settings.</p>
-          </section>
-        )}
-
         <div className="text-[10px] text-zinc-500 mt-2">Voice agents: descriptions can be rewritten to be more phonetic and concise via AI Co-Pilot. See the builder for the Voice optimization option.</div>
 
         <section className="border-t border-white/10 py-12">

@@ -300,7 +300,11 @@ export type AgentPageManifest = {
   recommended_actions: string[]
   plain_text: string
   storefront?: NexezStorefrontReference
-  memory_context: JsonValue | null
+  /** @deprecated Removed from the manifest on 2026-08-16. Owner-authored notes
+   *  were never intended for buyers and are no longer projected publicly. The
+   *  key is absent from responses; this field remains only so existing readers
+   *  keep type-checking. */
+  memory_context?: JsonValue | null
   certification: AgentPageCertification
 }
 

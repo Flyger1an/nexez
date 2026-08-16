@@ -112,8 +112,6 @@ export function buildAgentPagePayload(
     ],
     plain_text: buildPlainText(page, offers, identityBase, opts.storefront, opts.reviewSummary),
     ...(opts.storefront ? { storefront: opts.storefront } : {}),
-    // Agent memory/context (if present on page)
-    memory_context: (page as any).agent_memory || null,
     // Live technical certification. Trust verification and marketplace curation
     // remain separate signals.
     certification: getCertification(page),
