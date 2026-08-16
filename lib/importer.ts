@@ -464,6 +464,8 @@ const PRIVATE_HOST_PATTERNS = [
 ]
 const HOST_SAFETY_CACHE = new Map<string, { ts: number; error: string | null }>()
 const HOST_SAFETY_TTL_MS = 5 * 60 * 1000
+/** Distinguishes "we ran out of time" from "the lookup genuinely failed". */
+const DNS_TIMEOUT_MARKER = 'DNS safety lookup timed out'
 
 // Simple in-memory short-TTL cache (Phase 5 robustness). Avoids hammering the same site repeatedly.
 const IMPORT_CACHE = new Map<string, { ts: number; result: ImportResult }>()
@@ -532,19 +534,31 @@ export async function getResolvedImportUrlError(
   if (cached && Date.now() - cached.ts < HOST_SAFETY_TTL_MS) return cached.error
 
   let error: string | null = null
+  let timedOut = false
   try {
     const records = await Promise.race([
       dns.lookup(hostname, { all: true }),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('DNS safety lookup timed out')), 1500)),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error(DNS_TIMEOUT_MARKER)), 1500)),
     ])
     if (records.some((record) => isBlockedIpAddress(record.address))) {
       error = 'Website URL resolved to a private or local network address.'
     }
-  } catch {
-    error = opts.failClosed ? 'Website hostname could not be resolved safely.' : null
+  } catch (err) {
+    // Two very different situations land here and conflating them misleads the
+    // caller. A TIMEOUT usually means this process is busy: the guard is
+    // uncached on the scan path and races a hard 1500ms budget, and dns.lookup
+    // runs on the libuv threadpool, so concurrent scans queue behind it. A
+    // genuine FAILURE usually means the domain really is gone. Reporting the
+    // first as the second tells a real merchant their live site is broken.
+    timedOut = err instanceof Error && err.message === DNS_TIMEOUT_MARKER
+    if (!opts.failClosed) error = null
+    else if (timedOut) error = 'Could not verify this website address in time. Please try again.'
+    else error = 'This website address could not be resolved. Check the domain and try again.'
   }
 
-  if (useCache) {
+  // Never cache a timeout. It is a statement about how busy we were, not about
+  // the host, and caching it would keep answering with it for the whole TTL.
+  if (useCache && !timedOut) {
     HOST_SAFETY_CACHE.set(hostname, { ts: Date.now(), error })
     if (HOST_SAFETY_CACHE.size > 100) {
       const first = HOST_SAFETY_CACHE.keys().next().value
