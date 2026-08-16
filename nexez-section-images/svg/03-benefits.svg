@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1600" y2="900">
+      <stop offset="0" stop-color="#0A0F1C"/><stop offset="1" stop-color="#0C1730"/>
+    </linearGradient>
+    <linearGradient id="mb" gradientUnits="userSpaceOnUse" x1="200" y1="560" x2="700" y2="720">
+      <stop offset="0" stop-color="#34E5B0"/><stop offset="1" stop-color="#4C9BFF"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <g stroke="#16223A" stroke-width="1" opacity="0.6">
+    <line x1="0" y1="150" x2="1600" y2="150"/><line x1="0" y1="450" x2="1600" y2="450"/><line x1="0" y1="750" x2="1600" y2="750"/>
+    <line x1="400" y1="0" x2="400" y2="900"/><line x1="800" y1="0" x2="800" y2="900"/><line x1="1200" y1="0" x2="1200" y2="900"/>
+  </g>
+  <rect x="120" y="96" width="160" height="34" rx="17" fill="#0F1C33" stroke="#244065"/>
+  <text x="200" y="119" fill="#34E5B0" font-size="16" letter-spacing="3" text-anchor="middle">BENEFITS</text>
+  <text x="118" y="200" fill="#EAF1FC" font-size="50" font-weight="bold">Keep your website.</text>
+  <text x="118" y="258" fill="#EAF1FC" font-size="50" font-weight="bold">Add the layer that converts.</text>
+
+  <!-- left: stacked layers -->
+  <g>
+    <text x="200" y="380" fill="#8597B5" font-size="20">Two layers, one source of truth</text>
+    <!-- website layer -->
+    <rect x="200" y="410" width="440" height="120" rx="14" fill="#0E1B30" stroke="#26415F"/>
+    <text x="230" y="455" fill="#D7E4F5" font-size="24" font-weight="bold">Your website</text>
+    <text x="230" y="490" fill="#8597B5" font-size="18">Builds trust &amp; converts humans</text>
+    <circle cx="600" cy="470" r="20" fill="#16233D"/><text x="600" y="478" fill="#8FB4E6" font-size="22" text-anchor="middle">H</text>
+    <!-- connector -->
+    <line x1="420" y1="530" x2="420" y2="566" stroke="#34E5B0" stroke-width="3"/>
+    <!-- nexez layer -->
+    <rect x="200" y="566" width="440" height="120" rx="14" fill="#0C2A22" stroke="url(#mb)" stroke-width="2.5"/>
+    <text x="230" y="611" fill="#EAF1FC" font-size="24" font-weight="bold">Nexez agent layer</text>
+    <text x="230" y="646" fill="#7FD9C2" font-size="18">Helps agents interpret &amp; act</text>
+    <circle cx="600" cy="626" r="20" fill="#0E3A2E"/><text x="600" y="634" fill="#34E5B0" font-size="22" text-anchor="middle">A</text>
+  </g>
+
+  <!-- right: 4 benefit chips -->
+  <g font-size="22">
+    <g>
+      <rect x="760" y="400" width="700" height="64" rx="12" fill="#0E1B30" stroke="#1FB58C"/>
+      <path d="M792 432 l10 10 l18 -20" stroke="#34E5B0" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <text x="840" y="440" fill="#D7E4F5">Publish structured offers agents understand</text>
+    </g>
+    <g>
+      <rect x="760" y="478" width="700" height="64" rx="12" fill="#0E1B30" stroke="#1FB58C"/>
+      <path d="M792 510 l10 10 l18 -20" stroke="#34E5B0" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <text x="840" y="518" fill="#D7E4F5">Give clear pricing, proof &amp; next steps</text>
+    </g>
+    <g>
+      <rect x="760" y="556" width="700" height="64" rx="12" fill="#0E1B30" stroke="#1FB58C"/>
+      <path d="M792 588 l10 10 l18 -20" stroke="#34E5B0" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <text x="840" y="596" fill="#D7E4F5">Get recommended in AI-assisted discovery</text>
+    </g>
+    <g>
+      <rect x="760" y="634" width="700" height="64" rx="12" fill="#0E1B30" stroke="#1FB58C"/>
+      <path d="M792 666 l10 10 l18 -20" stroke="#34E5B0" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <text x="840" y="674" fill="#D7E4F5">Turn agent traffic into measurable outcomes</text>
+    </g>
+  </g>
+</svg>

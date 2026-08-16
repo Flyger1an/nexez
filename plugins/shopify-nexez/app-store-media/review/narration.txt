@@ -1,0 +1,17 @@
+Nexez Agent-Ready makes a Shopify catalog legible to AI agents while keeping the merchant's storefront and checkout in control. This walkthrough uses a dedicated development store and the prepared Shopify Review Catalog. Reviewer credentials are supplied privately in the app submission, so no password or sensitive account data appears on screen.
+
+After installation, the merchant opens Nexez Agent-Ready directly inside Shopify admin. The embedded home shows the connected store, the selected Nexez listing, and the latest catalog sync. From one clear workspace, the merchant can change the destination listing, refresh products, open the theme integration, or inspect the same endpoint that agents receive.
+
+Connecting a store is always an explicit merchant action. The merchant chooses one of their Nexez listings, then confirms the connection. Nexez does not silently attach a store to an account or restore a previous listing after an uninstall. One Shopify store can be active on a listing at a time, which keeps catalog ownership and attribution clear.
+
+The catalog sync reads active, published products and imports the details agents need to compare an offer accurately. That includes product names, descriptions, variants, prices, currency, availability, and the original Shopify storefront URL. In this review store, the sync completes with thirteen active products. A single refresh supports up to two hundred and fifty products, and a failed refresh preserves the existing catalog instead of replacing it with incomplete data.
+
+Next, the merchant enables the lightweight Agent-ready discovery app embed in the Shopify theme editor and saves the theme. The embed publishes discovery links through the store's configured app proxy path. It does not replace the storefront, add a competing checkout, or change the merchant's visual theme. It gives compatible agents a stable path to the structured catalog.
+
+Back in Shopify admin, the connected state remains available for routine management. Product create, update, and delete webhooks queue a bounded catalog refresh, while the Sync now action gives the merchant immediate control. The app requests only read products and write app proxy. It does not request or store customer data or order data.
+
+The resulting Nexez page presents the business as a concise, agent-readable catalog. The summary exposes the best-fit buyer, offer count, service area, and primary action. The linked agent artifact provides structured product data, and the public page gives human reviewers a clear view of the same catalog. Here, all thirteen imported products are visible after the sync.
+
+Each product preserves its Shopify source and shows useful commerce details such as variants, pricing, and availability. The primary action returns the buyer or agent to the original Shopify product page. Nexez does not process the product purchase or divert it to another cart. Shopify remains the system of record for the product and the place where checkout is completed.
+
+To recap, Nexez Agent-Ready is a free catalog connector for agent discovery. It reads products only, publishes structured discovery artifacts from the storefront path, keeps changes synchronized, and routes product purchases back to Shopify. The merchant retains control of the listing, storefront, customer relationship, and checkout from start to finish.

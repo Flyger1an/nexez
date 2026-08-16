@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1600" y2="900">
+      <stop offset="0" stop-color="#0A0F1C"/><stop offset="1" stop-color="#0C1730"/>
+    </linearGradient>
+    <linearGradient id="ic" gradientUnits="userSpaceOnUse" x1="0" y1="380" x2="0" y2="430">
+      <stop offset="0" stop-color="#34E5B0"/><stop offset="1" stop-color="#4C9BFF"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <g stroke="#16223A" stroke-width="1" opacity="0.6">
+    <line x1="0" y1="150" x2="1600" y2="150"/><line x1="0" y1="450" x2="1600" y2="450"/><line x1="0" y1="750" x2="1600" y2="750"/>
+    <line x1="400" y1="0" x2="400" y2="900"/><line x1="800" y1="0" x2="800" y2="900"/><line x1="1200" y1="0" x2="1200" y2="900"/>
+  </g>
+  <rect x="120" y="96" width="230" height="34" rx="17" fill="#0F1C33" stroke="#244065"/>
+  <text x="235" y="119" fill="#34E5B0" font-size="16" letter-spacing="3" text-anchor="middle">CAPABILITIES</text>
+  <text x="118" y="208" fill="#EAF1FC" font-size="50" font-weight="bold">Built to convert AI-driven demand.</text>
+
+  <!-- 6 tiles 3x2 -->
+  <!-- row1 y=300 h=180 ; row2 y=510 -->
+  <!-- col x: 120, 620, 1120 width 360 -->
+  <g>
+    <!-- AI Copilot -->
+    <rect x="120" y="300" width="420" height="190" rx="16" fill="#0E1B30" stroke="#26415F"/>
+    <rect x="152" y="332" width="48" height="48" rx="12" fill="#0C2A22"/><circle cx="176" cy="356" r="12" fill="none" stroke="url(#ic)" stroke-width="3"/><circle cx="176" cy="356" r="4" fill="#34E5B0"/>
+    <text x="220" y="350" fill="#EAF1FC" font-size="26" font-weight="bold">AI Copilot</text>
+    <text x="152" y="412" fill="#8597B5" font-size="19">Strengthen pricing, offers &amp; copy</text>
+    <text x="152" y="440" fill="#8597B5" font-size="19">for how agents actually evaluate.</text>
+    <!-- Agent Simulator -->
+    <rect x="590" y="300" width="420" height="190" rx="16" fill="#0E1B30" stroke="#26415F"/>
+    <rect x="622" y="332" width="48" height="48" rx="12" fill="#0C2A22"/><rect x="634" y="346" width="24" height="20" rx="3" fill="none" stroke="url(#ic)" stroke-width="3"/>
+    <text x="690" y="350" fill="#EAF1FC" font-size="26" font-weight="bold">Agent Simulator</text>
+    <text x="622" y="412" fill="#8597B5" font-size="19">Preview how AI systems read</text>
+    <text x="622" y="440" fill="#8597B5" font-size="19">your business before publishing.</text>
+    <!-- Competitor Analysis -->
+    <rect x="1060" y="300" width="420" height="190" rx="16" fill="#0E1B30" stroke="#26415F"/>
+    <rect x="1092" y="332" width="48" height="48" rx="12" fill="#0C2A22"/>
+    <rect x="1100" y="356" width="9" height="16" fill="#34E5B0"/><rect x="1112" y="346" width="9" height="26" fill="#4C9BFF"/><rect x="1124" y="350" width="9" height="22" fill="#A78BFA"/>
+    <text x="1160" y="350" fill="#EAF1FC" font-size="26" font-weight="bold">Competitor</text>
+    <text x="1092" y="412" fill="#8597B5" font-size="19">See how you compare when</text>
+    <text x="1092" y="440" fill="#8597B5" font-size="19">agents weigh the options.</text>
+    <!-- Analytics -->
+    <rect x="120" y="510" width="420" height="190" rx="16" fill="#0E1B30" stroke="#26415F"/>
+    <rect x="152" y="542" width="48" height="48" rx="12" fill="#0C2A22"/><polyline points="160,580 172,566 182,574 192,556" fill="none" stroke="url(#ic)" stroke-width="3"/>
+    <text x="220" y="560" fill="#EAF1FC" font-size="26" font-weight="bold">Analytics</text>
+    <text x="152" y="622" fill="#8597B5" font-size="19">Track visits, queries &amp; conversions</text>
+    <text x="152" y="650" fill="#8597B5" font-size="19">by model to find revenue.</text>
+    <!-- Custom Domains -->
+    <rect x="590" y="510" width="420" height="190" rx="16" fill="#0E1B30" stroke="#26415F"/>
+    <rect x="622" y="542" width="48" height="48" rx="12" fill="#0C2A22"/><circle cx="646" cy="566" r="13" fill="none" stroke="url(#ic)" stroke-width="3"/><line x1="633" y1="566" x2="659" y2="566" stroke="#34E5B0" stroke-width="2"/><line x1="646" y1="553" x2="646" y2="579" stroke="#34E5B0" stroke-width="2"/>
+    <text x="690" y="560" fill="#EAF1FC" font-size="26" font-weight="bold">Custom Domains</text>
+    <text x="622" y="622" fill="#8597B5" font-size="19">Publish on your own domain for</text>
+    <text x="622" y="650" fill="#8597B5" font-size="19">a branded, trusted experience.</text>
+    <!-- Trust Score -->
+    <rect x="1060" y="510" width="420" height="190" rx="16" fill="#0E1B30" stroke="#26415F"/>
+    <rect x="1092" y="542" width="48" height="48" rx="12" fill="#0C2A22"/><path d="M1116 548 l16 6 v10 c0 10 -8 16 -16 20 c-8 -4 -16 -10 -16 -20 v-10 z" fill="none" stroke="url(#ic)" stroke-width="3"/>
+    <text x="1160" y="560" fill="#EAF1FC" font-size="26" font-weight="bold">Trust Score</text>
+    <text x="1092" y="622" fill="#8597B5" font-size="19">Signals that help agents assess</text>
+    <text x="1092" y="650" fill="#8597B5" font-size="19">quality, readiness &amp; reliability.</text>
+  </g>
+</svg>

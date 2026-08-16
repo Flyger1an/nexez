@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1600" y2="900">
+      <stop offset="0" stop-color="#0A0F1C"/><stop offset="1" stop-color="#0B1426"/>
+    </linearGradient>
+    <linearGradient id="mb" gradientUnits="userSpaceOnUse" x1="560" y1="610" x2="880" y2="678">
+      <stop offset="0" stop-color="#34E5B0"/><stop offset="1" stop-color="#4C9BFF"/>
+    </linearGradient>
+    <linearGradient id="glow" gradientUnits="userSpaceOnUse" x1="520" y1="420" x2="1080" y2="470">
+      <stop offset="0" stop-color="#34E5B0"/><stop offset="1" stop-color="#4C9BFF"/>
+    </linearGradient>
+    <linearGradient id="rule" gradientUnits="userSpaceOnUse" x1="640" y1="0" x2="960" y2="0">
+      <stop offset="0" stop-color="#34E5B0"/><stop offset="1" stop-color="#4C9BFF"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <g stroke="#16223A" stroke-width="1" opacity="0.5">
+    <line x1="0" y1="150" x2="1600" y2="150"/><line x1="0" y1="300" x2="1600" y2="300"/>
+    <line x1="0" y1="600" x2="1600" y2="600"/><line x1="0" y1="750" x2="1600" y2="750"/>
+    <line x1="200" y1="0" x2="200" y2="900"/><line x1="400" y1="0" x2="400" y2="900"/>
+    <line x1="600" y1="0" x2="600" y2="900"/><line x1="800" y1="0" x2="800" y2="900"/>
+    <line x1="1000" y1="0" x2="1000" y2="900"/><line x1="1200" y1="0" x2="1200" y2="900"/><line x1="1400" y1="0" x2="1400" y2="900"/>
+  </g>
+
+  <!-- decorative concentric outlines (stroke only) -->
+  <rect x="300" y="250" width="1000" height="420" rx="40" fill="none" stroke="#16304A" stroke-width="1.5"/>
+  <rect x="360" y="292" width="880" height="336" rx="34" fill="none" stroke="#13283F" stroke-width="1.5"/>
+
+  <rect x="700" y="208" width="200" height="38" rx="19" fill="#0F1C33" stroke="#244065"/>
+  <text x="800" y="233" fill="#34E5B0" font-size="16" letter-spacing="3" text-anchor="middle">FINAL CALL</text>
+
+  <text x="800" y="392" fill="#EAF1FC" font-size="70" font-weight="bold" text-anchor="middle">Be the business</text>
+  <text x="800" y="474" fill="url(#glow)" font-size="70" font-weight="bold" text-anchor="middle">AI agents choose.</text>
+
+  <rect x="640" y="500" width="320" height="4" rx="2" fill="url(#rule)"/>
+
+  <text x="800" y="556" fill="#9AABC6" font-size="24" text-anchor="middle">Launch a structured, agent-ready presence in minutes</text>
+  <text x="800" y="590" fill="#9AABC6" font-size="24" text-anchor="middle">and convert AI-driven discovery into measurable growth.</text>
+
+  <!-- buttons -->
+  <rect x="560" y="624" width="320" height="68" rx="14" fill="url(#mb)"/>
+  <text x="720" y="667" fill="#06231C" font-size="24" font-weight="bold" text-anchor="middle">Launch your listing</text>
+  <rect x="900" y="624" width="240" height="68" rx="14" fill="#0E1B30" stroke="#34557E"/>
+  <text x="1020" y="667" fill="#D7E4F5" font-size="24" text-anchor="middle">Try the simulator</text>
+
+  <!-- agent chips row -->
+  <text x="800" y="772" fill="#5C6E8C" font-size="16" text-anchor="middle">Read by every major agent</text>
+  <g fill="#7E91B0" font-size="17" text-anchor="middle">
+    <text x="520" y="812">ChatGPT</text><text x="640" y="812">Claude</text><text x="745" y="812">Gemini</text>
+    <text x="865" y="812">Perplexity</text><text x="975" y="812">Grok</text><text x="1080" y="812">Copilot</text>
+  </g>
+</svg>

@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1600" y2="900">
+      <stop offset="0" stop-color="#0A0F1C"/><stop offset="1" stop-color="#0C1730"/>
+    </linearGradient>
+    <linearGradient id="line" gradientUnits="userSpaceOnUse" x1="200" y1="0" x2="1400" y2="0">
+      <stop offset="0" stop-color="#34E5B0"/><stop offset="0.5" stop-color="#4C9BFF"/><stop offset="1" stop-color="#A78BFA"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <g stroke="#16223A" stroke-width="1" opacity="0.6">
+    <line x1="0" y1="150" x2="1600" y2="150"/><line x1="0" y1="750" x2="1600" y2="750"/>
+    <line x1="400" y1="0" x2="400" y2="900"/><line x1="800" y1="0" x2="800" y2="900"/><line x1="1200" y1="0" x2="1200" y2="900"/>
+  </g>
+  <rect x="120" y="96" width="240" height="34" rx="17" fill="#0F1C33" stroke="#244065"/>
+  <text x="240" y="119" fill="#34E5B0" font-size="16" letter-spacing="3" text-anchor="middle">HOW IT WORKS</text>
+  <text x="118" y="208" fill="#EAF1FC" font-size="50" font-weight="bold">From invisible to agent-ready in four steps.</text>
+
+  <!-- stepper line -->
+  <line x1="240" y1="500" x2="1360" y2="500" stroke="url(#line)" stroke-width="4"/>
+  <!-- nodes -->
+  <g>
+    <!-- 01 Connect -->
+    <circle cx="280" cy="500" r="26" fill="#0A0F1C" stroke="#34E5B0" stroke-width="4"/><text x="280" y="509" fill="#34E5B0" font-size="22" font-weight="bold" text-anchor="middle">1</text>
+    <rect x="150" y="320" width="320" height="140" rx="16" fill="#0E1B30" stroke="#26415F"/>
+    <text x="180" y="372" fill="#EAF1FC" font-size="28" font-weight="bold">Connect</text>
+    <text x="180" y="408" fill="#8597B5" font-size="18">Import offers from your site,</text>
+    <text x="180" y="434" fill="#8597B5" font-size="18">Calendly, Stripe, Shopify, Square.</text>
+
+    <!-- 02 Optimize -->
+    <circle cx="640" cy="500" r="26" fill="#0A0F1C" stroke="#4FB7D8" stroke-width="4"/><text x="640" y="509" fill="#4FB7D8" font-size="22" font-weight="bold" text-anchor="middle">2</text>
+    <rect x="510" y="540" width="320" height="140" rx="16" fill="#0E1B30" stroke="#26415F"/>
+    <text x="540" y="592" fill="#EAF1FC" font-size="28" font-weight="bold">Optimize</text>
+    <text x="540" y="628" fill="#8597B5" font-size="18">Sharpen pricing clarity &amp;</text>
+    <text x="540" y="654" fill="#8597B5" font-size="18">structure so agents parse it.</text>
+
+    <!-- 03 Publish -->
+    <circle cx="1000" cy="500" r="26" fill="#0A0F1C" stroke="#4C9BFF" stroke-width="4"/><text x="1000" y="509" fill="#4C9BFF" font-size="22" font-weight="bold" text-anchor="middle">3</text>
+    <rect x="870" y="320" width="320" height="140" rx="16" fill="#0E1B30" stroke="#26415F"/>
+    <text x="900" y="372" fill="#EAF1FC" font-size="28" font-weight="bold">Publish</text>
+    <text x="900" y="408" fill="#8597B5" font-size="18">Launch a crawlable listing on</text>
+    <text x="900" y="434" fill="#8597B5" font-size="18">Nexez or your custom domain.</text>
+
+    <!-- 04 Measure -->
+    <circle cx="1360" cy="500" r="26" fill="#0A0F1C" stroke="#A78BFA" stroke-width="4"/><text x="1360" y="509" fill="#A78BFA" font-size="22" font-weight="bold" text-anchor="middle">4</text>
+    <rect x="1230" y="540" width="320" height="140" rx="16" fill="#0E1B30" stroke="#26415F"/>
+    <text x="1260" y="592" fill="#EAF1FC" font-size="28" font-weight="bold">Measure</text>
+    <text x="1260" y="628" fill="#8597B5" font-size="18">Track agent traffic, intent &amp;</text>
+    <text x="1260" y="654" fill="#8597B5" font-size="18">conversions to see what works.</text>
+  </g>
+</svg>
