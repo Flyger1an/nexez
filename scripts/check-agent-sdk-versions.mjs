@@ -95,8 +95,45 @@ if (/NEXEZ_PLUGIN_VERSION\s*(?::\s*string\s*)?=\s*['"]/.test(pluginClientSource)
   )
 }
 
+// ── OpenClaw skill ─────────────────────────────────────────────────────────────
+// Versioned independently again, so a third group. SKILL.md's frontmatter is the
+// authority: it is the artifact ClawHub publishes and installs, and its `version:` is
+// what an installed skill reports.
+//
+// lib/agent-distribution.ts advertised 0.3.0 for months while ClawHub served 0.1.2,
+// so llms.txt, /.well-known/nexez.json and /agents all named a version that had never
+// existed. Same shape as the plugin bug, one artifact over, and invisible for the same
+// reason: nothing compared the advertised value to the shipped one.
+const skillSource = readFileSync('skills/nexez-agent-discovery/SKILL.md', 'utf8')
+const skillFrontmatter = skillSource.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? ''
+const skillVersion = skillFrontmatter.match(/^version:\s*([^\s#]+)/m)?.[1]
+const distributionSkillVersion = distributionSource.match(
+  /NEXEZ_OPENCLAW_SKILL\s*=\s*\{[\s\S]*?version:\s*'([^']+)'/,
+)?.[1]
+
+const skillVersions = {
+  'SKILL.md frontmatter': skillVersion,
+  'agent-distribution.ts OpenClaw skill': distributionSkillVersion,
+}
+
+const invalidSkill = Object.entries(skillVersions).filter(
+  ([, version]) => typeof version !== 'string' || !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version),
+)
+if (invalidSkill.length) {
+  fail(
+    `Invalid or missing OpenClaw skill version: ${invalidSkill.map(([label, version]) => `${label}=${String(version)}`).join(', ')}`,
+  )
+}
+
+if (new Set(Object.values(skillVersions)).size !== 1) {
+  fail(
+    `OpenClaw skill versions are out of sync: ${Object.entries(skillVersions).map(([label, version]) => `${label}=${version}`).join(', ')}`,
+  )
+}
+
 console.log(`Agent SDK source versions match: ${typescriptPackage.version}`)
 console.log(`OpenClaw plugin source versions match: ${pluginPackage.version}`)
+console.log(`OpenClaw skill source versions match: ${skillVersion}`)
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'))
