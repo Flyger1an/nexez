@@ -45,7 +45,58 @@ if (typescriptPackage.name !== '@nexez/agent-sdk' || typescriptLock.name !== typ
   fail('TypeScript SDK package and lockfile names are out of sync.')
 }
 
+// ── OpenClaw plugin ────────────────────────────────────────────────────────────
+// Versioned independently of the SDKs, so it gets its own group rather than being
+// folded into the set above.
+//
+// This exists because 0.2.1 shipped to npm reporting itself as 0.2.0: the publish ran
+// from a tree where the bump had not landed, and package.json disagreed with the
+// hardcoded source constant with nothing to catch it. The constant now derives from
+// package.json, and the assertion below keeps it that way. At the time of writing the
+// lockfile had never been bumped past 0.2.0 either.
+const pluginPackage = readJson('plugins/openclaw-nexez/package.json')
+const pluginLock = readJson('plugins/openclaw-nexez/package-lock.json')
+const pluginManifest = readJson('plugins/openclaw-nexez/openclaw.plugin.json')
+const distributionPluginVersion = distributionSource.match(
+  /NEXEZ_OPENCLAW_PLUGIN\s*=\s*\{[\s\S]*?version:\s*'([^']+)'/,
+)?.[1]
+
+const pluginVersions = {
+  'plugin package': pluginPackage.version,
+  'plugin lockfile': pluginLock.version,
+  'plugin lockfile root': pluginLock.packages?.['']?.version,
+  'plugin manifest': pluginManifest.version,
+  'agent-distribution.ts OpenClaw plugin': distributionPluginVersion,
+}
+
+const invalidPlugin = Object.entries(pluginVersions).filter(
+  ([, version]) => typeof version !== 'string' || !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version),
+)
+if (invalidPlugin.length) {
+  fail(
+    `Invalid or missing OpenClaw plugin version: ${invalidPlugin.map(([label, version]) => `${label}=${String(version)}`).join(', ')}`,
+  )
+}
+
+if (new Set(Object.values(pluginVersions)).size !== 1) {
+  fail(
+    `OpenClaw plugin versions are out of sync: ${Object.entries(pluginVersions).map(([label, version]) => `${label}=${version}`).join(', ')}`,
+  )
+}
+
+// The runtime constant must stay DERIVED. A literal here is the exact shape of the
+// bug this group was added for, and it is invisible to the sync check above because a
+// stale literal agrees with itself.
+const pluginClientSource = readFileSync('plugins/openclaw-nexez/src/nexez-client.ts', 'utf8')
+if (/NEXEZ_PLUGIN_VERSION\s*(?::\s*string\s*)?=\s*['"]/.test(pluginClientSource)) {
+  fail(
+    'NEXEZ_PLUGIN_VERSION is hardcoded in plugins/openclaw-nexez/src/nexez-client.ts. ' +
+      'Derive it from package.json instead, or a publish from a stale tree will ship the wrong version in x-nexez-client.',
+  )
+}
+
 console.log(`Agent SDK source versions match: ${typescriptPackage.version}`)
+console.log(`OpenClaw plugin source versions match: ${pluginPackage.version}`)
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'))

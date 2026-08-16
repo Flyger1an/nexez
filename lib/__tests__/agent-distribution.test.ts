@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   NEXEZ_AGENT_EXAMPLES,
@@ -8,6 +9,16 @@ import {
   buildAgentDistributionLinks,
 } from '../agent-distribution'
 
+// Read the versions that actually get published rather than restating them. A literal
+// here is half of the failure mode that shipped @nexez/openclaw-nexez 0.2.1 reporting
+// itself as 0.2.0: a stale constant and a stale test agree with each other, so the
+// suite stays green while the released artifact is wrong.
+const readVersion = (path: string): string =>
+  (JSON.parse(readFileSync(path, 'utf8')) as { version: string }).version
+
+const PLUGIN_VERSION = readVersion('plugins/openclaw-nexez/package.json')
+const TYPESCRIPT_SDK_VERSION = readVersion('sdk/typescript/package.json')
+
 describe('agent distribution metadata', () => {
   it('exposes install commands for the OpenClaw plugin and skill', () => {
     expect(NEXEZ_OPENCLAW_PLUGIN.installCommand).toBe(
@@ -15,9 +26,9 @@ describe('agent distribution metadata', () => {
     )
     expect(NEXEZ_OPENCLAW_SKILL.installCommand).toBe('openclaw skills install nexez-agent-discovery')
     expect(NEXEZ_TYPESCRIPT_SDK.name).toBe('@nexez/agent-sdk')
-    expect(NEXEZ_OPENCLAW_PLUGIN.version).toBe('0.2.1')
+    expect(NEXEZ_OPENCLAW_PLUGIN.version).toBe(PLUGIN_VERSION)
     expect(NEXEZ_OPENCLAW_PLUGIN.tools).toContain('nexez_wait_for_negotiation_decision')
-    expect(NEXEZ_TYPESCRIPT_SDK.version).toBe('0.3.1')
+    expect(NEXEZ_TYPESCRIPT_SDK.version).toBe(TYPESCRIPT_SDK_VERSION)
     expect(NEXEZ_TYPESCRIPT_SDK.status).toBe('published')
     expect(NEXEZ_TYPESCRIPT_SDK.installCommand).toBe('npm install @nexez/agent-sdk')
     expect(NEXEZ_TYPESCRIPT_SDK.npmUrl).toBe('https://www.npmjs.com/package/@nexez/agent-sdk')

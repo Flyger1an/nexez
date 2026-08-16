@@ -2,7 +2,7 @@
   "id": "nexez",
   "name": "Nexez",
   "description": "Discover AI-ready Nexez pages, inspect structured offers, and safely hand off checkout or negotiation intent.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "icon": "https://nexez.app/icon.png",
   "configSchema": {
     "type": "object",
