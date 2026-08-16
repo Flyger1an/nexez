@@ -56,3 +56,6 @@ sdk/typescript/dist/
 
 # local Claude Code config (personal permission allowlist + launch settings)
 .claude/
+
+# local Codex CLI config (personal MCP server list)
+.codex/
