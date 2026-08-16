@@ -6,6 +6,12 @@ import 'server-only'
 // OBSERVABILITY_WEBHOOK_TOKEN (optional): sent as `Authorization: Bearer <token>`.
 // Required by ingests that authenticate with a bearer token (e.g. a Better Stack
 // source token). Omit it for unauthenticated webhooks where the URL is the secret.
+//
+// SENTRY_DSN (optional): when set, captureError ALSO reports to Sentry via
+// lib/sentry-transport. The two sinks are independent and either can run alone.
+// This is the single fan-out point; do not add Sentry calls elsewhere.
+
+import { sendErrorToSentry } from './sentry-transport'
 
 export function isObservabilityConfigured(): boolean {
   return Boolean(process.env.OBSERVABILITY_WEBHOOK_URL)
@@ -47,6 +53,12 @@ export function captureError(error: unknown, context: Record<string, unknown> = 
 
   // Always log locally.
   console.error('[nexez]', message, context)
+
+  // Fan out to Sentry BEFORE the webhook gate below. The two sinks are
+  // independent: SENTRY_DSN must work whether or not OBSERVABILITY_WEBHOOK_URL
+  // is set, and an early return here would silently disable Sentry on any
+  // deploy that has a DSN but no webhook.
+  sendErrorToSentry(error, context)
 
   const url = process.env.OBSERVABILITY_WEBHOOK_URL
   if (!url) return
