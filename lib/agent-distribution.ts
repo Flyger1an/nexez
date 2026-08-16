@@ -9,7 +9,7 @@ export const NEXEZ_EXAMPLES_REPOSITORY_URL = 'https://github.com/nexez-ai/nexez-
 export const NEXEZ_OPENCLAW_PLUGIN = {
   name: '@nexez/openclaw-nexez',
   displayName: 'Nexez OpenClaw Plugin',
-  version: '0.2.1',
+  version: '0.2.2',
   installCommand: 'openclaw plugins install clawhub:@nexez/openclaw-nexez',
   purpose: 'Native tools for search, page fetch, checkout validation, and negotiation handoff.',
   tools: [

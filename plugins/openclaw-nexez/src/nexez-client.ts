@@ -1,3 +1,5 @@
+import { createRequire } from 'node:module'
+
 export type NexezPluginConfig = {
   baseUrl?: string
   userAgent?: string
@@ -16,7 +18,14 @@ type QueryValue = string | number | boolean | null | undefined
 const MAX_DECISION_WAIT_MS = 5 * 60_000
 const MIN_POLL_INTERVAL_MS = 1_000
 const MAX_POLL_INTERVAL_MS = 30_000
-const NEXEZ_PLUGIN_VERSION = '0.2.1'
+// Derived from package.json, never written here. A hardcoded literal is how 0.2.1
+// reached npm reporting itself as openclaw-plugin/0.2.0 in x-nexez-client: the publish
+// ran from a tree where the bump had not landed, and package.json and the constant
+// disagreed with nothing to catch it. package.json is the version npm actually
+// publishes, so reading it is the one value that cannot drift from the release.
+// `../package.json` resolves to the package root from dist/ both in-repo and inside
+// the published tarball, where package.json ships via the `files` list.
+const NEXEZ_PLUGIN_VERSION: string = createRequire(import.meta.url)('../package.json').version
 const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9._~:-]{16,255}$/
 
 export class NexezApiError extends Error {
