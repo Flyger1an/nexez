@@ -32,9 +32,9 @@ vi.mock('@supabase/ssr', () => ({
 
 import { NextRequest } from 'next/server'
 import { proxy } from './proxy'
+import { ADMIN_HOST, AGENT_RUNTIME_HOST, APP_HOST, MARKETING_HOST } from './lib/site'
 import { updateSession } from './utils/supabase/middleware'
 import { createServerClient } from '@supabase/ssr'
-import { ADMIN_HOST, AGENT_RUNTIME_HOST, APP_HOST } from './lib/site'
 
 const request = (url: string, host: string) => new NextRequest(url, { headers: { host } })
 
@@ -132,6 +132,18 @@ describe('proxy: isolated admin host', () => {
     const response = await proxy(request(`https://${ADMIN_HOST}/dashboard`, ADMIN_HOST))
     expect(response.status).toBe(308)
     expect(response.headers.get('location')).toBe(`https://${APP_HOST}/dashboard`)
+  })
+})
+
+describe('proxy: Twilio webhook canonical host', () => {
+  it.each([
+    [`https://${APP_HOST}/api/webhooks/twilio/inbound`, APP_HOST, '/api/webhooks/twilio/inbound'],
+    [`https://${MARKETING_HOST}/api/webhooks/twilio/status`, MARKETING_HOST, '/api/webhooks/twilio/status'],
+    [`https://www.${AGENT_RUNTIME_HOST}/api/webhooks/twilio/inbound`, `www.${AGENT_RUNTIME_HOST}`, '/api/webhooks/twilio/inbound'],
+  ])('308s %s directly to the agent runtime', async (url, host, path) => {
+    const response = await proxy(request(url, host))
+    expect(response.status).toBe(308)
+    expect(response.headers.get('location')).toBe(`https://${AGENT_RUNTIME_HOST}${path}`)
   })
 })
 

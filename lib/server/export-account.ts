@@ -47,13 +47,17 @@ const SELLER_EXPORT_PROJECTIONS: Partial<Record<(typeof SELLER_OWNER_ID_TABLES)[
   staged_settlement_agreements: STAGED_SETTLEMENT_AGREEMENT_EXPORT,
 }
 
+/** SELLER facet: seller-owned activity keyed directly by the auth user id. */
+const SELLER_USER_ID_TABLES = ['sms_notification_events'] as const
+
 /** Account-level (spans both facets), keyed by user_id. */
-const ACCOUNT_USER_ID_TABLES = ['user_integrations'] as const
+const ACCOUNT_USER_ID_TABLES = ['user_integrations', 'user_sms_destinations', 'sms_subscriptions'] as const
 
 export const __EXPORT_ACCOUNT_TABLES = {
   BUYER_USER_ID_TABLES,
   BUYER_DATA_CONTRACT,
   SELLER_OWNER_ID_TABLES,
+  SELLER_USER_ID_TABLES,
   ACCOUNT_USER_ID_TABLES,
 }
 
@@ -240,6 +244,17 @@ export async function exportUserAccount(
     ),
   })))
   for (const { table, result } of sellerOwned) {
+    put('seller', table, result)
+  }
+  // SMS event history is seller activity in v1: it is created only when the
+  // account owns a listing that receives a negotiation notification.
+  const sellerUserOwned = await Promise.all(SELLER_USER_ID_TABLES.map(async (table) => ({
+    table,
+    result: await readEveryRow((from, to) =>
+      admin.from(table).select('*').eq('user_id', userId).order('id', { ascending: true }).range(from, to),
+    ),
+  })))
+  for (const { table, result } of sellerUserOwned) {
     put('seller', table, result)
   }
 

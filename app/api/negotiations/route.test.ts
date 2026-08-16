@@ -23,6 +23,12 @@ vi.mock('../../../lib/rate-limit', () => ({
 // Admin + plan surface. Paid public capabilities require this authoritative
 // resolver; a missing service-role environment is tested as a fail-closed 503.
 const { adminRef } = vi.hoisted(() => ({ adminRef: { hasEnv: true, allowed: true, paused: false } }))
+const { smsRef } = vi.hoisted(() => ({
+  smsRef: {
+    enqueue: vi.fn().mockResolvedValue({ queued: false }),
+    deliver: vi.fn().mockResolvedValue({ claimed: 0, accepted: 0, failed: 0, suppressed: 0, skipped: false }),
+  },
+}))
 vi.mock('../../../utils/supabase/admin', async () => {
   // Back the admin client with the dbRef handler so the route's page and billing
   // reads resolve to the per-test rows.
@@ -35,6 +41,10 @@ vi.mock('../../../utils/supabase/admin', async () => {
 vi.mock('../../../lib/server/plan', () => ({
   ownerAllows: async () => adminRef.allowed,
   getOwnerBillingState: async () => ({ isPaused: adminRef.paused }),
+}))
+vi.mock('../../../lib/server/sms-notifications', () => ({
+  enqueueSellerNegotiationSms: smsRef.enqueue,
+  deliverQueuedSmsNotifications: smsRef.deliver,
 }))
 vi.mock('next/server', async (importOriginal) => {
   const actual = await importOriginal<typeof import('next/server')>()
@@ -97,6 +107,7 @@ describe('POST /api/negotiations', () => {
     adminRef.hasEnv = true
     adminRef.allowed = true
     adminRef.paused = false
+    smsRef.enqueue.mockResolvedValue({ queued: false })
   })
   afterEach(() => vi.unstubAllEnvs())
 
@@ -301,6 +312,20 @@ describe('POST /api/negotiations', () => {
     expect(body.autoAccepted).toBeUndefined()
     // The real inserts happen inside the (module-mocked) service; we still see the page lookup.
     expect(ops.some((o: string) => o.includes('pages'))).toBe(true)
+  })
+
+  it('durably queues a generic SMS only for a fresh proposal, never a continuation', async () => {
+    dbRef.handler = (ctx: QueryContext) => (ctx.table === 'pages' ? { data: pageWithOffer, error: null } : { data: null, error: null })
+    smsRef.enqueue.mockResolvedValue({ queued: true, eventId: 'sms-event-1' })
+
+    expect((await POST(post({ slug: 'demo', offer: 'services-0', buyerAgent: 'TestBot' }))).status).toBe(200)
+    expect(smsRef.enqueue).toHaveBeenCalledWith(expect.objectContaining({ ownerId: 'o1', negotiationId: 'new-neg-id' }))
+    expect(JSON.stringify(smsRef.enqueue.mock.calls[0][0])).not.toMatch(/buyer|offer|body|phone/i)
+
+    vi.clearAllMocks()
+    smsRef.enqueue.mockResolvedValue({ queued: true, eventId: 'sms-event-2' })
+    expect((await POST(post({ slug: 'demo', offer: 'services-0', negotiationId: 'existing-neg', statusToken: 'token' }))).status).toBe(200)
+    expect(smsRef.enqueue).not.toHaveBeenCalled()
   })
 
   it('caps an oversized buyer query before it reaches the service (prompt-stuffing guard)', async () => {

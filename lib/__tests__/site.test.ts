@@ -99,6 +99,8 @@ describe('canonicalHostFor', () => {
     expect(canonicalHostFor('/some-slug')).toBe(AGENT_RUNTIME_HOST)
     expect(canonicalHostFor('/agent-pages.json')).toBe(AGENT_RUNTIME_HOST)
     expect(canonicalHostFor('/api/negotiations')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/api/webhooks/twilio/inbound')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/api/webhooks/twilio/status')).toBe(AGENT_RUNTIME_HOST)
   })
 
   it('keeps agent/buyer negotiation routes on the runtime but OWNER actions on the app host', () => {
