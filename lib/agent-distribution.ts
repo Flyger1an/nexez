@@ -28,7 +28,11 @@ export const NEXEZ_OPENCLAW_PLUGIN = {
 export const NEXEZ_OPENCLAW_SKILL = {
   slug: 'nexez-agent-discovery',
   displayName: 'Nexez Agent Discovery',
-  version: '0.3.0',
+  // Must equal the `version:` in skills/nexez-agent-discovery/SKILL.md, which is the
+  // artifact ClawHub serves. This read 0.3.0 for months while ClawHub served 0.1.2,
+  // so every public surface advertised a version that had never existed. Pinned by
+  // check:agent-sdk-versions now.
+  version: '0.1.2',
   installCommand: 'openclaw skills install nexez-agent-discovery',
   purpose: 'Instructions and rubrics for discovering, comparing, and safely acting on Nexez agent pages.',
 } as const
