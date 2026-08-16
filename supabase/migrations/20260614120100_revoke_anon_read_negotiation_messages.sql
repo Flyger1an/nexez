@@ -1,9 +1,15 @@
 -- Bug #2 hardening: remove anonymous read access to negotiation_messages.
 --
+-- RENUMBERED from 20260610210000. Contents unchanged; only the version prefix
+-- moved, to just after 20260614120000_add_negotiation_messages. Every statement
+-- here targets public.negotiation_messages, which that migration creates, so at
+-- the original version a from-scratch replay failed with 42P01. The note below
+-- already pointed at a later version than the file's own, which is the tell.
+--
 -- The earlier migration (20260614120100) granted anon SELECT so the persistent
 -- /negotiate/{id} page could show history without auth. But seller_llm turns embed
--- owner-private data — the offer's private pricing rules and the LLM's internal
--- notes — so anon SELECT let any caller read them straight off the REST API
+-- owner-private data (the offer's private pricing rules and the LLM's internal
+-- notes), so anon SELECT let any caller read them straight off the REST API
 -- (the "no sensitive fields" claim in that migration was incorrect).
 --
 -- History is now read server-side: the /negotiate page authorizes the viewer
