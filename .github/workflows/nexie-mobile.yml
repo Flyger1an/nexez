@@ -1,0 +1,49 @@
+name: Nexie Mobile
+
+# Nexie (apps/seller-mobile) had no CI at all: it is actively developed, carries
+# ~6k lines of TypeScript, and nothing in the root build, test or dead-code gates
+# reaches it. It is also excluded from knip.json, because it resolves through its
+# own @/* paths and never imports the Next app's lib/.
+#
+# Its own workflow rather than a job in ci.yml, so the paths filter can live at the
+# workflow level. Same convention as openclaw-package-publish.yml and
+# supabase-migrations.yml. A per-job filter inside ci.yml would need either a
+# third-party action or a hand-rolled diff job; this needs neither.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/seller-mobile/**'
+      - '.github/workflows/nexie-mobile.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/seller-mobile/**'
+      - '.github/workflows/nexie-mobile.yml'
+
+# Supersede in-flight runs for the same PR, matching ci.yml. Not on main, where a
+# cancelled run would leave the branch unverified.
+concurrency:
+  group: nexie-mobile-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/seller-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          # Kept per AGENTS.md: the runner's cached Node 22 sits below the engine
+          # floor some of this toolchain expects.
+          check-latest: true
+          cache: npm
+          cache-dependency-path: apps/seller-mobile/package-lock.json
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
