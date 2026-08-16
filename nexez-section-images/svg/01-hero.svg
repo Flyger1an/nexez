@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1600" y2="900">
+      <stop offset="0" stop-color="#0A0F1C"/><stop offset="1" stop-color="#0C1730"/>
+    </linearGradient>
+    <linearGradient id="mb" gradientUnits="userSpaceOnUse" x1="560" y1="300" x2="1060" y2="620">
+      <stop offset="0" stop-color="#34E5B0"/><stop offset="1" stop-color="#4C9BFF"/>
+    </linearGradient>
+    <linearGradient id="bv" gradientUnits="userSpaceOnUse" x1="1060" y1="280" x2="1380" y2="640">
+      <stop offset="0" stop-color="#4C9BFF"/><stop offset="1" stop-color="#A78BFA"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <!-- grid -->
+  <g stroke="#16223A" stroke-width="1" opacity="0.6">
+    <line x1="0" y1="150" x2="1600" y2="150"/><line x1="0" y1="300" x2="1600" y2="300"/>
+    <line x1="0" y1="450" x2="1600" y2="450"/><line x1="0" y1="600" x2="1600" y2="600"/>
+    <line x1="0" y1="750" x2="1600" y2="750"/>
+    <line x1="200" y1="0" x2="200" y2="900"/><line x1="400" y1="0" x2="400" y2="900"/>
+    <line x1="600" y1="0" x2="600" y2="900"/><line x1="800" y1="0" x2="800" y2="900"/>
+    <line x1="1000" y1="0" x2="1000" y2="900"/><line x1="1200" y1="0" x2="1200" y2="900"/>
+    <line x1="1400" y1="0" x2="1400" y2="900"/>
+  </g>
+  <!-- label + title -->
+  <rect x="120" y="96" width="120" height="34" rx="17" fill="#0F1C33" stroke="#244065"/>
+  <text x="180" y="119" fill="#34E5B0" font-size="16" letter-spacing="3" text-anchor="middle">HERO</text>
+  <text x="118" y="200" fill="#EAF1FC" font-size="58" font-weight="bold">Turn AI discovery into</text>
+  <text x="118" y="266" fill="#EAF1FC" font-size="58" font-weight="bold">pipeline, bookings &amp; sales.</text>
+
+  <!-- flow connectors -->
+  <g fill="none" stroke-width="3" opacity="0.85">
+    <path d="M430 470 C 540 420, 560 470, 660 470" stroke="#34E5B0"/>
+    <path d="M430 540 C 540 560, 560 540, 660 540" stroke="#34E5B0"/>
+    <path d="M430 610 C 540 640, 560 610, 660 610" stroke="#34E5B0"/>
+    <path d="M940 540 C 1040 540, 1060 470, 1150 470" stroke="#4C9BFF"/>
+    <path d="M940 540 C 1040 540, 1060 540, 1150 540" stroke="#4C9BFF"/>
+    <path d="M940 540 C 1040 540, 1060 610, 1150 610" stroke="#A78BFA"/>
+  </g>
+
+  <!-- left: AI agent nodes -->
+  <g>
+    <rect x="150" y="440" width="280" height="62" rx="12" fill="#101D34" stroke="#26415F"/>
+    <circle cx="184" cy="471" r="14" fill="#10A37F"/><text x="216" y="478" fill="#D7E4F5" font-size="22">ChatGPT</text>
+    <rect x="150" y="510" width="280" height="62" rx="12" fill="#101D34" stroke="#26415F"/>
+    <circle cx="184" cy="541" r="14" fill="#D77655"/><text x="216" y="548" fill="#D7E4F5" font-size="22">Claude</text>
+    <rect x="150" y="580" width="280" height="62" rx="12" fill="#101D34" stroke="#26415F"/>
+    <circle cx="184" cy="611" r="14" fill="#4C8DF0"/><text x="216" y="618" fill="#D7E4F5" font-size="22">Gemini · Perplexity</text>
+    <text x="150" y="420" fill="#8597B5" font-size="20">AI agents searching</text>
+  </g>
+
+  <!-- center: Nexez structured layer (prism card) -->
+  <g>
+    <!-- glow via layered rects -->
+    <rect x="650" y="420" width="300" height="240" rx="22" fill="#34E5B0" opacity="0.10"/>
+    <rect x="664" y="434" width="272" height="212" rx="18" fill="#0E1B30" stroke="url(#mb)" stroke-width="2.5"/>
+    <text x="800" y="478" fill="#EAF1FC" font-size="26" font-weight="bold" text-anchor="middle">NEXEZ</text>
+    <text x="800" y="504" fill="#8597B5" font-size="15" text-anchor="middle" letter-spacing="2">STRUCTURED LAYER</text>
+    <g font-size="15">
+      <rect x="690" y="524" width="100" height="30" rx="8" fill="#14263F"/><text x="740" y="544" fill="#34E5B0" text-anchor="middle">JSON-LD</text>
+      <rect x="800" y="524" width="110" height="30" rx="8" fill="#14263F"/><text x="855" y="544" fill="#4C9BFF" text-anchor="middle">agent.json</text>
+      <rect x="690" y="562" width="90" height="30" rx="8" fill="#14263F"/><text x="735" y="582" fill="#A78BFA" text-anchor="middle">MCP</text>
+      <rect x="790" y="562" width="120" height="30" rx="8" fill="#14263F"/><text x="850" y="582" fill="#8FB4E6" text-anchor="middle">llms.txt</text>
+    </g>
+    <rect x="690" y="604" width="220" height="30" rx="8" fill="#0B2A22" stroke="#1FB58C"/>
+    <text x="800" y="624" fill="#34E5B0" font-size="14" text-anchor="middle">readiness 96 · zero ambiguity</text>
+  </g>
+
+  <!-- right: outcomes -->
+  <g>
+    <text x="1150" y="420" fill="#8597B5" font-size="20">Measurable outcomes</text>
+    <rect x="1150" y="440" width="300" height="62" rx="12" fill="#0E1B30" stroke="#2E6FE0"/>
+    <text x="1172" y="470" fill="#8FB4E6" font-size="15">Pipeline</text><text x="1430" y="482" fill="#4C9BFF" font-size="26" font-weight="bold" text-anchor="end">$48.2k</text>
+    <rect x="1150" y="510" width="300" height="62" rx="12" fill="#0E1B30" stroke="#1FB58C"/>
+    <text x="1172" y="540" fill="#7FD9C2" font-size="15">Bookings</text><text x="1430" y="552" fill="#34E5B0" font-size="26" font-weight="bold" text-anchor="end">312</text>
+    <rect x="1150" y="580" width="300" height="62" rx="12" fill="#0E1B30" stroke="#7C5CD6"/>
+    <text x="1172" y="610" fill="#C3B2F2" font-size="15">Sales lift</text><text x="1430" y="622" fill="#A78BFA" font-size="26" font-weight="bold" text-anchor="end">+9.1%</text>
+  </g>
+
+  <!-- baseline tag -->
+  <text x="118" y="800" fill="#5C6E8C" font-size="20">Get found, understood &amp; chosen by AI agents — without changing your website.</text>
+</svg>

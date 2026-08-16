@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1600" y2="900">
+      <stop offset="0" stop-color="#0A0F1C"/><stop offset="1" stop-color="#0C1730"/>
+    </linearGradient>
+    <linearGradient id="mb" gradientUnits="userSpaceOnUse" x1="820" y1="320" x2="1480" y2="760">
+      <stop offset="0" stop-color="#34E5B0"/><stop offset="1" stop-color="#4C9BFF"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <g stroke="#16223A" stroke-width="1" opacity="0.6">
+    <line x1="0" y1="150" x2="1600" y2="150"/><line x1="0" y1="450" x2="1600" y2="450"/><line x1="0" y1="750" x2="1600" y2="750"/>
+    <line x1="400" y1="0" x2="400" y2="900"/><line x1="800" y1="0" x2="800" y2="900"/><line x1="1200" y1="0" x2="1200" y2="900"/>
+  </g>
+  <rect x="120" y="96" width="220" height="34" rx="17" fill="#0F1C33" stroke="#244065"/>
+  <text x="230" y="119" fill="#34E5B0" font-size="16" letter-spacing="3" text-anchor="middle">SIMULATOR</text>
+  <text x="118" y="200" fill="#EAF1FC" font-size="50" font-weight="bold">See how agents</text>
+  <text x="118" y="258" fill="#EAF1FC" font-size="50" font-weight="bold">read your business.</text>
+  <text x="118" y="312" fill="#8597B5" font-size="22">Ask a real buyer question — watch it resolve into offers, prices &amp; actions.</text>
+
+  <!-- left: query bubbles -->
+  <g font-size="20">
+    <rect x="120" y="380" width="600" height="58" rx="14" fill="#101D34" stroke="#26415F"/>
+    <text x="146" y="416" fill="#D7E4F5">Can an agent book a 60-min session next week?</text>
+    <rect x="120" y="454" width="600" height="58" rx="14" fill="#101D34" stroke="#26415F"/>
+    <text x="146" y="490" fill="#D7E4F5">How much does strategy work cost here?</text>
+    <rect x="120" y="528" width="600" height="58" rx="14" fill="#101D34" stroke="#26415F"/>
+    <text x="146" y="564" fill="#D7E4F5">Is this a good fit for a scaling startup?</text>
+    <rect x="120" y="602" width="380" height="58" rx="14" fill="#0C2A22" stroke="#1FB58C"/>
+    <text x="146" y="638" fill="#34E5B0">Simulate ▸</text>
+  </g>
+
+  <!-- arrow -->
+  <path d="M740 520 L 810 520" stroke="#4C9BFF" stroke-width="3"/>
+  <path d="M800 510 L 815 520 L 800 530 Z" fill="#4C9BFF"/>
+
+  <!-- right: resolved structured answer -->
+  <rect x="840" y="360" width="620" height="380" rx="18" fill="#0E1B30" stroke="url(#mb)" stroke-width="2.5"/>
+  <text x="872" y="404" fill="#EAF1FC" font-size="24" font-weight="bold">Resolved by agent</text>
+  <rect x="1330" y="382" width="100" height="30" rx="8" fill="#0C2A22"/><text x="1380" y="403" fill="#34E5B0" font-size="15" text-anchor="middle">200 OK</text>
+  <g font-size="19">
+    <rect x="872" y="430" width="556" height="52" rx="10" fill="#14263F"/>
+    <text x="896" y="462" fill="#D7E4F5">Deep Tissue · 60/90m</text><text x="1404" y="462" fill="#34E5B0" text-anchor="end">$120 · book</text>
+    <rect x="872" y="492" width="556" height="52" rx="10" fill="#14263F"/>
+    <text x="896" y="524" fill="#D7E4F5">Recovery + Sauna · 90m</text><text x="1404" y="524" fill="#34E5B0" text-anchor="end">$180 · book</text>
+    <rect x="872" y="554" width="556" height="52" rx="10" fill="#14263F"/>
+    <text x="896" y="586" fill="#D7E4F5">Day Pass · all day</text><text x="1404" y="586" fill="#4C9BFF" text-anchor="end">$60 · buy</text>
+  </g>
+  <g font-size="15">
+    <rect x="872" y="624" width="120" height="30" rx="8" fill="#11223A"/><text x="932" y="644" fill="#8FB4E6" text-anchor="middle">same-day</text>
+    <rect x="1002" y="624" width="150" height="30" rx="8" fill="#11223A"/><text x="1077" y="644" fill="#8FB4E6" text-anchor="middle">Austin · 2 sites</text>
+    <rect x="1162" y="624" width="180" height="30" rx="8" fill="#0C2A22"/><text x="1252" y="644" fill="#34E5B0" text-anchor="middle">best fit: recovery</text>
+  </g>
+  <text x="872" y="702" fill="#7FD9C2" font-size="16">// zero ambiguity · readiness 96</text>
+</svg>

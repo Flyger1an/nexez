@@ -56,3 +56,12 @@ sdk/typescript/dist/
 
 # local Claude Code config (personal permission allowlist + launch settings)
 .claude/
+
+# local Codex CLI config (personal MCP server list)
+.codex/
+
+# Shopify app-store review walkthrough video (served its purpose; kept locally)
+plugins/shopify-nexez/app-store-media/review/*.mp4
+
+# scratch renders in the section-image sources
+nexez-section-images/png/_test*.png

@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1600" y2="900">
+      <stop offset="0" stop-color="#0A0F1C"/><stop offset="1" stop-color="#0C1730"/>
+    </linearGradient>
+    <linearGradient id="amber" gradientUnits="userSpaceOnUse" x1="540" y1="380" x2="820" y2="660">
+      <stop offset="0" stop-color="#F5A524"/><stop offset="1" stop-color="#E0662E"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <g stroke="#16223A" stroke-width="1" opacity="0.6">
+    <line x1="0" y1="150" x2="1600" y2="150"/><line x1="0" y1="450" x2="1600" y2="450"/><line x1="0" y1="750" x2="1600" y2="750"/>
+    <line x1="400" y1="0" x2="400" y2="900"/><line x1="800" y1="0" x2="800" y2="900"/><line x1="1200" y1="0" x2="1200" y2="900"/>
+  </g>
+  <rect x="120" y="96" width="150" height="34" rx="17" fill="#2A1607" stroke="#7A4A14"/>
+  <text x="195" y="119" fill="#F5A524" font-size="16" letter-spacing="3" text-anchor="middle">PROBLEM</text>
+  <text x="118" y="200" fill="#EAF1FC" font-size="50" font-weight="bold">If agents can't understand you,</text>
+  <text x="118" y="258" fill="#EAF1FC" font-size="50" font-weight="bold">they can't recommend you.</text>
+
+  <!-- left: human website (unstructured / opaque) -->
+  <text x="180" y="380" fill="#8597B5" font-size="20">Built for human browsing</text>
+  <rect x="180" y="400" width="380" height="300" rx="18" fill="#0E1B30" stroke="#26415F"/>
+  <rect x="210" y="430" width="320" height="40" rx="8" fill="#16233D"/>
+  <g fill="#1C2C49">
+    <rect x="210" y="490" width="150" height="150" rx="8"/>
+    <rect x="378" y="490" width="152" height="18" rx="5"/><rect x="378" y="520" width="152" height="18" rx="5"/>
+    <rect x="378" y="550" width="120" height="18" rx="5"/><rect x="378" y="592" width="152" height="18" rx="5"/>
+    <rect x="378" y="622" width="100" height="18" rx="5"/>
+  </g>
+  <text x="285" y="575" fill="#3C4F70" font-size="40" text-anchor="middle">img</text>
+
+  <!-- middle: agent trying to parse -> question marks -->
+  <g>
+    <circle cx="800" cy="500" r="44" fill="#101D34" stroke="#3A567C" stroke-width="2"/>
+    <circle cx="784" cy="492" r="7" fill="#6E84A6"/><circle cx="816" cy="492" r="7" fill="#6E84A6"/>
+    <path d="M780 520 Q800 510 820 520" stroke="#6E84A6" stroke-width="4" fill="none"/>
+    <text x="800" y="470" fill="#8597B5" font-size="16" text-anchor="middle">agent</text>
+    <text x="690" y="610" fill="#F5A524" font-size="44" font-weight="bold">?</text>
+    <text x="800" y="650" fill="#F5A524" font-size="64" font-weight="bold" text-anchor="middle">?</text>
+    <text x="905" y="600" fill="#F5A524" font-size="40" font-weight="bold">?</text>
+    <path d="M570 560 L 752 510" stroke="#F5A524" stroke-width="2.5" stroke-dasharray="6 7" opacity="0.7"/>
+  </g>
+
+  <!-- right: result -> missed -->
+  <text x="1040" y="380" fill="#8597B5" font-size="20">Result</text>
+  <rect x="1040" y="400" width="420" height="300" rx="18" fill="#0E1B30" stroke="url(#amber)" stroke-width="2"/>
+  <g font-size="22" fill="#D7E4F5">
+    <circle cx="1080" cy="455" r="10" fill="none" stroke="#E0662E" stroke-width="3"/><line x1="1073" y1="448" x2="1087" y2="462" stroke="#E0662E" stroke-width="3"/>
+    <text x="1108" y="463">Harder to surface</text>
+    <circle cx="1080" cy="515" r="10" fill="none" stroke="#E0662E" stroke-width="3"/><line x1="1073" y1="508" x2="1087" y2="522" stroke="#E0662E" stroke-width="3"/>
+    <text x="1108" y="523">Harder to trust</text>
+    <circle cx="1080" cy="575" r="10" fill="none" stroke="#E0662E" stroke-width="3"/><line x1="1073" y1="568" x2="1087" y2="582" stroke="#E0662E" stroke-width="3"/>
+    <text x="1108" y="583">Harder to buy from</text>
+  </g>
+  <text x="1080" y="650" fill="#F5A524" font-size="26" font-weight="bold">Even strong businesses get missed.</text>
+</svg>
