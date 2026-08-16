@@ -1,73 +1,151 @@
 # Nexez
 
-**Pages AI agents can actually book from.**
+**Commerce infrastructure built for buyer agents and the businesses they transact with.**
 
-Nexez is the infrastructure layer for **agentic commerce**. Businesses create clean, structured agent-ready listings alongside their main website. AI agents (ChatGPT, Claude, Grok, Perplexity, etc.) can discover offers, negotiate, and complete bookings autonomously.
+Nexez turns a business's offers into public, structured listings that humans can browse and
+AI agents can search, understand, compare, validate, negotiate, and take to checkout. Sellers
+maintain one source of truth while Nexez publishes the web experience, machine-readable
+artifacts, transaction workflows, and operational controls around it.
 
-One source of truth. Two audiences: beautiful for humans, brutally structured for agents.
+Nexez is more than an AI landing-page builder: this repository contains the seller platform,
+buyer-agent interfaces, commerce protocols, payment and negotiation lifecycle, integrations,
+analytics, and release-safety systems.
 
----
+## Platform capabilities
 
-## ✨ Features
+### Publish once for humans and agents
 
-### Core
-- **Agent-optimized listings** with JSON-LD, llms.txt, agent.json, MCP endpoint, and semantic HTML
-- **Hybrid booking system**:
-  - Fixed Pricing → instant direct booking
-  - Negotiable services → smart rules + LLM-powered negotiation
-- **Persistent negotiation links** – agents can continue conversations even when offline
-- **Smart Rules Engine** – business owners define per-offer rules (price floors, notice periods, blackout dates, etc.)
-- **AI Co-Pilot** – intelligent suggestions for offers, pricing, and agent optimization
-- **Agent Simulator** – preview how different models interpret your page
-- **Competitor Analyzer** – see how agents perceive any competitor website
+- Structured listings for services and products, including fixed-price and negotiable offers.
+- Human-readable public pages with semantic HTML and JSON-LD.
+- Per-listing `agent.json`, `llms.txt`, MCP manifest and JSON-RPC endpoint, and scoped OpenAPI.
+- Platform-wide agent index, search API, MCP endpoint, OpenAPI document, and `llms.txt`.
+- Seller storefronts that group multiple listings and expose storefront-level agent artifacts.
+- Verified custom domains, branding, themes, reusable templates, drafts, and controlled publishing.
+- Agent-readiness scoring, crawlability checks, deterministic and LLM-assisted simulation,
+  AI optimization, and authenticated competitor analysis.
 
-### Analytics & Trust
-- Real-time agent detection and traffic split
-- Detailed analytics: agent visits, conversions, pipeline value, top queries
-- Trust Score and verification system
+### Agent discovery and developer access
 
-### Payments & Monetization
-- **Dual revenue model**:
-  - Subscription plans: **Free**, **Launch**, **Pro**, **Scale**, **Enterprise** (contact sales)
-  - Platform commission on every agent-driven transaction (configurable per plan)
-- Stripe Connect (business is Merchant of Record) + automatic platform fee deduction
-- Stripe Billing for subscriptions
+- Intent search with location, industry, readiness, capability, and price signals.
+- Public machine discovery through `/.well-known/agent.json`, `/.well-known/mcp.json`,
+  `/agent-pages.json`, `/agent.json`, `/openapi.json`, and `/llms.txt`.
+- MCP tools for search, directory browsing, page inspection, dry-run checkout validation,
+  and dry-run negotiation validation.
+- REST APIs, owner API keys, signed outbound webhooks, and copy-paste buyer-agent examples.
+- Published TypeScript SDK: `npm install @nexez/agent-sdk`.
+- Published Python SDK: `python -m pip install nexez-agent-sdk`.
+- Published OpenClaw discovery skill: `openclaw skills install nexez-agent-discovery`.
+- Published OpenClaw tool plugin:
+  `openclaw plugins install npm:@nexez/openclaw-nexez`.
+- WordPress and Shopify integrations in [`plugins`](plugins), including Shopify catalog sync
+  and proxied machine artifacts.
 
-### Technical
-- Fully pluggable LLM engine (Gemini, Grok, Claude, OpenAI – swap with one env variable)
-- Persistent state for all negotiations
-- Supabase backend with clean schema
-- Production-ready error handling, logging, and webhooks
-- Published OpenClaw agent discovery skill: `openclaw skills install nexez-agent-discovery`
-- Published OpenClaw tool plugin: `openclaw plugins install npm:@nexez/openclaw-nexez` (or `clawhub:@nexez/openclaw-nexez`)
-- Published TypeScript buyer-agent SDK: `npm install @nexez/agent-sdk`
-- Published Python buyer-agent SDK: `python -m pip install nexez-agent-sdk`
-- Copy-paste buyer-agent examples in `examples/agents`
-- Agent submission pack in `docs/agent-submission-pack.md`
-- Public agent access docs at `/agents`, linked from agent metadata
+### Approval-gated agent commerce
 
----
+- Fixed-price checkout through Stripe Connect, with the seller as merchant of record and
+  Nexez application fees captured from the connected account.
+- Negotiable offers with budget, timeline, scope, seller rules, asynchronous decisions,
+  agreement state, status tokens, and payment handoff.
+- Dry-run validation before consequential checkout or negotiation actions.
+- Short-lived action-approval tokens, explicit buyer approval, and stable idempotency keys.
+- Persistent orders, buyer receipts and order portals, refunds, disputes, reviews, and
+  transaction-livemode provenance.
+- Reconciliation workers and deduplicated webhook processing for payment and billing state.
+- ACP and UCP product feeds for agent discovery.
 
-## 🛠 Tech Stack
+OpenAI ACP and Google UCP checkout-session routes are implemented but fail closed until the
+corresponding partner enrollment and shared credentials are enabled. Their product feeds remain
+available for discovery. See [`docs/agentic-commerce-enrollment.md`](docs/agentic-commerce-enrollment.md)
+for the deployment boundary.
 
-- **Frontend**: Next.js 16 (App Router) + Tailwind + shadcn/ui
-- **Backend**: Next.js API routes + Supabase
-- **Database**: Supabase (PostgreSQL)
-- **Payments**: Stripe Connect + Stripe Billing
-- **LLM Layer**: Pluggable (Gemini primary, with adapters for Grok, Claude, OpenAI)
-- **Deployment**: Vercel
+### Seller operations
 
----
+- Multi-listing and multi-storefront management with plan-aware publishing limits.
+- Stripe, Shopify, Square, Calendly, Acuity, and Google Calendar integration surfaces.
+- Provider-aware catalog synchronization that preserves manually authored offers.
+- Live availability, booking webhooks, outbound automation webhooks, and integration health.
+- Agent-versus-human traffic analytics, funnel and conversion reporting, offer performance,
+  finance reporting, negotiation metrics, filtering, and exports.
+- Team invitations and collaboration, billing portal, subscription reconciliation, support,
+  referrals, saved pages, and notification workflows.
 
-## 🚀 Quick Start
+### Buyer-agent experience
 
+- Nexie buyer-agent threads with streaming responses and structured approval cards.
+- Saved sellers and searches, scheduled agent tasks, notifications, referrals, and order tracking.
+- Buyer data export and deletion controls that preserve a seller account when the same identity
+  also operates a business on Nexez.
 
+## Safety and trust architecture
 
+Nexez treats public discovery and consequential actions as different trust boundaries:
 
-🤝 Contributing
-We welcome contributions! Please see CONTRIBUTING.md for guidelines.
+- Discovery artifacts expose published seller information without exposing drafts or secrets.
+- Checkout and negotiation support side-effect-free validation before action.
+- Mutating agent flows require matching approval context and are protected against retries.
+- Database row-level security and explicit grants protect authenticated and service-only data.
+- Provider credentials live in private server-side storage and are excluded from public artifacts.
+- Rate limits, signed webhooks, replay protection, scoped status tokens, money constraints, and
+  append-only evidence ledgers provide defense in depth.
+- Test and live transaction provenance remains explicit.
 
-📄 License
-Proprietary — Copyright © 2026 Nexez. All rights reserved. Source-available for reference only; not licensed for reuse or redistribution. See [LICENSE](LICENSE).
+The internal security and privacy baseline is documented in
+[`docs/trust/README.md`](docs/trust/README.md). It is a control framework, not a claim that Nexez
+has completed a SOC 2, PCI DSS, or other independent assessment.
 
-Built with ❤️ for the agent economy
+Additional safety documentation:
+
+- [`docs/agent-action-safety.md`](docs/agent-action-safety.md)
+- [`docs/commerce-certification.md`](docs/commerce-certification.md)
+- [`docs/agent-submission-pack.md`](docs/agent-submission-pack.md)
+
+## Architecture
+
+- **Application:** Next.js 16 App Router, React 19, TypeScript, Tailwind CSS, and Radix/shadcn UI
+- **Data and identity:** Supabase Auth, PostgreSQL, Row Level Security, and Storage
+- **Commerce:** Stripe Connect and Stripe Billing
+- **AI:** deterministic fallbacks plus configurable OpenAI-compatible and native adapter layers
+  for OpenAI, Gemini, Claude, and Grok
+- **Deployment:** Vercel, scheduled workers, and GitHub Actions
+- **Quality:** Vitest, Testing Library, Playwright, ESLint, TypeScript, protocol gauntlets, and
+  live non-money-moving smoke checks
+
+## Repository map
+
+| Path | Purpose |
+| --- | --- |
+| [`app`](app) | Web application, dashboards, public pages, APIs, protocols, and webhooks |
+| [`components`](components) | Seller, buyer, marketing, analytics, and shared UI |
+| [`lib`](lib) | Commerce, security, analytics, agent, integration, and domain logic |
+| [`supabase/migrations`](supabase/migrations) | Database schema, constraints, RLS, grants, and durable ledgers |
+| [`sdk`](sdk) | Published TypeScript and Python buyer-agent SDKs |
+| [`plugins`](plugins) | OpenClaw, Shopify, and WordPress integrations |
+| [`examples/agents`](examples/agents) | Buyer approval, discovery, validation, and negotiation examples |
+| [`docs`](docs) | Enrollment, safety, certification, discoverability, and trust operations |
+
+## Local development
+
+The full platform requires private Supabase and service configuration. Optional integrations
+remain dormant or fail closed when their credentials are absent.
+
+```bash
+npm install
+npm run dev
+```
+
+Quality gates:
+
+```bash
+npm run lint
+npm test
+npm run build
+npm run certify:commerce
+```
+
+`certify:commerce` is designed not to move money. Deliberate live lifecycle checks are governed
+by [`docs/commerce-certification.md`](docs/commerce-certification.md).
+
+## License
+
+Proprietary — Copyright © 2026 Nexez. All rights reserved. Source-available for reference only;
+not licensed for reuse or redistribution. See [`LICENSE`](LICENSE).
