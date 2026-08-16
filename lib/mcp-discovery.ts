@@ -20,7 +20,7 @@ export function buildMcpDiscoveryPage(page: McpDiscoveryPage, baseUrl = getBaseU
     agent_json_url: `${baseUrl}${getAgentJsonPath(page.slug)}`,
     offer_count: getOfferCount(page as AgentPage),
     capabilities: {
-      resources: ['seller_profile', 'offers', 'faqs', 'agent_memory'],
+      resources: ['seller_profile', 'offers', 'faqs'],
       tools: ['book_offer'],
       checkout_dry_run: true,
     },

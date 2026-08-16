@@ -29,7 +29,6 @@ const PUBLIC_PAGE_COLUMNS = [
   'updated_at',
   'mcp_enabled',
   'verification_details',
-  'agent_memory',
   'next_available',
   'last_booking',
   'llm_opt_in',
@@ -67,6 +66,12 @@ export const OWNER_PAGE_SELECT = [
   'versions',
   'draft',
   'draft_updated_at',
+  // Owner-authored free-text notes. Deliberately NOT in PUBLIC_PAGE_COLUMNS: the
+  // column was mirrored onto the anon-readable pages_public projection until
+  // 20260816, which exposed owner notes to buyers. Owner surfaces (settings
+  // editor, duplicate) still need it, and they read the base pages table under
+  // RLS, so it is selected here instead.
+  'agent_memory',
 ].join(', ')
 
 export const BASIC_OWNER_PAGE_SELECT = [
@@ -315,7 +320,7 @@ export type AgentPage = {
     last_updated?: string
   }
   // Advanced Phase 7 features (fully implemented with LLM where applicable)
-  agent_memory?: { notes?: string; updated?: string } // persistent context for agents, editable in settings, exposed in manifests
+  agent_memory?: { notes?: string; updated?: string } // owner-private context, editable in settings; never projected to pages_public or public artifacts
   team_collaboration?: { approvals?: Array<{ id: string; approver: string; status: 'pending' | 'approved' | 'rejected'; note?: string; ts: string }> } // real approval workflows, persisted in DB
   last_booking?: any   // Lightweight last booking from webhooks (Calendly etc.)
   versions?: Array<{
