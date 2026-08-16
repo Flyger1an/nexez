@@ -1,6 +1,6 @@
 # Nexez Roadmap
 
-_Last reconciled: 2026-07-25_
+_Last reconciled: 2026-08-15 against `origin/main` at `949d1e1`._
 
 **Mission:** Make any business legible and transactable to autonomous agents without forcing it to replace its human website. Nexez provides structured storefronts, agent artifacts, transaction rails, seller operations, and distribution into agent workflows.
 
@@ -8,7 +8,13 @@ This document tracks product direction and launch status. Use [HANDOFF.md](HANDO
 
 ## Current standing
 
-The core platform is built and its live commercial lifecycles are certified. Public storefronts remain fast and semantic on `nexez.app`; seller management lives on `app.nexez.ai`; marketing and public education live on `nexez.ai`. Automated release certification is active with a 100% production baseline. Marketplace curation is deployed with a private review ledger, quality checks, an operator queue, and a discovery-only exclusion gate. The seller-facing Nexez Certified Agent-Ready standard is versioned, continuously evaluated, and machine-verifiable without conflating technical readiness, identity trust, or human marketplace review. Complimentary Launch acquisition now has an admin-only Growth Control plane and a rollback-safe live-schema activation gauntlet. Kismet Pros is the sole approved real launch listing; the other 9 published evaluation and QA pages remain direct-only. A separate 19-listing simulation catalog covers product testing across five world regions without entering discovery, transactions, certification counts, or launch-supply metrics. The next milestone is growing real launch-quality supply and proving demand.
+The core platform is built and its live commercial lifecycles are certified. Public storefronts remain fast and semantic on `nexez.app`; seller management lives on `app.nexez.ai`; marketing and public education live on `nexez.ai`. Automated release certification is active. The seller-facing Nexez Certified Agent-Ready standard is versioned, continuously evaluated, and machine-verifiable without conflating technical readiness, identity trust, or human marketplace review.
+
+Since the last reconciliation the work has been distribution, evidence, and repair rather than new commerce surface. The platform now answers the discovery conventions agents actually probe (ARD catalog, MCP server card, A2A agent card), publishes an original agent-readiness study built on a real 652-site sample, runs an eight-article education library, and carries a durable job runner. Custom-domain verification, the edge proxy, and the negotiation replay path were each hardened in response to observed production failures rather than speculatively. The repository moved to the `nexez-ai` organization and development is now pull-request based with a broader automated gate.
+
+**Supply is unchanged and curation is intentionally open.** Kismet Pros remains the only certified listing. Twelve pages are published and all twelve are marketplace-discoverable. This is a standing owner decision, recorded in the curation event ledger on 2026-08-05 as "reverting Kismet-only launch curation; restoring all listings to discoverable" and reaffirmed on 2026-08-15: listings stay discoverable, and tidying the remaining QA and scratch pages is handled manually rather than by a gate. Agentic Resource Discovery still applies curation's identity heuristic independently, so registry-facing output withholds fixtures the marketplace shows. That asymmetry is known and accepted, not a defect to close.
+
+The next milestone remains growing real launch-quality supply and proving demand.
 
 ## Quality bars
 
@@ -32,6 +38,9 @@ The core platform is built and its live commercial lifecycles are certified. Pub
 ### Agent legibility and distribution
 
 - Per-storefront JSON-LD, `llms.txt`, `agent.json`, `openapi.json`, MCP JSON-RPC, badge artifacts, and global agent index.
+- Agentic Resource Discovery: `/.well-known/ai-catalog.json` built to the published ai-catalog 1.0 schema, plus a domain-scoped per-merchant catalog on verified custom domains. Listing URNs are identical across both so registries deduping by ARD identifier collapse a listing found twice into one result. `trustManifest` is deliberately omitted rather than fabricated.
+- MCP server card and A2A agent card served at the paths agents were observed probing (`/.well-known/mcp/server-card.json`, `/.well-known/mcp`, `/.well-known/agent-card.json`), derived from the existing manifest so the surfaces cannot disagree. x402 probes are deliberately unanswered because the platform does not implement it.
+- Public education library at `/learn`: agentic commerce pillar, GEO, MCP servers, JSON-LD, `llms.txt`, `agent.json`, Google UCP, ChatGPT recommendation, ACP/UCP/MCP comparison, and the agent-readiness study.
 - Versioned Nexez Certified Agent-Ready standard with continuous 11-check evaluation, honest certified/readiness badge states, machine-readable verification, seller remediation, and a public methodology.
 - OpenClaw plugin and skill, published TypeScript and Python SDKs, examples, registry metadata, and agent-access smoke coverage.
 - ACP and UCP feeds and checkout-session adapters with persisted idempotent sessions and durable order attribution.
@@ -42,12 +51,15 @@ The core platform is built and its live commercial lifecycles are certified. Pub
 - Searchable directory and marketplace with professional/consumer facets, category, offer type, readiness, trust, worldwide location filtering, geolocation, favorites, related listings, and click attribution.
 - Nexxi buyer-agent search with transactable-first ranking, Nexez and web sources, semantic plus lexical retrieval, structured memory, streaming, voice, and approval-aware actions.
 - Reviews restricted to verified purchasers, seller responses, moderation state, aggregate ratings, and ranking inputs.
-- Admin marketplace curation with deterministic quality flags, explicit unreviewed/candidate/certified/excluded states, private notes, append-only decisions, and discovery-only exclusions that preserve direct storefront access.
+- Admin marketplace curation with deterministic quality flags, explicit unreviewed/candidate/certified/excluded states, private notes, append-only decisions, and discovery-only exclusions that preserve direct storefront access. The ARD catalog and the marketplace queue share one exported identity guard, so a listing withheld from one cannot be admitted by the other.
+- Anonymized public-scanner persistence: aggregate signals from every `/api/scan` run stored service-role-only behind RLS and hard ACL denial, written after the response so scan latency is untouched, salted domain hash for dedupe, raw hostname confined to a column excluded from all aggregate paths, and rows tagged by source/cohort/vertical so study data stays separable from organic scans.
+- Agent-readiness study harness: reproducible OSM/Overpass sampling across 12 fixed metros and 5 verticals with chain and platform exclusions, atomic `SKIP LOCKED` claiming, a bearer-gated internal runner, robots.txt politeness pre-checks before any fetch, cron-driven seed-then-scan drivers, and an as-run runbook with the aggregate SQL every published statistic derives from.
 
 ### Commerce and seller operations
 
 - Fixed checkout through seller Stripe Connect accounts with plan-based application fees; no fallback charge into the platform account.
 - Persistent negotiation threads, deterministic rules, LLM-assisted decisions clamped by owner rules, status polling, owner override, and asynchronous worker recovery.
+- Content-based negotiation replay: an agent that mints a fresh idempotency key per retry no longer forks duplicate negotiations, because a proposal whose action-request hash matches an open negotiation on the same slug and offer within the hour is returned as a replay. Open pre-funding negotiations untouched for 14 days are swept to `expired`, which keeps the open-deals view honest and bounds the replay set.
 - Escrow/manual capture lifecycle, hourly reconciliation, direct order ledger, buyer order portal, receipts, recourse requests, disputes, partial/full refunds, and fee reversal.
 - Subscription billing, embedded payment, plan changes, portal access, billing history, usage, Connect status, Finance dashboard, and multi-currency seller reporting.
 - Durable Free fallback, verified-business complimentary six-month Launch grants, two email-bound business passes, bounded referral delivery, expiry notices, and preserved draft/listing state.
@@ -59,6 +71,9 @@ The core platform is built and its live commercial lifecycles are certified. Pub
 - Shopify OAuth app with GraphQL catalog import, product webhook queue, recoverable claims, bounded retries, exact-shop tenancy, seller-visible health, and app-review submission.
 - Stripe price webhook sync, Calendly availability and stored-credential sync, one-time scheduling links, cancel-on-refund, outbound seller webhooks, and scheduled reconciliation/freshness workers.
 - Encrypted third-party credentials, feature gating, graceful dormant states, and integration status surfaces.
+- Inngest durable job runner: typed event vocabulary, three durable functions (outbound webhook dispatch, freshness nudges, feed regeneration on a 6-hour cron), and a signature-verified serve route. Dormant until `INNGEST_EVENT_KEY` is set.
+- Custom-domain verification hardening driven by real support cases: zone-appended TXT records are detected across multi-zone setups and the error names the exact fix instead of blaming propagation, the requested CNAME is confirmed by independent DNS lookup rather than trusting the provider's own field, and the hand-maintained `cname.nexez.app` merchant pointer is monitored on the existing smoke cron for drift, dangling, and unreadable-reference failure modes.
+- Edge proxy resilience: a failed custom-domain lookup never poisons the cache, the stale map keeps serving, a 3-second per-host backoff bounds retry cost under a sustained outage, both maps are size-bounded, PostgREST error payloads are treated as failures rather than as "no pages", and malformed artifact paths 404 instead of throwing.
 
 ### Analytics, trust, and administration
 
@@ -66,6 +81,9 @@ The core platform is built and its live commercial lifecycles are certified. Pub
 - Simulator history, AI Copilot, competitor analysis, readiness/trust score, credentials, voice optimization, agent memory, leaderboard, and verification signals.
 - Team invites, accepted-only collaborator access, owner-entitlement inheritance on shared pages, approval workflows, notifications, support desk, account export/delete, and API keys.
 - Three-host auth/routing architecture, shared session on the `.nexez.ai` app family, cookie-isolated agent runtime, rate limiting, observability, security headers, RLS hardening, and public projection parity tests.
+- `requirePageAccess` guard collapsing the authenticate/service-role/authorize preamble into one call returning a discriminated union, so a handler body can only be entered while holding a grant. It stays a guard rather than a wrapper because these routes do rate limiting and body parsing before authorization, and custom-domain needs the admin client to discover which page is even being addressed.
+- Owner-select schema guard: every column in the server, owner, and basic selects must exist on `public.pages` or the build fails, and settings degrades to the basic select when the rich one errors, matching its three sibling surfaces.
+- Vercel Speed Insights on the Next.js app.
 - Seller mobile app foundation with intake, listing management, analytics, negotiations, finance/orders, integrations, notifications, and account workflows.
 
 ### Launch operations
@@ -82,6 +100,10 @@ The core platform is built and its live commercial lifecycles are certified. Pub
 - Launch Control now exposes the marketplace review queue and a non-blocking inventory signal that stays visible until at least 20 listings are certified and no supply remains unreviewed.
 - Launch Control includes **Growth Control** for complimentary Launch grants: redacted activation and invitation telemetry, capacity and paid-conversion signals, lifecycle activity, and append-only operator controls for pause, resume, signup close, capacity, and terminal campaign end.
 - `supabase/tests/seller_growth_gauntlet.sql` certifies welcome activation, verified-business deduplication, paid-plan precedence, email-bound referrals, self/wrong-email/pass-limit rejection, pause/resume idempotency, capacity enforcement, Free fallback, aggregate telemetry, and terminal campaign behavior inside one fully rolled-back production-schema transaction.
+- A dedicated admin control panel separate from Launch Control, and a private cohort layer over growth control: three cohort actions, a five-state member lifecycle, an `open`/`invite_only` enrollment mode, roster metrics, and a roster panel wired into Growth Control. **The cohort migration is in source but not applied to production** — see the launch gate below.
+- Automated gate on every pull request and push to `main`: ESLint, TypeScript, tests, the palette guard, orphaned-file detection via knip (`lint:dead`), and SDK/plugin/skill version parity. Export- and type-level dead code is reported by `lint:dead:all` but deliberately left unblocking, because roughly sixty of those flags are load-bearing or judgement calls.
+- Version-parity coverage now extends past the SDKs to the OpenClaw plugin and the ClawHub skill, both of which advertised versions that were never published. Runtime versions derive from `package.json` and `SKILL.md` rather than restating them in a constant.
+- Metered Actions consumption cut without weakening the main gate: a concurrency group on CI scoped so superseded PR runs cancel while push-to-main runs survive to feed release certification, floor-and-ceiling test matrices on PRs with the full range on `main`, and the agent-access smoke moved from 6-hourly to daily with dispatch still available on demand.
 
 ## Active roadmap
 
@@ -89,16 +111,20 @@ Ranked by launch leverage.
 
 ### P0 - Launch gate
 
-1. **Curate launch inventory.** Publish and certify 20-30 high-quality storefronts across representative industries and regions. Current live baseline: 1 discoverable and marketplace-certified listing (Kismet Pros), plus 9 published evaluation/QA pages retained as direct-only. The 19 synthetic scenarios are test fixtures and do not count toward this target.
+1. **Close the source-to-production drift.** Two divergences are live and each was verified against the production database on 2026-08-15, not inferred from source. (Curation state is deliberately open and is **not** one of them — see Current standing and Accepted constraints.)
+   - **The `agent_memory` projection fix was reverted in production and the revert never came back to source.** Migration `20260810012119` dropped the column from `pages_public`; `20260810171807` restored it the same day. The repository contains only the drop. `agent_memory` is still in `PUBLIC_PAGE_COLUMNS`, so the drop is also unreplayable — a clean migration run would 42703 the public surface. Either the security fix lands properly (remove the column from the select first, then drop) or the restore is mirrored into source with its reasoning. Owner free-text notes are anon-readable until it is resolved.
+   - **`20260726051112_seller_growth_private_cohorts` is not applied.** No cohort table exists in production, while `main` ships the roster panel wired into Growth Control. Verify the admin surface degrades rather than errors, then apply.
+2. **Curate launch inventory.** Publish and certify 20-30 high-quality storefronts across representative industries and regions. Current live baseline is unchanged from the last reconciliation: 1 marketplace-certified listing (Kismet Pros). Twelve pages are published, 9 sit in `candidate`, and 2 (`kismet`, `pawra-pet-cares`) have no curation row at all. The 19 synthetic scenarios are test fixtures and do not count toward this target.
 
 ### P1 - Launch strength
 
-1. **Prove demand.** Publish a real agent-discovery-to-conversion case study using production evidence without inventing attribution or outcomes.
+1. **Prove demand.** Publish a real agent-discovery-to-conversion case study using production evidence without inventing attribution or outcomes. The supply-side half of the evidence problem is now solved: the agent-readiness study samples 652 real sites and its aggregates are reproducible from documented SQL. The demand-side case study still requires a real transaction with real attribution, which no amount of scanning substitutes for.
 2. **Strengthen ranking.** Tune marketplace and Nexxi ranking with real conversion, location, availability, verified-purchase review, response quality, and freshness evidence. Prevent sparse-data feedback loops.
-3. **Integration proof.** Keep the certified Stripe price-sync replay monitored in Launch Control, add timezone-aware Calendly business hours, and monitor Shopify queue health through Launch Control.
-4. **Mobile distribution.** Complete store builds, physical-device push checks, release review, deep-link validation, and parity checks for the seller mobile app.
+3. **Integration proof.** Keep the certified Stripe price-sync replay monitored in Launch Control, add timezone-aware Calendly business hours, and monitor Shopify queue health through Launch Control. The Stripe delivery check now grades delivery health rather than traffic recency, so a healthy-but-idle account no longer fails certification; endpoint status resolved from the Stripe API is the traffic-independent signal.
+4. **Mobile distribution.** Complete store builds, physical-device push checks, release review, deep-link validation, and parity checks for the seller mobile app. The Nexie mobile app is now gated on a typecheck in its own paths-filtered workflow, so a type error cannot reach `main` unnoticed. It has no lint config and no test harness, and `expo install --check` reports ten outdated Expo packages; the SDK bump is deliberately deferred to its own change and exposed meanwhile as `npm run check:expo-deps`.
 5. **Notification control.** Add seller preferences for transaction, negotiation, integration, review, and marketing notifications without weakening mandatory money-state notices.
-6. **Free activation loop monitoring.** The control plane and 15-case live-schema baseline are complete. Monitor real qualification, abuse rejection, invitation delivery, activation, paid conversion, expiry notices, and Free fallback outcomes in Growth Control before expanding the campaign cap.
+6. **Free activation loop monitoring.** The control plane and 15-case live-schema baseline are complete. Monitor real qualification, abuse rejection, invitation delivery, activation, paid conversion, expiry notices, and Free fallback outcomes in Growth Control before expanding the campaign cap. Blocked on the cohort migration in P0.
+7. **Publish the study's second cohort.** The `readiness-2026-08` cohort ran and the v2 rerun procedure is documented. A repeat sample is what turns a snapshot into a trend, which is the version of this asset that earns links.
 
 ### P2 - Post-launch expansion
 
@@ -114,6 +140,10 @@ Ranked by launch leverage.
 - Some low-value database policy and index advisories are accepted until traffic evidence justifies riskier consolidation or removal.
 - Agent checkout and seller subscription flows remain separate money systems: sellers are merchant of record for marketplace transactions; Nexez is merchant of record only for its own subscriptions.
 - Optional integrations may remain dormant when unavailable, but the UI and agent artifacts must represent that state honestly.
+- The ARD catalog omits `trustManifest` rather than emitting a fabricated envelope, and the platform does not answer x402 probes. Advertising a payment protocol Nexez does not implement would break buyer agents mid-checkout; both stay absent until the underlying capability is real.
+- ARD identity exclusions share curation's heuristic, which reads description prose. A real merchant whose description says "for example" is withheld from the catalog. That false negative is accepted so the two gates cannot drift apart.
+- Marketplace discovery is open by default and curated by exception. Exclusion is reserved for a deliberate operator decision, and tidying internal or scratch listings is done manually rather than by broadening the gate. The ARD catalog is stricter than the marketplace on purpose; the two surfaces are permitted to disagree in that direction.
+- `marketplace_discoverable` on the base `pages` table is an inert default-true placeholder that exists only so owner selects do not fail. The authoritative value lives on `pages_public`, derived from `marketplace_curations` by trigger. Never read it from `pages` for a visibility decision.
 
 ## Governance
 
@@ -121,5 +151,8 @@ Ranked by launch leverage.
 - Keep public agent surfaces free from management UI dependencies, session requirements, and client-only semantics.
 - Use additive, idempotent migrations with RLS enabled on every exposed table. Never expose service-role credentials to clients.
 - Fail closed for authentication, authorization, action approval, and money movement. Fail soft only when the fallback reduces capability without widening access.
-- Verify every code slice with lint, palette check, TypeScript, tests, production build, and relevant browser or live probes.
+- Verify every code slice with lint, palette check, TypeScript, tests, dead-code check, production build, and relevant browser or live probes.
+- The repository is private under the `nexez-ai` organization and work lands through pull requests. Public surfaces must never reference the old personal repository or account.
+- A migration applied to production by MCP is not shipped until it is mirrored into `supabase/migrations` and can be replayed from an empty database. A migration in source that production has since reverted is drift, not history.
+- An advertised version is a claim about a published artifact. Derive it from the artifact — `package.json`, `SKILL.md`, the registry — never from a constant that restates it, because a stale literal in a test and a stale constant in source form a self-consistent pair no test catches.
 - Update this roadmap when scope changes. Keep command history, commit hashes, and detailed incident notes in `HANDOFF.md` and git history.
