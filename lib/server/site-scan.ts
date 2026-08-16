@@ -217,7 +217,13 @@ function recordLooksMeaningful(value: unknown, kind: 'agent' | 'agent-card' | 'm
   return typeof value.name === 'string' && ['offers', 'skills', 'capabilities', 'url', 'endpoints'].some((key) => key in value)
 }
 
-const SAFE_FETCH_OPTIONS = { timeoutMs: 6500, pinnedDns: true, standardPortsOnly: true } as const
+// maxRedirects is capped at 2 (so 3 hops) to keep the scan inside the route's
+// 30s maxDuration. safeFetch gives EVERY hop its own fresh timeoutMs budget, so
+// the library default of 4 allows 5 x 6500ms = 32.5s on the main page fetch
+// alone, before the per-hop DNS safety checks. That overruns the function and
+// the caller gets a platform timeout instead of the graceful error below.
+// 3 hops is 19.5s, which still covers the usual http -> https -> www chain.
+const SAFE_FETCH_OPTIONS = { timeoutMs: 6500, pinnedDns: true, standardPortsOnly: true, maxRedirects: 2 } as const
 
 async function probeJson(url: string, kind: 'agent' | 'agent-card' | 'mcp' | 'openapi'): Promise<boolean> {
   const res = await safeFetch(
