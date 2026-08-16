@@ -66,8 +66,10 @@ import { getRecommendedByChatgpt } from './learn-articles/get-recommended-by-cha
 import { jsonLdForAiAgents } from './learn-articles/json-ld-for-ai-agents'
 import { whatIsAgentJson } from './learn-articles/what-is-agent-json'
 import { whatIsGoogleUcp } from './learn-articles/what-is-google-ucp'
+import { measureAiAgentTraffic } from './learn-articles/measure-ai-agent-traffic'
 
 export const learnArticles: LearnArticle[] = [
+  measureAiAgentTraffic,
   whatIsGoogleUcp,
   whatIsAgentJson,
   agentReadinessStudy2026,
