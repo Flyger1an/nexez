@@ -1,5 +1,6 @@
 import { enforceRateLimit } from '../../../../../../lib/rate-limit'
 import { getBaseUrl } from '../../../../../../lib/agent-page'
+import { recoverBearerToken } from '../../../../../../lib/server/bearer-token'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../../../utils/supabase/admin'
 import {
   updateSession,
@@ -156,13 +157,15 @@ async function existingOrderRef(
   if (!paymentIntentId) return null
   const { data } = await admin
     .from('checkout_orders')
-    .select('access_token')
+    .select('access_token_encrypted')
     .eq('stripe_payment_intent_id', paymentIntentId)
-    .maybeSingle<{ access_token: string | null }>()
+    .maybeSingle<{ access_token_encrypted: string | null }>()
+  // Plaintext is gone; the ciphertext is the only recoverable copy.
+  const portalToken = recoverBearerToken({ encrypted: data?.access_token_encrypted })
   return {
     id: paymentIntentId,
     label: `Order ${paymentIntentId}`,
-    permalink_url: data?.access_token ? `${getBaseUrl()}/orders/${data.access_token}` : `${getBaseUrl()}/orders`,
+    permalink_url: portalToken ? `${getBaseUrl()}/orders/${portalToken}` : `${getBaseUrl()}/orders`,
     status: 'completed',
   }
 }

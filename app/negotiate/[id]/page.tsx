@@ -41,7 +41,7 @@ export const metadata = {
 // and is never rendered. Deliberately absent: owner_id, buyer contact internals,
 // requested_terms, currency, Stripe ids.
 const NEGOTIATION_PAGE_SELECT =
-  'id, slug, offer_key, offer_name, status, amount_cents, settlement_state, metadata, status_token, status_token_encrypted, updated_at, decision_pending, decision_seq'
+  'id, slug, offer_key, offer_name, status, amount_cents, settlement_state, metadata, status_token_encrypted, updated_at, decision_pending, decision_seq'
 
 type NegotiationRow = {
   id: string
@@ -52,7 +52,6 @@ type NegotiationRow = {
   amount_cents: number | null
   settlement_state: 'auto' | 'awaiting_approval' | 'approved' | null
   metadata: any
-  status_token: string | null
   status_token_encrypted: string | null
   updated_at: string | null
   decision_pending: boolean | null
@@ -158,7 +157,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
   // The owner has no token in the URL; recover theirs from the row (ciphertext first,
   // plaintext while that column lasts). The agent already presented one.
   const formToken = viewerIsOwner
-    ? recoverBearerToken({ encrypted: negotiation.status_token_encrypted, plaintext: negotiation.status_token }) || ''
+    ? recoverBearerToken({ encrypted: negotiation.status_token_encrypted }) || ''
     : token
 
   // Buyer-funded settlement state for this thread.

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { encryptForTest, stubBearerTokenKey } from '../../../../../../test/bearer-token-fixtures'
 import { createSupabaseMock, type QueryContext } from '../../../../../../test/supabase-mock'
 
 const { hasSupabaseAdminEnv, createAdminClient } = vi.hoisted(() => ({
@@ -59,6 +60,7 @@ const PAYMENT = { buyer: { email: 'b@x.com', name: 'Dana' }, payment_data: { ins
 describe('POST /api/acp/checkout_sessions/[id]/complete', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    stubBearerTokenKey()
     hasSupabaseAdminEnv.mockReturnValue(true)
     resolveSettlementContext.mockResolvedValue(OK_CONTEXT)
     settleSessionToPaymentIntent.mockResolvedValue(OK_SETTLE)
@@ -67,7 +69,7 @@ describe('POST /api/acp/checkout_sessions/[id]/complete', () => {
   afterEach(() => vi.unstubAllEnvs())
 
   function readySessionDb(over: Record<string, any> = {}, page: Record<string, any> = PAGE) {
-    let order: any = { access_token: 'tok123' }
+    let order: any = { access_token_encrypted: encryptForTest('tok123') }
     let sessionUpdate: any
     let orderUpsert: any
     createAdminClient.mockReturnValue(

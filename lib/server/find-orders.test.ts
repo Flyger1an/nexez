@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { encryptForTest, stubBearerTokenKey } from '../../test/bearer-token-fixtures'
 import { createSupabaseMock, type QueryContext } from '../../test/supabase-mock'
 
 const refs = vi.hoisted(() => ({ handler: (_c: any) => ({ data: [], error: null }) as any }))
@@ -8,6 +9,8 @@ vi.mock('../../utils/supabase/admin', () => ({
 }))
 
 import { findOrdersByEmail } from './load-order'
+
+stubBearerTokenKey()
 
 describe('findOrdersByEmail', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -39,9 +42,9 @@ describe('findOrdersByEmail', () => {
   it('merges both money paths, maps tokens, and sorts newest-first', async () => {
     refs.handler = (ctx: QueryContext) => {
       if (ctx.table === 'checkout_orders')
-        return { data: [{ access_token: 'ck1', slug: 'acme', offer_name: 'A', amount_cents: 5000, currency: 'usd', status: 'paid', metadata: null, created_at: '2026-06-10T00:00:00Z' }], error: null }
+        return { data: [{ access_token_encrypted: encryptForTest('ck1'), slug: 'acme', offer_name: 'A', amount_cents: 5000, currency: 'usd', status: 'paid', metadata: null, created_at: '2026-06-10T00:00:00Z' }], error: null }
       if (ctx.table === 'agent_negotiations')
-        return { data: [{ status_token: 'ng1', slug: 'acme', offer_name: 'B', amount_cents: 500000, currency: 'jpy', status: 'held', metadata: null, created_at: '2026-06-15T00:00:00Z' }], error: null }
+        return { data: [{ status_token_encrypted: encryptForTest('ng1'), slug: 'acme', offer_name: 'B', amount_cents: 500000, currency: 'jpy', status: 'held', metadata: null, created_at: '2026-06-15T00:00:00Z' }], error: null }
       if (ctx.table === 'pages_public') return { data: [{ slug: 'acme', name: 'Acme' }], error: null }
       return { data: [], error: null }
     }

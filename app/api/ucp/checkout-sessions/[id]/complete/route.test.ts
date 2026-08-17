@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { encryptForTest, stubBearerTokenKey } from '../../../../../../test/bearer-token-fixtures'
 import { createSupabaseMock, type QueryContext } from '../../../../../../test/supabase-mock'
 
 const { hasSupabaseAdminEnv, createAdminClient } = vi.hoisted(() => ({
@@ -44,6 +45,7 @@ const PAYMENT = { buyer: { email: 'b@x.com' }, payment: { instruments: [{ creden
 describe('POST /api/ucp/checkout-sessions/[id]/complete', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    stubBearerTokenKey()
     hasSupabaseAdminEnv.mockReturnValue(true)
     resolveSettlementContext.mockResolvedValue(OK_CONTEXT)
     settleSessionToPaymentIntent.mockResolvedValue(OK_SETTLE)
@@ -66,7 +68,7 @@ describe('POST /api/ucp/checkout-sessions/[id]/complete', () => {
           orderUpsert = c.payload
           return { error: null }
         }
-        if (c.table === 'checkout_orders' && c.op === 'select') return { data: { access_token: 'tok123' } }
+        if (c.table === 'checkout_orders' && c.op === 'select') return { data: { access_token_encrypted: encryptForTest('tok123') } }
         return { data: null }
       }),
     )
