@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { hashBearerToken } from '../../../../lib/server/bearer-token'
 import type { QueryContext } from '../../../../test/supabase-mock'
 
 const { adminRef, stripeRef } = vi.hoisted(() => ({
@@ -43,7 +44,7 @@ function db(neg: any, billing: any = { plan_id: 'pro', status: 'active', stripe_
   adminRef.handler = (ctx: QueryContext) => {
     if (ctx.table === 'agent_negotiations' && ctx.op === 'select') {
       // honor the id+token scoping the route applies
-      if (neg && ctx.eqs.id === neg.id && ctx.eqs.status_token === neg.status_token) return { data: neg }
+      if (neg && ctx.eqs.id === neg.id && ctx.eqs.status_token_sha256 === hashBearerToken(neg.status_token)) return { data: neg }
       return { data: null }
     }
     if (ctx.table === 'billing_subscriptions') return { data: billing }

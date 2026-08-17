@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createSupabaseMock } from '../../../../test/supabase-mock'
+import { hashBearerToken } from '../../../../lib/server/bearer-token'
 
 vi.mock('../../../../utils/supabase/admin', () => ({ createAdminClient: vi.fn(), hasSupabaseAdminEnv: vi.fn() }))
 
@@ -51,7 +52,8 @@ describe('GET /api/negotiations/status', () => {
     })
     expect(body.next).toMatch(/agreement proposed/i)
     expect(eqs.id).toBe('n1')
-    expect(eqs.status_token).toBe('tok123')
+    // The route matches the blind index now, not the plaintext column.
+    expect(eqs.status_token_sha256).toBe(hashBearerToken('tok123'))
   })
 
   it('reports decisionPending while the async decision is still running (decision withheld)', async () => {
