@@ -67,8 +67,10 @@ import { jsonLdForAiAgents } from './learn-articles/json-ld-for-ai-agents'
 import { whatIsAgentJson } from './learn-articles/what-is-agent-json'
 import { whatIsGoogleUcp } from './learn-articles/what-is-google-ucp'
 import { measureAiAgentTraffic } from './learn-articles/measure-ai-agent-traffic'
+import { aiSearchLocalBusinesses } from './learn-articles/ai-search-local-businesses'
 
 export const learnArticles: LearnArticle[] = [
+  aiSearchLocalBusinesses,
   measureAiAgentTraffic,
   whatIsGoogleUcp,
   whatIsAgentJson,
