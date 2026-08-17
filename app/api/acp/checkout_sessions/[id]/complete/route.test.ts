@@ -54,7 +54,7 @@ function req(body: unknown, headers: Record<string, string> = {}) {
   })
 }
 const ctx = { params: Promise.resolve({ id: 'sess_1' }) }
-const PAYMENT = { buyer: { email: 'b@x.com', name: 'Dana' }, payment_data: { instrument: { credential: 'vt_123' } } }
+const PAYMENT = { buyer: { email: 'b@x.com', name: 'Dana' }, payment_data: { instrument: { credential: 'spt_123' } } }
 
 describe('POST /api/acp/checkout_sessions/[id]/complete', () => {
   beforeEach(() => {
@@ -66,7 +66,7 @@ describe('POST /api/acp/checkout_sessions/[id]/complete', () => {
   })
   afterEach(() => vi.unstubAllEnvs())
 
-  function readySessionDb(over: Record<string, any> = {}) {
+  function readySessionDb(over: Record<string, any> = {}, page: Record<string, any> = PAGE) {
     let order: any = { access_token: 'tok123' }
     let sessionUpdate: any
     let orderUpsert: any
@@ -77,7 +77,7 @@ describe('POST /api/acp/checkout_sessions/[id]/complete', () => {
           sessionUpdate = c.payload
           return { error: null }
         }
-        if (c.table === 'pages') return { data: PAGE }
+        if (c.table === 'pages') return { data: page }
         if (c.table === 'checkout_orders' && c.op === 'upsert') {
           orderUpsert = c.payload
           return { error: null }
@@ -100,7 +100,7 @@ describe('POST /api/acp/checkout_sessions/[id]/complete', () => {
     // Charged via the shared bridge with the delegated token.
     expect(settleSessionToPaymentIntent).toHaveBeenCalledTimes(1)
     const [passedSession, payment, context] = settleSessionToPaymentIntent.mock.calls[0]
-    expect(payment).toEqual({ token: 'vt_123', kind: 'shared_payment_token' })
+    expect(payment).toEqual({ token: 'spt_123', kind: 'shared_payment_token' })
     expect(context.connectAccountId).toBe('acct_seller')
     expect(passedSession.buyer).toMatchObject({ email: 'b@x.com' })
     // Session marked completed + PI linked; durable order persisted under 'acp'.
@@ -161,5 +161,58 @@ describe('POST /api/acp/checkout_sessions/[id]/complete', () => {
   it('401 without the shared secret', async () => {
     vi.stubEnv('ACP_SHARED_SECRET', '')
     expect((await COMPLETE(req(PAYMENT), ctx)).status).toBe(401)
+  })
+
+  // The settlement-time re-price reflects live offers, so a merchant editing their
+  // price mid-flight used to settle at the new number under the buyer's old
+  // authorization. APPROVED carries what was actually agreed to.
+  describe('buyer-approved amount', () => {
+    const APPROVED = {
+      approved_amount_cents: 120000,
+      approved_currency: 'usd',
+      approved_cart_fingerprint: '1-e483a793d4d2f2f3',
+    }
+    const pageAt = (price: string) => ({ ...PAGE, services: [{ ...PAGE.services[0], price }] })
+
+    it('refuses to charge when the merchant raised the price after authorization', async () => {
+      const spy = readySessionDb(APPROVED, pageAt('$1,900'))
+      const res = await COMPLETE(req(PAYMENT), ctx)
+      expect(res.status).toBe(409)
+      expect((await res.json()).code).toBe('amount_increased')
+      expect(settleSessionToPaymentIntent).not.toHaveBeenCalled()
+      expect(spy.getSessionUpdate()).toMatchObject({ status: 'ready' }) // never completed
+    })
+
+    it('settles at the lower amount when the merchant dropped the price', async () => {
+      settleSessionToPaymentIntent.mockResolvedValue({ ...OK_SETTLE, amount: 90000, applicationFee: 9000 })
+      readySessionDb(APPROVED, pageAt('$900'))
+      const res = await COMPLETE(req(PAYMENT), ctx)
+      expect(res.status).toBe(200)
+      const [passedSession] = settleSessionToPaymentIntent.mock.calls[0]
+      expect(passedSession.totals.total).toBe(90000)
+    })
+
+    it('refuses when the authorization was given in a different currency', async () => {
+      readySessionDb({ ...APPROVED, approved_currency: 'eur' })
+      const res = await COMPLETE(req(PAYMENT), ctx)
+      expect(res.status).toBe(409)
+      expect((await res.json()).code).toBe('currency_changed')
+      expect(settleSessionToPaymentIntent).not.toHaveBeenCalled()
+    })
+
+    it('refuses when the cart no longer matches the authorization', async () => {
+      readySessionDb({ ...APPROVED, approved_cart_fingerprint: '1-deadbeefdeadbeef' })
+      const res = await COMPLETE(req(PAYMENT), ctx)
+      expect(res.status).toBe(409)
+      expect((await res.json()).code).toBe('cart_changed')
+      expect(settleSessionToPaymentIntent).not.toHaveBeenCalled()
+    })
+
+    // Rows predating the approval columns. Deliberately allowed through: they expire
+    // inside one deploy cycle, and failing closed would strand in-flight checkouts.
+    it('still settles a legacy row that carries no approval', async () => {
+      readySessionDb({}, pageAt('$1,900'))
+      expect((await COMPLETE(req(PAYMENT), ctx)).status).toBe(200)
+    })
   })
 })

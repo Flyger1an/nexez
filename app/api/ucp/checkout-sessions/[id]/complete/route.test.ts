@@ -51,7 +51,7 @@ describe('POST /api/ucp/checkout-sessions/[id]/complete', () => {
   })
   afterEach(() => vi.unstubAllEnvs())
 
-  function readyDb(over: Record<string, any> = {}) {
+  function readyDb(over: Record<string, any> = {}, page: Record<string, any> = PAGE) {
     let sessionUpdate: any
     let orderUpsert: any
     createAdminClient.mockReturnValue(
@@ -61,7 +61,7 @@ describe('POST /api/ucp/checkout-sessions/[id]/complete', () => {
           sessionUpdate = c.payload
           return { error: null }
         }
-        if (c.table === 'pages') return { data: PAGE }
+        if (c.table === 'pages') return { data: page }
         if (c.table === 'checkout_orders' && c.op === 'upsert') {
           orderUpsert = c.payload
           return { error: null }
@@ -117,5 +117,45 @@ describe('POST /api/ucp/checkout-sessions/[id]/complete', () => {
   it('401 without the shared secret', async () => {
     vi.stubEnv('UCP_SHARED_SECRET', '')
     expect((await COMPLETE(req(PAYMENT), ctx)).status).toBe(401)
+  })
+
+  // A Google Pay token carries no allowance ceiling to fall back on, so this check is
+  // the only thing between a mid-flight price edit and the buyer's card.
+  describe('buyer-approved amount', () => {
+    const APPROVED = {
+      approved_amount_cents: 120000,
+      approved_currency: 'usd',
+      approved_cart_fingerprint: '1-e483a793d4d2f2f3',
+    }
+    const pageAt = (price: string) => ({ ...PAGE, services: [{ ...PAGE.services[0], price }] })
+
+    it('refuses to charge when the merchant raised the price after authorization', async () => {
+      readyDb(APPROVED, pageAt('$1,900'))
+      const res = await COMPLETE(req(PAYMENT), ctx)
+      expect(res.status).toBe(409)
+      expect((await res.json()).code).toBe('amount_increased')
+      expect(settleSessionToPaymentIntent).not.toHaveBeenCalled()
+    })
+
+    it('settles at the lower amount when the merchant dropped the price', async () => {
+      settleSessionToPaymentIntent.mockResolvedValue({ ...OK_SETTLE, amount: 90000, applicationFee: 9000 })
+      readyDb(APPROVED, pageAt('$900'))
+      expect((await COMPLETE(req(PAYMENT), ctx)).status).toBe(200)
+      const [passedSession] = settleSessionToPaymentIntent.mock.calls[0]
+      expect(passedSession.totals.total).toBe(90000)
+    })
+
+    it('refuses a cart that no longer matches the authorization', async () => {
+      readyDb({ ...APPROVED, approved_cart_fingerprint: '1-deadbeefdeadbeef' })
+      const res = await COMPLETE(req(PAYMENT), ctx)
+      expect(res.status).toBe(409)
+      expect((await res.json()).code).toBe('cart_changed')
+      expect(settleSessionToPaymentIntent).not.toHaveBeenCalled()
+    })
+
+    it('still settles a legacy row that carries no approval', async () => {
+      readyDb({}, pageAt('$1,900'))
+      expect((await COMPLETE(req(PAYMENT), ctx)).status).toBe(200)
+    })
   })
 })

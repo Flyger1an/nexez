@@ -5,6 +5,8 @@ import {
   cancelSession,
   markSessionCompleted,
   isSessionPayable,
+  cartFingerprint,
+  checkApprovalDrift,
   MAX_LINE_QUANTITY,
   type SessionPage,
 } from '../commerce/checkout-session-core'
@@ -279,5 +281,137 @@ describe('state transitions', () => {
     cancelSession(s)
     updateSession(s, { page: makePage(), items: [{ offer: 'products-0' }] })
     expect(JSON.stringify(s)).toBe(before)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Buyer-approved amount: frozen at the first `ready`, judged at settlement.
+// ---------------------------------------------------------------------------
+
+/** The page with the Strategy Session repriced, standing in for a merchant edit
+ * between the buyer's authorization and the agent's /complete call. */
+function repricedPage(price: string): SessionPage {
+  const base = makePage()
+  return {
+    ...base,
+    services: [offer({ name: 'Strategy Session', price, description: 'A deep-dive.' }), base.services![1]],
+  }
+}
+
+describe('approval freezing', () => {
+  it('freezes amount, currency and cart the moment a session is payable', () => {
+    const s = createSession({ id: 'a1', page: makePage(), items: [{ offer: 'services-0' }] })
+    expect(s.approval).toEqual({
+      amount: 120000,
+      currency: 'usd',
+      cartFingerprint: cartFingerprint(s.lineItems),
+    })
+  })
+
+  it('records no approval while the session is not payable', () => {
+    const s = createSession({ id: 'a2', page: makePage(), items: [{ offer: 'services-1' }] })
+    expect(s.status).toBe('pending')
+    expect(s.approval).toBeNull()
+  })
+
+  it('carries the original approval through a re-price that omits items', () => {
+    const s = createSession({ id: 'a3', page: makePage(), items: [{ offer: 'services-0' }] })
+    const repriced = updateSession(s, { page: repricedPage('$1,900') })
+    expect(repriced.totals.total).toBe(190000)
+    expect(repriced.approval).toEqual(s.approval)
+  })
+
+  it('re-freezes when the agent deliberately supplies a new cart', () => {
+    const s = createSession({ id: 'a4', page: makePage(), items: [{ offer: 'services-0' }] })
+    const recarted = updateSession(s, { page: makePage(), items: [{ offer: 'products-0' }] })
+    expect(recarted.approval?.amount).toBe(45000)
+    expect(recarted.approval?.cartFingerprint).not.toBe(s.approval?.cartFingerprint)
+  })
+
+  it('freezes on the update that first makes a session payable', () => {
+    const s = createSession({ id: 'a5', page: makePage(), items: [] })
+    expect(s.approval).toBeNull()
+    const ready = updateSession(s, { page: makePage(), items: [{ offer: 'services-0' }] })
+    expect(ready.status).toBe('ready')
+    expect(ready.approval?.amount).toBe(120000)
+  })
+})
+
+describe('cartFingerprint', () => {
+  it('is order-independent', () => {
+    const a = createSession({ id: 'f1', page: makePage(), items: [{ offer: 'services-0' }, { offer: 'products-0' }] })
+    const b = createSession({ id: 'f2', page: makePage(), items: [{ offer: 'products-0' }, { offer: 'services-0' }] })
+    expect(cartFingerprint(a.lineItems)).toBe(cartFingerprint(b.lineItems))
+  })
+
+  it('changes with quantity and with composition', () => {
+    const one = createSession({ id: 'f3', page: makePage(), items: [{ offer: 'services-0' }] })
+    const two = createSession({ id: 'f4', page: makePage(), items: [{ offer: 'services-0', quantity: 2 }] })
+    const other = createSession({ id: 'f5', page: makePage(), items: [{ offer: 'products-0' }] })
+    expect(cartFingerprint(one.lineItems)).not.toBe(cartFingerprint(two.lineItems))
+    expect(cartFingerprint(one.lineItems)).not.toBe(cartFingerprint(other.lineItems))
+  })
+
+  // Price is deliberately excluded so a price DROP is not mistaken for a different
+  // cart; the amount comparison is what judges price movement.
+  it('ignores price', () => {
+    const before = createSession({ id: 'f6', page: makePage(), items: [{ offer: 'services-0' }] })
+    const after = createSession({ id: 'f7', page: repricedPage('$999'), items: [{ offer: 'services-0' }] })
+    expect(cartFingerprint(before.lineItems)).toBe(cartFingerprint(after.lineItems))
+  })
+})
+
+describe('checkApprovalDrift', () => {
+  const authorized = () => createSession({ id: 'd1', page: makePage(), items: [{ offer: 'services-0' }] })
+
+  it('passes an unchanged quote', () => {
+    expect(checkApprovalDrift(authorized())).toEqual({ ok: true })
+  })
+
+  it('passes when the merchant LOWERED the price', () => {
+    const cheaper = updateSession(authorized(), { page: repricedPage('$900') })
+    expect(cheaper.totals.total).toBe(90000)
+    expect(checkApprovalDrift(cheaper)).toEqual({ ok: true })
+  })
+
+  it('refuses an increase, reporting both amounts', () => {
+    const dearer = updateSession(authorized(), { page: repricedPage('$1,900') })
+    const drift = checkApprovalDrift(dearer)
+    expect(drift.ok).toBe(false)
+    if (drift.ok) throw new Error('expected drift')
+    expect(drift.code).toBe('amount_increased')
+    expect(drift.approved.amount).toBe(120000)
+    expect(drift.current.amount).toBe(190000)
+  })
+
+  it('refuses a one-minor-unit increase (no tolerance band)', () => {
+    const dearer = updateSession(authorized(), { page: repricedPage('$1,200.01') })
+    expect(dearer.totals.total).toBe(120001)
+    const drift = checkApprovalDrift(dearer)
+    expect(drift.ok).toBe(false)
+    if (!drift.ok) expect(drift.code).toBe('amount_increased')
+  })
+
+  it('refuses a currency change', () => {
+    const swapped = updateSession(authorized(), { page: { ...makePage(), currency: 'eur' } })
+    const drift = checkApprovalDrift(swapped)
+    expect(drift.ok).toBe(false)
+    if (!drift.ok) expect(drift.code).toBe('currency_changed')
+  })
+
+  // Guards the mapper contract: a session whose stored approval describes a
+  // different cart must not settle, even if the new cart is cheaper.
+  it('refuses a cart that no longer matches the authorization', () => {
+    const s = authorized()
+    const swappedCart = { ...updateSession(s, { page: makePage(), items: [{ offer: 'products-0' }] }), approval: s.approval }
+    const drift = checkApprovalDrift(swappedCart)
+    expect(drift.ok).toBe(false)
+    if (!drift.ok) expect(drift.code).toBe('cart_changed')
+  })
+
+  // Rows created before the approval columns existed. They expire inside one deploy
+  // cycle; failing them closed would strand every in-flight checkout.
+  it('passes a session with no approval on file', () => {
+    expect(checkApprovalDrift({ ...authorized(), approval: null })).toEqual({ ok: true })
   })
 })
