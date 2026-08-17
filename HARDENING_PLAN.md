@@ -292,7 +292,10 @@ and the published path reads `pages_public`. A per-key allowlist restores it.
 
 ## 6. Hash the bearer tokens at rest
 
-`[ ]`
+`[~]` Migration applied to production 2026-08-17 as `20260817130715`. All lookups and
+link rebuilds are cut over. Remaining: run the ciphertext backfill in the deployment,
+then a final migration dropping the plaintext columns. The plan's "hash and drop the
+plaintext" turned out not to fit these two tokens; see the design note below.
 
 **Verified.** `checkout_orders.access_token` is two concatenated UUIDs stored in
 plaintext with a unique index
@@ -305,7 +308,81 @@ The pattern to copy already exists: `api_keys` stores `key_hash` plus `prefix`
 Shopify credentials use AES-256-GCM encrypted columns with select revoked from
 `authenticated`.
 
-**Do:**
+**Design correction: hashing alone does not fit these two tokens.** The server has
+to rebuild the buyer's link AFTER issuance in three flows that do not have the
+plaintext in scope:
+
+1. The Stripe webhook emails `/orders/<token>`, reading the token back from the row
+   (it is minted by a column DEFAULT, so the app never held it), and must still
+   work on redelivery.
+2. `findOrdersByEmail` (`lib/server/load-order.ts:376`, three callers: the
+   order-portal lookup, the Nexie orders agent, and the magic-link landing page)
+   returns a per-row token for every order AND negotiation matching a buyer email,
+   for a buyer with no session.
+3. The owner dashboard deep-links to `/negotiate/{id}?token=...`.
+
+So the shape is a **blind index plus a ciphertext**, not one or the other:
+`*_sha256` (deterministic, replaces the plaintext equality lookups and inherits the
+unique index) and `*_encrypted` (AES-256-GCM, for the recovery cases). The GCM
+payload uses a random IV and is therefore unsearchable, which is exactly why the
+hash column has to exist alongside it.
+
+Plain SHA-256 rather than HMAC, so the migration can backfill the index in SQL and
+lookups cut over without waiting on an application backfill. Inputs are 128+ bits of
+CSPRNG output, so there is no dictionary to attack.
+
+**Confirmed prerequisite:** `INTEGRATION_SECRET_KEY` is configured in production.
+One `shopify_installs` row and one `page_secrets` row hold `v1.` ciphertext. It is
+NOT in local `.env.local`, so the ciphertext backfill cannot be run from a dev
+machine.
+
+**Written, not applied:**
+
+- `supabase/migrations/20260817140000_bearer_token_at_rest.sql`: four columns, SQL
+  backfill of both blind indexes, two unique indexes. Additive, no behaviour change.
+- `lib/server/bearer-token.ts`: `hashBearerToken`, `bearerTokenColumns`,
+  `recoverBearerToken` (ciphertext first, plaintext fallback), `canEncryptBearerTokens`.
+
+**Done:**
+
+1. A `BEFORE INSERT OR UPDATE` trigger maintains `*_sha256` from the plaintext, in
+   the database rather than in application code. This is what makes the cutover safe
+   for `access_token`, which is DB-DEFAULT-minted, so the app never sees the value
+   and could not hash it however carefully each writer was written. Verified: an
+   insert with no token supplied produced a 64-character DEFAULT-minted token and a
+   correct hash alongside it.
+2. All seven lookups match the blind index. Zero `.eq('access_token'|'status_token')`
+   remain anywhere in `app/` or `lib/`. The in-app comparison in
+   `negotiation.service.ts` compares hashes and fails closed on a row with no hash.
+3. Five link rebuilds go through `recoverBearerToken` (ciphertext, then plaintext):
+   both webhook receipt paths, the webhook's negotiation buyer email,
+   `findOrdersByEmail`, and the negotiate page's owner resume form.
+   `findOrdersByEmail` drops an unrecoverable row rather than rendering a dead link.
+4. Ciphertext is written on all three order write paths by `ensureBearerCiphertext`,
+   AFTER the upsert. It cannot be written during: all three are UPSERTs that
+   deliberately omit `access_token`, because including it would let a redelivery mint
+   a fresh token and invalidate a link already emailed to the buyer.
+5. `scripts/backfill-bearer-ciphertext.mjs` for the pre-existing rows. It refuses to
+   run without a valid key rather than writing nulls that would look like success.
+
+**Verified:** Node's `createHash('sha256')` and Postgres's `encode(digest(...),'hex')`
+produce identical output, so the blind index resolves. Had they differed, every
+lookup would have silently returned nothing. The script's duplicated `encryptSecret`
+round-trips through the app's exact decrypt logic including its IV and tag guards.
+
+**Unplanned win:** the owner dashboard is a client component and cannot decrypt, but
+`/negotiate/[id]` already authorizes owners by session under RLS and never needed a
+token. The `?token=` came out of that link entirely, so a live bearer credential is
+no longer rendered into a URL in the owner's browser.
+
+**Remaining:**
+
+1. Run the backfill in the deployment (`INTEGRATION_SECRET_KEY` is set there, not
+   locally). Re-run until both tables report 0.
+2. Only then, a migration dropping `access_token`, `status_token`, the column
+   DEFAULT, and the two hash triggers.
+
+**Original sketch, for reference:**
 
 - Add `*_hash` columns, dual-write, migrate lookups to hash comparison, drop the
   plaintext columns. The existing unique index transfers directly, since lookup
