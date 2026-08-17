@@ -292,10 +292,36 @@ and the published path reads `pages_public`. A per-key allowlist restores it.
 
 ## 6. Hash the bearer tokens at rest
 
-`[~]` Migration applied to production 2026-08-17 as `20260817130715`. All lookups and
-link rebuilds are cut over. Remaining: run the ciphertext backfill in the deployment,
-then a final migration dropping the plaintext columns. The plan's "hash and drop the
-plaintext" turned out not to fit these two tokens; see the design note below.
+`[x]` DONE 2026-08-17, verified end to end against production. The plaintext columns
+are gone; a database dump is no longer a set of live buyer credentials.
+
+**Shipped as:** migrations `20260817130715` (columns, blind-index backfill, hash-sync
+trigger) and `20260817160000` (preserve trigger, drop plaintext), plus PRs #49, #50,
+#51 and #52. The last two were corrections, see "what went wrong" below.
+
+**End-to-end verification** on the live site, after the final deploy:
+
+| step | result |
+| --- | --- |
+| negotiation dry run | 200, approval token issued |
+| live create | 200, token returned, persistentLink carries it |
+| status by token | 200, resolves via the blind index |
+| wrong token | 404 |
+| buyer portal `/orders/<token>` | 200, renders the offer |
+| `/negotiate/<id>?token=` | 200, renders the thread |
+| bogus token | 404 |
+| the new DB row | 64-char blind index, `v1.` ciphertext, no plaintext column |
+
+Commerce gauntlet 7/7. Backfill: 54/54 rows, every ciphertext decrypting back to
+exactly its plaintext, 0 mismatches.
+
+**What went wrong, worth keeping.** The drop was applied while deployed code still
+read the plaintext (#51), and then while it still WROTE it (#52). The write bug took
+negotiation creation to 500 in production. Neither typecheck nor 2456 passing tests
+caught it: the insert row is an object literal handed to PostgREST, so a key naming
+a dropped column is valid TypeScript and only fails against the real schema. The
+end-to-end found it on the first live call. After a destructive schema change, run
+the e2e BEFORE assuming the code half is complete.
 
 **Verified.** `checkout_orders.access_token` is two concatenated UUIDs stored in
 plaintext with a unique index
