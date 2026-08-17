@@ -1,5 +1,5 @@
 import 'server-only'
-import { createHash } from 'crypto'
+import { createHash, randomBytes } from 'crypto'
 import { encryptSecret, decryptSecret, hasSecretCryptoKey } from './secret-crypto'
 
 // Storage helpers for the two buyer-facing bearer credentials:
@@ -19,6 +19,13 @@ import { encryptSecret, decryptSecret, hasSecretCryptoKey } from './secret-crypt
 // SQL, so lookups cut over without waiting on an application backfill. The inputs
 // are 128+ bits of CSPRNG output, so there is no dictionary to attack. Do NOT reuse
 // this for low-entropy inputs.
+
+/** Mint a fresh bearer token: 64 hex chars, matching the shape the dropped column
+ * DEFAULT produced (two concatenated UUIDs) but from a single 32-byte CSPRNG draw,
+ * so the entropy is 256 bits rather than two v4 UUIDs' 122. */
+export function mintBearerToken(): string {
+  return randomBytes(32).toString('hex')
+}
 
 /** Blind index for a bearer token. Stable, lowercase hex, safe to store and index. */
 export function hashBearerToken(token: string | null | undefined): string | null {

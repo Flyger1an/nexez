@@ -7,7 +7,7 @@ import {
   shouldSkipSubscriptionSync,
   stripeObjectId,
 } from '../../../../lib/stripe-billing'
-import { ensureBearerCiphertext, recoverBearerToken } from '../../../../lib/server/bearer-token'
+import { bearerTokenColumns, ensureBearerCiphertext, mintBearerToken, recoverBearerToken } from '../../../../lib/server/bearer-token'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { minorToStripeAmount, formatCurrencyAmount } from '../../../../lib/currency'
 import {
@@ -424,6 +424,9 @@ export async function POST(request: NextRequest) {
         application_fee_cents: Number(session.metadata.nexez_application_fee_cents || 0) || null,
         commission_percent: Number(session.metadata.nexez_commission_percent || 0) || null,
         stripe_livemode: session.livemode,
+        // Minted app-side so hash + ciphertext land in the same write. The
+        // preserve-token trigger keeps an already-issued token on redelivery.
+        ...bearerTokenColumns(mintBearerToken(), 'access_token'),
         status: 'paid',
         channel: 'agent_checkout',
         ...(buyerEmail ? { buyer_email: buyerEmail } : {}),
@@ -540,6 +543,9 @@ export async function POST(request: NextRequest) {
       application_fee_cents: Number(md.nexez_application_fee_cents || 0) || null,
       commission_percent: Number(md.nexez_commission_percent || 0) || null,
       stripe_livemode: pi.livemode,
+      // Minted app-side so hash + ciphertext land in the same write. The
+      // preserve-token trigger keeps an already-issued token on redelivery.
+      ...bearerTokenColumns(mintBearerToken(), 'access_token'),
       status: 'paid',
       channel,
       ...(buyerEmail ? { buyer_email: buyerEmail } : {}),

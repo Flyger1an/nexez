@@ -1,5 +1,5 @@
 import 'server-only'
-import { ensureBearerCiphertext } from './bearer-token'
+import { bearerTokenColumns, ensureBearerCiphertext, mintBearerToken, recoverBearerToken } from './bearer-token'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { SessionBuyer } from '../commerce/checkout-session-core'
 
@@ -46,6 +46,10 @@ export async function persistCommerceOrder(admin: Pick<SupabaseClient, 'from'>, 
     application_fee_cents: input.applicationFeeCents || null,
     commission_percent: input.commissionPercent || null,
     stripe_livemode: input.livemode,
+    // Minted here rather than by a column DEFAULT, so the hash and ciphertext can be
+    // written in the same statement. Safe against redelivery: the preserve-token
+    // trigger coalesces to the existing values on UPDATE.
+    ...bearerTokenColumns(mintBearerToken(), 'access_token'),
     status: 'paid',
     channel: input.channel,
     ...(buyer?.email ? { buyer_email: buyer.email.toLowerCase() } : {}),
@@ -60,15 +64,19 @@ export async function persistCommerceOrder(admin: Pick<SupabaseClient, 'from'>, 
     return null
   }
 
-  // access_token is minted by a column DEFAULT (kept that way so a redelivered
-  // upsert cannot clobber a token already emailed to the buyer), so the ciphertext
-  // has to be written straight after, against whatever value the DB chose.
+  // Belt and braces while the plaintext column still exists: rows minted by the old
+  // column DEFAULT (or by a writer that has not been updated yet) get their
+  // ciphertext filled in here. A no-op once the row already carries one.
   await ensureBearerCiphertext(admin, 'checkout_orders', 'stripe_payment_intent_id', input.paymentIntentId)
 
+  // Read the token BACK rather than returning the one minted above. On a Stripe
+  // redelivery the upsert is an UPDATE, and the preserve-token trigger keeps the
+  // ORIGINAL token, which is the one already emailed to the buyer. Returning the
+  // freshly minted value would hand the caller a token that does not open anything.
   const { data } = await admin
     .from('checkout_orders')
-    .select('access_token')
+    .select('access_token, access_token_encrypted')
     .eq('stripe_payment_intent_id', input.paymentIntentId)
-    .maybeSingle<{ access_token: string | null }>()
-  return data?.access_token ?? null
+    .maybeSingle<{ access_token: string | null; access_token_encrypted: string | null }>()
+  return recoverBearerToken({ encrypted: data?.access_token_encrypted, plaintext: data?.access_token })
 }
