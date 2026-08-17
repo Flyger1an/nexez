@@ -53,7 +53,7 @@ export type AgentNegotiation = {
   /** Continuation credential. Owner-only field - used to build the owner's own
    * persistent-thread link (the agent runtime is cookie-isolated, so that link
    * authenticates by token, not session). Never render it. */
-  status_token: string | null
+  status_token_encrypted: string | null
   created_at: string
   updated_at: string
 }

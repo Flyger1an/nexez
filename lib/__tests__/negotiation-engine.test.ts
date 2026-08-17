@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterAll } from 'vitest'
 import { hashBearerToken } from '../server/bearer-token'
+import { stubBearerTokenKey } from '../../test/bearer-token-fixtures'
 import type { QueryContext } from '../../test/supabase-mock'
 import { createLLMAdapter, getActiveLLMProvider } from '../llm-engine'
 import { NegotiationService } from '../negotiation.service'
@@ -30,6 +31,9 @@ vi.mock('../../utils/supabase/admin', async () => {
 const originalEnv = process.env
 
 beforeEach(() => {
+  // The service now writes ciphertext alongside the blind index; without a key
+  // encryptSecret returns null and the ciphertext assertion below is vacuous.
+  stubBearerTokenKey()
   vi.resetModules()
   process.env = { ...originalEnv }
 })
@@ -167,11 +171,14 @@ describe('NegotiationService.submitProposal (sync phase - no LLM)', () => {
       buyerProposal: { proposedPriceCents: 9000 },
     })
 
-    // Regression guard: the row's token must equal the one returned (else every poll 404s).
-    expect(state.inserted?.status_token).toBeTruthy()
-    expect(result.statusToken).toBe(state.inserted.status_token)
+    // Regression guard, restated for the blind index: the plaintext is no longer a
+    // column, so the token returned to the agent must HASH to the one stored on the
+    // row. If these diverge, every poll 404s.
+    expect(state.inserted?.status_token_sha256).toBeTruthy()
+    expect(state.inserted?.status_token_encrypted).toBeTruthy()
+    expect(hashBearerToken(result.statusToken!)).toBe(state.inserted.status_token_sha256)
     expect(result.persistentLink).toContain('/negotiate/')
-    expect(result.persistentLink).toContain(`token=${state.inserted.status_token}`)
+    expect(result.persistentLink).toContain(`token=${result.statusToken}`)
     expect(result.decisionPending).toBe(true)
     expect(result.status).toBe('negotiation')
 
