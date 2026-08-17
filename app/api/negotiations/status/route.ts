@@ -4,6 +4,7 @@ import { enforceRateLimit } from '../../../../lib/rate-limit'
 import { isPayable, type SettlementState } from '../../../../lib/settlement'
 import { sanitizeAgentDecision } from '../../../../lib/negotiation-sanitize'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
+import { hashBearerToken } from '../../../../lib/server/bearer-token'
 
 /**
  * Agent-facing negotiation status check (now also the async-decision poll target).
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
     .from('agent_negotiations')
     .select('id, status, offer_name, updated_at, amount_cents, settlement_state, decision_pending, decision_seq, metadata')
     .eq('id', id)
-    .eq('status_token', token)
+    .eq('status_token_sha256', hashBearerToken(token) ?? '')
     .maybeSingle<{
       id: string
       status: NegotiationStatus

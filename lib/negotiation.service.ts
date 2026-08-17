@@ -2,6 +2,7 @@ import 'server-only';
 import { randomUUID } from 'crypto';
 import { supabase } from './supabase';
 import { createAdminClient, hasSupabaseAdminEnv } from '../utils/supabase/admin';
+import { bearerTokenColumns, hashBearerToken, recoverBearerToken } from './server/bearer-token';
 import { createLLMAdapter, NegotiationDecision, NegotiationAction } from './llm-engine/index';
 import { evaluateProposal } from './offer-rules';
 import { AgentPage, getCheckoutOffer, getBaseUrl } from './agent-page';
@@ -393,7 +394,7 @@ export class NegotiationService {
     if (!msg) return; // 'review' / other non-buyer-actionable outcomes: no push
     await sendPushToEmail(email, {
       ...msg,
-      data: { type: 'negotiation', negotiationId: negotiation.id, token: negotiation.status_token, status: action },
+      data: { type: 'negotiation', negotiationId: negotiation.id, token: recoverBearerToken({ encrypted: negotiation.status_token_encrypted, plaintext: negotiation.status_token }), status: action },
       category: 'orders',
     });
   }
@@ -547,7 +548,10 @@ export class NegotiationService {
     // the stored token back in the response. Fail closed: a row with a missing/empty
     // stored token is NOT continuable (the old `data.status_token && …` form skipped
     // the credential check entirely for any tokenless row).
-    if (!data.status_token || data.status_token !== token) {
+    // Compare against the blind index, not the plaintext, so this keeps working once
+    // the plaintext column is dropped. Fail closed on a row with no hash on file.
+    const presented = hashBearerToken(token ?? null);
+    if (!data.status_token_sha256 || !presented || data.status_token_sha256 !== presented) {
       const err = new Error('Negotiation not found.') as Error & { status: number };
       err.status = 404;
       throw err;
@@ -638,6 +642,12 @@ export class NegotiationService {
       escrow_mode: process.env.STRIPE_SECRET_KEY ? 'manual_capture_ready' : 'not_configured',
       amount_cents: null,
       status_token: statusToken,
+      // The blind index is also maintained by a DB trigger; writing it here keeps the
+      // row self-consistent if that trigger is ever dropped. The ciphertext is the
+      // half only the app can produce (the key is in env, never in the database), and
+      // it is what lets find-my-orders and the owner deep link rebuild this token
+      // once the plaintext column goes away. Null when no key is configured.
+      ...bearerTokenColumns(statusToken, 'status_token'),
       ...(idempotencyKeyHash ? { idempotency_key_hash: idempotencyKeyHash } : {}),
       ...(idempotencyRequestHash ? { idempotency_request_hash: idempotencyRequestHash } : {}),
       // Created already awaiting an async decision (runDecision will claim it).
@@ -670,8 +680,8 @@ export class NegotiationService {
       negotiationId: negotiation.id,
       status: negotiation.status || 'negotiation',
       decisionPending: true as const,
-      persistentLink: this.buildPersistentLink(negotiation.id, negotiation.status_token),
-      statusToken: negotiation.status_token || undefined,
+      persistentLink: this.buildPersistentLink(negotiation.id, recoverBearerToken({ encrypted: negotiation.status_token_encrypted, plaintext: negotiation.status_token })),
+      statusToken: recoverBearerToken({ encrypted: negotiation.status_token_encrypted, plaintext: negotiation.status_token }) || undefined,
       replayed,
     };
   }

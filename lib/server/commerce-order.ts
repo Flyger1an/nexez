@@ -1,4 +1,5 @@
 import 'server-only'
+import { ensureBearerCiphertext } from './bearer-token'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { SessionBuyer } from '../commerce/checkout-session-core'
 
@@ -58,6 +59,11 @@ export async function persistCommerceOrder(admin: Pick<SupabaseClient, 'from'>, 
     console.warn(`[${input.channel}] checkout_orders upsert failed:`, error.message)
     return null
   }
+
+  // access_token is minted by a column DEFAULT (kept that way so a redelivered
+  // upsert cannot clobber a token already emailed to the buyer), so the ciphertext
+  // has to be written straight after, against whatever value the DB chose.
+  await ensureBearerCiphertext(admin, 'checkout_orders', 'stripe_payment_intent_id', input.paymentIntentId)
 
   const { data } = await admin
     .from('checkout_orders')

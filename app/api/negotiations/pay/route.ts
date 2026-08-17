@@ -7,6 +7,7 @@ import { getCommissionPercentForPlan, calculateApplicationFeeCents } from '../..
 import { minorToStripeAmount } from '../../../../lib/currency'
 import { parseBuyerIdentity } from '../../../../lib/buyer-identity'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
+import { hashBearerToken } from '../../../../lib/server/bearer-token'
 import { getOwnerPlanId, getOwnerBillingState } from '../../../../lib/server/plan'
 import type { AgentNegotiation } from '../../../../lib/negotiations'
 
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
     .from('agent_negotiations')
     .select('*')
     .eq('id', id)
-    .eq('status_token', token)
+    .eq('status_token_sha256', hashBearerToken(token) ?? '')
     .maybeSingle<AgentNegotiation>()
 
   // Constant 404 on any mismatch - never reveal which negotiations exist.

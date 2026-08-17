@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createClient } from '../../../utils/supabase/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
+import { hashBearerToken, recoverBearerToken } from '../../../lib/server/bearer-token'
 import { Handshake, Clock, Bot, User } from 'lucide-react'
 import { formatNegotiationAmount } from '../../../lib/negotiations'
 import { isPayable } from '../../../lib/settlement'
@@ -40,7 +41,7 @@ export const metadata = {
 // and is never rendered. Deliberately absent: owner_id, buyer contact internals,
 // requested_terms, currency, Stripe ids.
 const NEGOTIATION_PAGE_SELECT =
-  'id, slug, offer_key, offer_name, status, amount_cents, settlement_state, metadata, status_token, updated_at, decision_pending, decision_seq'
+  'id, slug, offer_key, offer_name, status, amount_cents, settlement_state, metadata, status_token, status_token_encrypted, updated_at, decision_pending, decision_seq'
 
 type NegotiationRow = {
   id: string
@@ -52,6 +53,7 @@ type NegotiationRow = {
   settlement_state: 'auto' | 'awaiting_approval' | 'approved' | null
   metadata: any
   status_token: string | null
+  status_token_encrypted: string | null
   updated_at: string | null
   decision_pending: boolean | null
   decision_seq: number | null
@@ -100,7 +102,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
       .from('agent_negotiations')
       .select(NEGOTIATION_PAGE_SELECT)
       .eq('id', id)
-      .eq('status_token', token)
+      .eq('status_token_sha256', hashBearerToken(token) ?? '')
       .maybeSingle<NegotiationRow>()
     negotiation = data ?? null
   }
@@ -153,7 +155,11 @@ export default async function PersistentNegotiationPage({ params, searchParams }
 
   // Credential for the continuation form: the API now requires the token to resume
   // a thread. The agent already has it (URL); the owner gets their own stored token.
-  const formToken = viewerIsOwner ? negotiation.status_token || '' : token
+  // The owner has no token in the URL; recover theirs from the row (ciphertext first,
+  // plaintext while that column lasts). The agent already presented one.
+  const formToken = viewerIsOwner
+    ? recoverBearerToken({ encrypted: negotiation.status_token_encrypted, plaintext: negotiation.status_token }) || ''
+    : token
 
   // Buyer-funded settlement state for this thread.
   const amountReady = !!negotiation.amount_cents && negotiation.amount_cents >= 50

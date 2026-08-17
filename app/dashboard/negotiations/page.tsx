@@ -589,8 +589,11 @@ function NegotiationCard({
             Receipt
           </a>
         )}
+        {/* No token in the URL: /negotiate/[id] authorizes the owner by session under
+            RLS and recovers their own token server-side for the resume form. The
+            owner never needed to carry a bearer credential in a link. */}
         <a
-          href={agentRuntimeUrl(`/negotiate/${item.id}${item.status_token ? `?token=${item.status_token}` : ''}`)}
+          href={agentRuntimeUrl(`/negotiate/${item.id}`)}
           className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-[var(--signal)]/40 bg-[var(--signal)]/10 px-3 text-xs font-medium text-[var(--signal)] transition hover:bg-[var(--signal)]/20"
         >
           View negotiation

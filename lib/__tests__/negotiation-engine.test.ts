@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterAll } from 'vitest'
+import { hashBearerToken } from '../server/bearer-token'
 import type { QueryContext } from '../../test/supabase-mock'
 import { createLLMAdapter, getActiveLLMProvider } from '../llm-engine'
 import { NegotiationService } from '../negotiation.service'
@@ -189,7 +190,7 @@ describe('NegotiationService.submitProposal (sync phase - no LLM)', () => {
     dbRef.handler = (ctx: QueryContext) => {
       if (ctx.table === 'pages') return { data: demoPage(), error: null }
       if (ctx.table === 'agent_negotiations' && ctx.op === 'select')
-        return { data: { id: 'neg-9', status: 'negotiation', status_token: 'real-tok', slug: 'demo', decision_pending: false }, error: null }
+        return { data: { id: 'neg-9', status: 'negotiation', status_token: 'real-tok', status_token_sha256: hashBearerToken('real-tok'), slug: 'demo', decision_pending: false }, error: null }
       return { data: [], error: null }
     }
     const service = new NegotiationService(okLLM({ action: 'counter', reasoning: 'r' }))
@@ -209,7 +210,7 @@ describe('NegotiationService.submitProposal (sync phase - no LLM)', () => {
     dbRef.handler = (ctx: QueryContext) => {
       if (ctx.table === 'pages') return { data: demoPage(), error: null }
       if (ctx.table === 'agent_negotiations' && ctx.op === 'select')
-        return { data: { id: 'neg-9', status: 'negotiation', status_token: 'real-tok', slug: 'demo', decision_pending: true }, error: null }
+        return { data: { id: 'neg-9', status: 'negotiation', status_token: 'real-tok', status_token_sha256: hashBearerToken('real-tok'), slug: 'demo', decision_pending: true }, error: null }
       return { data: [], error: null }
     }
     const service = new NegotiationService(okLLM({ action: 'counter', reasoning: 'r' }))
