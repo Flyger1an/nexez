@@ -3,6 +3,7 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/adm
 import { minorToStripeAmount } from '../currency'
 import { canReviewOrderStatus, normalizeReviewTags } from '../reviews'
 import { escapeLike } from './sql-escape'
+import { hashBearerToken, recoverBearerToken } from './bearer-token'
 import type { BuyerOrderRequest, BuyerOrderReview, BuyerOrderView, BuyerRequestKind } from '../buyer-portal'
 
 // Server-side resolver for the buyer order portal. The buyer's token IS the
@@ -133,12 +134,16 @@ export async function loadOrderByToken(token: string): Promise<BuyerOrderView | 
   const clean = (token || '').trim()
   if (!clean || !hasSupabaseAdminEnv()) return null
   const admin = createAdminClient()
+  // Match the blind index rather than the plaintext column. A DB trigger keeps the
+  // hash in lockstep, so this resolves exactly the rows the old lookup did.
+  const tokenHash = hashBearerToken(clean)
+  if (!tokenHash) return null
 
   // 1. Direct checkout order (its own access_token).
   const { data: order } = await admin
     .from('checkout_orders')
     .select('id, slug, page_id, offer_name, amount_cents, currency, status, buyer_email, stripe_session_id, metadata, created_at')
-    .eq('access_token', clean)
+    .eq('access_token_sha256', tokenHash)
     .maybeSingle<CheckoutRow>()
   if (order) {
     const [seller, requests, review] = await Promise.all([
@@ -170,7 +175,7 @@ export async function loadOrderByToken(token: string): Promise<BuyerOrderView | 
   const { data: neg } = await admin
     .from('agent_negotiations')
     .select('id, slug, page_id, offer_name, amount_cents, currency, status, settlement_state, buyer_email, contact, metadata, created_at')
-    .eq('status_token', clean)
+    .eq('status_token_sha256', tokenHash)
     .maybeSingle<NegotiationRow>()
   if (neg) {
     const [seller, requests, review] = await Promise.all([
@@ -257,11 +262,13 @@ export async function resolveOrderForRequest(token: string): Promise<OrderReques
   const clean = (token || '').trim()
   if (!clean || !hasSupabaseAdminEnv()) return null
   const admin = createAdminClient()
+  const tokenHash = hashBearerToken(clean)
+  if (!tokenHash) return null
 
   const { data: order } = await admin
     .from('checkout_orders')
     .select('id, owner_id, page_id, slug, offer_name, offer_key, amount_cents, currency, status, buyer_email, metadata')
-    .eq('access_token', clean)
+    .eq('access_token_sha256', tokenHash)
     .maybeSingle<{
       id: string
       owner_id: string | null
@@ -299,7 +306,7 @@ export async function resolveOrderForRequest(token: string): Promise<OrderReques
   const { data: neg } = await admin
     .from('agent_negotiations')
     .select('id, owner_id, page_id, slug, offer_name, offer_key, amount_cents, currency, status, buyer_email, contact, metadata')
-    .eq('status_token', clean)
+    .eq('status_token_sha256', tokenHash)
     .maybeSingle<{
       id: string
       owner_id: string | null
@@ -385,28 +392,35 @@ export async function findOrdersByEmail(email: string): Promise<import('../buyer
   const [orders, negs] = await Promise.all([
     admin
       .from('checkout_orders')
-      .select('access_token, slug, offer_name, amount_cents, currency, status, metadata, created_at')
+      .select('access_token, access_token_encrypted, slug, offer_name, amount_cents, currency, status, metadata, created_at')
       .ilike('buyer_email', pattern)
       .order('created_at', { ascending: false })
       .limit(FIND_ORDERS_CAP)
-      .returns<{ access_token: string | null; slug: string | null; offer_name: string | null; amount_cents: number; currency: string; status: string; metadata: Record<string, unknown> | null; created_at: string }[]>(),
+      .returns<{ access_token: string | null; access_token_encrypted: string | null; slug: string | null; offer_name: string | null; amount_cents: number; currency: string; status: string; metadata: Record<string, unknown> | null; created_at: string }[]>(),
     admin
       .from('agent_negotiations')
-      .select('status_token, slug, offer_name, amount_cents, currency, status, metadata, created_at')
+      .select('status_token, status_token_encrypted, slug, offer_name, amount_cents, currency, status, metadata, created_at')
       .ilike('buyer_email', pattern)
       .order('created_at', { ascending: false })
       .limit(FIND_ORDERS_CAP)
-      .returns<{ status_token: string | null; slug: string | null; offer_name: string | null; amount_cents: number | null; currency: string; status: string; metadata: Record<string, unknown> | null; created_at: string }[]>(),
+      .returns<{ status_token: string | null; status_token_encrypted: string | null; slug: string | null; offer_name: string | null; amount_cents: number | null; currency: string; status: string; metadata: Record<string, unknown> | null; created_at: string }[]>(),
   ])
 
-  const orderRows = (orders.data ?? []).filter((r) => r.access_token)
-  const negRows = (negs.data ?? []).filter((r) => r.status_token)
+  // Recover the plaintext for the link the buyer clicks: ciphertext first, then the
+  // plaintext column while it still exists. A row whose token cannot be recovered is
+  // dropped rather than rendered as a dead link.
+  const orderRows = (orders.data ?? [])
+    .map((r) => ({ ...r, token: recoverBearerToken({ encrypted: r.access_token_encrypted, plaintext: r.access_token }) }))
+    .filter((r) => r.token)
+  const negRows = (negs.data ?? [])
+    .map((r) => ({ ...r, token: recoverBearerToken({ encrypted: r.status_token_encrypted, plaintext: r.status_token }) }))
+    .filter((r) => r.token)
   const sellers = await loadSellerNames(admin, [...orderRows.map((r) => r.slug ?? ''), ...negRows.map((r) => r.slug ?? '')])
 
   const summaries: import('../buyer-portal').BuyerOrderSummary[] = [
     ...orderRows.map((r) => ({
       kind: 'checkout' as const,
-      token: r.access_token as string,
+      token: r.token as string,
       offerName: r.offer_name,
       amountCents: r.amount_cents,
       currency: r.currency || 'usd',
@@ -417,7 +431,7 @@ export async function findOrdersByEmail(email: string): Promise<import('../buyer
     })),
     ...negRows.map((r) => ({
       kind: 'negotiation' as const,
-      token: r.status_token as string,
+      token: r.token as string,
       offerName: r.offer_name,
       amountCents: negotiationDisplayCents(r.amount_cents, r.currency || 'usd'),
       currency: r.currency || 'usd',

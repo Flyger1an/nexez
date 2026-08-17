@@ -7,6 +7,7 @@ import {
   shouldSkipSubscriptionSync,
   stripeObjectId,
 } from '../../../../lib/stripe-billing'
+import { ensureBearerCiphertext, recoverBearerToken } from '../../../../lib/server/bearer-token'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { minorToStripeAmount, formatCurrencyAmount } from '../../../../lib/currency'
 import {
@@ -258,7 +259,7 @@ export async function POST(request: NextRequest) {
       const expectedSettlementState = autoSettle ? 'auto' : 'approved'
       const { data: negotiation } = await admin
         .from('agent_negotiations')
-        .select('id, status, amount_cents, currency, settlement_state, stripe_checkout_session_id, offer_name, slug, page_id, buyer_agent, status_token')
+        .select('id, status, amount_cents, currency, settlement_state, stripe_checkout_session_id, offer_name, slug, page_id, buyer_agent, status_token, status_token_encrypted')
         .eq('id', session.metadata.nexez_negotiation_id)
         .maybeSingle<{
           id: string
@@ -272,6 +273,7 @@ export async function POST(request: NextRequest) {
           page_id: string | null
           buyer_agent: string | null
           status_token: string | null
+          status_token_encrypted: string | null
         }>()
 
       if (!negotiation) {
@@ -358,7 +360,7 @@ export async function POST(request: NextRequest) {
       // Buyer receipt + portal link (negotiation buyers reuse status_token as their
       // portal credential). Only when we captured a buyer email this funding.
       if (hasEmailEnv() && buyerEmail && negotiation.status_token) {
-        const token = negotiation.status_token
+        const token = recoverBearerToken({ encrypted: negotiation.status_token_encrypted, plaintext: negotiation.status_token }) ?? negotiation.status_token
         after(async () => {
           const { data: page } = await admin
             .from('pages')
@@ -435,6 +437,9 @@ export async function POST(request: NextRequest) {
         await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
         return NextResponse.json({ error: 'order persist failed', type: event.type }, { status: 500 })
       }
+      // The DB minted access_token; encrypt it now so the link can still be rebuilt
+      // once the plaintext column is dropped. Best-effort, never blocks the money path.
+      after(() => ensureBearerCiphertext(admin, 'checkout_orders', 'stripe_session_id', session.id))
       // Email the buyer a receipt + portal link. The portal token is the row's
       // access_token (DB-minted on insert); read it back so the link is correct even
       // on a re-delivery. Gated on a captured buyer email + RESEND env.
@@ -442,10 +447,11 @@ export async function POST(request: NextRequest) {
         after(async () => {
           const { data: row } = await admin
             .from('checkout_orders')
-            .select('access_token')
+            .select('access_token, access_token_encrypted')
             .eq('stripe_session_id', session.id)
-            .maybeSingle<{ access_token: string | null }>()
-          if (!row?.access_token) return
+            .maybeSingle<{ access_token: string | null; access_token_encrypted: string | null }>()
+          const portalToken = recoverBearerToken({ encrypted: row?.access_token_encrypted, plaintext: row?.access_token })
+          if (!portalToken) return
           const { data: page } = orderRow.page_id
             ? await admin.from('pages').select('name').eq('id', orderRow.page_id as string).maybeSingle<{ name: string | null }>()
             : { data: null }
@@ -453,13 +459,13 @@ export async function POST(request: NextRequest) {
             businessName: page?.name || orderRow.slug || 'the seller',
             offerName: orderRow.offer_name || 'Your purchase',
             amount: formatCurrencyAmount(orderRow.amount_cents, orderRow.currency),
-            manageUrl: `${getBaseUrl()}/orders/${row.access_token}`,
+            manageUrl: `${getBaseUrl()}/orders/${portalToken}`,
           })
           await sendEmail({ to: buyerEmail, subject: mail.subject, html: mail.html, text: mail.text })
           await sendPushToEmail(buyerEmail, {
             title: 'Booking confirmed',
             body: `Your purchase from ${page?.name || orderRow.slug || 'the seller'} is confirmed.`,
-            data: { type: 'order', token: row.access_token, status: 'paid' },
+            data: { type: 'order', token: portalToken, status: 'paid' },
             category: 'orders',
           })
         })
@@ -549,6 +555,7 @@ export async function POST(request: NextRequest) {
       await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
       return NextResponse.json({ error: 'order persist failed', type: event.type }, { status: 500 })
     }
+    after(() => ensureBearerCiphertext(admin, 'checkout_orders', 'stripe_payment_intent_id', pi.id))
     // Mark the persisted session settled + link the PI (best-effort, idempotent).
     after(() =>
       admin
@@ -562,10 +569,11 @@ export async function POST(request: NextRequest) {
       after(async () => {
         const { data: row } = await admin
           .from('checkout_orders')
-          .select('access_token')
+          .select('access_token, access_token_encrypted')
           .eq('stripe_payment_intent_id', pi.id)
-          .maybeSingle<{ access_token: string | null }>()
-        if (!row?.access_token) return
+          .maybeSingle<{ access_token: string | null; access_token_encrypted: string | null }>()
+        const portalToken = recoverBearerToken({ encrypted: row?.access_token_encrypted, plaintext: row?.access_token })
+        if (!portalToken) return
         const { data: page } = orderRow.page_id
           ? await admin.from('pages').select('name').eq('id', orderRow.page_id as string).maybeSingle<{ name: string | null }>()
           : { data: null }
@@ -573,13 +581,13 @@ export async function POST(request: NextRequest) {
           businessName: page?.name || orderRow.slug || 'the seller',
           offerName: orderRow.offer_name || 'Your purchase',
           amount: formatCurrencyAmount(orderRow.amount_cents, orderRow.currency),
-          manageUrl: `${getBaseUrl()}/orders/${row.access_token}`,
+          manageUrl: `${getBaseUrl()}/orders/${portalToken}`,
         })
         await sendEmail({ to: buyerEmail, subject: mail.subject, html: mail.html, text: mail.text })
         await sendPushToEmail(buyerEmail, {
           title: 'Booking confirmed',
           body: `Your purchase from ${page?.name || orderRow.slug || 'the seller'} is confirmed.`,
-          data: { type: 'order', token: row.access_token, status: 'paid' },
+          data: { type: 'order', token: portalToken, status: 'paid' },
           category: 'orders',
         })
       })
@@ -666,7 +674,7 @@ export async function POST(request: NextRequest) {
 
     const { data: neg } = await admin
       .from('agent_negotiations')
-      .select('id, status, metadata, offer_name, page_id, currency, buyer_agent, slug, buyer_email, status_token, calendly_event_uri, calendly_cancelled_at')
+      .select('id, status, metadata, offer_name, page_id, currency, buyer_agent, slug, buyer_email, status_token, status_token_encrypted, calendly_event_uri, calendly_cancelled_at')
       .eq('stripe_payment_intent_id', piId)
       .maybeSingle<{
         id: string
@@ -679,6 +687,7 @@ export async function POST(request: NextRequest) {
         slug: string | null
         buyer_email: string | null
         status_token: string | null
+        status_token_encrypted: string | null
         calendly_event_uri: string | null
         calendly_cancelled_at: string | null
       }>()
@@ -687,9 +696,9 @@ export async function POST(request: NextRequest) {
       // what closes the "direct-checkout disputes/refunds vanish silently" hole.
       const { data: order } = await admin
         .from('checkout_orders')
-        .select('id, status, metadata, offer_name, page_id, currency, slug, buyer_email, access_token, channel')
+        .select('id, status, metadata, offer_name, page_id, currency, slug, buyer_email, access_token, access_token_encrypted, channel')
         .eq('stripe_payment_intent_id', piId)
-        .maybeSingle<{ id: string; status: string; metadata: Record<string, unknown> | null; offer_name: string | null; page_id: string | null; currency: string | null; slug: string | null; buyer_email: string | null; access_token: string | null; channel: string | null }>()
+        .maybeSingle<{ id: string; status: string; metadata: Record<string, unknown> | null; offer_name: string | null; page_id: string | null; currency: string | null; slug: string | null; buyer_email: string | null; access_token: string | null; access_token_encrypted: string | null; channel: string | null }>()
       if (!order) {
         return NextResponse.json({ received: true, type: event.type, matched: false }, { status: 200 })
       }
