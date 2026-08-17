@@ -76,6 +76,64 @@ describe('pages_public projection ⊇ PUBLIC_PAGE_SELECT (the SEV1 coupling guar
     ).toEqual([])
   })
 
+  // The column guard above catches a MISSING column. It cannot catch a leaking KEY
+  // inside a projected jsonb blob, which is how `agent_memory` and the offer `rules`
+  // problems happened. The projection builds offers and verification_details from
+  // named fields now, so this asserts the allowlists stay allowlists: every private
+  // key must be absent, and the builders must not fall back to copying the input.
+  describe('projected jsonb blobs are built from an allowlist', () => {
+    const dir = join(process.cwd(), 'supabase', 'migrations')
+    // Strip `--` comments first: these assertions are about what the SQL DOES, and a
+    // migration that explains which keys it withholds would otherwise fail for
+    // naming them in prose.
+    const stripComments = (sql: string) => sql.replace(/--[^\n]*/g, '')
+    const allowlistSql = readdirSync(dir)
+      .filter((f) => f.endsWith('.sql'))
+      .sort()
+      .map((f) => readFileSync(join(dir, f), 'utf8'))
+      .filter((sql) => /create or replace function private\.nz_public_offer\b/i.test(sql))
+      .map(stripComments)
+      .pop()
+
+    it('defines the offer and verification allowlists', () => {
+      expect(allowlistSql, 'no migration defines private.nz_public_offer').toBeTruthy()
+      expect(allowlistSql).toMatch(/create or replace function private\.nz_public_verification/i)
+      // The old denylist must be gone: `elem - 'rules'` copies everything else.
+      expect(allowlistSql).not.toMatch(/elem\s*-\s*'rules'/)
+    })
+
+    // Seller pricing floors and auto-decision bands. Publishing any of these hands
+    // an agent the merchant's negotiating position.
+    it.each([
+      'minPrice',
+      'maxDiscountPercent',
+      'autoAcceptWithinPercent',
+      'autoAccept',
+      'autoCounter',
+      'autoSettleMax',
+    ])('never projects the private offer rule %s', (key) => {
+      expect(allowlistSql).not.toContain(`'${key}'`)
+    })
+
+    // Credential internals. `file_path` is a private bucket path; `verdict` is
+    // free-text LLM review prose about a named person's license.
+    it.each(['file_path', 'verdict', 'mime', 'uploaded_at', 'reviewed_at'])(
+      'never projects the credential field %s',
+      (key) => {
+        expect(allowlistSql).not.toContain(`'${key}'`)
+      },
+    )
+
+    // Fields the public surface genuinely reads. Dropping one silently breaks
+    // rendering or location filtering rather than leaking anything, so pin them.
+    it.each(['name', 'price', 'availability', 'offerType', 'service_area', 'minNoticeHours', 'docs_provided'])(
+      'still projects the public field %s',
+      (key) => {
+        expect(allowlistSql).toContain(`'${key}'`)
+      },
+    )
+  })
+
   it('keeps owner-only implementation identifiers out of the public select', () => {
     const selectCols = PUBLIC_PAGE_SELECT.split(',').map((c) => c.trim()).filter(Boolean)
     expect(selectCols).not.toContain('owner_id')
