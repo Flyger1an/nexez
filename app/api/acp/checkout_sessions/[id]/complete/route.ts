@@ -5,6 +5,7 @@ import {
   updateSession,
   markSessionCompleted,
   isSessionPayable,
+  checkApprovalDrift,
 } from '../../../../../../lib/commerce/checkout-session-core'
 import {
   resolveSettlementContext,
@@ -83,16 +84,25 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   }
 
   // Re-price against live offers + fold in the (required) buyer. A drift (sold-out /
-  // unpriced since create) flips the session off ready → refuse to charge. Note: a
-  // merchant raising their own price between quote and complete settles at the new
-  // amount (parity with direct checkout); this is never buyer/agent-inflatable, and
-  // the delegated payment token is amount-bound by the PSP allowance, so an over-quote
-  // charge is rejected at the token rather than silently overcharging.
+  // unpriced since create) flips the session off ready → refuse to charge.
   const buyer = parseAcpBuyer(body.buyer)
   const session = updateSession(rowToSession(row, page.name), { page, buyer: buyer ?? undefined })
   if (!isSessionPayable(session)) {
     await updateSessionSnapshot(admin, id, session)
     return acpJson(toAcpCheckoutSession(session), 409, apiVersion)
+  }
+
+  // The re-price above can move the price under a buyer who already authorized a
+  // number, so settle only against what was actually agreed to. This previously
+  // charged the new amount, on the reasoning that the delegated token is amount-bound
+  // by the PSP allowance and would reject an over-quote charge. That is a second
+  // system's guarantee, it does not hold identically across protocols, and it cannot
+  // hold at all while the settlement bridge still sends every credential kind as a
+  // raw PaymentMethod. Refuse here, in our own code, and make the agent re-confirm.
+  const drift = checkApprovalDrift(session)
+  if (!drift.ok) {
+    await updateSessionSnapshot(admin, id, session)
+    return acpJson(acpError(drift.code, drift.message), 409, apiVersion)
   }
 
   // Resolve the seller's money context (pause/connect/commission) — one shared
@@ -109,6 +119,12 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
 
   const settled = await settleSessionToPaymentIntent(session, { token: paymentToken, kind: 'shared_payment_token' }, context.context)
   if (!settled.ok) {
+    // A credential we cannot charge is the agent's request problem, not a decline:
+    // 400/invalid_request tells it to retry with a different instrument, where
+    // 402/processing_error would read as "the card failed" and invite a pointless retry.
+    if (settled.code === 'unsupported_credential') {
+      return acpJson(acpError(settled.code, settled.message, '$.payment_data'), 400, apiVersion)
+    }
     const status = settled.code === 'not_ready' || settled.code === 'zero_amount' ? 409 : 402
     return acpJson(acpError(settled.code, settled.message, undefined, 'processing_error'), status, apiVersion)
   }

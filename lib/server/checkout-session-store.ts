@@ -2,6 +2,7 @@ import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
   CheckoutSession,
+  SessionApproval,
   SessionBuyer,
   SessionLineItem,
   SessionStatus,
@@ -32,6 +33,12 @@ export type CheckoutSessionRow = {
   line_items: SessionLineItem[]
   buyer: SessionBuyer | null
   totals: SessionTotals
+  /** What the buyer authorized, frozen at the first `ready`. Null only for rows
+   * created before these columns existed. Never overwritten once set, except by a
+   * deliberate cart replacement (see `updateSession`). */
+  approved_amount_cents: number | null
+  approved_currency: string | null
+  approved_cart_fingerprint: string | null
   idempotency_key: string | null
   stripe_payment_intent_id: string | null
   stripe_livemode: boolean | null
@@ -70,6 +77,7 @@ export function sessionInsertValues(session: CheckoutSession, meta: PersistSessi
     line_items: session.lineItems,
     buyer: session.buyer,
     totals: session.totals,
+    ...approvalColumns(session.approval),
     idempotency_key: meta.idempotencyKey ?? null,
     stripe_payment_intent_id: meta.stripePaymentIntentId ?? null,
     stripe_livemode: meta.stripeLivemode ?? null,
@@ -79,7 +87,13 @@ export function sessionInsertValues(session: CheckoutSession, meta: PersistSessi
 }
 
 /** The mutable snapshot to write on an update/complete. Never touches id/channel/
- * page_id/expiry - those are create-time immutable. */
+ * page_id/expiry - those are create-time immutable.
+ *
+ * The approval columns are written as a faithful projection of the session, nulls
+ * included. Immutability is the CORE's invariant (`updateSession` carries an existing
+ * approval through a re-price and only discards it on a deliberate cart replacement),
+ * so a mapper that refused to write null would strand a stale authorization on a
+ * re-carted session and refuse it at settlement. */
 export function sessionUpdateValues(
   session: CheckoutSession,
   extra?: { stripePaymentIntentId?: string | null; stripeLivemode?: boolean | null },
@@ -90,6 +104,7 @@ export function sessionUpdateValues(
     line_items: session.lineItems,
     buyer: session.buyer,
     totals: session.totals,
+    ...approvalColumns(session.approval),
     ...(extra?.stripePaymentIntentId ? { stripe_payment_intent_id: extra.stripePaymentIntentId } : {}),
     ...(typeof extra?.stripeLivemode === 'boolean' ? { stripe_livemode: extra.stripeLivemode } : {}),
   }
@@ -108,7 +123,36 @@ export function rowToSession(row: CheckoutSessionRow, pageName: string): Checkou
     issues: [],
     totals: row.totals,
     buyer: row.buyer ?? null,
+    approval: rowApproval(row),
     source: { slug: row.slug, pageName },
+  }
+}
+
+/** SessionApproval -> the three row columns. Split out so insert and update write an
+ * identical projection. */
+function approvalColumns(approval: SessionApproval | null) {
+  return {
+    approved_amount_cents: approval?.amount ?? null,
+    approved_currency: approval?.currency ?? null,
+    approved_cart_fingerprint: approval?.cartFingerprint ?? null,
+  }
+}
+
+/** The three row columns -> SessionApproval. All-or-nothing: a partially written row
+ * (only possible via hand-editing) rehydrates as no approval rather than as a
+ * half-specified one that would compare against garbage. */
+function rowApproval(row: CheckoutSessionRow): SessionApproval | null {
+  if (
+    typeof row.approved_amount_cents !== 'number' ||
+    typeof row.approved_currency !== 'string' ||
+    typeof row.approved_cart_fingerprint !== 'string'
+  ) {
+    return null
+  }
+  return {
+    amount: row.approved_amount_cents,
+    currency: row.approved_currency,
+    cartFingerprint: row.approved_cart_fingerprint,
   }
 }
 

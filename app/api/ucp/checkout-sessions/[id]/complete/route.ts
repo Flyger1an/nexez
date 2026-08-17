@@ -5,6 +5,7 @@ import {
   updateSession,
   markSessionCompleted,
   isSessionPayable,
+  checkApprovalDrift,
 } from '../../../../../../lib/commerce/checkout-session-core'
 import {
   resolveSettlementContext,
@@ -85,6 +86,17 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     return ucpJson(toUcpCheckoutSession(session), 409)
   }
 
+  // Settle only against what the buyer authorized. The re-price above reflects live
+  // offers, so a merchant price edit between quote and completion lands here as an
+  // increase and is refused rather than charged. Google Pay tokens carry no allowance
+  // ceiling we can lean on, so this check is the only thing standing between a
+  // mid-flight price edit and the buyer's card.
+  const drift = checkApprovalDrift(session)
+  if (!drift.ok) {
+    await updateSessionSnapshot(admin, id, session)
+    return ucpJson(ucpError(drift.code, drift.message), 409)
+  }
+
   const context = await resolveSettlementContext(admin, {
     pageId: page.id,
     ownerId: page.owner_id ?? null,
@@ -97,6 +109,11 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
 
   const settled = await settleSessionToPaymentIntent(session, { token: paymentToken, kind: 'google_pay' }, context.context)
   if (!settled.ok) {
+    // Not a decline: the credential itself is one we cannot charge. 400 so the agent
+    // retries with a different instrument instead of re-presenting the same one.
+    if (settled.code === 'unsupported_credential') {
+      return ucpJson(ucpError(settled.code, settled.message, 'payment'), 400)
+    }
     const status = settled.code === 'not_ready' || settled.code === 'zero_amount' ? 409 : 402
     return ucpJson(ucpError(settled.code, settled.message, undefined, 'processing_error'), status)
   }

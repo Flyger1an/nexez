@@ -97,6 +97,20 @@ export type SessionTotals = {
  * status vocabulary (e.g. ACP `not_ready_for_payment`/`ready_for_payment`). */
 export type SessionStatus = 'pending' | 'ready' | 'completed' | 'canceled'
 
+/** The amount + cart a buyer authorized, frozen the moment the session first became
+ * payable. Settlement re-prices against live offers, so this is the ONLY record of
+ * what was actually agreed to; without it an upward price edit between quote and
+ * complete would charge the new number under the old authorization. Immutable once
+ * set, except when the agent deliberately supplies a new cart (see `updateSession`). */
+export type SessionApproval = {
+  /** Authorized total in the currency's smallest unit. */
+  amount: number
+  currency: string
+  /** Identifies the cart's COMPOSITION (offers + quantities), deliberately not its
+   * prices - price movement is judged by `amount` so a price DROP still settles. */
+  cartFingerprint: string
+}
+
 export type CheckoutSession = {
   id: string
   status: SessionStatus
@@ -105,6 +119,8 @@ export type CheckoutSession = {
   issues: SessionLineItemIssue[]
   totals: SessionTotals
   buyer: SessionBuyer | null
+  /** Frozen at the first `ready`; null while the session has never been payable. */
+  approval: SessionApproval | null
   /** Source identity carried for settlement + metadata (the pure core never reads
    * the owner/plan/Connect state - that is the settlement bridge's job). */
   source: {
@@ -249,6 +265,43 @@ function computeTotals(currency: string, lineItems: SessionLineItem[]): SessionT
   return { currency, subtotal, tax, total: subtotal + tax }
 }
 
+/** Two 32-bit lanes over the same input, concatenated to 16 hex chars. Dependency-free
+ * on purpose: this module is pure and importable anywhere, so it cannot reach for
+ * node:crypto. This is an equality token, never a security boundary - the value is
+ * produced and compared server-side only, and is never accepted from a caller. */
+function hash64(input: string): string {
+  let h1 = 0x811c9dc5
+  let h2 = 0xc2b2ae35
+  for (let i = 0; i < input.length; i += 1) {
+    const c = input.charCodeAt(i)
+    h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0
+    h2 = Math.imul(h2 ^ c, 0x85ebca6b) >>> 0
+  }
+  return h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0')
+}
+
+/** A stable identifier for what is IN the cart: offer keys and quantities, order-
+ * independent. Excludes price by design - a merchant lowering their price must still
+ * settle (the amount check allows it), and only a genuine composition change should
+ * read as a different cart. Line count is prefixed so a hash collision also has to
+ * match the cart size. */
+export function cartFingerprint(lineItems: SessionLineItem[]): string {
+  const canonical = lineItems
+    .map((li) => `${li.offerKey}x${li.quantity}`)
+    .sort()
+    .join('|')
+  return `${lineItems.length}-${hash64(canonical)}`
+}
+
+/** The approval to freeze for a session that has just become payable. */
+function approvalFrom(totals: SessionTotals, lineItems: SessionLineItem[]): SessionApproval {
+  return {
+    amount: totals.total,
+    currency: totals.currency,
+    cartFingerprint: cartFingerprint(lineItems),
+  }
+}
+
 /** A session is payable only when it has at least one resolved line item, no
  * outstanding issues, and a positive total. Everything else stays `pending`. */
 function computeStatus(lineItems: SessionLineItem[], issues: SessionLineItemIssue[], totals: SessionTotals): SessionStatus {
@@ -295,14 +348,16 @@ export function createSession(input: {
   const currency = normalizeCurrency(input.page.currency)
   const { lineItems, issues } = resolveLineItems(input.page, currency, input.items ?? [])
   const totals = computeTotals(currency, lineItems)
+  const status = computeStatus(lineItems, issues, totals)
   return {
     id: input.id,
-    status: computeStatus(lineItems, issues, totals),
+    status,
     currency,
     lineItems,
     issues,
     totals,
     buyer: normalizeBuyer(input.buyer),
+    approval: status === 'ready' ? approvalFrom(totals, lineItems) : null,
     source: { slug: input.page.slug, pageName: input.page.name },
   }
 }
@@ -311,7 +366,13 @@ export function createSession(input: {
  * re-resolve and recompute. Only valid on a live (`pending`/`ready`) session -
  * a completed or canceled session is terminal and throws. When `items` is
  * omitted the existing line items are re-priced against the (possibly changed)
- * page, so a re-supplied page can flip an issue to `ready` or vice versa. */
+ * page, so a re-supplied page can flip an issue to `ready` or vice versa.
+ *
+ * APPROVAL: supplying `items` means the agent deliberately changed the cart, so any
+ * prior authorization is discarded and re-frozen against the new one. Omitting
+ * `items` is a pure re-price (this is what /complete does), and the existing
+ * approval is carried through UNTOUCHED so `checkApprovalDrift` has a stable
+ * reference to judge the re-priced totals against. */
 export function updateSession(
   session: CheckoutSession,
   patch: { page: SessionPage; items?: RequestedLineItem[]; buyer?: SessionBuyer | null },
@@ -320,19 +381,23 @@ export function updateSession(
     throw new Error(`Cannot update a ${session.status} checkout session.`)
   }
   const currency = normalizeCurrency(patch.page.currency)
+  const cartReplaced = patch.items !== undefined
   const requested: RequestedLineItem[] =
     patch.items ?? session.lineItems.map((li) => ({ offer: li.offerKey, quantity: li.quantity }))
   const { lineItems, issues } = resolveLineItems(patch.page, currency, requested)
   const totals = computeTotals(currency, lineItems)
+  const status = computeStatus(lineItems, issues, totals)
   const buyer = patch.buyer === undefined ? session.buyer : normalizeBuyer(patch.buyer)
+  const carried = cartReplaced ? null : session.approval
   return {
     ...session,
-    status: computeStatus(lineItems, issues, totals),
+    status,
     currency,
     lineItems,
     issues,
     totals,
     buyer,
+    approval: carried ?? (status === 'ready' ? approvalFrom(totals, lineItems) : null),
     source: { slug: patch.page.slug, pageName: patch.page.name },
   }
 }
@@ -363,14 +428,82 @@ export function isSessionPayable(session: CheckoutSession): boolean {
   return session.status === 'ready'
 }
 
+export type ApprovalDrift =
+  | { ok: true }
+  | {
+      ok: false
+      code: 'currency_changed' | 'cart_changed' | 'amount_increased'
+      message: string
+      approved: SessionApproval
+      current: SessionApproval
+    }
+
+/** Compare a re-priced session against what the buyer actually authorized. Call this
+ * AFTER the settlement-time re-price and BEFORE charging.
+ *
+ * Settles: an unchanged quote, or one that got CHEAPER (the buyer is charged the new
+ * lower total, which needs no fresh authorization).
+ * Refuses: a different currency, a different cart composition, or any increase.
+ *
+ * A session with no recorded approval passes. That is deliberate and narrow: only
+ * rows created before the approval columns existed can be in that state, they expire
+ * within the session lifetime, and failing them closed would strand every in-flight
+ * checkout at deploy. Any session created by the current code that is payable also
+ * carries an approval, because `createSession`/`updateSession` freeze one at `ready`. */
+export function checkApprovalDrift(session: CheckoutSession): ApprovalDrift {
+  const approved = session.approval
+  if (!approved) return { ok: true }
+
+  const current: SessionApproval = {
+    amount: session.totals.total,
+    currency: session.totals.currency,
+    cartFingerprint: cartFingerprint(session.lineItems),
+  }
+
+  if (current.currency !== approved.currency) {
+    return {
+      ok: false,
+      code: 'currency_changed',
+      message: `This checkout was authorized in ${approved.currency.toUpperCase()} and is now priced in ${current.currency.toUpperCase()}. Re-confirm the order to continue.`,
+      approved,
+      current,
+    }
+  }
+  if (current.cartFingerprint !== approved.cartFingerprint) {
+    return {
+      ok: false,
+      code: 'cart_changed',
+      message: 'The items in this checkout changed after it was authorized. Re-confirm the order to continue.',
+      approved,
+      current,
+    }
+  }
+  if (current.amount > approved.amount) {
+    return {
+      ok: false,
+      code: 'amount_increased',
+      message: `The price rose from ${approved.amount} to ${current.amount} (${approved.currency.toUpperCase()}, minor units) after this checkout was authorized. Re-confirm the order to continue.`,
+      approved,
+      current,
+    }
+  }
+  return { ok: true }
+}
+
 // ---------------------------------------------------------------------------
 // Settlement bridge - TYPE SIGNATURE ONLY (implemented in SF2)
 // ---------------------------------------------------------------------------
 
-/** A delegated payment credential handed over by a protocol. The `kind`
- * distinguishes ACP's Shared Payment Token (`vt_...`), UCP's Google Pay token,
- * and a raw Stripe PaymentMethod id (used to prove the settlement path end-to-end
- * against a Stripe test method before the real delegated-token swap). */
+/** A delegated payment credential handed over by a protocol. The `kind` is NOT
+ * decoration: each one charges through a different Stripe parameter, so the
+ * settlement bridge switches on it (see `resolveCredentialParams`).
+ *
+ * - `shared_payment_token`: ACP's Stripe-issued SPT, id prefix `spt_`.
+ * - `google_pay`: UCP's Google Pay credential, an ECv2 payload rather than an id.
+ * - `payment_method`: a raw Stripe PaymentMethod id (`pm_`), used to prove the
+ *   settlement path end-to-end against a Stripe test method. Both protocol orders
+ *   in production settled this way, in test mode; no real delegated credential has
+ *   ever been charged. */
 export type DelegatedPayment = {
   token: string
   kind: 'payment_method' | 'shared_payment_token' | 'google_pay'
@@ -420,7 +553,7 @@ export type SettlementResult =
     }
   | {
       ok: false
-      code: 'not_ready' | 'no_connect' | 'paused' | 'zero_amount' | 'stripe_error'
+      code: 'not_ready' | 'no_connect' | 'paused' | 'zero_amount' | 'stripe_error' | 'unsupported_credential'
       message: string
     }
 

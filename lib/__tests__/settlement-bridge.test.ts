@@ -292,3 +292,72 @@ describe('resolveSettlementContext — lifted account gates', () => {
     expect(res).toMatchObject({ ok: false, code: 'no_connect' })
   })
 })
+
+// ---------------------------------------------------------------------------
+// Credential kinds. Each protocol hands over a different sort of credential and
+// Stripe charges each through a different parameter; the bridge used to send all
+// three as `payment_method`, which only ever worked because the end-to-end runs
+// fed a raw Stripe PaymentMethod id through the protocol's credential field.
+// ---------------------------------------------------------------------------
+
+describe('settlement bridge - delegated credential kinds', () => {
+  it('charges a raw PaymentMethod id directly, off_session', async () => {
+    const stripe = fakeStripe()
+    const res = await createSettlementBridge(stripe)(readySession(), { token: 'pm_card_visa', kind: 'payment_method' }, baseContext())
+    expect(res.ok).toBe(true)
+    const { params } = stripe.calls[0]
+    expect(params.payment_method).toBe('pm_card_visa')
+    expect(params.off_session).toBe(true)
+    expect(params.payment_method_data).toBeUndefined()
+  })
+
+  // Per Stripe's docs the SPT rides payment_method_data[shared_payment_granted_token];
+  // Stripe clones the customer's underlying method and sets payment_method itself.
+  it('sends an ACP shared payment token as payment_method_data, not payment_method', async () => {
+    const stripe = fakeStripe()
+    const res = await createSettlementBridge(stripe)(readySession(), { token: 'spt_123', kind: 'shared_payment_token' }, baseContext())
+    expect(res.ok).toBe(true)
+    const { params, options } = stripe.calls[0]
+    expect(params.payment_method_data).toEqual({ shared_payment_granted_token: 'spt_123' })
+    expect(params.payment_method).toBeUndefined()
+    // The delegation is the mandate; the documented sample sends no off_session.
+    expect(params.off_session).toBeUndefined()
+    // Preview-gated parameter needs its preview API version.
+    expect(options.apiVersion).toBe('2026-04-22.preview')
+    // Still a direct charge on the seller's account with the platform fee.
+    expect(options.stripeAccount).toBe('acct_seller')
+    expect(params.application_fee_amount).toBe(12000)
+  })
+
+  it('does not pin a preview API version for ordinary PaymentMethod charges', async () => {
+    const stripe = fakeStripe()
+    await createSettlementBridge(stripe)(readySession(), { token: 'pm_card_visa', kind: 'payment_method' }, baseContext())
+    expect(stripe.calls[0].options.apiVersion).toBeUndefined()
+  })
+
+  it('refuses a Google Pay credential without calling Stripe', async () => {
+    const stripe = fakeStripe()
+    const res = await createSettlementBridge(stripe)(readySession(), { token: 'ECv2_payload', kind: 'google_pay' }, baseContext())
+    expect(res).toMatchObject({ ok: false, code: 'unsupported_credential' })
+    expect(stripe.calls).toHaveLength(0)
+  })
+
+  it('fails closed on an unrecognized kind rather than guessing a parameter', async () => {
+    const stripe = fakeStripe()
+    const res = await createSettlementBridge(stripe)(readySession(), { token: 'x', kind: 'wire_transfer' } as any, baseContext())
+    expect(res).toMatchObject({ ok: false, code: 'unsupported_credential' })
+    expect(stripe.calls).toHaveLength(0)
+  })
+
+  // The credential check runs after the readiness/amount/connect gates, so a
+  // refusal never masks a more fundamental reason not to charge.
+  it('still reports no_connect ahead of an unsupported credential', async () => {
+    const stripe = fakeStripe()
+    const res = await createSettlementBridge(stripe)(
+      readySession(),
+      { token: 'ECv2_payload', kind: 'google_pay' },
+      baseContext({ connectAccountId: '' }),
+    )
+    expect(res).toMatchObject({ ok: false, code: 'no_connect' })
+  })
+})

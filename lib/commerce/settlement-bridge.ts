@@ -24,6 +24,7 @@ import { buyerMetadata } from '../buyer-identity'
 import { toStripeDescription } from '../checkout'
 import {
   CheckoutSession,
+  DelegatedPayment,
   SettleCheckoutSession,
   SettlementContext,
   SettlementResult,
@@ -41,6 +42,71 @@ export type SettlementStripe = {
 // Anything else (requires_action/requires_payment_method/processing) can't complete
 // a headless agent purchase and is surfaced as an error the adapter reports back.
 const SETTLEABLE_STATUSES = new Set<Stripe.PaymentIntent.Status>(['succeeded', 'requires_capture'])
+
+/** Stripe API version that exposes the shared-payment-token preview parameters. The
+ * installed SDK (22.2.0) does not type `shared_payment_granted_token` at all, so the
+ * ACP branch pins this per request and casts. Revisit when SPT leaves preview and the
+ * SDK types it natively - at that point the cast should be deleted, not widened. */
+const SHARED_PAYMENT_PREVIEW_VERSION = '2026-04-22.preview'
+
+type CredentialParams =
+  | { ok: true; params: Partial<Stripe.PaymentIntentCreateParams>; apiVersion?: string }
+  | { ok: false; error: Extract<SettlementResult, { ok: false }> }
+
+/**
+ * Map a delegated credential onto the PaymentIntent parameter Stripe expects for it.
+ *
+ * - `payment_method`: a real Stripe PaymentMethod id. Charged directly, `off_session`
+ *   because the cardholder is not in a browser session. This is the only branch that
+ *   has ever settled successfully here, and only in test mode.
+ * - `shared_payment_token`: ACP's Stripe-issued SPT. Per Stripe's docs this rides
+ *   `payment_method_data[shared_payment_granted_token]`, NOT `payment_method` -
+ *   Stripe clones the customer's underlying method and sets `payment_method` itself.
+ *   `off_session` is deliberately omitted: the delegation IS the mandate, and the
+ *   documented sample does not send it.
+ * - `google_pay`: refused. UCP's Google Pay handler conveys an ECv2 payload whose
+ *   concrete shape depends on gateway configuration this codebase does not have yet,
+ *   and Stripe documents no server-side path that accepts a raw payload. Passing it
+ *   as a PaymentMethod id (the old behavior) could never have worked; failing here
+ *   turns a confusing Stripe 400 into a diagnosable refusal.
+ */
+function resolveCredentialParams(payment: DelegatedPayment): CredentialParams {
+  switch (payment.kind) {
+    case 'payment_method':
+      return { ok: true, params: { payment_method: payment.token, off_session: true } }
+    case 'shared_payment_token':
+      return {
+        ok: true,
+        // Double cast through `unknown` on purpose: SDK 22.2.0 types
+        // `payment_method_data` as requiring `type`, and knows nothing about the
+        // preview-only `shared_payment_granted_token`. Narrowing this any further
+        // would be pretending the SDK validates a param it has never heard of.
+        params: {
+          payment_method_data: { shared_payment_granted_token: payment.token },
+        } as unknown as Partial<Stripe.PaymentIntentCreateParams>,
+        apiVersion: SHARED_PAYMENT_PREVIEW_VERSION,
+      }
+    case 'google_pay':
+      return {
+        ok: false,
+        error: {
+          ok: false,
+          code: 'unsupported_credential',
+          message:
+            'Google Pay credentials cannot be settled yet. This merchant has no Google Pay gateway configuration, so the credential cannot be converted into a chargeable payment method.',
+        },
+      }
+    default:
+      return {
+        ok: false,
+        error: {
+          ok: false,
+          code: 'unsupported_credential',
+          message: `Unrecognized payment credential kind: ${String((payment as DelegatedPayment).kind)}.`,
+        },
+      }
+  }
+}
 
 /** Build the injected form of the bridge. Production wires the real Stripe client;
  * tests wire a fake. Returns a `SettleCheckoutSession` implementation. */
@@ -63,18 +129,24 @@ export function createSettlementBridge(stripe: SettlementStripe): SettleCheckout
 
     const applicationFee = calculateApplicationFeeCents(amount, context.commissionPercent)
 
+    // Each protocol hands over a DIFFERENT kind of credential, and Stripe charges each
+    // one through a different parameter. Sending them all as `payment_method` only
+    // ever worked because the sole end-to-end runs fed a raw Stripe PaymentMethod id
+    // through the protocol's credential field. Resolve the shape here, fail closed on
+    // anything we cannot charge correctly, and never guess at a money-moving param.
+    const credential = resolveCredentialParams(payment)
+    if (!credential.ok) return credential.error
+
     try {
       const params: Stripe.PaymentIntentCreateParams = {
         amount,
         currency: session.currency,
-        payment_method: payment.token,
         confirm: true,
-        // Agent-initiated: the cardholder isn't in a browser session.
-        off_session: true,
         description: toStripeDescription(
           `${session.source.pageName}: ${session.lineItems.map((li) => li.name).join(', ')}`,
         ),
         metadata: buildChargeMetadata(session, context, applicationFee),
+        ...credential.params,
       }
       // Direct charge on a connected account takes the platform fee at the top level
       // (unlike Checkout Sessions, where it lives under payment_intent_data).
@@ -82,6 +154,8 @@ export function createSettlementBridge(stripe: SettlementStripe): SettleCheckout
 
       const requestOptions: Stripe.RequestOptions = {
         stripeAccount: context.connectAccountId,
+        // Preview-gated params (SPT) only resolve on their preview API version.
+        ...(credential.apiVersion ? { apiVersion: credential.apiVersion } : {}),
         // Idempotent BY DEFAULT: a retried settlement of the same session returns the
         // original charge instead of double-charging. SF5 may supply a more specific
         // key (e.g. from an inbound Idempotency-Key header); absent that, derive a

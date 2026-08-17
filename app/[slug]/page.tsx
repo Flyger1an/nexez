@@ -342,7 +342,13 @@ export default async function AgentPageRoute({ params, searchParams }: PageProps
                           title="Seller-provided credential; automated review is not independent verification"
                         >
                           Seller provided: {d.name}
-                          {d.public && d.file_path ? (
+                          {/* `file_path` is deliberately absent from the public
+                              projection (it is a private bucket path), so publicity
+                              is judged on `public` alone. /api/credentials/view
+                              re-checks public + verified + file_path against base
+                              `pages` and 404s otherwise, so a link that should not
+                              resolve still cannot. */}
+                          {d.public ? (
                             <a
                               href={`/api/credentials/view?slug=${encodeURIComponent(page.slug)}&id=${encodeURIComponent(d.id)}`}
                               target="_blank"

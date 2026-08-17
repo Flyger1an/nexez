@@ -80,10 +80,27 @@ describe('sessionUpdateValues', () => {
       line_items: s.lineItems,
       buyer: null,
       totals: s.totals,
+      approved_amount_cents: 120000,
+      approved_currency: 'usd',
+      approved_cart_fingerprint: s.approval?.cartFingerprint,
     })
     const withPi = sessionUpdateValues(s, { stripePaymentIntentId: 'pi_9', stripeLivemode: false })
     expect(withPi.stripe_payment_intent_id).toBe('pi_9')
     expect(withPi.stripe_livemode).toBe(false)
+  })
+
+  // The mapper is a faithful projection, nulls included. Immutability is the core's
+  // invariant, not the mapper's: refusing to write null here would strand a stale
+  // authorization on a session whose cart was legitimately replaced, and then refuse
+  // that session at settlement.
+  it('clears the approval columns when the session carries no approval', () => {
+    const pending = createSession({ id: 'sess_2', page: makePage(), items: [] })
+    expect(pending.approval).toBeNull()
+    expect(sessionUpdateValues(pending)).toMatchObject({
+      approved_amount_cents: null,
+      approved_currency: null,
+      approved_cart_fingerprint: null,
+    })
   })
 })
 
@@ -99,6 +116,9 @@ describe('rowToSession', () => {
     line_items: readySession().lineItems,
     buyer: { email: 'b@x.com' },
     totals: { currency: 'usd', subtotal: 120000, tax: 0, total: 120000 },
+    approved_amount_cents: 120000,
+    approved_currency: 'usd',
+    approved_cart_fingerprint: readySession().approval?.cartFingerprint ?? null,
     idempotency_key: null,
     stripe_payment_intent_id: null,
     stripe_livemode: null,
@@ -115,6 +135,27 @@ describe('rowToSession', () => {
     expect(s.buyer).toEqual({ email: 'b@x.com' })
     expect(s.source).toEqual({ slug: 'acme', pageName: 'Acme Studio' })
     expect(s.totals.total).toBe(120000)
+  })
+
+  it('rehydrates the frozen approval so drift can be judged at settlement', () => {
+    const s = rowToSession(baseRow, 'Acme Studio')
+    expect(s.approval).toEqual({
+      amount: 120000,
+      currency: 'usd',
+      cartFingerprint: baseRow.approved_cart_fingerprint,
+    })
+  })
+
+  // All-or-nothing: a half-written row must not rehydrate into an approval that
+  // would then be compared against garbage.
+  it('treats a partially written approval as no approval', () => {
+    for (const partial of [
+      { approved_amount_cents: null },
+      { approved_currency: null },
+      { approved_cart_fingerprint: null },
+    ]) {
+      expect(rowToSession({ ...baseRow, ...partial }, 'Acme Studio').approval).toBeNull()
+    }
   })
 
   it('maps a DB-only "expired" status to the terminal "canceled"', () => {
