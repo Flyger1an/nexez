@@ -1,0 +1,28 @@
+-- CI PROBE. DO NOT MERGE. Close this PR without merging once the checks report.
+--
+-- Purpose: reproduce (or rule out) the "Supabase Preview" check failure seen on
+-- PR #43, where the branching integration produced TWO preview branch projects for
+-- one git branch. `ejsgwgochlpgsqqqzgfo` went fully green (Migrations, Seeding,
+-- Configurations, Edge Functions), while `jhhgtatutdlmwulmxruz` died at the
+-- Configurations step with:
+--
+--   unexpected status 400: {"message":"Resource has been removed"}
+--   unexpected enable webhook status 400: {"message":"Resource has been removed"}
+--
+-- The GitHub check bound to the failing branch, so the PR read red even though the
+-- migration replay itself succeeded. Both preview projects were ephemeral and are
+-- already gone, which is why nothing is visible in the dashboard today. The only
+-- lasting artifact is the `main` branch record sitting at MIGRATIONS_FAILED since
+-- 2026-08-11.
+--
+-- What to look for on this PR:
+--   1. How many supabase[bot] comments appear. One means the double-branch was a
+--      one-off; two means it is reproducible and worth escalating to Supabase.
+--   2. Whether the "Supabase Preview" check is green. Green means PR #43's failure
+--      was transient and the ordering fixes fully resolved replay.
+--   3. If it fails again, whether it fails at Configurations (integration problem)
+--      or at Migrations (a real ordering problem still in the files).
+--
+-- This file deliberately contains NO DDL. It exists only so the path filter on
+-- `supabase/migrations/**` fires and the integration builds a branch. Applying it
+-- is a no-op in any environment.
