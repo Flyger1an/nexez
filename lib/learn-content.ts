@@ -33,9 +33,9 @@ export type ArticleBlock =
 
 export type LearnArticle = {
   slug: string
-  /** \u226460 chars incl. the layout's ' \u00b7 Nexez' template. */
+  /** ≤60 chars incl. the layout's ' · Nexez' template. */
   metaTitle: string
-  /** \u2264160 chars. */
+  /** ≤160 chars. */
   metaDescription: string
   /** On-page H1 (may differ from metaTitle). */
   title: string
