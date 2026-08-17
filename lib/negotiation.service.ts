@@ -269,7 +269,7 @@ export class NegotiationService {
       .eq('id', id)
       .eq('decision_pending', true)
       .or(`decision_claimed_at.is.null,decision_claimed_at.lt.${leaseCutoff}`)
-      .select('id, slug, offer_key, status, status_token, amount_cents, decision_seq, metadata, buyer_email, offer_name');
+      .select('id, slug, offer_key, status, status_token_encrypted, amount_cents, decision_seq, metadata, buyer_email, offer_name');
 
     if (error) {
       captureError(new Error('claim decision failed'), { negotiationId: id, dbError: (error as { message?: string }).message });

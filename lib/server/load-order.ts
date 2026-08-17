@@ -355,11 +355,12 @@ export async function loadOrderTokenBySession(sessionId: string): Promise<Sessio
   if (!clean || !hasSupabaseAdminEnv()) return null
   const { data } = await createAdminClient()
     .from('checkout_orders')
-    .select('access_token, status')
+    .select('access_token_encrypted, status')
     .eq('stripe_session_id', clean)
-    .maybeSingle<{ access_token: string | null; status: string }>()
-  if (!data?.access_token) return null
-  return { token: data.access_token, status: data.status }
+    .maybeSingle<{ access_token_encrypted: string | null; status: string }>()
+  const token = recoverBearerToken({ encrypted: data?.access_token_encrypted })
+  if (!token) return null
+  return { token, status: data!.status }
 }
 
 // Batch-resolve seller display names for a set of slugs (one query, not N).
@@ -392,14 +393,14 @@ export async function findOrdersByEmail(email: string): Promise<import('../buyer
   const [orders, negs] = await Promise.all([
     admin
       .from('checkout_orders')
-      .select('access_token, access_token_encrypted, slug, offer_name, amount_cents, currency, status, metadata, created_at')
+      .select('access_token_encrypted, slug, offer_name, amount_cents, currency, status, metadata, created_at')
       .ilike('buyer_email', pattern)
       .order('created_at', { ascending: false })
       .limit(FIND_ORDERS_CAP)
       .returns<{ access_token: string | null; access_token_encrypted: string | null; slug: string | null; offer_name: string | null; amount_cents: number; currency: string; status: string; metadata: Record<string, unknown> | null; created_at: string }[]>(),
     admin
       .from('agent_negotiations')
-      .select('status_token, status_token_encrypted, slug, offer_name, amount_cents, currency, status, metadata, created_at')
+      .select('status_token_encrypted, slug, offer_name, amount_cents, currency, status, metadata, created_at')
       .ilike('buyer_email', pattern)
       .order('created_at', { ascending: false })
       .limit(FIND_ORDERS_CAP)
@@ -410,10 +411,10 @@ export async function findOrdersByEmail(email: string): Promise<import('../buyer
   // plaintext column while it still exists. A row whose token cannot be recovered is
   // dropped rather than rendered as a dead link.
   const orderRows = (orders.data ?? [])
-    .map((r) => ({ ...r, token: recoverBearerToken({ encrypted: r.access_token_encrypted, plaintext: r.access_token }) }))
+    .map((r) => ({ ...r, token: recoverBearerToken({ encrypted: r.access_token_encrypted }) }))
     .filter((r) => r.token)
   const negRows = (negs.data ?? [])
-    .map((r) => ({ ...r, token: recoverBearerToken({ encrypted: r.status_token_encrypted, plaintext: r.status_token }) }))
+    .map((r) => ({ ...r, token: recoverBearerToken({ encrypted: r.status_token_encrypted }) }))
     .filter((r) => r.token)
   const sellers = await loadSellerNames(admin, [...orderRows.map((r) => r.slug ?? ''), ...negRows.map((r) => r.slug ?? '')])
 

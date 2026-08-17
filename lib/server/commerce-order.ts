@@ -75,8 +75,8 @@ export async function persistCommerceOrder(admin: Pick<SupabaseClient, 'from'>, 
   // freshly minted value would hand the caller a token that does not open anything.
   const { data } = await admin
     .from('checkout_orders')
-    .select('access_token, access_token_encrypted')
+    .select('access_token_encrypted')
     .eq('stripe_payment_intent_id', input.paymentIntentId)
-    .maybeSingle<{ access_token: string | null; access_token_encrypted: string | null }>()
-  return recoverBearerToken({ encrypted: data?.access_token_encrypted, plaintext: data?.access_token })
+    .maybeSingle<{ access_token_encrypted: string | null }>()
+  return recoverBearerToken({ encrypted: data?.access_token_encrypted })
 }

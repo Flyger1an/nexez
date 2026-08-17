@@ -259,7 +259,7 @@ export async function POST(request: NextRequest) {
       const expectedSettlementState = autoSettle ? 'auto' : 'approved'
       const { data: negotiation } = await admin
         .from('agent_negotiations')
-        .select('id, status, amount_cents, currency, settlement_state, stripe_checkout_session_id, offer_name, slug, page_id, buyer_agent, status_token, status_token_encrypted')
+        .select('id, status, amount_cents, currency, settlement_state, stripe_checkout_session_id, offer_name, slug, page_id, buyer_agent, status_token_encrypted')
         .eq('id', session.metadata.nexez_negotiation_id)
         .maybeSingle<{
           id: string
@@ -272,7 +272,6 @@ export async function POST(request: NextRequest) {
           slug: string | null
           page_id: string | null
           buyer_agent: string | null
-          status_token: string | null
           status_token_encrypted: string | null
         }>()
 
@@ -359,8 +358,9 @@ export async function POST(request: NextRequest) {
       }
       // Buyer receipt + portal link (negotiation buyers reuse status_token as their
       // portal credential). Only when we captured a buyer email this funding.
-      if (hasEmailEnv() && buyerEmail && negotiation.status_token) {
-        const token = recoverBearerToken({ encrypted: negotiation.status_token_encrypted, plaintext: negotiation.status_token }) ?? negotiation.status_token
+      const negotiationToken = recoverBearerToken({ encrypted: negotiation.status_token_encrypted })
+      if (hasEmailEnv() && buyerEmail && negotiationToken) {
+        const token = negotiationToken
         after(async () => {
           const { data: page } = await admin
             .from('pages')
@@ -450,10 +450,10 @@ export async function POST(request: NextRequest) {
         after(async () => {
           const { data: row } = await admin
             .from('checkout_orders')
-            .select('access_token, access_token_encrypted')
+            .select('access_token_encrypted')
             .eq('stripe_session_id', session.id)
             .maybeSingle<{ access_token: string | null; access_token_encrypted: string | null }>()
-          const portalToken = recoverBearerToken({ encrypted: row?.access_token_encrypted, plaintext: row?.access_token })
+          const portalToken = recoverBearerToken({ encrypted: row?.access_token_encrypted })
           if (!portalToken) return
           const { data: page } = orderRow.page_id
             ? await admin.from('pages').select('name').eq('id', orderRow.page_id as string).maybeSingle<{ name: string | null }>()
@@ -575,10 +575,10 @@ export async function POST(request: NextRequest) {
       after(async () => {
         const { data: row } = await admin
           .from('checkout_orders')
-          .select('access_token, access_token_encrypted')
+          .select('access_token_encrypted')
           .eq('stripe_payment_intent_id', pi.id)
           .maybeSingle<{ access_token: string | null; access_token_encrypted: string | null }>()
-        const portalToken = recoverBearerToken({ encrypted: row?.access_token_encrypted, plaintext: row?.access_token })
+        const portalToken = recoverBearerToken({ encrypted: row?.access_token_encrypted })
         if (!portalToken) return
         const { data: page } = orderRow.page_id
           ? await admin.from('pages').select('name').eq('id', orderRow.page_id as string).maybeSingle<{ name: string | null }>()
@@ -680,7 +680,7 @@ export async function POST(request: NextRequest) {
 
     const { data: neg } = await admin
       .from('agent_negotiations')
-      .select('id, status, metadata, offer_name, page_id, currency, buyer_agent, slug, buyer_email, status_token, status_token_encrypted, calendly_event_uri, calendly_cancelled_at')
+      .select('id, status, metadata, offer_name, page_id, currency, buyer_agent, slug, buyer_email, status_token_encrypted, calendly_event_uri, calendly_cancelled_at')
       .eq('stripe_payment_intent_id', piId)
       .maybeSingle<{
         id: string
@@ -702,9 +702,9 @@ export async function POST(request: NextRequest) {
       // what closes the "direct-checkout disputes/refunds vanish silently" hole.
       const { data: order } = await admin
         .from('checkout_orders')
-        .select('id, status, metadata, offer_name, page_id, currency, slug, buyer_email, access_token, access_token_encrypted, channel')
+        .select('id, status, metadata, offer_name, page_id, currency, slug, buyer_email, access_token_encrypted, channel')
         .eq('stripe_payment_intent_id', piId)
-        .maybeSingle<{ id: string; status: string; metadata: Record<string, unknown> | null; offer_name: string | null; page_id: string | null; currency: string | null; slug: string | null; buyer_email: string | null; access_token: string | null; access_token_encrypted: string | null; channel: string | null }>()
+        .maybeSingle<{ id: string; status: string; metadata: Record<string, unknown> | null; offer_name: string | null; page_id: string | null; currency: string | null; slug: string | null; buyer_email: string | null; access_token_encrypted: string | null; channel: string | null }>()
       if (!order) {
         return NextResponse.json({ received: true, type: event.type, matched: false }, { status: 200 })
       }
@@ -776,7 +776,7 @@ export async function POST(request: NextRequest) {
           await sendAcpOrderEvent('order_updated', {
             orderId: piId,
             checkoutSessionId: sess.id,
-            permalinkUrl: order.access_token ? `${getBaseUrl()}/orders/${order.access_token}` : `${getBaseUrl()}/orders`,
+            permalinkUrl: recoverBearerToken({ encrypted: order.access_token_encrypted }) ? `${getBaseUrl()}/orders/${recoverBearerToken({ encrypted: order.access_token_encrypted })}` : `${getBaseUrl()}/orders`,
             status: acpStatusFromOrderStatus(newStatus),
             refunds: refundCents != null && refundCents > 0 ? [{ type: 'refund', amount: refundCents, currency: orderCurrency }] : undefined,
           })
@@ -800,10 +800,10 @@ export async function POST(request: NextRequest) {
         })
       }
       // Buyer-facing status update (refund processed / dispute resolved).
-      if (oBuyerNotify && hasEmailEnv() && order.buyer_email && order.access_token) {
+      if (oBuyerNotify && hasEmailEnv() && order.buyer_email && order.access_token_encrypted) {
         const bn = oBuyerNotify
         const buyerTo = order.buyer_email
-        const token = order.access_token
+        const token = recoverBearerToken({ encrypted: order.access_token_encrypted }) as string
         after(async () => {
           const { data: page } = order.page_id
             ? await admin.from('pages').select('name').eq('id', order.page_id as string).maybeSingle<{ name: string | null }>()
