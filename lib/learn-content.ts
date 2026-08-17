@@ -33,9 +33,9 @@ export type ArticleBlock =
 
 export type LearnArticle = {
   slug: string
-  /** ≤60 chars incl. the layout's ' · Nexez' template. */
+  /** \u226460 chars incl. the layout's ' \u00b7 Nexez' template. */
   metaTitle: string
-  /** ≤160 chars. */
+  /** \u2264160 chars. */
   metaDescription: string
   /** On-page H1 (may differ from metaTitle). */
   title: string
@@ -67,8 +67,10 @@ import { jsonLdForAiAgents } from './learn-articles/json-ld-for-ai-agents'
 import { whatIsAgentJson } from './learn-articles/what-is-agent-json'
 import { whatIsGoogleUcp } from './learn-articles/what-is-google-ucp'
 import { measureAiAgentTraffic } from './learn-articles/measure-ai-agent-traffic'
+import { aiSearchLocalBusinesses } from './learn-articles/ai-search-local-businesses'
 
 export const learnArticles: LearnArticle[] = [
+  aiSearchLocalBusinesses,
   measureAiAgentTraffic,
   whatIsGoogleUcp,
   whatIsAgentJson,
