@@ -641,10 +641,9 @@ export class NegotiationService {
       status: 'negotiation',
       escrow_mode: process.env.STRIPE_SECRET_KEY ? 'manual_capture_ready' : 'not_configured',
       amount_cents: null,
-      status_token: statusToken,
-      // The blind index is also maintained by a DB trigger; writing it here keeps the
-      // row self-consistent if that trigger is ever dropped. The ciphertext is the
-      // half only the app can produce (the key is in env, never in the database), and
+      // The plaintext column is gone: the app writes the blind index (for lookups)
+      // and the ciphertext (the only recoverable copy). The ciphertext is the half
+      // only the app can produce, since the key is in env and never in the database, and
       // it is what lets find-my-orders and the owner deep link rebuild this token
       // once the plaintext column goes away. Null when no key is configured.
       ...bearerTokenColumns(statusToken, 'status_token'),
@@ -672,16 +671,26 @@ export class NegotiationService {
       throw error;
     }
 
-    return { ...negotiation, status_token: statusToken };
+    // Carry the plaintext in memory only, for the caller that has to hand it to the
+    // agent once. It is deliberately NOT a column any more.
+    return { ...negotiation, __statusTokenPlaintext: statusToken };
   }
 
   private proposalResult(negotiation: any, replayed: boolean) {
+    // A freshly created negotiation carries its plaintext in memory; a replayed or
+    // reloaded one has to be decrypted from the ciphertext, which is now the only
+    // stored copy. Prefer the in-memory value so a create still returns a token even
+    // if the encryption key is unavailable.
+    const token =
+      negotiation.__statusTokenPlaintext ||
+      recoverBearerToken({ encrypted: negotiation.status_token_encrypted }) ||
+      undefined;
     return {
       negotiationId: negotiation.id,
       status: negotiation.status || 'negotiation',
       decisionPending: true as const,
-      persistentLink: this.buildPersistentLink(negotiation.id, recoverBearerToken({ encrypted: negotiation.status_token_encrypted, plaintext: negotiation.status_token })),
-      statusToken: recoverBearerToken({ encrypted: negotiation.status_token_encrypted, plaintext: negotiation.status_token }) || undefined,
+      persistentLink: this.buildPersistentLink(negotiation.id, token ?? null),
+      statusToken: token,
       replayed,
     };
   }

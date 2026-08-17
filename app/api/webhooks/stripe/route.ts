@@ -692,7 +692,6 @@ export async function POST(request: NextRequest) {
         buyer_agent: string | null
         slug: string | null
         buyer_email: string | null
-        status_token: string | null
         status_token_encrypted: string | null
         calendly_event_uri: string | null
         calendly_cancelled_at: string | null
@@ -922,10 +921,11 @@ export async function POST(request: NextRequest) {
       })
     }
     // Buyer-facing status update for the negotiation buyer (status_token = portal credential).
-    if (buyerNotify && hasEmailEnv() && neg.buyer_email && neg.status_token) {
+    const negBuyerToken = recoverBearerToken({ encrypted: neg.status_token_encrypted })
+    if (buyerNotify && hasEmailEnv() && neg.buyer_email && negBuyerToken) {
       const bn = buyerNotify
       const buyerTo = neg.buyer_email
-      const token = neg.status_token
+      const token = negBuyerToken
       after(async () => {
         const { data: page } = neg.page_id
           ? await admin.from('pages').select('name').eq('id', neg.page_id as string).maybeSingle<{ name: string | null }>()
