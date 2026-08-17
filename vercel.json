@@ -9,6 +9,7 @@
     { "path": "/api/cron/agent-tasks", "schedule": "15 */6 * * *" },
     { "path": "/api/cron/availability-refresh", "schedule": "45 */6 * * *" },
     { "path": "/api/cron/calendly-availability", "schedule": "20 */6 * * *" },
-    { "path": "/api/cron/shopify-catalog-sync", "schedule": "*/5 * * * *" }
+    { "path": "/api/cron/shopify-catalog-sync", "schedule": "*/5 * * * *" },
+    { "path": "/api/cron/nexie-approvals", "schedule": "*/5 * * * *" }
   ]
 }
