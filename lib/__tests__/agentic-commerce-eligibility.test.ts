@@ -50,19 +50,19 @@ const proConnected = (owner: string): Sub => ({ owner_id: owner, plan_id: 'pro',
 afterEach(() => vi.unstubAllEnvs())
 
 describe('resolveOwnerCheckoutInputs', () => {
-  it('Pro + charge-ready Connect → both gates open', async () => {
+  it('charge-ready Connect opens checkout on Pro', async () => {
     const admin = makeAdmin({ subs: [proConnected('o1')] })
     expect(await resolveOwnerCheckoutInputs(admin, 'o1')).toEqual({ planAllowsCheckout: true, connectReady: true })
   })
 
-  it('Free plan → plan gate closed', async () => {
+  it('Free + charge-ready Connect can transact', async () => {
     const admin = makeAdmin({ subs: [{ owner_id: 'o1', plan_id: 'free', status: 'active', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true }] })
-    expect(await resolveOwnerCheckoutInputs(admin, 'o1')).toEqual({ planAllowsCheckout: false, connectReady: true })
+    expect(await resolveOwnerCheckoutInputs(admin, 'o1')).toEqual({ planAllowsCheckout: true, connectReady: true })
   })
 
-  it('Launch (below Pro) → plan gate closed', async () => {
+  it('Launch + charge-ready Connect can transact', async () => {
     const admin = makeAdmin({ subs: [{ owner_id: 'o1', plan_id: 'launch', status: 'active', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true }] })
-    expect((await resolveOwnerCheckoutInputs(admin, 'o1')).planAllowsCheckout).toBe(false)
+    expect(await resolveOwnerCheckoutInputs(admin, 'o1')).toEqual({ planAllowsCheckout: true, connectReady: true })
   })
 
   it('Connect account without charges_enabled → payout gate closed', async () => {
@@ -70,14 +70,9 @@ describe('resolveOwnerCheckoutInputs', () => {
     expect(await resolveOwnerCheckoutInputs(admin, 'o1')).toEqual({ planAllowsCheckout: true, connectReady: false })
   })
 
-  it('expired no-card trial does not confer Pro', async () => {
+  it('subscription lifecycle does not remove foundational checkout', async () => {
     const admin = makeAdmin({ subs: [{ owner_id: 'o1', plan_id: 'pro', status: 'trialing', trial_ends_at: '2000-01-01T00:00:00Z', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true }] })
-    expect((await resolveOwnerCheckoutInputs(admin, 'o1')).planAllowsCheckout).toBe(false)
-  })
-
-  it('platform admin → plan gate open (entitlements god-mode)', async () => {
-    const admin = makeAdmin({ admins: ['o1'], subs: [{ owner_id: 'o1', plan_id: 'free', status: 'active', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true }] })
-    expect((await resolveOwnerCheckoutInputs(admin, 'o1')).planAllowsCheckout).toBe(true)
+    expect(await resolveOwnerCheckoutInputs(admin, 'o1')).toEqual({ planAllowsCheckout: true, connectReady: true })
   })
 
   it('no owner → both gates closed', async () => {
@@ -86,21 +81,20 @@ describe('resolveOwnerCheckoutInputs', () => {
 })
 
 describe('resolveCheckoutEligibleOwners (batch)', () => {
-  it('returns only owners that are Pro+ AND charge-ready', async () => {
+  it('returns charge-ready owners regardless of plan', async () => {
     const admin = makeAdmin({
-      admins: ['o4'],
       subs: [
         proConnected('o1'), // eligible
-        { owner_id: 'o2', plan_id: 'free', status: 'active', stripe_connect_account_id: 'acct_2', stripe_connect_charges_enabled: true }, // free
+        { owner_id: 'o2', plan_id: 'free', status: 'active', stripe_connect_account_id: 'acct_2', stripe_connect_charges_enabled: true }, // Free is eligible
         { owner_id: 'o3', plan_id: 'pro', status: 'active', stripe_connect_account_id: 'acct_3', stripe_connect_charges_enabled: false }, // no payouts
-        { owner_id: 'o4', plan_id: 'free', status: 'active', stripe_connect_account_id: 'acct_4', stripe_connect_charges_enabled: true }, // admin → eligible
+        { owner_id: 'o4', plan_id: 'launch', status: 'canceled', stripe_connect_account_id: 'acct_4', stripe_connect_charges_enabled: true }, // lifecycle does not revoke checkout
       ],
     })
     const eligible = await resolveCheckoutEligibleOwners(admin, ['o1', 'o2', 'o3', 'o4'])
-    expect([...eligible].sort()).toEqual(['o1', 'o4'])
+    expect([...eligible].sort()).toEqual(['o1', 'o2', 'o4'])
   })
 
-  it('a platform admin WITHOUT a payout account is NOT eligible (money cannot move)', async () => {
+  it('an owner without a payout account is not eligible (money cannot move)', async () => {
     const admin = makeAdmin({ admins: ['o1'], subs: [] })
     expect(await resolveCheckoutEligibleOwners(admin, ['o1'])).toEqual(new Set())
   })
@@ -113,7 +107,10 @@ describe('resolveCheckoutEligibleOwners (batch)', () => {
 describe('resolveCheckoutEligibleSlugs', () => {
   it('maps published slug → owner → eligibility', async () => {
     const admin = makeAdmin({
-      subs: [proConnected('o1'), { owner_id: 'o2', plan_id: 'free', status: 'active', stripe_connect_account_id: null, stripe_connect_charges_enabled: null }],
+      subs: [
+        { owner_id: 'o1', plan_id: 'free', status: 'active', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true },
+        { owner_id: 'o2', plan_id: 'free', status: 'active', stripe_connect_account_id: null, stripe_connect_charges_enabled: null },
+      ],
       pages: [{ slug: 'a', owner_id: 'o1' }, { slug: 'b', owner_id: 'o2' }],
     })
     const slugs = await resolveCheckoutEligibleSlugs(admin, ['a', 'b'])

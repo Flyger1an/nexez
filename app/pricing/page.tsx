@@ -9,7 +9,7 @@ import { buildPlansAggregateOffer } from '../../lib/platform-agent-manifest'
 // the '%s · Nexez' title template - don't re-brand here.
 const title = 'Pricing — plans for agent-ready listings'
 const description =
-  'Start free with one agent-ready listing, or try a paid Nexez plan for 7 days with no card. Pro unlocks agentic checkout for AI agents.'
+  'Start free with agentic checkout and a 9% Nexez commission, or choose a paid plan for lower platform fees and more operating power.'
 
 export const metadata: Metadata = {
   title,

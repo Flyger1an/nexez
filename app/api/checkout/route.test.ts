@@ -253,7 +253,38 @@ describe('POST /api/checkout - buyer identity propagation', () => {
     expect(res.status).toBe(200)
     const { params } = stripeCalls[0]
     expect(params.application_fee_amount).toBeUndefined()
-    expect(params.payment_intent_data?.application_fee_amount).toBe(2250) // $150 × 15% (free plan)
+    expect(params.payment_intent_data?.application_fee_amount).toBe(1350) // $150 × 9% (free plan)
+    expect(params.metadata).toMatchObject({
+      nexez_owner_plan: 'free',
+      nexez_commission_bps: '900',
+      nexez_commission_percent: '9',
+      nexez_commission_source: 'plan_default',
+      nexez_application_fee_cents: '1350',
+    })
+  })
+
+  it.each([
+    ['free', 900, 1350],
+    ['launch', 700, 1050],
+    ['pro', 500, 750],
+    ['scale', 300, 450],
+    ['enterprise', 200, 300],
+  ])('snapshots the %s plan economics on direct checkout', async (planId, commissionBps, expectedFee) => {
+    adminRef.handler = (c: QueryContext) => {
+      if (c.table === 'pages') return { data: fixedPage(), error: null }
+      if (c.table === 'billing_subscriptions') {
+        return { data: { plan_id: planId, status: 'active', stripe_connect_account_id: 'acct_test', stripe_connect_charges_enabled: true }, error: null }
+      }
+      return { data: null, error: null, count: 0 }
+    }
+    expect((await POST(post({ slug: 'demo', offer: 'services-0' }))).status).toBe(200)
+    expect(stripeCalls[0].params.payment_intent_data.application_fee_amount).toBe(expectedFee)
+    expect(stripeCalls[0].params.metadata).toMatchObject({
+      nexez_owner_plan: planId,
+      nexez_commission_bps: String(commissionBps),
+      nexez_commission_source: 'plan_default',
+      nexez_application_fee_cents: String(expectedFee),
+    })
   })
 
   it('drops a malformed buyer email (no customer_email)', async () => {

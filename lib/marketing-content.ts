@@ -553,7 +553,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
 /** /pricing "Common questions" — single source for BOTH the rendered Q&A (PricingClient)
  *  and the page's FAQPage JSON-LD, so the schema can never drift from what's visible. */
 export const pricingFaqs = [
-  { question: 'Do I pay if no one books?', answer: 'No. Only transaction fees on successful agent bookings/payments.' },
+  { question: 'Do I pay a commission if no one books?', answer: 'No. Nexez commission applies only to successful transactions settled through Nexez. Paid-plan subscriptions and card-processing fees are separate.' },
   { question: 'Can I change plans later?', answer: 'Yes, upgrade or downgrade from your Billing page. Prorated billing.' },
   { question: 'How does complimentary Launch access work?', answer: 'Start on Free, then verify and publish your business. Eligible businesses receive six months of Launch access with no card and no automatic charge. Afterward, the account returns to Free unless upgraded.' },
   { question: 'What if I need custom pricing?', answer: 'Enterprise plans are fully customizable. Reach out via support.' },

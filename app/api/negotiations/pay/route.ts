@@ -3,12 +3,12 @@ import { NextResponse } from 'next/server'
 import { getBaseUrl } from '../../../../lib/agent-page'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 import { isPayable } from '../../../../lib/settlement'
-import { getCommissionPercentForPlan, calculateApplicationFeeCents } from '../../../../lib/stripe-billing'
+import { calculateApplicationFeeCentsFromBps } from '../../../../lib/stripe-billing'
 import { minorToStripeAmount } from '../../../../lib/currency'
 import { parseBuyerIdentity } from '../../../../lib/buyer-identity'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { hashBearerToken } from '../../../../lib/server/bearer-token'
-import { getOwnerPlanId, getOwnerBillingState } from '../../../../lib/server/plan'
+import { resolveSettlementContext } from '../../../../lib/commerce/settlement-bridge'
 import type { AgentNegotiation } from '../../../../lib/negotiations'
 
 function paymentFingerprint(input: {
@@ -35,7 +35,7 @@ function paymentFingerprint(input: {
  * The status token is the credential (same gate as /api/negotiations/status), so an
  * un-authenticated buying agent with the persistent /negotiate link can fund the deal.
  * Money routes to the OWNER's connected Stripe account with the platform commission as
- * an application fee (falls back to the platform account if the owner hasn't connected).
+ * an application fee. Funding is refused until the owner can receive Connect charges.
  *
  * Hybrid settlement:
  *  - settlement_state 'auto'      → immediate capture (low value) → webhook sets 'complete'.
@@ -106,39 +106,26 @@ export async function POST(request: Request) {
     })
   }
 
-  // Connect routing: owner is merchant of record, Nexez takes the plan commission as
-  // an application fee. Mirrors app/api/checkout/route.ts.
-  let connectAccountId: string | null = null
-  // Status-aware plan resolution (canceled/incomplete 'pro' → Free 15%, not 6%) -
-  // single source of truth, mirrors app/api/checkout/route.ts and entitlements.
-  const ownerPlanId = await getOwnerPlanId(admin, negotiation.owner_id as string)
-  // Compatibility hook for an explicit operational suspension. Billing or
-  // promotional expiry falls back to Free and remains payable at the Free fee.
-  if ((await getOwnerBillingState(admin, negotiation.owner_id as string)).isPaused) {
+  // Owner is merchant of record. Resolve Connect readiness and immutable economics
+  // through the same owner-aware core used by direct, ACP, and UCP settlement.
+  const settlement = await resolveSettlementContext(admin, {
+    pageId: negotiation.page_id ?? '',
+    ownerId: negotiation.owner_id,
+  })
+  if (!settlement.ok && settlement.code === 'paused') {
     return fail(402, 'This seller’s storefront is paused and not accepting orders right now.')
   }
-  const { data: billing } = await admin
-    .from('billing_subscriptions')
-    .select('stripe_connect_account_id, stripe_connect_charges_enabled')
-    .eq('owner_id', negotiation.owner_id as string)
-    .maybeSingle<{ stripe_connect_account_id: string | null; stripe_connect_charges_enabled: boolean | null }>()
-  // Only route to a Connect account that can actually ACCEPT a charge (onboarding
-  // complete). An id without charges_enabled would create a dead-end session, so
-  // treat it as not-connected (→ the owner_not_connected fallback below).
-  if (billing?.stripe_connect_account_id && billing.stripe_connect_charges_enabled === true) {
-    connectAccountId = billing.stripe_connect_account_id
-  }
-  const commissionPercent = getCommissionPercentForPlan(ownerPlanId)
-
-  // Never route the payment through the PLATFORM account: without the seller's
+  // Never route payment through the PLATFORM account: without the seller's
   // Connect account they can't receive the funds and it creates a payout/money-
   // transmission liability. The seller must connect Stripe payouts before an
   // agreement can be paid.
-  if (!connectAccountId) {
+  if (!settlement.ok) {
     return fail(409, 'This seller hasn’t connected Stripe payouts yet, so this agreement can’t be paid. Ask the seller to connect payouts, then try again.', {
       code: 'owner_not_connected',
     })
   }
+  const money = settlement.context
+  const connectAccountId = money.connectAccountId
 
   const stripe = new Stripe(secret)
   const requestOptions = { stripeAccount: connectAccountId }
@@ -150,7 +137,7 @@ export async function POST(request: Request) {
   // currencies (JPY/KRW) aren't charged 100x. The webhook validates the completed
   // session against the same conversion (minorToStripeAmount).
   const chargeAmount = minorToStripeAmount(negotiation.amount_cents, currency)
-  const applicationFeeAmount = calculateApplicationFeeCents(chargeAmount, commissionPercent)
+  const applicationFeeAmount = calculateApplicationFeeCentsFromBps(chargeAmount, money.commissionBps)
   const fingerprint = paymentFingerprint({
     amountCents: chargeAmount,
     currency,
@@ -159,19 +146,24 @@ export async function POST(request: Request) {
     applicationFeeAmount,
   })
 
-  // Idempotent reuse: only reuse a still-open Checkout session if it exactly
-  // matches the current money terms. Amount/fee/settlement can change while an
-  // old buyer tab is open; blindly reusing that session lets the buyer underpay.
+  // Idempotent reuse: only reuse a still-open Checkout session if its buyer-facing
+  // charge terms still match. The fee snapshot belongs to the already-created money
+  // state; a later plan/rate change must not silently replace it.
   if (negotiation.stripe_checkout_session_id) {
     try {
       const existing = await stripe.checkout.sessions.retrieve(negotiation.stripe_checkout_session_id, undefined, requestOptions)
       const existingUrl = existing.url
+      const fingerprintWithoutFee = fingerprint.split(':').slice(0, 4).join(':')
+      const existingFingerprintWithoutFee = existing.metadata?.nexez_payment_fingerprint
+        ?.split(':')
+        .slice(0, 4)
+        .join(':')
       const sameTerms =
         existing.status === 'open' &&
         existingUrl &&
         existing.amount_total === chargeAmount &&
         existing.currency?.toLowerCase() === currency &&
-        existing.metadata?.nexez_payment_fingerprint === fingerprint
+        existingFingerprintWithoutFee === fingerprintWithoutFee
       if (sameTerms) {
         return wantsJson
           ? NextResponse.json({ ok: true, url: existingUrl, sessionId: existing.id, reused: true })
@@ -212,7 +204,10 @@ export async function POST(request: Request) {
         nexez_currency: currency,
         nexez_connect_account: connectAccountId || '',
         nexez_application_fee_cents: String(applicationFeeAmount ?? 0),
-        nexez_commission_percent: String(commissionPercent),
+        nexez_owner_plan: money.planId,
+        nexez_commission_bps: String(money.commissionBps),
+        nexez_commission_percent: String(money.commissionPercent),
+        nexez_commission_source: money.commissionSource,
         nexez_payment_fingerprint: fingerprint,
       },
     }
@@ -233,7 +228,14 @@ export async function POST(request: Request) {
 
     await admin
       .from('agent_negotiations')
-      .update({ stripe_checkout_session_id: session.id })
+      .update({
+        stripe_checkout_session_id: session.id,
+        commission_bps: money.commissionBps,
+        commission_percent: money.commissionPercent,
+        application_fee_cents: applicationFeeAmount,
+        plan_id_at_purchase: money.planId,
+        commission_source: money.commissionSource,
+      })
       .eq('id', negotiation.id)
 
     if (!wantsJson && session.url) {

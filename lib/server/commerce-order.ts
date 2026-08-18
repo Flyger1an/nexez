@@ -23,7 +23,10 @@ export type CommerceOrderInput = {
   amountCents: number
   currency: string
   applicationFeeCents: number
+  commissionBps: number
   commissionPercent: number
+  planIdAtPurchase: import('../billing').PlanId
+  commissionSource: import('./plan').CommissionResolution['source']
   livemode: boolean
   buyer: SessionBuyer | null
 }
@@ -43,8 +46,11 @@ export async function persistCommerceOrder(admin: Pick<SupabaseClient, 'from'>, 
     stripe_connect_account_id: input.connectAccountId,
     amount_cents: input.amountCents,
     currency: (input.currency || 'usd').toLowerCase(),
-    application_fee_cents: input.applicationFeeCents || null,
-    commission_percent: input.commissionPercent || null,
+    application_fee_cents: input.applicationFeeCents,
+    commission_bps: input.commissionBps,
+    commission_percent: input.commissionPercent,
+    plan_id_at_purchase: input.planIdAtPurchase,
+    commission_source: input.commissionSource,
     stripe_livemode: input.livemode,
     // Minted here rather than by a column DEFAULT, so the hash and ciphertext can be
     // written in the same statement. Safe against redelivery: the preserve-token

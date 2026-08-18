@@ -41,8 +41,8 @@ export type AcpFeedOptions = {
   /** The PROGRAM-level gate: false (default, pre-enrollment) → every item is
    * search-eligible but NOT checkout-eligible, regardless of the seller. */
   checkoutEnabled?: boolean
-  /** The PER-SELLER gate: the set of slugs whose owner may transact (Pro+ AND a
-   * charge-ready Stripe Connect account). When provided, only these slugs can be
+  /** The PER-SELLER gate: the set of slugs whose owner has a charge-ready Stripe
+   * Connect account. When provided, only these slugs can be
    * checkout-eligible; when omitted, no per-seller gate is applied (the route always
    * supplies a set — fail-closed — whenever `checkoutEnabled` is true). */
   checkoutEligibleSlugs?: Set<string>
@@ -62,7 +62,7 @@ export function buildAcpFeedItems(pages: AcpFeedPage[], baseUrl: string, opts: A
   const items: AcpFeedItem[] = []
   for (const page of pages) {
     const sellerUrl = sanitizePublicUrl(page.website_url) || `${base}/${page.slug}`
-    // Per-seller gate: when a set is supplied, the seller must be in it (Pro+ + Connect).
+    // Per-seller gate: when a set is supplied, the seller must be settlement-ready.
     const sellerEligible = eligibleSlugs ? eligibleSlugs.has(page.slug) : true
     for (const row of buildOfferFeedRows(page, baseUrl)) {
       const inStock = row.availability === 'in_stock'

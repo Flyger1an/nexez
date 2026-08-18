@@ -159,7 +159,7 @@ export const acpEnrollmentGuide: LearnArticle = {
     {
       type: 'cta',
       title: 'Skip the build, keep the money path',
-      text: 'Nexez publishes an ACP feed and a UCP feed for your listings automatically, runs the checkout-session lifecycle, and settles through Stripe with you as merchant of record. Discovery is free on every plan; agentic checkout is Pro.',
+      text: 'Nexez publishes an ACP feed and a UCP feed for your listings automatically, runs the checkout-session lifecycle, and settles through Stripe with you as merchant of record. Discovery and agentic checkout are available on every plan when the merchant and surface are commerce-ready; paid plans add scale, operating tools, and lower commission rates.',
       href: '/pricing',
       label: 'See plans and pricing',
     },

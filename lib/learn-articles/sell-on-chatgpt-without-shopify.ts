@@ -85,7 +85,7 @@ export const sellOnChatgptWithoutShopify: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'The honest tradeoffs: you are relying on a layer you do not control, and advanced capabilities require a paid plan after the trial. The Free plan includes discovery; agentic checkout is a Pro feature (details on the [pricing page](/pricing)). What you get for that is hours-to-live instead of weeks, and one catalog feeding every protocol as the landscape keeps shifting.',
+      text: 'The honest tradeoffs: you are relying on a layer you do not control, and advanced operating capabilities require a paid plan after the trial. Free includes discovery and agentic checkout when your account and the relevant surface are commerce-ready; paid plans add higher limits, automation, integrations, and lower commission rates (details on the [pricing page](/pricing)). What you get is hours-to-live instead of weeks, and one catalog feeding every protocol as the landscape keeps shifting.',
     },
     {
       type: 'cta',

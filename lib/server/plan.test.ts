@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createSupabaseMock, type QueryContext } from '../../test/supabase-mock'
-import { getOwnerPlanId, getOwnerBillingState, ownerAllows, isPlatformAdmin, subscriptionConfers } from './plan'
+import { getOwnerPlanId, getOwnerCommission, getOwnerBillingState, ownerAllows, isPlatformAdmin, subscriptionConfers } from './plan'
 import { LIVE_SUBSCRIPTION_STATUSES } from '../stripe-billing'
 
 type SubRow = { plan_id: string; status: string; trial_ends_at?: string | null; account_origin?: string | null }
@@ -59,6 +59,53 @@ describe('getOwnerPlanId - admin short-circuit', () => {
 
   it('returns free for a null owner', async () => {
     expect(await getOwnerPlanId(client({}), null)).toBe('free')
+  })
+})
+
+describe('getOwnerCommission', () => {
+  it('maps every effective plan to the v1 basis-point ladder', async () => {
+    const cases = [
+      [{ sub: null }, 'free', 900],
+      [{ sub: { plan_id: 'launch', status: 'active' } }, 'launch', 700],
+      [{ sub: { plan_id: 'pro', status: 'active' } }, 'pro', 500],
+      [{ sub: { plan_id: 'scale', status: 'active' } }, 'scale', 300],
+      [{ sub: { plan_id: 'enterprise', status: 'active' } }, 'enterprise', 200],
+    ] as const
+
+    for (const [opts, planId, basisPoints] of cases) {
+      expect(await getOwnerCommission(client(opts as any), 'owner-1')).toMatchObject({
+        planId,
+        basisPoints,
+        percent: basisPoints / 100,
+        source: 'plan_default',
+      })
+    }
+  })
+
+  it('inherits admin, promotion, and dunning semantics from getOwnerPlanId', async () => {
+    expect(await getOwnerCommission(client({ admin: true }), 'owner-1')).toMatchObject({ planId: 'enterprise', basisPoints: 200 })
+    expect(await getOwnerCommission(client({ grant: launchGrant() }), 'owner-1')).toMatchObject({ planId: 'launch', basisPoints: 700, source: 'promotion' })
+    expect(await getOwnerCommission(client({ sub: { plan_id: 'scale', status: 'past_due' } }), 'owner-1')).toMatchObject({ planId: 'scale', basisPoints: 300 })
+    expect(await getOwnerCommission(client({ sub: { plan_id: 'scale', status: 'unpaid' } }), 'owner-1')).toMatchObject({ planId: 'scale', basisPoints: 300 })
+  })
+
+  it('keeps plan_default provenance when a paid plan outranks a live promotion', async () => {
+    expect(await getOwnerCommission(client({
+      sub: { plan_id: 'pro', status: 'active' },
+      grant: launchGrant(),
+    }), 'owner-1')).toMatchObject({ planId: 'pro', basisPoints: 500, source: 'plan_default' })
+  })
+
+  it('falls back to Free/highest commission when entitlement no longer confers', async () => {
+    expect(await getOwnerCommission(client({ sub: { plan_id: 'pro', status: 'canceled' } }), 'owner-1')).toMatchObject({ planId: 'free', basisPoints: 900 })
+    expect(await getOwnerCommission(client({ sub: { plan_id: 'pro', status: 'trialing', trial_ends_at: past() } }), 'owner-1')).toMatchObject({ planId: 'free', basisPoints: 900 })
+    expect(await getOwnerCommission(client({ grant: { ...launchGrant(), ends_at: past() } }), 'owner-1')).toMatchObject({ planId: 'free', basisPoints: 900 })
+    expect(await getOwnerCommission(client({}), null)).toMatchObject({ planId: 'free', basisPoints: 900 })
+  })
+
+  it('fails closed when billing reads throw', async () => {
+    const broken = { from() { throw new Error('db unavailable') } } as any
+    expect(await getOwnerCommission(broken, 'owner-1')).toMatchObject({ planId: 'free', basisPoints: 900 })
   })
 })
 
@@ -210,5 +257,141 @@ describe('entitlement vs "current subscription row"', () => {
     // reason these are two separate things.
     expect((LIVE_SUBSCRIPTION_STATUSES as readonly string[]).includes('trialing')).toBe(true)
     expect(subscriptionConfers('trialing', past())).toBe(false)
+  })
+})
+
+describe('getOwnerCommission - Enterprise commercial terms', () => {
+  function withCommercialTerms(
+    base: any,
+    terms: any,
+    options: { error?: unknown; throwOnRead?: boolean; onRead?: () => void } = {},
+  ) {
+    return {
+      from(table: string) {
+        if (table !== 'owner_commercial_terms') return base.from(table)
+
+        options.onRead?.()
+        if (options.throwOnRead) throw new Error('commercial terms unavailable')
+
+        const chain: any = {
+          select() {
+            return chain
+          },
+          eq() {
+            return chain
+          },
+          async maybeSingle() {
+            return {
+              data: terms,
+              error: options.error ?? null,
+            }
+          },
+        }
+
+        return chain
+      },
+    } as any
+  }
+
+  const enterpriseSub = { plan_id: 'enterprise', status: 'active' }
+  const activeTerms = (commission_bps: number | null) => ({
+    commission_bps,
+    effective_from: '2000-01-01T00:00:00.000Z',
+    effective_until: null,
+  })
+
+  it('uses 100, 150, and 200 bps active Enterprise overrides', async () => {
+    for (const commissionBps of [100, 150, 200]) {
+      const c = withCommercialTerms(
+        client({ sub: enterpriseSub }),
+        activeTerms(commissionBps),
+      )
+
+      expect(await getOwnerCommission(c, 'owner-1')).toMatchObject({
+        planId: 'enterprise',
+        basisPoints: commissionBps,
+        percent: commissionBps / 100,
+        source: 'enterprise_override',
+      })
+    }
+  })
+
+  it('falls back to the 200 bps Enterprise default when terms are missing', async () => {
+    const c = withCommercialTerms(client({ sub: enterpriseSub }), null)
+
+    expect(await getOwnerCommission(c, 'owner-1')).toMatchObject({
+      planId: 'enterprise',
+      basisPoints: 200,
+      percent: 2,
+      source: 'plan_default',
+    })
+  })
+
+  it('rejects invalid, inactive, and expired Enterprise overrides', async () => {
+    const invalidTerms = [
+      activeTerms(99),
+      activeTerms(201),
+      activeTerms(150.5),
+      activeTerms(null),
+      {
+        commission_bps: 150,
+        effective_from: '2999-01-01T00:00:00.000Z',
+        effective_until: null,
+      },
+      {
+        commission_bps: 150,
+        effective_from: '2000-01-01T00:00:00.000Z',
+        effective_until: '2001-01-01T00:00:00.000Z',
+      },
+    ]
+
+    for (const terms of invalidTerms) {
+      const c = withCommercialTerms(client({ sub: enterpriseSub }), terms)
+      expect(await getOwnerCommission(c, 'owner-1')).toMatchObject({
+        planId: 'enterprise',
+        basisPoints: 200,
+        source: 'plan_default',
+      })
+    }
+  })
+
+  it('fails closed to the Enterprise default when the commercial-term read errors', async () => {
+    const errored = withCommercialTerms(
+      client({ sub: enterpriseSub }),
+      activeTerms(150),
+      { error: new Error('db unavailable') },
+    )
+    expect(await getOwnerCommission(errored, 'owner-1')).toMatchObject({
+      planId: 'enterprise',
+      basisPoints: 200,
+      source: 'plan_default',
+    })
+
+    const thrown = withCommercialTerms(
+      client({ sub: enterpriseSub }),
+      activeTerms(150),
+      { throwOnRead: true },
+    )
+    expect(await getOwnerCommission(thrown, 'owner-1')).toMatchObject({
+      planId: 'enterprise',
+      basisPoints: 200,
+      source: 'plan_default',
+    })
+  })
+
+  it('never reads commercial terms for non-Enterprise effective plans', async () => {
+    let termsReads = 0
+    const c = withCommercialTerms(
+      client({ sub: { plan_id: 'pro', status: 'active' } }),
+      activeTerms(100),
+      { onRead: () => { termsReads += 1 } },
+    )
+
+    expect(await getOwnerCommission(c, 'owner-1')).toMatchObject({
+      planId: 'pro',
+      basisPoints: 500,
+      source: 'plan_default',
+    })
+    expect(termsReads).toBe(0)
   })
 })

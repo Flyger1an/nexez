@@ -91,7 +91,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     // Unified per-provider connection state for the Integrations panel (booleans
     // + timestamps only — never a credential value).
     getPageIntegrationConnections(access.pageId, access.ownerId),
-    // Raw gates for the agentic-commerce (ChatGPT/Google) status card — the client
+    // Raw inputs for the agentic-commerce (ChatGPT/Google) status card — the client
     // combines these with the listing's published state via agenticCommerceStatus().
     resolveOwnerCheckoutInputs(admin, access.ownerId),
   ])
@@ -101,8 +101,8 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     ownerId: access.ownerId,
     plan, // the OWNER's effective plan - drives the UI gates for owner + editor alike
     integrations,
-    // The gates the "Sell through ChatGPT & Google" card reads: the owner's plan +
-    // Connect readiness, and each surface's program flag (ChatGPT/Google enroll
+    // The inputs the "Sell through ChatGPT & Google" card reads: Connect readiness
+    // and each surface's program flag (ChatGPT/Google enroll
     // independently, so they're reported separately — never collapsed to one boolean).
     agenticCommerce: {
       planAllowsCheckout: checkoutInputs.planAllowsCheckout,

@@ -525,9 +525,11 @@ export type SettlementContext = {
    * merchant of record). Required - a session with no Connect account is not
    * settleable and the bridge returns `no_connect`. */
   connectAccountId: string
-  /** Plan commission percent (0-100). The bridge computes the platform
-   * application fee from this + the session total via the shared fee helper. */
+  /** Effective owner plan and immutable rate provenance at settlement time. */
+  planId: import('../billing').PlanId
+  commissionBps: number
   commissionPercent: number
+  commissionSource: import('../server/plan').CommissionResolution['source']
   /** Extra Stripe metadata the calling protocol adapter stamps onto the charge
    * (e.g. `nexez_source: 'acp'`, protocol order ids). The bridge merges these
    * with the money-core keys it derives from the session - so the bridge stays

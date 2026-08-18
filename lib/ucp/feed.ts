@@ -29,7 +29,7 @@ export type UcpFeedItem = {
 export type UcpFeedOptions = {
   /** PROGRAM-level gate (Merchant Center + UCP waitlist enrollment). */
   checkoutEnabled?: boolean
-  /** PER-SELLER gate: slugs whose owner may transact (Pro+ + charge-ready Connect). When
+  /** PER-SELLER gate: slugs whose owner has charge-ready Connect. When
    * provided, only these slugs can be checkout-eligible. The route supplies it whenever
    * `checkoutEnabled` is true (fail-closed). */
   checkoutEligibleSlugs?: Set<string>

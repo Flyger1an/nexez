@@ -152,7 +152,10 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     amountCents: settled.amount,
     currency: settled.currency,
     applicationFeeCents: settled.applicationFee,
+    commissionBps: context.context.commissionBps,
     commissionPercent: context.context.commissionPercent,
+    planIdAtPurchase: context.context.planId,
+    commissionSource: context.context.commissionSource,
     livemode: settled.livemode,
     buyer: completed.buyer,
   })

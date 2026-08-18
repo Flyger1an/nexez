@@ -1,12 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowUpRight, Bot, Check, Copy, Globe2, Puzzle, Rocket, ShieldCheck, Sparkles } from 'lucide-react'
+import { ArrowUpRight, Bot, Check, Copy, Globe2, Puzzle, Rocket, ShieldCheck } from 'lucide-react'
 import type { AgentPage } from '../../lib/agent-page'
 import { buildAgentReadyKit, buildRedirectRecipes, buildCodeInjectionRecipes, type RecipeBlock, type InjectionRecipe } from '../../lib/agent-ready-kit'
 import { agenticCommerceStatus, type AgenticCommerceStatus } from '../../lib/agentic-commerce-status'
-import { AgenticCheckoutUpgradeModal } from '../billing/AgenticCheckoutUpgradeModal'
-import type { PlanId } from '../../lib/billing'
 import {
   generateWebsiteVerificationToken,
   VERIFICATION_TXT_LABEL,
@@ -41,13 +39,9 @@ export function WebsitePanel({
   const [method, setMethod] = useState<Method>('dns')
   const [busy, setBusy] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
-  // The checkout gates from settings-context (plan + Connect + each surface's program
+  // The checkout gates from settings-context (Connect + each surface's program
   // flag); the discovery/checkout STATUS is derived from these + the listing's published state.
   const [agentic, setAgentic] = useState<{ planAllowsCheckout: boolean; connectReady: boolean; chatgptLive: boolean; googleLive: boolean } | null>(null)
-  // The OWNER's effective plan (from the same fetch) — the upgrade modal derives the
-  // honest commission comparison (e.g. Launch 8% → Pro 6%) from it.
-  const [ownerPlan, setOwnerPlan] = useState<PlanId | null>(null)
-  const [upgradeOpen, setUpgradeOpen] = useState(false)
 
   const host = websiteHostOf(page.website_url)
   const verifiedAt = page.website_verified_at ?? null
@@ -89,7 +83,6 @@ export function WebsitePanel({
           googleLive: Boolean(json.agenticCommerce.googleLive),
         })
       }
-      if (typeof json?.plan === 'string') setOwnerPlan(json.plan as PlanId)
     } catch {
       /* non-fatal */
     }
@@ -252,16 +245,14 @@ export function WebsitePanel({
         </div>
       ) : null}
 
-      {/* Agentic commerce — the ChatGPT + Google transaction layer (discovery is free,
-          checkout is the Pro upgrade). Renders the listing's true, live status. */}
+      {/* Agentic commerce — the ChatGPT + Google transaction layer. Discovery and
+          checkout are available on every plan; settlement readiness stays authoritative. */}
       {agenticStatus ? (
         <AgenticCommerceCard
           status={agenticStatus}
           emphasizeCta={!verificationIsNext}
-          onUpgrade={() => setUpgradeOpen(true)}
         />
       ) : null}
-      <AgenticCheckoutUpgradeModal open={upgradeOpen} onClose={() => setUpgradeOpen(false)} currentPlan={ownerPlan} />
 
       {/* Serve LIVE artifacts on the merchant's own domain (the Phase-2 upgrade) */}
       <div>
@@ -416,20 +407,17 @@ export function WebsitePanel({
 /**
  * The "Sell through ChatGPT & Google" status card — the honest, wired state of this
  * listing's two agentic-commerce layers. Discovery is free (every published listing is
- * in the feeds); checkout is the Pro upgrade, gated on plan + payout-ready Connect +
- * program go-live. The `status` is computed by the shared agenticCommerceStatus().
+ * in the feeds); checkout is available on every plan and gated by payout-ready Connect
+ * plus program go-live. The `status` is computed by agenticCommerceStatus().
  */
-/** A card CTA is either a navigation (href) or an in-place action (onClick). */
-type CardCta = { label: string } & ({ href: string } | { onClick: () => void })
+type CardCta = { label: string; href: string }
 
 function AgenticCommerceCard({
   status,
   emphasizeCta,
-  onUpgrade,
 }: {
   status: AgenticCommerceStatus
   emphasizeCta: boolean
-  onUpgrade: () => void
 }) {
   const discoveryLive = status.discovery === 'live'
 
@@ -444,13 +432,6 @@ function AgenticCommerceCard({
         const pending = status.liveSurfaces.length === 1 ? ` ${surfaceName(status.liveSurfaces[0] === 'chatgpt' ? 'google' : 'chatgpt')} switches on soon.` : ''
         return { color: 'var(--ready)', line: `live on ${live} — buyers complete the purchase without leaving the chat.${pending}`, cta: null }
       }
-      case 'needs_plan':
-        // Opens the benefit-led upgrade modal (not a bare billing link).
-        return {
-          color: 'var(--fg-muted)',
-          line: 'upgrade to Pro to let agents complete the sale, not just discover you.',
-          cta: { onClick: onUpgrade, label: 'Upgrade to Pro' } as CardCta,
-        }
       case 'needs_payouts':
         return {
           color: 'var(--amber)',
@@ -485,8 +466,8 @@ function AgenticCommerceCard({
         <Bot className="size-4 text-[var(--fg-muted)]" /> Sell through ChatGPT &amp; Google
       </p>
       <p className="mt-0.5 text-xs text-[var(--fg-muted)]">
-        Agents <span className="text-[var(--fg)]">discover</span> your offers for free — and, on Pro, <span className="text-[var(--fg)]">complete checkout</span> right
-        inside ChatGPT and Google’s shopping surfaces.
+        Agents can <span className="text-[var(--fg)]">discover</span> your offers and <span className="text-[var(--fg)]">complete checkout</span> on every plan
+        when your payout account is ready.
       </p>
 
       {/* Discovery */}
@@ -506,8 +487,6 @@ function AgenticCommerceCard({
       <div className="mt-2 flex items-start gap-2 text-xs">
         {status.checkout === 'live' ? (
           <Check className="mt-0.5 size-3.5 shrink-0" style={{ color: 'var(--ready)' }} />
-        ) : status.checkout === 'needs_plan' ? (
-          <Sparkles className="mt-0.5 size-3.5 shrink-0" style={{ color: checkout.color }} />
         ) : (
           <span className="mt-1 size-2 shrink-0 rounded-full" style={{ background: checkout.color }} />
         )}
@@ -521,14 +500,10 @@ function AgenticCommerceCard({
           const cls = actionIsNext
             ? 'settings-emphasis-action mt-3 inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold'
             : 'btn-secondary mt-3 inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium'
-          return 'href' in checkout.cta ? (
+          return (
             <a href={checkout.cta.href} className={cls}>
               {checkout.cta.label} <ArrowUpRight className="size-3.5" />
             </a>
-          ) : (
-            <button type="button" onClick={checkout.cta.onClick} className={cls}>
-              {checkout.cta.label} <ArrowUpRight className="size-3.5" />
-            </button>
           )
         })()
       ) : null}

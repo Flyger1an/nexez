@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   billingPlans,
   getBillingPlan,
+  getCommissionBpsForPlan,
   getPlanLimits,
   getPlanRank,
   minPlanForFeature,
@@ -13,12 +14,26 @@ describe('billing catalog', () => {
   it('has the five tiers in ascending rank with a clean prices/ids', () => {
     expect(billingPlans.map((p) => p.id)).toEqual(['free', 'launch', 'pro', 'scale', 'enterprise'])
     expect(billingPlans.map((p) => p.rank)).toEqual([0, 1, 2, 3, 4])
+    expect(billingPlans.map((p) => p.monthlyPriceCents)).toEqual([0, 1900, 4900, 14900, null])
   })
 
   it('commission steps DOWN monotonically as the plan steps up (upgrade incentive)', () => {
     const rates = billingPlans.map((p) => p.commissionPercent)
-    expect(rates).toEqual([15, 8, 6, 4, 2])
+    expect(rates).toEqual([9, 7, 5, 3, 2])
     for (let i = 1; i < rates.length; i++) expect(rates[i]).toBeLessThan(rates[i - 1])
+  })
+
+  it('exposes the v1 commission ladder in canonical basis points', () => {
+    expect(getCommissionBpsForPlan('free')).toBe(900)
+    expect(getCommissionBpsForPlan('launch')).toBe(700)
+    expect(getCommissionBpsForPlan('pro')).toBe(500)
+    expect(getCommissionBpsForPlan('scale')).toBe(300)
+    expect(getCommissionBpsForPlan('enterprise')).toBe(200)
+  })
+
+  it('fails closed to the highest standard rate for missing/unknown plans', () => {
+    expect(getCommissionBpsForPlan(null)).toBe(900)
+    expect(getCommissionBpsForPlan('bogus')).toBe(900)
   })
 
   it('page limits ladder up; enterprise is unlimited', () => {
@@ -73,6 +88,13 @@ describe('planAllows (cumulative feature gating)', () => {
     expect(planAllows(null, 'customDomain')).toBe(false)
     expect(planAllows(undefined, 'aiFeatures')).toBe(false)
     expect(planAllows('bogus' as PlanId, 'integrations')).toBe(false)
+  })
+
+  it('keeps agentic checkout foundational on every plan', () => {
+    for (const planId of ['free', 'launch', 'pro', 'scale', 'enterprise'] as const) {
+      expect(planAllows(planId, 'agenticCheckout')).toBe(true)
+    }
+    expect(minPlanForFeature('agenticCheckout').id).toBe('free')
   })
 })
 
@@ -131,4 +153,3 @@ describe('tiers the UI advertises', () => {
     expect(minPlanForFeature('sso').name).toBe('Enterprise')
   })
 })
-

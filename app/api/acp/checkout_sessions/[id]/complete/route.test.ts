@@ -41,8 +41,8 @@ const ROW = {
   stripe_payment_intent_id: null,
   expires_at: '2999-01-01T00:00:00.000Z',
 }
-const OK_CONTEXT = { ok: true, context: { pageId: 'pg1', ownerId: 'owner-1', connectAccountId: 'acct_seller', commissionPercent: 10 } }
-const OK_SETTLE = { ok: true, paymentIntentId: 'pi_1', amount: 120000, applicationFee: 12000, currency: 'usd', livemode: false }
+const OK_CONTEXT = { ok: true, context: { pageId: 'pg1', ownerId: 'owner-1', connectAccountId: 'acct_seller', planId: 'free', commissionBps: 900, commissionPercent: 9, commissionSource: 'plan_default' } }
+const OK_SETTLE = { ok: true, paymentIntentId: 'pi_1', amount: 120000, applicationFee: 10800, currency: 'usd', livemode: false }
 
 function adminMock(handler: (ctx: QueryContext) => { data?: any; error?: any } | undefined) {
   return createSupabaseMock((ctx) => handler(ctx) ?? { data: null, error: null }) as any
@@ -107,7 +107,7 @@ describe('POST /api/acp/checkout_sessions/[id]/complete', () => {
     expect(passedSession.buyer).toMatchObject({ email: 'b@x.com' })
     // Session marked completed + PI linked; durable order persisted under 'acp'.
     expect(spy.getSessionUpdate()).toMatchObject({ status: 'completed', stripe_payment_intent_id: 'pi_1', stripe_livemode: false })
-    expect(spy.getOrderUpsert()).toMatchObject({ channel: 'acp', stripe_payment_intent_id: 'pi_1', amount_cents: 120000, application_fee_cents: 12000, stripe_livemode: false, status: 'paid' })
+    expect(spy.getOrderUpsert()).toMatchObject({ channel: 'acp', stripe_payment_intent_id: 'pi_1', amount_cents: 120000, application_fee_cents: 10800, commission_bps: 900, commission_percent: 9, plan_id_at_purchase: 'free', commission_source: 'plan_default', stripe_livemode: false, status: 'paid' })
   })
 
   it('400 when payment_data is missing', async () => {
@@ -186,7 +186,7 @@ describe('POST /api/acp/checkout_sessions/[id]/complete', () => {
     })
 
     it('settles at the lower amount when the merchant dropped the price', async () => {
-      settleSessionToPaymentIntent.mockResolvedValue({ ...OK_SETTLE, amount: 90000, applicationFee: 9000 })
+      settleSessionToPaymentIntent.mockResolvedValue({ ...OK_SETTLE, amount: 90000, applicationFee: 8100 })
       readySessionDb(APPROVED, pageAt('$900'))
       const res = await COMPLETE(req(PAYMENT), ctx)
       expect(res.status).toBe(200)

@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
   buildBillingSubscriptionRow,
+  calculateApplicationFeeCents,
+  calculateApplicationFeeCentsFromBps,
+  getCommissionBpsForPlan,
+  getCommissionPercentForPlan,
   hasScheduledCancellation,
   LIVE_SUBSCRIPTION_STATUSES,
   isDbManagedBillingStatus,
@@ -9,6 +13,50 @@ import {
 } from '../stripe-billing'
 
 const sub = (status: string, id = status) => ({ id, status })
+
+describe('commission core', () => {
+  it('resolves every plan default and keeps the percent helper as a compatibility view', () => {
+    const cases = [
+      ['free', 900, 9],
+      ['launch', 700, 7],
+      ['pro', 500, 5],
+      ['scale', 300, 3],
+      ['enterprise', 200, 2],
+    ] as const
+    for (const [planId, bps, percent] of cases) {
+      expect(getCommissionBpsForPlan(planId)).toBe(bps)
+      expect(getCommissionPercentForPlan(planId)).toBe(percent)
+    }
+  })
+
+  it('fails closed to Free economics for missing plan metadata', () => {
+    expect(getCommissionBpsForPlan(null)).toBe(900)
+    expect(getCommissionPercentForPlan(undefined)).toBe(9)
+  })
+})
+
+describe('basis-point application fee arithmetic', () => {
+  it('returns zero for zero/negative amounts', () => {
+    expect(calculateApplicationFeeCentsFromBps(0, 900)).toBe(0)
+    expect(calculateApplicationFeeCentsFromBps(-100, 900)).toBe(0)
+  })
+
+  it('rounds tiny fractional-cent commissions deterministically', () => {
+    expect(calculateApplicationFeeCentsFromBps(5, 900)).toBe(0) // 0.45¢
+    expect(calculateApplicationFeeCentsFromBps(6, 900)).toBe(1) // 0.54¢
+  })
+
+  it('handles normal, high-value, and custom Enterprise rates in integer math', () => {
+    expect(calculateApplicationFeeCentsFromBps(12_345, 500)).toBe(617)
+    expect(calculateApplicationFeeCentsFromBps(100_000_000, 150)).toBe(1_500_000)
+    expect(calculateApplicationFeeCentsFromBps(12_345, 150)).toBe(185)
+  })
+
+  it('preserves legacy percent-call arithmetic during migration', () => {
+    expect(calculateApplicationFeeCents(12_345, 5)).toBe(617)
+    expect(calculateApplicationFeeCents(12_345, 1.5)).toBe(185)
+  })
+})
 
 describe('pickLiveStripeSubscription', () => {
   it('finds the live subscription among noise (the one a plan change must UPDATE)', () => {

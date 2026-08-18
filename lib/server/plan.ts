@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { getPlanRank, planAllows, type PlanFeature, type PlanId } from '../billing'
+import { getCommissionBpsForPlan, getPlanRank, planAllows, type PlanFeature, type PlanId } from '../billing'
 
 // A subscription only confers its plan when it's in a conferring state; an
 // abandoned 'incomplete' or 'canceled' row falls back to Free. subscriptionConfers
@@ -114,6 +114,93 @@ export async function getOwnerPlanId(
     // fall through to free on any read error - gating fails safe (most restrictive)
   }
   return 'free'
+}
+
+export type CommissionResolution = {
+  planId: PlanId
+  percent: number
+  basisPoints: number
+  source: 'plan_default' | 'enterprise_override' | 'promotion'
+}
+
+/**
+ * Resolve the commission attached to an owner's EFFECTIVE plan. This deliberately
+ * composes getOwnerPlanId() rather than re-reading billing state, so dunning,
+ * expired trials, promotions, admins, and fail-safe Free fallback cannot drift
+ * between feature entitlement and transaction economics.
+ *
+ * Enterprise owners may receive a server-controlled override. Missing, inactive,
+ * unreadable, or out-of-policy terms fail closed to the Enterprise plan default.
+ */
+export async function getOwnerCommission(
+  supabase: Pick<SupabaseClient, 'from'>,
+  ownerId: string | null | undefined,
+  resolvedBillingState?: OwnerBillingState,
+): Promise<CommissionResolution> {
+  const planId = await getOwnerPlanId(supabase, ownerId)
+  const planDefaultBps = getCommissionBpsForPlan(planId)
+  const billingState = resolvedBillingState ?? await getOwnerBillingState(supabase, ownerId)
+  const subscriptionPlan =
+    billingState.chosenPlanId && subscriptionConfers(billingState.status, billingState.trialEndsAt)
+      ? billingState.chosenPlanId
+      : 'free'
+  const promotionWins = Boolean(
+    billingState.promotion
+    && billingState.promotion.planId === planId
+    && getPlanRank(billingState.promotion.planId) > getPlanRank(subscriptionPlan),
+  )
+  const defaultSource: CommissionResolution['source'] = promotionWins ? 'promotion' : 'plan_default'
+
+  // Only effective Enterprise owners are eligible for negotiated commercial
+  // terms. Non-Enterprise plans never touch the commercial-terms table.
+  if (planId === 'enterprise' && ownerId) {
+    try {
+      const query = supabase
+        .from('owner_commercial_terms')
+        .select('commission_bps,effective_from,effective_until')
+        .eq('owner_id', ownerId)
+
+      const { data, error } = await query.maybeSingle()
+
+      if (!error && data) {
+        const commissionBps = Number(data.commission_bps)
+        const startsAtMs = Date.parse(String(data.effective_from ?? ''))
+        const endsAtMs =
+          data.effective_until == null
+            ? Number.POSITIVE_INFINITY
+            : Date.parse(String(data.effective_until))
+        const nowMs = Date.now()
+
+        const validRate =
+          Number.isInteger(commissionBps) &&
+          commissionBps >= 100 &&
+          commissionBps <= 200
+        const activeWindow =
+          Number.isFinite(startsAtMs) &&
+          startsAtMs <= nowMs &&
+          (data.effective_until == null ||
+            (Number.isFinite(endsAtMs) && endsAtMs > nowMs))
+
+        if (validRate && activeWindow) {
+          return {
+            planId,
+            percent: commissionBps / 100,
+            basisPoints: commissionBps,
+            source: 'enterprise_override',
+          }
+        }
+      }
+    } catch {
+      // Commercial-term reads fail closed to the Enterprise plan default.
+    }
+  }
+
+  return {
+    planId,
+    percent: planDefaultBps / 100,
+    basisPoints: planDefaultBps,
+    source: defaultSource,
+  }
 }
 
 export type OwnerBillingState = {

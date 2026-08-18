@@ -18,8 +18,8 @@
 
 import Stripe from 'stripe'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { calculateApplicationFeeCents, getCommissionPercentForPlan } from '../stripe-billing'
-import { getOwnerBillingState, getOwnerPlanId } from '../server/plan'
+import { calculateApplicationFeeCentsFromBps } from '../stripe-billing'
+import { getOwnerBillingState, getOwnerCommission } from '../server/plan'
 import { buyerMetadata } from '../buyer-identity'
 import { toStripeDescription } from '../checkout'
 import {
@@ -127,7 +127,7 @@ export function createSettlementBridge(stripe: SettlementStripe): SettleCheckout
       return { ok: false, code: 'no_connect', message: 'Seller has no payout account connected.' }
     }
 
-    const applicationFee = calculateApplicationFeeCents(amount, context.commissionPercent)
+    const applicationFee = calculateApplicationFeeCentsFromBps(amount, context.commissionBps)
 
     // Each protocol hands over a DIFFERENT kind of credential, and Stripe charges each
     // one through a different parameter. Sending them all as `payment_method` only
@@ -215,7 +215,10 @@ function buildChargeMetadata(
     // 500-char metadata-value limit.
     nexez_offer_key: session.lineItems.map((li) => li.offerKey).join(',').slice(0, 500),
     nexez_offer_name: session.lineItems.map((li) => li.name).join(', ').slice(0, 500),
+    nexez_owner_plan: context.planId,
+    nexez_commission_bps: String(context.commissionBps),
     nexez_commission_percent: String(context.commissionPercent),
+    nexez_commission_source: context.commissionSource,
     nexez_application_fee_cents: String(applicationFee || 0),
     ...buyerMeta,
   }
@@ -230,7 +233,7 @@ export type ResolveSettlementResult =
 
 /** Lift the direct-checkout route's up-front guards into one shared resolver both
  * protocol adapters call: an explicitly suspended seller is offline; the
- * commission percent comes from the owner's status-aware plan; and a charge only
+ * owner-aware commission comes from the shared resolver; and a charge only
  * ever routes to a Connect account that can actually ACCEPT one (charges_enabled).
  * Keeping this here means an adapter cannot forget the pause/connect gate. Takes an
  * admin (service-role) client; the connect fields live on a service-role-only table.
@@ -248,8 +251,7 @@ export async function resolveSettlementContext(
     return { ok: false, code: 'paused', message: 'This seller’s storefront is paused and not accepting orders right now.' }
   }
 
-  const planId = await getOwnerPlanId(admin, ownerId)
-  const commissionPercent = getCommissionPercentForPlan(planId)
+  const commission = await getOwnerCommission(admin, ownerId, billingState)
 
   // Only route a charge to a Connect account that can ACCEPT one. An owner who
   // created the account but hasn't finished onboarding has an id but
@@ -270,7 +272,10 @@ export async function resolveSettlementContext(
       pageId: input.pageId,
       ownerId,
       connectAccountId: billing.stripe_connect_account_id,
-      commissionPercent,
+      planId: commission.planId,
+      commissionBps: commission.basisPoints,
+      commissionPercent: commission.percent,
+      commissionSource: commission.source,
       metadata: input.metadata,
       idempotencyKey: input.idempotencyKey,
     },

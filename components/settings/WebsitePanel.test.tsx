@@ -27,7 +27,7 @@ function contextResponse(overrides: Record<string, unknown> = {}) {
       secrets: {},
       plan: 'free',
       agenticCommerce: {
-        planAllowsCheckout: false,
+        planAllowsCheckout: true,
         connectReady: false,
         chatgptLive: false,
         googleLive: false,
@@ -49,14 +49,14 @@ describe('WebsitePanel priority emphasis', () => {
       <WebsitePanel pageId={PAGE.id} page={PAGE} onMessage={() => {}} onVerified={() => {}} />,
     )
 
-    await screen.findByRole('button', { name: 'Upgrade to Pro' })
+    await screen.findByRole('link', { name: 'Connect payouts' })
 
     const verifyAction = screen.getByRole('button', { name: 'Generate verification token' })
     expect(verifyAction).toHaveClass('settings-emphasis-action')
     expect(screen.getByRole('group', { name: 'Recommended next step: verify website ownership' })).toHaveClass(
       'settings-priority-card',
     )
-    expect(screen.getByRole('button', { name: 'Upgrade to Pro' })).not.toHaveClass('settings-emphasis-action')
+    expect(screen.getByRole('link', { name: 'Connect payouts' })).not.toHaveClass('settings-emphasis-action')
     expect(container.querySelectorAll('.settings-priority-card')).toHaveLength(1)
     expect(container.querySelectorAll('.settings-emphasis-action')).toHaveLength(1)
   })
@@ -72,10 +72,10 @@ describe('WebsitePanel priority emphasis', () => {
       <WebsitePanel pageId={verifiedPage.id} page={verifiedPage} onMessage={() => {}} onVerified={() => {}} />,
     )
 
-    const upgrade = await screen.findByRole('button', { name: 'Upgrade to Pro' })
+    const connectPayouts = await screen.findByRole('link', { name: 'Connect payouts' })
 
     expect(screen.queryByRole('button', { name: 'Generate verification token' })).not.toBeInTheDocument()
-    expect(upgrade).toHaveClass('settings-emphasis-action')
+    expect(connectPayouts).toHaveClass('settings-emphasis-action')
     expect(screen.getByRole('group', { name: 'Recommended next step: enable agentic checkout' })).toHaveClass(
       'settings-priority-card',
     )

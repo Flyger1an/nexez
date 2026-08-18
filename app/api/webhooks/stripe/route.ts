@@ -34,6 +34,24 @@ import { acpOrderWebhookConfigured, acpStatusFromOrderStatus, sendAcpOrderEvent 
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'placeholder')
 
+function metadataNumber(value: string | undefined, options: { integer?: boolean; min?: number; max?: number } = {}): number | null {
+  if (value == null || value.trim() === '') return null
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return null
+  if (options.integer && !Number.isInteger(parsed)) return null
+  if (options.min != null && parsed < options.min) return null
+  if (options.max != null && parsed > options.max) return null
+  return parsed
+}
+
+function metadataPlan(value: string | undefined): string | null {
+  return value && ['free', 'launch', 'pro', 'scale', 'enterprise'].includes(value) ? value : null
+}
+
+function metadataCommissionSource(value: string | undefined): string | null {
+  return value && ['plan_default', 'enterprise_override', 'promotion'].includes(value) ? value : null
+}
+
 export async function POST(request: NextRequest) {
   // A Connect platform needs TWO endpoints - one for "your account" events
   // (subscriptions) and one for "connected account" events (the escrow charges,
@@ -315,8 +333,11 @@ export async function POST(request: NextRequest) {
           stripe_payment_intent_id: piId,
           stripe_livemode: session.livemode,
           ...(buyerEmail ? { buyer_email: buyerEmail } : {}),
-          commission_percent: Number(session.metadata?.nexez_commission_percent || 0) || null,
-          application_fee_cents: Number(session.metadata?.nexez_application_fee_cents || 0) || null,
+          commission_bps: metadataNumber(session.metadata?.nexez_commission_bps, { integer: true, min: 0, max: 1000 }),
+          commission_percent: metadataNumber(session.metadata?.nexez_commission_percent, { min: 0, max: 10 }),
+          application_fee_cents: metadataNumber(session.metadata?.nexez_application_fee_cents, { integer: true, min: 0 }),
+          plan_id_at_purchase: metadataPlan(session.metadata?.nexez_owner_plan),
+          commission_source: metadataCommissionSource(session.metadata?.nexez_commission_source),
         })
         .eq('id', session.metadata.nexez_negotiation_id)
         .eq('stripe_checkout_session_id', session.id)
@@ -421,8 +442,11 @@ export async function POST(request: NextRequest) {
         stripe_connect_account_id: (event as { account?: string }).account ?? null,
         amount_cents: session.amount_total,
         currency: (session.currency || 'usd').toLowerCase(),
-        application_fee_cents: Number(session.metadata.nexez_application_fee_cents || 0) || null,
-        commission_percent: Number(session.metadata.nexez_commission_percent || 0) || null,
+        application_fee_cents: metadataNumber(session.metadata.nexez_application_fee_cents, { integer: true, min: 0 }),
+        commission_bps: metadataNumber(session.metadata.nexez_commission_bps, { integer: true, min: 0, max: 1000 }),
+        commission_percent: metadataNumber(session.metadata.nexez_commission_percent, { min: 0, max: 10 }),
+        plan_id_at_purchase: metadataPlan(session.metadata.nexez_owner_plan),
+        commission_source: metadataCommissionSource(session.metadata.nexez_commission_source),
         stripe_livemode: session.livemode,
         // Minted app-side so hash + ciphertext land in the same write. The
         // preserve-token trigger keeps an already-issued token on redelivery.
@@ -540,8 +564,11 @@ export async function POST(request: NextRequest) {
       stripe_connect_account_id: (event as { account?: string }).account ?? null,
       amount_cents: pi.amount,
       currency: (pi.currency || 'usd').toLowerCase(),
-      application_fee_cents: Number(md.nexez_application_fee_cents || 0) || null,
-      commission_percent: Number(md.nexez_commission_percent || 0) || null,
+      application_fee_cents: metadataNumber(md.nexez_application_fee_cents, { integer: true, min: 0 }),
+      commission_bps: metadataNumber(md.nexez_commission_bps, { integer: true, min: 0, max: 1000 }),
+      commission_percent: metadataNumber(md.nexez_commission_percent, { min: 0, max: 10 }),
+      plan_id_at_purchase: metadataPlan(md.nexez_owner_plan),
+      commission_source: metadataCommissionSource(md.nexez_commission_source),
       stripe_livemode: pi.livemode,
       // Minted app-side so hash + ciphertext land in the same write. The
       // preserve-token trigger keeps an already-issued token on redelivery.

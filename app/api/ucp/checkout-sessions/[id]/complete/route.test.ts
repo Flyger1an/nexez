@@ -26,8 +26,8 @@ const ROW = {
   line_items: [{ id: 'services-0', offerKey: 'services-0', kind: 'services', index: 0, name: 'Strategy Session', description: '', quantity: 1, unitAmount: 120000, subtotal: 120000, currency: 'usd', offerType: 'fixed', availability: 'available' }],
   totals: { currency: 'usd', subtotal: 120000, tax: 0, total: 120000 }, buyer: null, stripe_payment_intent_id: null, expires_at: '2999-01-01T00:00:00.000Z',
 }
-const OK_CONTEXT = { ok: true, context: { pageId: 'pg1', ownerId: 'owner-1', connectAccountId: 'acct_seller', commissionPercent: 10 } }
-const OK_SETTLE = { ok: true, paymentIntentId: 'pi_1', amount: 120000, applicationFee: 12000, currency: 'usd', livemode: false }
+const OK_CONTEXT = { ok: true, context: { pageId: 'pg1', ownerId: 'owner-1', connectAccountId: 'acct_seller', planId: 'free', commissionBps: 900, commissionPercent: 9, commissionSource: 'plan_default' } }
+const OK_SETTLE = { ok: true, paymentIntentId: 'pi_1', amount: 120000, applicationFee: 10800, currency: 'usd', livemode: false }
 
 function adminMock(handler: (ctx: QueryContext) => { data?: any; error?: any } | undefined) {
   return createSupabaseMock((ctx) => handler(ctx) ?? { data: null, error: null }) as any
@@ -85,7 +85,7 @@ describe('POST /api/ucp/checkout-sessions/[id]/complete', () => {
     expect(body.order.permalink_url).toMatch(/\/orders\/tok123$/)
     const [, payment] = settleSessionToPaymentIntent.mock.calls[0]
     expect(payment).toEqual({ token: 'gp_123', kind: 'google_pay' })
-    expect(spy.getOrderUpsert()).toMatchObject({ channel: 'ucp', stripe_payment_intent_id: 'pi_1', stripe_livemode: false, status: 'paid' })
+    expect(spy.getOrderUpsert()).toMatchObject({ channel: 'ucp', stripe_payment_intent_id: 'pi_1', commission_bps: 900, commission_percent: 9, plan_id_at_purchase: 'free', commission_source: 'plan_default', stripe_livemode: false, status: 'paid' })
     expect(spy.getSessionUpdate()).toMatchObject({ status: 'completed', stripe_payment_intent_id: 'pi_1', stripe_livemode: false })
   })
 
@@ -140,7 +140,7 @@ describe('POST /api/ucp/checkout-sessions/[id]/complete', () => {
     })
 
     it('settles at the lower amount when the merchant dropped the price', async () => {
-      settleSessionToPaymentIntent.mockResolvedValue({ ...OK_SETTLE, amount: 90000, applicationFee: 9000 })
+      settleSessionToPaymentIntent.mockResolvedValue({ ...OK_SETTLE, amount: 90000, applicationFee: 8100 })
       readyDb(APPROVED, pageAt('$900'))
       expect((await COMPLETE(req(PAYMENT), ctx)).status).toBe(200)
       const [passedSession] = settleSessionToPaymentIntent.mock.calls[0]

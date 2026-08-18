@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     .returns<AgentPage[]>()
 
   const visible = publicLaunchVisiblePages(pages)
-  // Per-seller checkout gate: Pro+ with a charge-ready Stripe Connect account only.
+  // Per-seller checkout gate: charge-ready Stripe Connect, regardless of plan.
   const eligibleSlugs = await ucpCheckoutEligibleSlugs(visible.map((p) => p.slug))
   const products = buildUcpFeedItems(visible, baseUrl, {
     checkoutEnabled: ucpCheckoutEnabled(),
