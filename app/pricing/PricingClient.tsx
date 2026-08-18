@@ -95,7 +95,7 @@ export default function PricingClient() {
 
                 {!isEnterprise && (
                   <p className="mt-2 text-center text-[10px] text-zinc-500">
-                    {plan.id === 'free' ? 'No expiry · 15% transaction fee' : '7-day trial · no credit card'}
+                    {plan.id === 'free' ? `No expiry · ${plan.commissionPercent}% transaction fee` : '7-day trial · no credit card'}
                   </p>
                 )}
               </div>

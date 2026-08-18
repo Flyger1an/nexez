@@ -20,18 +20,18 @@ describe('AgenticCheckoutUpgradeModal', () => {
 
   it('derives the commission comparison from the catalog (never hardcoded)', () => {
     const pro = minPlanForFeature('agenticCheckout')
-    // Free seller: 15% → 6%
+    // Free seller comparison uses the catalog.
     const { unmount } = render(<AgenticCheckoutUpgradeModal open onClose={() => {}} currentPlan="free" />)
     expect(screen.getByText(`${pro.commissionPercent}% commission instead of ${getBillingPlan('free')!.commissionPercent}%`)).toBeInTheDocument()
     unmount()
-    // Launch seller sees the HONEST 8% → 6%, not the Free 15%.
+    // Launch seller sees its own current rate, not the Free rate.
     render(<AgenticCheckoutUpgradeModal open onClose={() => {}} currentPlan="launch" />)
     expect(screen.getByText(`${pro.commissionPercent}% commission instead of ${getBillingPlan('launch')!.commissionPercent}%`)).toBeInTheDocument()
   })
 
   it('an unknown/absent plan falls back to the Free comparison', () => {
     render(<AgenticCheckoutUpgradeModal open onClose={() => {}} currentPlan={null} />)
-    expect(screen.getByText(/instead of 15%/)).toBeInTheDocument()
+    expect(screen.getByText(/instead of 9%/)).toBeInTheDocument()
     expect(screen.getByText(/You stay discoverable on Free/)).toBeInTheDocument()
   })
 

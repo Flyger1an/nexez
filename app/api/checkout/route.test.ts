@@ -253,7 +253,7 @@ describe('POST /api/checkout - buyer identity propagation', () => {
     expect(res.status).toBe(200)
     const { params } = stripeCalls[0]
     expect(params.application_fee_amount).toBeUndefined()
-    expect(params.payment_intent_data?.application_fee_amount).toBe(2250) // $150 × 15% (free plan)
+    expect(params.payment_intent_data?.application_fee_amount).toBe(1350) // $150 × 9% (free plan)
   })
 
   it('drops a malformed buyer email (no customer_email)', async () => {

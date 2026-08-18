@@ -268,7 +268,7 @@ describe('resolveSettlementContext — lifted account gates', () => {
     )
     expect(res.ok).toBe(true)
     if (!res.ok) throw new Error('expected Free fallback context')
-    expect(res.context.commissionPercent).toBe(15)
+    expect(res.context.commissionPercent).toBe(9)
   })
 
   it('blocks a seller whose Connect account cannot accept charges', async () => {

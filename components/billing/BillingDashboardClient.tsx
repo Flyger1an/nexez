@@ -111,7 +111,7 @@ export default function BillingDashboardClient({
   platformFeesCents,
   agentRevenueCents = 0,
   revenueCurrency = 'usd',
-  commissionPct = 15,
+  commissionPct = 9,
   stripeReady,
   configuredPlanIds,
   initialPlanId,
@@ -512,7 +512,7 @@ export default function BillingDashboardClient({
               <span className="text-[var(--fg-muted)]">this month</span>
             </div>
             <div className="mt-4 text-sm text-[var(--fg-muted)]">
-              You keep 85–98% of every transaction depending on plan. Connect your Stripe account in the
+              You keep 91–98% of every transaction depending on plan. Connect your Stripe account in the
               <span className="text-white"> Platform Fees</span> tab to receive payouts directly.
             </div>
             <button

@@ -11,7 +11,7 @@ import { upgradeHref, upgradeCta } from './PlanGate'
  * discover the listing for free; Pro lets them complete the purchase. Copy source:
  * docs/agentic-commerce-upgrade-copy.md. Commission numbers are DERIVED from the
  * billing catalog (viewer's current plan → the unlocking plan), never hardcoded, so a
- * Launch seller sees 8% → 6% while a Free seller sees 15% → 6%.
+ * Launch and Free sellers see the current catalog rates rather than stale copy.
  *
  * Upgrade-NUDGE layer only (like PlanGate) — real enforcement is server-side in the
  * feed gate + settlement path.

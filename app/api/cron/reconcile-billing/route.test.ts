@@ -124,7 +124,7 @@ describe('GET /api/cron/reconcile-billing - trial-expiry fallback pass', () => {
     expect(res.status).toBe(200)
     // Rebuilt plan_id resolves to 'pro' via the metadata fallback (not null), matching the
     // row → treated as unchanged, NO plan-nulling upsert. Without the fallback this would
-    // have upserted plan_id=null (entitlement dropped, commission spiked to 15%) hourly.
+    // have upserted plan_id=null (entitlement dropped, commission spiked to 9%) hourly.
     expect(body.unchanged).toBe(1)
     expect(upserts.every((p) => p.plan_id !== null)).toBe(true)
   })

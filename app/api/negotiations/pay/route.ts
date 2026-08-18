@@ -109,7 +109,7 @@ export async function POST(request: Request) {
   // Connect routing: owner is merchant of record, Nexez takes the plan commission as
   // an application fee. Mirrors app/api/checkout/route.ts.
   let connectAccountId: string | null = null
-  // Status-aware plan resolution (canceled/incomplete 'pro' → Free 15%, not 6%) -
+  // Status-aware plan resolution (canceled/incomplete 'pro' → Free 9%, not 5%) -
   // single source of truth, mirrors app/api/checkout/route.ts and entitlements.
   const ownerPlanId = await getOwnerPlanId(admin, negotiation.owner_id as string)
   // Compatibility hook for an explicit operational suspension. Billing or
