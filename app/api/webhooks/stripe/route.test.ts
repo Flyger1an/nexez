@@ -36,12 +36,14 @@ const { afterCbs, cancelSpy } = vi.hoisted(() => ({
   afterCbs: [] as Array<() => unknown>,
   cancelSpy: vi.fn((_admin?: any, _neg?: any) => Promise.resolve({ cancelled: true as const })),
 }))
+const { captureEvent } = vi.hoisted(() => ({ captureEvent: vi.fn() }))
 vi.mock('next/server', async (importOriginal) => {
   const actual = await importOriginal<typeof import('next/server')>()
   return { ...actual, after: (fn: () => unknown) => { afterCbs.push(fn) } }
 })
 vi.mock('../../../../lib/server/calendly-cancel-on-refund', () => ({ cancelCalendlyForRefund: cancelSpy }))
 vi.mock('../../../../lib/server/billing-checkout-attempt', () => ({ releaseBillingCheckoutAttempt: vi.fn(async () => true) }))
+vi.mock('../../../../lib/observability', () => ({ captureEvent }))
 
 import { POST } from './route'
 
@@ -336,6 +338,9 @@ describe('POST /api/webhooks/stripe', () => {
       const res = await POST(post({ sig: 'good', body: '{}' }))
       expect(res.status).toBe(200)
       expect(getUpd()).toMatchObject({ status: 'complete', escrow_mode: 'captured', stripe_payment_intent_id: 'pi_1', stripe_livemode: false, application_fee_cents: 4500, commission_bps: 500, commission_percent: 5, plan_id_at_purchase: 'pro', commission_source: 'plan_default' })
+      expect(captureEvent).toHaveBeenCalledWith('commerce.transaction_settled', {
+        plan_id: 'pro', commission_bps: 500, application_fee_cents: 4500, gross_amount_cents: 90000, channel: 'negotiation',
+      })
     })
 
     it('ignores stale completed sessions with an old amount', async () => {
@@ -599,6 +604,9 @@ describe('POST /api/webhooks/stripe', () => {
       expect(res.status).toBe(200)
       expect(await res.json()).toMatchObject({ order: true, status: 'paid' })
       expect(upserted).toMatchObject({ owner_id: 'owner-1', stripe_session_id: 'cs_dc', stripe_payment_intent_id: 'pi_dc', amount_cents: 5000, currency: 'usd', status: 'paid', application_fee_cents: 450, commission_bps: 900, commission_percent: 9, plan_id_at_purchase: 'free', commission_source: 'plan_default', stripe_connect_account_id: 'acct_x', stripe_livemode: true })
+      expect(captureEvent).toHaveBeenCalledWith('commerce.transaction_settled', {
+        plan_id: 'free', commission_bps: 900, application_fee_cents: 450, gross_amount_cents: 5000, channel: 'agent_checkout',
+      })
     })
 
     it('charge.refunded with no negotiation but a matching ORDER → order refunded', async () => {
@@ -891,6 +899,9 @@ describe('POST /api/webhooks/stripe', () => {
       })
       // No hosted Checkout Session id is set for a delegated-token charge.
       expect('stripe_session_id' in upsert.payload).toBe(false)
+      expect(captureEvent).toHaveBeenCalledWith('commerce.transaction_settled', {
+        plan_id: 'free', commission_bps: 900, application_fee_cents: 10800, gross_amount_cents: 120000, channel: 'acp',
+      })
     })
 
     it('ignores a PI without nexez_session_id (a hosted-checkout / negotiation PI never double-persists)', async () => {

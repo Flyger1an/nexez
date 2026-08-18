@@ -1,18 +1,9 @@
 name: Supabase Migrations
 
-# Source of truth for migrations is the Supabase MCP `apply_migration` (see AGENTS.md:
-# "Never `supabase db push`" — the DB schema is authoritative via MCP, and the
-# schema_migrations history table is reconciled out-of-band via the periodic
-# "clean supabase migration history" commits). This workflow therefore VALIDATES the
-# migration files; it does NOT deploy.
-#
-# A previous `deploy-migrations` job ran `supabase db push` on push to main. It was
-# removed because it (1) duplicated the MCP apply path, (2) perpetually failed — the
-# schema_migrations history intentionally drifts from the files, so `db push` tried to
-# re-apply already-existing objects, and (3) used supabase/setup-cli@v1, the repo's
-# only action flagged by GitHub's Node-runtime deprecation. A working `db push` here
-# would also be a footgun: it could conflict with / clobber MCP-applied state.
-# Security advisors are run via the Supabase MCP `get_advisors` instead of in CI.
+# This workflow validates reproducibility but never deploys or links to a remote
+# project. `db reset` targets only the ephemeral local Docker stack on the runner,
+# replaying every migration from zero. Production application remains an explicit,
+# separately authorized operation.
 
 on:
   pull_request:
@@ -52,3 +43,21 @@ jobs:
           }
           console.log(`Checked ${files.length} Supabase migration files; no duplicate versions found.`)
           NODE
+
+  clean-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.114.0
+      - name: Start isolated local Supabase
+        run: supabase start -x edge-runtime
+      - name: Replay every migration from zero
+        run: supabase db reset --local
+      - name: Lint the resulting schema
+        run: supabase db lint --local --level error
+      - name: Stop isolated local Supabase
+        if: always()
+        run: supabase stop --no-backup

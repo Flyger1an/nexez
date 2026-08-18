@@ -325,6 +325,13 @@ export async function POST(request: NextRequest) {
       // stamped it in metadata) so we can email a receipt + future status updates.
       // Only ever ADDED - never overwritten with null.
       const buyerEmail = session.customer_details?.email || session.customer_email || session.metadata?.nexez_buyer_email || null
+      const economics = {
+        commission_bps: metadataNumber(session.metadata?.nexez_commission_bps, { integer: true, min: 0, max: 1000 }),
+        commission_percent: metadataNumber(session.metadata?.nexez_commission_percent, { min: 0, max: 10 }),
+        application_fee_cents: metadataNumber(session.metadata?.nexez_application_fee_cents, { integer: true, min: 0 }),
+        plan_id_at_purchase: metadataPlan(session.metadata?.nexez_owner_plan),
+        commission_source: metadataCommissionSource(session.metadata?.nexez_commission_source),
+      }
       const { error: settleErr } = await admin
         .from('agent_negotiations')
         .update({
@@ -333,11 +340,7 @@ export async function POST(request: NextRequest) {
           stripe_payment_intent_id: piId,
           stripe_livemode: session.livemode,
           ...(buyerEmail ? { buyer_email: buyerEmail } : {}),
-          commission_bps: metadataNumber(session.metadata?.nexez_commission_bps, { integer: true, min: 0, max: 1000 }),
-          commission_percent: metadataNumber(session.metadata?.nexez_commission_percent, { min: 0, max: 10 }),
-          application_fee_cents: metadataNumber(session.metadata?.nexez_application_fee_cents, { integer: true, min: 0 }),
-          plan_id_at_purchase: metadataPlan(session.metadata?.nexez_owner_plan),
-          commission_source: metadataCommissionSource(session.metadata?.nexez_commission_source),
+          ...economics,
         })
         .eq('id', session.metadata.nexez_negotiation_id)
         .eq('stripe_checkout_session_id', session.id)
@@ -348,6 +351,13 @@ export async function POST(request: NextRequest) {
         await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
         return NextResponse.json({ error: 'escrow settle failed', type: event.type }, { status: 500 })
       }
+      captureEvent('commerce.transaction_settled', {
+        plan_id: economics.plan_id_at_purchase,
+        commission_bps: economics.commission_bps,
+        application_fee_cents: economics.application_fee_cents,
+        gross_amount_cents: session.amount_total,
+        channel: 'negotiation',
+      })
 
       // Notify the seller that a buyer funded the deal - mirrors the Calendly
       // booking email. Owner email = the page's contact_email. Gated on RESEND
@@ -464,6 +474,13 @@ export async function POST(request: NextRequest) {
         await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
         return NextResponse.json({ error: 'order persist failed', type: event.type }, { status: 500 })
       }
+      captureEvent('commerce.transaction_settled', {
+        plan_id: orderRow.plan_id_at_purchase,
+        commission_bps: orderRow.commission_bps,
+        application_fee_cents: orderRow.application_fee_cents,
+        gross_amount_cents: orderRow.amount_cents,
+        channel: orderRow.channel,
+      })
       // The DB minted access_token; encrypt it now so the link can still be rebuilt
       // once the plaintext column is dropped. Best-effort, never blocks the money path.
       after(() => ensureBearerCiphertext(admin, 'checkout_orders', 'stripe_session_id', session.id))
@@ -588,6 +605,13 @@ export async function POST(request: NextRequest) {
       await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
       return NextResponse.json({ error: 'order persist failed', type: event.type }, { status: 500 })
     }
+    captureEvent('commerce.transaction_settled', {
+      plan_id: orderRow.plan_id_at_purchase,
+      commission_bps: orderRow.commission_bps,
+      application_fee_cents: orderRow.application_fee_cents,
+      gross_amount_cents: orderRow.amount_cents,
+      channel: orderRow.channel,
+    })
     after(() => ensureBearerCiphertext(admin, 'checkout_orders', 'stripe_payment_intent_id', pi.id))
     // Mark the persisted session settled + link the PI (best-effort, idempotent).
     after(() =>

@@ -164,6 +164,7 @@ const passed = localPassed && persisted?.status === 'passed'
 const report = {
   schemaVersion: 1,
   status: passed ? 'passed' : 'failed',
+  promotionEligible: passed,
   commitSha: COMMIT_SHA,
   startedAt,
   completedAt,
