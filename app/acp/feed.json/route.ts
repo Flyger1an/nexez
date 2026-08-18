@@ -25,8 +25,8 @@ export async function GET(request: Request) {
     .returns<AgentPage[]>()
 
   const visible = publicLaunchVisiblePages(pages)
-  // Per-seller checkout gate: only Pro+ sellers with a charge-ready Stripe Connect account
-  // may transact. `null` when the ACP program itself is off (then nothing is checkout-eligible).
+  // Per-seller checkout gate: every plan may transact when Stripe Connect is charge-ready.
+  // `null` when the ACP program itself is off (then nothing is checkout-eligible).
   const eligibleSlugs = await acpCheckoutEligibleSlugs(visible.map((p) => p.slug))
   const products = buildAcpFeedItems(visible, baseUrl, {
     checkoutEnabled: acpCheckoutEnabled(),

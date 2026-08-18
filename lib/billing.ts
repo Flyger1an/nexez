@@ -22,7 +22,7 @@ export const PLAN_FEATURES = [
   'whiteLabel',
   'prioritySupport',
   'sso',
-  'agenticCheckout', // transact via ChatGPT (ACP) + Google (UCP); discovery stays free
+  'agenticCheckout', // foundational commerce capability; retained as a compatibility gate
 ] as const
 
 export type PlanFeature = (typeof PLAN_FEATURES)[number]
@@ -44,9 +44,9 @@ const FEATURE_MIN_RANK: Record<PlanFeature, number> = {
   whiteLabel: 2,
   prioritySupport: 3,
   sso: 4,
-  // Discovery (being in the ChatGPT/Google feeds) is free for every published
-  // listing; TRANSACTING through the agent is the paid capability → Pro+.
-  agenticCheckout: 2,
+  // Agentic checkout is foundational when the merchant is commerce-ready. Keep
+  // the key temporarily so existing callers do not need a simultaneous refactor.
+  agenticCheckout: 0,
 }
 
 export const FEATURE_LABELS: Record<PlanFeature, string> = {
@@ -110,7 +110,7 @@ export const billingPlans: BillingPlan[] = [
     cadence: 'month',
     envVar: '', // no price for free
     blurb: 'Try Nexez with one agent listing and the core toolkit.',
-    features: ['1 published listing', 'agent.json · llms.txt · MCP', 'Directory listing', 'Deterministic simulator'],
+    features: ['1 published listing', 'agent.json · llms.txt · MCP', 'Directory listing', 'Deterministic simulator', 'Agentic checkout'],
     limits: { pages: 1, customDomains: 0, teamSeats: 0 },
     commissionPercent: 9, // Free pays the highest commission, no subscription fee
   },
@@ -134,7 +134,7 @@ export const billingPlans: BillingPlan[] = [
     cadence: 'month',
     envVar: 'STRIPE_PRICE_PRO',
     blurb: 'For teams running services, bookings, and paid offers.',
-    features: ['Agentic Checkout — sell inside ChatGPT & Google', '25 published listings', 'Team collaboration (3 seats)', 'White-label branding', 'Integrations, webhooks & API', 'Negotiation & smart pricing'],
+    features: ['25 published listings', 'Team collaboration (3 seats)', 'White-label branding', 'Integrations, webhooks & API', 'Negotiation & smart pricing'],
     limits: { pages: 25, customDomains: 5, teamSeats: 3 },
     commissionPercent: 5,
   },

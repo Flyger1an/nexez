@@ -5,9 +5,8 @@
 // Two independent capabilities:
 //   - DISCOVERY: a published listing is in the ChatGPT (ACP) + Google (UCP) feeds.
 //     Free for every plan — the growth wedge.
-//   - CHECKOUT: buyers transact through the agent. The PAID capability — requires the
-//     owner's plan to include agenticCheckout (Pro+), a charge-ready Stripe Connect
-//     account, and the program itself switched on (partner enrollment complete).
+//   - CHECKOUT: buyers transact through the agent on every plan when the owner has a
+//     charge-ready Stripe Connect account and the program is switched on.
 
 export type AgenticDiscoveryState = 'live' | 'unpublished'
 
@@ -18,7 +17,6 @@ export type AgenticSurface = 'chatgpt' | 'google'
 /** Why checkout is / isn't live, in the merchant-actionable order the card surfaces. */
 export type AgenticCheckoutState =
   | 'live' // transacting through at least one surface now (see liveSurfaces)
-  | 'needs_plan' // upgrade to Pro (the revenue lever)
   | 'needs_payouts' // connect Stripe payouts (their action)
   | 'enrolling' // ready; Nexez is switching the programs on (owner-blocked, neither live yet)
   | 'unpublished' // listing isn't published, so nothing is live
@@ -37,7 +35,7 @@ export type AgenticCommerceStatus = {
 export type AgenticCommerceInputs = {
   /** Listing is published (and therefore in the ACP/UCP feeds). */
   published: boolean
-  /** Owner's plan includes the agenticCheckout feature (Pro+). */
+  /** Compatibility field; agentic checkout is included on every plan. */
   planAllowsCheckout: boolean
   /** Seller's Stripe Connect account can accept a charge (charges_enabled). */
   connectReady: boolean
@@ -53,11 +51,10 @@ export function agenticCommerceStatus(input: AgenticCommerceInputs): AgenticComm
     return { discovery: 'unpublished', checkout: 'unpublished', checkoutEligible: false, liveSurfaces: [] }
   }
   const anyProgramLive = input.chatgptLive || input.googleLive
-  // Precedence is the merchant's next action: upgrade (revenue lever) → connect payouts
-  // (their action) → wait for the programs (ours). All satisfied → live.
+  // Precedence is the merchant's next action: connect payouts → wait for the
+  // programs. All operational gates satisfied → live.
   let checkout: AgenticCheckoutState
-  if (!input.planAllowsCheckout) checkout = 'needs_plan'
-  else if (!input.connectReady) checkout = 'needs_payouts'
+  if (!input.connectReady) checkout = 'needs_payouts'
   else if (!anyProgramLive) checkout = 'enrolling'
   else checkout = 'live'
 

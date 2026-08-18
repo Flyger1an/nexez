@@ -13,20 +13,20 @@ describe('agenticCommerceStatus', () => {
     })
   })
 
-  it('published on Free → discovery live, checkout needs_plan', () => {
+  it('published on Free can check out when settlement-ready', () => {
     const s = agenticCommerceStatus({ ...FULL, planAllowsCheckout: false })
     expect(s.discovery).toBe('live')
-    expect(s.checkout).toBe('needs_plan')
-    expect(s.checkoutEligible).toBe(false)
+    expect(s.checkout).toBe('live')
+    expect(s.checkoutEligible).toBe(true)
   })
 
-  it('Pro but no payout account → needs_payouts', () => {
+  it('no payout account → needs_payouts', () => {
     const s = agenticCommerceStatus({ ...FULL, connectReady: false })
     expect(s.checkout).toBe('needs_payouts')
     expect(s.checkoutEligible).toBe(false)
   })
 
-  it('Pro + payouts but BOTH programs dormant → enrolling (ready, owner-blocked)', () => {
+  it('payouts ready but BOTH programs dormant → enrolling', () => {
     const s = agenticCommerceStatus({ ...FULL, chatgptLive: false, googleLive: false })
     expect(s.checkout).toBe('enrolling')
     expect(s.checkoutEligible).toBe(false)
@@ -48,10 +48,9 @@ describe('agenticCommerceStatus', () => {
     expect(s.liveSurfaces).toEqual(['google'])
   })
 
-  it('precedence: the plan blocker is surfaced before the payout blocker', () => {
-    // Missing BOTH plan and Connect → the upgrade (revenue lever) is what we show.
+  it('an obsolete false plan input cannot revoke foundational checkout', () => {
     const s = agenticCommerceStatus({ published: true, planAllowsCheckout: false, connectReady: false, chatgptLive: true, googleLive: true })
-    expect(s.checkout).toBe('needs_plan')
+    expect(s.checkout).toBe('needs_payouts')
   })
 
   it('checkoutEligible is true iff checkout === live', () => {

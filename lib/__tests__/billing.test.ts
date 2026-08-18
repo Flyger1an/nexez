@@ -88,6 +88,13 @@ describe('planAllows (cumulative feature gating)', () => {
     expect(planAllows(undefined, 'aiFeatures')).toBe(false)
     expect(planAllows('bogus' as PlanId, 'integrations')).toBe(false)
   })
+
+  it('keeps agentic checkout foundational on every plan', () => {
+    for (const planId of ['free', 'launch', 'pro', 'scale', 'enterprise'] as const) {
+      expect(planAllows(planId, 'agenticCheckout')).toBe(true)
+    }
+    expect(minPlanForFeature('agenticCheckout').id).toBe('free')
+  })
 })
 
 describe('minPlanForFeature (the "Upgrade to X" target)', () => {
@@ -145,4 +152,3 @@ describe('tiers the UI advertises', () => {
     expect(minPlanForFeature('sso').name).toBe('Enterprise')
   })
 })
-
