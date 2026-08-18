@@ -22,9 +22,14 @@ test.describe('public surface', () => {
     await page.goto('/simulator', { waitUntil: 'domcontentloaded' })
     await expect(page.getByText('Test, simulate & compare')).toBeVisible()
 
-    // Use a public example slug to run simulation (renders tabs including LLM-Enhanced)
+    // The certification merchant is the stable target: it is owned by us, always
+    // published (the release gauntlet depends on it), and listed in
+    // INTERNAL_SEED_SLUGS so it never pollutes discovery. The previous fixture,
+    // lakehouse-spa-packages-specials, was a real merchant page that later got
+    // unpublished and has been 404ing here ever since, unnoticed because this suite
+    // only ever ran on workflow_dispatch.
     await page.waitForSelector('input[placeholder*="my-offers"]', { timeout: 10000 })
-    await page.getByPlaceholder('my-offers or https://nexez.com/my-offers').fill('lakehouse-spa-packages-specials')
+    await page.getByPlaceholder('my-offers or https://nexez.com/my-offers').fill('nexez-agent-negotiation-lab')
     await page.getByRole('button', { name: /analyze/i }).click()
 
     // Wait for results + tabs (tabs container only mounts after simulationResults are populated)
