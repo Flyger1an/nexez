@@ -120,7 +120,6 @@ export type CommissionResolution = {
   planId: PlanId
   percent: number
   basisPoints: number
-  /** PR2 will activate enterprise_override once commercial terms are persisted. */
   source: 'plan_default' | 'enterprise_override' | 'promotion'
 }
 
@@ -130,19 +129,64 @@ export type CommissionResolution = {
  * expired trials, promotions, admins, and fail-safe Free fallback cannot drift
  * between feature entitlement and transaction economics.
  *
- * PR1 returns the effective plan's default rate. PR2 can add the server-controlled
- * Enterprise override here without changing settlement callers.
+ * Enterprise owners may receive a server-controlled override. Missing, inactive,
+ * unreadable, or out-of-policy terms fail closed to the Enterprise plan default.
  */
 export async function getOwnerCommission(
   supabase: Pick<SupabaseClient, 'from'>,
   ownerId: string | null | undefined,
 ): Promise<CommissionResolution> {
   const planId = await getOwnerPlanId(supabase, ownerId)
-  const basisPoints = getCommissionBpsForPlan(planId)
+  const planDefaultBps = getCommissionBpsForPlan(planId)
+
+  // Only effective Enterprise owners are eligible for negotiated commercial
+  // terms. Non-Enterprise plans never touch the commercial-terms table.
+  if (planId === 'enterprise' && ownerId) {
+    try {
+      const query = supabase
+        .from('owner_commercial_terms')
+        .select('commission_bps,effective_from,effective_until')
+        .eq('owner_id', ownerId)
+
+      const { data, error } = await query.maybeSingle()
+
+      if (!error && data) {
+        const commissionBps = Number(data.commission_bps)
+        const startsAtMs = Date.parse(String(data.effective_from ?? ''))
+        const endsAtMs =
+          data.effective_until == null
+            ? Number.POSITIVE_INFINITY
+            : Date.parse(String(data.effective_until))
+        const nowMs = Date.now()
+
+        const validRate =
+          Number.isInteger(commissionBps) &&
+          commissionBps >= 100 &&
+          commissionBps <= 200
+        const activeWindow =
+          Number.isFinite(startsAtMs) &&
+          startsAtMs <= nowMs &&
+          (data.effective_until == null ||
+            (Number.isFinite(endsAtMs) && endsAtMs > nowMs))
+
+        if (validRate && activeWindow) {
+          return {
+            planId,
+            percent: commissionBps / 100,
+            basisPoints: commissionBps,
+            source: 'enterprise_override',
+          }
+        }
+      }
+    } catch {
+      // Commercial-term reads fail closed to the Enterprise plan default.
+    }
+  }
+
   return {
     planId,
-    percent: basisPoints / 100,
-    basisPoints,
+    percent: planDefaultBps / 100,
+    basisPoints: planDefaultBps,
     source: 'plan_default',
   }
 }

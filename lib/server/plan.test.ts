@@ -252,3 +252,139 @@ describe('entitlement vs "current subscription row"', () => {
     expect(subscriptionConfers('trialing', past())).toBe(false)
   })
 })
+
+describe('getOwnerCommission - Enterprise commercial terms', () => {
+  function withCommercialTerms(
+    base: any,
+    terms: any,
+    options: { error?: unknown; throwOnRead?: boolean; onRead?: () => void } = {},
+  ) {
+    return {
+      from(table: string) {
+        if (table !== 'owner_commercial_terms') return base.from(table)
+
+        options.onRead?.()
+        if (options.throwOnRead) throw new Error('commercial terms unavailable')
+
+        const chain: any = {
+          select() {
+            return chain
+          },
+          eq() {
+            return chain
+          },
+          async maybeSingle() {
+            return {
+              data: terms,
+              error: options.error ?? null,
+            }
+          },
+        }
+
+        return chain
+      },
+    } as any
+  }
+
+  const enterpriseSub = { plan_id: 'enterprise', status: 'active' }
+  const activeTerms = (commission_bps: number | null) => ({
+    commission_bps,
+    effective_from: '2000-01-01T00:00:00.000Z',
+    effective_until: null,
+  })
+
+  it('uses 100, 150, and 200 bps active Enterprise overrides', async () => {
+    for (const commissionBps of [100, 150, 200]) {
+      const c = withCommercialTerms(
+        client({ sub: enterpriseSub }),
+        activeTerms(commissionBps),
+      )
+
+      expect(await getOwnerCommission(c, 'owner-1')).toMatchObject({
+        planId: 'enterprise',
+        basisPoints: commissionBps,
+        percent: commissionBps / 100,
+        source: 'enterprise_override',
+      })
+    }
+  })
+
+  it('falls back to the 200 bps Enterprise default when terms are missing', async () => {
+    const c = withCommercialTerms(client({ sub: enterpriseSub }), null)
+
+    expect(await getOwnerCommission(c, 'owner-1')).toMatchObject({
+      planId: 'enterprise',
+      basisPoints: 200,
+      percent: 2,
+      source: 'plan_default',
+    })
+  })
+
+  it('rejects invalid, inactive, and expired Enterprise overrides', async () => {
+    const invalidTerms = [
+      activeTerms(99),
+      activeTerms(201),
+      activeTerms(150.5),
+      activeTerms(null),
+      {
+        commission_bps: 150,
+        effective_from: '2999-01-01T00:00:00.000Z',
+        effective_until: null,
+      },
+      {
+        commission_bps: 150,
+        effective_from: '2000-01-01T00:00:00.000Z',
+        effective_until: '2001-01-01T00:00:00.000Z',
+      },
+    ]
+
+    for (const terms of invalidTerms) {
+      const c = withCommercialTerms(client({ sub: enterpriseSub }), terms)
+      expect(await getOwnerCommission(c, 'owner-1')).toMatchObject({
+        planId: 'enterprise',
+        basisPoints: 200,
+        source: 'plan_default',
+      })
+    }
+  })
+
+  it('fails closed to the Enterprise default when the commercial-term read errors', async () => {
+    const errored = withCommercialTerms(
+      client({ sub: enterpriseSub }),
+      activeTerms(150),
+      { error: new Error('db unavailable') },
+    )
+    expect(await getOwnerCommission(errored, 'owner-1')).toMatchObject({
+      planId: 'enterprise',
+      basisPoints: 200,
+      source: 'plan_default',
+    })
+
+    const thrown = withCommercialTerms(
+      client({ sub: enterpriseSub }),
+      activeTerms(150),
+      { throwOnRead: true },
+    )
+    expect(await getOwnerCommission(thrown, 'owner-1')).toMatchObject({
+      planId: 'enterprise',
+      basisPoints: 200,
+      source: 'plan_default',
+    })
+  })
+
+  it('never reads commercial terms for non-Enterprise effective plans', async () => {
+    let termsReads = 0
+    const c = withCommercialTerms(
+      client({ sub: { plan_id: 'pro', status: 'active' } }),
+      activeTerms(100),
+      { onRead: () => { termsReads += 1 } },
+    )
+
+    expect(await getOwnerCommission(c, 'owner-1')).toMatchObject({
+      planId: 'pro',
+      basisPoints: 500,
+      source: 'plan_default',
+    })
+    expect(termsReads).toBe(0)
+  })
+})
