@@ -5,6 +5,26 @@ on:
     workflows: [CI]
     types: [completed]
   workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact deployment-candidate Git SHA (defaults to the selected ref)
+        required: false
+        type: string
+      marketing_base:
+        description: Candidate marketing origin
+        required: true
+        default: https://nexez.ai
+        type: string
+      app_base:
+        description: Candidate authenticated-app origin
+        required: true
+        default: https://app.nexez.ai
+        type: string
+      agent_base:
+        description: Candidate agent-runtime origin
+        required: true
+        default: https://nexez.app
+        type: string
 
 permissions:
   contents: read
@@ -25,7 +45,10 @@ jobs:
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_placeholder' }}
       NEXT_PUBLIC_SITE_URL: https://nexez.app
       NEXEZ_RELEASE_CERT_SECRET: ${{ secrets.NEXEZ_RELEASE_CERT_SECRET }}
-      NEXEZ_COMMIT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      NEXEZ_COMMIT_SHA: ${{ inputs.commit_sha || github.event.workflow_run.head_sha || github.sha }}
+      NEXEZ_MARKETING_BASE: ${{ inputs.marketing_base || 'https://nexez.ai' }}
+      NEXEZ_APP_BASE: ${{ inputs.app_base || 'https://app.nexez.ai' }}
+      NEXEZ_AGENT_BASE: ${{ inputs.agent_base || 'https://nexez.app' }}
       NEXEZ_CI_CONCLUSION: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion || 'success' }}
       NEXEZ_RELEASE_SOURCE: ${{ github.event_name == 'workflow_run' && 'github' || 'manual' }}
       NEXEZ_RELEASE_IDEMPOTENCY_KEY: github-${{ github.run_id }}-${{ github.run_attempt }}
@@ -36,7 +59,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ inputs.commit_sha || github.event.workflow_run.head_sha || github.sha }}
 
       - uses: actions/setup-node@v4
         with:
@@ -57,7 +80,7 @@ jobs:
           npm test
           npm run build
 
-      - name: Certify deployed production
+      - name: Certify exact deployment candidate
         id: certify
         continue-on-error: true
         run: npm run certify:release
@@ -70,6 +93,11 @@ jobs:
           path: release-certification.json
           if-no-files-found: warn
           retention-days: 90
+
+      - name: Enforce promotion eligibility
+        if: steps.certify.outcome == 'success'
+        run: |
+          node -e "const r=require('./release-certification.json'); if(r.status!=='passed'||r.promotionEligible!==true||r.commitSha!==process.env.NEXEZ_COMMIT_SHA) process.exit(1)"
 
       - name: Enforce release verdict
         if: steps.certify.outcome != 'success'

@@ -56,7 +56,7 @@ describe('release certification runner', () => {
     expect(result.code, result.output).toBe(0)
     expect(result.output).toContain('Release certification: PASSED')
     const report = JSON.parse(await readFile(reportPath, 'utf8'))
-    expect(report).toMatchObject({ status: 'passed', commitSha: SHA, record: { recordId: 'release-1' } })
+    expect(report).toMatchObject({ status: 'passed', promotionEligible: true, commitSha: SHA, record: { recordId: 'release-1' } })
     expect(report.checks.every((check: { status: string }) => check.status === 'pass')).toBe(true)
     expect(submitted.value).toMatchObject({
       schemaVersion: 1,
