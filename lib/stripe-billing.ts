@@ -1,5 +1,12 @@
 import Stripe from 'stripe'
-import { BillingPlan, billingPlans, getPlanPriceId } from './billing'
+import {
+  BillingPlan,
+  billingPlans,
+  getPlanPriceId,
+  BASIS_POINTS_PER_PERCENT,
+  BASIS_POINTS_PER_WHOLE,
+  getCommissionBpsForPlan as getPlanCommissionBps,
+} from './billing'
 
 export type BillingSubscription = {
   owner_id: string
@@ -187,12 +194,37 @@ export async function createStripeConnectOnboardingLink(accountId: string, retur
   return link
 }
 
-export function getCommissionPercentForPlan(planId: BillingPlan['id'] | null | undefined): number {
-  const plan = billingPlans.find(p => p.id === planId)
-  return plan?.commissionPercent ?? 15 // default 15% for free or unknown
+/** Canonical plan-default rate for settlement arithmetic. */
+export function getCommissionBpsForPlan(planId: BillingPlan['id'] | null | undefined): number {
+  return getPlanCommissionBps(planId)
 }
 
+/** Compatibility wrapper for display/legacy callers while settlement migrates to bps. */
+export function getCommissionPercentForPlan(planId: BillingPlan['id'] | null | undefined): number {
+  return getCommissionBpsForPlan(planId) / BASIS_POINTS_PER_PERCENT
+}
+
+/**
+ * Deterministic integer-cents commission arithmetic. Basis points keep negotiated
+ * rates such as Enterprise 1.5% (150 bps) out of floating-point business logic.
+ */
+export function calculateApplicationFeeCentsFromBps(amountCents: number, commissionBps: number): number {
+  if (!Number.isFinite(amountCents) || amountCents <= 0) return 0
+  if (!Number.isFinite(commissionBps) || commissionBps <= 0) return 0
+  const cents = Math.round(amountCents)
+  const basisPoints = Math.round(commissionBps)
+  return Math.round((cents * basisPoints) / BASIS_POINTS_PER_WHOLE)
+}
+
+/**
+ * Legacy percent-based wrapper. Existing checkout paths keep identical call
+ * semantics while the core moves to basis points; later settlement PRs can call
+ * calculateApplicationFeeCentsFromBps directly.
+ */
 export function calculateApplicationFeeCents(amountCents: number, commissionPercent: number): number {
-  if (!amountCents || amountCents <= 0) return 0
-  return Math.round(amountCents * (commissionPercent / 100))
+  if (!Number.isFinite(commissionPercent)) return 0
+  return calculateApplicationFeeCentsFromBps(
+    amountCents,
+    Math.round(commissionPercent * BASIS_POINTS_PER_PERCENT),
+  )
 }

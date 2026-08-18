@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createSupabaseMock, type QueryContext } from '../../test/supabase-mock'
-import { getOwnerPlanId, getOwnerBillingState, ownerAllows, isPlatformAdmin, subscriptionConfers } from './plan'
+import { getOwnerPlanId, getOwnerCommission, getOwnerBillingState, ownerAllows, isPlatformAdmin, subscriptionConfers } from './plan'
 import { LIVE_SUBSCRIPTION_STATUSES } from '../stripe-billing'
 
 type SubRow = { plan_id: string; status: string; trial_ends_at?: string | null; account_origin?: string | null }
@@ -59,6 +59,46 @@ describe('getOwnerPlanId - admin short-circuit', () => {
 
   it('returns free for a null owner', async () => {
     expect(await getOwnerPlanId(client({}), null)).toBe('free')
+  })
+})
+
+describe('getOwnerCommission', () => {
+  it('maps every effective plan to the v1 basis-point ladder', async () => {
+    const cases = [
+      [{ sub: null }, 'free', 900],
+      [{ sub: { plan_id: 'launch', status: 'active' } }, 'launch', 700],
+      [{ sub: { plan_id: 'pro', status: 'active' } }, 'pro', 500],
+      [{ sub: { plan_id: 'scale', status: 'active' } }, 'scale', 300],
+      [{ sub: { plan_id: 'enterprise', status: 'active' } }, 'enterprise', 200],
+    ] as const
+
+    for (const [opts, planId, basisPoints] of cases) {
+      expect(await getOwnerCommission(client(opts as any), 'owner-1')).toMatchObject({
+        planId,
+        basisPoints,
+        percent: basisPoints / 100,
+        source: 'plan_default',
+      })
+    }
+  })
+
+  it('inherits admin, promotion, and dunning semantics from getOwnerPlanId', async () => {
+    expect(await getOwnerCommission(client({ admin: true }), 'owner-1')).toMatchObject({ planId: 'enterprise', basisPoints: 200 })
+    expect(await getOwnerCommission(client({ grant: launchGrant() }), 'owner-1')).toMatchObject({ planId: 'launch', basisPoints: 700 })
+    expect(await getOwnerCommission(client({ sub: { plan_id: 'scale', status: 'past_due' } }), 'owner-1')).toMatchObject({ planId: 'scale', basisPoints: 300 })
+    expect(await getOwnerCommission(client({ sub: { plan_id: 'scale', status: 'unpaid' } }), 'owner-1')).toMatchObject({ planId: 'scale', basisPoints: 300 })
+  })
+
+  it('falls back to Free/highest commission when entitlement no longer confers', async () => {
+    expect(await getOwnerCommission(client({ sub: { plan_id: 'pro', status: 'canceled' } }), 'owner-1')).toMatchObject({ planId: 'free', basisPoints: 900 })
+    expect(await getOwnerCommission(client({ sub: { plan_id: 'pro', status: 'trialing', trial_ends_at: past() } }), 'owner-1')).toMatchObject({ planId: 'free', basisPoints: 900 })
+    expect(await getOwnerCommission(client({ grant: { ...launchGrant(), ends_at: past() } }), 'owner-1')).toMatchObject({ planId: 'free', basisPoints: 900 })
+    expect(await getOwnerCommission(client({}), null)).toMatchObject({ planId: 'free', basisPoints: 900 })
+  })
+
+  it('fails closed when billing reads throw', async () => {
+    const broken = { from() { throw new Error('db unavailable') } } as any
+    expect(await getOwnerCommission(broken, 'owner-1')).toMatchObject({ planId: 'free', basisPoints: 900 })
   })
 })
 

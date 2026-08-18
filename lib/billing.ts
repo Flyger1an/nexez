@@ -97,6 +97,9 @@ export type BillingPlan = {
 }
 
 const UNLIMITED = Number.POSITIVE_INFINITY
+export const BASIS_POINTS_PER_PERCENT = 100
+export const BASIS_POINTS_PER_WHOLE = 10_000
+
 
 export const billingPlans: BillingPlan[] = [
   {
@@ -109,7 +112,7 @@ export const billingPlans: BillingPlan[] = [
     blurb: 'Try Nexez with one agent listing and the core toolkit.',
     features: ['1 published listing', 'agent.json · llms.txt · MCP', 'Directory listing', 'Deterministic simulator'],
     limits: { pages: 1, customDomains: 0, teamSeats: 0 },
-    commissionPercent: 15, // Free pays the highest commission, no subscription fee
+    commissionPercent: 9, // Free pays the highest commission, no subscription fee
   },
   {
     id: 'launch',
@@ -121,7 +124,7 @@ export const billingPlans: BillingPlan[] = [
     blurb: 'For a solo pro turning agent traffic into bookings.',
     features: ['3 published listings', 'Custom domain', 'AI simulator & optimize', 'Remove Nexez badge'],
     limits: { pages: 3, customDomains: 1, teamSeats: 0 },
-    commissionPercent: 8,
+    commissionPercent: 7,
   },
   {
     id: 'pro',
@@ -133,7 +136,7 @@ export const billingPlans: BillingPlan[] = [
     blurb: 'For teams running services, bookings, and paid offers.',
     features: ['Agentic Checkout — sell inside ChatGPT & Google', '25 published listings', 'Team collaboration (3 seats)', 'White-label branding', 'Integrations, webhooks & API', 'Negotiation & smart pricing'],
     limits: { pages: 25, customDomains: 5, teamSeats: 3 },
-    commissionPercent: 6,
+    commissionPercent: 5,
   },
   {
     id: 'scale',
@@ -145,7 +148,7 @@ export const billingPlans: BillingPlan[] = [
     blurb: 'For agencies and operators managing many agent listings.',
     features: ['100 published listings', '10 team seats', '25 custom domains', 'Priority support'],
     limits: { pages: 100, customDomains: 25, teamSeats: 10 },
-    commissionPercent: 4,
+    commissionPercent: 3,
   },
   {
     id: 'enterprise',
@@ -168,6 +171,21 @@ export function getBillingPlan(id: string | null | undefined): BillingPlan | und
 /** The plan to fall back to when none is set / unknown - the Free tier. */
 export function defaultPlan(): BillingPlan {
   return billingPlans[0]
+}
+
+/** Convert a display percentage to integer basis points for money arithmetic. */
+export function commissionPercentToBasisPoints(percent: number): number {
+  if (!Number.isFinite(percent) || percent <= 0) return 0
+  return Math.round(percent * BASIS_POINTS_PER_PERCENT)
+}
+
+/**
+ * Plan-default commission in basis points. Unknown/missing plans intentionally
+ * fail closed to Free, which carries the highest standard take rate.
+ */
+export function getCommissionBpsForPlan(id: string | null | undefined): number {
+  const plan = getBillingPlan(id) ?? defaultPlan()
+  return commissionPercentToBasisPoints(plan.commissionPercent)
 }
 
 export function getPlanRank(id: string | null | undefined): number {

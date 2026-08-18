@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { getPlanRank, planAllows, type PlanFeature, type PlanId } from '../billing'
+import { getCommissionBpsForPlan, getPlanRank, planAllows, type PlanFeature, type PlanId } from '../billing'
 
 // A subscription only confers its plan when it's in a conferring state; an
 // abandoned 'incomplete' or 'canceled' row falls back to Free. subscriptionConfers
@@ -114,6 +114,37 @@ export async function getOwnerPlanId(
     // fall through to free on any read error - gating fails safe (most restrictive)
   }
   return 'free'
+}
+
+export type CommissionResolution = {
+  planId: PlanId
+  percent: number
+  basisPoints: number
+  /** PR2 will activate enterprise_override once commercial terms are persisted. */
+  source: 'plan_default' | 'enterprise_override' | 'promotion'
+}
+
+/**
+ * Resolve the commission attached to an owner's EFFECTIVE plan. This deliberately
+ * composes getOwnerPlanId() rather than re-reading billing state, so dunning,
+ * expired trials, promotions, admins, and fail-safe Free fallback cannot drift
+ * between feature entitlement and transaction economics.
+ *
+ * PR1 returns the effective plan's default rate. PR2 can add the server-controlled
+ * Enterprise override here without changing settlement callers.
+ */
+export async function getOwnerCommission(
+  supabase: Pick<SupabaseClient, 'from'>,
+  ownerId: string | null | undefined,
+): Promise<CommissionResolution> {
+  const planId = await getOwnerPlanId(supabase, ownerId)
+  const basisPoints = getCommissionBpsForPlan(planId)
+  return {
+    planId,
+    percent: basisPoints / 100,
+    basisPoints,
+    source: 'plan_default',
+  }
 }
 
 export type OwnerBillingState = {

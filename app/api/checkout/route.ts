@@ -198,7 +198,7 @@ export async function POST(request: Request) {
   // receive the funds and it creates a payout / money-transmission liability. No
   // Connect → fall through to the seller's external checkout (destination) or a
   // payments-not-set-up response below. Plan is resolved status-awarely
-  // (canceled/incomplete 'pro' ≠ 6%) via the single-source helper.
+  // (canceled/incomplete 'pro' ≠ 5%) via the single-source helper.
   let connectAccountId: string | null = null
   let ownerPlanId: Awaited<ReturnType<typeof getOwnerPlanId>> = 'free'
   if (hasSupabaseAdminEnv() && page.owner_id) {
