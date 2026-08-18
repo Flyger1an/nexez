@@ -135,9 +135,21 @@ export type CommissionResolution = {
 export async function getOwnerCommission(
   supabase: Pick<SupabaseClient, 'from'>,
   ownerId: string | null | undefined,
+  resolvedBillingState?: OwnerBillingState,
 ): Promise<CommissionResolution> {
   const planId = await getOwnerPlanId(supabase, ownerId)
   const planDefaultBps = getCommissionBpsForPlan(planId)
+  const billingState = resolvedBillingState ?? await getOwnerBillingState(supabase, ownerId)
+  const subscriptionPlan =
+    billingState.chosenPlanId && subscriptionConfers(billingState.status, billingState.trialEndsAt)
+      ? billingState.chosenPlanId
+      : 'free'
+  const promotionWins = Boolean(
+    billingState.promotion
+    && billingState.promotion.planId === planId
+    && getPlanRank(billingState.promotion.planId) > getPlanRank(subscriptionPlan),
+  )
+  const defaultSource: CommissionResolution['source'] = promotionWins ? 'promotion' : 'plan_default'
 
   // Only effective Enterprise owners are eligible for negotiated commercial
   // terms. Non-Enterprise plans never touch the commercial-terms table.
@@ -187,7 +199,7 @@ export async function getOwnerCommission(
     planId,
     percent: planDefaultBps / 100,
     basisPoints: planDefaultBps,
-    source: 'plan_default',
+    source: defaultSource,
   }
 }
 

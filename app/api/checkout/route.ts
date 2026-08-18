@@ -19,8 +19,9 @@ import { logCheckoutEvent } from '../../../lib/server/log-checkout-event'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 import { supabase } from '../../../lib/supabase'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
-import { getCommissionPercentForPlan, calculateApplicationFeeCents } from '../../../lib/stripe-billing'
-import { getOwnerPlanId, getOwnerBillingState } from '../../../lib/server/plan'
+import { calculateApplicationFeeCentsFromBps } from '../../../lib/stripe-billing'
+import { resolveSettlementContext } from '../../../lib/commerce/settlement-bridge'
+import type { SettlementContext } from '../../../lib/commerce/checkout-session-core'
 import { billingPlans } from '../../../lib/billing'
 import { getCalendlyPat, integrationCredentialsConfigured } from '../../../lib/server/page-integration-credentials'
 import { createCalendlySchedulingLink } from '../../../lib/server/calendly-write'
@@ -190,42 +191,31 @@ export async function POST(request: Request) {
     },
   })
 
-  // Resolve the owner's plan + Connect account UP FRONT (before the dry-run return
+  // Resolve the owner's commission + Connect account UP FRONT (before dry-run
   // too, so the simulator reflects reality). A card charge only ever runs through
   // the owner's Connect account (owner is merchant of record; Nexez takes the plan
   // commission as an application fee). We deliberately do NOT charge into the
   // PLATFORM account for a seller who hasn't connected Stripe - they couldn't
   // receive the funds and it creates a payout / money-transmission liability. No
   // Connect → fall through to the seller's external checkout (destination) or a
-  // payments-not-set-up response below. Plan is resolved status-awarely
-  // (canceled/incomplete 'pro' ≠ 5%) via the single-source helper.
-  let connectAccountId: string | null = null
-  let ownerPlanId: Awaited<ReturnType<typeof getOwnerPlanId>> = 'free'
+  // payments-not-set-up response below. Every money-moving channel uses the same
+  // owner-aware resolver, including Enterprise overrides and promotions.
+  let settlementContext: SettlementContext | null = null
   if (hasSupabaseAdminEnv() && page.owner_id) {
     const admin = createAdminClient()
-    // Compatibility hook for an explicit operational suspension. Billing expiry
-    // itself falls back to Free and remains orderable.
-    if ((await getOwnerBillingState(admin, page.owner_id)).isPaused) {
+    const resolved = await resolveSettlementContext(admin, {
+      pageId: page.id,
+      ownerId: page.owner_id,
+    })
+    if (!resolved.ok && resolved.code === 'paused') {
       return NextResponse.json(
         { error: 'This seller’s storefront is paused and not accepting orders right now.' },
         { status: 402 },
       )
     }
-    ownerPlanId = await getOwnerPlanId(admin, page.owner_id)
-    const { data: billing } = await admin
-      .from('billing_subscriptions')
-      .select('stripe_connect_account_id, stripe_connect_charges_enabled')
-      .eq('owner_id', page.owner_id)
-      .maybeSingle<{ stripe_connect_account_id: string | null; stripe_connect_charges_enabled: boolean | null }>()
-    // Only route a charge to a Connect account that can actually ACCEPT one. An
-    // owner who created the account but hasn't finished onboarding has an id but
-    // charges_enabled !== true - fall through to the external destination instead
-    // of creating a dead-end Checkout session that fails at Stripe.
-    if (billing?.stripe_connect_account_id && billing.stripe_connect_charges_enabled === true) {
-      connectAccountId = billing.stripe_connect_account_id
-    }
+    if (resolved.ok) settlementContext = resolved.context
   }
-  const commissionPercent = getCommissionPercentForPlan(ownerPlanId)
+  const connectAccountId = settlementContext?.connectAccountId ?? null
 
   if (input.dryRun) {
     const approval = issueActionApprovalToken('checkout', approvalInput(input as Record<string, unknown>))
@@ -254,10 +244,10 @@ export async function POST(request: Request) {
   // Provider-preferred offers (Shopify imports in particular) must remain on
   // the provider rails. Charging through Stripe here would create no Shopify
   // order and would not update Shopify inventory.
-  if (!forceProviderHandoff && process.env.STRIPE_SECRET_KEY && amountCents && connectAccountId) {
+  if (!forceProviderHandoff && process.env.STRIPE_SECRET_KEY && amountCents && settlementContext) {
     try {
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-      const applicationFeeAmount = calculateApplicationFeeCents(amountCents, commissionPercent)
+      const applicationFeeAmount = calculateApplicationFeeCentsFromBps(amountCents, settlementContext.commissionBps)
 
       const sessionParams: any = {
         mode: 'payment',
@@ -287,8 +277,10 @@ export async function POST(request: Request) {
           nexez_offer_key: offerKey,
           nexez_offer_name: offer.name,
           nexez_source: 'agent_checkout',
-          nexez_owner_plan: ownerPlanId,
-          nexez_commission_percent: String(commissionPercent),
+          nexez_owner_plan: settlementContext.planId,
+          nexez_commission_bps: String(settlementContext.commissionBps),
+          nexez_commission_percent: String(settlementContext.commissionPercent),
+          nexez_commission_source: settlementContext.commissionSource,
           // For the checkout_orders record the webhook persists on completion (so a
           // direct sale can be refunded / dispute-tracked in-app).
           nexez_owner_id: page.owner_id ?? '',
@@ -320,7 +312,7 @@ export async function POST(request: Request) {
         ? `nexez_checkout_${scopedIdempotencyHash('checkout', page.slug, idempotency.key)}`
         : undefined
       const session = await stripe.checkout.sessions.create(sessionParams, {
-        stripeAccount: connectAccountId,
+        stripeAccount: settlementContext.connectAccountId,
         ...(stripeIdempotencyKey ? { idempotencyKey: stripeIdempotencyKey } : {}),
       })
 

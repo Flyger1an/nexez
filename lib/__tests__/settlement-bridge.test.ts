@@ -8,7 +8,7 @@ import {
   type SessionPage,
 } from '../commerce/checkout-session-core'
 import type { OfferItem } from '../agent-page'
-import { calculateApplicationFeeCents } from '../stripe-billing'
+import { calculateApplicationFeeCentsFromBps } from '../stripe-billing'
 
 function offer(partial: Partial<OfferItem> & { name: string; price: string }): OfferItem {
   return { description: '', url: '', ...partial }
@@ -36,7 +36,10 @@ function baseContext(overrides: Partial<SettlementContext> = {}): SettlementCont
     pageId: 'page_1',
     ownerId: 'owner_1',
     connectAccountId: 'acct_seller',
-    commissionPercent: 10,
+    planId: 'free',
+    commissionBps: 900,
+    commissionPercent: 9,
+    commissionSource: 'plan_default',
     ...overrides,
   }
 }
@@ -65,11 +68,11 @@ describe('settlement bridge — happy path', () => {
       ok: true,
       paymentIntentId: 'pi_success',
       amount: 120000,
-      applicationFee: calculateApplicationFeeCents(120000, 10),
+      applicationFee: calculateApplicationFeeCentsFromBps(120000, 900),
       currency: 'usd',
       livemode: false,
     })
-    expect(result.ok && result.applicationFee).toBe(12000) // 10% of 120000
+    expect(result.ok && result.applicationFee).toBe(10800) // 9% of 120000
 
     expect(stripe.calls).toHaveLength(1)
     const { params, options } = stripe.calls[0]
@@ -78,7 +81,7 @@ describe('settlement bridge — happy path', () => {
     expect(params.payment_method).toBe('pm_card_visa')
     expect(params.confirm).toBe(true)
     expect(params.off_session).toBe(true)
-    expect(params.application_fee_amount).toBe(12000)
+    expect(params.application_fee_amount).toBe(10800)
     // Direct charge on the seller's connected account.
     expect(options.stripeAccount).toBe('acct_seller')
   })
@@ -97,8 +100,11 @@ describe('settlement bridge — happy path', () => {
     expect(md.nexez_session_id).toBe('sess_1')
     expect(md.nexez_offer_key).toBe('services-0')
     expect(md.nexez_offer_name).toBe('Strategy Session')
-    expect(md.nexez_commission_percent).toBe('10')
-    expect(md.nexez_application_fee_cents).toBe('12000')
+    expect(md.nexez_owner_plan).toBe('free')
+    expect(md.nexez_commission_bps).toBe('900')
+    expect(md.nexez_commission_percent).toBe('9')
+    expect(md.nexez_commission_source).toBe('plan_default')
+    expect(md.nexez_application_fee_cents).toBe('10800')
     // Buyer email is lowercased for the order-portal lookup.
     expect(md.nexez_buyer_email).toBe('buyer@x.com')
     expect(md.nexez_buyer_name).toBe('Dana')
@@ -122,7 +128,7 @@ describe('settlement bridge — happy path', () => {
 
   it('omits application_fee_amount when commission is 0', async () => {
     const stripe = fakeStripe()
-    const result = await createSettlementBridge(stripe)(readySession(), PAYMENT, baseContext({ commissionPercent: 0 }))
+    const result = await createSettlementBridge(stripe)(readySession(), PAYMENT, baseContext({ commissionBps: 0, commissionPercent: 0 }))
     expect('application_fee_amount' in stripe.calls[0].params).toBe(false)
     expect(result.ok && result.applicationFee).toBe(0)
   })
@@ -143,7 +149,8 @@ describe('settlement bridge — happy path', () => {
   it('never lets adapter metadata override a money-core key', async () => {
     const stripe = fakeStripe()
     await createSettlementBridge(stripe)(readySession(), PAYMENT, baseContext({
-      commissionPercent: 10,
+      commissionBps: 900,
+      commissionPercent: 9,
       metadata: {
         nexez_source: 'acp',
         // A buggy/hostile adapter trying to falsify the recorded fee + owner.
@@ -153,7 +160,7 @@ describe('settlement bridge — happy path', () => {
     }))
     const md = stripe.calls[0].params.metadata
     expect(md.nexez_source).toBe('acp') // adapter-only key survives
-    expect(md.nexez_application_fee_cents).toBe('12000') // money-core wins
+    expect(md.nexez_application_fee_cents).toBe('10800') // money-core wins
     expect(md.nexez_owner_id).toBe('owner_1') // money-core wins
   })
 
@@ -326,7 +333,7 @@ describe('settlement bridge - delegated credential kinds', () => {
     expect(options.apiVersion).toBe('2026-04-22.preview')
     // Still a direct charge on the seller's account with the platform fee.
     expect(options.stripeAccount).toBe('acct_seller')
-    expect(params.application_fee_amount).toBe(12000)
+    expect(params.application_fee_amount).toBe(10800)
   })
 
   it('does not pin a preview API version for ordinary PaymentMethod charges', async () => {

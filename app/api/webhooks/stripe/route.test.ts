@@ -323,6 +323,11 @@ describe('POST /api/webhooks/stripe', () => {
               nexez_kind: 'negotiation_escrow',
               nexez_negotiation_id: 'n1',
               nexez_settlement: 'auto',
+              nexez_application_fee_cents: '4500',
+              nexez_commission_bps: '500',
+              nexez_commission_percent: '5',
+              nexez_owner_plan: 'pro',
+              nexez_commission_source: 'plan_default',
             },
           },
         },
@@ -330,7 +335,7 @@ describe('POST /api/webhooks/stripe', () => {
 
       const res = await POST(post({ sig: 'good', body: '{}' }))
       expect(res.status).toBe(200)
-      expect(getUpd()).toMatchObject({ status: 'complete', escrow_mode: 'captured', stripe_payment_intent_id: 'pi_1', stripe_livemode: false })
+      expect(getUpd()).toMatchObject({ status: 'complete', escrow_mode: 'captured', stripe_payment_intent_id: 'pi_1', stripe_livemode: false, application_fee_cents: 4500, commission_bps: 500, commission_percent: 5, plan_id_at_purchase: 'pro', commission_source: 'plan_default' })
     })
 
     it('ignores stale completed sessions with an old amount', async () => {
@@ -586,14 +591,14 @@ describe('POST /api/webhooks/stripe', () => {
         data: {
           object: {
             id: 'cs_dc', payment_status: 'paid', payment_intent: 'pi_dc', amount_total: 5000, currency: 'usd', livemode: true,
-            metadata: { nexez_source: 'agent_checkout', nexez_owner_id: 'owner-1', nexez_page_id: 'pg1', nexez_page_slug: 'acme', nexez_offer_name: 'Audit', nexez_offer_key: 's0', nexez_application_fee_cents: '750' },
+            metadata: { nexez_source: 'agent_checkout', nexez_owner_id: 'owner-1', nexez_page_id: 'pg1', nexez_page_slug: 'acme', nexez_offer_name: 'Audit', nexez_offer_key: 's0', nexez_application_fee_cents: '450', nexez_commission_bps: '900', nexez_commission_percent: '9', nexez_owner_plan: 'free', nexez_commission_source: 'plan_default' },
           },
         },
       })
       const res = await POST(post({ sig: 'good', body: '{}' }))
       expect(res.status).toBe(200)
       expect(await res.json()).toMatchObject({ order: true, status: 'paid' })
-      expect(upserted).toMatchObject({ owner_id: 'owner-1', stripe_session_id: 'cs_dc', stripe_payment_intent_id: 'pi_dc', amount_cents: 5000, currency: 'usd', status: 'paid', application_fee_cents: 750, stripe_connect_account_id: 'acct_x', stripe_livemode: true })
+      expect(upserted).toMatchObject({ owner_id: 'owner-1', stripe_session_id: 'cs_dc', stripe_payment_intent_id: 'pi_dc', amount_cents: 5000, currency: 'usd', status: 'paid', application_fee_cents: 450, commission_bps: 900, commission_percent: 9, plan_id_at_purchase: 'free', commission_source: 'plan_default', stripe_connect_account_id: 'acct_x', stripe_livemode: true })
     })
 
     it('charge.refunded with no negotiation but a matching ORDER → order refunded', async () => {
@@ -847,8 +852,11 @@ describe('POST /api/webhooks/stripe', () => {
       nexez_page_slug: 'acme',
       nexez_offer_name: 'Strategy Session',
       nexez_offer_key: 'services-0',
-      nexez_application_fee_cents: '12000',
-      nexez_commission_percent: '10',
+      nexez_application_fee_cents: '10800',
+      nexez_commission_bps: '900',
+      nexez_commission_percent: '9',
+      nexez_owner_plan: 'free',
+      nexez_commission_source: 'plan_default',
       nexez_source: 'acp',
       nexez_buyer_email: 'buyer@x.com',
     }
@@ -871,8 +879,11 @@ describe('POST /api/webhooks/stripe', () => {
         stripe_connect_account_id: 'acct_seller',
         amount_cents: 120000,
         currency: 'usd',
-        application_fee_cents: 12000,
-        commission_percent: 10,
+        application_fee_cents: 10800,
+        commission_bps: 900,
+        commission_percent: 9,
+        plan_id_at_purchase: 'free',
+        commission_source: 'plan_default',
         status: 'paid',
         channel: 'acp',
         stripe_livemode: false,

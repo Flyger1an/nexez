@@ -49,6 +49,12 @@ export type AgentNegotiation = {
   settlement_state: 'auto' | 'awaiting_approval' | 'approved' | null
   /** Cached buyer Checkout session for idempotent pay links. */
   stripe_checkout_session_id: string | null
+  /** Immutable economics captured when the hosted payment state is created. */
+  commission_bps?: number | null
+  commission_percent?: number | null
+  application_fee_cents?: number | null
+  plan_id_at_purchase?: import('./billing').PlanId | null
+  commission_source?: 'plan_default' | 'enterprise_override' | 'promotion' | null
   metadata: Record<string, unknown> | null
   /** Continuation credential. Owner-only field - used to build the owner's own
    * persistent-thread link (the agent runtime is cookie-isolated, so that link

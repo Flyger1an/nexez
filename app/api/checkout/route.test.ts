@@ -254,6 +254,13 @@ describe('POST /api/checkout - buyer identity propagation', () => {
     const { params } = stripeCalls[0]
     expect(params.application_fee_amount).toBeUndefined()
     expect(params.payment_intent_data?.application_fee_amount).toBe(1350) // $150 × 9% (free plan)
+    expect(params.metadata).toMatchObject({
+      nexez_owner_plan: 'free',
+      nexez_commission_bps: '900',
+      nexez_commission_percent: '9',
+      nexez_commission_source: 'plan_default',
+      nexez_application_fee_cents: '1350',
+    })
   })
 
   it('drops a malformed buyer email (no customer_email)', async () => {

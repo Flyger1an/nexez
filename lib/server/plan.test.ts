@@ -84,9 +84,16 @@ describe('getOwnerCommission', () => {
 
   it('inherits admin, promotion, and dunning semantics from getOwnerPlanId', async () => {
     expect(await getOwnerCommission(client({ admin: true }), 'owner-1')).toMatchObject({ planId: 'enterprise', basisPoints: 200 })
-    expect(await getOwnerCommission(client({ grant: launchGrant() }), 'owner-1')).toMatchObject({ planId: 'launch', basisPoints: 700 })
+    expect(await getOwnerCommission(client({ grant: launchGrant() }), 'owner-1')).toMatchObject({ planId: 'launch', basisPoints: 700, source: 'promotion' })
     expect(await getOwnerCommission(client({ sub: { plan_id: 'scale', status: 'past_due' } }), 'owner-1')).toMatchObject({ planId: 'scale', basisPoints: 300 })
     expect(await getOwnerCommission(client({ sub: { plan_id: 'scale', status: 'unpaid' } }), 'owner-1')).toMatchObject({ planId: 'scale', basisPoints: 300 })
+  })
+
+  it('keeps plan_default provenance when a paid plan outranks a live promotion', async () => {
+    expect(await getOwnerCommission(client({
+      sub: { plan_id: 'pro', status: 'active' },
+      grant: launchGrant(),
+    }), 'owner-1')).toMatchObject({ planId: 'pro', basisPoints: 500, source: 'plan_default' })
   })
 
   it('falls back to Free/highest commission when entitlement no longer confers', async () => {

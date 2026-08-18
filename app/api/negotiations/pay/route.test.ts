@@ -41,15 +41,21 @@ const NEG = {
 }
 
 function db(neg: any, billing: any = { plan_id: 'pro', status: 'active', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true }) {
+  let updated: any
   adminRef.handler = (ctx: QueryContext) => {
     if (ctx.table === 'agent_negotiations' && ctx.op === 'select') {
       // honor the id+token scoping the route applies
       if (neg && ctx.eqs.id === neg.id && ctx.eqs.status_token_sha256 === hashBearerToken(neg.status_token)) return { data: neg }
       return { data: null }
     }
+    if (ctx.table === 'agent_negotiations' && ctx.op === 'update') {
+      updated = ctx.payload
+      return { data: null, error: null }
+    }
     if (ctx.table === 'billing_subscriptions') return { data: billing }
     return { data: null, error: null }
   }
+  return () => updated
 }
 
 const post = (body: unknown) =>
@@ -100,7 +106,7 @@ describe('POST /api/negotiations/pay', () => {
   })
 
   it('auto: immediate capture, settlement metadata "auto", Connect app fee + url', async () => {
-    db(NEG)
+    const getUpdate = db(NEG)
     const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))
     expect(res.status).toBe(200)
     expect((await res.json()).url).toBe('https://pay/cs_new')
@@ -110,6 +116,19 @@ describe('POST /api/negotiations/pay', () => {
     expect(params.metadata.nexez_negotiation_id).toBe('n1')
     // 5% Pro commission on $900 = $45
     expect(params.payment_intent_data.application_fee_amount).toBe(4500)
+    expect(params.metadata).toMatchObject({
+      nexez_owner_plan: 'pro',
+      nexez_commission_bps: '500',
+      nexez_commission_percent: '5',
+      nexez_commission_source: 'plan_default',
+    })
+    expect(getUpdate()).toMatchObject({
+      commission_bps: 500,
+      commission_percent: 5,
+      application_fee_cents: 4500,
+      plan_id_at_purchase: 'pro',
+      commission_source: 'plan_default',
+    })
     expect(opts.stripeAccount).toBe('acct_1')
     expect(opts.idempotencyKey).toBe('escrow-n1-90000:usd:auto:acct_1:4500')
   })
@@ -179,6 +198,21 @@ describe('POST /api/negotiations/pay', () => {
     expect(res.status).toBe(200)
     expect((await res.json())).toMatchObject({ reused: true, url: 'https://pay/cs_existing' })
     expect((stripeRef.create as any)).not.toHaveBeenCalled()
+  })
+
+  it('keeps an open session immutable when only the owner commission changed', async () => {
+    stripeRef.retrieve = vi.fn(async (id: string) => ({
+      id,
+      url: `https://pay/${id}`,
+      status: 'open',
+      amount_total: 90000,
+      currency: 'usd',
+      metadata: { nexez_payment_fingerprint: '90000:usd:auto:acct_1:8100' },
+    }))
+    db({ ...NEG, stripe_checkout_session_id: 'cs_existing' })
+    const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))
+    expect(await res.json()).toMatchObject({ reused: true, sessionId: 'cs_existing' })
+    expect(stripeRef.create).not.toHaveBeenCalled()
   })
 
   it('does not reuse an open session when money terms changed', async () => {
