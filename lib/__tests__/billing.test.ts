@@ -14,6 +14,7 @@ describe('billing catalog', () => {
   it('has the five tiers in ascending rank with a clean prices/ids', () => {
     expect(billingPlans.map((p) => p.id)).toEqual(['free', 'launch', 'pro', 'scale', 'enterprise'])
     expect(billingPlans.map((p) => p.rank)).toEqual([0, 1, 2, 3, 4])
+    expect(billingPlans.map((p) => p.monthlyPriceCents)).toEqual([0, 1900, 4900, 14900, null])
   })
 
   it('commission steps DOWN monotonically as the plan steps up (upgrade incentive)', () => {

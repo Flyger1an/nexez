@@ -60,6 +60,37 @@ function fakeStripe(impl?: (params: any, options: any) => any) {
 }
 
 describe('settlement bridge — happy path', () => {
+  it.each([
+    ['free', 900, 10800],
+    ['launch', 700, 8400],
+    ['pro', 500, 6000],
+    ['scale', 300, 3600],
+    ['enterprise', 200, 2400],
+  ] as const)('uses %s economics identically for ACP and UCP', async (planId, commissionBps, expectedFee) => {
+    for (const channel of ['acp', 'ucp'] as const) {
+      const stripe = fakeStripe()
+      const result = await createSettlementBridge(stripe)(
+        readySession(),
+        PAYMENT,
+        baseContext({
+          planId,
+          commissionBps,
+          commissionPercent: commissionBps / 100,
+          commissionSource: 'plan_default',
+          metadata: { nexez_source: channel },
+        }),
+      )
+      expect(result).toMatchObject({ ok: true, applicationFee: expectedFee })
+      expect(stripe.calls[0].params.application_fee_amount).toBe(expectedFee)
+      expect(stripe.calls[0].params.metadata).toMatchObject({
+        nexez_source: channel,
+        nexez_owner_plan: planId,
+        nexez_commission_bps: String(commissionBps),
+        nexez_application_fee_cents: String(expectedFee),
+      })
+    }
+  })
+
   it('charges the session total to the connected account with the platform fee', async () => {
     const stripe = fakeStripe()
     const result = await createSettlementBridge(stripe)(readySession(), PAYMENT, baseContext())

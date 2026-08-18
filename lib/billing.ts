@@ -80,6 +80,8 @@ export type BillingPlan = {
   rank: number
   name: string
   price: string
+  /** Self-serve monthly subscription in integer cents; null means negotiated. */
+  monthlyPriceCents: number | null
   cadence: string
   envVar: string
   blurb: string
@@ -107,6 +109,7 @@ export const billingPlans: BillingPlan[] = [
     rank: 0,
     name: 'Free',
     price: '$0',
+    monthlyPriceCents: 0,
     cadence: 'month',
     envVar: '', // no price for free
     blurb: 'Try Nexez with one agent listing and the core toolkit.',
@@ -119,6 +122,7 @@ export const billingPlans: BillingPlan[] = [
     rank: 1,
     name: 'Launch',
     price: '$19',
+    monthlyPriceCents: 1900,
     cadence: 'month',
     envVar: 'STRIPE_PRICE_LAUNCH',
     blurb: 'For a solo pro turning agent traffic into bookings.',
@@ -131,6 +135,7 @@ export const billingPlans: BillingPlan[] = [
     rank: 2,
     name: 'Pro',
     price: '$49',
+    monthlyPriceCents: 4900,
     cadence: 'month',
     envVar: 'STRIPE_PRICE_PRO',
     blurb: 'For teams running services, bookings, and paid offers.',
@@ -143,6 +148,7 @@ export const billingPlans: BillingPlan[] = [
     rank: 3,
     name: 'Scale',
     price: '$149',
+    monthlyPriceCents: 14900,
     cadence: 'month',
     envVar: 'STRIPE_PRICE_SCALE',
     blurb: 'For agencies and operators managing many agent listings.',
@@ -155,6 +161,7 @@ export const billingPlans: BillingPlan[] = [
     rank: 4,
     name: 'Enterprise',
     price: 'Custom',
+    monthlyPriceCents: null,
     cadence: 'month',
     envVar: 'STRIPE_PRICE_ENTERPRISE',
     blurb: 'For large organizations with custom needs and SLAs.',

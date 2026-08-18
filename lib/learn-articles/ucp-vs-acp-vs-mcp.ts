@@ -174,7 +174,7 @@ export const ucpVsAcpVsMcp: LearnArticle = {
     { type: 'h2', text: 'The compounding move: one catalog, every rail' },
     {
       type: 'p',
-      text: 'If maintaining a product feed, a checkout API, an MCP server, and structured markup sounds like a lot, that is the actual argument for a hosted layer. Nexez publishes each listing simultaneously as a human web page, JSON-LD, agent.json, llms.txt, an OpenAPI spec, and a per-merchant MCP server listed in the official registry, plus ACP and UCP feeds generated from the same money core. Discovery ships on [every plan](/pricing); agentic checkout is the Pro upgrade, with feed enrollment handled for you as the platforms open their gates.',
+      text: 'If maintaining a product feed, a checkout API, an MCP server, and structured markup sounds like a lot, that is the actual argument for a hosted layer. Nexez publishes each listing simultaneously as a human web page, JSON-LD, agent.json, llms.txt, an OpenAPI spec, and a per-merchant MCP server listed in the official registry, plus ACP and UCP feeds generated from the same money core. Discovery and agentic checkout ship on [every plan](/pricing) when the merchant and surface are commerce-ready, with feed enrollment handled for you as the platforms open their gates.',
     },
     {
       type: 'p',

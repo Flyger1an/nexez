@@ -1,23 +1,22 @@
 import Stripe from 'stripe'
 import { cookies } from 'next/headers'
 import { AgentPage, OWNER_PAGE_SELECT, getOfferCount } from '../../../lib/agent-page'
-import { billingPlans, getPlanLimits } from '../../../lib/billing'
+import { billingPlans, getCommissionBpsForPlan, getPlanLimits } from '../../../lib/billing'
 import { getStripeBillingReadiness } from '../../../lib/server/billing-readiness'
-import { getOwnerBillingState } from '../../../lib/server/plan'
+import { getOwnerBillingState, getOwnerCommission } from '../../../lib/server/plan'
 import {
   BillingSubscription,
-  getCommissionPercentForPlan,
   LIVE_SUBSCRIPTION_STATUSES,
 } from '../../../lib/stripe-billing'
 import {
-  getAgentDrivenRevenueCents,
   getAgentPageVisitCount,
   getConversionCount,
   getDiscoveryClickCount,
-  getRevenueCurrency,
 } from '../../../lib/analytics'
+import { buildMarketplaceLedger, type DirectFinanceRow, type NegotiationFinanceRow } from '../../../lib/finance-analytics'
 import type { CheckoutEvent } from '../../../lib/checkout-events'
 import { createClient } from '../../../utils/supabase/server'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/admin'
 
 // Client components
 import { AutoRefreshConnect } from '../../../components/billing/AutoRefreshConnect'
@@ -83,7 +82,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
   const pageCount = publishedPages.length
   const offerCount = pages?.reduce((sum, page) => sum + getOfferCount(page), 0) ?? 0
 
-  // Real this-month engagement + platform-fee figures (replace the old placeholders).
+  // Real this-month engagement figures.
   const monthStart = new Date()
   monthStart.setUTCDate(1)
   monthStart.setUTCHours(0, 0, 0, 0)
@@ -108,11 +107,67 @@ export default async function BillingPage({ searchParams }: BillingProps) {
   const planPageLimit = getPlanLimits(activePlan?.id).pages
   const pageLimit = Number.isFinite(planPageLimit) ? planPageLimit : 999
 
-  // Real platform fee this month = agent-driven revenue × the plan's commission %.
-  const commissionPct = getCommissionPercentForPlan(activePlan?.id ?? null)
-  const revenueCurrency = getRevenueCurrency(events)
-  const agentRevenueCents = getAgentDrivenRevenueCents(events, revenueCurrency)
-  const platformFeesCents = Math.round((agentRevenueCents * commissionPct) / 100)
+  // Resolve the sanitized effective rate server-side so negotiated Enterprise terms
+  // render accurately without exposing the commercial-terms table to the browser.
+  const commission = hasSupabaseAdminEnv()
+    ? await getOwnerCommission(createAdminClient(), user.id, trialState)
+    : {
+        planId: trialState.planId,
+        basisPoints: getCommissionBpsForPlan(trialState.planId),
+        percent: getCommissionBpsForPlan(trialState.planId) / 100,
+        source: 'plan_default' as const,
+      }
+  const commissionPct = commission.percent
+
+  // Durable, Stripe-proven money rows are the source of GMV and Nexez fees. Checkout
+  // intent telemetry is deliberately excluded, and each charge keeps its own fee
+  // snapshot so a later plan change never rewrites history.
+  const [{ data: orderRows }, { data: negotiationRows }] = await Promise.all([
+    supabase
+      .from('checkout_orders')
+      .select('id, status, channel, amount_cents, refunded_cents, currency, slug, offer_name, offer_key, buyer_agent, buyer_name, buyer_email, buyer_reference, commission_percent, application_fee_cents, stripe_livemode, created_at')
+      .eq('owner_id', user.id)
+      .eq('stripe_livemode', true)
+      .gte('created_at', monthStart.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1000)
+      .returns<DirectFinanceRow[]>(),
+    supabase
+      .from('agent_negotiations')
+      .select('id, status, amount_cents, currency, slug, offer_name, buyer_agent, created_at, updated_at, commission_percent, application_fee_cents, stripe_livemode')
+      .eq('owner_id', user.id)
+      .eq('stripe_livemode', true)
+      .in('status', ['held', 'complete', 'refunded', 'disputed'])
+      .gte('updated_at', monthStart.toISOString())
+      .order('updated_at', { ascending: false })
+      .limit(1000)
+      .returns<Array<NegotiationFinanceRow & { updated_at: string }>>(),
+  ])
+  const moneyEntries = buildMarketplaceLedger(
+    orderRows ?? [],
+    (negotiationRows ?? []).map((row) => ({ ...row, created_at: row.updated_at })),
+    commissionPct,
+    2000,
+  )
+  const moneyByCurrency = new Map<string, { gmvCents: number; feeCents: number }>()
+  for (const entry of moneyEntries) {
+    if (entry.isReversal) continue
+    const current = moneyByCurrency.get(entry.currency) ?? { gmvCents: 0, feeCents: 0 }
+    current.gmvCents += entry.amountCents
+    current.feeCents += entry.feeCents
+    moneyByCurrency.set(entry.currency, current)
+  }
+  const dominantEconomics = [...moneyByCurrency.entries()].sort((a, b) => b[1].gmvCents - a[1].gmvCents)[0]
+  const revenueCurrency = dominantEconomics?.[0] ?? 'usd'
+  const settledEconomics = dominantEconomics?.[1] ?? { gmvCents: 0, feeCents: 0 }
+  const agentRevenueCents = settledEconomics.gmvCents
+  const platformFeesCents = settledEconomics.feeCents
+  const monthlySubscriptionCents =
+    hasEnterpriseOverride
+      ? null
+      : effectivePromotion || trialState.isTrialing
+        ? 0
+        : activePlan?.monthlyPriceCents ?? null
 
   // Usage: pages metered against the plan limit; the rest are real this-month
   // engagement counts (limit: null → shown as a plain count, not a fake cap).
@@ -212,6 +267,10 @@ export default async function BillingPage({ searchParams }: BillingProps) {
           agentRevenueCents={agentRevenueCents}
           revenueCurrency={revenueCurrency}
           commissionPct={commissionPct}
+          commissionBps={commission.basisPoints}
+          commissionSource={commission.source}
+          monthlySubscriptionCents={monthlySubscriptionCents}
+          processorFeesCents={null}
           stripeReady={stripeReady}
           configuredPlanIds={configuredPlanIds}
           initialPlanId={initialPlanFromQuery}

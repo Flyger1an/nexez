@@ -1,73 +1,44 @@
-# Agentic checkout — pricing & upgrade copy
+# Agentic checkout — pricing and merchant copy
 
-Sells the **Pro** upgrade on one benefit: *get discovered by AI shopping agents for free, get **paid** by them on Pro.* Grounded in the real mechanics — discovery (ChatGPT + Google feeds) is free for every published listing; **transacting** through the agent is the Pro capability (`agenticCheckout`, Pro+). Pro also drops the transaction commission from **15% → 6%**.
+Agentic checkout is a foundational commerce capability on every plan. A merchant's subscription changes operating power, limits, and transaction economics; it does not decide whether a commerce-ready merchant may participate.
 
-The feature name buyers see: **Agentic Checkout** (a.k.a. "Sell through ChatGPT & Google").
+The customer-facing feature name is **Agentic Checkout** ("Sell through ChatGPT & Google"). Protocol enrollment and settlement readiness still vary by surface and merchant.
 
----
+## Pricing page
 
-## 1. Pricing page — Pro plan
+**Core message**
 
-**Feature line (plan card / comparison table):**
-> **Agentic Checkout — sell inside ChatGPT & Google** · *Pro*
+> **Start free. Nexez earns 9% only when a transaction is completed through Nexez.**
 
-**Comparison-table rows (Free vs Pro):**
+> **Lower platform fees as your agent-commerce volume grows.**
 
-| | Free / Launch | Pro |
-|---|---|---|
-| Listed in ChatGPT & Google agent feeds | ✓ | ✓ |
-| Agents can **complete checkout** (Instant Checkout / Google) | — | ✓ |
-| Transaction commission | 15% | **6%** |
+| Plan | Nexez commission |
+|---|---:|
+| Free | 9% |
+| Launch | 7% |
+| Pro | 5% |
+| Scale | 3% |
+| Enterprise | Custom, typically 1–2% |
 
-**Benefit blurb (under the Pro plan):**
-> **Turn agent traffic into agent sales.** Every published listing already shows up when ChatGPT and Google's shopping agents look for what you sell. Pro lets those agents *close the sale* — buyers check out and pay without ever leaving the chat, settled straight to your Stripe account. You also pay the lowest commission: **6%, down from 15%.**
+Every plan supports discovery and agentic checkout when the merchant is commerce-ready. Paid plans add higher limits, automation, collaboration, integrations, control, and lower commission rates.
 
-**Micro-caption (optional, italic):**
-> *Discovery is free forever. Pro is what makes you buyable.*
+## Readiness nudge
 
----
+When checkout is unavailable, ask the merchant to complete the missing operational step rather than upgrade:
 
-## 2. Upgrade modal — shown when a Free/Launch seller hits the gate
+> **Connect Stripe payouts** — finish onboarding so agents can complete Nexez-settled purchases and earnings can reach your account.
 
-Trigger: a non-Pro seller opens the "Sell through ChatGPT & Google" card, or toggles anything that needs agentic checkout.
+Other valid readiness states include unpublished listing, offer unavailable, program enrollment pending, or a surface not yet live.
 
-**Headline:**
-> Let agents check out, not just window-shop
+## Fee disclosure
 
-**Body:**
-> Your listing is already discoverable in ChatGPT and Google — agents can find it and quote it today. Upgrade to **Pro** and they can **complete the purchase** right inside the chat: the buyer pays, the order lands in your dashboard, and the money settles to your Stripe account. Pro also cuts your commission from **15% to 6%** on every agent sale.
+> Nexez's platform commission applies to transactions settled through Nexez. Card and payment-processing fees are separate. External provider handoffs are not charged a Nexez transaction commission unless separately agreed.
 
-**Bullets:**
-> - ✓ Instant Checkout in ChatGPT + agentic checkout on Google
-> - ✓ Paid out through your own Stripe — you're the merchant of record
-> - ✓ 6% commission instead of 15%
-> - ✓ Every order tracked, refundable, and reconciled in Nexez
+Do not imply processor fees are included, and do not describe external-provider revenue as Nexez-settled GMV.
 
-**Primary CTA:** `Upgrade to Pro`
-**Secondary CTA:** `Keep discovery only`
+## Guardrails
 
-**Reassurance line (small, under the buttons):**
-> You stay discoverable on Free — upgrading only adds the ability to get paid.
-
----
-
-## 3. In-context nudge (the Settings card `needs_plan` line — already shipped)
-
-> **Checkout** — upgrade to Pro to let agents complete the sale, not just discover you. → **Upgrade to Pro**
-
----
-
-## 4. One-liners (reuse anywhere)
-
-- "Get found by AI agents for free. Get paid by them on Pro."
-- "Discovery is the free sample. Checkout is the product."
-- "On Free you're in the catalog. On Pro you're in the cart."
-- "ChatGPT and Google can already recommend you — Pro lets them buy from you."
-
----
-
-## Guardrails for whoever wires this into the pricing page
-
-- **Don't promise a surface that isn't live.** ChatGPT (ACP) and Google (UCP) enroll independently and flip on separately. The Settings card already reflects this per-surface (`liveSurfaces`); pricing copy should stay at the category level ("ChatGPT & Google") rather than claim a specific one is live on a given date.
-- **Commission numbers are single-sourced** in `lib/billing.ts` (`billingPlans[].commissionPercent`: Free 15%, Pro 6%). If those change, update the table above — don't hardcode a divergent number.
-- The capability id is `agenticCheckout` (rank 2 = Pro+) in `lib/billing.ts` → gate any pricing-page CTA with `planAllows(planId, 'agenticCheckout')` / `minPlanForFeature('agenticCheckout')` so the "Upgrade to Pro" target is derived, not hardcoded.
+- Do not promise that a particular ACP/UCP surface is live for every merchant; enrollment is independent per surface.
+- Commission defaults come from `lib/billing.ts`; negotiated Enterprise rates come from the owner-aware server resolver.
+- `agenticCheckout` remains a compatibility capability at rank 0. Do not introduce a Pro upgrade gate for checkout, discovery, or settlement readiness.
+- Sell paid plans on leverage, scale, control, automation, and better economics.

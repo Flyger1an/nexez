@@ -48,6 +48,7 @@ import { billingStatusCopy } from '../../lib/stripe-billing'
 import { billingPlans } from '../../lib/billing'
 import { formatCurrencyAmount } from '../../lib/currency'
 import type { PromotionalPlanGrant } from '../../lib/server/plan'
+import { getPlanEconomics, monthlyNexezCost, planBreakevenGmv, type PlanEconomics } from '../../lib/plan-economics'
 
 // Tab definition (order matches user spec)
 const TABS = [
@@ -94,6 +95,10 @@ interface BillingDashboardClientProps {
   agentRevenueCents?: number
   revenueCurrency?: string
   commissionPct?: number
+  commissionBps?: number
+  commissionSource?: 'plan_default' | 'enterprise_override' | 'promotion'
+  monthlySubscriptionCents?: number | null
+  processorFeesCents?: number | null
   stripeReady: boolean
   configuredPlanIds: string[]
   initialPlanId?: string | null
@@ -112,6 +117,10 @@ export default function BillingDashboardClient({
   agentRevenueCents = 0,
   revenueCurrency = 'usd',
   commissionPct = 9,
+  commissionBps = 900,
+  commissionSource = 'plan_default',
+  monthlySubscriptionCents = 0,
+  processorFeesCents = null,
   stripeReady,
   configuredPlanIds,
   initialPlanId,
@@ -137,6 +146,27 @@ export default function BillingDashboardClient({
   const invoices = invoicesProp
   const [sortKey, setSortKey] = useState<'date' | 'amount'>('date')
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
+
+  const currentEconomics: PlanEconomics | null = monthlySubscriptionCents == null
+    ? null
+    : { subscriptionCents: monthlySubscriptionCents, commissionBps }
+  const nextPlan = activePlan
+    ? billingPlans.find((plan) => plan.rank > activePlan.rank && plan.monthlyPriceCents != null)
+    : billingPlans.find((plan) => plan.id === 'launch')
+  const nextEconomics = nextPlan ? getPlanEconomics(nextPlan.id) : null
+  const currentMonthlyNexezCost = currentEconomics
+    ? monthlyNexezCost(agentRevenueCents, currentEconomics)
+    : null
+  const nextMonthlyNexezCost = nextEconomics
+    ? monthlyNexezCost(agentRevenueCents, nextEconomics)
+    : null
+  const nextTierSavingsCents =
+    currentMonthlyNexezCost != null && nextMonthlyNexezCost != null
+      ? currentMonthlyNexezCost - nextMonthlyNexezCost
+      : 0
+  const nextTierBreakevenCents = currentEconomics && nextEconomics
+    ? planBreakevenGmv(currentEconomics, nextEconomics)
+    : null
 
   // Auto-open Plans tab + start checkout when linked with ?plan= from pricing or elsewhere
   useEffect(() => {
@@ -377,6 +407,15 @@ export default function BillingDashboardClient({
                 </span>
               </div>
               <div className="mt-2 text-3xl text-[var(--fg-muted)] tracking-tight">{priceLine}</div>
+              <div className="mt-3 text-sm text-[var(--fg-muted)]">
+                <span className="font-semibold text-white">{commissionPct}% Nexez platform commission</span>
+                {' · '}
+                {commissionSource === 'enterprise_override'
+                  ? 'negotiated commercial terms'
+                  : commissionSource === 'promotion'
+                    ? 'promotional plan rate'
+                    : 'current plan rate'}
+              </div>
               {periodEnd && promotion && (
                 <p className="mt-3 flex items-center gap-2 text-sm text-[var(--fg-muted)]">
                   <Calendar className="size-4" />
@@ -466,18 +505,44 @@ export default function BillingDashboardClient({
         {/* How money flows - the dual-revenue model in one glance */}
         <GlassCard className="p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-stretch sm:justify-between">
-            <MoneyFlowStep label="Agents buy through your listings" value={formatCurrencyAmount(agentRevenueCents, revenueCurrency)} sub="gross sales this month" tone="white" />
+            <MoneyFlowStep label="Nexez-settled GMV" value={formatCurrencyAmount(agentRevenueCents, revenueCurrency)} sub="settled volume this month" tone="white" />
             <FlowArrow />
             <MoneyFlowStep label={`Nexez fee (${commissionPct}%)`} value={`– ${formatCurrencyAmount(platformFeesCents, revenueCurrency)}`} sub="only when you get paid" tone="muted" />
             <FlowArrow />
-            <MoneyFlowStep label="Net to you" value={formatCurrencyAmount(Math.max(0, agentRevenueCents - platformFeesCents), revenueCurrency)} sub="paid out to your Stripe" tone="ready" />
+            <MoneyFlowStep
+              label="Payment processing"
+              value={processorFeesCents == null ? 'See Stripe' : `– ${formatCurrencyAmount(processorFeesCents, revenueCurrency)}`}
+              sub="separate processor charge"
+              tone="muted"
+            />
+            <FlowArrow />
+            <MoneyFlowStep label="Before processing" value={formatCurrencyAmount(Math.max(0, agentRevenueCents - platformFeesCents), revenueCurrency)} sub="processor fees not deducted here" tone="ready" />
           </div>
           <p className="mt-4 border-t border-[var(--bd-10)] pt-3 text-xs text-[var(--fg-muted)]">
             Transaction fees are separate from your{' '}
             <span className="text-white">{hasEnterpriseOverride ? 'Enterprise access' : `${activePlan?.name ?? 'Free'} subscription`}</span>
-            {!hasEnterpriseOverride && activePlan?.cadence ? ` (${activePlan.price}/${activePlan.cadence})` : ''}. They apply only to transactions Nexez processes through your listings.
+            {!hasEnterpriseOverride && activePlan?.cadence ? ` (${activePlan.price}/${activePlan.cadence})` : ''}. They apply only to transactions Nexez settles; external-provider handoffs carry no Nexez transaction commission unless separately agreed. Card and payment-processing fees are separate.
           </p>
         </GlassCard>
+
+        {nextPlan && nextEconomics && currentEconomics && (
+          <GlassCard className="p-7">
+            <SectionHeader icon={Sparkles} title={`${nextPlan.name} economics`} subtitle="Subscription and Nexez commission compared together" />
+            {nextTierSavingsCents > 0 ? (
+              <p className="text-sm text-[var(--ready)]">
+                At this month&rsquo;s Nexez-settled volume, {nextPlan.name} would have saved approximately{' '}
+                <span className="font-semibold">{formatCurrencyAmount(nextTierSavingsCents, revenueCurrency)}</span> in Nexez subscription and platform fees.
+              </p>
+            ) : (
+              <p className="text-sm text-[var(--fg-muted)]">
+                {nextTierBreakevenCents == null
+                  ? `${nextPlan.name} does not have a lower total Nexez cost at this rate.`
+                  : `${nextPlan.name} becomes no more expensive on Nexez costs at about ${formatCurrencyAmount(nextTierBreakevenCents, revenueCurrency)} in monthly Nexez-settled GMV.`}
+              </p>
+            )}
+            <p className="mt-2 text-xs text-[var(--fg-muted)]">Payment-processing fees are excluded because they are separate from Nexez pricing.</p>
+          </GlassCard>
+        )}
 
         {/* Usage + Platform Fees summary side-by-side (elegant overview) */}
         <div className="grid gap-6 lg:grid-cols-2">
@@ -508,11 +573,11 @@ export default function BillingDashboardClient({
           <GlassCard className="p-7">
             <SectionHeader icon={Percent} title="Platform fees this month" subtitle="Transaction commissions" />
             <div className="flex items-baseline gap-2">
-              <span className="text-5xl font-semibold tracking-tighter text-[var(--ready)]">${(platformFeesCents / 100).toFixed(2)}</span>
+              <span className="text-5xl font-semibold tracking-tighter text-[var(--ready)]">{formatCurrencyAmount(platformFeesCents, revenueCurrency)}</span>
               <span className="text-[var(--fg-muted)]">this month</span>
             </div>
             <div className="mt-4 text-sm text-[var(--fg-muted)]">
-              You keep 91–98% of every transaction depending on plan. Connect your Stripe account in the
+              This total uses each transaction&rsquo;s charge-time fee snapshot. Connect your Stripe account in the
               <span className="text-white"> Platform Fees</span> tab to receive payouts directly.
             </div>
             <button
@@ -680,29 +745,29 @@ export default function BillingDashboardClient({
   )
 
   const PlatformFeesTab = () => {
-    const commissionNote = activePlan
-      ? `${activePlan.commissionPercent}% platform fee on transactions`
-      : billingPlans.map((p) => `${p.name} ${p.commissionPercent}%`).join(' • ')
-
     return (
       <div className="space-y-8">
         <GlassCard className="p-8">
-          <SectionHeader icon={Percent} title="Platform fees & payouts" subtitle="How you earn on every transaction" />
-          <div className="grid md:grid-cols-2 gap-8">
-            <div>
-              <div className="text-5xl font-semibold tracking-tighter text-[var(--ready)]">${(platformFeesCents / 100).toFixed(2)}</div>
-              <div className="text-[var(--fg-muted)] mt-1">Platform fees collected this month</div>
-              <ul className="mt-6 space-y-2 text-sm text-[var(--fg-muted)]">
-                {billingPlans.map((p) => (
-                  <li key={p.id} className="flex gap-2">• {p.name}: {p.commissionPercent}% commission</li>
-                ))}
-              </ul>
-            </div>
-            <div className="text-sm text-[var(--fg-muted)] border-l border-[var(--bd-10)] pl-8">
-              Nexez takes a small platform fee only on transactions driven through your agent listings.
-              You keep the rest. Fees are automatically applied via Stripe when using the embedded checkout on public listings.
-              <div className="mt-4 text-xs">Connect your own Stripe account below to receive the net earnings directly into your bank account.</div>
-            </div>
+          <SectionHeader icon={Percent} title="Platform fees & payouts" subtitle={`${commissionPct}% current Nexez commission`} />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <FeeMetric label="Nexez-settled GMV" value={formatCurrencyAmount(agentRevenueCents, revenueCurrency)} />
+            <FeeMetric label="Nexez platform fees" value={formatCurrencyAmount(platformFeesCents, revenueCurrency)} />
+            <FeeMetric
+              label="Payment processing"
+              value={processorFeesCents == null ? 'See Stripe' : formatCurrencyAmount(processorFeesCents, revenueCurrency)}
+            />
+            <FeeMetric label="Before processing" value={formatCurrencyAmount(Math.max(0, agentRevenueCents - platformFeesCents), revenueCurrency)} />
+          </div>
+          <p className="mt-6 text-sm text-[var(--fg-muted)]">
+            Nexez commission applies only when Nexez settles the transaction. Card and payment-processing fees are separate, and are not included in the before-processing figure. External provider handoffs carry no Nexez transaction commission unless separately agreed.
+          </p>
+          <div className="mt-6 grid gap-2 text-xs text-[var(--fg-muted)] sm:grid-cols-2 lg:grid-cols-5">
+            {billingPlans.map((plan) => (
+              <div key={plan.id} className="rounded-lg border border-[var(--bd-10)] p-3">
+                <span className="text-white">{plan.name}</span>{' '}
+                {plan.id === 'enterprise' ? 'typically 1–2%' : `${plan.commissionPercent}%`}
+              </div>
+            ))}
           </div>
         </GlassCard>
 
@@ -773,6 +838,12 @@ export default function BillingDashboardClient({
             const isLoadingThis = checkoutLoading === plan.id
             const isSelected = selectedPlanId === plan.id
             const planCheckoutReady = plan.id === 'free' || plan.id === 'enterprise' || configuredPlanIds.includes(plan.id)
+            const planEconomics = getPlanEconomics(plan.id)
+            const planTotalCents = planEconomics ? monthlyNexezCost(agentRevenueCents, planEconomics) : null
+            const honestSavingsCents =
+              !isCurrent && activePlan && plan.rank > activePlan.rank && currentMonthlyNexezCost != null && planTotalCents != null
+                ? currentMonthlyNexezCost - planTotalCents
+                : 0
 
             return (
               <GlassCard
@@ -797,13 +868,12 @@ export default function BillingDashboardClient({
                   {plan.price !== 'Custom' && <span className="text-[var(--fg-muted)] text-sm ml-1">/{plan.cadence}</span>}
                 </div>
 
-                <div className="text-xs text-[var(--fg-muted)] mt-1">{plan.commissionPercent}% platform fee on transactions</div>
-                {!isCurrent && plan.commissionPercent < commissionPct && (
+                <div className="text-xs text-[var(--fg-muted)] mt-1">
+                  {isCurrent ? commissionPct : plan.id === 'enterprise' ? 'Typically 1–2' : plan.commissionPercent}% platform fee on Nexez-settled transactions
+                </div>
+                {honestSavingsCents > 0 && (
                   <div className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md bg-[var(--ready)]/10 px-2 py-1 text-xs font-medium text-[var(--ready)]">
-                    Lower fee: {commissionPct}% → {plan.commissionPercent}%
-                    {agentRevenueCents > 0
-                      ? ` · keep +${formatCurrencyAmount(Math.round((agentRevenueCents * (commissionPct - plan.commissionPercent)) / 100), revenueCurrency)} on this month’s sales`
-                      : ''}
+                    Would have saved about {formatCurrencyAmount(honestSavingsCents, revenueCurrency)} this month
                   </div>
                 )}
 
@@ -923,7 +993,7 @@ export default function BillingDashboardClient({
         )}
 
         <p className="text-center text-[10px] text-[var(--fg-muted)]">
-          Subscriptions are processed by Stripe. Transaction commissions are handled separately via your connected account.
+          Subscriptions are processed by Stripe. Nexez commissions apply only to Nexez-settled transactions; payment-processing fees are separate.
         </p>
       </div>
     )
@@ -981,6 +1051,15 @@ function MoneyFlowStep({ label, value, sub, tone }: { label: string; value: stri
       <p className="text-xs uppercase tracking-wide text-[var(--fg-muted)]">{label}</p>
       <p className={`mt-1 text-2xl font-semibold tracking-tight ${valueClass}`}>{value}</p>
       <p className="mt-0.5 text-xs text-[var(--fg-muted)]">{sub}</p>
+    </div>
+  )
+}
+
+function FeeMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[var(--bd-10)] bg-[var(--ov-015)] p-5">
+      <p className="text-xs uppercase tracking-wide text-[var(--fg-muted)]">{label}</p>
+      <p className="mt-2 text-2xl font-semibold tracking-tight text-white">{value}</p>
     </div>
   )
 }

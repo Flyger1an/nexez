@@ -29,6 +29,7 @@ export default function PricingClient() {
             const isEnterprise = plan.id === 'enterprise'
             const priceDisplay = isEnterprise ? 'Custom' : plan.price
             const cadence = isEnterprise ? '' : `/${plan.cadence}`
+            const commissionLabel = isEnterprise ? 'Typically 1–2%' : `${plan.commissionPercent}%`
             // Plans are cumulative - make that legible (each builds on the one before).
             const previousPlanName = !isEnterprise && planIndex > 0 ? tiers[planIndex - 1].name : null
 
@@ -63,6 +64,9 @@ export default function PricingClient() {
                     <span className="text-5xl font-semibold tracking-tight">{priceDisplay}</span>
                     <span className="ml-1 text-[#9CA3AF]">{cadence}</span>
                   </div>
+                  <div className="mt-2 text-sm text-[#9CA3AF]">
+                    <span className="font-medium text-white">{commissionLabel}</span> Nexez commission
+                  </div>
                 </div>
 
                 <ul className="mt-8 flex-1 space-y-3 text-sm">
@@ -95,7 +99,7 @@ export default function PricingClient() {
 
                 {!isEnterprise && (
                   <p className="mt-2 text-center text-[10px] text-zinc-500">
-                    {plan.id === 'free' ? `No expiry · ${plan.commissionPercent}% transaction fee` : '7-day trial · no credit card'}
+                    {plan.id === 'free' ? 'No expiry · no card required' : '7-day trial · no credit card'}
                   </p>
                 )}
               </div>
@@ -103,53 +107,28 @@ export default function PricingClient() {
           })}
         </div>
 
-        {/* Agentic Checkout — the Pro benefit callout. Copy source:
-            docs/agentic-commerce-upgrade-copy.md; commission numbers rendered from the
-            billing catalog so they can never drift from what's actually charged. */}
-        {(() => {
-          const launch = billingPlans.find((p) => p.id === 'launch')!
-          const pro = billingPlans.find((p) => p.id === 'pro')!
-          const rows: { label: string; launch: React.ReactNode; pro: React.ReactNode }[] = [
-            { label: 'Listed in ChatGPT & Google agent feeds', launch: <Check className="mx-auto size-4" style={{ color: 'var(--ready)' }} />, pro: <Check className="mx-auto size-4" style={{ color: 'var(--ready)' }} /> },
-            { label: 'Agents can complete checkout', launch: <span className="text-zinc-600">—</span>, pro: <Check className="mx-auto size-4" style={{ color: 'var(--ready)' }} /> },
-            { label: 'Transaction commission', launch: `${launch.commissionPercent}%`, pro: <span className="font-semibold">{pro.commissionPercent}%</span> },
-          ]
-          return (
-            <div className="glass mb-16 rounded-3xl p-8 md:p-12">
-              <div className="grid items-center gap-8 md:grid-cols-2">
-                <div>
-                  <div className="chip mx-0" style={{ color: 'var(--signal)' }}>New — Agentic Checkout</div>
-                  <h2 className="mt-4 text-3xl font-semibold tracking-tight">Turn agent traffic into agent sales.</h2>
-                  <p className="mt-3 text-sm text-[#9CA3AF]">
-                    Every published listing already shows up when ChatGPT and Google&rsquo;s shopping agents look for what you sell.{' '}
-                    <span className="text-white">Pro lets those agents close the sale</span> — buyers check out and pay without ever
-                    leaving the chat, settled straight to your Stripe account. You also pay the lowest commission of the core plans:{' '}
-                    <span className="text-white">{pro.commissionPercent}%</span>.
-                  </p>
-                  <p className="mt-3 text-xs italic text-zinc-500">Discovery is free forever. Pro is what makes you buyable.</p>
-                </div>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-xs uppercase tracking-wide text-zinc-500">
-                      <th className="pb-2 text-left font-medium">&nbsp;</th>
-                      <th className="pb-2 text-center font-medium">{launch.name}</th>
-                      <th className="pb-2 text-center font-medium" style={{ color: 'var(--signal)' }}>{pro.name}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((row) => (
-                      <tr key={row.label} className="border-t border-white/10">
-                        <td className="py-3 pr-3 text-[#9CA3AF]">{row.label}</td>
-                        <td className="py-3 text-center">{row.launch}</td>
-                        <td className="py-3 text-center">{row.pro}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+        <div className="glass mb-16 rounded-3xl p-8 md:p-12">
+          <div className="grid items-center gap-8 md:grid-cols-2">
+            <div>
+              <div className="chip mx-0" style={{ color: 'var(--signal)' }}>Agentic checkout on every plan</div>
+              <h2 className="mt-4 text-3xl font-semibold tracking-tight">Start selling before you subscribe.</h2>
+              <p className="mt-3 text-sm text-[#9CA3AF]">
+                Every commerce-ready merchant can be discovered and complete Nexez-settled transactions. Paid plans add operating
+                leverage, higher limits, and lower platform fees as your agent-commerce volume grows.
+              </p>
             </div>
-          )
-        })()}
+            <div className="rounded-2xl border border-white/10 bg-black/10 p-6">
+              <div className="text-lg font-semibold">Start free.</div>
+              <p className="mt-2 text-sm text-[#9CA3AF]">
+                Nexez earns <span className="font-medium text-white">9% only when a transaction is completed through Nexez.</span>
+              </p>
+              <ul className="mt-5 space-y-3 text-sm text-[#9CA3AF]">
+                <li className="flex gap-2"><Check className="mt-0.5 size-4 shrink-0 text-[var(--ready)]" /> Discovery and checkout are available on Free</li>
+                <li className="flex gap-2"><Check className="mt-0.5 size-4 shrink-0 text-[var(--ready)]" /> Upgrade for tools, scale, and better economics</li>
+              </ul>
+            </div>
+          </div>
+        </div>
 
         {/* Platform Fees Section */}
         <div className="glass prism rounded-3xl p-8 md:p-12">
@@ -157,7 +136,7 @@ export default function PricingClient() {
             <div className="chip ready mx-auto">We only make money when you do</div>
             <h2 className="display mt-4">Transparent platform fees</h2>
             <p className="lede mx-auto mt-3 text-center">
-              Nexez takes a small cut only on successful agent-driven transactions through your listings. No monthly fees on top of your plan.
+              Lower platform fees as your agent-commerce volume grows.
             </p>
           </div>
 
@@ -167,17 +146,20 @@ export default function PricingClient() {
             {billingPlans.map((plan) => (
               <div key={plan.id} className="glass rounded-2xl p-5">
                 <div className="text-sm font-medium" style={{ color: 'var(--ready)' }}>{plan.name}</div>
-                <div className="mt-2 text-3xl font-semibold">{plan.commissionPercent}%</div>
+                <div className="mt-2 text-3xl font-semibold">{plan.id === 'enterprise' ? '1–2%' : `${plan.commissionPercent}%`}</div>
                 <p className="mt-2 text-xs text-[#9CA3AF]">
-                  {`$100 booking → $${plan.commissionPercent} to Nexez, $${100 - plan.commissionPercent} to you.`}
+                  {plan.id === 'enterprise'
+                    ? 'Custom commercial terms based on volume and requirements.'
+                    : `$100 Nexez-settled sale → $${plan.commissionPercent} to Nexez, $${100 - plan.commissionPercent} before payment processing.`}
                 </p>
               </div>
             ))}
           </div>
           <p className="mt-4 text-center text-xs text-zinc-500">The transaction fee steps down as your plan goes up - higher tiers keep more of every sale.</p>
 
-          <p className="mt-8 text-center text-xs text-[#9CA3AF]">
-            Fees are automatically deducted at payout. Full transparency in your Billing History.
+          <p className="mx-auto mt-8 max-w-3xl text-center text-sm text-[#9CA3AF]">
+            Nexez&rsquo;s platform commission applies to transactions settled through Nexez. Card and payment-processing fees are separate.
+            External provider handoffs are not charged a Nexez transaction commission unless separately agreed.
           </p>
         </div>
 

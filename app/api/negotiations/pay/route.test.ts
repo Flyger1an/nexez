@@ -157,6 +157,31 @@ describe('POST /api/negotiations/pay', () => {
     expect(params.payment_intent_data.application_fee_amount).toBe(8100)
   })
 
+  it.each([
+    ['free', 900, 8100],
+    ['launch', 700, 6300],
+    ['pro', 500, 4500],
+    ['scale', 300, 2700],
+    ['enterprise', 200, 1800],
+  ])('snapshots the %s plan economics on negotiation funding', async (planId, commissionBps, expectedFee) => {
+    const getUpdate = db(NEG, { plan_id: planId, status: 'active', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true })
+    expect((await POST(post({ negotiationId: 'n1', token: 'tok' }))).status).toBe(200)
+    const [params] = (stripeRef.create as any).mock.calls[0]
+    expect(params.payment_intent_data.application_fee_amount).toBe(expectedFee)
+    expect(params.metadata).toMatchObject({
+      nexez_owner_plan: planId,
+      nexez_commission_bps: String(commissionBps),
+      nexez_commission_source: 'plan_default',
+      nexez_application_fee_cents: String(expectedFee),
+    })
+    expect(getUpdate()).toMatchObject({
+      commission_bps: commissionBps,
+      application_fee_cents: expectedFee,
+      plan_id_at_purchase: planId,
+      commission_source: 'plan_default',
+    })
+  })
+
   it('409 owner_not_connected when the seller has no Stripe Connect account (no platform-account charge)', async () => {
     db(NEG, { plan_id: 'pro', status: 'active', stripe_connect_account_id: null })
     const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))
