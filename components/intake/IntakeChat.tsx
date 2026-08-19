@@ -95,6 +95,7 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl
 
   function openingMessages(state: IntakeState): AgentChatMessage<IntakeCard>[] {
     const extraction = state.extractions[0]
+    const hasTemplateContext = state.sources.some((source) => source.kind === 'template')
     const cards: IntakeCard[] = []
     if (extraction) {
       cards.push({
@@ -114,7 +115,7 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl
       ? `I read what your site already says. ${extraction.offers.length} offer${extraction.offers.length === 1 ? '' : 's'} came through, and I will only ask about what is missing or unclear.`
       : state.draft.name.trim()
         ? `I re-read ${state.draft.name}. It is already on Nexez, so I will only ask about what is missing or could be stronger. Your answers land as a draft on the listing.`
-        : state.templateHint
+        : hasTemplateContext
           ? 'You selected a reference template. I will use it only to guide what I ask — your prices, policies, service area, offers, and other business facts still come from you.'
           : 'We are starting fresh. A few focused questions and your draft will be ready to review in the builder. Answer, skip, or jump to the form any time.'
     return [{ id: 'intake-opening', role: 'assistant', content: intro, cards }]
