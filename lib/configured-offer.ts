@@ -91,6 +91,48 @@ export function mergeProposedOfferPreservingConfiguration(
   } as ConfiguredOfferItem
 }
 
+function normalizeOfferIdentity(name: string | undefined | null): string {
+  return (name ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '')
+}
+
+/**
+ * Merge a whole rewritten offer collection back onto the authoritative rich
+ * collection. This is used by editor transformations that still operate on the
+ * legacy text representation: scalar/copy rewrites may win, but merchant-authored
+ * configuration cannot disappear merely because text was reparsed.
+ *
+ * Offers omitted by a transformation are retained. A copy optimizer is never an
+ * authorization surface for deleting merchant inventory.
+ */
+export function mergeOfferCollectionPreservingConfiguration(
+  existing: OfferItem[] | null | undefined,
+  proposed: OfferItem[] | null | undefined,
+): ConfiguredOfferItem[] {
+  const current = existing ?? []
+  const incoming = proposed ?? []
+  const existingByName = new Map(
+    current
+      .map((offer) => [normalizeOfferIdentity(offer.name), offer] as const)
+      .filter(([key]) => Boolean(key)),
+  )
+
+  const merged = incoming.map((offer) =>
+    mergeProposedOfferPreservingConfiguration(
+      existingByName.get(normalizeOfferIdentity(offer.name)),
+      offer,
+    ),
+  )
+
+  const incomingNames = new Set(incoming.map((offer) => normalizeOfferIdentity(offer.name)).filter(Boolean))
+  for (const offer of current) {
+    const key = normalizeOfferIdentity(offer.name)
+    if (key && incomingNames.has(key)) continue
+    merged.push({ ...offer } as ConfiguredOfferItem)
+  }
+
+  return merged
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
