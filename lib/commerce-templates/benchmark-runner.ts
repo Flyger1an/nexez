@@ -78,7 +78,7 @@ const COVERAGE: CommerceBenchmarkCoverage[] = [
   {
     stage: 'seller-template-matching',
     status: 'exercised',
-    reason: 'Runs the production deterministic seller/intake matcher against canonical seller evidence derived from the owning template.',
+    reason: 'Runs the production deterministic seller/intake matcher against canonical merchant-facing evidence from the owning template.',
   },
   {
     stage: 'template-intelligence',
@@ -111,10 +111,15 @@ function versionedKey(ref: CommerceTemplateRef): string {
   return `${ref.id}@${ref.version}`
 }
 
+/**
+ * Build matcher input from merchant-facing canonical fields, not from the
+ * matchHints answer key itself. This makes the runner capable of detecting
+ * drift between authored template identity/content and its matching hints.
+ */
 function canonicalSellerEvidence(template: CommerceTemplate): CommerceTemplateMatchInput {
   return {
     industry: template.industry,
-    description: [template.description, ...template.matchHints.keywords].join(' '),
+    description: template.description,
     offerNames: template.offerBlueprints.map((offer) => offer.name),
   }
 }
