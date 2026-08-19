@@ -57,7 +57,7 @@ test.describe('create fork (talk vs form)', () => {
     await hydrated
     await page.getByText('Start from scratch').click()
     await expect(page.getByText(/Sign in to start your interview/)).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Start your free trial' })).toHaveAttribute('href', '/onboard?next=/create')
+    await expect(page.getByRole('link', { name: 'Create Free account' })).toHaveAttribute('href', '/onboard?next=/create')
   })
 })
 
