@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { ArrowLeft, CalendarClock, CheckCircle2, CircleDollarSign, RefreshCcw, ShieldCheck, XCircle } from 'lucide-react'
 
 type Occurrence = {
@@ -12,6 +12,7 @@ type Occurrence = {
   servicePeriodStart: string | null
   servicePeriodEnd: string | null
   paidAt: string
+  orderPath: string | null
 }
 
 type Agreement = {
@@ -63,18 +64,24 @@ export function AgreementPortal({ token }: { token: string }) {
   const [error, setError] = useState<string | null>(null)
   const [working, setWorking] = useState(false)
 
-  async function load() {
-    const response = await fetch(`/api/service-agreements/${encodeURIComponent(token)}`, { cache: 'no-store' })
-    if (!response.ok) {
-      setError(response.status === 404 ? 'This recurring-service link is invalid or unavailable.' : 'Could not load this recurring service.')
-      return
-    }
-    setAgreement(await response.json() as Agreement)
-    setError(null)
-  }
-
   useEffect(() => {
-    void load()
+    let active = true
+    void fetch(`/api/service-agreements/${encodeURIComponent(token)}`, { cache: 'no-store' })
+      .then(async (response) => {
+        if (!active) return
+        if (!response.ok) {
+          setError(response.status === 404 ? 'This recurring-service link is invalid or unavailable.' : 'Could not load this recurring service.')
+          return
+        }
+        setAgreement(await response.json() as Agreement)
+        setError(null)
+      })
+      .catch(() => {
+        if (active) setError('Could not reach Nexez to load this recurring service.')
+      })
+    return () => {
+      active = false
+    }
   }, [token])
 
   async function update(action: 'cancel' | 'resume') {
@@ -87,11 +94,8 @@ export function AgreementPortal({ token }: { token: string }) {
         body: JSON.stringify({ action }),
       })
       const body = await response.json()
-      if (!response.ok) {
-        setError(body.error || 'Could not update this recurring service.')
-      } else {
-        setAgreement(body as Agreement)
-      }
+      if (!response.ok) setError(body.error || 'Could not update this recurring service.')
+      else setAgreement(body as Agreement)
     } catch {
       setError('Could not reach Nexez to update this recurring service.')
     } finally {
@@ -196,6 +200,11 @@ export function AgreementPortal({ token }: { token: string }) {
                   <p className="mt-2 text-zinc-400">
                     {date(occurrence.servicePeriodStart)} → {date(occurrence.servicePeriodEnd)}
                   </p>
+                  {occurrence.orderPath ? (
+                    <a href={occurrence.orderPath} className="mt-3 inline-flex text-xs font-medium text-[var(--signal)] hover:underline">
+                      Manage, refund, or report this paid period
+                    </a>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -208,7 +217,7 @@ export function AgreementPortal({ token }: { token: string }) {
   )
 }
 
-function Detail({ label, value, icon }: { label: string; value: string; icon?: React.ReactNode }) {
+function Detail({ label, value, icon }: { label: string; value: string; icon?: ReactNode }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
       <p className="flex items-center gap-2 text-xs uppercase tracking-wide text-zinc-500">{icon}{label}</p>
