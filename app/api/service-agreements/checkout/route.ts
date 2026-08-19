@@ -100,6 +100,7 @@ export async function POST(request: Request) {
   const page = await getPublishedPage(input.slug)
   if (!page) return NextResponse.json({ error: 'Checkout page not found.' }, { status: 404 })
   if (!page.owner_id) return NextResponse.json({ error: 'Checkout owner is unavailable.' }, { status: 409 })
+  const ownerId = page.owner_id
 
   const offer = getCheckoutOffer(page, input.offer)
   if (!offer) return NextResponse.json({ error: 'Checkout offer not found.' }, { status: 404 })
@@ -191,7 +192,7 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient()
-  const settlement = await resolveSettlementContext(admin, { pageId: page.id, ownerId: page.owner_id })
+  const settlement = await resolveSettlementContext(admin, { pageId: page.id, ownerId })
   if (!settlement.ok) {
     return NextResponse.json(
       { error: settlement.message, code: settlement.code === 'paused' ? 'seller_paused' : 'payments_not_configured' },
@@ -240,7 +241,7 @@ export async function POST(request: Request) {
   async function existingResponse() {
     const existing = await findIdempotentServiceAgreement({
       admin,
-      ownerId: page.owner_id as string,
+      ownerId,
       requestIdempotencyKey,
     })
     if (!existing) return null
@@ -296,7 +297,7 @@ export async function POST(request: Request) {
   const pending = await createPendingServiceAgreement({
     admin,
     id: agreementId,
-    ownerId: page.owner_id,
+    ownerId,
     pageId: page.id,
     slug: page.slug,
     offerKey,
@@ -324,7 +325,7 @@ export async function POST(request: Request) {
   const metadata = serviceAgreementStripeMetadata({
     agreementId,
     contractFingerprint: agreementFingerprint,
-    ownerId: page.owner_id,
+    ownerId,
     pageId: page.id,
     offerKey,
   })
