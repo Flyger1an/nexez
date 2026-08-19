@@ -71,7 +71,7 @@ describe('offer configuration primitives', () => {
     expect(result.ok).toBe(false)
   })
 
-  it('validates typed public-safe offer attributes', () => {
+  it('validates typed public-safe offer attributes, including false, and rejects non-finite numbers', () => {
     expect(validateOfferAttribute({
       key: 'dietary_support',
       label: 'Dietary support',
@@ -88,10 +88,24 @@ describe('offer configuration primitives', () => {
     })
 
     expect(validateOfferAttribute({
+      key: 'travel_included',
+      label: 'Travel included',
+      valueType: 'boolean',
+      value: false,
+    }).ok).toBe(true)
+
+    expect(validateOfferAttribute({
       key: 'minimum_guests',
       label: 'Minimum guests',
       valueType: 'quantity',
       value: '10',
+    }).ok).toBe(false)
+
+    expect(validateOfferAttribute({
+      key: 'capacity',
+      label: 'Capacity',
+      valueType: 'number',
+      value: Number.POSITIVE_INFINITY,
     }).ok).toBe(false)
   })
 
