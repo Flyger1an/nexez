@@ -219,8 +219,8 @@ export const commerceBenchmarkTransactionFixtures: CommerceBenchmarkTransactionF
       multiSelectField(
         'dietary-needs',
         'Dietary needs',
-        ['scope', 'eligibility'],
         ['vegetarian', 'gluten-free'],
+        ['scope', 'eligibility'],
       ),
     ]),
     currency: 'usd',
