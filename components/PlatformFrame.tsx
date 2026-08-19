@@ -13,11 +13,21 @@ import { isDualPath, isMarketingPath } from '../lib/site'
 // Agent/public pages, auth, and the API render children directly - keeping those
 // surfaces (esp. the agent pages) lean.
 const PlatformShell = dynamic(() => import('./PlatformShell'))
+const MobilePlatformNav = dynamic(() => import('./MobilePlatformNav').then((m) => m.MobilePlatformNav))
 const MarketingShell = dynamic(() => import('./MarketingShell').then((m) => m.MarketingShell))
 
 // Product routes that get the in-app shell. The discovery/simulator/support
 // surfaces moved to MarketingShell as part of the nexez.ai / app.nexez.ai split.
 const platformPrefixes = ['/dashboard', '/create']
+
+function PlatformChrome({ children }: { children: ReactNode }) {
+  return (
+    <div className="pb-16 md:pb-0 max-md:[&_.dashboard-sidebar]:hidden">
+      <PlatformShell>{children}</PlatformShell>
+      <MobilePlatformNav />
+    </div>
+  )
+}
 
 // The session is detected CLIENT-side (document.cookie) after hydration. It only
 // affects the 4 dual discovery surfaces' chrome; resolving it in the root layout
@@ -40,7 +50,7 @@ export function PlatformFrame({ children }: { children: ReactNode }) {
   // marketing chrome. Checked before isMarketingPath, which also matches these.
   if (isDualPath(pathname)) {
     return hasSession ? (
-      <PlatformShell>{children}</PlatformShell>
+      <PlatformChrome>{children}</PlatformChrome>
     ) : (
       <MarketingShell>{children}</MarketingShell>
     )
@@ -54,7 +64,7 @@ export function PlatformFrame({ children }: { children: ReactNode }) {
   const shouldFrame = platformPrefixes.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   )
-  if (shouldFrame) return <PlatformShell>{children}</PlatformShell>
+  if (shouldFrame) return <PlatformChrome>{children}</PlatformChrome>
 
   return <>{children}</>
 }
