@@ -25,6 +25,13 @@ import type { SettlementContext } from '../../../lib/commerce/checkout-session-c
 import { billingPlans } from '../../../lib/billing'
 import { getCalendlyPat, integrationCredentialsConfigured } from '../../../lib/server/page-integration-credentials'
 import { createCalendlySchedulingLink } from '../../../lib/server/calendly-write'
+import { validateOfferTransactionConfiguration } from '../../../lib/offer-transaction-configuration'
+import {
+  hasOfferTransactionConfiguration,
+  offerTransactionConfigurationFingerprint,
+  persistCheckoutConfigurationHandoff,
+  STRIPE_OFFER_CONFIGURATION_HASH_KEY,
+} from '../../../lib/server/checkout-configuration-handoff'
 import {
   actionApprovalRequired,
   actionApprovalSecret,
@@ -40,6 +47,8 @@ type CheckoutInput = {
   offer: string
   query?: string
   dryRun?: boolean
+  /** Buyer transaction data validated against the merchant-authored offer schema. */
+  offerConfiguration?: unknown
   // Optional buyer identity an agent (or the on-page form) can declare so the seller
   // knows who is buying and the buyer gets a receipt + order-portal access.
   buyerEmail?: string
@@ -95,6 +104,42 @@ export async function POST(request: Request) {
   }
 
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
+  const configuration = validateOfferTransactionConfiguration(offer, input.offerConfiguration)
+  if (!configuration.ok) {
+    return NextResponse.json(
+      {
+        error: 'The buyer configuration does not satisfy this offer.',
+        code: 'invalid_offer_configuration',
+        fields: configuration.errors,
+      },
+      { status: 422 },
+    )
+  }
+  const normalizedConfiguration = configuration.value
+  const hasConfiguration = hasOfferTransactionConfiguration(normalizedConfiguration)
+  const configurationFingerprint = hasConfiguration
+    ? offerTransactionConfigurationFingerprint(normalizedConfiguration)
+    : null
+  const unresolvedPriceFields = configuration.schema
+    .filter((field) => field.affects?.includes('price') && Object.prototype.hasOwnProperty.call(normalizedConfiguration, field.key))
+    .map((field) => field.key)
+
+  if (unresolvedPriceFields.length) {
+    return NextResponse.json(
+      {
+        error: 'This offer marks buyer configuration as price-affecting, but no deterministic configuration pricing rule is published yet.',
+        code: 'offer_configuration_pricing_unresolved',
+        fields: unresolvedPriceFields,
+      },
+      { status: 409 },
+    )
+  }
+
+  // Keep legacy unconfigured action payloads byte-equivalent for approval hashing.
+  // A configured action, however, binds the normalized buyer values into the same
+  // existing approval token as slug/offer/query.
+  if (hasConfiguration) input.offerConfiguration = normalizedConfiguration
+  else delete input.offerConfiguration
 
   if (!input.dryRun) {
     const approvalSecret = actionApprovalSecret()
@@ -188,6 +233,8 @@ export async function POST(request: Request) {
       buyer_agent: buyer.agent,
       agent_client: cleanAgentHeader(request.headers.get('x-nexez-client')),
       idempotency_key_present: Boolean(idempotency.key),
+      offer_configuration_present: hasConfiguration,
+      offer_configuration_fingerprint: configurationFingerprint,
     },
   })
 
@@ -216,6 +263,23 @@ export async function POST(request: Request) {
     if (resolved.ok) settlementContext = resolved.context
   }
   const connectAccountId = settlementContext?.connectAccountId ?? null
+  const configuredStripeReady = Boolean(
+    !forceProviderHandoff && process.env.STRIPE_SECRET_KEY && amountCents && settlementContext,
+  )
+
+  // In this first transactional-configuration slice, Nexez can guarantee durable
+  // buyer choices only on the Stripe rail it settles itself. An external redirect
+  // cannot carry arbitrary service configuration without a provider-specific write
+  // adapter, so fail explicitly instead of silently dropping the contract.
+  if (hasConfiguration && !configuredStripeReady) {
+    return NextResponse.json(
+      {
+        error: 'Configured checkout requires a Nexez-settled Stripe checkout for this offer.',
+        code: 'configured_checkout_requires_nexez_settlement',
+      },
+      { status: 409 },
+    )
+  }
 
   if (input.dryRun) {
     const approval = issueActionApprovalToken('checkout', approvalInput(input as Record<string, unknown>))
@@ -233,6 +297,13 @@ export async function POST(request: Request) {
       currency,
       stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
       connectReady: Boolean(connectAccountId),
+      ...(configuration.schema.length
+        ? {
+            offerConfiguration: normalizedConfiguration,
+            requiredOfferConfigurationFields: configuration.schema.filter((field) => field.required).map((field) => field.key),
+            offerConfigurationFingerprint: configurationFingerprint,
+          }
+        : {}),
       events: {
         checkoutAttemptLogged: attemptLog.ok,
       },
@@ -288,6 +359,9 @@ export async function POST(request: Request) {
           // §7 multi-storefront breadcrumb: records which storefront made the sale so
           // finance can attribute per-storefront later. Resolution stays account-pooled.
           nexez_storefront_id: (page as { storefront_id?: string | null }).storefront_id ?? '',
+          ...(configurationFingerprint
+            ? { [STRIPE_OFFER_CONFIGURATION_HASH_KEY]: configurationFingerprint }
+            : {}),
         },
       }
 
@@ -316,6 +390,56 @@ export async function POST(request: Request) {
         ...(stripeIdempotencyKey ? { idempotencyKey: stripeIdempotencyKey } : {}),
       })
 
+      // A new configured checkout is only safe while the Stripe session is open.
+      // An idempotent replay can return the prior expired/complete session; never
+      // surface that stale URL as though it were a fresh configured transaction.
+      if (hasConfiguration && session.status && session.status !== 'open') {
+        return NextResponse.json(
+          {
+            error: 'This configured checkout session is no longer open. Start a new checkout action.',
+            code: 'configured_checkout_session_not_open',
+            stripeSessionStatus: session.status,
+          },
+          { status: 409 },
+        )
+      }
+
+      let configurationHandoffOk = true
+      if (hasConfiguration) {
+        try {
+          const handoff = await persistCheckoutConfigurationHandoff(createAdminClient(), {
+            stripeSessionId: session.id,
+            pageId: page.id,
+            offerKey,
+            configuration: normalizedConfiguration,
+          })
+          configurationHandoffOk = handoff.ok
+          if (!handoff.ok) console.warn('[Checkout] Configured checkout handoff failed:', handoff.error)
+        } catch (handoffError) {
+          configurationHandoffOk = false
+          console.warn('[Checkout] Configured checkout handoff threw:', handoffError)
+        }
+      }
+
+      if (hasConfiguration && !configurationHandoffOk) {
+        try {
+          await stripe.checkout.sessions.expire(
+            session.id,
+            {},
+            { stripeAccount: settlementContext.connectAccountId },
+          )
+        } catch (expireError) {
+          console.warn('[Checkout] Failed to expire configured Stripe session after handoff failure:', expireError)
+        }
+        return NextResponse.json(
+          {
+            error: 'Could not preserve the configured offer for checkout. No payable checkout was returned.',
+            code: 'configuration_handoff_failed',
+          },
+          { status: 503 },
+        )
+      }
+
       const sessionLog = await logCheckoutEvent({
         page,
         offer,
@@ -329,6 +453,8 @@ export async function POST(request: Request) {
         metadata: {
           amount_cents: amountCents,
           currency,
+          offer_configuration_present: hasConfiguration,
+          offer_configuration_fingerprint: configurationFingerprint,
         },
       })
 
@@ -337,6 +463,9 @@ export async function POST(request: Request) {
           url: session.url,
           provider: 'stripe',
           checkoutSessionId: session.id,
+          ...(hasConfiguration
+            ? { offerConfiguration: normalizedConfiguration, offerConfigurationFingerprint: configurationFingerprint }
+            : {}),
           events: {
             checkoutAttemptLogged: attemptLog.ok,
             stripeSessionLogged: sessionLog.ok,
@@ -366,6 +495,20 @@ export async function POST(request: Request) {
           message: error instanceof Error ? error.message : 'Unknown Stripe error',
         },
       })
+
+      if (hasConfiguration) {
+        return NextResponse.json(
+          {
+            error: 'Configured checkout could not start on the Nexez settlement rail.',
+            code: 'configured_checkout_failed',
+            events: {
+              checkoutAttemptLogged: attemptLog.ok,
+              stripeErrorLogged: errorLog.ok,
+            },
+          },
+          { status: 502 },
+        )
+      }
 
       if (destination) {
         return respondWithDestination(wantsJson, destination, 'provider_fallback', {
@@ -437,6 +580,7 @@ async function readCheckoutInput(request: Request): Promise<CheckoutInput> {
       offer: String(body.offer || ''),
       query: body.query ? String(body.query) : undefined,
       dryRun: Boolean(body.dryRun),
+      offerConfiguration: body.offerConfiguration,
       buyerEmail: str(body.buyerEmail),
       buyerName: str(body.buyerName),
       buyerReference: str(body.buyerReference),
@@ -452,11 +596,23 @@ async function readCheckoutInput(request: Request): Promise<CheckoutInput> {
     offer: String(formData.get('offer') || ''),
     query: formData.get('query') ? String(formData.get('query')) : undefined,
     dryRun: formData.get('dryRun') === 'true',
+    offerConfiguration: parseFormOfferConfiguration(formData.get('offerConfiguration')),
     buyerEmail: str(formData.get('buyerEmail')),
     buyerName: str(formData.get('buyerName')),
     buyerReference: str(formData.get('buyerReference')),
     buyerAgent: str(formData.get('buyerAgent')),
     approvalToken: str(formData.get('approvalToken')),
+  }
+}
+
+function parseFormOfferConfiguration(value: FormDataEntryValue | null): unknown {
+  if (typeof value !== 'string' || !value.trim()) return undefined
+  try {
+    return JSON.parse(value)
+  } catch {
+    // Let the canonical validator return the stable 422 field error rather than
+    // silently coercing malformed form data into a transaction payload.
+    return value
   }
 }
 
