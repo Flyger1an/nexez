@@ -145,7 +145,7 @@ function coverageFor(
       stage: 'deterministic-pricing',
       status: transactionTemplateCoverageComplete ? 'exercised' : 'not-exercised',
       reason: transactionTemplateCoverageComplete
-        ? 'Runs normalized benchmark buyer configurations through production merchant-authored deterministic pricing and verifies exact amount/provenance snapshots.'
+        ? 'Runs normalized benchmark buyer configurations through production pricing and verifies exact priced snapshots or the exact expected fail-closed pricing outcome.'
         : 'Deterministic pricing coverage is incomplete because at least one corpus template lacks a benchmark-only configured transaction fixture.',
     },
   ]
