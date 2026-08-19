@@ -40,7 +40,7 @@ function canonical(value: unknown): string {
     const record = value as Record<string, unknown>
     return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonical(record[key])}`).join(',')}}`
   }
-  return JSON.stringify(value)
+  return JSON.stringify(value) ?? 'undefined'
 }
 
 function diagnostic(
