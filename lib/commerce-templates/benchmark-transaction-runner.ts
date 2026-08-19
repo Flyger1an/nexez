@@ -140,10 +140,45 @@ function pricingStage(
     return { stage, status: 'fail', diagnostics }
   }
 
+  const expected = fixture.expected.pricing
   const priced = priceOfferConfiguration(fixture.offer, normalized, fixture.currency)
+
   if (!priced.ok) {
+    if (expected.outcome === 'blocked') {
+      if (priced.code !== expected.code) {
+        diagnostics.push(
+          diagnostic(
+            stage,
+            'pricing_block_code_mismatch',
+            `${fixture.id} blocked with ${priced.code}; expected ${expected.code}.`,
+          ),
+        )
+      }
+      if (canonical(priced.fields) !== canonical(expected.fields)) {
+        diagnostics.push(
+          diagnostic(
+            stage,
+            'pricing_block_fields_mismatch',
+            `${fixture.id} blocked on different fields than the benchmark expectation.`,
+          ),
+        )
+      }
+      return { stage, status: diagnostics.length === 0 ? 'pass' : 'fail', diagnostics }
+    }
+
     diagnostics.push(
       diagnostic(stage, priced.code, `${fixture.id}: ${priced.error}`),
+    )
+    return { stage, status: 'fail', diagnostics }
+  }
+
+  if (expected.outcome === 'blocked') {
+    diagnostics.push(
+      diagnostic(
+        stage,
+        'pricing_unexpectedly_resolved',
+        `${fixture.id} produced a deterministic price but the benchmark expects pricing to fail closed.`,
+      ),
     )
     return { stage, status: 'fail', diagnostics }
   }
@@ -159,7 +194,6 @@ function pricingStage(
     return { stage, status: 'fail', diagnostics }
   }
 
-  const expected = fixture.expected.pricing
   if (priced.pricing.baseAmount !== expected.baseAmount) {
     diagnostics.push(
       diagnostic(stage, 'pricing_base_mismatch', `${fixture.id} base amount was ${priced.pricing.baseAmount}; expected ${expected.baseAmount}.`),
