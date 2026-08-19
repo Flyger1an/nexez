@@ -4,7 +4,7 @@ import {
   type CommerceBenchmarkBuyerPreflightFixture,
 } from './benchmark-buyer-preflight-fixtures'
 import { preflightCommerceBuyerClaims } from './buyer-preflight'
-import type { CommerceTemplate } from './schema'
+import type { CommerceTemplate, CommerceTemplateRef } from './schema'
 
 export type CommerceBenchmarkBuyerPreflightDiagnosticCode =
   | 'missing_template'
@@ -48,7 +48,7 @@ export type CommerceBenchmarkBuyerPreflightRun = {
   diagnostics: CommerceBenchmarkBuyerPreflightDiagnostic[]
 }
 
-function versionedKey(template: Pick<CommerceTemplate, 'id' | 'version'>): string {
+function versionedKey(template: CommerceTemplateRef): string {
   return `${template.id}@${template.version}`
 }
 
@@ -74,7 +74,7 @@ function runCase(
   if (!template) {
     diagnostics.push({
       code: 'missing_template',
-      message: `Buyer preflight cannot run because ${versionedKey(benchmarkCase.template as CommerceTemplate)} is missing.`,
+      message: `Buyer preflight cannot run because ${versionedKey(benchmarkCase.template)} is missing.`,
     })
   }
   if (fixture && fixture.benchmarkOnly !== true) {
@@ -230,7 +230,7 @@ export function runCommerceBenchmarkBuyerPreflight(
       : fixtureByCaseId.get(benchmarkCase.id)
     return runCase(
       benchmarkCase,
-      templateByKey.get(versionedKey(benchmarkCase.template as CommerceTemplate)),
+      templateByKey.get(versionedKey(benchmarkCase.template)),
       fixture,
     )
   })
