@@ -1,9 +1,12 @@
-import { getCommerceTemplateGapCandidates } from '../commerce-templates/intake'
+import { getCommerceTemplateGapCandidates, selectedCommerceTemplateRef } from '../commerce-templates/intake'
 import { analyzeGaps as analyzeBaseGaps } from './gaps'
 import type { Gap, IntakeAction, IntakeApplyResult, IntakeState } from './types'
 
 const ANALYZED_PHASES = new Set<IntakeState['phase']>(['GAP_ANALYSIS', 'INTERVIEW', 'SYNTHESIS'])
 const MAX_TEMPLATE_GAPS_PER_ANALYSIS = 5
+
+type CommerceGapState = Pick<IntakeState, 'draft' | 'answers'> & Partial<Pick<IntakeState, 'sources'>>
+type CommerceAnalyzedState = Pick<IntakeState, 'draft' | 'extractions' | 'answers'> & Partial<Pick<IntakeState, 'sources'>>
 
 /**
  * Merge template-derived knowledge questions into the existing deterministic
@@ -13,9 +16,10 @@ const MAX_TEMPLATE_GAPS_PER_ANALYSIS = 5
  */
 export function mergeCommerceTemplateGaps(
   baseGaps: Gap[],
-  state: Pick<IntakeState, 'draft' | 'answers'>,
+  state: CommerceGapState,
 ): Gap[] {
-  if (!state.draft.industry.trim()) return baseGaps
+  const sources = state.sources ?? []
+  if (!state.draft.industry.trim() && !selectedCommerceTemplateRef(sources)) return baseGaps
 
   const answeredIds = new Set(state.answers.filter((answer) => !answer.skipped).map((answer) => answer.gapId))
   const skippedIds = new Set(state.answers.filter((answer) => answer.skipped).map((answer) => answer.gapId))
@@ -29,7 +33,7 @@ export function mergeCommerceTemplateGaps(
   const merged = [...baseGaps]
   let addedTemplateGaps = 0
   for (const candidate of getCommerceTemplateGapCandidates(
-    { draft: state.draft },
+    { draft: state.draft, sources },
     { maxCandidates: MAX_TEMPLATE_GAPS_PER_ANALYSIS + seenKnowledgeSlots.size },
   )) {
     if (seenIds.has(candidate.gap.id)) continue
@@ -47,7 +51,7 @@ export function mergeCommerceTemplateGaps(
 }
 
 export function analyzeIntakeGaps(
-  state: Pick<IntakeState, 'draft' | 'extractions' | 'answers'>,
+  state: CommerceAnalyzedState,
 ): Gap[] {
   return mergeCommerceTemplateGaps(analyzeBaseGaps(state), state)
 }

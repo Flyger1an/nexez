@@ -78,7 +78,7 @@ export default async function CommerceExamplePage({ params }: CommerceExamplePag
               </div>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <a href={appUrl('/create')} className="btn-primary h-11 px-5">
+                <a href={appUrl(`/create?commerceTemplate=${encodeURIComponent(example.id)}`)} className="btn-primary h-11 px-5">
                   Build your version
                   <ArrowRight className="size-4" />
                 </a>

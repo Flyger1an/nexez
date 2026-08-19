@@ -4,6 +4,7 @@ import {
   initialAnalyzedState,
 } from '../../../../../lib/agents/intake'
 import { OWNER_PAGE_SELECT, type AgentPage } from '../../../../../lib/agent-page'
+import { commerceTemplateSourceValue, getLatestCommerceTemplate } from '../../../../../lib/commerce-templates'
 import { analyzeSite, getImportUrlError } from '../../../../../lib/importer'
 import { applyIntakeAction, createIntakeState, type IntakeState } from '../../../../../lib/intake'
 import { captureEvent } from '../../../../../lib/observability'
@@ -16,11 +17,13 @@ export const maxDuration = 60
 
 /**
  * POST /api/agents/intake/threads - start an intake interview (spec §5).
- * Body: { source_url?, page_id? }. With a page_id the session re-interviews an
- * existing listing (draft seeded, provenance 'imported'); with a source_url the
- * site is ingested + extracted before the first turn; with neither the owner is
- * starting from scratch. Auth: web cookie or mobile bearer - sessions persist
- * only for authenticated owners.
+ * Body: { source_url?, page_id?, template_id? }. With a page_id the session
+ * re-interviews an existing listing (draft seeded, provenance 'imported'); with
+ * a source_url the site is ingested + extracted before the first turn; with
+ * neither the owner is starting from scratch. `template_id` is an optional
+ * owner-selected Commerce Template knowledge source for new interviews only.
+ * It never seeds merchant fields. Auth: web cookie or mobile bearer - sessions
+ * persist only for authenticated owners.
  */
 export async function POST(request: NextRequest) {
   const limited = await enforceRateLimit(request, 'agents:intake:create', 10, 60_000)
@@ -37,9 +40,34 @@ export async function POST(request: NextRequest) {
   }
   const sourceUrl = typeof body.source_url === 'string' ? body.source_url.trim() : ''
   const pageId = typeof body.page_id === 'string' ? body.page_id.trim() : ''
+  const templateId = typeof body.template_id === 'string' ? body.template_id.trim() : ''
+
+  if (pageId && templateId) {
+    return NextResponse.json({ error: 'A template reference cannot replace the source of truth for an existing listing.' }, { status: 400 })
+  }
+
+  const selectedTemplate = templateId ? getLatestCommerceTemplate(templateId) : null
+  if (templateId && (!selectedTemplate || selectedTemplate.status !== 'active')) {
+    return NextResponse.json({ error: 'Commerce template not found.' }, { status: 400 })
+  }
 
   let state: IntakeState
   const nowIso = new Date().toISOString()
+
+  const addSelectedTemplateSource = (current: IntakeState): IntakeState => {
+    if (!selectedTemplate) return current
+    const added = applyIntakeAction(current, {
+      type: 'ADD_SOURCE',
+      source: {
+        id: crypto.randomUUID(),
+        kind: 'template',
+        value: commerceTemplateSourceValue({ id: selectedTemplate.id, version: selectedTemplate.version }),
+        label: `Reference template: ${selectedTemplate.title}`,
+        addedAt: nowIso,
+      },
+    })
+    return added.ok ? added.state : current
+  }
 
   if (pageId) {
     // Re-interview: the page must belong to the caller (RLS + explicit eq).
@@ -74,7 +102,7 @@ export async function POST(request: NextRequest) {
   } else if (sourceUrl) {
     const urlError = getImportUrlError(sourceUrl)
     if (urlError) return NextResponse.json({ error: urlError }, { status: 400 })
-    state = createIntakeState()
+    state = addSelectedTemplateSource(createIntakeState())
     const sourceId = crypto.randomUUID()
     const added = applyIntakeAction(state, {
       type: 'ADD_SOURCE',
@@ -92,7 +120,7 @@ export async function POST(request: NextRequest) {
     }
   } else {
     // Starting from scratch is a source too (spec §3 INGEST).
-    state = createIntakeState()
+    state = addSelectedTemplateSource(createIntakeState())
     const added = applyIntakeAction(state, {
       type: 'ADD_SOURCE',
       source: { id: crypto.randomUUID(), kind: 'none', value: '', label: 'Starting from scratch', addedAt: nowIso },
@@ -126,6 +154,7 @@ export async function POST(request: NextRequest) {
     offersExtracted: state.extractions.reduce((sum, e) => sum + e.offers.length, 0),
     gaps: state.gaps.length,
     blocking: state.gaps.filter((g) => g.kind === 'blocking').length,
+    ...(selectedTemplate ? { templateId: selectedTemplate.id, templateVersion: selectedTemplate.version } : {}),
   })
 
   return NextResponse.json({ ok: true, id: data.id, status: data.status, phase: data.phase, state }, { status: 201 })
@@ -133,7 +162,7 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET /api/agents/intake/threads - the owner's resumable interviews, newest
- * first (cross-device resume: start on the couch, finish on desktop).
+ * first (cross-device resume: start on the couch, finish here).
  */
 export async function GET(request: NextRequest) {
   const limited = await enforceRateLimit(request, 'agents:intake:list', 40, 60_000)
