@@ -5,6 +5,7 @@
 // Timestamps and ids always arrive via action payloads so the reducer is
 // deterministic and resumable.
 import type { FaqItem, OfferItem, OfferKind } from '../agent-page'
+import type { OfferAttribute, OfferInputField } from '../offer-configuration'
 import type { ImportClarifyingQuestion } from '../importer'
 
 /** The interview state machine (spec §3). GAP_ANALYSIS and SYNTHESIS are real,
@@ -82,6 +83,8 @@ export type IntakeFieldUpdate =
   | { target: 'page'; field: IntakePageField; value: string; origin?: 'suggested' }
   | { target: 'offer'; offerKey: string; field: IntakeOfferField; value: string | boolean; origin?: 'suggested' }
   | { target: 'offer_rules'; offerKey: string; rules: NonNullable<OfferItem['rules']>; origin?: 'suggested' }
+  | { target: 'offer_input'; offerKey: string; input: OfferInputField; origin?: 'suggested' }
+  | { target: 'offer_attribute'; offerKey: string; attribute: OfferAttribute; origin?: 'suggested' }
   | { target: 'new_offer'; kind: OfferKind; offer: OfferItem; origin?: 'suggested' }
   | { target: 'faq'; question: string; answer: string; origin?: 'suggested' }
 
@@ -125,7 +128,7 @@ export type IntakeMessage = {
   id: string
   role: 'owner' | 'agent'
   content: string
-  at: string // ISO - stamped by the caller
+  at: string // ISO - stamped by the caller, never inside the reducer
 }
 
 /** The working draft - native objects only (spec §2.2 / §9). Serialization to
@@ -165,6 +168,7 @@ export type IntakeState = {
   answers: GapAnswer[]
   draft: IntakeDraft
   /** Field path → provenance. Keys: `page:<field>` / `offer:<offerKey>:<field>`
+   *  / `offer:<offerKey>:input:<stable-key>` / `offer:<offerKey>:attribute:<stable-key>`
    *  / `faq:<n>` - see provenanceKey(). */
   provenance: Record<string, Provenance>
   messages: IntakeMessage[]

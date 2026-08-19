@@ -29,6 +29,11 @@ import {
   type IntakePageField,
   type IntakeState,
 } from '../intake'
+import {
+  OFFER_ATTRIBUTE_TOOL_SCHEMA,
+  OFFER_CONFIGURATION_PROMPT,
+  OFFER_INPUT_TOOL_SCHEMA,
+} from './intake-commerce-tool-schema'
 
 type Db = SupabaseClient
 
@@ -96,6 +101,7 @@ FIELD-UPDATE GRAMMAR (record_answers fields[] - the only shapes the platform acc
 - NEW offer:      {"target":"new_offer","kind":"services","offer":{"name":"Real Estate Aerial Package","price":"$350","description":"Aerial property shoot","duration":"2 hours","url":""}}
 - Negotiation:    {"target":"offer_rules","offerKey":"services-0","rules":{"minPrice":"$900","minNoticeHours":48}}
 - FAQ:            {"target":"faq","question":"Do you travel?","answer":"Yes, within the metro."}
+${OFFER_CONFIGURATION_PROMPT}
 Example - owner says "We offer a Real Estate Aerial Package for $350, takes about 2 hours, and a Wedding Aerial Film from $1,200":
 record_answers with TWO new_offer updates, one per offer, each carrying name + price (+ duration when stated).` + INTAKE_SAFETY_PREAMBLE
 
@@ -138,22 +144,29 @@ export const INTAKE_TOOLS = [
                   items: {
                     type: 'object',
                     properties: {
-                      target: { type: 'string', enum: ['page', 'offer', 'offer_rules', 'new_offer', 'faq'] },
+                      target: { type: 'string', enum: ['page', 'offer', 'offer_rules', 'offer_input', 'offer_attribute', 'new_offer', 'faq'] },
                       field: {
                         type: 'string',
                         description:
                           'page: name|description|website_url|cta_url|cta_label|audience|location|contact_email|industry · offer: name|price|description|duration|serviceArea|travelFee|isMobile|url|offerType',
                       },
                       value: { type: 'string' },
-                      offerKey: { type: 'string', description: 'e.g. services-0 - required for target offer / offer_rules.' },
+                      offerKey: { type: 'string', description: 'e.g. services-0 - required for target offer / offer_rules / offer_input / offer_attribute.' },
                       kind: { type: 'string', enum: ['services', 'products'], description: 'for target new_offer.' },
                       offer: {
                         type: 'object',
-                        description: 'for target new_offer: {name, price, description, url, duration?, serviceArea?, travelFee?}.',
+                        description: 'for target new_offer: {name, price, description, url, duration?, serviceArea?, travelFee?}. Structured configuration must use dedicated offer_input / offer_attribute updates.',
                       },
                       rules: {
                         type: 'object',
                         description: 'for target offer_rules: {minPrice?, maxDiscountPercent?, minNoticeHours?, blackoutDates?, maxBookingsPerWeek?}.',
+                      },
+                      input: OFFER_INPUT_TOOL_SCHEMA,
+                      attribute: OFFER_ATTRIBUTE_TOOL_SCHEMA,
+                      origin: {
+                        type: 'string',
+                        enum: ['suggested'],
+                        description: 'Use only when the owner explicitly confirms a fact you suggested; records suggested_confirmed provenance.',
                       },
                       question: { type: 'string', description: 'for target faq.' },
                       answer: { type: 'string', description: 'for target faq.' },
