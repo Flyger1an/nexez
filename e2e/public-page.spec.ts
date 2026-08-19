@@ -102,8 +102,8 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
       await page.getByText(/Advanced AI assist enabled|LLM opt-in enabled/i).waitFor({ timeout: 10000 }).catch(() => {})
     }
 
-    // Capture the slug from the rendered "Public Page" link (reliable, uses the live slug)
-    const publicLink = page.locator('a:has-text("Public Page")')
+    // Capture the slug from the rendered "Public Listing" link (reliable, uses the live slug)
+    const publicLink = page.locator('a:has-text("Public Listing")')
     await expect(publicLink).toBeVisible({ timeout: 5000 })
     const publicHref = await publicLink.getAttribute('href')
     const pageSlug = (publicHref || '').replace(/^\//, '').trim()
