@@ -54,11 +54,11 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
           </div>
           <p className="mt-6 text-sm font-medium text-[var(--signal)]">Checkout handoff complete</p>
           <h1 className="mt-3 text-4xl font-semibold tracking-tight">
-            {recurring ? 'Recurring service started' : 'Payment session created'}
+            {recurring ? 'Recurring service checkout complete' : 'Payment session created'}
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-zinc-400">
             {recurring
-              ? 'Nexez bound the merchant terms, your selected cadence, and the fixed per-period amount into one recurring service agreement.'
+              ? 'Nexez bound the merchant terms, your selected cadence, and the fixed per-period amount into one recurring service agreement. The agreement becomes active only after the first successful subscription payment is recorded.'
               : 'Nexez attached the selected offer and agent context to this checkout handoff. The seller can reconcile the session from Stripe metadata.'}
           </p>
 
