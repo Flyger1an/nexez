@@ -169,10 +169,7 @@ export function MobilePlatformNav() {
             style={{ bottom: 'calc(env(safe-area-inset-bottom) + 82px)' }}
           >
             <div className="mb-2 flex items-center justify-between px-1 py-1">
-              <div>
-                <p id="mobile-platform-nav-title" className="text-sm font-medium text-white">Navigate</p>
-                <p className="text-xs text-muted-foreground">Every destination, one tap away.</p>
-              </div>
+              <p id="mobile-platform-nav-title" className="text-sm font-medium text-white">Navigate</p>
               <button
                 ref={closeButtonRef}
                 type="button"
