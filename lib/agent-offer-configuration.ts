@@ -195,16 +195,48 @@ export function genericOfferConfigurationSchema(): JsonSchema {
   }
 }
 
+function configuredCheckoutPricingResponseSchema(): JsonSchema {
+  return {
+    type: 'object',
+    description: 'Exact deterministic checkout-time pricing snapshot in Stripe smallest units.',
+    properties: {
+      schemaVersion: { type: 'integer', enum: [1] },
+      currency: { type: 'string' },
+      baseAmount: { type: 'integer' },
+      adjustments: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            fieldKey: { type: 'string' },
+            label: { type: 'string' },
+            value: {},
+            model: { type: 'string', enum: ['option-delta', 'boolean-delta', 'quantity-delta'] },
+            rule: { type: 'object' },
+            amount: { type: 'integer' },
+          },
+        },
+      },
+      adjustmentAmount: { type: 'integer' },
+      finalAmount: { type: 'integer', minimum: 1 },
+    },
+    required: ['schemaVersion', 'currency', 'baseAmount', 'adjustments', 'adjustmentAmount', 'finalAmount'],
+  }
+}
+
 /**
  * Enrich an already-built Nexez OpenAPI document without duplicating the large
  * shared capability builder. Global specs get the generic request field; scoped
  * page specs additionally expose an exact schema map keyed by real offer key.
+ * The checkout success response is enriched here too so the request and quote
+ * contracts cannot drift independently.
  */
 export function withOfferConfigurationOpenApi<T extends Record<string, any>>(
   spec: T,
   offers?: CheckoutOffer[],
 ): T {
-  const checkoutSchema = spec?.paths?.['/api/checkout']?.post?.requestBody?.content?.['application/json']?.schema
+  const checkoutPost = spec?.paths?.['/api/checkout']?.post
+  const checkoutSchema = checkoutPost?.requestBody?.content?.['application/json']?.schema
   if (!checkoutSchema?.properties) return spec
 
   checkoutSchema.properties.offerConfiguration = genericOfferConfigurationSchema()
@@ -219,6 +251,20 @@ export function withOfferConfigurationOpenApi<T extends Record<string, any>>(
     if (Object.keys(perOfferSchemas).length) {
       checkoutSchema['x-nexez-offer-configuration-schemas'] = perOfferSchemas
     }
+  }
+
+  const responseSchema = checkoutPost?.responses?.['200']?.content?.['application/json']?.schema
+  if (responseSchema?.properties) {
+    Object.assign(responseSchema.properties, {
+      amountCents: {
+        type: ['integer', 'null'],
+        description: 'Exact final checkout amount in Stripe smallest units when Nexez can resolve a price.',
+      },
+      offerConfiguration: { type: 'object' },
+      offerConfigurationFingerprint: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+      offerPricing: configuredCheckoutPricingResponseSchema(),
+      offerPricingFingerprint: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    })
   }
 
   return spec
