@@ -91,8 +91,33 @@ export function mergeProposedOfferPreservingConfiguration(
   } as ConfiguredOfferItem
 }
 
-function isConfigurationMarker(part: string): boolean {
-  return part.includes(OFFER_INPUTS_MARKER) || part.includes(OFFER_ATTRIBUTES_MARKER)
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * Configuration JSON is URI-encoded by offer-configuration-codec, so its
+ * payload never contains a literal `|`. That lets us extract/remove only our
+ * markers without tokenizing the whole legacy line. Tokenizing on a single
+ * pipe would corrupt pre-existing double-pipe markers such as `||TIERS||`.
+ */
+function extractConfigurationMarker(line: string, marker: string): string | undefined {
+  const match = line.match(new RegExp(`${escapeRegExp(marker)}[^|]*`))
+  return match?.[0].trim()
+}
+
+function stripConfigurationMarker(line: string, marker: string): string {
+  return line.replace(
+    new RegExp(`\\s*\\|\\s*${escapeRegExp(marker)}[^|]*`),
+    '',
+  )
+}
+
+function stripConfigurationMarkers(line: string): string {
+  return stripConfigurationMarker(
+    stripConfigurationMarker(line, OFFER_INPUTS_MARKER),
+    OFFER_ATTRIBUTES_MARKER,
+  ).trim()
 }
 
 /**
@@ -101,13 +126,14 @@ function isConfigurationMarker(part: string): boolean {
  * Configuration markers are removed BEFORE delegating to parseOfferLines().
  * Without this guard an old parser would mistake a trailing [[INPUTS]] marker
  * for the first consumer field (`duration`) when no other consumer fields exist.
+ * Crucially, we never split/rejoin the base line: old markers such as
+ * `||TIERS||` and `||RULES||` remain byte-for-byte intact for the legacy parser.
  */
 export function parseConfiguredOfferLines(value: string): ConfiguredOfferItem[] {
   return splitLines(value).map((line) => {
-    const parts = line.split('|').map((part) => part.trim())
-    const inputsPart = parts.find((part) => part.includes(OFFER_INPUTS_MARKER))
-    const attributesPart = parts.find((part) => part.includes(OFFER_ATTRIBUTES_MARKER))
-    const baseLine = parts.filter((part) => !isConfigurationMarker(part)).join(' | ')
+    const inputsPart = extractConfigurationMarker(line, OFFER_INPUTS_MARKER)
+    const attributesPart = extractConfigurationMarker(line, OFFER_ATTRIBUTES_MARKER)
+    const baseLine = stripConfigurationMarkers(line)
     const base = parseOfferLines(baseLine)[0]
 
     const customerInputs = parseOfferInputsMarker(inputsPart)
