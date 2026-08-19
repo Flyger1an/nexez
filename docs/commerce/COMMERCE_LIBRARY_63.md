@@ -29,7 +29,9 @@ Every candidate is scored 1–5 on ten dimensions from the strategy charter:
 9. cross-service adjacency;
 10. operational distinctiveness.
 
-The maximum first-pass selection score is 50. Scores are curation judgments, not marketplace rankings, merchant quality scores, or buyer relevance signals.
+The machine-readable records are the single source of truth for these dimension scores. `commerceCurationSelectionScore()` derives a 10–50 total on demand; this report intentionally does not duplicate those derived totals.
+
+Scores are curation judgments, not marketplace rankings, merchant quality scores, or buyer relevance signals.
 
 ## Status semantics
 
@@ -67,77 +69,77 @@ First-pass status counts:
 | Property Turnover Service | Is this best represented as its own complex-project template or later as compound commerce across cleaning/repair/inspection? |
 | Commercial Landscaping | Does it add enough beyond Lawn Care Subscription + contracted-service mechanics to earn a separate canonical slot? |
 
-A simple baseline can still be valuable. For example, Barber Appointment is intentionally retained even with relatively low schema stress because the library benefits from a clean fixed-price/provider-location appointment baseline. **Redundancy, not simplicity, is the main reason to challenge a candidate.**
+A simple baseline can still be valuable. Barber Appointment is intentionally retained even with relatively low schema stress because the library benefits from a clean fixed-price/provider-location appointment baseline. **Redundancy, not simplicity, is the main reason to challenge a candidate.**
 
-## Candidate matrix
+## Candidate inventory
 
-| # | Candidate | Semantic ID | Archetype | Status | Score |
-|---:|---|---|---|---|---:|
-| 1 | Recurring Home Cleaning | `home.recurring-home-cleaning` | recurring-service | pilot-active | 47 |
-| 2 | Deep Cleaning | `home.deep-cleaning` | configurable-appointment | overlap-review | 41 |
-| 3 | Move-Out Cleaning | `home.move-out-cleaning` | configurable-appointment | retain | 46 |
-| 4 | Emergency Plumbing | `home.emergency-plumbing` | urgent-on-demand | retain | 49 |
-| 5 | Handyman Visit | `home.handyman-visit` | quote-required | retain | 46 |
-| 6 | Lawn Care Subscription | `home.lawn-care-subscription` | recurring-service | retain | 43 |
-| 7 | Interior Painting | `home.interior-painting` | complex-project | retain | 48 |
-| 8 | Appliance Repair | `home.appliance-repair` | consultation-first | retain | 48 |
-| 9 | Moving Service | `home.moving-service` | complex-project | retain | 50 |
-| 10 | Mobile Auto Detailing | `automotive.mobile-auto-detailing` | mobile-service | pilot-active | 49 |
-| 11 | Interior Detail | `automotive.interior-detail` | configurable-appointment | replacement-review | 35 |
-| 12 | Ceramic Coating | `automotive.ceramic-coating` | package-program | retain | 45 |
-| 13 | Mobile Brake Service | `automotive.mobile-brake-service` | mobile-service | retain | 49 |
-| 14 | Vehicle Diagnostic | `automotive.vehicle-diagnostic` | consultation-first | retain | 47 |
-| 15 | Pre-Purchase Inspection | `automotive.pre-purchase-inspection` | fixed-appointment | retain | 47 |
-| 16 | Window Tinting | `automotive.window-tinting` | configurable-appointment | retain | 41 |
-| 17 | Fleet Detailing Contract | `automotive.fleet-detailing-contract` | contracted-service | retain | 49 |
-| 18 | Mobile Tire Service | `automotive.mobile-tire-service` | urgent-on-demand | retain | 49 |
-| 19 | Event Photography | `events.event-photography` | package-program | pilot-active | 47 |
-| 20 | Wedding Videography | `events.wedding-videography` | package-program | retain | 47 |
-| 21 | Private Chef | `events.private-chef` | quote-required | pilot-active | 48 |
-| 22 | Event Catering | `events.event-catering` | unit-priced-service | retain | 49 |
-| 23 | DJ Service | `events.dj-service` | fixed-appointment | retain | 42 |
-| 24 | Event Planning | `events.event-planning` | complex-project | retain | 50 |
-| 25 | Party Rentals | `events.party-rentals` | inventory-rental | retain | 50 |
-| 26 | Proposal Setup | `events.proposal-setup` | configurable-appointment | retain | 46 |
-| 27 | Corporate Event Production | `events.corporate-event-production` | complex-project | retain | 49 |
-| 28 | Barber Appointment | `personal.barber-appointment` | fixed-appointment | retain | 35 |
-| 29 | Hair Styling | `personal.hair-styling` | configurable-appointment | overlap-review | 40 |
-| 30 | Mobile Makeup Artist | `personal.mobile-makeup-artist` | mobile-service | retain | 47 |
-| 31 | Bridal Beauty Package | `personal.bridal-beauty-package` | package-program | retain | 49 |
-| 32 | Massage Session | `personal.massage-session` | fixed-appointment | retain | 43 |
-| 33 | Personal Training | `personal.personal-training` | recurring-service | retain | 49 |
-| 34 | Private Yoga Instruction | `personal.private-yoga-instruction` | recurring-service | retain | 41 |
-| 35 | Nutrition Coaching | `personal.nutrition-coaching` | package-program | retain | 49 |
-| 36 | Mobile Nail Service | `personal.mobile-nail-service` | mobile-service | replacement-review | 36 |
-| 37 | Business Strategy Session | `professional.business-strategy-session` | consultation-first | pilot-active | 47 |
-| 38 | Monthly Bookkeeping | `professional.monthly-bookkeeping` | contracted-service | retain | 48 |
-| 39 | Tax Preparation | `professional.tax-preparation` | package-program | retain | 48 |
-| 40 | Brand Identity Package | `professional.brand-identity-package` | package-program | retain | 48 |
-| 41 | Web Design Project | `professional.web-design-project` | complex-project | pilot-active | 48 |
-| 42 | Video Production | `professional.video-production` | complex-project | retain | 50 |
-| 43 | Copywriting Package | `professional.copywriting-package` | package-program | retain | 44 |
-| 44 | Managed IT Support | `professional.managed-it-support` | contracted-service | retain | 50 |
-| 45 | AI Automation Implementation | `professional.ai-automation-implementation` | complex-project | retain | 50 |
-| 46 | Private Tutoring | `education.private-tutoring` | fixed-appointment | pilot-active | 47 |
-| 47 | Test Prep Program | `education.test-prep-program` | package-program | retain | 48 |
-| 48 | Music Lessons | `education.music-lessons` | recurring-service | retain | 43 |
-| 49 | Language Lessons | `education.language-lessons` | recurring-service | retain | 40 |
-| 50 | College Admissions Consulting | `education.college-admissions-consulting` | complex-project | retain | 49 |
-| 51 | Dog Walking | `pet.dog-walking` | recurring-service | retain | 43 |
-| 52 | Pet Sitting | `pet.pet-sitting` | package-program | retain | 48 |
-| 53 | Mobile Pet Grooming | `pet.mobile-pet-grooming` | mobile-service | retain | 45 |
-| 54 | Dog Training | `pet.dog-training` | package-program | retain | 49 |
-| 55 | Commercial Cleaning | `commercial.commercial-cleaning` | contracted-service | overlap-review | 48 |
-| 56 | Recurring Janitorial Service | `commercial.recurring-janitorial-service` | contracted-service | retain | 49 |
-| 57 | Pressure Washing | `commercial.pressure-washing` | mobile-service | retain | 49 |
-| 58 | Junk Removal | `commercial.junk-removal` | unit-priced-service | retain | 48 |
-| 59 | Laundry Pickup & Delivery | `commercial.laundry-pickup-delivery` | delivery-service | retain | 50 |
-| 60 | Pest Control | `commercial.pest-control` | recurring-service | retain | 49 |
-| 61 | Property Turnover Service | `commercial.property-turnover-service` | complex-project | overlap-review | 49 |
-| 62 | Commercial Landscaping | `commercial.commercial-landscaping` | contracted-service | overlap-review | 44 |
-| 63 | Locksmith Service | `commercial.locksmith-service` | urgent-on-demand | retain | 49 |
+| # | Candidate | Semantic ID | Archetype | Status |
+|---:|---|---|---|---|
+| 1 | Recurring Home Cleaning | `home.recurring-home-cleaning` | recurring-service | pilot-active |
+| 2 | Deep Cleaning | `home.deep-cleaning` | configurable-appointment | overlap-review |
+| 3 | Move-Out Cleaning | `home.move-out-cleaning` | configurable-appointment | retain |
+| 4 | Emergency Plumbing | `home.emergency-plumbing` | urgent-on-demand | retain |
+| 5 | Handyman Visit | `home.handyman-visit` | quote-required | retain |
+| 6 | Lawn Care Subscription | `home.lawn-care-subscription` | recurring-service | retain |
+| 7 | Interior Painting | `home.interior-painting` | complex-project | retain |
+| 8 | Appliance Repair | `home.appliance-repair` | consultation-first | retain |
+| 9 | Moving Service | `home.moving-service` | complex-project | retain |
+| 10 | Mobile Auto Detailing | `automotive.mobile-auto-detailing` | mobile-service | pilot-active |
+| 11 | Interior Detail | `automotive.interior-detail` | configurable-appointment | replacement-review |
+| 12 | Ceramic Coating | `automotive.ceramic-coating` | package-program | retain |
+| 13 | Mobile Brake Service | `automotive.mobile-brake-service` | mobile-service | retain |
+| 14 | Vehicle Diagnostic | `automotive.vehicle-diagnostic` | consultation-first | retain |
+| 15 | Pre-Purchase Inspection | `automotive.pre-purchase-inspection` | fixed-appointment | retain |
+| 16 | Window Tinting | `automotive.window-tinting` | configurable-appointment | retain |
+| 17 | Fleet Detailing Contract | `automotive.fleet-detailing-contract` | contracted-service | retain |
+| 18 | Mobile Tire Service | `automotive.mobile-tire-service` | urgent-on-demand | retain |
+| 19 | Event Photography | `events.event-photography` | package-program | pilot-active |
+| 20 | Wedding Videography | `events.wedding-videography` | package-program | retain |
+| 21 | Private Chef | `events.private-chef` | quote-required | pilot-active |
+| 22 | Event Catering | `events.event-catering` | unit-priced-service | retain |
+| 23 | DJ Service | `events.dj-service` | fixed-appointment | retain |
+| 24 | Event Planning | `events.event-planning` | complex-project | retain |
+| 25 | Party Rentals | `events.party-rentals` | inventory-rental | retain |
+| 26 | Proposal Setup | `events.proposal-setup` | configurable-appointment | retain |
+| 27 | Corporate Event Production | `events.corporate-event-production` | complex-project | retain |
+| 28 | Barber Appointment | `personal.barber-appointment` | fixed-appointment | retain |
+| 29 | Hair Styling | `personal.hair-styling` | configurable-appointment | overlap-review |
+| 30 | Mobile Makeup Artist | `personal.mobile-makeup-artist` | mobile-service | retain |
+| 31 | Bridal Beauty Package | `personal.bridal-beauty-package` | package-program | retain |
+| 32 | Massage Session | `personal.massage-session` | fixed-appointment | retain |
+| 33 | Personal Training | `personal.personal-training` | recurring-service | retain |
+| 34 | Private Yoga Instruction | `personal.private-yoga-instruction` | recurring-service | retain |
+| 35 | Nutrition Coaching | `personal.nutrition-coaching` | package-program | retain |
+| 36 | Mobile Nail Service | `personal.mobile-nail-service` | mobile-service | replacement-review |
+| 37 | Business Strategy Session | `professional.business-strategy-session` | consultation-first | pilot-active |
+| 38 | Monthly Bookkeeping | `professional.monthly-bookkeeping` | contracted-service | retain |
+| 39 | Tax Preparation | `professional.tax-preparation` | package-program | retain |
+| 40 | Brand Identity Package | `professional.brand-identity-package` | package-program | retain |
+| 41 | Web Design Project | `professional.web-design-project` | complex-project | pilot-active |
+| 42 | Video Production | `professional.video-production` | complex-project | retain |
+| 43 | Copywriting Package | `professional.copywriting-package` | package-program | retain |
+| 44 | Managed IT Support | `professional.managed-it-support` | contracted-service | retain |
+| 45 | AI Automation Implementation | `professional.ai-automation-implementation` | complex-project | retain |
+| 46 | Private Tutoring | `education.private-tutoring` | fixed-appointment | pilot-active |
+| 47 | Test Prep Program | `education.test-prep-program` | package-program | retain |
+| 48 | Music Lessons | `education.music-lessons` | recurring-service | retain |
+| 49 | Language Lessons | `education.language-lessons` | recurring-service | retain |
+| 50 | College Admissions Consulting | `education.college-admissions-consulting` | complex-project | retain |
+| 51 | Dog Walking | `pet.dog-walking` | recurring-service | retain |
+| 52 | Pet Sitting | `pet.pet-sitting` | package-program | retain |
+| 53 | Mobile Pet Grooming | `pet.mobile-pet-grooming` | mobile-service | retain |
+| 54 | Dog Training | `pet.dog-training` | package-program | retain |
+| 55 | Commercial Cleaning | `commercial.commercial-cleaning` | contracted-service | overlap-review |
+| 56 | Recurring Janitorial Service | `commercial.recurring-janitorial-service` | contracted-service | retain |
+| 57 | Pressure Washing | `commercial.pressure-washing` | mobile-service | retain |
+| 58 | Junk Removal | `commercial.junk-removal` | unit-priced-service | retain |
+| 59 | Laundry Pickup & Delivery | `commercial.laundry-pickup-delivery` | delivery-service | retain |
+| 60 | Pest Control | `commercial.pest-control` | recurring-service | retain |
+| 61 | Property Turnover Service | `commercial.property-turnover-service` | complex-project | overlap-review |
+| 62 | Commercial Landscaping | `commercial.commercial-landscaping` | contracted-service | overlap-review |
+| 63 | Locksmith Service | `commercial.locksmith-service` | urgent-on-demand | retain |
 
-The machine-readable files are authoritative for scores and tags; this table is a review surface.
+The machine-readable files are authoritative for scores, tags, and gap signals; this table is a review surface.
 
 ## Measured capability hypotheses
 
