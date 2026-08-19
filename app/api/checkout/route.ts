@@ -390,8 +390,22 @@ export async function POST(request: Request) {
         ...(stripeIdempotencyKey ? { idempotencyKey: stripeIdempotencyKey } : {}),
       })
 
+      // A new configured checkout is only safe while the Stripe session is open.
+      // An idempotent replay can return the prior expired/complete session; never
+      // surface that stale URL as though it were a fresh configured transaction.
+      if (hasConfiguration && session.status && session.status !== 'open') {
+        return NextResponse.json(
+          {
+            error: 'This configured checkout session is no longer open. Start a new checkout action.',
+            code: 'configured_checkout_session_not_open',
+            stripeSessionStatus: session.status,
+          },
+          { status: 409 },
+        )
+      }
+
       let configurationHandoffOk = true
-      if (hasConfiguration && session.status !== 'complete' && session.status !== 'expired') {
+      if (hasConfiguration) {
         try {
           const handoff = await persistCheckoutConfigurationHandoff(createAdminClient(), {
             stripeSessionId: session.id,
@@ -409,9 +423,11 @@ export async function POST(request: Request) {
 
       if (hasConfiguration && !configurationHandoffOk) {
         try {
-          await stripe.checkout.sessions.expire(session.id, {
-            stripeAccount: settlementContext.connectAccountId,
-          })
+          await stripe.checkout.sessions.expire(
+            session.id,
+            {},
+            { stripeAccount: settlementContext.connectAccountId },
+          )
         } catch (expireError) {
           console.warn('[Checkout] Failed to expire configured Stripe session after handoff failure:', expireError)
         }
