@@ -3,6 +3,7 @@ import { analyzeGaps as analyzeBaseGaps } from './gaps'
 import type { Gap, IntakeAction, IntakeApplyResult, IntakeState } from './types'
 
 const ANALYZED_PHASES = new Set<IntakeState['phase']>(['GAP_ANALYSIS', 'INTERVIEW', 'SYNTHESIS'])
+const MAX_TEMPLATE_GAPS_PER_ANALYSIS = 5
 
 /**
  * Merge template-derived knowledge questions into the existing deterministic
@@ -26,7 +27,11 @@ export function mergeCommerceTemplateGaps(
   )
 
   const merged = [...baseGaps]
-  for (const candidate of getCommerceTemplateGapCandidates({ draft: state.draft })) {
+  let addedTemplateGaps = 0
+  for (const candidate of getCommerceTemplateGapCandidates(
+    { draft: state.draft },
+    { maxCandidates: MAX_TEMPLATE_GAPS_PER_ANALYSIS + seenKnowledgeSlots.size },
+  )) {
     if (seenIds.has(candidate.gap.id)) continue
     if (skippedIds.has(candidate.gap.id) || (candidate.oneShot && answeredIds.has(candidate.gap.id))) continue
     if (seenKnowledgeSlots.has(candidate.dedupKey)) continue
@@ -34,6 +39,8 @@ export function mergeCommerceTemplateGaps(
     seenIds.add(candidate.gap.id)
     seenKnowledgeSlots.add(candidate.dedupKey)
     merged.push(candidate.gap)
+    addedTemplateGaps += 1
+    if (addedTemplateGaps >= MAX_TEMPLATE_GAPS_PER_ANALYSIS) break
   }
 
   return merged.sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id))
