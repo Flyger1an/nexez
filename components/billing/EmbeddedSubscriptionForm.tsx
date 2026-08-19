@@ -29,9 +29,12 @@ import type { BillingPlan } from '../../lib/billing'
  * - Production-ready: basic loading/error states, logs errors.
  */
 
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''
-)
+// Never initialize Stripe.js with an empty key. The component already has a
+// graceful unconfigured-state fallback below, but module-scope loadStripe('')
+// throws asynchronously before React can render that fallback (and surfaced as
+// an uncaught browser error in E2E/dev environments without subscription keys).
+const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim()
+const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null
 
 interface EmbeddedSubscriptionFormProps {
   plan: BillingPlan
@@ -82,7 +85,7 @@ export function CheckoutFormInner({ clientSecret, onSuccess, onCancel }: { clien
         console.error('[EmbeddedSubscription] confirmPayment error', error)
         setErrorMessage(error.message || 'Payment failed. Please try again or use a different card.')
       } else if (paymentIntent && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'processing')) {
-        // Success (or processing for some methods). Webhook will sync billing_subscriptions.
+        // Success (or processing for some methods). Webhook will sync billing_subscriptions
         onSuccess?.()
       } else {
         setErrorMessage('Payment requires additional action. Please follow the prompts or check your email.')
@@ -139,7 +142,7 @@ export function CheckoutFormInner({ clientSecret, onSuccess, onCancel }: { clien
 }
 
 export default function EmbeddedSubscriptionForm({ plan, clientSecret, onSuccess, onCancel }: EmbeddedSubscriptionFormProps) {
-  if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
+  if (!stripePromise) {
     return (
       <div className="rounded-lg border border-[var(--amber)]/30 bg-[var(--amber)]/10 p-4 text-sm text-[var(--amber)]">
         Embedded checkout is unavailable right now. Use the hosted upgrade button instead.
