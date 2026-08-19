@@ -4,25 +4,33 @@ import {
   type CommerceBenchmarkCase,
   type CommerceBenchmarkCorpus,
 } from './benchmark'
+import {
+  commerceBenchmarkTransactionFixtures,
+  type CommerceBenchmarkTransactionFixture,
+} from './benchmark-transaction-fixtures'
+import {
+  runCommerceBenchmarkTransactionFixtures,
+  type CommerceBenchmarkTransactionFixtureResult,
+  type CommerceBenchmarkTransactionStage,
+} from './benchmark-transaction-runner'
 import { routeCommerceBuyerIntent } from './buyer-router'
 import { resolveCommerceTemplateIntelligence } from './intelligence'
 import { matchCommerceTemplates, type CommerceTemplateMatchInput } from './matcher'
 import { listCommerceTemplates } from './registry'
 import type { CommerceTemplate, CommerceTemplateRef } from './schema'
 
-export const COMMERCE_BENCHMARK_RUNNER_VERSION = 2 as const
+export const COMMERCE_BENCHMARK_RUNNER_VERSION = 3 as const
 
 export type CommerceBenchmarkExecutableStage =
   | 'template-contract'
   | 'buyer-intent-routing'
   | 'seller-template-matching'
   | 'template-intelligence'
+  | CommerceBenchmarkTransactionStage
 
 export type CommerceBenchmarkCoverageStage =
   | CommerceBenchmarkExecutableStage
   | 'must-not-behavior'
-  | 'offer-configuration'
-  | 'deterministic-pricing'
 
 export type CommerceBenchmarkCoverage = {
   stage: CommerceBenchmarkCoverageStage
@@ -54,62 +62,93 @@ export type CommerceBenchmarkRun = {
   corpusFormatVersion: CommerceBenchmarkCorpus['formatVersion']
   ok: boolean
   completeLifecycleCoverage: false
+  transactionTemplateCoverageComplete: boolean
   coverage: CommerceBenchmarkCoverage[]
   summary: {
     caseCount: number
     passedCases: number
     failedCases: number
+    transactionFixtureCount: number
+    passedTransactionFixtures: number
+    failedTransactionFixtures: number
     exercisedStageCount: number
     notExercisedStageCount: number
   }
   cases: CommerceBenchmarkCaseResult[]
+  transactionFixtures: CommerceBenchmarkTransactionFixtureResult[]
 }
 
 export type CommerceBenchmarkRunOptions = {
   corpus?: CommerceBenchmarkCorpus
   templates?: CommerceTemplate[]
+  transactionFixtures?: CommerceBenchmarkTransactionFixture[]
 }
-
-const COVERAGE: CommerceBenchmarkCoverage[] = [
-  {
-    stage: 'template-contract',
-    status: 'exercised',
-    reason: 'Checks each benchmark expectation against the exact versioned CommerceTemplate definition.',
-  },
-  {
-    stage: 'buyer-intent-routing',
-    status: 'exercised',
-    reason: 'Runs the production deterministic buyer request router against each CommerceEval request and requires an unambiguous owning-template result.',
-  },
-  {
-    stage: 'seller-template-matching',
-    status: 'exercised',
-    reason: 'Runs the production deterministic seller/intake matcher against canonical merchant-facing evidence from the owning template.',
-  },
-  {
-    stage: 'template-intelligence',
-    status: 'exercised',
-    reason: 'Runs the production intelligence resolver and verifies scenario-required facts are surfaced from the expected template.',
-  },
-  {
-    stage: 'must-not-behavior',
-    status: 'not-exercised',
-    reason: 'CommerceEval mustNot entries are behavioral guardrails; the current corpus does not define an executable buyer-agent response fixture.',
-  },
-  {
-    stage: 'offer-configuration',
-    status: 'not-exercised',
-    reason: 'The current CommerceEval contract does not include a merchant OfferInputField fixture or normalized buyer configuration.',
-  },
-  {
-    stage: 'deterministic-pricing',
-    status: 'not-exercised',
-    reason: 'The current CommerceEval contract does not include merchant-authored pricing rules, currency, base price, or expected final amount.',
-  },
-]
 
 function versionedKey(ref: CommerceTemplateRef): string {
   return `${ref.id}@${ref.version}`
+}
+
+function transactionFixturesForCorpus(
+  corpus: CommerceBenchmarkCorpus,
+  fixtures: CommerceBenchmarkTransactionFixture[],
+): CommerceBenchmarkTransactionFixture[] {
+  const corpusTemplates = new Set(corpus.templates.map(versionedKey))
+  return fixtures.filter((fixture) => corpusTemplates.has(versionedKey(fixture.template)))
+}
+
+function hasCompleteTransactionTemplateCoverage(
+  corpus: CommerceBenchmarkCorpus,
+  fixtures: CommerceBenchmarkTransactionFixture[],
+): boolean {
+  if (!corpus.templates.length) return false
+  const fixtureTemplates = new Set(fixtures.map((fixture) => versionedKey(fixture.template)))
+  return corpus.templates.every((template) => fixtureTemplates.has(versionedKey(template)))
+}
+
+function coverageFor(
+  transactionTemplateCoverageComplete: boolean,
+): CommerceBenchmarkCoverage[] {
+  return [
+    {
+      stage: 'template-contract',
+      status: 'exercised',
+      reason: 'Checks each benchmark expectation against the exact versioned CommerceTemplate definition.',
+    },
+    {
+      stage: 'buyer-intent-routing',
+      status: 'exercised',
+      reason: 'Runs the production deterministic buyer request router against each CommerceEval request and requires an unambiguous owning-template result.',
+    },
+    {
+      stage: 'seller-template-matching',
+      status: 'exercised',
+      reason: 'Runs the production deterministic seller/intake matcher against canonical merchant-facing evidence from the owning template.',
+    },
+    {
+      stage: 'template-intelligence',
+      status: 'exercised',
+      reason: 'Runs the production intelligence resolver and verifies scenario-required facts are surfaced from the expected template.',
+    },
+    {
+      stage: 'must-not-behavior',
+      status: 'not-exercised',
+      reason: 'CommerceEval mustNot entries are behavioral guardrails; the current corpus does not define an executable buyer-agent response fixture.',
+    },
+    {
+      stage: 'offer-configuration',
+      status: transactionTemplateCoverageComplete ? 'exercised' : 'not-exercised',
+      reason: transactionTemplateCoverageComplete
+        ? 'Runs benchmark-only merchant offer schemas and raw buyer answers through the production configuration validator for every template in the corpus.'
+        : 'At least one template in the corpus lacks a benchmark-only configured transaction fixture.',
+    },
+    {
+      stage: 'deterministic-pricing',
+      status: transactionTemplateCoverageComplete ? 'exercised' : 'not-exercised',
+      reason: transactionTemplateCoverageComplete
+        ? 'Runs normalized benchmark buyer configurations through production merchant-authored deterministic pricing and verifies exact amount/provenance snapshots.'
+        : 'Deterministic pricing coverage is incomplete because at least one corpus template lacks a benchmark-only configured transaction fixture.',
+    },
+  ]
 }
 
 /**
@@ -368,10 +407,9 @@ function runCase(
 }
 
 /**
- * Execute the portions of the CommerceEval corpus that map to production
- * deterministic primitives today. The returned coverage ledger is part of the
- * contract: a green run must never be mistaken for behavioral, configuration,
- * or pricing coverage that the current corpus cannot express.
+ * Execute every deterministic benchmark stage that has a truthful fixture today.
+ * CommerceTemplate remains knowledge-only: configured offer schemas and prices
+ * live in the separate benchmark-only transaction fixture layer.
  */
 export function runCommerceBenchmark(options?: CommerceBenchmarkRunOptions): CommerceBenchmarkRun {
   const templates = options?.templates ?? listCommerceTemplates({ status: 'active' })
@@ -382,21 +420,32 @@ export function runCommerceBenchmark(options?: CommerceBenchmarkRunOptions): Com
   )
   const cases = corpus.cases.map((benchmarkCase) => runCase(benchmarkCase, templateByKey, templates))
   const failedCases = cases.filter((benchmarkCase) => benchmarkCase.status === 'fail').length
-  const coverage = COVERAGE.map((entry) => ({ ...entry }))
+
+  const fixtureSource = options?.transactionFixtures ?? commerceBenchmarkTransactionFixtures
+  const selectedFixtures = transactionFixturesForCorpus(corpus, fixtureSource)
+  const transactionTemplateCoverageComplete = hasCompleteTransactionTemplateCoverage(corpus, selectedFixtures)
+  const transactionFixtures = runCommerceBenchmarkTransactionFixtures(selectedFixtures, templates)
+  const failedTransactionFixtures = transactionFixtures.filter((fixture) => fixture.status === 'fail').length
+  const coverage = coverageFor(transactionTemplateCoverageComplete)
 
   return {
     runnerVersion: COMMERCE_BENCHMARK_RUNNER_VERSION,
     corpusFormatVersion: corpus.formatVersion,
-    ok: failedCases === 0,
+    ok: failedCases === 0 && failedTransactionFixtures === 0 && transactionTemplateCoverageComplete,
     completeLifecycleCoverage: false,
+    transactionTemplateCoverageComplete,
     coverage,
     summary: {
       caseCount: cases.length,
       passedCases: cases.length - failedCases,
       failedCases,
+      transactionFixtureCount: transactionFixtures.length,
+      passedTransactionFixtures: transactionFixtures.length - failedTransactionFixtures,
+      failedTransactionFixtures,
       exercisedStageCount: coverage.filter((entry) => entry.status === 'exercised').length,
       notExercisedStageCount: coverage.filter((entry) => entry.status === 'not-exercised').length,
     },
     cases,
+    transactionFixtures,
   }
 }
