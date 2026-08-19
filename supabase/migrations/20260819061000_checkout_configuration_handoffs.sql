@@ -17,15 +17,20 @@ create table if not exists public.checkout_configuration_handoffs (
   configuration_fingerprint text not null
     check (configuration_fingerprint ~ '^[a-f0-9]{64}$'),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  expires_at timestamptz not null default (now() + interval '48 hours')
+    check (expires_at > created_at)
 );
 
+create index if not exists checkout_configuration_handoffs_expires_idx
+  on public.checkout_configuration_handoffs (expires_at);
+
 comment on table public.checkout_configuration_handoffs is
-  'Private pre-payment snapshots of normalized buyer offer configuration, consumed when checkout_orders persists the paid Stripe session.';
+  'Private pre-payment snapshots of normalized buyer offer configuration, consumed when checkout_orders persists the paid Stripe session and purged after 48 hours if abandoned.';
 comment on column public.checkout_configuration_handoffs.configuration is
   'Exact normalized buyer values validated against the merchant-authored offer schema at checkout time.';
 comment on column public.checkout_configuration_handoffs.configuration_fingerprint is
-  'SHA-256 fingerprint of the normalized configured checkout action.';
+  'SHA-256 fingerprint of the normalized buyer configuration.';
 
 alter table public.checkout_configuration_handoffs enable row level security;
 
@@ -53,6 +58,7 @@ begin
     from public.checkout_configuration_handoffs
    where stripe_session_id = new.stripe_session_id
      and offer_key = new.offer_key
+     and expires_at > now()
      and (page_id is null or new.page_id is not distinct from page_id)
    for update;
 
@@ -101,3 +107,26 @@ create trigger checkout_orders_consume_configuration_handoff
 after insert or update on public.checkout_orders
 for each row
 execute function public.consume_checkout_configuration_handoff();
+
+-- Production Nexez already has pg_cron enabled. Keep the migration portable to
+-- environments without it: schedule physical deletion only when the extension is
+-- present. The expiry check above still makes an old row inert everywhere.
+do $cleanup_schedule$
+declare
+  existing_job bigint;
+begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    for existing_job in
+      select jobid from cron.job where jobname = 'nexez_cleanup_checkout_configuration_handoffs'
+    loop
+      perform cron.unschedule(existing_job);
+    end loop;
+
+    perform cron.schedule(
+      'nexez_cleanup_checkout_configuration_handoffs',
+      '17 * * * *',
+      'delete from public.checkout_configuration_handoffs where expires_at <= now()'
+    );
+  end if;
+end
+$cleanup_schedule$;
