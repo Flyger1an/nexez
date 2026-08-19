@@ -128,7 +128,7 @@ export async function POST(request: Request) {
   }
   const normalizedConfiguration = configuration.value
   const currency = normalizeCurrency(page.currency)
-  const priced = priceOfferConfiguration(offer, normalizedConfiguration, currency)
+  const priced = priceOfferConfiguration(offer, normalizedConfiguration, currency, { settlementMode: 'recurring' })
   if (!priced.ok) {
     return NextResponse.json(
       {
