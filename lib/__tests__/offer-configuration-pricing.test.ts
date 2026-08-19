@@ -30,7 +30,7 @@ describe('OfferInputPricing validation', () => {
       },
     })
 
-    expect(result.ok).toBe(false) // leading-zero money is rejected instead of ambiguously normalized
+    expect(result.ok).toBe(false)
 
     const valid = validateOfferInputField({
       key: 'vehicle_class',
@@ -207,13 +207,32 @@ describe('priceOfferConfiguration', () => {
     expect(result).toMatchObject({ ok: false, code: 'pricing_currency_precision', fields: ['vehicle_class'] })
   })
 
-  it('does not create a pricing snapshot when no supplied buyer value affects price', () => {
+  it('binds the listed base amount for configured values that add no price adjustment', () => {
     const result = priceOfferConfiguration(
       offer([{
         key: 'notes', label: 'Notes', valueType: 'text', required: false,
         askBuyer: 'Notes?', affects: ['scope'],
       }]),
       { notes: 'No fragrance' },
+      'usd',
+    )
+    expect(result).toMatchObject({
+      ok: true,
+      amountCents: 15000,
+      pricing: {
+        currency: 'usd',
+        baseAmount: 15000,
+        adjustments: [],
+        adjustmentAmount: 0,
+        finalAmount: 15000,
+      },
+    })
+  })
+
+  it('keeps truly unconfigured legacy checkout free of pricing provenance', () => {
+    const result = priceOfferConfiguration(
+      offer([]),
+      {},
       'usd',
     )
     expect(result).toEqual({ ok: true, amountCents: 15000, pricing: null })
