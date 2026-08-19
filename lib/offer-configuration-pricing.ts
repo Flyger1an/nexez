@@ -125,16 +125,11 @@ function quantityDelta(rule: Extract<OfferInputPricing, { model: 'quantity-delta
   return { ok: true, amount }
 }
 
-function adjustmentForField(
-  field: OfferInputField,
+function adjustmentForRule(
+  pricing: OfferInputPricing,
   value: OfferTransactionConfigurationValue,
   currency: string,
 ): DeltaResult {
-  const pricing = field.pricing
-  if (!pricing) {
-    return { ok: false, code: 'pricing_amount_overflow', error: 'Missing deterministic pricing rule.' }
-  }
-
   if (pricing.model === 'option-delta') {
     return optionDelta(pricing, value as string | string[], currency)
   }
@@ -190,7 +185,8 @@ export function priceOfferConfiguration(
 
   for (const field of priceFields) {
     const value = configuration[field.key]
-    const result = adjustmentForField(field, value, currency)
+    const pricing = field.pricing as OfferInputPricing
+    const result = adjustmentForRule(pricing, value, currency)
     if (!result.ok) {
       return { ok: false, code: result.code, error: result.error, fields: [field.key] }
     }
@@ -209,8 +205,8 @@ export function priceOfferConfiguration(
       fieldKey: field.key,
       label: field.label,
       value: Array.isArray(value) ? [...value] : value,
-      model: field.pricing!.model,
-      rule: field.pricing!,
+      model: pricing.model,
+      rule: pricing,
       amount: result.amount,
     })
   }
