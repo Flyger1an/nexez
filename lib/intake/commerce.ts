@@ -13,9 +13,9 @@ const MAX_TEMPLATE_GAPS_PER_ANALYSIS = 5
  */
 export function mergeCommerceTemplateGaps(
   baseGaps: Gap[],
-  state: Pick<IntakeState, 'draft' | 'answers'>,
+  state: Pick<IntakeState, 'draft' | 'answers' | 'templateHint'>,
 ): Gap[] {
-  if (!state.draft.industry.trim()) return baseGaps
+  if (!state.draft.industry.trim() && !state.templateHint) return baseGaps
 
   const answeredIds = new Set(state.answers.filter((answer) => !answer.skipped).map((answer) => answer.gapId))
   const skippedIds = new Set(state.answers.filter((answer) => answer.skipped).map((answer) => answer.gapId))
@@ -29,7 +29,7 @@ export function mergeCommerceTemplateGaps(
   const merged = [...baseGaps]
   let addedTemplateGaps = 0
   for (const candidate of getCommerceTemplateGapCandidates(
-    { draft: state.draft },
+    { draft: state.draft, templateHint: state.templateHint },
     { maxCandidates: MAX_TEMPLATE_GAPS_PER_ANALYSIS + seenKnowledgeSlots.size },
   )) {
     if (seenIds.has(candidate.gap.id)) continue
@@ -47,7 +47,7 @@ export function mergeCommerceTemplateGaps(
 }
 
 export function analyzeIntakeGaps(
-  state: Pick<IntakeState, 'draft' | 'extractions' | 'answers'>,
+  state: Pick<IntakeState, 'draft' | 'extractions' | 'answers' | 'templateHint'>,
 ): Gap[] {
   return mergeCommerceTemplateGaps(analyzeBaseGaps(state), state)
 }
