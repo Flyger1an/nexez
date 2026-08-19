@@ -186,23 +186,24 @@ export function validateRecurringServiceTermsForInputs(
   customerInputs: OfferInputField[],
 ): RecurringServiceValidation<RecurringServiceTerms> {
   if (terms.schedule.mode === 'fixed') return { ok: true, value: terms }
-  const field = customerInputs.find((entry) => entry.key === terms.schedule.inputKey)
+  const schedule = terms.schedule
+  const field = customerInputs.find((entry) => entry.key === schedule.inputKey)
   if (!field || field.valueType !== 'single-select' || !field.required) {
     return {
       ok: false,
       code: 'recurring_schedule_input_contract',
       error: 'Buyer-option recurrence must reference one required merchant single-select input.',
-      fields: [terms.schedule.inputKey],
+      fields: [schedule.inputKey],
     }
   }
   const declared = new Set((field.options ?? []).map((option) => option.value))
-  for (const option of terms.schedule.options) {
+  for (const option of schedule.options) {
     if (!declared.has(option.value)) {
       return {
         ok: false,
         code: 'recurring_schedule_input_contract',
         error: `Recurring cadence maps undeclared buyer option ${JSON.stringify(option.value)}.`,
-        fields: [terms.schedule.inputKey],
+        fields: [schedule.inputKey],
       }
     }
   }
