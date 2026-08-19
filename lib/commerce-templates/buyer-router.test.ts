@@ -81,7 +81,7 @@ describe('routeCommerceBuyerIntent', () => {
     expect(limitedRoute.matches[0].template.id).toBe('test.strategy-alpha')
   })
 
-  it('returns deterministic JSON-safe routing evidence', () => {
+  it('returns deterministic JSON-safe routing evidence without presenting lexical coverage as probability', () => {
     const route = routeCommerceBuyerIntent(
       listCommerceTemplates({ status: 'active' }),
       'Online calculus tutor for a college freshman.',
@@ -89,7 +89,8 @@ describe('routeCommerceBuyerIntent', () => {
 
     expect(route.status).toBe('matched')
     expect(route.matches[0]?.template.id).toBe('education.private-tutoring')
-    expect(route.matches[0]?.confidence).toBeGreaterThan(0)
+    expect(route.matches[0]?.coverage).toBeGreaterThan(0)
+    expect(route.matches[0]?.coverage).toBeLessThanOrEqual(1)
     expect(() => JSON.stringify(route)).not.toThrow()
     expect(JSON.parse(JSON.stringify(route))).toEqual(route)
   })
