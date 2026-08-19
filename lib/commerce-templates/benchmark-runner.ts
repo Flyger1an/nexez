@@ -5,6 +5,15 @@ import {
   type CommerceBenchmarkCorpus,
 } from './benchmark'
 import {
+  commerceBenchmarkBuyerPreflightFixtures,
+  type CommerceBenchmarkBuyerPreflightFixture,
+} from './benchmark-buyer-preflight-fixtures'
+import {
+  runCommerceBenchmarkBuyerPreflight,
+  type CommerceBenchmarkBuyerPreflightCaseResult,
+  type CommerceBenchmarkBuyerPreflightRun,
+} from './benchmark-buyer-preflight-runner'
+import {
   commerceBenchmarkTransactionFixtures,
   type CommerceBenchmarkTransactionFixture,
 } from './benchmark-transaction-fixtures'
@@ -19,18 +28,18 @@ import { matchCommerceTemplates, type CommerceTemplateMatchInput } from './match
 import { listCommerceTemplates } from './registry'
 import type { CommerceTemplate, CommerceTemplateRef } from './schema'
 
-export const COMMERCE_BENCHMARK_RUNNER_VERSION = 3 as const
+export const COMMERCE_BENCHMARK_RUNNER_VERSION = 4 as const
+export const COMMERCE_BUYER_BEHAVIOR_SCOPE = 'nexez-reference-preflight' as const
 
 export type CommerceBenchmarkExecutableStage =
   | 'template-contract'
   | 'buyer-intent-routing'
   | 'seller-template-matching'
   | 'template-intelligence'
+  | 'must-not-behavior'
   | CommerceBenchmarkTransactionStage
 
-export type CommerceBenchmarkCoverageStage =
-  | CommerceBenchmarkExecutableStage
-  | 'must-not-behavior'
+export type CommerceBenchmarkCoverageStage = CommerceBenchmarkExecutableStage
 
 export type CommerceBenchmarkCoverage = {
   stage: CommerceBenchmarkCoverageStage
@@ -61,13 +70,18 @@ export type CommerceBenchmarkRun = {
   runnerVersion: typeof COMMERCE_BENCHMARK_RUNNER_VERSION
   corpusFormatVersion: CommerceBenchmarkCorpus['formatVersion']
   ok: boolean
-  completeLifecycleCoverage: false
+  completeLifecycleCoverage: boolean
+  buyerBehaviorScope: typeof COMMERCE_BUYER_BEHAVIOR_SCOPE
+  buyerPreflightCoverageComplete: boolean
   transactionTemplateCoverageComplete: boolean
   coverage: CommerceBenchmarkCoverage[]
   summary: {
     caseCount: number
     passedCases: number
     failedCases: number
+    guardrailAssertionCount: number
+    passedGuardrailAssertions: number
+    failedGuardrailAssertions: number
     transactionFixtureCount: number
     passedTransactionFixtures: number
     failedTransactionFixtures: number
@@ -75,12 +89,14 @@ export type CommerceBenchmarkRun = {
     notExercisedStageCount: number
   }
   cases: CommerceBenchmarkCaseResult[]
+  buyerPreflight: CommerceBenchmarkBuyerPreflightRun
   transactionFixtures: CommerceBenchmarkTransactionFixtureResult[]
 }
 
 export type CommerceBenchmarkRunOptions = {
   corpus?: CommerceBenchmarkCorpus
   templates?: CommerceTemplate[]
+  buyerPreflightFixtures?: CommerceBenchmarkBuyerPreflightFixture[]
   transactionFixtures?: CommerceBenchmarkTransactionFixture[]
 }
 
@@ -96,6 +112,14 @@ function transactionFixturesForCorpus(
   return fixtures.filter((fixture) => corpusTemplates.has(versionedKey(fixture.template)))
 }
 
+function buyerPreflightFixturesForCorpus(
+  corpus: CommerceBenchmarkCorpus,
+  fixtures: CommerceBenchmarkBuyerPreflightFixture[],
+): CommerceBenchmarkBuyerPreflightFixture[] {
+  const caseIds = new Set(corpus.cases.map((benchmarkCase) => benchmarkCase.id))
+  return fixtures.filter((fixture) => caseIds.has(fixture.caseId))
+}
+
 function hasCompleteTransactionTemplateCoverage(
   corpus: CommerceBenchmarkCorpus,
   fixtures: CommerceBenchmarkTransactionFixture[],
@@ -107,6 +131,8 @@ function hasCompleteTransactionTemplateCoverage(
 
 function coverageFor(
   transactionTemplateCoverageComplete: boolean,
+  guardrailsRequired: boolean,
+  buyerPreflightCoverageComplete: boolean,
 ): CommerceBenchmarkCoverage[] {
   return [
     {
@@ -131,8 +157,12 @@ function coverageFor(
     },
     {
       stage: 'must-not-behavior',
-      status: 'not-exercised',
-      reason: 'CommerceEval mustNot entries are behavioral guardrails; the current corpus does not define an executable buyer-agent response fixture.',
+      status: guardrailsRequired && buyerPreflightCoverageComplete ? 'exercised' : 'not-exercised',
+      reason: guardrailsRequired
+        ? buyerPreflightCoverageComplete
+          ? 'Runs every authored mustNot guardrail through the production Nexez reference-agent claim preflight and requires each adversarial unsourced or altered claim to fail for the expected provenance reason. This certifies Nexez reference preflight behavior, not arbitrary third-party model obedience.'
+          : 'At least one authored mustNot guardrail lacks a passing Nexez reference-agent adversarial preflight assertion.'
+        : 'This corpus slice declares no mustNot behavior to exercise.',
     },
     {
       stage: 'offer-configuration',
@@ -385,10 +415,34 @@ function runIntelligenceStage(
   return { stage, status: diagnostics.length === 0 ? 'pass' : 'fail', diagnostics }
 }
 
+function runMustNotStage(
+  preflight: CommerceBenchmarkBuyerPreflightCaseResult | undefined,
+): CommerceBenchmarkStageResult {
+  const stage: CommerceBenchmarkExecutableStage = 'must-not-behavior'
+  if (!preflight) {
+    return {
+      stage,
+      status: 'fail',
+      diagnostics: [
+        diagnostic(stage, 'buyer_preflight_result_missing', 'Buyer must-not preflight result is missing for this benchmark case.'),
+      ],
+    }
+  }
+
+  return {
+    stage,
+    status: preflight.status,
+    diagnostics: preflight.diagnostics.map((item) =>
+      diagnostic(stage, item.code, item.mustNot ? `${item.message} Guardrail: ${item.mustNot}` : item.message),
+    ),
+  }
+}
+
 function runCase(
   benchmarkCase: CommerceBenchmarkCase,
   templateByKey: Map<string, CommerceTemplate>,
   templates: CommerceTemplate[],
+  buyerPreflightByCaseId: Map<string, CommerceBenchmarkBuyerPreflightCaseResult>,
 ): CommerceBenchmarkCaseResult {
   const template = templateByKey.get(versionedKey(benchmarkCase.template))
   const stages = [
@@ -396,6 +450,7 @@ function runCase(
     runBuyerIntentRoutingStage(benchmarkCase, templates),
     runSellerMatcherStage(benchmarkCase, template, templates),
     runIntelligenceStage(benchmarkCase, template, templates),
+    runMustNotStage(buyerPreflightByCaseId.get(benchmarkCase.id)),
   ]
 
   return {
@@ -408,8 +463,8 @@ function runCase(
 
 /**
  * Execute every deterministic benchmark stage that has a truthful fixture today.
- * CommerceTemplate remains knowledge-only: configured offer schemas and prices
- * live in the separate benchmark-only transaction fixture layer.
+ * CommerceTemplate remains knowledge-only: configured offer schemas, synthetic
+ * prices, and adversarial buyer claims live in separate benchmark-only fixtures.
  */
 export function runCommerceBenchmark(options?: CommerceBenchmarkRunOptions): CommerceBenchmarkRun {
   const templates = options?.templates ?? listCommerceTemplates({ status: 'active' })
@@ -418,7 +473,23 @@ export function runCommerceBenchmark(options?: CommerceBenchmarkRunOptions): Com
   const templateByKey = new Map(
     templates.map((template) => [versionedKey(template), template] as const),
   )
-  const cases = corpus.cases.map((benchmarkCase) => runCase(benchmarkCase, templateByKey, templates))
+
+  const guardrailsRequired = corpus.cases.some((benchmarkCase) => benchmarkCase.expected.mustNot.length > 0)
+  const buyerPreflightFixtureSource = options?.buyerPreflightFixtures ?? commerceBenchmarkBuyerPreflightFixtures
+  const selectedBuyerPreflightFixtures = buyerPreflightFixturesForCorpus(corpus, buyerPreflightFixtureSource)
+  const buyerPreflight = runCommerceBenchmarkBuyerPreflight(
+    corpus,
+    templates,
+    selectedBuyerPreflightFixtures,
+  )
+  const buyerPreflightCoverageComplete = guardrailsRequired && buyerPreflight.coverageComplete
+  const buyerPreflightByCaseId = new Map(
+    buyerPreflight.cases.map((result) => [result.caseId, result] as const),
+  )
+
+  const cases = corpus.cases.map((benchmarkCase) =>
+    runCase(benchmarkCase, templateByKey, templates, buyerPreflightByCaseId),
+  )
   const failedCases = cases.filter((benchmarkCase) => benchmarkCase.status === 'fail').length
 
   const fixtureSource = options?.transactionFixtures ?? commerceBenchmarkTransactionFixtures
@@ -426,19 +497,34 @@ export function runCommerceBenchmark(options?: CommerceBenchmarkRunOptions): Com
   const transactionTemplateCoverageComplete = hasCompleteTransactionTemplateCoverage(corpus, selectedFixtures)
   const transactionFixtures = runCommerceBenchmarkTransactionFixtures(selectedFixtures, templates)
   const failedTransactionFixtures = transactionFixtures.filter((fixture) => fixture.status === 'fail').length
-  const coverage = coverageFor(transactionTemplateCoverageComplete)
+  const coverage = coverageFor(
+    transactionTemplateCoverageComplete,
+    guardrailsRequired,
+    buyerPreflightCoverageComplete,
+  )
+  const buyerCoverageSatisfied = !guardrailsRequired || buyerPreflightCoverageComplete
+  const ok = failedCases === 0
+    && failedTransactionFixtures === 0
+    && transactionTemplateCoverageComplete
+    && buyerCoverageSatisfied
+  const completeLifecycleCoverage = ok && coverage.every((entry) => entry.status === 'exercised')
 
   return {
     runnerVersion: COMMERCE_BENCHMARK_RUNNER_VERSION,
     corpusFormatVersion: corpus.formatVersion,
-    ok: failedCases === 0 && failedTransactionFixtures === 0 && transactionTemplateCoverageComplete,
-    completeLifecycleCoverage: false,
+    ok,
+    completeLifecycleCoverage,
+    buyerBehaviorScope: COMMERCE_BUYER_BEHAVIOR_SCOPE,
+    buyerPreflightCoverageComplete,
     transactionTemplateCoverageComplete,
     coverage,
     summary: {
       caseCount: cases.length,
       passedCases: cases.length - failedCases,
       failedCases,
+      guardrailAssertionCount: buyerPreflight.assertionCount,
+      passedGuardrailAssertions: buyerPreflight.passedAssertions,
+      failedGuardrailAssertions: buyerPreflight.failedAssertions,
       transactionFixtureCount: transactionFixtures.length,
       passedTransactionFixtures: transactionFixtures.length - failedTransactionFixtures,
       failedTransactionFixtures,
@@ -446,6 +532,7 @@ export function runCommerceBenchmark(options?: CommerceBenchmarkRunOptions): Com
       notExercisedStageCount: coverage.filter((entry) => entry.status === 'not-exercised').length,
     },
     cases,
+    buyerPreflight,
     transactionFixtures,
   }
 }
