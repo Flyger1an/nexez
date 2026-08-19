@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { QueryContext } from '../../../test/supabase-mock'
 
-const { adminRef, stripeCalls, expiredSessions } = vi.hoisted(() => ({
+const { adminRef, stripeCalls, expiredSessions, sessionStatusRef } = vi.hoisted(() => ({
   adminRef: {
     handler: (_c: QueryContext) => ({ data: null, error: null }) as { data?: unknown; error?: { message: string } | null },
   },
   stripeCalls: [] as Array<{ params: any; opts: any }>,
-  expiredSessions: [] as Array<{ id: string; opts: any }>,
+  expiredSessions: [] as Array<{ id: string; params: any; opts: any }>,
+  sessionStatusRef: { value: 'open' as 'open' | 'complete' | 'expired' | null },
 }))
 
 vi.mock('stripe', () => ({
@@ -15,10 +16,10 @@ vi.mock('stripe', () => ({
       sessions: {
         create: async (params: any, opts: any) => {
           stripeCalls.push({ params, opts })
-          return { id: 'cs_config_1', url: 'https://stripe.test/cs_config_1', status: 'open' }
+          return { id: 'cs_config_1', url: 'https://stripe.test/cs_config_1', status: sessionStatusRef.value }
         },
-        expire: async (id: string, opts: any) => {
-          expiredSessions.push({ id, opts })
+        expire: async (id: string, params: any, opts: any) => {
+          expiredSessions.push({ id, params, opts })
           return { id, status: 'expired' }
         },
       },
@@ -119,6 +120,7 @@ describe('POST /api/checkout - transactional offer configuration', () => {
     vi.clearAllMocks()
     stripeCalls.length = 0
     expiredSessions.length = 0
+    sessionStatusRef.value = 'open'
     vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_config')
     vi.stubEnv('NEXEZ_ACTION_APPROVAL_SECRET', '')
     vi.stubEnv('NEXEZ_REQUIRE_ACTION_APPROVAL_TOKEN', '')
@@ -215,10 +217,10 @@ describe('POST /api/checkout - transactional offer configuration', () => {
   })
 
   it('stores raw configuration only in the private handoff and puts only its fingerprint on Stripe', async () => {
-    let handoff: QueryContext | null = null
+    let handoffPayload: unknown = null
     adminRef.handler = (c: QueryContext) => {
       if (c.table === 'pages') return { data: configuredPage(), error: null }
-      if (c.table === 'checkout_configuration_handoffs' && c.op === 'upsert') handoff = c
+      if (c.table === 'checkout_configuration_handoffs' && c.op === 'upsert') handoffPayload = c.payload
       return { data: null, error: null }
     }
 
@@ -233,8 +235,7 @@ describe('POST /api/checkout - transactional offer configuration', () => {
     expect(body.offerConfiguration).toEqual({ vehicle_class: 'suv', notes: 'leave keys with concierge' })
     expect(body.offerConfigurationFingerprint).toMatch(/^[a-f0-9]{64}$/)
 
-    expect(handoff).not.toBeNull()
-    expect(handoff?.payload).toMatchObject({
+    expect(handoffPayload).toMatchObject({
       stripe_session_id: 'cs_config_1',
       page_id: 'p-config',
       offer_key: 'services-0',
@@ -266,6 +267,23 @@ describe('POST /api/checkout - transactional offer configuration', () => {
     const body = await res.json()
     expect(body.code).toBe('configuration_handoff_failed')
     expect(body.url).toBeUndefined()
-    expect(expiredSessions).toEqual([{ id: 'cs_config_1', opts: { stripeAccount: 'acct_config' } }])
+    expect(expiredSessions).toEqual([{ id: 'cs_config_1', params: {}, opts: { stripeAccount: 'acct_config' } }])
+  })
+
+  it('never returns a reused configured Stripe session that is already expired or complete', async () => {
+    for (const status of ['expired', 'complete'] as const) {
+      sessionStatusRef.value = status
+      const res = await POST(post({
+        slug: 'configured',
+        offer: 'services-0',
+        offerConfiguration: { vehicle_class: 'suv' },
+      }))
+
+      expect(res.status).toBe(409)
+      expect(await res.json()).toMatchObject({
+        code: 'configured_checkout_session_not_open',
+        stripeSessionStatus: status,
+      })
+    }
   })
 })
