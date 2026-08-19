@@ -1,20 +1,72 @@
-// Nexez brand mark. The bold square PNG (public/nexez-logo.png) is used as a CSS
-// mask filled with `currentColor`, so the mark takes the surrounding text color
-// (black on the white chip in dark mode, white when the chip inverts in light
-// mode) with no extra stylesheet rule. To update the logo, replace the PNG.
-export function NexezLogo({ className = 'size-5' }: { className?: string }) {
-  const mask = 'url(/nexez-logo.png) center / contain no-repeat'
+type BrandTone = 'black' | 'white' | 'theme'
+
+type BrandAssetProps = {
+  className?: string
+  label?: string
+  tone?: BrandTone
+}
+
+function BrandAsset({
+  blackSrc,
+  whiteSrc,
+  className,
+  label = 'Nexez',
+  tone,
+}: BrandAssetProps & { blackSrc: string; whiteSrc: string; tone: BrandTone }) {
   return (
-    <span
-      role="img"
-      aria-label="Nexez"
+    <span role="img" aria-label={label} className={`relative inline-block ${className ?? ''}`}>
+      {tone !== 'white' ? (
+        <img
+          src={blackSrc}
+          alt=""
+          aria-hidden="true"
+          className={`h-full w-full object-contain ${tone === 'theme' ? 'dark:hidden' : ''}`}
+        />
+      ) : null}
+      {tone !== 'black' ? (
+        <img
+          src={whiteSrc}
+          alt=""
+          aria-hidden="true"
+          className={`h-full w-full object-contain ${tone === 'theme' ? 'hidden dark:block' : ''}`}
+        />
+      ) : null}
+    </span>
+  )
+}
+
+// Compact supplied monogram. Defaults to the official black SVG because current
+// product-chrome placements sit on white icon tiles.
+export function NexezLogo({
+  className = 'size-5',
+  label = 'Nexez',
+  tone = 'black',
+}: BrandAssetProps) {
+  return (
+    <BrandAsset
+      blackSrc="/nexez-monogram.svg"
+      whiteSrc="/nexez-monogram-white.svg"
       className={className}
-      style={{
-        display: 'inline-block',
-        backgroundColor: 'currentColor',
-        WebkitMask: mask,
-        mask,
-      }}
+      label={label}
+      tone={tone}
+    />
+  )
+}
+
+// Official supplied horizontal lockup. Marketing surfaces follow the active
+// light/dark theme by switching between the supplied black and white SVG files.
+export function NexezLockup({
+  className = 'h-[17px] w-[132px]',
+  label = 'Nexez',
+  tone = 'theme',
+}: BrandAssetProps) {
+  return (
+    <BrandAsset
+      blackSrc="/nexez-logo.svg"
+      whiteSrc="/nexez-logo-white.svg"
+      className={className}
+      label={label}
+      tone={tone}
     />
   )
 }

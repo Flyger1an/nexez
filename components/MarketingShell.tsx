@@ -1,7 +1,7 @@
 'use client'
 
 import { ReactNode, useEffect, useRef, useState } from 'react'
-import { NexezLogo } from './NexezLogo'
+import { NexezLockup } from './NexezLogo'
 import { ThemeToggle } from './ThemeToggle'
 import { hasSupabaseAuthCookieInDocument } from '../lib/auth-cookie'
 import { appUrl } from '../lib/site'
@@ -65,9 +65,8 @@ export function MarketingShell({ children }: { children: ReactNode }) {
         aria-label="Primary"
         className={`glassnav${enhanced ? ' has-menu' : ''}${open ? ' open' : ''}`}
       >
-        <a href="/" className="logo">
-          <NexezLogo className="mark" />
-          nexez
+        <a href="/" className="logo" title="Nexez home">
+          <NexezLockup className="h-[17px] w-[132px] shrink-0" />
         </a>
 
         <div className="navlinks">
@@ -170,11 +169,8 @@ function MarketingFooter({ authed }: { authed: boolean | null }) {
     <footer className="mt-20 border-t border-border">
       <div className="mx-auto grid max-w-7xl gap-8 px-5 py-12 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <a href="/" className="flex items-center gap-2">
-            <div className="flex size-7 items-center justify-center rounded-md border border-border bg-white text-black">
-              <NexezLogo className="size-5" />
-            </div>
-            <span className="font-medium">Nexez</span>
+          <a href="/" className="inline-flex items-center text-foreground" title="Nexez home">
+            <NexezLockup className="h-[18px] w-[139px]" />
           </a>
           <p className="mt-3 max-w-xs text-muted-foreground">
             The commerce layer for AI agents. Get discovered, get understood, get bought.
