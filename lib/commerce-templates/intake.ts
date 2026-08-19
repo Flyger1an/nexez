@@ -29,17 +29,19 @@ const CURRENT_ENGINE_OWNS_FACTS = new Set([
 ])
 
 /**
- * Only facts with an honest destination in the CURRENT intake field-update
- * grammar are askable in V1. Richer template facts remain in the registry and
- * eval corpus until the Commerce Schema gives them first-class storage.
+ * Only facts with a neutral, honest destination in the CURRENT intake
+ * field-update grammar are askable in V1. Richer template facts remain in the
+ * registry and eval corpus until the Commerce Schema gives them first-class
+ * storage.
  *
- * This prevents Nexie from asking a useful question whose answer would then be
- * forced into metadata, an unrelated field, or lost at commit.
+ * `offer_rules` is deliberately excluded here. Today the reducer treats a
+ * rules update on an untyped offer as evidence that the offer is negotiable;
+ * reusing that storage for a generic notice-policy answer could silently alter
+ * commerce posture. Template intelligence must never create that side effect.
  */
 const MATERIALIZABLE_FACT_FIELDS: Record<string, string> = {
   'service-area': 'offer.serviceArea',
   'travel-fee': 'offer.travelFee',
-  'notice-policy': 'offer.rules.minNoticeHours',
 }
 
 function offerEntries(draft: IntakeDraft) {
@@ -65,8 +67,6 @@ function factAlreadyCovered(fact: CommerceFact, draft: IntakeDraft): boolean {
       return offers.some((offer) => Boolean(offer.serviceArea?.trim()))
     case 'travel-fee':
       return offers.some((offer) => Boolean(offer.travelFee?.trim()))
-    case 'notice-policy':
-      return offers.some((offer) => offer.rules?.minNoticeHours != null)
     default:
       return false
   }
@@ -81,7 +81,8 @@ function factAlreadyCovered(fact: CommerceFact, draft: IntakeDraft): boolean {
  * prevent an existing merchant from handing off to the builder.
  *
  * Equally important: an otherwise-useful fact is not surfaced until the
- * current intake grammar can persist the merchant's answer faithfully.
+ * current intake grammar can persist the merchant's answer faithfully and
+ * without changing unrelated commerce semantics.
  */
 export function resolveCommerceIntakeTemplateContext(
   state: Pick<IntakeState, 'draft'>,
