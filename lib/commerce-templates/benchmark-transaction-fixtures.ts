@@ -1,4 +1,5 @@
 import type { ConfiguredOfferItem } from '../configured-offer'
+import type { OfferConfigurationPricingErrorCode } from '../offer-configuration-pricing'
 import type {
   OfferInputAffects,
   OfferInputField,
@@ -12,6 +13,20 @@ export type CommerceBenchmarkTransactionAdjustmentExpectation = {
   amount: number
 }
 
+export type CommerceBenchmarkPricingExpectation =
+  | {
+      outcome: 'priced'
+      baseAmount: number
+      adjustmentAmount: number
+      finalAmount: number
+      adjustments: CommerceBenchmarkTransactionAdjustmentExpectation[]
+    }
+  | {
+      outcome: 'blocked'
+      code: OfferConfigurationPricingErrorCode
+      fields: string[]
+    }
+
 export type CommerceBenchmarkTransactionFixture = {
   /** Synthetic QA data only. Never expose as merchant truth or a public example price. */
   benchmarkOnly: true
@@ -22,12 +37,7 @@ export type CommerceBenchmarkTransactionFixture = {
   rawConfiguration: Record<string, unknown>
   expected: {
     normalizedConfiguration: OfferTransactionConfiguration
-    pricing: {
-      baseAmount: number
-      adjustmentAmount: number
-      finalAmount: number
-      adjustments: CommerceBenchmarkTransactionAdjustmentExpectation[]
-    }
+    pricing: CommerceBenchmarkPricingExpectation
   }
 }
 
@@ -124,6 +134,9 @@ function booleanField(
  * The amounts below are synthetic QA constants. They exist solely to execute
  * production configuration/pricing code and must never seed merchant truth,
  * template knowledge, public examples, intake suggestions, or buyer answers.
+ *
+ * A fixture may expect a deterministic price OR an explicit fail-closed pricing
+ * result. Quote-required patterns should not be forced into deterministic money.
  */
 export const commerceBenchmarkTransactionFixtures: CommerceBenchmarkTransactionFixture[] = [
   {
@@ -151,6 +164,7 @@ export const commerceBenchmarkTransactionFixtures: CommerceBenchmarkTransactionF
     expected: {
       normalizedConfiguration: { cadence: 'biweekly', 'add-ons': ['oven', 'fridge'] },
       pricing: {
+        outcome: 'priced',
         baseAmount: 12000,
         adjustmentAmount: 5500,
         finalAmount: 17500,
@@ -183,6 +197,7 @@ export const commerceBenchmarkTransactionFixtures: CommerceBenchmarkTransactionF
     expected: {
       normalizedConfiguration: { 'vehicle-class': 'suv', package: 'full' },
       pricing: {
+        outcome: 'priced',
         baseAmount: 15000,
         adjustmentAmount: 2500,
         finalAmount: 17500,
@@ -203,6 +218,7 @@ export const commerceBenchmarkTransactionFixtures: CommerceBenchmarkTransactionF
     expected: {
       normalizedConfiguration: { 'event-type': 'corporate', hours: 6 },
       pricing: {
+        outcome: 'priced',
         baseAmount: 80000,
         adjustmentAmount: 30000,
         finalAmount: 110000,
@@ -228,6 +244,7 @@ export const commerceBenchmarkTransactionFixtures: CommerceBenchmarkTransactionF
     expected: {
       normalizedConfiguration: { guests: 6, 'dietary-needs': ['gluten-free'] },
       pricing: {
+        outcome: 'priced',
         baseAmount: 40000,
         adjustmentAmount: 15000,
         finalAmount: 55000,
@@ -248,6 +265,7 @@ export const commerceBenchmarkTransactionFixtures: CommerceBenchmarkTransactionF
     expected: {
       normalizedConfiguration: { focus: 'growth', recording: true },
       pricing: {
+        outcome: 'priced',
         baseAmount: 45000,
         adjustmentAmount: 5000,
         finalAmount: 50000,
@@ -268,6 +286,7 @@ export const commerceBenchmarkTransactionFixtures: CommerceBenchmarkTransactionF
     expected: {
       normalizedConfiguration: { subject: 'calculus', 'session-count': 3 },
       pricing: {
+        outcome: 'priced',
         baseAmount: 9000,
         adjustmentAmount: 16000,
         finalAmount: 25000,
@@ -280,29 +299,23 @@ export const commerceBenchmarkTransactionFixtures: CommerceBenchmarkTransactionF
     id: 'professional.web-design-project.transaction',
     template: { id: 'professional.web-design-project', version: 1 },
     offer: syntheticOffer('Synthetic Web Design Project', '$2000', [
-      selectField(
-        'package',
-        'Package',
-        ['starter', 'growth', 'custom'],
-        ['price', 'scope'],
-        {
-          model: 'option-delta',
-          adjustments: [
-            { value: 'growth', delta: '1000' },
-            { value: 'custom', delta: '2500' },
-          ],
-        },
-      ),
+      {
+        key: 'page-count',
+        label: 'Page count',
+        valueType: 'quantity',
+        required: true,
+        askBuyer: 'How many pages are in scope?',
+        affects: ['price', 'scope'],
+      },
     ]),
     currency: 'usd',
-    rawConfiguration: { package: 'growth' },
+    rawConfiguration: { 'page-count': 5 },
     expected: {
-      normalizedConfiguration: { package: 'growth' },
+      normalizedConfiguration: { 'page-count': 5 },
       pricing: {
-        baseAmount: 200000,
-        adjustmentAmount: 100000,
-        finalAmount: 300000,
-        adjustments: [{ fieldKey: 'package', amount: 100000 }],
+        outcome: 'blocked',
+        code: 'pricing_rule_unresolved',
+        fields: ['page-count'],
       },
     },
   },
