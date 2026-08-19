@@ -1,7 +1,7 @@
 import type { Gap, GapKind, IntakeDraft, IntakeState } from '../intake/types'
 import { resolveCommerceTemplateIntelligence } from './intelligence'
-import { commerceTemplates } from './registry'
-import type { CommerceFact } from './schema'
+import { commerceTemplates, getCommerceTemplate } from './registry'
+import type { CommerceFact, CommerceTemplate } from './schema'
 import type { CommerceTemplateMatch } from './matcher'
 
 export type CommerceTemplateGapCandidate = {
@@ -48,6 +48,45 @@ function offerEntries(draft: IntakeDraft) {
   return [...draft.services, ...draft.products]
 }
 
+function normalizeIndustry(value: string | null | undefined): string {
+  return (value ?? '').trim().toLowerCase()
+}
+
+/**
+ * Resolve which template definitions are allowed to inform this interview.
+ *
+ * An owner-selected template hint is knowledge context, never a page fact. It
+ * may guide a scratch interview while industry is still unknown. The moment a
+ * non-empty merchant/imported industry conflicts with the hinted template,
+ * that real draft fact wins and the hint becomes inert. We then fall back to
+ * the normal exact-industry pilot matching path.
+ */
+function eligibleTemplatesForState(
+  state: Pick<IntakeState, 'draft' | 'templateHint'>,
+): { templates: CommerceTemplate[]; matchingIndustry: string } {
+  const industry = normalizeIndustry(state.draft.industry)
+  const hinted = state.templateHint ? getCommerceTemplate(state.templateHint) : null
+  const activeHint = hinted?.status === 'active' ? hinted : null
+
+  if (activeHint && (!industry || normalizeIndustry(activeHint.industry) === industry)) {
+    return {
+      templates: [activeHint],
+      // Matching-only context: this makes the owner-selected definition rank
+      // deterministically without ever copying its industry into the draft.
+      matchingIndustry: state.draft.industry.trim() || activeHint.industry,
+    }
+  }
+
+  if (!industry) return { templates: [], matchingIndustry: '' }
+
+  return {
+    templates: commerceTemplates.filter(
+      (template) => template.status === 'active' && normalizeIndustry(template.industry) === industry,
+    ),
+    matchingIndustry: state.draft.industry,
+  }
+}
+
 function factKind(fact: CommerceFact): GapKind {
   // V1 safety boundary: commerce-template knowledge may improve the interview,
   // but it must not create new publication blockers. Existing hard blockers
@@ -85,22 +124,17 @@ function factAlreadyCovered(fact: CommerceFact, draft: IntakeDraft): boolean {
  * without changing unrelated commerce semantics.
  */
 export function resolveCommerceIntakeTemplateContext(
-  state: Pick<IntakeState, 'draft'>,
+  state: Pick<IntakeState, 'draft' | 'templateHint'>,
   options?: { maxCandidates?: number; matchLimit?: number; minimumScore?: number },
 ): CommerceIntakeTemplateContext {
   const { draft } = state
-  if (!draft.industry.trim()) return { matches: [], candidates: [] }
-
-  const canonicalIndustry = draft.industry.trim().toLowerCase()
-  const eligibleTemplates = commerceTemplates.filter(
-    (template) => template.status === 'active' && template.industry.trim().toLowerCase() === canonicalIndustry,
-  )
-  if (eligibleTemplates.length === 0) return { matches: [], candidates: [] }
+  const eligible = eligibleTemplatesForState(state)
+  if (eligible.templates.length === 0) return { matches: [], candidates: [] }
 
   const intelligence = resolveCommerceTemplateIntelligence(
-    eligibleTemplates,
+    eligible.templates,
     {
-      industry: draft.industry,
+      industry: eligible.matchingIndustry,
       description: draft.description,
       offerNames: offerEntries(draft).map((offer) => offer.name).filter(Boolean),
     },
@@ -148,7 +182,7 @@ export function resolveCommerceIntakeTemplateContext(
 }
 
 export function getCommerceTemplateGapCandidates(
-  state: Pick<IntakeState, 'draft'>,
+  state: Pick<IntakeState, 'draft' | 'templateHint'>,
   options?: { maxCandidates?: number; matchLimit?: number; minimumScore?: number },
 ): CommerceTemplateGapCandidate[] {
   return resolveCommerceIntakeTemplateContext(state, options).candidates
