@@ -35,6 +35,18 @@ export type IntakeSource = {
   addedAt: string // ISO - stamped by the caller, never inside the reducer
 }
 
+/**
+ * Knowledge context the owner deliberately selected before starting intake.
+ * This is NOT merchant truth and therefore never receives page provenance or
+ * writes a draft field by itself. It only chooses which versioned Commerce
+ * Template may inform questions while the merchant's own facts remain primary.
+ */
+export type IntakeTemplateHint = {
+  id: string
+  version: number
+  source: 'owner_selected'
+}
+
 /** The rich extraction result stored per source (spec §3 EXTRACT). A trimmed,
  *  serializable projection of ImportResult - native OfferItem[] throughout. */
 export type IntakeExtraction = {
@@ -151,6 +163,8 @@ export type IntakeState = {
   phase: IntakePhase
   sources: IntakeSource[]
   extractions: IntakeExtraction[]
+  /** Optional owner-selected knowledge context. Never a merchant draft fact. */
+  templateHint?: IntakeTemplateHint | null
   /** Current askable gaps: recomputed after every mutation, already filtered of
    *  skipped gaps, satisfied coverage, and answered one-shot questions. */
   gaps: Gap[]
