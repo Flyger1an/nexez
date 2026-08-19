@@ -1,4 +1,9 @@
 import type { ConfiguredOfferItem } from '../configured-offer'
+import type {
+  OfferInputAffects,
+  OfferInputField,
+  OfferInputPricing,
+} from '../offer-configuration'
 import type { OfferTransactionConfiguration } from '../offer-transaction-configuration'
 import type { CommerceTemplateRef } from './schema'
 
@@ -29,7 +34,7 @@ export type CommerceBenchmarkTransactionFixture = {
 function syntheticOffer(
   name: string,
   price: string,
-  customerInputs: NonNullable<ConfiguredOfferItem['customerInputs']>,
+  customerInputs: OfferInputField[],
 ): ConfiguredOfferItem {
   return {
     name,
@@ -40,11 +45,85 @@ function syntheticOffer(
   }
 }
 
+function selectField(
+  key: string,
+  label: string,
+  values: string[],
+  affects: OfferInputAffects[],
+  pricing?: Extract<OfferInputPricing, { model: 'option-delta' }>,
+  required = true,
+): OfferInputField {
+  return {
+    key,
+    label,
+    valueType: 'single-select',
+    required,
+    options: values.map((value) => ({ value, label: value })),
+    askBuyer: `Choose ${label.toLowerCase()}.`,
+    affects,
+    ...(pricing ? { pricing } : {}),
+  }
+}
+
+function multiSelectField(
+  key: string,
+  label: string,
+  values: string[],
+  affects: OfferInputAffects[],
+  pricing?: Extract<OfferInputPricing, { model: 'option-delta' }>,
+): OfferInputField {
+  return {
+    key,
+    label,
+    valueType: 'multi-select',
+    required: false,
+    options: values.map((value) => ({ value, label: value })),
+    askBuyer: `Choose any ${label.toLowerCase()}.`,
+    affects,
+    ...(pricing ? { pricing } : {}),
+  }
+}
+
+function quantityField(
+  key: string,
+  label: string,
+  affects: OfferInputAffects[],
+  unitDelta: string,
+  includedQuantity: number,
+): OfferInputField {
+  return {
+    key,
+    label,
+    valueType: 'quantity',
+    required: true,
+    askBuyer: `How many ${label.toLowerCase()} do you need?`,
+    affects,
+    pricing: { model: 'quantity-delta', unitDelta, includedQuantity },
+  }
+}
+
+function booleanField(
+  key: string,
+  label: string,
+  affects: OfferInputAffects[],
+  trueDelta: string,
+): OfferInputField {
+  return {
+    key,
+    label,
+    valueType: 'boolean',
+    required: false,
+    askBuyer: `Would you like ${label.toLowerCase()}?`,
+    affects,
+    pricing: { model: 'boolean-delta', trueDelta },
+  }
+}
+
 /**
  * One benchmark-only configured transaction fixture per active pilot template.
- * These prices/rules exist solely to exercise production configuration and
- * deterministic pricing primitives. They must never be copied into templates,
- * example listings, merchant intake defaults, or buyer-facing recommendations.
+ * The amounts below are synthetic QA constants. They exist solely to execute
+ * production configuration/pricing code and must never seed merchant truth,
+ * template knowledge, public examples, intake suggestions, or buyer answers.
  */
 export const commerceBenchmarkTransactionFixtures: CommerceBenchmarkTransactionFixture[] = [
   {
@@ -52,48 +131,25 @@ export const commerceBenchmarkTransactionFixtures: CommerceBenchmarkTransactionF
     id: 'home.recurring-home-cleaning.transaction',
     template: { id: 'home.recurring-home-cleaning', version: 1 },
     offer: syntheticOffer('Synthetic Recurring Clean', '$120', [
-      {
-        key: 'cadence',
-        label: 'Cadence',
-        valueType: 'single-select',
-        required: true,
-        options: [
-          { value: 'weekly', label: 'Weekly' },
-          { value: 'biweekly', label: 'Biweekly' },
-        ],
-        askBuyer: 'Choose a recurring cadence.',
-        affects: ['availability'],
-      },
-      {
-        key: 'add-ons',
-        label: 'Add-ons',
-        valueType: 'multi-select',
-        required: false,
-        options: [
-          { value: 'oven', label: 'Oven' },
-          { value: 'fridge', label: 'Refrigerator' },
-        ],
-        askBuyer: 'Choose any add-ons.',
-        affects: ['price', 'scope'],
-        pricing: {
+      selectField('cadence', 'Cadence', ['weekly', 'biweekly'], ['availability']),
+      multiSelectField(
+        'add-ons',
+        'Add-ons',
+        ['oven', 'fridge'],
+        ['price', 'scope'],
+        {
           model: 'option-delta',
           adjustments: [
             { value: 'oven', delta: '30' },
             { value: 'fridge', delta: '25' },
           ],
         },
-      },
+      ),
     ]),
     currency: 'usd',
-    rawConfiguration: {
-      cadence: 'biweekly',
-      'add-ons': ['fridge', 'oven', 'fridge'],
-    },
+    rawConfiguration: { cadence: 'biweekly', 'add-ons': ['fridge', 'oven', 'fridge'] },
     expected: {
-      normalizedConfiguration: {
-        cadence: 'biweekly',
-        'add-ons': ['oven', 'fridge'],
-      },
+      normalizedConfiguration: { cadence: 'biweekly', 'add-ons': ['oven', 'fridge'] },
       pricing: {
         baseAmount: 12000,
         adjustmentAmount: 5500,
@@ -107,49 +163,25 @@ export const commerceBenchmarkTransactionFixtures: CommerceBenchmarkTransactionF
     id: 'automotive.mobile-auto-detailing.transaction',
     template: { id: 'automotive.mobile-auto-detailing', version: 1 },
     offer: syntheticOffer('Synthetic Mobile Detail', '$150', [
-      {
-        key: 'vehicle-class',
-        label: 'Vehicle class',
-        valueType: 'single-select',
-        required: true,
-        options: [
-          { value: 'sedan', label: 'Sedan' },
-          { value: 'suv', label: 'SUV' },
-          { value: 'truck', label: 'Truck' },
-        ],
-        askBuyer: 'Choose the vehicle class.',
-        affects: ['price', 'scope'],
-        pricing: {
+      selectField(
+        'vehicle-class',
+        'Vehicle class',
+        ['sedan', 'suv', 'truck'],
+        ['price', 'scope'],
+        {
           model: 'option-delta',
           adjustments: [
             { value: 'suv', delta: '25' },
             { value: 'truck', delta: '40' },
           ],
         },
-      },
-      {
-        key: 'package',
-        label: 'Package',
-        valueType: 'single-select',
-        required: true,
-        options: [
-          { value: 'full', label: 'Full detail' },
-          { value: 'interior', label: 'Interior detail' },
-        ],
-        askBuyer: 'Choose a detailing package.',
-        affects: ['scope'],
-      },
+      ),
+      selectField('package', 'Package', ['full', 'interior'], ['scope']),
     ]),
     currency: 'usd',
-    rawConfiguration: {
-      package: 'full',
-      'vehicle-class': 'suv',
-    },
+    rawConfiguration: { package: 'full', 'vehicle-class': 'suv' },
     expected: {
-      normalizedConfiguration: {
-        'vehicle-class': 'suv',
-        package: 'full',
-      },
+      normalizedConfiguration: { 'vehicle-class': 'suv', package: 'full' },
       pricing: {
         baseAmount: 15000,
         adjustmentAmount: 2500,
@@ -163,42 +195,13 @@ export const commerceBenchmarkTransactionFixtures: CommerceBenchmarkTransactionF
     id: 'events.event-photography.transaction',
     template: { id: 'events.event-photography', version: 1 },
     offer: syntheticOffer('Synthetic Event Photography', '$800', [
-      {
-        key: 'event-type',
-        label: 'Event type',
-        valueType: 'single-select',
-        required: true,
-        options: [
-          { value: 'corporate', label: 'Corporate' },
-          { value: 'private', label: 'Private event' },
-        ],
-        askBuyer: 'Choose the event type.',
-        affects: ['scope'],
-      },
-      {
-        key: 'hours',
-        label: 'Coverage hours',
-        valueType: 'quantity',
-        required: true,
-        askBuyer: 'How many hours of coverage do you need?',
-        affects: ['price', 'duration'],
-        pricing: {
-          model: 'quantity-delta',
-          unitDelta: '150',
-          includedQuantity: 4,
-        },
-      },
+      selectField('event-type', 'Event type', ['corporate', 'private'], ['scope']),
+      quantityField('hours', 'Coverage hours', ['price', 'duration'], '150', 4),
     ]),
     currency: 'usd',
-    rawConfiguration: {
-      'event-type': 'corporate',
-      hours: 6,
-    },
+    rawConfiguration: { 'event-type': 'corporate', hours: 6 },
     expected: {
-      normalizedConfiguration: {
-        'event-type': 'corporate',
-        hours: 6,
-      },
+      normalizedConfiguration: { 'event-type': 'corporate', hours: 6 },
       pricing: {
         baseAmount: 80000,
         adjustmentAmount: 30000,
@@ -209,45 +212,21 @@ export const commerceBenchmarkTransactionFixtures: CommerceBenchmarkTransactionF
   },
   {
     benchmarkOnly: true,
-    id: 'hospitality.private-chef.transaction',
-    template: { id: 'hospitality.private-chef', version: 1 },
+    id: 'events.private-chef.transaction',
+    template: { id: 'events.private-chef', version: 1 },
     offer: syntheticOffer('Synthetic Private Chef Dinner', '$400', [
-      {
-        key: 'guests',
-        label: 'Guests',
-        valueType: 'quantity',
-        required: true,
-        askBuyer: 'How many guests are dining?',
-        affects: ['price', 'scope'],
-        pricing: {
-          model: 'quantity-delta',
-          unitDelta: '75',
-          includedQuantity: 4,
-        },
-      },
-      {
-        key: 'dietary-needs',
-        label: 'Dietary needs',
-        valueType: 'multi-select',
-        required: false,
-        options: [
-          { value: 'vegetarian', label: 'Vegetarian' },
-          { value: 'gluten-free', label: 'Gluten-free' },
-        ],
-        askBuyer: 'Select any dietary needs.',
-        affects: ['scope', 'eligibility'],
-      },
+      quantityField('guests', 'Guests', ['price', 'scope'], '75', 4),
+      multiSelectField(
+        'dietary-needs',
+        'Dietary needs',
+        ['scope', 'eligibility'],
+        ['vegetarian', 'gluten-free'],
+      ),
     ]),
     currency: 'usd',
-    rawConfiguration: {
-      guests: 6,
-      'dietary-needs': ['gluten-free'],
-    },
+    rawConfiguration: { guests: 6, 'dietary-needs': ['gluten-free'] },
     expected: {
-      normalizedConfiguration: {
-        guests: 6,
-        'dietary-needs': ['gluten-free'],
-      },
+      normalizedConfiguration: { guests: 6, 'dietary-needs': ['gluten-free'] },
       pricing: {
         baseAmount: 40000,
         adjustmentAmount: 15000,
@@ -261,41 +240,13 @@ export const commerceBenchmarkTransactionFixtures: CommerceBenchmarkTransactionF
     id: 'professional.business-strategy-session.transaction',
     template: { id: 'professional.business-strategy-session', version: 1 },
     offer: syntheticOffer('Synthetic Strategy Session', '$450', [
-      {
-        key: 'focus',
-        label: 'Focus',
-        valueType: 'single-select',
-        required: true,
-        options: [
-          { value: 'growth', label: 'Growth' },
-          { value: 'operations', label: 'Operations' },
-        ],
-        askBuyer: 'Choose the session focus.',
-        affects: ['scope'],
-      },
-      {
-        key: 'recording',
-        label: 'Recording',
-        valueType: 'boolean',
-        required: false,
-        askBuyer: 'Would you like a session recording?',
-        affects: ['price', 'scope'],
-        pricing: {
-          model: 'boolean-delta',
-          trueDelta: '50',
-        },
-      },
+      selectField('focus', 'Focus', ['growth', 'operations'], ['scope']),
+      booleanField('recording', 'Recording', ['price', 'scope'], '50'),
     ]),
     currency: 'usd',
-    rawConfiguration: {
-      focus: 'growth',
-      recording: true,
-    },
+    rawConfiguration: { focus: 'growth', recording: true },
     expected: {
-      normalizedConfiguration: {
-        focus: 'growth',
-        recording: true,
-      },
+      normalizedConfiguration: { focus: 'growth', recording: true },
       pricing: {
         baseAmount: 45000,
         adjustmentAmount: 5000,
@@ -309,42 +260,13 @@ export const commerceBenchmarkTransactionFixtures: CommerceBenchmarkTransactionF
     id: 'education.private-tutoring.transaction',
     template: { id: 'education.private-tutoring', version: 1 },
     offer: syntheticOffer('Synthetic Tutoring Package', '$90', [
-      {
-        key: 'subject',
-        label: 'Subject',
-        valueType: 'single-select',
-        required: true,
-        options: [
-          { value: 'calculus', label: 'Calculus' },
-          { value: 'chemistry', label: 'Chemistry' },
-        ],
-        askBuyer: 'Choose a subject.',
-        affects: ['scope'],
-      },
-      {
-        key: 'session-count',
-        label: 'Session count',
-        valueType: 'quantity',
-        required: true,
-        askBuyer: 'How many sessions do you want?',
-        affects: ['price', 'scope'],
-        pricing: {
-          model: 'quantity-delta',
-          unitDelta: '80',
-          includedQuantity: 1,
-        },
-      },
+      selectField('subject', 'Subject', ['calculus', 'chemistry'], ['scope']),
+      quantityField('session-count', 'Sessions', ['price', 'scope'], '80', 1),
     ]),
     currency: 'usd',
-    rawConfiguration: {
-      subject: 'calculus',
-      'session-count': 3,
-    },
+    rawConfiguration: { subject: 'calculus', 'session-count': 3 },
     expected: {
-      normalizedConfiguration: {
-        subject: 'calculus',
-        'session-count': 3,
-      },
+      normalizedConfiguration: { subject: 'calculus', 'session-count': 3 },
       pricing: {
         baseAmount: 9000,
         adjustmentAmount: 16000,
@@ -358,35 +280,24 @@ export const commerceBenchmarkTransactionFixtures: CommerceBenchmarkTransactionF
     id: 'professional.web-design-project.transaction',
     template: { id: 'professional.web-design-project', version: 1 },
     offer: syntheticOffer('Synthetic Web Design Project', '$2000', [
-      {
-        key: 'package',
-        label: 'Package',
-        valueType: 'single-select',
-        required: true,
-        options: [
-          { value: 'starter', label: 'Starter' },
-          { value: 'growth', label: 'Growth' },
-          { value: 'custom', label: 'Custom' },
-        ],
-        askBuyer: 'Choose a project package.',
-        affects: ['price', 'scope'],
-        pricing: {
+      selectField(
+        'package',
+        'Package',
+        ['starter', 'growth', 'custom'],
+        ['price', 'scope'],
+        {
           model: 'option-delta',
           adjustments: [
             { value: 'growth', delta: '1000' },
             { value: 'custom', delta: '2500' },
           ],
         },
-      },
+      ),
     ]),
     currency: 'usd',
-    rawConfiguration: {
-      package: 'growth',
-    },
+    rawConfiguration: { package: 'growth' },
     expected: {
-      normalizedConfiguration: {
-        package: 'growth',
-      },
+      normalizedConfiguration: { package: 'growth' },
       pricing: {
         baseAmount: 200000,
         adjustmentAmount: 100000,
