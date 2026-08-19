@@ -1,4 +1,4 @@
-import type { OfferItem } from './agent-page'
+import { getCheckoutOfferKey, type CheckoutOffer, type OfferItem } from './agent-page'
 import { getOfferAttributes, getOfferCustomerInputs } from './configured-offer'
 import type { OfferInputField } from './offer-configuration'
 
@@ -180,4 +180,33 @@ export function genericOfferConfigurationSchema(): JsonSchema {
       ],
     },
   }
+}
+
+/**
+ * Enrich an already-built Nexez OpenAPI document without duplicating the large
+ * shared capability builder. Global specs get the generic request field; scoped
+ * page specs additionally expose an exact schema map keyed by real offer key.
+ */
+export function withOfferConfigurationOpenApi<T extends Record<string, any>>(
+  spec: T,
+  offers?: CheckoutOffer[],
+): T {
+  const checkoutSchema = spec?.paths?.['/api/checkout']?.post?.requestBody?.content?.['application/json']?.schema
+  if (!checkoutSchema?.properties) return spec
+
+  checkoutSchema.properties.offerConfiguration = genericOfferConfigurationSchema()
+
+  if (offers?.length) {
+    const perOfferSchemas: Record<string, JsonSchema> = {}
+    for (const offer of offers) {
+      const configuration = buildAgentOfferConfiguration(offer)
+      if (!configuration?.input_schema) continue
+      perOfferSchemas[getCheckoutOfferKey(offer.kind, offer.index)] = configuration.input_schema
+    }
+    if (Object.keys(perOfferSchemas).length) {
+      checkoutSchema['x-nexez-offer-configuration-schemas'] = perOfferSchemas
+    }
+  }
+
+  return spec
 }
