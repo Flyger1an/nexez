@@ -26,7 +26,6 @@ type EvidenceSource = 'identity' | 'customer-intent' | 'customer-job' | 'offer-b
 
 type WeightedEvidence = {
   source: EvidenceSource
-  label: string
   weight: number
   tokens: Set<string>
 }
@@ -95,10 +94,9 @@ function meaningfulTokens(value: string): string[] {
   return tokens
 }
 
-function evidence(source: EvidenceSource, label: string, weight: number, value: string): WeightedEvidence {
+function evidence(source: EvidenceSource, weight: number, value: string): WeightedEvidence {
   return {
     source,
-    label,
     weight,
     tokens: new Set(meaningfulTokens(value)),
   }
@@ -106,17 +104,16 @@ function evidence(source: EvidenceSource, label: string, weight: number, value: 
 
 function buildBuyerEvidence(template: CommerceTemplate): WeightedEvidence[] {
   return [
-    evidence('identity', template.title, 16, `${template.title} ${template.industry}`),
+    evidence('identity', 16, `${template.title} ${template.industry}`),
     ...template.customerIntents.map((intent) =>
-      evidence('customer-intent', intent.id, 12, intent.text),
+      evidence('customer-intent', 12, intent.text),
     ),
-    ...template.customerJobs.map((job, index) =>
-      evidence('customer-job', `job-${index + 1}`, 6, job),
+    ...template.customerJobs.map((job) =>
+      evidence('customer-job', 6, job),
     ),
     ...template.offerBlueprints.map((offer) =>
       evidence(
         'offer-blueprint',
-        offer.key,
         10,
         [offer.name, offer.description, ...(offer.commonConfiguration ?? [])].join(' '),
       ),
@@ -190,7 +187,7 @@ export function routeCommerceBuyerIntent(
     return { request, status: 'unmatched', matches: [] }
   }
 
-  const ranked = templates
+  const qualified = templates
     .map((template) => scoreCommerceBuyerIntent(template, request))
     .filter((match) => match.score >= minimumScore)
     .sort(
@@ -200,17 +197,16 @@ export function routeCommerceBuyerIntent(
         left.template.id.localeCompare(right.template.id) ||
         left.template.version - right.template.version,
     )
-    .slice(0, limit)
 
-  const strongest = ranked[0]
+  const strongest = qualified[0]
   if (!strongest) return { request, status: 'unmatched', matches: [] }
 
-  const runnerUp = ranked[1]
+  const runnerUp = qualified[1]
   const ambiguous = Boolean(runnerUp && strongest.score - runnerUp.score < minimumMargin)
 
   return {
     request,
     status: ambiguous ? 'ambiguous' : 'matched',
-    matches: ranked,
+    matches: qualified.slice(0, limit),
   }
 }
