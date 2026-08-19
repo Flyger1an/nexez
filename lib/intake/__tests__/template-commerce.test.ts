@@ -63,7 +63,7 @@ describe('commerce template intake adapter', () => {
     expect(getCommerceTemplateGapCandidates({ draft })).toEqual([])
   })
 
-  it('lets legacy industry expectations win shared semantic knowledge slots', () => {
+  it('lets legacy industry expectations win shared semantic knowledge slots and backfills new template questions', () => {
     const draft = draftWith({
       industry: 'Photography',
       services: [{ name: 'Event Coverage', description: '', price: '$800', url: '', duration: '4 hours' }],
@@ -74,10 +74,12 @@ describe('commerce template intake adapter', () => {
       baseGap({ id: 'page:faqs', field: 'faqs', priority: 190 }),
     ]
     const merged = mergeCommerceTemplateGaps(base, { draft, answers: [] })
+    const mergedIds = merged.map((gap) => gap.id)
     expect(merged.filter((gap) => gap.field === 'offer.turnaround')).toHaveLength(1)
     expect(merged.filter((gap) => gap.field === 'offer.licensing')).toHaveLength(1)
-    expect(merged.map((gap) => gap.id)).toContain('tpl:events.event-photography:deliverables')
-    expect(merged.map((gap) => gap.id)).not.toContain('tpl:events.event-photography:licensing')
+    expect(mergedIds).toContain('tpl:events.event-photography:deliverables')
+    expect(mergedIds).toContain('tpl:events.event-photography:add-ons')
+    expect(mergedIds).not.toContain('tpl:events.event-photography:licensing')
   })
 
   it('retires a one-shot template knowledge gap after the merchant answers it', () => {
