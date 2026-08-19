@@ -102,11 +102,13 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
       await page.getByText(/Advanced AI assist enabled|LLM opt-in enabled/i).waitFor({ timeout: 10000 }).catch(() => {})
     }
 
-    // Capture the slug from the rendered "Public Listing" link (reliable, uses the live slug)
+    // Capture the slug from the rendered "Public Listing" link. The link is an
+    // absolute runtime URL, so parse its pathname instead of treating the whole
+    // href as a relative slug.
     const publicLink = page.locator('a:has-text("Public Listing")')
     await expect(publicLink).toBeVisible({ timeout: 5000 })
     const publicHref = await publicLink.getAttribute('href')
-    const pageSlug = (publicHref || '').replace(/^\//, '').trim()
+    const pageSlug = publicHref ? new URL(publicHref, page.url()).pathname.replace(/^\/+|\/+$/g, '') : ''
     test.skip(!pageSlug, 'could not resolve slug for the seeded page')
 
     // Now go to simulator (same auth context) and exercise the paste + analyze path
