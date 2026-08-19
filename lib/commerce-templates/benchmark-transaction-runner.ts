@@ -1,6 +1,9 @@
 import { priceOfferConfiguration } from '../offer-configuration-pricing'
 import { validateOfferInputField } from '../offer-configuration'
-import { validateOfferTransactionConfiguration } from '../offer-transaction-configuration'
+import {
+  validateOfferTransactionConfiguration,
+  type OfferTransactionConfiguration,
+} from '../offer-transaction-configuration'
 import type { CommerceTemplate, CommerceTemplateRef } from './schema'
 import type { CommerceBenchmarkTransactionFixture } from './benchmark-transaction-fixtures'
 
@@ -53,8 +56,7 @@ function configurationStage(
   templateByKey: Map<string, CommerceTemplate>,
 ): {
   result: CommerceBenchmarkTransactionStageResult
-  normalized: ReturnType<typeof validateOfferTransactionConfiguration> extends { ok: true; value: infer T } ? T : never
-    | null
+  normalized: OfferTransactionConfiguration | null
 } {
   const stage: CommerceBenchmarkTransactionStage = 'offer-configuration'
   const diagnostics: CommerceBenchmarkTransactionDiagnostic[] = []
@@ -121,8 +123,7 @@ function configurationStage(
 
 function pricingStage(
   fixture: CommerceBenchmarkTransactionFixture,
-  normalized: ReturnType<typeof validateOfferTransactionConfiguration> extends { ok: true; value: infer T } ? T : never
-    | null,
+  normalized: OfferTransactionConfiguration | null,
   configurationPassed: boolean,
 ): CommerceBenchmarkTransactionStageResult {
   const stage: CommerceBenchmarkTransactionStage = 'deterministic-pricing'
