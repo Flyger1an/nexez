@@ -25,6 +25,12 @@ import type { SettlementContext } from '../../../lib/commerce/checkout-session-c
 import { billingPlans } from '../../../lib/billing'
 import { getCalendlyPat, integrationCredentialsConfigured } from '../../../lib/server/page-integration-credentials'
 import { createCalendlySchedulingLink } from '../../../lib/server/calendly-write'
+import { validateOfferTransactionConfiguration } from '../../../lib/offer-transaction-configuration'
+import {
+  checkoutConfigurationHandoffMetadata,
+  hasOfferTransactionConfiguration,
+  STRIPE_OFFER_CONFIGURATION_HASH_KEY,
+} from '../../../lib/server/checkout-configuration-handoff'
 import {
   actionApprovalRequired,
   actionApprovalSecret,
@@ -40,6 +46,8 @@ type CheckoutInput = {
   offer: string
   query?: string
   dryRun?: boolean
+  /** Buyer transaction data validated against the merchant-authored offer schema. */
+  offerConfiguration?: unknown
   // Optional buyer identity an agent (or the on-page form) can declare so the seller
   // knows who is buying and the buyer gets a receipt + order-portal access.
   buyerEmail?: string
@@ -95,6 +103,27 @@ export async function POST(request: Request) {
   }
 
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
+  const configuration = validateOfferTransactionConfiguration(offer, input.offerConfiguration)
+  if (!configuration.ok) {
+    return NextResponse.json(
+      {
+        error: 'The buyer configuration does not satisfy this offer.',
+        code: 'invalid_offer_configuration',
+        fields: configuration.errors,
+      },
+      { status: 422 },
+    )
+  }
+  const normalizedConfiguration = configuration.value
+  const hasConfiguration = hasOfferTransactionConfiguration(normalizedConfiguration)
+  // Keep legacy unconfigured action payloads byte-equivalent for approval hashing.
+  // A configured action, however, binds the normalized buyer values into the same
+  // existing approval token as slug/offer/query.
+  if (hasConfiguration) input.offerConfiguration = normalizedConfiguration
+  else delete input.offerConfiguration
+  const configurationHandoff = hasConfiguration
+    ? checkoutConfigurationHandoffMetadata(normalizedConfiguration)
+    : null
 
   if (!input.dryRun) {
     const approvalSecret = actionApprovalSecret()
@@ -188,6 +217,7 @@ export async function POST(request: Request) {
       buyer_agent: buyer.agent,
       agent_client: cleanAgentHeader(request.headers.get('x-nexez-client')),
       idempotency_key_present: Boolean(idempotency.key),
+      offer_configuration_present: hasConfiguration,
     },
   })
 
@@ -233,6 +263,12 @@ export async function POST(request: Request) {
       currency,
       stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
       connectReady: Boolean(connectAccountId),
+      ...(configuration.schema.length
+        ? {
+            offerConfiguration: normalizedConfiguration,
+            requiredOfferConfigurationFields: configuration.schema.filter((field) => field.required).map((field) => field.key),
+          }
+        : {}),
       events: {
         checkoutAttemptLogged: attemptLog.ok,
       },
@@ -288,6 +324,9 @@ export async function POST(request: Request) {
           // §7 multi-storefront breadcrumb: records which storefront made the sale so
           // finance can attribute per-storefront later. Resolution stays account-pooled.
           nexez_storefront_id: (page as { storefront_id?: string | null }).storefront_id ?? '',
+          ...(configurationHandoff
+            ? { [STRIPE_OFFER_CONFIGURATION_HASH_KEY]: configurationHandoff.offer_configuration_hash }
+            : {}),
         },
       }
 
@@ -329,14 +368,38 @@ export async function POST(request: Request) {
         metadata: {
           amount_cents: amountCents,
           currency,
+          ...(configurationHandoff ?? {}),
         },
       })
+
+      // Once buyer configuration is part of fulfillment, the handoff write is no
+      // longer optional telemetry. Never give the buyer a payable Stripe URL if
+      // Nexez failed to durably preserve the exact configuration for settlement.
+      if (configurationHandoff && !sessionLog.ok) {
+        try {
+          await stripe.checkout.sessions.expire(session.id, {
+            stripeAccount: settlementContext.connectAccountId,
+          })
+        } catch (expireError) {
+          console.warn('[Checkout] Failed to expire configured Stripe session after handoff failure:', expireError)
+        }
+        return NextResponse.json(
+          {
+            error: 'Could not preserve the configured offer for checkout. No payable checkout was returned.',
+            code: 'configuration_handoff_failed',
+          },
+          { status: 503 },
+        )
+      }
 
       if (wantsJson) {
         return NextResponse.json({
           url: session.url,
           provider: 'stripe',
           checkoutSessionId: session.id,
+          ...(configurationHandoff
+            ? { offerConfiguration: normalizedConfiguration, offerConfigurationFingerprint: configurationHandoff.offer_configuration_hash }
+            : {}),
           events: {
             checkoutAttemptLogged: attemptLog.ok,
             stripeSessionLogged: sessionLog.ok,
@@ -437,6 +500,7 @@ async function readCheckoutInput(request: Request): Promise<CheckoutInput> {
       offer: String(body.offer || ''),
       query: body.query ? String(body.query) : undefined,
       dryRun: Boolean(body.dryRun),
+      offerConfiguration: body.offerConfiguration,
       buyerEmail: str(body.buyerEmail),
       buyerName: str(body.buyerName),
       buyerReference: str(body.buyerReference),
@@ -452,11 +516,23 @@ async function readCheckoutInput(request: Request): Promise<CheckoutInput> {
     offer: String(formData.get('offer') || ''),
     query: formData.get('query') ? String(formData.get('query')) : undefined,
     dryRun: formData.get('dryRun') === 'true',
+    offerConfiguration: parseFormOfferConfiguration(formData.get('offerConfiguration')),
     buyerEmail: str(formData.get('buyerEmail')),
     buyerName: str(formData.get('buyerName')),
     buyerReference: str(formData.get('buyerReference')),
     buyerAgent: str(formData.get('buyerAgent')),
     approvalToken: str(formData.get('approvalToken')),
+  }
+}
+
+function parseFormOfferConfiguration(value: FormDataEntryValue | null): unknown {
+  if (typeof value !== 'string' || !value.trim()) return undefined
+  try {
+    return JSON.parse(value)
+  } catch {
+    // Let the canonical validator return the stable 422 field error rather than
+    // silently coercing malformed form data into a transaction payload.
+    return value
   }
 }
 
