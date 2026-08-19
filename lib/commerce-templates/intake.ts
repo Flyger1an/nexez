@@ -7,7 +7,9 @@ import type { CommerceTemplateMatch } from './matcher'
 export type CommerceTemplateGapCandidate = {
   gap: Gap
   dedupKey: string
-  oneShot: true
+  /** V1 template gaps are coverage-based: they retire only when the supported
+   * structured destination is filled (or the merchant explicitly skips). */
+  oneShot: false
   templateId: string
   templateVersion: number
   factKey: string
@@ -26,16 +28,17 @@ const CURRENT_ENGINE_OWNS_FACTS = new Set([
   'coverage-duration',
 ])
 
-const FACT_FIELD_ALIASES: Record<string, string> = {
+/**
+ * Only facts with an honest destination in the CURRENT intake field-update
+ * grammar are askable in V1. Richer template facts remain in the registry and
+ * eval corpus until the Commerce Schema gives them first-class storage.
+ *
+ * This prevents Nexie from asking a useful question whose answer would then be
+ * forced into metadata, an unrelated field, or lost at commit.
+ */
+const MATERIALIZABLE_FACT_FIELDS: Record<string, string> = {
   'service-area': 'offer.serviceArea',
   'travel-fee': 'offer.travelFee',
-  minimums: 'offer.minimums',
-  dietary: 'offer.dietary',
-  turnaround: 'offer.turnaround',
-  licensing: 'offer.licensing',
-  timeline: 'offer.timeline',
-  revisions: 'offer.rules.maxRevisions',
-  'project-scope': 'offer.rules.includedScope',
   'notice-policy': 'offer.rules.minNoticeHours',
 }
 
@@ -43,14 +46,10 @@ function offerEntries(draft: IntakeDraft) {
   return [...draft.services, ...draft.products]
 }
 
-function factField(fact: CommerceFact): string {
-  return FACT_FIELD_ALIASES[fact.key] ?? `template.${fact.key}`
-}
-
 function factKind(fact: CommerceFact): GapKind {
   // V1 safety boundary: commerce-template knowledge may improve the interview,
-  // but it must not create new publication blockers until every fact has a
-  // proven materialization path. Existing hard blockers remain authoritative.
+  // but it must not create new publication blockers. Existing hard blockers
+  // remain authoritative until each new primitive has proven transaction value.
   return fact.importance === 'opportunity' ? 'opportunity' : 'quality'
 }
 
@@ -68,12 +67,6 @@ function factAlreadyCovered(fact: CommerceFact, draft: IntakeDraft): boolean {
       return offers.some((offer) => Boolean(offer.travelFee?.trim()))
     case 'notice-policy':
       return offers.some((offer) => offer.rules?.minNoticeHours != null)
-    case 'revisions':
-      return offers.some((offer) => offer.rules?.maxRevisions != null)
-    case 'project-scope':
-      return offers.some((offer) => Boolean(offer.rules?.includedScope?.trim()))
-    case 'timeline':
-      return offers.some((offer) => offer.rules?.maxProjectWeeks != null)
     default:
       return false
   }
@@ -86,6 +79,9 @@ function factAlreadyCovered(fact: CommerceFact, draft: IntakeDraft): boolean {
  * Required template facts intentionally map to `quality`, not `blocking`, in
  * V1. A template knows what Nexez should investigate; it is not authority to
  * prevent an existing merchant from handing off to the builder.
+ *
+ * Equally important: an otherwise-useful fact is not surfaced until the
+ * current intake grammar can persist the merchant's answer faithfully.
  */
 export function resolveCommerceIntakeTemplateContext(
   state: Pick<IntakeState, 'draft'>,
@@ -121,9 +117,11 @@ export function resolveCommerceIntakeTemplateContext(
     if (candidates.length >= maxCandidates) break
     if (factAlreadyCovered(resolved.fact, draft)) continue
 
+    const field = MATERIALIZABLE_FACT_FIELDS[resolved.fact.key]
+    if (!field) continue
+
     const strongest = resolved.sources[0]
     if (!strongest) continue
-    const field = factField(resolved.fact)
     const kind = factKind(resolved.fact)
     const rankWithinKind = candidates.filter((candidate) => candidate.gap.kind === kind).length
     const priority = (kind === 'opportunity' ? 270 : 170) + rankWithinKind
@@ -138,7 +136,7 @@ export function resolveCommerceIntakeTemplateContext(
         priority,
       },
       dedupKey: `knowledge:${field}`,
-      oneShot: true,
+      oneShot: false,
       templateId: strongest.ref.id,
       templateVersion: strongest.ref.version,
       factKey: resolved.fact.key,
