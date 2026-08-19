@@ -31,6 +31,9 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
+    # A browser-install/network stall must fail visibly instead of occupying a runner
+    # for GitHub's six-hour default. Healthy runs complete far below this ceiling.
+    timeout-minutes: 25
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
@@ -50,6 +53,12 @@ jobs:
           check-latest: true
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      # Nexez runs Playwright headlessly with browserName=chromium and no channel
+      # override, so the full headed Chromium bundle is unnecessary. Playwright's
+      # --only-shell mode installs the smaller chromium-headless-shell used by this
+      # exact configuration while preserving the same browser engine semantics.
+      - name: Install Playwright Chromium headless shell
+        run: npx playwright install --with-deps --only-shell chromium
+        timeout-minutes: 8
       - name: Playwright E2E
         run: npm run test:e2e
