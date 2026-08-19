@@ -12,6 +12,7 @@ import {
   parseAvailabilityWindows,
   resolvePreferredContact,
 } from './agent-page'
+import { buildAgentOfferConfiguration } from './agent-offer-configuration'
 import { buildNegotiationAction } from './negotiations'
 import { publicBookingConstraints } from './offer-rules'
 import { rewriteForVoiceSync } from './ai-optimize'
@@ -139,6 +140,7 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: 
   const preferredOriginalUrl = getPreferredOriginalOfferUrl(page, offer)
   const checkoutUrl = preferredOriginalUrl || absoluteRuntimeUrl(platformBase, getCheckoutPath(page.slug, offer.kind, offer.index))
   const providerUrl = getOfferDestination(page, offer) || null
+  const configuration = buildAgentOfferConfiguration(offer)
 
   return {
     key: offerKey,
@@ -166,6 +168,9 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: 
       isMobile: !!(offer as any).isMobile,
       travelFee: (offer as any).travelFee || null,
     },
+    // Merchant-authored public configuration only. Buyer answers never appear
+    // here; they are supplied transactionally as action.offerConfiguration.
+    ...(configuration ? { configuration } : {}),
     action: {
       method: 'POST',
       endpoint: `${platformBase}/api/checkout`,
@@ -174,6 +179,10 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: 
         slug: page.slug,
         offer: offerKey,
       },
+      ...(configuration?.input_schema ? {
+        configuration_field: 'offerConfiguration',
+        configuration_schema: configuration.input_schema,
+      } : {}),
       // Optional buyer identity an agent can include so the seller knows who is buying
       // and the buyer gets a receipt + order-portal access. All optional.
       optional_fields: {

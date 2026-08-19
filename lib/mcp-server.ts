@@ -3,6 +3,7 @@
 // the route handles I/O + loading the page. Beyond the static mcp.json, this
 // lets MCP-native agents call initialize / tools/list / resources/* directly.
 import { AgentPage, getBaseUrl, getCheckoutOffers, getCheckoutOfferKey, getCheckoutPath, getPreferredOriginalOfferUrl } from './agent-page'
+import { buildAgentOfferConfiguration } from './agent-offer-configuration'
 
 export const MCP_PROTOCOL_VERSION = '2024-11-05'
 
@@ -25,7 +26,7 @@ function tools(negotiationAllowed: boolean) {
   return [
     {
       name: 'book_offer',
-      description: 'Get the booking/checkout target for a specific offer (respects per-offer + page original-site preferences and any booking constraints - min notice, blackout dates - listed in agent.json).',
+      description: 'Get the booking/checkout target and any merchant-authored buyer configuration requirements for a specific offer (respects per-offer + page original-site preferences and booking constraints).',
       inputSchema: {
         type: 'object',
         properties: { offer: { type: 'string', description: 'Offer key, e.g. services-0 or products-1' } },
@@ -56,7 +57,6 @@ function tools(negotiationAllowed: boolean) {
 }
 
 function resources(page: AgentPage, baseUrl: string) {
-  const platformBase = getBaseUrl()
   const list = [
     { uri: `${baseUrl}/${page.slug}/agent.json`, name: `${page.name} - Agent manifest`, description: 'Full structured agent-ready data.', mimeType: 'application/json' },
     { uri: `${baseUrl}/${page.slug}/llms.txt`, name: `${page.name} - llms.txt`, description: 'Plain-text agent context.', mimeType: 'text/plain' },
@@ -70,6 +70,16 @@ function resources(page: AgentPage, baseUrl: string) {
     })
   }
   return list
+}
+
+function bookOfferContent(offer: ReturnType<typeof getCheckoutOffers>[number], target: string) {
+  const configuration = buildAgentOfferConfiguration(offer)
+  return [
+    { type: 'text', text: `Booking target for "${offer.name}": ${target}` },
+    ...(configuration
+      ? [{ type: 'text', text: `Offer configuration contract: ${JSON.stringify(configuration)}` }]
+      : []),
+  ]
 }
 
 /** Handle one JSON-RPC MCP request for a page. Pure - the route resolves the
@@ -111,7 +121,7 @@ export function handleMcpRequest(
       if (name === 'book_offer') {
         if (!offer) return err(id, -32602, `Unknown offer: ${offerKey}`)
         const target = getPreferredOriginalOfferUrl(page, offer) || `${getBaseUrl()}${getCheckoutPath(page.slug, offer.kind, offer.index)}`
-        return ok(id, { content: [{ type: 'text', text: `Booking target for "${offer.name}": ${target}` }] })
+        return ok(id, { content: bookOfferContent(offer, target) })
       }
       if (name === 'negotiate_offer') {
         // Gate to match the advertised tool list + the gated POST endpoint.
@@ -140,7 +150,7 @@ function storefrontTools(negotiationAllowed: boolean) {
   return [
     {
       name: 'book_offer',
-      description: 'Get the booking/checkout target for a specific offer in one of this storefront’s listings (respects per-offer + page original-site preferences).',
+      description: 'Get the booking/checkout target and any merchant-authored buyer configuration requirements for a specific offer in one of this storefront’s listings (respects per-offer + page original-site preferences).',
       inputSchema: {
         type: 'object',
         properties: { slug: slugProp, offer: { type: 'string', description: 'Offer key, e.g. services-0 or products-1' } },
@@ -243,7 +253,10 @@ export function handleStorefrontMcpRequest(
         const offer = getCheckoutOffers(listing).find((o) => getCheckoutOfferKey(o.kind, o.index) === offerKey)
         if (!offer) return err(id, -32602, `Unknown offer: ${offerKey}`)
         const target = getPreferredOriginalOfferUrl(listing, offer) || `${getBaseUrl()}${getCheckoutPath(listing.slug, offer.kind, offer.index)}`
-        return ok(id, { content: [{ type: 'text', text: `Booking target for "${offer.name}" (${listing.name}): ${target}` }] })
+        const content = bookOfferContent(offer, target)
+        // Keep the existing storefront-specific target text for compatibility.
+        content[0] = { type: 'text', text: `Booking target for "${offer.name}" (${listing.name}): ${target}` }
+        return ok(id, { content })
       }
       if (name === 'negotiate_offer') {
         if (!negotiationAllowed) return err(id, -32601, 'negotiate_offer is not available for this storefront.')
