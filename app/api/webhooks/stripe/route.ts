@@ -7,6 +7,7 @@ import {
 } from '../../../../lib/server/service-agreement-webhook'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'placeholder')
+const SERVICE_AGREEMENT_MARKER_RE = /"nexez_kind"\s*:\s*"service_agreement"/
 
 function webhookSecrets(): string[] {
   return [process.env.STRIPE_WEBHOOK_SECRET, process.env.STRIPE_WEBHOOK_SECRET_CONNECT]
@@ -17,26 +18,28 @@ function webhookSecrets(): string[] {
 /**
  * Thin commerce dispatcher in front of the byte-preserved legacy Stripe webhook.
  *
- * Service-agreement subscriptions are connected-account commerce events and need
- * a different ledger from Nexez SaaS billing. We verify the signature here using
- * the same configured secret set and intercept ONLY events carrying the immutable
- * `nexez_kind=service_agreement` provenance. Every other event is delegated to the
- * previous handler with the original unread Request object.
+ * The clone-only raw-body check is a routing prefilter, NOT an authorization
+ * decision. Ordinary events delegate immediately so the legacy handler remains
+ * the single signature-verification path. A payload that claims service-agreement
+ * provenance is verified here with the configured webhook secrets before any
+ * recurring-commerce handler receives a parsed Stripe event.
  */
 export async function POST(request: NextRequest) {
+  const rawBody = await request.clone().text()
+  if (!SERVICE_AGREEMENT_MARKER_RE.test(rawBody)) return legacyPOST(request)
+
   const signature = request.headers.get('stripe-signature')
   const secrets = webhookSecrets()
   if (!signature || !secrets.length) return legacyPOST(request)
 
-  const rawBody = await request.clone().text()
   let event: Stripe.Event | null = null
   for (const secret of secrets) {
     try {
       event = stripe.webhooks.constructEvent(rawBody, signature, secret)
       break
     } catch {
-      // Let the byte-preserved legacy handler return the canonical signature
-      // error when no configured secret verifies this request.
+      // If no secret verifies, delegate to the byte-preserved handler so it emits
+      // the canonical legacy signature/configuration response.
     }
   }
 
