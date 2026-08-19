@@ -62,7 +62,7 @@ export function buildOfferConfigurationInputSchema(offer: OfferItem): JsonSchema
 /**
  * Sanitized machine contract published on agent-facing offer surfaces. Recurring
  * terms are merchant-authored public truth; the resolved buyer cadence remains
- * transaction data and is returned only by checkout dry-run.
+ * transaction data and is returned only by recurring-checkout dry-run.
  */
 export function buildAgentOfferConfiguration(offer: OfferItem) {
   const customerInputs = getOfferCustomerInputs(offer)
@@ -76,6 +76,7 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
   const requiredUnpricedPriceInputs = priceFields.filter((field) => field.required && !field.pricing).map((field) => field.key)
   const hasBuyerInputs = customerInputs.length > 0
   const requiresSettlement = hasBuyerInputs || Boolean(recurringTerms)
+  const checkoutPath = recurringTerms ? '/api/service-agreements/checkout' : '/api/checkout'
 
   const checkoutStatus = requiredUnpricedPriceInputs.length
     ? 'blocked_pending_pricing'
@@ -90,20 +91,22 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
     recurring_service: recurringTerms
       ? {
           terms: recurringTerms,
+          checkout_path: checkoutPath,
           resolved_schedule_source: recurringTerms.schedule.mode,
           starts: 'after the first successful subscription payment',
           ends: 'at the end of a paid period after cancellation',
           pause_supported: false,
-          note: 'Recurring service v1 uses fixed per-period Stripe subscription billing. Dry-run checkout resolves buyer-option cadence and binds the exact agreement before approval.',
+          note: 'Recurring service v1 uses fixed per-period Stripe subscription billing. Dry-run the dedicated recurring checkout path to resolve buyer-option cadence and bind the exact agreement before approval.',
         }
       : null,
     input_schema: hasBuyerInputs ? buildOfferConfigurationInputSchema(offer) : null,
     checkout: {
       status: checkoutStatus,
+      path: checkoutPath,
       requires_nexez_settlement_when_values_supplied: hasBuyerInputs,
       recurring_service_requires_nexez_settlement: Boolean(recurringTerms),
       external_provider_configuration_supported: false,
-      runtime_readiness_check: requiresSettlement ? 'POST /api/checkout with dryRun=true before approval.' : null,
+      runtime_readiness_check: requiresSettlement ? `POST ${checkoutPath} with dryRun=true before approval.` : null,
       deterministically_priced_inputs: deterministicallyPricedInputs,
       unpriced_price_affecting_inputs_blocked_when_supplied: unpricedPriceInputs,
       required_price_affecting_input_blockers: requiredUnpricedPriceInputs,
@@ -125,7 +128,7 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
 export function genericOfferConfigurationSchema(): JsonSchema {
   return {
     type: 'object',
-    description: 'Buyer values keyed by the target offer\'s merchant-authored customer input fields. Unknown fields are rejected. Read the offer\'s agent.json configuration.input_schema for exact keys/types, then dry-run /api/checkout to obtain exact pricing and any recurring-service agreement before approval.',
+    description: 'Buyer values keyed by the target offer\'s merchant-authored customer input fields. Unknown fields are rejected. Read the offer\'s agent.json configuration.input_schema for exact keys/types and configuration.checkout.path for the correct one-time or recurring checkout rail.',
     additionalProperties: {
       oneOf: [
         { type: 'string' },
@@ -185,11 +188,11 @@ function recurringAgreementResponseSchema(): JsonSchema {
         required: ['interval', 'intervalCount', 'source'],
       },
       configuration: { type: 'object' },
-      pricing: configuredCheckoutPricingResponseSchema(),
+      pricing: { oneOf: [configuredCheckoutPricingResponseSchema(), { type: 'null' }] },
       amountPerPeriod: { type: 'integer', minimum: 1 },
       currency: { type: 'string' },
     },
-    required: ['schemaVersion', 'terms', 'resolvedSchedule', 'configuration', 'amountPerPeriod', 'currency'],
+    required: ['schemaVersion', 'terms', 'resolvedSchedule', 'configuration', 'pricing', 'amountPerPeriod', 'currency'],
   }
 }
 
@@ -221,9 +224,20 @@ export function withOfferConfigurationOpenApi<T extends Record<string, any>>(
       offerConfigurationFingerprint: { type: 'string', pattern: '^[a-f0-9]{64}$' },
       offerPricing: configuredCheckoutPricingResponseSchema(),
       offerPricingFingerprint: { type: 'string', pattern: '^[a-f0-9]{64}$' },
-      recurringAgreement: recurringAgreementResponseSchema(),
-      recurringAgreementFingerprint: { type: 'string', pattern: '^[a-f0-9]{64}$' },
     })
   }
+
+  const recurringPost = JSON.parse(JSON.stringify(checkoutPost)) as Record<string, any>
+  recurringPost.summary = 'Create or dry-run a merchant-authored recurring service agreement'
+  recurringPost.description = 'Recurring service offers must use this endpoint. Dry-run resolves exact cadence, per-period pricing, configuration, and agreement fingerprint before buyer approval.'
+  const recurringResponse = recurringPost?.responses?.['200']?.content?.['application/json']?.schema
+  if (recurringResponse?.properties) {
+    Object.assign(recurringResponse.properties, {
+      recurringAgreement: recurringAgreementResponseSchema(),
+      recurringAgreementFingerprint: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+      serviceAgreementId: { type: 'string', format: 'uuid' },
+    })
+  }
+  spec.paths['/api/service-agreements/checkout'] = { post: recurringPost }
   return spec
 }
