@@ -155,7 +155,7 @@ function runTemplateContractStage(
     )
   }
 
-  const requiredFacts = new Map(template.requiredFacts.map((fact) => [fact.key, fact]))
+  const requiredFacts = new Map(template.requiredFacts.map((fact) => [fact.key, fact] as const))
   for (const factKey of benchmarkCase.expected.requiredFactKeys) {
     if (!requiredFacts.has(factKey)) {
       diagnostics.push(
@@ -262,7 +262,9 @@ function runIntelligenceStage(
     )
   }
 
-  const factsByKey = new Map(intelligence.facts.map((resolved) => [resolved.fact.key, resolved]))
+  const factsByKey = new Map(
+    intelligence.facts.map((resolved) => [resolved.fact.key, resolved] as const),
+  )
   for (const factKey of benchmarkCase.expected.requiredFactKeys) {
     const resolved = factsByKey.get(factKey)
     if (!resolved) {
@@ -329,7 +331,9 @@ export function runCommerceBenchmark(options?: CommerceBenchmarkRunOptions): Com
   const templates = options?.templates ?? listCommerceTemplates({ status: 'active' })
   const corpus = options?.corpus
     ?? (options?.templates ? compileCommerceBenchmark(templates) : commerceBenchmark)
-  const templateByKey = new Map(templates.map((template) => [versionedKey(template), template]))
+  const templateByKey = new Map(
+    templates.map((template) => [versionedKey(template), template] as const),
+  )
   const cases = corpus.cases.map((benchmarkCase) => runCase(benchmarkCase, templateByKey, templates))
   const failedCases = cases.filter((benchmarkCase) => benchmarkCase.status === 'fail').length
   const coverage = COVERAGE.map((entry) => ({ ...entry }))
