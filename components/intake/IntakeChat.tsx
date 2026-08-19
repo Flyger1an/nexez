@@ -151,9 +151,7 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl
       })
       const json = await response.json()
       if (response.status === 401) {
-        if (typeof window !== 'undefined') {
-          setAuthReturnPath(`${window.location.pathname}${window.location.search}` || '/create')
-        }
+        setAuthReturnPath(templateId ? `/create?commerceTemplate=${templateId}` : '/create')
         setPhase('signin')
         return
       }
