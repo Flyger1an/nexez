@@ -50,6 +50,21 @@ const configuredOffer = {
   rules: { minPrice: '$100', autoAccept: true },
 } as any
 
+const pricedConfiguredOffer = {
+  ...configuredOffer,
+  customerInputs: configuredOffer.customerInputs.map((field: any) =>
+    field.key === 'vehicle_class'
+      ? {
+          ...field,
+          pricing: {
+            model: 'option-delta',
+            adjustments: [{ value: 'suv', delta: '25' }],
+          },
+        }
+      : field,
+  ),
+}
+
 const page = {
   id: 'p1',
   slug: 'detailer',
@@ -81,7 +96,7 @@ describe('configured offer agent contract', () => {
     expect(schema.properties.api_key).toBeUndefined()
   })
 
-  it('publishes public-safe attributes and truthfully marks pricing + settlement boundaries', () => {
+  it('publishes public-safe attributes and truthfully marks unresolved pricing + settlement boundaries', () => {
     const configuration = buildAgentOfferConfiguration(configuredOffer) as any
 
     expect(configuration.customer_inputs.map((field: any) => field.key)).toEqual([
@@ -101,6 +116,21 @@ describe('configured offer agent contract', () => {
     expect(serialized).not.toContain('api_key')
     expect(serialized).not.toContain('min_price')
     expect(serialized).not.toContain('autoAccept')
+  })
+
+  it('publishes exact merchant-authored pricing and stops marking a fully priced required field as blocked', () => {
+    const configuration = buildAgentOfferConfiguration(pricedConfiguredOffer) as any
+    const vehicleClass = configuration.customer_inputs.find((field: any) => field.key === 'vehicle_class')
+
+    expect(vehicleClass.pricing).toEqual({
+      model: 'option-delta',
+      adjustments: [{ value: 'suv', delta: '25' }],
+    })
+    expect(configuration.checkout.status).toBe('requires_nexez_settlement')
+    expect(configuration.checkout.deterministically_priced_inputs).toEqual(['vehicle_class'])
+    expect(configuration.checkout.unpriced_price_affecting_inputs_blocked_when_supplied).toEqual([])
+    expect(configuration.checkout.required_price_affecting_input_blockers).toEqual([])
+    expect(configuration.checkout.note).toContain('Dry-run checkout returns the exact final amount')
   })
 
   it('threads the same sanitized contract into agent.json without materializing buyer answers', () => {
@@ -141,6 +171,7 @@ describe('configured offer agent contract', () => {
     const globalSchema = global.paths['/api/checkout'].post.requestBody.content['application/json'].schema
     expect(globalSchema.properties.offerConfiguration.type).toBe('object')
     expect(globalSchema.properties.offerConfiguration.description).toContain('Nexez-settled Stripe')
+    expect(globalSchema.properties.offerConfiguration.description).toContain('exact final amount')
     expect(globalSchema['x-nexez-offer-configuration-schemas']).toBeUndefined()
 
     const scoped = withOfferConfigurationOpenApi(structuredClone(baseSpec), getCheckoutOffers(page)) as any
