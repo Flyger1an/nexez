@@ -302,10 +302,23 @@ test.describe('page settings', () => {
   })
 
   test('uses webhook colors only for observed test outcomes', async ({ page }) => {
+    let releaseSuccessResponse = () => {}
+    const successResponseGate = new Promise<void>((resolve) => {
+      releaseSuccessResponse = () => resolve()
+    })
+
     await page.route('**/api/test-outbound', async (route) => {
       const body = route.request().postDataJSON() as { endpoint?: string }
-      await new Promise((resolve) => setTimeout(resolve, 250))
       const failed = body.endpoint?.includes('failure')
+      if (!failed) {
+        // Keep the successful request pending until the test has observed the
+        // intermediate UI state. A timeout fallback prevents a failed assertion
+        // from leaving the mocked request unresolved until the whole spec times out.
+        await Promise.race([
+          successResponseGate,
+          new Promise<void>((resolve) => setTimeout(resolve, 5_000)),
+        ])
+      }
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -339,6 +352,7 @@ test.describe('page settings', () => {
     await expect(successResult).toHaveAttribute('data-state', 'testing')
     await expect(successResult).toHaveClass(/text-\[var\(--fg-muted\)\]/)
     await expect(summary).toHaveAttribute('data-tone', 'neutral')
+    releaseSuccessResponse()
     await expect(successResult).toHaveAttribute('data-state', 'success')
     await expect(successResult).toHaveClass(/text-\[var\(--ready\)\]/)
     await expect(summary).toHaveAttribute('data-tone', 'ready')
