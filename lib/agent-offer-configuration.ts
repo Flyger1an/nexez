@@ -128,6 +128,11 @@ export function buildOfferConfigurationInputSchema(offer: OfferItem): JsonSchema
  * Sanitized machine contract published on agent-facing offer surfaces.
  * Merchant schema/facts are public; buyer answers remain transaction data and
  * are never materialized here.
+ *
+ * Runtime settlement readiness is intentionally NOT inferred here. #71 accepts
+ * non-empty buyer configuration only on a Nexez-settled Stripe rail; an external
+ * provider redirect cannot carry arbitrary configuration. Agents should dry-run
+ * /api/checkout to resolve the live settlement state before asking for approval.
  */
 export function buildAgentOfferConfiguration(offer: OfferItem) {
   const customerInputs = getOfferCustomerInputs(offer)
@@ -140,27 +145,33 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
   const requiredPriceAffectingInputs = customerInputs
     .filter((field) => field.required && field.affects?.includes('price'))
     .map((field) => field.key)
+  const hasBuyerInputs = customerInputs.length > 0
 
-  const checkoutStatus = requiredPriceAffectingInputs.length
-    ? 'blocked_pending_pricing'
-    : priceAffectingInputs.length
-      ? 'supported_except_price_affecting_inputs'
-      : 'supported'
+  const checkoutStatus = !hasBuyerInputs
+    ? 'not_required'
+    : requiredPriceAffectingInputs.length
+      ? 'blocked_pending_pricing'
+      : 'requires_nexez_settlement'
 
   return {
     request_field: 'offerConfiguration',
     customer_inputs: customerInputs,
     attributes,
-    input_schema: customerInputs.length ? buildOfferConfigurationInputSchema(offer) : null,
+    input_schema: hasBuyerInputs ? buildOfferConfigurationInputSchema(offer) : null,
     checkout: {
       status: checkoutStatus,
+      requires_nexez_settlement_when_values_supplied: hasBuyerInputs,
+      external_provider_configuration_supported: false,
+      runtime_readiness_check: hasBuyerInputs ? 'POST /api/checkout with dryRun=true before approval.' : null,
       price_affecting_inputs_blocked_when_supplied: priceAffectingInputs,
       required_price_affecting_input_blockers: requiredPriceAffectingInputs,
-      note: requiredPriceAffectingInputs.length
-        ? 'Checkout is blocked until Nexez publishes deterministic pricing for the required price-affecting inputs.'
-        : priceAffectingInputs.length
-          ? 'Checkout is supported when price-affecting optional inputs are omitted; supplying one is blocked until deterministic configuration pricing exists.'
-          : 'Buyer configuration is supported by the Nexez checkout rail.',
+      note: !hasBuyerInputs
+        ? 'This offer publishes attributes but does not require buyer configuration.'
+        : requiredPriceAffectingInputs.length
+          ? 'Checkout is blocked until Nexez publishes deterministic pricing for the required price-affecting inputs. Configured values also require a Nexez-settled Stripe checkout; external provider redirects cannot carry them.'
+          : priceAffectingInputs.length
+            ? 'Configured values require a Nexez-settled Stripe checkout. Price-affecting optional inputs must be omitted until deterministic configuration pricing exists; external provider redirects cannot carry configured values.'
+            : 'Configured values require a Nexez-settled Stripe checkout. External provider redirects cannot carry configured values; dry-run checkout to confirm live settlement readiness.',
     },
   }
 }
@@ -170,7 +181,7 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
 export function genericOfferConfigurationSchema(): JsonSchema {
   return {
     type: 'object',
-    description: 'Buyer values keyed by the target offer\'s merchant-authored customer input fields. Unknown fields are rejected. Read the offer\'s agent.json configuration.input_schema (or the per-page x-nexez-offer-configuration-schemas map) for exact keys and types.',
+    description: 'Buyer values keyed by the target offer\'s merchant-authored customer input fields. Unknown fields are rejected. Non-empty configured values require a Nexez-settled Stripe checkout and are not carried through external provider redirects. Read the offer\'s agent.json configuration.input_schema (or the per-page x-nexez-offer-configuration-schemas map) for exact keys and types, then dry-run /api/checkout to confirm live settlement readiness.',
     additionalProperties: {
       oneOf: [
         { type: 'string' },
