@@ -33,7 +33,6 @@ const configuredOffer = {
       askBuyer: 'Which date works for you?',
       affects: ['availability'],
     },
-    // Deliberately malformed/sensitive runtime row: public projection must drop it.
     {
       key: 'api_key',
       label: 'API key',
@@ -44,7 +43,6 @@ const configuredOffer = {
   ],
   attributes: [
     { key: 'water_required', label: 'Customer water required', valueType: 'boolean', value: true },
-    // Owner-private negotiation policy must never leak through public attributes.
     { key: 'min_price', label: 'Minimum', valueType: 'text', value: '$100' },
   ],
   rules: { minPrice: '$100', autoAccept: true },
@@ -64,6 +62,41 @@ const pricedConfiguredOffer = {
       : field,
   ),
 }
+
+const recurringOffer = {
+  name: 'Recurring Cleaning',
+  description: 'Merchant-authored weekly or biweekly cleaning.',
+  price: '$120',
+  url: '',
+  customerInputs: [{
+    key: 'cadence',
+    label: 'Cadence',
+    valueType: 'single-select',
+    required: true,
+    options: [
+      { value: 'weekly', label: 'Weekly' },
+      { value: 'biweekly', label: 'Every other week' },
+    ],
+    askBuyer: 'How often should the service recur?',
+    affects: ['availability'],
+  }],
+  recurringTerms: {
+    schemaVersion: 1,
+    paymentModel: 'fixed-per-period',
+    schedule: {
+      mode: 'buyer-option',
+      inputKey: 'cadence',
+      options: [
+        { value: 'weekly', cadence: { interval: 'week', intervalCount: 1 } },
+        { value: 'biweekly', cadence: { interval: 'week', intervalCount: 2 } },
+      ],
+    },
+    startPolicy: 'first-successful-payment',
+    endPolicy: 'until-cancelled',
+    cancellationPolicy: 'period-end',
+    pausePolicy: 'unsupported',
+  },
+} as any
 
 const page = {
   id: 'p1',
@@ -107,6 +140,7 @@ describe('configured offer agent contract', () => {
       { key: 'water_required', label: 'Customer water required', valueType: 'boolean', value: true },
     ])
     expect(configuration.checkout.status).toBe('blocked_pending_pricing')
+    expect(configuration.checkout.path).toBe('/api/checkout')
     expect(configuration.checkout.required_price_affecting_input_blockers).toEqual(['vehicle_class'])
     expect(configuration.checkout.requires_nexez_settlement_when_values_supplied).toBe(true)
     expect(configuration.checkout.external_provider_configuration_supported).toBe(false)
@@ -133,6 +167,17 @@ describe('configured offer agent contract', () => {
     expect(configuration.checkout.note).toContain('Dry-run checkout returns the exact final amount')
   })
 
+  it('publishes recurring merchant terms with the dedicated recurring checkout path', () => {
+    const configuration = buildAgentOfferConfiguration(recurringOffer) as any
+
+    expect(configuration.recurring_service.terms).toEqual(recurringOffer.recurringTerms)
+    expect(configuration.recurring_service.checkout_path).toBe('/api/service-agreements/checkout')
+    expect(configuration.recurring_service.pause_supported).toBe(false)
+    expect(configuration.checkout.path).toBe('/api/service-agreements/checkout')
+    expect(configuration.checkout.runtime_readiness_check)
+      .toBe('POST /api/service-agreements/checkout with dryRun=true before approval.')
+  })
+
   it('threads the same sanitized contract into agent.json without materializing buyer answers', () => {
     const payload = buildAgentPagePayload(page, 'https://nexez.app') as any
     const offer = payload.offers[0]
@@ -144,11 +189,12 @@ describe('configured offer agent contract', () => {
     expect(offer.action.body.offerConfiguration).toBeUndefined()
   })
 
-  it('adds generic global OpenAPI support and exact per-offer schemas on scoped specs', () => {
+  it('adds generic global OpenAPI support, exact per-offer schemas, and a recurring checkout path', () => {
     const baseSpec = {
       paths: {
         '/api/checkout': {
           post: {
+            summary: 'Checkout',
             requestBody: {
               content: {
                 'application/json': {
@@ -162,6 +208,15 @@ describe('configured offer agent contract', () => {
                 },
               },
             },
+            responses: {
+              '200': {
+                content: {
+                  'application/json': {
+                    schema: { type: 'object', properties: {} },
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -170,9 +225,13 @@ describe('configured offer agent contract', () => {
     const global = withOfferConfigurationOpenApi(structuredClone(baseSpec)) as any
     const globalSchema = global.paths['/api/checkout'].post.requestBody.content['application/json'].schema
     expect(globalSchema.properties.offerConfiguration.type).toBe('object')
-    expect(globalSchema.properties.offerConfiguration.description).toContain('Nexez-settled Stripe')
-    expect(globalSchema.properties.offerConfiguration.description).toContain('exact final amount')
+    expect(globalSchema.properties.offerConfiguration.description).toContain('configuration.checkout.path')
     expect(globalSchema['x-nexez-offer-configuration-schemas']).toBeUndefined()
+    expect(global.paths['/api/service-agreements/checkout'].post.summary).toContain('recurring service agreement')
+    expect(global.paths['/api/service-agreements/checkout'].post.responses['200'].content['application/json'].schema.properties.recurringAgreement)
+      .toBeDefined()
+    expect(global.paths['/api/checkout'].post.responses['200'].content['application/json'].schema.properties.recurringAgreement)
+      .toBeUndefined()
 
     const scoped = withOfferConfigurationOpenApi(structuredClone(baseSpec), getCheckoutOffers(page)) as any
     const scopedSchema = scoped.paths['/api/checkout'].post.requestBody.content['application/json'].schema

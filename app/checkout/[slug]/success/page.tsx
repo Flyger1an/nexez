@@ -2,6 +2,7 @@ import { ArrowLeft, BadgeCheck, Bot, CheckCircle2, LifeBuoy, Package } from 'luc
 import { cookies } from 'next/headers'
 import { createClient } from '../../../../utils/supabase/server'
 import { loadOrderTokenBySession } from '../../../../lib/server/load-order'
+import { loadServiceAgreementTokenBySession } from '../../../../lib/server/load-service-agreement'
 
 type PageProps = {
   params: Promise<{ slug: string }>
@@ -11,8 +12,6 @@ type PageProps = {
 export default async function CheckoutSuccessPage({ params, searchParams }: PageProps) {
   const [{ slug }, search] = await Promise.all([params, searchParams])
 
-  // Buyer recourse: surface the seller's contact (from the redacted public view) so a
-  // buyer with a question/issue has a path - the seller can then refund from Finance.
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
   const { data: page } = await supabase
@@ -25,12 +24,21 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
     ? `mailto:${sellerEmail}?subject=${encodeURIComponent(`Order question - ${slug}`)}&body=${encodeURIComponent(`Hi, I have a question about my recent order${search.session_id ? ` (Stripe session ${search.session_id})` : ''}.`)}`
     : null
 
-  // Map the Stripe session → the order's portal token so we can link the buyer
-  // straight into their order portal. The order is captured by the webhook async,
-  // so the token may not exist yet on the immediate redirect - in that case the
-  // receipt email (which carries the same link) is the reliable delivery channel.
-  const portalLookup = search.session_id ? await loadOrderTokenBySession(search.session_id) : null
-  const portalUrl = portalLookup ? `/orders/${portalLookup.token}` : null
+  // One-shot orders and recurring agreements use distinct bearer capabilities.
+  // The Stripe session is the server-side handoff key; neither buyer token is
+  // embedded into Stripe metadata or exposed until the provider redirects here.
+  const [orderLookup, recurringLookup] = search.session_id
+    ? await Promise.all([
+        loadOrderTokenBySession(search.session_id),
+        loadServiceAgreementTokenBySession(search.session_id),
+      ])
+    : [null, null]
+  const portalUrl = recurringLookup
+    ? `/service-agreements/${recurringLookup.token}`
+    : orderLookup
+      ? `/orders/${orderLookup.token}`
+      : null
+  const recurring = Boolean(recurringLookup)
 
   return (
     <main className="min-h-screen bg-[#090b10] text-white">
@@ -45,10 +53,13 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
             <CheckCircle2 className="size-9" />
           </div>
           <p className="mt-6 text-sm font-medium text-[var(--signal)]">Checkout handoff complete</p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight">Payment session created</h1>
+          <h1 className="mt-3 text-4xl font-semibold tracking-tight">
+            {recurring ? 'Recurring service checkout complete' : 'Payment session created'}
+          </h1>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-zinc-400">
-            Nexez attached the selected offer and agent context to this checkout handoff. The seller can reconcile
-            the session from Stripe metadata.
+            {recurring
+              ? 'Nexez bound the merchant terms, your selected cadence, and the fixed per-period amount into one recurring service agreement. The agreement becomes active only after the first successful subscription payment is recorded.'
+              : 'Nexez attached the selected offer and agent context to this checkout handoff. The seller can reconcile the session from Stripe metadata.'}
           </p>
 
           <div className="mt-7 grid grid-cols-1 gap-3 text-left text-sm md:grid-cols-2">
@@ -69,21 +80,23 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Page
 
           <div className="mx-auto mt-8 max-w-xl rounded-xl border border-white/10 bg-white/[0.03] p-4 text-left text-sm">
             <p className="flex items-center gap-2 font-medium text-white">
-              <Package className="size-4 text-[var(--signal)]" /> Track &amp; manage your order
+              <Package className="size-4 text-[var(--signal)]" />
+              {recurring ? 'Manage your recurring service' : 'Track & manage your order'}
             </p>
             {portalUrl ? (
               <>
                 <p className="mt-1 text-zinc-400">
-                  View your order, track its status, request a refund, or report a problem any time.
+                  {recurring
+                    ? 'View the approved cadence and service periods, cancel at the end of the current paid period, or reverse a pending cancellation.'
+                    : 'View your order, track its status, request a refund, or report a problem any time.'}
                 </p>
                 <a href={portalUrl} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[var(--signal)] px-4 py-2 text-sm font-semibold text-zinc-950 hover:opacity-90">
-                  Open your order
+                  {recurring ? 'Manage recurring service' : 'Open your order'}
                 </a>
               </>
             ) : (
               <p className="mt-1 text-zinc-400">
-                We&rsquo;re finalizing your order - a receipt with a link to view, track, or get help with it is on its way
-                to your email.
+                We&rsquo;re finalizing your purchase. If this is a recurring service, the private management link appears once the agreement handoff is available.
               </p>
             )}
             {mailto ? (

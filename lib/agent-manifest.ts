@@ -44,18 +44,10 @@ export function buildAgentPagePayload(
   baseUrl = getBaseUrl(),
   opts: { negotiationAllowed?: boolean; storefront?: AgentStorefrontRef | null; reviewSummary?: ReviewSummary | null } = {},
 ) {
-  // negotiationAllowed gates the per-offer negotiation_action so the machine
-  // manifest matches the public render + the gated POST /api/negotiations. Pure
-  // builder shared by bulk endpoints, so the caller threads the resolved plan
-  // entitlement explicitly (default false = omit, never a DB read in here).
   const negotiationAllowed = opts.negotiationAllowed === true
   const dp = normalizeDomainPath((page as any).domain_path)
   const platformBase = getBaseUrl()
-  // identityBase: the effective root for this page's identity (already adjusted by caller for custom+dp)
   const identityBase = baseUrl
-  // For custom root: self URL = identityBase (e.g. https://acme.com)
-  // For subpath: self URL = identityBase (caller includes dp) , e.g. https://acme.com/pricing
-  // Never append slug to identity URLs on custom (slug is internal; domainPath maps it)
   const isCustomRootOrSub = dp !== '/' || !identityBase.includes('nexez.')
   const publicUrl = buildPublicPageUrl(page.slug, identityBase, isCustomRootOrSub)
   const agentJsonUrl = absoluteRuntimeUrl(identityBase, agentArtifactHref('agent.json', page.slug, isCustomRootOrSub, dp))
@@ -74,8 +66,6 @@ export function buildAgentPagePayload(
       slug: page.slug,
       url: publicUrl,
       agent_json_url: agentJsonUrl,
-      // Settlement currency for every offer price below (ISO 4217, lowercase) so an
-      // agent can compare prices across pages without fetching each one.
       currency: normalizeCurrency((page as { currency?: string | null }).currency),
       description: page.description,
       website_url: page.website_url,
@@ -84,9 +74,6 @@ export function buildAgentPagePayload(
       audience: page.audience,
       location: page.location,
       contact_email: page.contact_email,
-      // Which channel to use first to reach a human (so an agent never has to guess
-      // email vs the primary action vs the website). `value` is directly actionable;
-      // `channels` lists every available channel, preferred first.
       contact: resolvePreferredContact(page),
       rating_summary: ratingSummary,
       availability: {
@@ -96,12 +83,9 @@ export function buildAgentPagePayload(
         note: (page as any).next_available 
           ? 'Availability imported or set manually. Agents can use this for scheduling.'
           : 'Contact for current availability. Recent booking activity may indicate current slots.',
-        // Phase 3: Structured windows from Google Calendar stub import (or future real sync).
-        // Agents get a machine-readable list of upcoming slots in addition to the human note.
         windows: parseAvailabilityWindows((page as any).next_available),
       },
       llms_url: llmsUrl,
-      // Per-page OpenAPI spec (domain-scoped): slug + offer keys pinned to this page.
       openapi_url: openApiUrl,
     },
     offers,
@@ -113,8 +97,6 @@ export function buildAgentPagePayload(
     ],
     plain_text: buildPlainText(page, offers, identityBase, opts.storefront, opts.reviewSummary),
     ...(opts.storefront ? { storefront: opts.storefront } : {}),
-    // Live technical certification. Trust verification and marketplace curation
-    // remain separate signals.
     certification: getCertification(page),
   }
 }
@@ -134,46 +116,36 @@ function publicRatingSummary(summary?: ReviewSummary | null) {
 
 function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: string, platformBase: string, negotiationAllowed = false) {
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
-  // Only advertise negotiation when the owner's plan allows it AND this offer is
-  // negotiable - otherwise an agent would POST /api/negotiations and get a 403.
   const isNegotiable = (offer as { offerType?: string }).offerType === 'negotiable'
   const preferredOriginalUrl = getPreferredOriginalOfferUrl(page, offer)
   const checkoutUrl = preferredOriginalUrl || absoluteRuntimeUrl(platformBase, getCheckoutPath(page.slug, offer.kind, offer.index))
   const providerUrl = getOfferDestination(page, offer) || null
   const configuration = buildAgentOfferConfiguration(offer)
+  const actionPath = configuration?.checkout?.path || '/api/checkout'
 
   return {
     key: offerKey,
     type: getAgentOfferType(offer),
     name: offer.name,
     description: offer.description || null,
-    // Speech-ready phrasing for voice agents (advanced LLM-powered using platform's configured LLM when page llm_opt_in + key, else deterministic).
     voice_summary: offer.description ? rewriteForVoiceSync(offer, page.name).description : null,
     price: offer.price || null,
-    // Currency for `price` (the page settlement currency) - explicit per-offer so an
-    // agent reading a single offer never has to assume USD.
     currency: normalizeCurrency((page as { currency?: string | null }).currency),
     provider_url: providerUrl,
     checkout_url: checkoutUrl,
     prefer_original_for_this: (offer as any).prefer_original_for_this || false,
     availability: (offer as any).availability || 'available',
-    // Smart Rules Phase 1: hybrid booking. Public-safe constraints ONLY -
-    // pricing rules (min price, discount/auto-accept thresholds) never leave
-    // the server. Negotiable offers: lead with negotiation_action below.
     ...publicBookingConstraints(offer),
-    // Consumer / local service context for agents
     consumer: {
       duration: (offer as any).duration || null,
       serviceArea: (offer as any).serviceArea || null,
       isMobile: !!(offer as any).isMobile,
       travelFee: (offer as any).travelFee || null,
     },
-    // Merchant-authored public configuration only. Buyer answers never appear
-    // here; they are supplied transactionally as action.offerConfiguration.
     ...(configuration ? { configuration } : {}),
     action: {
       method: 'POST',
-      endpoint: `${platformBase}/api/checkout`,
+      endpoint: `${platformBase}${actionPath}`,
       content_type: 'application/json',
       body: {
         slug: page.slug,
@@ -183,8 +155,6 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: 
         configuration_field: 'offerConfiguration',
         configuration_schema: configuration.input_schema,
       } : {}),
-      // Optional buyer identity an agent can include so the seller knows who is buying
-      // and the buyer gets a receipt + order-portal access. All optional.
       optional_fields: {
         buyerEmail: 'Buyer email - prefills checkout and enables the receipt + order portal.',
         buyerName: 'Buyer or business name.',

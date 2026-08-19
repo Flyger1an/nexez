@@ -4,17 +4,12 @@ import {
   type OfferAttribute,
   type OfferInputField,
 } from './offer-configuration'
+import { validateRecurringServiceTerms, type RecurringServiceTerms } from './recurring-service'
 
-/**
- * Pipe-safe markers used by the legacy offer-line editor/import codec.
- *
- * The existing line format uses `|` as its field delimiter. Configuration
- * labels/options are arbitrary merchant text and may legitimately contain a
- * pipe, so raw JSON cannot be appended safely. URI-encoding keeps each marker
- * inside one delimiter slot and makes malformed payloads fail closed.
- */
+/** Pipe-safe markers used by the legacy offer-line editor/import codec. */
 export const OFFER_INPUTS_MARKER = '[[INPUTS]]'
 export const OFFER_ATTRIBUTES_MARKER = '[[ATTRIBUTES]]'
+export const OFFER_RECURRING_MARKER = '[[RECURRING]]'
 
 function encodeMarker(marker: string, value: unknown, sanitize: (value: unknown) => unknown[]): string | null {
   const normalized = sanitize(value)
@@ -49,4 +44,23 @@ export function formatOfferAttributesMarker(value: unknown): string | null {
 
 export function parseOfferAttributesMarker(part: string | undefined): OfferAttribute[] | undefined {
   return decodeMarker(part, OFFER_ATTRIBUTES_MARKER, sanitizeOfferAttributes)
+}
+
+export function formatOfferRecurringMarker(value: unknown): string | null {
+  const validated = validateRecurringServiceTerms(value)
+  return validated.ok
+    ? `${OFFER_RECURRING_MARKER}${encodeURIComponent(JSON.stringify(validated.value))}`
+    : null
+}
+
+export function parseOfferRecurringMarker(part: string | undefined): RecurringServiceTerms | undefined {
+  if (!part?.includes(OFFER_RECURRING_MARKER)) return undefined
+  try {
+    const encoded = part.slice(part.indexOf(OFFER_RECURRING_MARKER) + OFFER_RECURRING_MARKER.length).trim()
+    if (!encoded) return undefined
+    const validated = validateRecurringServiceTerms(JSON.parse(decodeURIComponent(encoded)))
+    return validated.ok ? validated.value : undefined
+  } catch {
+    return undefined
+  }
 }

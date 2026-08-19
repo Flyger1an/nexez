@@ -357,7 +357,7 @@ export const RESERVED_SLUGS = new Set([
   'create', 'dashboard', 'design', 'developers', 'discovery', 'enterprise',
   'examples', 'growth-control-preview', 'how-it-works', 'integrations',
   'invite', 'leaderboard', 'learn', 'login', 'mcp', 'negotiate', 'nexie',
-  'onboard', 'orders', 'pricing', 'privacy', 'scan', 'security', 'shopify',
+  'onboard', 'orders', 'pricing', 'privacy', 'scan', 'security', 'service-agreements', 'shopify',
   'simulator', 'store', 'support', 'team', 'terms', 'tools', 'ucp', 'use-cases',
   // next.config redirect sources (consolidated routes).
   'directory', 'marketplace', 'competitors',
