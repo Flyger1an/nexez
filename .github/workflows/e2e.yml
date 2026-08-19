@@ -30,10 +30,13 @@ on:
 
 jobs:
   e2e:
-    runs-on: ubuntu-latest
-    # A browser-install/network stall must fail visibly instead of occupying a runner
-    # for GitHub's six-hour default. Healthy runs complete far below this ceiling.
-    timeout-minutes: 25
+    # Pin the runner family so an ubuntu-latest image rollover cannot silently
+    # change Playwright's system dependency surface underneath the required gate.
+    runs-on: ubuntu-24.04
+    # Individual install phases have tighter hard ceilings below. This job-level
+    # ceiling only leaves enough room for one bounded retry per install phase plus
+    # the real browser suite; it must never fall back to GitHub's six-hour default.
+    timeout-minutes: 30
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
@@ -53,12 +56,50 @@ jobs:
           check-latest: true
           cache: npm
       - run: npm ci
+
+      # Keep apt/system-package failures separate from Playwright CDN/browser
+      # failures. Each external-install phase gets one bounded retry so a transient
+      # mirror/CDN hiccup does not impersonate a Nexez regression, while two failures
+      # still leave the required E2E gate red and attributable to the exact phase.
+      - name: Install Playwright system dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2; do
+            echo "Playwright system dependency install attempt ${attempt}/2"
+            if timeout --kill-after=15s 5m npx playwright install-deps chromium; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 2 ]; then
+              echo "::error::Playwright system dependency install failed twice"
+              exit 1
+            fi
+            echo "::warning::Playwright system dependency install attempt ${attempt} failed; retrying in 10s"
+            sleep 10
+          done
+        timeout-minutes: 12
+
       # Nexez runs Playwright headlessly with browserName=chromium and no channel
-      # override, so the full headed Chromium bundle is unnecessary. Playwright's
-      # --only-shell mode installs the smaller chromium-headless-shell used by this
-      # exact configuration while preserving the same browser engine semantics.
-      - name: Install Playwright Chromium headless shell
-        run: npx playwright install --with-deps --only-shell chromium
-        timeout-minutes: 8
+      # override, so the full headed Chromium bundle is unnecessary. --only-shell
+      # installs the matching headless shell while the retry contains transient CDN
+      # failures without changing browser semantics or weakening the test gate.
+      - name: Install Chromium headless shell
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2; do
+            echo "Chromium headless-shell install attempt ${attempt}/2"
+            if timeout --kill-after=15s 4m npx playwright install --only-shell chromium; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 2 ]; then
+              echo "::error::Chromium headless-shell install failed twice"
+              exit 1
+            fi
+            echo "::warning::Chromium headless-shell install attempt ${attempt} failed; retrying in 10s"
+            sleep 10
+          done
+        timeout-minutes: 10
+
       - name: Playwright E2E
         run: npm run test:e2e
