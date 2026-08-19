@@ -117,7 +117,32 @@ describe('runCommerceBenchmark', () => {
     )
   })
 
-  it('fails closed when required merchant intelligence disappears from a template', () => {
+  it('allows a scenario-required fact to be globally quality-classified when it remains resolvable', () => {
+    const caseId = 'automotive.mobile-auto-detailing.direct'
+    const corpus = oneCaseCorpus(caseId)
+    const templates = listCommerceTemplates({ status: 'active' })
+    const target = templates.find((template) => template.id === corpus.cases[0].template.id)
+    if (!target) throw new Error('Missing mobile detailing template')
+
+    const factKey = corpus.cases[0].expected.requiredFactKeys[0]
+    const fact = target.requiredFacts.find((candidate) => candidate.key === factKey)
+    if (!fact) throw new Error(`Missing fact fixture ${factKey}`)
+
+    const mutated: CommerceTemplate = {
+      ...target,
+      requiredFacts: target.requiredFacts.filter((candidate) => candidate.key !== factKey),
+      qualityFacts: [...target.qualityFacts, { ...fact, importance: 'quality' }],
+    }
+    const run = runCommerceBenchmark({
+      corpus,
+      templates: replaceTemplate(templates, mutated),
+    })
+
+    expect(run.ok).toBe(true)
+    expect(run.cases[0].stages.every((stage) => stage.status === 'pass')).toBe(true)
+  })
+
+  it('fails closed when scenario-required merchant intelligence disappears from a template', () => {
     const caseId = 'automotive.mobile-auto-detailing.direct'
     const corpus = oneCaseCorpus(caseId)
     const templates = listCommerceTemplates({ status: 'active' })
@@ -137,12 +162,12 @@ describe('runCommerceBenchmark', () => {
     expect(run.ok).toBe(false)
     expect(run.cases[0].stages[0].diagnostics).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ code: 'required_fact_not_required' }),
+        expect.objectContaining({ code: 'expected_fact_not_declared' }),
       ]),
     )
     expect(run.cases[0].stages[2].diagnostics).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ code: 'required_fact_missing' }),
+        expect.objectContaining({ code: 'expected_fact_missing' }),
       ]),
     )
   })
