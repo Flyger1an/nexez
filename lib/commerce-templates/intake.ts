@@ -20,6 +20,8 @@ export type CommerceIntakeTemplateContext = {
   candidates: CommerceTemplateGapCandidate[]
 }
 
+type CommerceTemplateState = Pick<IntakeState, 'draft'> & Partial<Pick<IntakeState, 'sources'>>
+
 const CURRENT_ENGINE_OWNS_FACTS = new Set([
   'price',
   'price-logic',
@@ -89,10 +91,10 @@ function normalizeIndustry(value: string | null | undefined): string {
  * fall back to the normal exact-industry pilot matching path.
  */
 function eligibleTemplatesForState(
-  state: Pick<IntakeState, 'draft' | 'sources'>,
+  state: CommerceTemplateState,
 ): { templates: CommerceTemplate[]; matchingIndustry: string } {
   const industry = normalizeIndustry(state.draft.industry)
-  const selectedRef = selectedCommerceTemplateRef(state.sources)
+  const selectedRef = selectedCommerceTemplateRef(state.sources ?? [])
   const selected = selectedRef ? getCommerceTemplate(selectedRef) : null
   const activeSelected = selected?.status === 'active' ? selected : null
 
@@ -152,7 +154,7 @@ function factAlreadyCovered(fact: CommerceFact, draft: IntakeDraft): boolean {
  * without changing unrelated commerce semantics.
  */
 export function resolveCommerceIntakeTemplateContext(
-  state: Pick<IntakeState, 'draft' | 'sources'>,
+  state: CommerceTemplateState,
   options?: { maxCandidates?: number; matchLimit?: number; minimumScore?: number },
 ): CommerceIntakeTemplateContext {
   const { draft } = state
@@ -210,7 +212,7 @@ export function resolveCommerceIntakeTemplateContext(
 }
 
 export function getCommerceTemplateGapCandidates(
-  state: Pick<IntakeState, 'draft' | 'sources'>,
+  state: CommerceTemplateState,
   options?: { maxCandidates?: number; matchLimit?: number; minimumScore?: number },
 ): CommerceTemplateGapCandidate[] {
   return resolveCommerceIntakeTemplateContext(state, options).candidates
