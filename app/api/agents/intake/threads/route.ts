@@ -4,8 +4,9 @@ import {
   initialAnalyzedState,
 } from '../../../../../lib/agents/intake'
 import { OWNER_PAGE_SELECT, type AgentPage } from '../../../../../lib/agent-page'
+import { getLatestCommerceTemplate } from '../../../../../lib/commerce-templates'
 import { analyzeSite, getImportUrlError } from '../../../../../lib/importer'
-import { applyIntakeAction, createIntakeState, type IntakeState } from '../../../../../lib/intake'
+import { applyIntakeAction, createIntakeState, type IntakeState, type IntakeTemplateHint } from '../../../../../lib/intake'
 import { captureEvent } from '../../../../../lib/observability'
 import { enforceRateLimit } from '../../../../../lib/rate-limit'
 import { resolveRequestAuth } from '../../../../../lib/server/request-auth'
@@ -16,11 +17,13 @@ export const maxDuration = 60
 
 /**
  * POST /api/agents/intake/threads - start an intake interview (spec §5).
- * Body: { source_url?, page_id? }. With a page_id the session re-interviews an
- * existing listing (draft seeded, provenance 'imported'); with a source_url the
- * site is ingested + extracted before the first turn; with neither the owner is
- * starting from scratch. Auth: web cookie or mobile bearer - sessions persist
- * only for authenticated owners.
+ * Body: { source_url?, page_id?, template_id? }. With a page_id the session
+ * re-interviews an existing listing (draft seeded, provenance 'imported'); with
+ * a source_url the site is ingested + extracted before the first turn; with
+ * neither the owner is starting from scratch. `template_id` is an optional
+ * owner-selected Commerce Template knowledge hint for new interviews only. It
+ * never seeds merchant fields. Auth: web cookie or mobile bearer - sessions
+ * persist only for authenticated owners.
  */
 export async function POST(request: NextRequest) {
   const limited = await enforceRateLimit(request, 'agents:intake:create', 10, 60_000)
@@ -37,6 +40,20 @@ export async function POST(request: NextRequest) {
   }
   const sourceUrl = typeof body.source_url === 'string' ? body.source_url.trim() : ''
   const pageId = typeof body.page_id === 'string' ? body.page_id.trim() : ''
+  const templateId = typeof body.template_id === 'string' ? body.template_id.trim() : ''
+
+  if (pageId && templateId) {
+    return NextResponse.json({ error: 'A template reference cannot replace the source of truth for an existing listing.' }, { status: 400 })
+  }
+
+  let templateHint: IntakeTemplateHint | null = null
+  if (templateId) {
+    const template = getLatestCommerceTemplate(templateId)
+    if (!template || template.status !== 'active') {
+      return NextResponse.json({ error: 'Commerce template not found.' }, { status: 400 })
+    }
+    templateHint = { id: template.id, version: template.version, source: 'owner_selected' }
+  }
 
   let state: IntakeState
   const nowIso = new Date().toISOString()
@@ -75,6 +92,7 @@ export async function POST(request: NextRequest) {
     const urlError = getImportUrlError(sourceUrl)
     if (urlError) return NextResponse.json({ error: urlError }, { status: 400 })
     state = createIntakeState()
+    if (templateHint) state = { ...state, templateHint }
     const sourceId = crypto.randomUUID()
     const added = applyIntakeAction(state, {
       type: 'ADD_SOURCE',
@@ -93,6 +111,7 @@ export async function POST(request: NextRequest) {
   } else {
     // Starting from scratch is a source too (spec §3 INGEST).
     state = createIntakeState()
+    if (templateHint) state = { ...state, templateHint }
     const added = applyIntakeAction(state, {
       type: 'ADD_SOURCE',
       source: { id: crypto.randomUUID(), kind: 'none', value: '', label: 'Starting from scratch', addedAt: nowIso },
@@ -126,6 +145,7 @@ export async function POST(request: NextRequest) {
     offersExtracted: state.extractions.reduce((sum, e) => sum + e.offers.length, 0),
     gaps: state.gaps.length,
     blocking: state.gaps.filter((g) => g.kind === 'blocking').length,
+    ...(state.templateHint ? { templateId: state.templateHint.id, templateVersion: state.templateHint.version } : {}),
   })
 
   return NextResponse.json({ ok: true, id: data.id, status: data.status, phase: data.phase, state }, { status: 201 })
