@@ -4,21 +4,22 @@ import {
   type CommerceBenchmarkCase,
   type CommerceBenchmarkCorpus,
 } from './benchmark'
+import { routeCommerceBuyerIntent } from './buyer-router'
 import { resolveCommerceTemplateIntelligence } from './intelligence'
 import { matchCommerceTemplates, type CommerceTemplateMatchInput } from './matcher'
 import { listCommerceTemplates } from './registry'
 import type { CommerceTemplate, CommerceTemplateRef } from './schema'
 
-export const COMMERCE_BENCHMARK_RUNNER_VERSION = 1 as const
+export const COMMERCE_BENCHMARK_RUNNER_VERSION = 2 as const
 
 export type CommerceBenchmarkExecutableStage =
   | 'template-contract'
+  | 'buyer-intent-routing'
   | 'seller-template-matching'
   | 'template-intelligence'
 
 export type CommerceBenchmarkCoverageStage =
   | CommerceBenchmarkExecutableStage
-  | 'buyer-intent-routing'
   | 'must-not-behavior'
   | 'offer-configuration'
   | 'deterministic-pricing'
@@ -76,6 +77,11 @@ const COVERAGE: CommerceBenchmarkCoverage[] = [
     reason: 'Checks each benchmark expectation against the exact versioned CommerceTemplate definition.',
   },
   {
+    stage: 'buyer-intent-routing',
+    status: 'exercised',
+    reason: 'Runs the production deterministic buyer request router against each CommerceEval request and requires an unambiguous owning-template result.',
+  },
+  {
     stage: 'seller-template-matching',
     status: 'exercised',
     reason: 'Runs the production deterministic seller/intake matcher against canonical merchant-facing evidence from the owning template.',
@@ -84,11 +90,6 @@ const COVERAGE: CommerceBenchmarkCoverage[] = [
     stage: 'template-intelligence',
     status: 'exercised',
     reason: 'Runs the production intelligence resolver and verifies scenario-required facts are surfaced from the expected template.',
-  },
-  {
-    stage: 'buyer-intent-routing',
-    status: 'not-exercised',
-    reason: 'CommerceEval includes buyer request text, but Nexez does not yet expose a production buyer free-text CommerceTemplate router.',
   },
   {
     stage: 'must-not-behavior',
@@ -187,6 +188,52 @@ function runTemplateContractStage(
         ),
       )
     }
+  }
+
+  return { stage, status: diagnostics.length === 0 ? 'pass' : 'fail', diagnostics }
+}
+
+function runBuyerIntentRoutingStage(
+  benchmarkCase: CommerceBenchmarkCase,
+  templates: CommerceTemplate[],
+): CommerceBenchmarkStageResult {
+  const stage: CommerceBenchmarkExecutableStage = 'buyer-intent-routing'
+  const diagnostics: CommerceBenchmarkDiagnostic[] = []
+  const route = routeCommerceBuyerIntent(templates, benchmarkCase.request)
+  const strongest = route.matches[0]
+
+  if (route.status === 'unmatched' || !strongest) {
+    diagnostics.push(
+      diagnostic(
+        stage,
+        'buyer_route_unmatched',
+        `Buyer request produced no CommerceTemplate route for expected ${versionedKey(benchmarkCase.template)}.`,
+      ),
+    )
+    return { stage, status: 'fail', diagnostics }
+  }
+
+  if (route.status === 'ambiguous') {
+    diagnostics.push(
+      diagnostic(
+        stage,
+        'buyer_route_ambiguous',
+        `Buyer request was ambiguous between ${route.matches.map((match) => versionedKey(match.template)).join(', ')}.`,
+      ),
+    )
+  }
+
+  if (
+    strongest.template.id !== benchmarkCase.template.id
+    || strongest.template.version !== benchmarkCase.template.version
+  ) {
+    diagnostics.push(
+      diagnostic(
+        stage,
+        'wrong_buyer_route',
+        `Buyer request routed to ${versionedKey(strongest.template)} instead of ${versionedKey(benchmarkCase.template)}.`,
+      ),
+    )
   }
 
   return { stage, status: diagnostics.length === 0 ? 'pass' : 'fail', diagnostics }
@@ -307,6 +354,7 @@ function runCase(
   const template = templateByKey.get(versionedKey(benchmarkCase.template))
   const stages = [
     runTemplateContractStage(benchmarkCase, template),
+    runBuyerIntentRoutingStage(benchmarkCase, templates),
     runSellerMatcherStage(benchmarkCase, template, templates),
     runIntelligenceStage(benchmarkCase, template, templates),
   ]
@@ -322,8 +370,8 @@ function runCase(
 /**
  * Execute the portions of the CommerceEval corpus that map to production
  * deterministic primitives today. The returned coverage ledger is part of the
- * contract: a green run must never be mistaken for buyer-routing, behavioral,
- * configuration, or pricing coverage that the current corpus cannot express.
+ * contract: a green run must never be mistaken for behavioral, configuration,
+ * or pricing coverage that the current corpus cannot express.
  */
 export function runCommerceBenchmark(options?: CommerceBenchmarkRunOptions): CommerceBenchmarkRun {
   const templates = options?.templates ?? listCommerceTemplates({ status: 'active' })
