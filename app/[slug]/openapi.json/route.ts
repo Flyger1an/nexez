@@ -1,6 +1,7 @@
 import { ARTIFACT_CORS_HEADERS, artifactPreflight } from '../../../lib/artifact-cors'
-import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl } from '../../../lib/agent-page'
+import { AgentPage, PUBLIC_PAGE_SELECT, getBaseUrl, getCheckoutOffers } from '../../../lib/agent-page'
 import { buildPageOpenApiSpec } from '../../../lib/agent-capabilities'
+import { withOfferConfigurationOpenApi } from '../../../lib/agent-offer-configuration'
 import { getEffectiveBaseUrl, isCustomHost, normalizeDomainPath } from '../../../lib/custom-domain'
 import { resolveNegotiationAllowed } from '../../../lib/server/negotiation-visibility'
 import { supabase } from '../../../lib/supabase'
@@ -33,14 +34,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   const domainPath = normalizeDomainPath((page as { domain_path?: string | null }).domain_path)
   const negotiationAllowed = await resolveNegotiationAllowed(page)
 
+  const spec = buildPageOpenApiSpec(page, {
+    platformBase: platform,
+    identityBase: base,
+    onCustomHost,
+    domainPath,
+    negotiationAllowed,
+  })
+
   return Response.json(
-    buildPageOpenApiSpec(page, {
-      platformBase: platform,
-      identityBase: base,
-      onCustomHost,
-      domainPath,
-      negotiationAllowed,
-    }),
+    withOfferConfigurationOpenApi(spec, getCheckoutOffers(page)),
     {
       headers: {
         'Cache-Control': 'public, max-age=300, s-maxage=300',
