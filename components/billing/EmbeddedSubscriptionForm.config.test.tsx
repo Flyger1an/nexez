@@ -2,6 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '../../test/dom'
 
+// Regression for the E2E-discovered import-time failure: the Billing page must
+// be safe to visit in environments where subscription Stripe keys are absent.
 const stripeLoader = vi.hoisted(() => ({
   loadStripe: vi.fn(),
 }))
