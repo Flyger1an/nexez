@@ -2,7 +2,7 @@ import type { OfferItem } from './agent-page'
 import { parseMoney } from './checkout'
 import { getOfferCustomerInputs } from './configured-offer'
 import { isZeroDecimalCurrency, normalizeCurrency, toStripeAmount } from './currency'
-import type { OfferInputField, OfferInputPricing } from './offer-configuration'
+import type { OfferInputPricing } from './offer-configuration'
 import type {
   OfferTransactionConfiguration,
   OfferTransactionConfigurationValue,
@@ -42,7 +42,7 @@ export type OfferConfigurationPricingErrorCode =
 export type OfferConfigurationPricingResult =
   | {
       ok: true
-      /** Base amount when no price-affecting input is supplied; final amount otherwise. */
+      /** Base amount for legacy checkout; exact configured amount when configuration exists. */
       amountCents: number
       pricing: OfferConfigurationPricingSnapshot | null
     }
@@ -139,13 +139,31 @@ function adjustmentForRule(
   return quantityDelta(pricing, value as number, currency)
 }
 
+function pricingSnapshot(
+  currency: string,
+  baseAmount: number,
+  adjustments: OfferConfigurationPricingAdjustment[],
+  adjustmentAmount: number,
+): OfferConfigurationPricingSnapshot {
+  return {
+    schemaVersion: OFFER_PRICING_SNAPSHOT_VERSION,
+    currency,
+    baseAmount,
+    adjustments,
+    adjustmentAmount,
+    finalAmount: baseAmount + adjustmentAmount,
+  }
+}
+
 /**
  * Price a normalized buyer configuration using only merchant-authored rules.
  * No LLM, no arbitrary formulas, no network reads, and no mutation.
  *
- * The returned amounts use Stripe smallest units for the page currency so the
- * exact integer produced here can flow unchanged into approval, Stripe, fees,
- * and fulfillment provenance.
+ * Every NON-EMPTY configured checkout receives a pricing snapshot even when its
+ * selected values add $0. This binds the listed base price into buyer approval,
+ * closing the race where a merchant edits the base price after dry-run. Truly
+ * unconfigured legacy checkout keeps the historical listed-price path and no
+ * pricing snapshot.
  */
 export function priceOfferConfiguration(
   offer: OfferItem,
@@ -156,17 +174,22 @@ export function priceOfferConfiguration(
   const baseMajor = parseMoney(offer.price)
   const baseAmount = baseMajor == null ? 0 : toStripeAmount(baseMajor, currency)
   const fields = getOfferCustomerInputs(offer)
+  const hasConfiguration = Object.keys(configuration).length > 0
   const priceFields = fields.filter((field) => field.affects?.includes('price') && supplied(configuration, field.key))
 
-  // No supplied price-affecting buyer value: preserve the legacy listed-price rail.
-  if (!priceFields.length) return { ok: true, amountCents: baseAmount, pricing: null }
+  // Preserve byte-compatible legacy behavior only when there is no buyer
+  // configuration at all. Configured checkout needs a positive base price so its
+  // quote can be approval-bound even when the selected values add $0.
+  if (!hasConfiguration && !priceFields.length) {
+    return { ok: true, amountCents: baseAmount, pricing: null }
+  }
 
   if (!baseAmount) {
     return {
       ok: false,
       code: 'pricing_base_unavailable',
-      error: 'Configured pricing requires a positive parseable base offer price.',
-      fields: priceFields.map((field) => field.key),
+      error: 'Configured checkout requires a positive parseable base offer price.',
+      fields: priceFields.length ? priceFields.map((field) => field.key) : Object.keys(configuration),
     }
   }
 
@@ -211,8 +234,8 @@ export function priceOfferConfiguration(
     })
   }
 
-  const finalAmount = baseAmount + adjustmentAmount
-  if (!Number.isSafeInteger(finalAmount)) {
+  const snapshot = pricingSnapshot(currency, baseAmount, adjustments, adjustmentAmount)
+  if (!Number.isSafeInteger(snapshot.finalAmount)) {
     return {
       ok: false,
       code: 'pricing_amount_overflow',
@@ -220,7 +243,7 @@ export function priceOfferConfiguration(
       fields: priceFields.map((field) => field.key),
     }
   }
-  if (finalAmount <= 0) {
+  if (snapshot.finalAmount <= 0) {
     return {
       ok: false,
       code: 'pricing_total_invalid',
@@ -231,14 +254,7 @@ export function priceOfferConfiguration(
 
   return {
     ok: true,
-    amountCents: finalAmount,
-    pricing: {
-      schemaVersion: OFFER_PRICING_SNAPSHOT_VERSION,
-      currency,
-      baseAmount,
-      adjustments,
-      adjustmentAmount,
-      finalAmount,
-    },
+    amountCents: snapshot.finalAmount,
+    pricing: snapshot,
   }
 }
