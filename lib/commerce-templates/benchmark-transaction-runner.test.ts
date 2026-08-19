@@ -25,7 +25,7 @@ function stage(
 }
 
 describe('commerce benchmark transaction fixtures', () => {
-  it('covers every active pilot template and passes through production configuration + pricing', () => {
+  it('covers every active pilot template and passes through production configuration + pricing behavior', () => {
     const templates = listCommerceTemplates({ status: 'active' })
     const results = runCommerceBenchmarkTransactionFixtures(
       commerceBenchmarkTransactionFixtures,
@@ -49,6 +49,21 @@ describe('commerce benchmark transaction fixtures', () => {
     expect(result.status).toBe('pass')
     expect(stage(result, 'offer-configuration').status).toBe('pass')
     expect(stage(result, 'deterministic-pricing').status).toBe('pass')
+  })
+
+  it('treats quote-required unresolved pricing as a passing fail-closed outcome', () => {
+    const result = runCommerceBenchmarkTransactionFixture(
+      fixture('professional.web-design-project.transaction'),
+      listCommerceTemplates({ status: 'active' }),
+    )
+
+    expect(result.status).toBe('pass')
+    expect(stage(result, 'offer-configuration').status).toBe('pass')
+    expect(stage(result, 'deterministic-pricing')).toEqual({
+      stage: 'deterministic-pricing',
+      status: 'pass',
+      diagnostics: [],
+    })
   })
 
   it('fails configuration and skips pricing when buyer data violates merchant schema', () => {
@@ -93,6 +108,7 @@ describe('commerce benchmark transaction fixtures', () => {
 
   it('fails closed when expected final amount drifts from production pricing', () => {
     const mutated = fixture('automotive.mobile-auto-detailing.transaction')
+    if (mutated.expected.pricing.outcome !== 'priced') throw new Error('Expected priced detailing fixture')
     mutated.expected.pricing.finalAmount += 100
 
     const result = runCommerceBenchmarkTransactionFixture(
@@ -105,6 +121,25 @@ describe('commerce benchmark transaction fixtures', () => {
     expect(stage(result, 'deterministic-pricing').diagnostics).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: 'pricing_final_mismatch' }),
+      ]),
+    )
+  })
+
+  it('fails when a quote-required fixture stops matching its expected block reason', () => {
+    const mutated = fixture('professional.web-design-project.transaction')
+    if (mutated.expected.pricing.outcome !== 'blocked') throw new Error('Expected blocked web design fixture')
+    mutated.expected.pricing.code = 'pricing_base_unavailable'
+
+    const result = runCommerceBenchmarkTransactionFixture(
+      mutated,
+      listCommerceTemplates({ status: 'active' }),
+    )
+
+    expect(stage(result, 'offer-configuration').status).toBe('pass')
+    expect(stage(result, 'deterministic-pricing')).toMatchObject({ status: 'fail' })
+    expect(stage(result, 'deterministic-pricing').diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'pricing_block_code_mismatch' }),
       ]),
     )
   })
