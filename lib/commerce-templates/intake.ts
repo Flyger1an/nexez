@@ -1,7 +1,7 @@
-import type { Gap, GapKind, IntakeDraft, IntakeState } from '../intake/types'
+import type { Gap, GapKind, IntakeDraft, IntakeSource, IntakeState } from '../intake/types'
 import { resolveCommerceTemplateIntelligence } from './intelligence'
 import { commerceTemplates, getCommerceTemplate } from './registry'
-import type { CommerceFact, CommerceTemplate } from './schema'
+import type { CommerceFact, CommerceTemplate, CommerceTemplateRef } from './schema'
 import type { CommerceTemplateMatch } from './matcher'
 
 export type CommerceTemplateGapCandidate = {
@@ -27,6 +27,33 @@ const CURRENT_ENGINE_OWNS_FACTS = new Set([
   'duration',
   'coverage-duration',
 ])
+
+const TEMPLATE_SOURCE_PREFIX = 'commerce-template:'
+
+/** Versioned source encoding keeps selected template context inside the intake
+ * source list, which the existing JSONB session rehydrator already preserves. */
+export function commerceTemplateSourceValue(ref: CommerceTemplateRef): string {
+  return `${TEMPLATE_SOURCE_PREFIX}${ref.id}@${ref.version}`
+}
+
+export function commerceTemplateRefFromSource(source: Pick<IntakeSource, 'kind' | 'value'>): CommerceTemplateRef | null {
+  if (source.kind !== 'template' || !source.value.startsWith(TEMPLATE_SOURCE_PREFIX)) return null
+  const encoded = source.value.slice(TEMPLATE_SOURCE_PREFIX.length)
+  const separator = encoded.lastIndexOf('@')
+  if (separator <= 0) return null
+  const id = encoded.slice(0, separator)
+  const version = Number(encoded.slice(separator + 1))
+  if (!id || !Number.isInteger(version) || version < 1) return null
+  return { id, version }
+}
+
+export function selectedCommerceTemplateRef(sources: IntakeSource[]): CommerceTemplateRef | null {
+  for (let index = sources.length - 1; index >= 0; index -= 1) {
+    const ref = commerceTemplateRefFromSource(sources[index])
+    if (ref) return ref
+  }
+  return null
+}
 
 /**
  * Only facts with a neutral, honest destination in the CURRENT intake
@@ -55,25 +82,26 @@ function normalizeIndustry(value: string | null | undefined): string {
 /**
  * Resolve which template definitions are allowed to inform this interview.
  *
- * An owner-selected template hint is knowledge context, never a page fact. It
+ * An owner-selected template source is knowledge context, never a page fact. It
  * may guide a scratch interview while industry is still unknown. The moment a
- * non-empty merchant/imported industry conflicts with the hinted template,
- * that real draft fact wins and the hint becomes inert. We then fall back to
- * the normal exact-industry pilot matching path.
+ * non-empty merchant/imported industry conflicts with the selected template,
+ * that real draft fact wins and the template context becomes inert. We then
+ * fall back to the normal exact-industry pilot matching path.
  */
 function eligibleTemplatesForState(
-  state: Pick<IntakeState, 'draft' | 'templateHint'>,
+  state: Pick<IntakeState, 'draft' | 'sources'>,
 ): { templates: CommerceTemplate[]; matchingIndustry: string } {
   const industry = normalizeIndustry(state.draft.industry)
-  const hinted = state.templateHint ? getCommerceTemplate(state.templateHint) : null
-  const activeHint = hinted?.status === 'active' ? hinted : null
+  const selectedRef = selectedCommerceTemplateRef(state.sources)
+  const selected = selectedRef ? getCommerceTemplate(selectedRef) : null
+  const activeSelected = selected?.status === 'active' ? selected : null
 
-  if (activeHint && (!industry || normalizeIndustry(activeHint.industry) === industry)) {
+  if (activeSelected && (!industry || normalizeIndustry(activeSelected.industry) === industry)) {
     return {
-      templates: [activeHint],
+      templates: [activeSelected],
       // Matching-only context: this makes the owner-selected definition rank
       // deterministically without ever copying its industry into the draft.
-      matchingIndustry: state.draft.industry.trim() || activeHint.industry,
+      matchingIndustry: state.draft.industry.trim() || activeSelected.industry,
     }
   }
 
@@ -124,7 +152,7 @@ function factAlreadyCovered(fact: CommerceFact, draft: IntakeDraft): boolean {
  * without changing unrelated commerce semantics.
  */
 export function resolveCommerceIntakeTemplateContext(
-  state: Pick<IntakeState, 'draft' | 'templateHint'>,
+  state: Pick<IntakeState, 'draft' | 'sources'>,
   options?: { maxCandidates?: number; matchLimit?: number; minimumScore?: number },
 ): CommerceIntakeTemplateContext {
   const { draft } = state
@@ -182,7 +210,7 @@ export function resolveCommerceIntakeTemplateContext(
 }
 
 export function getCommerceTemplateGapCandidates(
-  state: Pick<IntakeState, 'draft' | 'templateHint'>,
+  state: Pick<IntakeState, 'draft' | 'sources'>,
   options?: { maxCandidates?: number; matchLimit?: number; minimumScore?: number },
 ): CommerceTemplateGapCandidate[] {
   return resolveCommerceIntakeTemplateContext(state, options).candidates
