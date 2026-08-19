@@ -24,27 +24,20 @@ export type IntakePhase =
  *  - suggested_confirmed: the agent suggested it and the owner explicitly confirmed */
 export type Provenance = 'imported' | 'stated' | 'suggested_confirmed'
 
-export type IntakeSourceKind = 'url' | 'integration' | 'text' | 'none'
+/**
+ * `template` is knowledge context deliberately selected by the owner. It is a
+ * source for interview reasoning, never a merchant draft fact and therefore
+ * never receives page/offer provenance by itself.
+ */
+export type IntakeSourceKind = 'url' | 'integration' | 'text' | 'none' | 'template'
 
 export type IntakeSource = {
   id: string
   kind: IntakeSourceKind
-  /** URL / integration id / raw text. Empty for kind 'none' ("starting from scratch"). */
+  /** URL / integration id / raw text / versioned template ref. Empty for kind 'none'. */
   value: string
   label?: string
   addedAt: string // ISO - stamped by the caller, never inside the reducer
-}
-
-/**
- * Knowledge context the owner deliberately selected before starting intake.
- * This is NOT merchant truth and therefore never receives page provenance or
- * writes a draft field by itself. It only chooses which versioned Commerce
- * Template may inform questions while the merchant's own facts remain primary.
- */
-export type IntakeTemplateHint = {
-  id: string
-  version: number
-  source: 'owner_selected'
 }
 
 /** The rich extraction result stored per source (spec §3 EXTRACT). A trimmed,
@@ -163,8 +156,6 @@ export type IntakeState = {
   phase: IntakePhase
   sources: IntakeSource[]
   extractions: IntakeExtraction[]
-  /** Optional owner-selected knowledge context. Never a merchant draft fact. */
-  templateHint?: IntakeTemplateHint | null
   /** Current askable gaps: recomputed after every mutation, already filtered of
    *  skipped gaps, satisfied coverage, and answered one-shot questions. */
   gaps: Gap[]
