@@ -88,6 +88,77 @@ const ATTRIBUTE_VALUE_TYPES = new Set<OfferAttributeValueType>([
 const INPUT_AFFECTS = new Set<OfferInputAffects>(['eligibility', 'price', 'duration', 'availability', 'scope'])
 const SELECT_INPUT_TYPES = new Set<OfferInputValueType>(['single-select', 'multi-select'])
 
+/**
+ * Public configuration must never become an alternate storage surface for
+ * credentials, payment data, or private negotiation policy. Exact known keys
+ * catch common model/tool mistakes; suffix checks catch provider-prefixed forms
+ * such as `stripe_secret_key` without broadly rejecting harmless words.
+ */
+const SENSITIVE_PUBLIC_KEYS = new Set([
+  'api_key',
+  'api_token',
+  'access_token',
+  'refresh_token',
+  'password',
+  'client_secret',
+  'private_key',
+  'secret_key',
+  'card_number',
+  'credit_card_number',
+  'cvv',
+  'cvc',
+  'ssn',
+  'social_security_number',
+  'bank_account_number',
+  'routing_number',
+])
+
+/** OfferRules fields that are owner-private and must never be mirrored into a public attribute. */
+const PRIVATE_NEGOTIATION_ATTRIBUTE_KEYS = new Set([
+  'min_price',
+  'max_discount_percent',
+  'auto_accept',
+  'auto_accept_within_percent',
+  'auto_settle_max',
+])
+
+function normalizedPolicyKey(key: string): string {
+  return key.replace(/-/g, '_')
+}
+
+function isSensitivePublicKey(key: string): boolean {
+  const normalized = normalizedPolicyKey(key)
+  if (SENSITIVE_PUBLIC_KEYS.has(normalized)) return true
+  return /(?:^|_)(?:api_token|access_token|refresh_token|client_secret|private_key|secret_key|password)$/.test(normalized)
+}
+
+function validateInputKeySafety(key: string): OfferConfigurationValidation<string> {
+  if (isSensitivePublicKey(key)) {
+    return {
+      ok: false,
+      error: 'buyer input key requests sensitive credential, payment, or identity data that Nexez must not collect through offer configuration.',
+    }
+  }
+  return { ok: true, value: key }
+}
+
+function validateAttributeKeySafety(key: string): OfferConfigurationValidation<string> {
+  const normalized = normalizedPolicyKey(key)
+  if (isSensitivePublicKey(normalized)) {
+    return {
+      ok: false,
+      error: 'offer attribute key is sensitive and cannot be published as offer configuration.',
+    }
+  }
+  if (PRIVATE_NEGOTIATION_ATTRIBUTE_KEYS.has(normalized)) {
+    return {
+      ok: false,
+      error: 'offer attribute key belongs to owner-private negotiation policy and cannot be published.',
+    }
+  }
+  return { ok: true, value: key }
+}
+
 function objectRecord(value: unknown): Record<string, unknown> | null {
   return value != null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -143,6 +214,8 @@ export function validateOfferInputField(value: unknown): OfferConfigurationValid
 
   const key = validateKey(record.key)
   if (!key.ok) return key
+  const safeKey = validateInputKeySafety(key.value)
+  if (!safeKey.ok) return safeKey
   const label = requiredText(record.label, 'label', 160)
   if (!label.ok) return label
   const description = optionalText(record.description, 'description')
@@ -181,7 +254,7 @@ export function validateOfferInputField(value: unknown): OfferConfigurationValid
   return {
     ok: true,
     value: {
-      key: key.value,
+      key: safeKey.value,
       label: label.value,
       ...(description.value ? { description: description.value } : {}),
       valueType,
@@ -219,6 +292,8 @@ export function validateOfferAttribute(value: unknown): OfferConfigurationValida
 
   const key = validateKey(record.key)
   if (!key.ok) return key
+  const safeKey = validateAttributeKeySafety(key.value)
+  if (!safeKey.ok) return safeKey
   const label = requiredText(record.label, 'label', 160)
   if (!label.ok) return label
   if (typeof record.valueType !== 'string' || !ATTRIBUTE_VALUE_TYPES.has(record.valueType as OfferAttributeValueType)) {
@@ -232,7 +307,7 @@ export function validateOfferAttribute(value: unknown): OfferConfigurationValida
   return {
     ok: true,
     value: {
-      key: key.value,
+      key: safeKey.value,
       label: label.value,
       valueType,
       value: normalizeAttributeValue(valueType, record.value),
