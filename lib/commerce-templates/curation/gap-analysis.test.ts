@@ -73,19 +73,30 @@ describe('commerce schema gap analysis', () => {
     expect(summary.deferredSignals).toEqual(['usage-pricing', 'route-optimization'])
   })
 
+  it('keeps disposition and recommended action semantically consistent', () => {
+    const expectedAction = {
+      'first-class': 'no-schema-change',
+      'weakly-structured': 'harden-existing',
+      'broadly-missing': 'design-primitive',
+      'not-justified': 'defer',
+    } as const
+
+    for (const finding of commerceSchemaGapFindings) {
+      expect(finding.action).toBe(expectedAction[finding.disposition])
+      if (finding.disposition === 'first-class') {
+        expect(finding.missingBehavior).toBeNull()
+      } else {
+        expect(finding.missingBehavior).not.toBeNull()
+      }
+    }
+  })
+
   it('keeps evidence and recommendations explicit for every finding', () => {
     for (const finding of commerceSchemaGapFindings) {
       expect(finding.currentRepresentation.length).toBeGreaterThan(20)
       expect(finding.recommendation.length).toBeGreaterThan(20)
       expect(finding.evidence.length).toBeGreaterThan(0)
       expect(finding.evidence.every((path) => path.startsWith('lib/'))).toBe(true)
-      if (finding.disposition === 'first-class') {
-        expect(finding.action).toBe('no-schema-change')
-        expect(finding.missingBehavior).toBeNull()
-      }
-      if (finding.disposition === 'not-justified') {
-        expect(finding.action).toBe('defer')
-      }
     }
   })
 
