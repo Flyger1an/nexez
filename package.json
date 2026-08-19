@@ -16,6 +16,7 @@
     "certify:release": "node scripts/certify-release.mjs",
     "smoke:agent-access": "node scripts/smoke-agent-access.mjs",
     "test": "vitest run",
+    "test:commerce-benchmark": "vitest run lib/commerce-templates/benchmark-runner.test.ts",
     "test:watch": "vitest",
     "test:e2e": "playwright test"
   },
