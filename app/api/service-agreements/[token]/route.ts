@@ -1,6 +1,7 @@
 import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
+import { recoverBearerToken } from '../../../../lib/server/bearer-token'
 import { agreementStatusFromSubscription, validAgreementAccessToken } from '../../../../lib/server/service-agreement'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 
@@ -31,6 +32,18 @@ type AgreementRecord = {
   buyer_reference: string | null
 }
 
+type OccurrenceRecord = {
+  id: string
+  status: string
+  amount_cents: number
+  currency: string
+  stripe_invoice_id: string | null
+  service_period_start: string | null
+  service_period_end: string | null
+  created_at: string
+  access_token_encrypted: string | null
+}
+
 async function agreementByToken(token: string): Promise<AgreementRecord | null> {
   if (!hasSupabaseAdminEnv()) return null
   const hash = validAgreementAccessToken(token)
@@ -44,12 +57,13 @@ async function agreementByToken(token: string): Promise<AgreementRecord | null> 
 }
 
 async function publicAgreement(record: AgreementRecord) {
+  const admin = createAdminClient()
   const { data: page } = record.page_id
-    ? await createAdminClient().from('pages').select('name').eq('id', record.page_id).maybeSingle<{ name: string | null }>()
+    ? await admin.from('pages').select('name').eq('id', record.page_id).maybeSingle<{ name: string | null }>()
     : { data: null }
-  const { data: occurrences } = await createAdminClient()
+  const { data: occurrences } = await admin
     .from('checkout_orders')
-    .select('id, status, amount_cents, currency, stripe_invoice_id, service_period_start, service_period_end, created_at')
+    .select('id, status, amount_cents, currency, stripe_invoice_id, service_period_start, service_period_end, created_at, access_token_encrypted')
     .eq('service_agreement_id', record.id)
     .order('service_period_start', { ascending: false })
     .limit(50)
@@ -72,16 +86,20 @@ async function publicAgreement(record: AgreementRecord) {
     createdAt: record.created_at,
     buyerReference: record.buyer_reference,
     pauseSupported: false,
-    occurrences: (occurrences ?? []).map((order: any) => ({
-      id: order.id,
-      status: order.status,
-      amountCents: order.amount_cents,
-      currency: order.currency,
-      invoiceId: order.stripe_invoice_id,
-      servicePeriodStart: order.service_period_start,
-      servicePeriodEnd: order.service_period_end,
-      paidAt: order.created_at,
-    })),
+    occurrences: ((occurrences ?? []) as OccurrenceRecord[]).map((order) => {
+      const orderToken = recoverBearerToken({ encrypted: order.access_token_encrypted })
+      return {
+        id: order.id,
+        status: order.status,
+        amountCents: order.amount_cents,
+        currency: order.currency,
+        invoiceId: order.stripe_invoice_id,
+        servicePeriodStart: order.service_period_start,
+        servicePeriodEnd: order.service_period_end,
+        paidAt: order.created_at,
+        orderPath: orderToken ? `/orders/${orderToken}` : null,
+      }
+    }),
   }
 }
 
