@@ -5,6 +5,14 @@
 // invalid action leaves the prior state authoritative (this is the layer that
 // stops the LLM from skipping phases, inventing offers, or committing).
 import type { OfferItem, OfferKind } from '../agent-page'
+import {
+  getOfferAttributes,
+  getOfferCustomerInputs,
+  mergeProposedOfferPreservingConfiguration,
+  withOfferAttribute,
+  withOfferCustomerInput,
+} from '../configured-offer'
+import { validateOfferAttribute, validateOfferInputField } from '../offer-configuration'
 import { analyzeGaps, hasBlockingGaps, offerEntries } from './gaps'
 import {
   VOLUNTEERED_PREFIX,
@@ -119,6 +127,21 @@ const OFFER_PROVENANCE_FIELDS: Array<keyof OfferItem> = [
   'url',
 ]
 
+function stampOfferConfigurationProvenance(
+  provenance: Record<string, Provenance>,
+  offer: OfferItem,
+  kind: Provenance,
+) {
+  for (const input of getOfferCustomerInputs(offer)) {
+    const key = offerFieldProvenanceKey(offer, `input:${input.key}`)
+    if (!provenance[key]) provenance[key] = kind
+  }
+  for (const attribute of getOfferAttributes(offer)) {
+    const key = offerFieldProvenanceKey(offer, `attribute:${attribute.key}`)
+    if (!provenance[key]) provenance[key] = kind
+  }
+}
+
 function stampOfferProvenance(provenance: Record<string, Provenance>, offer: OfferItem, kind: Provenance) {
   for (const field of OFFER_PROVENANCE_FIELDS) {
     const value = offer[field]
@@ -126,6 +149,7 @@ function stampOfferProvenance(provenance: Record<string, Provenance>, offer: Off
       provenance[offerFieldProvenanceKey(offer, field)] = kind
     }
   }
+  stampOfferConfigurationProvenance(provenance, offer, kind)
 }
 
 function isStatedKey(provenance: Record<string, Provenance>, key: string): boolean {
@@ -413,7 +437,7 @@ function foldAnswers(state: IntakeState, answers: GapAnswer[]): FoldOutcome {
           ok: false,
           code: 'invalid_field_update',
           error:
-            "Each field update needs a target: 'page' {field,value} · 'offer' {offerKey,field,value} · 'offer_rules' {offerKey,rules} · 'new_offer' {kind,offer} · 'faq' {question,answer}.",
+            "Each field update needs a target: 'page' {field,value} · 'offer' {offerKey,field,value} · 'offer_rules' {offerKey,rules} · 'offer_input' {offerKey,input} · 'offer_attribute' {offerKey,attribute} · 'new_offer' {kind,offer} · 'faq' {question,answer}.",
         }
       }
       const mark: Provenance = update.origin === 'suggested' ? 'suggested_confirmed' : 'stated'
@@ -460,6 +484,40 @@ function foldAnswers(state: IntakeState, answers: GapAnswer[]): FoldOutcome {
           provenance[offerFieldProvenanceKey(entry.offer, 'rules')] = mark
           break
         }
+        case 'offer_input': {
+          const entry = offerEntries(draft).find((e) => e.key === update.offerKey)
+          if (!entry) {
+            return { ok: false, code: 'unknown_offer_key', error: `No offer at ${update.offerKey}.` }
+          }
+          const validated = validateOfferInputField(update.input)
+          if (!validated.ok) {
+            return { ok: false, code: 'invalid_field_update', error: `Invalid offer input: ${validated.error}` }
+          }
+          const applied = withOfferCustomerInput(entry.offer, validated.value)
+          if (!applied.ok) {
+            return { ok: false, code: 'invalid_field_update', error: `Invalid offer input: ${applied.error}` }
+          }
+          Object.assign(entry.offer, applied.value)
+          provenance[offerFieldProvenanceKey(entry.offer, `input:${validated.value.key}`)] = mark
+          break
+        }
+        case 'offer_attribute': {
+          const entry = offerEntries(draft).find((e) => e.key === update.offerKey)
+          if (!entry) {
+            return { ok: false, code: 'unknown_offer_key', error: `No offer at ${update.offerKey}.` }
+          }
+          const validated = validateOfferAttribute(update.attribute)
+          if (!validated.ok) {
+            return { ok: false, code: 'invalid_field_update', error: `Invalid offer attribute: ${validated.error}` }
+          }
+          const applied = withOfferAttribute(entry.offer, validated.value)
+          if (!applied.ok) {
+            return { ok: false, code: 'invalid_field_update', error: `Invalid offer attribute: ${applied.error}` }
+          }
+          Object.assign(entry.offer, applied.value)
+          provenance[offerFieldProvenanceKey(entry.offer, `attribute:${validated.value.key}`)] = mark
+          break
+        }
         case 'new_offer': {
           const norm = normalizeOfferName(update.offer.name)
           if (!norm) {
@@ -467,12 +525,14 @@ function foldAnswers(state: IntakeState, answers: GapAnswer[]): FoldOutcome {
           }
           const existing = offerEntries(draft).find((e) => normalizeOfferName(e.offer.name) === norm)
           if (existing) {
-            // Replay / restatement of a known offer: merge non-empty fields.
+            // Replay / restatement of a known offer: merge non-empty scalar fields only.
+            // Structured configuration has dedicated targets and cannot be smuggled through new_offer.
             mergeOfferFields(existing.offer, update.offer, provenance, mark)
           } else {
             const target = update.kind === 'products' ? draft.products : draft.services
-            target.push({ ...update.offer })
-            stampOfferProvenanceAs(provenance, update.offer, mark)
+            const safeOffer = mergeProposedOfferPreservingConfiguration(undefined, update.offer)
+            target.push(safeOffer)
+            stampOfferProvenanceAs(provenance, safeOffer, mark)
           }
           break
         }
@@ -498,7 +558,7 @@ function foldAnswers(state: IntakeState, answers: GapAnswer[]): FoldOutcome {
           return {
             ok: false,
             code: 'invalid_field_update',
-            error: `Unknown field-update target ${JSON.stringify((update as { target?: unknown }).target)} - use page | offer | offer_rules | new_offer | faq.`,
+            error: `Unknown field-update target ${JSON.stringify((update as { target?: unknown }).target)} - use page | offer | offer_rules | offer_input | offer_attribute | new_offer | faq.`,
           }
       }
     }
@@ -550,6 +610,7 @@ function stampOfferProvenanceAs(provenance: Record<string, Provenance>, offer: O
       provenance[offerFieldProvenanceKey(offer, field)] = mark
     }
   }
+  stampOfferConfigurationProvenance(provenance, offer, mark)
 }
 
 function mergeOfferFields(
@@ -597,7 +658,7 @@ function foldProposedOffers(state: IntakeState, kind: OfferKind, proposed: Offer
   const nextOffers: OfferItem[] = proposed.map((offer) => {
     const norm = normalizeOfferName(offer.name)
     const existing = currentByName.get(norm)
-    const merged: OfferItem = { ...(existing ?? {}), ...offer }
+    const merged: OfferItem = mergeProposedOfferPreservingConfiguration(existing, offer)
     // Stated fields always win over a re-proposal - only a new GapAnswer may
     // change what the owner said.
     if (existing) {
