@@ -4,6 +4,7 @@ import {
   formatConfiguredOfferLines,
   getOfferAttributes,
   getOfferCustomerInputs,
+  mergeOfferCollectionPreservingConfiguration,
   mergeProposedOfferPreservingConfiguration,
   parseConfiguredOfferLines,
   withOfferAttribute,
@@ -120,6 +121,55 @@ describe('configured offer adapter', () => {
     expect(merged.customerInputs?.map((field) => field.key)).toEqual(['vehicle_class'])
     expect(merged.attributes).toEqual([
       { key: 'mobile', label: 'Mobile service', valueType: 'boolean', value: true },
+    ])
+  })
+
+  it('preserves merchant configuration across collection-level copy rewrites and retains omitted offers', () => {
+    const existing: ConfiguredOfferItem[] = [
+      {
+        ...baseOffer(),
+        customerInputs: [
+          { key: 'vehicle_class', label: 'Vehicle class', valueType: 'text', required: true, askBuyer: 'Vehicle class?' },
+        ],
+        attributes: [
+          { key: 'mobile', label: 'Mobile service', valueType: 'boolean', value: true },
+        ],
+      },
+      {
+        name: 'Ceramic Coating',
+        description: 'Paint protection',
+        price: '$700',
+        url: '',
+        attributes: [
+          { key: 'warranty_years', label: 'Warranty years', valueType: 'number', value: 5 },
+        ],
+      },
+    ]
+
+    const proposed = [
+      {
+        ...baseOffer({ description: 'Agent-optimized detail copy', price: '$175' }),
+        customerInputs: [
+          { key: 'invented', label: 'Invented', valueType: 'text', required: true, askBuyer: 'Invented?' },
+        ],
+        attributes: [
+          { key: 'mobile', label: 'Mobile service', valueType: 'boolean', value: false },
+        ],
+      } as unknown as OfferItem,
+    ]
+
+    const merged = mergeOfferCollectionPreservingConfiguration(existing, proposed)
+
+    expect(merged).toHaveLength(2)
+    expect(merged[0].description).toBe('Agent-optimized detail copy')
+    expect(merged[0].price).toBe('$175')
+    expect(getOfferCustomerInputs(merged[0]).map((field) => field.key)).toEqual(['vehicle_class'])
+    expect(getOfferAttributes(merged[0])).toEqual([
+      { key: 'mobile', label: 'Mobile service', valueType: 'boolean', value: true },
+    ])
+    expect(merged[1].name).toBe('Ceramic Coating')
+    expect(getOfferAttributes(merged[1])).toEqual([
+      { key: 'warranty_years', label: 'Warranty years', valueType: 'number', value: 5 },
     ])
   })
 
