@@ -5,6 +5,7 @@ import {
   type CommerceBenchmarkExecutableStage,
   type CommerceBenchmarkRun,
 } from './benchmark-runner'
+import { commerceBenchmarkTransactionFixtures } from './benchmark-transaction-fixtures'
 import { listCommerceTemplates } from './registry'
 import type { CommerceTemplate } from './schema'
 
@@ -37,19 +38,24 @@ function stageResult(
 }
 
 describe('runCommerceBenchmark', () => {
-  it('executes every active corpus case against buyer routing, seller matching, and intelligence primitives', () => {
+  it('executes every active corpus case plus benchmark-only configured transaction fixtures', () => {
     const run = runCommerceBenchmark()
 
-    expect(run.runnerVersion).toBe(2)
+    expect(run.runnerVersion).toBe(3)
     expect(run.ok).toBe(true)
     expect(run.summary.caseCount).toBe(commerceBenchmark.cases.length)
     expect(run.summary.passedCases).toBe(commerceBenchmark.cases.length)
     expect(run.summary.failedCases).toBe(0)
     expect(run.cases.every((benchmarkCase) => benchmarkCase.stages.length === 4)).toBe(true)
     expect(run.cases.every((benchmarkCase) => benchmarkCase.stages.every((stage) => stage.status === 'pass'))).toBe(true)
+    expect(run.transactionTemplateCoverageComplete).toBe(true)
+    expect(run.summary.transactionFixtureCount).toBe(commerceBenchmarkTransactionFixtures.length)
+    expect(run.summary.passedTransactionFixtures).toBe(commerceBenchmarkTransactionFixtures.length)
+    expect(run.summary.failedTransactionFixtures).toBe(0)
+    expect(run.transactionFixtures.every((fixture) => fixture.status === 'pass')).toBe(true)
   })
 
-  it('reports lifecycle gaps without understating executable buyer-routing coverage', () => {
+  it('reports only must-not buyer-agent behavior as the remaining lifecycle gap', () => {
     const run = runCommerceBenchmark()
     const coverage = Object.fromEntries(run.coverage.map((entry) => [entry.stage, entry.status]))
 
@@ -58,11 +64,23 @@ describe('runCommerceBenchmark', () => {
     expect(coverage['buyer-intent-routing']).toBe('exercised')
     expect(coverage['seller-template-matching']).toBe('exercised')
     expect(coverage['template-intelligence']).toBe('exercised')
+    expect(coverage['offer-configuration']).toBe('exercised')
+    expect(coverage['deterministic-pricing']).toBe('exercised')
     expect(coverage['must-not-behavior']).toBe('not-exercised')
+    expect(run.summary.exercisedStageCount).toBe(6)
+    expect(run.summary.notExercisedStageCount).toBe(1)
+  })
+
+  it('does not let a corpus template inherit configuration/pricing coverage without its own fixture', () => {
+    const corpus = oneCaseCorpus('automotive.mobile-auto-detailing.direct')
+    const run = runCommerceBenchmark({ corpus, transactionFixtures: [] })
+    const coverage = Object.fromEntries(run.coverage.map((entry) => [entry.stage, entry.status]))
+
+    expect(run.ok).toBe(false)
+    expect(run.transactionTemplateCoverageComplete).toBe(false)
+    expect(run.summary.transactionFixtureCount).toBe(0)
     expect(coverage['offer-configuration']).toBe('not-exercised')
     expect(coverage['deterministic-pricing']).toBe('not-exercised')
-    expect(run.summary.exercisedStageCount).toBe(4)
-    expect(run.summary.notExercisedStageCount).toBe(3)
   })
 
   it('fails closed when an eval expects a capability the owning template no longer declares', () => {
