@@ -81,7 +81,7 @@ describe('configured offer agent contract', () => {
     expect(schema.properties.api_key).toBeUndefined()
   })
 
-  it('publishes public-safe attributes and truthfully marks unresolved required pricing configuration', () => {
+  it('publishes public-safe attributes and truthfully marks pricing + settlement boundaries', () => {
     const configuration = buildAgentOfferConfiguration(configuredOffer) as any
 
     expect(configuration.customer_inputs.map((field: any) => field.key)).toEqual([
@@ -93,6 +93,9 @@ describe('configured offer agent contract', () => {
     ])
     expect(configuration.checkout.status).toBe('blocked_pending_pricing')
     expect(configuration.checkout.required_price_affecting_input_blockers).toEqual(['vehicle_class'])
+    expect(configuration.checkout.requires_nexez_settlement_when_values_supplied).toBe(true)
+    expect(configuration.checkout.external_provider_configuration_supported).toBe(false)
+    expect(configuration.checkout.runtime_readiness_check).toContain('dryRun=true')
 
     const serialized = JSON.stringify(configuration)
     expect(serialized).not.toContain('api_key')
@@ -137,6 +140,7 @@ describe('configured offer agent contract', () => {
     const global = withOfferConfigurationOpenApi(structuredClone(baseSpec)) as any
     const globalSchema = global.paths['/api/checkout'].post.requestBody.content['application/json'].schema
     expect(globalSchema.properties.offerConfiguration.type).toBe('object')
+    expect(globalSchema.properties.offerConfiguration.description).toContain('Nexez-settled Stripe')
     expect(globalSchema['x-nexez-offer-configuration-schemas']).toBeUndefined()
 
     const scoped = withOfferConfigurationOpenApi(structuredClone(baseSpec), getCheckoutOffers(page)) as any
