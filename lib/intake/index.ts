@@ -1,13 +1,20 @@
 // Seller intake interview - platform capability (spec: nexez-intake-interview-spec.md).
-// Pure state machine + deterministic gap analysis. Consumed by the threads API
-// (web /create + seller mobile are thin clients of that API - no interview
-// logic ever lives in components).
+// The reducer remains pure and authoritative; Commerce Template intelligence is
+// composed around its gap projection here so web + mobile consume one behavior.
+import { applyCommerceAwareIntakeAction } from './commerce'
+import { applyIntakeAction as applyBaseIntakeAction } from './reducer'
+import type { IntakeAction, IntakeApplyResult, IntakeState } from './types'
+
 export * from './types'
-export { analyzeGaps, hasBlockingGaps, isVaguePrice, offerEntries } from './gaps'
+export { analyzeIntakeGaps as analyzeGaps, mergeCommerceTemplateGaps } from './commerce'
+export { hasBlockingGaps, isVaguePrice, offerEntries } from './gaps'
 export {
-  applyIntakeAction,
   createIntakeState,
   emptyIntakeDraft,
   handoffEligible,
   normalizeOfferName,
 } from './reducer'
+
+export function applyIntakeAction(state: IntakeState, action: IntakeAction): IntakeApplyResult {
+  return applyCommerceAwareIntakeAction(applyBaseIntakeAction, state, action)
+}
