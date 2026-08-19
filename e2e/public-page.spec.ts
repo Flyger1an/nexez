@@ -33,13 +33,14 @@ test.describe('public surface', () => {
     await page.getByRole('button', { name: /analyze/i }).click()
 
     // Wait for results + tabs (tabs container only mounts after simulationResults are populated)
-    await expect(page.getByText('LLM-Enhanced')).toBeVisible({ timeout: 30000 })
+    const llmTab = page.getByRole('button', { name: 'LLM-Enhanced', exact: true })
+    await expect(llmTab).toBeVisible({ timeout: 30000 })
 
     // Click to switch to the LLM tab
-    await page.getByText('LLM-Enhanced').click()
+    await llmTab.click()
 
     // Expect LLM-specific content (unique heading only present for the active LLM tab view)
-    await expect(page.getByText("LLM-Enhanced's view")).toBeVisible()
+    await expect(page.getByRole('heading', { name: "LLM-Enhanced's view" })).toBeVisible()
 
     expect(pageErrors, `Uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([])
   })
@@ -71,17 +72,13 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
     await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 30_000 })
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
 
-    // Find first owned page (must have at least one published page for this test account)
-    await page
-      .waitForFunction(
-        () => [...document.querySelectorAll('a[href]')].some((a) => /^\/dashboard\/[0-9a-f-]{36}$/.test(a.getAttribute('href') || '')),
-        undefined,
-        { timeout: 15_000 },
-      )
-      .catch(() => {})
-    const href = await page.evaluate(
-      () => [...document.querySelectorAll('a[href]')].map((a) => a.getAttribute('href')).find((h) => !!h && /^\/dashboard\/[0-9a-f-]{36}$/.test(h)) || null,
-    )
+    // Pick a genuinely PUBLISHED owned listing. The previous selector grabbed
+    // the first owned listing regardless of status, so a newer draft could be
+    // fed into the public simulator and never resolve.
+    const publishedCard = page.locator('article').filter({ has: page.getByRole('button', { name: 'Published' }) }).first()
+    const editLink = publishedCard.getByRole('link', { name: 'Edit listing' })
+    await editLink.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {})
+    const href = await editLink.getAttribute('href').catch(() => null)
     test.skip(!href, 'test account has no published pages to seed llm_opt_in on')
 
     // Go to its settings to seed the opt-in flag (this is the "seeded llm_opt_in page")
@@ -102,11 +99,13 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
       await page.getByText(/Advanced AI assist enabled|LLM opt-in enabled/i).waitFor({ timeout: 10000 }).catch(() => {})
     }
 
-    // Capture the slug from the rendered "Public Page" link (reliable, uses the live slug)
-    const publicLink = page.locator('a:has-text("Public Page")')
+    // Capture the slug from the rendered "Public Listing" link. The link is an
+    // absolute runtime URL, so parse its pathname instead of treating the whole
+    // href as a relative slug.
+    const publicLink = page.locator('a:has-text("Public Listing")')
     await expect(publicLink).toBeVisible({ timeout: 5000 })
     const publicHref = await publicLink.getAttribute('href')
-    const pageSlug = (publicHref || '').replace(/^\//, '').trim()
+    const pageSlug = publicHref ? new URL(publicHref, page.url()).pathname.replace(/^\/+|\/+$/g, '') : ''
     test.skip(!pageSlug, 'could not resolve slug for the seeded page')
 
     // Now go to simulator (same auth context) and exercise the paste + analyze path
@@ -124,7 +123,8 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
     await page.getByRole('button', { name: /analyze/i }).click()
 
     // Results + tabs render only after the simulation sets data (LLM-Enhanced tab is a reliable signal)
-    await expect(page.getByText('LLM-Enhanced')).toBeVisible({ timeout: 30000 })
+    const llmTab = page.getByRole('button', { name: 'LLM-Enhanced', exact: true })
+    await expect(llmTab).toBeVisible({ timeout: 30000 })
 
     // Await + assert the LLM call happened and returned the advanced payload (platform-configured LLM naturalLanguage)
     const llmData = await (await simulateLlmResponse).json()
@@ -135,30 +135,31 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
     expect(llmData?.agent || '', 'agent label should indicate LLM-Enhanced + model').toMatch(/LLM-Enhanced/)
 
     // UI: tab present (always) + switchable after results from seeded page
-    await expect(page.getByText('LLM-Enhanced')).toBeVisible()
-    await page.getByText('LLM-Enhanced').click()
-    await expect(page.getByText("LLM-Enhanced's view")).toBeVisible()
+    await expect(llmTab).toBeVisible()
+    await llmTab.click()
+    await expect(page.getByRole('heading', { name: "LLM-Enhanced's view" })).toBeVisible()
 
-    // Additional authed feature coverage (non-destructive page loads for main dashboard sections + flows)
-    // Tests billing, analytics, negotiations, tools, create, etc. after the LLM simulator flow.
+    // Additional authed feature coverage (non-destructive page loads for main dashboard sections + flows).
+    // Anchor each page on one unique semantic landmark so the smoke remains
+    // stable as cards/KPIs add more text that happens to share broad keywords.
     await page.goto('/dashboard/analytics', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByText(/Analytics|Tracked Signals|AI Agent Visits|Readiness/i)).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('heading', { name: 'Analytics', exact: true })).toBeVisible({ timeout: 15000 })
 
     await page.goto('/dashboard/billing', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByText(/Billing|Current Plan|Subscription|Usage/i)).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('heading', { name: 'Your plan & payouts', exact: true })).toBeVisible({ timeout: 15000 })
 
     await page.goto('/dashboard/negotiations', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByText(/Negotiations|Inbox|Make an Offer|agent_negotiations/i)).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('heading', { name: 'Negotiation Inbox', exact: true })).toBeVisible({ timeout: 15000 })
 
     await page.goto('/dashboard/tools', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByText(/Tools|Import|Site Import|CSV|Integrations/i)).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('heading', { name: 'Tools', exact: true })).toBeVisible({ timeout: 15000 })
 
     await page.goto('/create', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByRole('heading', { name: /create|new page|build your page/i })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Talk your listing into existence', exact: true })).toBeVisible({ timeout: 10000 })
 
     // Quick re-visit to dashboard overview and a settings page for llm_opt_in coverage (already toggled earlier)
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByText(/Dashboard|Pages|Overview/i)).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible({ timeout: 10000 })
 
     // Additional E2E coverage for the /negotiate persistent page (the core of long-lived resumable negotiations).
     // After visiting negotiations inbox (which now links to persistent threads), exercise /negotiate/{id}:
@@ -166,14 +167,14 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
     // - Display of turns, status, continuation form
     // - Submit a follow-up (appends to history via API + service, LLM would see full context on next step)
     await page.goto('/dashboard/negotiations', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByText(/Negotiations|Inbox/i)).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Negotiation Inbox', exact: true })).toBeVisible({ timeout: 10000 })
 
     const negotiateLink = page.locator('a[href*="/negotiate/"]').first()
     if (await negotiateLink.count() > 0) {
       const href = await negotiateLink.getAttribute('href')
       if (href) {
         await page.goto(href, { waitUntil: 'domcontentloaded' })
-        await expect(page.getByText('Negotiation')).toBeVisible({ timeout: 10000 })
+        await expect(page.getByRole('heading', { name: 'Negotiation', exact: true })).toBeVisible({ timeout: 10000 })
         await expect(page.getByText('Full Conversation History')).toBeVisible({ timeout: 10000 })
         await expect(page.getByText('Continue this negotiation')).toBeVisible()
 
