@@ -76,15 +76,38 @@ export function validateCommerceTemplate(template: CommerceTemplate): TemplateVa
 
   const evalIds = new Set<string>()
   for (const [index, evaluation] of template.evals.entries()) {
-    if (evalIds.has(evaluation.id)) issues.push({ path: `evals[${index}].id`, message: `Duplicate eval id: ${evaluation.id}` })
-    evalIds.add(evaluation.id)
-    if (evaluation.expected.templateId !== template.id) {
-      issues.push({ path: `evals[${index}].expected.templateId`, message: 'Eval must point to its owning template.' })
+    const evalPath = `evals[${index}]`
+    if (!TEMPLATE_ID_RE.test(evaluation.id)) {
+      issues.push({ path: `${evalPath}.id`, message: `Invalid eval id: ${evaluation.id}` })
     }
+    if (evalIds.has(evaluation.id)) issues.push({ path: `${evalPath}.id`, message: `Duplicate eval id: ${evaluation.id}` })
+    evalIds.add(evaluation.id)
+    if (!evaluation.request.trim()) {
+      issues.push({ path: `${evalPath}.request`, message: 'Eval request is required.' })
+    }
+    if (evaluation.expected.templateId !== template.id) {
+      issues.push({ path: `${evalPath}.expected.templateId`, message: 'Eval must point to its owning template.' })
+    }
+
+    const requiredFactKeys = new Set<string>()
     for (const factKey of evaluation.expected.requiredFactKeys) {
-      if (!factKeys.has(factKey)) {
-        issues.push({ path: `evals[${index}].expected.requiredFactKeys`, message: `Unknown fact key: ${factKey}` })
+      if (requiredFactKeys.has(factKey)) {
+        issues.push({ path: `${evalPath}.expected.requiredFactKeys`, message: `Duplicate fact key: ${factKey}` })
       }
+      requiredFactKeys.add(factKey)
+      if (!factKeys.has(factKey)) {
+        issues.push({ path: `${evalPath}.expected.requiredFactKeys`, message: `Unknown fact key: ${factKey}` })
+      }
+    }
+
+    if (new Set(evaluation.expected.capabilityTags).size !== evaluation.expected.capabilityTags.length) {
+      issues.push({ path: `${evalPath}.expected.capabilityTags`, message: 'Eval capability tags must be unique.' })
+    }
+    if (evaluation.expected.mustNot && new Set(evaluation.expected.mustNot).size !== evaluation.expected.mustNot.length) {
+      issues.push({ path: `${evalPath}.expected.mustNot`, message: 'Eval guardrails must be unique.' })
+    }
+    if (evaluation.expected.mustNot?.some((guardrail) => !guardrail.trim())) {
+      issues.push({ path: `${evalPath}.expected.mustNot`, message: 'Eval guardrails must not be blank.' })
     }
   }
 
