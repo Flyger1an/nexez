@@ -5,7 +5,8 @@ export type CommerceBuyerIntentRouteStatus = 'matched' | 'ambiguous' | 'unmatche
 export type CommerceBuyerIntentMatch = {
   template: CommerceTemplate
   score: number
-  confidence: number
+  /** Fraction of meaningful buyer terms explained by this template. Not a probability. */
+  coverage: number
   matchedTerms: string[]
   reasons: string[]
 }
@@ -149,7 +150,7 @@ export function scoreCommerceBuyerIntent(
     matchedBySource.set(strongestSource, sourceTerms)
   }
 
-  const confidence = requestTokens.length === 0 ? 0 : matchedTerms.length / requestTokens.length
+  const coverage = requestTokens.length === 0 ? 0 : matchedTerms.length / requestTokens.length
   const reasons = [...matchedBySource.entries()]
     .sort((left, right) => SOURCE_LABELS[left[0]].localeCompare(SOURCE_LABELS[right[0]]))
     .map(([source, terms]) => `${SOURCE_LABELS[source]}: ${[...terms].sort().join(', ')}`)
@@ -157,7 +158,7 @@ export function scoreCommerceBuyerIntent(
   return {
     template,
     score,
-    confidence,
+    coverage,
     matchedTerms: [...matchedTerms].sort(),
     reasons,
   }
@@ -193,7 +194,7 @@ export function routeCommerceBuyerIntent(
     .sort(
       (left, right) =>
         right.score - left.score ||
-        right.confidence - left.confidence ||
+        right.coverage - left.coverage ||
         left.template.id.localeCompare(right.template.id) ||
         left.template.version - right.template.version,
     )
