@@ -1,4 +1,4 @@
-import { getCommerceTemplateGapCandidates } from '../commerce-templates/intake'
+import { getCommerceTemplateGapCandidates, selectedCommerceTemplateRef } from '../commerce-templates/intake'
 import { analyzeGaps as analyzeBaseGaps } from './gaps'
 import type { Gap, IntakeAction, IntakeApplyResult, IntakeState } from './types'
 
@@ -13,9 +13,9 @@ const MAX_TEMPLATE_GAPS_PER_ANALYSIS = 5
  */
 export function mergeCommerceTemplateGaps(
   baseGaps: Gap[],
-  state: Pick<IntakeState, 'draft' | 'answers' | 'templateHint'>,
+  state: Pick<IntakeState, 'draft' | 'answers' | 'sources'>,
 ): Gap[] {
-  if (!state.draft.industry.trim() && !state.templateHint) return baseGaps
+  if (!state.draft.industry.trim() && !selectedCommerceTemplateRef(state.sources)) return baseGaps
 
   const answeredIds = new Set(state.answers.filter((answer) => !answer.skipped).map((answer) => answer.gapId))
   const skippedIds = new Set(state.answers.filter((answer) => answer.skipped).map((answer) => answer.gapId))
@@ -29,7 +29,7 @@ export function mergeCommerceTemplateGaps(
   const merged = [...baseGaps]
   let addedTemplateGaps = 0
   for (const candidate of getCommerceTemplateGapCandidates(
-    { draft: state.draft, templateHint: state.templateHint },
+    { draft: state.draft, sources: state.sources },
     { maxCandidates: MAX_TEMPLATE_GAPS_PER_ANALYSIS + seenKnowledgeSlots.size },
   )) {
     if (seenIds.has(candidate.gap.id)) continue
@@ -47,7 +47,7 @@ export function mergeCommerceTemplateGaps(
 }
 
 export function analyzeIntakeGaps(
-  state: Pick<IntakeState, 'draft' | 'extractions' | 'answers' | 'templateHint'>,
+  state: Pick<IntakeState, 'draft' | 'extractions' | 'answers' | 'sources'>,
 ): Gap[] {
   return mergeCommerceTemplateGaps(analyzeBaseGaps(state), state)
 }
