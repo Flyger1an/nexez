@@ -79,6 +79,9 @@ function numberValue(value: unknown, label: string): ValueValidation {
 function quantityValue(value: unknown, label: string): ValueValidation {
   const result = numberValue(value, label)
   if (!result.ok || result.value === MISSING) return result
+  if (typeof result.value !== 'number') {
+    return { ok: false, code: 'invalid_type', message: `${label} must be a finite number.` }
+  }
   if (!Number.isInteger(result.value) || result.value < 1 || result.value > MAX_QUANTITY) {
     return {
       ok: false,
@@ -196,6 +199,8 @@ function normalizeFieldValue(field: OfferInputField, value: unknown): ValueValid
       return dateValue(value, field.label)
     case 'date-time':
       return dateTimeValue(value, field.label)
+    default:
+      return { ok: false, code: 'invalid_value', message: `${field.label} has an unsupported buyer input type.` }
   }
 }
 
