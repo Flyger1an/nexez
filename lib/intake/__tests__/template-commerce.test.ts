@@ -35,7 +35,7 @@ function baseGap(overrides: Partial<Gap>): Gap {
 }
 
 describe('commerce template intake adapter', () => {
-  it('surfaces only facts the current intake grammar can persist', () => {
+  it('surfaces only facts the current intake grammar can persist without semantic side effects', () => {
     const draft = draftWith({
       industry: 'Auto Detailing',
       description: 'Mobile detailing at homes and offices.',
@@ -49,7 +49,7 @@ describe('commerce template intake adapter', () => {
     expect(candidates.every((candidate) => candidate.oneShot === false)).toBe(true)
 
     // These remain valuable template/eval facts, but asking them today would
-    // collect answers the current OfferItem/intake grammar cannot store.
+    // collect answers the current OfferItem/intake grammar cannot store safely.
     expect(factKeys).not.toContain('vehicle-class')
     expect(factKeys).not.toContain('package')
     expect(factKeys).not.toContain('condition-modifiers')
@@ -70,7 +70,7 @@ describe('commerce template intake adapter', () => {
     expect(getCommerceTemplateGapCandidates({ draft })).toEqual([])
   })
 
-  it('lets legacy industry expectations win shared semantic slots while adding persistable new knowledge', () => {
+  it('lets legacy industry expectations win shared semantic slots without repurposing negotiation rules', () => {
     const draft = draftWith({
       industry: 'Home Cleaning',
       services: [{ name: 'Recurring Cleaning', description: '', price: '$160', url: '', duration: '2 hours' }],
@@ -83,7 +83,10 @@ describe('commerce template intake adapter', () => {
 
     expect(mergedIds).toContain('ind:home-service-area')
     expect(mergedIds).not.toContain('tpl:home.recurring-home-cleaning:service-area')
-    expect(mergedIds).toContain('tpl:home.recurring-home-cleaning:notice-policy')
+    // minNoticeHours currently lives in offer_rules, whose reducer semantics
+    // imply negotiable posture on untyped offers. Do not use that destination
+    // for generic template intelligence until rules/posture are decoupled.
+    expect(mergedIds).not.toContain('tpl:home.recurring-home-cleaning:notice-policy')
   })
 
   it('keeps a template coverage gap askable until its structured destination is actually filled', () => {
@@ -152,6 +155,7 @@ describe('commerce template intake adapter', () => {
     state = applied.state
 
     expect(state.draft.services[0]?.serviceArea).toBe('Dallas-Fort Worth')
+    expect(state.draft.services[0]?.offerType).toBeUndefined()
     expect(state.gaps.map((gap) => gap.id)).not.toContain(gapId)
   })
 
