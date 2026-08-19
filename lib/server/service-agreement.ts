@@ -19,8 +19,16 @@ export type IdempotentServiceAgreement = {
   stripeConnectAccountId: string
 }
 
+type IdempotentAgreementRow = {
+  id: string
+  status: string
+  contract_fingerprint: string
+  stripe_checkout_session_id: string | null
+  stripe_connect_account_id: string
+}
+
 export function recurringAgreementFingerprint(snapshot: RecurringServiceAgreementSnapshot): string {
-  return actionRequestHash(snapshot)
+  return actionRequestHash('checkout', snapshot as unknown as Record<string, unknown>)
 }
 
 export function serviceAgreementStripeMetadata(input: {
@@ -46,18 +54,13 @@ export async function findIdempotentServiceAgreement(input: {
   requestIdempotencyKey: string | null | undefined
 }): Promise<IdempotentServiceAgreement | null> {
   if (!input.requestIdempotencyKey) return null
-  const { data } = await input.admin
+  const { data: rawData } = await input.admin
     .from('service_agreements')
     .select('id, status, contract_fingerprint, stripe_checkout_session_id, stripe_connect_account_id')
     .eq('owner_id', input.ownerId)
     .eq('request_idempotency_key', input.requestIdempotencyKey)
-    .maybeSingle<{
-      id: string
-      status: string
-      contract_fingerprint: string
-      stripe_checkout_session_id: string | null
-      stripe_connect_account_id: string
-    }>()
+    .maybeSingle()
+  const data = rawData as IdempotentAgreementRow | null
   if (!data) return null
   return {
     id: data.id,
