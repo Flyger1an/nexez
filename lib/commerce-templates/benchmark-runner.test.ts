@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { commerceBenchmark, type CommerceBenchmarkCorpus } from './benchmark'
-import { runCommerceBenchmark } from './benchmark-runner'
+import {
+  runCommerceBenchmark,
+  type CommerceBenchmarkExecutableStage,
+  type CommerceBenchmarkRun,
+} from './benchmark-runner'
 import { listCommerceTemplates } from './registry'
 import type { CommerceTemplate } from './schema'
 
@@ -22,32 +26,43 @@ function replaceTemplate(templates: CommerceTemplate[], replacement: CommerceTem
   )
 }
 
+function stageResult(
+  run: CommerceBenchmarkRun,
+  stage: CommerceBenchmarkExecutableStage,
+  caseIndex = 0,
+) {
+  const result = run.cases[caseIndex]?.stages.find((candidate) => candidate.stage === stage)
+  if (!result) throw new Error(`Missing ${stage} benchmark stage`)
+  return result
+}
+
 describe('runCommerceBenchmark', () => {
-  it('executes every active corpus case against matcher and intelligence primitives', () => {
+  it('executes every active corpus case against buyer routing, seller matching, and intelligence primitives', () => {
     const run = runCommerceBenchmark()
 
+    expect(run.runnerVersion).toBe(2)
     expect(run.ok).toBe(true)
     expect(run.summary.caseCount).toBe(commerceBenchmark.cases.length)
     expect(run.summary.passedCases).toBe(commerceBenchmark.cases.length)
     expect(run.summary.failedCases).toBe(0)
-    expect(run.cases.every((benchmarkCase) => benchmarkCase.stages.length === 3)).toBe(true)
+    expect(run.cases.every((benchmarkCase) => benchmarkCase.stages.length === 4)).toBe(true)
     expect(run.cases.every((benchmarkCase) => benchmarkCase.stages.every((stage) => stage.status === 'pass'))).toBe(true)
   })
 
-  it('reports lifecycle gaps instead of claiming unsupported buyer/configuration/pricing coverage', () => {
+  it('reports lifecycle gaps without understating executable buyer-routing coverage', () => {
     const run = runCommerceBenchmark()
     const coverage = Object.fromEntries(run.coverage.map((entry) => [entry.stage, entry.status]))
 
     expect(run.completeLifecycleCoverage).toBe(false)
     expect(coverage['template-contract']).toBe('exercised')
+    expect(coverage['buyer-intent-routing']).toBe('exercised')
     expect(coverage['seller-template-matching']).toBe('exercised')
     expect(coverage['template-intelligence']).toBe('exercised')
-    expect(coverage['buyer-intent-routing']).toBe('not-exercised')
     expect(coverage['must-not-behavior']).toBe('not-exercised')
     expect(coverage['offer-configuration']).toBe('not-exercised')
     expect(coverage['deterministic-pricing']).toBe('not-exercised')
-    expect(run.summary.exercisedStageCount).toBe(3)
-    expect(run.summary.notExercisedStageCount).toBe(4)
+    expect(run.summary.exercisedStageCount).toBe(4)
+    expect(run.summary.notExercisedStageCount).toBe(3)
   })
 
   it('fails closed when an eval expects a capability the owning template no longer declares', () => {
@@ -69,15 +84,39 @@ describe('runCommerceBenchmark', () => {
 
     expect(run.ok).toBe(false)
     expect(run.summary.failedCases).toBe(1)
-    expect(run.cases[0].stages[0]).toMatchObject({
-      stage: 'template-contract',
-      status: 'fail',
-    })
-    expect(run.cases[0].stages[0].diagnostics).toEqual(
+    expect(stageResult(run, 'template-contract')).toMatchObject({ status: 'fail' })
+    expect(stageResult(run, 'template-contract').diagnostics).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: 'capability_not_declared' }),
       ]),
     )
+  })
+
+  it('fails closed when canonical buyer evidence no longer routes the scenario', () => {
+    const caseId = 'automotive.mobile-auto-detailing.complex'
+    const corpus = oneCaseCorpus(caseId)
+    const templates = listCommerceTemplates({ status: 'active' })
+    const target = templates.find((template) => template.id === corpus.cases[0].template.id)
+    if (!target) throw new Error('Missing mobile detailing template')
+
+    const mutated: CommerceTemplate = {
+      ...target,
+      customerIntents: [{ id: 'unrelated', text: 'Arrange an unrelated generic appointment.' }],
+    }
+    const run = runCommerceBenchmark({
+      corpus,
+      templates: replaceTemplate(templates, mutated),
+    })
+
+    expect(run.ok).toBe(false)
+    expect(stageResult(run, 'buyer-intent-routing')).toMatchObject({ status: 'fail' })
+    expect(stageResult(run, 'buyer-intent-routing').diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'buyer_route_unmatched' }),
+      ]),
+    )
+    expect(stageResult(run, 'seller-template-matching')).toMatchObject({ status: 'pass' })
+    expect(stageResult(run, 'template-intelligence')).toMatchObject({ status: 'pass' })
   })
 
   it('fails closed when canonical merchant evidence no longer matches the owning template', () => {
@@ -101,16 +140,14 @@ describe('runCommerceBenchmark', () => {
     })
 
     expect(run.ok).toBe(false)
-    expect(run.cases[0].stages[1]).toMatchObject({
-      stage: 'seller-template-matching',
-      status: 'fail',
-    })
-    expect(run.cases[0].stages[1].diagnostics).toEqual(
+    expect(stageResult(run, 'buyer-intent-routing')).toMatchObject({ status: 'pass' })
+    expect(stageResult(run, 'seller-template-matching')).toMatchObject({ status: 'fail' })
+    expect(stageResult(run, 'seller-template-matching').diagnostics).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: 'no_seller_match' }),
       ]),
     )
-    expect(run.cases[0].stages[2].diagnostics).toEqual(
+    expect(stageResult(run, 'template-intelligence').diagnostics).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: 'no_intelligence_match' }),
       ]),
@@ -160,12 +197,12 @@ describe('runCommerceBenchmark', () => {
     })
 
     expect(run.ok).toBe(false)
-    expect(run.cases[0].stages[0].diagnostics).toEqual(
+    expect(stageResult(run, 'template-contract').diagnostics).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: 'expected_fact_not_declared' }),
       ]),
     )
-    expect(run.cases[0].stages[2].diagnostics).toEqual(
+    expect(stageResult(run, 'template-intelligence').diagnostics).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: 'expected_fact_missing' }),
       ]),
