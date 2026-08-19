@@ -80,6 +80,43 @@ describe('runCommerceBenchmark', () => {
     )
   })
 
+  it('fails closed when canonical merchant evidence no longer matches the owning template', () => {
+    const caseId = 'automotive.mobile-auto-detailing.direct'
+    const corpus = oneCaseCorpus(caseId)
+    const templates = listCommerceTemplates({ status: 'active' })
+    const target = templates.find((template) => template.id === corpus.cases[0].template.id)
+    if (!target) throw new Error('Missing mobile detailing template')
+
+    const mutated: CommerceTemplate = {
+      ...target,
+      matchHints: {
+        industries: ['Unrelated Industry'],
+        keywords: ['zzzx unmatched phrase'],
+        offerTerms: ['zzzx unmatched offer'],
+      },
+    }
+    const run = runCommerceBenchmark({
+      corpus,
+      templates: replaceTemplate(templates, mutated),
+    })
+
+    expect(run.ok).toBe(false)
+    expect(run.cases[0].stages[1]).toMatchObject({
+      stage: 'seller-template-matching',
+      status: 'fail',
+    })
+    expect(run.cases[0].stages[1].diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'no_seller_match' }),
+      ]),
+    )
+    expect(run.cases[0].stages[2].diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'no_intelligence_match' }),
+      ]),
+    )
+  })
+
   it('fails closed when required merchant intelligence disappears from a template', () => {
     const caseId = 'automotive.mobile-auto-detailing.direct'
     const corpus = oneCaseCorpus(caseId)
