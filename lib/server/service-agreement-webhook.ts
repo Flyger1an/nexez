@@ -39,6 +39,26 @@ type AgreementRow = {
   started_at: string | null
 }
 
+type ExistingOccurrence = {
+  service_agreement_id: string | null
+  stripe_payment_intent_id: string | null
+  amount_cents: number
+  currency: string
+}
+
+export function recurringOccurrenceMatchesInvoice(
+  existing: ExistingOccurrence | null,
+  expected: { agreementId: string; paymentIntentId: string; amount: number; currency: string },
+): boolean {
+  return Boolean(
+    existing &&
+    existing.service_agreement_id === expected.agreementId &&
+    existing.stripe_payment_intent_id === expected.paymentIntentId &&
+    existing.amount_cents === expected.amount &&
+    existing.currency === expected.currency,
+  )
+}
+
 export function isServiceAgreementStripeEvent(event: Stripe.Event): boolean {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
@@ -197,7 +217,12 @@ async function handleCheckoutCompleted(
 
   const subscription = await retrieveSubscription(stripe, subscriptionId, account)
   if (subscription) {
-    const syncError = await syncAgreementFromSubscription({ event, agreement: { ...agreement, buyer_email: buyerEmail }, subscription, allowActivation: false })
+    const syncError = await syncAgreementFromSubscription({
+      event,
+      agreement: { ...agreement, buyer_email: buyerEmail },
+      subscription,
+      allowActivation: false,
+    })
     if (syncError) return failRetry(event, 'Could not sync the recurring agreement subscription state.')
   }
   return NextResponse.json({ received: true, type: event.type, recurring: true, agreement: agreement.id, subscription: subscriptionId })
@@ -290,9 +315,24 @@ async function handleInvoicePaid(
   }
   const admin = createAdminClient()
   const { error: orderError } = await admin.from('checkout_orders').insert(orderRow)
-  if (orderError && orderError.code !== '23505') {
-    console.warn('[Service Agreement Webhook] recurring order insert failed:', orderError.message)
-    return failRetry(event, 'Could not persist the paid recurring service occurrence.')
+  if (orderError) {
+    if (orderError.code !== '23505') {
+      console.warn('[Service Agreement Webhook] recurring order insert failed:', orderError.message)
+      return failRetry(event, 'Could not persist the paid recurring service occurrence.')
+    }
+    const { data: existing } = await admin
+      .from('checkout_orders')
+      .select('service_agreement_id, stripe_payment_intent_id, amount_cents, currency')
+      .eq('stripe_invoice_id', invoice.id)
+      .maybeSingle<ExistingOccurrence>()
+    if (!recurringOccurrenceMatchesInvoice(existing ?? null, {
+      agreementId: agreement.id,
+      paymentIntentId: payment.paymentIntentId,
+      amount,
+      currency,
+    })) {
+      return failRetry(event, 'Recurring invoice collided with an existing order carrying different payment provenance.')
+    }
   }
 
   const { error: agreementError } = await admin
