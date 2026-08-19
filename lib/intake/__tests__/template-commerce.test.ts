@@ -34,7 +34,7 @@ function baseGap(overrides: Partial<Gap>): Gap {
 }
 
 describe('commerce template intake adapter', () => {
-  it('adds deterministic Auto Detailing questions without creating blockers', () => {
+  it('surfaces only facts the current intake grammar can persist', () => {
     const draft = draftWith({
       industry: 'Auto Detailing',
       description: 'Mobile detailing at homes and offices.',
@@ -42,12 +42,18 @@ describe('commerce template intake adapter', () => {
     })
     const candidates = getCommerceTemplateGapCandidates({ draft })
     const factKeys = candidates.map((candidate) => candidate.factKey)
-    expect(factKeys).toContain('vehicle-class')
-    expect(factKeys).toContain('package')
-    expect(factKeys).toContain('service-area')
-    expect(candidates).toHaveLength(5)
+
+    expect(factKeys).toEqual(['service-area', 'travel-fee'])
     expect(candidates.every((candidate) => candidate.gap.kind !== 'blocking')).toBe(true)
-    expect(candidates.some((candidate) => candidate.factKey === 'price-logic')).toBe(false)
+    expect(candidates.every((candidate) => candidate.oneShot === false)).toBe(true)
+
+    // These remain valuable template/eval facts, but asking them today would
+    // collect answers the current OfferItem/intake grammar cannot store.
+    expect(factKeys).not.toContain('vehicle-class')
+    expect(factKeys).not.toContain('package')
+    expect(factKeys).not.toContain('condition-modifiers')
+    expect(factKeys).not.toContain('site-requirements')
+    expect(factKeys).not.toContain('price-logic')
   })
 
   it('does not ask service area again when an offer already covers it', () => {
@@ -55,7 +61,7 @@ describe('commerce template intake adapter', () => {
       industry: 'Auto Detailing',
       services: [{ name: 'Full Detail', description: '', price: '$199', url: '', duration: '2 hours', serviceArea: 'DFW' }],
     })
-    expect(getCommerceTemplateGapCandidates({ draft }).some((candidate) => candidate.factKey === 'service-area')).toBe(false)
+    expect(getCommerceTemplateGapCandidates({ draft }).map((candidate) => candidate.factKey)).toEqual(['travel-fee'])
   })
 
   it('requires the canonical pilot industry during the initial rollout', () => {
@@ -63,33 +69,51 @@ describe('commerce template intake adapter', () => {
     expect(getCommerceTemplateGapCandidates({ draft })).toEqual([])
   })
 
-  it('lets legacy industry expectations win shared semantic knowledge slots and backfills new template questions', () => {
+  it('lets legacy industry expectations win shared semantic slots while adding persistable new knowledge', () => {
     const draft = draftWith({
-      industry: 'Photography',
-      services: [{ name: 'Event Coverage', description: '', price: '$800', url: '', duration: '4 hours' }],
+      industry: 'Home Cleaning',
+      services: [{ name: 'Recurring Cleaning', description: '', price: '$160', url: '', duration: '2 hours' }],
     })
     const base = [
-      baseGap({ id: 'ind:photo-turnaround', field: 'offer.turnaround', priority: 160 }),
-      baseGap({ id: 'ind:photo-licensing', field: 'offer.licensing', priority: 161 }),
+      baseGap({ id: 'ind:home-service-area', field: 'offer.serviceArea', priority: 160 }),
       baseGap({ id: 'page:faqs', field: 'faqs', priority: 190 }),
     ]
-    const merged = mergeCommerceTemplateGaps(base, { draft, answers: [] })
-    const mergedIds = merged.map((gap) => gap.id)
-    expect(merged.filter((gap) => gap.field === 'offer.turnaround')).toHaveLength(1)
-    expect(merged.filter((gap) => gap.field === 'offer.licensing')).toHaveLength(1)
-    expect(mergedIds).toContain('tpl:events.event-photography:deliverables')
-    expect(mergedIds).toContain('tpl:events.event-photography:add-ons')
-    expect(mergedIds).not.toContain('tpl:events.event-photography:licensing')
+    const mergedIds = mergeCommerceTemplateGaps(base, { draft, answers: [] }).map((gap) => gap.id)
+
+    expect(mergedIds).toContain('ind:home-service-area')
+    expect(mergedIds).not.toContain('tpl:home.recurring-home-cleaning:service-area')
+    expect(mergedIds).toContain('tpl:home.recurring-home-cleaning:notice-policy')
   })
 
-  it('retires a one-shot template knowledge gap after the merchant answers it', () => {
+  it('keeps a template coverage gap askable until its structured destination is actually filled', () => {
+    const gapId = 'tpl:automotive.mobile-auto-detailing:service-area'
+    const draft = draftWith({
+      industry: 'Auto Detailing',
+      services: [{ name: 'Full Detail', description: '', price: '$199', url: '', duration: '2 hours' }],
+    })
+
+    const answeredWithoutUpdate = mergeCommerceTemplateGaps([], {
+      draft,
+      answers: [{ gapId, answer: 'We cover most of DFW.' }],
+    })
+    expect(answeredWithoutUpdate.map((gap) => gap.id)).toContain(gapId)
+
+    const coveredDraft = draftWith({
+      ...draft,
+      services: [{ ...draft.services[0], serviceArea: 'Dallas-Fort Worth' }],
+    })
+    expect(mergeCommerceTemplateGaps([], { draft: coveredDraft, answers: [] }).map((gap) => gap.id)).not.toContain(gapId)
+  })
+
+  it('does not surface unsupported photography facts merely because the template knows them', () => {
     const draft = draftWith({
       industry: 'Photography',
       services: [{ name: 'Event Coverage', description: '', price: '$800', url: '', duration: '4 hours' }],
     })
-    const base = [baseGap({ id: 'page:faqs', field: 'faqs' })]
-    const gapId = 'tpl:events.event-photography:deliverables'
-    const merged = mergeCommerceTemplateGaps(base, { draft, answers: [{ gapId, answer: 'Edited online gallery' }] })
-    expect(merged.map((gap) => gap.id)).not.toContain(gapId)
+    const factKeys = getCommerceTemplateGapCandidates({ draft }).map((candidate) => candidate.factKey)
+    expect(factKeys).toEqual(['service-area', 'travel-fee'])
+    expect(factKeys).not.toContain('deliverables')
+    expect(factKeys).not.toContain('licensing')
+    expect(factKeys).not.toContain('add-ons')
   })
 })
