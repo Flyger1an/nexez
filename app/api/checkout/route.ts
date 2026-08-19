@@ -27,8 +27,9 @@ import { getCalendlyPat, integrationCredentialsConfigured } from '../../../lib/s
 import { createCalendlySchedulingLink } from '../../../lib/server/calendly-write'
 import { validateOfferTransactionConfiguration } from '../../../lib/offer-transaction-configuration'
 import {
-  checkoutConfigurationHandoffMetadata,
   hasOfferTransactionConfiguration,
+  offerTransactionConfigurationFingerprint,
+  persistCheckoutConfigurationHandoff,
   STRIPE_OFFER_CONFIGURATION_HASH_KEY,
 } from '../../../lib/server/checkout-configuration-handoff'
 import {
@@ -116,14 +117,29 @@ export async function POST(request: Request) {
   }
   const normalizedConfiguration = configuration.value
   const hasConfiguration = hasOfferTransactionConfiguration(normalizedConfiguration)
+  const configurationFingerprint = hasConfiguration
+    ? offerTransactionConfigurationFingerprint(normalizedConfiguration)
+    : null
+  const unresolvedPriceFields = configuration.schema
+    .filter((field) => field.affects?.includes('price') && Object.prototype.hasOwnProperty.call(normalizedConfiguration, field.key))
+    .map((field) => field.key)
+
+  if (unresolvedPriceFields.length) {
+    return NextResponse.json(
+      {
+        error: 'This offer marks buyer configuration as price-affecting, but no deterministic configuration pricing rule is published yet.',
+        code: 'offer_configuration_pricing_unresolved',
+        fields: unresolvedPriceFields,
+      },
+      { status: 409 },
+    )
+  }
+
   // Keep legacy unconfigured action payloads byte-equivalent for approval hashing.
   // A configured action, however, binds the normalized buyer values into the same
   // existing approval token as slug/offer/query.
   if (hasConfiguration) input.offerConfiguration = normalizedConfiguration
   else delete input.offerConfiguration
-  const configurationHandoff = hasConfiguration
-    ? checkoutConfigurationHandoffMetadata(normalizedConfiguration)
-    : null
 
   if (!input.dryRun) {
     const approvalSecret = actionApprovalSecret()
@@ -218,6 +234,7 @@ export async function POST(request: Request) {
       agent_client: cleanAgentHeader(request.headers.get('x-nexez-client')),
       idempotency_key_present: Boolean(idempotency.key),
       offer_configuration_present: hasConfiguration,
+      offer_configuration_fingerprint: configurationFingerprint,
     },
   })
 
@@ -246,6 +263,23 @@ export async function POST(request: Request) {
     if (resolved.ok) settlementContext = resolved.context
   }
   const connectAccountId = settlementContext?.connectAccountId ?? null
+  const configuredStripeReady = Boolean(
+    !forceProviderHandoff && process.env.STRIPE_SECRET_KEY && amountCents && settlementContext,
+  )
+
+  // In this first transactional-configuration slice, Nexez can guarantee durable
+  // buyer choices only on the Stripe rail it settles itself. An external redirect
+  // cannot carry arbitrary service configuration without a provider-specific write
+  // adapter, so fail explicitly instead of silently dropping the contract.
+  if (hasConfiguration && !configuredStripeReady) {
+    return NextResponse.json(
+      {
+        error: 'Configured checkout requires a Nexez-settled Stripe checkout for this offer.',
+        code: 'configured_checkout_requires_nexez_settlement',
+      },
+      { status: 409 },
+    )
+  }
 
   if (input.dryRun) {
     const approval = issueActionApprovalToken('checkout', approvalInput(input as Record<string, unknown>))
@@ -267,6 +301,7 @@ export async function POST(request: Request) {
         ? {
             offerConfiguration: normalizedConfiguration,
             requiredOfferConfigurationFields: configuration.schema.filter((field) => field.required).map((field) => field.key),
+            offerConfigurationFingerprint: configurationFingerprint,
           }
         : {}),
       events: {
@@ -324,8 +359,8 @@ export async function POST(request: Request) {
           // §7 multi-storefront breadcrumb: records which storefront made the sale so
           // finance can attribute per-storefront later. Resolution stays account-pooled.
           nexez_storefront_id: (page as { storefront_id?: string | null }).storefront_id ?? '',
-          ...(configurationHandoff
-            ? { [STRIPE_OFFER_CONFIGURATION_HASH_KEY]: configurationHandoff.offer_configuration_hash }
+          ...(configurationFingerprint
+            ? { [STRIPE_OFFER_CONFIGURATION_HASH_KEY]: configurationFingerprint }
             : {}),
         },
       }
@@ -355,27 +390,24 @@ export async function POST(request: Request) {
         ...(stripeIdempotencyKey ? { idempotencyKey: stripeIdempotencyKey } : {}),
       })
 
-      const sessionLog = await logCheckoutEvent({
-        page,
-        offer,
-        eventType: 'stripe_session_created',
-        userAgent,
-        referrer,
-        query: input.query || null,
-        checkoutUrl,
-        providerUrl: session.url || null,
-        stripeSessionId: session.id,
-        metadata: {
-          amount_cents: amountCents,
-          currency,
-          ...(configurationHandoff ?? {}),
-        },
-      })
+      let configurationHandoffOk = true
+      if (hasConfiguration && session.status !== 'complete' && session.status !== 'expired') {
+        try {
+          const handoff = await persistCheckoutConfigurationHandoff(createAdminClient(), {
+            stripeSessionId: session.id,
+            pageId: page.id,
+            offerKey,
+            configuration: normalizedConfiguration,
+          })
+          configurationHandoffOk = handoff.ok
+          if (!handoff.ok) console.warn('[Checkout] Configured checkout handoff failed:', handoff.error)
+        } catch (handoffError) {
+          configurationHandoffOk = false
+          console.warn('[Checkout] Configured checkout handoff threw:', handoffError)
+        }
+      }
 
-      // Once buyer configuration is part of fulfillment, the handoff write is no
-      // longer optional telemetry. Never give the buyer a payable Stripe URL if
-      // Nexez failed to durably preserve the exact configuration for settlement.
-      if (configurationHandoff && !sessionLog.ok) {
+      if (hasConfiguration && !configurationHandoffOk) {
         try {
           await stripe.checkout.sessions.expire(session.id, {
             stripeAccount: settlementContext.connectAccountId,
@@ -392,13 +424,31 @@ export async function POST(request: Request) {
         )
       }
 
+      const sessionLog = await logCheckoutEvent({
+        page,
+        offer,
+        eventType: 'stripe_session_created',
+        userAgent,
+        referrer,
+        query: input.query || null,
+        checkoutUrl,
+        providerUrl: session.url || null,
+        stripeSessionId: session.id,
+        metadata: {
+          amount_cents: amountCents,
+          currency,
+          offer_configuration_present: hasConfiguration,
+          offer_configuration_fingerprint: configurationFingerprint,
+        },
+      })
+
       if (wantsJson) {
         return NextResponse.json({
           url: session.url,
           provider: 'stripe',
           checkoutSessionId: session.id,
-          ...(configurationHandoff
-            ? { offerConfiguration: normalizedConfiguration, offerConfigurationFingerprint: configurationHandoff.offer_configuration_hash }
+          ...(hasConfiguration
+            ? { offerConfiguration: normalizedConfiguration, offerConfigurationFingerprint: configurationFingerprint }
             : {}),
           events: {
             checkoutAttemptLogged: attemptLog.ok,
@@ -429,6 +479,20 @@ export async function POST(request: Request) {
           message: error instanceof Error ? error.message : 'Unknown Stripe error',
         },
       })
+
+      if (hasConfiguration) {
+        return NextResponse.json(
+          {
+            error: 'Configured checkout could not start on the Nexez settlement rail.',
+            code: 'configured_checkout_failed',
+            events: {
+              checkoutAttemptLogged: attemptLog.ok,
+              stripeErrorLogged: errorLog.ok,
+            },
+          },
+          { status: 502 },
+        )
+      }
 
       if (destination) {
         return respondWithDestination(wantsJson, destination, 'provider_fallback', {
