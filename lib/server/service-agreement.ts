@@ -1,7 +1,12 @@
 import 'server-only'
 import type Stripe from 'stripe'
 import { actionRequestHash } from '../action-approval'
-import { bearerTokenColumns, hashBearerToken, mintBearerToken } from './bearer-token'
+import {
+  bearerTokenColumns,
+  canEncryptBearerTokens,
+  hashBearerToken,
+  mintBearerToken,
+} from './bearer-token'
 import type { RecurringServiceAgreementSnapshot } from '../recurring-service'
 
 export const STRIPE_SERVICE_AGREEMENT_KIND = 'service_agreement' as const
@@ -83,7 +88,17 @@ export async function createPendingServiceAgreement(input: {
   buyerReference?: string | null
   buyerAgent?: string | null
 }): Promise<{ ok: true; accessToken: string } | { ok: false; error: string; conflict?: boolean }> {
+  if (!canEncryptBearerTokens()) {
+    return {
+      ok: false,
+      error: 'Recurring service checkout requires INTEGRATION_SECRET_KEY so the buyer management credential can be recovered after payment.',
+    }
+  }
   const accessToken = mintBearerToken()
+  const tokenColumns = bearerTokenColumns(accessToken, 'access_token')
+  if (!tokenColumns.access_token_encrypted) {
+    return { ok: false, error: 'Could not encrypt the recurring agreement management credential.' }
+  }
   const { error } = await input.admin.from('service_agreements').insert({
     id: input.id,
     owner_id: input.ownerId,
@@ -105,7 +120,7 @@ export async function createPendingServiceAgreement(input: {
     buyer_name: input.buyerName ?? null,
     buyer_reference: input.buyerReference ?? null,
     buyer_agent: input.buyerAgent ?? null,
-    ...bearerTokenColumns(accessToken, 'access_token'),
+    ...tokenColumns,
   })
   return error
     ? { ok: false, error: error.message, conflict: error.code === '23505' }
