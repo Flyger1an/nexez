@@ -6,6 +6,14 @@ import type { RecurringServiceAgreementSnapshot } from '../recurring-service'
 
 export const STRIPE_SERVICE_AGREEMENT_KIND = 'service_agreement' as const
 
+export type IdempotentServiceAgreement = {
+  id: string
+  status: string
+  contractFingerprint: string
+  stripeCheckoutSessionId: string | null
+  stripeConnectAccountId: string
+}
+
 export function recurringAgreementFingerprint(snapshot: RecurringServiceAgreementSnapshot): string {
   return actionRequestHash(snapshot)
 }
@@ -27,6 +35,34 @@ export function serviceAgreementStripeMetadata(input: {
   }
 }
 
+export async function findIdempotentServiceAgreement(input: {
+  admin: { from: (table: string) => any }
+  ownerId: string
+  requestIdempotencyKey: string | null | undefined
+}): Promise<IdempotentServiceAgreement | null> {
+  if (!input.requestIdempotencyKey) return null
+  const { data } = await input.admin
+    .from('service_agreements')
+    .select('id, status, contract_fingerprint, stripe_checkout_session_id, stripe_connect_account_id')
+    .eq('owner_id', input.ownerId)
+    .eq('request_idempotency_key', input.requestIdempotencyKey)
+    .maybeSingle<{
+      id: string
+      status: string
+      contract_fingerprint: string
+      stripe_checkout_session_id: string | null
+      stripe_connect_account_id: string
+    }>()
+  if (!data) return null
+  return {
+    id: data.id,
+    status: data.status,
+    contractFingerprint: data.contract_fingerprint,
+    stripeCheckoutSessionId: data.stripe_checkout_session_id,
+    stripeConnectAccountId: data.stripe_connect_account_id,
+  }
+}
+
 export async function createPendingServiceAgreement(input: {
   admin: { from: (table: string) => any }
   id: string
@@ -38,6 +74,7 @@ export async function createPendingServiceAgreement(input: {
   connectAccountId: string
   snapshot: RecurringServiceAgreementSnapshot
   contractFingerprint: string
+  requestIdempotencyKey?: string | null
   commissionBps?: number | null
   planId?: string | null
   commissionSource?: string | null
@@ -45,7 +82,7 @@ export async function createPendingServiceAgreement(input: {
   buyerName?: string | null
   buyerReference?: string | null
   buyerAgent?: string | null
-}): Promise<{ ok: true; accessToken: string } | { ok: false; error: string }> {
+}): Promise<{ ok: true; accessToken: string } | { ok: false; error: string; conflict?: boolean }> {
   const accessToken = mintBearerToken()
   const { error } = await input.admin.from('service_agreements').insert({
     id: input.id,
@@ -60,6 +97,7 @@ export async function createPendingServiceAgreement(input: {
     amount_per_period_cents: input.snapshot.amountPerPeriod,
     currency: input.snapshot.currency,
     stripe_connect_account_id: input.connectAccountId,
+    request_idempotency_key: input.requestIdempotencyKey ?? null,
     commission_bps: input.commissionBps ?? null,
     plan_id_at_purchase: input.planId ?? null,
     commission_source: input.commissionSource ?? null,
@@ -69,7 +107,9 @@ export async function createPendingServiceAgreement(input: {
     buyer_agent: input.buyerAgent ?? null,
     ...bearerTokenColumns(accessToken, 'access_token'),
   })
-  return error ? { ok: false, error: error.message } : { ok: true, accessToken }
+  return error
+    ? { ok: false, error: error.message, conflict: error.code === '23505' }
+    : { ok: true, accessToken }
 }
 
 export async function attachServiceAgreementCheckoutSession(input: {
