@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { getCommerceTemplateGapCandidates } from '../../commerce-templates/intake'
+import { applyIntakeAction, createIntakeState } from '../index'
 import { mergeCommerceTemplateGaps } from '../commerce'
 import type { Gap, IntakeDraft } from '../types'
 
@@ -103,6 +104,55 @@ describe('commerce template intake adapter', () => {
       services: [{ ...draft.services[0], serviceArea: 'Dallas-Fort Worth' }],
     })
     expect(mergeCommerceTemplateGaps([], { draft: coveredDraft, answers: [] }).map((gap) => gap.id)).not.toContain(gapId)
+  })
+
+  it('materializes a template answer through the real reducer facade and retires the gap', () => {
+    const gapId = 'tpl:automotive.mobile-auto-detailing:service-area'
+    let state = createIntakeState()
+
+    for (const action of [
+      {
+        type: 'ADD_SOURCE' as const,
+        source: { id: 'src-1', kind: 'none' as const, value: '', addedAt: '2026-08-18T00:00:00Z' },
+      },
+      {
+        type: 'RECORD_EXTRACTION' as const,
+        extraction: {
+          sourceId: 'src-1',
+          title: 'DFW Detail Co.',
+          description: 'Mobile auto detailing.',
+          industry: 'Auto Detailing',
+          offers: [{ name: 'Full Detail', description: 'Complete detail', price: '$199', url: '', duration: '2 hours' }],
+        },
+      },
+      { type: 'ANALYZE_GAPS' as const },
+    ]) {
+      const applied = applyIntakeAction(state, action)
+      expect(applied.ok).toBe(true)
+      if (applied.ok) state = applied.state
+    }
+
+    expect(state.gaps.map((gap) => gap.id)).toContain(gapId)
+
+    let applied = applyIntakeAction(state, { type: 'ASK_GAPS', gapIds: [gapId] })
+    expect(applied.ok).toBe(true)
+    if (!applied.ok) return
+    state = applied.state
+
+    applied = applyIntakeAction(state, {
+      type: 'RECORD_ANSWERS',
+      answers: [{
+        gapId,
+        answer: 'We serve Dallas-Fort Worth.',
+        fields: [{ target: 'offer', offerKey: 'services-0', field: 'serviceArea', value: 'Dallas-Fort Worth' }],
+      }],
+    })
+    expect(applied.ok).toBe(true)
+    if (!applied.ok) return
+    state = applied.state
+
+    expect(state.draft.services[0]?.serviceArea).toBe('Dallas-Fort Worth')
+    expect(state.gaps.map((gap) => gap.id)).not.toContain(gapId)
   })
 
   it('does not surface unsupported photography facts merely because the template knows them', () => {
