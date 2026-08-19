@@ -20,6 +20,7 @@ create table if not exists public.service_agreements (
   stripe_checkout_session_id text unique,
   stripe_subscription_id text unique,
   stripe_livemode boolean,
+  request_idempotency_key text,
   commission_bps integer check (commission_bps is null or commission_bps between 0 and 1000),
   plan_id_at_purchase text check (plan_id_at_purchase is null or plan_id_at_purchase in ('free', 'launch', 'pro', 'scale', 'enterprise')),
   commission_source text check (commission_source is null or commission_source in ('plan_default', 'enterprise_override', 'promotion')),
@@ -41,6 +42,9 @@ create table if not exists public.service_agreements (
 
 create unique index if not exists service_agreements_access_token_sha256_uidx
   on public.service_agreements (access_token_sha256);
+create unique index if not exists service_agreements_request_idempotency_uidx
+  on public.service_agreements (owner_id, request_idempotency_key)
+  where request_idempotency_key is not null;
 create index if not exists service_agreements_owner_created_idx
   on public.service_agreements (owner_id, created_at desc);
 create index if not exists service_agreements_pending_created_idx
@@ -53,6 +57,8 @@ comment on column public.service_agreements.contract_snapshot is
   'Exact buyer-approved recurring contract: merchant terms, resolved cadence, normalized buyer configuration, and per-period pricing provenance.';
 comment on column public.service_agreements.contract_fingerprint is
   'SHA-256 action hash of the exact recurring contract snapshot bound into buyer approval and Stripe metadata.';
+comment on column public.service_agreements.request_idempotency_key is
+  'Server-scoped hash of a public Idempotency-Key. Same owner/key may name only one agreement draft.';
 
 alter table public.service_agreements enable row level security;
 revoke all on public.service_agreements from anon;
