@@ -1,81 +1,64 @@
 import 'server-only'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { actionRequestHash } from '../action-approval'
-import {
-  parseOfferTransactionConfigurationSnapshot,
-  type OfferTransactionConfiguration,
-} from '../offer-transaction-configuration'
+import type { OfferTransactionConfiguration } from '../offer-transaction-configuration'
 
-export const OFFER_CONFIGURATION_METADATA_KEY = 'offer_configuration'
-export const OFFER_CONFIGURATION_HASH_METADATA_KEY = 'offer_configuration_hash'
 export const STRIPE_OFFER_CONFIGURATION_HASH_KEY = 'nexez_offer_configuration_hash'
+
+const HANDOFF_TTL_MS = 48 * 60 * 60 * 1_000
 
 export function hasOfferTransactionConfiguration(configuration: OfferTransactionConfiguration): boolean {
   return Object.keys(configuration).length > 0
 }
 
 /**
- * Fingerprint only the normalized transaction configuration. The same canonical
- * JSON machinery that binds action approvals also makes this insensitive to
- * object key insertion order while preserving already-canonicalized arrays.
+ * Fingerprint only the normalized buyer configuration. The existing checkout
+ * approval token separately hashes the entire action payload (slug/offer/query +
+ * configuration), so this Stripe-safe digest is traceability, not a second
+ * approval system.
  */
 export function offerTransactionConfigurationFingerprint(configuration: OfferTransactionConfiguration): string {
   return actionRequestHash('checkout', { offerConfiguration: configuration })
 }
 
-export function checkoutConfigurationHandoffMetadata(configuration: OfferTransactionConfiguration) {
-  const fingerprint = offerTransactionConfigurationFingerprint(configuration)
-  return {
-    [OFFER_CONFIGURATION_METADATA_KEY]: configuration,
-    [OFFER_CONFIGURATION_HASH_METADATA_KEY]: fingerprint,
-  }
+export type PersistCheckoutConfigurationHandoffInput = {
+  stripeSessionId: string
+  pageId: string
+  offerKey: string
+  configuration: OfferTransactionConfiguration
+  now?: Date
 }
 
-type CheckoutEventRow = {
-  metadata?: Record<string, unknown> | null
-}
-
-type HandoffDb = {
-  from: (table: string) => any
-}
-
-export type CheckoutConfigurationHandoffResult =
-  | { ok: true; configuration: OfferTransactionConfiguration | null }
-  | { ok: false; reason: 'invalid_fingerprint' | 'lookup_failed' | 'missing_or_mismatched' }
+export type PersistCheckoutConfigurationHandoffResult =
+  | { ok: true; fingerprint: string }
+  | { ok: false; fingerprint: string; error: string }
 
 /**
- * Resolve the server-side pre-payment handoff by Stripe session id and verify it
- * against the fingerprint stored on the trusted Stripe session. checkout_events
- * permits public inserts for published pages, so the DB row alone is never
- * authority for transaction configuration.
+ * Store the exact checkout-time buyer configuration in a private service-role
+ * table before a payable Stripe URL leaves Nexez. A DB trigger later merges this
+ * row into checkout_orders.metadata in the same transaction as the existing
+ * webhook order upsert, then consumes it.
  */
-export async function loadCheckoutConfigurationHandoff(
-  db: HandoffDb,
-  stripeSessionId: string,
-  expectedFingerprint: string | null | undefined,
-): Promise<CheckoutConfigurationHandoffResult> {
-  if (!expectedFingerprint) return { ok: true, configuration: null }
-  if (!/^[a-f0-9]{64}$/.test(expectedFingerprint)) return { ok: false, reason: 'invalid_fingerprint' }
+export async function persistCheckoutConfigurationHandoff(
+  db: SupabaseClient,
+  input: PersistCheckoutConfigurationHandoffInput,
+): Promise<PersistCheckoutConfigurationHandoffResult> {
+  const fingerprint = offerTransactionConfigurationFingerprint(input.configuration)
+  const now = input.now ?? new Date()
+  const expiresAt = new Date(now.getTime() + HANDOFF_TTL_MS)
+  const { error } = await db.from('checkout_configuration_handoffs').upsert(
+    {
+      stripe_session_id: input.stripeSessionId,
+      page_id: input.pageId,
+      offer_key: input.offerKey,
+      configuration: input.configuration,
+      configuration_fingerprint: fingerprint,
+      updated_at: now.toISOString(),
+      expires_at: expiresAt.toISOString(),
+    },
+    { onConflict: 'stripe_session_id' },
+  )
 
-  const { data, error } = await db
-    .from('checkout_events')
-    .select('metadata')
-    .eq('event_type', 'stripe_session_created')
-    .eq('stripe_session_id', stripeSessionId)
-    .order('created_at', { ascending: false })
-    .limit(10)
-
-  if (error) return { ok: false, reason: 'lookup_failed' }
-  const rows = Array.isArray(data) ? (data as CheckoutEventRow[]) : []
-  for (const row of rows) {
-    const metadata = row.metadata && typeof row.metadata === 'object' ? row.metadata : null
-    if (!metadata) continue
-    const configuration = parseOfferTransactionConfigurationSnapshot(metadata[OFFER_CONFIGURATION_METADATA_KEY])
-    if (!configuration) continue
-    const storedFingerprint = metadata[OFFER_CONFIGURATION_HASH_METADATA_KEY]
-    if (storedFingerprint !== expectedFingerprint) continue
-    if (offerTransactionConfigurationFingerprint(configuration) !== expectedFingerprint) continue
-    return { ok: true, configuration }
-  }
-
-  return { ok: false, reason: 'missing_or_mismatched' }
+  if (error) return { ok: false, fingerprint, error: error.message }
+  return { ok: true, fingerprint }
 }
