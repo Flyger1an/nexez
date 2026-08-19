@@ -83,7 +83,7 @@ const COVERAGE: CommerceBenchmarkCoverage[] = [
   {
     stage: 'template-intelligence',
     status: 'exercised',
-    reason: 'Runs the production intelligence resolver and verifies required facts are surfaced from the expected template.',
+    reason: 'Runs the production intelligence resolver and verifies scenario-required facts are surfaced from the expected template.',
   },
   {
     stage: 'buyer-intent-routing',
@@ -160,14 +160,17 @@ function runTemplateContractStage(
     )
   }
 
-  const requiredFacts = new Map(template.requiredFacts.map((fact) => [fact.key, fact] as const))
+  const factKeys = new Set(
+    [...template.requiredFacts, ...template.qualityFacts, ...template.opportunityFacts]
+      .map((fact) => fact.key),
+  )
   for (const factKey of benchmarkCase.expected.requiredFactKeys) {
-    if (!requiredFacts.has(factKey)) {
+    if (!factKeys.has(factKey)) {
       diagnostics.push(
         diagnostic(
           stage,
-          'required_fact_not_required',
-          `Expected required fact ${factKey} is not authored as a required fact on ${versionedKey(benchmarkCase.template)}.`,
+          'expected_fact_not_declared',
+          `Scenario-required fact ${factKey} is not declared by ${versionedKey(benchmarkCase.template)}.`,
         ),
       )
     }
@@ -274,19 +277,9 @@ function runIntelligenceStage(
     const resolved = factsByKey.get(factKey)
     if (!resolved) {
       diagnostics.push(
-        diagnostic(stage, 'required_fact_missing', `Template intelligence did not surface required fact ${factKey}.`),
+        diagnostic(stage, 'expected_fact_missing', `Template intelligence did not surface scenario-required fact ${factKey}.`),
       )
       continue
-    }
-
-    if (resolved.fact.importance !== 'required') {
-      diagnostics.push(
-        diagnostic(
-          stage,
-          'required_fact_wrong_importance',
-          `Template intelligence surfaced ${factKey} with importance ${resolved.fact.importance} instead of required.`,
-        ),
-      )
     }
 
     const expectedSource = resolved.sources.some(
@@ -296,7 +289,7 @@ function runIntelligenceStage(
       diagnostics.push(
         diagnostic(
           stage,
-          'required_fact_source_missing',
+          'expected_fact_source_missing',
           `Template intelligence surfaced ${factKey} without provenance from ${versionedKey(benchmarkCase.template)}.`,
         ),
       )
