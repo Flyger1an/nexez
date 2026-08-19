@@ -230,11 +230,50 @@ describe('priceOfferConfiguration', () => {
   })
 
   it('keeps truly unconfigured legacy checkout free of pricing provenance', () => {
-    const result = priceOfferConfiguration(
-      offer([]),
-      {},
-      'usd',
-    )
+    const result = priceOfferConfiguration(offer([]), {}, 'usd')
     expect(result).toEqual({ ok: true, amountCents: 15000, pricing: null })
+  })
+
+  it('fails closed when a recurring offer is sent through the one-time settlement rail', () => {
+    const recurring = {
+      ...offer([], '$120'),
+      recurringTerms: {
+        schemaVersion: 1,
+        paymentModel: 'fixed-per-period',
+        schedule: { mode: 'fixed', cadence: { interval: 'week', intervalCount: 1 } },
+        startPolicy: 'first-successful-payment',
+        endPolicy: 'until-cancelled',
+        cancellationPolicy: 'period-end',
+        pausePolicy: 'unsupported',
+      },
+    } as OfferItem
+
+    expect(priceOfferConfiguration(recurring, {}, 'usd')).toEqual({
+      ok: false,
+      code: 'recurring_checkout_required',
+      error: 'This offer is a recurring service and must use the recurring agreement checkout rail.',
+      fields: [],
+    })
+  })
+
+  it('prices the same recurring offer only when the caller explicitly opts into recurring settlement', () => {
+    const recurring = {
+      ...offer([], '$120'),
+      recurringTerms: {
+        schemaVersion: 1,
+        paymentModel: 'fixed-per-period',
+        schedule: { mode: 'fixed', cadence: { interval: 'week', intervalCount: 1 } },
+        startPolicy: 'first-successful-payment',
+        endPolicy: 'until-cancelled',
+        cancellationPolicy: 'period-end',
+        pausePolicy: 'unsupported',
+      },
+    } as OfferItem
+
+    expect(priceOfferConfiguration(recurring, {}, 'usd', { settlementMode: 'recurring' })).toEqual({
+      ok: true,
+      amountCents: 12000,
+      pricing: null,
+    })
   })
 })
