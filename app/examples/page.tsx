@@ -13,7 +13,7 @@ const content = {
   stats: [
     { value: '7', label: 'Canonical pilot templates' },
     { value: '1', label: 'Shared commerce registry' },
-    { value: '0', label: 'Fake provider listings' },
+    { value: '0', label: 'Live-provider claims' },
   ],
   visualTitle: 'Commerce template logic',
   visualItems: [
