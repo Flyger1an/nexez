@@ -33,13 +33,14 @@ test.describe('public surface', () => {
     await page.getByRole('button', { name: /analyze/i }).click()
 
     // Wait for results + tabs (tabs container only mounts after simulationResults are populated)
-    await expect(page.getByText('LLM-Enhanced')).toBeVisible({ timeout: 30000 })
+    const llmTab = page.getByRole('button', { name: 'LLM-Enhanced', exact: true })
+    await expect(llmTab).toBeVisible({ timeout: 30000 })
 
     // Click to switch to the LLM tab
-    await page.getByText('LLM-Enhanced').click()
+    await llmTab.click()
 
     // Expect LLM-specific content (unique heading only present for the active LLM tab view)
-    await expect(page.getByText("LLM-Enhanced's view")).toBeVisible()
+    await expect(page.getByRole('heading', { name: "LLM-Enhanced's view" })).toBeVisible()
 
     expect(pageErrors, `Uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([])
   })
@@ -122,7 +123,8 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
     await page.getByRole('button', { name: /analyze/i }).click()
 
     // Results + tabs render only after the simulation sets data (LLM-Enhanced tab is a reliable signal)
-    await expect(page.getByText('LLM-Enhanced')).toBeVisible({ timeout: 30000 })
+    const llmTab = page.getByRole('button', { name: 'LLM-Enhanced', exact: true })
+    await expect(llmTab).toBeVisible({ timeout: 30000 })
 
     // Await + assert the LLM call happened and returned the advanced payload (platform-configured LLM naturalLanguage)
     const llmData = await (await simulateLlmResponse).json()
@@ -133,9 +135,9 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
     expect(llmData?.agent || '', 'agent label should indicate LLM-Enhanced + model').toMatch(/LLM-Enhanced/)
 
     // UI: tab present (always) + switchable after results from seeded page
-    await expect(page.getByText('LLM-Enhanced')).toBeVisible()
-    await page.getByText('LLM-Enhanced').click()
-    await expect(page.getByText("LLM-Enhanced's view")).toBeVisible()
+    await expect(llmTab).toBeVisible()
+    await llmTab.click()
+    await expect(page.getByRole('heading', { name: "LLM-Enhanced's view" })).toBeVisible()
 
     // Additional authed feature coverage (non-destructive page loads for main dashboard sections + flows)
     // Tests billing, analytics, negotiations, tools, create, etc. after the LLM simulator flow.
