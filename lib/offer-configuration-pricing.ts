@@ -1,6 +1,6 @@
 import type { OfferItem } from './agent-page'
 import { parseMoney } from './checkout'
-import { getOfferCustomerInputs } from './configured-offer'
+import { getOfferCustomerInputs, getOfferRecurringTerms } from './configured-offer'
 import { isZeroDecimalCurrency, normalizeCurrency, toStripeAmount } from './currency'
 import type { OfferInputPricing } from './offer-configuration'
 import type {
@@ -38,6 +38,7 @@ export type OfferConfigurationPricingErrorCode =
   | 'pricing_currency_precision'
   | 'pricing_amount_overflow'
   | 'pricing_total_invalid'
+  | 'recurring_checkout_required'
 
 export type OfferConfigurationPricingResult =
   | {
@@ -159,17 +160,27 @@ function pricingSnapshot(
  * Price a normalized buyer configuration using only merchant-authored rules.
  * No LLM, no arbitrary formulas, no network reads, and no mutation.
  *
- * Every NON-EMPTY configured checkout receives a pricing snapshot even when its
- * selected values add $0. This binds the listed base price into buyer approval,
- * closing the race where a merchant edits the base price after dry-run. Truly
- * unconfigured legacy checkout keeps the historical listed-price path and no
- * pricing snapshot.
+ * By default this is the one-time settlement rail. An offer carrying validated
+ * recurring-service terms fails closed here unless a caller explicitly opts into
+ * recurring settlement; this prevents an ordinary checkout path from silently
+ * charging one period of a recurring contract as a one-off purchase.
  */
 export function priceOfferConfiguration(
   offer: OfferItem,
   configuration: OfferTransactionConfiguration,
   currencyInput: string | null | undefined,
+  options: { settlementMode?: 'one-time' | 'recurring' } = {},
 ): OfferConfigurationPricingResult {
+  const settlementMode = options.settlementMode ?? 'one-time'
+  if (settlementMode === 'one-time' && getOfferRecurringTerms(offer)) {
+    return {
+      ok: false,
+      code: 'recurring_checkout_required',
+      error: 'This offer is a recurring service and must use the recurring agreement checkout rail.',
+      fields: [],
+    }
+  }
+
   const currency = normalizeCurrency(currencyInput)
   const baseMajor = parseMoney(offer.price)
   const baseAmount = baseMajor == null ? 0 : toStripeAmount(baseMajor, currency)
