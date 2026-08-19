@@ -74,7 +74,7 @@ export function CommerceExamplesProof() {
         </div>
 
         <div className="mt-8 rounded-xl border border-[var(--amber)]/25 bg-[var(--amber)]/10 p-5">
-          <p className="text-sm font-medium text-[var(--amber)]">Reference supply, never fake supply</p>
+          <p className="text-sm font-medium text-[var(--amber)]">Reference examples, not live providers</p>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
             Example pages do not claim a provider identity, service area, availability, reviews, or a payment destination.
             A real merchant must confirm its own facts before Nexez can publish or transact on its behalf.
