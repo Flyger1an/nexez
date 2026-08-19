@@ -120,6 +120,46 @@ function stripConfigurationMarkers(line: string): string {
   ).trim()
 }
 
+const LEGACY_TIERS_MARKER = '||TIERS||'
+
+/**
+ * `formatOfferLines()` historically emits tiers as `||TIERS||<json>`, while
+ * `parseOfferLines()` tokenizes on single pipes before looking for that marker.
+ * The repository's legacy tests explicitly document that complex tier parsing
+ * as a pre-existing fidelity edge. The Commerce adapter repairs that edge
+ * locally without changing the platform-wide legacy parser.
+ *
+ * We scan closing-array positions until JSON.parse succeeds rather than slicing
+ * on a following pipe. That keeps tier descriptions containing `|` or `]` safe.
+ */
+function recoverLegacyTiers(line: string): NonNullable<OfferItem['tiers']> | undefined {
+  const markerIndex = line.indexOf(LEGACY_TIERS_MARKER)
+  if (markerIndex === -1) return undefined
+
+  const tail = line.slice(markerIndex + LEGACY_TIERS_MARKER.length)
+  for (let index = tail.indexOf(']'); index !== -1; index = tail.indexOf(']', index + 1)) {
+    const candidate = tail.slice(0, index + 1).trim()
+    try {
+      const parsed = JSON.parse(candidate)
+      if (!Array.isArray(parsed)) continue
+      const valid = parsed.every(
+        (tier) =>
+          tier &&
+          typeof tier === 'object' &&
+          typeof tier.name === 'string' &&
+          typeof tier.price === 'string' &&
+          (tier.description == null || typeof tier.description === 'string'),
+      )
+      if (valid) return parsed
+    } catch {
+      // A `]` inside a JSON string or nested value is not the array terminator.
+      // Keep scanning until a complete tier array parses.
+    }
+  }
+
+  return undefined
+}
+
 /**
  * Legacy text editor compatibility.
  *
@@ -138,9 +178,11 @@ export function parseConfiguredOfferLines(value: string): ConfiguredOfferItem[] 
 
     const customerInputs = parseOfferInputsMarker(inputsPart)
     const attributes = parseOfferAttributesMarker(attributesPart)
+    const tiers = base.tiers?.length ? base.tiers : recoverLegacyTiers(baseLine)
 
     return {
       ...base,
+      ...(tiers?.length ? { tiers } : {}),
       ...(customerInputs?.length ? { customerInputs } : {}),
       ...(attributes?.length ? { attributes } : {}),
     }
