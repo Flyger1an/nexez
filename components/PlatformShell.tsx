@@ -174,8 +174,8 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
         >
           <div className="hidden items-center gap-3 border-b border-border px-4 py-4 md:flex">
             <a href="/dashboard" className="flex min-w-0 flex-1 items-center gap-3" title="Nexez home">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-white text-black">
-                <NexezLogo className="size-6" />
+              <div className="flex size-8 shrink-0 items-center justify-center">
+                <NexezLogo className="size-6" tone="theme" />
               </div>
               <span
                 className={`truncate text-sm font-medium tracking-tight transition-opacity duration-150 ${
@@ -261,8 +261,8 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center justify-between gap-3 md:hidden">
                 <a href="/dashboard" className="flex items-center gap-2" title="Nexez home">
-                  <div className="flex size-7 items-center justify-center rounded-md border border-border bg-white text-black">
-                    <NexezLogo className="size-5" />
+                  <div className="flex size-7 items-center justify-center">
+                    <NexezLogo className="size-5" tone="theme" />
                   </div>
                   <span className="text-sm font-medium">Nexez</span>
                 </a>
