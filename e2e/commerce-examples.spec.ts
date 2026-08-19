@@ -32,6 +32,11 @@ test.describe('commerce reference examples', () => {
 
   test('selected template is posted as context and survives an unauthenticated sign-in handoff', async ({ page }) => {
     await page.goto(`/create?commerceTemplate=${DETAILING_ID}`, { waitUntil: 'domcontentloaded' })
+    // Template selection intentionally suppresses the normal resume-check GET so
+    // an unrelated interview is never offered. Without that request as a mount
+    // signal, wait for client network activity to settle before clicking the SSR
+    // button; otherwise the click can race React hydration and do nothing.
+    await page.waitForLoadState('networkidle')
 
     const startRequest = page.waitForRequest((request) =>
       request.method() === 'POST' && request.url().endsWith('/api/agents/intake/threads'),
