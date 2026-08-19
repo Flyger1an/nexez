@@ -20,6 +20,7 @@ import {
 import { draftToLiveUpdate } from '../../lib/draft'
 import { publishErrorMessage } from '../../lib/publish-error'
 import { optimizeAllOffersForAgents, enhanceDescriptionForAgents } from '../../lib/ai-optimize'
+import { mergeOfferCollectionPreservingConfiguration } from '../../lib/configured-offer'
 import { createClient } from '../../utils/supabase/client'
 import { EditorEvent, EditorInitial, IntegrationStatus, PendingReanalysis, ResyncProvider } from './types'
 
@@ -241,11 +242,11 @@ export function usePageEditor(initial: EditorInitial) {
     })
     if (optS) {
       setServices(optS)
-      setServicesOffers(parseOfferLines(optS))
+      setServicesOffers(mergeOfferCollectionPreservingConfiguration(servicesOffers, parseOfferLines(optS)))
     }
     if (optP) {
       setProducts(optP)
-      setProductsOffers(parseOfferLines(optP))
+      setProductsOffers(mergeOfferCollectionPreservingConfiguration(productsOffers, parseOfferLines(optP)))
     }
     setMessage('Offers rewritten for AI agents (local high-quality rules).')
   }
@@ -490,7 +491,7 @@ export function usePageEditor(initial: EditorInitial) {
   async function resyncIntegration(provider: ResyncProvider) {
     if (!id) return
     if (provider === 'stripe') {
-      setMessage('Stripe is managed from Settings \u2192 Integrations (prices auto-sync from your Stripe account).')
+      setMessage('Stripe is managed from Settings → Integrations (prices auto-sync from your Stripe account).')
       return
     }
     setIntegrationResyncing(provider)
@@ -502,7 +503,7 @@ export function usePageEditor(initial: EditorInitial) {
         setMessage(data.error || `${RESYNC_LABELS[provider]} sync failed.`)
         return
       }
-      setMessage(`Synced ${data.imported ?? 0} ${RESYNC_LABELS[provider]} offer(s) from the saved connection \u2014 reloading\u2026`)
+      setMessage(`Synced ${data.imported ?? 0} ${RESYNC_LABELS[provider]} offer(s) from the saved connection — reloading…`)
       setTimeout(() => window.location.reload(), 600)
     } catch (err: any) {
       setMessage(`${RESYNC_LABELS[provider]} sync failed: ${err.message}`)
