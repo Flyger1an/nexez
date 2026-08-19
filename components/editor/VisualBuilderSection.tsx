@@ -2,6 +2,7 @@ import { formatOfferLines } from '../../lib/agent-page'
 import { AICoPilot } from '../AICoPilot'
 import { VisualOfferBuilder } from '../VisualOfferBuilder'
 import { PageEditor } from './usePageEditor'
+import { RecurringServiceManager } from './RecurringServiceManager'
 
 export function VisualBuilderSection({ e }: { e: PageEditor }) {
   return (
@@ -63,6 +64,15 @@ export function VisualBuilderSection({ e }: { e: PageEditor }) {
           }}
         />
       </div>
+
+      <RecurringServiceManager
+        offers={e.parsedServices}
+        onChange={(newOffers) => {
+          e.setServicesOffers(newOffers)
+          e.setServices(formatOfferLines(newOffers))
+          e.setMessage('Recurring service contract updated. Save the listing to publish it.')
+        }}
+      />
 
       <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
         <p className="mb-3 text-xs uppercase tracking-widest text-[var(--signal)]">Products</p>
