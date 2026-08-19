@@ -33,12 +33,25 @@ type SetupPhase = 'setup' | 'starting' | 'signin' | 'chat'
 
 type ActiveSession = { id: string; updatedAt: string | null }
 
+function selectedCommerceTemplateId(): string {
+  if (typeof window === 'undefined') return ''
+  return new URLSearchParams(window.location.search).get('commerceTemplate')?.trim() || ''
+}
+
+function authNextHref(path: '/onboard' | '/login', returnPath: string): string {
+  // Keep the long-standing no-query href byte-for-byte for existing E2E and
+  // bookmarks. Encode only when we need to preserve template-selection context.
+  const next = returnPath === '/create' ? '/create' : encodeURIComponent(returnPath)
+  return `${path}?next=${next}`
+}
+
 export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl = '', className = '' }: IntakeChatProps) {
   const [phase, setPhase] = useState<SetupPhase>('setup')
   const [sourceUrl, setSourceUrl] = useState(initialSourceUrl)
   const [setupError, setSetupError] = useState('')
   const [resumable, setResumable] = useState<ActiveSession | null>(null)
   const [initialMessages, setInitialMessages] = useState<AgentChatMessage<IntakeCard>[]>([])
+  const [authReturnPath, setAuthReturnPath] = useState('/create')
   // Re-interview only: whether the listing already has a saved Calendly token, so
   // the connector can offer "use your saved connection" instead of re-pasting.
   const [calendlyConnected, setCalendlyConnected] = useState(false)
@@ -61,8 +74,10 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl
   // Surface an existing interview so a second visit resumes instead of
   // duplicating (cross-device: start on mobile, finish here). Best-effort:
   // unauthenticated visitors just see the fresh-start setup. In re-interview
-  // mode only a session for THAT listing counts.
+  // mode only a session for THAT listing counts. A deliberate reference-template
+  // selection starts a fresh context instead of resuming an unrelated session.
   useEffect(() => {
+    if (!reinterviewPageId && selectedCommerceTemplateId()) return
     let cancelled = false
     fetch('/api/agents/intake/threads')
       .then((r) => (r.ok ? r.json() : null))
@@ -99,7 +114,9 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl
       ? `I read what your site already says. ${extraction.offers.length} offer${extraction.offers.length === 1 ? '' : 's'} came through, and I will only ask about what is missing or unclear.`
       : state.draft.name.trim()
         ? `I re-read ${state.draft.name}. It is already on Nexez, so I will only ask about what is missing or could be stronger. Your answers land as a draft on the listing.`
-        : 'We are starting fresh. A few focused questions and your draft will be ready to review in the builder. Answer, skip, or jump to the form any time.'
+        : state.templateHint
+          ? 'You selected a reference template. I will use it only to guide what I ask — your prices, policies, service area, offers, and other business facts still come from you.'
+          : 'We are starting fresh. A few focused questions and your draft will be ready to review in the builder. Answer, skip, or jump to the form any time.'
     return [{ id: 'intake-opening', role: 'assistant', content: intro, cards }]
   }
 
@@ -124,13 +141,18 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl
     setPhase('starting')
     setSetupError('')
     try {
+      const templateId = reinterviewPageId ? '' : selectedCommerceTemplateId()
+      const requestBody = templateId ? { ...body, template_id: templateId } : body
       const response = await fetch('/api/agents/intake/threads', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify(requestBody),
       })
       const json = await response.json()
       if (response.status === 401) {
+        if (typeof window !== 'undefined') {
+          setAuthReturnPath(`${window.location.pathname}${window.location.search}` || '/create')
+        }
         setPhase('signin')
         return
       }
@@ -225,10 +247,10 @@ export function IntakeChat({ onSwitchToForm, reinterviewPageId, initialSourceUrl
           <div className="mt-6 rounded-2xl border border-[var(--amber)]/30 bg-[var(--amber)]/10 p-4 text-sm leading-6 text-[var(--fg-soft)]">
             Sign in to start your interview. Your progress saves to your account and resumes on any device.
             <div className="mt-3 flex flex-col gap-2">
-              <a href="/onboard?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-white font-medium text-zinc-950 hover:bg-zinc-200">
+              <a href={authNextHref('/onboard', authReturnPath)} className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-white font-medium text-zinc-950 hover:bg-zinc-200">
                 Create Free account
               </a>
-              <a href="/login?next=/create" className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-[var(--bd-15)] text-sm text-[var(--fg)] hover:bg-[var(--ov-05)]">
+              <a href={authNextHref('/login', authReturnPath)} className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-[var(--bd-15)] text-sm text-[var(--fg)] hover:bg-[var(--ov-05)]">
                 I already have an account
               </a>
             </div>
