@@ -10,9 +10,9 @@ import {
   getPreferredOriginalOfferUrl,
   getRequestBaseUrl,
 } from '../../../lib/agent-page'
-import { parseMoney, toStripeDescription } from '../../../lib/checkout'
+import { toStripeDescription } from '../../../lib/checkout'
 import { parseBuyerIdentity, buyerMetadata } from '../../../lib/buyer-identity'
-import { normalizeCurrency, toStripeAmount } from '../../../lib/currency'
+import { normalizeCurrency } from '../../../lib/currency'
 import { getBookingRuleError } from '../../../lib/offer-rules'
 import { countRecentBookings } from '../../../lib/server/booking-count'
 import { logCheckoutEvent } from '../../../lib/server/log-checkout-event'
@@ -25,12 +25,15 @@ import type { SettlementContext } from '../../../lib/commerce/checkout-session-c
 import { billingPlans } from '../../../lib/billing'
 import { getCalendlyPat, integrationCredentialsConfigured } from '../../../lib/server/page-integration-credentials'
 import { createCalendlySchedulingLink } from '../../../lib/server/calendly-write'
+import { priceOfferConfiguration } from '../../../lib/offer-configuration-pricing'
 import { validateOfferTransactionConfiguration } from '../../../lib/offer-transaction-configuration'
 import {
   hasOfferTransactionConfiguration,
+  offerConfigurationPricingFingerprint,
   offerTransactionConfigurationFingerprint,
   persistCheckoutConfigurationHandoff,
   STRIPE_OFFER_CONFIGURATION_HASH_KEY,
+  STRIPE_OFFER_PRICING_HASH_KEY,
 } from '../../../lib/server/checkout-configuration-handoff'
 import {
   actionApprovalRequired,
@@ -120,26 +123,45 @@ export async function POST(request: Request) {
   const configurationFingerprint = hasConfiguration
     ? offerTransactionConfigurationFingerprint(normalizedConfiguration)
     : null
-  const unresolvedPriceFields = configuration.schema
-    .filter((field) => field.affects?.includes('price') && Object.prototype.hasOwnProperty.call(normalizedConfiguration, field.key))
-    .map((field) => field.key)
+  const currency = normalizeCurrency(page.currency)
+  const priced = priceOfferConfiguration(offer, normalizedConfiguration, currency)
 
-  if (unresolvedPriceFields.length) {
+  if (!priced.ok) {
     return NextResponse.json(
       {
-        error: 'This offer marks buyer configuration as price-affecting, but no deterministic configuration pricing rule is published yet.',
-        code: 'offer_configuration_pricing_unresolved',
-        fields: unresolvedPriceFields,
+        error: priced.error,
+        code: priced.code === 'pricing_rule_unresolved'
+          ? 'offer_configuration_pricing_unresolved'
+          : 'offer_configuration_pricing_invalid',
+        pricingCode: priced.code,
+        fields: priced.fields,
       },
       { status: 409 },
     )
   }
 
+  const amountCents = priced.amountCents || null
+  const pricingSnapshot = priced.pricing
+  const pricingFingerprint = pricingSnapshot
+    ? offerConfigurationPricingFingerprint(pricingSnapshot)
+    : null
+
   // Keep legacy unconfigured action payloads byte-equivalent for approval hashing.
-  // A configured action, however, binds the normalized buyer values into the same
-  // existing approval token as slug/offer/query.
+  // A configured action binds normalized buyer values. A deterministically priced
+  // action additionally binds the exact server-computed quote so merchant edits to
+  // the base price or pricing rules invalidate an older buyer approval.
   if (hasConfiguration) input.offerConfiguration = normalizedConfiguration
   else delete input.offerConfiguration
+  const approvalPayload: Record<string, unknown> = pricingSnapshot
+    ? {
+        ...input,
+        offerPricingApproval: {
+          fingerprint: pricingFingerprint,
+          finalAmount: pricingSnapshot.finalAmount,
+          currency: pricingSnapshot.currency,
+        },
+      }
+    : input as Record<string, unknown>
 
   if (!input.dryRun) {
     const approvalSecret = actionApprovalSecret()
@@ -159,7 +181,7 @@ export async function POST(request: Request) {
       const approval = verifyActionApprovalToken(
         input.approvalToken,
         'checkout',
-        input as Record<string, unknown>,
+        approvalPayload,
       )
       if (!approval.ok) {
         return NextResponse.json(
@@ -207,11 +229,6 @@ export async function POST(request: Request) {
   if (!input.dryRun) {
     destination = (await maybeMintSingleUseCalendlyLink(page.id, offer, destination)) || destination
   }
-  // Multi-currency: the page's currency is the source of truth for what the buyer
-  // is charged; the offer price string is just the amount. amountCents is the
-  // Stripe smallest-unit amount (×100, or as-is for zero-decimal currencies like JPY).
-  const currency = normalizeCurrency(page.currency)
-  const amountCents = toStripeAmount(parseMoney(offer.price) ?? 0, currency) || null
   const userAgent = request.headers.get('user-agent')
   const referrer = request.headers.get('referer')
 
@@ -235,6 +252,11 @@ export async function POST(request: Request) {
       idempotency_key_present: Boolean(idempotency.key),
       offer_configuration_present: hasConfiguration,
       offer_configuration_fingerprint: configurationFingerprint,
+      offer_pricing_present: Boolean(pricingSnapshot),
+      offer_pricing_fingerprint: pricingFingerprint,
+      offer_pricing_base_amount: pricingSnapshot?.baseAmount ?? null,
+      offer_pricing_adjustment_amount: pricingSnapshot?.adjustmentAmount ?? null,
+      offer_pricing_final_amount: pricingSnapshot?.finalAmount ?? null,
     },
   })
 
@@ -267,10 +289,9 @@ export async function POST(request: Request) {
     !forceProviderHandoff && process.env.STRIPE_SECRET_KEY && amountCents && settlementContext,
   )
 
-  // In this first transactional-configuration slice, Nexez can guarantee durable
-  // buyer choices only on the Stripe rail it settles itself. An external redirect
-  // cannot carry arbitrary service configuration without a provider-specific write
-  // adapter, so fail explicitly instead of silently dropping the contract.
+  // Nexez can guarantee durable buyer choices and deterministic configured
+  // pricing only on the Stripe rail it settles itself. External redirects cannot
+  // carry arbitrary service configuration without a provider-specific write adapter.
   if (hasConfiguration && !configuredStripeReady) {
     return NextResponse.json(
       {
@@ -282,7 +303,7 @@ export async function POST(request: Request) {
   }
 
   if (input.dryRun) {
-    const approval = issueActionApprovalToken('checkout', approvalInput(input as Record<string, unknown>))
+    const approval = issueActionApprovalToken('checkout', approvalInput(approvalPayload))
     if (actionApprovalRequired() && !approval) {
       return NextResponse.json(
         { error: 'Action approval is required but not configured.', code: 'approval_not_configured' },
@@ -295,6 +316,7 @@ export async function POST(request: Request) {
       checkoutUrl,
       actionUrl: destination || null,
       currency,
+      amountCents,
       stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY),
       connectReady: Boolean(connectAccountId),
       ...(configuration.schema.length
@@ -302,6 +324,12 @@ export async function POST(request: Request) {
             offerConfiguration: normalizedConfiguration,
             requiredOfferConfigurationFields: configuration.schema.filter((field) => field.required).map((field) => field.key),
             offerConfigurationFingerprint: configurationFingerprint,
+          }
+        : {}),
+      ...(pricingSnapshot
+        ? {
+            offerPricing: pricingSnapshot,
+            offerPricingFingerprint: pricingFingerprint,
           }
         : {}),
       events: {
@@ -362,6 +390,9 @@ export async function POST(request: Request) {
           ...(configurationFingerprint
             ? { [STRIPE_OFFER_CONFIGURATION_HASH_KEY]: configurationFingerprint }
             : {}),
+          ...(pricingFingerprint
+            ? { [STRIPE_OFFER_PRICING_HASH_KEY]: pricingFingerprint }
+            : {}),
         },
       }
 
@@ -412,6 +443,7 @@ export async function POST(request: Request) {
             pageId: page.id,
             offerKey,
             configuration: normalizedConfiguration,
+            pricing: pricingSnapshot,
           })
           configurationHandoffOk = handoff.ok
           if (!handoff.ok) console.warn('[Checkout] Configured checkout handoff failed:', handoff.error)
@@ -455,6 +487,8 @@ export async function POST(request: Request) {
           currency,
           offer_configuration_present: hasConfiguration,
           offer_configuration_fingerprint: configurationFingerprint,
+          offer_pricing_present: Boolean(pricingSnapshot),
+          offer_pricing_fingerprint: pricingFingerprint,
         },
       })
 
@@ -463,8 +497,12 @@ export async function POST(request: Request) {
           url: session.url,
           provider: 'stripe',
           checkoutSessionId: session.id,
+          amountCents,
           ...(hasConfiguration
             ? { offerConfiguration: normalizedConfiguration, offerConfigurationFingerprint: configurationFingerprint }
+            : {}),
+          ...(pricingSnapshot
+            ? { offerPricing: pricingSnapshot, offerPricingFingerprint: pricingFingerprint }
             : {}),
           events: {
             checkoutAttemptLogged: attemptLog.ok,

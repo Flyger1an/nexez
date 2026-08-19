@@ -126,30 +126,29 @@ export function buildOfferConfigurationInputSchema(offer: OfferItem): JsonSchema
 
 /**
  * Sanitized machine contract published on agent-facing offer surfaces.
- * Merchant schema/facts are public; buyer answers remain transaction data and
- * are never materialized here.
+ * Merchant schema/facts/pricing are public; buyer answers remain transaction
+ * data and are never materialized here.
  *
- * Runtime settlement readiness is intentionally NOT inferred here. #71 accepts
- * non-empty buyer configuration only on a Nexez-settled Stripe rail; an external
- * provider redirect cannot carry arbitrary configuration. Agents should dry-run
- * /api/checkout to resolve the live settlement state before asking for approval.
+ * Runtime settlement readiness is intentionally NOT inferred here. Non-empty
+ * buyer configuration still requires a Nexez-settled Stripe rail; agents should
+ * dry-run /api/checkout to resolve live settlement state before approval.
  */
 export function buildAgentOfferConfiguration(offer: OfferItem) {
   const customerInputs = getOfferCustomerInputs(offer)
   const attributes = getOfferAttributes(offer)
   if (!customerInputs.length && !attributes.length) return null
 
-  const priceAffectingInputs = customerInputs
-    .filter((field) => field.affects?.includes('price'))
-    .map((field) => field.key)
-  const requiredPriceAffectingInputs = customerInputs
-    .filter((field) => field.required && field.affects?.includes('price'))
+  const priceFields = customerInputs.filter((field) => field.affects?.includes('price'))
+  const deterministicallyPricedInputs = priceFields.filter((field) => field.pricing).map((field) => field.key)
+  const unpricedPriceInputs = priceFields.filter((field) => !field.pricing).map((field) => field.key)
+  const requiredUnpricedPriceInputs = priceFields
+    .filter((field) => field.required && !field.pricing)
     .map((field) => field.key)
   const hasBuyerInputs = customerInputs.length > 0
 
   const checkoutStatus = !hasBuyerInputs
     ? 'not_required'
-    : requiredPriceAffectingInputs.length
+    : requiredUnpricedPriceInputs.length
       ? 'blocked_pending_pricing'
       : 'requires_nexez_settlement'
 
@@ -163,15 +162,18 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
       requires_nexez_settlement_when_values_supplied: hasBuyerInputs,
       external_provider_configuration_supported: false,
       runtime_readiness_check: hasBuyerInputs ? 'POST /api/checkout with dryRun=true before approval.' : null,
-      price_affecting_inputs_blocked_when_supplied: priceAffectingInputs,
-      required_price_affecting_input_blockers: requiredPriceAffectingInputs,
+      deterministically_priced_inputs: deterministicallyPricedInputs,
+      unpriced_price_affecting_inputs_blocked_when_supplied: unpricedPriceInputs,
+      required_price_affecting_input_blockers: requiredUnpricedPriceInputs,
       note: !hasBuyerInputs
         ? 'This offer publishes attributes but does not require buyer configuration.'
-        : requiredPriceAffectingInputs.length
-          ? 'Checkout is blocked until Nexez publishes deterministic pricing for the required price-affecting inputs. Configured values also require a Nexez-settled Stripe checkout; external provider redirects cannot carry them.'
-          : priceAffectingInputs.length
-            ? 'Configured values require a Nexez-settled Stripe checkout. Price-affecting optional inputs must be omitted until deterministic configuration pricing exists; external provider redirects cannot carry configured values.'
-            : 'Configured values require a Nexez-settled Stripe checkout. External provider redirects cannot carry configured values; dry-run checkout to confirm live settlement readiness.',
+        : requiredUnpricedPriceInputs.length
+          ? 'Checkout is blocked because a required price-affecting buyer input lacks a deterministic merchant-authored pricing rule.'
+          : unpricedPriceInputs.length
+            ? 'Configured values require a Nexez-settled Stripe checkout. Deterministically priced inputs are supported; unpriced optional price-affecting inputs must be omitted. External provider redirects cannot carry configured values.'
+            : deterministicallyPricedInputs.length
+              ? 'Configured values and deterministic merchant-authored pricing are supported on the Nexez-settled Stripe rail. Dry-run checkout returns the exact final amount before approval.'
+              : 'Configured values require a Nexez-settled Stripe checkout. External provider redirects cannot carry configured values; dry-run checkout to confirm live settlement readiness.',
     },
   }
 }
@@ -181,7 +183,7 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
 export function genericOfferConfigurationSchema(): JsonSchema {
   return {
     type: 'object',
-    description: 'Buyer values keyed by the target offer\'s merchant-authored customer input fields. Unknown fields are rejected. Non-empty configured values require a Nexez-settled Stripe checkout and are not carried through external provider redirects. Read the offer\'s agent.json configuration.input_schema (or the per-page x-nexez-offer-configuration-schemas map) for exact keys and types, then dry-run /api/checkout to confirm live settlement readiness.',
+    description: 'Buyer values keyed by the target offer\'s merchant-authored customer input fields. Unknown fields are rejected. Merchant-authored deterministic pricing rules, when present, are published with those fields in agent.json. Non-empty configured values require a Nexez-settled Stripe checkout and are not carried through external provider redirects. Read the offer\'s agent.json configuration.input_schema (or the per-page x-nexez-offer-configuration-schemas map) for exact keys and types, then dry-run /api/checkout to obtain the exact final amount and confirm live settlement readiness.',
     additionalProperties: {
       oneOf: [
         { type: 'string' },
@@ -193,16 +195,48 @@ export function genericOfferConfigurationSchema(): JsonSchema {
   }
 }
 
+function configuredCheckoutPricingResponseSchema(): JsonSchema {
+  return {
+    type: 'object',
+    description: 'Exact deterministic checkout-time pricing snapshot in Stripe smallest units.',
+    properties: {
+      schemaVersion: { type: 'integer', enum: [1] },
+      currency: { type: 'string' },
+      baseAmount: { type: 'integer' },
+      adjustments: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            fieldKey: { type: 'string' },
+            label: { type: 'string' },
+            value: {},
+            model: { type: 'string', enum: ['option-delta', 'boolean-delta', 'quantity-delta'] },
+            rule: { type: 'object' },
+            amount: { type: 'integer' },
+          },
+        },
+      },
+      adjustmentAmount: { type: 'integer' },
+      finalAmount: { type: 'integer', minimum: 1 },
+    },
+    required: ['schemaVersion', 'currency', 'baseAmount', 'adjustments', 'adjustmentAmount', 'finalAmount'],
+  }
+}
+
 /**
  * Enrich an already-built Nexez OpenAPI document without duplicating the large
  * shared capability builder. Global specs get the generic request field; scoped
  * page specs additionally expose an exact schema map keyed by real offer key.
+ * The checkout success response is enriched here too so the request and quote
+ * contracts cannot drift independently.
  */
 export function withOfferConfigurationOpenApi<T extends Record<string, any>>(
   spec: T,
   offers?: CheckoutOffer[],
 ): T {
-  const checkoutSchema = spec?.paths?.['/api/checkout']?.post?.requestBody?.content?.['application/json']?.schema
+  const checkoutPost = spec?.paths?.['/api/checkout']?.post
+  const checkoutSchema = checkoutPost?.requestBody?.content?.['application/json']?.schema
   if (!checkoutSchema?.properties) return spec
 
   checkoutSchema.properties.offerConfiguration = genericOfferConfigurationSchema()
@@ -217,6 +251,20 @@ export function withOfferConfigurationOpenApi<T extends Record<string, any>>(
     if (Object.keys(perOfferSchemas).length) {
       checkoutSchema['x-nexez-offer-configuration-schemas'] = perOfferSchemas
     }
+  }
+
+  const responseSchema = checkoutPost?.responses?.['200']?.content?.['application/json']?.schema
+  if (responseSchema?.properties) {
+    Object.assign(responseSchema.properties, {
+      amountCents: {
+        type: ['integer', 'null'],
+        description: 'Exact final checkout amount in Stripe smallest units when Nexez can resolve a price.',
+      },
+      offerConfiguration: { type: 'object' },
+      offerConfigurationFingerprint: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+      offerPricing: configuredCheckoutPricingResponseSchema(),
+      offerPricingFingerprint: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+    })
   }
 
   return spec

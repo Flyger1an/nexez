@@ -108,6 +108,16 @@ const configuredPage = (affects: string[] = ['duration', 'scope']) => ({
   is_published: true,
 })
 
+const pricedConfiguredPage = (suvDelta = '25', basePrice = '$150') => {
+  const page = configuredPage(['price', 'duration'])
+  page.services[0].price = basePrice
+  ;(page.services[0].customerInputs[0] as any).pricing = {
+    model: 'option-delta',
+    adjustments: [{ value: 'suv', delta: suvDelta }],
+  }
+  return page
+}
+
 const post = (body: unknown) =>
   new Request('https://nexez.test/api/checkout', {
     method: 'POST',
@@ -181,7 +191,7 @@ describe('POST /api/checkout - transactional offer configuration', () => {
     expect(stripeCalls).toHaveLength(0)
   })
 
-  it('blocks price-affecting buyer configuration until deterministic pricing exists', async () => {
+  it('blocks a supplied price-affecting field that still lacks a deterministic rule', async () => {
     adminRef.handler = (c: QueryContext) => {
       if (c.table === 'pages') return { data: configuredPage(['price', 'duration']), error: null }
       return { data: null, error: null }
@@ -197,8 +207,126 @@ describe('POST /api/checkout - transactional offer configuration', () => {
     expect(res.status).toBe(409)
     expect(await res.json()).toMatchObject({
       code: 'offer_configuration_pricing_unresolved',
+      pricingCode: 'pricing_rule_unresolved',
       fields: ['vehicle_class'],
     })
+    expect(stripeCalls).toHaveLength(0)
+  })
+
+  it('dry-runs and charges the exact deterministic configured price and commission', async () => {
+    let handoffPayload: any = null
+    adminRef.handler = (c: QueryContext) => {
+      if (c.table === 'pages') return { data: pricedConfiguredPage(), error: null }
+      if (c.table === 'checkout_configuration_handoffs' && c.op === 'upsert') handoffPayload = c.payload
+      return { data: null, error: null }
+    }
+
+    const preview = await POST(post({
+      slug: 'configured',
+      offer: 'services-0',
+      dryRun: true,
+      offerConfiguration: { vehicle_class: 'suv' },
+    }))
+    expect(preview.status).toBe(200)
+    const quote = await preview.json()
+    expect(quote.amountCents).toBe(17500)
+    expect(quote.offerPricing).toMatchObject({
+      schemaVersion: 1,
+      currency: 'usd',
+      baseAmount: 15000,
+      adjustmentAmount: 2500,
+      finalAmount: 17500,
+      adjustments: [{ fieldKey: 'vehicle_class', amount: 2500 }],
+    })
+    expect(quote.offerPricingFingerprint).toMatch(/^[a-f0-9]{64}$/)
+
+    const charged = await POST(post({
+      slug: 'configured',
+      offer: 'services-0',
+      offerConfiguration: { vehicle_class: 'suv' },
+    }))
+    expect(charged.status).toBe(200)
+    const body = await charged.json()
+    expect(body.amountCents).toBe(17500)
+    expect(stripeCalls).toHaveLength(1)
+    expect(stripeCalls[0].params.line_items[0].price_data.unit_amount).toBe(17500)
+    expect(stripeCalls[0].params.payment_intent_data.application_fee_amount).toBe(525)
+    expect(stripeCalls[0].params.metadata.nexez_offer_pricing_hash).toMatch(/^[a-f0-9]{64}$/)
+    expect(stripeCalls[0].params.metadata.offer_pricing).toBeUndefined()
+    expect(JSON.stringify(stripeCalls[0].params.metadata)).not.toContain('option-delta')
+
+    expect(handoffPayload).toMatchObject({
+      stripe_session_id: 'cs_config_1',
+      configuration: { vehicle_class: 'suv' },
+      pricing_snapshot: {
+        schemaVersion: 1,
+        baseAmount: 15000,
+        adjustmentAmount: 2500,
+        finalAmount: 17500,
+      },
+      pricing_fingerprint: body.offerPricingFingerprint,
+    })
+  })
+
+  it('invalidates a buyer approval when merchant pricing changes after dry-run', async () => {
+    vi.stubEnv('NEXEZ_ACTION_APPROVAL_SECRET', 'configured-checkout-test-secret-at-least-32-characters')
+    vi.stubEnv('NEXEZ_REQUIRE_ACTION_APPROVAL_TOKEN', 'true')
+    let suvDelta = '25'
+    adminRef.handler = (c: QueryContext) => {
+      if (c.table === 'pages') return { data: pricedConfiguredPage(suvDelta), error: null }
+      return { data: null, error: null }
+    }
+
+    const preview = await POST(post({
+      slug: 'configured',
+      offer: 'services-0',
+      dryRun: true,
+      offerConfiguration: { vehicle_class: 'suv' },
+    }))
+    expect(preview.status).toBe(200)
+    const quote = await preview.json()
+    expect(quote.amountCents).toBe(17500)
+    expect(quote.approvalToken).toMatch(/^v1\./)
+
+    suvDelta = '50'
+    const stale = await POST(post({
+      slug: 'configured',
+      offer: 'services-0',
+      offerConfiguration: { vehicle_class: 'suv' },
+      approvalToken: quote.approvalToken,
+    }))
+
+    expect(stale.status).toBe(403)
+    expect((await stale.json()).code).toBe('approval_invalid')
+    expect(stripeCalls).toHaveLength(0)
+  })
+
+  it('invalidates a buyer approval when the merchant base price changes after dry-run', async () => {
+    vi.stubEnv('NEXEZ_ACTION_APPROVAL_SECRET', 'configured-checkout-test-secret-at-least-32-characters')
+    vi.stubEnv('NEXEZ_REQUIRE_ACTION_APPROVAL_TOKEN', 'true')
+    let basePrice = '$150'
+    adminRef.handler = (c: QueryContext) => {
+      if (c.table === 'pages') return { data: pricedConfiguredPage('25', basePrice), error: null }
+      return { data: null, error: null }
+    }
+
+    const preview = await POST(post({
+      slug: 'configured',
+      offer: 'services-0',
+      dryRun: true,
+      offerConfiguration: { vehicle_class: 'suv' },
+    }))
+    const quote = await preview.json()
+    expect(quote.amountCents).toBe(17500)
+
+    basePrice = '$200'
+    const stale = await POST(post({
+      slug: 'configured',
+      offer: 'services-0',
+      offerConfiguration: { vehicle_class: 'suv' },
+      approvalToken: quote.approvalToken,
+    }))
+    expect(stale.status).toBe(403)
     expect(stripeCalls).toHaveLength(0)
   })
 

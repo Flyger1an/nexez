@@ -9,6 +9,9 @@
  * - `OfferAttribute` is a public-safe merchant fact/capability. Never put
  *   private negotiation floors, secrets, internal notes, or owner-only rules
  *   in attributes.
+ * - `OfferInputPricing` is also MERCHANT-authored public truth. It is a tiny,
+ *   deterministic pricing DSL only; no code, percentages, cross-field formulas,
+ *   or model-generated pricing decisions are accepted.
  */
 
 export type OfferInputValueType =
@@ -30,6 +33,34 @@ export type OfferInputOption = {
   label: string
 }
 
+/** Signed major-unit delta in the page currency, e.g. "25", "12.50", "-10". */
+export type OfferPriceDelta = string
+
+export type OfferOptionPriceAdjustment = {
+  /** Must match a declared select option value. Missing options imply a zero delta. */
+  value: string
+  delta: OfferPriceDelta
+}
+
+export type OfferInputPricing =
+  | {
+      model: 'option-delta'
+      /** Single-select applies one match; multi-select adds every selected match. */
+      adjustments: OfferOptionPriceAdjustment[]
+    }
+  | {
+      model: 'boolean-delta'
+      /** Missing branch means zero delta. At least one branch must be declared. */
+      trueDelta?: OfferPriceDelta
+      falseDelta?: OfferPriceDelta
+    }
+  | {
+      model: 'quantity-delta'
+      /** Delta applied to each unit above includedQuantity. */
+      unitDelta: OfferPriceDelta
+      includedQuantity: number
+    }
+
 export type OfferInputField = {
   key: string
   label: string
@@ -39,6 +70,8 @@ export type OfferInputField = {
   options?: OfferInputOption[]
   askBuyer: string
   affects?: OfferInputAffects[]
+  /** Optional deterministic merchant-authored pricing rule for this input. */
+  pricing?: OfferInputPricing
 }
 
 export type OfferAttributeValueType =
@@ -64,6 +97,7 @@ export type OfferConfigurationValidation<T> =
   | { ok: false; error: string }
 
 const KEY_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/
+const PRICE_DELTA_RE = /^-?(?:0|[1-9]\d{0,7})(?:\.\d{1,2})?$/
 const INPUT_VALUE_TYPES = new Set<OfferInputValueType>([
   'text',
   'number',
@@ -187,6 +221,28 @@ function validateKey(value: unknown): OfferConfigurationValidation<string> {
   return text
 }
 
+function normalizePriceDelta(value: string): string {
+  const negative = value.startsWith('-')
+  const unsigned = negative ? value.slice(1) : value
+  const [wholeRaw, fractionRaw] = unsigned.split('.')
+  const whole = String(Number(wholeRaw))
+  const fraction = (fractionRaw ?? '').replace(/0+$/, '')
+  const normalized = fraction ? `${whole}.${fraction}` : whole
+  return negative && normalized !== '0' ? `-${normalized}` : normalized
+}
+
+function validatePriceDelta(value: unknown, field: string): OfferConfigurationValidation<OfferPriceDelta> {
+  const text = requiredText(value, field, 16)
+  if (!text.ok) return text
+  if (!PRICE_DELTA_RE.test(text.value)) {
+    return {
+      ok: false,
+      error: `${field} must be a signed major-unit amount with at most 8 integer digits and 2 decimals, e.g. "25", "12.50", or "-10".`,
+    }
+  }
+  return { ok: true, value: normalizePriceDelta(text.value) }
+}
+
 function validateOptions(value: unknown): OfferConfigurationValidation<OfferInputOption[]> {
   if (!Array.isArray(value) || value.length < 1 || value.length > 25) {
     return { ok: false, error: 'select inputs need between 1 and 25 options.' }
@@ -206,6 +262,104 @@ function validateOptions(value: unknown): OfferConfigurationValidation<OfferInpu
     options.push({ value: optionValue.value, label: optionLabel.value })
   }
   return { ok: true, value: options }
+}
+
+function validateInputPricing(
+  value: unknown,
+  valueType: OfferInputValueType,
+  options: OfferInputOption[] | undefined,
+): OfferConfigurationValidation<OfferInputPricing | undefined> {
+  if (value == null) return { ok: true, value: undefined }
+  const record = objectRecord(value)
+  if (!record || typeof record.model !== 'string') {
+    return { ok: false, error: 'pricing must be an object with a supported model.' }
+  }
+
+  if (record.model === 'option-delta') {
+    if (!SELECT_INPUT_TYPES.has(valueType)) {
+      return { ok: false, error: 'option-delta pricing is only valid for single-select or multi-select inputs.' }
+    }
+    if (!Array.isArray(record.adjustments) || record.adjustments.length < 1 || record.adjustments.length > 25) {
+      return { ok: false, error: 'option-delta pricing needs between 1 and 25 adjustments.' }
+    }
+    const declaredOptions = new Set((options ?? []).map((option) => option.value))
+    const seen = new Set<string>()
+    const adjustments: OfferOptionPriceAdjustment[] = []
+    for (const raw of record.adjustments) {
+      const adjustment = objectRecord(raw)
+      if (!adjustment) return { ok: false, error: 'each option price adjustment must be an object.' }
+      const optionValue = requiredText(adjustment.value, 'pricing.adjustment.value', 120)
+      if (!optionValue.ok) return optionValue
+      if (!declaredOptions.has(optionValue.value)) {
+        return { ok: false, error: `pricing adjustment references undeclared option ${JSON.stringify(optionValue.value)}.` }
+      }
+      if (seen.has(optionValue.value)) {
+        return { ok: false, error: `duplicate pricing adjustment for option ${JSON.stringify(optionValue.value)}.` }
+      }
+      const delta = validatePriceDelta(adjustment.delta, 'pricing.adjustment.delta')
+      if (!delta.ok) return delta
+      seen.add(optionValue.value)
+      adjustments.push({ value: optionValue.value, delta: delta.value })
+    }
+    return { ok: true, value: { model: 'option-delta', adjustments } }
+  }
+
+  if (record.model === 'boolean-delta') {
+    if (valueType !== 'boolean') {
+      return { ok: false, error: 'boolean-delta pricing is only valid for boolean inputs.' }
+    }
+    const hasTrue = Object.prototype.hasOwnProperty.call(record, 'trueDelta')
+    const hasFalse = Object.prototype.hasOwnProperty.call(record, 'falseDelta')
+    if (!hasTrue && !hasFalse) {
+      return { ok: false, error: 'boolean-delta pricing must declare trueDelta, falseDelta, or both.' }
+    }
+    let trueDelta: string | undefined
+    let falseDelta: string | undefined
+    if (hasTrue) {
+      const validated = validatePriceDelta(record.trueDelta, 'pricing.trueDelta')
+      if (!validated.ok) return validated
+      trueDelta = validated.value
+    }
+    if (hasFalse) {
+      const validated = validatePriceDelta(record.falseDelta, 'pricing.falseDelta')
+      if (!validated.ok) return validated
+      falseDelta = validated.value
+    }
+    return {
+      ok: true,
+      value: {
+        model: 'boolean-delta',
+        ...(trueDelta !== undefined ? { trueDelta } : {}),
+        ...(falseDelta !== undefined ? { falseDelta } : {}),
+      },
+    }
+  }
+
+  if (record.model === 'quantity-delta') {
+    if (valueType !== 'quantity') {
+      return { ok: false, error: 'quantity-delta pricing is only valid for quantity inputs.' }
+    }
+    const unitDelta = validatePriceDelta(record.unitDelta, 'pricing.unitDelta')
+    if (!unitDelta.ok) return unitDelta
+    if (
+      typeof record.includedQuantity !== 'number' ||
+      !Number.isInteger(record.includedQuantity) ||
+      record.includedQuantity < 0 ||
+      record.includedQuantity > 1_000_000
+    ) {
+      return { ok: false, error: 'pricing.includedQuantity must be a whole number between 0 and 1000000.' }
+    }
+    return {
+      ok: true,
+      value: {
+        model: 'quantity-delta',
+        unitDelta: unitDelta.value,
+        includedQuantity: record.includedQuantity,
+      },
+    }
+  }
+
+  return { ok: false, error: `unsupported pricing model ${JSON.stringify(record.model)}.` }
 }
 
 export function validateOfferInputField(value: unknown): OfferConfigurationValidation<OfferInputField> {
@@ -234,7 +388,7 @@ export function validateOfferInputField(value: unknown): OfferConfigurationValid
     if (!validatedOptions.ok) return validatedOptions
     options = validatedOptions.value
   } else if (record.options != null) {
-    return { ok: false, error: `options are only valid for single-select or multi-select inputs.` }
+    return { ok: false, error: 'options are only valid for single-select or multi-select inputs.' }
   }
 
   let affects: OfferInputAffects[] | undefined
@@ -251,6 +405,12 @@ export function validateOfferInputField(value: unknown): OfferConfigurationValid
     affects = unique.length ? unique : undefined
   }
 
+  const pricing = validateInputPricing(record.pricing, valueType, options)
+  if (!pricing.ok) return pricing
+  if (pricing.value && !affects?.includes('price')) {
+    return { ok: false, error: 'an input with deterministic pricing must include "price" in affects.' }
+  }
+
   return {
     ok: true,
     value: {
@@ -262,6 +422,7 @@ export function validateOfferInputField(value: unknown): OfferConfigurationValid
       ...(options ? { options } : {}),
       askBuyer: askBuyer.value,
       ...(affects ? { affects } : {}),
+      ...(pricing.value ? { pricing: pricing.value } : {}),
     },
   }
 }
