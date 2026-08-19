@@ -52,25 +52,33 @@ describe('routeCommerceBuyerIntent', () => {
     })
   })
 
-  it('surfaces ambiguity instead of forcing a tied template choice', () => {
+  it('surfaces ambiguity instead of forcing a tied template choice or hiding it behind result limits', () => {
     const source = listCommerceTemplates({ status: 'active' })
       .find((template) => template.id === 'professional.business-strategy-session')
     if (!source) throw new Error('Missing strategy-session template')
 
     const first: CommerceTemplate = { ...source, id: 'test.strategy-alpha' }
     const second: CommerceTemplate = { ...source, id: 'test.strategy-beta' }
-    const route = routeCommerceBuyerIntent(
+    const fullRoute = routeCommerceBuyerIntent(
       [first, second],
       'Book a business strategy session.',
     )
+    const limitedRoute = routeCommerceBuyerIntent(
+      [first, second],
+      'Book a business strategy session.',
+      { limit: 1 },
+    )
 
-    expect(route.status).toBe('ambiguous')
-    expect(route.matches).toHaveLength(2)
-    expect(route.matches[0].score).toBe(route.matches[1].score)
-    expect(route.matches.map((match) => match.template.id)).toEqual([
+    expect(fullRoute.status).toBe('ambiguous')
+    expect(fullRoute.matches).toHaveLength(2)
+    expect(fullRoute.matches[0].score).toBe(fullRoute.matches[1].score)
+    expect(fullRoute.matches.map((match) => match.template.id)).toEqual([
       'test.strategy-alpha',
       'test.strategy-beta',
     ])
+    expect(limitedRoute.status).toBe('ambiguous')
+    expect(limitedRoute.matches).toHaveLength(1)
+    expect(limitedRoute.matches[0].template.id).toBe('test.strategy-alpha')
   })
 
   it('returns deterministic JSON-safe routing evidence', () => {
