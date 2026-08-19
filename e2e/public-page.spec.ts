@@ -71,17 +71,13 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
     await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 30_000 })
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
 
-    // Find first owned page (must have at least one published page for this test account)
-    await page
-      .waitForFunction(
-        () => [...document.querySelectorAll('a[href]')].some((a) => /^\/dashboard\/[0-9a-f-]{36}$/.test(a.getAttribute('href') || '')),
-        undefined,
-        { timeout: 15_000 },
-      )
-      .catch(() => {})
-    const href = await page.evaluate(
-      () => [...document.querySelectorAll('a[href]')].map((a) => a.getAttribute('href')).find((h) => !!h && /^\/dashboard\/[0-9a-f-]{36}$/.test(h)) || null,
-    )
+    // Pick a genuinely PUBLISHED owned listing. The previous selector grabbed
+    // the first owned listing regardless of status, so a newer draft could be
+    // fed into the public simulator and never resolve.
+    const publishedCard = page.locator('article').filter({ has: page.getByRole('button', { name: 'Published' }) }).first()
+    const editLink = publishedCard.getByRole('link', { name: 'Edit listing' })
+    await editLink.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {})
+    const href = await editLink.getAttribute('href').catch(() => null)
     test.skip(!href, 'test account has no published pages to seed llm_opt_in on')
 
     // Go to its settings to seed the opt-in flag (this is the "seeded llm_opt_in page")
