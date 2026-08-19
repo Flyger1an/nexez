@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { commerceBenchmark, type CommerceBenchmarkCorpus } from './benchmark'
+import { commerceBenchmarkBuyerPreflightFixtures } from './benchmark-buyer-preflight-fixtures'
 import {
   runCommerceBenchmark,
   type CommerceBenchmarkExecutableStage,
@@ -38,16 +39,21 @@ function stageResult(
 }
 
 describe('runCommerceBenchmark', () => {
-  it('executes every active corpus case plus benchmark-only configured transaction fixtures', () => {
+  it('executes every active corpus case plus buyer preflight and configured transaction fixtures', () => {
     const run = runCommerceBenchmark()
 
-    expect(run.runnerVersion).toBe(3)
+    expect(run.runnerVersion).toBe(4)
     expect(run.ok).toBe(true)
+    expect(run.buyerBehaviorScope).toBe('nexez-reference-preflight')
     expect(run.summary.caseCount).toBe(commerceBenchmark.cases.length)
     expect(run.summary.passedCases).toBe(commerceBenchmark.cases.length)
     expect(run.summary.failedCases).toBe(0)
-    expect(run.cases.every((benchmarkCase) => benchmarkCase.stages.length === 4)).toBe(true)
+    expect(run.cases.every((benchmarkCase) => benchmarkCase.stages.length === 5)).toBe(true)
     expect(run.cases.every((benchmarkCase) => benchmarkCase.stages.every((stage) => stage.status === 'pass'))).toBe(true)
+    expect(run.buyerPreflightCoverageComplete).toBe(true)
+    expect(run.summary.guardrailAssertionCount).toBe(14)
+    expect(run.summary.passedGuardrailAssertions).toBe(14)
+    expect(run.summary.failedGuardrailAssertions).toBe(0)
     expect(run.transactionTemplateCoverageComplete).toBe(true)
     expect(run.summary.transactionFixtureCount).toBe(commerceBenchmarkTransactionFixtures.length)
     expect(run.summary.passedTransactionFixtures).toBe(commerceBenchmarkTransactionFixtures.length)
@@ -55,20 +61,33 @@ describe('runCommerceBenchmark', () => {
     expect(run.transactionFixtures.every((fixture) => fixture.status === 'pass')).toBe(true)
   })
 
-  it('reports only must-not buyer-agent behavior as the remaining lifecycle gap', () => {
+  it('reports complete declared lifecycle coverage with explicit reference-agent scope', () => {
     const run = runCommerceBenchmark()
     const coverage = Object.fromEntries(run.coverage.map((entry) => [entry.stage, entry.status]))
 
-    expect(run.completeLifecycleCoverage).toBe(false)
+    expect(run.completeLifecycleCoverage).toBe(true)
     expect(coverage['template-contract']).toBe('exercised')
     expect(coverage['buyer-intent-routing']).toBe('exercised')
     expect(coverage['seller-template-matching']).toBe('exercised')
     expect(coverage['template-intelligence']).toBe('exercised')
+    expect(coverage['must-not-behavior']).toBe('exercised')
     expect(coverage['offer-configuration']).toBe('exercised')
     expect(coverage['deterministic-pricing']).toBe('exercised')
+    expect(run.summary.exercisedStageCount).toBe(7)
+    expect(run.summary.notExercisedStageCount).toBe(0)
+    expect(run.coverage.find((entry) => entry.stage === 'must-not-behavior')?.reason)
+      .toContain('not arbitrary third-party model obedience')
+  })
+
+  it('does not let mustNot behavior inherit coverage without its adversarial preflight fixtures', () => {
+    const corpus = oneCaseCorpus('automotive.mobile-auto-detailing.direct')
+    const run = runCommerceBenchmark({ corpus, buyerPreflightFixtures: [] })
+    const coverage = Object.fromEntries(run.coverage.map((entry) => [entry.stage, entry.status]))
+
+    expect(run.ok).toBe(false)
+    expect(run.buyerPreflightCoverageComplete).toBe(false)
+    expect(run.summary.guardrailAssertionCount).toBe(0)
     expect(coverage['must-not-behavior']).toBe('not-exercised')
-    expect(run.summary.exercisedStageCount).toBe(6)
-    expect(run.summary.notExercisedStageCount).toBe(1)
   })
 
   it('does not let a corpus template inherit configuration/pricing coverage without its own fixture', () => {
@@ -81,6 +100,17 @@ describe('runCommerceBenchmark', () => {
     expect(run.summary.transactionFixtureCount).toBe(0)
     expect(coverage['offer-configuration']).toBe('not-exercised')
     expect(coverage['deterministic-pricing']).toBe('not-exercised')
+  })
+
+  it('keeps focused corpus slices valid without inventing mustNot coverage they do not declare', () => {
+    const corpus = oneCaseCorpus('automotive.mobile-auto-detailing.complex')
+    const run = runCommerceBenchmark({ corpus })
+    const coverage = Object.fromEntries(run.coverage.map((entry) => [entry.stage, entry.status]))
+
+    expect(run.ok).toBe(true)
+    expect(run.completeLifecycleCoverage).toBe(false)
+    expect(run.buyerPreflightCoverageComplete).toBe(false)
+    expect(coverage['must-not-behavior']).toBe('not-exercised')
   })
 
   it('fails closed when an eval expects a capability the owning template no longer declares', () => {
@@ -231,5 +261,19 @@ describe('runCommerceBenchmark', () => {
     const run = runCommerceBenchmark()
     expect(() => JSON.stringify(run)).not.toThrow()
     expect(JSON.parse(JSON.stringify(run))).toEqual(run)
+  })
+
+  it('keeps the canonical guardrail fixture count aligned with authored mustNot behavior', () => {
+    const authored = commerceBenchmark.cases.reduce(
+      (total, benchmarkCase) => total + benchmarkCase.expected.mustNot.length,
+      0,
+    )
+    const fixtures = commerceBenchmarkBuyerPreflightFixtures.reduce(
+      (total, fixture) => total + fixture.assertions.length,
+      0,
+    )
+
+    expect(authored).toBe(14)
+    expect(fixtures).toBe(authored)
   })
 })
