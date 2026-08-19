@@ -84,8 +84,8 @@ describe('recurring service contract', () => {
     const invalid: RecurringServiceTerms = {
       ...terms,
       schedule: {
-        ...terms.schedule,
         mode: 'buyer-option',
+        inputKey: 'cadence',
         options: [
           { value: 'weekly', cadence: { interval: 'week', intervalCount: 1 } },
           { value: 'monthly', cadence: { interval: 'month', intervalCount: 1 } },
