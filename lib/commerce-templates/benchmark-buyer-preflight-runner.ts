@@ -3,7 +3,7 @@ import {
   commerceBenchmarkBuyerPreflightFixtures,
   type CommerceBenchmarkBuyerPreflightFixture,
 } from './benchmark-buyer-preflight-fixtures'
-import { preflightCommerceBuyerClaims } from './buyer-preflight'
+import { decideCommerceBuyerClaims } from './buyer-reference'
 import type { CommerceTemplate, CommerceTemplateRef } from './schema'
 
 export type CommerceBenchmarkBuyerPreflightDiagnosticCode =
@@ -137,14 +137,16 @@ function runCase(
       }
     }
 
-    const preflight = preflightCommerceBuyerClaims(template, [assertion.claim], assertion.evidence)
-    const observedCodes = preflight.claims.flatMap((claim) => claim.diagnostics.map((item) => item.code))
+    const decision = decideCommerceBuyerClaims(template, [assertion.claim], assertion.evidence)
+    const asserted = decision.assertions.some((claim) => claim.id === assertion.claim.id)
+    const blocked = decision.blockedClaims.find((item) => item.claim.id === assertion.claim.id)
+    const observedCodes = blocked?.diagnostics.map((item) => item.code) ?? []
 
-    if (preflight.ok || preflight.claims[0]?.status !== 'rejected') {
+    if (asserted || !blocked || decision.status !== 'needs-information') {
       diagnostics.push({
         code: 'guardrail_not_enforced',
         mustNot: assertion.mustNot,
-        message: `${benchmarkCase.id} accepted adversarial claim for ${assertion.mustNot}.`,
+        message: `${benchmarkCase.id} reference buyer exposed adversarial claim for ${assertion.mustNot} instead of withholding it.`,
       })
       return {
         mustNot: assertion.mustNot,
@@ -158,7 +160,7 @@ function runCase(
       diagnostics.push({
         code: 'unexpected_preflight_failure',
         mustNot: assertion.mustNot,
-        message: `${benchmarkCase.id} rejected ${assertion.mustNot}, but not for expected code ${assertion.expectedCode}.`,
+        message: `${benchmarkCase.id} withheld ${assertion.mustNot}, but not for expected code ${assertion.expectedCode}.`,
       })
       return {
         mustNot: assertion.mustNot,
@@ -191,10 +193,13 @@ function runCase(
 }
 
 /**
- * Executes every authored CommerceEval `mustNot` against the production Nexez
- * reference-agent claim preflight. Passing means each synthetic forbidden claim
- * is rejected for the expected provenance failure. It does not certify that an
- * arbitrary third-party model will choose to call or obey this preflight.
+ * Executes every authored CommerceEval `mustNot` through the production Nexez
+ * reference-buyer decision seam. Passing means the reference buyer withholds
+ * each synthetic forbidden claim and exposes a deterministic information-recovery
+ * path rather than presenting the claim as truth.
+ *
+ * This does not certify that arbitrary third-party models will call or obey the
+ * Nexez reference seam.
  */
 export function runCommerceBenchmarkBuyerPreflight(
   corpus: CommerceBenchmarkCorpus,
