@@ -139,26 +139,27 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
     await llmTab.click()
     await expect(page.getByRole('heading', { name: "LLM-Enhanced's view" })).toBeVisible()
 
-    // Additional authed feature coverage (non-destructive page loads for main dashboard sections + flows)
-    // Tests billing, analytics, negotiations, tools, create, etc. after the LLM simulator flow.
+    // Additional authed feature coverage (non-destructive page loads for main dashboard sections + flows).
+    // Anchor each page on one unique semantic landmark so the smoke remains
+    // stable as cards/KPIs add more text that happens to share broad keywords.
     await page.goto('/dashboard/analytics', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByText(/Analytics|Tracked Signals|AI Agent Visits|Readiness/i)).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('heading', { name: 'Analytics', exact: true })).toBeVisible({ timeout: 15000 })
 
     await page.goto('/dashboard/billing', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByText(/Billing|Current Plan|Subscription|Usage/i)).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('heading', { name: 'Your plan & payouts', exact: true })).toBeVisible({ timeout: 15000 })
 
     await page.goto('/dashboard/negotiations', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByText(/Negotiations|Inbox|Make an Offer|agent_negotiations/i)).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('heading', { name: 'Negotiation Inbox', exact: true })).toBeVisible({ timeout: 15000 })
 
     await page.goto('/dashboard/tools', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByText(/Tools|Import|Site Import|CSV|Integrations/i)).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('heading', { name: 'Tools', exact: true })).toBeVisible({ timeout: 15000 })
 
     await page.goto('/create', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByRole('heading', { name: /create|new page|build your page/i })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Talk your listing into existence', exact: true })).toBeVisible({ timeout: 10000 })
 
     // Quick re-visit to dashboard overview and a settings page for llm_opt_in coverage (already toggled earlier)
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByText(/Dashboard|Pages|Overview/i)).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible({ timeout: 10000 })
 
     // Additional E2E coverage for the /negotiate persistent page (the core of long-lived resumable negotiations).
     // After visiting negotiations inbox (which now links to persistent threads), exercise /negotiate/{id}:
@@ -166,14 +167,14 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
     // - Display of turns, status, continuation form
     // - Submit a follow-up (appends to history via API + service, LLM would see full context on next step)
     await page.goto('/dashboard/negotiations', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByText(/Negotiations|Inbox/i)).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: 'Negotiation Inbox', exact: true })).toBeVisible({ timeout: 10000 })
 
     const negotiateLink = page.locator('a[href*="/negotiate/"]').first()
     if (await negotiateLink.count() > 0) {
       const href = await negotiateLink.getAttribute('href')
       if (href) {
         await page.goto(href, { waitUntil: 'domcontentloaded' })
-        await expect(page.getByText('Negotiation')).toBeVisible({ timeout: 10000 })
+        await expect(page.getByRole('heading', { name: 'Negotiation', exact: true })).toBeVisible({ timeout: 10000 })
         await expect(page.getByText('Full Conversation History')).toBeVisible({ timeout: 10000 })
         await expect(page.getByText('Continue this negotiation')).toBeVisible()
 
