@@ -144,15 +144,37 @@ function partialMarketplaceActions(result: AgentSearchResult): string[] {
   return actions
 }
 
-function noMatchAnswer(query: string): string {
-  return `I couldn’t find a live Nexez provider or a relevant Commerce Library reference for “${query}.” I won’t substitute an unrelated service category. Add a location or timing if it would narrow the search, or check back as new providers are published.`
+function understoodRequestLabel(query: string): string {
+  const original = query.replace(/\s+/g, ' ').replace(/[.!?]+$/g, '').trim()
+  const prefixes = [
+    /^(?:please\s+)?(?:can|could|would)\s+you\s+(?:please\s+)?(?:help\s+me\s+)?(?:find|hire|book|get)\s+(?:me\s+)?/i,
+    /^(?:please\s+)?(?:help\s+me\s+)?(?:find|hire|book|get)\s+(?:me\s+)?/i,
+    /^(?:i\s+(?:need|want)(?:\s+to\s+(?:find|hire|book|get))?|i(?:['’]m|\s+am)\s+looking\s+for|looking\s+for|searching\s+for)\s+/i,
+  ]
+
+  let label = original
+  for (const prefix of prefixes) {
+    const next = label.replace(prefix, '')
+    if (next !== label) {
+      label = next
+      break
+    }
+  }
+
+  label = label.replace(/^(?:a|an|the)\s+/i, '').trim() || original
+  const concise = label.length > 120 ? `${label.slice(0, 119).trimEnd()}…` : label
+  return concise.charAt(0).toUpperCase() + concise.slice(1)
 }
 
-function noMatchActions(query: string): string[] {
+function coverageGapAnswer(label: string): string {
+  return `Nexez understood your request as “${label}.” It checked the live marketplace and Commerce Library, but coverage for this category is still growing. Your intent stays intact—Nexez won’t redirect you to an unrelated service.`
+}
+
+function coverageGapActions(label: string): string[] {
   return [
-    `Keep the request anchored to “${query}”`,
-    'Do not substitute a different service category',
-    'Ask for location or timing before searching again when those details would narrow the request',
+    `Preserve “${label}” as the requested service`,
+    'Keep marketplace supply and reference coverage distinct',
+    'Invite the buyer to add location or timing without changing the service category',
   ]
 }
 
@@ -478,22 +500,31 @@ export async function POST(request: Request) {
       })
     }
 
+    const understoodLabel = understoodRequestLabel(trimmedQuery)
+
     return NextResponse.json({
       success: true,
-      mode: 'no_match',
+      mode: 'coverage_gap',
       noMatch: true,
       query: trimmedQuery,
       intent,
       intentLabel: publicIntentLabel(intent, trimmedQuery),
-      naturalLanguage: noMatchAnswer(trimmedQuery),
+      naturalLanguage: coverageGapAnswer(understoodLabel),
       readiness: 0,
       confidence: null,
       offers: [],
-      agentActions: noMatchActions(trimmedQuery),
+      agentActions: coverageGapActions(understoodLabel),
       schema: null,
       recommendations: [],
       matchedBusiness: null,
       simulation: null,
+      understoodRequest: {
+        label: understoodLabel,
+        marketplaceChecked: true,
+        commerceLibraryChecked: true,
+        intentPreserved: true,
+        coverageStatus: 'growing',
+      },
       llmEnhanced: false,
     })
   } catch (error: any) {
