@@ -47,6 +47,8 @@ export type ConditionalFulfillmentReason = {
 
 export type ConditionalFulfillmentEvaluation = {
   schemaVersion: typeof CONDITIONAL_FULFILLMENT_SCHEMA_VERSION
+  /** Exact normalized merchant policy evaluated for this checkout. */
+  policyRules: OfferFulfillmentRule[]
   decision: ConditionalFulfillmentDecision
   matchedRuleIds: string[]
   reasons: ConditionalFulfillmentReason[]
@@ -300,6 +302,10 @@ export function evaluateConditionalFulfillment(
 
   return {
     schemaVersion: CONDITIONAL_FULFILLMENT_SCHEMA_VERSION,
+    policyRules: rules.map((rule) => ({
+      ...rule,
+      ...(Array.isArray(rule.value) ? { value: [...rule.value] } : {}),
+    })),
     decision,
     matchedRuleIds: reasons.map((reason) => reason.ruleId),
     reasons,
