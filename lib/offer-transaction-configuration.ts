@@ -1,6 +1,10 @@
 import type { OfferItem } from './agent-page'
-import { getOfferCustomerInputs } from './configured-offer'
+import { getOfferCustomerInputs, getOfferFulfillmentRules } from './configured-offer'
 import type { OfferInputField, OfferInputValueType } from './offer-configuration'
+import {
+  evaluateConditionalFulfillment,
+  type ConditionalFulfillmentEvaluation,
+} from './conditional-fulfillment'
 
 export type OfferTransactionConfigurationValue = string | number | boolean | string[]
 export type OfferTransactionConfiguration = Record<string, OfferTransactionConfigurationValue>
@@ -23,6 +27,7 @@ export type OfferTransactionConfigurationValidation =
       ok: true
       value: OfferTransactionConfiguration
       schema: OfferInputField[]
+      fulfillment: ConditionalFulfillmentEvaluation
     }
   | {
       ok: false
@@ -208,6 +213,10 @@ function normalizeFieldValue(field: OfferInputField, value: unknown): ValueValid
  * Validate buyer transaction data against the merchant-authored configuration
  * schema already attached to the authoritative offer. This function never
  * writes merchant facts and never infers an answer from the schema.
+ *
+ * Once buyer data is canonical, the same function evaluates merchant-authored
+ * conditional fulfillment rules so every settlement rail receives one exact
+ * decision from the same normalized values.
  */
 export function validateOfferTransactionConfiguration(
   offer: OfferItem,
@@ -256,7 +265,12 @@ export function validateOfferTransactionConfiguration(
   }
 
   if (errors.length) return { ok: false, schema, errors }
-  return { ok: true, schema, value }
+  return {
+    ok: true,
+    schema,
+    value,
+    fulfillment: evaluateConditionalFulfillment(getOfferFulfillmentRules(offer), value),
+  }
 }
 
 /**
