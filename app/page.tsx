@@ -24,7 +24,7 @@ import { ShaderBackdrop } from '../components/home/ShaderBackdrop'
 
 // Marketing homepage: fully static (fast on nexez.ai). The always-live listing
 // directory lives on /discovery.
-const metaTitle = 'Commerce for AI agents'
+const metaTitle = 'Nexez - Commerce for AI agents'
 const metaDescription =
   'Help customers and AI assistants buy from your business while your prices, requirements, and rules stay under your control.'
 
