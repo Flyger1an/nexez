@@ -1,11 +1,13 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { actionRequestHash } from '../action-approval'
+import type { ConditionalFulfillmentEvaluation } from '../conditional-fulfillment'
 import type { OfferConfigurationPricingSnapshot } from '../offer-configuration-pricing'
 import type { OfferTransactionConfiguration } from '../offer-transaction-configuration'
 
 export const STRIPE_OFFER_CONFIGURATION_HASH_KEY = 'nexez_offer_configuration_hash'
 export const STRIPE_OFFER_PRICING_HASH_KEY = 'nexez_offer_pricing_hash'
+export const STRIPE_OFFER_FULFILLMENT_HASH_KEY = 'nexez_offer_fulfillment_hash'
 
 const HANDOFF_TTL_MS = 48 * 60 * 60 * 1_000
 
@@ -32,24 +34,31 @@ export function offerConfigurationPricingFingerprint(pricing: OfferConfiguration
   return actionRequestHash('checkout', { offerPricing: pricing })
 }
 
+/** Fingerprint the exact checkout-time merchant fulfillment decision. */
+export function offerFulfillmentFingerprint(fulfillment: ConditionalFulfillmentEvaluation): string {
+  return actionRequestHash('checkout', { offerFulfillment: fulfillment })
+}
+
 export type PersistCheckoutConfigurationHandoffInput = {
   stripeSessionId: string
   pageId: string
   offerKey: string
   configuration: OfferTransactionConfiguration
   pricing?: OfferConfigurationPricingSnapshot | null
+  fulfillment?: ConditionalFulfillmentEvaluation | null
   now?: Date
 }
 
 export type PersistCheckoutConfigurationHandoffResult =
-  | { ok: true; fingerprint: string; pricingFingerprint: string | null }
-  | { ok: false; fingerprint: string; pricingFingerprint: string | null; error: string }
+  | { ok: true; fingerprint: string; pricingFingerprint: string | null; fulfillmentFingerprint?: string }
+  | { ok: false; fingerprint: string; pricingFingerprint: string | null; fulfillmentFingerprint?: string; error: string }
 
 /**
- * Store the exact checkout-time buyer configuration and optional deterministic
- * pricing snapshot in a private service-role table before a payable Stripe URL
- * leaves Nexez. A DB trigger later merges this row into checkout_orders.metadata
- * in the same transaction as the existing webhook order upsert, then consumes it.
+ * Store the exact checkout-time buyer configuration, deterministic price, and
+ * merchant-authored fulfillment decision in a private service-role table before
+ * a payable Stripe URL leaves Nexez. A DB trigger later merges this row into
+ * checkout_orders.metadata in the same transaction as the existing webhook
+ * order upsert, then consumes it.
  */
 export async function persistCheckoutConfigurationHandoff(
   db: SupabaseClient,
@@ -59,6 +68,10 @@ export async function persistCheckoutConfigurationHandoff(
   const pricingFingerprint = input.pricing
     ? offerConfigurationPricingFingerprint(input.pricing)
     : null
+  const fulfillmentFingerprint = input.fulfillment
+    ? offerFulfillmentFingerprint(input.fulfillment)
+    : null
+  const fulfillmentResult = fulfillmentFingerprint ? { fulfillmentFingerprint } : {}
   const now = input.now ?? new Date()
   const expiresAt = new Date(now.getTime() + HANDOFF_TTL_MS)
   const { error } = await db.from('checkout_configuration_handoffs').upsert(
@@ -74,12 +87,18 @@ export async function persistCheckoutConfigurationHandoff(
             pricing_fingerprint: pricingFingerprint,
           }
         : {}),
+      ...(input.fulfillment
+        ? {
+            fulfillment_snapshot: input.fulfillment,
+            fulfillment_fingerprint: fulfillmentFingerprint,
+          }
+        : {}),
       updated_at: now.toISOString(),
       expires_at: expiresAt.toISOString(),
     },
     { onConflict: 'stripe_session_id' },
   )
 
-  if (error) return { ok: false, fingerprint, pricingFingerprint, error: error.message }
-  return { ok: true, fingerprint, pricingFingerprint }
+  if (error) return { ok: false, fingerprint, pricingFingerprint, ...fulfillmentResult, error: error.message }
+  return { ok: true, fingerprint, pricingFingerprint, ...fulfillmentResult }
 }

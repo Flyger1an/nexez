@@ -1,3 +1,4 @@
+import type { ConditionalFulfillmentEvaluation } from './conditional-fulfillment'
 import type { OfferInputField } from './offer-configuration'
 import type { OfferConfigurationPricingSnapshot } from './offer-configuration-pricing'
 import type { OfferTransactionConfiguration } from './offer-transaction-configuration'
@@ -59,6 +60,8 @@ export type RecurringServiceAgreementSnapshot = {
   terms: RecurringServiceTerms
   resolvedSchedule: ResolvedRecurringServiceSchedule
   configuration: OfferTransactionConfiguration
+  /** Added by conditional-fulfillment runtime for new agreements; absent on legacy v1 snapshots. */
+  fulfillment?: ConditionalFulfillmentEvaluation
   pricing: OfferConfigurationPricingSnapshot | null
   amountPerPeriod: number
   currency: string
@@ -249,6 +252,7 @@ export function resolveRecurringServiceSchedule(
 export function buildRecurringServiceAgreementSnapshot(input: {
   terms: RecurringServiceTerms
   configuration: OfferTransactionConfiguration
+  fulfillment?: ConditionalFulfillmentEvaluation
   pricing: OfferConfigurationPricingSnapshot | null
   amountPerPeriod: number
   currency: string
@@ -268,6 +272,14 @@ export function buildRecurringServiceAgreementSnapshot(input: {
       fields: [],
     }
   }
+  if (input.fulfillment && input.fulfillment.decision !== 'eligible') {
+    return {
+      ok: false,
+      code: input.fulfillment.decision === 'requires-review' ? 'fulfillment_review_required' : 'fulfillment_ineligible',
+      error: input.fulfillment.reasons[0]?.message ?? 'This buyer configuration is not eligible for automatic recurring checkout.',
+      fields: input.fulfillment.reasons.map((reason) => reason.inputKey),
+    }
+  }
   const resolved = resolveRecurringServiceSchedule(input.terms, input.configuration)
   if (!resolved.ok) return resolved
   return {
@@ -277,6 +289,7 @@ export function buildRecurringServiceAgreementSnapshot(input: {
       terms: input.terms,
       resolvedSchedule: resolved.value,
       configuration: { ...input.configuration },
+      ...(input.fulfillment ? { fulfillment: JSON.parse(JSON.stringify(input.fulfillment)) } : {}),
       pricing: input.pricing ? JSON.parse(JSON.stringify(input.pricing)) : null,
       amountPerPeriod: input.amountPerPeriod,
       currency,

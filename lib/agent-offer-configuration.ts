@@ -1,5 +1,10 @@
 import { getCheckoutOfferKey, type CheckoutOffer, type OfferItem } from './agent-page'
-import { getOfferAttributes, getOfferCustomerInputs, getOfferRecurringTerms } from './configured-offer'
+import {
+  getOfferAttributes,
+  getOfferCustomerInputs,
+  getOfferFulfillmentRules,
+  getOfferRecurringTerms,
+} from './configured-offer'
 import type { OfferInputField } from './offer-configuration'
 
 type JsonSchema = Record<string, unknown>
@@ -61,21 +66,24 @@ export function buildOfferConfigurationInputSchema(offer: OfferItem): JsonSchema
 
 /**
  * Sanitized machine contract published on agent-facing offer surfaces. Recurring
- * terms are merchant-authored public truth; the resolved buyer cadence remains
- * transaction data and is returned only by recurring-checkout dry-run.
+ * terms and conditional fulfillment rules are merchant-authored public truth;
+ * resolved cadence and fulfillment evaluation remain transaction data returned
+ * by checkout dry-run.
  */
 export function buildAgentOfferConfiguration(offer: OfferItem) {
   const customerInputs = getOfferCustomerInputs(offer)
   const attributes = getOfferAttributes(offer)
   const recurringTerms = getOfferRecurringTerms(offer)
-  if (!customerInputs.length && !attributes.length && !recurringTerms) return null
+  const fulfillmentRules = getOfferFulfillmentRules(offer)
+  if (!customerInputs.length && !attributes.length && !recurringTerms && !fulfillmentRules.length) return null
 
   const priceFields = customerInputs.filter((field) => field.affects?.includes('price'))
   const deterministicallyPricedInputs = priceFields.filter((field) => field.pricing).map((field) => field.key)
   const unpricedPriceInputs = priceFields.filter((field) => !field.pricing).map((field) => field.key)
   const requiredUnpricedPriceInputs = priceFields.filter((field) => field.required && !field.pricing).map((field) => field.key)
   const hasBuyerInputs = customerInputs.length > 0
-  const requiresSettlement = hasBuyerInputs || Boolean(recurringTerms)
+  const hasConditionalFulfillment = fulfillmentRules.length > 0
+  const requiresSettlement = hasBuyerInputs || Boolean(recurringTerms) || hasConditionalFulfillment
   const checkoutPath = recurringTerms ? '/api/service-agreements/checkout' : '/api/checkout'
 
   const checkoutStatus = requiredUnpricedPriceInputs.length
@@ -88,6 +96,16 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
     request_field: 'offerConfiguration',
     customer_inputs: customerInputs,
     attributes,
+    conditional_fulfillment: hasConditionalFulfillment
+      ? {
+          schema_version: 1,
+          rules: fulfillmentRules,
+          possible_decisions: ['eligible', 'requires-review', 'ineligible'],
+          evaluation_source: 'deterministic merchant-authored rules over normalized required buyer inputs',
+          enforcement: `POST ${checkoutPath} with dryRun=true before buyer approval; payable checkout is issued only when decision=eligible.`,
+          note: 'Do not infer missing qualification facts. Ask for the declared required buyer inputs and use the exact option values published in input_schema.',
+        }
+      : null,
     recurring_service: recurringTerms
       ? {
           terms: recurringTerms,
@@ -104,6 +122,7 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
       status: checkoutStatus,
       path: checkoutPath,
       requires_nexez_settlement_when_values_supplied: hasBuyerInputs,
+      conditional_fulfillment_requires_nexez_settlement: hasConditionalFulfillment,
       recurring_service_requires_nexez_settlement: Boolean(recurringTerms),
       external_provider_configuration_supported: false,
       runtime_readiness_check: requiresSettlement ? `POST ${checkoutPath} with dryRun=true before approval.` : null,
@@ -113,14 +132,16 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
       note: requiredUnpricedPriceInputs.length
         ? 'Checkout is blocked because a required price-affecting buyer input lacks a deterministic merchant-authored pricing rule.'
         : recurringTerms
-          ? 'Recurring service requires Nexez-settled Stripe subscription checkout. Dry-run resolves and fingerprints the exact per-period amount, cadence, configuration, and merchant recurring terms before buyer approval.'
-          : !hasBuyerInputs
-            ? 'This offer publishes attributes but does not require buyer configuration.'
-            : unpricedPriceInputs.length
-              ? 'Configured values require a Nexez-settled Stripe checkout. Deterministically priced inputs are supported; unpriced optional price-affecting inputs must be omitted.'
-              : deterministicallyPricedInputs.length
-                ? 'Configured values and deterministic merchant-authored pricing are supported on the Nexez-settled Stripe rail. Dry-run checkout returns the exact final amount before approval.'
-                : 'Configured values require a Nexez-settled Stripe checkout; dry-run checkout confirms live settlement readiness.',
+          ? 'Recurring service requires Nexez-settled Stripe subscription checkout. Dry-run resolves and fingerprints exact per-period amount, cadence, configuration, fulfillment decision, and merchant recurring terms before buyer approval.'
+          : hasConditionalFulfillment
+            ? 'Nexez evaluates merchant-authored fulfillment gates over normalized buyer values before approval. Review-required and ineligible configurations never receive a payable checkout.'
+            : !hasBuyerInputs
+              ? 'This offer publishes attributes but does not require buyer configuration.'
+              : unpricedPriceInputs.length
+                ? 'Configured values require a Nexez-settled Stripe checkout. Deterministically priced inputs are supported; unpriced optional price-affecting inputs must be omitted.'
+                : deterministicallyPricedInputs.length
+                  ? 'Configured values and deterministic merchant-authored pricing are supported on the Nexez-settled Stripe rail. Dry-run checkout returns the exact final amount before approval.'
+                  : 'Configured values require a Nexez-settled Stripe checkout; dry-run checkout confirms live settlement readiness.',
     },
   }
 }
@@ -169,6 +190,39 @@ function configuredCheckoutPricingResponseSchema(): JsonSchema {
   }
 }
 
+function conditionalFulfillmentResponseSchema(): JsonSchema {
+  return {
+    type: 'object',
+    description: 'Deterministic checkout-time evaluation of the exact merchant-authored conditional fulfillment policy used for this buyer configuration.',
+    properties: {
+      schemaVersion: { type: 'integer', enum: [1] },
+      policyRules: {
+        type: 'array',
+        description: 'Exact normalized merchant rule set evaluated at checkout time.',
+        items: { type: 'object' },
+      },
+      decision: { type: 'string', enum: ['eligible', 'requires-review', 'ineligible'] },
+      matchedRuleIds: { type: 'array', items: { type: 'string' } },
+      reasons: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            ruleId: { type: 'string' },
+            inputKey: { type: 'string' },
+            decision: { type: 'string', enum: ['requires-review', 'ineligible'] },
+            reasonCode: { type: 'string' },
+            message: { type: 'string' },
+            nextAction: { type: 'string', enum: ['contact-merchant', 'send-proposal'] },
+          },
+          required: ['ruleId', 'inputKey', 'decision', 'reasonCode', 'message'],
+        },
+      },
+    },
+    required: ['schemaVersion', 'policyRules', 'decision', 'matchedRuleIds', 'reasons'],
+  }
+}
+
 function recurringAgreementResponseSchema(): JsonSchema {
   return {
     type: 'object',
@@ -188,11 +242,12 @@ function recurringAgreementResponseSchema(): JsonSchema {
         required: ['interval', 'intervalCount', 'source'],
       },
       configuration: { type: 'object' },
+      fulfillment: conditionalFulfillmentResponseSchema(),
       pricing: { oneOf: [configuredCheckoutPricingResponseSchema(), { type: 'null' }] },
       amountPerPeriod: { type: 'integer', minimum: 1 },
       currency: { type: 'string' },
     },
-    required: ['schemaVersion', 'terms', 'resolvedSchedule', 'configuration', 'pricing', 'amountPerPeriod', 'currency'],
+    required: ['schemaVersion', 'terms', 'resolvedSchedule', 'configuration', 'fulfillment', 'pricing', 'amountPerPeriod', 'currency'],
   }
 }
 
@@ -224,12 +279,14 @@ export function withOfferConfigurationOpenApi<T extends Record<string, any>>(
       offerConfigurationFingerprint: { type: 'string', pattern: '^[a-f0-9]{64}$' },
       offerPricing: configuredCheckoutPricingResponseSchema(),
       offerPricingFingerprint: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+      offerFulfillment: conditionalFulfillmentResponseSchema(),
+      offerFulfillmentFingerprint: { type: 'string', pattern: '^[a-f0-9]{64}$' },
     })
   }
 
   const recurringPost = JSON.parse(JSON.stringify(checkoutPost)) as Record<string, any>
   recurringPost.summary = 'Create or dry-run a merchant-authored recurring service agreement'
-  recurringPost.description = 'Recurring service offers must use this endpoint. Dry-run resolves exact cadence, per-period pricing, configuration, and agreement fingerprint before buyer approval.'
+  recurringPost.description = 'Recurring service offers must use this endpoint. Dry-run resolves exact cadence, per-period pricing, configuration, conditional fulfillment decision, and agreement fingerprint before buyer approval.'
   const recurringResponse = recurringPost?.responses?.['200']?.content?.['application/json']?.schema
   if (recurringResponse?.properties) {
     Object.assign(recurringResponse.properties, {
