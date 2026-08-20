@@ -56,7 +56,7 @@ describe('homepage commerce story', () => {
   })
 
   it('gives the homepage modern merchant-facing metadata', () => {
-    expect(source).toContain("const metaTitle = 'Commerce for AI agents'")
+    expect(source).toContain("const metaTitle = 'Nexez - Commerce for AI agents'")
     expect(source).toContain(
       "'Help customers and AI assistants buy from your business while your prices, requirements, and rules stay under your control.'",
     )
