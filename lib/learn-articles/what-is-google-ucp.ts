@@ -9,7 +9,7 @@ export const whatIsGoogleUcp: LearnArticle = {
   dek: 'UCP is the open standard Google and Shopify built so AI agents can search, cart, and buy from your store inside Gemini and AI Mode. Here is what it actually does, how to get on it, and what an independent census of every public UCP store says about where the ecosystem really stands.',
   category: 'Agentic commerce',
   publishedAt: '2026-08-14',
-  updatedAt: '2026-08-14',
+  updatedAt: '2026-08-17',
   readMinutes: 11,
   blocks: [
     {
@@ -123,7 +123,7 @@ export const whatIsGoogleUcp: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'The pattern that keeps holding: maintain one canonical, accurate source of truth about what you sell and what it costs, and generate every protocol surface from it. UCP is transport-agnostic and modular by design precisely because the ecosystem expects the specifics to keep moving. Merchants who hand-rolled one deep integration in January have already had to revisit it twice; merchants who kept one clean catalog regenerated their surfaces and moved on.',
+      text: 'The pattern that keeps holding: maintain one canonical, accurate source of truth about what you sell and what it costs, and generate every protocol surface from it. UCP is transport-agnostic and modular by design precisely because the ecosystem expects the specifics to keep moving. Merchants who hand-rolled one deep integration in January have already had to revisit it twice; merchants who kept one clean catalog regenerated their surfaces and moved on. The [Instant Checkout retirement](/learn/chatgpt-instant-checkout-retired) is the sharpest illustration of why that matters.',
     },
     {
       type: 'cta',
@@ -147,7 +147,7 @@ export const whatIsGoogleUcp: LearnArticle = {
     {
       question: 'What is the difference between UCP and ACP?',
       answer:
-        'Different owners and different surfaces. UCP is the Google and Shopify standard covering the full shopping journey across Google\u2019s AI surfaces (AI Mode in Search, the Gemini app, YouTube Shopping), onboarded through Merchant Center. ACP is the OpenAI and Stripe protocol focused on checkout inside ChatGPT. They are compatible at the merchant infrastructure layer, and many retailers support both. The [full comparison](/learn/ucp-vs-acp-vs-mcp) breaks down what each requires.',
+        'Different owners and different status. UCP is the Google and Shopify standard covering the full shopping journey across Google\u2019s AI surfaces (AI Mode in Search, the Gemini app, YouTube Shopping), onboarded through Merchant Center, and it is where live agentic checkout runs today. ACP is the OpenAI and Stripe protocol, which launched powering checkout inside ChatGPT until OpenAI [retired that surface in March 2026](/learn/chatgpt-instant-checkout-retired); the spec itself remains active through adopters such as PayPal and Stripe. The [full comparison](/learn/ucp-vs-acp-vs-mcp) breaks down what each requires.',
     },
     {
       question: 'How do I onboard to UCP?',
