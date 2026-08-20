@@ -1,5 +1,6 @@
+import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { HOW_IT_WORKS_COPY } from '../../components/marketing/HowItWorksExperience'
+import { HOW_IT_WORKS_COPY, HowItWorksExperience } from '../../components/marketing/HowItWorksExperience'
 import { marketingUrl } from '../../lib/site'
 import { metadata } from './page'
 
@@ -28,11 +29,16 @@ describe('/how-it-works merchant story', () => {
     expect(copy).toContain('you set')
     expect(copy).toContain('customers and ai assistants')
     expect(copy).toContain('get paid')
-    expect(copy).toContain('no coding required')
+    expect(copy).toContain('plain language')
+    expect(copy).toContain('stop instead of guessing')
   })
 
-  it('keeps the public simulator in the merchant journey', () => {
-    expect(copy).toContain('ai assistant understands your business')
+  it('keeps simple setup and the public simulator visible in the merchant journey', () => {
+    const markup = renderToStaticMarkup(<HowItWorksExperience />).toLowerCase()
+
+    expect(markup).toContain('no coding required')
+    expect(markup).toContain('see how an ai assistant understands your business')
+    expect(markup).toContain('try the simulator')
   })
 
   it('exports plain-language metadata for the page', () => {
