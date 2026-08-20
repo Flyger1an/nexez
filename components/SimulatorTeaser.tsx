@@ -174,9 +174,13 @@ export function SimulatorTeaser() {
                 Simulation · {result.simulation.candidate.title}
               </span>
             )}
-            <span className="ml-auto text-[11px] text-muted-foreground">
-              match confidence {Math.round(result.confidence * 100)}%
-            </span>
+            {result.mode === 'simulation' ? (
+              <span className="ml-auto text-[11px] text-muted-foreground">reference match only</span>
+            ) : (
+              <span className="ml-auto text-[11px] text-muted-foreground">
+                match confidence {Math.round(result.confidence * 100)}%
+              </span>
+            )}
           </div>
 
           {result.simulation && (
