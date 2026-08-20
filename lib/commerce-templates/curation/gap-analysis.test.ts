@@ -46,6 +46,7 @@ describe('commerce schema gap analysis', () => {
 
     expect(firstClass).toEqual([
       'customer-requirements',
+      'recurrence-terms',
       'structured-modifiers',
       'quantity-pricing',
     ])
@@ -54,16 +55,15 @@ describe('commerce schema gap analysis', () => {
   it('identifies the bounded design-primitive queue without auto-promoting weak or niche signals', () => {
     const summary = summarizeCommerceSchemaGaps()
 
-    expect(summary.version).toBe(1)
+    expect(summary.version).toBe(2)
     expect(summary.signalCount).toBe(21)
     expect(summary.dispositionCounts).toEqual({
-      'first-class': 3,
+      'first-class': 4,
       'weakly-structured': 10,
-      'broadly-missing': 6,
+      'broadly-missing': 5,
       'not-justified': 2,
     })
     expect(summary.designPrimitiveSignals).toEqual([
-      'recurrence-terms',
       'conditional-fulfillment',
       'milestones',
       'inventory-resource',
@@ -96,7 +96,7 @@ describe('commerce schema gap analysis', () => {
       expect(finding.currentRepresentation.length).toBeGreaterThan(20)
       expect(finding.recommendation.length).toBeGreaterThan(20)
       expect(finding.evidence.length).toBeGreaterThan(0)
-      expect(finding.evidence.every((path) => path.startsWith('lib/'))).toBe(true)
+      expect(finding.evidence.every((path) => path.startsWith('lib/') || path.startsWith('app/'))).toBe(true)
     }
   })
 
