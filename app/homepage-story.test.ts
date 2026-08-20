@@ -27,11 +27,12 @@ describe('homepage commerce story', () => {
     )
     expect(hero).toContain('List your offers')
     expect(hero).toContain('See how it works')
-    expect(hero).toContain("{ value: '<200ms', label: 'Agent-ready load' }")
-    expect(hero).toContain("{ value: '19+', label: 'AI crawlers welcomed' }")
-    expect(hero).toContain("{ value: '5+', label: 'Structured formats' }")
-    expect(hero).toContain("{ value: 'Live', label: 'Conversion analytics' }")
+    expect(hero).toContain('stats.map')
     expect(hero).toContain('<AgentXray />')
+    expect(source).toContain("{ value: '<200ms', label: 'Agent-ready load' }")
+    expect(source).toContain("{ value: '19+', label: 'AI crawlers welcomed' }")
+    expect(source).toContain("{ value: '5+', label: 'Structured formats' }")
+    expect(source).toContain("{ value: 'Live', label: 'Conversion analytics' }")
   })
 
   it('retires the old publishing-first and absolute-claim story below the hero', () => {
