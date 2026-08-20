@@ -24,21 +24,31 @@ import { ShaderBackdrop } from '../components/home/ShaderBackdrop'
 
 // Marketing homepage: fully static (fast on nexez.ai). The always-live listing
 // directory lives on /discovery.
+const metaTitle = 'Nexez - Commerce for AI agents'
+const metaDescription =
+  'Help customers and AI assistants buy from your business while your prices, requirements, and rules stay under your control.'
 
-// Title/description stay inherited from the root layout; this pins the canonical
-// (and og:url) to the marketing host — metadataBase resolves to nexez.app.
 export const metadata: Metadata = {
+  title: metaTitle,
+  description: metaDescription,
+  keywords: [
+    'AI commerce',
+    'AI shopping agents',
+    'service commerce',
+    'AI-ready business',
+    'agent checkout',
+    'service pricing',
+    'recurring services',
+  ],
   alternates: {
     canonical: marketingUrl('/'),
   },
-  // Page-level openGraph replaces the layout's wholesale (shallow merge) — re-carry type/siteName.
   openGraph: {
     type: 'website',
     siteName: 'Nexez',
     url: marketingUrl('/'),
-    title: 'Nexez - Listings built for AI agents',
-    description:
-      'A structured storefront AI agents can read, trust, and buy from. Host it on your domain or Nexez.',
+    title: metaTitle,
+    description: metaDescription,
   },
 }
 
@@ -49,41 +59,72 @@ type Feature = {
 }
 
 const workflow = [
-  { step: '01', title: 'Connect', copy: 'Import offers, pricing, and availability from your site, Stripe, Shopify, Calendly, or Square.' },
-  { step: '02', title: 'Structure', copy: 'Nexez maps every offer to schema agents trust: JSON-LD, llms.txt, agent.json, and MCP.' },
-  { step: '03', title: 'Publish', copy: 'Ship a crawlable, transactable listing on your own domain or a nexez link.' },
-  { step: '04', title: 'Sell', copy: 'Agents discover, compare, and check out. You watch the revenue land.' },
+  {
+    step: '01',
+    title: 'Tell Nexez what you sell',
+    copy: 'Bring in your services, prices, and the choices buyers can make. Start with what your business already offers.',
+  },
+  {
+    step: '02',
+    title: 'Set your rules',
+    copy: 'Choose what buyers need to tell you, what changes the price, what work you accept, and which services can repeat.',
+  },
+  {
+    step: '03',
+    title: 'Let buyers choose',
+    copy: 'A person or AI assistant can pick a service and provide the details your business needs before moving forward.',
+  },
+  {
+    step: '04',
+    title: 'Nexez checks the order',
+    copy: 'Nexez checks the details, price, and fit before money moves, then gives the buyer the right next step.',
+  },
 ]
 
 const keyFeatures: Feature[] = [
   {
-    title: 'Copilot',
-    copy: 'Tighten pricing, offers, and proof for the way agents actually weigh and decide.',
-    Icon: Sparkles,
-  },
-  {
-    title: 'Agent Simulator',
-    copy: 'Preview how ChatGPT, Claude, and Perplexity read and buy from your listing before you ever publish.',
-    Icon: Bot,
-  },
-  {
-    title: 'Competitor Analysis',
-    copy: 'See how agents stack your offer against rivals, and exactly where you win or lose the comparison.',
-    Icon: Search,
-  },
-  {
-    title: 'Revenue Analytics',
-    copy: 'Attribute pipeline and sales to the exact agent, query, and offer that produced them.',
+    title: 'Pricing and options',
+    copy: 'Set your starting price and how buyer choices, add-ons, or quantities change what they pay.',
     Icon: TrendingUp,
   },
   {
-    title: 'Custom Domains',
-    copy: 'Publish on your own domain, so agents and buyers land on a brand they already trust.',
+    title: 'Buyer questions',
+    copy: 'Ask for the details you need before an order moves forward, from size and quantity to preferences or service type.',
+    Icon: Search,
+  },
+  {
+    title: 'Merchant rules',
+    copy: 'Decide which requests can proceed, which need your attention, and which should stop before payment.',
+    Icon: ShieldCheck,
+  },
+  {
+    title: 'Repeat services',
+    copy: 'Offer ongoing services with the cadence and price you choose, while buyers keep a clear path to manage them.',
+    Icon: RefreshCw,
+  },
+  {
+    title: 'Agent Simulator',
+    copy: 'Run a real buying scenario and see what Nexez asks, what it can work out, and what happens next.',
+    Icon: Bot,
+  },
+  {
+    title: 'Clear order records',
+    copy: 'Keep the chosen service, buyer details, price, and approvals tied together so the sale stays understandable.',
+    Icon: Handshake,
+  },
+  {
+    title: 'Copilot',
+    copy: 'Get help tightening offers and spotting missing details while the prices and business rules you set stay authoritative.',
+    Icon: Sparkles,
+  },
+  {
+    title: 'Your brand, your domain',
+    copy: 'Publish on Nexez or your own domain so buyers and AI assistants can reach a storefront that still feels like your business.',
     Icon: Globe2,
   },
   {
-    title: 'Trust Score',
-    copy: 'Turn reviews, policies, and reliability into quality signals agents weigh before they buy.',
+    title: 'Trust context',
+    copy: 'Keep policies, proof, and verification context close to the offer so buyers and agents have more to judge the purchase by.',
     Icon: ShieldCheck,
   },
 ]
@@ -114,53 +155,62 @@ const marqueeModels = [
 
 const pinnedStories: Feature[] = [
   {
-    title: 'Set it once. Sell on autopilot.',
-    copy: 'Configure your offers once. Your listing stays live, structured, and agent-ready around the clock, no upkeep required.',
-    Icon: Sparkles,
+    title: 'Your prices stay yours.',
+    copy: 'You set the price and the choices that can change it. Nexez uses those terms when a buyer configures the service instead of letting an AI make up a number.',
+    Icon: TrendingUp,
   },
   {
-    title: 'Your listing never goes stale.',
-    copy: 'Connect Stripe, Shopify, your calendar, or store, and prices, availability, and offers refresh the instant anything changes. No agent ever sees an old price.',
+    title: 'Bad-fit orders can stop before payment.',
+    copy: 'Set requirements for the work you will accept. Nexez can let a request proceed, flag it for your attention, or stop it when it falls outside your rules.',
+    Icon: ShieldCheck,
+  },
+  {
+    title: 'Repeat work can stay repeatable.',
+    copy: 'For services that happen again and again, you can offer the cadence and price that make sense for your business instead of rebuilding each sale by hand.',
     Icon: RefreshCw,
   },
   {
-    title: 'Let agents close deals for you.',
-    copy: 'Set your floor and your terms once. Nexez negotiates with buyer agents on your behalf and alerts you the second a sale lands.',
-    Icon: Handshake,
-  },
-  {
-    title: 'One listing, every agent.',
-    copy: 'Publish once and get found by ChatGPT, Claude, Perplexity, and every major buyer agent. No per-platform busywork, no rebuilding for each one.',
+    title: 'AI gets a buying path, not control of your business.',
+    copy: 'Customers and AI assistants can choose from what you actually offer, answer the questions you require, and move forward only within the boundaries you set.',
     Icon: Bot,
   },
 ]
 
 const problemCards = [
-  { title: 'Websites hide intent', copy: 'Menus, popups, and vague copy bury the facts agents need to say yes.' },
-  { title: 'Agents need structure', copy: 'Offers, prices, proof, policies, and actions must be explicit, or the agent moves on.' },
-  { title: 'Nexez makes you legible', copy: 'One clean layer agents can parse, compare, and transact with.' },
+  {
+    title: 'Your website describes the business',
+    copy: 'Great for people browsing. Harder for an AI assistant that needs exact prices, choices, requirements, and a safe next step.',
+  },
+  {
+    title: 'Missing details create guessing',
+    copy: 'When the buying rules are unclear, an assistant can misunderstand the offer or stop before the sale ever reaches you.',
+  },
+  {
+    title: 'Nexez turns your rules into the buying path',
+    copy: 'Your offers, buyer questions, pricing, and limits stay together so people and AI can shop from the same business truth.',
+  },
 ]
 
 const valueBullets = [
-  'Structured offers',
-  'Clear pricing and proof',
-  'Agent-ready next steps',
-  'Conversion analytics',
+  'Prices and options you set',
+  'Buyer details before checkout',
+  'Rules that can stop a bad fit',
+  'Repeat services on your terms',
 ]
 
 const analyticsBullets = [
-  'Attribute pipeline and sales to the exact agent and offer',
-  'Read the buyer intent behind every discovery',
-  'Track comparisons, drop-off, and conversion by model',
+  'See which agents and offers are creating demand',
+  'Understand what buyers were trying to purchase',
+  'Follow qualified activity toward checkout and sales',
 ]
 
 const discoveryFlow = [
-  { title: 'Website', label: 'Human-first', Icon: Globe2 },
-  { title: 'Nexez layer', label: 'Structured', Icon: Sparkles },
-  { title: 'Agent action', label: 'Book or buy', Icon: Bot },
+  { title: 'Your business', label: 'Your terms', Icon: Globe2 },
+  { title: 'Nexez', label: 'Checks details', Icon: Sparkles },
+  { title: 'Buyer or AI', label: 'Right next step', Icon: Bot },
 ]
 
-const schemaChips = ['Offers', 'Pricing', 'Proof', 'Actions']
+const commerceChips = ['Offers', 'Buyer details', 'Pricing', 'Rules']
 
 const homeStructuredData = buildPlatformStructuredData()
 
@@ -223,12 +273,12 @@ export default function NexezHome() {
       {/* AGENT LOGO MARQUEE */}
       <section
         className="relative z-10"
-        aria-label="Transacts with every major agent"
-        data-section-name="Transacts with every major agent"
+        aria-label="Built for the AI assistants buyers use"
+        data-section-name="Built for the AI assistants buyers use"
       >
         <div className="mx-auto max-w-7xl px-5 py-10">
           <p className="mb-7 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-            Transacts with every major agent
+            Built for the AI assistants buyers use
           </p>
           <div className="nx-marquee">
             <div className="nx-marquee-track">
@@ -261,17 +311,17 @@ export default function NexezHome() {
         <div className="mx-auto grid max-w-7xl gap-10 px-5 py-20 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start" data-reveal>
           <div>
             <h2 className="max-w-3xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-              Your storefront was built for human eyes. <span className="nx-accent-text">The buyer is now a machine.</span>
+              AI can help someone buy from you. <span className="nx-accent-text">It still needs your rules.</span>
             </h2>
             <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-              Agents don&apos;t scroll, squint, or hunt through tabs. They parse. If your prices, offers, and checkout aren&apos;t machine-legible, the agent moves on to a competitor it can actually transact with, and you never see the lost sale.
+              A buyer may know what they want, but an AI assistant still needs to know what you sell, what it costs, what details you require, and what you are willing to accept. Nexez keeps those answers clear before the sale moves forward.
             </p>
             <div className="mt-10 hidden aspect-square w-full lg:block">
               <KnowledgeGraph />
             </div>
           </div>
           <div className="grid gap-4">
-            <div className="nx-tile overflow-hidden p-5" aria-label="Agent discovery flow">
+            <div className="nx-tile overflow-hidden p-5" aria-label="Nexez buying flow">
               <div className="relative grid gap-3 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-stretch">
                 {discoveryFlow.map(({ title, label, Icon }, index) => (
                   <div key={title} className="contents">
@@ -297,7 +347,7 @@ export default function NexezHome() {
                 ))}
               </div>
               <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {schemaChips.map((chip) => (
+                {commerceChips.map((chip) => (
                   <span
                     key={chip}
                     className="rounded-md border border-border bg-black/20 px-3 py-2 text-center font-mono text-[11px] text-muted-foreground"
@@ -322,20 +372,20 @@ export default function NexezHome() {
       {/* PINNED STORY CARDS */}
       <section
         className="nx-home-reveal-band--tint-01 border-b border-border"
-        aria-label="Value proposition"
-        data-section-name="Value proposition"
+        aria-label="Merchant control"
+        data-section-name="Merchant control"
         data-benefits-section-name="Benefits"
         style={{ position: 'relative', zIndex: 2 }}
       >
-        <p className="sr-only">Value proposition</p>
+        <p className="sr-only">Merchant control</p>
         <p className="sr-only">Benefits</p>
         <div className="mx-auto grid max-w-7xl gap-10 px-5 py-20 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start">
           <div className="lg:sticky lg:top-24">
             <h2 className="max-w-xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-              Keep your website. Add the layer that converts AI traffic.
+              Let AI sell what you offer. <span className="nx-accent-text">Keep control of how you sell it.</span>
             </h2>
             <p className="mt-5 max-w-lg text-sm leading-6 text-muted-foreground md:text-base">
-              Your site keeps selling to people. Nexez gives agents the structured version they need to act.
+              Nexez gives customers and AI assistants a clear buying path without giving them permission to change your prices, ignore your requirements, or promise work you did not agree to do.
             </p>
             <ul className="mt-7 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
               {valueBullets.map((item) => (
@@ -348,7 +398,7 @@ export default function NexezHome() {
           </div>
 
           <div className="grid gap-5 pb-0 lg:pb-[34vh]">
-            <h3 className="text-lg font-semibold tracking-[-0.015em] md:text-xl">Why businesses choose Nexez</h3>
+            <h3 className="text-lg font-semibold tracking-[-0.015em] md:text-xl">What stays under your control</h3>
             {pinnedStories.map(({ title, copy, Icon }, index) => (
               <article
                 key={title}
@@ -367,12 +417,12 @@ export default function NexezHome() {
                     <span className="font-mono text-xs text-muted-foreground">0{index + 1} / 04</span>
                     <span className="inline-flex items-center gap-2 text-sm font-medium text-[var(--signal)]">
                       {index === 0
-                        ? 'Set and forget'
+                        ? 'Your pricing'
                         : index === 1
-                          ? 'Always in sync'
+                          ? 'Your limits'
                           : index === 2
-                            ? 'Rules + alerts'
-                            : 'Built-in reach'}
+                            ? 'Your cadence'
+                            : 'Your business'}
                       <ArrowRight className="size-4" />
                     </span>
                   </div>
@@ -393,10 +443,10 @@ export default function NexezHome() {
         <p className="sr-only">Why it matters</p>
         <div className="mx-auto max-w-7xl px-5 py-20" data-reveal>
           <h2 className="max-w-3xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-            The clearer you are, <span className="nx-accent-text">the more you sell.</span>
+            A good AI sale should follow <span className="nx-accent-text">the same business you run.</span>
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-            Your listing resolves a buyer&apos;s intent into a confirmed order: pricing, proof, and a checkout the agent can call. Zero ambiguity.
+            Nexez connects the buyer&apos;s request to your actual offer: the details you require, the price that follows from their choices, and the rules that decide whether the purchase should move forward.
           </p>
           <div className="mt-10">
             <ReadinessLab />
@@ -416,10 +466,10 @@ export default function NexezHome() {
           <div className="grid gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-start">
             <div>
               <h2 className="max-w-3xl text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-                See exactly which agents drive revenue.
+                See where agent demand is coming from.
               </h2>
               <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-                Every agent visit, query, comparison, and checkout, attributed. Know which models bring buyers, what they searched, and which sessions became sales.
+                Nexez gives you visibility into agent activity, buyer intent, and the offers that lead toward checkout, so you can see what people are actually trying to buy.
               </p>
             </div>
             <ul className="nx-tile grid gap-3 p-5 text-sm text-muted-foreground md:p-6">
@@ -459,8 +509,11 @@ export default function NexezHome() {
         <div className="relative z-10 mx-auto max-w-7xl px-5 py-20">
           <div className="mb-10 max-w-2xl">
             <h2 className="text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-              Everything you need to <span className="nx-accent-text">convert agent demand.</span>
+              The controls behind a <span className="nx-accent-text">safer AI sale.</span>
             </h2>
+            <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
+              You do not need to understand the technology underneath. You just need to tell Nexez how your business works.
+            </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {keyFeatures.map(({ title, copy, Icon }) => (
@@ -489,7 +542,7 @@ export default function NexezHome() {
         <div className="mx-auto max-w-7xl px-5 py-20">
           <div className="mb-10 max-w-2xl">
             <h2 className="text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-              Four steps to a business agents can buy from.
+              Four simple steps. <span className="nx-accent-text">Your rules stay in charge.</span>
             </h2>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -503,6 +556,12 @@ export default function NexezHome() {
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.copy}</p>
               </div>
             ))}
+          </div>
+          <div className="mt-7">
+            <a href="/how-it-works" className="inline-flex items-center gap-2 text-sm font-medium text-[var(--signal)]">
+              See the full buying journey
+              <ArrowRight className="size-4" />
+            </a>
           </div>
         </div>
       </section>
@@ -518,10 +577,10 @@ export default function NexezHome() {
         <p className="sr-only">Agent simulator</p>
         <div className="mx-auto max-w-4xl px-5 text-center" data-reveal>
           <h2 className="text-[1.7rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.15rem]">
-            Ask what a buyer would. Watch the agent answer with your offers.
+            Run a buying scenario before a real buyer does.
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-            Test your listing against real buyer intent, the same way ChatGPT, Claude, and Perplexity will read it in the wild.
+            See what an AI assistant can understand about your offer, what details it still needs, how the price follows from the buyer&apos;s choices, and whether the request should move forward.
           </p>
           <div className="mt-8">
             <SimulatorTeaser />
@@ -542,16 +601,16 @@ export default function NexezHome() {
         </div>
         <div className="relative z-10 mx-auto max-w-3xl px-5 py-24 text-center" data-reveal>
           <h2 className="text-[2rem] font-semibold leading-tight tracking-[-0.03em] md:text-[2.75rem]">
-            Be the business <span className="nx-accent-text">the agent buys from.</span>
+            Make your business easier for <span className="nx-accent-text">people and AI to buy from.</span>
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-            Stand up a structured, transactable listing in minutes, and turn AI discovery into revenue you can measure.
+            Set up what you sell, how it should be bought, and the rules Nexez should follow when the next buyer arrives.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a href={appUrl('/create')} className="btn-primary h-11 px-5">
               List your offers
             </a>
-            <a href="/support" className="btn-secondary h-11 px-5">Talk to us</a>
+            <a href="/how-it-works" className="btn-secondary h-11 px-5">See how it works</a>
           </div>
         </div>
       </section>
