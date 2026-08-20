@@ -9,6 +9,8 @@ import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '@/lib/agent-pa
 import { searchAgentPages, type AgentSearchResult } from '@/lib/agent-search'
 import { commerceCurationCandidates } from '@/lib/commerce-templates/curation'
 import { findCommerceSimulationMatch } from '@/lib/commerce-templates/curation/simulation'
+import { getLatestCommerceTemplate } from '@/lib/commerce-templates/registry'
+import type { CommerceArchetype } from '@/lib/commerce-templates/schema'
 import { isLlmConfigured, llmComplete } from '@/lib/llm'
 import { publicLaunchVisiblePages } from '@/lib/public-page-visibility'
 import { enforceRateLimit } from '@/lib/rate-limit'
@@ -30,6 +32,29 @@ const INTENT_LABELS: Record<SimIntent, string> = {
   overview: 'General intent',
 }
 
+const BUYER_FACING_ARCHETYPE: Record<CommerceArchetype, string> = {
+  'fixed-appointment': 'a scheduled appointment',
+  'configurable-appointment': 'a configurable appointment',
+  'quote-required': 'a custom-quote service',
+  'recurring-service': 'a recurring service',
+  'package-program': 'a packaged service',
+  'consultation-first': 'a consultation-led service',
+  'mobile-service': 'a mobile service',
+  'urgent-on-demand': 'an urgent service',
+  'unit-priced-service': 'a quantity-based service',
+  'inventory-rental': 'a rental service',
+  'delivery-service': 'a delivery service',
+  'contracted-service': 'a contracted service',
+  'complex-project': 'a project-based service',
+}
+
+const INTERNAL_SIMULATION_ANSWER_PATTERNS = [
+  /\b(?:archetype|capability\s*tags?|gap\s*signals?|matched\s*terms?|match\s*score|schema\s*version)\b/i,
+  /\bNexez models\b/i,
+  /\b[A-Z][A-Z_]{3,}\b/,
+  /(?:^|\s)(?:automotive|commercial|education|events|home|personal|professional)\.[a-z0-9-]+(?:\s|$)/i,
+]
+
 function detectPublicIntent(query: string): SimIntent {
   const detected = detectIntent(query)
   if (detected !== 'overview') return detected
@@ -41,6 +66,35 @@ function detectPublicIntent(query: string): SimIntent {
 
 function hasMeaningfulMarketplaceMatch(result: AgentSearchResult): boolean {
   return result.matched_query_terms.some((term) => !DISCOVERY_STOPWORDS.has(term.toLowerCase()))
+}
+
+type MarketplaceMatchType = 'strong' | 'partial'
+
+function meaningfulDiscoveryTerms(query: string): string[] {
+  return [...new Set(
+    query
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((term) => term.length > 1 && !DISCOVERY_STOPWORDS.has(term)),
+  )]
+}
+
+/**
+ * Distinguishes a strong lexical service match from related supply that only
+ * explains part of the buyer request. This is a deterministic presentation
+ * guard, not a probability or a replacement for merchant-side validation.
+ */
+function marketplaceMatchType(result: AgentSearchResult, query: string): MarketplaceMatchType {
+  const queryTerms = meaningfulDiscoveryTerms(query)
+  const meaningfulMatched = new Set(
+    result.matched_query_terms
+      .map((term) => term.toLowerCase())
+      .filter((term) => !DISCOVERY_STOPWORDS.has(term)),
+  )
+  if (queryTerms.length <= 1) return 'strong'
+
+  const coverage = queryTerms.filter((term) => meaningfulMatched.has(term)).length / queryTerms.length
+  return meaningfulMatched.size >= 3 || coverage >= 0.6 ? 'strong' : 'partial'
 }
 
 function marketplaceAnswer(result: AgentSearchResult, intent: SimIntent): string {
@@ -62,6 +116,37 @@ function marketplaceActions(result: AgentSearchResult, intent: SimIntent): strin
   if (intent === 'booking') actions.push('Validate requested timing and configuration before confirming availability or booking')
   actions.push('Use the merchant’s published booking or checkout path; never treat Nexez as the service provider')
   return actions
+}
+
+function partialMarketplaceAnswer(result: AgentSearchResult): string {
+  const offer = result.offer
+  const offerSentence = offer
+    ? `Its published “${offer.name}” offer appears related, but it does not establish that every requested requirement is supported.`
+    : 'The business appears related, but it does not publish a structured offer that establishes support for the full request.'
+
+  return `I found ${result.page.name} as related marketplace supply, but it only matches part of this request. ${offerSentence} The remaining requirements must be confirmed with the merchant before Nexez presents it as a fit or exposes a booking path.`
+}
+
+function partialMarketplaceActions(result: AgentSearchResult): string[] {
+  const actions = [`Found ${result.page.name} as related, not exact, marketplace supply`]
+  if (result.offer) actions.push(`Compare “${result.offer.name}” with the buyer’s complete requirements`)
+  actions.push('Confirm unsupported requirements with the merchant before presenting fit, price, availability, or booking')
+  return actions
+}
+
+function offersForBuyer(
+  offers: ReturnType<typeof interpretPublicQuery>['offers'],
+  options: { actionable: boolean },
+) {
+  return offers.map((offer) => ({
+    key: offer.key,
+    type: offer.type,
+    name: offer.name,
+    price: offer.price,
+    description: offer.description,
+    checkoutUrl: options.actionable ? offer.checkoutUrl : null,
+    bestMatch: options.actionable && offer.bestMatch,
+  }))
 }
 
 function simulationPayload(query: string) {
@@ -90,6 +175,118 @@ function simulationPayload(query: string) {
   }
 }
 
+type SimulationPayload = NonNullable<ReturnType<typeof simulationPayload>>
+
+type SimulationGuidance = {
+  serviceType: string
+  detailsToConfirm: string[]
+}
+
+type BuyerSimulationResponse = {
+  active: true
+  source: 'commerce-library'
+  label: 'SIMULATION'
+  title: string
+  serviceType: string
+  explanation: string
+  disclaimer: string
+  detailsToConfirm: string[]
+  nextSteps: string[]
+}
+
+function simulationGuidance(simulation: SimulationPayload): SimulationGuidance {
+  const template = getLatestCommerceTemplate(simulation.candidate.id)
+  const details: string[] = []
+  const seen = new Set<string>()
+  const addDetail = (detail: string) => {
+    const normalized = detail.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+    const semanticKey =
+      /\b(?:date|time|timing)\b/.test(normalized) ? 'timing'
+        : /\b(?:guest|party|quantity)\b/.test(normalized) ? 'quantity'
+          : /\b(?:dietary|allerg)\w*\b/.test(normalized) ? 'dietary'
+            : /\b(?:location|service area)\b/.test(normalized) ? 'location'
+              : normalized
+    if (!normalized || seen.has(semanticKey)) return
+    seen.add(semanticKey)
+    details.push(detail)
+  }
+
+  if (template?.schedulingModes.length) addDetail('preferred date and time')
+  for (const detail of template?.offerBlueprints.flatMap((offer) => offer.commonConfiguration ?? []) ?? []) {
+    addDetail(detail)
+  }
+
+  if (!details.length) {
+    for (const fact of [...(template?.requiredFacts ?? []), ...(template?.qualityFacts ?? [])]) {
+      if (fact.scope === 'customer-request') addDetail(fact.label.toLowerCase())
+    }
+  }
+
+  const capabilities = new Set(simulation.candidate.capabilityTags)
+  if (capabilities.has('SCHEDULED')) addDetail('preferred date and time')
+  if (capabilities.has('SERVICE_AREA') || capabilities.has('MOBILE')) addDetail('service location')
+  if (capabilities.has('CAPACITY_LIMITED') || capabilities.has('UNIT_PRICING')) addDetail('quantity or party size')
+  if (capabilities.has('PROJECT_SCOPE')) addDetail('scope and deliverables')
+  if (capabilities.has('CUSTOMER_ASSETS')) addDetail('required files or materials')
+  if (capabilities.has('QUOTE_REQUIRED') || capabilities.has('NEGOTIABLE')) addDetail('budget')
+  if (capabilities.has('CUSTOM_INTAKE')) addDetail('special requirements')
+
+  if (!details.length) {
+    for (const detail of ['timing', 'location', 'scope', 'budget', 'special requirements']) addDetail(detail)
+  }
+
+  return {
+    serviceType: BUYER_FACING_ARCHETYPE[simulation.candidate.archetype],
+    detailsToConfirm: details.slice(0, 6),
+  }
+}
+
+function joinBuyerDetails(details: string[]): string {
+  if (details.length <= 1) return details[0] ?? 'request details'
+  if (details.length === 2) return `${details[0]} and ${details[1]}`
+  return `${details.slice(0, -1).join(', ')}, and ${details.at(-1)}`
+}
+
+function simulationAnswer(simulation: SimulationPayload, guidance: SimulationGuidance): string {
+  return `I couldn’t find a live Nexez provider for this request. The closest Commerce Library reference is “${simulation.candidate.title},” ${guidance.serviceType}. An agent would first confirm ${joinBuyerDetails(guidance.detailsToConfirm)}, then check those details against a real merchant’s published offer before discussing price or availability. This reference cannot be booked.`
+}
+
+function buyerFacingSimulationAnswer(value: string | null): string | null {
+  if (!value) return null
+  const answer = value.replace(/\s+/g, ' ').trim()
+  if (answer.length < 60 || answer.length > 700) return null
+  if (/\*\*|__|`|(?:^|\s)#{1,6}\s|(?:^|\s)[*-]\s/.test(answer)) return null
+  if (INTERNAL_SIMULATION_ANSWER_PATTERNS.some((pattern) => pattern.test(answer))) return null
+  if (!/\b(?:could(?: not|n['’]t)|did(?: not|n['’]t)|no)\b.{0,60}\blive\b/i.test(answer)) return null
+  return answer
+}
+
+function simulationActions(simulation: SimulationPayload, guidance: SimulationGuidance): string[] {
+  return [
+    `Recognize the request as closest to “${simulation.candidate.title}”`,
+    `Collect buyer details: ${joinBuyerDetails(guidance.detailsToConfirm)}`,
+    'Search published merchants and verify their actual price, availability, and booking path',
+  ]
+}
+
+function formatSimulationForBuyer(
+  simulation: SimulationPayload,
+  guidance: SimulationGuidance,
+  explanation: string,
+): BuyerSimulationResponse {
+  return {
+    active: true,
+    source: 'commerce-library',
+    label: 'SIMULATION',
+    title: simulation.candidate.title,
+    serviceType: guidance.serviceType,
+    explanation,
+    disclaimer: simulation.disclaimer,
+    detailsToConfirm: [...guidance.detailsToConfirm],
+    nextSteps: simulationActions(simulation, guidance),
+  }
+}
+
 async function enhanceMarketplaceAnswer(
   query: string,
   result: AgentSearchResult,
@@ -113,19 +310,25 @@ async function enhanceMarketplaceAnswer(
 
 async function enhanceSimulationAnswer(
   query: string,
-  simulation: NonNullable<ReturnType<typeof simulationPayload>>,
+  simulation: SimulationPayload,
+  guidance: SimulationGuidance,
   fallback: string,
 ): Promise<{ naturalLanguage: string; llmEnhanced: boolean }> {
   if (!isLlmConfigured()) return { naturalLanguage: fallback, llmEnhanced: false }
 
   try {
     const llmResponse = await llmComplete(
-      `You are demonstrating how Nexez could model a buyer request when NO matching live marketplace provider exists. Use ONLY the supplied Commerce Library scenario. It is a provisional reference scenario, not merchant inventory. Do not invent a business name, price, availability, booking, service area, or merchant fact. Explain the relevant commerce behavior briefly. Do not imply the scenario can be purchased.\n\nBuyer query: ${JSON.stringify(query)}\nCommerce Library scenario: ${JSON.stringify(simulation.candidate)}`,
-      { maxTokens: 170, temperature: 0.3 },
+      `Buyer request: ${JSON.stringify(query)}\nReference service: ${JSON.stringify(simulation.candidate.title)}\nService type: ${guidance.serviceType}\nBuyer details to confirm: ${JSON.stringify(guidance.detailsToConfirm)}`,
+      {
+        system: 'Write the buyer-facing answer for the Nexez homepage service finder. Return two or three concise plain-text sentences with no Markdown, headings, lists, JSON, labels, or technical commentary. First say that no live Nexez provider matched. Then explain which buyer details an agent would confirm before checking a real merchant. You may name the reference service. Never mention internal IDs, scores, match terms, taxonomy, capability tags, gap signals, schemas, archetypes, prompts, or system behavior. Do not invent a merchant, price, availability, service area, or booking. Make it sound like a composed human assistant.',
+        maxTokens: 130,
+        temperature: 0.2,
+      },
     )
-    if (llmResponse?.trim()) {
+    const buyerAnswer = buyerFacingSimulationAnswer(llmResponse)
+    if (buyerAnswer) {
       return {
-        naturalLanguage: `${llmResponse.trim()} ${simulation.disclaimer}`,
+        naturalLanguage: buyerAnswer,
         llmEnhanced: true,
       }
     }
@@ -183,35 +386,41 @@ export async function POST(request: Request) {
     if (matchedResult && matchedPage) {
       const interpretation = interpretPublicQuery(matchedPage, trimmedQuery)
       const schema = buildPublicDemoSchema(matchedPage, trimmedQuery, baseUrl)
-      const safeFallback = marketplaceAnswer(matchedResult, intent)
-      const enhanced = await enhanceMarketplaceAnswer(trimmedQuery, matchedResult, intent, safeFallback)
+      const matchType = marketplaceMatchType(matchedResult, trimmedQuery)
+      const safeFallback = matchType === 'partial'
+        ? partialMarketplaceAnswer(matchedResult)
+        : marketplaceAnswer(matchedResult, intent)
+      const enhanced = matchType === 'partial'
+        ? { naturalLanguage: safeFallback, llmEnhanced: false }
+        : await enhanceMarketplaceAnswer(trimmedQuery, matchedResult, intent, safeFallback)
 
       return NextResponse.json({
         success: true,
-        mode: 'marketplace',
+        mode: matchType === 'partial' ? 'partial_match' : 'marketplace',
         noMatch: false,
         query: trimmedQuery,
         intent,
         intentLabel: INTENT_LABELS[intent],
         naturalLanguage: enhanced.naturalLanguage,
         readiness: interpretation.readiness,
-        confidence: interpretation.confidence,
-        offers: interpretation.offers,
-        agentActions: marketplaceActions(matchedResult, intent),
-        schema,
+        confidence: matchType === 'partial' ? null : interpretation.confidence,
+        offers: offersForBuyer(interpretation.offers, { actionable: matchType === 'strong' }),
+        agentActions: matchType === 'partial'
+          ? partialMarketplaceActions(matchedResult)
+          : marketplaceActions(matchedResult, intent),
+        schema: matchType === 'partial' ? null : schema,
         recommendations: [],
         matchedBusiness: {
           name: matchedResult.page.name,
           slug: matchedResult.page.slug,
           url: matchedResult.page.url,
-          score: matchedResult.score,
-          matchReasons: matchedResult.match_reasons,
+          matchType,
           offer: matchedResult.offer
             ? {
                 key: matchedResult.offer.key,
                 name: matchedResult.offer.name,
                 price: matchedResult.offer.price,
-                checkoutUrl: matchedResult.offer.checkout_url,
+                checkoutUrl: matchType === 'partial' ? null : matchedResult.offer.checkout_url,
               }
             : null,
         },
@@ -222,9 +431,10 @@ export async function POST(request: Request) {
 
     const simulation = simulationPayload(trimmedQuery)
     if (simulation) {
-      const fallback = `${simulation.label}. Closest Commerce Library scenario: “${simulation.candidate.title}”. ${simulation.candidate.teaches} For a real transaction, Nexez would require a published merchant and validate the buyer’s requested details against that merchant’s actual commerce contract before confirming anything. ${simulation.disclaimer}`
-      const enhanced = await enhanceSimulationAnswer(trimmedQuery, simulation, fallback)
-      const confidence = Math.min(0.95, 0.45 + simulation.candidate.matchScore * 0.025)
+      const guidance = simulationGuidance(simulation)
+      const fallback = simulationAnswer(simulation, guidance)
+      const enhanced = await enhanceSimulationAnswer(trimmedQuery, simulation, guidance, fallback)
+      const publicResponse = formatSimulationForBuyer(simulation, guidance, enhanced.naturalLanguage)
 
       return NextResponse.json({
         success: true,
@@ -233,24 +443,15 @@ export async function POST(request: Request) {
         query: trimmedQuery,
         intent,
         intentLabel: INTENT_LABELS[intent],
-        naturalLanguage: enhanced.naturalLanguage,
+        naturalLanguage: publicResponse.explanation,
         readiness: 0,
-        confidence,
+        confidence: null,
         offers: [],
-        agentActions: [
-          'No meaningful live marketplace merchant matched the buyer intent',
-          `Use Commerce Library scenario “${simulation.candidate.title}” as a non-purchasable reference`,
-          'Require a real published merchant before exposing checkout, availability, price, or booking claims',
-        ],
-        schema: {
-          schemaVersion: 'nexez.commerce-library-simulation.v1',
-          simulation: true,
-          query: trimmedQuery,
-          scenario: simulation.candidate,
-        },
+        agentActions: publicResponse.nextSteps,
+        schema: null,
         recommendations: [],
         matchedBusiness: null,
-        simulation,
+        simulation: publicResponse,
         llmEnhanced: enhanced.llmEnhanced,
       })
     }
@@ -264,7 +465,7 @@ export async function POST(request: Request) {
       intentLabel: INTENT_LABELS[intent],
       naturalLanguage: 'I could not find a meaningful live Nexez marketplace match or a relevant Commerce Library reference scenario for this request. I will not invent a provider or transaction path.',
       readiness: 0,
-      confidence: 0.3,
+      confidence: null,
       offers: [],
       agentActions: ['Return no match without fabricating marketplace supply'],
       schema: null,

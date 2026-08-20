@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { dbRef } = vi.hoisted(() => ({
+const { dbRef, llmRef } = vi.hoisted(() => ({
   dbRef: { handler: (_c: any) => ({ data: [] as any[], error: null }) as { data?: any; error?: any } },
+  llmRef: {
+    configured: false,
+    response: null as string | null,
+    lastPrompt: null as string | null,
+    lastOptions: null as Record<string, unknown> | null,
+  },
 }))
 
 vi.mock('../../../lib/supabase', async () => {
@@ -12,8 +18,12 @@ vi.mock('../../../lib/rate-limit', () => ({
   enforceRateLimit: vi.fn(async () => null),
 }))
 vi.mock('../../../lib/llm', () => ({
-  isLlmConfigured: vi.fn(() => false),
-  llmComplete: vi.fn(async () => null),
+  isLlmConfigured: vi.fn(() => llmRef.configured),
+  llmComplete: vi.fn(async (prompt: string, options: Record<string, unknown>) => {
+    llmRef.lastPrompt = prompt
+    llmRef.lastOptions = options
+    return llmRef.response
+  }),
 }))
 
 import { POST } from './route'
@@ -76,8 +86,26 @@ const kismetPage = {
   created_at: '2026-01-02T00:00:00Z',
 }
 
+const eventPlannerPage = {
+  name: 'Austin Event Planners',
+  slug: 'austin-event-planners',
+  description: 'General event planner serving Austin.',
+  industry: 'Event Planning',
+  location: 'Austin, Texas',
+  products: [],
+  services: [{ name: 'General Event Planning', price: 'Custom quote', description: 'Planning support for local events.', url: '' }],
+  faqs: [],
+  is_published: true,
+  marketplace_discoverable: true,
+  created_at: '2026-01-03T00:00:00Z',
+}
+
 describe('POST /api/public-simulate', () => {
   beforeEach(() => {
+    llmRef.configured = false
+    llmRef.response = null
+    llmRef.lastPrompt = null
+    llmRef.lastOptions = null
     dbRef.handler = (ctx: any) =>
       ctx.table === 'pages_public'
         ? { data: [kismetPage, consultingPage], error: null }
@@ -113,6 +141,39 @@ describe('POST /api/public-simulate', () => {
     expect(body.naturalLanguage).not.toContain('Nexez Agency')
     expect(body.naturalLanguage).toContain('validate')
     expect(body.agentActions.join(' ')).toContain('live marketplace search')
+    expect(body.matchedBusiness.matchType).toBe('strong')
+    expect(body.matchedBusiness).not.toHaveProperty('score')
+    expect(body.matchedBusiness).not.toHaveProperty('matchReasons')
+  })
+
+  it('labels related supply as a partial match instead of force-fitting it', async () => {
+    dbRef.handler = (ctx: any) =>
+      ctx.table === 'pages_public'
+        ? { data: [eventPlannerPage], error: null }
+        : { data: null, error: null }
+
+    const res = await POST(post({ query: 'Find a luxury wedding planner in Austin' }))
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.mode).toBe('partial_match')
+    expect(body.noMatch).toBe(false)
+    expect(body.confidence).toBeNull()
+    expect(body.matchedBusiness).toMatchObject({
+      name: 'Austin Event Planners',
+      matchType: 'partial',
+      offer: { name: 'General Event Planning' },
+    })
+    expect(body.simulation).toBeNull()
+    expect(body.schema).toBeNull()
+    expect(body.offers).toEqual([
+      expect.objectContaining({ name: 'General Event Planning', checkoutUrl: null, bestMatch: false }),
+    ])
+    expect(body.matchedBusiness.offer.checkoutUrl).toBeNull()
+    expect(body.naturalLanguage).toContain('only matches part of this request')
+    expect(body.naturalLanguage).toContain('remaining requirements must be confirmed')
+    expect(body.agentActions.join(' ')).toContain('related, not exact')
+    expect(JSON.stringify(body)).not.toMatch(/matched_query_terms|matchReasons|match_reasons|score|\/checkout|api\/checkout/)
   })
 
   it('falls back to a clearly labelled Commerce Library simulation when live supply does not match', async () => {
@@ -133,15 +194,59 @@ describe('POST /api/public-simulate', () => {
     expect(body.simulation).toMatchObject({
       active: true,
       source: 'commerce-library',
-      candidate: {
-        id: 'home.move-out-cleaning',
-        title: 'Move-Out Cleaning',
-      },
+      label: 'SIMULATION',
+      title: 'Move-Out Cleaning',
     })
     expect(body.simulation.label).toContain('SIMULATION')
-    expect(body.naturalLanguage).toContain('SIMULATION')
-    expect(body.naturalLanguage).toContain('not a real merchant')
-    expect(body.schema.simulation).toBe(true)
+    expect(body.naturalLanguage).toContain('I couldn’t find a live Nexez provider')
+    expect(body.naturalLanguage).toContain('Move-Out Cleaning')
+    expect(body.naturalLanguage).toContain('cannot be booked')
+    expect(body.naturalLanguage).not.toMatch(/capabilityTags|gapSignals|matchedTerms|matchScore|\*\*/)
+    expect(body.confidence).toBeNull()
+    expect(body.schema).toBeNull()
+    expect(JSON.stringify(body)).not.toMatch(/home\.move-out-cleaning|capabilityTags|gapSignals|matchedTerms|matchScore|schemaVersion/)
+  })
+
+  it('rejects technical or Markdown-heavy LLM output and uses composed buyer guidance', async () => {
+    llmRef.configured = true
+    llmRef.response = '**Nexez models the buyer request via the provisional "events.private-chef" reference scenario.** The archetype and capabilityTags include QUOTE_REQUIRED, MOBILE, SERVICE_AREA, UNIT_PRICING, CAPACITY_LIMITED, CUSTOM_INTAKE, and DEPOSIT. The matchedTerms produce a matchScore of 7.'
+    dbRef.handler = (ctx: any) =>
+      ctx.table === 'pages_public'
+        ? { data: [consultingPage], error: null }
+        : { data: null, error: null }
+
+    const res = await POST(post({ query: 'Find a mobile chef for this weekend' }))
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.mode).toBe('simulation')
+    expect(body.simulation.title).toBe('Private Chef')
+    expect(body.llmEnhanced).toBe(false)
+    expect(body.naturalLanguage).toContain('I couldn’t find a live Nexez provider')
+    expect(body.naturalLanguage).toContain('preferred date and time')
+    expect(body.naturalLanguage).toContain('guest count')
+    expect(body.naturalLanguage).toContain('dietary needs')
+    expect(body.naturalLanguage).toContain('budget')
+    expect(body.naturalLanguage).not.toMatch(/\*\*|events\.private-chef|archetype|capabilityTags|matchedTerms|matchScore|QUOTE_REQUIRED/)
+    expect(JSON.stringify(body)).not.toMatch(/events\.private-chef|archetype|capabilityTags|gapSignals|matchedTerms|matchScore|QUOTE_REQUIRED/)
+    expect(llmRef.lastPrompt).not.toMatch(/capabilityTags|gapSignals|matchedTerms|matchScore|events\.private-chef/)
+    expect(llmRef.lastOptions?.system).toContain('buyer-facing answer')
+  })
+
+  it('accepts a concise plain-text LLM answer that preserves the no-live-provider boundary', async () => {
+    llmRef.configured = true
+    llmRef.response = 'I couldn’t find a live Nexez provider for this request. A real private-chef match would need your preferred date, location, guest count, menu preferences, and dietary needs before price or availability could be checked.'
+    dbRef.handler = (ctx: any) =>
+      ctx.table === 'pages_public'
+        ? { data: [consultingPage], error: null }
+        : { data: null, error: null }
+
+    const res = await POST(post({ query: 'Find a mobile chef for this weekend' }))
+    const body = await res.json()
+
+    expect(body.mode).toBe('simulation')
+    expect(body.llmEnhanced).toBe(true)
+    expect(body.naturalLanguage).toBe(llmRef.response)
   })
 
   it('returns a truthful no-match instead of inventing a merchant or unrelated library scenario', async () => {
