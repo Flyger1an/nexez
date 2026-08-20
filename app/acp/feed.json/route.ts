@@ -8,7 +8,7 @@ import { supabase } from '../../../lib/supabase'
 
 /**
  * ACP product feed (OpenAI Agentic Commerce Protocol). A flat file OpenAI ingests to
- * index Nexez offers for Instant Checkout discovery - a second projection of the same
+ * index Nexez offers for product discovery in ChatGPT - a second projection of the same
  * public offer catalog the agent index (/agent-pages.json) exposes, re-labelled into
  * ACP field names via lib/acp/feed. Canonical on the agent runtime (nexez.app).
  *
