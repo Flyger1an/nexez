@@ -9,6 +9,14 @@ const metaDescription =
 export const metadata: Metadata = {
   title: metaTitle,
   description: metaDescription,
+  keywords: [
+    'AI assistants for business',
+    'service business sales',
+    'online service booking',
+    'service pricing',
+    'repeat services',
+    'AI shopping',
+  ],
   alternates: {
     canonical: marketingUrl('/how-it-works'),
   },
