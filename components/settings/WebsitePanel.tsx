@@ -245,8 +245,10 @@ export function WebsitePanel({
         </div>
       ) : null}
 
-      {/* Agentic commerce — the ChatGPT + Google transaction layer. Discovery and
-          checkout are available on every plan; settlement readiness stays authoritative. */}
+      {/* Agentic commerce: ChatGPT and Google for discovery, Google (UCP) for the
+          transaction. OpenAI retired in-chat checkout in March 2026, so nothing here
+          may promise a purchase completed inside ChatGPT. Discovery and checkout are
+          available on every plan; settlement readiness stays authoritative. */}
       {agenticStatus ? (
         <AgenticCommerceCard
           status={agenticStatus}
@@ -405,7 +407,7 @@ export function WebsitePanel({
 }
 
 /**
- * The "Sell through ChatGPT & Google" status card — the honest, wired state of this
+ * The "Sell through ChatGPT & Google" status card: the honest, wired state of this
  * listing's two agentic-commerce layers. Discovery is free (every published listing is
  * in the feeds); checkout is available on every plan and gated by payout-ready Connect
  * plus program go-live. The `status` is computed by agenticCommerceStatus().
@@ -429,8 +431,10 @@ function AgenticCommerceCard({
       case 'live': {
         // Name ONLY the surfaces actually live; if just one is on, flag the other as pending.
         const live = status.liveSurfaces.map(surfaceName).join(' & ')
-        const pending = status.liveSurfaces.length === 1 ? ` ${surfaceName(status.liveSurfaces[0] === 'chatgpt' ? 'google' : 'chatgpt')} switches on soon.` : ''
-        return { color: 'var(--ready)', line: `live on ${live} — buyers complete the purchase without leaving the chat.${pending}`, cta: null }
+        // Only Google is promised as a pending CHECKOUT surface. ChatGPT has been
+        // discovery-only since OpenAI retired in-chat checkout in March 2026.
+        const pending = status.liveSurfaces.length === 1 && status.liveSurfaces[0] === 'chatgpt' ? ' Google switches on soon.' : ''
+        return { color: 'var(--ready)', line: `live on ${live}. Agent buyers complete a Nexez-settled purchase without hunting for your checkout page.${pending}`, cta: null }
       }
       case 'needs_payouts':
         return {
@@ -441,7 +445,7 @@ function AgenticCommerceCard({
       case 'enrolling':
         return {
           color: 'var(--ready)',
-          line: 'you’re ready — Nexez is switching agentic checkout on across ChatGPT & Google. We’ll email you when it’s live.',
+          line: 'you’re ready. Nexez is switching agent checkout on with Google, where agent-completed purchases run today. We’ll email you when it’s live.',
           cta: null,
         }
       default: // 'unpublished'
