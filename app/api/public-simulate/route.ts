@@ -68,6 +68,35 @@ function hasMeaningfulMarketplaceMatch(result: AgentSearchResult): boolean {
   return result.matched_query_terms.some((term) => !DISCOVERY_STOPWORDS.has(term.toLowerCase()))
 }
 
+type MarketplaceMatchType = 'strong' | 'partial'
+
+function meaningfulDiscoveryTerms(query: string): string[] {
+  return [...new Set(
+    query
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((term) => term.length > 1 && !DISCOVERY_STOPWORDS.has(term)),
+  )]
+}
+
+/**
+ * Distinguishes a strong lexical service match from related supply that only
+ * explains part of the buyer request. This is a deterministic presentation
+ * guard, not a probability or a replacement for merchant-side validation.
+ */
+function marketplaceMatchType(result: AgentSearchResult, query: string): MarketplaceMatchType {
+  const queryTerms = meaningfulDiscoveryTerms(query)
+  const meaningfulMatched = new Set(
+    result.matched_query_terms
+      .map((term) => term.toLowerCase())
+      .filter((term) => !DISCOVERY_STOPWORDS.has(term)),
+  )
+  if (queryTerms.length <= 1) return 'strong'
+
+  const coverage = queryTerms.filter((term) => meaningfulMatched.has(term)).length / queryTerms.length
+  return meaningfulMatched.size >= 3 || coverage >= 0.6 ? 'strong' : 'partial'
+}
+
 function marketplaceAnswer(result: AgentSearchResult, intent: SimIntent): string {
   const offer = result.offer
   const price = offer?.price ? ` (${offer.price})` : ''
@@ -87,6 +116,37 @@ function marketplaceActions(result: AgentSearchResult, intent: SimIntent): strin
   if (intent === 'booking') actions.push('Validate requested timing and configuration before confirming availability or booking')
   actions.push('Use the merchant’s published booking or checkout path; never treat Nexez as the service provider')
   return actions
+}
+
+function partialMarketplaceAnswer(result: AgentSearchResult): string {
+  const offer = result.offer
+  const offerSentence = offer
+    ? `Its published “${offer.name}” offer appears related, but it does not establish that every requested requirement is supported.`
+    : 'The business appears related, but it does not publish a structured offer that establishes support for the full request.'
+
+  return `I found ${result.page.name} as related marketplace supply, but it only matches part of this request. ${offerSentence} The remaining requirements must be confirmed with the merchant before Nexez presents it as a fit or exposes a booking path.`
+}
+
+function partialMarketplaceActions(result: AgentSearchResult): string[] {
+  const actions = [`Found ${result.page.name} as related, not exact, marketplace supply`]
+  if (result.offer) actions.push(`Compare “${result.offer.name}” with the buyer’s complete requirements`)
+  actions.push('Confirm unsupported requirements with the merchant before presenting fit, price, availability, or booking')
+  return actions
+}
+
+function offersForBuyer(
+  offers: ReturnType<typeof interpretPublicQuery>['offers'],
+  options: { actionable: boolean },
+) {
+  return offers.map((offer) => ({
+    key: offer.key,
+    type: offer.type,
+    name: offer.name,
+    price: offer.price,
+    description: offer.description,
+    checkoutUrl: options.actionable ? offer.checkoutUrl : null,
+    bestMatch: options.actionable && offer.bestMatch,
+  }))
 }
 
 function simulationPayload(query: string) {
@@ -120,6 +180,18 @@ type SimulationPayload = NonNullable<ReturnType<typeof simulationPayload>>
 type SimulationGuidance = {
   serviceType: string
   detailsToConfirm: string[]
+}
+
+type BuyerSimulationResponse = {
+  active: true
+  source: 'commerce-library'
+  label: 'SIMULATION'
+  title: string
+  serviceType: string
+  explanation: string
+  disclaimer: string
+  detailsToConfirm: string[]
+  nextSteps: string[]
 }
 
 function simulationGuidance(simulation: SimulationPayload): SimulationGuidance {
@@ -195,6 +267,24 @@ function simulationActions(simulation: SimulationPayload, guidance: SimulationGu
     `Collect buyer details: ${joinBuyerDetails(guidance.detailsToConfirm)}`,
     'Search published merchants and verify their actual price, availability, and booking path',
   ]
+}
+
+function formatSimulationForBuyer(
+  simulation: SimulationPayload,
+  guidance: SimulationGuidance,
+  explanation: string,
+): BuyerSimulationResponse {
+  return {
+    active: true,
+    source: 'commerce-library',
+    label: 'SIMULATION',
+    title: simulation.candidate.title,
+    serviceType: guidance.serviceType,
+    explanation,
+    disclaimer: simulation.disclaimer,
+    detailsToConfirm: [...guidance.detailsToConfirm],
+    nextSteps: simulationActions(simulation, guidance),
+  }
 }
 
 async function enhanceMarketplaceAnswer(
@@ -296,35 +386,41 @@ export async function POST(request: Request) {
     if (matchedResult && matchedPage) {
       const interpretation = interpretPublicQuery(matchedPage, trimmedQuery)
       const schema = buildPublicDemoSchema(matchedPage, trimmedQuery, baseUrl)
-      const safeFallback = marketplaceAnswer(matchedResult, intent)
-      const enhanced = await enhanceMarketplaceAnswer(trimmedQuery, matchedResult, intent, safeFallback)
+      const matchType = marketplaceMatchType(matchedResult, trimmedQuery)
+      const safeFallback = matchType === 'partial'
+        ? partialMarketplaceAnswer(matchedResult)
+        : marketplaceAnswer(matchedResult, intent)
+      const enhanced = matchType === 'partial'
+        ? { naturalLanguage: safeFallback, llmEnhanced: false }
+        : await enhanceMarketplaceAnswer(trimmedQuery, matchedResult, intent, safeFallback)
 
       return NextResponse.json({
         success: true,
-        mode: 'marketplace',
+        mode: matchType === 'partial' ? 'partial_match' : 'marketplace',
         noMatch: false,
         query: trimmedQuery,
         intent,
         intentLabel: INTENT_LABELS[intent],
         naturalLanguage: enhanced.naturalLanguage,
         readiness: interpretation.readiness,
-        confidence: interpretation.confidence,
-        offers: interpretation.offers,
-        agentActions: marketplaceActions(matchedResult, intent),
-        schema,
+        confidence: matchType === 'partial' ? null : interpretation.confidence,
+        offers: offersForBuyer(interpretation.offers, { actionable: matchType === 'strong' }),
+        agentActions: matchType === 'partial'
+          ? partialMarketplaceActions(matchedResult)
+          : marketplaceActions(matchedResult, intent),
+        schema: matchType === 'partial' ? null : schema,
         recommendations: [],
         matchedBusiness: {
           name: matchedResult.page.name,
           slug: matchedResult.page.slug,
           url: matchedResult.page.url,
-          score: matchedResult.score,
-          matchReasons: matchedResult.match_reasons,
+          matchType,
           offer: matchedResult.offer
             ? {
                 key: matchedResult.offer.key,
                 name: matchedResult.offer.name,
                 price: matchedResult.offer.price,
-                checkoutUrl: matchedResult.offer.checkout_url,
+                checkoutUrl: matchType === 'partial' ? null : matchedResult.offer.checkout_url,
               }
             : null,
         },
@@ -338,7 +434,7 @@ export async function POST(request: Request) {
       const guidance = simulationGuidance(simulation)
       const fallback = simulationAnswer(simulation, guidance)
       const enhanced = await enhanceSimulationAnswer(trimmedQuery, simulation, guidance, fallback)
-      const confidence = Math.min(0.95, 0.45 + simulation.candidate.matchScore * 0.025)
+      const publicResponse = formatSimulationForBuyer(simulation, guidance, enhanced.naturalLanguage)
 
       return NextResponse.json({
         success: true,
@@ -347,20 +443,15 @@ export async function POST(request: Request) {
         query: trimmedQuery,
         intent,
         intentLabel: INTENT_LABELS[intent],
-        naturalLanguage: enhanced.naturalLanguage,
+        naturalLanguage: publicResponse.explanation,
         readiness: 0,
-        confidence,
+        confidence: null,
         offers: [],
-        agentActions: simulationActions(simulation, guidance),
-        schema: {
-          schemaVersion: 'nexez.commerce-library-simulation.v1',
-          simulation: true,
-          query: trimmedQuery,
-          scenario: simulation.candidate,
-        },
+        agentActions: publicResponse.nextSteps,
+        schema: null,
         recommendations: [],
         matchedBusiness: null,
-        simulation,
+        simulation: publicResponse,
         llmEnhanced: enhanced.llmEnhanced,
       })
     }
@@ -374,7 +465,7 @@ export async function POST(request: Request) {
       intentLabel: INTENT_LABELS[intent],
       naturalLanguage: 'I could not find a meaningful live Nexez marketplace match or a relevant Commerce Library reference scenario for this request. I will not invent a provider or transaction path.',
       readiness: 0,
-      confidence: 0.3,
+      confidence: null,
       offers: [],
       agentActions: ['Return no match without fabricating marketplace supply'],
       schema: null,

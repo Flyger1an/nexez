@@ -9,7 +9,7 @@ type SimOffer = {
   name: string
   price: string | null
   description: string | null
-  checkoutUrl: string
+  checkoutUrl: string | null
   bestMatch: boolean
 }
 
@@ -17,43 +17,35 @@ type MatchedBusiness = {
   name: string
   slug: string
   url: string
-  score: number
-  matchReasons: string[]
+  matchType: 'strong' | 'partial'
   offer: {
     key: string
     name: string
     price: string | null
-    checkoutUrl: string
+    checkoutUrl: string | null
   } | null
 }
 
 type SimulationScenario = {
   active: true
   source: 'commerce-library'
-  label: string
+  label: 'SIMULATION'
+  title: string
+  serviceType: string
+  explanation: string
   disclaimer: string
-  candidate: {
-    id: string
-    title: string
-    domain: string
-    archetype: string
-    status: string
-    teaches: string
-    capabilityTags: string[]
-    gapSignals: string[]
-    matchedTerms: string[]
-    matchScore: number
-  }
+  detailsToConfirm: string[]
+  nextSteps: string[]
 }
 
 type SimResponse = {
-  mode: 'marketplace' | 'simulation' | 'no_match'
+  mode: 'marketplace' | 'partial_match' | 'simulation' | 'no_match'
   noMatch: boolean
   intent: string
   intentLabel: string
   naturalLanguage: string
   readiness: number
-  confidence: number
+  confidence: number | null
   offers: SimOffer[]
   agentActions: string[]
   matchedBusiness: MatchedBusiness | null
@@ -169,17 +161,26 @@ export function SimulatorTeaser() {
                 Live marketplace · {result.matchedBusiness.name}
               </span>
             )}
+            {result.mode === 'partial_match' && result.matchedBusiness && (
+              <span className="inline-flex items-center rounded-full border border-[var(--amber)]/30 bg-[var(--amber)]/10 px-2.5 py-0.5 text-xs font-medium text-[var(--amber)]">
+                Related marketplace · {result.matchedBusiness.name}
+              </span>
+            )}
             {result.mode === 'simulation' && result.simulation && (
               <span className="inline-flex items-center rounded-full border border-[var(--amber)]/30 bg-[var(--amber)]/10 px-2.5 py-0.5 text-xs font-medium text-[var(--amber)]">
-                Simulation · {result.simulation.candidate.title}
+                Simulation · {result.simulation.title}
               </span>
             )}
             {result.mode === 'simulation' ? (
               <span className="ml-auto text-[11px] text-muted-foreground">reference match only</span>
-            ) : (
+            ) : result.mode === 'partial_match' ? (
+              <span className="ml-auto text-[11px] text-muted-foreground">partial match</span>
+            ) : result.confidence !== null ? (
               <span className="ml-auto text-[11px] text-muted-foreground">
                 match confidence {Math.round(result.confidence * 100)}%
               </span>
+            ) : (
+              <span className="ml-auto text-[11px] text-muted-foreground">no match</span>
             )}
           </div>
 
@@ -194,7 +195,7 @@ export function SimulatorTeaser() {
           <div className="mb-4 flex gap-1 border-b border-border">
             {([
               ['natural', 'How an agent answers'],
-              ['structured', result.simulation ? 'Reference scenario' : 'What agents parse'],
+              ['structured', result.simulation ? 'Details to confirm' : 'What agents parse'],
             ] as const).map(([id, label]) => (
               <button
                 key={id}
@@ -228,38 +229,36 @@ export function SimulatorTeaser() {
           ) : result.simulation ? (
             <div>
               <p className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--amber)]">
-                Commerce Library reference — not inventory
+                Buyer details needed for a real match
               </p>
               <div className="rounded-lg border border-border bg-white/[0.02] p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-white">{result.simulation.candidate.title}</span>
-                  <code className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-                    {result.simulation.candidate.id}
-                  </code>
-                </div>
-                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                  {result.simulation.candidate.teaches}
+                <p className="text-sm font-medium text-white">{result.simulation.title}</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  This request is closest to {result.simulation.serviceType}. A real provider would need the following details before Nexez could verify fit, price, or availability.
                 </p>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {result.simulation.candidate.capabilityTags.map((tag) => (
-                    <span key={tag} className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-zinc-400">
-                      {tag}
-                    </span>
+                <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {result.simulation.detailsToConfirm.map((detail) => (
+                    <li key={detail} className="flex items-start gap-2 text-xs text-zinc-300">
+                      <span className="mt-1 size-1.5 shrink-0 rounded-full bg-[var(--ready)]" />
+                      <span>{detail}</span>
+                    </li>
                   ))}
-                </div>
+                </ul>
               </div>
             </div>
           ) : (
             <div>
               <p className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--signal)]">
-                Offers the agent can act on
+                {result.mode === 'partial_match' ? 'Related offers to verify' : 'Offers the agent can act on'}
               </p>
               <div className="space-y-2">
                 {result.offers.length > 0 ? result.offers.map((o) => (
                   <div
                     key={o.key}
                     className={`rounded-lg border p-3 ${
-                      o.bestMatch
+                      result.mode === 'partial_match'
+                        ? 'border-[var(--amber)]/30 bg-[var(--amber)]/[0.05]'
+                        : o.bestMatch
                         ? 'border-[var(--ready)]/40 bg-[var(--ready)]/[0.06]'
                         : 'border-border bg-white/[0.02]'
                     }`}
@@ -267,9 +266,13 @@ export function SimulatorTeaser() {
                     <div className="flex items-center justify-between gap-3">
                       <span className="flex items-center gap-2 text-sm font-medium text-white">
                         {o.name}
-                        {o.bestMatch && (
-                          <span className="rounded-full bg-[var(--ready)]/15 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[var(--ready)]">
-                            Best match
+                        {(o.bestMatch || result.mode === 'partial_match') && (
+                          <span className={`rounded-full px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${
+                            result.mode === 'partial_match'
+                              ? 'bg-[var(--amber)]/15 text-[var(--amber)]'
+                              : 'bg-[var(--ready)]/15 text-[var(--ready)]'
+                          }`}>
+                            {result.mode === 'partial_match' ? 'Related offer' : 'Best match'}
                           </span>
                         )}
                       </span>
