@@ -1,6 +1,7 @@
 import { formatOfferLines } from '../../lib/agent-page'
 import { AICoPilot } from '../AICoPilot'
 import { VisualOfferBuilder } from '../VisualOfferBuilder'
+import { ConditionalFulfillmentManager } from './ConditionalFulfillmentManager'
 import { PageEditor } from './usePageEditor'
 import { RecurringServiceManager } from './RecurringServiceManager'
 
@@ -71,6 +72,15 @@ export function VisualBuilderSection({ e }: { e: PageEditor }) {
           e.setServicesOffers(newOffers)
           e.setServices(formatOfferLines(newOffers))
           e.setMessage('Recurring service contract updated. Save the listing to publish it.')
+        }}
+      />
+
+      <ConditionalFulfillmentManager
+        offers={e.parsedServices}
+        onChange={(newOffers) => {
+          e.setServicesOffers(newOffers)
+          e.setServices(formatOfferLines(newOffers))
+          e.setMessage('Conditional fulfillment policy updated. Save the listing to publish it.')
         }}
       />
 
