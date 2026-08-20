@@ -6,12 +6,15 @@ import {
 } from './agent-page'
 import {
   OFFER_ATTRIBUTES_MARKER,
+  OFFER_FULFILLMENT_MARKER,
   OFFER_INPUTS_MARKER,
   OFFER_RECURRING_MARKER,
   formatOfferAttributesMarker,
+  formatOfferFulfillmentMarker,
   formatOfferInputsMarker,
   formatOfferRecurringMarker,
   parseOfferAttributesMarker,
+  parseOfferFulfillmentMarker,
   parseOfferInputsMarker,
   parseOfferRecurringMarker,
 } from './offer-configuration-codec'
@@ -29,6 +32,10 @@ import {
   validateRecurringServiceTermsForInputs,
   type RecurringServiceTerms,
 } from './recurring-service'
+import {
+  validateOfferFulfillmentRules,
+  type OfferFulfillmentRule,
+} from './conditional-fulfillment'
 
 /**
  * Backward-compatible bridge between today's OfferItem and richer merchant-authored
@@ -40,6 +47,8 @@ export type ConfiguredOfferItem = OfferItem & {
   attributes?: OfferAttribute[]
   /** Public merchant-authored recurring-service contract. Never buyer/model authored. */
   recurringTerms?: RecurringServiceTerms
+  /** Public merchant-authored deterministic fulfillment rules. Never buyer/model authored. */
+  fulfillmentRules?: OfferFulfillmentRule[]
 }
 
 function configured(offer: OfferItem): ConfiguredOfferItem {
@@ -61,6 +70,11 @@ export function getOfferRecurringTerms(offer: OfferItem): RecurringServiceTerms 
   return linked.ok ? linked.value : null
 }
 
+export function getOfferFulfillmentRules(offer: OfferItem): OfferFulfillmentRule[] {
+  const validated = validateOfferFulfillmentRules(configured(offer).fulfillmentRules, getOfferCustomerInputs(offer))
+  return validated.ok ? validated.value : []
+}
+
 export function withOfferCustomerInput(
   offer: OfferItem,
   value: unknown,
@@ -71,6 +85,11 @@ export function withOfferCustomerInput(
   const recurring = configured(offer).recurringTerms
   if (recurring) {
     const validated = validateRecurringServiceTermsForInputs(recurring, result.value)
+    if (!validated.ok) return { ok: false, error: validated.error }
+  }
+  const fulfillment = configured(offer).fulfillmentRules
+  if (fulfillment) {
+    const validated = validateOfferFulfillmentRules(fulfillment, result.value)
     if (!validated.ok) return { ok: false, error: validated.error }
   }
   return { ok: true, value: next }
@@ -96,6 +115,21 @@ export function withOfferRecurringTerms(
   return { ok: true, value: { ...configured(offer), recurringTerms: linked.value } }
 }
 
+export function withOfferFulfillmentRules(
+  offer: OfferItem,
+  value: unknown,
+): OfferConfigurationValidation<ConfiguredOfferItem> {
+  const validated = validateOfferFulfillmentRules(value, getOfferCustomerInputs(offer))
+  if (!validated.ok) return { ok: false, error: validated.error }
+  return {
+    ok: true,
+    value: {
+      ...configured(offer),
+      ...(validated.value.length ? { fulfillmentRules: validated.value } : { fulfillmentRules: undefined }),
+    },
+  }
+}
+
 /**
  * `propose_offers` is an LLM curation surface, not merchant truth. Explicitly
  * discard all rich merchant-authored contract fields supplied by a proposal and
@@ -109,10 +143,12 @@ export function mergeProposedOfferPreservingConfiguration(
   delete proposal.customerInputs
   delete proposal.attributes
   delete proposal.recurringTerms
+  delete proposal.fulfillmentRules
 
   const customerInputs = existing ? getOfferCustomerInputs(existing) : []
   const attributes = existing ? getOfferAttributes(existing) : []
   const recurringTerms = existing ? getOfferRecurringTerms(existing) : null
+  const fulfillmentRules = existing ? getOfferFulfillmentRules(existing) : []
 
   return {
     ...(existing ?? {}),
@@ -120,6 +156,7 @@ export function mergeProposedOfferPreservingConfiguration(
     ...(customerInputs.length ? { customerInputs } : {}),
     ...(attributes.length ? { attributes } : {}),
     ...(recurringTerms ? { recurringTerms } : {}),
+    ...(fulfillmentRules.length ? { fulfillmentRules } : {}),
   } as ConfiguredOfferItem
 }
 
@@ -171,10 +208,13 @@ function stripConfigurationMarker(line: string, marker: string): string {
 function stripConfigurationMarkers(line: string): string {
   return stripConfigurationMarker(
     stripConfigurationMarker(
-      stripConfigurationMarker(line, OFFER_INPUTS_MARKER),
-      OFFER_ATTRIBUTES_MARKER,
+      stripConfigurationMarker(
+        stripConfigurationMarker(line, OFFER_INPUTS_MARKER),
+        OFFER_ATTRIBUTES_MARKER,
+      ),
+      OFFER_RECURRING_MARKER,
     ),
-    OFFER_RECURRING_MARKER,
+    OFFER_FULFILLMENT_MARKER,
   ).trim()
 }
 
@@ -206,6 +246,7 @@ export function parseConfiguredOfferLines(value: string): ConfiguredOfferItem[] 
     const inputsPart = extractConfigurationMarker(line, OFFER_INPUTS_MARKER)
     const attributesPart = extractConfigurationMarker(line, OFFER_ATTRIBUTES_MARKER)
     const recurringPart = extractConfigurationMarker(line, OFFER_RECURRING_MARKER)
+    const fulfillmentPart = extractConfigurationMarker(line, OFFER_FULFILLMENT_MARKER)
     const baseLine = stripConfigurationMarkers(line)
     const base = parseOfferLines(baseLine)[0]
 
@@ -215,6 +256,7 @@ export function parseConfiguredOfferLines(value: string): ConfiguredOfferItem[] 
     const recurringTerms = rawRecurring && validateRecurringServiceTermsForInputs(rawRecurring, customerInputs ?? []).ok
       ? rawRecurring
       : undefined
+    const fulfillmentRules = parseOfferFulfillmentMarker(fulfillmentPart, customerInputs ?? [])
     const tiers = base.tiers?.length ? base.tiers : recoverLegacyTiers(baseLine)
 
     return {
@@ -223,6 +265,7 @@ export function parseConfiguredOfferLines(value: string): ConfiguredOfferItem[] 
       ...(customerInputs?.length ? { customerInputs } : {}),
       ...(attributes?.length ? { attributes } : {}),
       ...(recurringTerms ? { recurringTerms } : {}),
+      ...(fulfillmentRules?.length ? { fulfillmentRules } : {}),
     }
   })
 }
@@ -234,7 +277,8 @@ export function formatConfiguredOfferLines(items: ConfiguredOfferItem[] | null |
       const inputs = formatOfferInputsMarker(offer.customerInputs)
       const attributes = formatOfferAttributesMarker(offer.attributes)
       const recurring = formatOfferRecurringMarker(offer.recurringTerms)
-      return [base, inputs, attributes, recurring].filter(Boolean).join(' | ')
+      const fulfillment = formatOfferFulfillmentMarker(offer.fulfillmentRules, getOfferCustomerInputs(offer))
+      return [base, inputs, attributes, recurring, fulfillment].filter(Boolean).join(' | ')
     })
     .join('\n')
 }
