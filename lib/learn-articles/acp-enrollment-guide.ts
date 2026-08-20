@@ -20,7 +20,7 @@ export const acpEnrollmentGuide: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'The Agentic Commerce Protocol is an open specification, published by OpenAI and Stripe in September 2025 under Apache 2.0, that defines how an AI agent transacts with a merchant. It launched alongside ChatGPT Instant Checkout, and for about five months those two things were effectively synonymous in most people’s minds. Then OpenAI shut the checkout surface down and kept the protocol, which is why the two need separating now.',
+      text: 'The Agentic Commerce Protocol is an open specification, published by OpenAI and Stripe in September 2025 under Apache 2.0, that defines how an AI agent transacts with a merchant. It launched alongside ChatGPT Instant Checkout, and for about five months those two things were effectively synonymous in most people\u2019s minds. Then OpenAI shut the checkout surface down and kept the protocol, which is why the two need separating now.',
     },
     {
       type: 'p',
@@ -75,7 +75,7 @@ export const acpEnrollmentGuide: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'Delegated payment is not a card number. The buyer’s credential arrives as a token scoped to one transaction, through Stripe’s Shared Payment Tokens or an equivalent mechanism. You never receive or store raw card data, which is the point, but it also means your normal payment error handling does not directly apply and needs its own paths.',
+      text: 'Delegated payment is not a card number. The buyer\u2019s credential arrives as a token scoped to one transaction, through Stripe\u2019s Shared Payment Tokens or an equivalent mechanism. You never receive or store raw card data, which is the point, but it also means your normal payment error handling does not directly apply and needs its own paths.',
     },
     {
       type: 'p',
@@ -127,7 +127,7 @@ export const acpEnrollmentGuide: LearnArticle = {
     {
       question: 'Should I build an ACP checkout integration in 2026?',
       answer:
-        'Only if a platform or payment provider you already use speaks ACP and your volume justifies the engineering. Building it speculatively, hoping a surface will adopt it, is a bet on someone else’s roadmap. Feed and catalog work is the part that transfers across every surface, so it is the safer place to spend first.',
+        'Only if a platform or payment provider you already use speaks ACP and your volume justifies the engineering. Building it speculatively, hoping a surface will adopt it, is a bet on someone else\u2019s roadmap. Feed and catalog work is the part that transfers across every surface, so it is the safer place to spend first.',
     },
     {
       question: 'What is the difference between the ACP feed and the ACP checkout API?',
@@ -137,12 +137,12 @@ export const acpEnrollmentGuide: LearnArticle = {
     {
       question: 'Where can agents actually complete a purchase now?',
       answer:
-        'Mainly through Google’s Universal Commerce Protocol across AI Mode, Gemini, and YouTube Shopping, plus platforms implementing it, with Shopify enabling Agentic Storefronts by default. Perplexity runs its own buying flow. The [UCP guide](/learn/what-is-google-ucp) covers what merchants need for the live rail.',
+        'Mainly through Google\u2019s Universal Commerce Protocol across AI Mode, Gemini, and YouTube Shopping, plus platforms implementing it, with Shopify enabling Agentic Storefronts by default. Perplexity runs its own buying flow. The [UCP guide](/learn/what-is-google-ucp) covers what merchants need for the live rail.',
     },
     {
       question: 'Did the Instant Checkout shutdown mean agentic commerce is failing?',
       answer:
-        'The market data says otherwise. AI-referred retail traffic grew 393% year over year in Q1 2026 and converts substantially better than traditional search. What failed was one vendor’s first implementation of one layer, largely on conversion economics, since in-chat checkout converted roughly three times worse than sending buyers to the merchant’s own site. Discovery kept growing throughout.',
+        'The market data says otherwise. AI-referred retail traffic grew 393% year over year in Q1 2026 and converts substantially better than traditional search. What failed was one vendor\u2019s first implementation of one layer, largely on conversion economics, since in-chat checkout converted roughly three times worse than sending buyers to the merchant\u2019s own site. Discovery kept growing throughout.',
     },
   ],
 }
