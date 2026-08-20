@@ -1,7 +1,7 @@
 import { commerceCurationCandidates } from './index'
 import type { CommerceCurationGapSignal } from './types'
 
-export const COMMERCE_SCHEMA_GAP_ANALYSIS_VERSION = 1 as const
+export const COMMERCE_SCHEMA_GAP_ANALYSIS_VERSION = 2 as const
 
 export type CommerceSchemaGapDisposition =
   | 'first-class'
@@ -46,21 +46,21 @@ export const commerceSchemaGapFindings: CommerceSchemaGapFinding[] = [
   },
   {
     signal: 'recurrence-terms',
-    disposition: 'broadly-missing',
-    action: 'design-primitive',
-    currentRepresentation: 'CommerceTemplate can label recurring/subscription intent, but OfferItem has no merchant-authored recurring cadence, term, pause/cancel, or renewal contract for service transactions.',
-    missingBehavior: 'No deterministic recurring-service agreement binds cadence and lifecycle terms through buyer approval, checkout, and later fulfillment.',
-    recommendation: 'Design a merchant-authored recurring-service contract before promoting recurrence-heavy post-pilot templates.',
-    evidence: ['lib/commerce-templates/schema.ts', 'lib/agent-page.ts', 'lib/offer-transaction-configuration.ts'],
+    disposition: 'first-class',
+    action: 'no-schema-change',
+    currentRepresentation: 'Merchant-authored recurring-service terms are validated against offer inputs, exposed to agents, resolved into an approval-bound agreement snapshot, settled through a dedicated Stripe subscription checkout, and reconciled into paid service-period order lineage.',
+    missingBehavior: null,
+    recommendation: 'Treat the recurring-service contract as the canonical recurrence rail and harden/extend it rather than creating a second subscription model for merchant services.',
+    evidence: ['lib/recurring-service.ts', 'app/api/service-agreements/checkout/route.ts', 'lib/server/service-agreement-webhook.ts'],
   },
   {
     signal: 'conditional-fulfillment',
     disposition: 'broadly-missing',
     action: 'design-primitive',
-    currentRepresentation: 'OfferInputField can declare that an answer affects eligibility/scope/availability, but the declaration is descriptive rather than an executable condition.',
-    missingBehavior: 'No merchant-authored rule language can deterministically block, branch, require another field, or switch fulfillment/pricing based on validated buyer answers.',
-    recommendation: 'Design a small fail-closed conditional rule layer; do not jump to arbitrary formulas or executable code.',
-    evidence: ['lib/offer-configuration.ts', 'lib/offer-transaction-configuration.ts'],
+    currentRepresentation: 'OfferInputField can declare that an answer affects eligibility/scope/availability and narrow booking constraints can block selected runtime states, but buyer-answer eligibility remains descriptive rather than an executable merchant contract.',
+    missingBehavior: 'No merchant-authored predicate layer evaluates canonical required buyer inputs into a stable eligible/requires-review/ineligible decision that is bound through approval and settlement.',
+    recommendation: 'Implement the bounded buyer-input decision layer defined by the conditional-fulfillment autopsy; keep inventory, trust/qualification, inspection lineage, and multi-provider workflow state in their own authoritative primitives.',
+    evidence: ['lib/offer-configuration.ts', 'lib/offer-transaction-configuration.ts', 'lib/commerce-templates/curation/conditional-fulfillment-analysis.ts'],
   },
   {
     signal: 'structured-modifiers',
