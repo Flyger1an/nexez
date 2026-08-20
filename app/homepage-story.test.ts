@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest'
 const source = readFileSync(new URL('./page.tsx', import.meta.url), 'utf8')
 const hero = source.split('{/* HERO - text + CTAs on the left, the draggable Agent X-Ray prominent on the right */}')[1]
   ?.split('{/* AGENT LOGO MARQUEE */}')[0] ?? ''
-const body = source.split('{/* AGENT LOGO MARQUEE */}')[1] ?? ''
 
 const retiredHomepageClaims = [
   'Transacts with every major agent',
@@ -35,19 +34,25 @@ describe('homepage commerce story', () => {
     expect(source).toContain("{ value: 'Live', label: 'Conversion analytics' }")
   })
 
-  it('retires the old publishing-first and absolute-claim story below the hero', () => {
+  it('retires the old publishing-first and absolute-claim story', () => {
     for (const phrase of retiredHomepageClaims) {
-      expect(body).not.toContain(phrase)
+      expect(source).not.toContain(phrase)
     }
   })
 
   it('centers merchant control and the real commerce rails', () => {
-    expect(body).toContain('Your prices stay yours.')
-    expect(body).toContain('Bad-fit orders can stop before payment.')
-    expect(body).toContain('Repeat work can stay repeatable.')
-    expect(body).toContain('before money moves')
-    expect(body).toContain('Run a buying scenario before a real buyer does.')
-    expect(body).toContain('AI gets a buying path, not control of your business.')
+    expect(source).toContain('Your prices stay yours.')
+    expect(source).toContain('Bad-fit orders can stop before payment.')
+    expect(source).toContain('Repeat work can stay repeatable.')
+    expect(source).toContain('before money moves')
+    expect(source).toContain('Run a buying scenario before a real buyer does.')
+    expect(source).toContain('AI gets a buying path, not control of your business.')
+  })
+
+  it('keeps broader platform capabilities visible', () => {
+    expect(source).toContain("title: 'Copilot'")
+    expect(source).toContain("title: 'Your brand, your domain'")
+    expect(source).toContain("title: 'Trust context'")
   })
 
   it('gives the homepage modern merchant-facing metadata', () => {
