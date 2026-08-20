@@ -13,7 +13,42 @@ type SimOffer = {
   bestMatch: boolean
 }
 
+type MatchedBusiness = {
+  name: string
+  slug: string
+  url: string
+  score: number
+  matchReasons: string[]
+  offer: {
+    key: string
+    name: string
+    price: string | null
+    checkoutUrl: string
+  } | null
+}
+
+type SimulationScenario = {
+  active: true
+  source: 'commerce-library'
+  label: string
+  disclaimer: string
+  candidate: {
+    id: string
+    title: string
+    domain: string
+    archetype: string
+    status: string
+    teaches: string
+    capabilityTags: string[]
+    gapSignals: string[]
+    matchedTerms: string[]
+    matchScore: number
+  }
+}
+
 type SimResponse = {
+  mode: 'marketplace' | 'simulation' | 'no_match'
+  noMatch: boolean
   intent: string
   intentLabel: string
   naturalLanguage: string
@@ -21,14 +56,15 @@ type SimResponse = {
   confidence: number
   offers: SimOffer[]
   agentActions: string[]
-  recommendations: string[]
+  matchedBusiness: MatchedBusiness | null
+  simulation: SimulationScenario | null
 }
 
 const PRESETS = [
-  'Can an agent book a 60 minute session next week?',
-  'How much does strategy work cost here?',
-  'Is this a good fit for a scaling startup?',
-  'What products can I buy right now?',
+  'Find me a cleaning service that can handle a 2x2 move out cleaning for next Wednesday',
+  'Find a mobile car detailer for this weekend',
+  'I need a private tutor for weekly math lessons',
+  'Find an event photographer for a birthday party',
 ]
 
 export function SimulatorTeaser() {
@@ -56,6 +92,8 @@ export function SimulatorTeaser() {
       if (!res.ok || !data.success) throw new Error(data.error || 'Simulation failed')
 
       setResult({
+        mode: data.mode,
+        noMatch: Boolean(data.noMatch),
         intent: data.intent,
         intentLabel: data.intentLabel,
         naturalLanguage: data.naturalLanguage,
@@ -63,7 +101,8 @@ export function SimulatorTeaser() {
         confidence: data.confidence,
         offers: data.offers || [],
         agentActions: data.agentActions || [],
-        recommendations: data.recommendations || [],
+        matchedBusiness: data.matchedBusiness || null,
+        simulation: data.simulation || null,
       })
       setQuery(q)
       setActiveTab('natural')
@@ -76,7 +115,7 @@ export function SimulatorTeaser() {
 
   return (
     <div className="mx-auto max-w-2xl text-left">
-      {/* Preset queries */}
+      {/* Preset buyer queries */}
       <div className="mb-3 flex flex-wrap justify-center gap-2">
         {PRESETS.map((q) => (
           <button
@@ -96,7 +135,7 @@ export function SimulatorTeaser() {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ask an AI-style question…"
+          placeholder="Ask Nexez to find a service…"
           className="input flex-1 text-base"
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleSimulate()
@@ -108,7 +147,7 @@ export function SimulatorTeaser() {
           disabled={loading || !query.trim()}
           className="btn-primary px-7 disabled:opacity-60"
         >
-          {loading ? 'Analyzing…' : 'Simulate'}
+          {loading ? 'Searching…' : 'Simulate'}
         </button>
       </div>
 
@@ -125,19 +164,33 @@ export function SimulatorTeaser() {
             <span className="inline-flex items-center rounded-full border border-[var(--signal)]/30 bg-[var(--signal)]/10 px-2.5 py-0.5 text-xs font-medium text-[var(--signal)]">
               {result.intentLabel}
             </span>
-            <span className="inline-flex items-center rounded-full border border-[var(--ready)]/25 bg-[var(--ready)]/10 px-2.5 py-0.5 text-xs text-[var(--ready)]">
-              Readiness {result.readiness}%
-            </span>
+            {result.mode === 'marketplace' && result.matchedBusiness && (
+              <span className="inline-flex items-center rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-2.5 py-0.5 text-xs font-medium text-[var(--ready)]">
+                Live marketplace · {result.matchedBusiness.name}
+              </span>
+            )}
+            {result.mode === 'simulation' && result.simulation && (
+              <span className="inline-flex items-center rounded-full border border-[var(--amber)]/30 bg-[var(--amber)]/10 px-2.5 py-0.5 text-xs font-medium text-[var(--amber)]">
+                Simulation · {result.simulation.candidate.title}
+              </span>
+            )}
             <span className="ml-auto text-[11px] text-muted-foreground">
-              parse confidence {Math.round(result.confidence * 100)}%
+              match confidence {Math.round(result.confidence * 100)}%
             </span>
           </div>
+
+          {result.simulation && (
+            <div className="mb-4 rounded-lg border border-[var(--amber)]/25 bg-[var(--amber)]/[0.06] px-3 py-2 text-xs leading-relaxed text-zinc-300">
+              <span className="font-medium text-[var(--amber)]">Simulation only.</span>{' '}
+              {result.simulation.disclaimer}
+            </div>
+          )}
 
           {/* Tabs */}
           <div className="mb-4 flex gap-1 border-b border-border">
             {([
               ['natural', 'How an agent answers'],
-              ['structured', 'What agents parse'],
+              ['structured', result.simulation ? 'Reference scenario' : 'What agents parse'],
             ] as const).map(([id, label]) => (
               <button
                 key={id}
@@ -168,13 +221,37 @@ export function SimulatorTeaser() {
                 ))}
               </ul>
             </div>
+          ) : result.simulation ? (
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--amber)]">
+                Commerce Library reference — not inventory
+              </p>
+              <div className="rounded-lg border border-border bg-white/[0.02] p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-white">{result.simulation.candidate.title}</span>
+                  <code className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                    {result.simulation.candidate.id}
+                  </code>
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                  {result.simulation.candidate.teaches}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {result.simulation.candidate.capabilityTags.map((tag) => (
+                    <span key={tag} className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-zinc-400">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
           ) : (
             <div>
               <p className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--signal)]">
                 Offers the agent can act on
               </p>
               <div className="space-y-2">
-                {result.offers.map((o) => (
+                {result.offers.length > 0 ? result.offers.map((o) => (
                   <div
                     key={o.key}
                     className={`rounded-lg border p-3 ${
@@ -201,28 +278,19 @@ export function SimulatorTeaser() {
                       </code>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="rounded-lg border border-border bg-white/[0.02] p-3 text-sm text-muted-foreground">
+                    No actionable live offer was found for this request.
+                  </div>
+                )}
               </div>
-            </div>
-          )}
-
-          {result.recommendations.length > 0 && (
-            <div className="mt-5 border-t border-border pt-4">
-              <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-[var(--amber)]">
-                Quick wins to rank higher with agents
-              </p>
-              <ul className="space-y-1 text-xs text-muted-foreground">
-                {result.recommendations.slice(0, 3).map((r, i) => (
-                  <li key={i}>• {r}</li>
-                ))}
-              </ul>
             </div>
           )}
 
           {/* Conversion hook */}
           <div className="mt-6 flex flex-col items-center gap-3 border-t border-border pt-4 sm:flex-row">
             <a href={appUrl('/create')} className="btn-primary h-10 flex-1 px-5 text-sm sm:flex-none">
-              Create a listing like this
+              Create an agent-ready listing
             </a>
             <a href="/simulator" className="text-sm text-[var(--signal)] hover:underline">
               Open the full simulator →
