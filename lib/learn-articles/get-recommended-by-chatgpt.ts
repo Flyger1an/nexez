@@ -31,7 +31,7 @@ export const getRecommendedByChatgpt: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'ChatGPT Shopping works differently. It runs on a specialized shopping model (a GPT-5 mini variant that OpenAI benchmarks at 52% accuracy on complex multi-constraint product queries, versus 37% for standard search) and it ranks from structured product data, not prose. A March 2026 analysis of 43,000 carousel products found 83% of ChatGPT Shopping recommendations matched Google Shopping’s top 40 organic listings, which tells you where the pipeline actually draws from: product feeds and shopping indexes, with your Google Merchant Center data doing double duty. One thing both systems share: OpenAI does not sell placement. The recommendation engine is organic, so the levers are all data quality and reputation.',
+      text: 'ChatGPT Shopping works differently. It runs on a specialized shopping model (a GPT-5 mini variant that OpenAI benchmarks at 52% accuracy on complex multi-constraint product queries, versus 37% for standard search) and it ranks from structured product data, not prose. A March 2026 analysis of 43,000 carousel products found 83% of ChatGPT Shopping recommendations matched Google Shopping\\u2019s top 40 organic listings, which tells you where the pipeline actually draws from: product feeds and shopping indexes, with your Google Merchant Center data doing double duty. One thing both systems share: OpenAI does not sell placement. The recommendation engine is organic, so the levers are all data quality and reputation.',
     },
     { type: 'h2', text: 'Channel one: conversational recommendations' },
     {
@@ -62,7 +62,7 @@ export const getRecommendedByChatgpt: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'Three practical notes from how the pipeline behaved through 2026. Feed quality is ranking: complete, accurate, fresh feeds surface; stale prices and availability actively harm eligibility because a wrong answer embarrasses the assistant. Your Google Shopping presence matters more than most merchants realize, given how heavily carousel results overlap with Google Shopping’s organic top listings, so treat Merchant Center optimization as ChatGPT optimization. And platform coverage compounds: audits of recommended stores find they ship feeds to at least two AI commerce surfaces, which as of 2026 means ACP on the OpenAI side and UCP on Google’s, where Shopify has already removed approval requirements for agent traffic.',
+      text: 'Three practical notes from how the pipeline behaved through 2026. Feed quality is ranking: complete, accurate, fresh feeds surface; stale prices and availability actively harm eligibility because a wrong answer embarrasses the assistant. Your Google Shopping presence matters more than most merchants realize, given how heavily carousel results overlap with Google Shopping\\u2019s organic top listings, so treat Merchant Center optimization as ChatGPT optimization. And platform coverage compounds: audits of recommended stores find they ship feeds to at least two AI commerce surfaces, which as of 2026 means ACP on the OpenAI side and UCP on Google\\u2019s, where Shopify has already removed approval requirements for agent traffic.',
     },
     {
       type: 'cta',
