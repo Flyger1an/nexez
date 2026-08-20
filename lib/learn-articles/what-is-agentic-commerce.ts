@@ -9,7 +9,7 @@ export const whatIsAgenticCommerce: LearnArticle = {
   dek: 'Agentic commerce is shopping where an AI agent, not a human with a browser, does the discovering, comparing, and increasingly the buying. Here is how a machine-mediated purchase actually works, what the market data really shows, and what merchants should do about it now.',
   category: 'Agentic commerce',
   publishedAt: '2026-08-10',
-  updatedAt: '2026-08-10',
+  updatedAt: '2026-08-17',
   readMinutes: 11,
   blocks: [
     {
@@ -75,11 +75,11 @@ export const whatIsAgenticCommerce: LearnArticle = {
     { type: 'h2', text: 'The protocol stack underneath it' },
     {
       type: 'p',
-      text: 'Three open protocols turned agentic commerce from demos into plumbing. The Agentic Commerce Protocol (ACP), launched by Stripe and OpenAI in September 2025 under an Apache 2.0 license, defines how an agent transacts with a merchant, and it is the rail behind ChatGPT checkout. Google debuted the Universal Commerce Protocol (UCP) at NRF in January 2026 to cover the full commerce journey across its surfaces. And the Model Context Protocol (MCP), open-sourced by Anthropic in late 2024 and since adopted across the major AI vendors, is the general-purpose standard that lets an agent call live tools: check a calendar, quote a price, place an order.',
+      text: 'Three open protocols turned agentic commerce from demos into plumbing. The Agentic Commerce Protocol (ACP), launched by Stripe and OpenAI in September 2025 under an Apache 2.0 license, defines how an agent transacts with a merchant. It launched as the rail behind ChatGPT Instant Checkout, which OpenAI [retired in March 2026](/learn/chatgpt-instant-checkout-retired), and now lives through adopters including PayPal and Stripe. Google debuted the Universal Commerce Protocol (UCP) at NRF in January 2026 to cover the full commerce journey across its surfaces. And the Model Context Protocol (MCP), open-sourced by Anthropic in late 2024 and since adopted across the major AI vendors, is the general-purpose standard that lets an agent call live tools: check a calendar, quote a price, place an order.',
     },
     {
       type: 'p',
-      text: 'The practical takeaway is that these are complements, not competitors. Feeds and ACP/UCP enrollment make you transactable on the big shopping surfaces; an MCP server makes you callable by everything else. The [ACP enrollment guide](/learn/acp-enrollment-guide) walks the ChatGPT side step by step, and the [MCP server explainer](/learn/what-is-an-mcp-server) covers what a merchant tool server actually exposes.',
+      text: 'The practical takeaway is that these are complements, not competitors. Feeds make you discoverable across the big shopping surfaces, UCP is where agent-completed checkout actually runs today, and an MCP server makes you callable by everything else. The [ACP guide](/learn/acp-enrollment-guide) covers what that protocol is worth now, and the [MCP server explainer](/learn/what-is-an-mcp-server) covers what a merchant tool server actually exposes.',
     },
     { type: 'h2', text: 'Who feels it first' },
     {
@@ -107,7 +107,7 @@ export const whatIsAgenticCommerce: LearnArticle = {
       items: [
         'Be fetchable. Server-render your content, keep prices and hours out of JavaScript-only rendering, and confirm robots.txt is not blocking GPTBot, ClaudeBot, or Google-Extended unless you mean to.',
         'Be legible. Publish JSON-LD structured data for your business, products, services, offers, and reviews. This is the cheapest hour on the list and the one with the best-documented consumers.',
-        'Be listed. Publish a product or offer feed and enroll in the shopping surfaces that fit your category (ACP for ChatGPT, UCP on the Google side). Feeds are the enrollment ticket; without one you are not in the catalog.',
+        'Be listed. Publish a product or offer feed and get into the shopping surfaces that fit your category. Feed data drives product discovery on ChatGPT, and UCP on the Google side is where agent-completed checkout runs today. Without a feed you are not in the catalog.',
         'Be callable. Expose actions, not just facts: an OpenAPI spec, agent.json, or an MCP server that lets an agent check availability, get a live quote, and complete a booking or purchase.',
         'Be measurable. Segment AI-referred traffic and agent transactions separately in analytics. You cannot manage a channel you cannot see, and this one is growing under most dashboards\u2019 radar.',
       ],
@@ -157,7 +157,7 @@ export const whatIsAgenticCommerce: LearnArticle = {
     {
       question: 'How do I make my store visible to AI shopping agents?',
       answer:
-        'In order: make your pages fetchable without JavaScript, add JSON-LD structured data for products, services, and offers, publish a structured feed and enroll in the agentic shopping programs relevant to your category, and expose callable actions through an OpenAPI spec or MCP server. A [free agent-legibility scan](/scan) shows which of those layers your site is missing right now.',
+        'In order: make your pages fetchable without JavaScript, add JSON-LD structured data for products, services, and offers, publish a structured feed and get into the agentic shopping surfaces relevant to your category, and expose callable actions through an OpenAPI spec or MCP server. A [free agent-legibility scan](/scan) shows which of those layers your site is missing right now.',
     },
     {
       question: 'Does agentic commerce replace SEO?',
