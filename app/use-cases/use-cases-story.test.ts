@@ -36,7 +36,7 @@ describe('use case commerce story', () => {
       expect(copy).not.toContain(term)
     }
 
-    expect(copy).toContain('you stay in control')
+    expect(copy).toContain('you keep control')
     expect(copy).toContain('rules')
     expect(copy).toContain('stop before payment')
     expect(copy).toContain('repeat services')
@@ -50,7 +50,7 @@ describe('use case commerce story', () => {
     expect(local?.merchantControls.map((item) => item.title).join(' ')).toMatch(/acceptance rules/i)
   })
 
-  it('does not promise a multi-provider order that Nexez does not support yet', () => {
+  it('does not promise a several-provider order that Nexez does not support yet', () => {
     const marketplace = getUseCaseCommerceStory('marketplaces')
     expect(marketplace?.outcome).toMatch(/one order involving several providers/i)
     expect(marketplace?.faq.map((item) => item.copy).join(' ')).toMatch(/not today/i)
