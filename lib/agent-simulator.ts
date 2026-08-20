@@ -5,9 +5,9 @@ import {
   type AgentPage,
 } from './agent-page'
 import { buildAgentOfferConfiguration } from './agent-offer-configuration'
-import * as legacy from './agent-simulator-legacy'
+import * as core from './agent-simulator-core'
 
-export * from './agent-simulator-legacy'
+export * from './agent-simulator-core'
 
 /**
  * The simulator historically owned a lightweight presentation schema that was
@@ -82,7 +82,7 @@ export function buildPublicDemoSchema(
   query: string,
   baseUrl = getBaseUrl(),
 ) {
-  return enrichSimulatorSchema(page, legacy.buildPublicDemoSchema(page, query, baseUrl), baseUrl)
+  return enrichSimulatorSchema(page, core.buildPublicDemoSchema(page, query, baseUrl), baseUrl)
 }
 
 export function buildParsedSchema(
@@ -91,15 +91,15 @@ export function buildParsedSchema(
   agent: string,
   baseUrl = getBaseUrl(),
 ) {
-  return enrichSimulatorSchema(page, legacy.buildParsedSchema(page, query, agent, baseUrl), baseUrl)
+  return enrichSimulatorSchema(page, core.buildParsedSchema(page, query, agent, baseUrl), baseUrl)
 }
 
 export function runMultiAgentSimulation(
   page: AgentPage,
-  query: string = legacy.buildDefaultAgentQuery(page),
+  query: string = core.buildDefaultAgentQuery(page),
   baseUrl = getBaseUrl(),
 ) {
-  const simulation = legacy.runMultiAgentSimulation(page, query, baseUrl)
+  const simulation = core.runMultiAgentSimulation(page, query, baseUrl)
   return {
     ...simulation,
     results: simulation.results.map((result) => ({
