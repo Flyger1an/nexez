@@ -50,8 +50,8 @@ export type PersistCheckoutConfigurationHandoffInput = {
 }
 
 export type PersistCheckoutConfigurationHandoffResult =
-  | { ok: true; fingerprint: string; pricingFingerprint: string | null; fulfillmentFingerprint: string | null }
-  | { ok: false; fingerprint: string; pricingFingerprint: string | null; fulfillmentFingerprint: string | null; error: string }
+  | { ok: true; fingerprint: string; pricingFingerprint: string | null; fulfillmentFingerprint?: string }
+  | { ok: false; fingerprint: string; pricingFingerprint: string | null; fulfillmentFingerprint?: string; error: string }
 
 /**
  * Store the exact checkout-time buyer configuration, deterministic price, and
@@ -71,6 +71,7 @@ export async function persistCheckoutConfigurationHandoff(
   const fulfillmentFingerprint = input.fulfillment
     ? offerFulfillmentFingerprint(input.fulfillment)
     : null
+  const fulfillmentResult = fulfillmentFingerprint ? { fulfillmentFingerprint } : {}
   const now = input.now ?? new Date()
   const expiresAt = new Date(now.getTime() + HANDOFF_TTL_MS)
   const { error } = await db.from('checkout_configuration_handoffs').upsert(
@@ -98,6 +99,6 @@ export async function persistCheckoutConfigurationHandoff(
     { onConflict: 'stripe_session_id' },
   )
 
-  if (error) return { ok: false, fingerprint, pricingFingerprint, fulfillmentFingerprint, error: error.message }
-  return { ok: true, fingerprint, pricingFingerprint, fulfillmentFingerprint }
+  if (error) return { ok: false, fingerprint, pricingFingerprint, ...fulfillmentResult, error: error.message }
+  return { ok: true, fingerprint, pricingFingerprint, ...fulfillmentResult }
 }
