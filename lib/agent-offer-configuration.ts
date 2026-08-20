@@ -193,9 +193,14 @@ function configuredCheckoutPricingResponseSchema(): JsonSchema {
 function conditionalFulfillmentResponseSchema(): JsonSchema {
   return {
     type: 'object',
-    description: 'Deterministic checkout-time evaluation of merchant-authored conditional fulfillment rules.',
+    description: 'Deterministic checkout-time evaluation of the exact merchant-authored conditional fulfillment policy used for this buyer configuration.',
     properties: {
       schemaVersion: { type: 'integer', enum: [1] },
+      policyRules: {
+        type: 'array',
+        description: 'Exact normalized merchant rule set evaluated at checkout time.',
+        items: { type: 'object' },
+      },
       decision: { type: 'string', enum: ['eligible', 'requires-review', 'ineligible'] },
       matchedRuleIds: { type: 'array', items: { type: 'string' } },
       reasons: {
@@ -214,7 +219,7 @@ function conditionalFulfillmentResponseSchema(): JsonSchema {
         },
       },
     },
-    required: ['schemaVersion', 'decision', 'matchedRuleIds', 'reasons'],
+    required: ['schemaVersion', 'policyRules', 'decision', 'matchedRuleIds', 'reasons'],
   }
 }
 
