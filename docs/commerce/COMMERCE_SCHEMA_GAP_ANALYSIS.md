@@ -1,6 +1,6 @@
 # Nexez Commerce Schema Gap Analysis
 
-**Status:** Architecture analysis v1 — no runtime/schema mutation in this PR  
+**Status:** Architecture analysis v2 — refreshed after recurring-service implementation; no runtime/schema mutation in this PR  
 **Machine-readable source:** `lib/commerce-templates/curation/gap-analysis.ts`  
 **Curation evidence:** `lib/commerce-templates/curation/`
 
@@ -28,19 +28,19 @@ The machine-readable analysis derives candidate counts and candidate IDs from th
 
 A `CommerceTemplate` capability is **knowledge about the commercial pattern**, not proof that every associated behavior already exists in the transaction engine.
 
-For example, Recurring Home Cleaning is a legitimate active CommerceTemplate and its benchmark transaction truthfully proves that a buyer can configure `cadence` plus add-ons. The benchmark does **not** create a recurring merchant service agreement or recurring settlement lifecycle: the fixture normalizes cadence and calculates one approved configured price. That is consistent with the benchmark's declared scope, but it means `RECURRING` is not yet an end-to-end service-commerce primitive.
+That distinction is now useful in both directions. Before the recurring-service implementation, `RECURRING` and `SUBSCRIPTION` were semantic/template knowledge ahead of the transaction engine. They are no longer merely labels: merchants can author recurring terms, agents can read them, buyer configuration resolves exact cadence and price, approval binds an agreement snapshot, Stripe Connect creates the subscription, paid invoices create ordinary order occurrences with service-period provenance, and buyers can cancel at period end.
 
-The same rule applies to declarative template vocabulary such as `DEPOSIT`, `MILESTONE`, `INVENTORY`, `MULTI_PROVIDER`, or payment modes. A word in the template schema is not implementation evidence.
+So recurrence has moved from **broadly missing** to **first-class** because the runtime behavior now exists. The same promotion must not happen for `DEPOSIT`, `MILESTONE`, `INVENTORY`, `MULTI_PROVIDER`, or any other concept until the relevant transaction behavior is equally real.
 
 ## Executive result
 
-The current analysis deliberately produces a small first-class set, a large middle of partial support, a bounded missing-primitive queue, and a defer bucket:
+The current analysis now contains four first-class signals, a large middle of partial support, five remaining missing primitives, and a defer bucket:
 
 | Disposition | Signals |
 |---|---|
-| first-class | customer requirements; structured modifiers; quantity pricing |
+| first-class | customer requirements; recurrence terms; structured modifiers; quantity pricing |
 | weakly structured | capacity constraints; document requirements; regulated qualification; contract terms; inspection-first; minimum charge; distance/travel fee; multi-unit booking; usage rights; qualification fit |
-| broadly missing | recurrence terms; conditional fulfillment; milestones; inventory/resource reservation; multi-provider orchestration; deposit schedule |
+| broadly missing | conditional fulfillment; milestones; inventory/resource reservation; multi-provider orchestration; deposit schedule |
 | not justified | usage pricing; route optimization |
 
 ## First-class: keep the existing rails
@@ -50,6 +50,21 @@ The current analysis deliberately produces a small first-class set, a large midd
 `OfferInputField` is already the right abstraction. Merchants author typed public input schemas; the buyer supplies transaction data; validation rejects unknown/missing/invalid values; multi-select values are canonicalized; dates, quantities, locations, and asset references are bounded; checkout preserves the normalized snapshot.
 
 **Decision:** do not build a second “requirements” schema.
+
+### Recurrence terms
+
+Recurring service now has a real merchant-authored transaction contract:
+
+- fixed cadence or buyer-selected cadence mapped from a merchant-declared required single-select input;
+- deterministic per-period configuration and pricing;
+- approval-bound agreement fingerprint;
+- dedicated recurring checkout and Stripe Connect subscription creation;
+- service starts only after the first successful subscription payment;
+- paid invoices create ordinary `checkout_orders` occurrences with agreement, invoice, PaymentIntent, charge, and service-period lineage;
+- period-end cancellation and reversal of pending cancellation;
+- no fake pause semantics.
+
+**Decision:** `lib/recurring-service.ts` plus the service-agreement checkout/webhook/ledger is the canonical merchant recurrence rail. Extend it rather than inventing a parallel subscription abstraction.
 
 ### Structured modifiers
 
@@ -127,17 +142,13 @@ Buyer eligibility-affecting inputs and merchant attributes can describe each sid
 
 ## Broadly missing: genuine design work
 
-### Recurrence terms
-
-This is the clearest semantic/runtime gap. `RECURRING`, `SUBSCRIPTION`, and recurring scheduling/payment modes exist in template vocabulary, but service offers do not own a typed recurring agreement with cadence, start/end behavior, pause/cancel terms, renewal, or repeated fulfillment/payment binding.
-
-**Design direction:** merchant-authored recurring-service contract spanning configuration, approval, money, and fulfillment.
-
 ### Conditional fulfillment
 
-`OfferInputField.affects` can say an answer matters to eligibility/scope/availability, but no executable merchant rule can say “if X, block,” “if X, require Y,” or “if X, branch into quote flow.”
+`OfferInputField.affects` can say an answer matters to eligibility/scope/availability, but it does not assign executable merchant meaning to the validated answer. Narrow booking constraints can block some runtime states, yet Nexez cannot express a general merchant policy such as “unsupported vehicle class → ineligible” or “property above standard scope → merchant review” as an approval-bound transaction decision.
 
-**Design direction:** small deterministic fail-closed conditions. No arbitrary JavaScript, formulas, or model-generated business rules.
+The dedicated autopsy in `docs/commerce/CONDITIONAL_FULFILLMENT_AUTOPSY.md` decomposes all 16 curated signals and deliberately separates buyer-policy pressure from evidence, live-state/resource pressure, and dependent transaction workflows.
+
+**Design direction:** implement a small fail-closed predicate layer over canonical **required buyer inputs** with exactly three outcomes: `eligible`, `requires-review`, `ineligible`. Keep arbitrary expressions, conditional pricing, dynamic forms, inventory, verified credentials, inspection lineage, and multi-provider workflow state outside v1.
 
 ### Milestones
 
@@ -181,13 +192,13 @@ Delivery and service areas matter; route planning/optimization is currently a ca
 
 This is a design queue, not an instruction to implement every missing concept before template expansion.
 
-### Track A — recurring-service contract
+### Track A — recurring-service contract — **implemented**
 
-Highest-value standalone primitive. It would close the mismatch between recurring template semantics and one-shot runtime transactions and unlock a large family of household, personal, education, pet, and commercial services.
+The merchant-authored recurring-service contract now spans configuration, approval, Stripe subscription settlement, paid-period provenance, and buyer cancellation controls. Continue hardening the existing rail rather than reopening the architecture problem.
 
-### Track B — conditional fulfillment
+### Track B — conditional fulfillment — **next**
 
-Smallest high-leverage rule primitive. It would make eligibility/scope/availability declarations executable without turning the pricing/configuration layer into a general programming language.
+The autopsy now defines the bounded v1: merchant-authored predicates over canonical required buyer inputs, evaluated before pricing/approval/settlement, with deterministic eligible/review/ineligible outcomes.
 
 ### Track C — staged settlement
 
@@ -200,6 +211,12 @@ Treat **inventory reservation + generalized capacity** as one design family. Kee
 ### Track E — multi-provider orchestration
 
 Defer unless template selection forces the issue. It changes the transaction topology and should not be smuggled into a “schema cleanup” PR.
+
+## Simulator implication
+
+Every primitive that becomes transaction-real should become observable through the public simulator by reusing the same production intelligence/evaluation path. The simulator must not create a second demo-only interpretation of merchant policy.
+
+Conditional fulfillment is a particularly strong proof surface: the simulator should eventually be able to show why a buyer is eligible, why more information is required, or why autonomous checkout is blocked using exactly the same merchant-authored rules that protect real settlement.
 
 ## Promotion implications
 
@@ -223,4 +240,4 @@ This PR must not:
 - treat seller claims or template knowledge as merchant truth;
 - claim a concept is first-class because a template enum contains its name.
 
-The next implementation PR should choose one bounded design track from this evidence and prove it end-to-end before expanding the active template registry.
+The next implementation PR should implement the bounded conditional-fulfillment contract from the dedicated autopsy and prove it end-to-end before the active template registry expands.
