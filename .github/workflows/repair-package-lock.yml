@@ -1,0 +1,36 @@
+name: Repair npm lockfile
+
+on:
+  push:
+    branches:
+      - agent/fix-vercel-analytics-npm-lock
+    paths:
+      - .github/workflows/repair-package-lock.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/fix-vercel-analytics-npm-lock
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          check-latest: true
+      - name: Regenerate npm lockfile
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Commit lockfile repair
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo "package-lock.json already in sync"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "fix npm lockfile for Vercel Analytics"
+          git push origin HEAD:agent/fix-vercel-analytics-npm-lock
