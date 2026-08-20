@@ -9,7 +9,7 @@ export const getRecommendedByChatgpt: LearnArticle = {
   dek: 'When someone asks ChatGPT for the best option in your category, it names a handful of businesses and explains why. Getting into that handful is not luck and cannot be bought. Here are the two systems behind ChatGPT recommendations and the concrete work that influences each one.',
   category: 'Guides',
   publishedAt: '2026-08-10',
-  updatedAt: '2026-08-10',
+  updatedAt: '2026-08-17',
   readMinutes: 10,
   blocks: [
     {
@@ -58,7 +58,7 @@ export const getRecommendedByChatgpt: LearnArticle = {
     { type: 'h2', text: 'Channel two: ChatGPT Shopping' },
     {
       type: 'p',
-      text: 'If you sell products, the shopping surface is a parallel track with its own enrollment. The Merchant Program (chatgpt.com/merchants) accepts direct product feeds with titles, descriptions, prices, availability, variants, shipping, and returns data, with no listing fee, and feeds power both the carousels and Instant Checkout via the Agentic Commerce Protocol. The [ACP enrollment guide](/learn/acp-enrollment-guide) walks the setup end to end, and [selling on ChatGPT without Shopify](/learn/sell-on-chatgpt-without-shopify) covers the independent-merchant path.',
+      text: 'If you sell products, the shopping surface is a parallel track with its own enrollment. The Merchant Program (chatgpt.com/merchants) accepts direct product feeds with titles, descriptions, prices, availability, variants, shipping, and returns data, with no listing fee, and feed data powers the product carousels. Note that in-chat checkout is gone: OpenAI [retired Instant Checkout in March 2026](/learn/chatgpt-instant-checkout-retired), so buyers now complete the purchase on your own site. The [ACP guide](/learn/acp-enrollment-guide) covers what the protocol is worth today, and [selling on ChatGPT without Shopify](/learn/sell-on-chatgpt-without-shopify) covers the independent-merchant path.',
     },
     {
       type: 'p',
@@ -83,7 +83,7 @@ export const getRecommendedByChatgpt: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'One more thing worth internalizing: being recommended is the top of the new funnel, not the whole funnel. As ChatGPT moves from recommending to transacting, the businesses that also expose live availability and bookable actions convert the recommendation on the spot instead of hoping the user clicks through. That transactable layer, feeds plus callable endpoints like an [MCP server](/learn/what-is-an-mcp-server), is what turns AI visibility into AI revenue.',
+      text: 'One more thing worth internalizing: being recommended is the top of the new funnel, not the whole funnel. Since ChatGPT recommends rather than transacts, the businesses that also expose live availability and bookable actions convert that recommendation on their own site instead of hoping the visitor works out the next step alone. That layer, feeds plus callable endpoints like an [MCP server](/learn/what-is-an-mcp-server), is what turns AI visibility into AI revenue.',
     },
     {
       type: 'cta',
