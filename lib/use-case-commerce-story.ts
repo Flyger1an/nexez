@@ -34,14 +34,15 @@ export const useCaseCommerceStories: UseCaseCommerceStory[] = [
     faq: [
       { title: 'What if my work is custom?', copy: 'Start with a clear first step such as a strategy session or paid audit. Bigger custom work can follow from there.' },
       { title: 'Do I have to publish every price?', copy: 'No. Use fixed prices where they make sense and route custom work to a quote or review when it does not.' },
-      { title: 'Can I sell ongoing advisory work?', copy: 'Yes. You can define repeat services with the cadence and per-period price you want buyers to agree to.' },
+      { title: 'Can I sell ongoing advisory work?', copy: 'Yes. You can define repeat services with the schedule and price you want buyers to agree to.' },
     ],
   },
   {
     slug: 'agencies',
+    label: undefined as never,
     headline: 'Turn agency services into clear ways to start and buy.',
     description:
-      'Give buyers concrete entry points into your agency while preserving your package rules, required project details, recurring work, and human review where it matters.',
+      'Give buyers concrete entry points into your agency while preserving your package rules, required project details, repeat work, and human review where it matters.',
     buyerRequest: 'We are launching in six weeks. Compare a launch sprint with ongoing support and tell me what I need to provide to get started.',
     problem:
       'Agency sites can explain everything the team is capable of while still leaving a buyer unsure how to begin. Nexez makes the starting points clear and keeps the buying process tied to the rules your agency actually uses.',
@@ -52,14 +53,14 @@ export const useCaseCommerceStories: UseCaseCommerceStory[] = [
     ],
     nexezHandles: [
       { title: 'Match the request to an offer', copy: 'Nexez uses the buyer’s own answers to shape the purchase instead of guessing what they need.' },
-      { title: 'Calculate selected options', copy: 'Packages, quantities, and add-ons can resolve into a clear transaction price.' },
-      { title: 'Support repeat work', copy: 'Ongoing services can use merchant-defined recurring terms rather than being treated like one-time purchases.' },
+      { title: 'Calculate selected options', copy: 'Packages, quantities, and add-ons can resolve into a clear price.' },
+      { title: 'Support repeat work', copy: 'Ongoing services can use the repeat schedule and price you set instead of being treated like one-time purchases.' },
     ],
     outcome:
       'Smaller, well-defined work can move quickly. Bigger or unusual projects can arrive with the buyer context your team needs before continuing.',
     faq: [
       { title: 'We mostly sell custom projects. Does this still fit?', copy: 'Yes. Use Nexez for the parts that are repeatable and route unusual work to a proposal or review.' },
-      { title: 'Can retainers be recurring?', copy: 'Yes. Repeat services can carry the cadence and per-period amount the buyer approves.' },
+      { title: 'Can retainers repeat automatically?', copy: 'Yes. Repeat services can carry the schedule and amount the buyer approves.' },
       { title: 'Will AI decide what our agency agrees to?', copy: 'No. Your published offers, required buyer details, prices, and rules remain the source of truth.' },
     ],
   },
@@ -70,15 +71,15 @@ export const useCaseCommerceStories: UseCaseCommerceStory[] = [
       'Let buyers choose the right session or program, answer the questions you need, and start one-time or repeat coaching on terms you control.',
     buyerRequest: 'Find me a career coach for product leaders. I want video sessions every other week and I need to stay under my monthly budget.',
     problem:
-      'The relationship may be personal, but the buying questions are practical: specialty, format, cadence, price, and fit. Nexez handles those details before the first conversation so the human part can stay human.',
+      'The relationship may be personal, but the buying questions are practical: specialty, format, schedule, price, and fit. Nexez handles those details before the first conversation so the human part can stay human.',
     merchantControls: [
       { title: 'Programs and sessions', copy: 'Choose the intro calls, packages, and ongoing coaching options you want to offer.' },
-      { title: 'Format and pricing', copy: 'Set session length, meeting format, price, buyer choices, and recurring cadence where appropriate.' },
+      { title: 'Format and pricing', copy: 'Set session length, meeting format, price, buyer choices, and repeat schedule where appropriate.' },
       { title: 'Fit questions', copy: 'Ask what you need to know before a buyer books and set rules for requests outside your normal fit.' },
     ],
     nexezHandles: [
       { title: 'Guide the buyer to the right option', copy: 'Nexez collects the buyer’s goals and choices before they move forward.' },
-      { title: 'Keep repeat services clear', copy: 'The buyer sees and approves the cadence and amount for ongoing coaching.' },
+      { title: 'Keep repeat services clear', copy: 'The buyer sees and approves the schedule and amount for ongoing coaching.' },
       { title: 'Stop bad-fit purchases', copy: 'If a request falls outside the rules you set, Nexez can stop or send it for review instead of guessing.' },
     ],
     outcome:
@@ -93,10 +94,10 @@ export const useCaseCommerceStories: UseCaseCommerceStory[] = [
     slug: 'local-services',
     headline: 'Help buyers book local services without giving up your rules.',
     description:
-      'From cleaning and detailing to repairs and home services, Nexez can collect job details, price configured work, check merchant rules, and move the right requests forward.',
+      'From cleaning and detailing to repairs and home services, Nexez can collect job details, work out the price from buyer choices, check your rules, and move the right requests forward.',
     buyerRequest: 'I need a move-out cleaning next Wednesday for a two-bedroom, two-bath apartment. There is one dog and I want inside-the-oven cleaning too.',
     problem:
-      'Local service requests are full of details that change the job: size, timing, location, add-ons, condition, and repeat frequency. Nexez gives those details structure so an AI assistant does not have to turn a vague request into a guessed booking.',
+      'Local service requests are full of details that change the job: size, timing, location, add-ons, condition, and repeat frequency. Nexez keeps those details clear so an AI assistant does not have to turn a vague request into a guessed booking.',
     merchantControls: [
       { title: 'Jobs you take', copy: 'Define your services, prices, options, service information, and the buyer details required for each one.' },
       { title: 'What changes the job', copy: 'Use buyer choices, quantities, and add-ons to shape the service and price.' },
@@ -104,14 +105,14 @@ export const useCaseCommerceStories: UseCaseCommerceStory[] = [
     ],
     nexezHandles: [
       { title: 'Ask the right questions', copy: 'Nexez gathers the details your business requires before checkout or handoff.' },
-      { title: 'Calculate the selected service', copy: 'Configured options and quantities can produce the price the buyer is actually approving.' },
-      { title: 'Support repeat service', copy: 'Eligible services can be sold on the recurring schedule and per-period price you define.' },
+      { title: 'Calculate the selected service', copy: 'The options and quantities a buyer chooses can produce the price they are actually approving.' },
+      { title: 'Support repeat service', copy: 'Eligible services can be sold on the repeat schedule and price you define.' },
     ],
     outcome:
       'Straightforward jobs can move toward booking or payment with the right details attached. Requests outside your rules stop or come to you first.',
     faq: [
       { title: 'What if every job is a little different?', copy: 'That is exactly why buyer questions matter. Collect the details that affect the service, then price or route the request based on your setup.' },
-      { title: 'Can I sell recurring service?', copy: 'Yes. Repeat services can use a fixed cadence or buyer-selected cadence that you define in advance.' },
+      { title: 'Can I sell recurring service?', copy: 'Yes. Repeat services can use a fixed schedule or a buyer-selected schedule that you define in advance.' },
       { title: 'Will Nexez accept work I do not want?', copy: 'Your rules control that. Requests can proceed, require your review, or stop before payment.' },
     ],
   },
@@ -129,12 +130,12 @@ export const useCaseCommerceStories: UseCaseCommerceStory[] = [
       { title: 'Your sales boundary', copy: 'Keep larger or unusual purchases on a human-led path instead of forcing them through self-serve checkout.' },
     ],
     nexezHandles: [
-      { title: 'Collect evaluation details', copy: 'Nexez can gather team size, requested package, timing, and other required buyer inputs.' },
-      { title: 'Price defined services', copy: 'Clear quantities, options, and implementation add-ons can resolve to a deterministic amount.' },
+      { title: 'Collect evaluation details', copy: 'Nexez can gather team size, requested package, timing, and the other answers you need.' },
+      { title: 'Price defined services', copy: 'Clear quantities, options, and implementation add-ons can resolve to a clear amount.' },
       { title: 'Route the right next step', copy: 'Simple purchases can proceed while enterprise or exception cases can be sent to review.' },
     ],
     outcome:
-      'Buyers get a clearer evaluation path and your sales team gets fewer mystery requests. Nexez does not need to pretend usage-metered or custom contracts are simple when they are not.',
+      'Buyers get a clearer evaluation path and your sales team gets fewer mystery requests. Nexez does not need to pretend usage-based or custom contracts are simple when they are not.',
     faq: [
       { title: 'Does this replace our sales team?', copy: 'No. It can make straightforward buying paths easier while routing enterprise or unusual requests to sales.' },
       { title: 'What about complicated usage pricing?', copy: 'Keep it on the appropriate sales path. Nexez should only automate pricing that your offer defines clearly enough to calculate safely.' },
@@ -145,26 +146,26 @@ export const useCaseCommerceStories: UseCaseCommerceStory[] = [
     slug: 'marketplaces',
     headline: 'Make each provider easier for AI buyers to understand and choose.',
     description:
-      'Give individual providers clear offers, buyer questions, prices, rules, and next steps so an AI assistant can route a buyer without flattening every merchant into the same experience.',
+      'Give individual providers clear offers, buyer questions, prices, rules, and next steps so an AI assistant can route a buyer without flattening every business into the same experience.',
     buyerRequest: 'Find a provider on this marketplace who fits my request, show me the relevant service, and tell me the correct next step.',
     problem:
-      'A marketplace may have excellent providers but still leave an AI assistant staring at one large catalog. Nexez can make each provider and offer easier to understand while keeping provider truth and transaction paths separate.',
+      'A marketplace may have excellent providers but still leave an AI assistant staring at one large catalog. Nexez can make each provider and offer easier to understand while keeping each provider’s facts and buying path separate.',
     merchantControls: [
       { title: 'Each provider’s own offer', copy: 'Services, prices, buyer questions, and policies stay tied to the provider that actually owns them.' },
-      { title: 'Provider-specific rules', copy: 'Different merchants can define different requirements and acceptance rules instead of inheriting one generic marketplace policy.' },
-      { title: 'The handoff or checkout path', copy: 'Choose where each provider’s buyer should go next based on the commerce flow that is actually supported.' },
+      { title: 'Provider-specific rules', copy: 'Different businesses can define different requirements and acceptance rules instead of inheriting one generic marketplace policy.' },
+      { title: 'The handoff or checkout path', copy: 'Choose where each provider’s buyer should go next based on the buying path that is actually supported.' },
     ],
     nexezHandles: [
       { title: 'Make provider offers understandable', copy: 'Agents can compare clearer service and purchase information instead of guessing from marketplace page structure.' },
-      { title: 'Preserve merchant truth', copy: 'Provider details and rules remain attached to the provider rather than being invented from category assumptions.' },
-      { title: 'Route one provider transaction safely', copy: 'Nexez can support the selected provider’s own buying path without claiming to coordinate several providers inside one order.' },
+      { title: 'Keep each provider’s facts intact', copy: 'Provider details and rules stay attached to the provider rather than being invented from category assumptions.' },
+      { title: 'Route one provider purchase safely', copy: 'Nexez can support the selected provider’s own buying path without claiming to coordinate several providers inside one order.' },
     ],
     outcome:
-      'The marketplace becomes easier for agents to navigate while each provider keeps its own commercial identity. Multi-provider coordination stays outside the promise until Nexez has earned that primitive.',
+      'The marketplace becomes easier for agents to navigate while each provider keeps its own way of doing business. One order involving several providers stays outside the promise until Nexez can support it properly.',
     faq: [
       { title: 'Does this replace our marketplace?', copy: 'No. Nexez can make provider offers easier for AI buyers to understand and route while your marketplace remains the business relationship.' },
-      { title: 'Can providers have different rules?', copy: 'Yes. Merchant-authored offer details and acceptance rules stay provider-specific.' },
-      { title: 'Can one Nexez order coordinate several providers?', copy: 'Not today. Nexez currently keeps each provider transaction separate rather than pretending multi-provider orchestration exists.' },
+      { title: 'Can providers have different rules?', copy: 'Yes. Each provider’s offer details and acceptance rules stay specific to that provider.' },
+      { title: 'Can one Nexez order coordinate several providers?', copy: 'Not today. Nexez currently keeps each provider purchase separate rather than pretending one order can coordinate several providers.' },
     ],
   },
 ]
