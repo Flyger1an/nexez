@@ -95,6 +95,13 @@ describe('offer transaction configuration', () => {
         service_date: '2026-08-29',
         notes: 'Please avoid fragrance.',
       },
+      fulfillment: {
+        schemaVersion: 1,
+        policyRules: [],
+        decision: 'eligible',
+        matchedRuleIds: [],
+        reasons: [],
+      },
     })
   })
 
@@ -117,6 +124,7 @@ describe('offer transaction configuration', () => {
     if (!left.ok || !right.ok) return
     expect(left.value).toEqual(right.value)
     expect(left.value.add_ons).toEqual(['vacuum', 'wax'])
+    expect(left.fulfillment).toEqual(right.fulfillment)
   })
 
   it('rejects missing required values, unknown keys, and undeclared select options together', () => {
@@ -174,7 +182,18 @@ describe('offer transaction configuration', () => {
 
   it('keeps legacy unconfigured checkout valid when no buyer configuration is supplied', () => {
     const plain: OfferItem = { name: 'Consult', description: '', price: '$50', url: '' }
-    expect(validateOfferTransactionConfiguration(plain, undefined)).toEqual({ ok: true, schema: [], value: {} })
+    expect(validateOfferTransactionConfiguration(plain, undefined)).toEqual({
+      ok: true,
+      schema: [],
+      value: {},
+      fulfillment: {
+        schemaVersion: 1,
+        policyRules: [],
+        decision: 'eligible',
+        matchedRuleIds: [],
+        reasons: [],
+      },
+    })
   })
 
   it('parses only bounded normalized snapshots for settlement handoff', () => {
