@@ -68,8 +68,10 @@ import { whatIsAgentJson } from './learn-articles/what-is-agent-json'
 import { whatIsGoogleUcp } from './learn-articles/what-is-google-ucp'
 import { measureAiAgentTraffic } from './learn-articles/measure-ai-agent-traffic'
 import { aiSearchLocalBusinesses } from './learn-articles/ai-search-local-businesses'
+import { chatgptInstantCheckoutRetired } from './learn-articles/chatgpt-instant-checkout-retired'
 
 export const learnArticles: LearnArticle[] = [
+  chatgptInstantCheckoutRetired,
   aiSearchLocalBusinesses,
   measureAiAgentTraffic,
   whatIsGoogleUcp,
