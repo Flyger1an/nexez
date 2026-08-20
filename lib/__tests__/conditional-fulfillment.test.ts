@@ -133,13 +133,16 @@ describe('conditional fulfillment', () => {
     ], inputs)
     if (!validated.ok) throw new Error(validated.error)
 
-    expect(evaluateConditionalFulfillment(validated.value, {
+    const evaluation = evaluateConditionalFulfillment(validated.value, {
       property_type: 'house',
       pet_count: 4,
       medications: 'asset://instructions',
       extras: ['overnight', 'injections'],
-    })).toEqual({
+    })
+
+    expect(evaluation).toEqual({
       schemaVersion: 1,
+      policyRules: validated.value,
       decision: 'ineligible',
       matchedRuleIds: ['large-pack-review', 'injections-blocked'],
       reasons: [
@@ -155,7 +158,7 @@ describe('conditional fulfillment', () => {
     })
   })
 
-  it('defaults to eligible and returns deterministic JSON-safe output', () => {
+  it('defaults to eligible while preserving the exact evaluated policy in JSON-safe provenance', () => {
     const validated = validateOfferFulfillmentRules([
       {
         id: 'commercial-review',
@@ -172,7 +175,13 @@ describe('conditional fulfillment', () => {
     const result = evaluateConditionalFulfillment(validated.value, {
       property_type: 'house', pet_count: 1, medications: 'asset://instructions', extras: ['key_access'],
     })
-    expect(result).toEqual({ schemaVersion: 1, decision: 'eligible', matchedRuleIds: [], reasons: [] })
+    expect(result).toEqual({
+      schemaVersion: 1,
+      policyRules: validated.value,
+      decision: 'eligible',
+      matchedRuleIds: [],
+      reasons: [],
+    })
     expect(JSON.parse(JSON.stringify(result))).toEqual(result)
   })
 })
