@@ -60,6 +60,24 @@ const partialMatchResponse = {
   simulation: null,
 }
 
+const noMatchResponse = {
+  success: true,
+  mode: 'no_match',
+  noMatch: true,
+  intent: 'overview',
+  intentLabel: 'Service request',
+  naturalLanguage: 'I couldn’t find a live Nexez provider or a relevant Commerce Library reference for “Find a mobile notary.” I won’t substitute an unrelated service category.',
+  readiness: 0,
+  confidence: null,
+  offers: [],
+  agentActions: [
+    'Keep the request anchored to “Find a mobile notary”',
+    'Do not substitute a different service category',
+  ],
+  matchedBusiness: null,
+  simulation: null,
+}
+
 afterEach(() => vi.unstubAllGlobals())
 
 describe('SimulatorTeaser', () => {
@@ -109,5 +127,27 @@ describe('SimulatorTeaser', () => {
     expect(screen.getByText('Related offers to verify')).toBeInTheDocument()
     expect(screen.getByText('Related offer')).toBeInTheDocument()
     expect(screen.queryByText('Best match')).not.toBeInTheDocument()
+  })
+
+  it('renders an unknown service as no match without an unrelated simulation', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => noMatchResponse,
+    })))
+
+    render(<SimulatorTeaser />)
+    fireEvent.change(screen.getByPlaceholderText('Ask Nexez to find a service…'), {
+      target: { value: 'Find a mobile notary' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Simulate' }))
+
+    await waitFor(() => expect(screen.getByText('Service request')).toBeInTheDocument())
+    expect(screen.getByText('no match')).toBeInTheDocument()
+    expect(screen.getByText(/won’t substitute an unrelated service category/)).toBeInTheDocument()
+    expect(screen.getByText('Do not substitute a different service category')).toBeInTheDocument()
+    expect(screen.queryByText(/Mobile Auto Detailing|vehicle class/i)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'What agents parse' }))
+    expect(screen.getByText('No actionable live offer was found for this request.')).toBeInTheDocument()
   })
 })

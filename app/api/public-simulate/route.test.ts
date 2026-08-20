@@ -263,7 +263,28 @@ describe('POST /api/public-simulate', () => {
     expect(body.noMatch).toBe(true)
     expect(body.matchedBusiness).toBeNull()
     expect(body.simulation).toBeNull()
-    expect(body.naturalLanguage).toContain('will not invent a provider')
+    expect(body.naturalLanguage).toContain('won’t substitute an unrelated service category')
+  })
+
+  it('does not mistake mobile fulfillment for a mobile-notary service match', async () => {
+    dbRef.handler = (ctx: any) =>
+      ctx.table === 'pages_public'
+        ? { data: [consultingPage], error: null }
+        : { data: null, error: null }
+
+    const res = await POST(post({ query: 'Find a mobile notary' }))
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.mode).toBe('no_match')
+    expect(body.noMatch).toBe(true)
+    expect(body.intentLabel).toBe('Service request')
+    expect(body.matchedBusiness).toBeNull()
+    expect(body.simulation).toBeNull()
+    expect(body.naturalLanguage).toContain('Find a mobile notary')
+    expect(body.naturalLanguage).toContain('won’t substitute an unrelated service category')
+    expect(body.agentActions).toContain('Do not substitute a different service category')
+    expect(JSON.stringify(body)).not.toMatch(/Mobile Auto Detailing|vehicle class|automotive/i)
   })
 
   it('503 when live marketplace discovery is unavailable', async () => {

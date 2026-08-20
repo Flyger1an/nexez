@@ -7,6 +7,18 @@ const QUERY_STOPWORDS = new Set([
   'you', 'your',
 ])
 
+// These words describe fulfillment, audience, or the subject of a service;
+// none is specific enough to establish the service category by itself. They
+// may still help rank candidates after a service-identity term has matched.
+const NON_IDENTITY_TITLE_TERMS = new Set([
+  'ai', 'auto', 'automotive', 'bridal', 'business', 'car', 'college', 'commercial',
+  'corporate', 'dog', 'emergency', 'event', 'fleet', 'home', 'interior', 'language',
+  'lawn', 'managed', 'mobile', 'monthly', 'music', 'party', 'personal', 'pet',
+  'private', 'property', 'recurring', 'test', 'vehicle', 'video', 'web', 'wedding',
+])
+
+const MINIMUM_AMBIGUITY_MARGIN = 4
+
 function normalize(value: string): string {
   return value
     .toLowerCase()
@@ -19,6 +31,28 @@ function tokens(value: string): string[] {
   return normalize(value)
     .split(' ')
     .filter((token) => token.length > 1 && !QUERY_STOPWORDS.has(token))
+}
+
+/**
+ * Collapses a small set of common service-language variants without turning
+ * this deterministic matcher into a fuzzy or model-based classifier.
+ */
+function tokenFamily(token: string): string {
+  if (token.endsWith('ography') && token.length > 8) return token.slice(0, -1)
+  if (token.endsWith('ing') && token.length > 6) return token.slice(0, -3)
+  if (token.endsWith('ers') && token.length > 6) return token.slice(0, -3)
+  if (token.endsWith('er') && token.length > 5) return token.slice(0, -2)
+  if (token.endsWith('ed') && token.length > 5) return token.slice(0, -2)
+  if (token.endsWith('s') && !token.endsWith('ss') && token.length > 4) return token.slice(0, -1)
+  return token
+}
+
+function tokenFamilies(value: string): string[] {
+  return [...new Set(tokens(value).map(tokenFamily))]
+}
+
+function identityTitleTokens(value: string): Set<string> {
+  return new Set(tokenFamilies(value).filter((token) => !NON_IDENTITY_TITLE_TERMS.has(token)))
 }
 
 export type CommerceSimulationMatch = {
@@ -37,20 +71,24 @@ export function findCommerceSimulationMatch(
   candidates: CommerceCurationCandidate[],
 ): CommerceSimulationMatch | null {
   const queryText = normalize(query)
-  const queryTokens = [...new Set(tokens(query))]
+  const queryTokens = tokenFamilies(query)
   if (!queryTokens.length) return null
 
   const ranked = candidates
     .map((candidate) => {
       const titleText = normalize(candidate.title)
-      const titleTokens = new Set(tokens(candidate.title))
-      const teachesTokens = new Set(tokens(candidate.teaches))
-      const metadataTokens = new Set(tokens([
+      const titleTokens = new Set(tokenFamilies(candidate.title))
+      const identityTokens = identityTitleTokens(candidate.title)
+      const teachesTokens = new Set(tokenFamilies(candidate.teaches))
+      const metadataTokens = new Set(tokenFamilies([
         candidate.domain,
         candidate.primaryArchetype,
         ...candidate.capabilityTags,
         ...candidate.gapSignals,
       ].join(' ')))
+
+      const matchedIdentityTerms = queryTokens.filter((token) => identityTokens.has(token))
+      if (!matchedIdentityTerms.length) return null
 
       let score = titleText && queryText.includes(titleText) ? 16 : 0
       const matchedTerms: string[] = []
@@ -72,10 +110,33 @@ export function findCommerceSimulationMatch(
         candidate,
         score,
         matchedTerms: [...new Set(matchedTerms)],
+        exactTitleMatch: Boolean(titleText && queryText.includes(titleText)),
+        identityMatchCount: matchedIdentityTerms.length,
       }
     })
-    .filter((match) => match.score > 0)
-    .sort((a, b) => b.score - a.score || a.candidate.ordinal - b.candidate.ordinal)
+    .filter((match): match is NonNullable<typeof match> => Boolean(match && match.score > 0))
+    .sort((a, b) =>
+      b.score - a.score ||
+      b.identityMatchCount - a.identityMatchCount ||
+      a.candidate.ordinal - b.candidate.ordinal,
+    )
 
-  return ranked[0] ?? null
+  const strongest = ranked[0]
+  if (!strongest) return null
+
+  const runnerUp = ranked[1]
+  if (
+    !strongest.exactTitleMatch &&
+    runnerUp &&
+    strongest.identityMatchCount === runnerUp.identityMatchCount &&
+    strongest.score - runnerUp.score < MINIMUM_AMBIGUITY_MARGIN
+  ) {
+    return null
+  }
+
+  return {
+    candidate: strongest.candidate,
+    score: strongest.score,
+    matchedTerms: strongest.matchedTerms,
+  }
 }

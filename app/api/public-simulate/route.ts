@@ -64,6 +64,16 @@ function detectPublicIntent(query: string): SimIntent {
   return detected
 }
 
+function publicIntentLabel(intent: SimIntent, query: string): string {
+  if (
+    intent === 'overview' &&
+    /\b(?:find|hire|need|looking\s+for|searching\s+for)\b/i.test(query)
+  ) {
+    return 'Service request'
+  }
+  return INTENT_LABELS[intent]
+}
+
 function hasMeaningfulMarketplaceMatch(result: AgentSearchResult): boolean {
   return result.matched_query_terms.some((term) => !DISCOVERY_STOPWORDS.has(term.toLowerCase()))
 }
@@ -132,6 +142,18 @@ function partialMarketplaceActions(result: AgentSearchResult): string[] {
   if (result.offer) actions.push(`Compare “${result.offer.name}” with the buyer’s complete requirements`)
   actions.push('Confirm unsupported requirements with the merchant before presenting fit, price, availability, or booking')
   return actions
+}
+
+function noMatchAnswer(query: string): string {
+  return `I couldn’t find a live Nexez provider or a relevant Commerce Library reference for “${query}.” I won’t substitute an unrelated service category. Add a location or timing if it would narrow the search, or check back as new providers are published.`
+}
+
+function noMatchActions(query: string): string[] {
+  return [
+    `Keep the request anchored to “${query}”`,
+    'Do not substitute a different service category',
+    'Ask for location or timing before searching again when those details would narrow the request',
+  ]
 }
 
 function offersForBuyer(
@@ -400,7 +422,7 @@ export async function POST(request: Request) {
         noMatch: false,
         query: trimmedQuery,
         intent,
-        intentLabel: INTENT_LABELS[intent],
+        intentLabel: publicIntentLabel(intent, trimmedQuery),
         naturalLanguage: enhanced.naturalLanguage,
         readiness: interpretation.readiness,
         confidence: matchType === 'partial' ? null : interpretation.confidence,
@@ -442,7 +464,7 @@ export async function POST(request: Request) {
         noMatch: true,
         query: trimmedQuery,
         intent,
-        intentLabel: INTENT_LABELS[intent],
+        intentLabel: publicIntentLabel(intent, trimmedQuery),
         naturalLanguage: publicResponse.explanation,
         readiness: 0,
         confidence: null,
@@ -462,12 +484,12 @@ export async function POST(request: Request) {
       noMatch: true,
       query: trimmedQuery,
       intent,
-      intentLabel: INTENT_LABELS[intent],
-      naturalLanguage: 'I could not find a meaningful live Nexez marketplace match or a relevant Commerce Library reference scenario for this request. I will not invent a provider or transaction path.',
+      intentLabel: publicIntentLabel(intent, trimmedQuery),
+      naturalLanguage: noMatchAnswer(trimmedQuery),
       readiness: 0,
       confidence: null,
       offers: [],
-      agentActions: ['Return no match without fabricating marketplace supply'],
+      agentActions: noMatchActions(trimmedQuery),
       schema: null,
       recommendations: [],
       matchedBusiness: null,
