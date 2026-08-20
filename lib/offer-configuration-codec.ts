@@ -5,11 +5,16 @@ import {
   type OfferInputField,
 } from './offer-configuration'
 import { validateRecurringServiceTerms, type RecurringServiceTerms } from './recurring-service'
+import {
+  validateOfferFulfillmentRules,
+  type OfferFulfillmentRule,
+} from './conditional-fulfillment'
 
 /** Pipe-safe markers used by the legacy offer-line editor/import codec. */
 export const OFFER_INPUTS_MARKER = '[[INPUTS]]'
 export const OFFER_ATTRIBUTES_MARKER = '[[ATTRIBUTES]]'
 export const OFFER_RECURRING_MARKER = '[[RECURRING]]'
+export const OFFER_FULFILLMENT_MARKER = '[[FULFILLMENT]]'
 
 function encodeMarker(marker: string, value: unknown, sanitize: (value: unknown) => unknown[]): string | null {
   const normalized = sanitize(value)
@@ -60,6 +65,28 @@ export function parseOfferRecurringMarker(part: string | undefined): RecurringSe
     if (!encoded) return undefined
     const validated = validateRecurringServiceTerms(JSON.parse(decodeURIComponent(encoded)))
     return validated.ok ? validated.value : undefined
+  } catch {
+    return undefined
+  }
+}
+
+export function formatOfferFulfillmentMarker(value: unknown, inputs: OfferInputField[]): string | null {
+  const validated = validateOfferFulfillmentRules(value, inputs)
+  return validated.ok && validated.value.length
+    ? `${OFFER_FULFILLMENT_MARKER}${encodeURIComponent(JSON.stringify(validated.value))}`
+    : null
+}
+
+export function parseOfferFulfillmentMarker(
+  part: string | undefined,
+  inputs: OfferInputField[],
+): OfferFulfillmentRule[] | undefined {
+  if (!part?.includes(OFFER_FULFILLMENT_MARKER)) return undefined
+  try {
+    const encoded = part.slice(part.indexOf(OFFER_FULFILLMENT_MARKER) + OFFER_FULFILLMENT_MARKER.length).trim()
+    if (!encoded) return undefined
+    const validated = validateOfferFulfillmentRules(JSON.parse(decodeURIComponent(encoded)), inputs)
+    return validated.ok && validated.value.length ? validated.value : undefined
   } catch {
     return undefined
   }
