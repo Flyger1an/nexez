@@ -23,9 +23,9 @@ alter table public.checkout_configuration_handoffs
     check ((fulfillment_snapshot is null) = (fulfillment_fingerprint is null));
 
 comment on column public.checkout_configuration_handoffs.fulfillment_snapshot is
-  'Exact deterministic checkout-time evaluation of merchant-authored conditional fulfillment rules. Payable one-time checkout may persist only decision=eligible.';
+  'Exact deterministic checkout-time evaluation of merchant-authored conditional fulfillment rules, including the exact normalized policy evaluated. Payable one-time checkout may persist only decision=eligible.';
 comment on column public.checkout_configuration_handoffs.fulfillment_fingerprint is
-  'SHA-256 fingerprint of the deterministic checkout-time fulfillment evaluation.';
+  'SHA-256 fingerprint of the deterministic checkout-time fulfillment policy and evaluation.';
 
 create or replace function public.apply_checkout_configuration_handoff()
 returns trigger
@@ -89,6 +89,7 @@ begin
     if handoff.fulfillment_snapshot is not null then
       if jsonb_typeof(handoff.fulfillment_snapshot -> 'schemaVersion') <> 'number'
          or (handoff.fulfillment_snapshot ->> 'schemaVersion')::numeric <> 1
+         or jsonb_typeof(handoff.fulfillment_snapshot -> 'policyRules') <> 'array'
          or jsonb_typeof(handoff.fulfillment_snapshot -> 'decision') <> 'string'
          or jsonb_typeof(handoff.fulfillment_snapshot -> 'matchedRuleIds') <> 'array'
          or jsonb_typeof(handoff.fulfillment_snapshot -> 'reasons') <> 'array' then
