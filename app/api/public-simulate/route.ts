@@ -30,11 +30,20 @@ const INTENT_LABELS: Record<SimIntent, string> = {
   overview: 'General intent',
 }
 
+function detectPublicIntent(query: string): SimIntent {
+  const detected = detectIntent(query)
+  if (detected !== 'overview') return detected
+  if (/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|weekend|date|time|morning|afternoon|evening)\b/i.test(query)) {
+    return 'booking'
+  }
+  return detected
+}
+
 function hasMeaningfulMarketplaceMatch(result: AgentSearchResult): boolean {
   return result.matched_query_terms.some((term) => !DISCOVERY_STOPWORDS.has(term.toLowerCase()))
 }
 
-function marketplaceAnswer(result: AgentSearchResult, query: string, intent: SimIntent): string {
+function marketplaceAnswer(result: AgentSearchResult, intent: SimIntent): string {
   const offer = result.offer
   const price = offer?.price ? ` (${offer.price})` : ''
   const offerSentence = offer
@@ -148,7 +157,7 @@ export async function POST(request: Request) {
 
     const trimmedQuery = query.trim()
     const baseUrl = getRequestBaseUrl(request)
-    const intent = detectIntent(trimmedQuery)
+    const intent = detectPublicIntent(trimmedQuery)
     const { data: pages, error } = await supabase
       .from('pages_public')
       .select(PUBLIC_PAGE_SELECT)
@@ -174,7 +183,7 @@ export async function POST(request: Request) {
     if (matchedResult && matchedPage) {
       const interpretation = interpretPublicQuery(matchedPage, trimmedQuery)
       const schema = buildPublicDemoSchema(matchedPage, trimmedQuery, baseUrl)
-      const safeFallback = marketplaceAnswer(matchedResult, trimmedQuery, intent)
+      const safeFallback = marketplaceAnswer(matchedResult, intent)
       const enhanced = await enhanceMarketplaceAnswer(trimmedQuery, matchedResult, intent, safeFallback)
 
       return NextResponse.json({
@@ -182,8 +191,8 @@ export async function POST(request: Request) {
         mode: 'marketplace',
         noMatch: false,
         query: trimmedQuery,
-        intent: interpretation.intent,
-        intentLabel: interpretation.intentLabel,
+        intent,
+        intentLabel: INTENT_LABELS[intent],
         naturalLanguage: enhanced.naturalLanguage,
         readiness: interpretation.readiness,
         confidence: interpretation.confidence,
