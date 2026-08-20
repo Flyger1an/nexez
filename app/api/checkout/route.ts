@@ -12,6 +12,7 @@ import {
 } from '../../../lib/agent-page'
 import { toStripeDescription } from '../../../lib/checkout'
 import { parseBuyerIdentity, buyerMetadata } from '../../../lib/buyer-identity'
+import { getOfferFulfillmentRules } from '../../../lib/configured-offer'
 import { normalizeCurrency } from '../../../lib/currency'
 import { getBookingRuleError } from '../../../lib/offer-rules'
 import { countRecentBookings } from '../../../lib/server/booking-count'
@@ -30,9 +31,11 @@ import { validateOfferTransactionConfiguration } from '../../../lib/offer-transa
 import {
   hasOfferTransactionConfiguration,
   offerConfigurationPricingFingerprint,
+  offerFulfillmentFingerprint,
   offerTransactionConfigurationFingerprint,
   persistCheckoutConfigurationHandoff,
   STRIPE_OFFER_CONFIGURATION_HASH_KEY,
+  STRIPE_OFFER_FULFILLMENT_HASH_KEY,
   STRIPE_OFFER_PRICING_HASH_KEY,
 } from '../../../lib/server/checkout-configuration-handoff'
 import {
@@ -52,8 +55,6 @@ type CheckoutInput = {
   dryRun?: boolean
   /** Buyer transaction data validated against the merchant-authored offer schema. */
   offerConfiguration?: unknown
-  // Optional buyer identity an agent (or the on-page form) can declare so the seller
-  // knows who is buying and the buyer gets a receipt + order-portal access.
   buyerEmail?: string
   buyerName?: string
   buyerReference?: string
@@ -62,9 +63,6 @@ type CheckoutInput = {
 }
 
 async function getPublishedPage(slug: string) {
-  // Checkout enforces owner-private offer `rules` (booking blackouts / max bookings),
-  // so read the base table with the service-role client - anon can't read it anymore
-  // and the public view strips `rules`. Anon fallback only when no admin env (tests).
   const db = hasSupabaseAdminEnv() ? createAdminClient() : supabase
   const { data } = await db
     .from('pages')
@@ -95,16 +93,10 @@ export async function POST(request: Request) {
   }
 
   const page = await getPublishedPage(input.slug)
-
-  if (!page) {
-    return NextResponse.json({ error: 'Checkout page not found.' }, { status: 404 })
-  }
+  if (!page) return NextResponse.json({ error: 'Checkout page not found.' }, { status: 404 })
 
   const offer = getCheckoutOffer(page, input.offer)
-
-  if (!offer) {
-    return NextResponse.json({ error: 'Checkout offer not found.' }, { status: 404 })
-  }
+  if (!offer) return NextResponse.json({ error: 'Checkout offer not found.' }, { status: 404 })
 
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
   const configuration = validateOfferTransactionConfiguration(offer, input.offerConfiguration)
@@ -118,7 +110,24 @@ export async function POST(request: Request) {
       { status: 422 },
     )
   }
+
   const normalizedConfiguration = configuration.value
+  const fulfillment = configuration.fulfillment
+  const hasFulfillmentPolicy = getOfferFulfillmentRules(offer).length > 0
+  const fulfillmentFingerprint = hasFulfillmentPolicy ? offerFulfillmentFingerprint(fulfillment) : null
+
+  if (fulfillment.decision !== 'eligible') {
+    return NextResponse.json(
+      {
+        error: fulfillment.reasons[0]?.message ?? 'This buyer configuration is not eligible for automatic checkout.',
+        code: fulfillment.decision === 'requires-review' ? 'fulfillment_review_required' : 'fulfillment_ineligible',
+        offerFulfillment: fulfillment,
+        ...(fulfillmentFingerprint ? { offerFulfillmentFingerprint: fulfillmentFingerprint } : {}),
+      },
+      { status: 409 },
+    )
+  }
+
   const hasConfiguration = hasOfferTransactionConfiguration(normalizedConfiguration)
   const configurationFingerprint = hasConfiguration
     ? offerTransactionConfigurationFingerprint(normalizedConfiguration)
@@ -146,22 +155,30 @@ export async function POST(request: Request) {
     ? offerConfigurationPricingFingerprint(pricingSnapshot)
     : null
 
-  // Keep legacy unconfigured action payloads byte-equivalent for approval hashing.
-  // A configured action binds normalized buyer values. A deterministically priced
-  // action additionally binds the exact server-computed quote so merchant edits to
-  // the base price or pricing rules invalidate an older buyer approval.
+  // Keep legacy unconfigured actions unchanged, but bind deterministic price and
+  // fulfillment provenance whenever those merchant-authored contracts exist.
   if (hasConfiguration) input.offerConfiguration = normalizedConfiguration
   else delete input.offerConfiguration
-  const approvalPayload: Record<string, unknown> = pricingSnapshot
-    ? {
-        ...input,
-        offerPricingApproval: {
-          fingerprint: pricingFingerprint,
-          finalAmount: pricingSnapshot.finalAmount,
-          currency: pricingSnapshot.currency,
-        },
-      }
-    : input as Record<string, unknown>
+  const approvalPayload: Record<string, unknown> = {
+    ...input,
+    ...(pricingSnapshot
+      ? {
+          offerPricingApproval: {
+            fingerprint: pricingFingerprint,
+            finalAmount: pricingSnapshot.finalAmount,
+            currency: pricingSnapshot.currency,
+          },
+        }
+      : {}),
+    ...(hasFulfillmentPolicy
+      ? {
+          offerFulfillmentApproval: {
+            fingerprint: fulfillmentFingerprint,
+            decision: fulfillment.decision,
+          },
+        }
+      : {}),
+  }
 
   if (!input.dryRun) {
     const approvalSecret = actionApprovalSecret()
@@ -178,11 +195,7 @@ export async function POST(request: Request) {
       )
     }
     if (input.approvalToken) {
-      const approval = verifyActionApprovalToken(
-        input.approvalToken,
-        'checkout',
-        approvalPayload,
-      )
+      const approval = verifyActionApprovalToken(input.approvalToken, 'checkout', approvalPayload)
       if (!approval.ok) {
         return NextResponse.json(
           { error: 'Checkout approval is invalid, expired, or does not match this action.', code: 'approval_invalid' },
@@ -192,15 +205,9 @@ export async function POST(request: Request) {
     }
   }
 
-  // Smart Rules: calendar protection (Phase 1) - weekly booking cap + blackout
-  // dates. Counting booked events needs the service-role client (events are
-  // owner-only under RLS); when it's unavailable the cap is skipped gracefully.
   if (!input.dryRun && offer.rules && (offer.rules.maxBookingsPerWeek != null || offer.rules.blackoutDates?.length)) {
     let recentBookingsThisWeek = 0
     if (offer.rules.maxBookingsPerWeek != null && hasSupabaseAdminEnv()) {
-      // Shared counter (checkout + Calendly webhook bookings) - the same number
-      // that drives the offer's advertised availability, so the cap an agent
-      // sees and the cap that blocks it can never disagree.
       recentBookingsThisWeek = await countRecentBookings(createAdminClient(), {
         slug: page.slug,
         offerKey,
@@ -208,24 +215,15 @@ export async function POST(request: Request) {
       })
     }
     const ruleError = getBookingRuleError(offer, { recentBookingsThisWeek })
-    if (ruleError) {
-      return NextResponse.json({ error: ruleError, code: 'booking_rules' }, { status: 409 })
-    }
+    if (ruleError) return NextResponse.json({ error: ruleError, code: 'booking_rules' }, { status: 409 })
   }
 
-  // Keep Nexez transaction URLs on the hardened request base. A preferred
-  // provider handoff is resolved independently below.
   const baseUrl = getRequestBaseUrl(request)
   const checkoutUrl = `${baseUrl}/checkout/${page.slug}?offer=${offerKey}`
   const successUrl = `${baseUrl}/checkout/${page.slug}/success?session_id={CHECKOUT_SESSION_ID}&offer=${offerKey}`
   const preferredOriginalUrl = getPreferredOriginalOfferUrl(page, offer)
   const forceProviderHandoff = Boolean(preferredOriginalUrl)
   let destination = getOfferDestination(page, offer)
-  // Single-use scheduling links: for a Calendly-sourced offer on a page that has
-  // connected a PAT, mint a one-time booking link so the reusable public
-  // scheduling URL isn't shared/re-bookable from this redirect. Best-effort —
-  // falls back to the reusable link (dormant without INTEGRATION_SECRET_KEY).
-  // Skipped on a dry run — validation must be side-effect-free (no real link mint).
   if (!input.dryRun) {
     destination = (await maybeMintSingleUseCalendlyLink(page.id, offer, destination)) || destination
   }
@@ -257,18 +255,12 @@ export async function POST(request: Request) {
       offer_pricing_base_amount: pricingSnapshot?.baseAmount ?? null,
       offer_pricing_adjustment_amount: pricingSnapshot?.adjustmentAmount ?? null,
       offer_pricing_final_amount: pricingSnapshot?.finalAmount ?? null,
+      offer_fulfillment_present: hasFulfillmentPolicy,
+      offer_fulfillment_decision: hasFulfillmentPolicy ? fulfillment.decision : null,
+      offer_fulfillment_fingerprint: fulfillmentFingerprint,
     },
   })
 
-  // Resolve the owner's commission + Connect account UP FRONT (before dry-run
-  // too, so the simulator reflects reality). A card charge only ever runs through
-  // the owner's Connect account (owner is merchant of record; Nexez takes the plan
-  // commission as an application fee). We deliberately do NOT charge into the
-  // PLATFORM account for a seller who hasn't connected Stripe - they couldn't
-  // receive the funds and it creates a payout / money-transmission liability. No
-  // Connect → fall through to the seller's external checkout (destination) or a
-  // payments-not-set-up response below. Every money-moving channel uses the same
-  // owner-aware resolver, including Enterprise overrides and promotions.
   let settlementContext: SettlementContext | null = null
   if (hasSupabaseAdminEnv() && page.owner_id) {
     const admin = createAdminClient()
@@ -289,9 +281,6 @@ export async function POST(request: Request) {
     !forceProviderHandoff && process.env.STRIPE_SECRET_KEY && amountCents && settlementContext,
   )
 
-  // Nexez can guarantee durable buyer choices and deterministic configured
-  // pricing only on the Stripe rail it settles itself. External redirects cannot
-  // carry arbitrary service configuration without a provider-specific write adapter.
   if (hasConfiguration && !configuredStripeReady) {
     return NextResponse.json(
       {
@@ -332,6 +321,12 @@ export async function POST(request: Request) {
             offerPricingFingerprint: pricingFingerprint,
           }
         : {}),
+      ...(hasFulfillmentPolicy
+        ? {
+            offerFulfillment: fulfillment,
+            offerFulfillmentFingerprint: fulfillmentFingerprint,
+          }
+        : {}),
       events: {
         checkoutAttemptLogged: attemptLog.ok,
       },
@@ -340,9 +335,6 @@ export async function POST(request: Request) {
     })
   }
 
-  // Provider-preferred offers (Shopify imports in particular) must remain on
-  // the provider rails. Charging through Stripe here would create no Shopify
-  // order and would not update Shopify inventory.
   if (!forceProviderHandoff && process.env.STRIPE_SECRET_KEY && amountCents && settlementContext) {
     try {
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
@@ -380,12 +372,8 @@ export async function POST(request: Request) {
           nexez_commission_bps: String(settlementContext.commissionBps),
           nexez_commission_percent: String(settlementContext.commissionPercent),
           nexez_commission_source: settlementContext.commissionSource,
-          // For the checkout_orders record the webhook persists on completion (so a
-          // direct sale can be refunded / dispute-tracked in-app).
           nexez_owner_id: page.owner_id ?? '',
           nexez_application_fee_cents: String(applicationFeeAmount || 0),
-          // §7 multi-storefront breadcrumb: records which storefront made the sale so
-          // finance can attribute per-storefront later. Resolution stays account-pooled.
           nexez_storefront_id: (page as { storefront_id?: string | null }).storefront_id ?? '',
           ...(configurationFingerprint
             ? { [STRIPE_OFFER_CONFIGURATION_HASH_KEY]: configurationFingerprint }
@@ -393,22 +381,19 @@ export async function POST(request: Request) {
           ...(pricingFingerprint
             ? { [STRIPE_OFFER_PRICING_HASH_KEY]: pricingFingerprint }
             : {}),
+          ...(fulfillmentFingerprint
+            ? { [STRIPE_OFFER_FULFILLMENT_HASH_KEY]: fulfillmentFingerprint }
+            : {}),
         },
       }
 
       if (applicationFeeAmount && applicationFeeAmount > 0) {
-        // Checkout Sessions take the Connect platform fee under payment_intent_data - NOT at the
-        // session top level (top-level application_fee_amount → Stripe "unknown parameter" error,
-        // which silently fell back to the provider URL, so no real charge ever happened).
         sessionParams.payment_intent_data = {
           ...(sessionParams.payment_intent_data || {}),
           application_fee_amount: applicationFeeAmount,
         }
       }
 
-      // Declared buyer identity (all optional): prefill + lock Stripe's email field,
-      // stamp the buyer-side reference on Stripe's native field, and carry every field
-      // in metadata so the webhook can persist it onto the order record.
       if (buyer.email) sessionParams.customer_email = buyer.email
       if (buyer.reference) sessionParams.client_reference_id = buyer.reference
       Object.assign(sessionParams.metadata, buyerMetadata(buyer))
@@ -421,9 +406,6 @@ export async function POST(request: Request) {
         ...(stripeIdempotencyKey ? { idempotencyKey: stripeIdempotencyKey } : {}),
       })
 
-      // A new configured checkout is only safe while the Stripe session is open.
-      // An idempotent replay can return the prior expired/complete session; never
-      // surface that stale URL as though it were a fresh configured transaction.
       if (hasConfiguration && session.status && session.status !== 'open') {
         return NextResponse.json(
           {
@@ -444,6 +426,7 @@ export async function POST(request: Request) {
             offerKey,
             configuration: normalizedConfiguration,
             pricing: pricingSnapshot,
+            fulfillment: hasFulfillmentPolicy ? fulfillment : null,
           })
           configurationHandoffOk = handoff.ok
           if (!handoff.ok) console.warn('[Checkout] Configured checkout handoff failed:', handoff.error)
@@ -489,6 +472,9 @@ export async function POST(request: Request) {
           offer_configuration_fingerprint: configurationFingerprint,
           offer_pricing_present: Boolean(pricingSnapshot),
           offer_pricing_fingerprint: pricingFingerprint,
+          offer_fulfillment_present: hasFulfillmentPolicy,
+          offer_fulfillment_decision: hasFulfillmentPolicy ? fulfillment.decision : null,
+          offer_fulfillment_fingerprint: fulfillmentFingerprint,
         },
       })
 
@@ -503,6 +489,9 @@ export async function POST(request: Request) {
             : {}),
           ...(pricingSnapshot
             ? { offerPricing: pricingSnapshot, offerPricingFingerprint: pricingFingerprint }
+            : {}),
+          ...(hasFulfillmentPolicy
+            ? { offerFulfillment: fulfillment, offerFulfillmentFingerprint: fulfillmentFingerprint }
             : {}),
           events: {
             checkoutAttemptLogged: attemptLog.ok,
@@ -648,8 +637,6 @@ function parseFormOfferConfiguration(value: FormDataEntryValue | null): unknown 
   try {
     return JSON.parse(value)
   } catch {
-    // Let the canonical validator return the stable 422 field error rather than
-    // silently coercing malformed form data into a transaction payload.
     return value
   }
 }
@@ -665,11 +652,6 @@ function isStripeIdempotencyConflict(error: unknown) {
   return candidate.code === 'idempotency_key_in_use' || candidate.type === 'StripeIdempotencyError'
 }
 
-// Mint a single-use Calendly booking link when the resolved offer is a Calendly
-// event type on a page that has connected a PAT. Returns null (→ keep the
-// reusable link) for non-Calendly offers, a missing event-type URI, an
-// unconfigured credential store, or any Calendly failure. Only reaches the
-// network for genuine Calendly offers, so ordinary checkouts pay nothing.
 async function maybeMintSingleUseCalendlyLink(
   pageId: string,
   offer: { source?: string; metadata?: Record<string, unknown> | null } | null,
@@ -682,14 +664,10 @@ async function maybeMintSingleUseCalendlyLink(
   const pat = await getCalendlyPat(pageId)
   if (!pat) return null
   const minted = await createCalendlySchedulingLink(pat, eventTypeUri)
-  // Never downgrade a working reusable link on failure.
   return minted || fallback
 }
 
 function getDryRunProvider(destination: string, amountCents: number | null, connectAccountId: string | null) {
-  // Mirror the live path: a Stripe charge requires BOTH a key and the seller's
-  // Connect account. Without Connect we fall back to the external link, or report
-  // that the seller still needs to connect payouts.
   if (process.env.STRIPE_SECRET_KEY && amountCents && connectAccountId) return 'stripe_ready'
   if (destination) return 'provider_ready'
   if (process.env.STRIPE_SECRET_KEY && amountCents && !connectAccountId) return 'needs_connect'
@@ -703,10 +681,7 @@ function respondWithDestination(
   provider: string,
   events?: Record<string, boolean>,
 ) {
-  if (wantsJson) {
-    return NextResponse.json({ url: destination, provider, events })
-  }
-
+  if (wantsJson) return NextResponse.json({ url: destination, provider, events })
   return redirectTo(destination)
 }
 
@@ -733,9 +708,7 @@ function redirectTo(value: string) {
 function getHttpUrl(value: string) {
   try {
     const url = new URL(value)
-    if (url.protocol === 'http:' || url.protocol === 'https:') {
-      return url.toString()
-    }
+    if (url.protocol === 'http:' || url.protocol === 'https:') return url.toString()
   } catch {
     return null
   }
