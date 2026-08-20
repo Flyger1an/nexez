@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Schibsted_Grotesk, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { PlatformFrame } from "../components/PlatformFrame";
 import { DesignSystemFx } from "../components/DesignSystemFx";
@@ -76,6 +77,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <PlatformFrame>{children}</PlatformFrame>
         <DesignSystemFx />
+        <Analytics />
         <SpeedInsights />
       </body>
     </html>
