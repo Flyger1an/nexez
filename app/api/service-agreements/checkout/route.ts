@@ -128,6 +128,18 @@ export async function POST(request: Request) {
     )
   }
   const normalizedConfiguration = configuration.value
+  const fulfillment = configuration.fulfillment
+  if (fulfillment.decision !== 'eligible') {
+    return NextResponse.json(
+      {
+        error: fulfillment.reasons[0]?.message ?? 'This buyer configuration is not eligible for automatic recurring checkout.',
+        code: fulfillment.decision === 'requires-review' ? 'fulfillment_review_required' : 'fulfillment_ineligible',
+        offerFulfillment: fulfillment,
+      },
+      { status: 409 },
+    )
+  }
+
   const currency = normalizeCurrency(page.currency)
   const priced = priceOfferConfiguration(offer, normalizedConfiguration, currency, { settlementMode: 'recurring' })
   if (!priced.ok) {
@@ -147,6 +159,7 @@ export async function POST(request: Request) {
   const agreementResult = buildRecurringServiceAgreementSnapshot({
     terms: recurringTerms,
     configuration: normalizedConfiguration,
+    fulfillment,
     pricing: priced.pricing,
     amountPerPeriod: priced.amountCents,
     currency,
@@ -226,6 +239,7 @@ export async function POST(request: Request) {
       offerConfiguration: normalizedConfiguration,
       requiredOfferConfigurationFields: configuration.schema.filter((field) => field.required).map((field) => field.key),
       offerPricing: priced.pricing,
+      offerFulfillment: fulfillment,
       recurringAgreement: agreement,
       recurringAgreementFingerprint: agreementFingerprint,
       approvalTokenRequired: actionApprovalRequired(),
