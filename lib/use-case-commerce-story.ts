@@ -39,7 +39,6 @@ export const useCaseCommerceStories: UseCaseCommerceStory[] = [
   },
   {
     slug: 'agencies',
-    label: undefined as never,
     headline: 'Turn agency services into clear ways to start and buy.',
     description:
       'Give buyers concrete entry points into your agency while preserving your package rules, required project details, repeat work, and human review where it matters.',
