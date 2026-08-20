@@ -112,6 +112,21 @@ const keyFeatures: Feature[] = [
     copy: 'Keep the chosen service, buyer details, price, and approvals tied together so the sale stays understandable.',
     Icon: Handshake,
   },
+  {
+    title: 'Copilot',
+    copy: 'Get help tightening offers and spotting missing details while the prices and business rules you set stay authoritative.',
+    Icon: Sparkles,
+  },
+  {
+    title: 'Your brand, your domain',
+    copy: 'Publish on Nexez or your own domain so buyers and AI assistants can reach a storefront that still feels like your business.',
+    Icon: Globe2,
+  },
+  {
+    title: 'Trust context',
+    copy: 'Keep policies, proof, and verification context close to the offer so buyers and agents have more to judge the purchase by.',
+    Icon: ShieldCheck,
+  },
 ]
 
 // Hero stat ticker (the X-Ray instrument's "instrument readout" framing).
