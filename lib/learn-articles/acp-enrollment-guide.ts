@@ -2,251 +2,147 @@ import type { LearnArticle } from '../learn-content'
 
 export const acpEnrollmentGuide: LearnArticle = {
   slug: 'acp-enrollment-guide',
-  metaTitle: 'Agentic Commerce Protocol (ACP): Enrollment Guide',
+  metaTitle: 'ACP in 2026: The Protocol After Instant Checkout',
   metaDescription:
-    'A merchant-side guide to OpenAI’s ACP: the four surfaces you build, the enrollment path, honest effort estimates, and the gotchas that bite real integrations.',
-  title: 'The Agentic Commerce Protocol (ACP): an enrollment guide for merchants',
-  dek: 'ACP is how ChatGPT buys from you: your feed, your checkout API, your Stripe account, OpenAI’s buyer. Here’s what you actually build, how enrollment works, and where implementations go wrong, written by a team that shipped one.',
+    'There is no ChatGPT checkout enrollment anymore. What the Agentic Commerce Protocol is now, what is still worth implementing, and what to stop chasing.',
+  title: 'ACP in 2026: what the Agentic Commerce Protocol is now that Instant Checkout is gone',
+  dek: 'If you came here looking for how to enroll in ChatGPT Instant Checkout, the honest answer is that there is nothing to enroll in. OpenAI retired it in March 2026. The protocol underneath survived and is still worth understanding, so here is what ACP actually is now, what is worth building, and what to stop chasing.',
   category: 'Agentic commerce',
   publishedAt: '2026-07-13',
-  updatedAt: '2026-07-13',
+  updatedAt: '2026-08-17',
   readMinutes: 10,
   blocks: [
     {
-      type: 'p',
-      text: 'In September 2025, OpenAI launched Instant Checkout in ChatGPT, built on the Agentic Commerce Protocol (ACP), an open specification it developed with Stripe. The promise to merchants is direct: a ChatGPT user asks for something, your product appears, and they buy it inside the conversation while the order lands in your systems like any other sale.',
+      type: 'callout',
+      tone: 'amber',
+      title: 'This guide was substantially rewritten on August 17, 2026',
+      text: 'An earlier version walked through enrolling in ChatGPT Instant Checkout. OpenAI retired that feature on March 4, 2026, so the enrollment path it described no longer exists. We have corrected the guide rather than quietly deleting it, because merchants are still searching for the old process and deserve to land on an accurate answer. The full story is in [what happened to ChatGPT Instant Checkout](/learn/chatgpt-instant-checkout-retired).',
     },
     {
       type: 'p',
-      text: 'The demand side is not hypothetical. Salesforce reported AI influenced $262B of 2025 holiday sales, and OpenAI revamped Instant Checkout in March 2026 toward discovery-first product surfacing. The buyers are arriving faster than most merchant roadmaps assumed.',
+      text: 'The Agentic Commerce Protocol is an open specification, published by OpenAI and Stripe in September 2025 under Apache 2.0, that defines how an AI agent transacts with a merchant. It launched alongside ChatGPT Instant Checkout, and for about five months those two things were effectively synonymous in most people\u2019s minds. Then OpenAI shut the checkout surface down and kept the protocol, which is why the two need separating now.',
     },
     {
       type: 'p',
-      text: 'The official docs tell you what the API looks like. What they don’t give you is the merchant-side view: what you actually have to build, what enrollment involves, and where implementations break. We built and shipped a complete ACP implementation at Nexez, including feeds, checkout sessions, order webhooks, and settlement. This guide comes from doing the work, not paraphrasing the spec.',
+      text: 'What follows is what ACP still does, what parts of an implementation retain value, the technical details that trip teams up, and an honest assessment of whether you should spend time on it at all in late 2026.',
     },
-    { type: 'h2', text: 'What ACP actually is (and what it isn’t)' },
+    { type: 'h2', text: 'What ACP is, minus the ChatGPT framing' },
     {
       type: 'p',
-      text: 'ACP is a REST contract between an AI application and a merchant. The AI surface, whether ChatGPT today or anything else that speaks the protocol, discovers your products through a feed you publish, runs a checkout against an API you host, and hands you a payment credential at the end. You fulfill the order, you answer the support emails, you process the refunds.',
-    },
-    {
-      type: 'p',
-      text: 'The most important design decision sits in that last sentence: you remain the merchant of record. OpenAI is not a marketplace. It never takes custody of the money or the customer. Per OpenAI’s launch announcement, the buyer pays the same price they would on your site and merchants pay a small fee on completed purchases, while discovery costs nothing. Your fraud, tax, and chargeback obligations don’t move. Neither does your customer relationship.',
+      text: 'ACP has two halves that were always separable, and the retirement made that separation obvious.',
     },
     {
       type: 'p',
-      text: 'Payment works through a Shared Payment Token (SPT): a Stripe-issued delegated credential scoped to a specific merchant, an amount ceiling, and an expiry window. At the end of checkout, OpenAI hands you a token and you charge it the way you’d charge any payment method. You never see the buyer’s card.',
+      text: 'The first half is the product feed: a structured catalog an agent can read to know what you sell, at what price, in what variants, and whether it is in stock. The second half is the checkout API: REST endpoints where an agent creates a checkout session, updates it with fulfillment details, and completes it, with payment arriving as a delegated token so raw card credentials never touch your servers.',
     },
     {
       type: 'p',
-      text: 'Two things ACP is not. It’s not a switch you flip in a dashboard; it’s an API integration with a partner-approval gate in front of it. And it’s not the only protocol in this space: Google’s UCP and the Model Context Protocol solve adjacent problems, and it’s worth understanding [how UCP, ACP, and MCP differ](/learn/ucp-vs-acp-vs-mcp) before committing engineering time to any of them.',
+      text: 'The feed half is the durable one. Structured product data is the shared input across every agentic surface, so a clean ACP feed is close to a clean UCP feed is close to a clean Merchant Center feed. That work transfers. The checkout half is the part that was tied to a specific surface, and its value now depends entirely on whether something you use actually speaks ACP.',
     },
-    { type: 'h2', text: 'The four surfaces you have to build' },
+    { type: 'h2', text: 'Who still speaks ACP' },
     {
       type: 'p',
-      text: 'A working ACP integration is four distinct pieces. None is individually hard, but they have to agree with each other exactly. Most integration pain comes from surfaces disagreeing: a feed price that doesn’t match the checkout total, an order status that never gets reported back.',
-    },
-    {
-      type: 'table',
-      headers: ['Surface', 'Direction', 'What it does'],
-      rows: [
-        [
-          'Product feed',
-          'You → OpenAI',
-          'A machine-readable catalog OpenAI ingests so ChatGPT can surface your products',
-        ],
-        [
-          'checkout_sessions API',
-          'OpenAI → you',
-          'REST endpoints on your domain that create, update, complete, and cancel a checkout',
-        ],
-        [
-          'Order webhooks',
-          'You → OpenAI',
-          'Signed status events (confirmed, shipped, refunded, disputed) so the buyer sees updates in ChatGPT',
-        ],
-        [
-          'Payment settlement',
-          'You ↔ Stripe',
-          'Charging the Shared Payment Token and reconciling the order in your books',
-        ],
-      ],
-    },
-    { type: 'h3', text: 'The product feed' },
-    {
-      type: 'p',
-      text: 'The feed is a JSON catalog of everything sellable: identifiers, titles, descriptions, prices, availability, images, and a link back to the canonical product page. Each item carries eligibility flags telling ChatGPT whether it may appear in search results and whether it’s eligible for checkout. Those flags are independent, which matters: you can publish a discovery-only feed today and flip checkout eligibility after enrollment clears.',
+      text: 'More parties than the obituaries suggested. PayPal adopted ACP in October 2025 to bring its merchant network into agentic commerce. Stripe built its Agentic Commerce Suite on the protocol and shipped it in December 2025. The specification itself kept advancing after the retirement, with a stable revision dated April 17, 2026 covering checkout, payment delegation, cart, feed, orders, authentication, and integration with the Model Context Protocol.',
     },
     {
       type: 'p',
-      text: 'Treat the feed as a cache of your catalog living in someone else’s system. It goes stale the moment you change a price, which is exactly why the protocol makes your checkout API, not the feed, the source of truth for money.',
+      text: 'That MCP convergence is the most interesting signal. It means agent-initiated purchasing is merging with the general tool-calling standard rather than staying in a commerce silo, which is a reasonable bet on where this ends up. If you already run [an MCP server](/learn/what-is-an-mcp-server), the distance between it and ACP-shaped commerce is shrinking rather than growing.',
     },
-    { type: 'h3', text: 'The checkout_sessions API' },
+    { type: 'h2', text: 'What is worth implementing now' },
     {
       type: 'p',
-      text: 'This is the core of the build: REST endpoints under your domain that OpenAI calls with a Bearer key it issues you. A session is created with line items, updated as the buyer supplies address and fulfillment choices, then either completed with a payment token or canceled. Every response returns the full recalculated state: items, totals, taxes, fulfillment options, and any buyer-facing messages.',
-    },
-    {
-      type: 'p',
-      text: 'The state machine sounds trivial and isn’t. A session that hasn’t collected enough information isn’t ready for payment. A completed session must be terminal. A canceled one must never charge. Your implementation has to enforce those transitions server-side, because you cannot assume the caller always will.',
-    },
-    { type: 'h3', text: 'Order webhooks' },
-    {
-      type: 'p',
-      text: 'After money moves, the relationship inverts: now you call OpenAI. At enrollment they give you a webhook URL and an HMAC signing secret, and your job is to push signed order events whenever state changes: confirmed, shipped, refunded, or disputed. Skip this and the buyer’s order view in ChatGPT silently goes stale, which turns into support tickets on your side, not theirs.',
-    },
-    { type: 'h3', text: 'Settlement' },
-    {
-      type: 'p',
-      text: 'At the complete step you receive the delegated token and create a PaymentIntent with it as the payment method on your own Stripe account. The money settles exactly where your web orders settle, and refunds ride your existing rails. This is the leg teams assume is easy and then get wrong. See the idempotency gotcha below.',
-    },
-    { type: 'h2', text: 'The enrollment path, step by step' },
-    {
-      type: 'p',
-      text: 'Instant Checkout is an approved-partner program, not self-serve. OpenAI’s merchant documentation at [developers.openai.com/commerce](https://developers.openai.com/commerce) describes the integration, but production credentials come through an application. Here’s the sequence as it actually plays out:',
+      text: 'Ordered by how confident you can be that the effort pays off:',
     },
     {
       type: 'ol',
       items: [
-        'Apply to the program. You describe your business, catalog, and technical setup. There’s no published approval timeline, so start this before you build, not after.',
-        'Publish your product feed and give OpenAI the URL. Discovery-eligible items can start appearing in ChatGPT independent of checkout approval.',
-        'Stand up the checkout_sessions endpoints for create, retrieve, update, complete, and cancel behind Bearer auth that fails closed with a 401 until credentials exist.',
-        'Receive credentials: the Bearer key OpenAI presents on every request, a request-signing secret, and their order-webhook URL plus HMAC secret for your outbound events.',
-        'Wire settlement. Confirm with Stripe that Shared Payment Tokens work with your account structure, then charge the token at the complete step.',
-        'Certify with a test payment credential: session created, completed, a real test-mode charge, a durable order record, and a buyer receipt. Complete the full loop before using any real delegated token.',
-        'Flip checkout eligibility in your feed only after the smoke test passes end to end.',
+        'Clean, accurate product data. Complete titles and descriptions, correct GTINs or equivalent identifiers, real availability, and price parity with your own site. Every agentic surface consumes this, so it is the one investment with no platform risk attached.',
+        'A structured feed. Publish it in the formats the surfaces you care about actually ingest. If you sell products and want the live agentic checkout rail, that means [UCP](/learn/what-is-google-ucp) first in 2026, since that is where the distribution is.',
+        'Callable actions. Availability checks, quotes, and bookings exposed through an MCP server or an OpenAPI spec reach agents that no feed touches, and they are protocol-agnostic.',
+        'ACP checkout endpoints, conditionally. Worth building if your payment provider or platform speaks ACP and you have volume to justify it. Not worth building speculatively in the hope a surface adopts it.',
       ],
     },
     {
       type: 'callout',
       tone: 'ready',
-      title: 'Discovery doesn’t wait for checkout',
-      text: 'Feed ingestion and checkout enrollment are decoupled. Your products can be findable in ChatGPT while your checkout credentials are still in review, so publish the feed first and treat checkout as phase two, not a blocker.',
+      title: 'The discovery half was always the cheaper win',
+      text: 'This was true before the retirement and is more true after it. Being findable, comparable, and accurately described costs a fraction of what transactional integration costs, and it is what determines whether you enter the consideration set at all. With in-chat checkout gone, discovery is the entire ChatGPT opportunity, covered in [how to get recommended by ChatGPT](/learn/get-recommended-by-chatgpt).',
     },
-    { type: 'h2', text: 'How much work is it, honestly?' },
+    { type: 'h2', text: 'Technical details that trip teams up' },
     {
       type: 'p',
-      text: 'It depends entirely on which of three paths you take.',
-    },
-    {
-      type: 'table',
-      headers: ['Path', 'What you build', 'Payment work', 'Realistic effort'],
-      rows: [
-        [
-          'DIY on your own stack',
-          'All four surfaces, plus monitoring and certification',
-          'Direct SPT integration with Stripe',
-          'Weeks of engineering up front, maintenance forever',
-        ],
-        [
-          'Wait for your platform',
-          'Nothing; Shopify-class platforms are wiring ACP for their merchants',
-          'Handled upstream',
-          'Zero effort, zero control over timing or eligibility',
-        ],
-        [
-          'Agent-commerce layer (Nexez)',
-          'Import or create your listings once',
-          'Already wired, with you as merchant of record',
-          'Under an hour to a live feed',
-        ],
-      ],
+      text: 'If you are implementing ACP checkout because something in your stack speaks it, these are the parts that cause real incidents rather than merely failing review.',
     },
     {
       type: 'p',
-      text: 'The DIY estimate deserves honesty, because the endpoints themselves are only a few days of work. The long tail is everything around them: idempotent settlement, webhook signing, feed regeneration on every price change, state-machine edge cases, and keeping all of it alive when your catalog system changes. If you have in-house engineers and a high-volume catalog, owning it makes sense. If you’re a twelve-listing service business, it almost certainly doesn’t.',
+      text: 'Delegated payment is not a card number. The buyer\u2019s credential arrives as a token scoped to one transaction, through Stripe\u2019s Shared Payment Tokens or an equivalent mechanism. You never receive or store raw card data, which is the point, but it also means your normal payment error handling does not directly apply and needs its own paths.',
+    },
+    {
+      type: 'p',
+      text: 'Idempotency is not optional. Agents retry. A network blip between the agent and your endpoint, with no idempotency key honored, is a double charge against a real customer. Every mutating endpoint needs an idempotency key and a stored result keyed to it, and this is the single most common source of production pain in agent-facing commerce.',
+    },
+    {
+      type: 'p',
+      text: 'Verify webhook signatures, always. Order lifecycle updates arrive as signed webhooks, and an unverified endpoint is an open door for forged order state. Treat everything an agent sends as untrusted input, exactly as you would a public web form.',
+    },
+    {
+      type: 'p',
+      text: 'Watch the account boundary in Stripe Connect setups. A recurring integration bug is wiring checkout to the platform account rather than the connected merchant account, which produces sessions that appear to succeed while settling to the wrong place. Confirm which account your session objects belong to before you go anywhere near live traffic.',
     },
     {
       type: 'cta',
-      title: 'Skip the build, keep the money path',
-      text: 'Nexez publishes an ACP feed and a UCP feed for your listings automatically, runs the checkout-session lifecycle, and settles through Stripe with you as merchant of record. Discovery and agentic checkout are available on every plan when the merchant and surface are commerce-ready; paid plans add scale, operating tools, and lower commission rates.',
-      href: '/pricing',
-      label: 'See plans and pricing',
-    },
-    { type: 'h2', text: 'Gotchas that bite real implementations' },
-    {
-      type: 'p',
-      text: 'These are the failure modes we explicitly designed against, in roughly the order they’ll hurt you.',
-    },
-    {
-      type: 'callout',
-      tone: 'amber',
-      title: 'Idempotency is not optional',
-      text: 'Networks retry. If OpenAI replays a complete call and your endpoint charges twice, that’s a double charge on a real buyer. Key every settlement on the session id. A Stripe idempotency key plus a unique index on the PaymentIntent works, so a replayed complete returns the original order, never a second charge.',
-    },
-    {
-      type: 'callout',
-      tone: 'amber',
-      title: 'One session, one merchant',
-      text: 'An ACP checkout session belongs to a single merchant. If you run anything multi-tenant, such as a marketplace, multiple storefronts, or even two brands on one backend, validate that every item in a session resolves to the same seller and reject mixed carts outright rather than attempting split settlement.',
-    },
-    {
-      type: 'callout',
-      tone: 'amber',
-      title: 'Feed prices drift; checkout is truth',
-      text: 'OpenAI ingests your feed on its schedule, not yours, so between refreshes ChatGPT may quote a stale price. Your checkout must recompute totals server-side from the live catalog. When they differ from what the buyer saw, return the corrected total with a buyer-facing message instead of silently charging the feed price.',
-    },
-    {
-      type: 'callout',
-      tone: 'signal',
-      title: 'On Stripe Connect? Ask about SPT first',
-      text: 'If your money model is Stripe Connect with direct charges on connected accounts and a platform application fee, confirm with Stripe that a Shared Payment Token can be the payment method on that exact charge shape before you build settlement. It’s a one-question email that can save you a re-architecture.',
-    },
-    {
-      type: 'p',
-      text: 'One more that’s really a design stance: build the whole thing fail-closed. No credentials configured should mean a 401 on every checkout endpoint, not a best-effort guess. A dormant checkout surface is annoying; an unauthenticated one is a liability.',
-    },
-    { type: 'h2', text: 'What to do while your application is in review' },
-    {
-      type: 'p',
-      text: 'Enrollment timing isn’t in your control. Discovery is. The same structured catalog data that feeds ACP makes your site legible to every other agent, including Claude, Gemini, Perplexity, and browser agents, through JSON-LD, llms.txt, and clean machine-readable pages. Even before ChatGPT can check out with you, agents can find you, compare you, and send buyers to the checkout you already have.',
-    },
-    {
-      type: 'p',
-      text: 'That groundwork is measurable: run your site through a [free agent-legibility scan](/scan) to see what agents can currently extract from it, and read [what llms.txt actually does](/learn/what-is-llms-txt) before adding one. If you sell services rather than products, the deeper question is bookings. [How AI agents book service businesses](/learn/ai-agents-book-service-businesses) covers that side, and [selling on ChatGPT without Shopify](/learn/sell-on-chatgpt-without-shopify) covers the storefront question.',
-    },
-    {
-      type: 'p',
-      text: 'ACP is early, and early is the point. The merchants who publish feeds and structure their catalogs now are the ones agents will already know when checkout enrollment opens wider. The protocol work compounds; waiting doesn’t.',
-    },
-    {
-      type: 'cta',
-      title: 'See what AI agents can read on your site today',
-      text: 'The free Nexez scanner reads your website the way an agent does and scores what it can actually extract: offers, prices, booking info, and structured data. No signup, results in about a minute.',
+      title: 'Start with what every surface reads',
+      text: 'Whatever protocol you land on, all of them cross-check your actual website. The free Nexez scanner fetches your site the way an agent does and scores structured data, crawlability, and machine-readable offers. No signup, about a minute.',
       href: '/scan',
-      label: 'Scan your website free',
+      label: 'Scan your site free',
+    },
+    { type: 'h2', text: 'The honest recommendation' },
+    {
+      type: 'p',
+      text: 'For most merchants in late 2026, ACP is something to understand rather than something to build against directly. Understand it because it is the reference design most agentic commerce borrows from, because your payment provider may already implement it on your behalf, and because its convergence with MCP suggests it will keep mattering. Build against it directly only when a platform you actually use requires it.',
+    },
+    {
+      type: 'p',
+      text: 'Spend the freed effort on the layer nobody can retire out from under you: accurate structured data, crawlable pages, real prices, live availability, and callable actions. That was the right answer in September 2025, it was the right answer during Instant Checkout, and March 2026 proved the point rather than undermining it. Merchants who built on that foundation lost nothing when the surface closed.',
+    },
+    {
+      type: 'cta',
+      title: 'One catalog, every surface, no rebuild when a protocol changes',
+      text: 'Nexez publishes your business as agent-legible, agent-transactable listings: JSON-LD, llms.txt, agent.json, OpenAPI, a per-merchant MCP server, and ACP plus UCP feeds, all generated from one source of truth, with real Stripe checkout and Calendly-backed scheduling behind them. Start on Free with no card; paid plans include a 7-day trial.',
+      href: '/how-it-works',
+      label: 'See how it works',
     },
   ],
   faqs: [
     {
-      question: 'Do I have to use Stripe to accept ACP payments?',
+      question: 'How do I enroll in ChatGPT Instant Checkout?',
       answer:
-        'The spec defines delegated payment generically, but the Shared Payment Token flow was designed with Stripe and that’s where it works today. If you’re on another processor, expect to either wait for support or run a Stripe account alongside it for agentic orders. Practically: Stripe first.',
+        'You cannot. OpenAI retired Instant Checkout on March 4, 2026, and there is no application, eligibility review, or waiting list. Shoppers can no longer complete purchases inside ChatGPT. Any guide still describing an enrollment process predates the shutdown or was never corrected. The background is in [what happened to ChatGPT Instant Checkout](/learn/chatgpt-instant-checkout-retired).',
     },
     {
-      question: 'Who is the merchant of record for ACP orders?',
+      question: 'Is ACP still a live specification?',
       answer:
-        'You are. OpenAI passes you the buyer and a payment credential, but the charge lands on your processor account. Refunds, chargebacks, sales tax, and customer service remain yours, exactly like an order from your own website.',
+        'Yes. It remains open source under Apache 2.0 and continued advancing after the retirement, with a stable revision dated April 17, 2026 covering checkout, payment delegation, cart, feed, orders, authentication, and MCP integration. PayPal adopted it and Stripe built its Agentic Commerce Suite on it, so the protocol has adopters independent of OpenAI.',
     },
     {
-      question: 'How long does ACP enrollment take?',
+      question: 'Should I build an ACP checkout integration in 2026?',
       answer:
-        'OpenAI hasn’t published a timeline; it’s an application-and-review partner program and experiences vary. The practical move is to publish your product feed immediately (discovery doesn’t require checkout approval) and build the checkout surfaces fail-closed so going live is a credential change, not a rebuild.',
+        'Only if a platform or payment provider you already use speaks ACP and your volume justifies the engineering. Building it speculatively, hoping a surface will adopt it, is a bet on someone else\u2019s roadmap. Feed and catalog work is the part that transfers across every surface, so it is the safer place to spend first.',
     },
     {
-      question: 'Can service businesses use ACP, or is it just physical products?',
+      question: 'What is the difference between the ACP feed and the ACP checkout API?',
       answer:
-        'The feed format is product-shaped, but a bookable service such as a consult, class, or session models cleanly as an offer with a price. The real work is fulfillment: a booking needs scheduling, not shipping. That’s the gap platforms like Nexez cover with calendar-backed offers and real scheduling links minted at checkout.',
+        'The feed is a structured catalog that lets agents discover and compare what you sell. The checkout API is a set of REST endpoints letting an agent create and complete a purchase with a delegated payment token. They were always separable, and the retirement made that concrete: feed work transfers to other surfaces, while checkout endpoints only pay off where something actually speaks ACP.',
     },
     {
-      question: 'What’s the difference between ACP and Google’s UCP?',
+      question: 'Where can agents actually complete a purchase now?',
       answer:
-        'Same job, different ecosystems: ACP is OpenAI and ChatGPT (built with Stripe), UCP is Google’s equivalent across its surfaces. The session lifecycles are similar enough that one clean money core can serve both. See the full [UCP vs ACP vs MCP comparison](/learn/ucp-vs-acp-vs-mcp).',
+        'Mainly through Google\u2019s Universal Commerce Protocol across AI Mode, Gemini, and YouTube Shopping, plus platforms implementing it, with Shopify enabling Agentic Storefronts by default. Perplexity runs its own buying flow. The [UCP guide](/learn/what-is-google-ucp) covers what merchants need for the live rail.',
     },
     {
-      question: 'What does ACP cost merchants?',
+      question: 'Did the Instant Checkout shutdown mean agentic commerce is failing?',
       answer:
-        'There’s no listing fee; the cost is the integration itself. OpenAI has said buyers pay the same price they’d pay on your site and merchants pay a small fee on completed purchases, while discovery placement costs nothing.',
+        'The market data says otherwise. AI-referred retail traffic grew 393% year over year in Q1 2026 and converts substantially better than traditional search. What failed was one vendor\u2019s first implementation of one layer, largely on conversion economics, since in-chat checkout converted roughly three times worse than sending buyers to the merchant\u2019s own site. Discovery kept growing throughout.',
     },
   ],
 }
