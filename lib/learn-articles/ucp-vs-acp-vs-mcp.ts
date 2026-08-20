@@ -9,7 +9,7 @@ export const ucpVsAcpVsMcp: LearnArticle = {
   dek: 'Three protocols now decide whether AI agents can find your business and pay you. Here is what each one actually does, who runs it, what it costs you to support, and the honest order to adopt them in.',
   category: 'Agentic commerce',
   publishedAt: '2026-07-13',
-  updatedAt: '2026-08-17',
+  updatedAt: '2026-08-20',
   readMinutes: 9,
   blocks: [
     {
@@ -23,13 +23,13 @@ export const ucpVsAcpVsMcp: LearnArticle = {
     {
       type: 'callout',
       tone: 'amber',
-      title: 'Updated August 17, 2026',
+      title: 'Updated August 20, 2026',
       text: 'An earlier version of this guide described ChatGPT Instant Checkout as live but gated. OpenAI retired it on March 4, 2026. The ACP sections below have been corrected; the protocol survived, the ChatGPT checkout surface did not. Full context in [what happened to ChatGPT Instant Checkout](/learn/chatgpt-instant-checkout-retired).',
     },
     { type: 'h2', text: 'Three protocols, three different jobs' },
     {
       type: 'p',
-      text: 'Here is the shortest accurate version. ACP is the open checkout specification OpenAI and Stripe published, now maintained as a standard with adopters including PayPal and Stripe, though the ChatGPT surface it launched with is gone. UCP is Google\u2019s commerce protocol: it connects your catalog and checkout to Gemini and Google\u2019s AI shopping surfaces, onboarded through Merchant Center, and it is where live agentic checkout actually happens in 2026. MCP is the general-purpose tool protocol: it is how agents call any external capability at all, and commerce actions like searching listings or starting a booking are just one use of it.',
+      text: 'Here is the shortest accurate version. ACP is the open checkout specification OpenAI and Stripe published, now maintained as a standard with adopters including PayPal and Stripe, though the ChatGPT surface it launched with is gone. UCP is Google’s commerce protocol: it connects your catalog and checkout to Gemini and Google’s AI shopping surfaces, onboarded through Merchant Center, and it is where live agentic checkout actually happens in 2026. MCP is the general-purpose tool protocol: it is how agents call any external capability at all, and commerce actions like searching listings or starting a booking are just one use of it.',
     },
     {
       type: 'p',
@@ -42,7 +42,7 @@ export const ucpVsAcpVsMcp: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'The protocol did not go with it. ACP has two halves: a product feed that lets agents discover and compare your items, and a checkout API (checkout sessions) that you or your platform host, with payment handled through a delegated token so raw card details never touch your servers. The feed half transfers cleanly to other surfaces because structured product data is the shared input everywhere. The checkout half now pays off only where something you use actually speaks ACP, which today means PayPal, Stripe\u2019s Agentic Commerce Suite, or a platform that implements it.',
+      text: 'The protocol did not go with it. ACP has two halves: a product feed that lets agents discover and compare your items, and a checkout API (checkout sessions) that you or your platform host, with payment handled through a delegated token so raw card details never touch your servers. The feed half transfers cleanly to other surfaces because structured product data is the shared input everywhere. The checkout half now pays off only where something you use actually speaks ACP, which today means PayPal, Stripe’s Agentic Commerce Suite, or a platform that implements it.',
     },
     {
       type: 'p',
@@ -52,16 +52,16 @@ export const ucpVsAcpVsMcp: LearnArticle = {
       type: 'callout',
       tone: 'ready',
       title: 'Discovery and checkout were always separate switches',
-      text: 'Getting into an assistant\u2019s product discovery requires a feed and legible data. Taking payment through an agent requires transactional integration on top of that. The retirement of ChatGPT checkout proved how separable they are: discovery kept growing while the checkout surface closed. Discovery remains the cheaper, ungated half on every rail. If you sell without a Shopify store, [you do not need one for this](/learn/sell-on-chatgpt-without-shopify).',
+      text: 'Getting into an assistant’s product discovery requires a feed and legible data. Taking payment through an agent requires transactional integration on top of that. The retirement of ChatGPT checkout proved how separable they are: discovery kept growing while the checkout surface closed. Discovery remains the cheaper, ungated half on every rail. If you sell without a Shopify store, [you do not need one for this](/learn/sell-on-chatgpt-without-shopify).',
     },
-    { type: 'h2', text: 'UCP: Google\u2019s commerce protocol for Gemini and Search' },
+    { type: 'h2', text: 'UCP: Google’s commerce protocol for Gemini and Search' },
     {
       type: 'p',
       text: 'Google introduced the Universal Commerce Protocol at NRF in January 2026 as the standard way its AI surfaces talk to merchants, co-developed with Shopify, Etsy, Wayfair, Target, and Walmart. The front door is [Google Merchant Center](https://support.google.com/merchants): your catalog data flows in the way Shopping feeds always have, and UCP layers agent-facing capabilities on top so Gemini, AI Mode in Search, and YouTube Shopping can move from recommending a product to transacting for it.',
     },
     {
       type: 'p',
-      text: 'The design choice worth noticing is that UCP is transport-flexible. The same commerce capabilities can be served over a plain REST API, over MCP, or over A2A, Google\u2019s agent-to-agent protocol. Payments compose with AP2, the Agent Payments Protocol Google published in September 2025 with a long roster of payments partners; AP2 handles the "did a human actually authorize this purchase" mandate so an agent cannot spend without provable consent.',
+      text: 'The design choice worth noticing is that UCP is transport-flexible. The same commerce capabilities can be served over a plain REST API, over MCP, or over A2A, Google’s agent-to-agent protocol. Payments compose with AP2, the Agent Payments Protocol Google published in September 2025 with a long roster of payments partners; AP2 handles the "did a human actually authorize this purchase" mandate so an agent cannot spend without provable consent.',
     },
     {
       type: 'p',
@@ -74,7 +74,7 @@ export const ucpVsAcpVsMcp: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'For a merchant, MCP means exposing your business as callable tools: search my offers, check availability, book an appointment, start a checkout. Any MCP-capable agent can then act against your business directly instead of scraping your website and guessing. That includes Claude, ChatGPT\u2019s developer mode, and the long tail of custom agents companies are building internally, which is a market no feed reaches.',
+      text: 'For a merchant, MCP means exposing your business as callable tools: search my offers, check availability, book an appointment, start a checkout. Any MCP-capable agent can then act against your business directly instead of scraping your website and guessing. That includes Claude, ChatGPT’s developer mode, and the long tail of custom agents companies are building internally, which is a market no feed reaches.',
     },
     {
       type: 'p',
@@ -83,7 +83,7 @@ export const ucpVsAcpVsMcp: LearnArticle = {
     {
       type: 'cta',
       title: 'How agent-readable is your site right now?',
-      text: 'Before picking protocols, see what agents can already extract from your website. The free scanner grades your site\u2019s agent legibility and shows exactly which checks fail.',
+      text: 'Before picking protocols, see what agents can already extract from your website. The free scanner grades your site’s agent legibility and shows exactly which checks fail.',
       href: '/scan',
       label: 'Scan your site free',
     },
@@ -101,7 +101,7 @@ export const ucpVsAcpVsMcp: LearnArticle = {
         [
           'What it is',
           'Checkout and feed specification, now surface-independent',
-          'Catalog + checkout protocol for Google\u2019s AI surfaces',
+          'Catalog + checkout protocol for Google’s AI surfaces',
           'General tool-calling protocol; commerce is one use',
         ],
         [
@@ -119,7 +119,7 @@ export const ucpVsAcpVsMcp: LearnArticle = {
         [
           'Payments',
           'You stay merchant of record; tokenized, card data never hits you',
-          'Composes with Google\u2019s AP2 authorization mandates',
+          'Composes with Google’s AP2 authorization mandates',
           'Whatever your tools implement (Stripe checkout is typical)',
         ],
         [
@@ -143,7 +143,7 @@ export const ucpVsAcpVsMcp: LearnArticle = {
     { type: 'h2', text: 'Where they overlap, and where they compose' },
     {
       type: 'p',
-      text: 'These are not three competitors fighting for one socket. UCP explicitly supports MCP as a transport, so the "Google protocol" can literally run over the "Anthropic protocol," and the current ACP spec integrates MCP too. ACP\u2019s product feed is a close cousin of the Merchant Center feed, close enough that one well-structured catalog generates both. And AP2 is a payments layer, not a rival channel; it can sit underneath more than one of these rails.',
+      text: 'These are not three competitors fighting for one socket. UCP explicitly supports MCP as a transport, so the "Google protocol" can literally run over the "Anthropic protocol," and the current ACP spec integrates MCP too. ACP’s product feed is a close cousin of the Merchant Center feed, close enough that one well-structured catalog generates both. And AP2 is a payments layer, not a rival channel; it can sit underneath more than one of these rails.',
     },
     {
       type: 'p',
@@ -151,12 +151,12 @@ export const ucpVsAcpVsMcp: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'In practice the protocols compose per buyer, not per merchant. One customer\u2019s agent finds you through Gemini, another arrives from a ChatGPT recommendation and buys on your own site, a third books through a custom concierge agent hitting your MCP server. Same catalog, three doors. The winners stopped asking which door and started keeping one catalog behind all of them.',
+      text: 'In practice the protocols compose per buyer, not per merchant. One customer’s agent finds you through Gemini, another arrives from a ChatGPT recommendation and buys on your own site, a third books through a custom concierge agent hitting your MCP server. Same catalog, three doors. The winners stopped asking which door and started keeping one catalog behind all of them.',
     },
     { type: 'h2', text: 'Which should you support first? The honest answer' },
     {
       type: 'p',
-      text: 'None of them, at first. The bulk of agent traffic in 2026 is still a model reading your web pages, so structured data and crawlability pay off before any protocol does, and every protocol either consumes that same catalog data or verifies against it. Be honest about the fads too: Ahrefs found no ranking correlation for llms.txt and Google\u2019s guidance says it is not required, so treat that file as a cheap courtesy, not a strategy. The JSON-LD and clean markup underneath it are the part that compounds.',
+      text: 'None of them, at first. The bulk of agent traffic in 2026 is still a model reading your web pages, so structured data and crawlability pay off before any protocol does, and every protocol either consumes that same catalog data or verifies against it. Be honest about the fads too: Ahrefs found no ranking correlation for llms.txt and Google’s guidance says it is not required, so treat that file as a cheap courtesy, not a strategy. The JSON-LD and clean markup underneath it are the part that compounds.',
     },
     {
       type: 'ol',
@@ -174,8 +174,8 @@ export const ucpVsAcpVsMcp: LearnArticle = {
     {
       type: 'callout',
       tone: 'amber',
-      title: 'Do not bet a quarter on one vendor\u2019s surface',
-      text: 'These specs are young and moving, and March 2026 showed what happens to merchants who built specifically for one company\u2019s checkout product. The cheap move is keeping one canonical catalog and generating every protocol surface from it, so a spec revision or a shutdown is a regeneration rather than a rebuild.',
+      title: 'Do not bet a quarter on one vendor’s surface',
+      text: 'These specs are young and moving, and March 2026 showed what happens to merchants who built specifically for one company’s checkout product. The cheap move is keeping one canonical catalog and generating every protocol surface from it, so a spec revision or a shutdown is a regeneration rather than a rebuild.',
     },
     { type: 'h2', text: 'The compounding move: one catalog, every rail' },
     {
@@ -198,7 +198,7 @@ export const ucpVsAcpVsMcp: LearnArticle = {
     {
       question: 'What is the difference between UCP and ACP?',
       answer:
-        'Different owners, different status. ACP is the open specification OpenAI and Stripe published, built around a product feed plus a checkout-sessions API. It launched with ChatGPT Instant Checkout, which OpenAI retired in March 2026, so ACP now lives through other adopters such as PayPal and Stripe rather than a flagship assistant surface. UCP is Google\u2019s protocol, onboarded through Merchant Center, and it is where live agentic checkout runs today across Gemini, AI Mode, and YouTube Shopping.',
+        'Different owners, different status. ACP is the open specification OpenAI and Stripe published, built around a product feed plus a checkout-sessions API. It launched with ChatGPT Instant Checkout, which OpenAI retired in March 2026, so ACP now lives through other adopters such as PayPal and Stripe rather than a flagship assistant surface. UCP is Google’s protocol, onboarded through Merchant Center, and it is where live agentic checkout runs today across Gemini, AI Mode, and YouTube Shopping.',
     },
     {
       question: 'Is MCP only for developers?',
@@ -218,7 +218,7 @@ export const ucpVsAcpVsMcp: LearnArticle = {
     {
       question: 'What is AP2 and do I need it as well?',
       answer:
-        'AP2 is the Agent Payments Protocol Google published in September 2025. It is not a sales channel; it is the authorization layer that proves a human approved an agent\u2019s purchase, and it composes with UCP checkout. You will almost never implement AP2 standalone as a merchant; it arrives bundled with whichever UCP path or platform you adopt.',
+        'AP2 is the Agent Payments Protocol Google published in September 2025. It is not a sales channel; it is the authorization layer that proves a human approved an agent’s purchase, and it composes with UCP checkout. You will almost never implement AP2 standalone as a merchant; it arrives bundled with whichever UCP path or platform you adopt.',
     },
   ],
 }

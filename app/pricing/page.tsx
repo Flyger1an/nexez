@@ -7,9 +7,9 @@ import { buildPlansAggregateOffer } from '../../lib/platform-agent-manifest'
 // Server shell so /pricing gets its own SERP title/description + canonical/OG
 // (the interactive pricing UI lives in PricingClient). The root layout applies
 // the '%s · Nexez' title template - don't re-brand here.
-const title = 'Pricing — plans for agent-ready listings'
+const title = 'Pricing: plans for agent-ready listings'
 const description =
-  'Start free with agentic checkout and a 9% Nexez commission, or choose a paid plan for lower platform fees and more operating power.'
+  'Start free with agent-ready checkout and a 9% Nexez commission, or choose a paid plan for lower platform fees and more operating power.'
 
 export const metadata: Metadata = {
   title,

@@ -8,8 +8,8 @@ export const chatgptInstantCheckoutRetired: LearnArticle = {
   title: 'What happened to ChatGPT Instant Checkout, and what merchants should do now',
   dek: 'OpenAI shut down in-chat checkout in March 2026, about five months after launching it. The protocol underneath survived, the shopping surface did not, and a lot of published advice still tells merchants to enroll in a program that no longer exists. Here is the accurate picture.',
   category: 'Agentic commerce',
-  publishedAt: '2026-08-17',
-  updatedAt: '2026-08-17',
+  publishedAt: '2026-08-20',
+  updatedAt: '2026-08-20',
   readMinutes: 11,
   blocks: [
     {
@@ -18,7 +18,7 @@ export const chatgptInstantCheckoutRetired: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'The nuance that most coverage gets wrong in one direction or the other: the Agentic Commerce Protocol did not die with the feature it launched alongside. ACP is alive, actively specified, and arguably more relevant now than it was in September 2025. What ended was OpenAI\u2019s in-chat checkout surface, not the standard underneath it. Those are different things, and merchants who conflate them either write off work that still matters or keep chasing a door that is closed.',
+      text: 'The nuance that most coverage gets wrong in one direction or the other: the Agentic Commerce Protocol did not die with the feature it launched alongside. ACP is alive, actively specified, and arguably more relevant now than it was in September 2025. What ended was OpenAI’s in-chat checkout surface, not the standard underneath it. Those are different things, and merchants who conflate them either write off work that still matters or keep chasing a door that is closed.',
     },
     {
       type: 'p',
@@ -42,7 +42,7 @@ export const chatgptInstantCheckoutRetired: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'OpenAI did not put out a press release announcing the shutdown. The disclosure sat near the end of a post titled "Powering Product Discovery in ChatGPT," in language worth quoting because it is the company\u2019s own framing: they found the initial version did not offer the level of flexibility they aspire to provide, so they are allowing merchants to use their own checkout experiences while they focus their efforts on product discovery. The Information reported the pullback first. TD Cowen analysts called it a stunning admission, Booking.com stock rose about 8% on the news and Expedia about 13%, and a chorus on LinkedIn declared agentic commerce dead on arrival.',
+      text: 'OpenAI did not put out a press release announcing the shutdown. The disclosure sat near the end of a post titled "Powering Product Discovery in ChatGPT," in language worth quoting because it is the company’s own framing: they found the initial version did not offer the level of flexibility they aspire to provide, so they are allowing merchants to use their own checkout experiences while they focus their efforts on product discovery. The Information reported the pullback first. TD Cowen analysts called it a stunning admission, Booking.com stock rose about 8% on the news and Expedia about 13%, and a chorus on LinkedIn declared agentic commerce dead on arrival.',
     },
     { type: 'h2', text: 'Why it actually failed' },
     {
@@ -55,7 +55,7 @@ export const chatgptInstantCheckoutRetired: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'Adoption was also thinner than the launch coverage implied. Across the feature\u2019s entire run, the Shopify merchant count never exceeded roughly a dozen brands, despite headlines about millions of merchants becoming eligible. A checkout rail with a dozen live sellers is a pilot, not a channel, and it never reached the catalog breadth that would have made it useful for the multi-constraint shopping questions people actually ask.',
+      text: 'Adoption was also thinner than the launch coverage implied. Across the feature’s entire run, the Shopify merchant count never exceeded roughly a dozen brands, despite headlines about millions of merchants becoming eligible. A checkout rail with a dozen live sellers is a pilot, not a channel, and it never reached the catalog breadth that would have made it useful for the multi-constraint shopping questions people actually ask.',
     },
     {
       type: 'p',
@@ -84,7 +84,7 @@ export const chatgptInstantCheckoutRetired: LearnArticle = {
     {
       type: 'ul',
       items: [
-        'Google\u2019s Universal Commerce Protocol, launched at NRF in January 2026 with Shopify, Etsy, Wayfair, Target, and Walmart, now covers discovery through post-purchase across AI Mode, Gemini, and YouTube Shopping. The [UCP guide](/learn/what-is-google-ucp) covers the merchant side.',
+        'Google’s Universal Commerce Protocol, launched at NRF in January 2026 with Shopify, Etsy, Wayfair, Target, and Walmart, now covers discovery through post-purchase across AI Mode, Gemini, and YouTube Shopping. The [UCP guide](/learn/what-is-google-ucp) covers the merchant side.',
         'Shopify turned on Agentic Storefronts by default in its Winter 2026 Edition, activating UCP and native MCP servers for its merchants without per-merchant integration work.',
         'Perplexity continued building its own buying flow, and OpenAI itself routed commerce toward third-party apps like Instacart, Target, and Booking.com rather than native checkout.',
       ],
@@ -96,7 +96,7 @@ export const chatgptInstantCheckoutRetired: LearnArticle = {
     { type: 'h2', text: 'The model that replaced it: discover in AI, buy on your site' },
     {
       type: 'p',
-      text: 'The durable 2026 pattern is a split. AI assistants do discovery, comparison, and recommendation. Purchase completes in the merchant\u2019s own environment, where conversion is measurably better and the merchant controls the experience, the upsell, the loyalty enrollment, and the returns flow.',
+      text: 'The durable 2026 pattern is a split. AI assistants do discovery, comparison, and recommendation. Purchase completes in the merchant’s own environment, where conversion is measurably better and the merchant controls the experience, the upsell, the loyalty enrollment, and the returns flow.',
     },
     {
       type: 'p',
@@ -123,11 +123,11 @@ export const chatgptInstantCheckoutRetired: LearnArticle = {
     { type: 'h2', text: 'Does this mean agentic commerce failed?' },
     {
       type: 'p',
-      text: 'No, and the market data cuts against that reading. AI-referred retail traffic grew 393% year over year in Q1 2026 and converts substantially better than traditional search, and every major forecast for agent-mediated commerce remained intact through the retirement. What failed was one company\u2019s first implementation of one part of the stack, at a moment when that company had bigger problems.',
+      text: 'No, and the market data cuts against that reading. AI-referred retail traffic grew 393% year over year in Q1 2026 and converts substantially better than traditional search, and every major forecast for agent-mediated commerce remained intact through the retirement. What failed was one company’s first implementation of one part of the stack, at a moment when that company had bigger problems.',
     },
     {
       type: 'p',
-      text: 'The useful lesson is narrower and more practical. Bet on the layer that does not depend on any single vendor\u2019s product decisions. Structured, accurate, machine-readable business data was valuable before Instant Checkout, stayed valuable during it, and is still valuable now that it is gone. Merchants who built on that foundation lost nothing in March. Merchants who built specifically for one company\u2019s checkout surface learned an expensive lesson about platform risk.',
+      text: 'The useful lesson is narrower and more practical. Bet on the layer that does not depend on any single vendor’s product decisions. Structured, accurate, machine-readable business data was valuable before Instant Checkout, stayed valuable during it, and is still valuable now that it is gone. Merchants who built on that foundation lost nothing in March. Merchants who built specifically for one company’s checkout surface learned an expensive lesson about platform risk.',
     },
     {
       type: 'cta',
@@ -156,12 +156,12 @@ export const chatgptInstantCheckoutRetired: LearnArticle = {
     {
       question: 'Did I waste my time building an ACP integration?',
       answer:
-        'Mostly no, though the payoff moved. Feed and catalog work transfers directly to other surfaces because structured product data is the shared input across every agentic channel. Checkout-session endpoints retain value if your payment provider or platform speaks ACP, and the protocol\u2019s convergence with MCP suggests continued relevance. What lost value is anything built specifically to satisfy OpenAI\u2019s enrollment requirements.',
+        'Mostly no, though the payoff moved. Feed and catalog work transfers directly to other surfaces because structured product data is the shared input across every agentic channel. Checkout-session endpoints retain value if your payment provider or platform speaks ACP, and the protocol’s convergence with MCP suggests continued relevance. What lost value is anything built specifically to satisfy OpenAI’s enrollment requirements.',
     },
     {
       question: 'Where can AI agents actually complete purchases now?',
       answer:
-        'Mainly through Google\u2019s Universal Commerce Protocol across AI Mode, Gemini, and YouTube Shopping, and through platforms that implement it, with Shopify enabling Agentic Storefronts by default in its Winter 2026 Edition. Perplexity operates its own buying flow, and OpenAI now routes commerce through third-party apps such as Instacart, Target, and Booking.com rather than native checkout.',
+        'Mainly through Google’s Universal Commerce Protocol across AI Mode, Gemini, and YouTube Shopping, and through platforms that implement it, with Shopify enabling Agentic Storefronts by default in its Winter 2026 Edition. Perplexity operates its own buying flow, and OpenAI now routes commerce through third-party apps such as Instacart, Target, and Booking.com rather than native checkout.',
     },
     {
       question: 'Should I still optimise for ChatGPT?',

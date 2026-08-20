@@ -6,7 +6,9 @@
 //   - DISCOVERY: a published listing is in the ChatGPT (ACP) + Google (UCP) feeds.
 //     Free for every plan — the growth wedge.
 //   - CHECKOUT: buyers transact through the agent on every plan when the owner has a
-//     charge-ready Stripe Connect account and the program is switched on.
+//     charge-ready Stripe Connect account and the program is switched on. Note that
+//     OpenAI retired in-chat checkout in March 2026, so ChatGPT is a discovery-only
+//     surface today and Google (UCP) is where an agent-completed purchase runs.
 
 export type AgenticDiscoveryState = 'live' | 'unpublished'
 
@@ -39,7 +41,8 @@ export type AgenticCommerceInputs = {
   planAllowsCheckout: boolean
   /** Seller's Stripe Connect account can accept a charge (charges_enabled). */
   connectReady: boolean
-  /** ACP (ChatGPT Instant Checkout) program is switched on. */
+  /** ACP checkout program is switched on. Dormant since OpenAI retired the ChatGPT
+   * checkout surface in March 2026; the flag stays for if a successor surface ships. */
   chatgptLive: boolean
   /** UCP (Google) program is switched on. */
   googleLive: boolean
