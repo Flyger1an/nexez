@@ -11,6 +11,7 @@ import {
   Loader2,
   Lock,
   RefreshCw,
+  Search,
   XCircle,
 } from 'lucide-react'
 import { ErrorBoundary } from '../../../components/ErrorBoundary'
@@ -31,8 +32,25 @@ import { toMajorAmount } from '../../../lib/currency'
 import { withTimeout } from '../../../lib/async-timeout'
 import { createClient } from '../../../utils/supabase/client'
 import { agentRuntimeUrl } from '../../../lib/site'
+import {
+  getNegotiationQueueState,
+  loadNegotiationRollup,
+  negotiationMatchesQueueFilter,
+  type NegotiationQueueFilter,
+  type NegotiationRollup,
+} from '../../../lib/negotiation-report'
 
 const LOAD_TIMEOUT_MS = 12000
+const INBOX_LIMIT = 100
+
+type InboxNegotiation = Pick<AgentNegotiation,
+  'id' | 'page_id' | 'slug' | 'offer_key' | 'offer_name' | 'offer_kind' | 'buyer_agent' | 'buyer_query'
+  | 'requested_terms' | 'budget_text' | 'timeline_text' | 'contact' | 'buyer_email' | 'status' | 'escrow_mode'
+  | 'amount_cents' | 'currency' | 'refunded_cents' | 'stripe_payment_intent_id' | 'settlement_state'
+  | 'decision_pending' | 'metadata' | 'created_at' | 'updated_at'
+>
+
+const INBOX_SELECT = 'id, page_id, slug, offer_key, offer_name, offer_kind, buyer_agent, buyer_query, requested_terms, budget_text, timeline_text, contact, buyer_email, status, escrow_mode, amount_cents, currency, refunded_cents, stripe_payment_intent_id, settlement_state, decision_pending, metadata, created_at, updated_at'
 
 const TONE_BADGE: Record<ReturnType<typeof getNegotiationStatusTone>, string> = {
   open: 'border-[var(--amber)]/30 bg-[var(--amber)]/10 text-[var(--amber)]',
@@ -70,12 +88,17 @@ function transitionIcon(to: NegotiationStatus) {
 export default function NegotiationsInbox() {
   const router = useRouter()
   const plan = usePlan()
-  const [negotiations, setNegotiations] = useState<AgentNegotiation[]>([])
+  const [negotiations, setNegotiations] = useState<InboxNegotiation[]>([])
+  const [report, setReport] = useState<NegotiationRollup | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
   const [migrationPending, setMigrationPending] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [message, setMessage] = useState('')
+  const [queueFilter, setQueueFilter] = useState<NegotiationQueueFilter>('all')
+  const [query, setQuery] = useState('')
 
   useEffect(() => {
     void load()
@@ -108,17 +131,23 @@ export default function NegotiationsInbox() {
         return
       }
 
-      const { data, error } = await withTimeout(
+      const [listResult, reportResult] = await withTimeout(Promise.all([
         supabase
           .from('agent_negotiations')
-          .select('*')
+          .select(INBOX_SELECT)
           .eq('owner_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(100)
-          .returns<AgentNegotiation[]>(),
+          .or('stripe_livemode.is.null,stripe_livemode.eq.true')
+          .order('updated_at', { ascending: false })
+          .limit(INBOX_LIMIT)
+          .returns<InboxNegotiation[]>(),
+        loadNegotiationRollup(supabase),
+      ]),
         LOAD_TIMEOUT_MS,
         'Timed out loading negotiations. Check your connection and retry.',
       )
+
+      const { data, error } = listResult
+      setReport(reportResult.data)
 
       if (error) {
         if (isMissingTableError(error)) {
@@ -131,6 +160,7 @@ export default function NegotiationsInbox() {
         }
       } else {
         setNegotiations(data || [])
+        setHasMore((data?.length ?? 0) === INBOX_LIMIT)
       }
     } catch (err) {
       // Network failure or timeout - surface a retryable error instead of
@@ -142,9 +172,47 @@ export default function NegotiationsInbox() {
     }
   }
 
+  async function loadMore() {
+    setLoadingMore(true)
+    setMessage('')
+    try {
+      const supabase = createClient()
+      const { data, error } = await withTimeout(
+        supabase
+          .from('agent_negotiations')
+          .select(INBOX_SELECT)
+          .or('stripe_livemode.is.null,stripe_livemode.eq.true')
+          .order('updated_at', { ascending: false })
+          .range(negotiations.length, negotiations.length + INBOX_LIMIT - 1)
+          .returns<InboxNegotiation[]>(),
+        LOAD_TIMEOUT_MS,
+        'Timed out loading more negotiations.',
+      )
+      if (error) {
+        setMessage(error.message || 'Could not load more negotiations.')
+        return
+      }
+      const next = data ?? []
+      setNegotiations((current) => {
+        const seen = new Set(current.map((item) => item.id))
+        return [...current, ...next.filter((item) => !seen.has(item.id))]
+      })
+      setHasMore(next.length === INBOX_LIMIT)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Could not load more negotiations.')
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
+  async function refreshReport() {
+    const result = await loadNegotiationRollup(createClient())
+    if (result.data) setReport(result.data)
+  }
+
   // Non-payment status transitions go through the server route, which validates the
   // transition (and the DB money-safety trigger backstops it) - no direct client writes.
-  async function updateStatus(item: AgentNegotiation, to: NegotiationStatus) {
+  async function updateStatus(item: InboxNegotiation, to: NegotiationStatus) {
     setUpdatingId(item.id)
     setMessage('')
     try {
@@ -159,6 +227,7 @@ export default function NegotiationsInbox() {
         return
       }
       setNegotiations((prev) => prev.map((n) => (n.id === item.id ? { ...n, status: to } : n)))
+      await refreshReport()
       setMessage(`Negotiation moved to "${getNegotiationStatusLabel(to)}".`)
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Could not update negotiation.')
@@ -169,7 +238,7 @@ export default function NegotiationsInbox() {
 
   // Set/adjust the agreed amount before placing an escrow hold.
   // Now routed through server API (was previously direct client write - major safety win).
-  async function saveAmount(item: AgentNegotiation, dollars: number) {
+  async function saveAmount(item: InboxNegotiation, dollars: number) {
     setMessage('')
     const cents = Math.round(dollars * 100)
     if (!Number.isFinite(cents) || cents < 50) {
@@ -188,6 +257,7 @@ export default function NegotiationsInbox() {
         setMessage(data.error || 'Could not save amount.')
       } else {
         setNegotiations((prev) => prev.map((n) => (n.id === item.id ? { ...n, amount_cents: cents } : n)))
+        await refreshReport()
         setMessage(`Agreed amount set to ${formatNegotiationAmount(cents, item.currency)}.`)
       }
     } catch (err) {
@@ -201,7 +271,7 @@ export default function NegotiationsInbox() {
   //  - approve → unlock a high-value agreement so the buyer's pay link activates.
   //  - capture → capture the buyer's held authorization → 'complete'.
   //  - cancel  → release the hold → 'declined'.
-  async function runEscrow(item: AgentNegotiation, action: 'approve' | 'capture' | 'cancel' | 'refund', amount?: number) {
+  async function runEscrow(item: InboxNegotiation, action: 'approve' | 'capture' | 'cancel' | 'refund', amount?: number) {
     setUpdatingId(item.id)
     setMessage('')
     try {
@@ -234,7 +304,20 @@ export default function NegotiationsInbox() {
     }
   }
 
-  const summary = useMemo(() => summarizeNegotiations(negotiations), [negotiations])
+  const sampleSummary = useMemo(() => summarizeNegotiations(negotiations), [negotiations])
+  const filteredNegotiations = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    return negotiations
+      .filter((item) => negotiationMatchesQueueFilter(item, queueFilter))
+      .filter((item) => !needle || [item.offer_name, item.slug, item.buyer_agent, item.buyer_query, item.buyer_email]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(needle)))
+      .sort((a, b) => {
+        const priority = getNegotiationQueueState(b).priority - getNegotiationQueueState(a).priority
+        return priority || new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+      })
+  }, [negotiations, queueFilter, query])
+  const summary = report?.counts
 
   return (
     <ErrorBoundary>
@@ -252,7 +335,7 @@ export default function NegotiationsInbox() {
               <h1 className="flex items-center gap-2 text-2xl font-semibold">
                 <Handshake className="size-6 text-[var(--signal)]" /> Negotiation Inbox
               </h1>
-              <p className="mt-1 max-w-2xl text-sm text-zinc-400">Agent proposals + escrow status.</p>
+              <p className="mt-1 max-w-2xl text-sm text-zinc-400">Prioritized proposals, agreements, payment holds, and exceptions.</p>
             </div>
             <div className="flex items-center gap-2">
               <a
@@ -272,11 +355,34 @@ export default function NegotiationsInbox() {
 
           {/* KPI summary */}
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            <Kpi label="Total" value={summary.total} />
-            <Kpi label="New" value={summary.open} tone="open" />
-            <Kpi label="Proposed" value={summary.proposed} tone="progress" />
-            <Kpi label="Complete" value={summary.complete} tone="success" />
-            <Kpi label="Declined" value={summary.declined} tone="muted" />
+            <Kpi label={report ? 'All deals' : 'Recent deals'} value={summary?.total ?? sampleSummary.total} />
+            <Kpi label="Need action" value={summary?.needsAction ?? negotiations.filter((item) => getNegotiationQueueState(item).ownerAction).length} tone="open" />
+            <Kpi label="Waiting" value={summary?.waiting ?? negotiations.filter((item) => ['buyer', 'processing'].includes(getNegotiationQueueState(item).key)).length} tone="progress" />
+            <Kpi label="Funds held" value={summary?.held ?? sampleSummary.held} tone="progress" />
+            <Kpi label="Complete" value={summary?.complete ?? sampleSummary.complete} tone="success" />
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-wrap gap-2">
+                {([
+                  ['all', 'All recent'],
+                  ['needs_action', `Need action${report ? ` · ${report.counts.needsAction}` : ''}`],
+                  ['waiting', `Waiting${report ? ` · ${report.counts.waiting}` : ''}`],
+                  ['closed', 'Closed'],
+                ] as Array<[NegotiationQueueFilter, string]>).map(([value, label]) => (
+                  <button key={value} type="button" onClick={() => setQueueFilter(value)} className={`min-h-[40px] rounded-lg border px-3 text-xs font-medium transition ${queueFilter === value ? 'border-[var(--signal)]/40 bg-[var(--signal)]/10 text-[var(--signal)]' : 'border-white/10 bg-white/5 text-zinc-400 hover:text-white'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <label className="relative block md:w-72">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
+                <span className="sr-only">Search negotiations</span>
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search offer, buyer, or request" className="min-h-[42px] w-full rounded-lg border border-white/10 bg-black/25 py-2 pl-9 pr-3 text-sm text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-[var(--signal)]/40" />
+              </label>
+            </div>
+            <p className="mt-2 px-1 text-[11px] text-zinc-500">Showing {filteredNegotiations.length} from the latest {negotiations.length}{report ? ` of ${report.counts.total} total` : ''}. Exact totals remain visible above.</p>
           </div>
 
           {message && (
@@ -329,9 +435,11 @@ export default function NegotiationsInbox() {
                 </div>
               </div>
             )
+          ) : filteredNegotiations.length === 0 ? (
+            <div className="card mt-6 !p-8 text-center"><Search className="mx-auto size-7 text-zinc-500" /><p className="mt-3 text-sm font-medium text-zinc-200">No deals match this view</p><p className="mt-1 text-sm text-zinc-500">Try another queue or clear the search.</p></div>
           ) : (
             <div className="mt-6 space-y-4">
-              {negotiations.map((item) => (
+              {filteredNegotiations.map((item) => (
                 <NegotiationCard
                   key={item.id}
                   item={item}
@@ -342,6 +450,12 @@ export default function NegotiationsInbox() {
                   onRefresh={() => void load()}
                 />
               ))}
+              {hasMore && (!report || negotiations.length < report.counts.total) ? (
+                <button type="button" disabled={loadingMore} onClick={() => void loadMore()} className="mx-auto flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-5 text-sm text-zinc-300 transition hover:bg-white/10 disabled:opacity-50">
+                  {loadingMore ? <Loader2 className="size-4 animate-spin" /> : null}
+                  {loadingMore ? 'Loading more…' : 'Load 100 more'}
+                </button>
+              ) : null}
             </div>
           )}
         </div>
@@ -378,7 +492,7 @@ function NegotiationCard({
   onSaveAmount,
   onRefresh,
 }: {
-  item: AgentNegotiation
+  item: InboxNegotiation
   updating: boolean
   onTransition: (to: NegotiationStatus) => void
   onEscrow: (action: 'approve' | 'capture' | 'cancel' | 'refund', amount?: number) => void
@@ -390,6 +504,8 @@ function NegotiationCard({
   const tone = getNegotiationStatusTone(item.status)
   const amountReady = item.amount_cents != null && item.amount_cents >= 50
   const termRows = formatRequestedTerms(item.requested_terms)
+  const queue = getNegotiationQueueState(item)
+  const reasoningSummary = getNegotiationReasoningSummary(item.metadata)
 
   // The BUYER funds the hold (via the /negotiate pay link), so owners never set 'held'.
   // From 'held', the owner's complete = capture and decline = release the authorization.
@@ -443,7 +559,7 @@ function NegotiationCard({
   }
 
   return (
-    <div className="card !p-5">
+    <article id={`negotiation-${item.id}`} className="card scroll-mt-6 !p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -452,6 +568,9 @@ function NegotiationCard({
             </span>
             <span className="text-xs text-zinc-500">{item.offer_kind}</span>
             <RulesEvaluationBadge metadata={item.metadata} />
+            <span className={`rounded-full border px-2.5 py-0.5 text-xs ${queue.urgent ? 'border-red-300/30 bg-red-300/10 text-red-200' : queue.ownerAction ? 'border-[var(--amber)]/30 bg-[var(--amber)]/10 text-[var(--amber)]' : 'border-white/10 bg-white/5 text-zinc-400'}`}>
+              {queue.label}
+            </span>
           </div>
           <h2 className="mt-2 truncate text-lg font-medium">{item.offer_name}</h2>
           <a
@@ -473,6 +592,10 @@ function NegotiationCard({
           </p>
         </div>
       </div>
+
+      <p className={`mt-3 rounded-lg border px-3 py-2 text-xs ${queue.urgent ? 'border-red-300/20 bg-red-300/[0.06] text-red-100' : 'border-white/10 bg-black/20 text-zinc-400'}`}>
+        {queue.detail}
+      </p>
 
       <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
         <Field label="Buyer agent" value={item.buyer_agent} />
@@ -530,7 +653,7 @@ function NegotiationCard({
         )}
 
         {ownerTransitions.length === 0 && !canRefund ? (
-          <span className="text-xs text-zinc-500">Negotiation closed.</span>
+          <span className="text-xs text-zinc-500">{item.status === 'disputed' ? 'Payment dispute open.' : 'Negotiation closed.'}</span>
         ) : (
           ownerTransitions.map((to) => (
             <button
@@ -544,6 +667,11 @@ function NegotiationCard({
             </button>
           ))
         )}
+        {item.status === 'disputed' ? (
+          <a href="/dashboard/finance" className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-red-300/30 bg-red-300/10 px-3 text-xs font-medium text-red-100 transition hover:bg-red-300/20">
+            Review in Finance
+          </a>
+        ) : null}
 
         {/* Refund a captured payment back to the buyer - full or partial. A partial
             keeps the deal 'complete' so the remainder stays refundable. */}
@@ -593,11 +721,11 @@ function NegotiationCard({
             Receipt
           </a>
         )}
-        {/* No token in the URL: /negotiate/[id] authorizes the owner by session under
-            RLS and recovers their own token server-side for the resume form. The
-            owner never needed to carry a bearer credential in a link. */}
+        {/* Stay on the authenticated app host so the owner session can authorize
+            the thread under RLS. Sending this to the separate agent-runtime host
+            would lose the cookie and incorrectly resolve to a 404. */}
         <a
-          href={agentRuntimeUrl(`/negotiate/${item.id}`)}
+          href={`/negotiate/${item.id}`}
           className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-[var(--signal)]/40 bg-[var(--signal)]/10 px-3 text-xs font-medium text-[var(--signal)] transition hover:bg-[var(--signal)]/20"
         >
           View negotiation
@@ -605,16 +733,16 @@ function NegotiationCard({
       </div>
 
       {/* Show recent LLM-powered history / reasoning for owner visibility (Phase 2: includes scope + scheduling hints) */}
-      {(((item.metadata as any)?.conversation?.length > 0) || (item.metadata as any)?.proposal_review?.reasoning || (item.metadata as any)?.last_decision) && (
+      {(reasoningSummary.initial || reasoningSummary.turns.length || reasoningSummary.scheduling || reasoningSummary.scope) && (
         <div className="mt-3 text-[11px] text-zinc-400 border-l border-white/20 pl-3">
-          {((item.metadata as any)?.proposal_review as any)?.reasoning && <div>Initial: {((item.metadata as any).proposal_review as any).reasoning}</div>}
-          {((item.metadata?.conversation as any[]) || []).slice(-2).map((t: any, idx: number) => t.decision && (
-            <div key={idx}>{t.decision.action}: {t.decision.reasoning?.slice(0, 120)}...</div>
+          {reasoningSummary.initial ? <div>Initial: {reasoningSummary.initial}</div> : null}
+          {reasoningSummary.turns.map((turn, index) => (
+            <div key={`${turn.action}:${index}`}>{turn.action}: {turn.reasoning}</div>
           ))}
-          {(item.metadata as any)?.last_decision?.schedulingLink && (
+          {reasoningSummary.scheduling && (
             <div className="text-[var(--ready)]/70">Scheduling link available for agent</div>
           )}
-          {((item.metadata as any)?.last_decision?.counter?.scope || (item.metadata as any)?.last_decision?.scope) && (
+          {reasoningSummary.scope && (
             <div>Scope terms negotiated in thread</div>
           )}
         </div>
@@ -627,7 +755,7 @@ function NegotiationCard({
           <details className="group">
             <summary className="cursor-pointer text-xs text-[var(--signal)] hover:underline flex items-center gap-1">
               + Add manual response (as owner)
-              <span className="text-[10px] text-zinc-500 group-open:hidden">(for testing / direct control)</span>
+              <span className="text-[10px] text-zinc-500 group-open:hidden">(buyer-visible)</span>
             </summary>
             <form
               className="mt-3 grid gap-3 text-xs"
@@ -736,7 +864,7 @@ function NegotiationCard({
           </details>
         </div>
       )}
-    </div>
+    </article>
   )
 }
 
@@ -757,7 +885,7 @@ function AmountEditor({
   disabled,
   onSave,
 }: {
-  item: AgentNegotiation
+  item: InboxNegotiation
   disabled: boolean
   onSave: (dollars: number) => void
 }) {
@@ -795,6 +923,35 @@ function AmountEditor({
       )}
     </div>
   )
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {}
+}
+
+function getNegotiationReasoningSummary(metadata: Record<string, unknown> | null) {
+  const root = record(metadata)
+  const proposalReview = record(root.proposal_review)
+  const lastDecision = record(root.last_decision)
+  const conversation = Array.isArray(root.conversation) ? root.conversation : []
+  const turns = conversation.flatMap((value) => {
+    const decision = record(record(value).decision)
+    if (typeof decision.action !== 'string') return []
+    const reasoning = typeof decision.reasoning === 'string'
+      ? `${decision.reasoning.slice(0, 120)}${decision.reasoning.length > 120 ? '…' : ''}`
+      : 'Decision recorded'
+    return [{ action: decision.action, reasoning }]
+  }).slice(-2)
+  const counter = record(lastDecision.counter)
+
+  return {
+    initial: typeof proposalReview.reasoning === 'string' ? proposalReview.reasoning : '',
+    turns,
+    scheduling: typeof lastDecision.schedulingLink === 'string' && Boolean(lastDecision.schedulingLink),
+    scope: Boolean(counter.scope || lastDecision.scope),
+  }
 }
 
 // Advanced proposal review: shows LLM (platform-configured) or deterministic review + reasoning from metadata.proposal_review

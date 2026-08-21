@@ -35,6 +35,7 @@ export default function NegotiationDetailRoute() {
   const negotiationId = item.id
   const status = item.status
   const awaitingApproval = item.settlement_state === 'awaiting_approval'
+  const awaitingBuyerPayment = status === 'agreement_proposed' && !awaitingApproval
   const terminal = ['declined', 'expired', 'refunded', 'disputed'].includes(status)
 
   // Resolve "your floor" from the matching offer's rules (set via Auto-rules).
@@ -84,7 +85,7 @@ export default function NegotiationDetailRoute() {
       <Card>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <View>
-            <Text style={st.tinyLabel}>Their offer</Text>
+            <Text style={st.tinyLabel}>{status === 'negotiation' ? 'Proposed amount' : 'Agreed amount'}</Text>
             <Text style={{ color: colors.ember, fontFamily: fonts.display, fontSize: 28 }}>{formatCurrency(item.amount_cents, item.currency)}</Text>
           </View>
           {floor ? (
@@ -130,7 +131,8 @@ export default function NegotiationDetailRoute() {
       {/* Status-aware in-app actions (each money/state change is server-guarded + confirmed). */}
       {terminal ? (
         <Card>
-          <Text style={st.terminal}>This deal is {status}. No further action is available.</Text>
+          <Text style={st.terminal}>{status === 'disputed' ? 'A payment dispute is open. Review the finance workspace for the evidence and payment state.' : `This deal is ${status}. No further negotiation action is available.`}</Text>
+          {status === 'disputed' ? <AppButton label="Review in Finance on web" icon={ExternalLink} variant="secondary" onPress={() => void WebBrowser.openBrowserAsync(webPath('/dashboard/finance'))} /> : null}
         </Card>
       ) : (
         <Card>
@@ -138,10 +140,12 @@ export default function NegotiationDetailRoute() {
             <>
               {awaitingApproval ? (
                 <AppButton full label="Approve agreement" icon={Check} disabled={busy} onPress={() => confirmThen('Approve agreement?', 'Unlocks the buyer’s payment link so they can fund the deal.', () => escrowAction({ negotiationId, action: 'approve' }))} />
+              ) : awaitingBuyerPayment ? (
+                <View style={st.waitingBanner}><Text style={st.waitingTitle}>Waiting for buyer payment</Text><Text style={st.waitingText}>The agreement is already proposed. No second acceptance is needed.</Text></View>
               ) : (
                 <AppButton full label="Accept & propose" icon={Check} disabled={busy} onPress={() => { setMode('accept'); setMsg('') }} />
               )}
-              {mode === 'accept' ? (
+              {status === 'negotiation' && mode === 'accept' ? (
                 <View style={st.form}>
                   <Text style={st.formLabel}>Agreed amount ({(item.currency || 'usd').toUpperCase()})</Text>
                   <TextInput value={amountText} onChangeText={setAmountText} keyboardType="decimal-pad" placeholder="e.g. 2500" placeholderTextColor={colors.textTertiary} style={st.input} />
@@ -166,7 +170,7 @@ export default function NegotiationDetailRoute() {
                   />
                 </View>
               ) : null}
-              {mode === 'counter' ? (
+              {status === 'negotiation' && mode === 'counter' ? (
                 <View style={st.form}>
                   <Text style={st.formLabel}>Counter amount ({(item.currency || 'usd').toUpperCase()})</Text>
                   <TextInput value={amountText} onChangeText={setAmountText} keyboardType="decimal-pad" placeholder="e.g. 2500" placeholderTextColor={colors.textTertiary} style={st.input} />
@@ -191,10 +195,10 @@ export default function NegotiationDetailRoute() {
                     }
                   />
                 </View>
-              ) : (
+              ) : status === 'negotiation' ? (
                 <AppButton full label="Counter" icon={Reply} variant="secondary" disabled={busy} onPress={() => { setMode('counter'); setMsg('') }} />
-              )}
-              <AppButton full label="Pause negotiation" icon={Pause} variant="secondary" disabled={busy} onPress={() => void run(() => transitionNegotiation({ negotiationId, decision: { action: 'pause', reasoning: 'Paused from mobile' } }))} />
+              ) : null}
+              {status === 'negotiation' ? <AppButton full label="Pause negotiation" icon={Pause} variant="secondary" disabled={busy} onPress={() => void run(() => transitionNegotiation({ negotiationId, decision: { action: 'pause', reasoning: 'Paused from mobile' } }))} /> : null}
               <AppButton full label="Decline" icon={X} variant="danger" disabled={busy} onPress={() => confirmThen('Decline this proposal?', 'This declines the deal and cannot be undone.', () => transitionNegotiation({ negotiationId, decision: { action: 'reject', reasoning: 'Declined from mobile' } }))} />
             </>
           ) : null}
@@ -235,7 +239,7 @@ export default function NegotiationDetailRoute() {
         </Card>
       )}
 
-      <AppButton label="View full timeline on web" icon={ExternalLink} variant="ghost" onPress={() => void WebBrowser.openBrowserAsync(webPath(`/dashboard/negotiations/${item.id}`))} />
+      <AppButton label="Open decision queue on web" icon={ExternalLink} variant="ghost" onPress={() => void WebBrowser.openBrowserAsync(webPath(`/dashboard/negotiations#negotiation-${item.id}`))} />
     </Screen>
   )
 }
@@ -264,6 +268,9 @@ const st = {
   bubbleTime: { color: colors.textFaint, fontFamily: fonts.mono, fontSize: 10, marginTop: 5 },
   msg: { color: colors.warning, fontFamily: fonts.body, fontSize: 13 },
   terminal: { color: colors.textSecondary, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
+  waitingBanner: { borderRadius: 12, borderWidth: 1, borderColor: colors.glassBorder, backgroundColor: colors.neutralBg, padding: 13, gap: 4 },
+  waitingTitle: { color: colors.body, fontFamily: fonts.bodyBold, fontSize: 13 },
+  waitingText: { color: colors.textSecondary, fontFamily: fonts.body, fontSize: 12, lineHeight: 18 },
   form: { gap: 10 },
   formLabel: { color: colors.textSecondary, fontFamily: fonts.bodySemibold, fontSize: 12 },
   input: { minHeight: 46, borderRadius: radii.input, borderWidth: 1, borderColor: colors.inputBorder, backgroundColor: colors.inputBg, color: colors.text, paddingHorizontal: 14, fontFamily: fonts.body, fontSize: 15 },

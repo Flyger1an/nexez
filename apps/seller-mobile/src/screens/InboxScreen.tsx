@@ -25,6 +25,22 @@ function orderTone(status: string): Tone {
   return 'muted'
 }
 
+function negotiationNextAction(row: { status: string; settlement_state?: string | null; decision_pending?: boolean; metadata: Record<string, unknown> | null }) {
+  if (row.status === 'disputed') return 'Review dispute'
+  if (row.status === 'held') return 'Capture or release funds'
+  if (row.status === 'agreement_proposed' && row.settlement_state === 'awaiting_approval') return 'Approve agreement'
+  if (row.decision_pending) return 'Nexez is responding'
+  if (row.status === 'agreement_proposed') return 'Waiting for buyer payment'
+  if (row.status === 'paused') return 'Resume or close'
+  const decision = row.metadata?.last_decision
+  const action = decision && typeof decision === 'object' && !Array.isArray(decision)
+    ? (decision as Record<string, unknown>).action
+    : null
+  if (row.status === 'negotiation' && (action === 'counter' || action === 'clarify')) return 'Waiting for buyer'
+  if (row.status === 'negotiation') return 'Review proposal'
+  return 'View deal'
+}
+
 export function InboxScreen({ initialTab = 'negotiations' }: { initialTab?: InboxTab }) {
   const router = useRouter()
   const [tab, setTab] = useState<InboxTab>(initialTab)
@@ -51,8 +67,9 @@ export function InboxScreen({ initialTab = 'negotiations' }: { initialTab?: Inbo
 
       {tab === 'negotiations' ? (
         data.negotiations.length ? (
-          data.negotiations.map((n) => (
-            <View key={n.id} style={s.card}>
+          data.negotiations.map((n) => {
+            const nextAction = negotiationNextAction(n)
+            return <View key={n.id} style={s.card}>
               <View style={s.head}>
                 <Badge tone={negTone(n.status)}>{n.status.replace(/_/g, ' ')}</Badge>
                 <Text style={s.mono}>{formatDateTime(n.created_at)}</Text>
@@ -66,30 +83,14 @@ export function InboxScreen({ initialTab = 'negotiations' }: { initialTab?: Inbo
                 </Text>
                 <Text style={s.amount}>{formatCurrency(n.amount_cents, n.currency)}</Text>
               </View>
-              {/* Action shortcuts only while the deal is actually actionable -
-                  the same status vocabulary the detail screen gates on. A
-                  declined/complete/held deal gets a single View affordance. */}
-              {n.status === 'negotiation' || n.status === 'agreement_proposed' ? (
-                <View style={s.actions}>
-                  <Pressable onPress={() => router.push({ pathname: '/inbox/negotiations/[id]', params: { id: n.id } })} style={[s.actBtn, s.actPrimary, { flex: 1 }]}>
-                    <Text style={[s.actText, { color: colors.persimmonLight }]}>Accept</Text>
-                  </Pressable>
-                  <Pressable onPress={() => router.push({ pathname: '/inbox/negotiations/[id]', params: { id: n.id } })} style={[s.actBtn, { flex: 1 }]}>
-                    <Text style={s.actText}>Counter</Text>
-                  </Pressable>
-                  <Pressable onPress={() => router.push({ pathname: '/inbox/negotiations/[id]', params: { id: n.id } })} style={s.actBtn}>
-                    <Text style={[s.actText, { color: colors.textSecondary }]}>Decline</Text>
-                  </Pressable>
-                </View>
-              ) : (
-                <View style={s.actions}>
-                  <Pressable onPress={() => router.push({ pathname: '/inbox/negotiations/[id]', params: { id: n.id } })} style={[s.actBtn, { flex: 1 }]}>
-                    <Text style={s.actText}>{n.status === 'held' ? 'Review hold' : 'View deal'}</Text>
-                  </Pressable>
-                </View>
-              )}
+              <Text style={s.nextAction}>{nextAction}</Text>
+              <View style={s.actions}>
+                <Pressable onPress={() => router.push({ pathname: '/inbox/negotiations/[id]', params: { id: n.id } })} style={[s.actBtn, n.status === 'negotiation' || n.status === 'held' || n.status === 'disputed' ? s.actPrimary : null, { flex: 1 }]}>
+                  <Text style={[s.actText, n.status === 'negotiation' || n.status === 'held' || n.status === 'disputed' ? { color: colors.persimmonLight } : null]}>{nextAction}</Text>
+                </Pressable>
+              </View>
             </View>
-          ))
+          })
         ) : (
           <EmptyState title="No negotiations" detail="Agent proposals and counter-offers land here." />
         )
@@ -178,6 +179,7 @@ const s = {
   metaRow: { flexDirection: 'row' as const, justifyContent: 'space-between' as const, alignItems: 'center' as const, gap: 10 },
   meta: { flex: 1, color: colors.textSecondary, fontFamily: fonts.body, fontSize: 12 },
   amount: { fontFamily: fonts.display, fontSize: 17, color: colors.persimmon },
+  nextAction: { color: colors.textTertiary, fontFamily: fonts.bodySemibold, fontSize: 11 },
   actions: { flexDirection: 'row' as const, gap: 8, marginTop: 4 },
   actBtn: { paddingVertical: 9, paddingHorizontal: 12, borderRadius: 10, backgroundColor: colors.neutralBg, alignItems: 'center' as const, justifyContent: 'center' as const },
   actPrimary: { backgroundColor: colors.ringBg, borderWidth: 1, borderColor: colors.ringBorder },

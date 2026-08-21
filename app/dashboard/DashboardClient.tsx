@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Bell, Plus } from 'lucide-react'
 import {
   AgentPage,
@@ -29,6 +30,7 @@ import { publishErrorMessage } from '../../lib/publish-error'
 import type { SellerGrowthState } from '../../lib/server/seller-growth'
 import type { OwnerAnalyticsRollup } from '../../lib/server/analytics-rollup'
 import { SellerGrowthInvites } from '../../components/growth/SellerGrowthInvites'
+import { loadNegotiationRollup } from '../../lib/negotiation-report'
 
 export type DashboardInitial = {
   pages: AgentPage[]
@@ -52,6 +54,7 @@ export type DashboardInitial = {
 const OVERVIEW_PAGE_LIMIT = 9
 
 export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
+  const router = useRouter()
   const [pages, setPages] = useState<AgentPage[]>(initial?.pages ?? [])
   const [events, setEvents] = useState<CheckoutEvent[]>(initial?.events ?? [])
   const [agentVisits, setAgentVisits] = useState<AgentVisit[]>(initial?.agentVisits ?? [])
@@ -153,12 +156,12 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
     }
 
     if (!user) {
-      window.location.href = '/login?next=/dashboard'
+      router.replace('/login?next=/dashboard')
       return
     }
 
     // Fetch everything independent of each other in one parallel wave.
-    const [pageResult, eventResult, visitResult, invitesResult, negotiationResult] = await Promise.all([
+    const [pageResult, eventResult, visitResult, invitesResult, negotiationResult, negotiationReport] = await Promise.all([
       fetchOwnedPages(supabase, user.id),
       supabase
         .from('checkout_events')
@@ -174,6 +177,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
         .select('id', { count: 'exact', head: true })
         .eq('owner_id', user.id)
         .in('status', ['negotiation', 'agreement_proposed', 'held']),
+      loadNegotiationRollup(supabase),
     ])
 
     if (pageResult.error) {
@@ -203,7 +207,10 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
     if (negotiationResult.error && !isMissingRelationError(negotiationResult.error)) {
       console.warn('Failed to count negotiations:', negotiationResult.error)
     }
-    setOpenNegotiations(negotiationResult.error ? 0 : negotiationResult.count ?? 0)
+    setOpenNegotiations(
+      negotiationReport.data?.counts.needsAction
+        ?? (negotiationResult.error ? 0 : negotiationResult.count ?? 0),
+    )
 
     // Pages shared with me - one follow-up query keyed off the invites we already loaded.
     try {

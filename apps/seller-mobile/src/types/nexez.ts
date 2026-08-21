@@ -129,6 +129,7 @@ export type AgentNegotiation = {
   amount_cents: number | null
   currency: string
   metadata: Record<string, unknown> | null
+  decision_pending?: boolean
   settlement_state?: string | null
   escrow_mode?: string | null
   stripe_payment_intent_id?: string | null

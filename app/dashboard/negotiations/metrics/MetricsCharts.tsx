@@ -1,6 +1,6 @@
 'use client'
 
-import { PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, ResponsiveContainer } from 'recharts'
+import { PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, ResponsiveContainer, Legend } from 'recharts'
 import { MeasuredChartFrame } from '../../analytics/MeasuredChartFrame'
 
 const DONUT_COLORS = ['var(--signal)', 'var(--ready)', 'var(--amber)', '#ef4444', 'var(--fg-muted)', 'var(--fg-muted-2)', 'var(--signal)', 'var(--ready)']
@@ -34,9 +34,9 @@ export function MetricsDonut({ data, emptyLabel = 'No data yet' }: { data: Array
   )
 }
 
-/** Daily negotiation volume bar chart. data = [{ date: 'YYYY-MM-DD', count }]. */
-export function ThroughputChart({ data }: { data: Array<{ date: string; count: number }> }) {
-  if (!data.some((d) => d.count > 0)) return <EmptyChart label="No negotiations in this window" />
+/** Daily proposals, agreements, and captured outcomes. */
+export function ThroughputChart({ data }: { data: Array<{ date: string; created: number; agreed: number; captured: number }> }) {
+  if (!data.some((d) => d.created > 0 || d.agreed > 0 || d.captured > 0)) return <EmptyChart label="No negotiations in this window" />
 
   return (
     <div className="h-48 w-full">
@@ -44,7 +44,10 @@ export function ThroughputChart({ data }: { data: Array<{ date: string; count: n
         <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
           <XAxis dataKey="date" hide />
           <Tooltip cursor={{ fill: 'rgba(255,106,51,0.12)' }} labelFormatter={(d) => String(d)} />
-          <Bar dataKey="count" fill="var(--signal)" radius={[3, 3, 0, 0]} />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Bar dataKey="created" name="Proposals" fill="var(--signal)" radius={[3, 3, 0, 0]} />
+          <Bar dataKey="agreed" name="Agreements" fill="var(--amber)" radius={[3, 3, 0, 0]} />
+          <Bar dataKey="captured" name="Captured" fill="var(--ready)" radius={[3, 3, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

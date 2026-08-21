@@ -23,7 +23,7 @@ export function buildNotifications(input: {
     notifications.push({
       id: 'negotiations',
       severity: 'action',
-      message: `${openNegotiations} negotiation${openNegotiations === 1 ? '' : 's'} need${openNegotiations === 1 ? 's' : ''} your response`,
+      message: `${openNegotiations} negotiation${openNegotiations === 1 ? '' : 's'} need${openNegotiations === 1 ? 's' : ''} your attention`,
       cta: 'Open inbox',
       href: '/dashboard/negotiations',
     })
