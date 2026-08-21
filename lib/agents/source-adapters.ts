@@ -3,6 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { AgentPage, PUBLIC_PAGE_SELECT } from '../agent-page'
 import { searchAgentPages, type AgentSearchResult } from '../agent-search'
 import { publicLaunchVisiblePages } from '../public-page-visibility'
+import { filterPagesByLocation } from '../location-filter'
+import { loadReviewSummariesForSlugs } from '../server/reviews'
 import { mergeRankedResults, semanticSearch } from './semantic-search'
 // Brave is the active external discovery source (AI-friendly terms). The Yelp + Google adapters are
 // intentionally NOT imported/registered here - see external-sources.ts for the ToS rationale.
@@ -46,11 +48,17 @@ export const nexezAdapter: SourceAdapter = {
       .limit(150)
       .returns<AgentPage[]>()
     if (error) throw new Error(`Nexez search is temporarily unavailable: ${error.message}`)
-    const lexical = searchAgentPages(publicLaunchVisiblePages(data), query, limit, ctx.baseUrl)
+    const visiblePages = filterPagesByLocation(publicLaunchVisiblePages(data), ctx.location)
+    const reviewSummaries = await loadReviewSummariesForSlugs(
+      visiblePages.map((page) => page.slug),
+      0,
+    )
+    const rankingOptions = { location: ctx.location, reviewSummaries }
+    const lexical = searchAgentPages(visiblePages, query, limit, ctx.baseUrl, rankingOptions)
     // Semantic retrieval widens recall to lexically-different-but-similar pages. It's a no-op
     // (→ lexical only) until the embeddings key + page backfill are in place, so prod search is
     // unaffected today; best-effort, never breaks the lexical floor.
-    const semantic = await semanticSearch(ctx.db, query, limit, ctx.baseUrl).catch(() => [])
+    const semantic = await semanticSearch(ctx.db, query, limit, ctx.baseUrl, rankingOptions).catch(() => [])
     return semantic.length ? mergeRankedResults(semantic, lexical, limit) : lexical
   },
 }
@@ -83,7 +91,8 @@ export function getAvailableSources(): { id: string; label: string; core: boolea
 
 /**
  * Fan out the query across the selected, available sources, stamp each result with its source,
- * merge, rank by score, cap to `limit`. A single failing source is isolated (best-effort) so it
+ * merge, preserve transactable-first source tiers, then rank within each tier, capped to `limit`.
+ * A single failing source is isolated (best-effort) so it
  * can't take down the others - but if EVERY active source fails, the error is surfaced so the
  * caller's deterministic-fallback path still kicks in (matching the original nexez-only behavior).
  *

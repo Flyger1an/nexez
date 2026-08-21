@@ -129,7 +129,7 @@ Negotiation polling is bounded: `waitForNegotiationDecision` defaults to 30 seco
 
 ## Search location behavior
 
-`location` currently performs text matching against seller locations and offer service areas. Search also supports category, industry, minimum readiness/trust, verification, checkout/negotiation capability, and price-band filters. Each result includes `matched_query_terms` and `match_reasons`. `lat` and `lng` are accepted and echoed as coordinate context, but they do not currently filter or distance-rank results.
+`location` performs text matching against seller locations and offer service areas. Exact/service-area matches rank ahead of broad remote coverage. Search also supports category, industry, minimum readiness/trust, verification, checkout/negotiation capability, and price-band filters. Each result includes `matched_query_terms`, `match_reasons`, and a versioned `ranking` evidence object. Bounded relevance remains the hard first rank; sparse verified-review history is neutral. `lat` and `lng` are accepted and echoed as coordinate context, but they do not currently filter or distance-rank results.
 
 ## API
 

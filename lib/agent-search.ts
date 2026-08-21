@@ -25,6 +25,7 @@ export type AgentSearchResult = {
   score: number
   matched_query_terms: string[]
   match_reasons: string[]
+  ranking?: AgentSearchRankingEvidence
   /** Which source surfaced this result (set by searchAllSources). Absent = the Nexez marketplace. */
   source?: { id: string; label: string }
   page: {
@@ -69,6 +70,23 @@ export type AgentSearchResult = {
   } | null
 }
 
+export const AGENT_SEARCH_RANKING_POLICY = 'nexez.discovery-ranking.v1' as const
+
+export type AgentSearchRankingEvidence = {
+  policy_version: typeof AGENT_SEARCH_RANKING_POLICY
+  relevance: number
+  location: 'not-requested' | 'exact-or-service-area' | 'broad' | 'unmatched'
+  availability: 'listing-only' | 'available' | 'limited' | 'unspecified' | 'sold-out'
+  actionability: 'transaction-ready' | 'needs-confirmation' | 'listing-only' | 'unavailable'
+  seller_verified: boolean
+  agent_ready_certified: boolean
+  verified_purchase_reviews: number
+  reputation: number | null
+  review_evidence: 'cold-start' | 'established-positive' | 'established-neutral' | 'established-concerning'
+  readiness: number
+  freshness: 'recent' | 'current' | 'stale' | 'unknown'
+}
+
 export type AgentSearchOptions = {
   location?: string | null
   storefrontHandles?: Map<string, string>
@@ -82,59 +100,39 @@ export type AgentSearchOptions = {
   supportsNegotiation?: boolean | null
   priceBand?: MarketplacePriceBand | null
   queryTokens?: string[]
+  now?: Date
 }
 
 export function searchAgentPages(pages: AgentPage[], query: string, limit = 10, baseUrl = getBaseUrl(), options: AgentSearchOptions = {}) {
   const tokens = tokenize(query)
-  // Track readiness alongside each result so ties break toward higher-quality
-  // pages (quality-aware discovery) without distorting the relevance score.
-  const scored: { result: AgentSearchResult; readiness: number; reputation: number }[] = []
+  const scored: AgentSearchResult[] = []
 
   for (const page of pages) {
     const offers = getCheckoutOffers(page)
-    const readiness = getReadinessScore(page)
-    const reputation = options.reviewSummaries?.get(page.slug)?.reputation_score ?? 0
     const marketplace = summarizeMarketplacePage(page)
     if (!matchesSearchFilters(page, marketplace, options)) continue
-    const pageScore = scoreText(
-      tokens,
-      [page.name, page.slug, page.description, page.audience, page.location, page.contact_email].join(' '),
-    )
+    const pageScore = scorePage(tokens, page)
+    const searchableOffers = offers.filter((offer) => offer.availability !== 'sold_out')
 
-    if (!offers.length) {
+    if (!searchableOffers.length) {
       if (pageScore > 0 || !tokens.length) {
-        scored.push({
-          result: buildResult(page, null, pageScore || 1, baseUrl, { ...options, queryTokens: tokens }, marketplace),
-          readiness,
-          reputation,
-        })
+        scored.push(buildResult(page, null, pageScore || 1, baseUrl, { ...options, queryTokens: tokens }, marketplace))
       }
       continue
     }
 
-    for (const offer of offers) {
+    for (const offer of searchableOffers) {
       const offerScore = scoreOffer(tokens, page, offer)
 
       if (offerScore > 0 || !tokens.length) {
-        scored.push({
-          result: buildResult(page, offer, offerScore || pageScore || 1, baseUrl, { ...options, queryTokens: tokens }, marketplace),
-          readiness,
-          reputation,
-        })
+        scored.push(buildResult(page, offer, offerScore || pageScore || 1, baseUrl, { ...options, queryTokens: tokens }, marketplace))
       }
     }
   }
 
   return scored
-    .sort(
-      (a, b) =>
-        b.result.score - a.result.score ||
-        b.reputation - a.reputation ||
-        b.readiness - a.readiness ||
-        a.result.page.name.localeCompare(b.result.page.name),
-    )
+    .sort(compareAgentSearchResults)
     .slice(0, Math.max(1, Math.min(limit, 50)))
-    .map((s) => s.result)
 }
 
 export function buildResult(
@@ -152,12 +150,14 @@ export function buildResult(
   const storefront = storefrontHandle ? buildAgentStorefrontRef(storefrontHandle, baseUrl) : null
   const reviewSummary = options.reviewSummaries?.get(page.slug) ?? null
   const matchedQueryTerms = getMatchedQueryTerms(options.queryTokens ?? [], page, offer)
-  const matchReasons = buildMatchReasons(matchedQueryTerms, marketplace, locationMatch, options)
+  const ranking = buildAgentSearchRankingEvidence(page, offer, score, marketplace, locationMatch, reviewSummary, options.now)
+  const matchReasons = buildMatchReasons(matchedQueryTerms, marketplace, locationMatch, options, ranking)
 
   return {
     score,
     matched_query_terms: matchedQueryTerms,
     match_reasons: matchReasons,
+    ranking,
     page: {
       name: page.name,
       slug: page.slug,
@@ -203,6 +203,144 @@ export function buildResult(
   }
 }
 
+const ESTABLISHED_REVIEW_COUNT = 3
+
+export function buildAgentSearchRankingEvidence(
+  page: AgentPage,
+  offer: CheckoutOffer | null,
+  relevance: number,
+  marketplace = summarizeMarketplacePage(page),
+  locationMatch: LocationMatch | null = null,
+  reviewSummary: ReviewSummary | null = null,
+  now = new Date(),
+): AgentSearchRankingEvidence {
+  const reviewCount = reviewSummary?.verified_count ?? 0
+  const reputation = reviewCount > 0 ? reviewSummary?.reputation_score ?? null : null
+  const reviewEvidence = reviewCount < ESTABLISHED_REVIEW_COUNT
+    ? 'cold-start'
+    : (reputation ?? 0) >= 4.3
+      ? 'established-positive'
+      : (reputation ?? 0) < 3.7
+        ? 'established-concerning'
+        : 'established-neutral'
+  const availability = !offer
+    ? 'listing-only'
+    : offer.availability === 'sold_out'
+      ? 'sold-out'
+      : offer.availability === 'limited'
+        ? 'limited'
+        : offer.availability === 'available'
+          ? 'available'
+          : 'unspecified'
+  const actionability = !offer
+    ? 'listing-only'
+    : offer.availability === 'sold_out'
+      ? 'unavailable'
+      : offer.price?.trim()
+        || offer.offerType === 'negotiable'
+        || getOfferDestination(page, offer)
+        ? 'transaction-ready'
+        : 'needs-confirmation'
+
+  return {
+    policy_version: AGENT_SEARCH_RANKING_POLICY,
+    relevance,
+    location: !locationMatch?.active
+      ? 'not-requested'
+      : !locationMatch.matched
+        ? 'unmatched'
+        : locationMatch.mode === 'broad'
+          ? 'broad'
+          : 'exact-or-service-area',
+    availability,
+    actionability,
+    seller_verified: marketplace.verified,
+    agent_ready_certified: marketplace.certified,
+    verified_purchase_reviews: reviewCount,
+    reputation,
+    review_evidence: reviewEvidence,
+    readiness: marketplace.readiness,
+    freshness: freshnessFor(page.updated_at, now),
+  }
+}
+
+export function compareAgentSearchResults(a: AgentSearchResult, b: AgentSearchResult): number {
+  const relevance = b.score - a.score
+  if (relevance) return relevance
+
+  const aRanking = a.ranking
+  const bRanking = b.ranking
+  if (aRanking && bRanking) {
+    const evidence =
+      locationRank(bRanking.location) - locationRank(aRanking.location)
+      || availabilityRank(bRanking.availability) - availabilityRank(aRanking.availability)
+      || actionabilityRank(bRanking.actionability) - actionabilityRank(aRanking.actionability)
+      || Number(bRanking.seller_verified) - Number(aRanking.seller_verified)
+      || Number(bRanking.agent_ready_certified) - Number(aRanking.agent_ready_certified)
+      || reviewEvidenceRank(bRanking.review_evidence) - reviewEvidenceRank(aRanking.review_evidence)
+    if (evidence) return evidence
+
+    const bothEstablished = aRanking.review_evidence !== 'cold-start'
+      && bRanking.review_evidence !== 'cold-start'
+    if (bothEstablished) {
+      const reputation = (bRanking.reputation ?? 0) - (aRanking.reputation ?? 0)
+      if (reputation) return reputation
+    }
+
+    const completion = bRanking.readiness - aRanking.readiness
+      || freshnessRank(bRanking.freshness) - freshnessRank(aRanking.freshness)
+    if (completion) return completion
+  }
+
+  return a.page.name.localeCompare(b.page.name)
+    || a.page.slug.localeCompare(b.page.slug)
+    || (a.offer?.key ?? '').localeCompare(b.offer?.key ?? '')
+}
+
+function locationRank(value: AgentSearchRankingEvidence['location']) {
+  if (value === 'exact-or-service-area') return 3
+  if (value === 'broad') return 2
+  if (value === 'not-requested') return 1
+  return 0
+}
+
+function availabilityRank(value: AgentSearchRankingEvidence['availability']) {
+  if (value === 'available') return 4
+  if (value === 'limited') return 3
+  if (value === 'unspecified') return 2
+  if (value === 'listing-only') return 1
+  return 0
+}
+
+function actionabilityRank(value: AgentSearchRankingEvidence['actionability']) {
+  if (value === 'transaction-ready') return 3
+  if (value === 'needs-confirmation') return 2
+  if (value === 'listing-only') return 1
+  return 0
+}
+
+function reviewEvidenceRank(value: AgentSearchRankingEvidence['review_evidence']) {
+  if (value === 'established-positive') return 2
+  if (value === 'established-concerning') return 0
+  return 1
+}
+
+function freshnessRank(value: AgentSearchRankingEvidence['freshness']) {
+  if (value === 'recent') return 3
+  if (value === 'current') return 2
+  if (value === 'stale') return 1
+  return 0
+}
+
+function freshnessFor(updatedAt: string | null | undefined, now: Date): AgentSearchRankingEvidence['freshness'] {
+  const timestamp = Date.parse(updatedAt ?? '')
+  if (!Number.isFinite(timestamp)) return 'unknown'
+  const ageDays = Math.max(0, (now.getTime() - timestamp) / 86_400_000)
+  if (ageDays <= 30) return 'recent'
+  if (ageDays <= 120) return 'current'
+  return 'stale'
+}
+
 function matchesSearchFilters(page: AgentPage, summary: MarketplaceSummary, options: AgentSearchOptions) {
   if (options.category && options.category !== 'all' && summary.category !== options.category) return false
   if (options.industry) {
@@ -239,6 +377,7 @@ function buildMatchReasons(
   summary: MarketplaceSummary,
   locationMatch: LocationMatch | null,
   options: AgentSearchOptions,
+  ranking: AgentSearchRankingEvidence,
 ) {
   const reasons: string[] = []
   if (matchedTerms.length) reasons.push(`Matches query terms: ${matchedTerms.join(', ')}`)
@@ -254,32 +393,53 @@ function buildMatchReasons(
   if (options.supportsNegotiation === true) reasons.push('Supports negotiation')
   if (options.supportsNegotiation === false) reasons.push('Fixed-price or non-negotiable offers only')
   if (options.priceBand) reasons.push(`Matches price band: ${options.priceBand}`)
+  if (ranking.availability === 'available') reasons.push('Offer explicitly reports available inventory or capacity')
+  if (ranking.availability === 'limited') reasons.push('Offer reports limited availability')
+  if (ranking.availability === 'unspecified') reasons.push('Availability is not published and still requires confirmation')
+  if (ranking.actionability === 'transaction-ready') reasons.push('Published price, negotiation path, or provider action is available')
+  if (ranking.seller_verified) reasons.push('Seller identity has server-backed website or domain verification')
+  if (ranking.review_evidence === 'cold-start') {
+    reasons.push('Limited verified-purchase history is treated neutrally for cold-start fairness')
+  } else if (ranking.verified_purchase_reviews > 0) {
+    reasons.push(`${ranking.verified_purchase_reviews} verified-purchase reviews with Bayesian-adjusted reputation`)
+  }
+  if (ranking.freshness === 'recent') reasons.push('Listing facts were updated within 30 days')
   if (!reasons.length) reasons.push('Published agent-readable offer')
   return reasons
 }
 
 function scoreOffer(tokens: string[], page: AgentPage, offer: CheckoutOffer) {
-  const pageScore = scoreText(tokens, [page.name, page.description, page.audience, page.location].join(' '))
-  const offerScore = scoreText(tokens, [offer.name, offer.description, offer.price].join(' '))
-  return pageScore + offerScore * 2
+  return (
+    scoreText(tokens, [page.name, page.slug].join(' ')) * 3
+    + scoreText(tokens, [page.description, page.audience, page.location, page.industry].join(' '))
+    + scoreText(tokens, offer.name) * 6
+    + scoreText(tokens, [offer.description, offer.price].join(' ')) * 2
+  )
+}
+
+function scorePage(tokens: string[], page: AgentPage) {
+  return (
+    scoreText(tokens, [page.name, page.slug].join(' ')) * 3
+    + scoreText(tokens, [page.description, page.audience, page.location, page.contact_email, page.industry].join(' '))
+  )
 }
 
 function scoreText(tokens: string[], value: string) {
   if (!tokens.length) return 1
 
-  const evidenceFamilies = tokenFamilyCounts(value)
+  const evidenceFamilies = new Set(tokenFamilyCounts(value).keys())
   return tokens.reduce(
-    (score, token) => score + (evidenceFamilies.get(commerceIdentityTokenFamily(token)) ?? 0),
+    (score, token) => score + (evidenceFamilies.has(commerceIdentityTokenFamily(token)) ? 1 : 0),
     0,
   )
 }
 
 function tokenize(value: string) {
-  return value
+  return [...new Set(value
     .toLowerCase()
     .split(/[^a-z0-9]+/)
     .map((part) => part.trim())
-    .filter((part) => part.length > 1)
+    .filter((part) => part.length > 1))]
 }
 
 function tokenFamilyCounts(value: string): Map<string, number> {
@@ -295,7 +455,8 @@ function tokenFamilyCounts(value: string): Map<string, number> {
 // Win-the-query discovery analysis.
 // The simulator's third lens: not "how does an agent parse my page" but "when
 // an agent searches Nexez for this, do I surface - and if not, who beats me and
-// why?" Uses the SAME relevance + readiness ranking as `searchAgentPages`, so
+// why?" Uses the same bounded relevance + evidence comparator as
+// `searchAgentPages`, so
 // the projected rank matches what /api/agent-search would actually return.
 // ---------------------------------------------------------------------------
 
@@ -334,9 +495,15 @@ function pageSearchText(page: AgentPage): string {
 
 /** A page's best relevance score for a query, mirroring searchAgentPages' per-offer ranking. */
 function pageBestScore(tokens: string[], page: AgentPage): number {
-  const offers = getCheckoutOffers(page)
-  if (!offers.length) return scoreText(tokens, [page.name, page.slug, page.description, page.audience, page.location, page.contact_email].join(' '))
+  const offers = getCheckoutOffers(page).filter((offer) => offer.availability !== 'sold_out')
+  if (!offers.length) return scorePage(tokens, page)
   return offers.reduce((best, offer) => Math.max(best, scoreOffer(tokens, page, offer)), 0)
+}
+
+function pageBestOffer(tokens: string[], page: AgentPage): CheckoutOffer | null {
+  return getCheckoutOffers(page)
+    .filter((offer) => offer.availability !== 'sold_out')
+    .sort((a, b) => scoreOffer(tokens, page, b) - scoreOffer(tokens, page, a))[0] ?? null
 }
 
 /** Which query tokens appear anywhere in this page's searchable text. */
@@ -375,7 +542,8 @@ export type QueryRankAnalysis = {
  */
 export function analyzeQueryRank(field: AgentPage[], target: AgentPage, query: string): QueryRankAnalysis {
   const tokens = tokenize(query)
-  const targetScore = pageBestScore(tokens, target)
+  const projectedTarget = { ...target, is_published: true }
+  const targetScore = pageBestScore(tokens, projectedTarget)
   const targetReadiness = getReadinessScore(target)
   const targetMatched = matchedTokenSet(tokens, target)
 
@@ -383,15 +551,14 @@ export function analyzeQueryRank(field: AgentPage[], target: AgentPage, query: s
   // the target itself (it may also be in the published set).
   const others = field
     .filter((p) => p.slug !== target.slug && p.is_published)
-    .map((p) => ({ page: p, score: pageBestScore(tokens, p), readiness: getReadinessScore(p), matched: matchedTokenSet(tokens, p) }))
+    .map((p) => projectedRankRow(p, tokens))
 
   // Pages that actually surface for this query (score > 0), plus the target.
   const competing = others.filter((o) => o.score > RANK_SEARCHABLE_STOPSCORE || !tokens.length)
   const matched = tokens.length === 0 || targetScore > 0
 
-  const ranked = [...competing, { page: target, score: targetScore, readiness: targetReadiness, matched: targetMatched }].sort(
-    (a, b) => b.score - a.score || b.readiness - a.readiness || a.page.name.localeCompare(b.page.name),
-  )
+  const targetRow = projectedRankRow(projectedTarget, tokens)
+  const ranked = [...competing, targetRow].sort((a, b) => compareAgentSearchResults(a.result, b.result))
 
   const rank = ranked.findIndex((r) => r.page.slug === target.slug) + 1
   const field_ = ranked.length
@@ -407,7 +574,7 @@ export function analyzeQueryRank(field: AgentPage[], target: AgentPage, query: s
     else if (c.score === targetScore && c.readiness > targetReadiness)
       reasons.push(`Tied on relevance, but more complete (readiness ${c.readiness}% vs your ${targetReadiness}%)`)
     if (termsYouMiss.length) reasons.push(`Mentions ${termsYouMiss.map((t) => `“${t}”`).join(', ')} where your page doesn't`)
-    if (!reasons.length) reasons.push('Edges you out on the readiness tie-break')
+    if (!reasons.length) reasons.push('Edges you out on the published evidence tie-break')
     return { name: c.page.name, slug: c.page.slug, score: c.score, readiness: c.readiness, reasons, termsYouMiss }
   })
 
@@ -443,5 +610,23 @@ export function analyzeQueryRank(field: AgentPage[], target: AgentPage, query: s
     competitorsAbove,
     termsToAdd,
     toWin,
+  }
+}
+
+function projectedRankRow(page: AgentPage, tokens: string[]) {
+  const score = pageBestScore(tokens, page)
+  const offer = pageBestOffer(tokens, page)
+  return {
+    page,
+    score,
+    readiness: getReadinessScore(page),
+    matched: matchedTokenSet(tokens, page),
+    result: buildResult(
+      page,
+      offer,
+      score,
+      'https://nexez.invalid',
+      { queryTokens: tokens },
+    ),
   }
 }

@@ -1,7 +1,13 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { AgentPage, PUBLIC_PAGE_SELECT, getCheckoutOffers } from '../agent-page'
-import { buildResult, type AgentSearchResult } from '../agent-search'
+import {
+  buildResult,
+  compareAgentSearchResults,
+  type AgentSearchOptions,
+  type AgentSearchResult,
+} from '../agent-search'
+import { filterPagesByLocation } from '../location-filter'
 import { publicLaunchVisiblePages } from '../public-page-visibility'
 import { createAdminClient } from '../../utils/supabase/admin'
 
@@ -73,6 +79,7 @@ export async function semanticSearch(
   query: string,
   limit: number,
   baseUrl: string,
+  options: AgentSearchOptions = {},
 ): Promise<AgentSearchResult[]> {
   if (!isEmbeddingsConfigured()) return []
   const queryEmbedding = await embedText(query)
@@ -101,28 +108,30 @@ export async function semanticSearch(
       .eq('is_published', true)
       .returns<AgentPage[]>()
 
-    const results: AgentSearchResult[] = publicLaunchVisiblePages(pages ?? []).map((page) => {
+    const visiblePages = filterPagesByLocation(publicLaunchVisiblePages(pages ?? []), options.location)
+    const results: AgentSearchResult[] = visiblePages.map((page) => {
       const sim = similarityBySlug.get(page.slug) ?? 0
       // Scale cosine similarity (0..1) into a score comparable to lexical token scores so the
       // two lists merge sensibly; floor at 0.1 so a real semantic hit never rounds to nothing.
       const score = Math.max(0.1, Math.round(sim * 100) / 10)
-      return buildResult(page, getCheckoutOffers(page)[0] ?? null, score, baseUrl)
+      const offer = getCheckoutOffers(page).find((item) => item.availability !== 'sold_out') ?? null
+      return buildResult(page, offer, score, baseUrl, options)
     })
 
-    return results.sort((a, b) => (similarityBySlug.get(b.page.slug) ?? 0) - (similarityBySlug.get(a.page.slug) ?? 0)).slice(0, limit)
+    return results.sort(compareAgentSearchResults).slice(0, limit)
   } catch {
     return []
   }
 }
 
-/** Merge semantic + lexical results: dedupe by slug+offer, keep the higher score, rank, cap. */
+/** Merge semantic + lexical results through the same evidence comparator. */
 export function mergeRankedResults(primary: AgentSearchResult[], secondary: AgentSearchResult[], limit: number): AgentSearchResult[] {
   const byKey = new Map<string, AgentSearchResult>()
   const keyOf = (r: AgentSearchResult) => `${r.page.slug}:${r.offer?.key ?? 'page'}`
   for (const r of [...primary, ...secondary]) {
     const k = keyOf(r)
     const existing = byKey.get(k)
-    if (!existing || r.score > existing.score) byKey.set(k, r)
+    if (!existing || compareAgentSearchResults(r, existing) < 0) byKey.set(k, r)
   }
-  return [...byKey.values()].sort((a, b) => b.score - a.score).slice(0, Math.max(1, limit))
+  return [...byKey.values()].sort(compareAgentSearchResults).slice(0, Math.max(1, limit))
 }

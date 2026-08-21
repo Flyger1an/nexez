@@ -1,6 +1,6 @@
 # Nexez Roadmap
 
-_Last reconciled: 2026-08-21 against production and `origin/main` at `952c342`._
+_Last reconciled: 2026-08-21 against production and `origin/main` at `bd805bf`._
 
 **Mission:** Make any business legible and transactable to autonomous agents without forcing it to replace its human website. Nexez provides structured storefronts, agent artifacts, transaction rails, seller operations, and distribution into agent workflows.
 
@@ -122,7 +122,7 @@ Ranked by launch leverage.
 ### P1 - Launch strength
 
 1. **Prove demand.** Publish a real agent-discovery-to-conversion case study using production evidence without inventing attribution or outcomes. The supply-side half of the evidence problem is now solved: the agent-readiness study samples 652 real sites and its aggregates are reproducible from documented SQL. Privacy-safe simulator demand signals now identify directional category interest and unresolved supply, but the demand-side case study still requires a real transaction with real attribution; simulator interactions do not substitute for conversion evidence.
-2. **Strengthen ranking.** Tune marketplace and Nexxi ranking with real conversion, location, availability, verified-purchase review, response quality, and freshness evidence. Prevent sparse-data feedback loops.
+2. **Strengthen ranking.** The first evidence-ranked discovery slice is complete in code: Marketplace, agent search, and Nexxi share bounded lexical scoring plus deterministic location, availability, actionability, server verification, Agent-Ready certification, verified-purchase reputation, readiness, and freshness tie-breaks. Sparse review history stays neutral, sold-out offers lose action paths, and public results expose their ranking evidence instead of an opaque score. Continue with real conversion and response-quality signals only after production volume makes them representative; neither simulator activity nor tiny samples may create a ranking moat.
 3. **Integration proof.** Keep the certified Stripe price-sync replay monitored in Launch Control, add timezone-aware Calendly business hours, and monitor Shopify queue health through Launch Control. The Stripe delivery check now grades delivery health rather than traffic recency, so a healthy-but-idle account no longer fails certification; endpoint status resolved from the Stripe API is the traffic-independent signal.
 4. **Mobile distribution.** Complete store builds, physical-device push checks, release review, deep-link validation, and parity checks for the seller mobile app. The Nexie mobile app is now gated on a typecheck in its own paths-filtered workflow, so a type error cannot reach `main` unnoticed. It has no lint config and no test harness, and `expo install --check` reports ten outdated Expo packages; the SDK bump is deliberately deferred to its own change and exposed meanwhile as `npm run check:expo-deps`.
 5. **Notification control.** Add seller preferences for transaction, negotiation, integration, review, and marketing notifications without weakening mandatory money-state notices.

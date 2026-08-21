@@ -75,4 +75,36 @@ describe('mergeRankedResults', () => {
     const out = mergeRankedResults([r('a', 5, 'services-0')], [r('a', 4, 'products-1')], 10)
     expect(out).toHaveLength(2)
   })
+
+  it('uses the shared evidence comparator when semantic relevance ties lexical relevance', () => {
+    const available = ranked('available', 5, 'available')
+    const unspecified = ranked('unspecified', 5, 'unspecified')
+
+    const out = mergeRankedResults([unspecified], [available], 10)
+    expect(out.map((result) => result.page.slug)).toEqual(['available', 'unspecified'])
+  })
 })
+
+function ranked(
+  slug: string,
+  score: number,
+  availability: 'available' | 'unspecified',
+): AgentSearchResult {
+  return {
+    ...r(slug, score),
+    ranking: {
+      policy_version: 'nexez.discovery-ranking.v1',
+      relevance: score,
+      location: 'not-requested',
+      availability,
+      actionability: 'transaction-ready',
+      seller_verified: false,
+      agent_ready_certified: false,
+      verified_purchase_reviews: 0,
+      reputation: null,
+      review_evidence: 'cold-start',
+      readiness: 50,
+      freshness: 'unknown',
+    },
+  }
+}

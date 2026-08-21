@@ -1,4 +1,15 @@
-import { describe, it, expect } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
+import type { AgentPage } from '../agent-page'
+import type { ReviewSummary } from '../reviews'
+
+const rankingState = vi.hoisted(() => ({
+  summaries: new Map<string, ReviewSummary>(),
+  loadReviews: vi.fn(),
+}))
+
+vi.mock('../server/reviews', () => ({
+  loadReviewSummariesForSlugs: rankingState.loadReviews,
+}))
 import {
   getSourceAdapters,
   nexezAdapter,
@@ -33,10 +44,53 @@ function stub(id: string, results: AgentSearchResult[], opts: { fail?: boolean }
 const ctx: SourceAdapterContext = { db: {} as never, baseUrl: 'https://nexez.app' }
 
 describe('source adapters', () => {
+  beforeEach(() => {
+    rankingState.summaries = new Map()
+    rankingState.loadReviews.mockReset()
+    rankingState.loadReviews.mockImplementation(async () => rankingState.summaries)
+    delete process.env.EMBEDDINGS_API_KEY
+    delete process.env.OPENAI_API_KEY
+  })
+
   it('ships the nexez adapter by default', () => {
     expect(nexezAdapter.id).toBe('nexez')
     expect(typeof nexezAdapter.search).toBe('function')
     expect(getSourceAdapters().some((a) => a.id === 'nexez')).toBe(true)
+  })
+
+  it('applies buyer location and verified-review evidence inside the Nexxi marketplace adapter', async () => {
+    const pages = [
+      page('local', 'Austin, TX'),
+      page('broad', 'Remote worldwide'),
+      page('elsewhere', 'Chicago, IL'),
+    ]
+    rankingState.summaries = new Map([['broad', reviewSummary(5, 4.8)]])
+    const returns = vi.fn(async () => ({ data: pages, error: null }))
+    const db = {
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            order: vi.fn(() => ({
+              limit: vi.fn(() => ({ returns })),
+            })),
+          })),
+        })),
+      })),
+    }
+
+    const out = await nexezAdapter.search('strategy', 10, {
+      db: db as never,
+      baseUrl: 'https://nexez.test',
+      location: 'Austin, TX',
+    })
+
+    expect(out.map((item) => item.page.slug)).toEqual(['local', 'broad'])
+    expect(out[0].ranking?.location).toBe('exact-or-service-area')
+    expect(out[1].ranking).toMatchObject({
+      location: 'broad',
+      review_evidence: 'established-positive',
+    })
+    expect(rankingState.loadReviews).toHaveBeenCalledWith(['local', 'broad'], 0)
   })
 
   it('merges results across sources, ranks by score desc, and caps to limit', async () => {
@@ -111,3 +165,34 @@ describe('source adapters', () => {
     expect(out.some((r) => r.page.slug === 'stub-hit')).toBe(true)
   })
 })
+
+function page(slug: string, location: string): AgentPage {
+  return {
+    id: slug,
+    name: `${slug} provider`,
+    slug,
+    description: 'Planning support.',
+    website_url: null,
+    cta_url: null,
+    cta_label: null,
+    audience: null,
+    location,
+    contact_email: null,
+    services: [{ name: 'Strategy', description: 'Planning.', price: '$100', url: '' }],
+    products: [],
+    faqs: [],
+    is_published: true,
+  } as AgentPage
+}
+
+function reviewSummary(count: number, reputation: number): ReviewSummary {
+  return {
+    average: reputation,
+    count,
+    verified_count: count,
+    reputation_score: reputation,
+    distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': count },
+    recent_positive_tags: [],
+    recent_reviews: [],
+  }
+}
