@@ -49,26 +49,26 @@ describe('commerce schema gap analysis', () => {
       'recurrence-terms',
       'conditional-fulfillment',
       'structured-modifiers',
+      'milestones',
       'quantity-pricing',
+      'deposit-schedule',
     ])
   })
 
   it('identifies the bounded design-primitive queue without auto-promoting weak or niche signals', () => {
     const summary = summarizeCommerceSchemaGaps()
 
-    expect(summary.version).toBe(3)
+    expect(summary.version).toBe(4)
     expect(summary.signalCount).toBe(21)
     expect(summary.dispositionCounts).toEqual({
-      'first-class': 5,
+      'first-class': 7,
       'weakly-structured': 10,
-      'broadly-missing': 4,
+      'broadly-missing': 2,
       'not-justified': 2,
     })
     expect(summary.designPrimitiveSignals).toEqual([
-      'milestones',
       'inventory-resource',
       'multi-provider-orchestration',
-      'deposit-schedule',
     ])
     expect(summary.deferredSignals).toEqual(['usage-pricing', 'route-optimization'])
   })

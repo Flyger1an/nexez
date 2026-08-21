@@ -1,7 +1,7 @@
 import { commerceCurationCandidates } from './index'
 import type { CommerceCurationGapSignal } from './types'
 
-export const COMMERCE_SCHEMA_GAP_ANALYSIS_VERSION = 3 as const
+export const COMMERCE_SCHEMA_GAP_ANALYSIS_VERSION = 4 as const
 
 export type CommerceSchemaGapDisposition =
   | 'first-class'
@@ -73,12 +73,12 @@ export const commerceSchemaGapFindings: CommerceSchemaGapFinding[] = [
   },
   {
     signal: 'milestones',
-    disposition: 'broadly-missing',
-    action: 'design-primitive',
-    currentRepresentation: 'CommerceTemplate names milestone pricing/payment semantics and OfferRules can cap project weeks, but runtime settlement still resolves one agreed amount.',
-    missingBehavior: 'No merchant-authored milestone schedule binds deliverables, amounts, approvals, due conditions, and staged capture through the transaction lifecycle.',
-    recommendation: 'Use the bounded staged-settlement contract so milestone obligations and deposits share one allocation, approval, and provenance lineage.',
-    evidence: ['lib/commerce-templates/schema.ts', 'lib/agent-page.ts', 'lib/commerce-templates/curation/staged-settlement-analysis.ts'],
+    disposition: 'first-class',
+    action: 'no-schema-change',
+    currentRepresentation: 'Merchant-authored staged-settlement schedules now resolve one authoritative total into immutable sequential obligations with fresh buyer approval, payment, refund, dispute, and agreement provenance.',
+    missingBehavior: null,
+    recommendation: 'Treat the bounded staged-settlement agreement and obligation ledger as the canonical milestone-payment rail; do not expand it into resource completion or autonomous workflow inference.',
+    evidence: ['lib/staged-settlement.ts', 'lib/staged-settlement-runtime.ts', 'lib/server/staged-settlement-agreement.ts', 'app/api/staged-settlements/checkout/route.ts'],
   },
   {
     signal: 'capacity-constraints',
@@ -86,8 +86,8 @@ export const commerceSchemaGapFindings: CommerceSchemaGapFinding[] = [
     action: 'harden-existing',
     currentRepresentation: 'Smart Rules enforce maxBookingsPerWeek and Calendly can deterministically derive available/limited/sold_out from that cap.',
     missingBehavior: 'Capacity is a booking-count ceiling only; there is no general quantity, staff, vehicle, room, equipment, or concurrent-resource reservation model.',
-    recommendation: 'Generalize only after inventory/resource requirements are designed; preserve the existing weekly-cap path as a valid narrow primitive.',
-    evidence: ['lib/offer-rules.ts', 'lib/calendly-availability.ts', 'lib/agent-page.ts'],
+    recommendation: 'Preserve the existing weekly-cap path, then implement only the bounded atomic pool/hold contract from the reservable-resource autopsy.',
+    evidence: ['lib/offer-rules.ts', 'lib/calendly-availability.ts', 'lib/commerce-templates/curation/reservable-resource-analysis.ts'],
   },
   {
     signal: 'document-requirements',
@@ -104,8 +104,8 @@ export const commerceSchemaGapFindings: CommerceSchemaGapFinding[] = [
     action: 'design-primitive',
     currentRepresentation: 'Inventory/capacity exist as template-level concepts and offers can publish generic attributes, but there is no reservable resource ledger tied to commerce actions.',
     missingBehavior: 'No deterministic reservation/allocation protects finite units, equipment, rooms, vehicles, staff slots, or other resources from oversubscription.',
-    recommendation: 'Design a generalized reservable-resource primitive before inventory-rental or equipment-heavy templates become active.',
-    evidence: ['lib/commerce-templates/schema.ts', 'lib/configured-offer.ts', 'lib/agent-page.ts'],
+    recommendation: 'Implement the bounded interchangeable-pool and expiring atomic-hold contract before inventory-rental or equipment-heavy templates become active.',
+    evidence: ['lib/commerce-templates/schema.ts', 'lib/configured-offer.ts', 'lib/commerce-templates/curation/reservable-resource-analysis.ts'],
   },
   {
     signal: 'regulated-qualification',
@@ -199,12 +199,12 @@ export const commerceSchemaGapFindings: CommerceSchemaGapFinding[] = [
   },
   {
     signal: 'deposit-schedule',
-    disposition: 'broadly-missing',
-    action: 'design-primitive',
-    currentRepresentation: 'CommerceTemplate names deposit-balance and milestone payment modes, while current checkout/negotiated settlement funds one amount at a time.',
-    missingBehavior: 'No merchant-authored staged payment schedule binds deposit amount/rate, remaining balance, due conditions, or later captures to one transaction contract.',
-    recommendation: 'Implement deposits as the first obligation in the bounded staged-settlement contract; keep refundable security deposits and escrow outside this primitive.',
-    evidence: ['lib/commerce-templates/schema.ts', 'lib/settlement.ts', 'lib/commerce-templates/curation/staged-settlement-analysis.ts'],
+    disposition: 'first-class',
+    action: 'no-schema-change',
+    currentRepresentation: 'A deposit is now the optional first commitment obligation in a bounded staged-settlement agreement whose allocations total one authoritative approved amount.',
+    missingBehavior: null,
+    recommendation: 'Use staged settlement for installments toward a known total; keep refundable security/damage deposits, escrow holds, and automatic later charging outside it.',
+    evidence: ['lib/staged-settlement.ts', 'lib/staged-settlement-runtime.ts', 'lib/server/staged-settlement-webhook.ts', 'app/api/staged-settlements/checkout/route.ts'],
   },
   {
     signal: 'usage-pricing',
