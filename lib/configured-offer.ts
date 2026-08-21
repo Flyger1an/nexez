@@ -9,14 +9,17 @@ import {
   OFFER_FULFILLMENT_MARKER,
   OFFER_INPUTS_MARKER,
   OFFER_RECURRING_MARKER,
+  OFFER_STAGED_SETTLEMENT_MARKER,
   formatOfferAttributesMarker,
   formatOfferFulfillmentMarker,
   formatOfferInputsMarker,
   formatOfferRecurringMarker,
+  formatOfferStagedSettlementMarker,
   parseOfferAttributesMarker,
   parseOfferFulfillmentMarker,
   parseOfferInputsMarker,
   parseOfferRecurringMarker,
+  parseOfferStagedSettlementMarker,
 } from './offer-configuration-codec'
 import {
   sanitizeOfferAttributes,
@@ -36,6 +39,7 @@ import {
   validateOfferFulfillmentRules,
   type OfferFulfillmentRule,
 } from './conditional-fulfillment'
+import { validateStagedSettlementTerms, type StagedSettlementTerms } from './staged-settlement'
 
 /**
  * Backward-compatible bridge between today's OfferItem and richer merchant-authored
@@ -49,6 +53,8 @@ export type ConfiguredOfferItem = OfferItem & {
   recurringTerms?: RecurringServiceTerms
   /** Public merchant-authored deterministic fulfillment rules. Never buyer/model authored. */
   fulfillmentRules?: OfferFulfillmentRule[]
+  /** Public merchant-authored finite payment allocation. Never buyer/model authored. */
+  stagedSettlementTerms?: StagedSettlementTerms
 }
 
 function configured(offer: OfferItem): ConfiguredOfferItem {
@@ -64,10 +70,17 @@ export function getOfferAttributes(offer: OfferItem): OfferAttribute[] {
 }
 
 export function getOfferRecurringTerms(offer: OfferItem): RecurringServiceTerms | null {
+  if (configured(offer).stagedSettlementTerms != null) return null
   const validated = validateRecurringServiceTerms(configured(offer).recurringTerms)
   if (!validated.ok) return null
   const linked = validateRecurringServiceTermsForInputs(validated.value, getOfferCustomerInputs(offer))
   return linked.ok ? linked.value : null
+}
+
+export function getOfferStagedSettlementTerms(offer: OfferItem): StagedSettlementTerms | null {
+  if (configured(offer).recurringTerms != null) return null
+  const validated = validateStagedSettlementTerms(configured(offer).stagedSettlementTerms)
+  return validated.ok ? validated.value : null
 }
 
 export function getOfferFulfillmentRules(offer: OfferItem): OfferFulfillmentRule[] {
@@ -108,11 +121,26 @@ export function withOfferRecurringTerms(
   offer: OfferItem,
   value: unknown,
 ): OfferConfigurationValidation<ConfiguredOfferItem> {
+  if (configured(offer).stagedSettlementTerms != null) {
+    return { ok: false, error: 'Finite staged settlement and open-ended recurring billing cannot be configured on the same offer.' }
+  }
   const validated = validateRecurringServiceTerms(value)
   if (!validated.ok) return { ok: false, error: validated.error }
   const linked = validateRecurringServiceTermsForInputs(validated.value, getOfferCustomerInputs(offer))
   if (!linked.ok) return { ok: false, error: linked.error }
   return { ok: true, value: { ...configured(offer), recurringTerms: linked.value } }
+}
+
+export function withOfferStagedSettlementTerms(
+  offer: OfferItem,
+  value: unknown,
+): OfferConfigurationValidation<ConfiguredOfferItem> {
+  if (configured(offer).recurringTerms != null) {
+    return { ok: false, error: 'Finite staged settlement and open-ended recurring billing cannot be configured on the same offer.' }
+  }
+  const validated = validateStagedSettlementTerms(value)
+  if (!validated.ok) return { ok: false, error: validated.error }
+  return { ok: true, value: { ...configured(offer), stagedSettlementTerms: validated.value } }
 }
 
 export function withOfferFulfillmentRules(
@@ -144,11 +172,13 @@ export function mergeProposedOfferPreservingConfiguration(
   delete proposal.attributes
   delete proposal.recurringTerms
   delete proposal.fulfillmentRules
+  delete proposal.stagedSettlementTerms
 
   const customerInputs = existing ? getOfferCustomerInputs(existing) : []
   const attributes = existing ? getOfferAttributes(existing) : []
   const recurringTerms = existing ? getOfferRecurringTerms(existing) : null
   const fulfillmentRules = existing ? getOfferFulfillmentRules(existing) : []
+  const stagedSettlementTerms = existing ? getOfferStagedSettlementTerms(existing) : null
 
   return {
     ...(existing ?? {}),
@@ -157,6 +187,7 @@ export function mergeProposedOfferPreservingConfiguration(
     ...(attributes.length ? { attributes } : {}),
     ...(recurringTerms ? { recurringTerms } : {}),
     ...(fulfillmentRules.length ? { fulfillmentRules } : {}),
+    ...(stagedSettlementTerms ? { stagedSettlementTerms } : {}),
   } as ConfiguredOfferItem
 }
 
@@ -206,16 +237,13 @@ function stripConfigurationMarker(line: string, marker: string): string {
 }
 
 function stripConfigurationMarkers(line: string): string {
-  return stripConfigurationMarker(
-    stripConfigurationMarker(
-      stripConfigurationMarker(
-        stripConfigurationMarker(line, OFFER_INPUTS_MARKER),
-        OFFER_ATTRIBUTES_MARKER,
-      ),
-      OFFER_RECURRING_MARKER,
-    ),
+  return [
+    OFFER_INPUTS_MARKER,
+    OFFER_ATTRIBUTES_MARKER,
+    OFFER_RECURRING_MARKER,
     OFFER_FULFILLMENT_MARKER,
-  ).trim()
+    OFFER_STAGED_SETTLEMENT_MARKER,
+  ].reduce(stripConfigurationMarker, line).trim()
 }
 
 const LEGACY_TIERS_MARKER = '||TIERS||'
@@ -247,6 +275,7 @@ export function parseConfiguredOfferLines(value: string): ConfiguredOfferItem[] 
     const attributesPart = extractConfigurationMarker(line, OFFER_ATTRIBUTES_MARKER)
     const recurringPart = extractConfigurationMarker(line, OFFER_RECURRING_MARKER)
     const fulfillmentPart = extractConfigurationMarker(line, OFFER_FULFILLMENT_MARKER)
+    const stagedSettlementPart = extractConfigurationMarker(line, OFFER_STAGED_SETTLEMENT_MARKER)
     const baseLine = stripConfigurationMarkers(line)
     const base = parseOfferLines(baseLine)[0]
 
@@ -257,6 +286,7 @@ export function parseConfiguredOfferLines(value: string): ConfiguredOfferItem[] 
       ? rawRecurring
       : undefined
     const fulfillmentRules = parseOfferFulfillmentMarker(fulfillmentPart, customerInputs ?? [])
+    const stagedSettlementTerms = parseOfferStagedSettlementMarker(stagedSettlementPart)
     const tiers = base.tiers?.length ? base.tiers : recoverLegacyTiers(baseLine)
 
     return {
@@ -266,6 +296,7 @@ export function parseConfiguredOfferLines(value: string): ConfiguredOfferItem[] 
       ...(attributes?.length ? { attributes } : {}),
       ...(recurringTerms ? { recurringTerms } : {}),
       ...(fulfillmentRules?.length ? { fulfillmentRules } : {}),
+      ...(stagedSettlementTerms ? { stagedSettlementTerms } : {}),
     }
   })
 }
@@ -278,7 +309,8 @@ export function formatConfiguredOfferLines(items: ConfiguredOfferItem[] | null |
       const attributes = formatOfferAttributesMarker(offer.attributes)
       const recurring = formatOfferRecurringMarker(offer.recurringTerms)
       const fulfillment = formatOfferFulfillmentMarker(offer.fulfillmentRules, getOfferCustomerInputs(offer))
-      return [base, inputs, attributes, recurring, fulfillment].filter(Boolean).join(' | ')
+      const stagedSettlement = formatOfferStagedSettlementMarker(offer.stagedSettlementTerms)
+      return [base, inputs, attributes, recurring, fulfillment, stagedSettlement].filter(Boolean).join(' | ')
     })
     .join('\n')
 }

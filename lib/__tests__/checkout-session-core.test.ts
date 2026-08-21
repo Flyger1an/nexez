@@ -124,6 +124,32 @@ describe('createSession — issues gate readiness', () => {
     expect(s.status).toBe('pending')
   })
 
+  it('fails closed instead of charging a staged offer as one protocol line', () => {
+    const staged = offer({
+      name: 'Web Project',
+      price: '$10,000',
+      stagedSettlementTerms: {
+        schemaVersion: 1,
+        paymentModel: 'staged-fixed-total',
+        approvalPolicy: 'buyer-approves-each-stage',
+        mutationPolicy: 'immutable-after-first-payment',
+        stages: [
+          { id: 'kickoff', label: 'Kickoff', kind: 'commitment', allocationBps: 3000 },
+          { id: 'handoff', label: 'Handoff', kind: 'completion', allocationBps: 7000 },
+        ],
+      },
+    } as any)
+    const session = createSession({
+      id: 'staged',
+      page: makePage({ services: [staged], products: [] }),
+      items: [{ offer: 'services-0' }],
+    })
+
+    expect(session.status).toBe('pending')
+    expect(session.lineItems).toEqual([])
+    expect(session.issues[0].code).toBe('staged_settlement_not_supported')
+  })
+
   it.each([[0], [-1], [1.5], [MAX_LINE_QUANTITY + 1], [Number.NaN]])(
     'flags invalid quantity %p',
     (quantity) => {

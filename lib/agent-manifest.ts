@@ -91,7 +91,11 @@ export function buildAgentPagePayload(
     offers,
     faqs: page.faqs ?? [],
     recommended_actions: [
-      offers.length ? 'Use an offer checkout action for purchase or booking intent.' : 'Ask the seller for a direct offer URL.',
+      offers.some((offer) => offer.action.available)
+        ? 'Use an available offer checkout action for purchase or booking intent.'
+        : offers.length
+          ? 'No offer currently exposes a payable checkout action; preserve the published commerce constraints and contact the seller.'
+          : 'Ask the seller for a direct offer URL.',
       page.contact_email ? 'Use contact_email for human review or custom requests.' : 'Use the public page for seller context.',
       'Quote the source page URL when summarizing this offer for a buyer.',
     ],
@@ -122,6 +126,7 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: 
   const providerUrl = getOfferDestination(page, offer) || null
   const configuration = buildAgentOfferConfiguration(offer)
   const actionPath = configuration?.checkout?.path || '/api/checkout'
+  const stagedSettlementBlocked = configuration?.checkout?.status === 'blocked_pending_staged_settlement_runtime'
 
   return {
     key: offerKey,
@@ -132,7 +137,7 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: 
     price: offer.price || null,
     currency: normalizeCurrency((page as { currency?: string | null }).currency),
     provider_url: providerUrl,
-    checkout_url: checkoutUrl,
+    checkout_url: stagedSettlementBlocked ? null : checkoutUrl,
     prefer_original_for_this: (offer as any).prefer_original_for_this || false,
     availability: (offer as any).availability || 'available',
     ...publicBookingConstraints(offer),
@@ -143,30 +148,36 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: 
       travelFee: (offer as any).travelFee || null,
     },
     ...(configuration ? { configuration } : {}),
-    action: {
-      method: 'POST',
-      endpoint: `${platformBase}${actionPath}`,
-      content_type: 'application/json',
-      body: {
-        slug: page.slug,
-        offer: offerKey,
-      },
-      ...(configuration?.input_schema ? {
-        configuration_field: 'offerConfiguration',
-        configuration_schema: configuration.input_schema,
-      } : {}),
-      optional_fields: {
-        buyerEmail: 'Buyer email - prefills checkout and enables the receipt + order portal.',
-        buyerName: 'Buyer or business name.',
-        buyerReference: 'Your buyer-side reference / order id (also stamped on the Stripe session).',
-        buyerAgent: 'Identifier for the buying agent.',
-      },
-      dry_run_body: {
-        slug: page.slug,
-        offer: offerKey,
-        dryRun: true,
-      },
-    },
+    action: stagedSettlementBlocked
+      ? {
+          available: false,
+          reason: 'Staged settlement capture is not active. Do not charge the full offer total or invent a payable stage.',
+        }
+      : {
+          available: true,
+          method: 'POST',
+          endpoint: `${platformBase}${actionPath}`,
+          content_type: 'application/json',
+          body: {
+            slug: page.slug,
+            offer: offerKey,
+          },
+          ...(configuration?.input_schema ? {
+            configuration_field: 'offerConfiguration',
+            configuration_schema: configuration.input_schema,
+          } : {}),
+          optional_fields: {
+            buyerEmail: 'Buyer email - prefills checkout and enables the receipt + order portal.',
+            buyerName: 'Buyer or business name.',
+            buyerReference: 'Your buyer-side reference / order id (also stamped on the Stripe session).',
+            buyerAgent: 'Identifier for the buying agent.',
+          },
+          dry_run_body: {
+            slug: page.slug,
+            offer: offerKey,
+            dryRun: true,
+          },
+        },
     negotiation_action: negotiationAllowed && isNegotiable ? buildNegotiationAction(page, offer, platformBase) : undefined,
   }
 }

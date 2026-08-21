@@ -4,6 +4,7 @@ import {
   getOfferCustomerInputs,
   getOfferFulfillmentRules,
   getOfferRecurringTerms,
+  getOfferStagedSettlementTerms,
 } from './configured-offer'
 import type { OfferInputField } from './offer-configuration'
 
@@ -66,16 +67,17 @@ export function buildOfferConfigurationInputSchema(offer: OfferItem): JsonSchema
 
 /**
  * Sanitized machine contract published on agent-facing offer surfaces. Recurring
- * terms and conditional fulfillment rules are merchant-authored public truth;
- * resolved cadence and fulfillment evaluation remain transaction data returned
- * by checkout dry-run.
+ * terms, conditional fulfillment rules, and finite staged schedules are
+ * merchant-authored public truth. Resolved cadence, fulfillment evaluation, and
+ * stage amounts remain transaction data returned by their authoritative rails.
  */
 export function buildAgentOfferConfiguration(offer: OfferItem) {
   const customerInputs = getOfferCustomerInputs(offer)
   const attributes = getOfferAttributes(offer)
   const recurringTerms = getOfferRecurringTerms(offer)
   const fulfillmentRules = getOfferFulfillmentRules(offer)
-  if (!customerInputs.length && !attributes.length && !recurringTerms && !fulfillmentRules.length) return null
+  const stagedSettlementTerms = getOfferStagedSettlementTerms(offer)
+  if (!customerInputs.length && !attributes.length && !recurringTerms && !fulfillmentRules.length && !stagedSettlementTerms) return null
 
   const priceFields = customerInputs.filter((field) => field.affects?.includes('price'))
   const deterministicallyPricedInputs = priceFields.filter((field) => field.pricing).map((field) => field.key)
@@ -83,14 +85,16 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
   const requiredUnpricedPriceInputs = priceFields.filter((field) => field.required && !field.pricing).map((field) => field.key)
   const hasBuyerInputs = customerInputs.length > 0
   const hasConditionalFulfillment = fulfillmentRules.length > 0
-  const requiresSettlement = hasBuyerInputs || Boolean(recurringTerms) || hasConditionalFulfillment
+  const requiresSettlement = hasBuyerInputs || Boolean(recurringTerms) || hasConditionalFulfillment || Boolean(stagedSettlementTerms)
   const checkoutPath = recurringTerms ? '/api/service-agreements/checkout' : '/api/checkout'
 
-  const checkoutStatus = requiredUnpricedPriceInputs.length
-    ? 'blocked_pending_pricing'
-    : requiresSettlement
-      ? 'requires_nexez_settlement'
-      : 'not_required'
+  const checkoutStatus = stagedSettlementTerms
+    ? 'blocked_pending_staged_settlement_runtime'
+    : requiredUnpricedPriceInputs.length
+      ? 'blocked_pending_pricing'
+      : requiresSettlement
+        ? 'requires_nexez_settlement'
+        : 'not_required'
 
   return {
     request_field: 'offerConfiguration',
@@ -117,6 +121,17 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
           note: 'Recurring service v1 uses fixed per-period Stripe subscription billing. Dry-run the dedicated recurring checkout path to resolve buyer-option cadence and bind the exact agreement before approval.',
         }
       : null,
+    staged_settlement: stagedSettlementTerms
+      ? {
+          schema_version: 1,
+          terms: stagedSettlementTerms,
+          runtime_status: 'contract-only',
+          checkout_supported: false,
+          resolution_source: 'one authoritative deterministic or negotiated total and currency',
+          payment_policy: 'Every stage requires a fresh buyer approval. No future stage is charged automatically.',
+          note: 'This published schedule is merchant-authored truth, but staged payment capture is not active yet. Do not present any stage as payable or paid.',
+        }
+      : null,
     input_schema: hasBuyerInputs ? buildOfferConfigurationInputSchema(offer) : null,
     checkout: {
       status: checkoutStatus,
@@ -124,14 +139,21 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
       requires_nexez_settlement_when_values_supplied: hasBuyerInputs,
       conditional_fulfillment_requires_nexez_settlement: hasConditionalFulfillment,
       recurring_service_requires_nexez_settlement: Boolean(recurringTerms),
+      staged_settlement_requires_nexez_settlement: Boolean(stagedSettlementTerms),
       external_provider_configuration_supported: false,
-      runtime_readiness_check: requiresSettlement ? `POST ${checkoutPath} with dryRun=true before approval.` : null,
+      runtime_readiness_check: stagedSettlementTerms
+        ? null
+        : requiresSettlement
+          ? `POST ${checkoutPath} with dryRun=true before approval.`
+          : null,
       deterministically_priced_inputs: deterministicallyPricedInputs,
       unpriced_price_affecting_inputs_blocked_when_supplied: unpricedPriceInputs,
       required_price_affecting_input_blockers: requiredUnpricedPriceInputs,
-      note: requiredUnpricedPriceInputs.length
-        ? 'Checkout is blocked because a required price-affecting buyer input lacks a deterministic merchant-authored pricing rule.'
-        : recurringTerms
+      note: stagedSettlementTerms
+        ? 'This offer has a merchant-authored staged payment schedule, but the staged agreement ledger and per-obligation capture rail are not active. Checkout fails closed instead of charging the full offer total.'
+        : requiredUnpricedPriceInputs.length
+          ? 'Checkout is blocked because a required price-affecting buyer input lacks a deterministic merchant-authored pricing rule.'
+          : recurringTerms
           ? 'Recurring service requires Nexez-settled Stripe subscription checkout. Dry-run resolves and fingerprints exact per-period amount, cadence, configuration, fulfillment decision, and merchant recurring terms before buyer approval.'
           : hasConditionalFulfillment
             ? 'Nexez evaluates merchant-authored fulfillment gates over normalized buyer values before approval. Review-required and ineligible configurations never receive a payable checkout.'
