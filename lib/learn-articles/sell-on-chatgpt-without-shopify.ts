@@ -9,13 +9,13 @@ export const sellOnChatgptWithoutShopify: LearnArticle = {
   dek: 'ChatGPT shopping is not a marketplace you sign up for. It is an answer engine that recommends whatever it can read and trust, and since March 2026 the purchase itself happens on your site rather than in the chat. Here is how it sources those answers, the realistic routes in, and the checklist worth doing this week.',
   category: 'Guides',
   publishedAt: '2026-07-13',
-  updatedAt: '2026-08-17',
+  updatedAt: '2026-08-20',
   readMinutes: 10,
   blocks: [
     {
       type: 'callout',
       tone: 'amber',
-      title: 'Updated August 17, 2026',
+      title: 'Updated August 20, 2026',
       text: 'An earlier version of this guide treated in-chat checkout as a deeper enrollment tier you could work toward. OpenAI retired Instant Checkout on March 4, 2026, so that tier no longer exists and the routes below have been corrected. Discovery is now the entire ChatGPT opportunity, and it feeds your own checkout. Background in [what happened to ChatGPT Instant Checkout](/learn/chatgpt-instant-checkout-retired).',
     },
     {
@@ -34,7 +34,7 @@ export const sellOnChatgptWithoutShopify: LearnArticle = {
     {
       type: 'ul',
       items: [
-        'The open web. OpenAI\u2019s OAI-SearchBot crawls and indexes pages for ChatGPT search, and ChatGPT-User fetches pages live when a conversation triggers browsing. If your site blocks these crawlers, or your prices only exist inside JavaScript an agent never executes, you are invisible to this half of the pipeline.',
+        'The open web. OpenAI’s OAI-SearchBot crawls and indexes pages for ChatGPT search, and ChatGPT-User fetches pages live when a conversation triggers browsing. If your site blocks these crawlers, or your prices only exist inside JavaScript an agent never executes, you are invisible to this half of the pipeline.',
         'Structured merchant data. Product feed data powers rich product results and comparison inside answers. OpenAI and Stripe published the Agentic Commerce Protocol as an open spec in September 2025, and while the in-chat checkout it launched with is gone, structured catalog data still drives what gets surfaced.',
       ],
     },
@@ -49,7 +49,7 @@ export const sellOnChatgptWithoutShopify: LearnArticle = {
     { type: 'h2', text: 'Route 1: ride a platform integration' },
     {
       type: 'p',
-      text: 'Platforms still do the heaviest lifting, though what they unlock has shifted. Shopify enabled Agentic Storefronts by default in its Winter 2026 Edition, activating [Google\u2019s UCP](/learn/what-is-google-ucp) and native MCP servers for its merchants, which is where live agentic checkout now runs. If you already run a Shopify store, much of your agentic surface is on without you doing anything.',
+      text: 'Platforms still do the heaviest lifting, though what they unlock has shifted. Shopify enabled Agentic Storefronts by default in its Winter 2026 Edition, activating [Google’s UCP](/learn/what-is-google-ucp) and native MCP servers for its merchants, which is where live agentic checkout now runs. If you already run a Shopify store, much of your agentic surface is on without you doing anything.',
     },
     {
       type: 'p',
@@ -71,7 +71,7 @@ export const sellOnChatgptWithoutShopify: LearnArticle = {
       items: [
         'Publish a structured product feed and keep it current as prices and availability change.',
         'Implement the checkout endpoints your chosen protocol defines, where an agent creates a session, updates it with address and fulfillment choices, and completes it.',
-        'Handle delegated payments so the buyer\u2019s credential reaches you scoped to a single transaction, rather than as raw card data.',
+        'Handle delegated payments so the buyer’s credential reaches you scoped to a single transaction, rather than as raw card data.',
         'Wire up order-lifecycle webhooks, verify request signatures, and make every endpoint idempotent so a retried call never double-charges.',
         'Test against a sandbox before going anywhere near live traffic.',
       ],
@@ -148,15 +148,15 @@ export const sellOnChatgptWithoutShopify: LearnArticle = {
     { type: 'h2', text: 'The do-it-today checklist' },
     {
       type: 'p',
-      text: 'Whichever route you take, including "none yet," these steps make you legible to the crawling half of ChatGPT\u2019s pipeline. All of them fit in a week.',
+      text: 'Whichever route you take, including "none yet," these steps make you legible to the crawling half of ChatGPT’s pipeline. All of them fit in a week.',
     },
     {
       type: 'ol',
       items: [
-        'Let OpenAI\u2019s crawlers in. Check that robots.txt allows OAI-SearchBot (the crawler behind ChatGPT search citations) and ChatGPT-User (live fetches during conversations). Blocking GPTBot, the training crawler, is a separate decision that does not remove you from search.',
+        'Let OpenAI’s crawlers in. Check that robots.txt allows OAI-SearchBot (the crawler behind ChatGPT search citations) and ChatGPT-User (live fetches during conversations). Blocking GPTBot, the training crawler, is a separate decision that does not remove you from search.',
         'Publish real prices. An agent comparing options skips "contact us for pricing." An offer without a number cannot be ranked, compared, or recommended.',
         'Add JSON-LD structured data. Product schema for goods; Service plus Offer for services, with price, currency, and availability filled in. Templates are in the [JSON-LD guide](/learn/json-ld-for-ai-agents), and this is the same markup Google rewards, so none of it is wasted.',
-        'Add an llms.txt file, with expectations in check. Ahrefs found no ranking correlation and Google\u2019s guidance says it is not required. It also takes ten minutes and forces a plain-language summary of what you sell. Details in [what is llms.txt](/learn/what-is-llms-txt).',
+        'Add an llms.txt file, with expectations in check. Ahrefs found no ranking correlation and Google’s guidance says it is not required. It also takes ten minutes and forces a plain-language summary of what you sell. Details in [what is llms.txt](/learn/what-is-llms-txt).',
         'Give every offer its own page. One URL per service or product, a descriptive H1, and two plain sentences on who it is for and what it costs. Agents cite pages, not paragraphs buried in a homepage carousel.',
         'Make your own checkout fast. Now that the purchase always happens on your site, the quality of that last step decides whether a recommendation becomes revenue.',
         'Check your work the way an agent would. Run your site through the [free scanner](/scan), or fetch your own pages with curl and see whether price, offer, and booking information survives without JavaScript.',
@@ -170,8 +170,8 @@ export const sellOnChatgptWithoutShopify: LearnArticle = {
     {
       type: 'ul',
       items: [
-        'Server logs. Hits from OAI-SearchBot mean OpenAI\u2019s index is looking at you; hits from ChatGPT-User mean real conversations are pulling your pages.',
-        'Referral traffic. Links ChatGPT cites typically arrive tagged with utm_source=chatgpt.com, so one analytics segment shows you the channel\u2019s size and trend.',
+        'Server logs. Hits from OAI-SearchBot mean OpenAI’s index is looking at you; hits from ChatGPT-User mean real conversations are pulling your pages.',
+        'Referral traffic. Links ChatGPT cites typically arrive tagged with utm_source=chatgpt.com, so one analytics segment shows you the channel’s size and trend.',
         'Direct questioning. Ask ChatGPT the questions your customers ask, city and niche included, and see whether you are cited. Anecdotal, but it surfaces legibility problems fast.',
       ],
     },
@@ -201,7 +201,7 @@ export const sellOnChatgptWithoutShopify: LearnArticle = {
     {
       question: 'How much does it cost to appear in ChatGPT shopping?',
       answer:
-        'OpenAI has said shopping results are organic, so there is no fee for visibility, and with in-chat checkout retired there is no longer a transaction fee to OpenAI either. Your real costs sit in getting legible: platform subscription fees, engineering time for a direct protocol build, or a hosted layer\u2019s plan (see [pricing](/pricing)).',
+        'OpenAI has said shopping results are organic, so there is no fee for visibility, and with in-chat checkout retired there is no longer a transaction fee to OpenAI either. Your real costs sit in getting legible: platform subscription fees, engineering time for a direct protocol build, or a hosted layer’s plan (see [pricing](/pricing)).',
     },
     {
       question: 'Can a service business show up in ChatGPT shopping results?',
@@ -211,7 +211,7 @@ export const sellOnChatgptWithoutShopify: LearnArticle = {
     {
       question: 'How long until my business shows up in ChatGPT?',
       answer:
-        'Live browsing can surface a crawlable page almost immediately when a user\u2019s question triggers a fetch, while inclusion in indexed shopping results follows crawling on a less predictable schedule. There is no submission queue and no enrollment review to wait on: publish clean data and be findable.',
+        'Live browsing can surface a crawlable page almost immediately when a user’s question triggers a fetch, while inclusion in indexed shopping results follows crawling on a less predictable schedule. There is no submission queue and no enrollment review to wait on: publish clean data and be findable.',
     },
     {
       question: 'Is optimizing for ChatGPT the same as SEO?',

@@ -46,7 +46,8 @@ export type AcpFeedOptions = {
    * checkout-eligible; when omitted, no per-seller gate is applied (the route always
    * supplies a set — fail-closed — whenever `checkoutEnabled` is true). */
   checkoutEligibleSlugs?: Set<string>
-  /** ISO 3166-1 alpha-2; ACP Instant Checkout is US-only today. */
+  /** ISO 3166-1 alpha-2. Scoping kept from the ACP checkout era; the ChatGPT
+   * checkout surface was retired in March 2026 and the feed is discovery-only. */
   storeCountry?: string
   targetCountries?: string[]
 }

@@ -110,7 +110,7 @@ export default function PricingClient() {
         <div className="glass mb-16 rounded-3xl p-8 md:p-12">
           <div className="grid items-center gap-8 md:grid-cols-2">
             <div>
-              <div className="chip mx-0" style={{ color: 'var(--signal)' }}>Agentic checkout on every plan</div>
+              <div className="chip mx-0" style={{ color: 'var(--signal)' }}>Agent-ready checkout on every plan</div>
               <h2 className="mt-4 text-3xl font-semibold tracking-tight">Start selling before you subscribe.</h2>
               <p className="mt-3 text-sm text-[#9CA3AF]">
                 Every commerce-ready merchant can be discovered and complete Nexez-settled transactions. Paid plans add operating

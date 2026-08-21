@@ -9,13 +9,13 @@ export const acpEnrollmentGuide: LearnArticle = {
   dek: 'If you came here looking for how to enroll in ChatGPT Instant Checkout, the honest answer is that there is nothing to enroll in. OpenAI retired it in March 2026. The protocol underneath survived and is still worth understanding, so here is what ACP actually is now, what is worth building, and what to stop chasing.',
   category: 'Agentic commerce',
   publishedAt: '2026-07-13',
-  updatedAt: '2026-08-17',
+  updatedAt: '2026-08-20',
   readMinutes: 10,
   blocks: [
     {
       type: 'callout',
       tone: 'amber',
-      title: 'This guide was substantially rewritten on August 17, 2026',
+      title: 'This guide was substantially rewritten on August 20, 2026',
       text: 'An earlier version walked through enrolling in ChatGPT Instant Checkout. OpenAI retired that feature on March 4, 2026, so the enrollment path it described no longer exists. We have corrected the guide rather than quietly deleting it, because merchants are still searching for the old process and deserve to land on an accurate answer. The full story is in [what happened to ChatGPT Instant Checkout](/learn/chatgpt-instant-checkout-retired).',
     },
     {
