@@ -518,7 +518,10 @@ export async function POST(request: NextRequest) {
       }
       if (hasEmailEnv() && orderRow.page_id) {
         after(async () => {
-          const { data: page } = await admin.from('pages').select('name, contact_email, owner_id').eq('id', orderRow.page_id as string).maybeSingle<{ name: string | null; contact_email: string | null; owner_id: string | null }>()
+          const [{ data: page }, { data: persistedOrder }] = await Promise.all([
+            admin.from('pages').select('name, contact_email, owner_id').eq('id', orderRow.page_id as string).maybeSingle<{ name: string | null; contact_email: string | null; owner_id: string | null }>(),
+            admin.from('checkout_orders').select('id').eq('stripe_session_id', session.id).maybeSingle<{ id: string }>(),
+          ])
           const ownerEmail = await resolveOwnerNotifyEmail({ contactEmail: page?.contact_email, ownerId: page?.owner_id })
           if (!ownerEmail || !page) return
           const mail = await buildEscrowFundedEmail({
@@ -533,7 +536,7 @@ export async function POST(request: NextRequest) {
           await sendPushToUser(page.owner_id, {
             title: 'Booking confirmed',
             body: `${formatCurrencyAmount(orderRow.amount_cents, orderRow.currency)} · ${orderRow.offer_name || 'Your offer'}`,
-            data: { type: 'order', status: 'paid' },
+            data: { type: 'order', orderId: persistedOrder?.id ?? null, status: 'paid' },
           })
         })
       }
@@ -654,7 +657,10 @@ export async function POST(request: NextRequest) {
     // Seller notify.
     if (hasEmailEnv() && orderRow.page_id) {
       after(async () => {
-        const { data: page } = await admin.from('pages').select('name, contact_email, owner_id').eq('id', orderRow.page_id as string).maybeSingle<{ name: string | null; contact_email: string | null; owner_id: string | null }>()
+        const [{ data: page }, { data: persistedOrder }] = await Promise.all([
+          admin.from('pages').select('name, contact_email, owner_id').eq('id', orderRow.page_id as string).maybeSingle<{ name: string | null; contact_email: string | null; owner_id: string | null }>(),
+          admin.from('checkout_orders').select('id').eq('stripe_payment_intent_id', pi.id).maybeSingle<{ id: string }>(),
+        ])
         const ownerEmail = await resolveOwnerNotifyEmail({ contactEmail: page?.contact_email, ownerId: page?.owner_id })
         if (!ownerEmail || !page) return
         const mail = await buildEscrowFundedEmail({
@@ -669,7 +675,7 @@ export async function POST(request: NextRequest) {
         await sendPushToUser(page.owner_id, {
           title: 'Booking confirmed',
           body: `${formatCurrencyAmount(orderRow.amount_cents, orderRow.currency)} · ${orderRow.offer_name || 'Your offer'}`,
-          data: { type: 'order', status: 'paid' },
+          data: { type: 'order', orderId: persistedOrder?.id ?? null, status: 'paid' },
         })
       })
     }

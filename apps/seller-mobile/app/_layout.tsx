@@ -9,6 +9,7 @@ import 'react-native-reanimated'
 import { StatusBar } from 'expo-status-bar'
 import { SessionProvider } from '@/src/hooks/useSession'
 import { ToastProvider } from '@/src/components/Toast'
+import { NotificationObserver } from '@/src/components/NotificationObserver'
 import { colors } from '@/src/theme/colors'
 
 export {
@@ -56,6 +57,7 @@ export default function RootLayout() {
 function RootLayoutNav() {
   return (
     <SessionProvider>
+      <NotificationObserver />
       <ThemeProvider value={DarkTheme}>
         <ToastProvider>
           <StatusBar style="light" />

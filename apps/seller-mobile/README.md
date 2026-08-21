@@ -58,6 +58,7 @@ consistent back affordance.
   (`/dashboard/negotiations/:id`, `/dashboard/finance`) for accept/counter/decline and refunds.
 - Billing summary reads `billing_subscriptions`, pages, and checkout events.
 - Expo Notifications registration foundation writes to `user_push_tokens` (keyed by `user_id`) through RLS.
+- Foreground and cold-start notification taps route to allowlisted seller screens after auth is ready. Paid-order and negotiation pushes open their exact records when the server includes a durable ID; older payloads fall back to the relevant inbox list.
 
 ## Scaffolded / Web Handoff
 
@@ -98,8 +99,22 @@ eas submit --profile production --platform ios       # → TestFlight / App Stor
 
 The `preview` Android profile (`buildType: apk`) is the quickest way onto a real device — it needs
 no Apple account and is the right target for the physical-device **push** test (the simulator can't
-get a remote push token). The API base is pinned to `https://nexez.app` in the build env, so the
+get a remote push token). The API base is pinned to `https://app.nexez.ai` in the build env, so the
 in-app deal actions + pushes work against prod once the **web app is deployed**.
+
+## Verification
+
+```bash
+npm run typecheck
+npm test
+npm run lint
+npm run check:expo-deps
+```
+
+The paths-filtered `Nexie Mobile` workflow runs typecheck, the mobile-owned Vitest suite, Expo lint,
+and the SDK compatibility check on every mobile PR. The route suite covers custom-scheme and Nexez
+web links, notification payload fallbacks, foreign hosts, malformed inputs, traversal attempts, and
+unsafe record IDs.
 
 ## Notes
 

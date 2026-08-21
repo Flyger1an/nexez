@@ -47,3 +47,9 @@ jobs:
       - run: npm ci
       - name: Typecheck
         run: npm run typecheck
+      - name: Test
+        run: npm test
+      - name: Lint
+        run: npm run lint
+      - name: Expo dependency compatibility
+        run: npm run check:expo-deps

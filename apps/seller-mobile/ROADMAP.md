@@ -1,6 +1,6 @@
 # Nexez Seller Hub — Roadmap
 
-Status of the iOS/Android seller app (`apps/seller-mobile`). Last updated 2026-06-23.
+Status of the iOS/Android seller app (`apps/seller-mobile`). Last updated 2026-08-21.
 
 Design source of truth: `design_handoff_seller_hub/` (Ink & Ember + Liquid Glass v2).
 Architecture: Expo Router + RN + TS; direct RLS Supabase reads (`owner_id`); privileged/money
@@ -32,6 +32,8 @@ actions call the existing Next API routes with the seller's `Authorization: Bear
 **Push notifications**
 - Token registration → `user_push_tokens` (RLS). Seller pushes wired at 3 server events (new negotiation, escrow funded, order paid) alongside the existing emails (`lib/push.ts` `sendPushToUser`).
 - Per-event toggles + read/clear persist on-device (AsyncStorage).
+- Notification taps now route authenticated sellers to the exact negotiation or order when a durable ID is present, with safe list fallbacks for legacy payloads. Cold-start responses are consumed once; malformed routes, foreign hosts, unsafe identifiers, and unsupported screens fail closed.
+- `nexez-seller://` links and known `app.nexez.ai` dashboard links pass through a tested native-intent allowlist. The mobile workflow owns typecheck, Expo lint, SDK compatibility, and a 29-case routing suite.
 
 ---
 
@@ -75,7 +77,7 @@ actions call the existing Next API routes with the seller's `Authorization: Bear
 
 1. ~~**Deploy the web app**~~ — ✅ **Shipped 2026-07-06** (deploy of `c0a5e4c`, Vercel prod Ready in 56s). The Bearer-auth deal-action routes (`/api/negotiations/transition` + `/escrow`, `/api/orders/refund`) + seller push sends are now **live on prod** (no longer 401 / no-op). Not yet exercised e2e against a real mobile token + live deal.
 2. **EAS build + TestFlight** — ✅ pipeline configured (`eas.json` profiles dev/preview/production + `app.nexez.sellerhub` bundle id/package; build steps in README). RUN is an owner action: `eas login && eas init`, register the Supabase publishable env vars (`eas env:create`), then `eas build`. Fastest device test = `eas build -p android --profile preview` (APK, no Apple account).
-3. **Physical-device push test** — Expo push tokens can't be issued on the simulator.
+3. **Physical-device push + deep-link test** — Expo push tokens can't be issued on the simulator. Exercise foreground, background, and terminated notification taps for a negotiation and direct order, plus `nexez-seller://inbox/orders/<id>` on both platforms.
 
 ## 🔧 Backend-gated features (need server work)
 
