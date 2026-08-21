@@ -1,6 +1,6 @@
 # Nexez Roadmap
 
-_Last reconciled: 2026-08-21 against production and `origin/main` at `f3a5e35`._
+_Last reconciled: 2026-08-21 against production and `origin/main` at `e2652f0`._
 
 **Mission:** Make any business legible and transactable to autonomous agents without forcing it to replace its human website. Nexez provides structured storefronts, agent artifacts, transaction rails, seller operations, and distribution into agent workflows.
 
@@ -81,6 +81,7 @@ The next milestone remains growing real launch-quality supply and proving demand
 - Simulator history, AI Copilot, competitor analysis, readiness/trust score, credentials, voice optimization, agent memory, leaderboard, and verification signals.
 - The homepage Commerce Intelligence simulator renders one buyer-safe decision path across live marketplace matches, related supply, Commerce Library references, and uncovered requests: intent understood → supply checked → commerce behavior resolved → safe action boundary. Vercel custom events measure result modes, engagement, refinements, and handoffs without recording raw buyer queries; structured route logs retain only bounded operational metadata.
 - Privacy-safe Commerce demand telemetry turns those public simulator outcomes into a 30-day operator signal: Launch Control ranks code-owned canonical categories by live, related, reference-only, and unresolved interactions while separately counting uncovered requests. The service-role-only append ledger stores no raw buyer text, request labels, merchant identity, location, visitor identity, IP, or user agent; capped reads declare when totals are lower bounds. These signals guide supply recruitment and Commerce Library coverage but remain explicitly non-conversion evidence.
+- Launch Control converts unresolved canonical-category demand into a transparent supply-acquisition queue. Deterministic lifecycle rules distinguish recruiting exact active-template supply, verifying related supply, validating retained reference coverage, and resolving overlap or replacement-review candidates before recruitment. Priorities are ordered by the displayed unresolved interaction counts, never by an opaque score; unknown, cross-domain, live-only, and aggregate-only gaps fail closed rather than becoming invented leads.
 - Team invites, accepted-only collaborator access, owner-entitlement inheritance on shared pages, approval workflows, notifications, support desk, account export/delete, and API keys.
 - Three-host auth/routing architecture, shared session on the `.nexez.ai` app family, cookie-isolated agent runtime, rate limiting, observability, security headers, RLS hardening, and public projection parity tests.
 - Trust framework in `docs/trust/`: control, data, and vendor registers, incident response, operating checklists, and a rollout plan, alongside a reconciled platform README.
@@ -114,7 +115,7 @@ Ranked by launch leverage.
 
 ### P0 - Launch gate
 
-1. **Curate launch inventory.** Publish and certify 20-30 high-quality storefronts across representative industries and regions. The 2026-08-21 live baseline is 3 published/serving storefronts, 1 certified listing, and 10 curation candidates. Synthetic Commerce Library scenarios and benchmark fixtures never count toward this target.
+1. **Curate launch inventory.** Use Launch Control's transparent supply-acquisition priorities to publish and certify 20-30 high-quality storefronts across representative industries and regions, while resolving catalog overlap/replacement reviews before recruiting against them. The 2026-08-21 live baseline is 3 published/serving storefronts, 1 certified listing, and 10 curation candidates. Synthetic Commerce Library scenarios, benchmark fixtures, and simulator interactions never count toward this target or prove conversion.
 2. **Keep production parity certified.** The former drift gate is cleared: `pages_public` no longer exposes `agent_memory`, the replayable v2 drop is present in source and production, and the cohort migration's `enrollment_mode` / `invite_kind` columns are live. Release certificate `5ba2406` passed at 100 with zero required failures. Reopen this gate only on new evidence, not the stale 2026-08-15 snapshot.
 
 ### P1 - Launch strength
