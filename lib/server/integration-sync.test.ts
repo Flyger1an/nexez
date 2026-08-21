@@ -10,7 +10,7 @@ const h = vi.hoisted(() => ({
   acuityCreds: { userId: 'u', apiKey: 'k' } as { userId: string; apiKey: string } | null,
   imported: { ok: true, offers: [] as any[], note: 'n' } as any,
   importInput: null as any,
-  busy: [] as any,
+  availability: null as any,
   page: { id: 'pg1', slug: 'acme', services: [] as any[], next_available: null } as any,
   pagesUpdate: null as any,
   secretsUpdate: null as any,
@@ -27,7 +27,7 @@ vi.mock('./page-integration-credentials', () => ({
   getSquareCreds: async () => h.squareCreds,
   getAcuityCreds: async () => h.acuityCreds,
 }))
-vi.mock('./calendly-write', () => ({ fetchCalendlyBusy: async () => h.busy }))
+vi.mock('./calendly-write', () => ({ fetchCalendlyEventTypeAvailability: async () => h.availability }))
 vi.mock('../observability', () => ({ captureEvent: vi.fn() }))
 vi.mock('./shopify-install', () => ({
   getShopifyInstallCredentials: async () => h.installedShopify,
@@ -51,7 +51,13 @@ function admin() {
   }) as any
 }
 
-const calOffer = () => ({ name: '30 Minute Meeting', description: '', price: 'Custom', url: 'https://calendly.com/acme/30min', source: 'calendly', metadata: { calendly_event_type: 'https://api.calendly.com/event_types/GB' } })
+const calOffer = () => ({ name: '30 Minute Meeting', description: '', price: 'Custom', url: 'https://calendly.com/acme/30min', duration: '30 min', source: 'calendly', metadata: { calendly_event_type: 'https://api.calendly.com/event_types/GB' } })
+const openAvailability = () => ({
+  windows: [{ date: '2026-07-08', start: '10:00', end: '10:30', label: 'Wed 10:00 AM CDT–10:30 AM CDT', time_zone: 'America/Chicago' }],
+  availabilityByEventType: { 'https://api.calendly.com/event_types/GB': 'available' },
+  complete: true,
+  timeZone: 'America/Chicago',
+})
 const shopOffer = () => ({ name: 'Mug', description: '', price: '$12', url: 'https://acme.myshopify.com/mug', source: 'shopify' })
 
 describe('syncPageIntegration', () => {
@@ -62,7 +68,7 @@ describe('syncPageIntegration', () => {
     h.shopifyCreds = { shop: 'acme.myshopify.com', token: 'shpat_x' }
     h.imported = { ok: true, offers: [calOffer()], note: 'Imported 1' }
     h.importInput = null
-    h.busy = [{ start: '2026-07-08T14:00:00Z', end: '2026-07-08T15:00:00Z' }]
+    h.availability = openAvailability()
     h.page = { id: 'pg1', slug: 'acme', services: [{ name: 'Existing', price: '$99', description: '', url: '' }], next_available: null, updated_at: '2026-07-13T12:00:00Z' }
     h.pagesUpdate = null
     h.secretsUpdate = null

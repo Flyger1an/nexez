@@ -116,9 +116,9 @@ export function LaunchControlDashboard({
           />
           <SummaryCard
             icon={Clock3}
-            label="Worker backlog"
+            label="Integration queues"
             value={String(snapshot.metrics.pendingNegotiationDecisions + snapshot.metrics.shopifyPending)}
-            detail={`${snapshot.metrics.staleNegotiationDecisions + snapshot.metrics.shopifyStale} outside normal window`}
+            detail={`${snapshot.metrics.pendingNegotiationDecisions} negotiations · ${snapshot.metrics.shopifyPending} Shopify · ${snapshot.metrics.staleNegotiationDecisions + snapshot.metrics.shopifyStale} stale`}
             status={workerRollup(snapshot.operations)}
           />
         </section>

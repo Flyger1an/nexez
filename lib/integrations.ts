@@ -80,7 +80,7 @@ export function mapAcuityTypesToOffers(types: unknown[]): OfferItem[] {
 // (from the freeBusy API) from business hours. Best-effort, server-local time.
 // ---------------------------------------------------------------------------
 export type BusyPeriod = { start: string; end: string }
-export type DerivedWindow = { date: string; start: string; end: string; label: string }
+export type DerivedWindow = { date: string; start: string; end: string; label: string; time_zone?: string }
 
 const pad = (n: number) => String(n).padStart(2, '0')
 const hhmm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`

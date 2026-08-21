@@ -387,7 +387,7 @@ export function buildOperationalChecks(
       label: 'Shopify catalog worker',
       detail: 'Product webhooks debounce into a recoverable, exact-shop sync queue.',
       evidence: sources.shopify
-        ? `${metrics.shopifyInstalls} active installs; ${metrics.shopifyPending} queued; ${metrics.shopifyErrors} failed.`
+        ? `${metrics.shopifyInstalls} active installs; ${metrics.shopifyPending} queued; ${metrics.shopifyStale} stale; ${metrics.shopifyErrors} failed.`
         : 'Shopify queue is unavailable.',
       status: shopifyStatus,
       required: true,

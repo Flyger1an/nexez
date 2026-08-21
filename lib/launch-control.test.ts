@@ -165,6 +165,16 @@ describe('Launch Control operations', () => {
     expect(checks.find((check) => check.id === 'checkout-errors')?.status).toBe('blocked')
   })
 
+  it('makes Shopify stale and failed queue counts explicit in operator evidence', () => {
+    const checks = buildOperationalChecks(metrics({
+      shopifyPending: 4,
+      shopifyStale: 2,
+      shopifyErrors: 1,
+    }), sources(), NOW)
+    expect(checks.find((check) => check.id === 'shopify-worker')?.evidence)
+      .toBe('1 active installs; 4 queued; 2 stale; 1 failed.')
+  })
+
   it('uses unknown instead of inventing health when a data source is unavailable', () => {
     const checks = buildOperationalChecks(metrics(), sources(false), NOW)
     expect(checks.every((check) => check.status === 'unknown')).toBe(true)

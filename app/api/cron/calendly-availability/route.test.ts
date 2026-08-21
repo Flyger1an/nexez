@@ -2,13 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createSupabaseMock } from '../../../../test/supabase-mock'
 
 vi.mock('../../../../utils/supabase/admin', () => ({ createAdminClient: vi.fn(), hasSupabaseAdminEnv: vi.fn() }))
-const { credRef } = vi.hoisted(() => ({ credRef: { configured: true, pat: 'pat' as string | null, busy: [] as any } }))
+const { credRef } = vi.hoisted(() => ({ credRef: { configured: true, pat: 'pat' as string | null, availability: null as any } }))
 vi.mock('../../../../lib/server/page-integration-credentials', () => ({
   integrationCredentialsConfigured: () => credRef.configured,
   getCalendlyPat: async () => credRef.pat,
 }))
 vi.mock('../../../../lib/server/calendly-write', () => ({
-  fetchCalendlyBusy: async () => credRef.busy,
+  fetchCalendlyEventTypeAvailability: async () => credRef.availability,
 }))
 
 import { GET } from './route'
@@ -17,7 +17,20 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supaba
 const req = (auth?: string) =>
   new Request('https://nexez.test/api/cron/calendly-availability', { headers: auth ? { authorization: auth } : {} })
 
-const calOffer = (over: Record<string, any> = {}) => ({ name: 'Intro Call', description: '', price: 'Custom', url: '', source: 'calendly', ...over })
+const EVENT_TYPE = 'https://api.calendly.com/event_types/GB'
+const openAvailability = () => ({
+  windows: [{ date: '2026-07-08', start: '10:00', end: '10:30', label: 'Wed 10:00 AM CDT–10:30 AM CDT', time_zone: 'America/Chicago' }],
+  availabilityByEventType: { [EVENT_TYPE]: 'available' },
+  complete: true,
+  timeZone: 'America/Chicago',
+})
+const soldOutAvailability = () => ({
+  windows: [],
+  availabilityByEventType: { [EVENT_TYPE]: 'sold_out' },
+  complete: true,
+  timeZone: 'America/Chicago',
+})
+const calOffer = (over: Record<string, any> = {}) => ({ name: 'Intro Call', description: '', price: 'Custom', url: '', duration: '30 min', source: 'calendly', metadata: { calendly_event_type: EVENT_TYPE }, ...over })
 
 function drive(page: any | null) {
   const updates: any[] = []
@@ -45,7 +58,7 @@ describe('GET /api/cron/calendly-availability', () => {
     vi.setSystemTime(new Date('2026-07-08T12:00:00.000Z'))
     credRef.configured = true
     credRef.pat = 'pat'
-    credRef.busy = []
+    credRef.availability = openAvailability()
   })
   afterEach(() => {
     vi.useRealTimers()
@@ -64,8 +77,6 @@ describe('GET /api/cron/calendly-availability', () => {
   })
 
   it('open calendar → publishes windows and keeps the offer available', async () => {
-    // A busy block that leaves the rest of the week open.
-    credRef.busy = [{ start: '2026-07-08T14:00:00Z', end: '2026-07-08T15:00:00Z' }]
     const updates = drive(pageWith())
     const json = await (await GET(req())).json()
     expect(json.ok).toBe(true)
@@ -77,10 +88,7 @@ describe('GET /api/cron/calendly-availability', () => {
   })
 
   it('a fully-booked calendar BLOCKS the Calendly offer (sold_out) + notes no slots', async () => {
-    // Busy across the whole horizon → deriveAvailabilityWindows returns [].
-    const busy: any[] = []
-    for (let d = 0; d < 8; d++) busy.push({ start: `2026-07-${String(8 + d).padStart(2, '0')}T00:00:00Z`, end: `2026-07-${String(9 + d).padStart(2, '0')}T00:00:00Z` })
-    credRef.busy = busy
+    credRef.availability = soldOutAvailability()
     const updates = drive(pageWith())
     await GET(req())
     const upd = updates.find((u) => u.id === 'pg1')!
@@ -90,7 +98,7 @@ describe('GET /api/cron/calendly-availability', () => {
   })
 
   it('only Calendly-sourced offers are blocked (manual offers untouched)', async () => {
-    credRef.busy = Array.from({ length: 8 }, (_, d) => ({ start: `2026-07-${String(8 + d).padStart(2, '0')}T00:00:00Z`, end: `2026-07-${String(9 + d).padStart(2, '0')}T00:00:00Z` }))
+    credRef.availability = soldOutAvailability()
     const updates = drive(pageWith({ services: [calOffer(), { name: 'Manual', description: '', price: '$10', url: '' }] }))
     await GET(req())
     const upd = updates.find((u) => u.id === 'pg1')!
@@ -99,7 +107,6 @@ describe('GET /api/cron/calendly-availability', () => {
   })
 
   it('rotates fairly: orders candidates by calendly_synced_at (oldest first) and stamps the batch', async () => {
-    credRef.busy = [{ start: '2026-07-08T14:00:00Z', end: '2026-07-08T15:00:00Z' }]
     const calls: any[] = []
     const stamps: any[] = []
     vi.mocked(hasSupabaseAdminEnv).mockReturnValue(true)
@@ -126,7 +133,7 @@ describe('GET /api/cron/calendly-availability', () => {
   })
 
   it('a failed Calendly fetch leaves the listing untouched (no blank-out)', async () => {
-    credRef.busy = null // fetchCalendlyBusy → null
+    credRef.availability = null
     const updates = drive(pageWith())
     const json = await (await GET(req())).json()
     expect(json.failed).toBe(1)
@@ -134,12 +141,19 @@ describe('GET /api/cron/calendly-availability', () => {
   })
 
   it('does not re-write when the open slots are unchanged (no churn)', async () => {
-    credRef.busy = [{ start: '2026-07-08T14:00:00Z', end: '2026-07-08T15:00:00Z' }]
     // Seed next_available with the exact windows this run will compute.
-    const { deriveAvailabilityWindows } = await import('../../../../lib/integrations')
-    const windows = deriveAvailabilityWindows(credRef.busy, { days: 7 })
+    const windows = openAvailability().windows
     const updates = drive(pageWith({ next_available: `x ||WINDOWS||${JSON.stringify(windows)}` }))
     await GET(req())
     expect(updates).toHaveLength(0)
+  })
+
+  it('a partial empty response never publishes a false page-wide sold-out state', async () => {
+    credRef.availability = { ...soldOutAvailability(), complete: false }
+    const updates = drive(pageWith({ next_available: 'existing ||WINDOWS||[]' }))
+    await GET(req())
+    const upd = updates.find((update) => update.id === 'pg1')!
+    expect(upd.payload.next_available).toBeUndefined()
+    expect(upd.payload.services[0].availability).toBe('sold_out')
   })
 })

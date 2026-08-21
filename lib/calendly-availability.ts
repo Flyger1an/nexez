@@ -93,3 +93,34 @@ export function applyOfferAvailability(
   }
   return { offers: next, changed: true }
 }
+
+/** Apply only availability that Calendly verified for this exact event type.
+ * Offers without an imported event-type URI, or whose upstream request failed,
+ * remain untouched rather than inheriting another event type's schedule. */
+export function applyEventTypeAvailability(
+  offers: OfferItem[],
+  availabilityByEventType: Record<string, OfferAvailability>,
+  syncedAt: string,
+): OfferItem[] {
+  let next = offers
+  for (let index = 0; index < next.length; index++) {
+    const offer = next[index]!
+    if (offer.source !== 'calendly') continue
+    const uri = offer.metadata?.calendly_event_type
+    if (typeof uri !== 'string') continue
+    const availability = availabilityByEventType[uri]
+    if (!availability) continue
+    const applied = applyOfferAvailability(next, index, availability, syncedAt)
+    if (applied.changed) next = applied.offers
+  }
+  return next
+}
+
+export function calendlyEventTypeRefs(offers: OfferItem[]): Array<{ uri: string; durationMinutes: number }> {
+  return offers.flatMap((offer) => {
+    if (offer.source !== 'calendly' || typeof offer.metadata?.calendly_event_type !== 'string') return []
+    const match = offer.duration?.match(/(\d+(?:\.\d+)?)\s*min/i)
+    const durationMinutes = match ? Number(match[1]) : 30
+    return [{ uri: offer.metadata.calendly_event_type, durationMinutes }]
+  })
+}

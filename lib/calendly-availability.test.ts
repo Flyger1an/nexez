@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   applyOfferAvailability,
+  applyEventTypeAvailability,
+  calendlyEventTypeRefs,
   computeAvailability,
   findOfferByEventName,
   offerBookingCap,
@@ -15,6 +17,33 @@ const offer = (over: Partial<OfferItem> = {}): OfferItem => ({
   source: 'calendly',
   rules: { maxBookingsPerWeek: 3 },
   ...over,
+})
+
+describe('event-type availability', () => {
+  const URI = 'https://api.calendly.com/event_types/GB'
+
+  it('updates only the exact Calendly event type whose availability was verified', () => {
+    const offers = [
+      offer({ name: 'Verified', metadata: { calendly_event_type: URI } }),
+      offer({ name: 'Unverified', metadata: { calendly_event_type: 'https://api.calendly.com/event_types/OTHER' } }),
+      offer({ name: 'Legacy', metadata: undefined }),
+    ]
+    const next = applyEventTypeAvailability(offers, { [URI]: 'sold_out' }, '2026-07-07T00:00:00.000Z')
+    expect(next[0]?.availability).toBe('sold_out')
+    expect(next[1]?.availability).toBeUndefined()
+    expect(next[2]?.availability).toBeUndefined()
+  })
+
+  it('extracts valid duration inputs and defaults missing durations to 30 minutes', () => {
+    expect(calendlyEventTypeRefs([
+      offer({ duration: '60 min', metadata: { calendly_event_type: URI } }),
+      offer({ duration: undefined, metadata: { calendly_event_type: 'https://api.calendly.com/event_types/OTHER' } }),
+      offer({ source: undefined, metadata: { calendly_event_type: 'https://api.calendly.com/event_types/MANUAL' } }),
+    ])).toEqual([
+      { uri: URI, durationMinutes: 60 },
+      { uri: 'https://api.calendly.com/event_types/OTHER', durationMinutes: 30 },
+    ])
+  })
 })
 
 describe('computeAvailability', () => {
