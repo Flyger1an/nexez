@@ -1,10 +1,11 @@
 import type { CommerceCurationCandidate } from './types'
 
 const QUERY_STOPWORDS = new Set([
-  'a', 'an', 'and', 'are', 'at', 'be', 'can', 'could', 'do', 'does', 'for', 'from', 'get', 'handle',
-  'here', 'i', 'in', 'is', 'it', 'me', 'my', 'near', 'next', 'of', 'on', 'or', 'please', 'service', 'services',
-  'that', 'the', 'their', 'this', 'to', 'us', 'want', 'we', 'what', 'when', 'where', 'will', 'with', 'would',
-  'you', 'your',
+  'a', 'an', 'and', 'are', 'at', 'be', 'book', 'can', 'could', 'do', 'does', 'find', 'for', 'from', 'get',
+  'handle', 'help', 'here', 'hire', 'i', 'in', 'is', 'it', 'looking', 'me', 'my', 'near', 'need', 'next',
+  'of', 'on', 'or', 'please', 'professional', 'provider', 'search', 'searching', 'service', 'services',
+  'someone', 'that', 'the', 'their', 'this', 'to', 'us', 'vendor', 'want', 'we', 'what', 'when', 'where',
+  'will', 'with', 'would', 'you', 'your',
 ])
 
 // These words describe fulfillment, audience, or the subject of a service;
@@ -18,6 +19,14 @@ const NON_IDENTITY_TITLE_TERMS = new Set([
 ])
 
 const MINIMUM_AMBIGUITY_MARGIN = 4
+
+const REQUEST_PREFIX_PATTERNS = [
+  /^(?:please )?(?:can|could|would) you (?:please )?(?:help me )?(?:find|hire|book|get) (?:me )?/,
+  /^(?:please )?(?:help me )?(?:find|hire|book|get) (?:me )?/,
+  /^(?:i (?:need|want)(?: to (?:find|hire|book|get))?|i(?: m| am) looking for|looking for|searching for) /,
+]
+
+const SERVICE_DETAIL_BOUNDARY = /\s+(?:for|who|that|which|with|in|at|near|around|available|this|next|today|tomorrow|before|after)\b/
 
 function normalize(value: string): string {
   return value
@@ -51,8 +60,66 @@ function tokenFamilies(value: string): string[] {
   return [...new Set(tokens(value).map(commerceIdentityTokenFamily))]
 }
 
+const NON_IDENTITY_TITLE_TOKEN_FAMILIES = new Set(
+  [...NON_IDENTITY_TITLE_TERMS].map(commerceIdentityTokenFamily),
+)
+
 function identityTitleTokens(value: string): Set<string> {
-  return new Set(tokenFamilies(value).filter((token) => !NON_IDENTITY_TITLE_TERMS.has(token)))
+  return new Set(tokenFamilies(value).filter((token) => !NON_IDENTITY_TITLE_TOKEN_FAMILIES.has(token)))
+}
+
+function candidateIdentityTokens(candidate: CommerceCurationCandidate): Set<string> {
+  return new Set([
+    ...identityTitleTokens(candidate.title),
+    ...candidate.simulationHints?.identityTerms.flatMap(tokenFamilies) ?? [],
+  ])
+}
+
+/**
+ * Narrows a buyer prompt to the requested service phrase before matching.
+ * Requirements after "for", "with", a location, or a time boundary remain
+ * useful context, but cannot silently change the service category.
+ */
+export function commerceRequestedServiceText(query: string): string {
+  const original = normalize(query)
+  let requested = original
+  let anchored = false
+
+  for (const prefix of REQUEST_PREFIX_PATTERNS) {
+    const next = requested.replace(prefix, '')
+    if (next !== requested) {
+      requested = next
+      anchored = true
+      break
+    }
+  }
+
+  requested = requested.replace(/^(?:a|an|the) /, '')
+  if (!anchored) return requested
+
+  const boundary = requested.search(SERVICE_DETAIL_BOUNDARY)
+  return (boundary >= 0 ? requested.slice(0, boundary) : requested).trim()
+}
+
+/** Service evidence used by both Commerce Library and live-supply routing. */
+export function commerceRequestedServiceIdentityTerms(query: string): string[] {
+  return tokenFamilies(commerceRequestedServiceText(query))
+    .filter((token) => !NON_IDENTITY_TITLE_TOKEN_FAMILIES.has(token))
+}
+
+/**
+ * Keeps catalog-known service anchors when available and otherwise preserves
+ * every unknown identity term. The latter makes uncovered requests fail
+ * closed against live marketplace supply instead of accepting a weak overlap.
+ */
+export function commerceRequestedCatalogIdentityTerms(
+  query: string,
+  candidates: CommerceCurationCandidate[],
+): string[] {
+  const requestedTerms = commerceRequestedServiceIdentityTerms(query)
+  const catalogTerms = new Set(candidates.flatMap((candidate) => [...candidateIdentityTokens(candidate)]))
+  const recognizedTerms = requestedTerms.filter((term) => catalogTerms.has(term))
+  return recognizedTerms.length ? recognizedTerms : requestedTerms
 }
 
 export type CommerceSimulationMatch = {
@@ -71,15 +138,19 @@ export function findCommerceSimulationMatch(
   query: string,
   candidates: CommerceCurationCandidate[],
 ): CommerceSimulationMatch | null {
-  const queryText = normalize(query)
   const queryTokens = tokenFamilies(query)
-  if (!queryTokens.length) return null
+  const requestedServiceText = commerceRequestedServiceText(query)
+  const requestedServiceTokens = tokenFamilies(requestedServiceText)
+  if (!queryTokens.length || !requestedServiceTokens.length) return null
 
   const ranked = candidates
     .map((candidate) => {
       const titleText = normalize(candidate.title)
-      const titleTokens = new Set(tokenFamilies(candidate.title))
-      const identityTokens = identityTitleTokens(candidate.title)
+      const serviceTokens = new Set([
+        ...tokenFamilies(candidate.title),
+        ...candidate.simulationHints?.identityTerms.flatMap(tokenFamilies) ?? [],
+      ])
+      const identityTokens = candidateIdentityTokens(candidate)
       const teachesTokens = new Set(tokenFamilies(candidate.teaches))
       const metadataTokens = new Set(tokenFamilies([
         candidate.domain,
@@ -88,14 +159,15 @@ export function findCommerceSimulationMatch(
         ...candidate.gapSignals,
       ].join(' ')))
 
-      const matchedIdentityTerms = queryTokens.filter((token) => identityTokens.has(token))
+      const matchedIdentityTerms = requestedServiceTokens.filter((token) => identityTokens.has(token))
       if (!matchedIdentityTerms.length) return null
 
-      let score = titleText && queryText.includes(titleText) ? 16 : 0
+      const exactTitleMatch = Boolean(titleText && requestedServiceText.includes(titleText))
+      let score = exactTitleMatch ? 16 : 0
       const matchedTerms: string[] = []
 
       for (const token of queryTokens) {
-        if (titleTokens.has(token)) {
+        if (serviceTokens.has(token)) {
           score += 6
           matchedTerms.push(token)
         } else if (teachesTokens.has(token)) {
@@ -112,7 +184,7 @@ export function findCommerceSimulationMatch(
         score,
         matchedTerms: [...new Set(matchedTerms)],
         matchedIdentityTerms: [...new Set(matchedIdentityTerms)],
-        exactTitleMatch: Boolean(titleText && queryText.includes(titleText)),
+        exactTitleMatch,
         identityMatchCount: matchedIdentityTerms.length,
       }
     })
@@ -126,12 +198,22 @@ export function findCommerceSimulationMatch(
   const strongest = ranked[0]
   if (!strongest) return null
 
+  const exactMatches = ranked.filter((match) => match.exactTitleMatch)
+  if (exactMatches.length > 1) return null
+
   const runnerUp = ranked[1]
-  if (
-    !strongest.exactTitleMatch &&
+  const strongestIdentityTerms = new Set(strongest.matchedIdentityTerms)
+  const hasDistinctCompetingIdentity = ranked.slice(1).some((match) =>
+    match.matchedIdentityTerms.some((term) => !strongestIdentityTerms.has(term)),
+  )
+  const hasTiedAmbiguousRunnerUp = Boolean(
     runnerUp &&
     strongest.identityMatchCount === runnerUp.identityMatchCount &&
-    strongest.score - runnerUp.score < MINIMUM_AMBIGUITY_MARGIN
+    strongest.score - runnerUp.score < MINIMUM_AMBIGUITY_MARGIN,
+  )
+  if (
+    hasDistinctCompetingIdentity ||
+    (!strongest.exactTitleMatch && hasTiedAmbiguousRunnerUp)
   ) {
     return null
   }
