@@ -6,6 +6,7 @@ import {
   type CommerceSupplyWorkflowStatus,
 } from './commerce-supply-campaign'
 import {
+  buildCommerceLaunchCoveragePriorities,
   buildCommerceSupplyPriorities,
   type CommerceSupplyPriority,
 } from './commerce-supply-priority'
@@ -25,6 +26,8 @@ export type CommerceSupplyWorkflowItem = CommerceSupplyPriority & {
 export type CommerceSupplyWorkflowSnapshot = {
   generatedAt: string
   available: boolean
+  demandAvailable: boolean
+  verificationAvailable: boolean
   items: CommerceSupplyWorkflowItem[]
 }
 
@@ -33,20 +36,39 @@ export function buildCommerceSupplyWorkflow(input: {
   campaigns?: CommerceSupplyCampaign[]
   marketplaceItems?: MarketplaceCurationQueueItem[]
   available?: boolean
+  verificationAvailable?: boolean
 }): CommerceSupplyWorkflowSnapshot {
   const campaignByReference = new Map(
     (input.campaigns ?? []).map((campaign) => [campaign.referenceId, campaign]),
   )
   const certifiedByReference = certifiedSupplyByReference(input.marketplaceItems ?? [])
+  const demandPriorities = buildCommerceSupplyPriorities(input.demand)
+  const demandReferences = new Set(demandPriorities.map((priority) => priority.referenceId))
+  const priorities = [
+    ...demandPriorities,
+    ...buildCommerceLaunchCoveragePriorities()
+      .filter((priority) => !demandReferences.has(priority.referenceId)),
+  ]
 
   return {
     generatedAt: input.demand.generatedAt,
     available: input.available ?? true,
-    items: buildCommerceSupplyPriorities(input.demand).map((priority) => {
+    demandAvailable: input.demand.available,
+    verificationAvailable: input.verificationAvailable ?? true,
+    items: priorities.map((priority, index) => {
       const campaign = campaignByReference.get(priority.referenceId) ?? null
       const certifiedSupply = certifiedByReference.get(priority.referenceId) ?? []
+      const certification = certifiedSupply.length
+        ? {
+            action: 'monitor-certified-supply' as const,
+            actionLabel: 'Coverage established',
+            rationale: 'Exact certified category supply is published. Continue monitoring coverage without treating category identity as proof of location, availability, price, or request-level fit.',
+          }
+        : null
       return {
         ...priority,
+        rank: index + 1,
+        ...certification,
         campaign,
         status: certifiedSupply.length ? 'live' : campaign?.status ?? 'new',
         brief: buildCommerceSupplyBrief(priority),
@@ -100,7 +122,7 @@ function certifiedSupplyByReference(
       ...(item.page.products ?? []),
     ]
     for (const offer of offers) {
-      const match = classifyCertifiedOffer(offer, item.page.industry)
+      const match = classifyCertifiedOffer(offer)
       if (!match) continue
       const supply = matches.get(match.candidate.id) ?? []
       supply.push({
@@ -116,9 +138,11 @@ function certifiedSupplyByReference(
   return matches
 }
 
-function classifyCertifiedOffer(offer: OfferItem, industry: string | null | undefined) {
-  const evidence = [offer.name, offer.description, industry].filter(Boolean).join('. ')
-  return findCommerceSimulationMatch(evidence, commerceReferenceCandidates)
+function classifyCertifiedOffer(offer: OfferItem) {
+  // Category closure requires the published offer identity itself to resolve.
+  // Descriptions and page industries routinely mention add-ons or adjacent
+  // services, so treating them as buyer-request text creates false ambiguity.
+  return findCommerceSimulationMatch(offer.name, commerceReferenceCandidates)
 }
 
 function humanize(value: string): string {

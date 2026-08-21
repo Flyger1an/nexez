@@ -6,7 +6,6 @@ import {
   type CommerceSupplyCampaign,
   type CommerceSupplyCampaignStatus,
 } from '../commerce-supply-campaign'
-import { buildCommerceSupplyPriorities } from '../commerce-supply-priority'
 import {
   buildCommerceSupplyWorkflow,
   type CommerceSupplyWorkflowSnapshot,
@@ -15,6 +14,7 @@ import type { CommerceDemandSnapshot } from '../commerce-demand'
 import { captureError } from '../observability'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 import { getCommerceDemandSnapshot } from './commerce-demand'
+import { getMarketplaceCurationQueue } from './marketplace-curation'
 
 const MAX_CAMPAIGNS = 500
 
@@ -31,7 +31,7 @@ type CampaignRow = {
 export class CommerceSupplyCampaignError extends Error {
   constructor(
     message: string,
-    readonly code: 'not_configured' | 'not_found' | 'invalid' | 'conflict' | 'forbidden' | 'persistence_failed',
+    readonly code: 'not_configured' | 'not_found' | 'invalid' | 'conflict' | 'forbidden' | 'verification_unavailable' | 'persistence_failed',
   ) {
     super(message)
     this.name = 'CommerceSupplyCampaignError'
@@ -47,6 +47,7 @@ export async function getCommerceSupplyWorkflowSnapshot(
       demand,
       marketplaceItems: marketplace.items,
       available: false,
+      verificationAvailable: marketplace.available,
     })
   }
 
@@ -64,6 +65,7 @@ export async function getCommerceSupplyWorkflowSnapshot(
       campaigns: (data ?? []).map(mapCampaign),
       marketplaceItems: marketplace.items,
       available: true,
+      verificationAvailable: marketplace.available,
     })
   } catch (error) {
     captureError(error instanceof Error ? error : new Error('Commerce supply workflow failed'), {
@@ -73,6 +75,7 @@ export async function getCommerceSupplyWorkflowSnapshot(
       demand,
       marketplaceItems: marketplace.items,
       available: false,
+      verificationAvailable: marketplace.available,
     })
   }
 }
@@ -91,9 +94,18 @@ export async function applyCommerceSupplyCampaign(input: {
     throw new CommerceSupplyCampaignError('Choose a valid campaign status.', 'invalid')
   }
 
-  const demand = await getCommerceDemandSnapshot()
-  const priority = buildCommerceSupplyPriorities(demand)
-    .find((item) => item.referenceId === input.referenceId)
+  const [demand, marketplace] = await Promise.all([
+    getCommerceDemandSnapshot(),
+    getMarketplaceCurationQueue(),
+  ])
+  if (!marketplace.available) {
+    throw new CommerceSupplyCampaignError(
+      'Marketplace certification could not be verified. Refresh Launch Control before changing campaign state.',
+      'verification_unavailable',
+    )
+  }
+  const priority = buildCommerceSupplyWorkflow({ demand, marketplaceItems: marketplace.items })
+    .items.find((item) => item.referenceId === input.referenceId && item.status !== 'live')
   if (!priority) {
     throw new CommerceSupplyCampaignError(
       'This category is no longer an unresolved Commerce supply priority. Refresh Launch Control.',

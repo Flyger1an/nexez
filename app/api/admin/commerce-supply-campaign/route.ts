@@ -67,6 +67,8 @@ export async function PATCH(request: Request) {
     if (error instanceof CommerceSupplyCampaignError) {
       const status = error.code === 'not_configured'
         ? 503
+        : error.code === 'verification_unavailable'
+          ? 503
         : error.code === 'not_found'
           ? 404
           : error.code === 'invalid'

@@ -29,6 +29,9 @@ export type CommerceSupplyAction =
   | 'validate-and-recruit'
   | 'resolve-category-overlap'
   | 'review-category-model'
+  | 'monitor-certified-supply'
+
+export type CommerceSupplyPriorityBasis = 'observed-demand' | 'launch-coverage'
 
 export type CommerceSupplyPriority = {
   rank: number
@@ -37,6 +40,8 @@ export type CommerceSupplyPriority = {
   domain: CommerceDomain
   lifecycle: CommerceSupplyLifecycle
   lifecycleLabel: string
+  basis: CommerceSupplyPriorityBasis
+  basisLabel: string
   action: CommerceSupplyAction
   actionLabel: string
   rationale: string
@@ -97,6 +102,8 @@ export function buildCommerceSupplyPriorities(
         domain: candidate.domain,
         lifecycle,
         lifecycleLabel: lifecycleLabel(lifecycle),
+        basis: 'observed-demand' as const,
+        basisLabel: 'Observed demand',
         ...recommendation,
         observed: category.observed,
         live: category.live,
@@ -112,6 +119,38 @@ export function buildCommerceSupplyPriorities(
         || b.observed - a.observed
         || a.title.localeCompare(b.title),
     )
+    .map((priority, index) => ({ ...priority, rank: index + 1 }))
+}
+
+/**
+ * Build the explicit launch inventory plan from active Commerce templates.
+ * These rows deliberately carry zero interaction counts: template activation
+ * is a product coverage decision, not evidence that buyers requested it.
+ */
+export function buildCommerceLaunchCoveragePriorities(
+  catalog: CommerceSupplyCatalog = commerceSupplyCatalog,
+): CommerceSupplyPriority[] {
+  return catalog.candidates
+    .filter((candidate) => catalog.activeTemplateIds.has(candidate.id))
+    .map((candidate) => ({
+      rank: 0,
+      referenceId: candidate.id,
+      title: candidate.title,
+      domain: candidate.domain,
+      lifecycle: 'active-template' as const,
+      lifecycleLabel: lifecycleLabel('active-template'),
+      basis: 'launch-coverage' as const,
+      basisLabel: 'Launch coverage',
+      action: 'recruit-exact-supply' as const,
+      actionLabel: 'Recruit exact supply',
+      rationale: 'This active Commerce template is part of the launch inventory plan. Recruit exact certified supply to establish category coverage; this priority does not imply observed buyer demand.',
+      observed: 0,
+      live: 0,
+      related: 0,
+      reference: 0,
+      unresolved: 0,
+    }))
+    .sort((a, b) => a.title.localeCompare(b.title) || a.referenceId.localeCompare(b.referenceId))
     .map((priority, index) => ({ ...priority, rank: index + 1 }))
 }
 

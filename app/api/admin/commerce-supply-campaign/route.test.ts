@@ -104,4 +104,13 @@ describe('PATCH /api/admin/commerce-supply-campaign', () => {
     expect(response.status).toBe(404)
     expect(await response.json()).toMatchObject({ code: 'not_found' })
   })
+
+  it('returns service unavailable when marketplace certification cannot be verified', async () => {
+    state.apply.mockRejectedValueOnce(
+      new state.CommerceSupplyCampaignError('Refresh Launch Control.', 'verification_unavailable'),
+    )
+    const response = await PATCH(request(validBody))
+    expect(response.status).toBe(503)
+    expect(await response.json()).toMatchObject({ code: 'verification_unavailable' })
+  })
 })

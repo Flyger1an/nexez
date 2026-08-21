@@ -33,6 +33,8 @@ describe('CommerceDemandPanel', () => {
       supplyWorkflow={{
         generatedAt: demand.generatedAt,
         available: true,
+        demandAvailable: true,
+        verificationAvailable: true,
         items: [{
           rank: 1,
           referenceId: 'events.private-chef',
@@ -40,6 +42,8 @@ describe('CommerceDemandPanel', () => {
           domain: 'events-hospitality',
           lifecycle: 'active-template',
           lifecycleLabel: 'Active template',
+          basis: 'observed-demand',
+          basisLabel: 'Observed demand',
           action: 'recruit-exact-supply',
           actionLabel: 'Recruit exact supply',
           rationale: 'Reference behavior was required.',
