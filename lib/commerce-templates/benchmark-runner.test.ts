@@ -42,7 +42,7 @@ describe('runCommerceBenchmark', () => {
   it('executes every active corpus case plus buyer preflight and configured transaction fixtures', () => {
     const run = runCommerceBenchmark()
 
-    expect(run.runnerVersion).toBe(4)
+    expect(run.runnerVersion).toBe(5)
     expect(run.ok).toBe(true)
     expect(run.buyerBehaviorScope).toBe('nexez-reference-preflight')
     expect(run.summary.caseCount).toBe(commerceBenchmark.cases.length)
@@ -51,8 +51,8 @@ describe('runCommerceBenchmark', () => {
     expect(run.cases.every((benchmarkCase) => benchmarkCase.stages.length === 5)).toBe(true)
     expect(run.cases.every((benchmarkCase) => benchmarkCase.stages.every((stage) => stage.status === 'pass'))).toBe(true)
     expect(run.buyerPreflightCoverageComplete).toBe(true)
-    expect(run.summary.guardrailAssertionCount).toBe(14)
-    expect(run.summary.passedGuardrailAssertions).toBe(14)
+    expect(run.summary.guardrailAssertionCount).toBe(18)
+    expect(run.summary.passedGuardrailAssertions).toBe(18)
     expect(run.summary.failedGuardrailAssertions).toBe(0)
     expect(run.transactionTemplateCoverageComplete).toBe(true)
     expect(run.summary.transactionFixtureCount).toBe(commerceBenchmarkTransactionFixtures.length)
@@ -73,7 +73,10 @@ describe('runCommerceBenchmark', () => {
     expect(coverage['must-not-behavior']).toBe('exercised')
     expect(coverage['offer-configuration']).toBe('exercised')
     expect(coverage['deterministic-pricing']).toBe('exercised')
-    expect(run.summary.exercisedStageCount).toBe(7)
+    expect(coverage['conditional-fulfillment']).toBe('exercised')
+    expect(coverage['staged-settlement']).toBe('exercised')
+    expect(coverage['reservable-resources']).toBe('exercised')
+    expect(run.summary.exercisedStageCount).toBe(10)
     expect(run.summary.notExercisedStageCount).toBe(0)
     expect(run.coverage.find((entry) => entry.stage === 'must-not-behavior')?.reason)
       .toContain('not arbitrary third-party model obedience')
@@ -273,7 +276,7 @@ describe('runCommerceBenchmark', () => {
       0,
     )
 
-    expect(authored).toBe(14)
+    expect(authored).toBe(18)
     expect(fixtures).toBe(authored)
   })
 })

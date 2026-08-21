@@ -52,6 +52,17 @@ describe('routeCommerceBuyerIntent', () => {
     })
   })
 
+  it('requires specific rental evidence instead of routing every rental to Party Rentals', () => {
+    const templates = listCommerceTemplates({ status: 'active' })
+
+    expect(routeCommerceBuyerIntent(templates, 'Rent 80 chairs and 10 tables for Saturday').matches[0]?.template.id)
+      .toBe('events.party-rentals')
+    expect(routeCommerceBuyerIntent(templates, 'Find party rentals').matches[0]?.template.id)
+      .toBe('events.party-rentals')
+    expect(routeCommerceBuyerIntent(templates, 'Find a car rental this weekend').status).toBe('unmatched')
+    expect(routeCommerceBuyerIntent(templates, 'Rent a party bus for Saturday').status).toBe('unmatched')
+  })
+
   it('surfaces ambiguity instead of forcing a tied template choice or hiding it behind result limits', () => {
     const source = listCommerceTemplates({ status: 'active' })
       .find((template) => template.id === 'professional.business-strategy-session')

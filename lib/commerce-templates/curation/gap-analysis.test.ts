@@ -99,7 +99,7 @@ describe('commerce schema gap analysis', () => {
   })
 
   it('does not activate post-pilot templates as a side effect of analysis', () => {
-    expect(listCommerceTemplates({ status: 'active' })).toHaveLength(7)
+    expect(listCommerceTemplates({ status: 'active' })).toHaveLength(8)
     expect(commerceCurationCandidates.filter((candidate) => candidate.status === 'pilot-active')).toHaveLength(7)
   })
 

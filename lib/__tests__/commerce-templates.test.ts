@@ -9,9 +9,9 @@ import {
 } from '../commerce-templates'
 
 describe('commerce template registry', () => {
-  it('contains seven valid pilot templates with unique versioned ids', () => {
-    expect(commerceTemplates).toHaveLength(7)
-    expect(new Set(commerceTemplates.map((template) => `${template.id}@${template.version}`)).size).toBe(7)
+  it('contains the seven pilots plus the first post-pilot template with unique versioned ids', () => {
+    expect(commerceTemplates).toHaveLength(8)
+    expect(new Set(commerceTemplates.map((template) => `${template.id}@${template.version}`)).size).toBe(8)
     for (const template of commerceTemplates) {
       expect(validateCommerceTemplate(template)).toEqual([])
       expect(template.exampleListing?.exampleOnly).toBe(true)

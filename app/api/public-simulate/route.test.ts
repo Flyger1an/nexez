@@ -309,6 +309,61 @@ describe('POST /api/public-simulate', () => {
     expect(JSON.stringify(body)).not.toMatch(/Wedding Videography|events\.custom-celebration-cake|identityTerms|buyerDetails/)
   })
 
+  it('renders Party Rentals as a truthful inventory reference without claiming stock or booking', async () => {
+    dbRef.handler = (ctx: any) =>
+      ctx.table === 'pages_public'
+        ? { data: [eventPlannerPage, consultingPage], error: null }
+        : { data: null, error: null }
+
+    const res = await POST(post({
+      query: 'Rent 80 chairs and 10 tables for a party Saturday with delivery and setup',
+    }))
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.mode).toBe('simulation')
+    expect(body.matchedBusiness).toBeNull()
+    expect(body.offers).toEqual([])
+    expect(body.simulation).toMatchObject({
+      source: 'commerce-library',
+      title: 'Party Rentals',
+      detailsToConfirm: expect.arrayContaining([
+        'rental items and quantities',
+        'event and rental window',
+        'delivery, setup, pickup, or return needs',
+        'service location',
+      ]),
+    })
+    expect(body.naturalLanguage).toContain('Party Rentals')
+    expect(body.naturalLanguage).toContain('real merchant')
+    expect(body.naturalLanguage).toContain('cannot be booked')
+    expect(body.decisionPath).toEqual([
+      expect.objectContaining({ key: 'intent', status: 'understood' }),
+      expect.objectContaining({ key: 'supply', status: 'checked' }),
+      expect.objectContaining({ key: 'commerce', status: 'reference' }),
+      expect.objectContaining({ key: 'action', status: 'protected' }),
+    ])
+    expect(JSON.stringify(body)).not.toMatch(/events\.party-rentals|inventory available|held inventory|checkoutUrl|capabilityTags|matchScore/)
+  })
+
+  it('does not use Party Rentals for car, vacation, or party-bus rentals', async () => {
+    dbRef.handler = (ctx: any) =>
+      ctx.table === 'pages_public'
+        ? { data: [eventPlannerPage, consultingPage], error: null }
+        : { data: null, error: null }
+
+    for (const query of [
+      'Find a car rental this weekend',
+      'Book a vacation rental for a wedding',
+      'Rent a party bus for Saturday',
+    ]) {
+      const body = await (await POST(post({ query }))).json()
+      expect(body.mode, query).toBe('coverage_gap')
+      expect(body.simulation, query).toBeNull()
+      expect(JSON.stringify(body), query).not.toContain('Party Rentals')
+    }
+  })
+
   it('anchors simulation identity before unrelated requirement categories', async () => {
     dbRef.handler = (ctx: any) =>
       ctx.table === 'pages_public'

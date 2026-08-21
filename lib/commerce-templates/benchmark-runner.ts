@@ -28,7 +28,7 @@ import { matchCommerceTemplates, type CommerceTemplateMatchInput } from './match
 import { listCommerceTemplates } from './registry'
 import type { CommerceTemplate, CommerceTemplateRef } from './schema'
 
-export const COMMERCE_BENCHMARK_RUNNER_VERSION = 4 as const
+export const COMMERCE_BENCHMARK_RUNNER_VERSION = 5 as const
 export const COMMERCE_BUYER_BEHAVIOR_SCOPE = 'nexez-reference-preflight' as const
 
 export type CommerceBenchmarkExecutableStage =
@@ -133,6 +133,11 @@ function coverageFor(
   transactionTemplateCoverageComplete: boolean,
   guardrailsRequired: boolean,
   buyerPreflightCoverageComplete: boolean,
+  railCoverage: {
+    conditionalFulfillment: boolean
+    stagedSettlement: boolean
+    reservableResources: boolean
+  },
 ): CommerceBenchmarkCoverage[] {
   return [
     {
@@ -178,7 +183,46 @@ function coverageFor(
         ? 'Runs normalized benchmark buyer configurations through production pricing and verifies exact priced snapshots or the exact expected fail-closed pricing outcome.'
         : 'Deterministic pricing coverage is incomplete because at least one corpus template lacks a benchmark-only configured transaction fixture.',
     },
+    {
+      stage: 'conditional-fulfillment',
+      status: railCoverage.conditionalFulfillment ? 'exercised' : 'not-exercised',
+      reason: railCoverage.conditionalFulfillment
+        ? 'Runs merchant-authored fulfillment rules against canonical buyer inputs and verifies the exact deterministic decision and matched-rule set.'
+        : 'This corpus slice has no passing transaction fixture with an explicit conditional-fulfillment expectation.',
+    },
+    {
+      stage: 'staged-settlement',
+      status: railCoverage.stagedSettlement ? 'exercised' : 'not-exercised',
+      reason: railCoverage.stagedSettlement
+        ? 'Resolves a merchant-authored finite payment schedule from the authoritative configured total and verifies every stage allocation.'
+        : 'This corpus slice has no passing transaction fixture with an explicit staged-settlement expectation.',
+    },
+    {
+      stage: 'reservable-resources',
+      status: railCoverage.reservableResources ? 'exercised' : 'not-exercised',
+      reason: railCoverage.reservableResources
+        ? 'Resolves merchant-authored resource requirements from canonical buyer quantities without claiming live availability or creating a hold.'
+        : 'This corpus slice has no passing transaction fixture with an explicit reservable-resource expectation.',
+    },
   ]
+}
+
+function transactionRailCovered(
+  fixtures: CommerceBenchmarkTransactionFixture[],
+  results: CommerceBenchmarkTransactionFixtureResult[],
+  expectation: 'fulfillment' | 'stagedSettlement' | 'resources',
+  stage: CommerceBenchmarkTransactionStage,
+): boolean {
+  const expectedFixtureIds = fixtures
+    .filter((fixture) => fixture.expected[expectation] != null)
+    .map((fixture) => fixture.id)
+  if (!expectedFixtureIds.length) return false
+
+  const resultById = new Map(results.map((result) => [result.id, result] as const))
+  return expectedFixtureIds.every((id) => {
+    const result = resultById.get(id)
+    return result?.stages.find((item) => item.stage === stage)?.status === 'pass'
+  })
 }
 
 /**
@@ -497,10 +541,16 @@ export function runCommerceBenchmark(options?: CommerceBenchmarkRunOptions): Com
   const transactionTemplateCoverageComplete = hasCompleteTransactionTemplateCoverage(corpus, selectedFixtures)
   const transactionFixtures = runCommerceBenchmarkTransactionFixtures(selectedFixtures, templates)
   const failedTransactionFixtures = transactionFixtures.filter((fixture) => fixture.status === 'fail').length
+  const railCoverage = {
+    conditionalFulfillment: transactionRailCovered(selectedFixtures, transactionFixtures, 'fulfillment', 'conditional-fulfillment'),
+    stagedSettlement: transactionRailCovered(selectedFixtures, transactionFixtures, 'stagedSettlement', 'staged-settlement'),
+    reservableResources: transactionRailCovered(selectedFixtures, transactionFixtures, 'resources', 'reservable-resources'),
+  }
   const coverage = coverageFor(
     transactionTemplateCoverageComplete,
     guardrailsRequired,
     buyerPreflightCoverageComplete,
+    railCoverage,
   )
   const buyerCoverageSatisfied = !guardrailsRequired || buyerPreflightCoverageComplete
   const ok = failedCases === 0

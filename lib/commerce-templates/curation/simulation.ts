@@ -24,6 +24,7 @@ const REQUEST_PREFIX_PATTERNS = [
   /^(?:please )?(?:can|could|would) you (?:please )?(?:help me )?(?:find|hire|book|get) (?:me )?/,
   /^(?:please )?(?:help me )?(?:find|hire|book|get) (?:me )?/,
   /^(?:i (?:need|want)(?: to (?:find|hire|book|get))?|i(?: m| am) looking for|looking for|searching for) /,
+  /^(?:please )?rent (?:me )?/,
 ]
 
 const SERVICE_DETAIL_BOUNDARY = /\s+(?:for|who|that|which|with|in|at|near|around|available|this|next|today|tomorrow|before|after)\b/
@@ -75,6 +76,15 @@ function candidateIdentityTokens(candidate: CommerceCurationCandidate): Set<stri
   ])
 }
 
+function candidateContextSatisfied(candidate: CommerceCurationCandidate, queryTokens: readonly string[]): boolean {
+  const query = new Set(queryTokens)
+  const excluded = candidate.simulationHints?.excludeTerms?.flatMap(tokenFamilies) ?? []
+  if (excluded.some((term) => query.has(term))) return false
+  const contextTerms = candidate.simulationHints?.contextTerms
+  if (!contextTerms?.length) return true
+  return contextTerms.flatMap(tokenFamilies).some((term) => query.has(term))
+}
+
 /**
  * Narrows a buyer prompt to the requested service phrase before matching.
  * Requirements after "for", "with", a location, or a time boundary remain
@@ -117,7 +127,10 @@ export function commerceRequestedCatalogIdentityTerms(
   candidates: CommerceCurationCandidate[],
 ): string[] {
   const requestedTerms = commerceRequestedServiceIdentityTerms(query)
-  const catalogTerms = new Set(candidates.flatMap((candidate) => [...candidateIdentityTokens(candidate)]))
+  const queryTokens = tokenFamilies(commerceRequestedServiceText(query))
+  const catalogTerms = new Set(candidates
+    .filter((candidate) => candidateContextSatisfied(candidate, queryTokens))
+    .flatMap((candidate) => [...candidateIdentityTokens(candidate)]))
   const recognizedTerms = requestedTerms.filter((term) => catalogTerms.has(term))
   return recognizedTerms.length ? recognizedTerms : requestedTerms
 }
@@ -158,6 +171,8 @@ export function findCommerceSimulationMatch(
         ...candidate.capabilityTags,
         ...candidate.gapSignals,
       ].join(' ')))
+
+      if (!candidateContextSatisfied(candidate, requestedServiceTokens)) return null
 
       const matchedIdentityTerms = requestedServiceTokens.filter((token) => identityTokens.has(token))
       if (!matchedIdentityTerms.length) return null
