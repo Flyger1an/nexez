@@ -752,9 +752,9 @@ export async function POST(request: NextRequest) {
       // what closes the "direct-checkout disputes/refunds vanish silently" hole.
       const { data: order } = await admin
         .from('checkout_orders')
-        .select('id, status, metadata, offer_name, page_id, currency, slug, buyer_email, access_token_encrypted, channel')
+        .select('id, status, metadata, offer_name, page_id, currency, slug, buyer_email, access_token_encrypted, channel, staged_settlement_obligation_id')
         .eq('stripe_payment_intent_id', piId)
-        .maybeSingle<{ id: string; status: string; metadata: Record<string, unknown> | null; offer_name: string | null; page_id: string | null; currency: string | null; slug: string | null; buyer_email: string | null; access_token_encrypted: string | null; channel: string | null }>()
+        .maybeSingle<{ id: string; status: string; metadata: Record<string, unknown> | null; offer_name: string | null; page_id: string | null; currency: string | null; slug: string | null; buyer_email: string | null; access_token_encrypted: string | null; channel: string | null; staged_settlement_obligation_id: string | null }>()
       if (!order) {
         return NextResponse.json({ received: true, type: event.type, matched: false }, { status: 200 })
       }
@@ -807,6 +807,31 @@ export async function POST(request: NextRequest) {
         console.warn('[Stripe Webhook] order reversal update failed:', oErr.message)
         await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
         return NextResponse.json({ error: 'order reversal update failed', type: event.type }, { status: 500 })
+      }
+      if (order.staged_settlement_obligation_id) {
+        const stagedUpdate = event.type === 'charge.refunded'
+          ? (obj.amount == null || obj.amount_refunded == null || obj.amount_refunded >= obj.amount
+              ? { status: 'refunded', refunded_at: oNow }
+              : null)
+          : event.type === 'charge.dispute.created'
+            ? { status: 'disputed', disputed_at: oNow }
+            : event.type === 'charge.dispute.closed'
+              ? (obj.status === 'won'
+                  ? { status: 'paid', disputed_at: null }
+                  : { status: 'refunded', refunded_at: oNow })
+              : null
+        if (stagedUpdate) {
+          const { error: stagedError } = await admin
+            .from('staged_settlement_obligations')
+            .update({ ...stagedUpdate, updated_at: oNow })
+            .eq('id', order.staged_settlement_obligation_id)
+            .eq('stripe_payment_intent_id', piId)
+          if (stagedError) {
+            console.warn('[Stripe Webhook] staged obligation reversal update failed:', stagedError.message)
+            await admin.from('stripe_webhook_events').delete().eq('event_id', event.id)
+            return NextResponse.json({ error: 'staged obligation reversal update failed', type: event.type }, { status: 500 })
+          }
+        }
       }
       // A4: notify OpenAI of an ACP order's async status change (refund/dispute).
       // Best-effort + dormant without ACP_ORDER_WEBHOOK_URL/SECRET; the durable state

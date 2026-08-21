@@ -86,11 +86,13 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
   const hasBuyerInputs = customerInputs.length > 0
   const hasConditionalFulfillment = fulfillmentRules.length > 0
   const requiresSettlement = hasBuyerInputs || Boolean(recurringTerms) || hasConditionalFulfillment || Boolean(stagedSettlementTerms)
-  const checkoutPath = recurringTerms ? '/api/service-agreements/checkout' : '/api/checkout'
+  const checkoutPath = recurringTerms
+    ? '/api/service-agreements/checkout'
+    : stagedSettlementTerms
+      ? '/api/staged-settlements/checkout'
+      : '/api/checkout'
 
-  const checkoutStatus = stagedSettlementTerms
-    ? 'blocked_pending_staged_settlement_runtime'
-    : requiredUnpricedPriceInputs.length
+  const checkoutStatus = requiredUnpricedPriceInputs.length
       ? 'blocked_pending_pricing'
       : requiresSettlement
         ? 'requires_nexez_settlement'
@@ -125,11 +127,11 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
       ? {
           schema_version: 1,
           terms: stagedSettlementTerms,
-          runtime_status: 'contract-only',
-          checkout_supported: false,
+          runtime_status: 'active',
+          checkout_supported: true,
           resolution_source: 'one authoritative deterministic or negotiated total and currency',
           payment_policy: 'Every stage requires a fresh buyer approval. No future stage is charged automatically.',
-          note: 'This published schedule is merchant-authored truth, but staged payment capture is not active yet. Do not present any stage as payable or paid.',
+          note: 'Dry-run the staged settlement checkout to resolve the exact total and first obligation. Every later obligation requires merchant readiness plus a fresh buyer approval; no future stage is charged automatically.',
         }
       : null,
     input_schema: hasBuyerInputs ? buildOfferConfigurationInputSchema(offer) : null,
@@ -141,16 +143,14 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
       recurring_service_requires_nexez_settlement: Boolean(recurringTerms),
       staged_settlement_requires_nexez_settlement: Boolean(stagedSettlementTerms),
       external_provider_configuration_supported: false,
-      runtime_readiness_check: stagedSettlementTerms
-        ? null
-        : requiresSettlement
+      runtime_readiness_check: requiresSettlement
           ? `POST ${checkoutPath} with dryRun=true before approval.`
           : null,
       deterministically_priced_inputs: deterministicallyPricedInputs,
       unpriced_price_affecting_inputs_blocked_when_supplied: unpricedPriceInputs,
       required_price_affecting_input_blockers: requiredUnpricedPriceInputs,
       note: stagedSettlementTerms
-        ? 'This offer has a merchant-authored staged payment schedule, but the staged agreement ledger and per-obligation capture rail are not active. Checkout fails closed instead of charging the full offer total.'
+        ? 'Staged checkout charges only the current obligation. The agreement ledger distinguishes total, paid, current due, and remaining amounts; every payment requires fresh payload-bound approval and an Idempotency-Key.'
         : requiredUnpricedPriceInputs.length
           ? 'Checkout is blocked because a required price-affecting buyer input lacks a deterministic merchant-authored pricing rule.'
           : recurringTerms

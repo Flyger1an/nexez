@@ -181,7 +181,7 @@ export function PasskeySettings() {
       </div>
 
       {!loading && !passkeysSupported ? (
-        <p className="mt-4 rounded-lg border border-amber-300/25 bg-amber-400/5 px-3 py-2 text-xs text-amber-200">
+        <p className="mt-4 rounded-lg border border-[var(--amber)]/25 bg-[var(--amber)]/5 px-3 py-2 text-xs text-[var(--amber)]">
           This browser cannot create passkeys. You can still rename or remove passkeys already on your account.
         </p>
       ) : null}
