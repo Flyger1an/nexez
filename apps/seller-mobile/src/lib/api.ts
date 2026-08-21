@@ -8,7 +8,7 @@ import type {
   IntakeSessionSummary,
   IntakeTurnResponse,
 } from '@/src/types/intake'
-import type { OwnerNegotiationDecision } from '../../../../lib/contracts/negotiation'
+import type { OwnerNegotiationDecision } from '../../../../lib/contracts/negotiation-types'
 
 type ApiOptions = RequestInit & {
   auth?: boolean

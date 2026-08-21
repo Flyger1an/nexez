@@ -1,14 +1,12 @@
 import { z } from 'zod'
 import { positiveAppMinorAmountSchema } from './money'
+import type { OwnerDecisionRequest, OwnerNegotiationDecision } from './negotiation-types'
 
-export const OWNER_DECISION_ACTIONS = [
-  'accept',
-  'counter',
-  'reject',
-  'clarify',
-  'pause',
-  'resume',
-] as const
+export {
+  OWNER_DECISION_ACTIONS,
+  type OwnerDecisionRequest,
+  type OwnerNegotiationDecision,
+} from './negotiation-types'
 
 const reasoningSchema = z.string().trim().min(1).max(2_000)
 const optionalText = z.string().trim().min(1).max(1_000).optional()
@@ -63,13 +61,9 @@ export const ownerNegotiationDecisionSchema = z.discriminatedUnion('action', [
   clarifyDecisionSchema,
   pauseDecisionSchema,
   resumeDecisionSchema,
-])
-
-export type OwnerNegotiationDecision = z.infer<typeof ownerNegotiationDecisionSchema>
+]) satisfies z.ZodType<OwnerNegotiationDecision>
 
 export const ownerDecisionRequestSchema = z.object({
   negotiationId: z.string().trim().min(1).max(100),
   decision: ownerNegotiationDecisionSchema,
-}).strict()
-
-export type OwnerDecisionRequest = z.infer<typeof ownerDecisionRequestSchema>
+}).strict() satisfies z.ZodType<OwnerDecisionRequest>
