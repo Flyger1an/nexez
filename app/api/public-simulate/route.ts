@@ -16,6 +16,10 @@ import { getLatestCommerceTemplate } from '@/lib/commerce-templates/registry'
 import type { CommerceArchetype } from '@/lib/commerce-templates/schema'
 import { isLlmConfigured, llmComplete } from '@/lib/llm'
 import { publicLaunchVisiblePages } from '@/lib/public-page-visibility'
+import {
+  buildPublicSimulatorDecisionPath,
+  type PublicSimulatorMode,
+} from '@/lib/public-simulator'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { supabase } from '@/lib/supabase'
 
@@ -57,6 +61,37 @@ const INTERNAL_SIMULATION_ANSWER_PATTERNS = [
   /\b[A-Z][A-Z_]{3,}\b/,
   /(?:^|\s)(?:automotive|commercial|education|events|home|personal|professional)\.[a-z0-9-]+(?:\s|$)/i,
 ]
+
+type PublicSimulationLogContext = {
+  requestId: string | null
+  startedAt: number
+  queryLength: number
+  visibleSupplyCount: number
+}
+
+function publicSimulationResponse(
+  context: PublicSimulationLogContext,
+  payload: {
+    mode: PublicSimulatorMode
+    intent: SimIntent
+    llmEnhanced: boolean
+    [key: string]: unknown
+  },
+) {
+  console.log(JSON.stringify({
+    level: 'info',
+    message: 'public_simulate_completed',
+    route: '/api/public-simulate',
+    requestId: context.requestId,
+    durationMs: Date.now() - context.startedAt,
+    queryLength: context.queryLength,
+    visibleSupplyCount: context.visibleSupplyCount,
+    outcome: payload.mode,
+    intent: payload.intent,
+    llmEnhanced: payload.llmEnhanced,
+  }))
+  return NextResponse.json(payload)
+}
 
 function detectPublicIntent(query: string): SimIntent {
   const detected = detectIntent(query)
@@ -401,6 +436,15 @@ async function enhanceSimulationAnswer(
 }
 
 export async function POST(request: Request) {
+  const startedAt = Date.now()
+  const requestId = request.headers.get('x-vercel-id')
+  console.log(JSON.stringify({
+    level: 'info',
+    message: 'public_simulate_started',
+    route: '/api/public-simulate',
+    requestId,
+  }))
+
   // Public, unauthenticated endpoint that may invoke a paid LLM and reads live marketplace supply - throttle it.
   const limited = await enforceRateLimit(request, 'public-simulate', 20, 60_000)
   if (limited) return limited
@@ -431,6 +475,14 @@ export async function POST(request: Request) {
       .returns<AgentPage[]>()
 
     if (error) {
+      console.error(JSON.stringify({
+        level: 'error',
+        message: 'public_simulate_marketplace_unavailable',
+        route: '/api/public-simulate',
+        requestId,
+        durationMs: Date.now() - startedAt,
+        databaseCode: error.code ?? null,
+      }))
       return NextResponse.json(
         { error: 'Marketplace search is temporarily unavailable.' },
         { status: 503 },
@@ -459,13 +511,35 @@ export async function POST(request: Request) {
         ? { naturalLanguage: safeFallback, llmEnhanced: false }
         : await enhanceMarketplaceAnswer(trimmedQuery, matchedResult, intent, safeFallback)
 
-      return NextResponse.json({
+      const mode = matchType === 'partial' ? 'partial_match' : 'marketplace'
+      const intentLabel = publicIntentLabel(intent, trimmedQuery)
+      const decisionPath = matchType === 'partial'
+        ? buildPublicSimulatorDecisionPath({
+            mode: 'partial_match',
+            intentLabel,
+            merchantName: matchedResult.page.name,
+            offerName: matchedResult.offer?.name ?? null,
+          })
+        : buildPublicSimulatorDecisionPath({
+            mode: 'marketplace',
+            intentLabel,
+            merchantName: matchedResult.page.name,
+            offerName: matchedResult.offer?.name ?? null,
+            checkoutUrl: matchedResult.offer?.checkout_url ?? null,
+          })
+
+      return publicSimulationResponse({
+        requestId,
+        startedAt,
+        queryLength: trimmedQuery.length,
+        visibleSupplyCount: visiblePages.length,
+      }, {
         success: true,
-        mode: matchType === 'partial' ? 'partial_match' : 'marketplace',
+        mode,
         noMatch: false,
         query: trimmedQuery,
         intent,
-        intentLabel: publicIntentLabel(intent, trimmedQuery),
+        intentLabel,
         naturalLanguage: enhanced.naturalLanguage,
         readiness: interpretation.readiness,
         confidence: matchType === 'partial' ? null : interpretation.confidence,
@@ -490,6 +564,7 @@ export async function POST(request: Request) {
             : null,
         },
         simulation: null,
+        decisionPath,
         llmEnhanced: enhanced.llmEnhanced,
       })
     }
@@ -500,13 +575,19 @@ export async function POST(request: Request) {
       const enhanced = await enhanceSimulationAnswer(trimmedQuery, simulation, guidance, fallback)
       const publicResponse = formatSimulationForBuyer(simulation, guidance, enhanced.naturalLanguage)
 
-      return NextResponse.json({
+      const intentLabel = publicIntentLabel(intent, trimmedQuery)
+      return publicSimulationResponse({
+        requestId,
+        startedAt,
+        queryLength: trimmedQuery.length,
+        visibleSupplyCount: visiblePages.length,
+      }, {
         success: true,
         mode: 'simulation',
         noMatch: true,
         query: trimmedQuery,
         intent,
-        intentLabel: publicIntentLabel(intent, trimmedQuery),
+        intentLabel,
         naturalLanguage: publicResponse.explanation,
         readiness: 0,
         confidence: null,
@@ -516,19 +597,30 @@ export async function POST(request: Request) {
         recommendations: [],
         matchedBusiness: null,
         simulation: publicResponse,
+        decisionPath: buildPublicSimulatorDecisionPath({
+          mode: 'simulation',
+          intentLabel,
+          referenceTitle: publicResponse.title,
+        }),
         llmEnhanced: enhanced.llmEnhanced,
       })
     }
 
     const understoodLabel = understoodRequestLabel(trimmedQuery)
 
-    return NextResponse.json({
+    const intentLabel = publicIntentLabel(intent, trimmedQuery)
+    return publicSimulationResponse({
+      requestId,
+      startedAt,
+      queryLength: trimmedQuery.length,
+      visibleSupplyCount: visiblePages.length,
+    }, {
       success: true,
       mode: 'coverage_gap',
       noMatch: true,
       query: trimmedQuery,
       intent,
-      intentLabel: publicIntentLabel(intent, trimmedQuery),
+      intentLabel,
       naturalLanguage: coverageGapAnswer(understoodLabel),
       readiness: 0,
       confidence: null,
@@ -538,6 +630,11 @@ export async function POST(request: Request) {
       recommendations: [],
       matchedBusiness: null,
       simulation: null,
+      decisionPath: buildPublicSimulatorDecisionPath({
+        mode: 'coverage_gap',
+        intentLabel,
+        requestLabel: understoodLabel,
+      }),
       understoodRequest: {
         label: understoodLabel,
         marketplaceChecked: true,
@@ -548,7 +645,14 @@ export async function POST(request: Request) {
       llmEnhanced: false,
     })
   } catch (error: any) {
-    console.error('Public simulate error:', error)
+    console.error(JSON.stringify({
+      level: 'error',
+      message: 'public_simulate_failed',
+      route: '/api/public-simulate',
+      requestId,
+      durationMs: Date.now() - startedAt,
+      error: error instanceof Error ? error.message : String(error),
+    }))
     return NextResponse.json(
       { error: 'Simulation failed' },
       { status: 500 },
