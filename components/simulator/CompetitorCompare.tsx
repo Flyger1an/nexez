@@ -22,6 +22,11 @@ type CompetitorAnalysis = {
   strengths: string[]
   weaknesses: string[]
   recommendations: string[]
+  provenance: {
+    analysis: 'deterministic' | 'deterministic_with_llm'
+    cache: { hit: boolean; scope: 'process'; ttlHours: 48 }
+    fetch: 'respectful_public_web'
+  }
   userComparison?: {
     slug: string
     name?: string
@@ -92,7 +97,7 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
       }
       setAnalysis(data.analysis as CompetitorAnalysis)
       setMarkdown(typeof data.markdown === 'string' ? data.markdown : '')
-      setMessage('Analysis complete · cached 48h.')
+      setMessage(data.analysis?.provenance?.cache?.hit ? 'Analysis loaded from this server process cache.' : 'Fresh analysis complete.')
     } catch (e) {
       setMessage('Request error: ' + (e instanceof Error ? e.message : 'unknown'))
     } finally {
@@ -179,6 +184,15 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
             </a>
           </p>
 
+          <div className="mb-5 grid gap-2 sm:grid-cols-3">
+            <ProvenanceItem label="Method" value={analysis.provenance.analysis === 'deterministic_with_llm' ? 'Rules + LLM refinement' : 'Deterministic rules'} />
+            <ProvenanceItem label="Source" value="Public web fetch" />
+            <ProvenanceItem
+              label="Cache"
+              value={analysis.provenance.cache.hit ? 'Process-cache hit' : 'Fresh fetch'}
+            />
+          </div>
+
           <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
             {scoreCards.map((s) => (
               <div key={s.label} className="rounded-2xl border border-white/10 bg-[#12101B] p-3">
@@ -215,9 +229,20 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
               )}
             </div>
           )}
-          <p className="mt-3 text-[10px] text-zinc-500">Respects robots.txt · cached 48h · exportable.</p>
+          <p className="mt-3 text-[10px] text-zinc-500">
+            Respects robots.txt · up to 48h best-effort cache within one running server process · exportable.
+          </p>
         </div>
       )}
+    </div>
+  )
+}
+
+function ProvenanceItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+      <p className="text-[10px] uppercase tracking-widest text-zinc-500">{label}</p>
+      <p className="mt-1 text-xs font-medium text-zinc-200">{value}</p>
     </div>
   )
 }

@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Sparkles,
   Target,
+  ShieldCheck,
   X,
 } from 'lucide-react'
 import { CompetitorCompare } from '../../components/simulator/CompetitorCompare'
@@ -31,16 +32,14 @@ import {
   buildDefaultAgentQuery,
   getRecommendations,
   gradeAgentSuccess,
-  runMultiAgentSimulation,
   type AgentSuccessReport,
   type AgentVerdict,
 } from '../../lib/agent-simulator'
-import { analyzeQueryRank, type QueryRankAnalysis } from '../../lib/agent-search'
-import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
+import type { QueryRankAnalysis } from '../../lib/agent-search'
+import { agentLabRunToHistoryEntry, type AgentLabRun, type AgentLabRunEvidence } from '../../lib/agent-lab-run'
 import type { UrlSimComparison } from '../../lib/url-simulation'
 import {
   SimulationHistoryEntry,
-  buildSimulationHistoryEntry,
   exportSimulationHistory,
   filterSimulationHistory,
   getSimulationHistoryStats,
@@ -63,6 +62,7 @@ export default function GlobalAgentSimulator() {
   const [recommendations, setRecommendations] = useState<string[]>([])
   const [successReport, setSuccessReport] = useState<AgentSuccessReport | null>(null)
   const [rankAnalysis, setRankAnalysis] = useState<QueryRankAnalysis | null>(null)
+  const [activeEvidence, setActiveEvidence] = useState<AgentLabRunEvidence | null>(null)
   // "Simulate any URL" - public, logged-out demo (deterministic crawl).
   const [urlInput, setUrlInput] = useState('')
   const [urlLoading, setUrlLoading] = useState(false)
@@ -166,22 +166,17 @@ export default function GlobalAgentSimulator() {
     return fallback.data || null
   }
 
-  // Rank `page` against the live published field for `q`, using the same
-  // relevance+readiness ranking /api/agent-search applies. Best-effort: on any
-  // read failure the panel simply doesn't render.
-  async function computeRankAnalysis(page: AgentPage, q: string) {
+  async function loadDurableHistory(pageId: string) {
     try {
-      const { data, error } = await supabase
-        .from('pages_public')
-        .select(PUBLIC_PAGE_SELECT)
-        .eq('is_published', true)
-        .order('created_at', { ascending: false })
-        .limit(100)
-        .returns<AgentPage[]>()
-      const field = error ? [] : publicLaunchVisiblePages(data)
-      setRankAnalysis(analyzeQueryRank(field, page, q))
+      const response = await fetch(`/api/simulator/runs?pageId=${encodeURIComponent(pageId)}&limit=100`)
+      const data = await response.json()
+      if (!response.ok || !Array.isArray(data?.runs)) {
+        setHistory([])
+        return
+      }
+      setHistory(data.runs.map((run: AgentLabRun) => agentLabRunToHistoryEntry(run)))
     } catch {
-      setRankAnalysis(null)
+      setHistory([])
     }
   }
 
@@ -193,80 +188,41 @@ export default function GlobalAgentSimulator() {
     setRecommendations([])
     setSuccessReport(null)
     setRankAnalysis(null)
+    setActiveEvidence(null)
 
     try {
       const effectiveQuery = nextQuery.trim() || buildDefaultAgentQuery(page)
-      // No explicit base URL: the builders default to getBaseUrl() (nexez.app), so
-      // agent-facing URLs in exported/persisted simulations never carry the viewer's
-      // host (nexez.ai / a preview URL) into the agent contract.
-      const multi = runMultiAgentSimulation(page, effectiveQuery)
-      let finalResults = multi.results
-      setSimulationResults(finalResults)
-      setRecommendations(getRecommendations(page))
-      setSuccessReport(multi.success)
-      // Win-the-query: rank this page against the live published field for the
-      // same query (read pages_public directly, like loadPageBySlug, so it works
-      // same-origin on both the marketing and app hosts).
-      void computeRankAnalysis(page, effectiveQuery)
-      if (effectiveQuery !== query) setQuery(effectiveQuery)
-
-      // Deeper LLM responses via new route if LLM configured and page llm_opt_in or global
-      if ((page as any).llm_opt_in) {
-        try {
-          const llmRes = await fetch('/api/simulate-llm', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ slug: page.slug, query: effectiveQuery }),
-          })
-          const llmData = await llmRes.json()
-          // The API may return deterministic fallback copy when the provider is
-          // unavailable. Only label and store a result as LLM-enhanced when the
-          // server explicitly confirms that an LLM produced it.
-          if (llmRes.ok && llmData?.llmEnhanced === true && llmData?.naturalLanguage) {
-            const firstResult = multi.results[0]
-            if (firstResult) {
-              finalResults = [
-                ...multi.results,
-                {
-                  ...firstResult,
-                  agent: 'LLM-Enhanced',
-                  naturalLanguage: llmData.naturalLanguage,
-                  llmEnhanced: true,
-                } as any,
-              ]
-              setCurrentAgent('LLM-Enhanced')
-              setSimulationResults(finalResults)
-            }
-          }
-        } catch (e) {
-          // fallback to deterministic
-        }
+      const ownedPage = myPages.some((candidate) => candidate.id === page.id)
+      const response = await fetch('/api/simulator/runs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...(ownedPage ? { pageId: page.id } : { slug: page.slug }),
+          query: effectiveQuery,
+          includeLlm: true,
+        }),
+      })
+      const data = await response.json()
+      if (!response.ok || !data?.run) {
+        throw new Error(data?.error || 'Analysis could not be completed.')
       }
 
-      // Save history if logged in and this is one of my pages (or matched owner)
-      if (isLoggedIn) {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user && (page as any).owner_id === user.id) {
-          const newSim = buildSimulationHistoryEntry(page, effectiveQuery, undefined, finalResults)
-
-          const existing = Array.isArray((page as any).simulations) ? (page as any).simulations : history
-          const updated = [newSim, ...existing].slice(0, 20)
-
-          const { error } = await supabase
-            .from('pages')
-            .update({ simulations: updated })
-            .eq('id', page.id)
-
-          if (error && isMissingColumnError(error)) {
-            setMessage('Analysis complete. Apply the simulations migration to persist history for this listing.')
-          } else if (error) {
-            setMessage(`Analysis complete, but history could not be saved: ${error.message}`)
-          } else {
-            setHistory(updated as SimulationHistoryEntry[])
-            setSelectedPage({ ...page, simulations: updated } as AgentPage)
-            setMessage('Analysis saved to listing history (full multi-agent snapshot for intelligence flywheel).')
-          }
-        }
+      const run = data.run as AgentLabRun
+      setActiveEvidence(run.evidence)
+      setSimulationResults(run.result.results)
+      setRecommendations(run.result.recommendations)
+      setSuccessReport(run.result.success)
+      setRankAnalysis(run.result.rankAnalysis)
+      if (run.evidence.execution.llm.executed) setCurrentAgent('LLM-Enhanced')
+      if (effectiveQuery !== query) setQuery(effectiveQuery)
+      if (run.persisted) {
+        const historyEntry = agentLabRunToHistoryEntry(run)
+        setHistory((current) => [historyEntry, ...current.filter((entry) => entry.id !== historyEntry.id)])
+        setMessage('Analysis complete and saved as an immutable Agent Lab run.')
+      } else if (data.persistenceError) {
+        setMessage(data.persistenceError)
+      } else {
+        setMessage('Analysis complete. Public listing runs are not added to private history.')
       }
     } catch (e: any) {
       setMessage('Simulation failed: ' + (e.message || 'unknown'))
@@ -281,7 +237,7 @@ export default function GlobalAgentSimulator() {
     setSelectedPage(page)
     setPasteSlug('')
     setQuery(nextQuery)
-    setHistory(Array.isArray((page as any).simulations) ? (page as any).simulations : [])
+    await loadDurableHistory(page.id)
     setHistoryQuery('')
     await runSimulationForPage(page, nextQuery)
   }
@@ -303,7 +259,7 @@ export default function GlobalAgentSimulator() {
       setUrlComparison(null)
       setSelectedPage(page)
       setQuery(nextQuery)
-      setHistory(Array.isArray((page as any).simulations) ? (page as any).simulations : [])
+      setHistory([])
       setHistoryQuery('')
       await runSimulationForPage(page, nextQuery)
     } catch (e: any) {
@@ -368,6 +324,7 @@ export default function GlobalAgentSimulator() {
         timestamp: new Date().toISOString(),
         agents: simulationResults,
         recommendations: recs,
+        evidence: activeEvidence,
       }, null, 2)
     } else {
       content = `# Nexez Agent Simulator Analysis\n\n`
@@ -375,6 +332,10 @@ export default function GlobalAgentSimulator() {
       content += `**Readiness**: ${readiness}/100\n`
       content += `**Query**: ${query}\n`
       content += `**Generated**: ${new Date().toISOString()}\n\n`
+      if (activeEvidence) {
+        content += `**Engine**: ${activeEvidence.execution.engineVersion}\n`
+        content += `**Evidence coverage**: ${activeEvidence.competitiveField.visiblePagesEvaluated} visible listings evaluated; commerce contracts inspected, no transaction executed.\n\n`
+      }
       content += `## Recommendations\n${recs.length ? recs.map(r => `- ${r}`).join('\n') : '- Page is well optimized.'}\n\n`
       content += `## Per-Agent Analysis\n`
       simulationResults.forEach((r: any) => {
@@ -429,13 +390,13 @@ export default function GlobalAgentSimulator() {
   }
 
   function loadFromHistory(h: any) {
-    // Replay a prior full snapshot if present (data flywheel benefit: instant previous view)
+    setActiveEvidence(h.evidence || null)
     if (h.result && h.result.results) {
       setSimulationResults(h.result.results)
       setRecommendations(h.result.recommendations || getRecommendations(selectedPage!))
       if (selectedPage) {
-        setSuccessReport(gradeAgentSuccess(selectedPage, h.query || query))
-        void computeRankAnalysis(selectedPage, h.query || query)
+        setSuccessReport(h.result.success || gradeAgentSuccess(selectedPage, h.query || query))
+        setRankAnalysis(h.result.rankAnalysis || null)
       }
       setQuery(h.query || query)
       setMessage(`Loaded historical analysis from ${new Date(h.timestamp).toLocaleString()}.`)
@@ -496,9 +457,9 @@ export default function GlobalAgentSimulator() {
 
           {/* ── TEST A PAGE ───────────────────────────────────────────── */}
           {mode === 'test' && (
-          <div id="agent-lab-panel-test" role="tabpanel" aria-labelledby="agent-lab-tab-test">
+          <div id="agent-lab-panel-test" role="tabpanel" aria-labelledby="agent-lab-tab-test" className="min-w-0">
           {/* Controls */}
-          <div className="mb-8 grid gap-4 xl:grid-cols-[minmax(320px,0.75fr)_minmax(0,1.25fr)]">
+          <div className="mb-8 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(320px,0.75fr)_minmax(0,1.25fr)]">
             {/* My Pages */}
             <div className="card">
               <div className="flex items-center gap-2 mb-3">
@@ -539,9 +500,9 @@ export default function GlobalAgentSimulator() {
                   onChange={(e) => setPasteSlug(e.target.value)}
                   placeholder="my-offers or https://nexez.com/my-offers"
                   disabled={!hydrated || loading}
-                  className="input flex-1"
+                  className="input min-w-0 flex-1"
                 />
-                <button onClick={handlePasteAnalyze} disabled={!hydrated || loading || !pasteSlug.trim()} className="btn-primary min-h-11">
+                <button onClick={handlePasteAnalyze} disabled={!hydrated || loading || !pasteSlug.trim()} className="btn-primary min-h-11 w-full sm:w-auto">
                   {loading ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />} Analyze
                 </button>
               </div>
@@ -557,7 +518,7 @@ export default function GlobalAgentSimulator() {
                 id="agent-lab-query"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="input flex-1"
+                className="input min-w-0 flex-1"
                 placeholder="Agent query"
                 disabled={!hydrated || loading}
               />
@@ -671,6 +632,8 @@ export default function GlobalAgentSimulator() {
                 </div>
               </div>
 
+              {activeEvidence && <EvidencePanel evidence={activeEvidence} />}
+
               {successReport && (
                 <div className="card mt-6">
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -706,13 +669,13 @@ export default function GlobalAgentSimulator() {
               </div>
 
               {/* Recommendations + History + Export (data flywheel + shareable) */}
-              <div className="mt-8 grid md:grid-cols-2 gap-6">
+              <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div className="card">
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <h3 className="font-semibold flex items-center gap-2">
                       <RefreshCw className="size-4 text-[var(--amber)]" /> Recommendations
                     </h3>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <button onClick={() => exportCurrentAnalysis('md')} className="text-[10px] rounded border border-white/20 px-2 py-0.5 hover:bg-white/5">Export MD</button>
                       <button onClick={() => exportCurrentAnalysis('json')} className="text-[10px] rounded border border-white/20 px-2 py-0.5 hover:bg-white/5">Export JSON</button>
                       <button onClick={() => exportCurrentAnalysis('pdf')} className="text-[10px] rounded border border-white/20 px-2 py-0.5 hover:bg-white/5">Export PDF (print)</button>
@@ -849,6 +812,86 @@ function HistoryStat({ label, value, tone }: { label: string; value: string; ton
       </p>
     </div>
   )
+}
+
+function EvidencePanel({ evidence }: { evidence: AgentLabRunEvidence }) {
+  const llm = evidence.execution.llm
+  const field = evidence.competitiveField
+  const commerce = evidence.commerce
+  return (
+    <section className="card mt-6" aria-labelledby="agent-lab-evidence-title">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="flex items-center gap-2 text-xs uppercase tracking-[2px] text-[var(--ready)]">
+            <ShieldCheck className="size-4" aria-hidden="true" /> Evidence record
+          </p>
+          <h3 id="agent-lab-evidence-title" className="mt-1 text-xl font-semibold">What this run actually verified</h3>
+          <p className="mt-1 max-w-3xl text-sm text-zinc-400">
+            Provenance is saved with the result so a replay does not overstate how the analysis was produced.
+          </p>
+        </div>
+        <span className="w-fit rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-3 py-1 text-[11px] font-medium text-[var(--ready)]">
+          {evidence.execution.engineVersion}
+        </span>
+      </div>
+
+      <div className="mt-5 grid gap-3 lg:grid-cols-3">
+        <EvidenceCard
+          label="Execution boundary"
+          value="Server computed"
+          detail={`${evidence.execution.deterministicAgents} deterministic agent lenses${llm.executed ? ` + LLM (${llm.model})` : ''}.`}
+          status={llm.executed ? 'LLM verified' : llm.requested ? `LLM skipped: ${humanizeEvidenceReason(llm.reason)}` : 'LLM not requested'}
+        />
+        <EvidenceCard
+          label="Discovery field"
+          value={`${field.visiblePagesEvaluated} visible listings`}
+          detail={field.complete
+            ? `Complete published field under ${field.rankingPolicy}.`
+            : `Field reached the ${field.cap.toLocaleString()}-listing safety cap; rank is labeled from partial coverage.`}
+          status={field.complete ? 'Complete coverage' : 'Capped coverage'}
+        />
+        <EvidenceCard
+          label="Commerce boundary"
+          value={`${commerce.offersInspected} contract${commerce.offersInspected === 1 ? '' : 's'} inspected`}
+          detail={commerce.notice}
+          status="No transaction executed"
+        />
+      </div>
+
+      {commerce.offers.length > 0 && (
+        <details className="mt-4 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+          <summary className="cursor-pointer text-xs font-medium text-zinc-300">Inspected offer actions</summary>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            {commerce.offers.map((offer) => (
+              <div key={offer.offerKey} className="rounded-lg border border-white/10 px-3 py-2 text-xs">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="truncate font-medium text-zinc-200">{offer.offerName}</span>
+                  <span className="shrink-0 font-mono text-[10px] text-[var(--signal)]">{offer.method}</span>
+                </div>
+                <p className="mt-1 truncate font-mono text-[10px] text-zinc-500">{offer.endpoint || 'No published endpoint'}</p>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </section>
+  )
+}
+
+function EvidenceCard({ label, value, detail, status }: { label: string; value: string; detail: string; status: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-[#12101B] p-4">
+      <p className="text-[10px] uppercase tracking-widest text-zinc-500">{label}</p>
+      <p className="mt-2 text-lg font-semibold text-zinc-100">{value}</p>
+      <p className="mt-1 min-h-10 text-xs leading-5 text-zinc-400">{detail}</p>
+      <p className="mt-3 text-[11px] font-medium text-[var(--ready)]">{status}</p>
+    </div>
+  )
+}
+
+function humanizeEvidenceReason(reason: string | null) {
+  if (!reason) return 'not available'
+  return reason.replaceAll('_', ' ')
 }
 
 const STANCE_META: Record<AgentVerdict['stance'], { label: string; cls: string; Icon: typeof Check }> = {

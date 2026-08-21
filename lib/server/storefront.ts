@@ -97,30 +97,44 @@ export async function loadStorefrontHandlesForSlugs(slugs: string[]): Promise<Ma
   if (!clean.length || !hasSupabaseAdminEnv()) return result
 
   const admin = createAdminClient()
-  const { data: pages } = await admin
-    .from('pages')
-    .select('slug, owner_id')
-    .in('slug', clean)
-    .eq('is_published', true)
-    .returns<Array<{ slug: string; owner_id: string | null }>>()
+  const pages: Array<{ slug: string; owner_id: string | null }> = []
+  for (const batch of valueBatches(clean)) {
+    const { data } = await admin
+      .from('pages')
+      .select('slug, owner_id')
+      .in('slug', batch)
+      .eq('is_published', true)
+      .returns<Array<{ slug: string; owner_id: string | null }>>()
+    pages.push(...(data ?? []))
+  }
 
-  const ownerIds = Array.from(new Set((pages ?? []).map((page) => page.owner_id).filter(Boolean))) as string[]
+  const ownerIds = Array.from(new Set(pages.map((page) => page.owner_id).filter(Boolean))) as string[]
   if (!ownerIds.length) return result
 
-  const { data: storefronts } = await admin
-    .from('storefronts')
-    .select('owner_id, handle')
-    .in('owner_id', ownerIds)
-    .returns<Array<{ owner_id: string; handle: string }>>()
+  const storefronts: Array<{ owner_id: string; handle: string }> = []
+  for (const batch of valueBatches(ownerIds)) {
+    const { data } = await admin
+      .from('storefronts')
+      .select('owner_id, handle')
+      .in('owner_id', batch)
+      .returns<Array<{ owner_id: string; handle: string }>>()
+    storefronts.push(...(data ?? []))
+  }
 
-  const handleByOwner = new Map((storefronts ?? []).map((storefront) => [storefront.owner_id, storefront.handle]))
-  for (const page of pages ?? []) {
+  const handleByOwner = new Map(storefronts.map((storefront) => [storefront.owner_id, storefront.handle]))
+  for (const page of pages) {
     if (!page.owner_id) continue
     const handle = handleByOwner.get(page.owner_id)
     if (handle) result.set(page.slug, handle)
   }
 
   return result
+}
+
+function valueBatches<T>(values: T[], size = 200): T[][] {
+  const batches: T[][] = []
+  for (let index = 0; index < values.length; index += size) batches.push(values.slice(index, index + size))
+  return batches
 }
 
 export type StorefrontSummary = Pick<Storefront, 'handle' | 'display_name' | 'logo_url'> & { listing_count: number }

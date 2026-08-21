@@ -32,17 +32,23 @@ export async function loadReviewSummariesForSlugs(slugs: string[], recentLimit =
   const result = new Map<string, ReviewSummary>()
   if (!clean.length || !hasSupabaseAdminEnv()) return result
 
-  const { data } = await createAdminClient()
-    .from('order_reviews')
-    .select('id, slug, rating, title, body, tags, created_at')
-    .in('slug', clean)
-    .eq('status', 'published')
-    .order('created_at', { ascending: false })
-    .limit(Math.max(500, clean.length * 50))
-    .returns<ReviewDbRow[]>()
+  const admin = createAdminClient()
+  const rows: ReviewDbRow[] = []
+  for (let index = 0; index < clean.length; index += 200) {
+    const batch = clean.slice(index, index + 200)
+    const { data } = await admin
+      .from('order_reviews')
+      .select('id, slug, rating, title, body, tags, created_at')
+      .in('slug', batch)
+      .eq('status', 'published')
+      .order('created_at', { ascending: false })
+      .limit(Math.max(500, batch.length * 50))
+      .returns<ReviewDbRow[]>()
+    rows.push(...(data ?? []))
+  }
 
   const bySlug = new Map<string, ReviewRow[]>()
-  for (const row of data ?? []) {
+  for (const row of rows) {
     if (!row.slug) continue
     const rows = bySlug.get(row.slug) ?? []
     rows.push(row)

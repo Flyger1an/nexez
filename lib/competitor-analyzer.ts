@@ -47,6 +47,11 @@ export type CompetitorAnalysis = {
   strengths: string[]
   weaknesses: string[]
   recommendations: string[]
+  provenance: {
+    analysis: 'deterministic' | 'deterministic_with_llm'
+    cache: { hit: boolean; scope: 'process'; ttlHours: 48 }
+    fetch: 'respectful_public_web'
+  }
   signals: {
     hasJsonLd: boolean
     jsonLdCount: number
@@ -76,7 +81,11 @@ function getCached(key: string): CompetitorAnalysis | null {
 }
 
 function setCached(key: string, result: CompetitorAnalysis) {
-  COMPETITOR_CACHE.set(key, { ts: Date.now(), result })
+  // The external-site analysis is shareable within this process; a caller's
+  // owner-scoped side-by-side must never leak into another caller's cache hit.
+  const externalAnalysis = { ...result }
+  delete externalAnalysis.userComparison
+  COMPETITOR_CACHE.set(key, { ts: Date.now(), result: externalAnalysis })
   // crude eviction
   if (COMPETITOR_CACHE.size > 100) {
     const oldest = Array.from(COMPETITOR_CACHE.entries()).sort((a, b) => a[1].ts - b[1].ts)[0]
@@ -187,6 +196,7 @@ async function computeGapsAndRecs(url: string, signals: CompetitorAnalysis['sign
   strengths: string[]
   weaknesses: string[]
   recommendations: string[]
+  llmEnhanced: boolean
 }> {
   const missing: string[] = []
   const recs: string[] = []
@@ -214,10 +224,14 @@ async function computeGapsAndRecs(url: string, signals: CompetitorAnalysis['sign
 
   // Advanced LLM refinement (using the platform's configured LLM when available) for contextual recommendations
   let finalRecs = recs.slice(0, 6)
+  let llmEnhanced = false
   if (isLlmConfigured()) {
     try {
       const insight = await llmComplete(`Given this competitor analysis for ${url}: missing ${missing.join(', ')}; strengths ${strengths.join(', ')}; weaknesses ${weaknesses.join(', ')}. Give 3 specific, actionable recommendations for the site owner to improve AI agent discoverability and conversion. Keep short.`, { maxTokens: 180 })
-      if (insight) finalRecs = [...finalRecs, ...insight.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 3)]
+      if (insight) {
+        llmEnhanced = true
+        finalRecs = [...finalRecs, ...insight.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 3)]
+      }
     } catch {}
   }
 
@@ -226,6 +240,7 @@ async function computeGapsAndRecs(url: string, signals: CompetitorAnalysis['sign
     strengths: strengths.length ? strengths : ['Basic content present.'],
     weaknesses: weaknesses.length ? weaknesses : ['Minor polish opportunities only.'],
     recommendations: finalRecs,
+    llmEnhanced,
   }
 }
 
@@ -244,6 +259,7 @@ export async function analyzeCompetitorSite(
     if (opts?.userNexezPage) {
       return {
         ...cached,
+        provenance: { ...cached.provenance, cache: { hit: true, scope: 'process', ttlHours: 48 } },
         userComparison: opts.userNexezPage ? {
           slug: opts.userNexezPage.slug,
           readiness: opts.userNexezPage.readiness || 0,
@@ -254,7 +270,10 @@ export async function analyzeCompetitorSite(
         } : undefined,
       }
     }
-    return cached
+    return {
+      ...cached,
+      provenance: { ...cached.provenance, cache: { hit: true, scope: 'process', ttlHours: 48 } },
+    }
   }
 
   // Respectful fetch of root + key paths (reuse importer)
@@ -280,6 +299,11 @@ export async function analyzeCompetitorSite(
       strengths: [],
       weaknesses: ['Site appears opaque to agents - high risk of being ignored'],
       recommendations: ['Ensure server-rendered content or clean HTML for /services and /pricing.', 'Add llms.txt and JSON-LD.'],
+      provenance: {
+        analysis: 'deterministic',
+        cache: { hit: false, scope: 'process', ttlHours: 48 },
+        fetch: 'respectful_public_web',
+      },
       signals: { hasJsonLd: false, jsonLdCount: 0, hasLlmsTxt: false, hasAgentJson: false, offerCount: 0, headingCount: 0, hasContact: false, textLength: 0, priceMentions: 0 },
     }
     setCached(normalized, degraded)
@@ -307,7 +331,7 @@ export async function analyzeCompetitorSite(
   }
 
   const scores = computeScores(signals, textLen)
-  const { missing, strengths, weaknesses, recommendations } = await computeGapsAndRecs(normalized, signals, scores)
+  const { missing, strengths, weaknesses, recommendations, llmEnhanced } = await computeGapsAndRecs(normalized, signals, scores)
 
   const result: CompetitorAnalysis = {
     url,
@@ -318,6 +342,11 @@ export async function analyzeCompetitorSite(
     strengths,
     weaknesses,
     recommendations,
+    provenance: {
+      analysis: llmEnhanced ? 'deterministic_with_llm' : 'deterministic',
+      cache: { hit: false, scope: 'process', ttlHours: 48 },
+      fetch: 'respectful_public_web',
+    },
     signals,
   }
 
