@@ -86,6 +86,40 @@ function candidateContextSatisfied(candidate: CommerceCurationCandidate, queryTo
 }
 
 /**
+ * Applies a reference candidate's semantic boundary to seller-authored evidence.
+ * Candidate-specific context rules filter polysemy, then the strongest canonical
+ * evidence must resolve to exactly one commerce domain. This prevents shared
+ * nouns such as "rental" or "training" from crossing category boundaries while
+ * preserving related-supply matches inside one domain.
+ */
+export function commerceCandidateEvidenceMatches(
+  candidate: CommerceCurationCandidate,
+  evidence: string,
+  candidates: CommerceCurationCandidate[] = [candidate],
+): boolean {
+  const normalizedEvidence = normalize(evidence)
+  const evidenceTokens = tokenFamilies(evidence)
+  const ranked = candidates
+    .map((item) => {
+      const exactTitleMatch = normalizedEvidence.includes(normalize(item.title))
+      if (!exactTitleMatch && !candidateContextSatisfied(item, evidenceTokens)) return null
+      const identityMatches = evidenceTokens.filter((token) => candidateIdentityTokens(item).has(token))
+      if (!identityMatches.length) return null
+      return {
+        domain: item.domain,
+        score: (exactTitleMatch ? 16 : 0) + new Set(identityMatches).size * 6,
+      }
+    })
+    .filter((match): match is NonNullable<typeof match> => Boolean(match))
+
+  const strongestScore = Math.max(...ranked.map((match) => match.score), 0)
+  const strongestDomains = new Set(
+    ranked.filter((match) => match.score === strongestScore).map((match) => match.domain),
+  )
+  return strongestDomains.size === 1 && strongestDomains.has(candidate.domain)
+}
+
+/**
  * Narrows a buyer prompt to the requested service phrase before matching.
  * Requirements after "for", "with", a location, or a time boundary remain
  * useful context, but cannot silently change the service category.

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { commerceCurationCandidates, commerceReferenceCandidates } from '.'
 import {
+  commerceCandidateEvidenceMatches,
   commerceRequestedCatalogIdentityTerms,
   commerceRequestedServiceIdentityTerms,
   commerceRequestedServiceText,
@@ -35,6 +36,60 @@ describe('findCommerceSimulationMatch', () => {
     expect(findCommerceSimulationMatch('Find a car rental this weekend', commerceReferenceCandidates)).toBeNull()
     expect(findCommerceSimulationMatch('Book a vacation rental for a wedding', commerceReferenceCandidates)).toBeNull()
     expect(findCommerceSimulationMatch('Rent a party bus for Saturday', commerceReferenceCandidates)).toBeNull()
+  })
+
+  it('applies candidate context boundaries to marketplace evidence', () => {
+    const partyRentals = commerceReferenceCandidates.find((candidate) => candidate.id === 'events.party-rentals')
+    expect(partyRentals).toBeDefined()
+    if (!partyRentals) return
+
+    expect(commerceCandidateEvidenceMatches(
+      partyRentals,
+      'Residential vacation-rental and home cleaning. One-time premium cleaning for rental properties.',
+      commerceReferenceCandidates,
+    )).toBe(false)
+    expect(commerceCandidateEvidenceMatches(
+      partyRentals,
+      'Party Rentals with tables, chairs, tents, delivery, and setup.',
+      commerceReferenceCandidates,
+    )).toBe(true)
+
+    const personalTraining = commerceReferenceCandidates.find((candidate) => candidate.id === 'personal.personal-training')
+    expect(personalTraining).toBeDefined()
+    if (!personalTraining) return
+    expect(commerceCandidateEvidenceMatches(
+      personalTraining,
+      'Dog Training — personalized obedience programs and recurring sessions for dogs.',
+      commerceReferenceCandidates,
+    )).toBe(false)
+    expect(commerceCandidateEvidenceMatches(
+      personalTraining,
+      'Personal Training and Dog Training programs.',
+      commerceReferenceCandidates,
+    )).toBe(false)
+  })
+
+  it('rejects every cross-domain canonical seller identity', () => {
+    for (const requested of commerceReferenceCandidates) {
+      for (const seller of commerceReferenceCandidates) {
+        if (requested.domain === seller.domain) continue
+        const evidence = [seller.title, seller.teaches].join('. ')
+        expect(
+          commerceCandidateEvidenceMatches(requested, evidence, commerceReferenceCandidates),
+          `${seller.id} seller evidence must not override ${requested.id}`,
+        ).toBe(false)
+      }
+    }
+  })
+
+  it('accepts every canonical seller identity inside its own commerce domain', () => {
+    for (const candidate of commerceReferenceCandidates) {
+      const evidence = [candidate.title, candidate.teaches].join('. ')
+      expect(
+        commerceCandidateEvidenceMatches(candidate, evidence, commerceReferenceCandidates),
+        `${candidate.id} must recognize its own seller evidence`,
+      ).toBe(true)
+    }
   })
 
   it('matches a private chef by the service noun rather than the mobile modifier', () => {

@@ -346,6 +346,121 @@ describe('POST /api/public-simulate', () => {
     expect(JSON.stringify(body)).not.toMatch(/events\.party-rentals|inventory available|held inventory|checkoutUrl|capabilityTags|matchScore/)
   })
 
+  it('keeps an exact Party Rentals reference ahead of rental-property cleaning supply', async () => {
+    const rentalPropertyCleaningPage = {
+      ...kismetPage,
+      description: 'Residential, vacation-rental, and home cleaning services.',
+      services: [{
+        name: 'One-time/Premium Cleaning',
+        price: 'Custom quote',
+        description: 'One-time cleaning for homes and rental properties.',
+        url: 'https://kismetpros.com/book/',
+        prefer_original_for_this: true,
+      }],
+    }
+    dbRef.handler = (ctx: any) =>
+      ctx.table === 'pages_public'
+        ? { data: [rentalPropertyCleaningPage], error: null }
+        : { data: null, error: null }
+
+    const res = await POST(post({
+      query: 'find me a party rental service for a birthday this weekend',
+    }))
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.mode).toBe('simulation')
+    expect(body.matchedBusiness).toBeNull()
+    expect(body.simulation).toMatchObject({ title: 'Party Rentals' })
+    expect(body.naturalLanguage).toContain('Party Rentals')
+    expect(JSON.stringify(body)).not.toMatch(/Kismet Pros|One-time\/Premium Cleaning/)
+  })
+
+  it('still surfaces live Party Rentals supply when the merchant evidence agrees', async () => {
+    const partyRentalsPage = {
+      name: 'Austin Party Rentals',
+      slug: 'austin-party-rentals',
+      description: 'Tables, chairs, and tents for birthday parties and events at home or at a venue.',
+      industry: 'Party Rentals',
+      location: 'Austin, Texas',
+      products: [],
+      services: [{
+        name: 'Birthday Party Rental Package',
+        price: 'Custom quote',
+        description: 'Merchant-confirmed party equipment rental with optional delivery and setup.',
+        url: 'https://party-rentals.example/request/',
+        prefer_original_for_this: true,
+      }],
+      faqs: [],
+      is_published: true,
+      marketplace_discoverable: true,
+      created_at: '2026-01-05T00:00:00Z',
+    }
+    const noisyRentalCleaningPage = {
+      ...kismetPage,
+      name: 'Birthday Weekend Rental Cleaning',
+      description: 'Rental birthday weekend rental birthday weekend residential home cleaning.',
+      services: [{
+        name: 'Rental Cleaning Weekend Service',
+        price: 'Custom quote',
+        description: 'Rental birthday weekend cleaning for homes and vacation properties.',
+        url: 'https://kismetpros.com/book/',
+        prefer_original_for_this: true,
+      }],
+    }
+    dbRef.handler = (ctx: any) =>
+      ctx.table === 'pages_public'
+        ? { data: [noisyRentalCleaningPage, partyRentalsPage], error: null }
+        : { data: null, error: null }
+
+    const body = await (await POST(post({
+      query: 'find me a party rental service for a birthday this weekend',
+    }))).json()
+
+    expect(body.mode).toBe('marketplace')
+    expect(body.matchedBusiness).toMatchObject({
+      name: 'Austin Party Rentals',
+      matchType: 'strong',
+      offer: { name: 'Birthday Party Rental Package' },
+    })
+    expect(body.simulation).toBeNull()
+  })
+
+  it('does not let a cross-domain service-noun collision override the catalog interpretation', async () => {
+    const dogTrainingPage = {
+      name: 'Good Dog Training',
+      slug: 'good-dog-training',
+      description: 'Personalized obedience training programs and recurring sessions for dogs.',
+      industry: 'Dog Training',
+      location: 'Austin, Texas',
+      products: [],
+      services: [{
+        name: 'Personalized Dog Training',
+        price: 'Custom quote',
+        description: 'A private training plan for dogs and their owners.',
+        url: 'https://dog-training.example/request/',
+        prefer_original_for_this: true,
+      }],
+      faqs: [],
+      is_published: true,
+      marketplace_discoverable: true,
+      created_at: '2026-01-06T00:00:00Z',
+    }
+    dbRef.handler = (ctx: any) =>
+      ctx.table === 'pages_public'
+        ? { data: [dogTrainingPage], error: null }
+        : { data: null, error: null }
+
+    const body = await (await POST(post({
+      query: 'find me a personal training service this weekend',
+    }))).json()
+
+    expect(body.mode).toBe('simulation')
+    expect(body.matchedBusiness).toBeNull()
+    expect(body.simulation).toMatchObject({ title: 'Personal Training' })
+    expect(JSON.stringify(body)).not.toMatch(/Good Dog Training|Personalized Dog Training/)
+  })
+
   it('does not use Party Rentals for car, vacation, or party-bus rentals', async () => {
     dbRef.handler = (ctx: any) =>
       ctx.table === 'pages_public'

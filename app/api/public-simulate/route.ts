@@ -9,6 +9,7 @@ import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '@/lib/agent-pa
 import { searchAgentPages, type AgentSearchResult } from '@/lib/agent-search'
 import { commerceReferenceCandidates } from '@/lib/commerce-templates/curation'
 import {
+  commerceCandidateEvidenceMatches,
   commerceIdentityTokenFamily,
   commerceRequestedCatalogIdentityTerms,
   findCommerceSimulationMatch,
@@ -131,6 +132,24 @@ function hasMeaningfulMarketplaceMatch(
   return options.requireAllIdentityTerms
     ? requiredIdentityTerms.every((term) => matchedFamilies.has(term))
     : requiredIdentityTerms.some((term) => matchedFamilies.has(term))
+}
+
+function marketplaceMatchesReferenceContext(
+  result: AgentSearchResult,
+  simulation: NonNullable<ReturnType<typeof simulationPayload>>,
+): boolean {
+  const candidate = commerceReferenceCandidates.find((item) => item.id === simulation.candidate.id)
+  if (!candidate) return false
+
+  const evidence = [
+    result.page.name,
+    result.page.description,
+    result.page.audience,
+    result.page.industry,
+    result.offer?.name,
+    result.offer?.description,
+  ].filter(Boolean).join(' ')
+  return commerceCandidateEvidenceMatches(candidate, evidence, commerceReferenceCandidates)
 }
 
 type MarketplaceMatchType = 'strong' | 'partial'
@@ -504,7 +523,7 @@ export async function POST(request: Request) {
     const matchedResult = searchResults.find((result) =>
       hasMeaningfulMarketplaceMatch(result, requiredIdentityTerms, {
         requireAllIdentityTerms: !simulation,
-      })
+      }) && (!simulation || marketplaceMatchesReferenceContext(result, simulation))
     ) ?? null
     const matchedPage = matchedResult
       ? visiblePages.find((page) => page.slug === matchedResult.page.slug) ?? null
