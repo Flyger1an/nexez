@@ -140,7 +140,7 @@ const sections: { heading: string; body: string[] }[] = [
   {
     heading: '17. Changes & Contact',
     body: [
-      'We may update this policy to reflect changes to the Service, our practices, or applicable requirements. We will update the date above and provide additional notice when required. Privacy questions and requests can be sent to privacy@nexez.app. Terms governing use of the Service are available on the Terms of Service page.',
+      'We may update this policy to reflect changes to the Service, our practices, or applicable requirements. We will update the date above and provide additional notice when required. Privacy questions and requests can be sent to legal@nexez.ai or mailed to Nexez, 8 The Green, Ste B, Dover, DE 19901, USA. Terms governing use of the Service are available on the Terms of Service page.',
     ],
   },
 ]
