@@ -96,12 +96,14 @@ function assertCommerceParity(schema: any) {
 
   const staged = schema.page.offers.find((offer: any) => offer.key === 'services-2')
   expect(staged.configuration.staged_settlement).toMatchObject({
-    runtime_status: 'contract-only',
-    checkout_supported: false,
+    runtime_status: 'active',
+    checkout_supported: true,
   })
-  expect(staged.configuration.checkout.status).toBe('blocked_pending_staged_settlement_runtime')
-  expect(staged.action.availability).toBe('blocked_pending_staged_settlement_runtime')
-  expect(staged.action.dry_run_body).toBeUndefined()
+  expect(staged.configuration.checkout.status).toBe('requires_nexez_settlement')
+  expect(staged.configuration.checkout.path).toBe('/api/staged-settlements/checkout')
+  expect(staged.action.availability).toBe('requires_nexez_settlement')
+  expect(staged.action.endpoint).toBe('https://nexez.test/api/staged-settlements/checkout')
+  expect(staged.action.dry_run_body).toEqual({ slug: 'sim-commerce', offer: 'services-2', dryRun: true })
 }
 
 describe('agent simulator commerce-contract parity', () => {

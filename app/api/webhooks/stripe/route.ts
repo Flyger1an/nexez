@@ -5,9 +5,14 @@ import {
   handleServiceAgreementStripeEvent,
   isServiceAgreementStripeEvent,
 } from '../../../../lib/server/service-agreement-webhook'
+import {
+  handleStagedSettlementStripeEvent,
+  isStagedSettlementStripeEvent,
+} from '../../../../lib/server/staged-settlement-webhook'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'placeholder')
 const SERVICE_AGREEMENT_MARKER_RE = /"nexez_kind"\s*:\s*"service_agreement"/
+const STAGED_SETTLEMENT_MARKER_RE = /"nexez_kind"\s*:\s*"staged_settlement"/
 
 function webhookSecrets(): string[] {
   return [process.env.STRIPE_WEBHOOK_SECRET, process.env.STRIPE_WEBHOOK_SECRET_CONNECT]
@@ -26,7 +31,9 @@ function webhookSecrets(): string[] {
  */
 export async function POST(request: NextRequest) {
   const rawBody = await request.clone().text()
-  if (!SERVICE_AGREEMENT_MARKER_RE.test(rawBody)) return legacyPOST(request)
+  if (!SERVICE_AGREEMENT_MARKER_RE.test(rawBody) && !STAGED_SETTLEMENT_MARKER_RE.test(rawBody)) {
+    return legacyPOST(request)
+  }
 
   const signature = request.headers.get('stripe-signature')
   const secrets = webhookSecrets()
@@ -43,8 +50,10 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  if (!event || !isServiceAgreementStripeEvent(event)) return legacyPOST(request)
-  return handleServiceAgreementStripeEvent(event, stripe)
+  if (!event) return legacyPOST(request)
+  if (isServiceAgreementStripeEvent(event)) return handleServiceAgreementStripeEvent(event, stripe)
+  if (isStagedSettlementStripeEvent(event)) return handleStagedSettlementStripeEvent(event)
+  return legacyPOST(request)
 }
 
 export const GET = legacyGET

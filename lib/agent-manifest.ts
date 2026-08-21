@@ -126,7 +126,6 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: 
   const providerUrl = getOfferDestination(page, offer) || null
   const configuration = buildAgentOfferConfiguration(offer)
   const actionPath = configuration?.checkout?.path || '/api/checkout'
-  const stagedSettlementBlocked = configuration?.checkout?.status === 'blocked_pending_staged_settlement_runtime'
 
   return {
     key: offerKey,
@@ -137,7 +136,7 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: 
     price: offer.price || null,
     currency: normalizeCurrency((page as { currency?: string | null }).currency),
     provider_url: providerUrl,
-    checkout_url: stagedSettlementBlocked ? null : checkoutUrl,
+    checkout_url: checkoutUrl,
     prefer_original_for_this: (offer as any).prefer_original_for_this || false,
     availability: (offer as any).availability || 'available',
     ...publicBookingConstraints(offer),
@@ -148,12 +147,7 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: 
       travelFee: (offer as any).travelFee || null,
     },
     ...(configuration ? { configuration } : {}),
-    action: stagedSettlementBlocked
-      ? {
-          available: false,
-          reason: 'Staged settlement capture is not active. Do not charge the full offer total or invent a payable stage.',
-        }
-      : {
+    action: {
           available: true,
           method: 'POST',
           endpoint: `${platformBase}${actionPath}`,

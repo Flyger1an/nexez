@@ -81,16 +81,17 @@ describe('staged settlement offer integration', () => {
     expect(contract.staged_settlement).toMatchObject({
       schema_version: 1,
       terms: stagedTerms,
-      runtime_status: 'contract-only',
-      checkout_supported: false,
+      runtime_status: 'active',
+      checkout_supported: true,
     })
-    expect(contract.checkout.status).toBe('blocked_pending_staged_settlement_runtime')
+    expect(contract.checkout.status).toBe('requires_nexez_settlement')
+    expect(contract.checkout.path).toBe('/api/staged-settlements/checkout')
     expect(contract.checkout.staged_settlement_requires_nexez_settlement).toBe(true)
-    expect(contract.checkout.runtime_readiness_check).toBeNull()
-    expect(contract.checkout.note).toContain('fails closed')
+    expect(contract.checkout.runtime_readiness_check).toContain('/api/staged-settlements/checkout')
+    expect(contract.checkout.note).toContain('charges only the current obligation')
   })
 
-  it('removes payable checkout actions from agent.json until staged capture exists', () => {
+  it('publishes the dedicated staged checkout action without using full-total checkout', () => {
     const page = {
       id: 'p1',
       owner_id: 'o1',
@@ -105,16 +106,14 @@ describe('staged settlement offer integration', () => {
     const payload = buildAgentPagePayload(page, 'https://nexez.test') as any
     const published = payload.offers[0]
 
-    expect(published.checkout_url).toBeNull()
-    expect(published.action).toEqual({
-      available: false,
-      reason: expect.stringContaining('Do not charge the full offer total'),
-    })
+    expect(published.action.available).toBe(true)
+    expect(published.action.endpoint).toBe('https://nexez.test/api/staged-settlements/checkout')
+    expect(published.action.dry_run_body).toEqual({ slug: 'studio', offer: 'services-0', dryRun: true })
     expect(published.configuration.staged_settlement.terms).toEqual(stagedTerms)
-    expect(payload.recommended_actions[0]).toContain('No offer currently exposes a payable checkout action')
+    expect(payload.recommended_actions[0]).toContain('Use an available offer checkout action')
   })
 
-  it('keeps MCP from returning a staged offer as a booking target', () => {
+  it('directs MCP to the staged dry-run action instead of full-total checkout', () => {
     const page = {
       id: 'p1',
       owner_id: 'o1',
@@ -130,7 +129,7 @@ describe('staged settlement offer integration', () => {
       params: { name: 'book_offer', arguments: { offer: 'services-0' } },
     }) as any
 
-    expect(response.result.content[0].text).toContain('Checkout is unavailable')
-    expect(response.result.content[0].text).not.toContain('/checkout/studio')
+    expect(response.result.content[0].text).toContain('POST https://nexez.test/api/staged-settlements/checkout')
+    expect(response.result.content[0].text).toContain('dryRun=true')
   })
 })
