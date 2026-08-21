@@ -9,7 +9,7 @@ export const whatIsAgenticCommerce: LearnArticle = {
   dek: 'Agentic commerce is shopping where an AI agent, not a human with a browser, does the discovering, comparing, and increasingly the buying. Here is how a machine-mediated purchase actually works, what the market data really shows, and what merchants should do about it now.',
   category: 'Agentic commerce',
   publishedAt: '2026-08-10',
-  updatedAt: '2026-08-17',
+  updatedAt: '2026-08-20',
   readMinutes: 11,
   blocks: [
     {
@@ -109,7 +109,7 @@ export const whatIsAgenticCommerce: LearnArticle = {
         'Be legible. Publish JSON-LD structured data for your business, products, services, offers, and reviews. This is the cheapest hour on the list and the one with the best-documented consumers.',
         'Be listed. Publish a product or offer feed and get into the shopping surfaces that fit your category. Feed data drives product discovery on ChatGPT, and UCP on the Google side is where agent-completed checkout runs today. Without a feed you are not in the catalog.',
         'Be callable. Expose actions, not just facts: an OpenAPI spec, agent.json, or an MCP server that lets an agent check availability, get a live quote, and complete a booking or purchase.',
-        'Be measurable. Segment AI-referred traffic and agent transactions separately in analytics. You cannot manage a channel you cannot see, and this one is growing under most dashboards\u2019 radar.',
+        'Be measurable. Segment AI-referred traffic and agent transactions separately in analytics. You cannot manage a channel you cannot see, and this one is growing under most dashboards’ radar.',
       ],
     },
     {
@@ -137,12 +137,12 @@ export const whatIsAgenticCommerce: LearnArticle = {
     {
       question: 'What is agentic commerce in simple terms?',
       answer:
-        'It is shopping delegated to an AI agent. A person states what they want, and the agent finds options, compares them on verifiable facts like price and availability, and either completes the purchase or hands it back for final approval. The defining feature is delegation: the agent acts on the shopper\u2019s behalf rather than just answering questions.',
+        'It is shopping delegated to an AI agent. A person states what they want, and the agent finds options, compares them on verifiable facts like price and availability, and either completes the purchase or hands it back for final approval. The defining feature is delegation: the agent acts on the shopper’s behalf rather than just answering questions.',
     },
     {
       question: 'How is agentic commerce different from conversational commerce?',
       answer:
-        'Conversational commerce is a chat interface helping a human who is still doing the shopping, typically on the merchant\u2019s own site. Agentic commerce moves the work to the agent: discovery, comparison, and increasingly checkout happen inside the assistant, sometimes without the shopper ever visiting the merchant\u2019s website.',
+        'Conversational commerce is a chat interface helping a human who is still doing the shopping, typically on the merchant’s own site. Agentic commerce moves the work to the agent: discovery, comparison, and increasingly checkout happen inside the assistant, sometimes without the shopper ever visiting the merchant’s website.',
     },
     {
       question: 'How big will agentic commerce actually get?',
@@ -152,7 +152,7 @@ export const whatIsAgenticCommerce: LearnArticle = {
     {
       question: 'Do AI agents buy things without human approval?',
       answer:
-        'Mostly not yet. Surveys consistently find around 70% of shoppers are comfortable with agents purchasing for them in principle, but only a small minority would skip a final review. Today\u2019s common pattern is agent-does-everything-except-confirm, with fully autonomous purchasing appearing first in low-risk recurring categories like replenishment and subscriptions.',
+        'Mostly not yet. Surveys consistently find around 70% of shoppers are comfortable with agents purchasing for them in principle, but only a small minority would skip a final review. Today’s common pattern is agent-does-everything-except-confirm, with fully autonomous purchasing appearing first in low-risk recurring categories like replenishment and subscriptions.',
     },
     {
       question: 'How do I make my store visible to AI shopping agents?',
