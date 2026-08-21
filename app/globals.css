@@ -2249,8 +2249,8 @@ html.light { --signal-solid: #DC4F1E; }
   opacity: 0.58;
 }
 
-/* OAuth (Continue with Google): a calm outlined button so it doesn't compete
-   with the white primary submit — social first, then the email form below. */
+/* Alternate auth methods: calm outlined buttons so they don't compete with
+   the white primary submit, followed by the email form below. */
 .nx-auth-oauth {
   display: inline-flex;
   min-height: 50px;
@@ -2274,6 +2274,15 @@ html.light { --signal-solid: #DC4F1E; }
 .nx-auth-oauth:disabled {
   cursor: not-allowed;
   opacity: 0.58;
+}
+
+.nx-auth-passkey {
+  border-color: rgba(95, 234, 211, 0.34);
+  background: rgba(95, 234, 211, 0.07);
+}
+.nx-auth-passkey:hover:not(:disabled) {
+  border-color: rgba(95, 234, 211, 0.58);
+  background: rgba(95, 234, 211, 0.11);
 }
 
 .nx-auth-divider {

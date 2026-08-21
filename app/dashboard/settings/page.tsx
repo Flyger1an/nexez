@@ -12,6 +12,7 @@ import { cookies } from 'next/headers'
 import { AgentPage, BASIC_OWNER_PAGE_SELECT, OWNER_PAGE_SELECT, getBaseUrl, getOfferCount, getReadinessScore } from '../../../lib/agent-page'
 import { createClient } from '../../../utils/supabase/server'
 import { ProfileSettings } from '../../../components/ProfileSettings'
+import { PasskeySettings } from '../../../components/PasskeySettings'
 import { AccountDataControls } from '../../../components/AccountDataControls'
 import { TeamInvites } from '../../../components/TeamInvites'
 import { StorefrontSettings, type StorefrontListing } from '../../../components/StorefrontSettings'
@@ -130,6 +131,7 @@ export default async function AccountSettingsPage() {
               initialCompany={(user.user_metadata?.company as string) ?? ''}
               initialIndustry={(user.user_metadata?.industry as string) ?? ''}
             />
+            <PasskeySettings />
             <PlanGate
               feature="teamCollaboration"
               currentPlan={currentPlan}
