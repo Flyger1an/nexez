@@ -56,7 +56,7 @@ export function NexezLogo({
 // Official supplied horizontal lockup. Marketing surfaces follow the active
 // light/dark theme by switching between the supplied black and white SVG files.
 export function NexezLockup({
-  className = 'h-[17px] w-[132px]',
+  className = 'h-[17px] w-[102px]',
   label = 'Nexez',
   tone = 'theme',
 }: BrandAssetProps) {

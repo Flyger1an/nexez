@@ -66,7 +66,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
         className={`glassnav${enhanced ? ' has-menu' : ''}${open ? ' open' : ''}`}
       >
         <a href="/" className="logo" title="Nexez home">
-          <NexezLockup className="h-[17px] w-[132px] shrink-0" />
+          <NexezLockup className="h-[17px] w-[102px] shrink-0" />
         </a>
 
         <div className="navlinks">
@@ -170,7 +170,7 @@ function MarketingFooter({ authed }: { authed: boolean | null }) {
       <div className="mx-auto grid max-w-7xl gap-8 px-5 py-12 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <a href="/" className="inline-flex items-center text-foreground" title="Nexez home">
-            <NexezLockup className="h-[18px] w-[139px]" />
+            <NexezLockup className="h-[18px] w-[108px]" />
           </a>
           <p className="mt-3 max-w-xs text-muted-foreground">
             The commerce layer for AI agents. Get discovered, get understood, get bought.
