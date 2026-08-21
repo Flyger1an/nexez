@@ -9,12 +9,14 @@ import {
   validateOfferFulfillmentRules,
   type OfferFulfillmentRule,
 } from './conditional-fulfillment'
+import { validateStagedSettlementTerms, type StagedSettlementTerms } from './staged-settlement'
 
 /** Pipe-safe markers used by the legacy offer-line editor/import codec. */
 export const OFFER_INPUTS_MARKER = '[[INPUTS]]'
 export const OFFER_ATTRIBUTES_MARKER = '[[ATTRIBUTES]]'
 export const OFFER_RECURRING_MARKER = '[[RECURRING]]'
 export const OFFER_FULFILLMENT_MARKER = '[[FULFILLMENT]]'
+export const OFFER_STAGED_SETTLEMENT_MARKER = '[[STAGED_SETTLEMENT]]'
 
 function encodeMarker(marker: string, value: unknown, sanitize: (value: unknown) => unknown[]): string | null {
   const normalized = sanitize(value)
@@ -87,6 +89,25 @@ export function parseOfferFulfillmentMarker(
     if (!encoded) return undefined
     const validated = validateOfferFulfillmentRules(JSON.parse(decodeURIComponent(encoded)), inputs)
     return validated.ok && validated.value.length ? validated.value : undefined
+  } catch {
+    return undefined
+  }
+}
+
+export function formatOfferStagedSettlementMarker(value: unknown): string | null {
+  const validated = validateStagedSettlementTerms(value)
+  return validated.ok
+    ? `${OFFER_STAGED_SETTLEMENT_MARKER}${encodeURIComponent(JSON.stringify(validated.value))}`
+    : null
+}
+
+export function parseOfferStagedSettlementMarker(part: string | undefined): StagedSettlementTerms | undefined {
+  if (!part?.includes(OFFER_STAGED_SETTLEMENT_MARKER)) return undefined
+  try {
+    const encoded = part.slice(part.indexOf(OFFER_STAGED_SETTLEMENT_MARKER) + OFFER_STAGED_SETTLEMENT_MARKER.length).trim()
+    if (!encoded) return undefined
+    const validated = validateStagedSettlementTerms(JSON.parse(decodeURIComponent(encoded)))
+    return validated.ok ? validated.value : undefined
   } catch {
     return undefined
   }

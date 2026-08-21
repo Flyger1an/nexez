@@ -12,7 +12,7 @@ import {
 } from '../../../lib/agent-page'
 import { toStripeDescription } from '../../../lib/checkout'
 import { parseBuyerIdentity, buyerMetadata } from '../../../lib/buyer-identity'
-import { getOfferFulfillmentRules } from '../../../lib/configured-offer'
+import { getOfferFulfillmentRules, getOfferStagedSettlementTerms } from '../../../lib/configured-offer'
 import { normalizeCurrency } from '../../../lib/currency'
 import { getBookingRuleError } from '../../../lib/offer-rules'
 import { countRecentBookings } from '../../../lib/server/booking-count'
@@ -97,6 +97,16 @@ export async function POST(request: Request) {
 
   const offer = getCheckoutOffer(page, input.offer)
   if (!offer) return NextResponse.json({ error: 'Checkout offer not found.' }, { status: 404 })
+
+  if (getOfferStagedSettlementTerms(offer)) {
+    return NextResponse.json(
+      {
+        error: 'This offer uses staged settlement, but per-stage checkout is not active yet.',
+        code: 'staged_settlement_runtime_not_available',
+      },
+      { status: 409 },
+    )
+  }
 
   const offerKey = getCheckoutOfferKey(offer.kind, offer.index)
   const configuration = validateOfferTransactionConfiguration(offer, input.offerConfiguration)

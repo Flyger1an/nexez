@@ -1,6 +1,6 @@
 import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
-import { getBaseUrl } from '../../../../lib/agent-page'
+import { getBaseUrl, getCheckoutOffer, SERVER_PAGE_SELECT, type AgentPage } from '../../../../lib/agent-page'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 import { isPayable } from '../../../../lib/settlement'
 import { calculateApplicationFeeCentsFromBps } from '../../../../lib/stripe-billing'
@@ -9,6 +9,7 @@ import { parseBuyerIdentity } from '../../../../lib/buyer-identity'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { hashBearerToken } from '../../../../lib/server/bearer-token'
 import { resolveSettlementContext } from '../../../../lib/commerce/settlement-bridge'
+import { getOfferStagedSettlementTerms } from '../../../../lib/configured-offer'
 import type { AgentNegotiation } from '../../../../lib/negotiations'
 
 function paymentFingerprint(input: {
@@ -99,6 +100,24 @@ export async function POST(request: Request) {
   }
   if (!negotiation.amount_cents || negotiation.amount_cents < 50) {
     return fail(409, 'No valid agreed amount to pay.')
+  }
+
+  const { data: page, error: pageError } = await admin
+    .from('pages')
+    .select(SERVER_PAGE_SELECT)
+    .eq('id', negotiation.page_id)
+    .maybeSingle<AgentPage>()
+  if (pageError || !page) {
+    return fail(409, 'The negotiated offer is no longer available for payment.')
+  }
+  const negotiatedOffer = getCheckoutOffer(page, negotiation.offer_key)
+  if (!negotiatedOffer) {
+    return fail(409, 'The negotiated offer is no longer available for payment.')
+  }
+  if (getOfferStagedSettlementTerms(negotiatedOffer)) {
+    return fail(409, 'This agreement uses staged settlement, but per-stage checkout is not active yet.', {
+      code: 'staged_settlement_runtime_not_available',
+    })
   }
   if (!isPayable(negotiation.settlement_state)) {
     return fail(409, 'This agreement is awaiting seller approval before payment.', {

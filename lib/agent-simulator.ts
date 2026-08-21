@@ -57,19 +57,24 @@ function enrichSimulatorSchema(page: AgentPage, schema: any, baseUrl: string) {
           action: {
             ...action,
             endpoint: `${runtimeBase}${configuration.checkout.path}`,
+            availability: configuration.checkout.status,
             ...(configuration.input_schema
               ? {
                   configuration_field: 'offerConfiguration',
                   configuration_schema: configuration.input_schema,
                 }
               : {}),
-            dry_run_body: {
-              ...(action.body ?? {
-                slug: page.slug,
-                offer: getCheckoutOfferKey(offer.kind, offer.index),
-              }),
-              dryRun: true,
-            },
+            ...(configuration.checkout.runtime_readiness_check
+              ? {
+                  dry_run_body: {
+                    ...(action.body ?? {
+                      slug: page.slug,
+                      offer: getCheckoutOfferKey(offer.kind, offer.index),
+                    }),
+                    dryRun: true,
+                  },
+                }
+              : {}),
           },
         }
       }),

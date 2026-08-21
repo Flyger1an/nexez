@@ -37,6 +37,7 @@ import {
 import { normalizeCurrency, toStripeAmount } from '../currency'
 import { parseMoney } from '../checkout'
 import { parseBuyerIdentity, hasBuyerIdentity } from '../buyer-identity'
+import { getOfferStagedSettlementTerms } from '../configured-offer'
 
 /** The minimal page projection the session resolver reads. */
 export type SessionPage = Pick<AgentPage, 'slug' | 'name' | 'currency' | 'products' | 'services'>
@@ -81,7 +82,7 @@ export type SessionLineItem = {
 export type SessionLineItemIssue = {
   /** The requested `offer` string, echoed back so the agent knows which entry failed. */
   offer: string
-  code: 'not_found' | 'negotiable' | 'sold_out' | 'unpriced' | 'invalid_quantity'
+  code: 'not_found' | 'negotiable' | 'sold_out' | 'unpriced' | 'invalid_quantity' | 'staged_settlement_not_supported'
   message: string
 }
 
@@ -160,6 +161,17 @@ function resolveRequest(
   const offer = getCheckoutOffer(page, requested.offer)
   if (!offer) {
     return { ok: false, issue: { offer: label, code: 'not_found', message: 'No matching offer was found for this page.' } }
+  }
+
+  if (getOfferStagedSettlementTerms(offer)) {
+    return {
+      ok: false,
+      issue: {
+        offer: label,
+        code: 'staged_settlement_not_supported',
+        message: 'This offer uses staged settlement and cannot be charged as one protocol checkout line.',
+      },
+    }
   }
 
   const quantity = requested.quantity == null ? 1 : requested.quantity

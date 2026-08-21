@@ -55,6 +55,22 @@ const page = {
         pausePolicy: 'unsupported',
       },
     },
+    {
+      name: 'Web Project',
+      price: '$10,000',
+      description: 'Finite staged project.',
+      url: '',
+      stagedSettlementTerms: {
+        schemaVersion: 1,
+        paymentModel: 'staged-fixed-total',
+        approvalPolicy: 'buyer-approves-each-stage',
+        mutationPolicy: 'immutable-after-first-payment',
+        stages: [
+          { id: 'kickoff', label: 'Kickoff installment', kind: 'commitment', allocationBps: 3000 },
+          { id: 'handoff', label: 'Final handoff', kind: 'completion', allocationBps: 7000 },
+        ],
+      },
+    },
   ],
   faqs: [],
   created_at: '2026-08-19T00:00:00.000Z',
@@ -77,6 +93,15 @@ function assertCommerceParity(schema: any) {
   expect(recurring.configuration.checkout.path).toBe('/api/service-agreements/checkout')
   expect(recurring.action.endpoint).toBe('https://nexez.test/api/service-agreements/checkout')
   expect(recurring.action.dry_run_body).toEqual({ slug: 'sim-commerce', offer: 'services-1', dryRun: true })
+
+  const staged = schema.page.offers.find((offer: any) => offer.key === 'services-2')
+  expect(staged.configuration.staged_settlement).toMatchObject({
+    runtime_status: 'contract-only',
+    checkout_supported: false,
+  })
+  expect(staged.configuration.checkout.status).toBe('blocked_pending_staged_settlement_runtime')
+  expect(staged.action.availability).toBe('blocked_pending_staged_settlement_runtime')
+  expect(staged.action.dry_run_body).toBeUndefined()
 }
 
 describe('agent simulator commerce-contract parity', () => {

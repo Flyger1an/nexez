@@ -74,8 +74,14 @@ function resources(page: AgentPage, baseUrl: string) {
 
 function bookOfferContent(offer: ReturnType<typeof getCheckoutOffers>[number], target: string) {
   const configuration = buildAgentOfferConfiguration(offer)
+  const stagedSettlementBlocked = configuration?.checkout?.status === 'blocked_pending_staged_settlement_runtime'
   return [
-    { type: 'text', text: `Booking target for "${offer.name}": ${target}` },
+    {
+      type: 'text',
+      text: stagedSettlementBlocked
+        ? `Checkout is unavailable for "${offer.name}": staged settlement capture is not active. Do not charge the full offer total or invent a payable stage.`
+        : `Booking target for "${offer.name}": ${target}`,
+    },
     ...(configuration
       ? [{ type: 'text', text: `Offer configuration contract: ${JSON.stringify(configuration)}` }]
       : []),

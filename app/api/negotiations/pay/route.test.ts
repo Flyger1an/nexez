@@ -36,11 +36,27 @@ const NEG = {
   currency: 'usd',
   offer_name: 'Consult',
   owner_id: 'o1',
+  page_id: 'p1',
+  offer_key: 'services-0',
   status_token: 'tok',
   stripe_checkout_session_id: null,
 }
 
-function db(neg: any, billing: any = { plan_id: 'pro', status: 'active', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true }) {
+const PAGE = {
+  id: 'p1',
+  owner_id: 'o1',
+  slug: 'studio',
+  name: 'Studio',
+  services: [{ name: 'Consult', price: '$900', description: '', url: '' }],
+  products: [],
+  is_published: true,
+}
+
+function db(
+  neg: any,
+  billing: any = { plan_id: 'pro', status: 'active', stripe_connect_account_id: 'acct_1', stripe_connect_charges_enabled: true },
+  page: any = PAGE,
+) {
   let updated: any
   adminRef.handler = (ctx: QueryContext) => {
     if (ctx.table === 'agent_negotiations' && ctx.op === 'select') {
@@ -53,6 +69,7 @@ function db(neg: any, billing: any = { plan_id: 'pro', status: 'active', stripe_
       return { data: null, error: null }
     }
     if (ctx.table === 'billing_subscriptions') return { data: billing }
+    if (ctx.table === 'pages') return { data: page, error: null }
     return { data: null, error: null }
   }
   return () => updated
@@ -103,6 +120,30 @@ describe('POST /api/negotiations/pay', () => {
     const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))
     expect(res.status).toBe(409)
     expect((await res.json()).settlementState).toBe('awaiting_approval')
+  })
+
+  it('fails closed instead of funding a staged negotiation as one full payment', async () => {
+    db(NEG, undefined, {
+      ...PAGE,
+      services: [{
+        ...PAGE.services[0],
+        stagedSettlementTerms: {
+          schemaVersion: 1,
+          paymentModel: 'staged-fixed-total',
+          approvalPolicy: 'buyer-approves-each-stage',
+          mutationPolicy: 'immutable-after-first-payment',
+          stages: [
+            { id: 'kickoff', label: 'Kickoff installment', kind: 'commitment', allocationBps: 3000 },
+            { id: 'handoff', label: 'Final handoff', kind: 'completion', allocationBps: 7000 },
+          ],
+        },
+      }],
+    })
+    const res = await POST(post({ negotiationId: 'n1', token: 'tok' }))
+
+    expect(res.status).toBe(409)
+    expect((await res.json()).code).toBe('staged_settlement_runtime_not_available')
+    expect(stripeRef.create).not.toHaveBeenCalled()
   })
 
   it('auto: immediate capture, settlement metadata "auto", Connect app fee + url', async () => {

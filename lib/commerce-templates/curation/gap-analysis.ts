@@ -1,7 +1,7 @@
 import { commerceCurationCandidates } from './index'
 import type { CommerceCurationGapSignal } from './types'
 
-export const COMMERCE_SCHEMA_GAP_ANALYSIS_VERSION = 2 as const
+export const COMMERCE_SCHEMA_GAP_ANALYSIS_VERSION = 3 as const
 
 export type CommerceSchemaGapDisposition =
   | 'first-class'
@@ -55,12 +55,12 @@ export const commerceSchemaGapFindings: CommerceSchemaGapFinding[] = [
   },
   {
     signal: 'conditional-fulfillment',
-    disposition: 'broadly-missing',
-    action: 'design-primitive',
-    currentRepresentation: 'OfferInputField can declare that an answer affects eligibility/scope/availability and narrow booking constraints can block selected runtime states, but buyer-answer eligibility remains descriptive rather than an executable merchant contract.',
-    missingBehavior: 'No merchant-authored predicate layer evaluates canonical required buyer inputs into a stable eligible/requires-review/ineligible decision that is bound through approval and settlement.',
-    recommendation: 'Implement the bounded buyer-input decision layer defined by the conditional-fulfillment autopsy; keep inventory, trust/qualification, inspection lineage, and multi-provider workflow state in their own authoritative primitives.',
-    evidence: ['lib/offer-configuration.ts', 'lib/offer-transaction-configuration.ts', 'lib/commerce-templates/curation/conditional-fulfillment-analysis.ts'],
+    disposition: 'first-class',
+    action: 'no-schema-change',
+    currentRepresentation: 'Merchant-authored predicates over canonical required buyer inputs now produce deterministic eligible/requires-review/ineligible decisions across one-time and recurring checkout, approval binding, settlement provenance, agent contracts, and merchant authoring.',
+    missingBehavior: null,
+    recommendation: 'Harden the existing conditional-fulfillment rail without expanding it into inventory, trust/qualification, inspection lineage, or multi-provider workflow state.',
+    evidence: ['lib/conditional-fulfillment.ts', 'lib/offer-transaction-configuration.ts', 'app/api/checkout/route.ts', 'app/api/service-agreements/checkout/route.ts'],
   },
   {
     signal: 'structured-modifiers',
@@ -77,8 +77,8 @@ export const commerceSchemaGapFindings: CommerceSchemaGapFinding[] = [
     action: 'design-primitive',
     currentRepresentation: 'CommerceTemplate names milestone pricing/payment semantics and OfferRules can cap project weeks, but runtime settlement still resolves one agreed amount.',
     missingBehavior: 'No merchant-authored milestone schedule binds deliverables, amounts, approvals, due conditions, and staged capture through the transaction lifecycle.',
-    recommendation: 'Design milestone settlement as a staged transaction primitive, preferably sharing machinery with deposits rather than inventing category-specific flows.',
-    evidence: ['lib/commerce-templates/schema.ts', 'lib/agent-page.ts', 'lib/settlement.ts'],
+    recommendation: 'Use the bounded staged-settlement contract so milestone obligations and deposits share one allocation, approval, and provenance lineage.',
+    evidence: ['lib/commerce-templates/schema.ts', 'lib/agent-page.ts', 'lib/commerce-templates/curation/staged-settlement-analysis.ts'],
   },
   {
     signal: 'capacity-constraints',
@@ -203,8 +203,8 @@ export const commerceSchemaGapFindings: CommerceSchemaGapFinding[] = [
     action: 'design-primitive',
     currentRepresentation: 'CommerceTemplate names deposit-balance and milestone payment modes, while current checkout/negotiated settlement funds one amount at a time.',
     missingBehavior: 'No merchant-authored staged payment schedule binds deposit amount/rate, remaining balance, due conditions, or later captures to one transaction contract.',
-    recommendation: 'Design deposits together with milestone settlement so staged payments share one approval/provenance model.',
-    evidence: ['lib/commerce-templates/schema.ts', 'lib/settlement.ts'],
+    recommendation: 'Implement deposits as the first obligation in the bounded staged-settlement contract; keep refundable security deposits and escrow outside this primitive.',
+    evidence: ['lib/commerce-templates/schema.ts', 'lib/settlement.ts', 'lib/commerce-templates/curation/staged-settlement-analysis.ts'],
   },
   {
     signal: 'usage-pricing',

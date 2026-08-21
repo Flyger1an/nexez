@@ -126,6 +126,35 @@ describe('POST /api/checkout - agent action safety', () => {
     expect(res.status).toBe(400)
     expect((await res.json()).code).toBe('invalid_idempotency_key')
   })
+
+  it('fails closed before charging a staged offer as one full payment', async () => {
+    adminRef.handler = (c: QueryContext) => c.table === 'pages'
+      ? {
+          data: {
+            ...fixedPage(),
+            services: [{
+              ...fixedPage().services[0],
+              stagedSettlementTerms: {
+                schemaVersion: 1,
+                paymentModel: 'staged-fixed-total',
+                approvalPolicy: 'buyer-approves-each-stage',
+                mutationPolicy: 'immutable-after-first-payment',
+                stages: [
+                  { id: 'booking', label: 'Booking installment', kind: 'commitment', allocationBps: 3000 },
+                  { id: 'completion', label: 'Completion balance', kind: 'completion', allocationBps: 7000 },
+                ],
+              },
+            }],
+          },
+          error: null,
+        }
+      : { data: null, error: null, count: 0 }
+
+    const res = await POST(post({ slug: 'demo', offer: 'services-0', dryRun: true }))
+    expect(res.status).toBe(409)
+    expect((await res.json()).code).toBe('staged_settlement_runtime_not_available')
+    expect(stripeCalls).toEqual([])
+  })
 })
 
 describe('POST /api/checkout - Smart Rules calendar protection', () => {
