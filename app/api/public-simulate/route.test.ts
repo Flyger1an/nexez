@@ -158,6 +158,12 @@ describe('POST /api/public-simulate', () => {
     expect(body.matchedBusiness.matchType).toBe('strong')
     expect(body.matchedBusiness).not.toHaveProperty('score')
     expect(body.matchedBusiness).not.toHaveProperty('matchReasons')
+    expect(body.decisionPath).toEqual([
+      expect.objectContaining({ key: 'intent', status: 'understood' }),
+      expect.objectContaining({ key: 'supply', status: 'live', detail: 'Kismet Pros' }),
+      expect.objectContaining({ key: 'commerce', status: 'checked', detail: 'Moving Cleaning' }),
+      expect.objectContaining({ key: 'action', status: 'actionable' }),
+    ])
   })
 
   it('labels related supply as a partial match instead of force-fitting it', async () => {
@@ -187,6 +193,12 @@ describe('POST /api/public-simulate', () => {
     expect(body.naturalLanguage).toContain('only matches part of this request')
     expect(body.naturalLanguage).toContain('remaining requirements must be confirmed')
     expect(body.agentActions.join(' ')).toContain('related, not exact')
+    expect(body.decisionPath).toEqual([
+      expect.objectContaining({ key: 'intent', status: 'understood' }),
+      expect.objectContaining({ key: 'supply', status: 'related' }),
+      expect.objectContaining({ key: 'commerce', status: 'checked' }),
+      expect.objectContaining({ key: 'action', status: 'verify' }),
+    ])
     expect(JSON.stringify(body)).not.toMatch(/matched_query_terms|matchReasons|match_reasons|score|\/checkout|api\/checkout/)
   })
 
@@ -259,6 +271,12 @@ describe('POST /api/public-simulate', () => {
     expect(body.naturalLanguage).not.toMatch(/capabilityTags|gapSignals|matchedTerms|matchScore|\*\*/)
     expect(body.confidence).toBeNull()
     expect(body.schema).toBeNull()
+    expect(body.decisionPath).toEqual([
+      expect.objectContaining({ key: 'intent', status: 'understood' }),
+      expect.objectContaining({ key: 'supply', status: 'checked' }),
+      expect.objectContaining({ key: 'commerce', status: 'reference' }),
+      expect.objectContaining({ key: 'action', status: 'protected' }),
+    ])
     expect(JSON.stringify(body)).not.toMatch(/home\.move-out-cleaning|capabilityTags|gapSignals|matchedTerms|matchScore|schemaVersion/)
   })
 
@@ -353,6 +371,12 @@ describe('POST /api/public-simulate', () => {
       intentPreserved: true,
       coverageStatus: 'growing',
     })
+    expect(body.decisionPath).toEqual([
+      expect.objectContaining({ key: 'intent', status: 'understood', detail: 'Mobile notary' }),
+      expect.objectContaining({ key: 'supply', status: 'checked' }),
+      expect.objectContaining({ key: 'commerce', status: 'checked' }),
+      expect.objectContaining({ key: 'action', status: 'protected' }),
+    ])
     expect(JSON.stringify(body)).not.toMatch(/Mobile Auto Detailing|vehicle class|automotive/i)
   })
 

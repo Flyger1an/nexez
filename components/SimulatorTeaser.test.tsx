@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '../test/dom'
+import { track } from '@vercel/analytics'
 import { SimulatorTeaser } from './SimulatorTeaser'
+
+vi.mock('@vercel/analytics', () => ({ track: vi.fn() }))
+
+const mockedTrack = vi.mocked(track)
 
 const simulationResponse = {
   success: true,
@@ -29,6 +34,13 @@ const simulationResponse = {
     detailsToConfirm: ['preferred date and time', 'guest count', 'dietary needs', 'service location', 'budget'],
     nextSteps: [],
   },
+  decisionPath: [
+    { key: 'intent', status: 'understood', label: 'Booking intent', detail: 'Buyer request classified without changing its service category.' },
+    { key: 'supply', status: 'checked', label: 'Live marketplace checked', detail: 'No matching published provider is available yet.' },
+    { key: 'commerce', status: 'reference', label: 'Commerce behavior understood', detail: 'Private Chef is the closest non-purchasable reference.' },
+    { key: 'action', status: 'protected', label: 'Real merchant required', detail: 'No price, availability, inventory, or booking was invented.' },
+  ],
+  llmEnhanced: false,
 }
 
 const partialMatchResponse = {
@@ -58,6 +70,13 @@ const partialMatchResponse = {
     offer: { key: 'services-0', name: 'General Event Planning', price: 'Custom quote', checkoutUrl: null },
   },
   simulation: null,
+  decisionPath: [
+    { key: 'intent', status: 'understood', label: 'Booking intent', detail: 'Buyer request classified without changing its service category.' },
+    { key: 'supply', status: 'related', label: 'Related marketplace supply', detail: 'Austin Event Planners' },
+    { key: 'commerce', status: 'checked', label: 'Requirement coverage compared', detail: 'The offer does not establish the complete request.' },
+    { key: 'action', status: 'verify', label: 'Merchant confirmation required', detail: 'Verify unsupported requirements.' },
+  ],
+  llmEnhanced: false,
 }
 
 const coverageGapResponse = {
@@ -83,9 +102,19 @@ const coverageGapResponse = {
     intentPreserved: true,
     coverageStatus: 'growing',
   },
+  decisionPath: [
+    { key: 'intent', status: 'understood', label: 'Service request', detail: 'Mobile notary' },
+    { key: 'supply', status: 'checked', label: 'Live marketplace searched', detail: 'No matching published provider is available yet.' },
+    { key: 'commerce', status: 'checked', label: 'Commerce Library searched', detail: 'No trustworthy reference scenario covers this request yet.' },
+    { key: 'action', status: 'protected', label: 'Buyer intent preserved', detail: 'Nexez did not redirect the request to an unrelated service.' },
+  ],
+  llmEnhanced: false,
 }
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.clearAllMocks()
+})
 
 describe('SimulatorTeaser', () => {
   it('renders a simulation as buyer guidance without a technical reference view', async () => {
@@ -102,6 +131,9 @@ describe('SimulatorTeaser', () => {
 
     await waitFor(() => expect(screen.getByText('Simulation · Private Chef')).toBeInTheDocument())
     expect(screen.getByText('reference match only')).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: 'Nexez decision path' })).toBeInTheDocument()
+    expect(screen.getByText('Commerce behavior understood')).toBeInTheDocument()
+    expect(screen.getByText('Real merchant required')).toBeInTheDocument()
     expect(screen.queryByText('Reference scenario')).not.toBeInTheDocument()
     expect(screen.queryByText(/events\.private-chef|QUOTE_REQUIRED|capabilityTags|gapSignals|matchedTerms/)).not.toBeInTheDocument()
 
@@ -128,6 +160,8 @@ describe('SimulatorTeaser', () => {
 
     await waitFor(() => expect(screen.getByText('Related marketplace · Austin Event Planners')).toBeInTheDocument())
     expect(screen.getByText('partial match')).toBeInTheDocument()
+    expect(screen.getByText('Related marketplace supply')).toBeInTheDocument()
+    expect(screen.getByText('Merchant confirmation required')).toBeInTheDocument()
     expect(screen.queryByText(/match confidence/i)).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'What agents parse' }))
@@ -148,14 +182,15 @@ describe('SimulatorTeaser', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Simulate' }))
 
-    await waitFor(() => expect(screen.getByText('Service request')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Request understood')).toBeInTheDocument())
+    expect(screen.getAllByText('Service request')).toHaveLength(2)
     expect(screen.getByText('Request understood')).toBeInTheDocument()
     expect(screen.getByText('coverage expanding')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Mobile notary' })).toBeInTheDocument()
     expect(screen.getByText(/coverage for this category is still growing/)).toBeInTheDocument()
-    expect(screen.getByText('No published provider yet')).toBeInTheDocument()
-    expect(screen.getByText('No reference scenario yet')).toBeInTheDocument()
-    expect(screen.getByText('No unrelated substitute')).toBeInTheDocument()
+    expect(screen.getByText('Live marketplace searched')).toBeInTheDocument()
+    expect(screen.getByText('Commerce Library searched')).toBeInTheDocument()
+    expect(screen.getByText('Buyer intent preserved')).toBeInTheDocument()
     expect(screen.queryByText(/Mobile Auto Detailing|vehicle class/i)).not.toBeInTheDocument()
     expect(screen.queryByText('no match')).not.toBeInTheDocument()
     expect(screen.queryByText('Agent actions')).not.toBeInTheDocument()
@@ -165,5 +200,19 @@ describe('SimulatorTeaser', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Refine request' }))
     expect(screen.getByPlaceholderText('Ask Nexez to find a service…')).toHaveFocus()
+    expect(mockedTrack).toHaveBeenCalledWith('simulator_refine', { mode: 'coverage_gap' })
+
+    expect(mockedTrack).toHaveBeenCalledWith('simulator_submit', {
+      source: 'typed',
+      query_length: 'Find a mobile notary'.length,
+    })
+    expect(mockedTrack).toHaveBeenCalledWith('simulator_result', expect.objectContaining({
+      source: 'typed',
+      mode: 'coverage_gap',
+      intent: 'overview',
+      live_match: false,
+      llm_enhanced: false,
+    }))
+    expect(JSON.stringify(mockedTrack.mock.calls)).not.toContain('Find a mobile notary')
   })
 })

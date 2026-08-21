@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "apps/seller-mobile/**",
+    // Supabase CLI bundles local edge-runtime code under this ignored directory.
+    // It is generated vendor output, not application source.
+    "supabase/.temp/**",
   ]),
   {
     rules: {

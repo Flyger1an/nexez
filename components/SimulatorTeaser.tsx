@@ -1,7 +1,13 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { track } from '@vercel/analytics'
 import { appUrl } from '../lib/site'
+import type {
+  PublicSimulatorDecisionStatus,
+  PublicSimulatorDecisionStep,
+  PublicSimulatorMode,
+} from '../lib/public-simulator'
 
 type SimOffer = {
   key: string
@@ -47,7 +53,7 @@ type UnderstoodRequest = {
 }
 
 type SimResponse = {
-  mode: 'marketplace' | 'partial_match' | 'simulation' | 'coverage_gap'
+  mode: PublicSimulatorMode
   noMatch: boolean
   intent: string
   intentLabel: string
@@ -59,6 +65,8 @@ type SimResponse = {
   matchedBusiness: MatchedBusiness | null
   simulation: SimulationScenario | null
   understoodRequest: UnderstoodRequest | null
+  decisionPath: PublicSimulatorDecisionStep[]
+  llmEnhanced: boolean
 }
 
 const PRESETS = [
@@ -67,6 +75,67 @@ const PRESETS = [
   'I need a private tutor for weekly math lessons',
   'Find an event photographer for a birthday party',
 ]
+
+const DECISION_STATUS_LABELS: Record<PublicSimulatorDecisionStatus, string> = {
+  understood: 'Understood',
+  live: 'Live',
+  related: 'Related',
+  checked: 'Checked',
+  reference: 'Reference',
+  protected: 'Protected',
+  verify: 'Verify',
+  actionable: 'Actionable',
+}
+
+function decisionStepClass(status: PublicSimulatorDecisionStatus): string {
+  if (status === 'live' || status === 'actionable') {
+    return 'border-[var(--ready)]/25 bg-[var(--ready)]/[0.05] text-[var(--ready)]'
+  }
+  if (status === 'related' || status === 'reference' || status === 'verify') {
+    return 'border-[var(--amber)]/25 bg-[var(--amber)]/[0.05] text-[var(--amber)]'
+  }
+  if (status === 'understood' || status === 'protected') {
+    return 'border-[var(--signal)]/25 bg-[var(--signal)]/[0.05] text-[var(--signal)]'
+  }
+  return 'border-border bg-white/[0.025] text-muted-foreground'
+}
+
+function trackSimulatorEvent(
+  name: string,
+  properties: Record<string, string | number | boolean>,
+) {
+  try {
+    track(name, properties)
+  } catch {
+    // Analytics must never interrupt the public simulator.
+  }
+}
+
+function DecisionPath({ steps }: { steps: PublicSimulatorDecisionStep[] }) {
+  if (!steps.length) return null
+
+  return (
+    <div className="mb-5">
+      <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+        Nexez decision path
+      </p>
+      <ol aria-label="Nexez decision path" className="grid gap-2 sm:grid-cols-2">
+        {steps.map((step, index) => (
+          <li
+            key={step.key}
+            className={`rounded-lg border p-3 ${decisionStepClass(step.status)}`}
+          >
+            <span className="font-mono text-[10px] uppercase tracking-[0.12em]">
+              {String(index + 1).padStart(2, '0')} · {DECISION_STATUS_LABELS[step.status]}
+            </span>
+            <p className="mt-2 text-sm font-medium text-white">{step.label}</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">{step.detail}</p>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
 
 function CoverageGapResult({
   request,
@@ -92,27 +161,6 @@ function CoverageGapResult({
           {request.label}
         </h3>
         <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-300">{naturalLanguage}</p>
-      </div>
-
-      <p className="mb-2 mt-5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-        Intelligence trace
-      </p>
-      <div aria-label="Nexez intelligence trace" className="grid gap-2 sm:grid-cols-3">
-        <div className="rounded-lg border border-border bg-white/[0.025] p-3">
-          <span className="font-mono text-[10px] text-[var(--ready)]">01 · CHECKED</span>
-          <p className="mt-2 text-sm font-medium text-white">Live marketplace</p>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">No published provider yet</p>
-        </div>
-        <div className="rounded-lg border border-border bg-white/[0.025] p-3">
-          <span className="font-mono text-[10px] text-[var(--ready)]">02 · CHECKED</span>
-          <p className="mt-2 text-sm font-medium text-white">Commerce Library</p>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">No reference scenario yet</p>
-        </div>
-        <div className="rounded-lg border border-[var(--signal)]/25 bg-[var(--signal)]/[0.05] p-3">
-          <span className="font-mono text-[10px] text-[var(--signal)]">03 · PROTECTED</span>
-          <p className="mt-2 text-sm font-medium text-white">Buyer intent</p>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">No unrelated substitute</p>
-        </div>
       </div>
 
       <div className="mt-4 flex flex-col gap-3 rounded-lg border border-border bg-black/20 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -142,6 +190,12 @@ export function SimulatorTeaser() {
     const q = (customQuery || query).trim()
     if (!q) return
 
+    const source = customQuery ? 'preset' : 'typed'
+    trackSimulatorEvent('simulator_submit', {
+      source,
+      query_length: q.length,
+    })
+
     setLoading(true)
     setError(null)
     setResult(null)
@@ -168,10 +222,22 @@ export function SimulatorTeaser() {
         matchedBusiness: data.matchedBusiness || null,
         simulation: data.simulation || null,
         understoodRequest: data.understoodRequest || null,
+        decisionPath: data.decisionPath || [],
+        llmEnhanced: Boolean(data.llmEnhanced),
+      })
+      trackSimulatorEvent('simulator_result', {
+        source,
+        mode: data.mode,
+        intent: data.intent,
+        live_match: Boolean(data.matchedBusiness),
+        llm_enhanced: Boolean(data.llmEnhanced),
       })
       setQuery(q)
       setActiveTab('natural')
     } catch (err: any) {
+      trackSimulatorEvent('simulator_error', {
+        source,
+      })
       setError(err.message || 'Something went wrong. Please try again.')
     } finally {
       setLoading(false)
@@ -263,6 +329,8 @@ export function SimulatorTeaser() {
             ) : null}
           </div>
 
+          <DecisionPath steps={result.decisionPath} />
+
           {result.simulation && (
             <div className="mb-4 rounded-lg border border-[var(--amber)]/25 bg-[var(--amber)]/[0.06] px-3 py-2 text-xs leading-relaxed text-zinc-300">
               <span className="font-medium text-[var(--amber)]">Simulation only.</span>{' '}
@@ -275,6 +343,7 @@ export function SimulatorTeaser() {
               request={result.understoodRequest}
               naturalLanguage={result.naturalLanguage}
               onRefine={() => {
+                trackSimulatorEvent('simulator_refine', { mode: result.mode })
                 inputRef.current?.focus()
                 inputRef.current?.select()
               }}
@@ -289,7 +358,13 @@ export function SimulatorTeaser() {
                 ] as const).map(([id, label]) => (
                   <button
                     key={id}
-                    onClick={() => setActiveTab(id)}
+                    onClick={() => {
+                      setActiveTab(id)
+                      trackSimulatorEvent('simulator_detail_view', {
+                        mode: result.mode,
+                        tab: id,
+                      })
+                    }}
                     className={`px-3 py-1.5 text-sm font-medium transition-colors ${
                       activeTab === id
                         ? 'border-b-2 border-[var(--signal)] text-white'
@@ -388,11 +463,22 @@ export function SimulatorTeaser() {
 
           {/* Conversion hook */}
           <div className="mt-6 flex flex-col items-center gap-3 border-t border-border pt-4 sm:flex-row">
-            <a href={appUrl('/create')} className="btn-primary h-10 flex-1 px-5 text-sm sm:flex-none">
+            <a
+              href={appUrl('/create')}
+              onClick={() => trackSimulatorEvent('simulator_cta', {
+                mode: result.mode,
+                cta: result.mode === 'coverage_gap' ? 'list_service' : 'create_listing',
+              })}
+              className="btn-primary h-10 flex-1 px-5 text-sm sm:flex-none"
+            >
               {result.mode === 'coverage_gap' ? 'List this service' : 'Create an agent-ready listing'}
             </a>
             <a
               href={result.mode === 'coverage_gap' ? '/discovery' : '/simulator'}
+              onClick={() => trackSimulatorEvent('simulator_cta', {
+                mode: result.mode,
+                cta: result.mode === 'coverage_gap' ? 'explore_marketplace' : 'open_full_simulator',
+              })}
               className="text-sm text-[var(--signal)] hover:underline"
             >
               {result.mode === 'coverage_gap' ? 'Explore live marketplace →' : 'Open the full simulator →'}

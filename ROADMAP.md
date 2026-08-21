@@ -79,6 +79,7 @@ The next milestone remains growing real launch-quality supply and proving demand
 
 - Agent-vs-human detection, agent type, traffic, queries, funnel, conversion, revenue, page and offer breakdowns, exports, and per-page filtering.
 - Simulator history, AI Copilot, competitor analysis, readiness/trust score, credentials, voice optimization, agent memory, leaderboard, and verification signals.
+- The homepage Commerce Intelligence simulator renders one buyer-safe decision path across live marketplace matches, related supply, Commerce Library references, and uncovered requests: intent understood → supply checked → commerce behavior resolved → safe action boundary. Vercel custom events measure result modes, engagement, refinements, and handoffs without recording raw buyer queries; structured route logs retain only bounded operational metadata.
 - Team invites, accepted-only collaborator access, owner-entitlement inheritance on shared pages, approval workflows, notifications, support desk, account export/delete, and API keys.
 - Three-host auth/routing architecture, shared session on the `.nexez.ai` app family, cookie-isolated agent runtime, rate limiting, observability, security headers, RLS hardening, and public projection parity tests.
 - Trust framework in `docs/trust/`: control, data, and vendor registers, incident response, operating checklists, and a rollout plan, alongside a reconciled platform README.
