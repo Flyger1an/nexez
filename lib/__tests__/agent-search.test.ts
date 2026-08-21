@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { analyzeQueryRank, searchAgentPages } from '../agent-search'
 import type { AgentPage } from '../agent-page'
+import type { ReviewSummary } from '../reviews'
 
 function mk(over: Partial<AgentPage>): AgentPage {
   return { id: over.slug, name: over.slug, slug: over.slug, is_published: true, services: [], products: [], faqs: [], ...over } as AgentPage
@@ -159,6 +160,195 @@ describe('searchAgentPages', () => {
       expect.stringMatching(/negotiation/i),
     ]))
   })
+
+  it('caps repeated keyword evidence so stuffing cannot beat an exact offer identity', () => {
+    const stuffed = mk({
+      slug: 'stuffed',
+      name: 'Stuffed Co',
+      description: Array(30).fill('plumber').join(' '),
+    })
+    const exact = mk({
+      slug: 'exact',
+      name: 'Exact Co',
+      services: [{ name: 'Plumber', description: 'Home repair.', price: '$100', url: '' }],
+    })
+
+    const results = searchAgentPages([stuffed, exact], 'plumber')
+    expect(results.map((result) => result.page.slug)).toEqual(['exact', 'stuffed'])
+    expect(results[0].score).toBeGreaterThan(results[1].score)
+  })
+
+  it('keeps relevance ahead of every quality signal', () => {
+    const strongMatch = mk({
+      slug: 'strong-match',
+      name: 'Strong Match',
+      services: [{ name: 'Strategy', description: 'Planning.', price: '$100', url: '' }],
+    })
+    const weakMatch = mk({
+      slug: 'weak-match',
+      name: 'Weak Match',
+      description: 'Strategy support.',
+      custom_domain_verified: true,
+      updated_at: '2026-08-20T00:00:00.000Z',
+      services: [{ name: 'Executive Workshop', description: 'Planning.', price: '$100', url: '', availability: 'available' }],
+    })
+
+    const results = searchAgentPages([weakMatch, strongMatch], 'strategy', 10, 'https://nexez.test', {
+      now: new Date('2026-08-21T00:00:00.000Z'),
+      reviewSummaries: new Map([['weak-match', reviewSummary(20, 4.8)]]),
+    })
+
+    expect(results[0].page.slug).toBe('strong-match')
+    expect(results[0].score).toBeGreaterThan(results[1].score)
+  })
+
+  it('ranks exact service-area evidence ahead of broad remote coverage', () => {
+    const broad = mk({
+      slug: 'broad',
+      name: 'Broad Co',
+      location: 'Remote worldwide',
+      services: [{ name: 'Strategy', description: 'Planning.', price: '$100', url: '' }],
+    })
+    const local = mk({
+      slug: 'local',
+      name: 'Local Co',
+      location: 'Austin, TX',
+      services: [{ name: 'Strategy', description: 'Planning.', price: '$100', url: '' }],
+    })
+
+    const results = searchAgentPages([broad, local], 'strategy', 10, 'https://nexez.test', { location: 'Austin, TX' })
+    expect(results.map((result) => result.page.slug)).toEqual(['local', 'broad'])
+    expect(results[0].ranking?.location).toBe('exact-or-service-area')
+    expect(results[1].ranking?.location).toBe('broad')
+  })
+
+  it('prefers explicit availability and never exposes a sold-out checkout action', () => {
+    const unspecified = mk({
+      slug: 'unspecified',
+      name: 'Unspecified Co',
+      services: [{ name: 'Strategy', description: 'Planning.', price: '$100', url: '' }],
+    })
+    const available = mk({
+      slug: 'available',
+      name: 'Available Co',
+      services: [{ name: 'Strategy', description: 'Planning.', price: '$100', url: '', availability: 'available' }],
+    })
+    const soldOut = mk({
+      slug: 'sold-out',
+      name: 'Sold Out Strategy',
+      services: [{ name: 'Strategy', description: 'Planning.', price: '$100', url: '', availability: 'sold_out' }],
+    })
+
+    const results = searchAgentPages([unspecified, soldOut, available], 'strategy')
+    expect(results.map((result) => result.page.slug)).toEqual(['available', 'unspecified', 'sold-out'])
+    expect(results.find((result) => result.page.slug === 'sold-out')).toMatchObject({
+      offer: null,
+      ranking: { availability: 'listing-only', actionability: 'listing-only' },
+    })
+  })
+
+  it('prefers a published transaction path when relevance and availability tie', () => {
+    const needsConfirmation = mk({
+      slug: 'needs-confirmation',
+      name: 'Needs Confirmation',
+      services: [{ name: 'Strategy', description: 'Planning.', price: '', url: '', availability: 'available' }],
+    })
+    const transactionReady = mk({
+      slug: 'transaction-ready',
+      name: 'Transaction Ready',
+      services: [{ name: 'Strategy', description: 'Planning.', price: '$100', url: '', availability: 'available' }],
+    })
+
+    const results = searchAgentPages([needsConfirmation, transactionReady], 'strategy')
+    expect(results.map((result) => result.page.slug)).toEqual(['transaction-ready', 'needs-confirmation'])
+    expect(results[0].ranking?.actionability).toBe('transaction-ready')
+    expect(results[1].ranking?.actionability).toBe('needs-confirmation')
+  })
+
+  it('uses server-backed seller verification only after relevance and action evidence tie', () => {
+    const unverified = mk({
+      slug: 'unverified',
+      name: 'A Unverified',
+      services: [{ name: 'Strategy', description: 'Planning.', price: '$100', url: '' }],
+    })
+    const verified = mk({
+      slug: 'verified',
+      name: 'Z Verified',
+      custom_domain_verified: true,
+      services: [{ name: 'Strategy', description: 'Planning.', price: '$100', url: '' }],
+    })
+
+    const results = searchAgentPages([unverified, verified], 'strategy')
+    expect(results.map((result) => result.page.slug)).toEqual(['verified', 'unverified'])
+    expect(results[0].ranking?.seller_verified).toBe(true)
+  })
+
+  it('treats fewer than three verified purchases neutrally instead of creating a review moat', () => {
+    const newComplete = mk({
+      slug: 'new-complete',
+      name: 'New Complete',
+      description: 'Clear scope.',
+      audience: 'Operators',
+      services: [{ name: 'Strategy', description: 'Planning.', price: '$100', url: '' }],
+    })
+    const oneReview = mk({
+      slug: 'one-review',
+      name: 'One Review',
+      services: [{ name: 'Strategy', description: 'Planning.', price: '$100', url: '' }],
+    })
+
+    const results = searchAgentPages([oneReview, newComplete], 'strategy', 10, 'https://nexez.test', {
+      reviewSummaries: new Map([['one-review', reviewSummary(1, 5)]]),
+    })
+
+    expect(results[0].page.slug).toBe('new-complete')
+    expect(results.every((result) => result.ranking?.review_evidence === 'cold-start')).toBe(true)
+  })
+
+  it('uses established verified-purchase reputation after the cold-start threshold', () => {
+    const established = mk({
+      slug: 'established',
+      name: 'Established',
+      services: [{ name: 'Strategy', description: 'Planning.', price: '$100', url: '' }],
+    })
+    const coldStart = mk({
+      slug: 'cold-start',
+      name: 'Cold Start',
+      services: [{ name: 'Strategy', description: 'Planning.', price: '$100', url: '' }],
+    })
+
+    const results = searchAgentPages([coldStart, established], 'strategy', 10, 'https://nexez.test', {
+      reviewSummaries: new Map([['established', reviewSummary(5, 4.8)]]),
+    })
+
+    expect(results[0].page.slug).toBe('established')
+    expect(results[0].ranking).toMatchObject({
+      verified_purchase_reviews: 5,
+      review_evidence: 'established-positive',
+    })
+  })
+
+  it('uses freshness only as a deep evidence tie-break', () => {
+    const stale = mk({
+      slug: 'stale',
+      name: 'A Stale',
+      updated_at: '2025-01-01T00:00:00.000Z',
+      services: [{ name: 'Strategy', description: 'Planning.', price: '$100', url: '' }],
+    })
+    const recent = mk({
+      slug: 'recent',
+      name: 'Z Recent',
+      updated_at: '2026-08-20T00:00:00.000Z',
+      services: [{ name: 'Strategy', description: 'Planning.', price: '$100', url: '' }],
+    })
+
+    const results = searchAgentPages([stale, recent], 'strategy', 10, 'https://nexez.test', {
+      now: new Date('2026-08-21T00:00:00.000Z'),
+    })
+    expect(results.map((result) => result.page.slug)).toEqual(['recent', 'stale'])
+    expect(results[0].ranking?.freshness).toBe('recent')
+    expect(results[1].ranking?.freshness).toBe('stale')
+  })
 })
 
 describe('analyzeQueryRank (win-the-query)', () => {
@@ -228,3 +418,15 @@ describe('analyzeQueryRank (win-the-query)', () => {
     expect(a.toWin.join(' ')).toMatch(/#1|hold/i)
   })
 })
+
+function reviewSummary(count: number, reputation: number): ReviewSummary {
+  return {
+    average: reputation,
+    count,
+    verified_count: count,
+    reputation_score: reputation,
+    distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': count },
+    recent_positive_tags: [],
+    recent_reviews: [],
+  }
+}

@@ -85,6 +85,7 @@ export type NexezSearchUsage = {
 
 export type NexezSearchResponse = {
   schema_version: 'nexez.agent-search.v1'
+  ranking_policy: 'nexez.discovery-ranking.v1'
   generated_at: string
   query: string
   filters?: {
@@ -199,10 +200,26 @@ export type NexezLocationMatch = {
   matched_values: string[]
 }
 
+export type NexezSearchRankingEvidence = {
+  policy_version: 'nexez.discovery-ranking.v1'
+  relevance: number
+  location: 'not-requested' | 'exact-or-service-area' | 'broad' | 'unmatched'
+  availability: 'listing-only' | 'available' | 'limited' | 'unspecified' | 'sold-out'
+  actionability: 'transaction-ready' | 'needs-confirmation' | 'listing-only' | 'unavailable'
+  seller_verified: boolean
+  agent_ready_certified: boolean
+  verified_purchase_reviews: number
+  reputation: number | null
+  review_evidence: 'cold-start' | 'established-positive' | 'established-neutral' | 'established-concerning'
+  readiness: number
+  freshness: 'recent' | 'current' | 'stale' | 'unknown'
+}
+
 export type NexezSearchResult = {
   score: number
   matched_query_terms: string[]
   match_reasons: string[]
+  ranking?: NexezSearchRankingEvidence
   source?: { id: string; label: string }
   page: {
     name: string

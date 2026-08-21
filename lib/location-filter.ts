@@ -197,7 +197,7 @@ export function locationFilterMeta(locationQuery: string | null | undefined, coo
     lat: typeof coords?.lat === 'number' && Number.isFinite(coords.lat) ? coords.lat : null,
     lng: typeof coords?.lng === 'number' && Number.isFinite(coords.lng) ? coords.lng : null,
     matching:
-      'Text match against page location and offer service areas. Remote/nationwide offers remain eligible. lat/lng are returned as context only and do not filter or rerank results.',
+      'Text match against page location and offer service areas. Remote/nationwide offers remain eligible behind exact or service-area matches. lat/lng are returned as context only and do not filter or rerank results.',
   }
 }
 

@@ -10,6 +10,7 @@ import { loadReviewSummariesForSlugs } from '../../lib/server/reviews'
 import { loadPublicStorefronts, loadStorefrontHandlesForSlugs } from '../../lib/server/storefront'
 import { CopyButton } from './CopyButton'
 import { LocationFilter } from './LocationFilter'
+import { RankingReasons } from './RankingReasons'
 import { FavoriteButton } from '../../components/FavoriteButton'
 import { TrackedDirectoryLink } from '../../components/TrackedDirectoryLink'
 import { DiscoveryTabs } from '../../components/DiscoveryTabs'
@@ -504,6 +505,8 @@ function DirectoryCard({ result }: { result: AgentSearchResult }) {
         {result.page.location ? <span className="rounded-md bg-white/10 px-2 py-1">{result.page.location}</span> : null}
         {result.page.audience ? <span className="rounded-md bg-white/10 px-2 py-1">{result.page.audience}</span> : null}
       </div>
+
+      <RankingReasons reasons={result.match_reasons} />
 
       <div className="mt-5 flex flex-wrap gap-2">
         <TrackedDirectoryLink

@@ -1,5 +1,9 @@
 import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '../../../lib/agent-page'
-import { searchAgentPages, type AgentSearchOptions } from '../../../lib/agent-search'
+import {
+  AGENT_SEARCH_RANKING_POLICY,
+  searchAgentPages,
+  type AgentSearchOptions,
+} from '../../../lib/agent-search'
 import { supabase } from '../../../lib/supabase'
 import { enforceRateLimit } from '../../../lib/rate-limit'
 import { publicLaunchVisiblePages } from '../../../lib/public-page-visibility'
@@ -65,6 +69,7 @@ export async function GET(request: Request) {
   return Response.json(
     {
       schema_version: 'nexez.agent-search.v1',
+      ranking_policy: AGENT_SEARCH_RANKING_POLICY,
       generated_at: new Date().toISOString(),
       query,
       filters: serializeSearchFilters(filters.options),
@@ -78,7 +83,7 @@ export async function GET(request: Request) {
       usage: {
         method: 'GET',
         example: `${baseUrl}/api/agent-search?q=plumbing&location=Chicago%2C%20IL&verified=true&supports_checkout=true`,
-        note: 'Returns published AI-readable pages and offer-level checkout actions. Filters support category, industry, readiness, trust, verification, checkout, negotiation, price band, and text-based location. lat/lng are context metadata only and do not filter or rerank results.',
+        note: 'Returns published AI-readable pages and offer-level checkout actions. Relevance is the hard first rank; exact location/service area, availability, actionability, verification, established verified-purchase reputation, readiness, and freshness resolve ties in that order. Sparse review history is neutral. lat/lng are context metadata only and do not filter or rerank results.',
       },
     },
     {

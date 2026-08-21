@@ -4,18 +4,16 @@ Use this reference before ranking results, widening a query, or deciding whether
 
 ## Ranking Signals
 
-Rank candidates by:
+The API applies bounded relevance first: repeating a keyword cannot increase its contribution, and seller quality cannot rescue a materially weaker service match. Exact relevance ties are resolved by:
 
-1. Buyer intent match
-2. Location or service-area match
-3. Offer specificity
-4. Price/budget fit
-5. Timeline fit
-6. Readiness/trust signals
-7. Clear next action
-8. Missing information or risk
+1. Exact location or service-area evidence before broad remote coverage
+2. Explicit availability before unpublished availability
+3. A published price, negotiation route, or provider action
+4. Server-backed seller verification and agent-readiness certification
+5. Bayesian reputation only after at least three verified purchases
+6. Readiness, then listing freshness
 
-Prefer a slightly lower-scoring result with a clear offer and safe action over a vague result with a higher text match.
+Fewer than three verified purchases are neutral cold-start evidence: a new merchant is not demoted because an incumbent has one review. Review evidence can resolve a relevance tie, but it cannot override a stronger intent match. Use `results[].ranking` and `results[].match_reasons` to explain the ordering rather than inventing a composite quality score.
 
 ## Search Widening
 

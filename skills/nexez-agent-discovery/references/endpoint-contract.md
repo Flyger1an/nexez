@@ -61,9 +61,17 @@ Expected schema marker:
 nexez.agent-search.v1
 ```
 
+Expected ranking policy:
+
+```text
+nexez.discovery-ranking.v1
+```
+
 Useful fields:
 
 - `results[].score`
+- `results[].ranking`
+- `results[].match_reasons`
 - `results[].page.name`
 - `results[].page.slug`
 - `results[].page.url`

@@ -46,7 +46,13 @@ describe('GET /api/agent-search', () => {
     expect(res.headers.get('x-robots-tag')).toBe('noindex')
     const body = await res.json()
     expect(body.schema_version).toBe('nexez.agent-search.v1')
+    expect(body.ranking_policy).toBe('nexez.discovery-ranking.v1')
     expect(body.result_count).toBeGreaterThan(0)
+    expect(body.results[0].ranking).toMatchObject({
+      policy_version: 'nexez.discovery-ranking.v1',
+      relevance: expect.any(Number),
+      review_evidence: 'cold-start',
+    })
   })
 
   it('returns coordinates as context without claiming they filter results', async () => {
