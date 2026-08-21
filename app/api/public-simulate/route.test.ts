@@ -100,6 +100,20 @@ const eventPlannerPage = {
   created_at: '2026-01-03T00:00:00Z',
 }
 
+const tutorPage = {
+  name: 'North Star Tutors',
+  slug: 'north-star-tutors',
+  description: 'Private math tutoring for middle-school and high-school students.',
+  industry: 'Tutoring',
+  location: 'Remote',
+  products: [],
+  services: [{ name: 'Private Math Tutoring', price: '$75', description: 'Weekly one-on-one math lessons.', url: '' }],
+  faqs: [],
+  is_published: true,
+  marketplace_discoverable: true,
+  created_at: '2026-01-04T00:00:00Z',
+}
+
 describe('POST /api/public-simulate', () => {
   beforeEach(() => {
     llmRef.configured = false
@@ -174,6 +188,47 @@ describe('POST /api/public-simulate', () => {
     expect(body.naturalLanguage).toContain('remaining requirements must be confirmed')
     expect(body.agentActions.join(' ')).toContain('related, not exact')
     expect(JSON.stringify(body)).not.toMatch(/matched_query_terms|matchReasons|match_reasons|score|\/checkout|api\/checkout/)
+  })
+
+  it('does not treat a shared cadence word as a service-category match', async () => {
+    const res = await POST(post({
+      query: 'I need a private tutor for weekly math lessons',
+    }))
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.mode).toBe('simulation')
+    expect(body.noMatch).toBe(true)
+    expect(body.matchedBusiness).toBeNull()
+    expect(body.simulation).toMatchObject({
+      source: 'commerce-library',
+      title: 'Private Tutoring',
+    })
+    expect(body.naturalLanguage).toContain('Private Tutoring')
+    expect(JSON.stringify(body)).not.toMatch(/Kismet Pros|Routine Cleaning|Moving Cleaning/)
+  })
+
+  it('still surfaces live supply when the recognized service identity matches', async () => {
+    dbRef.handler = (ctx: any) =>
+      ctx.table === 'pages_public'
+        ? { data: [kismetPage, tutorPage], error: null }
+        : { data: null, error: null }
+
+    const res = await POST(post({
+      query: 'I need a private tutor for weekly math lessons',
+    }))
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.mode).toBe('marketplace')
+    expect(body.noMatch).toBe(false)
+    expect(body.matchedBusiness).toMatchObject({
+      name: 'North Star Tutors',
+      matchType: 'strong',
+      offer: { name: 'Private Math Tutoring' },
+    })
+    expect(body.simulation).toBeNull()
+    expect(JSON.stringify(body)).not.toContain('Kismet Pros')
   })
 
   it('falls back to a clearly labelled Commerce Library simulation when live supply does not match', async () => {

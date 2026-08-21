@@ -22,6 +22,17 @@ describe('findCommerceSimulationMatch', () => {
 
     expect(match?.candidate.id).toBe('events.private-chef')
     expect(match?.matchedTerms).toContain('chef')
+    expect(match?.matchedIdentityTerms).toEqual(['chef'])
+  })
+
+  it('identifies tutoring by the service noun instead of cadence or subject modifiers', () => {
+    const match = findCommerceSimulationMatch(
+      'I need a private tutor for weekly math lessons',
+      commerceCurationCandidates,
+    )
+
+    expect(match?.candidate.id).toBe('education.private-tutoring')
+    expect(match?.matchedIdentityTerms).toEqual(['tutor'])
   })
 
   it('abstains from an under-specified category shared by several scenarios', () => {

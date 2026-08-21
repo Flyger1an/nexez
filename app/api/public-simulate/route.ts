@@ -8,7 +8,10 @@ import {
 import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '@/lib/agent-page'
 import { searchAgentPages, type AgentSearchResult } from '@/lib/agent-search'
 import { commerceCurationCandidates } from '@/lib/commerce-templates/curation'
-import { findCommerceSimulationMatch } from '@/lib/commerce-templates/curation/simulation'
+import {
+  commerceIdentityTokenFamily,
+  findCommerceSimulationMatch,
+} from '@/lib/commerce-templates/curation/simulation'
 import { getLatestCommerceTemplate } from '@/lib/commerce-templates/registry'
 import type { CommerceArchetype } from '@/lib/commerce-templates/schema'
 import { isLlmConfigured, llmComplete } from '@/lib/llm'
@@ -74,8 +77,21 @@ function publicIntentLabel(intent: SimIntent, query: string): string {
   return INTENT_LABELS[intent]
 }
 
-function hasMeaningfulMarketplaceMatch(result: AgentSearchResult): boolean {
-  return result.matched_query_terms.some((term) => !DISCOVERY_STOPWORDS.has(term.toLowerCase()))
+function hasMeaningfulMarketplaceMatch(
+  result: AgentSearchResult,
+  requiredIdentityTerms: string[],
+): boolean {
+  const meaningfulMatchedTerms = result.matched_query_terms
+    .map((term) => term.toLowerCase())
+    .filter((term) => !DISCOVERY_STOPWORDS.has(term))
+
+  if (!meaningfulMatchedTerms.length) return false
+  if (!requiredIdentityTerms.length) return true
+
+  const matchedFamilies = new Set(
+    meaningfulMatchedTerms.map(commerceIdentityTokenFamily),
+  )
+  return requiredIdentityTerms.some((term) => matchedFamilies.has(term))
 }
 
 type MarketplaceMatchType = 'strong' | 'partial'
@@ -197,7 +213,7 @@ function simulationPayload(query: string) {
   const match = findCommerceSimulationMatch(query, commerceCurationCandidates)
   if (!match) return null
 
-  const { candidate, score, matchedTerms } = match
+  const { candidate, score, matchedTerms, matchedIdentityTerms } = match
   return {
     active: true,
     source: 'commerce-library' as const,
@@ -214,6 +230,7 @@ function simulationPayload(query: string) {
       capabilityTags: candidate.capabilityTags,
       gapSignals: candidate.gapSignals,
       matchedTerms,
+      matchedIdentityTerms,
       matchScore: score,
     },
   }
@@ -421,8 +438,12 @@ export async function POST(request: Request) {
     }
 
     const visiblePages = publicLaunchVisiblePages(pages)
+    const simulation = simulationPayload(trimmedQuery)
     const searchResults = searchAgentPages(visiblePages, trimmedQuery, 5, baseUrl)
-    const matchedResult = searchResults.find(hasMeaningfulMarketplaceMatch) ?? null
+    const requiredIdentityTerms = simulation?.candidate.matchedIdentityTerms ?? []
+    const matchedResult = searchResults.find((result) =>
+      hasMeaningfulMarketplaceMatch(result, requiredIdentityTerms)
+    ) ?? null
     const matchedPage = matchedResult
       ? visiblePages.find((page) => page.slug === matchedResult.page.slug) ?? null
       : null
@@ -473,7 +494,6 @@ export async function POST(request: Request) {
       })
     }
 
-    const simulation = simulationPayload(trimmedQuery)
     if (simulation) {
       const guidance = simulationGuidance(simulation)
       const fallback = simulationAnswer(simulation, guidance)
