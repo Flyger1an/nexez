@@ -38,8 +38,8 @@ The package exposes exactly nine tools:
 
 ## Release And Verification Evidence
 
-- ClawHub package: `@nexez/openclaw-nexez` `0.2.0`
-- npm package: `@nexez/openclaw-nexez` `0.2.0`
+- ClawHub package: `@nexez/openclaw-nexez` `0.2.2`
+- npm package: `@nexez/openclaw-nexez` `0.2.2`
 - Install: `openclaw plugins install clawhub:@nexez/openclaw-nexez`
 - OpenClaw compatibility: `>=2026.6.8 <2027.0.0`
 - Built and validated with OpenClaw `2026.7.1`

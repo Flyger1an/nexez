@@ -12,7 +12,7 @@ Nexez should be discoverable wherever autonomous agents search, reason, compare,
 
 2. OpenClaw tool plugin
    - Purpose: expose native callable tools such as `nexez_search`, `nexez_get_page`, `nexez_validate_checkout`, and `nexez_submit_negotiation`.
-   - Status: published on ClawHub as `@nexez/openclaw-nexez` (`0.2.0`).
+   - Status: published on ClawHub as `@nexez/openclaw-nexez` (`0.2.2`).
    - Install: `openclaw plugins install clawhub:@nexez/openclaw-nexez`.
    - Use when we want typed tool calls instead of instruction-only behavior.
    - Keep side-effecting tools optional and approval-gated.
