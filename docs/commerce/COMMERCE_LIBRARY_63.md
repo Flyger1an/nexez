@@ -151,6 +151,14 @@ The canonical 63 records above remain the stable evidence corpus for capability 
 
 Reference coverage records live separately from `commerceCurationCandidates` and are composed into `commerceReferenceCandidates` only for deterministic, explicitly labelled simulations. Promotion into the canonical architecture corpus or active runtime registry requires its own review.
 
+Public routing is fail-closed across the entire reference catalog:
+
+- service identity is taken from the requested-service span, before requirement, location, and timing clauses;
+- fulfillment and audience modifiers cannot establish a category by themselves;
+- distinct compound service identities abstain instead of collapsing into one scenario;
+- uncovered requests retain their identity when checking live marketplace supply, so a weak contextual overlap cannot become a merchant match; and
+- the ordered cross-catalog evaluation matrix verifies every reference scenario against every other scenario used as request context.
+
 ## Measured capability hypotheses
 
 These counts are calculated from the 63 curation records. They describe **how many candidate scenarios appear to exercise a capability**, not production feature completeness.

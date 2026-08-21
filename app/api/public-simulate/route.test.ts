@@ -283,7 +283,7 @@ describe('POST /api/public-simulate', () => {
   it('understands a custom wedding-cake request without redirecting it to videography', async () => {
     dbRef.handler = (ctx: any) =>
       ctx.table === 'pages_public'
-        ? { data: [consultingPage], error: null }
+        ? { data: [eventPlannerPage, consultingPage], error: null }
         : { data: null, error: null }
 
     const res = await POST(post({
@@ -307,6 +307,58 @@ describe('POST /api/public-simulate', () => {
     expect(body.naturalLanguage).toContain('cake height and tier structure')
     expect(body.agentActions.join(' ')).toContain('delivery window')
     expect(JSON.stringify(body)).not.toMatch(/Wedding Videography|events\.custom-celebration-cake|identityTerms|buyerDetails/)
+  })
+
+  it('anchors simulation identity before unrelated requirement categories', async () => {
+    dbRef.handler = (ctx: any) =>
+      ctx.table === 'pages_public'
+        ? { data: [kismetPage, consultingPage], error: null }
+        : { data: null, error: null }
+
+    const res = await POST(post({
+      query: 'Find me a copywriter for a mobile auto detailing website in Austin',
+    }))
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.mode).toBe('simulation')
+    expect(body.simulation).toMatchObject({ title: 'Copywriting Package' })
+    expect(body.matchedBusiness).toBeNull()
+    expect(JSON.stringify(body)).not.toMatch(/Mobile Auto Detailing|Kismet Pros/)
+  })
+
+  it('keeps uncovered service identity ahead of weak live-marketplace context', async () => {
+    dbRef.handler = (ctx: any) =>
+      ctx.table === 'pages_public'
+        ? { data: [eventPlannerPage, consultingPage], error: null }
+        : { data: null, error: null }
+
+    const res = await POST(post({
+      query: 'Find a mobile notary for a wedding in Austin',
+    }))
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.mode).toBe('coverage_gap')
+    expect(body.simulation).toBeNull()
+    expect(body.matchedBusiness).toBeNull()
+    expect(body.understoodRequest.label).toBe('Mobile notary for a wedding in Austin')
+    expect(JSON.stringify(body)).not.toMatch(/Austin Event Planners|Wedding Videography/)
+  })
+
+  it('does not collapse a compound service request into one marketplace category', async () => {
+    dbRef.handler = (ctx: any) =>
+      ctx.table === 'pages_public'
+        ? { data: [eventPlannerPage, consultingPage], error: null }
+        : { data: null, error: null }
+
+    const res = await POST(post({ query: 'I need a photographer and videographer for an event' }))
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.mode).toBe('coverage_gap')
+    expect(body.simulation).toBeNull()
+    expect(body.matchedBusiness).toBeNull()
   })
 
   it('rejects technical or Markdown-heavy LLM output and uses composed buyer guidance', async () => {

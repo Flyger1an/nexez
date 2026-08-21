@@ -10,6 +10,7 @@ import { searchAgentPages, type AgentSearchResult } from '@/lib/agent-search'
 import { commerceReferenceCandidates } from '@/lib/commerce-templates/curation'
 import {
   commerceIdentityTokenFamily,
+  commerceRequestedCatalogIdentityTerms,
   findCommerceSimulationMatch,
 } from '@/lib/commerce-templates/curation/simulation'
 import { getLatestCommerceTemplate } from '@/lib/commerce-templates/registry'
@@ -115,18 +116,21 @@ function publicIntentLabel(intent: SimIntent, query: string): string {
 function hasMeaningfulMarketplaceMatch(
   result: AgentSearchResult,
   requiredIdentityTerms: string[],
+  options: { requireAllIdentityTerms: boolean },
 ): boolean {
   const meaningfulMatchedTerms = result.matched_query_terms
     .map((term) => term.toLowerCase())
     .filter((term) => !DISCOVERY_STOPWORDS.has(term))
 
   if (!meaningfulMatchedTerms.length) return false
-  if (!requiredIdentityTerms.length) return true
+  if (!requiredIdentityTerms.length) return false
 
   const matchedFamilies = new Set(
     meaningfulMatchedTerms.map(commerceIdentityTokenFamily),
   )
-  return requiredIdentityTerms.some((term) => matchedFamilies.has(term))
+  return options.requireAllIdentityTerms
+    ? requiredIdentityTerms.every((term) => matchedFamilies.has(term))
+    : requiredIdentityTerms.some((term) => matchedFamilies.has(term))
 }
 
 type MarketplaceMatchType = 'strong' | 'partial'
@@ -495,9 +499,12 @@ export async function POST(request: Request) {
     const visiblePages = publicLaunchVisiblePages(pages)
     const simulation = simulationPayload(trimmedQuery)
     const searchResults = searchAgentPages(visiblePages, trimmedQuery, 5, baseUrl)
-    const requiredIdentityTerms = simulation?.candidate.matchedIdentityTerms ?? []
+    const requiredIdentityTerms = simulation?.candidate.matchedIdentityTerms ??
+      commerceRequestedCatalogIdentityTerms(trimmedQuery, commerceReferenceCandidates)
     const matchedResult = searchResults.find((result) =>
-      hasMeaningfulMarketplaceMatch(result, requiredIdentityTerms)
+      hasMeaningfulMarketplaceMatch(result, requiredIdentityTerms, {
+        requireAllIdentityTerms: !simulation,
+      })
     ) ?? null
     const matchedPage = matchedResult
       ? visiblePages.find((page) => page.slug === matchedResult.page.slug) ?? null
