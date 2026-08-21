@@ -12,6 +12,7 @@ import {
   commerceCandidateEvidenceMatches,
   commerceIdentityTokenFamily,
   commerceRequestedCatalogIdentityTerms,
+  commerceRequestedServiceEvidenceTerms,
   findCommerceSimulationMatch,
 } from '@/lib/commerce-templates/curation/simulation'
 import { getLatestCommerceTemplate } from '@/lib/commerce-templates/registry'
@@ -150,6 +151,37 @@ function marketplaceMatchesReferenceContext(
     result.offer?.description,
   ].filter(Boolean).join(' ')
   return commerceCandidateEvidenceMatches(candidate, evidence, commerceReferenceCandidates)
+}
+
+/**
+ * When the Commerce Library has no scenario for a request, only primary seller
+ * identity may establish a live match. Descriptive prose is useful for ranking
+ * within a known category, but cannot turn a cleaning merchant that mentions
+ * rental properties into car-rental or vacation-rental supply.
+ */
+function marketplaceMatchesUncoveredServiceIdentity(
+  result: AgentSearchResult,
+  query: string,
+): boolean {
+  const requiredFamilies = commerceRequestedServiceEvidenceTerms(query)
+  if (!requiredFamilies.length) return false
+
+  const primaryIdentityFamilies = new Set(
+    [
+      result.page.name,
+      result.page.slug,
+      result.page.industry,
+      result.offer?.name,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((term) => term.length > 1)
+      .map(commerceIdentityTokenFamily),
+  )
+
+  return requiredFamilies.every((term) => primaryIdentityFamilies.has(term))
 }
 
 type MarketplaceMatchType = 'strong' | 'partial'
@@ -523,7 +555,9 @@ export async function POST(request: Request) {
     const matchedResult = searchResults.find((result) =>
       hasMeaningfulMarketplaceMatch(result, requiredIdentityTerms, {
         requireAllIdentityTerms: !simulation,
-      }) && (!simulation || marketplaceMatchesReferenceContext(result, simulation))
+      }) && (simulation
+        ? marketplaceMatchesReferenceContext(result, simulation)
+        : marketplaceMatchesUncoveredServiceIdentity(result, trimmedQuery))
     ) ?? null
     const matchedPage = matchedResult
       ? visiblePages.find((page) => page.slug === matchedResult.page.slug) ?? null
