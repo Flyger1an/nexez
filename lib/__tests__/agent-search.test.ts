@@ -15,6 +15,29 @@ describe('searchAgentPages', () => {
     expect(res[0].page.slug).toBe('acme-plumb')
   })
 
+  it('does not count a query token hidden inside an unrelated word', () => {
+    const careProvider = mk({
+      slug: 'care-provider',
+      name: 'Care Provider',
+      description: 'Personalized care and rental-property cleaning.',
+      services: [{ name: 'Home Care', description: 'Care for occupied homes.', price: '$120', url: '' }],
+    })
+
+    expect(searchAgentPages([careProvider], 'car')).toEqual([])
+  })
+
+  it('keeps common service-language variants in the same token family', () => {
+    const detailing = mk({
+      slug: 'mobile-detailing',
+      name: 'Mobile Detailing',
+      services: [{ name: 'Vehicle Detailing', description: 'On-site service.', price: '$120', url: '' }],
+    })
+
+    const results = searchAgentPages([detailing], 'detailer')
+    expect(results[0]?.page.slug).toBe('mobile-detailing')
+    expect(results[0]?.matched_query_terms).toContain('detailer')
+  })
+
   it('returns offer-level results with checkout actions', () => {
     const res = searchAgentPages([plumber], 'plumbing')
     expect(res[0].offer?.checkout_url).toContain('/checkout/acme-plumb')
@@ -178,6 +201,18 @@ describe('analyzeQueryRank (win-the-query)', () => {
     const a = analyzeQueryRank([strong], weak, 'wedding photography')
     expect(a.matched).toBe(false)
     expect(a.toWin.join(' ')).toMatch(/doesn't surface/i)
+  })
+
+  it('does not recommend substring collisions as competitive query terms', () => {
+    const careProvider = mk({
+      slug: 'care-provider',
+      name: 'Care Provider',
+      description: 'Personalized care and rental-property cleaning.',
+    })
+
+    const analysis = analyzeQueryRank([careProvider], careProvider, 'car')
+    expect(analysis.matched).toBe(false)
+    expect(analysis.toWin.join(' ')).toContain('“car”')
   })
 
   it('flags an unpublished target as a projected (not real) rank', () => {

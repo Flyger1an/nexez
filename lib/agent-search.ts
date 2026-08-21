@@ -19,6 +19,7 @@ import {
 } from './marketplace'
 import { getPageLocationMatch, type LocationMatch } from './location-filter'
 import type { ReviewSummary } from './reviews'
+import { commerceIdentityTokenFamily } from './commerce-templates/curation/simulation'
 
 export type AgentSearchResult = {
   score: number
@@ -219,7 +220,7 @@ function matchesSearchFilters(page: AgentPage, summary: MarketplaceSummary, opti
 
 function getMatchedQueryTerms(tokens: string[], page: AgentPage, offer: CheckoutOffer | null) {
   if (!tokens.length) return []
-  const haystack = [
+  const evidenceFamilies = tokenFamilyCounts([
     page.name,
     page.slug,
     page.description,
@@ -229,8 +230,8 @@ function getMatchedQueryTerms(tokens: string[], page: AgentPage, offer: Checkout
     offer?.name,
     offer?.description,
     offer?.price,
-  ].filter(Boolean).join(' ').toLowerCase()
-  return [...new Set(tokens.filter((token) => haystack.includes(token)))]
+  ].filter(Boolean).join(' '))
+  return [...new Set(tokens.filter((token) => evidenceFamilies.has(commerceIdentityTokenFamily(token))))]
 }
 
 function buildMatchReasons(
@@ -266,12 +267,11 @@ function scoreOffer(tokens: string[], page: AgentPage, offer: CheckoutOffer) {
 function scoreText(tokens: string[], value: string) {
   if (!tokens.length) return 1
 
-  const haystack = value.toLowerCase()
-  return tokens.reduce((score, token) => {
-    if (!token) return score
-    if (haystack.includes(token)) return score + (haystack.split(token).length - 1)
-    return score
-  }, 0)
+  const evidenceFamilies = tokenFamilyCounts(value)
+  return tokens.reduce(
+    (score, token) => score + (evidenceFamilies.get(commerceIdentityTokenFamily(token)) ?? 0),
+    0,
+  )
 }
 
 function tokenize(value: string) {
@@ -280,6 +280,15 @@ function tokenize(value: string) {
     .split(/[^a-z0-9]+/)
     .map((part) => part.trim())
     .filter((part) => part.length > 1)
+}
+
+function tokenFamilyCounts(value: string): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const token of tokenize(value)) {
+    const family = commerceIdentityTokenFamily(token)
+    counts.set(family, (counts.get(family) ?? 0) + 1)
+  }
+  return counts
 }
 
 // ---------------------------------------------------------------------------
@@ -332,8 +341,8 @@ function pageBestScore(tokens: string[], page: AgentPage): number {
 
 /** Which query tokens appear anywhere in this page's searchable text. */
 function matchedTokenSet(tokens: string[], page: AgentPage): Set<string> {
-  const hay = pageSearchText(page).toLowerCase()
-  return new Set(tokens.filter((t) => hay.includes(t)))
+  const evidenceFamilies = tokenFamilyCounts(pageSearchText(page))
+  return new Set(tokens.filter((token) => evidenceFamilies.has(commerceIdentityTokenFamily(token))))
 }
 
 export type RankCompetitor = {

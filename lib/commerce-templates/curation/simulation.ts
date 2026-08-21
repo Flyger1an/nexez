@@ -152,6 +152,16 @@ export function commerceRequestedServiceIdentityTerms(query: string): string[] {
 }
 
 /**
+ * Preserves the complete requested service phrase for uncovered live-supply
+ * checks. A modifier such as car, vacation, mobile, dog, or wedding may be too
+ * broad to identify a catalog template alone, but it is essential when proving
+ * that a real merchant actually supplies an otherwise-uncovered category.
+ */
+export function commerceRequestedServiceEvidenceTerms(query: string): string[] {
+  return tokenFamilies(commerceRequestedServiceText(query))
+}
+
+/**
  * Keeps catalog-known service anchors when available and otherwise preserves
  * every unknown identity term. The latter makes uncovered requests fail
  * closed against live marketplace supply instead of accepting a weak overlap.

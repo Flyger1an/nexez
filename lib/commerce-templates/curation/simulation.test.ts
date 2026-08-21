@@ -3,6 +3,7 @@ import { commerceCurationCandidates, commerceReferenceCandidates } from '.'
 import {
   commerceCandidateEvidenceMatches,
   commerceRequestedCatalogIdentityTerms,
+  commerceRequestedServiceEvidenceTerms,
   commerceRequestedServiceIdentityTerms,
   commerceRequestedServiceText,
   findCommerceSimulationMatch,
@@ -162,6 +163,18 @@ describe('findCommerceSimulationMatch', () => {
       'Find a mobile notary for a wedding in Austin',
       commerceReferenceCandidates,
     )).toEqual(['notary'])
+  })
+
+  it('preserves fulfillment modifiers when checking uncovered live-supply identity', () => {
+    expect(commerceRequestedServiceEvidenceTerms(
+      'Find a car rental this weekend',
+    )).toEqual(['car', 'rental'])
+    expect(commerceRequestedServiceEvidenceTerms(
+      'Book a vacation rental for a wedding',
+    )).toEqual(['vacation', 'rental'])
+    expect(commerceRequestedServiceEvidenceTerms(
+      'Find a mobile notary in Austin',
+    )).toEqual(['mobile', 'notary'])
   })
 
   it('keeps requirement nouns from overriding the requested provider', () => {

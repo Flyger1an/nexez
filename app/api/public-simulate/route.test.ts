@@ -479,6 +479,73 @@ describe('POST /api/public-simulate', () => {
     }
   })
 
+  it('rejects descriptive-only marketplace overlap for uncovered service categories', async () => {
+    const rentalPropertyCleaningPage = {
+      ...kismetPage,
+      description: 'Personalized home care for residential and vacation-rental properties.',
+      services: [{
+        name: 'One-time/Premium Cleaning',
+        price: 'Custom quote',
+        description: 'Cleaning care for homes, short-term rentals, and occupied properties.',
+        url: 'https://kismetpros.com/book/',
+        prefer_original_for_this: true,
+      }],
+    }
+    dbRef.handler = (ctx: any) =>
+      ctx.table === 'pages_public'
+        ? { data: [rentalPropertyCleaningPage], error: null }
+        : { data: null, error: null }
+
+    for (const query of [
+      'Find me a car rental this weekend',
+      'Book a vacation rental this weekend',
+    ]) {
+      const body = await (await POST(post({ query }))).json()
+      expect(body.mode, query).toBe('coverage_gap')
+      expect(body.matchedBusiness, query).toBeNull()
+      expect(body.simulation, query).toBeNull()
+      expect(JSON.stringify(body), query).not.toMatch(/Kismet Pros|One-time\/Premium Cleaning/)
+    }
+  })
+
+  it('accepts uncovered live supply when primary merchant identity establishes the full service', async () => {
+    const mobileNotaryPage = {
+      name: 'Austin Mobile Notary',
+      slug: 'austin-mobile-notary',
+      description: 'Traveling document services by appointment.',
+      industry: 'Mobile Notary Services',
+      location: 'Austin, Texas',
+      products: [],
+      services: [{
+        name: 'Mobile Notary Appointment',
+        price: 'Custom quote',
+        description: 'A notary travels to the customer after confirming document and witness needs.',
+        url: 'https://mobile-notary.example/request/',
+        prefer_original_for_this: true,
+      }],
+      faqs: [],
+      is_published: true,
+      marketplace_discoverable: true,
+      created_at: '2026-01-07T00:00:00Z',
+    }
+    dbRef.handler = (ctx: any) =>
+      ctx.table === 'pages_public'
+        ? { data: [kismetPage, mobileNotaryPage], error: null }
+        : { data: null, error: null }
+
+    const body = await (await POST(post({
+      query: 'Find a mobile notary this weekend',
+    }))).json()
+
+    expect(body.mode).toBe('marketplace')
+    expect(body.matchedBusiness).toMatchObject({
+      name: 'Austin Mobile Notary',
+      offer: { name: 'Mobile Notary Appointment' },
+    })
+    expect(body.simulation).toBeNull()
+    expect(JSON.stringify(body)).not.toContain('Kismet Pros')
+  })
+
   it('anchors simulation identity before unrelated requirement categories', async () => {
     dbRef.handler = (ctx: any) =>
       ctx.table === 'pages_public'
