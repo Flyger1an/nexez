@@ -1,5 +1,5 @@
 import 'server-only'
-import type { BusyPeriod } from '../integrations'
+import type { BusyPeriod, DerivedWindow } from '../integrations'
 
 // PAT-powered Calendly write/query operations (the write-side that the stored
 // per-page Calendly credential unlocks). The raw PAT comes from
@@ -22,7 +22,32 @@ function withTimeout(ms: number = TIMEOUT_MS): { signal: AbortSignal; done: () =
 // reusable link quickly rather than making the buyer wait on Calendly.
 const LINK_TIMEOUT_MS = 6000
 
-export type CalendlyUser = { ok: true; uri: string } | { ok: false; reason: 'invalid' | 'unknown' }
+export type CalendlyUser = { ok: true; uri: string; timeZone: string } | { ok: false; reason: 'invalid' | 'unknown' }
+
+export type CalendlyEventTypeRef = {
+  uri: string
+  durationMinutes: number
+}
+
+export type CalendlyEventTypeAvailability = {
+  windows: DerivedWindow[]
+  availabilityByEventType: Record<string, 'available' | 'sold_out'>
+  complete: boolean
+  timeZone: string
+}
+
+const DEFAULT_TIME_ZONE = 'UTC'
+const MAX_EVENT_TYPES = 25
+
+function validTimeZone(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) return DEFAULT_TIME_ZONE
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value }).format()
+    return value
+  } catch {
+    return DEFAULT_TIME_ZONE
+  }
+}
 
 /**
  * Verify a Calendly PAT and resolve the user URI. `invalid` = Calendly rejected
@@ -41,11 +66,156 @@ export async function getCalendlyUser(pat: string): Promise<CalendlyUser> {
     if (!res.ok) return { ok: false, reason: 'unknown' }
     const data = await res.json()
     const uri = data?.resource?.uri
-    return typeof uri === 'string' && uri ? { ok: true, uri } : { ok: false, reason: 'unknown' }
+    return typeof uri === 'string' && uri
+      ? { ok: true, uri, timeZone: validTimeZone(data?.resource?.timezone) }
+      : { ok: false, reason: 'unknown' }
   } catch {
     return { ok: false, reason: 'unknown' }
   } finally {
     t.done()
+  }
+}
+
+function zonedParts(value: Date, timeZone: string): { date: string; time: string; weekday: string; labelTime: string } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(value)
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? ''
+  const hour = part('hour')
+  const minute = part('minute')
+  const labelTime = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  }).format(value)
+  return {
+    date: `${part('year')}-${part('month')}-${part('day')}`,
+    time: `${hour}:${minute}`,
+    weekday: part('weekday'),
+    labelTime,
+  }
+}
+
+function availableTimesToWindows(
+  slots: Array<{ startTime: string; durationMinutes: number }>,
+  timeZone: string,
+  max = 6,
+): DerivedWindow[] {
+  const seen = new Set<string>()
+  const windows: DerivedWindow[] = []
+  for (const slot of slots.sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime))) {
+    const start = new Date(slot.startTime)
+    if (!Number.isFinite(start.getTime()) || seen.has(start.toISOString())) continue
+    seen.add(start.toISOString())
+    const durationMinutes = Number.isFinite(slot.durationMinutes) && slot.durationMinutes > 0
+      ? Math.min(slot.durationMinutes, 24 * 60)
+      : 30
+    const end = new Date(start.getTime() + durationMinutes * 60_000)
+    const startParts = zonedParts(start, timeZone)
+    const endParts = zonedParts(end, timeZone)
+    windows.push({
+      date: startParts.date,
+      start: startParts.time,
+      end: endParts.time,
+      label: `${startParts.weekday} ${startParts.labelTime}–${endParts.labelTime}`,
+      time_zone: timeZone,
+    })
+    if (windows.length >= max) break
+  }
+  return windows
+}
+
+/**
+ * Ask Calendly for the event type's actual bookable times. Unlike subtracting
+ * busy blocks from guessed 9–5 hours, this endpoint already applies the owner's
+ * configured schedule, timezone, date overrides, buffers, and booking rules.
+ *
+ * Successful event types are returned independently so a partial upstream
+ * failure never marks an unverified offer sold out. `null` means no event type
+ * could be verified and callers must leave all published availability untouched.
+ */
+export async function fetchCalendlyEventTypeAvailability(
+  pat: string,
+  refs: CalendlyEventTypeRef[],
+  opts: { days?: number; now?: Date; maxWindows?: number } = {},
+): Promise<CalendlyEventTypeAvailability | null> {
+  const unique = new Map<string, CalendlyEventTypeRef>()
+  let truncated = false
+  for (const ref of refs) {
+    if (!isCalendlyEventTypeUri(ref.uri) || unique.has(ref.uri)) continue
+    if (unique.size >= MAX_EVENT_TYPES) {
+      truncated = true
+      continue
+    }
+    unique.set(ref.uri, ref)
+  }
+  if (!unique.size) return null
+
+  const user = await getCalendlyUser(pat)
+  if (!user.ok) return null
+
+  const now = opts.now ?? new Date()
+  const days = Math.min(Math.max(1, opts.days ?? MAX_BUSY_DAYS), MAX_BUSY_DAYS)
+  const start = new Date(now.getTime() + 60_000)
+  // Stay just inside Calendly's inclusive seven-day limit.
+  const end = new Date(start.getTime() + days * 86_400_000 - 1_000)
+  const entries = [...unique.values()]
+  const responses = await Promise.all(entries.map(async (ref) => {
+    const t = withTimeout()
+    try {
+      const params = new URLSearchParams({
+        event_type: ref.uri,
+        start_time: start.toISOString(),
+        end_time: end.toISOString(),
+      })
+      const res = await fetch(`${CALENDLY_API}/event_type_available_times?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' },
+        signal: t.signal,
+      })
+      if (!res.ok) return { ref, slots: null }
+      const data = await res.json()
+      const collection = Array.isArray(data?.collection) ? data.collection : []
+      const slots = collection
+        .filter((slot: { status?: string }) => !slot.status || slot.status === 'available')
+        .map((slot: { start_time?: string }) => ({
+          startTime: slot.start_time ?? '',
+          durationMinutes: ref.durationMinutes,
+        }))
+        .filter((slot: { startTime: string }) => Number.isFinite(Date.parse(slot.startTime)))
+      return { ref, slots }
+    } catch {
+      return { ref, slots: null }
+    } finally {
+      t.done()
+    }
+  }))
+
+  const availabilityByEventType: Record<string, 'available' | 'sold_out'> = {}
+  const availableSlots: Array<{ startTime: string; durationMinutes: number }> = []
+  let failures = 0
+  for (const response of responses) {
+    if (response.slots === null) {
+      failures += 1
+      continue
+    }
+    availabilityByEventType[response.ref.uri] = response.slots.length ? 'available' : 'sold_out'
+    availableSlots.push(...response.slots)
+  }
+  if (Object.keys(availabilityByEventType).length === 0) return null
+
+  return {
+    windows: availableTimesToWindows(availableSlots, user.timeZone, opts.maxWindows),
+    availabilityByEventType,
+    complete: failures === 0 && !truncated,
+    timeZone: user.timeZone,
   }
 }
 

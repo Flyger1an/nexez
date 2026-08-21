@@ -755,7 +755,7 @@ export function getRequestBaseUrl(input: Request | HeaderGetter) {
  * Allows structured upcoming slots to roundtrip into agent.json and public page
  * without requiring a new DB column (consistent with the ||TIERS|| fidelity pattern).
  */
-export function parseAvailabilityWindows(note: string | null | undefined): Array<{ date: string; start: string; end: string; label?: string }> | null {
+export function parseAvailabilityWindows(note: string | null | undefined): Array<{ date: string; start: string; end: string; label?: string; time_zone?: string }> | null {
   if (!note) return null
   const marker = note.split('||WINDOWS||')[1]
   if (!marker) return null

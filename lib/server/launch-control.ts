@@ -432,6 +432,7 @@ function buildMetrics(
 
 function buildIncidents(sources: OperationalSources, nowIso: string): LaunchIncident[] {
   const staleNegotiationBefore = Date.parse(nowIso) - 10 * 60_000
+  const staleShopifyBefore = Date.parse(nowIso) - 15 * 60_000
   const incidents: LaunchIncident[] = []
 
   for (const row of sources.checkoutEvents.rows.filter((event) => event.event_type === 'stripe_error').slice(0, 6)) {
@@ -461,6 +462,20 @@ function buildIncidents(sources: OperationalSources, nowIso: string): LaunchInci
       detail: `${row.shop_domain}: ${cleanText(row.catalog_sync_error || 'Reconnect Shopify to resume sync.')}`,
       occurredAt: row.updated_at,
       status: 'blocked',
+      href: '/dashboard/shopify',
+    })
+  }
+  for (const row of sources.shopify.rows.filter((item) => (
+    !item.catalog_sync_error
+    && item.catalog_sync_pending_at
+    && timestamp(item.catalog_sync_pending_at) < staleShopifyBefore
+  )).slice(0, 6)) {
+    incidents.push({
+      id: `shopify-stale-${row.shop_domain}`,
+      title: 'Shopify catalog sync is stale',
+      detail: `${row.shop_domain} has exceeded the catalog worker backstop window.`,
+      occurredAt: row.catalog_sync_pending_at,
+      status: 'attention',
       href: '/dashboard/shopify',
     })
   }

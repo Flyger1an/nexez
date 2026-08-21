@@ -7,7 +7,7 @@ const h = vi.hoisted(() => ({
   configured: true,
   pat: 'pat' as string | null,
   imported: { ok: true, offers: [] as any[], note: 'n' } as any,
-  busy: [] as any,
+  availability: null as any,
   page: { id: 'pg1', slug: 'acme', services: [] as any[], next_available: null } as any,
   pagesUpdate: null as any,
   secretsUpdate: null as any,
@@ -26,7 +26,7 @@ vi.mock('../../../../../../lib/server/page-integration-credentials', () => ({
   integrationCredentialsConfigured: () => h.configured,
   getCalendlyPat: async () => h.pat,
 }))
-vi.mock('../../../../../../lib/server/calendly-write', () => ({ fetchCalendlyBusy: async () => h.busy }))
+vi.mock('../../../../../../lib/server/calendly-write', () => ({ fetchCalendlyEventTypeAvailability: async () => h.availability }))
 vi.mock('../../../../../../lib/observability', () => ({ captureEvent: vi.fn() }))
 vi.mock('../../../../../../utils/supabase/admin', () => ({
   createAdminClient: () =>
@@ -53,6 +53,12 @@ const calOffer = () => ({
   duration: '30 min', source: 'calendly', confidence: 0.92,
   metadata: { calendly_event_type: 'https://api.calendly.com/event_types/GB' },
 })
+const openAvailability = () => ({
+  windows: [{ date: '2026-07-08', start: '10:00', end: '10:30', label: 'Wed 10:00 AM CDT–10:30 AM CDT', time_zone: 'America/Chicago' }],
+  availabilityByEventType: { 'https://api.calendly.com/event_types/GB': 'available' },
+  complete: true,
+  timeZone: 'America/Chicago',
+})
 
 describe('POST /api/pages/[id]/calendly/sync', () => {
   beforeEach(() => {
@@ -63,7 +69,7 @@ describe('POST /api/pages/[id]/calendly/sync', () => {
     h.configured = true
     h.pat = 'pat'
     h.imported = { ok: true, offers: [calOffer()], note: 'Imported 1' }
-    h.busy = [{ start: '2026-07-08T14:00:00Z', end: '2026-07-08T15:00:00Z' }]
+    h.availability = openAvailability()
     h.page = { id: 'pg1', slug: 'acme', services: [{ name: 'Existing Service', price: '$10', description: '', url: '' }], next_available: null }
     h.pagesUpdate = null
     h.secretsUpdate = null
@@ -119,7 +125,7 @@ describe('POST /api/pages/[id]/calendly/sync', () => {
   })
 
   it('a fully-booked calendar blocks the Calendly offer (sold_out)', async () => {
-    h.busy = Array.from({ length: 8 }, (_, d) => ({ start: `2026-07-${String(8 + d).padStart(2, '0')}T00:00:00Z`, end: `2026-07-${String(9 + d).padStart(2, '0')}T00:00:00Z` }))
+    h.availability = { ...openAvailability(), windows: [], availabilityByEventType: { 'https://api.calendly.com/event_types/GB': 'sold_out' } }
     await POST(req(), ctx)
     const cal = h.pagesUpdate.services.find((o: any) => o.name === 'Intro Call')
     expect(cal.availability).toBe('sold_out')
@@ -127,7 +133,7 @@ describe('POST /api/pages/[id]/calendly/sync', () => {
   })
 
   it('a failed availability fetch still imports offers but leaves next_available untouched', async () => {
-    h.busy = null // fetchCalendlyBusy → null
+    h.availability = null
     const res = await POST(req(), ctx)
     expect(res.status).toBe(200)
     expect((await res.json()).availability_synced).toBe(false)

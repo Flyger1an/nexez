@@ -2,9 +2,8 @@ import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { importIntegrationOffers, type IntegrationIngestInput } from './integration-importers'
 import { getCalendlyPat, getShopifyCreds, getSquareCreds, getAcuityCreds, integrationCredentialsConfigured } from './page-integration-credentials'
-import { fetchCalendlyBusy } from './calendly-write'
-import { deriveAvailabilityWindows } from '../integrations'
-import { applyOfferAvailability, buildCalendlyNextAvailable } from '../calendly-availability'
+import { fetchCalendlyEventTypeAvailability } from './calendly-write'
+import { applyEventTypeAvailability, buildCalendlyNextAvailable, calendlyEventTypeRefs } from '../calendly-availability'
 import { mergeProviderOffersAcrossColumns } from '../integration-merge'
 import { parseAvailabilityWindows, type OfferItem } from '../agent-page'
 import { captureEvent } from '../observability'
@@ -116,27 +115,26 @@ export async function syncPageIntegration(
   let windows: Array<{ label: string }> = []
   let availabilitySynced = false
 
-  // Calendly-only: refresh availability from real busy-times (mirrors the cron),
-  // across BOTH columns since a Calendly offer can live in either.
+  // Calendly-only: use Calendly's actual event-type slots. Calendly applies the
+  // owner's timezone, schedule, overrides, buffers, and conflicts before it
+  // returns these times; Nexez must not invent generic server-local hours.
   if (provider === 'calendly' && input.provider === 'calendly') {
-    const busy = await fetchCalendlyBusy(input.token, { days: HORIZON_DAYS })
-    if (busy) {
+    const eventTypeAvailability = await fetchCalendlyEventTypeAvailability(
+      input.token,
+      calendlyEventTypeRefs([...services, ...products]),
+      { days: HORIZON_DAYS },
+    )
+    if (eventTypeAvailability) {
       availabilitySynced = true
-      windows = deriveAvailabilityWindows(busy, { days: HORIZON_DAYS })
-      const availability = windows.length ? 'available' : 'sold_out'
-      for (let i = 0; i < services.length; i++) {
-        if (services[i]!.source !== 'calendly') continue
-        const applied = applyOfferAvailability(services, i, availability, nowIso)
-        if (applied.changed) services = applied.offers
-      }
-      for (let i = 0; i < products.length; i++) {
-        if (products[i]!.source !== 'calendly') continue
-        const applied = applyOfferAvailability(products, i, availability, nowIso)
-        if (applied.changed) products = applied.offers
-      }
+      windows = eventTypeAvailability.windows
+      services = applyEventTypeAvailability(services, eventTypeAvailability.availabilityByEventType, nowIso)
+      products = applyEventTypeAvailability(products, eventTypeAvailability.availabilityByEventType, nowIso)
       // Never stomp a hand-written availability note; only refresh empty / already-Calendly-managed.
       const priorIsManual = parseAvailabilityWindows(page.next_available) === null && Boolean(page.next_available && page.next_available.trim())
-      if (!priorIsManual) {
+      // A partial response with zero slots cannot prove the whole page is sold
+      // out. Known positive slots are safe to publish; a complete response can
+      // also truthfully publish the empty state.
+      if (!priorIsManual && (eventTypeAvailability.complete || windows.length > 0)) {
         const next = buildCalendlyNextAvailable(windows, HORIZON_DAYS)
         if (next !== page.next_available) update.next_available = next
       }

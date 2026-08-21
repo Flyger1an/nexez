@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
-import { deriveAvailabilityWindows } from '../../../../lib/integrations'
-import { applyOfferAvailability, buildCalendlyNextAvailable } from '../../../../lib/calendly-availability'
-import { fetchCalendlyBusy } from '../../../../lib/server/calendly-write'
+import { applyEventTypeAvailability, buildCalendlyNextAvailable, calendlyEventTypeRefs } from '../../../../lib/calendly-availability'
+import { fetchCalendlyEventTypeAvailability } from '../../../../lib/server/calendly-write'
 import { getCalendlyPat, integrationCredentialsConfigured } from '../../../../lib/server/page-integration-credentials'
 import { parseAvailabilityWindows, type OfferItem } from '../../../../lib/agent-page'
 import { captureEvent } from '../../../../lib/observability'
@@ -18,8 +17,8 @@ type CalPage = { id: string; slug: string; services: OfferItem[] | null; product
 
 /**
  * Calendly write-side calendar blocking (Vercel cron). For every published page
- * with a stored, encrypted Calendly PAT, pull the seller's REAL busy times, turn
- * them into open availability windows, publish those windows on the listing
+ * with a stored, encrypted Calendly PAT, pull the seller's REAL event-type
+ * availability, publish those windows on the listing
  * (next_available → agent.json), and BLOCK (sold_out) the Calendly-sourced
  * offers when the calendar shows no open slots in the horizon — un-blocking them
  * when it frees up. This is calendar truth, superseding the booking-count
@@ -76,42 +75,42 @@ export async function GET(request: Request) {
       failed += 1
       continue
     }
-    const busy = await fetchCalendlyBusy(pat, { days: HORIZON_DAYS })
-    if (busy === null) {
+    const refs = calendlyEventTypeRefs([...(page.services ?? []), ...(page.products ?? [])])
+    const eventTypeAvailability = await fetchCalendlyEventTypeAvailability(pat, refs, { days: HORIZON_DAYS })
+    if (eventTypeAvailability === null) {
       // Couldn't reach Calendly — leave the listing untouched (don't blank it).
       failed += 1
       continue
     }
 
-    const windows = deriveAvailabilityWindows(busy, { days: HORIZON_DAYS })
+    const windows = eventTypeAvailability.windows
     const nextAvailable = buildCalendlyNextAvailable(windows, HORIZON_DAYS)
 
     // Only write when the open slots actually changed (avoid churn / updated_at
     // bumps) — OR when the listing has no Calendly-synced marker yet, so the
     // first sync (even a fully-booked "no slots") always publishes.
     const priorWindows = parseAvailabilityWindows(page.next_available)
-    const windowsChanged = priorWindows === null || JSON.stringify(priorWindows) !== JSON.stringify(windows)
+    const mayPublishWindows = eventTypeAvailability.complete || windows.length > 0
+    const windowsChanged = mayPublishWindows
+      && (priorWindows === null || JSON.stringify(priorWindows) !== JSON.stringify(windows))
 
-    // Block/unblock the Calendly-sourced offers from calendar truth.
-    const availability = windows.length ? 'available' : 'sold_out'
     const update: Record<string, unknown> = {}
     for (const col of ['services', 'products'] as const) {
-      let offers = page[col] ?? []
-      let changed = false
-      for (let i = 0; i < offers.length; i++) {
-        if (offers[i]!.source !== 'calendly') continue
-        const applied = applyOfferAvailability(offers, i, availability, nowIso)
-        if (applied.changed) {
-          offers = applied.offers
-          changed = true
-          if (availability === 'sold_out') offersBlocked += 1
-          else offersFreed += 1
+      const offers = page[col] ?? []
+      const nextOffers = applyEventTypeAvailability(offers, eventTypeAvailability.availabilityByEventType, nowIso)
+      const changed = nextOffers !== offers
+      if (changed) {
+        for (let index = 0; index < offers.length; index++) {
+          if (offers[index]?.availability === nextOffers[index]?.availability) continue
+          if (nextOffers[index]?.availability === 'sold_out') offersBlocked += 1
+          else if (nextOffers[index]?.availability === 'available') offersFreed += 1
         }
       }
-      if (changed) update[col] = offers
+      if (changed) update[col] = nextOffers
     }
 
     if (windowsChanged) update.next_available = nextAvailable
+    if (!eventTypeAvailability.complete) failed += 1
     if (Object.keys(update).length === 0) continue // nothing changed for this page
 
     const { error: updateErr } = await admin.from('pages').update(update).eq('id', page.id)

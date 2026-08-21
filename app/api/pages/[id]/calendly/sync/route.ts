@@ -4,10 +4,9 @@ import { createClient } from '../../../../../../utils/supabase/server'
 import { createAdminClient } from '../../../../../../utils/supabase/admin'
 import { gateIntegrationImport, importCalendlyOffers } from '../../../../../../lib/server/integration-importers'
 import { getCalendlyPat, integrationCredentialsConfigured } from '../../../../../../lib/server/page-integration-credentials'
-import { fetchCalendlyBusy } from '../../../../../../lib/server/calendly-write'
-import { deriveAvailabilityWindows } from '../../../../../../lib/integrations'
+import { fetchCalendlyEventTypeAvailability } from '../../../../../../lib/server/calendly-write'
 import { smartMergeOffers } from '../../../../../../lib/editor-merge'
-import { applyOfferAvailability, buildCalendlyNextAvailable } from '../../../../../../lib/calendly-availability'
+import { applyEventTypeAvailability, buildCalendlyNextAvailable, calendlyEventTypeRefs } from '../../../../../../lib/calendly-availability'
 import { parseAvailabilityWindows, type OfferItem } from '../../../../../../lib/agent-page'
 import { enforceRateLimit } from '../../../../../../lib/rate-limit'
 import { captureEvent } from '../../../../../../lib/observability'
@@ -20,7 +19,7 @@ const HORIZON_DAYS = 7
  * stored a credential nothing then used: this pulls the seller's live event types
  * in as `source: 'calendly'` offers (each stamped with its event-type URI, which
  * single-use link minting needs) and refreshes advertised availability from the
- * real busy-times, exactly like the background cron.
+ * real event-type availability, exactly like the background cron.
  *
  * Owner/editor + Pro gated (same as every Calendly import surface). Dormant
  * without INTEGRATION_SECRET_KEY; a 400 if no PAT is connected yet.
@@ -89,26 +88,27 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   }
   let services = [...untouched, ...mergedCalendly]
 
-  // 3) Availability from real busy-times (mirrors the cron) — best-effort; a
-  // failed fetch leaves the current availability untouched (never blanks it).
+  // 3) Availability from Calendly's real event-type slots (mirrors the cron).
+  // Calendly has already applied the owner's timezone, business hours, date
+  // overrides, conflicts, and booking rules. A failed fetch leaves the current
+  // availability untouched (never blanks it).
   const nowIso = new Date().toISOString()
-  const busy = await fetchCalendlyBusy(pat, { days: HORIZON_DAYS })
+  const eventTypeAvailability = await fetchCalendlyEventTypeAvailability(
+    pat,
+    calendlyEventTypeRefs(services),
+    { days: HORIZON_DAYS },
+  )
   let windows: Array<{ label: string }> = []
   const update: Record<string, unknown> = {}
-  if (busy) {
-    windows = deriveAvailabilityWindows(busy, { days: HORIZON_DAYS })
-    const availability = windows.length ? 'available' : 'sold_out'
-    for (let i = 0; i < services.length; i++) {
-      if (services[i]!.source !== 'calendly') continue
-      const applied = applyOfferAvailability(services, i, availability, nowIso)
-      if (applied.changed) services = applied.offers
-    }
+  if (eventTypeAvailability) {
+    windows = eventTypeAvailability.windows
+    services = applyEventTypeAvailability(services, eventTypeAvailability.availabilityByEventType, nowIso)
     // Refresh the free-text availability note from Calendly — but NEVER stomp a
     // note the seller hand-wrote. Only write when the current value is empty or
     // already Calendly-managed (has the ||WINDOWS|| marker), and skip a no-op
     // write (churn), mirroring the cron.
     const priorIsManual = parseAvailabilityWindows(page.next_available) === null && Boolean(page.next_available && page.next_available.trim())
-    if (!priorIsManual) {
+    if (!priorIsManual && (eventTypeAvailability.complete || windows.length > 0)) {
       const next = buildCalendlyNextAvailable(windows, HORIZON_DAYS)
       if (next !== page.next_available) update.next_available = next
     }
@@ -127,7 +127,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     ok: true,
     imported: imported.offers.length,
     windows: windows.length,
-    availability_synced: Boolean(busy),
+    availability_synced: Boolean(eventTypeAvailability),
     note: imported.note,
   })
 }
