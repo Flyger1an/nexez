@@ -11,6 +11,7 @@ import type {
   AgentNegotiation,
   AgentPage,
   AgentVisit,
+  AnalyticsRollup,
   BillingSubscription,
   BuyerRequest,
   CheckoutEvent,
@@ -112,6 +113,22 @@ export async function getCheckoutEvents(userId: string, limit = 250): Promise<Ch
     throw error
   }
   return data ?? []
+}
+
+export async function getAnalyticsRollup(from: Date): Promise<AnalyticsRollup> {
+  const { data, error } = await supabase.rpc('nz_owner_analytics_rollup', {
+    p_from: from.toISOString(),
+    p_to: null,
+    p_page_id: null,
+    p_query: null,
+    p_event_type: null,
+    p_traffic: 'all',
+  })
+  if (error) throw error
+  if (!data || typeof data !== 'object' || Number((data as { schemaVersion?: unknown }).schemaVersion) !== 1) {
+    throw new Error('Analytics totals are not available yet.')
+  }
+  return data as AnalyticsRollup
 }
 
 export async function getNegotiations(userId: string, limit = 100): Promise<AgentNegotiation[]> {

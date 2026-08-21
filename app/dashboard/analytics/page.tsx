@@ -24,13 +24,11 @@ import {
   filterAnalyticsEvents,
   formatEventDate,
   getAgentName,
-  getCheckoutAttemptCount,
   getDailyEventSeries,
   getDiscoveryActionStats,
   getDiscoveryClickCount,
   getDiscoverySurfaceStats,
   getPageOptions,
-  getPipelineCents,
   getReadinessInsight,
   analyticsRangeBounds,
   clampHistoryRange,
@@ -59,6 +57,15 @@ import {
   type DirectFinanceRow,
 } from '../../../lib/finance-analytics'
 import { DataLoadNotice } from '../../../components/dashboard/DataLoadNotice'
+import {
+  buildAnalyticsFunnel,
+  canonicalOrderChannel,
+  formatAnalyticsRate,
+  getAnalyticsChannelLabel,
+  getOrderChannelBreakdown,
+  summarizeAnalyticsTrust,
+} from '../../../lib/analytics-report'
+import { loadOwnerAnalyticsRollup } from '../../../lib/server/analytics-rollup'
 
 type AnalyticsPageProps = {
   searchParams: Promise<AnalyticsSearchParams>
@@ -115,19 +122,27 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     )
   }
 
-  const pages = await fetchOwnedPages(supabase, user.id)
-
   // analyticsHistory (Pro): All-time + custom date ranges are Pro-only; today/1d/7d/30d
   // stay free. Clamp gated selections server-side so a URL like ?range=all or
   // ?from=2020-01-01 can't read history beyond the free window (the UI teaser alone
   // is bypassable). The CSV export route applies the same clamp.
-  const fullHistory = planAllows(await getOwnerPlanId(supabase, user.id), 'analyticsHistory')
+  const [pages, ownerPlanId] = await Promise.all([
+    fetchOwnedPages(supabase, user.id),
+    getOwnerPlanId(supabase, user.id),
+  ])
+  const fullHistory = planAllows(ownerPlanId, 'analyticsHistory')
   const historyWindow = clampHistoryRange({ range: filters.range, from: filters.from, to: filters.to }, fullHistory)
   const range = historyWindow.range || '30d'
 
   // Resolve the time window: preset (1d/7d/30d/all) or a custom from/to range.
   const rangeBounds = analyticsRangeBounds(historyWindow)
   const { cutoff, until, isCustom } = rangeBounds
+  const ownedPages = pages ?? []
+  const pageOptions = getPageOptions(ownedPages)
+  const selectedPage = ownedPages.find((page) => page.id === filters.page) ?? null
+  const selectedPageId = selectedPage?.id ?? ''
+  const scopedPages = selectedPage ? [selectedPage] : ownedPages
+  const selectedAction = actionOptions.some(([value]) => value === filters.action) ? filters.action : 'all'
 
   let checkoutEventsQuery = supabase
     .from('checkout_events')
@@ -135,11 +150,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     .eq('owner_id', user.id)
     .gte('created_at', cutoff.toISOString())
   if (until) checkoutEventsQuery = checkoutEventsQuery.lte('created_at', until.toISOString())
-  const { data: checkoutEvents, error: checkoutEventsError } = await checkoutEventsQuery
-    .order('created_at', { ascending: false })
-    .limit(500)
-    .returns<CheckoutEvent[]>()
-
+  if (selectedPageId) checkoutEventsQuery = checkoutEventsQuery.eq('page_id', selectedPageId)
+  if (selectedAction !== 'all') checkoutEventsQuery = checkoutEventsQuery.eq('event_type', selectedAction)
   let liveOrdersQuery = supabase
     .from('checkout_orders')
     .select('id, page_id, offer_name, offer_key, amount_cents, currency, status, channel, slug, refunded_cents, buyer_email, buyer_name, buyer_reference, buyer_agent, commission_percent, application_fee_cents, stripe_livemode, created_at')
@@ -147,22 +159,16 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     .eq('stripe_livemode', true)
     .gte('created_at', cutoff.toISOString())
   if (until) liveOrdersQuery = liveOrdersQuery.lte('created_at', until.toISOString())
-  const { data: liveOrderRows, error: liveOrderError } = await liveOrdersQuery
-    .order('created_at', { ascending: false })
-    .limit(1000)
-    .returns<DirectFinanceRow[]>()
-
+  if (selectedPageId) liveOrdersQuery = liveOrdersQuery.eq('page_id', selectedPageId)
   let agentVisitsQuery = supabase
     .from('agent_visits')
     .select('*')
     .eq('owner_id', user.id)
     .gte('created_at', cutoff.toISOString())
   if (until) agentVisitsQuery = agentVisitsQuery.lte('created_at', until.toISOString())
-  const { data: agentVisitRows, error: agentVisitError } = await agentVisitsQuery
-    .order('created_at', { ascending: false })
-    .limit(1000)
-    .returns<AgentVisit[]>()
-
+  if (selectedPageId) agentVisitsQuery = agentVisitsQuery.eq('page_id', selectedPageId)
+  if (selectedTraffic === 'ai') agentVisitsQuery = agentVisitsQuery.eq('is_ai_agent', true)
+  if (selectedTraffic === 'human') agentVisitsQuery = agentVisitsQuery.eq('is_ai_agent', false)
   let negotiationsQuery = supabase
     .from('agent_negotiations')
     .select('status, created_at')
@@ -170,8 +176,35 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     .or('stripe_livemode.is.null,stripe_livemode.eq.true')
     .gte('created_at', cutoff.toISOString())
   if (until) negotiationsQuery = negotiationsQuery.lte('created_at', until.toISOString())
-  const { data: negotiationRows, error: negotiationError } = await negotiationsQuery
-    .returns<Pick<AgentNegotiation, 'status'>[]>()
+  if (selectedPageId) negotiationsQuery = negotiationsQuery.eq('page_id', selectedPageId)
+  const [checkoutResult, orderResult, visitResult, negotiationResult, rollupResult] = await Promise.all([
+    checkoutEventsQuery
+      .order('created_at', { ascending: false })
+      .limit(500)
+      .returns<CheckoutEvent[]>(),
+    liveOrdersQuery
+      .order('created_at', { ascending: false })
+      .limit(1000)
+      .returns<DirectFinanceRow[]>(),
+    agentVisitsQuery
+      .order('created_at', { ascending: false })
+      .limit(1000)
+      .returns<AgentVisit[]>(),
+    negotiationsQuery.returns<Pick<AgentNegotiation, 'status'>[]>(),
+    loadOwnerAnalyticsRollup(supabase, {
+      from: cutoff,
+      to: until,
+      pageId: selectedPageId,
+      query: filters.q,
+      eventType: selectedAction,
+      traffic: selectedTraffic,
+    }),
+  ])
+  const { data: checkoutEvents, error: checkoutEventsError } = checkoutResult
+  const { data: liveOrderRows, error: liveOrderError } = orderResult
+  const { data: agentVisitRows, error: agentVisitError } = visitResult
+  const { data: negotiationRows, error: negotiationError } = negotiationResult
+  const analyticsRollup = rollupResult.data
 
   const events = checkoutEvents ?? []
   const liveOrders = liveOrderRows ?? []
@@ -183,14 +216,9 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     liveOrderError ? 'paid orders' : null,
     agentVisitError ? 'traffic classification' : null,
     negotiationError ? 'negotiations' : null,
+    rollupResult.error ? 'exact analytics totals' : null,
   ].filter((issue): issue is string => Boolean(issue))
   const negotiationSummary = summarizeNegotiations(negotiations)
-  const ownedPages = pages ?? []
-  const pageOptions = getPageOptions(ownedPages)
-  const selectedPage = ownedPages.find((page) => page.id === filters.page) ?? null
-  const selectedPageId = selectedPage?.id ?? ''
-  const scopedPages = selectedPage ? [selectedPage] : ownedPages
-  const selectedAction = actionOptions.some(([value]) => value === filters.action) ? filters.action : 'all'
   const normalizedFilters: AnalyticsSearchParams = {
     ...filters,
     // Use the plan-clamped time window so links never carry a gated range.
@@ -221,60 +249,128 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           .some((value) => String(value).toLowerCase().includes(queryNeedle))
       })
     : []
-  const trafficSplit = getTrafficSplit(filteredAgentVisits)
-  const agentTypeBreakdown = getAgentTypeBreakdown(filteredAgentVisits)
-  const topAgentVisitPages = getTopPagesByAgentVisits(filteredAgentVisits, ownedPages).slice(0, 6)
+  const sampledTrafficSplit = getTrafficSplit(filteredAgentVisits)
+  const trafficSplit = analyticsRollup
+    ? {
+        ai: analyticsRollup.counts.aiVisits,
+        human: analyticsRollup.counts.humanVisits,
+        total: analyticsRollup.counts.visits,
+      }
+    : sampledTrafficSplit
+  const agentTypeBreakdown = analyticsRollup
+    ? analyticsRollup.agentTypes.map((row) => ({
+        agentType: row.agentType,
+        total: row.visits,
+        avgConfidence: row.avgConfidence,
+      }))
+    : getAgentTypeBreakdown(filteredAgentVisits)
+  const topAgentVisitPages = analyticsRollup
+    ? analyticsRollup.topPages.map((row) => ({
+        pageId: row.pageId,
+        slug: row.slug,
+        name: row.name,
+        total: row.visits,
+      }))
+    : getTopPagesByAgentVisits(filteredAgentVisits, ownedPages).slice(0, 6)
   const readinessTrend = getReadinessTrendSummary(ownedPages)
   const recentAgentVisitLogs = filteredAgentVisits.filter((visit) => visit.is_ai_agent).slice(0, 10)
   const offerCount = scopedPages.reduce((sum, page) => sum + getOfferCount(page), 0)
   const agentPageVisits = trafficSplit.ai
-  const topQueries = getTopQueries(filteredEvents, filteredAgentVisits)
-  const topReferrers = getTopReferrers(filteredAgentVisits)
+  const topQueries = analyticsRollup
+    ? analyticsRollup.topQueries.map((row) => ({ query: row.query, count: row.uses }))
+    : getTopQueries(filteredEvents, filteredAgentVisits)
+  const topReferrers = analyticsRollup
+    ? analyticsRollup.topReferrers.map((row) => ({ query: row.referrer, count: row.visits }))
+    : getTopReferrers(filteredAgentVisits)
   // Offers to compare queries against: the filtered page if one is selected, else all owned pages.
   const offerScopePages = scopedPages
   const offerTexts = offerScopePages.flatMap((p) =>
     [...(p.services ?? []), ...(p.products ?? [])].map((o) => `${o.name} ${o.description ?? ''}`),
   )
   const unservedQueries = getUnservedQueries(topQueries, offerTexts)
-  const discoveryClicks = getDiscoveryClickCount(filteredEvents)
-  const attemptCount = getCheckoutAttemptCount(filteredEvents)
-  const conversionCount = filteredOrders.length
-  const conversionRate = attemptCount > 0
-    ? ((conversionCount / attemptCount) * 100).toFixed(1)
-    : conversionCount > 0 ? '100.0' : '0.0'
+  const sampledFunnel = buildAnalyticsFunnel(filteredEvents, filteredAgentVisits, filteredOrders)
+  const funnel = analyticsRollup
+    ? {
+        listingVisits: analyticsRollup.counts.visits,
+        checkoutAttempts: analyticsRollup.counts.checkoutAttempts,
+        checkoutStarts: analyticsRollup.counts.checkoutStarts,
+        paidDirectOrders: analyticsRollup.counts.paidDirectOrders,
+        retainedDirectOrders: analyticsRollup.counts.retainedDirectOrders,
+        startRate: analyticsRollup.counts.checkoutAttempts
+          ? analyticsRollup.counts.checkoutStarts / analyticsRollup.counts.checkoutAttempts
+          : null,
+        paidRate: analyticsRollup.counts.checkoutStarts
+          ? analyticsRollup.counts.paidDirectOrders / analyticsRollup.counts.checkoutStarts
+          : null,
+        retentionRate: analyticsRollup.counts.paidDirectOrders
+          ? analyticsRollup.counts.retainedDirectOrders / analyticsRollup.counts.paidDirectOrders
+          : null,
+        attributionComplete: analyticsRollup.counts.paidDirectOrders <= analyticsRollup.counts.checkoutStarts,
+      }
+    : sampledFunnel
+  const discoveryClicks = analyticsRollup?.counts.discoveryClicks ?? getDiscoveryClickCount(filteredEvents)
+  const attemptCount = funnel.checkoutAttempts
+  const checkoutStartCount = funnel.checkoutStarts
+  const conversionCount = funnel.paidDirectOrders
+  const conversionRate = formatAnalyticsRate(funnel.attributionComplete ? funnel.paidRate : null)
+  const trackedSignals = analyticsRollup
+    ? analyticsRollup.counts.events + analyticsRollup.counts.visits
+    : filteredEvents.length + filteredAgentVisits.length
+  const eventTrust = analyticsRollup?.trust.events ?? summarizeAnalyticsTrust(filteredEvents)
+  const visitTrust = analyticsRollup?.trust.visits ?? summarizeAnalyticsTrust(filteredAgentVisits)
   // Resolve the settlement currency FIRST and scope every rollup to it - the
   // KPI renders one currency code, so amounts settling in other currencies
   // must not be mixed into the number (they're different units).
-  const revenueCurrency = getOrderCurrencyOptions(filteredOrders)[0] ?? getRevenueCurrency(filteredEvents)
+  const exactRevenueRow = analyticsRollup?.currencies[0]
+  const revenueCurrency = exactRevenueRow?.currency ?? getOrderCurrencyOptions(filteredOrders)[0] ?? getRevenueCurrency(filteredEvents)
   const revenueRow = rollupFinanceByCurrency(filteredOrders, 0).find((row) => row.currency === revenueCurrency)
-  const revenueCents = revenueRow?.gmvCents ?? 0
-  const pipelineCents = getPipelineCents(filteredEvents, revenueCurrency)
-  const agentRevenueCents = revenueCents
-  const agentShareCents = revenueRow?.nexezFeeCents ?? 0
+  const revenueCents = exactRevenueRow?.gmvCents ?? revenueRow?.gmvCents ?? 0
+  const refundedCents = exactRevenueRow?.refundedCents ?? revenueRow?.refundedCents ?? 0
+  const agentShareCents = exactRevenueRow?.feeCents ?? revenueRow?.nexezFeeCents ?? 0
   const money = (cents: number) => formatCurrencyAmount(cents, revenueCurrency)
-  const offerActivity = getTopOfferStats(filteredEvents)
+  const offerActivity = analyticsRollup
+    ? analyticsRollup.topOffers.map((offer) => ({
+        name: offer.offerName,
+        pageSlug: offer.slug,
+        total: offer.signals,
+        attempts: offer.attempts,
+        conversions: offer.paidOrders,
+      }))
+    : getTopOfferStats(filteredEvents)
   const paidByOffer = new Map<string, number>()
   for (const order of filteredOrders) {
+    if (!['legacy_direct', 'agent_checkout'].includes(canonicalOrderChannel(order))) continue
     const key = `${order.slug ?? ''}:${order.offer_name ?? order.offer_key ?? ''}`
     paidByOffer.set(key, (paidByOffer.get(key) ?? 0) + 1)
   }
   const popularService = offerActivity[0]?.name || 'No offer activity yet'
-  const dailySeries = mergeVisitCountsIntoDailySeries(getDailyEventSeries(filteredEvents, 10), filteredAgentVisits)
-  for (const point of dailySeries) point.conversions = 0
-  for (const order of filteredOrders) {
-    const point = dailySeries.find((item) => item.dateKey === formatLocalDateKey(new Date(order.created_at)))
-    if (point) point.conversions += 1
-  }
+  const dailySeries = analyticsRollup
+    ? analyticsRollup.daily.map((point) => ({
+        label: new Date(point.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        dateKey: formatLocalDateKey(new Date(point.date)),
+        total: point.eventSignals + point.visits,
+        agentVisits: point.aiVisits,
+        discovery: point.discoveryClicks,
+        conversions: point.paidOrders,
+      }))
+    : mergePaidOrdersIntoDailySeries(
+        mergeVisitCountsIntoDailySeries(getDailyEventSeries(filteredEvents, 10), filteredAgentVisits),
+        filteredOrders,
+      )
   const discoveryActions = getDiscoveryActionStats(filteredEvents)
   const discoverySurfaces = getDiscoverySurfaceStats(filteredEvents)
-  const discoveryToIntentRate = discoveryClicks ? Math.round((attemptCount / discoveryClicks) * 100) : 0
+  const discoveryToIntentRate = discoveryClicks ? Math.round((attemptCount / discoveryClicks) * 100) : null
+  const channelBreakdown = analyticsRollup
+    ? analyticsRollup.channels.map((row) => ({ ...row, label: getAnalyticsChannelLabel(row.channel) }))
+    : getOrderChannelBreakdown(filteredOrders)
   const topOffers = offerActivity
     .map((offer) => ({
       ...offer,
-      conversions: paidByOffer.get(`${offer.pageSlug}:${offer.name}`) ?? 0,
+      conversions: analyticsRollup
+        ? offer.conversions
+        : paidByOffer.get(`${offer.pageSlug}:${offer.name}`) ?? 0,
     }))
     .slice(0, 5)
-  const maxDailyEvents = Math.max(...dailySeries.map((point) => point.total), 1)
   const maxOfferEvents = Math.max(...topOffers.map((offer) => offer.total), 1)
 
   // Period-over-period deltas: fetch the equal-length window immediately before
@@ -295,9 +391,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   let agentVisitsDelta: KpiDelta | null = null
   let revenueDelta: KpiDelta | null = null
   let conversionDelta: KpiDelta | null = null
-  let agentRevenueDelta: KpiDelta | null = null
   if (prevBounds) {
-    const [prevCheckoutResult, prevVisitResult, prevOrderResult] = await Promise.all([
+    const [prevCheckoutResult, prevVisitResult, prevOrderResult, prevRollupResult] = await Promise.all([
       supabase
         .from('checkout_events')
         .select('*')
@@ -326,6 +421,14 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         .order('created_at', { ascending: false })
         .limit(1000)
         .returns<DirectFinanceRow[]>(),
+      loadOwnerAnalyticsRollup(supabase, {
+        from: prevBounds.cutoff,
+        to: new Date(prevBounds.until.getTime() - 1),
+        pageId: selectedPageId,
+        query: filters.q,
+        eventType: selectedAction,
+        traffic: selectedTraffic,
+      }),
     ])
     const { data: prevCheckoutRows } = prevCheckoutResult
     const { data: prevVisitRows } = prevVisitResult
@@ -333,6 +436,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     if (prevCheckoutResult.error) dataIssues.push('previous-period checkout activity')
     if (prevVisitResult.error) dataIssues.push('previous-period traffic')
     if (prevOrderResult.error) dataIssues.push('previous-period orders')
+    if (prevRollupResult.error) dataIssues.push('exact previous-period totals')
     const prevEvents = filterAnalyticsEvents(prevCheckoutRows ?? [], {
       query: filters.q,
       pageId: selectedPageId || undefined,
@@ -352,29 +456,40 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             .some((value) => String(value).toLowerCase().includes(queryNeedle))
         })
       : []
-    const prevAttempts = getCheckoutAttemptCount(prevEvents)
-    const prevConversions = prevOrders.length
-    const prevConversionRate = prevAttempts > 0 ? (prevConversions / prevAttempts) * 100 : prevConversions > 0 ? 100 : 0
-    const prevRevenueCents = rollupFinanceByCurrency(prevOrders, 0)
-      .find((row) => row.currency === revenueCurrency)?.gmvCents ?? 0
+    const prevFunnel = buildAnalyticsFunnel(prevEvents, prevVisits, prevOrders)
+    const prevCounts = prevRollupResult.data?.counts
+    const prevStarts = prevCounts?.checkoutStarts ?? prevFunnel.checkoutStarts
+    const prevPaid = prevCounts?.paidDirectOrders ?? prevFunnel.paidDirectOrders
+    const prevAttributionComplete = prevPaid <= prevStarts
+    const prevConversionRate = prevAttributionComplete && prevStarts > 0 ? (prevPaid / prevStarts) * 100 : null
+    const prevRevenueCents = prevRollupResult.data?.currencies
+      .find((row) => row.currency === revenueCurrency)?.gmvCents
+      ?? rollupFinanceByCurrency(prevOrders, 0).find((row) => row.currency === revenueCurrency)?.gmvCents
+      ?? 0
+    const prevSignals = prevCounts
+      ? prevCounts.events + prevCounts.visits
+      : prevEvents.length + prevVisits.length
+    const prevAiVisits = prevCounts?.aiVisits ?? getTrafficSplit(prevVisits).ai
     signalsDelta = pctDelta(
-      filteredEvents.length + filteredAgentVisits.length,
-      prevEvents.length + prevVisits.length,
+      trackedSignals,
+      prevSignals,
       periodLabel,
     )
-    agentVisitsDelta = pctDelta(agentPageVisits, getTrafficSplit(prevVisits).ai, periodLabel)
+    agentVisitsDelta = pctDelta(agentPageVisits, prevAiVisits, periodLabel)
     // The prev period sums in the SAME currency as the current one, so the
     // delta compares like units even if the workspace switched currencies.
     revenueDelta = pctDelta(revenueCents, prevRevenueCents, periodLabel)
-    conversionDelta = pctDelta(Number(conversionRate), prevConversionRate, periodLabel)
-    agentRevenueDelta = pctDelta(agentRevenueCents, prevRevenueCents, periodLabel)
+    const currentConversionRate = funnel.attributionComplete && funnel.paidRate != null ? funnel.paidRate * 100 : null
+    conversionDelta = currentConversionRate != null && prevConversionRate != null
+      ? pctDelta(currentConversionRate, prevConversionRate, periodLabel)
+      : null
   }
 
   // One-line takeaway from the biggest movers (drives the insight band).
   const movers = [
     { label: 'agent visits', d: agentVisitsDelta },
     { label: 'tracked revenue', d: revenueDelta },
-    { label: 'conversion rate', d: conversionDelta },
+    { label: 'paid checkout rate', d: conversionDelta },
     { label: 'total signals', d: signalsDelta },
   ]
     .map(({ label, d }) => {
@@ -394,10 +509,12 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const maxPageEvents = Math.max(...topPages.map(p => p.total), 1)
 
   // Conversion Rate Leaders (Phase 2)
-  const conversionLeaders = getTopOfferStats(filteredEvents)
+  const conversionLeaders = offerActivity
     .map(o => ({
       ...o,
-      conversionRate: o.attempts > 0 ? Math.round((o.conversions / o.attempts) * 100) : 0
+      conversionRate: o.attempts > 0
+        ? Math.round((o.conversions / o.attempts) * 100)
+        : 0,
     }))
     .filter(o => o.attempts >= 2) // only meaningful data
     .sort((a, b) => b.conversionRate - a.conversionRate)
@@ -415,7 +532,16 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     avgAll: avgAllReadiness,
     avgActive: avgActiveReadiness,
     activeCount: agentEngagedPageCount,
-  } = getReadinessInsight(ownedPages, filteredEvents, filteredAgentVisits)
+  } = getReadinessInsight(
+    ownedPages,
+    analyticsRollup
+      ? analyticsRollup.activePageIds.flatMap((pageId) => {
+          const page = ownedPages.find((candidate) => candidate.id === pageId)
+          return page ? [{ slug: page.slug }] : []
+        })
+      : filteredEvents,
+    analyticsRollup ? [] : filteredAgentVisits,
+  )
 
   const exportParams = new URLSearchParams()
 
@@ -660,27 +786,42 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           </p>
         ) : null}
 
+        <section className="mt-4 grid gap-3 rounded-lg border border-white/10 bg-white/[0.04] p-4 md:grid-cols-[minmax(0,1fr)_repeat(2,minmax(170px,0.35fr))] md:items-center">
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-[var(--signal)]">Measurement quality</p>
+            <p className="mt-1 text-sm leading-6 text-zinc-400">
+              Totals include visible legacy history. Verified coverage shows the share captured through replay-protected server ingestion.
+            </p>
+          </div>
+          <TrustCoverage label="Activity events" trust={eventTrust} />
+          <TrustCoverage label="Traffic visits" trust={visitTrust} />
+        </section>
+
         <section className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Kpi title="Tracked Signals" value={(filteredEvents.length + filteredAgentVisits.length).toLocaleString()} delta={signalsDelta} note={`${events.length + agentVisits.length} total stored`} tone="strong" />
+          <Kpi title="Observed Signals" value={trackedSignals.toLocaleString()} delta={signalsDelta} note={analyticsRollup ? 'Exact total for this filtered window' : 'Recent sample while exact totals are unavailable'} tone="strong" />
           <Kpi title="AI Agent Visits" value={agentPageVisits.toLocaleString()} delta={agentVisitsDelta} note={`${trafficSplit.human} human/unknown visits`} />
           <Kpi title="Discovery Clicks" value={discoveryClicks.toLocaleString()} note="Directory + Marketplace clickthroughs" />
-          <Kpi title="Conversion Rate" value={`${conversionRate}%`} delta={conversionDelta} note={`${conversionCount} Stripe-confirmed orders`} />
+          <Kpi
+            title="Paid Checkout Rate"
+            value={conversionRate}
+            delta={conversionDelta}
+            note={funnel.attributionComplete
+              ? `${conversionCount} paid direct orders from ${checkoutStartCount} checkout starts`
+              : 'Paid orders and starts do not fully overlap in this window'}
+          />
           <Kpi title="Most Active Offer" value={popularService} note={`${offerCount || 0} offers listed`} />
-          <Kpi title="Tracked Revenue" value={money(revenueCents)} delta={revenueDelta} note={`${money(pipelineCents)} intent pipeline`} tone="strong" />
-          <Kpi title="Agent-Driven Revenue" value={money(agentRevenueCents)} delta={agentRevenueDelta} note={`${money(agentShareCents)} recorded platform fees`} />
+          <Kpi title="Gross Sales" value={money(revenueCents)} delta={revenueDelta} note={`${money(refundedCents)} refunded · ${money(agentShareCents)} recorded fees`} tone="strong" />
+          <Kpi title="Paid Orders" value={(analyticsRollup?.counts.paidOrders ?? filteredOrders.length).toLocaleString()} note={`${channelBreakdown.length} active commerce ${channelBreakdown.length === 1 ? 'channel' : 'channels'}`} />
           <Kpi
             title="Negotiations"
-            value={negotiationSummary.total.toLocaleString()}
-            note={`${negotiationSummary.open + negotiationSummary.proposed + negotiationSummary.held} open · ${negotiationSummary.complete} agreed`}
-            tone={negotiationSummary.open > 0 ? 'strong' : undefined}
+            value={(analyticsRollup?.counts.negotiations ?? negotiationSummary.total).toLocaleString()}
+            note={`${analyticsRollup?.counts.openNegotiations ?? negotiationSummary.open + negotiationSummary.proposed + negotiationSummary.held} open · ${analyticsRollup?.counts.completedNegotiations ?? negotiationSummary.complete} complete`}
+            tone={(analyticsRollup?.counts.openNegotiations ?? negotiationSummary.open) > 0 ? 'strong' : undefined}
           />
         </section>
 
         <AnalyticsActions
           selectedPage={selectedPage}
-          filteredEvents={filteredEvents}
-          agentRevenueCents={agentRevenueCents}
-          negotiationSummary={negotiationSummary}
         />
 
         <section className="mt-5 grid gap-5 xl:grid-cols-3">
@@ -710,6 +851,10 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             <AgentTypeList rows={agentTypeBreakdown} />
           </Panel>
 
+          <Panel title="Paid Order Sources">
+            <OrderChannelList rows={channelBreakdown} total={analyticsRollup?.counts.paidOrders ?? filteredOrders.length} />
+          </Panel>
+
           <Panel title="Top Offers">
             {topOffers.length ? (
               <TopOffersChart offers={topOffers} max={maxOfferEvents} />
@@ -726,7 +871,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
             )}
           </Panel>
 
-          <Panel title="Conversion Rate Leaders">
+          <Panel title="Paid Checkout Leaders">
             {conversionLeaders.length ? (
               <div className="space-y-4 pt-1">
                 {conversionLeaders.map((offer, index) => (
@@ -745,7 +890,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                       />
                     </div>
                     <div className="text-[10px] text-zinc-500 mt-0.5">
-                      {offer.conversions} / {offer.attempts} conversions
+                      {offer.conversions} paid / {offer.attempts} attempts
                     </div>
                   </div>
                 ))}
@@ -791,7 +936,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                                 />
                               </div>
                               <div className="mt-0.5 text-[10px] text-zinc-500">
-                                {v.conversions} conversions / {v.impressions} impressions
+                                {v.conversions} checkout handoffs / {v.impressions} impressions
                               </div>
                             </div>
                           )
@@ -801,8 +946,13 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                   )
                 })}
                 <p className="text-[11px] text-zinc-500">
-                  Conversion rate = conversions ÷ impressions for each served variant. Duplicate an offer in the builder to start a test.
+                  Handoff rate = provider redirects or hosted checkout starts ÷ impressions. Paid orders are reported separately above.
                 </p>
+                {events.length === 500 ? (
+                  <p className="text-[11px] text-[var(--amber)]">
+                    Experiment detail uses the latest 500 matching activity rows. Headline totals and paid-order reporting remain exact.
+                  </p>
+                ) : null}
               </div>
             ) : (
               <div className="text-sm text-zinc-500 pt-2">
@@ -813,9 +963,12 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
 
           <Panel title="Conversion Funnel">
             <ConversionFunnel
-              views={agentPageVisits}
+              visits={funnel.listingVisits}
               attempts={attemptCount}
-              conversions={conversionCount}
+              starts={checkoutStartCount}
+              paid={conversionCount}
+              retained={funnel.retainedDirectOrders}
+              attributionComplete={funnel.attributionComplete}
             />
           </Panel>
 
@@ -824,9 +977,9 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
               <div className="space-y-4 text-sm">
                 <div className="rounded-lg border border-[var(--amber)]/20 bg-[var(--amber)]/10 p-4">
                   <div className="text-xs uppercase tracking-[0.18em] text-[var(--amber)]">Click to intent</div>
-                  <div className="mt-2 text-3xl font-semibold text-white">{discoveryToIntentRate}%</div>
+                  <div className="mt-2 text-3xl font-semibold text-white">{discoveryToIntentRate == null ? '—' : `${discoveryToIntentRate}%`}</div>
                   <p className="mt-1 text-xs text-zinc-400">
-                    Checkout attempts divided by discovery clicks in this filtered period.
+                    Directional ratio of checkout attempts to discovery clicks in this filtered period; not a joined journey conversion.
                   </p>
                 </div>
                 <DiscoveryList title="Top actions" rows={discoveryActions} />
@@ -897,16 +1050,16 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           <h3 className="text-lg font-semibold mb-3 text-zinc-200">Key Insights</h3>
           <div className="grid gap-4 md:grid-cols-3">
             <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
-              <div className="text-sm text-zinc-400">Agent-Engaged Quality</div>
+              <div className="text-sm text-zinc-400">Agent-engaged quality</div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-4xl font-semibold text-white">{avgActiveReadiness}</span>
                 <span className="text-sm text-zinc-400">avg readiness</span>
               </div>
               <div className="mt-1 text-xs text-zinc-500">
-                Agent traffic vs average ({avgAllReadiness}%)
+                Observed engaged-listing average vs workspace ({avgAllReadiness}%)
               </div>
               {avgActiveReadiness > avgAllReadiness && (
-                <div className="mt-2 text-xs text-[var(--ready)]">↑ Quality attracts agents</div>
+                <div className="mt-2 text-xs text-[var(--ready)]">Higher readiness is correlated with observed activity</div>
               )}
             </div>
 
@@ -954,6 +1107,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                   <th className="px-5 py-3 font-medium">Agent Type</th>
                   <th className="px-5 py-3 font-medium">Query Before Landing</th>
                   <th className="px-5 py-3 font-medium">Listing</th>
+                  <th className="px-5 py-3 font-medium">Capture</th>
                   <th className="px-5 py-3 text-right font-medium">Confidence</th>
                 </tr>
               </thead>
@@ -971,6 +1125,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                       <span className="line-clamp-1">{formatVisitQuery(visit)}</span>
                     </td>
                     <td className="px-5 py-4 font-mono text-xs text-[var(--signal)]">/{visit.slug}</td>
+                    <td className="px-5 py-4"><TrustBadge verified={visit.trust_level === 'verified_server'} /></td>
                     <td className="px-5 py-4 text-right text-[var(--ready)]">{Math.round(Number(visit.confidence_score || 0))}%</td>
                   </tr>
                 ))}
@@ -987,7 +1142,9 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         <section className="mt-5 card !p-0">
           <div className="flex flex-col justify-between gap-3 border-b border-white/10 p-5 md:flex-row md:items-center">
             <h2 className="text-xl font-semibold">Recent Agent Interactions</h2>
-            <p className="text-sm text-zinc-500">{filteredEvents.length} matching signals</p>
+            <p className="text-sm text-zinc-500">
+              Latest {Math.min(filteredEvents.length, 10)} of {(analyticsRollup?.counts.events ?? filteredEvents.length).toLocaleString()} matching events
+            </p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-left text-sm">
@@ -996,6 +1153,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                   <th className="px-5 py-3 font-medium">User-Agent</th>
                   <th className="px-5 py-3 font-medium">Query</th>
                   <th className="px-5 py-3 font-medium">Action Taken</th>
+                  <th className="px-5 py-3 font-medium">Capture</th>
                   <th className="px-5 py-3 text-right font-medium">Signal</th>
                 </tr>
               </thead>
@@ -1016,6 +1174,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                       {getEventActionLabel(event.event_type)}
                       <span className="mt-1 block text-xs text-zinc-600">{formatEventDate(event.created_at)}</span>
                     </td>
+                    <td className="px-5 py-4"><TrustBadge verified={event.trust_level === 'verified_server'} /></td>
                     <td className="px-5 py-4 text-right text-[var(--signal)]">{getSignalLabel(event)}</td>
                   </tr>
                 ))}
@@ -1133,6 +1292,71 @@ function AgentTypeList({ rows }: { rows: ReturnType<typeof getAgentTypeBreakdown
   )
 }
 
+function TrustCoverage({
+  label,
+  trust,
+}: {
+  label: string
+  trust: ReturnType<typeof summarizeAnalyticsTrust>
+}) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs text-zinc-400">{label}</span>
+        <span className="font-mono text-sm text-white">{trust.verifiedPercent}%</span>
+      </div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+        <div className="h-full rounded-full bg-[var(--ready)]" style={{ width: `${trust.verifiedPercent}%` }} />
+      </div>
+      <p className="mt-2 text-[11px] text-zinc-500">
+        {trust.verified.toLocaleString()} verified · {(trust.legacy + trust.unverified).toLocaleString()} historical/unverified
+      </p>
+    </div>
+  )
+}
+
+function OrderChannelList({
+  rows,
+  total,
+}: {
+  rows: Array<{ channel: string; label: string; orders: number }>
+  total: number
+}) {
+  if (!rows.length) return <EmptyPanel message="No paid order channels in this range." />
+
+  return (
+    <div className="space-y-3">
+      {rows.slice(0, 7).map((row) => {
+        const share = total ? Math.round((row.orders / total) * 100) : 0
+        return (
+          <div key={row.channel} className="rounded-lg border border-white/10 bg-black/20 p-3">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="capitalize text-zinc-200">{row.label}</span>
+              <span className="font-mono text-[var(--signal)]">{row.orders}</span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+              <div className="h-full rounded-full bg-[var(--signal)]" style={{ width: `${share}%` }} />
+            </div>
+            <p className="mt-1 text-xs text-zinc-500">{share}% of paid orders</p>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function TrustBadge({ verified }: { verified: boolean }) {
+  return (
+    <span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-medium uppercase tracking-[0.12em] ${
+      verified
+        ? 'border-[var(--ready)]/25 bg-[var(--ready)]/10 text-[var(--ready)]'
+        : 'border-white/10 bg-white/[0.04] text-zinc-500'
+    }`}>
+      {verified ? 'Verified' : 'Historical'}
+    </span>
+  )
+}
+
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="min-w-0 rounded-lg border border-white/10 bg-white/[0.04] p-5">
@@ -1225,6 +1449,19 @@ function mergeVisitCountsIntoDailySeries(series: ReturnType<typeof getDailyEvent
       agentVisits: counts?.ai ?? point.agentVisits,
     }
   })
+}
+
+function mergePaidOrdersIntoDailySeries(
+  series: ReturnType<typeof getDailyEventSeries>,
+  orders: DirectFinanceRow[],
+) {
+  const byDate = new Map(series.map((point) => [point.dateKey, point]))
+  for (const point of series) point.conversions = 0
+  for (const order of orders) {
+    const point = byDate.get(formatLocalDateKey(new Date(order.created_at)))
+    if (point) point.conversions += 1
+  }
+  return series
 }
 
 function formatLocalDateKey(date: Date) {

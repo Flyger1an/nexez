@@ -1,18 +1,23 @@
 'use client'
 
 interface FunnelProps {
-  views: number
+  visits: number
   attempts: number
-  conversions: number
+  starts: number
+  paid: number
+  retained: number
+  attributionComplete: boolean
 }
 
-export function ConversionFunnel({ views, attempts, conversions }: FunnelProps) {
-  const max = Math.max(views, attempts, conversions, 1)
+export function ConversionFunnel({ visits, attempts, starts, paid, retained, attributionComplete }: FunnelProps) {
+  const max = Math.max(visits, attempts, starts, paid, retained, 1)
 
   const stages = [
-    { label: 'Listing views', value: views, color: 'var(--signal)' },
-    { label: 'Checkout Intent', value: attempts, color: 'var(--signal)' },
-    { label: 'Conversions', value: conversions, color: 'var(--ready)' },
+    { label: 'Listing visits', value: visits, color: 'var(--signal)' },
+    { label: 'Checkout intent', value: attempts, color: 'var(--signal)' },
+    { label: 'Checkout starts', value: starts, color: 'var(--amber)' },
+    { label: 'Paid direct', value: paid, color: 'var(--ready)' },
+    { label: 'Payment retained', value: retained, color: 'var(--ready)' },
   ]
 
   return (
@@ -20,7 +25,7 @@ export function ConversionFunnel({ views, attempts, conversions }: FunnelProps) 
       {stages.map((stage, index) => {
         const width = Math.max(12, Math.round((stage.value / max) * 100))
         const prev = index > 0 ? stages[index - 1].value : 0
-        const rate = index > 0 ? (prev > 0 ? ((stage.value / prev) * 100).toFixed(1) : '0') : '100'
+        const rate = index > 0 && prev > 0 ? `${((stage.value / prev) * 100).toFixed(1)}%` : '—'
 
         return (
           <div key={index} className="flex items-center gap-3 text-sm">
@@ -41,12 +46,17 @@ export function ConversionFunnel({ views, attempts, conversions }: FunnelProps) 
             </div>
             {index > 0 && (
               <div className="w-14 text-right text-xs text-[var(--fg-muted-2)]">
-                {rate}%
+                {rate}
               </div>
             )}
           </div>
         )
       })}
+      {!attributionComplete ? (
+        <p className="rounded-md border border-[var(--amber)]/20 bg-[var(--amber)]/[0.06] px-3 py-2 text-xs leading-5 text-zinc-400">
+          Some payments fall outside the matching checkout-start window, so the paid rate is withheld instead of displaying a misleading percentage.
+        </p>
+      ) : null}
     </div>
   )
 }

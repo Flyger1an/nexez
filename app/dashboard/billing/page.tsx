@@ -10,7 +10,7 @@ import {
 } from '../../../lib/stripe-billing'
 import {
   getAgentPageVisitCount,
-  getConversionCount,
+  getCheckoutHandoffCount,
   getDiscoveryClickCount,
 } from '../../../lib/analytics'
 import { buildMarketplaceLedger, type DirectFinanceRow, type NegotiationFinanceRow } from '../../../lib/finance-analytics'
@@ -176,7 +176,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
     offers: { label: 'Total Offers', current: offerCount, limit: null },
     aiOptimizations: { label: 'Agent visits (mo)', current: getAgentPageVisitCount(events), limit: null },
     simulations: { label: 'Discovery clicks (mo)', current: getDiscoveryClickCount(events), limit: null },
-    impressions: { label: 'Conversions (mo)', current: getConversionCount(events), limit: null },
+    impressions: { label: 'Checkout handoffs (mo)', current: getCheckoutHandoffCount(events), limit: null },
   }
 
   // Real Stripe invoices for Billing History (replaces the hardcoded placeholders).

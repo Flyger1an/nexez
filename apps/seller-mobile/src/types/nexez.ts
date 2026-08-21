@@ -147,11 +147,65 @@ export type CheckoutOrder = {
   amount_cents: number
   currency: string
   status: string
+  channel?: string | null
+  stripe_livemode?: boolean | null
   refunded_cents?: number | null
   buyer_email?: string | null
   buyer_name?: string | null
   buyer_reference?: string | null
   created_at?: string
+}
+
+export type AnalyticsRollup = {
+  schemaVersion: 1
+  counts: {
+    events: number
+    visits: number
+    aiVisits: number
+    humanVisits: number
+    discoveryClicks: number
+    checkoutAttempts: number
+    checkoutHandoffs: number
+    checkoutStarts: number
+    paidOrders: number
+    paidDirectOrders: number
+    retainedDirectOrders: number
+  }
+  trust: {
+    events: { total: number; verified: number; legacy: number; unverified: number }
+    visits: { total: number; verified: number; legacy: number; unverified: number }
+  }
+  daily: Array<{
+    date: string
+    eventSignals: number
+    visits: number
+    aiVisits: number
+    discoveryClicks: number
+    checkoutStarts: number
+    paidOrders: number
+  }>
+  channels: Array<{ channel: string; orders: number }>
+  currencies: Array<{
+    currency: string
+    orders: number
+    gmvCents: number
+    refundedCents: number
+    feeCents: number
+  }>
+  agentTypes: Array<{ agentType: string; visits: number; avgConfidence: number }>
+  topPages: Array<{ pageId: string; slug: string; name: string; visits: number }>
+  topOffers: Array<{
+    pageId: string
+    slug: string
+    offerKey: string
+    offerName: string
+    signals: number
+    attempts: number
+    paidOrders: number
+  }>
+  topQueries: Array<{ query: string; uses: number }>
+  topReferrers: Array<{ referrer: string; visits: number }>
+  activePageIds: string[]
 }
 
 export type OrderReview = {
