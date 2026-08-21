@@ -43,6 +43,7 @@ import { GlassCard } from '../../../components/billing/billing-ui'
 import { ProBadge } from '../../../components/billing/PlanGate'
 import { appUrl } from '../../../lib/site'
 import { RevenueChart } from './RevenueChart'
+import { DataLoadNotice } from '../../../components/dashboard/DataLoadNotice'
 
 type FinanceProps = {
   searchParams: Promise<{ range?: string; from?: string; to?: string; currency?: string }>
@@ -91,7 +92,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
   const { cutoff, until } = rangeBounds
 
   // Billing + Connect (the seller's own subscription + payout account).
-  const { data: billing } = await supabase
+  const { data: billing, error: billingError } = await supabase
     .from('billing_subscriptions')
     .select('*')
     .eq('owner_id', user.id)
@@ -105,7 +106,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
 
   // Negotiated/escrow channel - one widened read feeds the channel split, the
   // escrow-lifecycle strip, AND the recent-activity ledger.
-  const { data: negRowsRaw } = await supabase
+  const { data: negRowsRaw, error: negotiationError } = await supabase
     .from('agent_negotiations')
     .select('id, status, amount_cents, currency, slug, offer_name, buyer_agent, created_at, commission_percent, application_fee_cents, stripe_livemode')
     .eq('owner_id', user.id)
@@ -118,7 +119,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
 
   // Durable Stripe-confirmed live orders. One read powers reporting, the ledger,
   // and in-app refunds. Test and unverified historical rows fail closed here.
-  const { data: orderRows } = await supabase
+  const { data: orderRows, error: orderError } = await supabase
     .from('checkout_orders')
     .select('id, page_id, offer_name, offer_key, amount_cents, currency, status, channel, slug, refunded_cents, buyer_email, buyer_name, buyer_reference, buyer_agent, commission_percent, application_fee_cents, stripe_livemode, created_at')
     .eq('owner_id', user.id)
@@ -134,7 +135,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
   )
 
   // Buyer-filed recourse (refund requests / problem reports from the order portal).
-  const { data: requestRows } = await supabase
+  const { data: requestRows, error: requestError } = await supabase
     .from('order_requests')
     .select('id, order_kind, kind, status, message, buyer_email, slug, created_at')
     .eq('owner_id', user.id)
@@ -142,6 +143,13 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
     .limit(100)
     .returns<BuyerRequestRow[]>()
   const buyerRequests = requestRows ?? []
+  const dataIssues = [
+    billingError ? 'billing status' : null,
+    negotiationError ? 'negotiated transactions' : null,
+    orderError ? 'checkout orders' : null,
+    requestError ? 'buyer requests' : null,
+    connectAccountId && payouts == null ? 'payout status' : null,
+  ].filter((issue): issue is string => Boolean(issue))
 
   // Per-currency roll-up + the selected currency for the hero/trend/top-offers.
   const byCurrency = rollupFinanceByCurrency(ordersInWindow, commissionPct)
@@ -179,7 +187,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
   let feeDelta: KpiDelta | null = null
   let aovDelta: KpiDelta | null = null
   if (prevBounds) {
-    const { data: prevRows } = await supabase
+    const { data: prevRows, error: prevRowsError } = await supabase
       .from('checkout_orders')
       .select('id, page_id, offer_name, offer_key, amount_cents, currency, status, channel, slug, refunded_cents, buyer_email, buyer_name, buyer_reference, buyer_agent, commission_percent, application_fee_cents, stripe_livemode, created_at')
       .eq('owner_id', user.id)
@@ -189,6 +197,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
       .order('created_at', { ascending: false })
       .limit(1000)
       .returns<DirectFinanceRow[]>()
+    if (prevRowsError) dataIssues.push('previous-period orders')
     const prevSel =
       rollupFinanceByCurrency(prevRows ?? [], commissionPct).find((r) => r.currency === selectedCurrency) ??
       { gmvCents: 0, netCents: 0, nexezFeeCents: 0, aovCents: 0 }
@@ -241,6 +250,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                 Stripe-confirmed agent sales, refunds, platform fees, payouts to your bank, and funded escrow, kept separate
                 from your own Nexez subscription.
               </p>
+              <DataLoadNotice issues={dataIssues} />
             </div>
             <a
               href="/dashboard/billing"

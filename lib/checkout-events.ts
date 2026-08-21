@@ -1,4 +1,5 @@
 import type { CheckoutOffer } from './agent-page'
+import type { AnalyticsTrustLevel } from './contracts/analytics'
 
 export type CheckoutEventType =
   | 'checkout_view'
@@ -28,6 +29,9 @@ export type CheckoutEvent = {
   provider_url: string | null
   stripe_session_id: string | null
   metadata: Record<string, unknown>
+  ingestion_key?: string | null
+  ingestion_source?: string
+  trust_level?: AnalyticsTrustLevel
   created_at: string
 }
 

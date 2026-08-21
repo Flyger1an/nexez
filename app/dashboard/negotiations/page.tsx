@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   BarChart3,
   CheckCircle2,
@@ -31,9 +32,6 @@ import { withTimeout } from '../../../lib/async-timeout'
 import { createClient } from '../../../utils/supabase/client'
 import { agentRuntimeUrl } from '../../../lib/site'
 
-// Note: createClient is used inside NegotiationCard for the manual owner message form
-// (direct insert to negotiation_messages + status update for seller_owner role).
-
 const LOAD_TIMEOUT_MS = 12000
 
 const TONE_BADGE: Record<ReturnType<typeof getNegotiationStatusTone>, string> = {
@@ -46,6 +44,7 @@ const TONE_BADGE: Record<ReturnType<typeof getNegotiationStatusTone>, string> = 
 const TRANSITION_LABEL: Record<NegotiationStatus, string> = {
   negotiation: 'Reopen',
   agreement_proposed: 'Propose agreement',
+  paused: 'Pause',
   held: 'Hold funds (escrow)',
   complete: 'Mark complete',
   declined: 'Decline',
@@ -69,6 +68,7 @@ function transitionIcon(to: NegotiationStatus) {
 }
 
 export default function NegotiationsInbox() {
+  const router = useRouter()
   const plan = usePlan()
   const [negotiations, setNegotiations] = useState<AgentNegotiation[]>([])
   const [loading, setLoading] = useState(true)
@@ -104,7 +104,7 @@ export default function NegotiationsInbox() {
       } = await withTimeout(supabase.auth.getUser(), LOAD_TIMEOUT_MS, 'Timed out checking your session.')
 
       if (!user) {
-        window.location.href = '/login?next=/dashboard/negotiations'
+        router.push('/login?next=/dashboard/negotiations')
         return
       }
 
@@ -395,7 +395,9 @@ function NegotiationCard({
   // From 'held', the owner's complete = capture and decline = release the authorization.
   const isEscrowCapture = (to: NegotiationStatus) => escrowAvailable && item.status === 'held' && to === 'complete'
   const isEscrowRelease = (to: NegotiationStatus) => escrowAvailable && item.status === 'held' && to === 'declined'
-  const ownerTransitions = transitions.filter((to) => to !== 'held')
+  // Agreement decisions require the canonical response form below. A configured
+  // payment agreement never exposes manual completion; the buyer must fund first.
+  const ownerTransitions = transitions.filter((to) => to !== 'held' && to !== 'agreement_proposed')
   // A captured payment can be refunded back to the buyer - in full or in part.
   const canRefund = item.status === 'complete' && escrowAvailable && !!item.stripe_payment_intent_id
   // Refundable remainder in MAJOR units: amount_cents is app-minor (major×100);
@@ -405,6 +407,8 @@ function NegotiationCard({
   const remainingMajor = Math.max(0, fullMajor - refundedMajor)
   const [refundOpen, setRefundOpen] = useState(false)
   const [refundAmount, setRefundAmount] = useState('')
+  const [manualError, setManualError] = useState('')
+  const [manualSaving, setManualSaving] = useState(false)
 
   function submitRefund() {
     const entered = Number(refundAmount)
@@ -616,9 +620,8 @@ function NegotiationCard({
         </div>
       )}
 
-      {/* Owner manual message insertion UI - allows seller to manually continue/respond in the persistent negotiation */}
-      {/* This inserts a row with role 'seller_owner' into negotiation_messages and updates status. */}
-      {/* Complements the LLM-driven flow; full history (including manual) is visible on /negotiate/{id} for agents. */}
+      {/* Owner decisions use the same server-validated envelope and atomic write
+          path as automated decisions. Full history remains visible to the buyer. */}
       {transitions.length > 0 && (
         <div className="mt-4 border-t border-white/10 pt-4">
           <details className="group">
@@ -630,78 +633,103 @@ function NegotiationCard({
               className="mt-3 grid gap-3 text-xs"
               onSubmit={async (e) => {
                 e.preventDefault()
+                setManualError('')
                 const form = e.currentTarget as HTMLFormElement
                 const formData = new FormData(form)
                 const action = (formData.get('action') as string) || 'counter'
                 const reasoning = (formData.get('reasoning') as string) || 'Manual owner response.'
                 const internalNotes = (formData.get('internal_notes') as string) || undefined
 
-                const content: any = { action, reasoning }
-                if (internalNotes) content.internal_notes = internalNotes
+                const majorAmount = parseFloat(formData.get('proposed_price') as string)
+                const amountCents = Number.isFinite(majorAmount) ? Math.round(majorAmount * 100) : null
+                const proposedDate = (formData.get('proposed_date') as string) || undefined
+                const scopeNotes = (formData.get('scope_notes') as string) || undefined
+                const questions = ((formData.get('clarification_questions') as string) || '')
+                  .split(',')
+                  .map((value) => value.trim())
+                  .filter(Boolean)
 
-                if (action === 'counter') {
-                  const price = parseFloat(formData.get('proposed_price') as string)
-                  if (!isNaN(price)) content.proposed_price = price
-                  const date = formData.get('proposed_date') as string
-                  if (date) content.proposed_date = date
-                  const scope = formData.get('scope_notes') as string
-                  if (scope) content.scope_notes = scope
-                }
-                if (action === 'clarify') {
-                  const q = formData.get('clarification_questions') as string
-                  if (q) content.questions = q.split(',').map((s) => s.trim()).filter(Boolean)
+                if ((action === 'accept' || action === 'counter') && (amountCents == null || amountCents < 50)) {
+                  setManualError(`Enter an amount of at least 0.50 ${item.currency.toUpperCase()}.`)
+                  return
                 }
 
-                // Route through server API (eliminates direct client write bypass)
-                const res = await fetch('/api/negotiations/transition', {
-                  method: 'POST',
-                  headers: { 'content-type': 'application/json' },
-                  body: JSON.stringify({
-                    negotiationId: item.id,
-                    ownerMessage: {
+                const decision = action === 'counter'
+                  ? {
                       action,
                       reasoning,
-                      ...(action === 'counter' && !isNaN(parseFloat(formData.get('proposed_price') as string))
-                        ? { proposed_price: parseFloat(formData.get('proposed_price') as string) }
-                        : {}),
-                      ...(formData.get('proposed_date') ? { proposed_date: formData.get('proposed_date') as string } : {}),
-                      ...(formData.get('scope_notes') ? { scope_notes: formData.get('scope_notes') as string } : {}),
-                      ...(action === 'clarify' && formData.get('clarification_questions')
-                        ? { questions: (formData.get('clarification_questions') as string).split(',').map((s) => s.trim()).filter(Boolean) }
-                        : {}),
-                      ...(internalNotes ? { internal_notes: internalNotes } : {}),
-                    },
-                  }),
-                })
-                const data = await res.json().catch(() => ({}))
-                if (!res.ok) {
-                  // setMessage may not be in this exact closure after refactor - use console + parent refresh
-                  console.error('Manual owner response failed:', data.error)
-                  if (onRefresh) onRefresh()
-                  else window.location.reload()
-                } else {
+                      counter: {
+                        priceCents: amountCents,
+                        ...(proposedDate ? { proposedDate } : {}),
+                        ...(scopeNotes ? { scopeNotes } : {}),
+                      },
+                      ...(internalNotes ? { internalNotes } : {}),
+                    }
+                  : action === 'accept'
+                    ? {
+                        action,
+                        reasoning,
+                        ...(amountCents != null ? { amountCents } : {}),
+                        ...(internalNotes ? { internalNotes } : {}),
+                      }
+                    : action === 'clarify'
+                      ? {
+                          action,
+                          reasoning,
+                          ...(questions.length ? { clarificationQuestions: questions } : {}),
+                          ...(internalNotes ? { internalNotes } : {}),
+                        }
+                      : { action, reasoning, ...(internalNotes ? { internalNotes } : {}) }
+
+                setManualSaving(true)
+                try {
+                  const res = await fetch('/api/negotiations/transition', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ negotiationId: item.id, decision }),
+                  })
+                  const data = await res.json().catch(() => ({}))
+                  if (!res.ok) {
+                    setManualError(typeof data.error === 'string' ? data.error : 'Could not send the owner response.')
+                    return
+                  }
                   form.reset()
                   if (onRefresh) onRefresh()
                   else window.location.reload()
+                } catch (error) {
+                  setManualError(error instanceof Error ? error.message : 'Could not send the owner response.')
+                } finally {
+                  setManualSaving(false)
                 }
               }}
             >
               <div className="flex gap-2">
-                <select name="action" className="input text-xs py-1" defaultValue="counter">
-                  <option value="accept">Accept</option>
-                  <option value="counter">Counter</option>
-                  <option value="reject">Reject</option>
-                  <option value="clarify">Request Clarification</option>
+                <select name="action" aria-label="Owner decision" className="input text-xs py-1" defaultValue={item.status === 'paused' ? 'resume' : 'counter'}>
+                  {item.status === 'paused' ? (
+                    <>
+                      <option value="resume">Resume</option>
+                      <option value="reject">Reject</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="accept">Accept</option>
+                      <option value="counter">Counter</option>
+                      <option value="reject">Reject</option>
+                      <option value="clarify">Request Clarification</option>
+                      <option value="pause">Pause</option>
+                    </>
+                  )}
                 </select>
-                <input name="proposed_price" type="number" step="0.01" placeholder="Counter price (if counter)" className="input text-xs py-1 flex-1" />
+                <input name="proposed_price" aria-label={`Amount in ${item.currency.toUpperCase()}`} type="number" min="0.50" step="0.01" placeholder={`Amount in ${item.currency.toUpperCase()} (accept/counter)`} className="input text-xs py-1 flex-1" />
               </div>
-              <textarea name="reasoning" rows={2} placeholder="Reasoning (shown to agent)" className="input text-xs" required defaultValue="Manual response from owner." />
-              <input name="proposed_date" placeholder="Proposed date/timeline (if counter)" className="input text-xs py-1" />
-              <input name="scope_notes" placeholder="Scope adjustments (if counter)" className="input text-xs py-1" />
-              <input name="clarification_questions" placeholder="Questions comma-separated (if clarify)" className="input text-xs py-1" />
-              <textarea name="internal_notes" rows={1} placeholder="Internal notes (owner only, not sent to agent)" className="input text-xs" />
-              <button type="submit" disabled={updating} className="btn-secondary text-xs py-1">
-                {updating ? 'Saving...' : 'Insert manual owner message + update status'}
+              <textarea name="reasoning" aria-label="Reasoning shown to the buyer" rows={2} placeholder="Reasoning (shown to agent)" className="input text-xs" required defaultValue="Manual response from owner." />
+              <input name="proposed_date" aria-label="Proposed date or timeline" placeholder="Proposed date/timeline (if counter)" className="input text-xs py-1" />
+              <input name="scope_notes" aria-label="Scope adjustments" placeholder="Scope adjustments (if counter)" className="input text-xs py-1" />
+              <input name="clarification_questions" aria-label="Clarification questions" placeholder="Questions comma-separated (if clarify)" className="input text-xs py-1" />
+              <textarea name="internal_notes" aria-label="Private internal notes" rows={1} placeholder="Internal notes (owner only, not sent to agent)" className="input text-xs" />
+              {manualError ? <p role="alert" className="rounded-md border border-red-400/30 bg-red-400/10 px-3 py-2 text-red-200">{manualError}</p> : null}
+              <button type="submit" disabled={updating || manualSaving} className="btn-secondary text-xs py-1">
+                {updating || manualSaving ? 'Saving...' : 'Send owner response'}
               </button>
               <p className="text-[10px] text-zinc-500">This appears in the persistent /negotiate thread for the agent with full history.</p>
             </form>
@@ -740,7 +768,7 @@ function AmountEditor({
   return (
     <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-white/10 pt-4">
       <label className="text-[11px] text-zinc-400">
-        Agreed amount (USD)
+        Agreed amount ({item.currency.toUpperCase()})
         <div className="mt-1 flex items-center gap-1.5">
           <span className="text-sm text-zinc-500">$</span>
           <input

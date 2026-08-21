@@ -19,7 +19,7 @@ import type {
   SellerOverview,
 } from '@/src/types/nexez'
 
-const OPEN_NEGOTIATION_STATUSES = ['negotiation', 'agreement_proposed', 'held']
+const OPEN_NEGOTIATION_STATUSES = ['negotiation', 'agreement_proposed', 'paused', 'held']
 
 function missingRelation(error: { code?: string | null; message?: string | null } | null | undefined) {
   if (!error) return false

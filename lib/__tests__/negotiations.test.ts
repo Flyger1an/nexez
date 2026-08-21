@@ -113,9 +113,10 @@ describe('negotiation status labels & tones', () => {
 })
 
 describe('allowed transitions', () => {
-  it('new proposal can be progressed or declined', () => {
+  it('new proposal can be progressed, paused, or declined', () => {
     expect(getAllowedNegotiationTransitions('negotiation')).toEqual([
       'agreement_proposed',
+      'paused',
       'declined',
     ])
   })
@@ -123,13 +124,18 @@ describe('allowed transitions', () => {
   it('gates "held" behind escrow availability', () => {
     expect(getAllowedNegotiationTransitions('agreement_proposed', { escrowAvailable: false })).toEqual([
       'complete',
+      'paused',
       'declined',
     ])
     expect(getAllowedNegotiationTransitions('agreement_proposed', { escrowAvailable: true })).toEqual([
       'held',
-      'complete',
+      'paused',
       'declined',
     ])
+  })
+
+  it('paused negotiations can only resume or decline', () => {
+    expect(getAllowedNegotiationTransitions('paused')).toEqual(['negotiation', 'declined'])
   })
 
   it('held can only complete or decline', () => {

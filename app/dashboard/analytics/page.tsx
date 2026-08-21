@@ -58,6 +58,7 @@ import {
   rollupFinanceByCurrency,
   type DirectFinanceRow,
 } from '../../../lib/finance-analytics'
+import { DataLoadNotice } from '../../../components/dashboard/DataLoadNotice'
 
 type AnalyticsPageProps = {
   searchParams: Promise<AnalyticsSearchParams>
@@ -134,7 +135,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     .eq('owner_id', user.id)
     .gte('created_at', cutoff.toISOString())
   if (until) checkoutEventsQuery = checkoutEventsQuery.lte('created_at', until.toISOString())
-  const { data: checkoutEvents } = await checkoutEventsQuery
+  const { data: checkoutEvents, error: checkoutEventsError } = await checkoutEventsQuery
     .order('created_at', { ascending: false })
     .limit(500)
     .returns<CheckoutEvent[]>()
@@ -146,7 +147,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     .eq('stripe_livemode', true)
     .gte('created_at', cutoff.toISOString())
   if (until) liveOrdersQuery = liveOrdersQuery.lte('created_at', until.toISOString())
-  const { data: liveOrderRows } = await liveOrdersQuery
+  const { data: liveOrderRows, error: liveOrderError } = await liveOrdersQuery
     .order('created_at', { ascending: false })
     .limit(1000)
     .returns<DirectFinanceRow[]>()
@@ -177,6 +178,12 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const agentVisits = agentVisitError && isMissingRelationError(agentVisitError) ? [] : (agentVisitRows ?? [])
   const negotiations =
     negotiationError && isMissingRelationError(negotiationError) ? [] : negotiationRows ?? []
+  const dataIssues = [
+    checkoutEventsError ? 'checkout activity' : null,
+    liveOrderError ? 'paid orders' : null,
+    agentVisitError ? 'traffic classification' : null,
+    negotiationError ? 'negotiations' : null,
+  ].filter((issue): issue is string => Boolean(issue))
   const negotiationSummary = summarizeNegotiations(negotiations)
   const ownedPages = pages ?? []
   const pageOptions = getPageOptions(ownedPages)
@@ -290,7 +297,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   let conversionDelta: KpiDelta | null = null
   let agentRevenueDelta: KpiDelta | null = null
   if (prevBounds) {
-    const [{ data: prevCheckoutRows }, { data: prevVisitRows }, { data: prevOrderRows }] = await Promise.all([
+    const [prevCheckoutResult, prevVisitResult, prevOrderResult] = await Promise.all([
       supabase
         .from('checkout_events')
         .select('*')
@@ -320,6 +327,12 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         .limit(1000)
         .returns<DirectFinanceRow[]>(),
     ])
+    const { data: prevCheckoutRows } = prevCheckoutResult
+    const { data: prevVisitRows } = prevVisitResult
+    const { data: prevOrderRows } = prevOrderResult
+    if (prevCheckoutResult.error) dataIssues.push('previous-period checkout activity')
+    if (prevVisitResult.error) dataIssues.push('previous-period traffic')
+    if (prevOrderResult.error) dataIssues.push('previous-period orders')
     const prevEvents = filterAnalyticsEvents(prevCheckoutRows ?? [], {
       query: filters.q,
       pageId: selectedPageId || undefined,
@@ -439,6 +452,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-400">
           Track real agent-facing intent: classified AI visits, human traffic, directory discovery, provider handoffs, and Stripe checkout sessions.
         </p>
+        <DataLoadNotice issues={dataIssues} />
 
         <section className="mt-6 rounded-lg border border-[var(--signal)]/25 bg-[var(--signal)]/[0.06] p-5">
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">

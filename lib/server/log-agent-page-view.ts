@@ -1,9 +1,9 @@
 import 'server-only'
 import { AgentPage } from '../agent-page'
 import { detectAgentVisit } from '../agent-detection'
-import { supabase } from '../supabase'
 import { createHash } from 'crypto'
 import { getPagePrivateMeta } from './page-private-meta'
+import { insertVerifiedAgentVisit, insertVerifiedCheckoutEvent } from './analytics-ingestion'
 
 type LogAgentPageViewInput = {
   page: AgentPage
@@ -27,7 +27,7 @@ export async function logAgentPageView({ page, requestHeaders, userAgent, referr
   const path = getPathFromUrl(url, page.slug)
 
   try {
-    const { error: visitError } = await supabase.from('agent_visits').insert({
+    const visitWrite = await insertVerifiedAgentVisit({
       page_id: page.id,
       owner_id: ownerId,
       slug: page.slug,
@@ -44,12 +44,13 @@ export async function logAgentPageView({ page, requestHeaders, userAgent, referr
         ip_source_header: ipSignal.sourceHeader,
         forwarded_chain_length: ipSignal.forwardedChainLength,
       },
-    })
+    }, { source: 'public_agent_page' })
+    const visitError = visitWrite.error
 
     let checkoutEventError = null
 
     if (detection.is_ai_agent) {
-      const { error } = await supabase.from('checkout_events').insert({
+      const write = await insertVerifiedCheckoutEvent({
         page_id: page.id,
         owner_id: ownerId,
         slug: page.slug,
@@ -69,9 +70,9 @@ export async function logAgentPageView({ page, requestHeaders, userAgent, referr
           agent_type: detection.agent_type,
           confidence_score: detection.confidence_score,
         },
-      })
+      }, { source: 'public_agent_page', dedupeWindowMs: 60_000 })
 
-      checkoutEventError = error
+      checkoutEventError = write.error
     }
 
     return {

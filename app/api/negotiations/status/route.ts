@@ -122,6 +122,8 @@ function getAgentNextStep(
         return 'Agreement reached - awaiting seller approval before payment. Check back shortly.'
       }
       return 'Agreement proposed - the seller will finalize payment or scheduling next.'
+    case 'paused':
+      return 'The seller paused this negotiation. Wait for it to be resumed before sending another proposal.'
     case 'held':
       return 'Funds are held in escrow pending completion.'
     case 'complete':

@@ -39,9 +39,9 @@ export const metadata = {
 // The only negotiation columns this page may read. status_token is read solely
 // to seed the continuation form's hidden field (the viewer is already authorized)
 // and is never rendered. Deliberately absent: owner_id, buyer contact internals,
-// requested_terms, currency, Stripe ids.
+// requested_terms and Stripe ids.
 const NEGOTIATION_PAGE_SELECT =
-  'id, slug, offer_key, offer_name, status, amount_cents, settlement_state, metadata, status_token_encrypted, updated_at, decision_pending, decision_seq'
+  'id, slug, offer_key, offer_name, status, amount_cents, currency, settlement_state, metadata, status_token_encrypted, updated_at, decision_pending, decision_seq'
 
 type NegotiationRow = {
   id: string
@@ -50,6 +50,7 @@ type NegotiationRow = {
   offer_name: string
   status: string
   amount_cents: number | null
+  currency: string
   settlement_state: 'auto' | 'awaiting_approval' | 'approved' | null
   metadata: any
   status_token_encrypted: string | null
@@ -189,7 +190,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
               <div className="uppercase text-[10px] tracking-[2px] text-[var(--fg-muted-2)]">Current Status</div>
               <div className="text-lg font-semibold text-[var(--ready)]">{negotiation.status}</div>
               {negotiation.amount_cents && (
-                <div className="text-sm">{formatNegotiationAmount(negotiation.amount_cents)}</div>
+                <div className="text-sm">{formatNegotiationAmount(negotiation.amount_cents, negotiation.currency)}</div>
               )}
             </div>
           </div>
@@ -224,7 +225,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
               <input type="hidden" name="negotiationId" value={negotiation.id} />
               <input type="hidden" name="token" value={formToken} />
               <button type="submit" className="btn-primary">
-                Pay {formatNegotiationAmount(negotiation.amount_cents)} to secure
+                Pay {formatNegotiationAmount(negotiation.amount_cents, negotiation.currency)} to secure
               </button>
             </form>
             <p className="text-[10px] text-[var(--fg-muted-2)] mt-2">Secure Stripe Checkout. Funds go to the seller.</p>
@@ -232,7 +233,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
         )}
         {!justPaid && awaitingApproval && (
           <div className="card mb-6 border border-[var(--amber)]/30 bg-[var(--amber)]/5 text-sm text-[var(--amber)]">
-            Agreement reached for {formatNegotiationAmount(negotiation.amount_cents)} - awaiting seller approval before payment. Check back shortly.
+            Agreement reached for {formatNegotiationAmount(negotiation.amount_cents, negotiation.currency)} - awaiting seller approval before payment. Check back shortly.
           </div>
         )}
 
@@ -275,13 +276,19 @@ export default async function PersistentNegotiationPage({ params, searchParams }
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline justify-between text-sm mb-1">
-                  <span className="font-medium">{turn.role === 'buyer' ? 'Buying Agent' : 'Nexez Negotiation Assistant (LLM)'}</span>
+                  <span className="font-medium">
+                    {turn.role === 'buyer'
+                      ? 'Buying Agent'
+                      : turn.role === 'seller_owner'
+                        ? 'Seller'
+                        : 'Nexez Negotiation Assistant (LLM)'}
+                  </span>
                   <span className="text-[10px] text-[var(--fg-muted-2)] font-mono">{new Date(turn.timestamp).toLocaleString()}</span>
                 </div>
 
                 {turn.content?.query && <p className="text-sm mb-2">{turn.content.query}</p>}
                 {turn.content?.proposedPriceCents != null && (
-                  <p className="text-sm">Proposed: ${ (turn.content.proposedPriceCents / 100).toFixed(2) }</p>
+                  <p className="text-sm">Proposed: {formatNegotiationAmount(turn.content.proposedPriceCents, negotiation.currency)}</p>
                 )}
 
                 {turn.decision && (
@@ -290,7 +297,7 @@ export default async function PersistentNegotiationPage({ params, searchParams }
                     <p className="mt-1 text-zinc-300">{turn.decision.reasoning}</p>
                     {turn.decision.counter && (
                       <div className="mt-2 text-xs bg-black/30 p-2 rounded">
-                        Counter: ${turn.decision.counter.priceCents ? (turn.decision.counter.priceCents / 100).toFixed(2) : turn.decision.counter.price}
+                        Counter: {turn.decision.counter.priceCents ? formatNegotiationAmount(turn.decision.counter.priceCents, negotiation.currency) : turn.decision.counter.price}
                         {turn.decision.counter.proposedDate && ` · ${turn.decision.counter.proposedDate}`}
                         {turn.decision.counter.scopeNotes && <div className="mt-1">Scope: {turn.decision.counter.scopeNotes}</div>}
                         {turn.decision.counter.scope && (

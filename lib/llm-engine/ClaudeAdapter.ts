@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { BaseLLMAdapter, LLMAdapterError, NegotiationDecision, NegotiationAction } from './BaseLLMAdapter';
+import { BaseLLMAdapter, LLMAdapterError, NegotiationDecision, NegotiationAction, requireCounterPriceCents } from './BaseLLMAdapter';
 import { NEGOTIATION_SAFETY_PREAMBLE, fenceUntrusted } from './prompt-safety';
 
 /**
@@ -64,7 +64,7 @@ accept_proposal
  - reasoning: string (detailed professional explanation why this proposal meets the rules)
  - internal_notes: string (optional private notes for the business owner)
  generate_counter_offer
- - proposed_price: number
+ - price_cents: integer (counter amount in the currency's minor unit; 12500 means 125.00)
  - proposed_date: string (ISO date or clear description)
  - scope_notes: string (any adjustments to scope or terms)
  - reasoning: string (clear explanation to the agent why you are countering)
@@ -105,7 +105,7 @@ Important:
         input_schema: {
           type: 'object',
           properties: {
-            proposed_price: { type: 'number' },
+            price_cents: { type: 'integer', minimum: 50, description: 'Counter amount in integer app-minor currency units.' },
             proposed_date: { type: 'string' },
             scope_notes: { type: 'string' },
             // Phase 2 structured scope (preferred over free-text when possible)
@@ -117,7 +117,7 @@ Important:
             reasoning: { type: 'string' },
             internal_notes: { type: 'string' },
           },
-          required: ['proposed_price', 'reasoning'],
+          required: ['price_cents', 'reasoning'],
         },
       },
       {
@@ -136,11 +136,15 @@ Important:
   }
 
   private parseFunctionCall(name: string, args: any): NegotiationDecision {
-    const action = name as NegotiationAction;
+    let action: NegotiationAction = 'review';
+    if (name === 'accept_proposal') action = 'accept';
+    if (name === 'generate_counter_offer') action = 'counter';
+    if (name === 'reject_proposal') action = 'reject';
+    if (name === 'request_clarification') action = 'clarify';
     const decision: NegotiationDecision = { action, reasoning: args.reasoning || '', internalNotes: args.internal_notes };
     if (name === 'generate_counter_offer') {
       decision.counter = {
-        priceCents: args.proposed_price ? Math.round(args.proposed_price * 100) : undefined,
+        priceCents: requireCounterPriceCents(args.price_cents),
         proposedDate: args.proposed_date,
         scopeNotes: args.scope_notes,
         scope: {

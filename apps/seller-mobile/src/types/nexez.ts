@@ -110,16 +110,6 @@ export type CheckoutEvent = {
   created_at: string
 }
 
-export type NegotiationStatus =
-  | 'negotiation'
-  | 'agreement_proposed'
-  | 'held'
-  | 'complete'
-  | 'declined'
-  | 'expired'
-  | 'refunded'
-  | 'disputed'
-
 export type AgentNegotiation = {
   id: string
   page_id: string
@@ -246,3 +236,4 @@ export type SimulationResult = {
   llmEnhanced?: boolean
   error?: string
 }
+import type { NegotiationStatus } from '../../../../lib/negotiations'

@@ -8,6 +8,7 @@ import type {
   IntakeSessionSummary,
   IntakeTurnResponse,
 } from '@/src/types/intake'
+import type { OwnerNegotiationDecision } from '../../../../lib/contracts/negotiation'
 
 type ApiOptions = RequestInit & {
   auth?: boolean
@@ -73,19 +74,11 @@ export type DealActionResult = {
   error?: string
 }
 
-export type OwnerMessage = {
-  action: 'accept' | 'counter' | 'reject' | 'clarify'
-  reasoning: string
-  proposed_price?: number
-  proposed_date?: string
-  scope_notes?: string
-}
-
 // Non-payment status transitions: propose agreement (accept), counter, decline.
 export function transitionNegotiation(input: {
   negotiationId: string
   to?: string
-  ownerMessage?: OwnerMessage
+  decision?: OwnerNegotiationDecision
   amountCents?: number
 }) {
   return apiFetch<DealActionResult>('/api/negotiations/transition', {

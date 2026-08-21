@@ -1,4 +1,5 @@
 import { AgentPage, getReadinessScore } from './agent-page'
+import type { AnalyticsTrustLevel } from './contracts/analytics'
 
 export type AgentVisit = {
   id: string
@@ -14,6 +15,9 @@ export type AgentVisit = {
   agent_type: string
   confidence_score: number
   detection_signals: Record<string, unknown>
+  ingestion_key?: string | null
+  ingestion_source?: string
+  trust_level?: AnalyticsTrustLevel
   created_at: string
 }
 

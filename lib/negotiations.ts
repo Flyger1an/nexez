@@ -5,6 +5,7 @@ import { AgentPage, CheckoutOffer, getBaseUrl, getCheckoutOfferKey } from './age
 export const NEGOTIATION_STATUSES = [
   'negotiation',
   'agreement_proposed',
+  'paused',
   'held',
   'complete',
   'declined',
@@ -47,6 +48,9 @@ export type AgentNegotiation = {
   stripe_payment_intent_id: string | null
   /** Hybrid settlement path once an agreement is reached (Burst 1). */
   settlement_state: 'auto' | 'awaiting_approval' | 'approved' | null
+  decision_pending?: boolean
+  decision_claimed_at?: string | null
+  decision_seq?: number
   /** Cached buyer Checkout session for idempotent pay links. */
   stripe_checkout_session_id: string | null
   /** Immutable economics captured when the hosted payment state is created. */
@@ -67,6 +71,7 @@ export type AgentNegotiation = {
 const STATUS_LABELS: Record<NegotiationStatus, string> = {
   negotiation: 'New proposal',
   agreement_proposed: 'Agreement proposed',
+  paused: 'Paused',
   held: 'Funds held (escrow)',
   complete: 'Complete',
   declined: 'Declined',
@@ -164,6 +169,7 @@ export function getNegotiationStatusTone(
 ): 'open' | 'progress' | 'success' | 'muted' {
   if (status === 'negotiation') return 'open'
   if (status === 'agreement_proposed' || status === 'held') return 'progress'
+  if (status === 'paused') return 'muted'
   if (status === 'complete') return 'success'
   return 'muted'
 }
@@ -182,9 +188,11 @@ export function getAllowedNegotiationTransitions(
 
   switch (status) {
     case 'negotiation':
-      return ['agreement_proposed', 'declined']
+      return ['agreement_proposed', 'paused', 'declined']
     case 'agreement_proposed':
-      return [...(escrowAvailable ? (['held'] as NegotiationStatus[]) : []), 'complete', 'declined']
+      return escrowAvailable ? ['held', 'paused', 'declined'] : ['complete', 'paused', 'declined']
+    case 'paused':
+      return ['negotiation', 'declined']
     case 'held':
       return ['complete', 'declined']
     default:
@@ -221,7 +229,7 @@ export function summarizeNegotiations(list: Pick<AgentNegotiation, 'status'>[]):
   }
 
   for (const item of list) {
-    if (item.status === 'negotiation') summary.open += 1
+    if (item.status === 'negotiation' || item.status === 'paused') summary.open += 1
     else if (item.status === 'agreement_proposed') summary.proposed += 1
     else if (item.status === 'held') summary.held += 1
     else if (item.status === 'complete') summary.complete += 1

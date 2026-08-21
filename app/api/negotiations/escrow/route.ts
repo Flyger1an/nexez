@@ -5,6 +5,7 @@ import { enforceRateLimit } from '../../../../lib/rate-limit'
 import { minorToStripeAmount, toStripeAmount } from '../../../../lib/currency'
 import { planRefund, refundIdempotencyKey } from '../../../../lib/refunds'
 import type { AgentNegotiation } from '../../../../lib/negotiations'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 
 /**
  * Owner-side escrow actions (the BUYER funds the hold via /api/negotiations/pay).
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
 
   const { supabase, user } = await resolveRequestAuth(request)
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  const writer = hasSupabaseAdminEnv() ? createAdminClient() : supabase
 
   let body: { negotiationId?: string; action?: 'approve' | 'capture' | 'cancel' | 'refund'; amount?: number }
   try {
@@ -66,7 +68,7 @@ export async function POST(request: Request) {
     if (negotiation.status !== 'agreement_proposed' || negotiation.settlement_state !== 'awaiting_approval') {
       return NextResponse.json({ error: 'Nothing to approve for this negotiation.' }, { status: 409 })
     }
-    const { error: approveErr } = await supabase
+    const { error: approveErr } = await writer
       .from('agent_negotiations')
       .update({ settlement_state: 'approved', updated_at: new Date().toISOString() })
       .eq('id', negotiation.id)
@@ -95,11 +97,12 @@ export async function POST(request: Request) {
         {},
         { ...(stripeAccount ? { stripeAccount } : {}), idempotencyKey: `capture-${negotiation.id}` },
       )
-      await supabase
+      const { error: captureUpdateError } = await writer
         .from('agent_negotiations')
         .update({ status: 'complete', updated_at: new Date().toISOString() })
         .eq('id', negotiation.id)
         .eq('owner_id', user.id)
+      if (captureUpdateError) throw captureUpdateError
       return NextResponse.json({ ok: true, action, status: 'complete' })
     }
 
@@ -118,11 +121,12 @@ export async function POST(request: Request) {
           .cancel(negotiation.stripe_payment_intent_id, {}, stripeAccount ? { stripeAccount } : undefined)
           .catch(() => {})
       }
-      await supabase
+      const { error: cancelUpdateError } = await writer
         .from('agent_negotiations')
         .update({ status: 'declined', updated_at: new Date().toISOString() })
         .eq('id', negotiation.id)
         .eq('owner_id', user.id)
+      if (cancelUpdateError) throw cancelUpdateError
       return NextResponse.json({ ok: true, action, status: 'declined' })
     }
 
@@ -157,7 +161,7 @@ export async function POST(request: Request) {
       )
       const now = new Date().toISOString()
       const meta = (negotiation.metadata as Record<string, unknown>) || {}
-      await supabase
+      const { error: refundUpdateError } = await writer
         .from('agent_negotiations')
         .update({
           // A partial keeps the deal 'complete' (remainder still refundable); only a
@@ -171,6 +175,7 @@ export async function POST(request: Request) {
         })
         .eq('id', negotiation.id)
         .eq('owner_id', user.id)
+      if (refundUpdateError) throw refundUpdateError
       return NextResponse.json({
         ok: true,
         action,

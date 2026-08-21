@@ -11,6 +11,7 @@ import {
   type MetricsMessage,
 } from '../../../../lib/negotiation-metrics'
 import { MetricsDonut, ThroughputChart } from './MetricsCharts'
+import { DataLoadNotice } from '../../../../components/dashboard/DataLoadNotice'
 
 // Bound the scan so the page stays fast for large accounts.
 const MAX_NEGOTIATIONS = 500
@@ -64,7 +65,7 @@ export default async function NegotiationMetricsPage() {
     )
   }
 
-  const { data: negotiationRows } = await supabase
+  const { data: negotiationRows, error: negotiationError } = await supabase
     .from('agent_negotiations')
     .select('id, status, amount_cents, created_at, decision_pending, decision_requested_at, metadata')
     .eq('owner_id', user.id)
@@ -76,8 +77,9 @@ export default async function NegotiationMetricsPage() {
   const ids = negotiations.map((n) => n.id)
 
   let messages: MetricsMessage[] = []
+  let messageError: { message?: string } | null = null
   if (ids.length) {
-    const { data: messageRows } = await supabase
+    const { data: messageRows, error } = await supabase
       .from('negotiation_messages')
       .select('negotiation_id, role, created_at')
       .in('negotiation_id', ids)
@@ -85,7 +87,12 @@ export default async function NegotiationMetricsPage() {
       .limit(5000)
       .returns<MetricsMessage[]>()
     messages = messageRows ?? []
+    messageError = error
   }
+  const dataIssues = [
+    negotiationError ? 'negotiation totals' : null,
+    messageError ? 'decision history' : null,
+  ].filter((issue): issue is string => Boolean(issue))
 
   const m = computeNegotiationMetrics(negotiations, messages, { days: WINDOW_DAYS })
 
@@ -106,6 +113,7 @@ export default async function NegotiationMetricsPage() {
             <p className="text-sm text-zinc-400">Your last {Math.min(MAX_NEGOTIATIONS, m.total)} negotiations · throughput over {WINDOW_DAYS} days.</p>
           </div>
         </div>
+        <DataLoadNotice issues={dataIssues} />
 
         {/* Stat cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

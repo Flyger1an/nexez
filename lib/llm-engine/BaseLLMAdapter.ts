@@ -67,3 +67,15 @@ export class LLMAdapterError extends Error {
     this.name = 'LLMAdapterError';
   }
 }
+
+/**
+ * LLM tool output is an external input boundary. Counter amounts are always
+ * integer app-minor units; numeric strings, decimals, and legacy major-unit
+ * fields are rejected rather than guessed.
+ */
+export function requireCounterPriceCents(value: unknown): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 50) {
+    throw new Error('Counter tool output requires integer price_cents of at least 50.')
+  }
+  return value as number
+}

@@ -59,10 +59,64 @@ function seedNegotiationDb(page: any, opts: { llmFails?: boolean } = {}) {
   const handler = (ctx: QueryContext) => {
     if (ctx.table === 'pages') return { data: page, error: null }
 
+    if (ctx.table === 'rpc:nz_create_negotiation_with_buyer_turn') {
+      state.inserted = ctx.payload?.p_negotiation
+      const message = ctx.payload?.p_message
+      state.messages.push({
+        negotiation_id: state.inserted.id,
+        role: 'buyer',
+        content: message.content,
+        idempotency_key_hash: message.idempotency_key_hash,
+        idempotency_request_hash: message.idempotency_request_hash,
+      })
+      return { data: state.inserted, error: null }
+    }
+
+    if (ctx.table === 'rpc:nz_queue_negotiation_buyer_turn') {
+      const existing = state.messages.find(
+        (message) => message.idempotency_key_hash && message.idempotency_key_hash === ctx.payload?.p_idempotency_key_hash,
+      )
+      if (existing) return { data: null, error: { code: '23505', message: 'duplicate buyer turn' } }
+      state.messages.push({
+        negotiation_id: ctx.payload?.p_negotiation_id,
+        role: 'buyer',
+        content: ctx.payload?.p_content,
+        idempotency_key_hash: ctx.payload?.p_idempotency_key_hash,
+        idempotency_request_hash: ctx.payload?.p_idempotency_request_hash,
+      })
+      state.inserted = { ...state.inserted, decision_pending: true, decision_requested_at: ctx.payload?.p_requested_at }
+      return { data: state.inserted, error: null }
+    }
+
+    if (ctx.table === 'rpc:nz_persist_automated_negotiation_decision') {
+      const payload = ctx.payload || {}
+      state.messages.push({
+        negotiation_id: payload.p_negotiation_id,
+        role: 'seller_llm',
+        content: payload.p_content,
+        decision_seq: payload.p_expected_seq + 1,
+      })
+      const update = {
+        status: payload.p_status,
+        ...(payload.p_amount_cents != null ? { amount_cents: payload.p_amount_cents } : {}),
+        ...(payload.p_settlement_state ? { settlement_state: payload.p_settlement_state } : {}),
+        decision_seq: payload.p_expected_seq + 1,
+        decision_pending: false,
+        decision_claimed_at: null,
+        metadata: {
+          last_decision: payload.p_decision,
+          rules_evaluation: payload.p_rules_evaluation,
+          history_source: 'negotiation_messages',
+        },
+      }
+      state.finalUpdates.push(update)
+      state.inserted = { ...state.inserted, ...update }
+      return { data: { applied: true, decision_seq: update.decision_seq, negotiation: state.inserted }, error: null }
+    }
+
     if (ctx.table === 'agent_negotiations') {
       if (ctx.op === 'insert') {
-        state.inserted = ctx.payload
-        return { error: null }
+        throw new Error('Negotiation creation must use the atomic RPC')
       }
       if (ctx.op === 'update') {
         // The atomic claim filters on decision_pending=true and .select()s the row.
@@ -257,6 +311,38 @@ describe('NegotiationService.submitProposal (sync phase - no LLM)', () => {
       idempotencyRequestHash: 'c'.repeat(64),
     })).rejects.toMatchObject({ status: 409, code: 'idempotency_conflict' })
   })
+
+  it('does not leave a continuation pending when the atomic buyer-turn RPC fails', async () => {
+    const existing = {
+      id: 'neg-atomic',
+      status: 'negotiation',
+      status_token_sha256: hashBearerToken('real-tok'),
+      slug: 'demo',
+      decision_pending: false,
+    }
+    const contexts: QueryContext[] = []
+    dbRef.handler = (ctx: QueryContext) => {
+      contexts.push(ctx)
+      if (ctx.table === 'pages') return { data: demoPage(), error: null }
+      if (ctx.table === 'agent_negotiations' && ctx.op === 'select') return { data: existing, error: null }
+      if (ctx.table === 'rpc:nz_queue_negotiation_buyer_turn') {
+        return { data: null, error: { code: '08006', message: 'connection failure' } }
+      }
+      return { data: null, error: null }
+    }
+
+    const service = new NegotiationService(okLLM({ action: 'counter', reasoning: 'r' }))
+    await expect(service.submitProposal({
+      slug: 'demo',
+      offerKey: 'services-0',
+      buyerProposal: { proposedPriceCents: 90_000 },
+      negotiationId: existing.id,
+      statusToken: 'real-tok',
+    })).rejects.toMatchObject({ code: '08006' })
+
+    expect(contexts.some((ctx) => ctx.table === 'agent_negotiations' && ctx.op === 'update')).toBe(false)
+    expect(contexts.some((ctx) => ctx.table === 'negotiation_messages' && ctx.op === 'insert')).toBe(false)
+  })
 })
 
 describe('NegotiationService.runDecision (async phase - LLM + claim)', () => {
@@ -420,6 +506,27 @@ describe('NegotiationService.runDecision (async phase - LLM + claim)', () => {
     const service = new NegotiationService(okLLM({ action: 'counter', reasoning: 'r' }))
     await service.runDecision('missing-id')
     expect(state.messages).toHaveLength(0)
+  })
+
+  it('never writes a partial seller turn when the atomic persistence RPC fails', async () => {
+    const state = seedNegotiationDb(demoPage())
+    const baseHandler = dbRef.handler
+    dbRef.handler = (ctx: QueryContext) => {
+      if (ctx.table === 'rpc:nz_persist_automated_negotiation_decision') {
+        return { data: null, error: { code: '08006', message: 'connection failure' } }
+      }
+      return baseHandler(ctx)
+    }
+    const service = new NegotiationService(okLLM({ action: 'counter', reasoning: 'r' }))
+    const submitted = await service.submitProposal({
+      slug: 'demo',
+      offerKey: 'services-0',
+      buyerProposal: { proposedPriceCents: 90_000 },
+    })
+    await service.runDecision(submitted.negotiationId)
+
+    expect(state.messages.filter((message) => message.role === 'seller_llm')).toHaveLength(0)
+    expect(state.finalUpdates).toHaveLength(0)
   })
 })
 

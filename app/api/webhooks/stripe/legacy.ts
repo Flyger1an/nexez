@@ -31,6 +31,7 @@ import { sendOnceSystemEmail } from '../../../../lib/server/system-email'
 import { cancelCalendlyForRefund } from '../../../../lib/server/calendly-cancel-on-refund'
 import { releaseBillingCheckoutAttempt } from '../../../../lib/server/billing-checkout-attempt'
 import { acpOrderWebhookConfigured, acpStatusFromOrderStatus, sendAcpOrderEvent } from '../../../../lib/server/acp-order-webhook'
+import { insertVerifiedCheckoutEvent } from '../../../../lib/server/analytics-ingestion'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'placeholder')
 
@@ -225,7 +226,7 @@ export async function POST(request: NextRequest) {
       pagesTouched += 1
       // Audit trail the analytics dashboard already renders ("Stripe price syncs").
       const changes = [...services.changes, ...products.changes]
-      const { error: eventError } = await admin.from('checkout_events').insert({
+      const eventWrite = await insertVerifiedCheckoutEvent({
         page_id: row.id,
         owner_id: row.owner_id || null,
         slug: row.slug,
@@ -242,7 +243,8 @@ export async function POST(request: NextRequest) {
           new_price: target.priceStr,
           changes,
         },
-      })
+      }, { source: 'stripe_webhook', replayKey: `${event.id}:${row.id}` })
+      const eventError = eventWrite.error as { message?: string } | null
       if (eventError) {
         console.warn('[Stripe Webhook] Failed to log price sync for page', row.slug, eventError.message)
       }
