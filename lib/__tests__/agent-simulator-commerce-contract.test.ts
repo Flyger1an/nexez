@@ -71,6 +71,27 @@ const page = {
         ],
       },
     },
+    {
+      name: 'Private Dinner',
+      price: '$800',
+      description: 'A capacity-bound private dinner.',
+      url: '',
+      customerInputs: [{
+        key: 'guest_count',
+        label: 'Guest count',
+        valueType: 'quantity',
+        required: true,
+        askBuyer: 'How many guests?',
+      }],
+      reservableResourceTerms: {
+        schemaVersion: 1,
+        requirements: [{
+          poolId: '11111111-1111-4111-8111-111111111111',
+          windowId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          quantity: { source: 'input', inputKey: 'guest_count' },
+        }],
+      },
+    },
   ],
   faqs: [],
   created_at: '2026-08-19T00:00:00.000Z',
@@ -104,6 +125,21 @@ function assertCommerceParity(schema: any) {
   expect(staged.action.availability).toBe('requires_nexez_settlement')
   expect(staged.action.endpoint).toBe('https://nexez.test/api/staged-settlements/checkout')
   expect(staged.action.dry_run_body).toEqual({ slug: 'sim-commerce', offer: 'services-2', dryRun: true })
+
+  const resources = schema.page.offers.find((offer: any) => offer.key === 'services-3')
+  expect(resources.configuration.reservable_resources).toMatchObject({
+    runtime_status: 'active',
+    checkout_supported: true,
+    availability_status: 'requires_authoritative_dry_run',
+    terms: {
+      requirements: [{ quantity: { source: 'input', inputKey: 'guest_count' } }],
+    },
+  })
+  expect(resources.configuration.checkout.path).toBe('/api/reservable-resources/checkout')
+  expect(resources.configuration.checkout.idempotency_key_required).toBe(true)
+  expect(resources.action.endpoint).toBe('https://nexez.test/api/reservable-resources/checkout')
+  expect(resources.action.required_headers['Idempotency-Key']).toContain('Reuse')
+  expect(resources.action.dry_run_body).toEqual({ slug: 'sim-commerce', offer: 'services-3', dryRun: true })
 }
 
 describe('agent simulator commerce-contract parity', () => {

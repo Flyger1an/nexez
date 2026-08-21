@@ -10,7 +10,7 @@ import {
 } from '../lib/approval-bound-action'
 
 type ApprovedActionFormProps = Omit<ComponentPropsWithoutRef<'form'>, 'action' | 'method' | 'onSubmit'> & {
-  action: '/api/checkout' | '/api/negotiations'
+  action: '/api/checkout' | '/api/negotiations' | '/api/reservable-resources/checkout'
   onNavigate?: (url: string) => void
 }
 
@@ -84,10 +84,27 @@ export function ApprovedActionForm({ action, children, onNavigate, ...formProps 
 
 function formDataToActionInput(formData: FormData) {
   const input: Record<string, unknown> = {}
+  const offerConfiguration: Record<string, unknown> = {}
   for (const [key, value] of formData.entries()) {
     if (typeof value !== 'string') continue
+    const configurationField = parseOfferConfigurationFieldName(key)
+    if (configurationField) {
+      const normalized = normalizeOfferConfigurationFormValue(configurationField.valueType, value)
+      if (configurationField.valueType === 'multi-select') {
+        const current = offerConfiguration[configurationField.key]
+        offerConfiguration[configurationField.key] = [
+          ...(Array.isArray(current) ? current : []),
+          ...(typeof normalized === 'string' && normalized ? [normalized] : []),
+        ]
+      } else {
+        offerConfiguration[configurationField.key] = normalized
+      }
+      continue
+    }
     input[key] = value
   }
+
+  if (Object.keys(offerConfiguration).length) input.offerConfiguration = offerConfiguration
 
   if (typeof input.requestedTerms === 'string') {
     try {
@@ -97,6 +114,21 @@ function formDataToActionInput(formData: FormData) {
     }
   }
   return input
+}
+
+const OFFER_CONFIGURATION_FORM_FIELD = /^offerConfiguration\.(text|number|boolean|single-select|multi-select|quantity|date|date-time|location|asset)\.([a-z0-9][a-z0-9_-]{0,63})$/
+
+function parseOfferConfigurationFieldName(name: string) {
+  const match = OFFER_CONFIGURATION_FORM_FIELD.exec(name)
+  return match ? { valueType: match[1], key: match[2] } : null
+}
+
+function normalizeOfferConfigurationFormValue(valueType: string, value: string) {
+  if (valueType === 'number' || valueType === 'quantity') {
+    return value.trim() === '' ? '' : Number(value)
+  }
+  if (valueType === 'boolean') return value === 'true'
+  return value
 }
 
 function actionDestination(result: ApprovalActionResponse) {

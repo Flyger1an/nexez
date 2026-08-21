@@ -72,6 +72,13 @@ export function createSupabaseMock(handler: QueryHandler, opts: SupabaseMockOpti
 
   return {
     from: fromMock,
+    rpc: vi.fn((fn: string, payload: Record<string, unknown>) => Promise.resolve(handler({
+      table: `rpc:${fn}`,
+      op: 'select',
+      eqs: {},
+      calls: [['rpc', fn, payload]],
+      payload,
+    }))),
     auth: {
       getUser: vi.fn(async () => ({ data: { user: opts.user ?? null }, error: opts.userError ?? null })),
     },

@@ -73,6 +73,25 @@ describe('handlePlatformMcpRequest', () => {
     expect(JSON.parse(String(calls[0].init?.body)).dryRun).toBe(true)
   })
 
+  it('routes resource-backed validation through the production hold resolver', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: unknown, init?: RequestInit) => {
+      calls.push({ url: String(url), init })
+      if (String(url).endsWith('/api/checkout')) {
+        return new Response(JSON.stringify({ code: 'reservable_resource_checkout_required' }), { status: 409 })
+      }
+      return new Response(JSON.stringify({ ok: true, resources: { status: 'held', holdId: 'hold-1' } }), { status: 200 })
+    }))
+    const result = await call('tools/call', {
+      name: 'nexez_validate_checkout',
+      arguments: { slug: 'dinner', offer: 'services-0', offerConfiguration: { guest_count: 12 } },
+    })
+    expect(calls).toHaveLength(2)
+    expect(calls[1].url).toContain('/api/reservable-resources/checkout')
+    expect((calls[1].init?.headers as Record<string, string>)['idempotency-key']).toMatch(/^mcp-resource:/)
+    expect(JSON.parse(String(calls[1].init?.body))).toMatchObject({ dryRun: true, buyerAgent: 'mcp' })
+    expect((result.result as any).content[0].text).toContain('"status":"held"')
+  })
+
   it('validate_negotiation forces dryRun:true', async () => {
     await call('tools/call', { name: 'nexez_validate_negotiation', arguments: { slug: 'acme', offer: 'services-0', dryRun: false } })
     expect(JSON.parse(String(calls[0].init?.body)).dryRun).toBe(true)

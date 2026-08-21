@@ -129,6 +129,7 @@ const AGENT_RUNTIME_API_PREFIXES = [
   '/api/acp',
   '/api/ucp',
   '/api/checkout',
+  '/api/reservable-resources',
   '/api/cron',
   '/api/negotiations',
   // The buyer-portal recourse API. Deliberately NOT `/api/orders` - that prefix

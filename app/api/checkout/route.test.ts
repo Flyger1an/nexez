@@ -155,6 +155,35 @@ describe('POST /api/checkout - agent action safety', () => {
     expect((await res.json()).code).toBe('staged_settlement_runtime_not_available')
     expect(stripeCalls).toEqual([])
   })
+
+  it('fails closed before charging a resource-backed offer without an atomic hold', async () => {
+    adminRef.handler = (c: QueryContext) => c.table === 'pages'
+      ? {
+          data: {
+            ...fixedPage(),
+            services: [{
+              ...fixedPage().services[0],
+              reservableResourceTerms: {
+                schemaVersion: 1,
+                requirements: [{
+                  poolId: '11111111-1111-4111-8111-111111111111',
+                  quantity: { source: 'fixed', value: 1 },
+                }],
+              },
+            }],
+          },
+          error: null,
+        }
+      : { data: null, error: null, count: 0 }
+
+    const res = await POST(post({ slug: 'demo', offer: 'services-0', dryRun: true }))
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({
+      code: 'reservable_resource_checkout_required',
+      actionUrl: 'https://nexez.test/api/reservable-resources/checkout',
+    })
+    expect(stripeCalls).toEqual([])
+  })
 })
 
 describe('POST /api/checkout - Smart Rules calendar protection', () => {

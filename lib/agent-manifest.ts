@@ -160,6 +160,11 @@ function buildOfferPayload(page: AgentPage, offer: CheckoutOffer, identityBase: 
             configuration_field: 'offerConfiguration',
             configuration_schema: configuration.input_schema,
           } : {}),
+          ...(configuration?.checkout?.idempotency_key_required ? {
+            required_headers: {
+              'Idempotency-Key': 'A caller-generated 16-255 character key reused unchanged for dry-run and the approved live action.',
+            },
+          } : {}),
           optional_fields: {
             buyerEmail: 'Buyer email - prefills checkout and enables the receipt + order portal.',
             buyerName: 'Buyer or business name.',

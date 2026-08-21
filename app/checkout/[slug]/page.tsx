@@ -24,7 +24,12 @@ import {
   getRequestBaseUrl,
 } from '../../../lib/agent-page'
 import { parseMoney } from '../../../lib/checkout'
+import {
+  getOfferCustomerInputs,
+  getOfferReservableResourceTerms,
+} from '../../../lib/configured-offer'
 import { normalizeCurrency, toStripeAmount, formatCurrencyAmount, toMajorAmount } from '../../../lib/currency'
+import type { OfferInputField } from '../../../lib/offer-configuration'
 import { priceValidUntil } from '../../../lib/freshness'
 import { logCheckoutEvent } from '../../../lib/server/log-checkout-event'
 import { safeJsonScript } from '../../../lib/safe-json'
@@ -102,6 +107,9 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
   const jsonLd = buildCheckoutJsonLd(page, offer, checkoutUrl, destination, priceCents, baseUrl, currency)
   const canContinue = Boolean(priceCents || destination)
   const missingCheckout = Boolean(search.missing_checkout)
+  const resourceTerms = getOfferReservableResourceTerms(offer)
+  const offerInputs = getOfferCustomerInputs(offer)
+  const checkoutAction = resourceTerms ? '/api/reservable-resources/checkout' as const : '/api/checkout' as const
 
   // Non-blocking: record the checkout_view after the response is sent so it
   // never adds latency to the page render.
@@ -195,6 +203,16 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
                 <DetailRow label="Total" value={displayPrice} strong />
               </div>
 
+              {resourceTerms ? (
+                <div className="mt-6 rounded-lg border border-[var(--ready)]/25 bg-[var(--ready)]/10 p-4 text-sm leading-6 text-zinc-200">
+                  <p className="font-medium text-[var(--ready)]">Availability is checked live</p>
+                  <p className="mt-1 text-zinc-300">
+                    Nothing is fabricated or pre-claimed. Continue checks the merchant’s authoritative capacity and
+                    creates a temporary hold before Stripe opens. Payment commits that exact allocation.
+                  </p>
+                </div>
+              ) : null}
+
               <label className="mt-7 flex items-center gap-3 text-sm text-zinc-300">
                 <input type="checkbox" defaultChecked className="size-5 accent-[var(--signal)]" />
                 Request human review for high-value or custom purchases
@@ -239,15 +257,20 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
               ) : null}
 
               {canContinue ? (
-                <ApprovedActionForm action="/api/checkout" className="mt-6">
+                <ApprovedActionForm action={checkoutAction} className="mt-6">
                   <input type="hidden" name="slug" value={page.slug} />
                   <input type="hidden" name="offer" value={offerKey} />
                   <input type="hidden" name="query" value="agent_checkout_confirm" />
+                  {offerInputs.length ? (
+                    <div className="mb-5 grid gap-4 text-left">
+                      {offerInputs.map((field) => <OfferConfigurationField key={field.key} field={field} />)}
+                    </div>
+                  ) : null}
                   <button
                     type="submit"
                     className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--signal)] px-5 py-4 text-sm font-semibold text-zinc-950 hover:bg-[var(--signal)]"
                   >
-                    Confirm & Continue
+                    {resourceTerms ? 'Check availability & Continue' : 'Confirm & Continue'}
                     <ArrowRight className="size-4" />
                   </button>
                 </ApprovedActionForm>
@@ -262,8 +285,8 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
 
               <div className="mt-6 grid gap-3 text-sm md:grid-cols-3">
                 <Signal icon={<CheckCircle2 className="size-4" />} label="Offer parsed" />
-                <Signal icon={<CreditCard className="size-4" />} label="Tokenized handoff" />
-                <Signal icon={<Mail className="size-4" />} label="Review optional" />
+                <Signal icon={<CreditCard className="size-4" />} label={resourceTerms ? 'Hold before payment' : 'Tokenized handoff'} />
+                <Signal icon={<Mail className="size-4" />} label={resourceTerms ? 'Commit after payment' : 'Review optional'} />
               </div>
             </section>
           </div>
@@ -282,7 +305,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
             <div className="mt-5 space-y-3 text-sm">
               <DetailRow label="Checkout URL" value={checkoutUrl} />
               <DetailRow label="Source page" value={publicUrl} />
-              <DetailRow label="Action URL" value={destination || 'Not configured'} />
+              <DetailRow label="Action URL" value={resourceTerms ? checkoutAction : destination || 'Not configured'} />
             </div>
           </div>
 
@@ -300,7 +323,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
     },
     buyerFit: page.audience || null,
     contactEmail: page.contact_email || null,
-    actionUrl: destination || null,
+    actionUrl: resourceTerms ? checkoutAction : destination || null,
   },
   null,
   2,
@@ -338,6 +361,63 @@ function Signal({ icon, label }: { icon: React.ReactNode; label: string }) {
       <span className="text-[var(--signal)]">{icon}</span>
       {label}
     </div>
+  )
+}
+
+function OfferConfigurationField({ field }: { field: OfferInputField }) {
+  const name = `offerConfiguration.${field.valueType}.${field.key}`
+  const shared = {
+    id: `offer-configuration-${field.key}`,
+    name,
+    required: field.required,
+    className: 'mt-2 w-full rounded-lg border border-white/15 bg-black/30 px-3 py-3 text-white outline-none focus:border-[var(--signal)]',
+  }
+
+  let control: React.ReactNode
+  if (field.valueType === 'single-select' || field.valueType === 'multi-select') {
+    control = (
+      <select {...shared} multiple={field.valueType === 'multi-select'} defaultValue={field.valueType === 'multi-select' ? [] : ''}>
+        {field.valueType === 'single-select' ? <option value="">Select one</option> : null}
+        {(field.options ?? []).map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    )
+  } else if (field.valueType === 'boolean') {
+    control = (
+      <select {...shared} defaultValue="">
+        <option value="">Select yes or no</option>
+        <option value="true">Yes</option>
+        <option value="false">No</option>
+      </select>
+    )
+  } else {
+    const type = field.valueType === 'date'
+      ? 'date'
+      : field.valueType === 'date-time'
+        ? 'datetime-local'
+        : field.valueType === 'number' || field.valueType === 'quantity'
+          ? 'number'
+          : field.valueType === 'asset'
+            ? 'url'
+            : 'text'
+    control = (
+      <input
+        {...shared}
+        type={type}
+        step={field.valueType === 'quantity' ? 1 : field.valueType === 'number' ? 'any' : undefined}
+        min={field.valueType === 'quantity' ? 1 : undefined}
+        placeholder={field.askBuyer}
+      />
+    )
+  }
+
+  return (
+    <label htmlFor={shared.id} className="block text-sm text-zinc-200">
+      <span className="font-medium">{field.label}{field.required ? ' *' : ''}</span>
+      {field.description ? <span className="mt-1 block text-xs leading-5 text-zinc-400">{field.description}</span> : null}
+      {control}
+    </label>
   )
 }
 

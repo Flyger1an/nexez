@@ -112,6 +112,7 @@ describe('canonicalHostFor', () => {
     // These are buyer/Stripe/agent surfaces; pinning them guards against an
     // accidental prefix-list reshuffle that would break escrow links or webhook delivery.
     expect(canonicalHostFor('/api/checkout')).toBe(AGENT_RUNTIME_HOST)
+    expect(canonicalHostFor('/api/reservable-resources/checkout')).toBe(AGENT_RUNTIME_HOST)
     expect(canonicalHostFor('/api/webhooks/stripe')).toBe(AGENT_RUNTIME_HOST)
     // The Shopify app is hosted on app.nexez.ai, so ITS webhook is the deliberate
     // exception — Shopify won't follow the 308 the runtime prefix would issue.

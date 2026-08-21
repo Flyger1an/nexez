@@ -10,16 +10,19 @@ import {
   OFFER_INPUTS_MARKER,
   OFFER_RECURRING_MARKER,
   OFFER_STAGED_SETTLEMENT_MARKER,
+  OFFER_RESOURCES_MARKER,
   formatOfferAttributesMarker,
   formatOfferFulfillmentMarker,
   formatOfferInputsMarker,
   formatOfferRecurringMarker,
   formatOfferStagedSettlementMarker,
+  formatOfferResourcesMarker,
   parseOfferAttributesMarker,
   parseOfferFulfillmentMarker,
   parseOfferInputsMarker,
   parseOfferRecurringMarker,
   parseOfferStagedSettlementMarker,
+  parseOfferResourcesMarker,
 } from './offer-configuration-codec'
 import {
   sanitizeOfferAttributes,
@@ -40,6 +43,10 @@ import {
   type OfferFulfillmentRule,
 } from './conditional-fulfillment'
 import { validateStagedSettlementTerms, type StagedSettlementTerms } from './staged-settlement'
+import {
+  validateReservableResourceTerms,
+  type ReservableResourceTerms,
+} from './reservable-resource'
 
 /**
  * Backward-compatible bridge between today's OfferItem and richer merchant-authored
@@ -55,6 +62,8 @@ export type ConfiguredOfferItem = OfferItem & {
   fulfillmentRules?: OfferFulfillmentRule[]
   /** Public merchant-authored finite payment allocation. Never buyer/model authored. */
   stagedSettlementTerms?: StagedSettlementTerms
+  /** Public references to merchant-owned resource pools; availability stays server-authoritative. */
+  reservableResourceTerms?: ReservableResourceTerms
 }
 
 function configured(offer: OfferItem): ConfiguredOfferItem {
@@ -83,6 +92,14 @@ export function getOfferStagedSettlementTerms(offer: OfferItem): StagedSettlemen
   return validated.ok ? validated.value : null
 }
 
+export function getOfferReservableResourceTerms(offer: OfferItem): ReservableResourceTerms | null {
+  const candidate = configured(offer)
+  if (candidate.recurringTerms != null || candidate.stagedSettlementTerms != null) return null
+  if (offer.source && offer.source !== 'nexez') return null
+  const validated = validateReservableResourceTerms(candidate.reservableResourceTerms, getOfferCustomerInputs(offer))
+  return validated.ok ? validated.value : null
+}
+
 export function getOfferFulfillmentRules(offer: OfferItem): OfferFulfillmentRule[] {
   const validated = validateOfferFulfillmentRules(configured(offer).fulfillmentRules, getOfferCustomerInputs(offer))
   return validated.ok ? validated.value : []
@@ -105,6 +122,11 @@ export function withOfferCustomerInput(
     const validated = validateOfferFulfillmentRules(fulfillment, result.value)
     if (!validated.ok) return { ok: false, error: validated.error }
   }
+  const resources = configured(offer).reservableResourceTerms
+  if (resources) {
+    const validated = validateReservableResourceTerms(resources, result.value)
+    if (!validated.ok) return { ok: false, error: validated.error }
+  }
   return { ok: true, value: next }
 }
 
@@ -121,8 +143,8 @@ export function withOfferRecurringTerms(
   offer: OfferItem,
   value: unknown,
 ): OfferConfigurationValidation<ConfiguredOfferItem> {
-  if (configured(offer).stagedSettlementTerms != null) {
-    return { ok: false, error: 'Finite staged settlement and open-ended recurring billing cannot be configured on the same offer.' }
+  if (configured(offer).stagedSettlementTerms != null || configured(offer).reservableResourceTerms != null) {
+    return { ok: false, error: 'Recurring billing cannot share an offer with staged settlement or reservable-resource v1.' }
   }
   const validated = validateRecurringServiceTerms(value)
   if (!validated.ok) return { ok: false, error: validated.error }
@@ -135,12 +157,27 @@ export function withOfferStagedSettlementTerms(
   offer: OfferItem,
   value: unknown,
 ): OfferConfigurationValidation<ConfiguredOfferItem> {
-  if (configured(offer).recurringTerms != null) {
-    return { ok: false, error: 'Finite staged settlement and open-ended recurring billing cannot be configured on the same offer.' }
+  if (configured(offer).recurringTerms != null || configured(offer).reservableResourceTerms != null) {
+    return { ok: false, error: 'Staged settlement cannot share an offer with recurring billing or reservable-resource v1.' }
   }
   const validated = validateStagedSettlementTerms(value)
   if (!validated.ok) return { ok: false, error: validated.error }
   return { ok: true, value: { ...configured(offer), stagedSettlementTerms: validated.value } }
+}
+
+export function withOfferReservableResourceTerms(
+  offer: OfferItem,
+  value: unknown,
+): OfferConfigurationValidation<ConfiguredOfferItem> {
+  if (offer.source && offer.source !== 'nexez') {
+    return { ok: false, error: 'Nexez resource pools cannot shadow an external offer inventory or calendar authority.' }
+  }
+  if (configured(offer).recurringTerms != null || configured(offer).stagedSettlementTerms != null) {
+    return { ok: false, error: 'Reservable resource v1 supports only one immediate fixed-total checkout.' }
+  }
+  const validated = validateReservableResourceTerms(value, getOfferCustomerInputs(offer))
+  if (!validated.ok) return { ok: false, error: validated.error }
+  return { ok: true, value: { ...configured(offer), reservableResourceTerms: validated.value } }
 }
 
 export function withOfferFulfillmentRules(
@@ -173,12 +210,14 @@ export function mergeProposedOfferPreservingConfiguration(
   delete proposal.recurringTerms
   delete proposal.fulfillmentRules
   delete proposal.stagedSettlementTerms
+  delete proposal.reservableResourceTerms
 
   const customerInputs = existing ? getOfferCustomerInputs(existing) : []
   const attributes = existing ? getOfferAttributes(existing) : []
   const recurringTerms = existing ? getOfferRecurringTerms(existing) : null
   const fulfillmentRules = existing ? getOfferFulfillmentRules(existing) : []
   const stagedSettlementTerms = existing ? getOfferStagedSettlementTerms(existing) : null
+  const reservableResourceTerms = existing ? getOfferReservableResourceTerms(existing) : null
 
   return {
     ...(existing ?? {}),
@@ -188,6 +227,7 @@ export function mergeProposedOfferPreservingConfiguration(
     ...(recurringTerms ? { recurringTerms } : {}),
     ...(fulfillmentRules.length ? { fulfillmentRules } : {}),
     ...(stagedSettlementTerms ? { stagedSettlementTerms } : {}),
+    ...(reservableResourceTerms ? { reservableResourceTerms } : {}),
   } as ConfiguredOfferItem
 }
 
@@ -243,6 +283,7 @@ function stripConfigurationMarkers(line: string): string {
     OFFER_RECURRING_MARKER,
     OFFER_FULFILLMENT_MARKER,
     OFFER_STAGED_SETTLEMENT_MARKER,
+    OFFER_RESOURCES_MARKER,
   ].reduce(stripConfigurationMarker, line).trim()
 }
 
@@ -276,6 +317,7 @@ export function parseConfiguredOfferLines(value: string): ConfiguredOfferItem[] 
     const recurringPart = extractConfigurationMarker(line, OFFER_RECURRING_MARKER)
     const fulfillmentPart = extractConfigurationMarker(line, OFFER_FULFILLMENT_MARKER)
     const stagedSettlementPart = extractConfigurationMarker(line, OFFER_STAGED_SETTLEMENT_MARKER)
+    const resourcesPart = extractConfigurationMarker(line, OFFER_RESOURCES_MARKER)
     const baseLine = stripConfigurationMarkers(line)
     const base = parseOfferLines(baseLine)[0]
 
@@ -287,6 +329,7 @@ export function parseConfiguredOfferLines(value: string): ConfiguredOfferItem[] 
       : undefined
     const fulfillmentRules = parseOfferFulfillmentMarker(fulfillmentPart, customerInputs ?? [])
     const stagedSettlementTerms = parseOfferStagedSettlementMarker(stagedSettlementPart)
+    const reservableResourceTerms = parseOfferResourcesMarker(resourcesPart, customerInputs ?? [])
     const tiers = base.tiers?.length ? base.tiers : recoverLegacyTiers(baseLine)
 
     return {
@@ -297,6 +340,7 @@ export function parseConfiguredOfferLines(value: string): ConfiguredOfferItem[] 
       ...(recurringTerms ? { recurringTerms } : {}),
       ...(fulfillmentRules?.length ? { fulfillmentRules } : {}),
       ...(stagedSettlementTerms ? { stagedSettlementTerms } : {}),
+      ...(reservableResourceTerms ? { reservableResourceTerms } : {}),
     }
   })
 }
@@ -310,7 +354,8 @@ export function formatConfiguredOfferLines(items: ConfiguredOfferItem[] | null |
       const recurring = formatOfferRecurringMarker(offer.recurringTerms)
       const fulfillment = formatOfferFulfillmentMarker(offer.fulfillmentRules, getOfferCustomerInputs(offer))
       const stagedSettlement = formatOfferStagedSettlementMarker(offer.stagedSettlementTerms)
-      return [base, inputs, attributes, recurring, fulfillment, stagedSettlement].filter(Boolean).join(' | ')
+      const resources = formatOfferResourcesMarker(offer.reservableResourceTerms, getOfferCustomerInputs(offer))
+      return [base, inputs, attributes, recurring, fulfillment, stagedSettlement, resources].filter(Boolean).join(' | ')
     })
     .join('\n')
 }

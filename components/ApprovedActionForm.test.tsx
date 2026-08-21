@@ -93,4 +93,35 @@ describe('ApprovedActionForm', () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/checkout/acme?offer=services-0&missing_checkout=1'))
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
+
+  it('submits canonical typed offer configuration to the resource checkout action', async () => {
+    const navigate = vi.fn()
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response({ approvalTokenRequired: true, approvalToken: 'v1.resource.signature' }))
+      .mockResolvedValueOnce(response({ url: 'https://checkout.example.com/resource-session' }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <ApprovedActionForm action="/api/reservable-resources/checkout" onNavigate={navigate}>
+        <input name="slug" value="dinner" readOnly />
+        <input name="offer" value="services-0" readOnly />
+        <input name="offerConfiguration.quantity.guest_count" value="12" readOnly />
+        <input name="offerConfiguration.boolean.outdoor" value="false" readOnly />
+        <input name="offerConfiguration.multi-select.add_ons" value="wine" readOnly />
+        <input name="offerConfiguration.multi-select.add_ons" value="dessert" readOnly />
+        <button type="submit">Hold and continue</button>
+      </ApprovedActionForm>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hold and continue' }))
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('https://checkout.example.com/resource-session'))
+
+    const dryRunBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body))
+    expect(dryRunBody.offerConfiguration).toEqual({
+      guest_count: 12,
+      outdoor: false,
+      add_ons: ['wine', 'dessert'],
+    })
+    expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get('idempotency-key')).toMatch(/^nexez-action:/)
+  })
 })

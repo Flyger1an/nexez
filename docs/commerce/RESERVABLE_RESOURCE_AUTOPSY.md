@@ -1,6 +1,6 @@
 # Nexez Reservable Resource Autopsy
 
-**Status:** Architecture analysis v1 — no runtime, schema, inventory, or booking mutation in this PR
+**Status:** Runtime v1 implemented — merchant-authored Nexez pools, atomic holds, settlement conversion, and production-path simulator contracts
 **Machine-readable source:** `lib/commerce-templates/curation/reservable-resource-analysis.ts`
 **Evidence corpus:** every curated candidate with an `inventory-resource` or `capacity-constraints` gap signal, plus current offer, Calendly availability, checkout, approval, and settlement rails
 
@@ -232,9 +232,23 @@ It must not animate fake scarcity, invent a pool from a Commerce Template, claim
 - arbitrary formulas, fractional units, or model-evaluated quantities;
 - LLM-inferred pools, requirements, availability, or release decisions.
 
-## Implementation acceptance criteria for the next PR
+## Runtime v1 evidence
 
-The runtime slice is not first-class until all of the following are true:
+The bounded implementation now lives in:
+
+- `lib/reservable-resource.ts`, `lib/reservable-resource-runtime.ts`, and `lib/server/reservable-resource.ts` for the public contract, canonical resolution, and service-role-only database boundary;
+- `supabase/migrations/20260821035523_reservable_resource_runtime.sql` plus its payment-provenance and account-lifecycle follow-ups for pools, windows, holds, allocations, reservations, RLS, RPCs, and immutable lineage;
+- `app/api/reservable-resources/checkout/route.ts` for authoritative dry-run, approval-bound payment creation, and exact Stripe-session expiry;
+- `lib/server/reservable-resource-webhook.ts` and `app/api/cron/reconcile-resource-holds/route.ts` for paid conversion and provider-authoritative expiry;
+- `app/api/resource-pools/route.ts` and the existing offer codec for merchant-authored pools, windows, and offer requirements;
+- agent manifest, OpenAPI, MCP, simulator, and buyer checkout surfaces that point to the same production dry-run rather than rendering inferred availability;
+- `supabase/tests/reservable_resource_gauntlet.sql` and `supabase/tests/reservable_resource_concurrency.sql` for lifecycle, abuse, delayed-webhook, account-deletion, and final-unit race certification.
+
+Refund and dispute events continue through the ordinary order ledger; they do not automatically restore physical capacity. External calendars and inventory remain outside this Nexez-owned authority boundary.
+
+## Implementation acceptance criteria
+
+The runtime slice is certified against all of the following:
 
 1. merchant authoring persists bounded pools, windows, and offer requirements without AI invention;
 2. validation rejects duplicate IDs, unknown pools/inputs, unsupported kinds, unsafe labels, fractional/negative/unbounded quantities, invalid windows, and more than three offer requirements;

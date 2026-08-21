@@ -10,6 +10,10 @@ import {
   type OfferFulfillmentRule,
 } from './conditional-fulfillment'
 import { validateStagedSettlementTerms, type StagedSettlementTerms } from './staged-settlement'
+import {
+  validateReservableResourceTerms,
+  type ReservableResourceTerms,
+} from './reservable-resource'
 
 /** Pipe-safe markers used by the legacy offer-line editor/import codec. */
 export const OFFER_INPUTS_MARKER = '[[INPUTS]]'
@@ -17,6 +21,7 @@ export const OFFER_ATTRIBUTES_MARKER = '[[ATTRIBUTES]]'
 export const OFFER_RECURRING_MARKER = '[[RECURRING]]'
 export const OFFER_FULFILLMENT_MARKER = '[[FULFILLMENT]]'
 export const OFFER_STAGED_SETTLEMENT_MARKER = '[[STAGED_SETTLEMENT]]'
+export const OFFER_RESOURCES_MARKER = '[[RESOURCES]]'
 
 function encodeMarker(marker: string, value: unknown, sanitize: (value: unknown) => unknown[]): string | null {
   const normalized = sanitize(value)
@@ -107,6 +112,28 @@ export function parseOfferStagedSettlementMarker(part: string | undefined): Stag
     const encoded = part.slice(part.indexOf(OFFER_STAGED_SETTLEMENT_MARKER) + OFFER_STAGED_SETTLEMENT_MARKER.length).trim()
     if (!encoded) return undefined
     const validated = validateStagedSettlementTerms(JSON.parse(decodeURIComponent(encoded)))
+    return validated.ok ? validated.value : undefined
+  } catch {
+    return undefined
+  }
+}
+
+export function formatOfferResourcesMarker(value: unknown, inputs: OfferInputField[]): string | null {
+  const validated = validateReservableResourceTerms(value, inputs)
+  return validated.ok
+    ? `${OFFER_RESOURCES_MARKER}${encodeURIComponent(JSON.stringify(validated.value))}`
+    : null
+}
+
+export function parseOfferResourcesMarker(
+  part: string | undefined,
+  inputs: OfferInputField[],
+): ReservableResourceTerms | undefined {
+  if (!part?.includes(OFFER_RESOURCES_MARKER)) return undefined
+  try {
+    const encoded = part.slice(part.indexOf(OFFER_RESOURCES_MARKER) + OFFER_RESOURCES_MARKER.length).trim()
+    if (!encoded) return undefined
+    const validated = validateReservableResourceTerms(JSON.parse(decodeURIComponent(encoded)), inputs)
     return validated.ok ? validated.value : undefined
   } catch {
     return undefined
