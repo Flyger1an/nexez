@@ -37,7 +37,7 @@ function tokens(value: string): string[] {
  * Collapses a small set of common service-language variants without turning
  * this deterministic matcher into a fuzzy or model-based classifier.
  */
-function tokenFamily(token: string): string {
+export function commerceIdentityTokenFamily(token: string): string {
   if (token.endsWith('ography') && token.length > 8) return token.slice(0, -1)
   if (token.endsWith('ing') && token.length > 6) return token.slice(0, -3)
   if (token.endsWith('ers') && token.length > 6) return token.slice(0, -3)
@@ -48,7 +48,7 @@ function tokenFamily(token: string): string {
 }
 
 function tokenFamilies(value: string): string[] {
-  return [...new Set(tokens(value).map(tokenFamily))]
+  return [...new Set(tokens(value).map(commerceIdentityTokenFamily))]
 }
 
 function identityTitleTokens(value: string): Set<string> {
@@ -59,6 +59,7 @@ export type CommerceSimulationMatch = {
   candidate: CommerceCurationCandidate
   score: number
   matchedTerms: string[]
+  matchedIdentityTerms: string[]
 }
 
 /**
@@ -110,6 +111,7 @@ export function findCommerceSimulationMatch(
         candidate,
         score,
         matchedTerms: [...new Set(matchedTerms)],
+        matchedIdentityTerms: [...new Set(matchedIdentityTerms)],
         exactTitleMatch: Boolean(titleText && queryText.includes(titleText)),
         identityMatchCount: matchedIdentityTerms.length,
       }
@@ -138,5 +140,6 @@ export function findCommerceSimulationMatch(
     candidate: strongest.candidate,
     score: strongest.score,
     matchedTerms: strongest.matchedTerms,
+    matchedIdentityTerms: strongest.matchedIdentityTerms,
   }
 }
