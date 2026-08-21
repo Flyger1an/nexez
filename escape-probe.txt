@@ -1,4 +1,3 @@
-A single: ’
-B double: ’
-C triple: \’
-D literal-typed: backslash-u-2-0-1-9
+E quad: \\u2019
+F quint: \\’
+G hex: \\\’
