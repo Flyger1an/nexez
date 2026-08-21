@@ -9,7 +9,7 @@ export const whatIsGoogleUcp: LearnArticle = {
   dek: 'UCP is the open standard Google and Shopify built so AI agents can search, cart, and buy from your store inside Gemini and AI Mode. Here is what it actually does, how to get on it, and what an independent census of every public UCP store says about where the ecosystem really stands.',
   category: 'Agentic commerce',
   publishedAt: '2026-08-14',
-  updatedAt: '2026-08-17',
+  updatedAt: '2026-08-20',
   readMinutes: 11,
   blocks: [
     {
@@ -22,7 +22,7 @@ export const whatIsGoogleUcp: LearnArticle = {
     },
     {
       type: 'p',
-      text: 'This guide covers the five capabilities, how UCP evolved across 2026, what onboarding actually looks like, and an honest look at the adoption data, including a July 2026 census of every public UCP store that should change how you prioritize. For how UCP compares against OpenAI\u2019s ACP and the general-purpose MCP, the [protocol comparison guide](/learn/ucp-vs-acp-vs-mcp) covers that side by side.',
+      text: 'This guide covers the five capabilities, how UCP evolved across 2026, what onboarding actually looks like, and an honest look at the adoption data, including a July 2026 census of every public UCP store that should change how you prioritize. For how UCP compares against OpenAI’s ACP and the general-purpose MCP, the [protocol comparison guide](/learn/ucp-vs-acp-vs-mcp) covers that side by side.',
     },
     { type: 'h2', text: 'The five capabilities' },
     {
@@ -33,8 +33,8 @@ export const whatIsGoogleUcp: LearnArticle = {
       type: 'table',
       headers: ['Capability', 'What an agent can do', 'Added'],
       rows: [
-        ['Checkout', 'Initiate and complete a purchase on the shopper\u2019s behalf', 'January 2026'],
-        ['Identity Linking', 'Apply the shopper\u2019s loyalty or member benefits, like member pricing or free shipping', 'January 2026'],
+        ['Checkout', 'Initiate and complete a purchase on the shopper’s behalf', 'January 2026'],
+        ['Identity Linking', 'Apply the shopper’s loyalty or member benefits, like member pricing or free shipping', 'January 2026'],
         ['Order Management', 'Retrieve order status, tracking, and post-purchase details', 'January 2026'],
         ['Cart', 'Add multiple items to a cart at once, the way a shopper normally would', 'March 2026'],
         ['Catalog', 'Pull real-time product details: variants, inventory, live pricing', 'March 2026'],
@@ -102,7 +102,7 @@ export const whatIsGoogleUcp: LearnArticle = {
       type: 'callout',
       tone: 'amber',
       title: 'Declaring a capability is not the same as shipping it',
-      text: 'A UCP manifest is a set of claims about what your store supports. An agent that trusts the claim, attempts the transaction, and fails has wasted the shopper\u2019s time and will route around you next time. The gap between declared and functional capability is the single most common failure mode in agentic commerce right now, and it is not unique to UCP; the same pattern shows up in stale structured data and manifests that quote prices checkout no longer honors.',
+      text: 'A UCP manifest is a set of claims about what your store supports. An agent that trusts the claim, attempts the transaction, and fails has wasted the shopper’s time and will route around you next time. The gap between declared and functional capability is the single most common failure mode in agentic commerce right now, and it is not unique to UCP; the same pattern shows up in stale structured data and manifests that quote prices checkout no longer honors.',
     },
     {
       type: 'p',
@@ -111,7 +111,7 @@ export const whatIsGoogleUcp: LearnArticle = {
     { type: 'h2', text: 'Should you prioritize UCP?' },
     {
       type: 'p',
-      text: 'Honest answer, and it depends on one question: do you sell physical products through channels where Google already sends you traffic? If yes, UCP is high priority and probably cheap, because your Merchant Center feed is most of the work and Google\u2019s AI surfaces are where your buyers already are. If you are on Shopify, it may already be on.',
+      text: 'Honest answer, and it depends on one question: do you sell physical products through channels where Google already sends you traffic? If yes, UCP is high priority and probably cheap, because your Merchant Center feed is most of the work and Google’s AI surfaces are where your buyers already are. If you are on Shopify, it may already be on.',
     },
     {
       type: 'p',
@@ -147,7 +147,7 @@ export const whatIsGoogleUcp: LearnArticle = {
     {
       question: 'What is the difference between UCP and ACP?',
       answer:
-        'Different owners and different status. UCP is the Google and Shopify standard covering the full shopping journey across Google\u2019s AI surfaces (AI Mode in Search, the Gemini app, YouTube Shopping), onboarded through Merchant Center, and it is where live agentic checkout runs today. ACP is the OpenAI and Stripe protocol, which launched powering checkout inside ChatGPT until OpenAI [retired that surface in March 2026](/learn/chatgpt-instant-checkout-retired); the spec itself remains active through adopters such as PayPal and Stripe. The [full comparison](/learn/ucp-vs-acp-vs-mcp) breaks down what each requires.',
+        'Different owners and different status. UCP is the Google and Shopify standard covering the full shopping journey across Google’s AI surfaces (AI Mode in Search, the Gemini app, YouTube Shopping), onboarded through Merchant Center, and it is where live agentic checkout runs today. ACP is the OpenAI and Stripe protocol, which launched powering checkout inside ChatGPT until OpenAI [retired that surface in March 2026](/learn/chatgpt-instant-checkout-retired); the spec itself remains active through adopters such as PayPal and Stripe. The [full comparison](/learn/ucp-vs-acp-vs-mcp) breaks down what each requires.',
     },
     {
       question: 'How do I onboard to UCP?',
