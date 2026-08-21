@@ -17,7 +17,7 @@ function fixture(id: string): CommerceBenchmarkTransactionFixture {
 
 function stage(
   result: ReturnType<typeof runCommerceBenchmarkTransactionFixture>,
-  name: 'offer-configuration' | 'deterministic-pricing',
+  name: 'offer-configuration' | 'deterministic-pricing' | 'conditional-fulfillment' | 'staged-settlement' | 'reservable-resources',
 ) {
   const found = result.stages.find((candidate) => candidate.stage === name)
   if (!found) throw new Error(`Missing ${name} stage`)
@@ -25,19 +25,73 @@ function stage(
 }
 
 describe('commerce benchmark transaction fixtures', () => {
-  it('covers every active pilot template and passes through production configuration + pricing behavior', () => {
+  it('covers every active template and passes through production transaction behavior', () => {
     const templates = listCommerceTemplates({ status: 'active' })
     const results = runCommerceBenchmarkTransactionFixtures(
       commerceBenchmarkTransactionFixtures,
       templates,
     )
 
-    expect(commerceBenchmarkTransactionFixtures).toHaveLength(templates.length)
-    expect(new Set(commerceBenchmarkTransactionFixtures.map((item) => `${item.template.id}@${item.template.version}`)).size)
-      .toBe(templates.length)
-    expect(results).toHaveLength(templates.length)
+    const coveredTemplates = new Set(commerceBenchmarkTransactionFixtures.map((item) => `${item.template.id}@${item.template.version}`))
+    expect(coveredTemplates.size).toBe(templates.length)
+    expect(templates.every((template) => coveredTemplates.has(`${template.id}@${template.version}`))).toBe(true)
+    expect(results).toHaveLength(commerceBenchmarkTransactionFixtures.length)
     expect(results.every((result) => result.status === 'pass')).toBe(true)
     expect(results.every((result) => result.stages.every((entry) => entry.status === 'pass'))).toBe(true)
+  })
+
+  it('proves Party Rentals through separate inventory-hold and staged-payment paths', () => {
+    const templates = listCommerceTemplates({ status: 'active' })
+    const inventory = runCommerceBenchmarkTransactionFixture(
+      fixture('events.party-rentals.inventory-transaction'),
+      templates,
+    )
+    const staged = runCommerceBenchmarkTransactionFixture(
+      fixture('events.party-rentals.staged-transaction'),
+      templates,
+    )
+
+    expect(inventory.status).toBe('pass')
+    expect(stage(inventory, 'conditional-fulfillment')).toMatchObject({ status: 'pass' })
+    expect(stage(inventory, 'reservable-resources')).toMatchObject({ status: 'pass' })
+    expect(stage(inventory, 'staged-settlement')).toMatchObject({ status: 'pass' })
+
+    expect(staged.status).toBe('pass')
+    expect(stage(staged, 'conditional-fulfillment')).toMatchObject({ status: 'pass' })
+    expect(stage(staged, 'staged-settlement')).toMatchObject({ status: 'pass' })
+    expect(stage(staged, 'reservable-resources')).toMatchObject({ status: 'pass' })
+  })
+
+  it('fails a Party Rentals resource benchmark when requested quantities drift', () => {
+    const mutated = fixture('events.party-rentals.inventory-transaction')
+    if (!mutated.expected.resources) throw new Error('Missing Party Rentals resource expectation')
+    mutated.expected.resources.requirements[0]!.resolvedQuantity = 79
+
+    const result = runCommerceBenchmarkTransactionFixture(
+      mutated,
+      listCommerceTemplates({ status: 'active' }),
+    )
+
+    expect(result.status).toBe('fail')
+    expect(stage(result, 'reservable-resources').diagnostics).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'resource_resolution_mismatch' })]),
+    )
+  })
+
+  it('fails a Party Rentals staged benchmark when payment allocation drifts', () => {
+    const mutated = fixture('events.party-rentals.staged-transaction')
+    if (!mutated.expected.stagedSettlement) throw new Error('Missing Party Rentals staged expectation')
+    mutated.expected.stagedSettlement.stages[0]!.amountCents += 100
+
+    const result = runCommerceBenchmarkTransactionFixture(
+      mutated,
+      listCommerceTemplates({ status: 'active' }),
+    )
+
+    expect(result.status).toBe('fail')
+    expect(stage(result, 'staged-settlement').diagnostics).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'staged_settlement_snapshot_mismatch' })]),
+    )
   })
 
   it('canonicalizes set-like buyer configuration before pricing', () => {

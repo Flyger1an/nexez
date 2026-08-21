@@ -6,10 +6,10 @@ import {
 } from '../commerce-templates/public'
 
 describe('public commerce template projection', () => {
-  it('projects all seven active pilot examples without live-supply fields', () => {
+  it('projects all active examples without live-supply fields', () => {
     const examples = getPublicCommerceExamples()
-    expect(examples).toHaveLength(7)
-    expect(new Set(examples.map((example) => example.id)).size).toBe(7)
+    expect(examples).toHaveLength(8)
+    expect(new Set(examples.map((example) => example.id)).size).toBe(8)
 
     for (const example of examples) {
       expect(example.disclaimer.toLowerCase()).toContain('not a real provider')

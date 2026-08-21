@@ -12,7 +12,7 @@ The governing curation question is:
 
 > **What does this template teach Nexez about commerce that the other templates do not?**
 
-The active runtime registry remains intentionally limited to the seven proven pilot Commerce Templates. Every other entry below is a selection hypothesis that must earn later promotion through full canonical definition, merchant-truth design, transaction fixtures, buyer guardrails, and executable benchmark coverage.
+The active runtime registry contains the seven proven pilots plus Party Rentals, the first post-pilot Commerce Template. Every inactive entry below remains a selection hypothesis that must earn promotion through full canonical definition, merchant-truth design, transaction fixtures, buyer guardrails, and executable benchmark coverage.
 
 ## Scoring rubric
 
@@ -36,6 +36,7 @@ Scores are curation judgments, not marketplace rankings, merchant quality scores
 ## Status semantics
 
 - **pilot-active** — already exists as a versioned active Commerce Template and participates in the executable benchmark.
+- **active** — promoted after the pilot with the same versioned registry and executable benchmark obligations.
 - **retain** — strong candidate to keep in the v1 learning set, but not active runtime truth.
 - **overlap-review** — teaches useful mechanics but should be compared carefully against nearby candidates before canonical promotion.
 - **replacement-review** — currently contributes too little distinct commercial information and should be challenged by a more informative replacement.
@@ -45,7 +46,8 @@ First-pass status counts:
 | Status | Count |
 |---|---:|
 | pilot-active | 7 |
-| retain | 49 |
+| active | 1 |
+| retain | 48 |
 | overlap-review | 5 |
 | replacement-review | 2 |
 | **Total** | **63** |
@@ -99,7 +101,7 @@ A simple baseline can still be valuable. Barber Appointment is intentionally ret
 | 22 | Event Catering | `events.event-catering` | unit-priced-service | retain |
 | 23 | DJ Service | `events.dj-service` | fixed-appointment | retain |
 | 24 | Event Planning | `events.event-planning` | complex-project | retain |
-| 25 | Party Rentals | `events.party-rentals` | inventory-rental | retain |
+| 25 | Party Rentals | `events.party-rentals` | inventory-rental | active |
 | 26 | Proposal Setup | `events.proposal-setup` | configurable-appointment | retain |
 | 27 | Corporate Event Production | `events.corporate-event-production` | complex-project | retain |
 | 28 | Barber Appointment | `personal.barber-appointment` | fixed-appointment | retain |
@@ -243,13 +245,10 @@ A curation candidate does **not** become a canonical active Commerce Template me
 
 The active registry should expand incrementally so regressions identify which new commercial pattern exposed the problem.
 
-## Next workstream
+## Current workstream
 
-The next logical artifact is `COMMERCE_SCHEMA_GAP_ANALYSIS.md`: inspect the real Nexez offer, intake, checkout, negotiation, scheduling, and agent surfaces against the measured capability/gap frequencies above and classify each concept as:
+Party Rentals is the first post-pilot promotion. Its activation proves canonical routing, seller intelligence, buyer provenance guardrails, conditional fulfillment, deterministic configuration/pricing, staged payment allocation, and reservable-resource quantity resolution through production functions.
 
-1. already first-class;
-2. representable but weakly structured;
-3. missing but broadly useful;
-4. category-specific and not yet justified.
+The resource-hold and staged-payment paths remain separate offer contracts because v1 deliberately forbids combining them on one offer. Template knowledge never becomes inventory truth: real availability still requires the authoritative resource dry-run, and a staged package requires a merchant-confirmed fixed total plus fresh buyer approval for each obligation.
 
-That analysis should determine which primitives, if any, deserve implementation before the first post-pilot template is promoted.
+The next workstream is live evidence: configure a controlled merchant-authored rental offer, exercise the authoritative hold and settlement paths, and use the result to decide whether the next template should deepen inventory commerce or test a different first-class rail.

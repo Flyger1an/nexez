@@ -18,6 +18,8 @@ const PILOT_IDS = new Set([
   'professional.web-design-project',
 ])
 
+const POST_PILOT_IDS = new Set(['events.party-rentals'])
+
 const OVERLAP_REVIEW_IDS = new Set([
   'home.deep-cleaning',
   'personal.hair-styling',
@@ -67,15 +69,17 @@ describe('commerce 63-candidate curation inventory', () => {
     }
   })
 
-  it('keeps curation pilot status exactly aligned with the seven active runtime templates', () => {
+  it('keeps active curation statuses exactly aligned with the runtime registry', () => {
     const activeTemplates = listCommerceTemplates({ status: 'active' })
-    const activeCuration = listCommerceCurationCandidates({ status: 'pilot-active' })
+    const pilotCuration = listCommerceCurationCandidates({ status: 'pilot-active' })
+    const postPilotCuration = listCommerceCurationCandidates({ status: 'active' })
 
-    expect(activeTemplates).toHaveLength(7)
-    expect(ids(activeTemplates)).toEqual(PILOT_IDS)
-    expect(ids(activeCuration)).toEqual(PILOT_IDS)
+    expect(activeTemplates).toHaveLength(8)
+    expect(ids(pilotCuration)).toEqual(PILOT_IDS)
+    expect(ids(postPilotCuration)).toEqual(POST_PILOT_IDS)
+    expect(ids(activeTemplates)).toEqual(new Set([...PILOT_IDS, ...POST_PILOT_IDS]))
 
-    for (const candidate of commerceCurationCandidates.filter((item) => item.status !== 'pilot-active')) {
+    for (const candidate of commerceCurationCandidates.filter((item) => !['pilot-active', 'active'].includes(item.status))) {
       expect(getLatestCommerceTemplate(candidate.id)).toBeNull()
     }
   })
@@ -92,7 +96,8 @@ describe('commerce 63-candidate curation inventory', () => {
     expect(summary.candidateCount).toBe(63)
     expect(summary.statusCounts).toEqual({
       'pilot-active': 7,
-      retain: 49,
+      active: 1,
+      retain: 48,
       'overlap-review': 5,
       'replacement-review': 2,
     })
@@ -108,7 +113,7 @@ describe('commerce 63-candidate curation inventory', () => {
       'commercial.laundry-pickup-delivery',
     ])
     expect(listCommerceCurationCandidates({ domain: 'events-hospitality' })).toHaveLength(9)
-    expect(listCommerceTemplates({ status: 'active' })).toHaveLength(7)
+    expect(listCommerceTemplates({ status: 'active' })).toHaveLength(8)
   })
 
   it('is deterministic and JSON-safe', () => {

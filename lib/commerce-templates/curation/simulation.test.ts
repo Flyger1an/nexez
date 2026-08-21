@@ -22,6 +22,21 @@ describe('findCommerceSimulationMatch', () => {
     expect(match?.matchedTerms).toContain('detail')
   })
 
+  it('understands specific Party Rentals requests without treating every rental as an event rental', () => {
+    expect(findCommerceSimulationMatch(
+      'Rent 80 chairs and 10 tables for a party Saturday',
+      commerceReferenceCandidates,
+    )?.candidate.id).toBe('events.party-rentals')
+    expect(findCommerceSimulationMatch(
+      'Find party rentals with delivery and setup',
+      commerceReferenceCandidates,
+    )?.candidate.id).toBe('events.party-rentals')
+
+    expect(findCommerceSimulationMatch('Find a car rental this weekend', commerceReferenceCandidates)).toBeNull()
+    expect(findCommerceSimulationMatch('Book a vacation rental for a wedding', commerceReferenceCandidates)).toBeNull()
+    expect(findCommerceSimulationMatch('Rent a party bus for Saturday', commerceReferenceCandidates)).toBeNull()
+  })
+
   it('matches a private chef by the service noun rather than the mobile modifier', () => {
     const match = findCommerceSimulationMatch('Find a mobile chef', commerceCurationCandidates)
 

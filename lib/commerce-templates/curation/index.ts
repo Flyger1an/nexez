@@ -66,7 +66,7 @@ export function listCommerceCurationCandidates(query?: {
 }
 
 export function summarizeCommerceCuration() {
-  const statuses: CommerceCurationStatus[] = ['pilot-active', 'retain', 'overlap-review', 'replacement-review']
+  const statuses: CommerceCurationStatus[] = ['pilot-active', 'active', 'retain', 'overlap-review', 'replacement-review']
   const statusCounts = Object.fromEntries(
     statuses.map((status) => [status, listCommerceCurationCandidates({ status }).length]),
   ) as Record<CommerceCurationStatus, number>

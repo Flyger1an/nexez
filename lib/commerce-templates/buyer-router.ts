@@ -34,6 +34,8 @@ type WeightedEvidence = {
 const DEFAULT_MINIMUM_SCORE = 16
 const DEFAULT_MINIMUM_MARGIN = 8
 
+const GENERIC_BUYER_IDENTITY_TERMS = new Set(['event', 'party', 'rent', 'rental', 'wedding'])
+
 // Routing identifies the commerce pattern, not scheduling details or generic
 // buying verbs. Keeping these terms out of the score reduces accidental matches
 // caused by phrases such as "book this next Friday" that apply to many services.
@@ -190,7 +192,11 @@ export function routeCommerceBuyerIntent(
 
   const qualified = templates
     .map((template) => scoreCommerceBuyerIntent(template, request))
-    .filter((match) => match.score >= minimumScore)
+    .filter((match) => {
+      if (match.score < minimumScore) return false
+      const exactTemplateIdentity = normalize(request).includes(normalize(match.template.title))
+      return exactTemplateIdentity || match.matchedTerms.some((term) => !GENERIC_BUYER_IDENTITY_TERMS.has(term))
+    })
     .sort(
       (left, right) =>
         right.score - left.score ||

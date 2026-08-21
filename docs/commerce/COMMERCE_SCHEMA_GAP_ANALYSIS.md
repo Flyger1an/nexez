@@ -1,6 +1,6 @@
 # Nexez Commerce Schema Gap Analysis
 
-**Status:** Architecture analysis v5 — refreshed after reservable-resource runtime v1
+**Status:** Architecture analysis v6 — refreshed after the first post-pilot template promotion
 **Machine-readable source:** `lib/commerce-templates/curation/gap-analysis.ts`  
 **Curation evidence:** `lib/commerce-templates/curation/`
 
@@ -226,12 +226,12 @@ Reservable resources are now a production-path proof surface: the simulator adve
 
 ## Promotion implications
 
-The first post-pilot CommerceTemplate should not be selected merely because it has the highest curation score. Prefer a candidate that:
+Party Rentals is now the first post-pilot CommerceTemplate. It was selected because it:
 
-1. exercises already-first-class rails plus at most one strategically chosen missing primitive;
-2. exposes whether that primitive generalizes across the 63-candidate library;
-3. can receive the same routing → intelligence → configuration → pricing/quote → buyer-preflight → checkout/settlement benchmark treatment as the seven pilots;
-4. does not require several unrelated missing systems simultaneously.
+1. exercises already-first-class conditional-fulfillment, staged-settlement, and reservable-resource rails without requiring multi-provider orchestration;
+2. receives the same routing → intelligence → configuration → pricing → buyer-preflight benchmark treatment as the seven pilots;
+3. keeps merchant inventory, availability, delivery guarantees, prices, and damage/security terms outside template authority; and
+4. proves resource-backed immediate checkout and merchant-confirmed staged payment as separate v1 offer paths instead of combining incompatible contracts.
 
 That keeps expansion diagnostic: when the next template fails, Nexez learns exactly which commercial primitive broke instead of debugging five new abstractions at once.
 
@@ -246,4 +246,4 @@ The curation analysis itself does not:
 - treat seller claims or template knowledge as merchant truth;
 - claim a concept is first-class because a template enum contains its name rather than an enforced runtime.
 
-The next implementation decision should come from pilot evidence: either promote a template that exercises the now-first-class rails, or open a separate multi-provider architecture track only when a selected pattern truly requires it.
+The next implementation decision should come from live Party Rentals evidence: deepen the existing rails where the controlled merchant flow exposes a real gap, or promote another template that tests a different commercial pattern. Multi-provider orchestration remains deferred until a selected pattern truly requires it.

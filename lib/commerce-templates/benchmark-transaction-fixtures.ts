@@ -6,6 +6,7 @@ import type {
   OfferInputPricing,
 } from '../offer-configuration'
 import type { OfferTransactionConfiguration } from '../offer-transaction-configuration'
+import type { ConditionalFulfillmentDecision } from '../conditional-fulfillment'
 import type { CommerceTemplateRef } from './schema'
 
 export type CommerceBenchmarkTransactionAdjustmentExpectation = {
@@ -27,6 +28,28 @@ export type CommerceBenchmarkPricingExpectation =
       fields: string[]
     }
 
+export type CommerceBenchmarkFulfillmentExpectation = {
+  decision: ConditionalFulfillmentDecision
+  matchedRuleIds: string[]
+}
+
+export type CommerceBenchmarkStagedSettlementExpectation = {
+  totalAmount: number
+  currency: string
+  stages: Array<{
+    id: string
+    amountCents: number
+  }>
+}
+
+export type CommerceBenchmarkResourceExpectation = {
+  requirements: Array<{
+    poolId: string
+    windowId?: string
+    resolvedQuantity: number
+  }>
+}
+
 export type CommerceBenchmarkTransactionFixture = {
   /** Synthetic QA data only. Never expose as merchant truth or a public example price. */
   benchmarkOnly: true
@@ -38,6 +61,9 @@ export type CommerceBenchmarkTransactionFixture = {
   expected: {
     normalizedConfiguration: OfferTransactionConfiguration
     pricing: CommerceBenchmarkPricingExpectation
+    fulfillment?: CommerceBenchmarkFulfillmentExpectation
+    stagedSettlement?: CommerceBenchmarkStagedSettlementExpectation
+    resources?: CommerceBenchmarkResourceExpectation
   }
 }
 
@@ -130,7 +156,9 @@ function booleanField(
 }
 
 /**
- * One benchmark-only configured transaction fixture per active pilot template.
+ * At least one benchmark-only configured transaction fixture per active template.
+ * A template may need multiple fixtures when v1 intentionally keeps incompatible
+ * transaction contracts, such as inventory holds and staged settlement, separate.
  * The amounts below are synthetic QA constants. They exist solely to execute
  * production configuration/pricing code and must never seed merchant truth,
  * template knowledge, public examples, intake suggestions, or buyer answers.
@@ -249,6 +277,174 @@ export const commerceBenchmarkTransactionFixtures: CommerceBenchmarkTransactionF
         adjustmentAmount: 15000,
         finalAmount: 55000,
         adjustments: [{ fieldKey: 'guests', amount: 15000 }],
+      },
+    },
+  },
+  {
+    benchmarkOnly: true,
+    id: 'events.party-rentals.inventory-transaction',
+    template: { id: 'events.party-rentals', version: 1 },
+    offer: {
+      ...syntheticOffer('Synthetic Inventory-Backed Rental', '$500', [
+        quantityField('chair-count', 'Chairs', ['price', 'scope'], '5', 40),
+        quantityField('table-count', 'Tables', ['price', 'scope'], '20', 5),
+        selectField(
+          'delivery-mode',
+          'Delivery mode',
+          ['pickup', 'delivery'],
+          ['price', 'scope', 'eligibility'],
+          {
+            model: 'option-delta',
+            adjustments: [{ value: 'delivery', delta: '100' }],
+          },
+        ),
+        booleanField('setup', 'Setup', ['price', 'scope'], '125'),
+        selectField('site-access', 'Site access', ['standard', 'restricted'], ['eligibility']),
+      ]),
+      source: 'nexez',
+      fulfillmentRules: [
+        {
+          id: 'restricted-access-review',
+          inputKey: 'site-access',
+          operator: 'equals',
+          value: 'restricted',
+          decision: 'requires-review',
+          reasonCode: 'delivery.restricted_access',
+          message: 'Restricted site access requires merchant review before delivery can be confirmed.',
+          nextAction: 'contact-merchant',
+        },
+      ],
+      reservableResourceTerms: {
+        schemaVersion: 1,
+        requirements: [
+          {
+            poolId: '11111111-1111-4111-8111-111111111111',
+            windowId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+            quantity: { source: 'input', inputKey: 'chair-count' },
+          },
+          {
+            poolId: '22222222-2222-4222-8222-222222222222',
+            windowId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+            quantity: { source: 'input', inputKey: 'table-count' },
+          },
+          {
+            poolId: '33333333-3333-4333-8333-333333333333',
+            windowId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+            quantity: { source: 'fixed', value: 1 },
+          },
+        ],
+      },
+    },
+    currency: 'usd',
+    rawConfiguration: {
+      'chair-count': 80,
+      'table-count': 10,
+      'delivery-mode': 'delivery',
+      setup: true,
+      'site-access': 'standard',
+    },
+    expected: {
+      normalizedConfiguration: {
+        'chair-count': 80,
+        'table-count': 10,
+        'delivery-mode': 'delivery',
+        setup: true,
+        'site-access': 'standard',
+      },
+      pricing: {
+        outcome: 'priced',
+        baseAmount: 50000,
+        adjustmentAmount: 52500,
+        finalAmount: 102500,
+        adjustments: [
+          { fieldKey: 'chair-count', amount: 20000 },
+          { fieldKey: 'table-count', amount: 10000 },
+          { fieldKey: 'delivery-mode', amount: 10000 },
+          { fieldKey: 'setup', amount: 12500 },
+        ],
+      },
+      fulfillment: { decision: 'eligible', matchedRuleIds: [] },
+      resources: {
+        requirements: [
+          {
+            poolId: '11111111-1111-4111-8111-111111111111',
+            windowId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+            resolvedQuantity: 80,
+          },
+          {
+            poolId: '22222222-2222-4222-8222-222222222222',
+            windowId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+            resolvedQuantity: 10,
+          },
+          {
+            poolId: '33333333-3333-4333-8333-333333333333',
+            windowId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+            resolvedQuantity: 1,
+          },
+        ],
+      },
+    },
+  },
+  {
+    benchmarkOnly: true,
+    id: 'events.party-rentals.staged-transaction',
+    template: { id: 'events.party-rentals', version: 1 },
+    offer: {
+      ...syntheticOffer('Synthetic Merchant-Confirmed Event Package', '$2000', [
+        selectField(
+          'package',
+          'Package',
+          ['standard', 'premium'],
+          ['price', 'scope'],
+          {
+            model: 'option-delta',
+            adjustments: [{ value: 'premium', delta: '500' }],
+          },
+        ),
+        selectField('site-access', 'Site access', ['standard', 'restricted'], ['eligibility']),
+      ]),
+      fulfillmentRules: [
+        {
+          id: 'restricted-access-review',
+          inputKey: 'site-access',
+          operator: 'equals',
+          value: 'restricted',
+          decision: 'requires-review',
+          reasonCode: 'delivery.restricted_access',
+          message: 'Restricted site access requires merchant review before delivery can be confirmed.',
+          nextAction: 'contact-merchant',
+        },
+      ],
+      stagedSettlementTerms: {
+        schemaVersion: 1,
+        paymentModel: 'staged-fixed-total',
+        approvalPolicy: 'buyer-approves-each-stage',
+        mutationPolicy: 'immutable-after-first-payment',
+        stages: [
+          { id: 'commitment', label: 'Reservation commitment', kind: 'commitment', allocationBps: 3000 },
+          { id: 'completion', label: 'Fulfillment completion', kind: 'completion', allocationBps: 7000 },
+        ],
+      },
+    },
+    currency: 'usd',
+    rawConfiguration: { package: 'premium', 'site-access': 'standard' },
+    expected: {
+      normalizedConfiguration: { package: 'premium', 'site-access': 'standard' },
+      pricing: {
+        outcome: 'priced',
+        baseAmount: 200000,
+        adjustmentAmount: 50000,
+        finalAmount: 250000,
+        adjustments: [{ fieldKey: 'package', amount: 50000 }],
+      },
+      fulfillment: { decision: 'eligible', matchedRuleIds: [] },
+      stagedSettlement: {
+        totalAmount: 250000,
+        currency: 'usd',
+        stages: [
+          { id: 'commitment', amountCents: 75000 },
+          { id: 'completion', amountCents: 175000 },
+        ],
       },
     },
   },

@@ -19,8 +19,8 @@ describe('commerce benchmark buyer preflight', () => {
     )
 
     expect(run.coverageComplete).toBe(true)
-    expect(run.assertionCount).toBe(14)
-    expect(run.passedAssertions).toBe(14)
+    expect(run.assertionCount).toBe(18)
+    expect(run.passedAssertions).toBe(18)
     expect(run.failedAssertions).toBe(0)
     expect(run.cases.every((result) => result.status === 'pass')).toBe(true)
   })

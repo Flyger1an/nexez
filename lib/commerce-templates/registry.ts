@@ -1,5 +1,6 @@
 import type { CommerceTemplate, CommerceTemplateRef } from './schema'
 import { pilotCommerceTemplates } from './templates/pilot'
+import { postPilotCommerceTemplates } from './templates/post-pilot'
 import { validateCommerceTemplate } from './validate'
 
 /**
@@ -7,7 +8,10 @@ import { validateCommerceTemplate } from './validate'
  * publication can be added later without making the database the authoring
  * source of truth prematurely.
  */
-export const commerceTemplates: CommerceTemplate[] = [...pilotCommerceTemplates]
+export const commerceTemplates: CommerceTemplate[] = [
+  ...pilotCommerceTemplates,
+  ...postPilotCommerceTemplates,
+]
 
 const byVersionedKey = new Map<string, CommerceTemplate>()
 const latestById = new Map<string, CommerceTemplate>()

@@ -2,7 +2,7 @@ import type { CommerceArchetype, CommerceCapability, CommerceDomain } from '../s
 
 export const COMMERCE_CURATION_VERSION = 1 as const
 
-export type CommerceCurationStatus = 'pilot-active' | 'retain' | 'overlap-review' | 'replacement-review'
+export type CommerceCurationStatus = 'pilot-active' | 'active' | 'retain' | 'overlap-review' | 'replacement-review'
 
 export type CommerceCurationGapSignal =
   | 'capacity-constraints' | 'conditional-fulfillment' | 'contract-terms' | 'customer-requirements'
@@ -27,6 +27,10 @@ export type CommerceCurationScores = {
 export type CommerceSimulationHints = {
   /** Explicit service nouns or aliases that may establish category identity. */
   identityTerms: string[]
+  /** Optional context anchors; at least one must be present before generic identity terms can route here. */
+  contextTerms?: string[]
+  /** Optional disqualifying terms for nearby categories that share a generic identity noun. */
+  excludeTerms?: string[]
   /** Buyer inputs a reference simulation should ask a real merchant to confirm. */
   buyerDetails: string[]
 }

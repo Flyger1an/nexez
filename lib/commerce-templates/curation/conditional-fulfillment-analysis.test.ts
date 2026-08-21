@@ -104,7 +104,7 @@ describe('conditional fulfillment architecture autopsy', () => {
   })
 
   it('preserves the seven-template pilot registry during architecture analysis', () => {
-    expect(listCommerceTemplates({ status: 'active' })).toHaveLength(7)
+    expect(listCommerceTemplates({ status: 'active' })).toHaveLength(8)
     expect(commerceCurationCandidates.filter((candidate) => candidate.status === 'pilot-active')).toHaveLength(7)
   })
 

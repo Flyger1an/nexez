@@ -1,6 +1,6 @@
 # Nexez Roadmap
 
-_Last reconciled: 2026-08-15 against `origin/main` at `a1e1e9a`._
+_Last reconciled: 2026-08-21 against production and `origin/main` at `5ba2406`._
 
 **Mission:** Make any business legible and transactable to autonomous agents without forcing it to replace its human website. Nexez provides structured storefronts, agent artifacts, transaction rails, seller operations, and distribution into agent workflows.
 
@@ -12,7 +12,7 @@ The core platform is built and its live commercial lifecycles are certified. Pub
 
 Since the last reconciliation the work has been distribution, evidence, and repair rather than new commerce surface. The platform now answers the discovery conventions agents actually probe (ARD catalog, MCP server card, A2A agent card), publishes an original agent-readiness study built on a real 652-site sample, runs an eight-article education library, and carries a durable job runner. Custom-domain verification, the edge proxy, and the negotiation replay path were each hardened in response to observed production failures rather than speculatively. The repository moved to the `nexez-ai` organization and development is now pull-request based with a broader automated gate.
 
-**Supply is unchanged and curation is intentionally open.** Kismet Pros remains the only certified listing. Twelve pages are published and all twelve are marketplace-discoverable. This is a standing owner decision, recorded in the curation event ledger on 2026-08-05 as "reverting Kismet-only launch curation; restoring all listings to discoverable" and reaffirmed on 2026-08-15: listings stay discoverable, and tidying the remaining QA and scratch pages is handled manually rather than by a gate. Agentic Resource Discovery still applies curation's identity heuristic independently, so registry-facing output withholds fixtures the marketplace shows. That asymmetry is known and accepted, not a defect to close.
+**Supply remains the launch constraint and curation is intentionally open.** The 2026-08-21 production audit found 3 published/serving storefronts, 1 certified listing, 10 curation candidates, and no unreviewed curation rows. Listings stay discoverable unless deliberately excluded, and QA/scratch cleanup remains manual rather than a broad gate. Agentic Resource Discovery still applies curation's identity heuristic independently, so registry-facing output may be stricter than the marketplace. That asymmetry is known and accepted.
 
 The next milestone remains growing real launch-quality supply and proving demand.
 
@@ -113,10 +113,8 @@ Ranked by launch leverage.
 
 ### P0 - Launch gate
 
-1. **Close the source-to-production drift.** Two divergences are live and each was verified against the production database on 2026-08-15, not inferred from source. (Curation state is deliberately open and is **not** one of them — see Current standing and Accepted constraints.)
-   - **The `agent_memory` projection fix was reverted in production and the revert never came back to source.** Migration `20260810012119` dropped the column from `pages_public`; `20260810171807` restored it the same day. The repository contains only the drop. `agent_memory` is still in `PUBLIC_PAGE_COLUMNS`, so the drop is also unreplayable — a clean migration run would 42703 the public surface. Either the security fix lands properly (remove the column from the select first, then drop) or the restore is mirrored into source with its reasoning. Owner free-text notes are anon-readable until it is resolved.
-   - **`20260726051112_seller_growth_private_cohorts` is not applied.** No cohort table exists in production, while `main` ships the roster panel wired into Growth Control. Verify the admin surface degrades rather than errors, then apply.
-2. **Curate launch inventory.** Publish and certify 20-30 high-quality storefronts across representative industries and regions. Current live baseline is unchanged from the last reconciliation: 1 marketplace-certified listing (Kismet Pros). Twelve pages are published, 9 sit in `candidate`, and 2 (`kismet`, `pawra-pet-cares`) have no curation row at all. The 19 synthetic scenarios are test fixtures and do not count toward this target.
+1. **Curate launch inventory.** Publish and certify 20-30 high-quality storefronts across representative industries and regions. The 2026-08-21 live baseline is 3 published/serving storefronts, 1 certified listing, and 10 curation candidates. Synthetic Commerce Library scenarios and benchmark fixtures never count toward this target.
+2. **Keep production parity certified.** The former drift gate is cleared: `pages_public` no longer exposes `agent_memory`, the replayable v2 drop is present in source and production, and the cohort migration's `enrollment_mode` / `invite_kind` columns are live. Release certificate `5ba2406` passed at 100 with zero required failures. Reopen this gate only on new evidence, not the stale 2026-08-15 snapshot.
 
 ### P1 - Launch strength
 

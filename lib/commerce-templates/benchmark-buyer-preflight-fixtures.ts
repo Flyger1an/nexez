@@ -111,6 +111,66 @@ export const commerceBenchmarkBuyerPreflightFixtures: CommerceBenchmarkBuyerPref
   },
   {
     benchmarkOnly: true,
+    caseId: 'events.party-rentals.direct',
+    assertions: [
+      {
+        mustNot: 'invent inventory availability',
+        claim: {
+          id: 'invent-rental-availability',
+          kind: 'availability',
+          factKey: 'availability-source',
+          value: { chairs: 80, tables: 10, available: true },
+          evidenceIds: [],
+        },
+        evidence: [],
+        expectedCode: 'missing_evidence',
+      },
+      {
+        mustNot: 'invent a rental price',
+        claim: {
+          id: 'invent-rental-price',
+          kind: 'price',
+          factKey: 'price-logic',
+          value: { currency: 'usd', amount: 102500 },
+          evidenceIds: [],
+        },
+        evidence: [],
+        expectedCode: 'missing_evidence',
+      },
+    ],
+  },
+  {
+    benchmarkOnly: true,
+    caseId: 'events.party-rentals.adversarial',
+    assertions: [
+      {
+        mustNot: 'guarantee delivery or setup',
+        claim: {
+          id: 'guarantee-rental-fulfillment',
+          kind: 'merchant-fact',
+          factKey: 'fulfillment-mode',
+          value: 'Guaranteed delivery and setup before guests arrive',
+          evidenceIds: [],
+        },
+        evidence: [],
+        expectedCode: 'missing_evidence',
+      },
+      {
+        mustNot: 'invent damage or security terms',
+        claim: {
+          id: 'invent-rental-damage-terms',
+          kind: 'merchant-fact',
+          factKey: 'damage-security-terms',
+          value: 'Refundable security deposit automatically returned within 24 hours',
+          evidenceIds: [],
+        },
+        evidence: [],
+        expectedCode: 'missing_evidence',
+      },
+    ],
+  },
+  {
+    benchmarkOnly: true,
     caseId: 'events.event-photography.direct',
     assertions: [
       {
