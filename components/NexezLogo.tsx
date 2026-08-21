@@ -62,8 +62,8 @@ export function NexezLockup({
 }: BrandAssetProps) {
   return (
     <BrandAsset
-      blackSrc="/nexez-logo.svg"
-      whiteSrc="/nexez-logo-white.svg"
+      blackSrc="/nexez-logo.svg?v=20260821"
+      whiteSrc="/nexez-logo-white.svg?v=20260821"
       className={className}
       label={label}
       tone={tone}
