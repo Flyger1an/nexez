@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { BaseLLMAdapter, LLMAdapterError, NegotiationDecision, NegotiationAction } from './BaseLLMAdapter';
+import { BaseLLMAdapter, LLMAdapterError, NegotiationDecision, NegotiationAction, requireCounterPriceCents } from './BaseLLMAdapter';
 import { NEGOTIATION_SAFETY_PREAMBLE, fenceUntrusted } from './prompt-safety';
 
 /**
@@ -67,7 +67,7 @@ accept_proposal
  - reasoning: string (detailed professional explanation why this proposal meets the rules)
  - internal_notes: string (optional private notes for the business owner)
  generate_counter_offer
- - proposed_price: number
+ - price_cents: integer (counter amount in the currency's minor unit; 12500 means 125.00)
  - proposed_date: string (ISO date or clear description)
  - scope_notes: string (any adjustments to scope or terms)
  - reasoning: string (clear explanation to the agent why you are countering)
@@ -99,7 +99,7 @@ Important:
   private getTools() {
     return [
       { type: 'function' as const, function: { name: 'accept_proposal', parameters: { type: 'object', properties: { reasoning: { type: 'string' }, internal_notes: { type: 'string' } }, required: ['reasoning'] } } },
-      { type: 'function' as const, function: { name: 'generate_counter_offer', parameters: { type: 'object', properties: { proposed_price: { type: 'number' }, proposed_date: { type: 'string' }, scope_notes: { type: 'string' }, scope_included: { type: 'string' }, scope_excluded: { type: 'string' }, max_revisions: { type: 'number' }, max_project_weeks: { type: 'number' }, scheduling_link: { type: 'string' }, reasoning: { type: 'string' }, internal_notes: { type: 'string' } }, required: ['proposed_price', 'reasoning'] } } },
+      { type: 'function' as const, function: { name: 'generate_counter_offer', parameters: { type: 'object', properties: { price_cents: { type: 'integer', minimum: 50, description: 'Counter amount in integer app-minor currency units.' }, proposed_date: { type: 'string' }, scope_notes: { type: 'string' }, scope_included: { type: 'string' }, scope_excluded: { type: 'string' }, max_revisions: { type: 'number' }, max_project_weeks: { type: 'number' }, scheduling_link: { type: 'string' }, reasoning: { type: 'string' }, internal_notes: { type: 'string' } }, required: ['price_cents', 'reasoning'] } } },
       { type: 'function' as const, function: { name: 'reject_proposal', parameters: { type: 'object', properties: { reasoning: { type: 'string' }, internal_notes: { type: 'string' } }, required: ['reasoning'] } } },
       { type: 'function' as const, function: { name: 'request_clarification', parameters: { type: 'object', properties: { questions: { type: 'array', items: { type: 'string' } }, reasoning: { type: 'string' } }, required: ['questions', 'reasoning'] } } },
     ];
@@ -115,7 +115,7 @@ Important:
     const decision: NegotiationDecision = { action, reasoning: args.reasoning || '', internalNotes: args.internal_notes };
     if (name === 'generate_counter_offer') {
       decision.counter = {
-        priceCents: args.proposed_price ? Math.round(Number(args.proposed_price) * 100) : undefined,
+        priceCents: requireCounterPriceCents(args.price_cents),
         proposedDate: args.proposed_date,
         scopeNotes: args.scope_notes,
         scope: {

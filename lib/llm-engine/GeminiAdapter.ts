@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI, FunctionDeclaration, SchemaType } from '@google/generative-ai';
-import { BaseLLMAdapter, LLMAdapterError, NegotiationDecision, NegotiationAction } from './BaseLLMAdapter';
+import { BaseLLMAdapter, LLMAdapterError, NegotiationDecision, NegotiationAction, requireCounterPriceCents } from './BaseLLMAdapter';
 import { NEGOTIATION_SAFETY_PREAMBLE, fenceUntrusted } from './prompt-safety';
 
 /**
@@ -50,7 +50,7 @@ export class GeminiAdapter extends BaseLLMAdapter {
         parameters: {
           type: SchemaType.OBJECT,
           properties: {
-            proposed_price: { type: SchemaType.NUMBER, description: 'Counter price in cents or decimal' },
+            price_cents: { type: SchemaType.INTEGER, description: 'Counter amount in integer app-minor currency units; 12500 means 125.00.' },
             proposed_date: { type: SchemaType.STRING, description: 'ISO date or clear human description for timeline' },
             scope_notes: { type: SchemaType.STRING, description: 'Any adjustments to scope or terms' },
             // Phase 2 structured scope (preferred over free-text when possible)
@@ -62,7 +62,7 @@ export class GeminiAdapter extends BaseLLMAdapter {
             reasoning: { type: SchemaType.STRING, description: 'Clear explanation to the agent why you are countering' },
             internal_notes: { type: SchemaType.STRING, description: 'Optional private notes for owner' },
           },
-          required: ['proposed_price', 'reasoning'],
+          required: ['price_cents', 'reasoning'],
         },
       },
       {
@@ -134,7 +134,7 @@ accept_proposal
  - reasoning: string (detailed professional explanation why this proposal meets the rules)
  - internal_notes: string (optional private notes for the business owner)
  generate_counter_offer
- - proposed_price: number
+ - price_cents: integer (counter amount in the currency's minor unit; 12500 means 125.00)
  - proposed_date: string (ISO date or clear description)
  - scope_notes: string (any adjustments to scope or terms)
  - reasoning: string (clear explanation to the agent why you are countering)
@@ -169,7 +169,11 @@ Important:
   }
 
   private parseFunctionCall(name: string, args: any): NegotiationDecision {
-    const action = name as NegotiationAction;
+    let action: NegotiationAction = 'review';
+    if (name === 'accept_proposal') action = 'accept';
+    if (name === 'generate_counter_offer') action = 'counter';
+    if (name === 'reject_proposal') action = 'reject';
+    if (name === 'request_clarification') action = 'clarify';
 
     const decision: NegotiationDecision = {
       action,
@@ -179,8 +183,7 @@ Important:
 
     if (name === 'generate_counter_offer') {
       decision.counter = {
-        priceCents: args.proposed_price ? Math.round(Number(args.proposed_price) * 100) : undefined,
-        price: args.proposed_price ? `$${args.proposed_price}` : undefined,
+        priceCents: requireCounterPriceCents(args.price_cents),
         proposedDate: args.proposed_date,
         scopeNotes: args.scope_notes,
         scope: {

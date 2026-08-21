@@ -50,7 +50,14 @@ export function filterAnalyticsEvents(events: CheckoutEvent[], filters: Analytic
   })
 }
 
+/** @deprecated Use getCheckoutHandoffCount. Paid conversion comes from checkout_orders. */
 export function getConversionCount(events: CheckoutEvent[]) {
+  return getCheckoutHandoffCount(events)
+}
+
+/** Provider redirects and hosted-checkout starts. This is a handoff signal,
+ * not proof of payment; durable paid conversion comes from checkout_orders. */
+export function getCheckoutHandoffCount(events: CheckoutEvent[]) {
   return events.filter((event) => !isDryRunEvent(event) && conversionEventTypes.includes(event.event_type)).length
 }
 
@@ -263,7 +270,8 @@ export function getAgentName(userAgent: string | null) {
 
 export function getSignalLabel(event: CheckoutEvent) {
   if (isDryRunEvent(event)) return 'Simulation'
-  if (conversionEventTypes.includes(event.event_type)) return 'Conversion'
+  if (event.event_type === 'provider_redirect') return 'Provider handoff'
+  if (event.event_type === 'stripe_session_created') return 'Checkout start'
   if (event.event_type === 'checkout_attempt') return 'Intent'
   if (event.event_type === 'checkout_view') return 'Visit'
   if (event.event_type === 'agent_page_view') return 'Agent visit'
@@ -357,12 +365,16 @@ export function buildAnalyticsCsv(events: CheckoutEvent[]) {
     ]),
   ]
 
-  return rows.map((row) => row.map(escapeCsvValue).join(',')).join('\n')
+  return rows.map((row) => row.map(escapeAnalyticsCsvValue).join(',')).join('\n')
 }
 
-function escapeCsvValue(value: string) {
-  if (!/[",\n\r]/.test(value)) return value
-  return `"${value.replace(/"/g, '""')}"`
+export function escapeAnalyticsCsvValue(value: string) {
+  // CSV downloads are commonly opened in spreadsheet software. Neutralize
+  // formula-looking user content before quoting so an agent query or offer name
+  // cannot become an executable spreadsheet formula.
+  const safe = /^[=+\-@]/.test(value) ? `'${value}` : value
+  if (!/[",\n\r]/.test(safe)) return safe
+  return `"${safe.replace(/"/g, '""')}"`
 }
 
 /**

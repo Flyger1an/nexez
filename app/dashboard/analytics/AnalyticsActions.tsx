@@ -1,57 +1,46 @@
 'use client'
 
-import React from 'react'
+import { useState } from 'react'
+import type { AgentPage } from '../../../lib/agent-page'
 
 type Props = {
-  selectedPage: any
-  filteredEvents: any
-  agentRevenueCents: number
-  negotiationSummary: any
+  selectedPage: AgentPage | null
 }
 
-export default function AnalyticsActions({
-  selectedPage,
-  filteredEvents,
-  agentRevenueCents,
-  negotiationSummary,
-}: Props) {
-  const handleExportPdf = () => {
-    const printWin = window.open('', '', 'height=600,width=800')
-    if (printWin) {
-      printWin.document.write(
-        `<html><head><title>Nexez Analytics Report</title></head><body><h1>Analytics Report</h1><pre>${JSON.stringify(
-          { revenue: agentRevenueCents, trust: 'see LLM report', negotiations: negotiationSummary },
-          null,
-          2
-        )}</pre></body></html>`
-      )
-      printWin.document.close()
-      printWin.focus()
-      window.setTimeout(() => printWin.print(), 300)
-    }
-  }
+export default function AnalyticsActions({ selectedPage }: Props) {
+  const [report, setReport] = useState<{ score: number | null; text: string } | null>(null)
+  const [reportError, setReportError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const handleGenerateTrust = async () => {
+    setLoading(true)
+    setReportError('')
     try {
       const res = await fetch('/api/trust-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // Scope to the page so the AI trust-report gates on the page OWNER's plan
         // (an editor-collaborator inherits it); page-less callers self-gate.
-        body: JSON.stringify({ page: selectedPage, events: filteredEvents, pageId: selectedPage?.id }),
+        body: JSON.stringify({ page: selectedPage, pageId: selectedPage?.id }),
       })
       const data = await res.json()
-      alert(`Trust Report (${data.score || 'N/A'}/100): ${data.report || 'Generated.'}`)
-    } catch (e) {
-      alert('Failed to generate LLM trust report.')
+      if (!res.ok) throw new Error(typeof data.error === 'string' ? data.error : 'Could not generate trust insights.')
+      setReport({
+        score: typeof data.score === 'number' ? data.score : null,
+        text: typeof data.report === 'string' ? data.report : 'Trust insights generated.',
+      })
+    } catch (error) {
+      setReportError(error instanceof Error ? error.message : 'Could not generate trust insights.')
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
     <>
       <div className="mt-4">
-        <button onClick={handleExportPdf} className="btn-secondary text-xs">
-          Export Analytics as PDF (print)
+        <button onClick={() => window.print()} className="btn-secondary text-xs">
+          Print analytics report
         </button>
       </div>
 
@@ -61,12 +50,21 @@ export default function AnalyticsActions({
           <div className="min-w-0 rounded-lg border border-[var(--bd-10)] bg-[var(--ov-04)] p-5">
             <h2 className="text-xl font-semibold">LLM Trust Report (AI-powered insights)</h2>
             <div className="mt-4">
-              <button onClick={handleGenerateTrust} className="btn-secondary text-xs">
-                Generate LLM Trust Insights
+              <button onClick={handleGenerateTrust} disabled={loading} className="btn-secondary text-xs disabled:cursor-wait disabled:opacity-60">
+                {loading ? 'Generating…' : 'Generate LLM trust insights'}
               </button>
               <p className="mt-2 text-[10px] text-[var(--fg-muted-2)]">
                 Uses configured LLM for actionable trust analysis based on score, signals, and activity. Improves with more events.
               </p>
+              {report ? (
+                <div className="mt-4 rounded-lg border border-[var(--ready)]/20 bg-[var(--ready)]/[0.06] p-4" role="status">
+                  <p className="text-xs uppercase tracking-[0.16em] text-[var(--ready)]">
+                    Trust score {report.score == null ? 'available' : `${report.score}/100`}
+                  </p>
+                  <p className="mt-2 whitespace-pre-line text-sm leading-6 text-zinc-300">{report.text}</p>
+                </div>
+              ) : null}
+              {reportError ? <p className="mt-3 text-sm text-red-300" role="alert">{reportError}</p> : null}
             </div>
           </div>
         </section>

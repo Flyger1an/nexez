@@ -99,5 +99,8 @@ export function sanitizeNegotiationMessageContent(content: any): any {
   // Apply to other free text fields that may be present in owner messages
   if (safe.proposed_date) safe.proposed_date = redact(safe.proposed_date)
   if (safe.scope) safe.scope = typeof safe.scope === 'string' ? redact(safe.scope) : safe.scope
+  if (safe.decision && typeof safe.decision === 'object') {
+    safe.decision = sanitizeAgentDecision(safe.decision as Record<string, any>)
+  }
   return safe
 }

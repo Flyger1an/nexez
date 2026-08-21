@@ -1,5 +1,4 @@
 import { AgentPage, CheckoutOffer, getCheckoutOfferKey } from '../agent-page'
-import { supabase } from '../supabase'
 import { fireOutboundWebhook, OutboundWebhookPayload } from '../webhooks'
 import { fireOwnerOutboundWebhooks } from './outbound-webhooks'
 import { ownerAllows } from './plan'
@@ -7,6 +6,7 @@ import type { CheckoutEventType } from '../checkout-events'
 import { getPagePrivateMeta } from './page-private-meta'
 import { hasInngestEnv, inngest } from '../inngest/client'
 import { OUTBOUND_WEBHOOKS_DISPATCH } from '../inngest/events'
+import { insertVerifiedCheckoutEvent } from './analytics-ingestion'
 
 type LogCheckoutEventInput = {
   page: AgentPage
@@ -37,12 +37,12 @@ export async function logCheckoutEvent({
   // conversion (checkout route, Calendly/Stripe webhooks) rolls up per variant
   // without touching each call site. Explicit metadata still wins.
   const abMeta = offer.ab_test ? { ab_test: offer.ab_test, ab_label: offer.ab_label || '' } : {}
-  const mergedMetadata = { ...abMeta, ...(metadata ?? {}) }
+  const mergedMetadata: Record<string, unknown> = { ...abMeta, ...(metadata ?? {}) }
   const privateMeta = await getPagePrivateMeta(page.id)
   const ownerId = (page as { owner_id?: string | null }).owner_id ?? privateMeta.ownerId
 
   try {
-    const { error } = await supabase.from('checkout_events').insert({
+    const write = await insertVerifiedCheckoutEvent({
       page_id: page.id,
       owner_id: ownerId,
       slug: page.slug,
@@ -57,7 +57,11 @@ export async function logCheckoutEvent({
       provider_url: providerUrl || null,
       stripe_session_id: stripeSessionId || null,
       metadata: mergedMetadata,
+    }, {
+      source: typeof mergedMetadata.source === 'string' ? mergedMetadata.source : 'checkout_runtime',
+      replayKey: stripeSessionId || null,
     })
+    const error = write.error as { message?: string } | null
 
     // Phase 3: Automatically fire per-page outbound webhooks on high-value Nexez-driven events.
     // This makes the outbound_webhooks saved in Settings fire for agent bookings that go through checkout.

@@ -14,7 +14,7 @@ import { isTerminalNegotiationStatus, type NegotiationStatus } from './negotiati
 import { parseMoney } from './checkout';
 import { normalizeCurrency } from './currency';
 import { parseBuyerIdentity } from './buyer-identity';
-import { sendPushToEmail } from './push';
+import { notifyBuyerOfNegotiationDecision } from './server/negotiation-notifications';
 
 /**
  * Core Negotiation Service - the brain of the Intelligent Negotiation Engine.
@@ -146,6 +146,11 @@ export class NegotiationService {
         err.status = 409;
         throw err;
       }
+      if (negotiation?.status === 'paused') {
+        const err = new Error('This negotiation is paused by the seller and cannot accept buyer turns yet.') as Error & { status: number };
+        err.status = 409;
+        throw err;
+      }
     }
 
     if (!negotiation && idempotencyKeyHash) {
@@ -170,7 +175,7 @@ export class NegotiationService {
     }
 
     if (!negotiation) {
-      // Fresh negotiations are created already pending (saves a round-trip).
+      // Fresh negotiation + first buyer turn are created in one DB transaction.
       negotiation = await this.createNewNegotiation(
         page,
         offer,
@@ -181,42 +186,25 @@ export class NegotiationService {
       );
       if (negotiation.__replayed) return this.proposalResult(negotiation, true);
     } else {
-      // Continuation: re-arm the pending flag for the new buyer turn.
-      await this.withRetry('queue decision', { negotiationId: negotiation.id }, () =>
-        this.db()
-          .from('agent_negotiations')
-          .update({
-            decision_pending: true,
-            decision_requested_at: new Date().toISOString(),
-            // Clear any prior lease so the new turn can be claimed.
-            decision_claimed_at: null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', negotiation.id),
-      );
-    }
-
-    // Persist the buyer's turn now; the seller (LLM) turn is appended by runDecision.
-    try {
-      const messageResult = await this.withRetry('insert buyer turn', { negotiationId: negotiation.id }, () =>
-        this.db()
-          .from('negotiation_messages')
-          .insert([{
-            negotiation_id: negotiation.id,
-            role: 'buyer',
-            content: buyerProposal,
-            ...(idempotencyKeyHash ? { idempotency_key_hash: idempotencyKeyHash } : {}),
-            ...(idempotencyRequestHash ? { idempotency_request_hash: idempotencyRequestHash } : {}),
-          }]),
-      );
-      if (messageResult.error) throw messageResult.error;
-    } catch (error: any) {
-      if (idempotencyKeyHash && error?.code === '23505') {
-        const replayMessage = await this.loadBuyerMessageByIdempotencyHash(negotiation.id, idempotencyKeyHash);
-        this.assertIdempotencyRequest(replayMessage?.idempotency_request_hash, idempotencyRequestHash);
-        return this.proposalResult(negotiation, true);
+      // Continuation queue + buyer turn are atomic. A failed message insert leaves
+      // the row non-pending, so cron can never decide against stale history.
+      const requestedAt = new Date().toISOString();
+      const { data, error } = await this.db().rpc('nz_queue_negotiation_buyer_turn', {
+        p_negotiation_id: negotiation.id,
+        p_content: buyerProposal,
+        p_idempotency_key_hash: idempotencyKeyHash ?? null,
+        p_idempotency_request_hash: idempotencyRequestHash ?? null,
+        p_requested_at: requestedAt,
+      });
+      if (error) {
+        if (idempotencyKeyHash && (error as any)?.code === '23505') {
+          const replayMessage = await this.loadBuyerMessageByIdempotencyHash(negotiation.id, idempotencyKeyHash);
+          this.assertIdempotencyRequest(replayMessage?.idempotency_request_hash, idempotencyRequestHash);
+          return this.proposalResult(negotiation, true);
+        }
+        throw error;
       }
-      throw error;
+      negotiation = { ...negotiation, ...(data || {}), decision_pending: true, decision_requested_at: requestedAt };
     }
 
     return this.proposalResult(negotiation, false);
@@ -368,35 +356,17 @@ export class NegotiationService {
     }
 
     const nextSeq = (Number(negotiation.decision_seq) || 0) + 1;
-    await this.persistDecision(negotiation.id, newStatus, sellerTurn, llmDecision, rulesEval, agreedAmountCents, settlementState, nextSeq);
+    const applied = await this.persistDecision(negotiation.id, newStatus, sellerTurn, llmDecision, rulesEval, agreedAmountCents, settlementState, nextSeq);
+    if (!applied) return;
 
     // Push the buyer's device(s) that the seller responded - the async loop that
     // makes Nexie useful. Best-effort + isolated: a push failure must never affect
     // the decision that just persisted.
     try {
-      await this.notifyBuyerDecision(negotiation, llmDecision.action);
+      await notifyBuyerOfNegotiationDecision(negotiation, llmDecision.action);
     } catch (e) {
       captureError(e instanceof Error ? e : new Error(String(e)), { negotiationId: negotiation.id, phase: 'notifyBuyerDecision' });
     }
-  }
-
-  /** Best-effort push to the buyer when the seller accepts / counters / declines. */
-  private async notifyBuyerDecision(negotiation: any, action: string): Promise<void> {
-    const email: string | null = negotiation.buyer_email || null;
-    if (!email) return;
-    const what = negotiation.offer_name || negotiation.slug || 'your request';
-    const messages: Record<string, { title: string; body: string }> = {
-      accept: { title: 'Offer accepted', body: `The seller accepted your offer on ${what}.` },
-      counter: { title: 'New counter-offer', body: `The seller countered your offer on ${what}.` },
-      decline: { title: 'Offer declined', body: `The seller declined your offer on ${what}.` },
-    };
-    const msg = messages[action];
-    if (!msg) return; // 'review' / other non-buyer-actionable outcomes: no push
-    await sendPushToEmail(email, {
-      ...msg,
-      data: { type: 'negotiation', negotiationId: negotiation.id, token: recoverBearerToken({ encrypted: negotiation.status_token_encrypted, plaintext: negotiation.status_token }), status: action },
-      category: 'orders',
-    });
   }
 
   /** Last-resort seller turn when the decision couldn't be produced at all. */
@@ -453,61 +423,38 @@ export class NegotiationService {
     agreedAmountCents: number | null,
     settlementState: SettlementState | null,
     decisionSeq: number,
-  ) {
-    await this.withRetry('insert seller turn', { negotiationId }, () =>
-      this.db()
-        .from('negotiation_messages')
-        .insert([
-          {
-            negotiation_id: negotiationId,
-            role: sellerTurn.role,
-            content: {
-              ...sellerTurn.content,
-              ...(sellerTurn.decision ? { decision: sellerTurn.decision } : {}),
-            },
-          },
-        ]),
-    );
-
-    const update: any = {
-      status: newStatus,
-      updated_at: new Date().toISOString(),
-      decision_seq: decisionSeq,
-      // The decision is now durably written - clear the pending flag (agents stop
-      // seeing "responding") and release the lease.
-      decision_pending: false,
-      decision_claimed_at: null,
-      metadata: {
-        last_decision: decision,
-        rules_evaluation: rulesEval,
-        history_source: 'negotiation_messages',
-      },
+  ): Promise<boolean> {
+    const content = {
+      ...sellerTurn.content,
+      ...(sellerTurn.decision ? { decision: sellerTurn.decision } : {}),
     };
-
-    // Lock in the agreed amount (counter price, or accepted proposal); left null
-    // for non-pricing turns so a prior agreed amount is never clobbered.
-    if (agreedAmountCents != null && agreedAmountCents > 0) {
-      update.amount_cents = agreedAmountCents;
-    }
-    if (settlementState) {
-      update.settlement_state = settlementState;
-    }
-
-    await this.withRetry('update negotiation decision', { negotiationId, newStatus }, () =>
-      this.db().from('agent_negotiations').update(update).eq('id', negotiationId),
+    const expectedSeq = Math.max(0, decisionSeq - 1);
+    const result = await this.withRetry('persist automated negotiation decision', { negotiationId, newStatus }, () =>
+      this.db().rpc('nz_persist_automated_negotiation_decision', {
+        p_negotiation_id: negotiationId,
+        p_expected_seq: expectedSeq,
+        p_status: newStatus,
+        p_content: content,
+        p_decision: decision,
+        p_rules_evaluation: rulesEval,
+        p_amount_cents: agreedAmountCents != null && agreedAmountCents > 0 ? agreedAmountCents : null,
+        p_settlement_state: settlementState,
+        p_updated_at: new Date().toISOString(),
+      }),
     );
+    return (result.data as { applied?: boolean } | null)?.applied !== false;
   }
 
   /**
    * Run a DB write with a small bounded retry; on final failure, surface it via
    * captureError (the reconcile-escrow cron is the money-side backstop for drift).
    */
-  private async withRetry(
+  private async withRetry<T extends { error: unknown }>(
     label: string,
     ctx: Record<string, unknown>,
-    run: () => PromiseLike<{ error: unknown }>,
-  ): Promise<{ error: unknown }> {
-    let result: { error: unknown } = { error: null };
+    run: () => PromiseLike<T>,
+  ): Promise<T> {
+    let result: T | null = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
       result = await run();
       if (!result.error) return result;
@@ -515,9 +462,13 @@ export class NegotiationService {
     }
     captureError(new Error(`${label} failed after retries`), {
       ...ctx,
-      dbError: (result.error as { message?: string } | null)?.message,
+      dbError: (result?.error as { message?: string } | null)?.message,
     });
-    return result;
+    const failure = result?.error;
+    if (failure instanceof Error) throw failure;
+    const error = new Error(`${label} failed after retries`) as Error & { cause?: unknown };
+    error.cause = failure;
+    throw error;
   }
 
   private async loadPublishedPage(slug: string) {
@@ -659,7 +610,15 @@ export class NegotiationService {
       },
     };
 
-    const { error } = await this.db().from('agent_negotiations').insert(negotiation);
+    const { data, error } = await this.db().rpc('nz_create_negotiation_with_buyer_turn', {
+      p_negotiation: negotiation,
+      p_message: {
+        role: 'buyer',
+        content: proposal,
+        ...(idempotencyKeyHash ? { idempotency_key_hash: idempotencyKeyHash } : {}),
+        ...(idempotencyRequestHash ? { idempotency_request_hash: idempotencyRequestHash } : {}),
+      },
+    });
     if (error) {
       if (idempotencyKeyHash && error.code === '23505') {
         const replay = await this.loadNegotiationByIdempotencyHash(idempotencyKeyHash);
@@ -673,7 +632,7 @@ export class NegotiationService {
 
     // Carry the plaintext in memory only, for the caller that has to hand it to the
     // agent once. It is deliberately NOT a column any more.
-    return { ...negotiation, __statusTokenPlaintext: statusToken };
+    return { ...negotiation, ...(data || {}), __statusTokenPlaintext: statusToken };
   }
 
   private proposalResult(negotiation: any, replayed: boolean) {

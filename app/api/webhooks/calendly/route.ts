@@ -19,6 +19,7 @@ import { ownerAllows } from '../../../../lib/server/plan'
 import { parseNegotiationTracking } from '../../../../lib/calendly-tracking'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 import { createClient as createServerClient } from '../../../../utils/supabase/server'
+import { insertVerifiedCheckoutEvent } from '../../../../lib/server/analytics-ingestion'
 
 type CalendlyPayload = {
   event?: string
@@ -126,7 +127,8 @@ export async function POST(request: NextRequest) {
   const inviteeName = payload.invitee?.name || 'Unknown Guest'
   const startedAt = payload.event?.start_time || null
 
-  const { error: insertError } = await supabase.from('checkout_events').insert({
+  const eventUri = payload.event?.uri || null
+  const write = await insertVerifiedCheckoutEvent({
     page_id: page.id,
     owner_id: page.owner_id || null,
     slug: page.slug,
@@ -138,7 +140,7 @@ export async function POST(request: NextRequest) {
     referrer: null,
     query: null,
     checkout_url: null,
-    provider_url: payload.event?.uri || null,
+    provider_url: eventUri,
     stripe_session_id: null,
     metadata: {
       source: 'calendly_webhook',
@@ -152,11 +154,15 @@ export async function POST(request: NextRequest) {
         location: payload.event?.location?.type,
       },
     },
+  }, {
+    source: 'calendly_webhook',
+    replayKey: eventUri ? `${eventType}:${eventUri}:${payload.invitee?.email || ''}` : null,
   })
 
-  if (insertError) {
-    console.warn('[Calendly Webhook] Failed to insert event:', insertError.message)
-    return NextResponse.json({ error: insertError.message }, { status: 500 })
+  if (!write.ok) {
+    const message = (write.error as { message?: string } | null)?.message || 'Could not record Calendly activity.'
+    console.warn('[Calendly Webhook] Failed to insert event:', message)
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 
   // Exact booking↔negotiation link for cancel-on-refund. If this booking arrived

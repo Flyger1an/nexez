@@ -61,7 +61,7 @@ export function OverviewScreen() {
   type QItem = { key: string; title: string; sub: string; tag: string; tone: string; open: () => void }
   const queue: QItem[] = []
   if (data.openNegotiations > 0)
-    queue.push({ key: 'neg', title: `${data.openNegotiations} negotiation${data.openNegotiations === 1 ? '' : 's'} need a reply`, sub: 'Accept, counter, or decline in the inbox', tag: 'Deal', tone: colors.ember, open: () => router.push('/inbox') })
+    queue.push({ key: 'neg', title: `${data.openNegotiations} negotiation${data.openNegotiations === 1 ? '' : 's'} need attention`, sub: 'Review proposals, approvals, held funds, and disputes', tag: 'Deal', tone: colors.ember, open: () => router.push('/inbox') })
   for (const page of data.readinessAlerts.slice(0, 3 - queue.length)) {
     queue.push({ key: page.id, title: page.name, sub: `/${page.slug} · ${getReadinessScore(page)}% ready`, tag: 'Readiness', tone: colors.warning, open: () => router.push({ pathname: '/listing/[id]/readiness', params: { id: page.id } }) })
   }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Bell, Plus } from 'lucide-react'
 import {
   AgentPage,
@@ -14,7 +15,7 @@ import { buildDuplicatePayload } from '../../lib/duplicate-page'
 import { AgentVisit, getAgentTypeBreakdown, getTopPagesByAgentVisits, getTrafficSplit } from '../../lib/agent-visits'
 import {
   getCheckoutAttemptCount,
-  getConversionCount,
+  getCheckoutHandoffCount,
   getDiscoveryClickCount,
   isDryRunEvent,
 } from '../../lib/analytics'
@@ -27,7 +28,9 @@ import { buildNotifications } from '../../lib/notifications'
 import { agentRuntimeUrl } from '../../lib/site'
 import { publishErrorMessage } from '../../lib/publish-error'
 import type { SellerGrowthState } from '../../lib/server/seller-growth'
+import type { OwnerAnalyticsRollup } from '../../lib/server/analytics-rollup'
 import { SellerGrowthInvites } from '../../components/growth/SellerGrowthInvites'
+import { loadNegotiationRollup } from '../../lib/negotiation-report'
 
 export type DashboardInitial = {
   pages: AgentPage[]
@@ -43,6 +46,7 @@ export type DashboardInitial = {
   // the onboarding checklist (intake spec §8).
   interviewCompleted?: boolean
   growthState?: SellerGrowthState
+  analyticsRollup?: OwnerAnalyticsRollup | null
 }
 
 // Overview shows a bounded recent set; full management (with pagination) lives
@@ -50,6 +54,7 @@ export type DashboardInitial = {
 const OVERVIEW_PAGE_LIMIT = 9
 
 export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
+  const router = useRouter()
   const [pages, setPages] = useState<AgentPage[]>(initial?.pages ?? [])
   const [events, setEvents] = useState<CheckoutEvent[]>(initial?.events ?? [])
   const [agentVisits, setAgentVisits] = useState<AgentVisit[]>(initial?.agentVisits ?? [])
@@ -91,16 +96,40 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
     [agentVisits, cutoffMs],
   )
 
-  const trafficSplit = useMemo(() => getTrafficSplit(todayVisits), [todayVisits])
-  const agentTypeBreakdown = useMemo(() => getAgentTypeBreakdown(todayVisits).slice(0, 4), [todayVisits])
-  const topAgentPages = useMemo(() => getTopPagesByAgentVisits(todayVisits, pages).slice(0, 4), [todayVisits, pages])
-  const totalTrackedSignals =
-    todayEvents.filter((event) => !isDryRunEvent(event)).length + todayVisits.length
+  const sampledTrafficSplit = useMemo(() => getTrafficSplit(todayVisits), [todayVisits])
+  const trafficSplit = initial?.analyticsRollup
+    ? {
+        ai: initial.analyticsRollup.counts.aiVisits,
+        human: initial.analyticsRollup.counts.humanVisits,
+        total: initial.analyticsRollup.counts.visits,
+      }
+    : sampledTrafficSplit
+  const agentTypeBreakdown = useMemo(() => initial?.analyticsRollup
+    ? initial.analyticsRollup.agentTypes.slice(0, 4).map((row) => ({
+        agentType: row.agentType,
+        total: row.visits,
+        avgConfidence: row.avgConfidence,
+      }))
+    : getAgentTypeBreakdown(todayVisits).slice(0, 4), [initial?.analyticsRollup, todayVisits])
+  const topAgentPages = useMemo(() => initial?.analyticsRollup
+    ? initial.analyticsRollup.topPages.slice(0, 4).map((row) => ({
+        pageId: row.pageId,
+        slug: row.slug,
+        name: row.name,
+        total: row.visits,
+      }))
+    : getTopPagesByAgentVisits(todayVisits, pages).slice(0, 4), [initial?.analyticsRollup, todayVisits, pages])
+  const totalTrackedSignals = initial?.analyticsRollup
+    ? initial.analyticsRollup.counts.events + initial.analyticsRollup.counts.visits
+    : todayEvents.filter((event) => !isDryRunEvent(event)).length + todayVisits.length
   const agentPageVisits = trafficSplit.ai
-  const discoveryClicks = useMemo(() => getDiscoveryClickCount(todayEvents), [todayEvents])
-  const checkoutAttempts = useMemo(() => getCheckoutAttemptCount(todayEvents), [todayEvents])
-  const conversionActions = useMemo(() => getConversionCount(todayEvents), [todayEvents])
-  const topOffer = getTopOffer(todayEvents)
+  const discoveryClicks = initial?.analyticsRollup?.counts.discoveryClicks
+    ?? getDiscoveryClickCount(todayEvents)
+  const checkoutAttempts = initial?.analyticsRollup?.counts.checkoutAttempts
+    ?? getCheckoutAttemptCount(todayEvents)
+  const checkoutHandoffs = initial?.analyticsRollup?.counts.checkoutHandoffs
+    ?? getCheckoutHandoffCount(todayEvents)
+  const topOffer = initial?.analyticsRollup?.topOffers[0]?.offerName ?? getTopOffer(todayEvents)
   const signalsByPageId = useMemo(() => {
     const counts = new Map<string, number>()
 
@@ -127,12 +156,12 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
     }
 
     if (!user) {
-      window.location.href = '/login?next=/dashboard'
+      router.replace('/login?next=/dashboard')
       return
     }
 
     // Fetch everything independent of each other in one parallel wave.
-    const [pageResult, eventResult, visitResult, invitesResult, negotiationResult] = await Promise.all([
+    const [pageResult, eventResult, visitResult, invitesResult, negotiationResult, negotiationReport] = await Promise.all([
       fetchOwnedPages(supabase, user.id),
       supabase
         .from('checkout_events')
@@ -148,6 +177,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
         .select('id', { count: 'exact', head: true })
         .eq('owner_id', user.id)
         .in('status', ['negotiation', 'agreement_proposed', 'held']),
+      loadNegotiationRollup(supabase),
     ])
 
     if (pageResult.error) {
@@ -177,7 +207,10 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
     if (negotiationResult.error && !isMissingRelationError(negotiationResult.error)) {
       console.warn('Failed to count negotiations:', negotiationResult.error)
     }
-    setOpenNegotiations(negotiationResult.error ? 0 : negotiationResult.count ?? 0)
+    setOpenNegotiations(
+      negotiationReport.data?.counts.needsAction
+        ?? (negotiationResult.error ? 0 : negotiationResult.count ?? 0),
+    )
 
     // Pages shared with me - one follow-up query keyed off the invites we already loaded.
     try {
@@ -352,7 +385,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                     <>
                       <p className="text-sm text-[var(--signal)]">Today, your Nexez listings received</p>
                       <h2 className="mt-2 text-3xl font-semibold tracking-tight">
-                        {agentPageVisits} AI agent visits, {trafficSplit.human} human visits, {discoveryClicks} discovery clicks, and {conversionActions} conversion actions
+                        {agentPageVisits} AI agent visits, {trafficSplit.human} human visits, {discoveryClicks} discovery clicks, and {checkoutHandoffs} checkout handoffs
                       </h2>
                       <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">
                         {totalTrackedSignals} tracked signals today across {publishedCount} published listings and {totalOffers} listed offers -
@@ -422,8 +455,8 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
                 <p className="mt-2 text-4xl font-semibold tracking-tighter">{checkoutAttempts}</p>
               </div>
               <div className="kpi-card">
-                <p className="text-sm text-[var(--fg-muted)]">Conversions</p>
-                <p className="mt-2 text-4xl font-semibold tracking-tighter text-[var(--ready)]">{conversionActions}</p>
+                <p className="text-sm text-[var(--fg-muted)]">Checkout handoffs</p>
+                <p className="mt-2 text-4xl font-semibold tracking-tighter text-[var(--ready)]">{checkoutHandoffs}</p>
               </div>
               <div className="kpi-card">
                 <p className="text-sm text-[var(--fg-muted)]">Avg readiness</p>

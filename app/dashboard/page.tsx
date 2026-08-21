@@ -8,6 +8,8 @@ import { analyticsRangeBounds } from '../../lib/analytics'
 import { emptySellerGrowthState, getSellerGrowthState } from '../../lib/server/seller-growth'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
 import { DashboardClient, DashboardInitial } from './DashboardClient'
+import { loadOwnerAnalyticsRollup } from '../../lib/server/analytics-rollup'
+import { loadNegotiationRollup } from '../../lib/negotiation-report'
 
 // Server component: authenticates + fetches the dashboard's data in one parallel
 // wave server-side, then hands it to the client island as initial state - so the
@@ -32,7 +34,11 @@ export default async function DashboardPage() {
       })
     : Promise.resolve(emptySellerGrowthState())
 
-  const [pageRes, eventRes, visitRes, invitesRes, negRes, intakeRes, growthState] = await Promise.all([
+  // One shared cutoff + exact database rollup keeps Overview aligned with the
+  // Analytics "Today" view even after the recent-activity samples hit a limit.
+  const todayCutoff = analyticsRangeBounds({ range: 'today' }).cutoff.toISOString()
+
+  const [pageRes, eventRes, visitRes, invitesRes, negRes, intakeRes, growthState, analyticsResult, negotiationReport] = await Promise.all([
     supabase.from('pages').select(OWNER_PAGE_SELECT).eq('owner_id', user.id).order('created_at', { ascending: false }).returns<AgentPage[]>(),
     supabase.from('checkout_events').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(100).returns<CheckoutEvent[]>(),
     supabase.from('agent_visits').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1000).returns<AgentVisit[]>(),
@@ -40,6 +46,8 @@ export default async function DashboardPage() {
     supabase.from('agent_negotiations').select('id', { count: 'exact', head: true }).eq('owner_id', user.id).in('status', ['negotiation', 'agreement_proposed', 'held']),
     supabase.from('intake_sessions').select('id', { count: 'exact', head: true }).eq('owner_id', user.id).eq('status', 'handed_off'),
     growthPromise,
+    loadOwnerAnalyticsRollup(supabase, { from: new Date(todayCutoff) }),
+    loadNegotiationRollup(supabase),
   ])
 
   // Fall back to the basic select if newer optional columns aren't migrated yet.
@@ -68,18 +76,17 @@ export default async function DashboardPage() {
     sharedPages = shared.data ?? []
   }
 
-  // Start-of-today cutoff, computed once server-side from the SAME helper the
-  // Analytics "Today" range uses, so the Overview headline and Analytics agree.
-  const todayCutoff = analyticsRangeBounds({ range: 'today' }).cutoff.toISOString()
-
   const initial: DashboardInitial = {
     pages,
     events: eventRes.error ? [] : eventRes.data ?? [],
     agentVisits: visitRes.error ? [] : visitRes.data ?? [],
-    openNegotiations: negRes.error ? 0 : negRes.count ?? 0,
+    // This legacy field now carries the exact seller-actionable queue count.
+    // The direct count is retained as an additive-migration fallback.
+    openNegotiations: negotiationReport.data?.counts.needsAction ?? (negRes.error ? 0 : negRes.count ?? 0),
     sharedPages,
     displayName,
     todayCutoff,
+    analyticsRollup: analyticsResult.data,
     // interview_completed (intake spec §8): any interview that reached handoff.
     interviewCompleted: intakeRes.error ? false : (intakeRes.count ?? 0) > 0,
     growthState,

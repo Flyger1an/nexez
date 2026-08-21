@@ -11,6 +11,7 @@ import type {
   AgentNegotiation,
   AgentPage,
   AgentVisit,
+  AnalyticsRollup,
   BillingSubscription,
   BuyerRequest,
   CheckoutEvent,
@@ -19,7 +20,15 @@ import type {
   SellerOverview,
 } from '@/src/types/nexez'
 
-const OPEN_NEGOTIATION_STATUSES = ['negotiation', 'agreement_proposed', 'held']
+const OPEN_NEGOTIATION_STATUSES = ['negotiation', 'agreement_proposed', 'paused', 'held']
+
+function negotiationNeedsActionCount(value: unknown): number | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const counts = (value as { counts?: unknown }).counts
+  if (!counts || typeof counts !== 'object' || Array.isArray(counts)) return null
+  const count = Number((counts as { needsAction?: unknown }).needsAction)
+  return Number.isFinite(count) && count >= 0 ? Math.round(count) : null
+}
 
 function missingRelation(error: { code?: string | null; message?: string | null } | null | undefined) {
   if (!error) return false
@@ -114,10 +123,28 @@ export async function getCheckoutEvents(userId: string, limit = 250): Promise<Ch
   return data ?? []
 }
 
+export async function getAnalyticsRollup(from: Date): Promise<AnalyticsRollup> {
+  const { data, error } = await supabase.rpc('nz_owner_analytics_rollup', {
+    p_from: from.toISOString(),
+    p_to: null,
+    p_page_id: null,
+    p_query: null,
+    p_event_type: null,
+    p_traffic: 'all',
+  })
+  if (error) throw error
+  if (!data || typeof data !== 'object' || Number((data as { schemaVersion?: unknown }).schemaVersion) !== 1) {
+    throw new Error('Analytics totals are not available yet.')
+  }
+  return data as AnalyticsRollup
+}
+
 export async function getNegotiations(userId: string, limit = 100): Promise<AgentNegotiation[]> {
   const { data, error } = await supabase
     .from('agent_negotiations')
-    .select('*')
+    // Keep the encrypted continuation credential and payment-session internals
+    // on the server. The seller UI only receives fields it renders or acts on.
+    .select('id, page_id, owner_id, slug, offer_key, offer_name, offer_kind, buyer_agent, buyer_query, requested_terms, budget_text, timeline_text, contact, buyer_email, status, amount_cents, currency, metadata, decision_pending, settlement_state, escrow_mode, stripe_payment_intent_id, refunded_cents, created_at, updated_at')
     .eq('owner_id', userId)
     .order('created_at', { ascending: false })
     .limit(limit)
@@ -217,20 +244,27 @@ export async function getBillingSubscription(userId: string): Promise<BillingSub
 }
 
 export async function getOverviewMetrics(userId: string): Promise<SellerOverview> {
-  const [pages, visits, events, negotiations, orders, reviews] = await Promise.all([
+  const [pages, visits, events, negotiations, orders, reviews, negotiationReport] = await Promise.all([
     getSellerPages(userId),
     getAgentVisits(userId, 1000),
     getCheckoutEvents(userId, 150),
     getNegotiations(userId, 100),
     getOrders(userId, 20),
     getReviews(userId, 20),
+    supabase.rpc('nz_owner_negotiation_rollup', {
+      p_from: null,
+      p_to: null,
+      p_page_id: null,
+      p_query: null,
+    }),
   ])
 
   const agentVisits = visits.filter((visit) => visit.is_ai_agent).length
   const humanVisits = Math.max(0, visits.length - agentVisits)
   const conversions = events.filter((event) => event.event_type === 'stripe_session_created' && event.metadata?.dry_run !== true).length
   const checkoutAttempts = events.filter((event) => event.event_type === 'checkout_attempt' && event.metadata?.dry_run !== true).length
-  const openNegotiations = negotiations.filter((item) => OPEN_NEGOTIATION_STATUSES.includes(item.status)).length
+  const openNegotiations = negotiationNeedsActionCount(negotiationReport.data)
+    ?? negotiations.filter((item) => OPEN_NEGOTIATION_STATUSES.includes(item.status)).length
   const averageReadiness = pages.length
     ? Math.round(pages.reduce((sum, page) => sum + getReadinessScore(page), 0) / pages.length)
     : 0

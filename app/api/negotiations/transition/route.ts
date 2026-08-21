@@ -7,56 +7,69 @@ import {
   type NegotiationStatus,
   NEGOTIATION_STATUSES,
 } from '../../../../lib/negotiations'
+import {
+  ownerDecisionRequestSchema,
+  type OwnerNegotiationDecision,
+} from '../../../../lib/contracts/negotiation'
+import { classifySettlement, getAutoSettleCeilingCents, type SettlementState } from '../../../../lib/settlement'
+import { getCheckoutOffer } from '../../../../lib/agent-page'
+import { createAdminClient, hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
+import { notifyBuyerOfNegotiationDecision } from '../../../../lib/server/negotiation-notifications'
+import { captureError } from '../../../../lib/observability'
 
-type OwnerMessage = {
-  action: 'accept' | 'counter' | 'reject' | 'clarify'
-  reasoning: string
-  proposed_price?: number
-  proposed_date?: string
-  scope_notes?: string
-  questions?: string[]
-  internal_notes?: string
+type TransitionBody = {
+  negotiationId?: string
+  to?: NegotiationStatus
+  decision?: unknown
+  amountCents?: number
+  ownerMessage?: unknown
 }
 
 /**
- * Owner-side non-payment status transitions, validated server-side.
+ * Owner-side negotiation control plane.
  *
- * Replaces the inbox's direct client-side status writes so illegal transitions are
- * rejected by the server (and the DB money-safety trigger), not just hidden in the UI.
- * Money-moving steps stay on dedicated routes:
- *  - 'held'    is set only by the Stripe webhook (buyer funded) - never here.
- *  - 'complete'/'declined' on a Stripe-backed hold go through /escrow capture|cancel.
- * This route handles: propose agreement, decline, reopen, and offline complete.
+ * Human decisions are persisted by one database transaction: message, status,
+ * amount, settlement, decision sequence, pending lease, and buyer-visible latest
+ * decision move together. Direct table writes are revoked by the Pass 1 migration.
+ * Money-moving capture/cancel/refund operations remain on /escrow.
  */
 export async function POST(request: Request) {
-  const limited = await enforceRateLimit(request, 'negotiation-transition', 30, 60_000)
-  if (limited) return limited
-
   const { supabase, user } = await resolveRequestAuth(request)
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-  let body: {
-    negotiationId?: string
-    to?: NegotiationStatus
-    ownerMessage?: OwnerMessage
-    amountCents?: number
-  }
+  const limited = await enforceRateLimit(request, 'negotiation-transition', 30, 60_000, {
+    subject: user.id,
+    failClosed: true,
+  })
+  if (limited) return limited
+
+  let body: TransitionBody
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
-  const { negotiationId, to, ownerMessage, amountCents } = body
-  if (!negotiationId || (!to && !ownerMessage && amountCents == null)) {
-    return NextResponse.json({ error: 'negotiationId and at least one action (to, ownerMessage, or amountCents) are required.' }, { status: 400 })
+
+  const negotiationId = typeof body.negotiationId === 'string' ? body.negotiationId.trim() : ''
+  if (!negotiationId) {
+    return NextResponse.json({ error: 'negotiationId is required.' }, { status: 400 })
   }
-  if (to && !NEGOTIATION_STATUSES.includes(to)) {
-    return NextResponse.json({ error: 'Invalid target status.' }, { status: 400 })
+  if (body.ownerMessage != null) {
+    return NextResponse.json(
+      { error: 'ownerMessage is no longer accepted. Send the canonical decision envelope with integer amountCents.' },
+      { status: 400 },
+    )
   }
 
-  // 'held' is buyer-funded via the Stripe webhook only.
-  if (to === 'held') {
-    return NextResponse.json({ error: 'Escrow holds are funded by the buyer, not set directly.' }, { status: 409 })
+  const actionCount = Number(body.decision != null) + Number(body.to != null) + Number(body.amountCents != null)
+  if (actionCount !== 1) {
+    return NextResponse.json(
+      { error: 'Send exactly one action: decision, to, or amountCents.' },
+      { status: 400 },
+    )
+  }
+  if (body.to && !NEGOTIATION_STATUSES.includes(body.to)) {
+    return NextResponse.json({ error: 'Invalid target status.' }, { status: 400 })
   }
 
   const { data: negotiation, error } = await supabase
@@ -69,90 +82,174 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Negotiation not found.' }, { status: 404 })
   }
 
-  const escrowAvailable = negotiation.escrow_mode !== 'not_configured'
-  if (to && !canTransitionNegotiation(negotiation.status, to, { escrowAvailable })) {
+  // Production always uses the service-role client. The authenticated fallback
+  // is useful only for isolated tests/pre-migration local environments; database
+  // grants reject it after the integrity migration.
+  const writer = hasSupabaseAdminEnv() ? createAdminClient() : supabase
+
+  if (body.amountCents != null) {
+    if (!Number.isInteger(body.amountCents) || body.amountCents < 50) {
+      return NextResponse.json({ error: 'amountCents must be an integer of at least 50.' }, { status: 400 })
+    }
+    if (!['negotiation', 'agreement_proposed'].includes(negotiation.status) || negotiation.stripe_payment_intent_id) {
+      return NextResponse.json({ error: `Cannot change amount in status '${negotiation.status}'.` }, { status: 409 })
+    }
+    const { error: updateError } = await writer
+      .from('agent_negotiations')
+      .update({ amount_cents: body.amountCents, updated_at: new Date().toISOString() })
+      .eq('id', negotiation.id)
+      .eq('owner_id', user.id)
+    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 409 })
+    return NextResponse.json({ ok: true, status: negotiation.status, amountCents: body.amountCents })
+  }
+
+  // Preserve the explicit offline completion control, but never let a configured
+  // payment agreement skip buyer funding. Other status controls become canonical
+  // owner decisions so the buyer-visible decision state advances too.
+  if (body.to === 'complete') {
+    if (
+      negotiation.status !== 'agreement_proposed' ||
+      negotiation.escrow_mode !== 'not_configured' ||
+      negotiation.stripe_payment_intent_id
+    ) {
+      return NextResponse.json(
+        { error: 'Only an explicitly offline, unfunded agreement can be marked complete here.' },
+        { status: 409 },
+      )
+    }
+    const { error: updateError } = await writer
+      .from('agent_negotiations')
+      .update({ status: 'complete', updated_at: new Date().toISOString() })
+      .eq('id', negotiation.id)
+      .eq('owner_id', user.id)
+    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 409 })
+    return NextResponse.json({ ok: true, status: 'complete', settlement: 'offline' })
+  }
+
+  let decision: OwnerNegotiationDecision
+  if (body.decision != null) {
+    const parsed = ownerDecisionRequestSchema.safeParse({ negotiationId, decision: body.decision })
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid decision payload.', details: parsed.error.flatten() },
+        { status: 400 },
+      )
+    }
+    decision = parsed.data.decision
+  } else {
+    const mapped = transitionAsDecision(negotiation, body.to)
+    if (!mapped) {
+      return NextResponse.json(
+        { error: 'This transition requires a canonical owner decision.' },
+        { status: 400 },
+      )
+    }
+    decision = mapped
+  }
+
+  if (negotiation.status === 'paused' && !['resume', 'reject'].includes(decision.action)) {
     return NextResponse.json(
-      { error: `Illegal transition: ${negotiation.status} → ${to}.` },
+      { error: 'A paused negotiation can only be resumed or rejected.' },
+      { status: 409 },
+    )
+  }
+  if (negotiation.status !== 'paused' && decision.action === 'resume') {
+    return NextResponse.json(
+      { error: 'Only a paused negotiation can be resumed.' },
       { status: 409 },
     )
   }
 
-  // A Stripe-backed hold must be captured/released via /escrow, not completed here.
-  if (to === 'complete' && negotiation.stripe_payment_intent_id && negotiation.status === 'held') {
-    return NextResponse.json({ error: 'Capture the held funds via escrow to complete.' }, { status: 409 })
+  const escrowAvailable = negotiation.escrow_mode !== 'not_configured'
+  const targetStatus = decisionTargetStatus(decision, negotiation.status)
+  if (
+    targetStatus !== negotiation.status &&
+    !canTransitionNegotiation(negotiation.status, targetStatus, { escrowAvailable })
+  ) {
+    return NextResponse.json(
+      { error: `Illegal transition: ${negotiation.status} → ${targetStatus}.` },
+      { status: 409 },
+    )
   }
 
-  let finalStatus = to
+  const amountCents = decision.action === 'counter'
+    ? decision.counter.priceCents
+    : decision.action === 'accept'
+      ? decision.amountCents ?? negotiation.amount_cents
+      : null
 
-  // Only allow amount updates on states where it makes sense (proposed or before funding).
-  // This centralizes the previous direct client writes. Authenticated owners can still
-  // mutate their own rows via direct Supabase (RLS allows it), but the DB money-safety
-  // trigger now LOCKS amount_cents once a PaymentIntent is attached (funded), so a direct
-  // REST edit of a held/funded amount is rejected at the database — app guard + trigger
-  // agree. Pre-funding amount edits (no PI) remain intentionally open for renegotiation.
-  if (amountCents != null) {
-    if (!Number.isFinite(amountCents) || amountCents < 50) {
-      return NextResponse.json({ error: 'Invalid amount (minimum 50 cents).' }, { status: 400 })
-    }
-    const allowedAmountStates = ['negotiation', 'agreement_proposed']
-    if (!allowedAmountStates.includes(negotiation.status)) {
-      return NextResponse.json({ error: `Cannot change amount in status '${negotiation.status}'.` }, { status: 409 })
-    }
-    const { error: amtErr } = await supabase
-      .from('agent_negotiations')
-      .update({ amount_cents: amountCents, updated_at: new Date().toISOString() })
-      .eq('id', negotiation.id)
+  if (decision.action === 'accept' && (!amountCents || amountCents < 50)) {
+    return NextResponse.json(
+      { error: 'Accept requires amountCents of at least 50, or a previously saved agreed amount.' },
+      { status: 400 },
+    )
+  }
+
+  let settlementState: SettlementState | null = null
+  if (decision.action === 'accept' && amountCents) {
+    const { data: page } = await supabase
+      .from('pages')
+      .select('services, products')
+      .eq('id', negotiation.page_id)
       .eq('owner_id', user.id)
-    if (amtErr) {
-      return NextResponse.json({ error: amtErr.message }, { status: 409 })
-    }
+      .maybeSingle<any>()
+    const offer = page ? getCheckoutOffer(page, negotiation.offer_key) : null
+    settlementState = classifySettlement(amountCents, getAutoSettleCeilingCents(offer))
   }
 
-  // Handle owner manual message + status mapping (replaces previous client direct writes)
-  if (ownerMessage) {
-    const content: any = {
-      action: ownerMessage.action,
-      reasoning: ownerMessage.reasoning,
-    }
-    if (ownerMessage.proposed_price != null) content.proposed_price = ownerMessage.proposed_price
-    if (ownerMessage.proposed_date) content.proposed_date = ownerMessage.proposed_date
-    if (ownerMessage.scope_notes) content.scope_notes = ownerMessage.scope_notes
-    if (ownerMessage.questions?.length) content.questions = ownerMessage.questions
-    if (ownerMessage.internal_notes) content.internal_notes = ownerMessage.internal_notes
+  const updatedAt = new Date().toISOString()
+  const { data, error: decisionError } = await writer.rpc('nz_apply_owner_decision', {
+    p_negotiation_id: negotiation.id,
+    p_owner_id: user.id,
+    p_expected_seq: negotiation.decision_seq ?? 0,
+    p_decision: decision,
+    p_amount_cents: amountCents,
+    p_settlement_state: settlementState,
+    p_updated_at: updatedAt,
+  })
+  if (decisionError) {
+    const status = decisionError.code === 'P0002' ? 404 : 409
+    return NextResponse.json({ error: decisionError.message }, { status })
+  }
 
-    const { error: msgErr } = await supabase.from('negotiation_messages').insert({
-      negotiation_id: negotiation.id,
-      role: 'seller_owner',
-      content,
+  try {
+    await notifyBuyerOfNegotiationDecision(negotiation, decision.action)
+  } catch (notificationError) {
+    captureError(notificationError instanceof Error ? notificationError : new Error(String(notificationError)), {
+      negotiationId: negotiation.id,
+      phase: 'notifyOwnerDecision',
     })
-    if (msgErr) {
-      return NextResponse.json({ error: msgErr.message }, { status: 409 })
-    }
-
-    // Map to status (server validated)
-    if (ownerMessage.action === 'accept') finalStatus = 'agreement_proposed'
-    else if (ownerMessage.action === 'reject') finalStatus = 'declined'
-    else if (ownerMessage.action === 'counter') finalStatus = 'negotiation'
-    // clarify keeps current status (or caller can pass explicit `to`)
   }
 
-  if (finalStatus && finalStatus !== negotiation.status) {
-    if (!canTransitionNegotiation(negotiation.status, finalStatus!, { escrowAvailable })) {
-      return NextResponse.json(
-        { error: `Illegal transition after owner action: ${negotiation.status} → ${finalStatus}.` },
-        { status: 409 },
-      )
-    }
+  const persisted = (data as { negotiation?: AgentNegotiation } | null)?.negotiation
+  return NextResponse.json({
+    ok: true,
+    status: persisted?.status ?? targetStatus,
+    decisionSeq: persisted?.decision_seq ?? (negotiation.decision_seq ?? 0) + 1,
+    amountCents: persisted?.amount_cents ?? amountCents,
+    settlementState: persisted?.settlement_state ?? settlementState,
+  })
+}
 
-    const { error: updateErr } = await supabase
-      .from('agent_negotiations')
-      .update({ status: finalStatus, updated_at: new Date().toISOString() })
-      .eq('id', negotiation.id)
-      .eq('owner_id', user.id)
-    if (updateErr) {
-      return NextResponse.json({ error: updateErr.message }, { status: 409 })
-    }
+function transitionAsDecision(
+  negotiation: AgentNegotiation,
+  to: NegotiationStatus | undefined,
+): OwnerNegotiationDecision | null {
+  if (to === 'declined') return { action: 'reject', reasoning: 'Declined by the seller.' }
+  if (to === 'paused') return { action: 'pause', reasoning: 'Paused by the seller.' }
+  if (to === 'negotiation' && negotiation.status === 'paused') {
+    return { action: 'resume', reasoning: 'Resumed by the seller.' }
   }
+  return null
+}
 
-  return NextResponse.json({ ok: true, status: finalStatus || negotiation.status })
+function decisionTargetStatus(
+  decision: OwnerNegotiationDecision,
+  current: NegotiationStatus,
+): NegotiationStatus {
+  if (decision.action === 'accept') return 'agreement_proposed'
+  if (decision.action === 'reject') return 'declined'
+  if (decision.action === 'pause') return 'paused'
+  if (decision.action === 'resume' || decision.action === 'counter' || decision.action === 'clarify') return 'negotiation'
+  return current
 }

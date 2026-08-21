@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabase } from '../../../../lib/supabase'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 import { getPagePrivateMeta } from '../../../../lib/server/page-private-meta'
+import { insertVerifiedCheckoutEvent } from '../../../../lib/server/analytics-ingestion'
 
 type ClickPayload = {
   slug?: string
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
   }
   const privateMeta = await getPagePrivateMeta(page.id)
 
-  const { error } = await supabase.from('checkout_events').insert({
+  const write = await insertVerifiedCheckoutEvent({
     page_id: page.id,
     owner_id: privateMeta.ownerId,
     slug: page.slug,
@@ -65,10 +66,13 @@ export async function POST(request: Request) {
       href: payload.href || null,
       source: 'directory_discovery',
     },
-  })
+  }, { source: 'directory_discovery', dedupeWindowMs: 10_000 })
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!write.ok) {
+    const message = write.error instanceof Error
+      ? write.error.message
+      : (write.error as { message?: string } | null)?.message || 'Could not record discovery activity.'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true, event_type: 'directory_click', surface, action })
