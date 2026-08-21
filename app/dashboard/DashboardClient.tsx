@@ -31,6 +31,11 @@ import type { SellerGrowthState } from '../../lib/server/seller-growth'
 import type { OwnerAnalyticsRollup } from '../../lib/server/analytics-rollup'
 import { SellerGrowthInvites } from '../../components/growth/SellerGrowthInvites'
 import { loadNegotiationRollup } from '../../lib/negotiation-report'
+import type { NegotiationRollup } from '../../lib/negotiation-report'
+import type { FinanceRollup } from '../../lib/finance-report'
+import { buildCommercialCommandCenter } from '../../lib/commercial-command-center'
+import { CommercialCommandCenter } from '../../components/dashboard/CommercialCommandCenter'
+import { DataLoadNotice } from '../../components/dashboard/DataLoadNotice'
 
 export type DashboardInitial = {
   pages: AgentPage[]
@@ -47,6 +52,9 @@ export type DashboardInitial = {
   interviewCompleted?: boolean
   growthState?: SellerGrowthState
   analyticsRollup?: OwnerAnalyticsRollup | null
+  negotiationRollup?: NegotiationRollup | null
+  financeRollup?: FinanceRollup | null
+  commercialDataIssues?: string[]
 }
 
 // Overview shows a bounded recent set; full management (with pagination) lives
@@ -74,6 +82,13 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
     ? Math.round(pages.reduce((sum, page) => sum + getReadinessScore(page), 0) / pages.length)
     : 0
   const totalOffers = pages.reduce((sum, page) => sum + getOfferCount(page), 0)
+  const readinessAlerts = pages.filter((page) => getReadinessScore(page) < 80).length
+  const commercialSnapshot = useMemo(() => buildCommercialCommandCenter({
+    analytics: initial?.analyticsRollup,
+    negotiations: initial?.negotiationRollup,
+    finance: initial?.financeRollup,
+    readinessAlerts,
+  }), [initial?.analyticsRollup, initial?.financeRollup, initial?.negotiationRollup, readinessAlerts])
 
   // The Overview headline + KPIs report TODAY's activity. We scope to the
   // server-provided start-of-today cutoff and reuse the Analytics helpers (which
@@ -360,6 +375,8 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
         </section>
         <OnboardingChecklist pages={pages} interviewCompleted={initial?.interviewCompleted} />
         {initial?.growthState && <SellerGrowthInvites initialState={initial.growthState} />}
+            <DataLoadNotice issues={initial?.commercialDataIssues ?? []} />
+            <CommercialCommandCenter snapshot={commercialSnapshot} />
             {pages.length === 0 ? (
               <NewUserHero name={displayName} />
             ) : (

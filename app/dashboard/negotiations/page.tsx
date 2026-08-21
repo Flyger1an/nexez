@@ -101,6 +101,13 @@ export default function NegotiationsInbox() {
   const [query, setQuery] = useState('')
 
   useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('queue')
+    if (requested === 'needs_action' || requested === 'waiting' || requested === 'closed' || requested === 'all') {
+      setQueueFilter(requested)
+    }
+  }, [])
+
+  useEffect(() => {
     void load()
   }, [])
 

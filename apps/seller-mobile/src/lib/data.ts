@@ -260,7 +260,7 @@ export async function getBillingSubscription(userId: string): Promise<BillingSub
 
 export async function getOverviewMetrics(userId: string): Promise<SellerOverview> {
   const financeFrom = new Date(Date.now() - 30 * 86400000)
-  const [pages, visits, events, negotiations, orders, reviews, negotiationReport, financeReport] = await Promise.all([
+  const [pages, visits, events, negotiations, orders, reviews, negotiationReport, financeReport, analyticsReport] = await Promise.all([
     getSellerPages(userId),
     getAgentVisits(userId, 1000),
     getCheckoutEvents(userId, 150),
@@ -278,12 +278,16 @@ export async function getOverviewMetrics(userId: string): Promise<SellerOverview
       p_to: null,
       p_fallback_commission_bps: Math.round(commissionPercentForPlan(billing?.plan_id) * 100),
     })),
+    getAnalyticsRollup(financeFrom).catch(() => null),
   ])
 
-  const agentVisits = visits.filter((visit) => visit.is_ai_agent).length
-  const humanVisits = Math.max(0, visits.length - agentVisits)
-  const conversions = events.filter((event) => event.event_type === 'stripe_session_created' && event.metadata?.dry_run !== true).length
-  const checkoutAttempts = events.filter((event) => event.event_type === 'checkout_attempt' && event.metadata?.dry_run !== true).length
+  const sampledAgentVisits = visits.filter((visit) => visit.is_ai_agent).length
+  const agentVisits = analyticsReport?.counts.aiVisits ?? sampledAgentVisits
+  const humanVisits = analyticsReport?.counts.humanVisits ?? Math.max(0, visits.length - sampledAgentVisits)
+  const conversions = analyticsReport?.counts.paidOrders
+    ?? events.filter((event) => event.event_type === 'stripe_session_created' && event.metadata?.dry_run !== true).length
+  const checkoutAttempts = analyticsReport?.counts.checkoutAttempts
+    ?? events.filter((event) => event.event_type === 'checkout_attempt' && event.metadata?.dry_run !== true).length
   const openNegotiations = negotiationNeedsActionCount(negotiationReport.data)
     ?? negotiations.filter((item) => OPEN_NEGOTIATION_STATUSES.includes(item.status)).length
   const averageReadiness = pages.length
@@ -312,13 +316,23 @@ export async function getOverviewMetrics(userId: string): Promise<SellerOverview
     createdAt: review.created_at,
   }))
 
-  // Money hero: exact, settled 30-day finance in one currency. Fall back to the
-  // dominant live order currency during additive migration rollout.
+  // Money hero: exact, settled 30-day direct + negotiated finance in one
+  // currency. Currencies stay separate; the dominant gross currency leads.
   const finance = financeReport.data && typeof financeReport.data === 'object'
     && Number((financeReport.data as { schemaVersion?: unknown }).schemaVersion) === 1
     ? financeReport.data as FinanceRollup
     : null
-  const exactCurrency = finance?.currencies[0]
+  const exactByCurrency = new Map<string, { gross: number; net: number }>()
+  for (const row of finance?.currencies ?? []) {
+    exactByCurrency.set(row.currency, { gross: row.grossCents, net: row.netCents })
+  }
+  for (const row of finance?.negotiatedWindow ?? []) {
+    const current = exactByCurrency.get(row.currency) ?? { gross: 0, net: 0 }
+    current.gross += row.capturedCents
+    current.net += row.netCents
+    exactByCurrency.set(row.currency, current)
+  }
+  const exactCurrency = [...exactByCurrency.entries()].sort((a, b) => b[1].gross - a[1].gross || a[0].localeCompare(b[0]))[0]
   const fallbackByCurrency = new Map<string, { gross: number; net: number }>()
   for (const order of orders) {
     if (order.stripe_livemode !== true || !['paid', 'refunded', 'disputed', 'dispute_won'].includes(order.status)) continue
@@ -334,9 +348,10 @@ export async function getOverviewMetrics(userId: string): Promise<SellerOverview
     fallbackByCurrency.set(code, current)
   }
   const fallbackCurrency = [...fallbackByCurrency.entries()].sort((a, b) => b[1].gross - a[1].gross)[0]
-  const financeCurrency = exactCurrency?.currency ?? fallbackCurrency?.[0] ?? 'usd'
-  const pipelineCents = exactCurrency?.grossCents ?? fallbackCurrency?.[1].gross ?? 0
-  const payoutsCents = exactCurrency?.netCents ?? fallbackCurrency?.[1].net ?? 0
+  const financeCurrency = exactCurrency?.[0] ?? fallbackCurrency?.[0] ?? 'usd'
+  const pipelineCents = exactCurrency?.[1].gross ?? fallbackCurrency?.[1].gross ?? 0
+  const payoutsCents = exactCurrency?.[1].net ?? fallbackCurrency?.[1].net ?? 0
+  const operations = finance?.operations
   const DAY = 86400000
   const nowMs = Date.now()
   const spark = Array.from({ length: 10 }, (_, i) => {
@@ -355,6 +370,10 @@ export async function getOverviewMetrics(userId: string): Promise<SellerOverview
     conversions,
     checkoutAttempts,
     openNegotiations,
+    openBuyerRequests: operations?.openRequests ?? 0,
+    openDisputes: operations ? operations.disputedOrders + operations.disputedNegotiations : 0,
+    staleHolds: operations?.staleHeldNegotiations ?? 0,
+    estimatedEconomics: operations?.estimatedEconomics ?? 0,
     averageReadiness,
     readinessAlerts: pages.filter((page) => getReadinessScore(page) < 80).slice(0, 4),
     recentActivity: [...eventActivity, ...orderActivity, ...reviewActivity]

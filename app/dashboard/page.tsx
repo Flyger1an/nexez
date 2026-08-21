@@ -10,6 +10,9 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/adm
 import { DashboardClient, DashboardInitial } from './DashboardClient'
 import { loadOwnerAnalyticsRollup } from '../../lib/server/analytics-rollup'
 import { loadNegotiationRollup } from '../../lib/negotiation-report'
+import { loadFinanceRollup } from '../../lib/finance-report'
+import { getOwnerPlanId } from '../../lib/server/plan'
+import { getCommissionPercentForPlan } from '../../lib/stripe-billing'
 
 // Server component: authenticates + fetches the dashboard's data in one parallel
 // wave server-side, then hands it to the client island as initial state - so the
@@ -37,8 +40,14 @@ export default async function DashboardPage() {
   // One shared cutoff + exact database rollup keeps Overview aligned with the
   // Analytics "Today" view even after the recent-activity samples hit a limit.
   const todayCutoff = analyticsRangeBounds({ range: 'today' }).cutoff.toISOString()
+  const financeCutoff = analyticsRangeBounds({ range: '30d' }).cutoff
+  const planPromise = getOwnerPlanId(supabase, user.id)
+  const financePromise = planPromise.then((planId) => loadFinanceRollup(supabase, {
+    from: financeCutoff,
+    fallbackCommissionBps: Math.round(getCommissionPercentForPlan(planId) * 100),
+  }))
 
-  const [pageRes, eventRes, visitRes, invitesRes, negRes, intakeRes, growthState, analyticsResult, negotiationReport] = await Promise.all([
+  const [pageRes, eventRes, visitRes, invitesRes, negRes, intakeRes, growthState, analyticsResult, negotiationReport, financeReport] = await Promise.all([
     supabase.from('pages').select(OWNER_PAGE_SELECT).eq('owner_id', user.id).order('created_at', { ascending: false }).returns<AgentPage[]>(),
     supabase.from('checkout_events').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(100).returns<CheckoutEvent[]>(),
     supabase.from('agent_visits').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1000).returns<AgentVisit[]>(),
@@ -48,6 +57,7 @@ export default async function DashboardPage() {
     growthPromise,
     loadOwnerAnalyticsRollup(supabase, { from: new Date(todayCutoff) }),
     loadNegotiationRollup(supabase),
+    financePromise,
   ])
 
   // Fall back to the basic select if newer optional columns aren't migrated yet.
@@ -87,6 +97,13 @@ export default async function DashboardPage() {
     displayName,
     todayCutoff,
     analyticsRollup: analyticsResult.data,
+    negotiationRollup: negotiationReport.data,
+    financeRollup: financeReport.data,
+    commercialDataIssues: [
+      analyticsResult.error ? 'today analytics' : null,
+      negotiationReport.error ? 'negotiation operations' : null,
+      financeReport.error ? '30-day finance' : null,
+    ].filter((issue): issue is string => Boolean(issue)),
     // interview_completed (intake spec §8): any interview that reached handoff.
     interviewCompleted: intakeRes.error ? false : (intakeRes.count ?? 0) > 0,
     growthState,

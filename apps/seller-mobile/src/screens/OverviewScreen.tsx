@@ -60,11 +60,21 @@ export function OverviewScreen() {
 
   type QItem = { key: string; title: string; sub: string; tag: string; tone: string; open: () => void }
   const queue: QItem[] = []
+  if (data.openDisputes > 0)
+    queue.push({ key: 'disputes', title: `${data.openDisputes} open ${data.openDisputes === 1 ? 'dispute' : 'disputes'}`, sub: 'Review payment evidence and the next resolution step', tag: 'Urgent', tone: colors.danger, open: () => router.push('/tools/finance') })
+  if (data.openBuyerRequests > 0)
+    queue.push({ key: 'requests', title: `${data.openBuyerRequests} buyer ${data.openBuyerRequests === 1 ? 'request' : 'requests'}`, sub: 'Refund requests and problem reports are waiting', tag: 'Money', tone: colors.warning, open: () => router.push('/inbox/requests') })
+  if (data.staleHolds > 0)
+    queue.push({ key: 'holds', title: `${data.staleHolds} stale ${data.staleHolds === 1 ? 'hold' : 'holds'}`, sub: 'Capture or release funded agreements held over 48 hours', tag: 'Urgent', tone: colors.danger, open: () => router.push('/inbox/negotiations') })
   if (data.openNegotiations > 0)
-    queue.push({ key: 'neg', title: `${data.openNegotiations} negotiation${data.openNegotiations === 1 ? '' : 's'} need attention`, sub: 'Review proposals, approvals, held funds, and disputes', tag: 'Deal', tone: colors.ember, open: () => router.push('/inbox') })
-  for (const page of data.readinessAlerts.slice(0, 3 - queue.length)) {
+    queue.push({ key: 'neg', title: `${data.openNegotiations} negotiation${data.openNegotiations === 1 ? '' : 's'} need attention`, sub: 'Review proposals, approvals, held funds, and disputes', tag: 'Deal', tone: colors.ember, open: () => router.push('/inbox/negotiations') })
+  if (data.estimatedEconomics > 0)
+    queue.push({ key: 'economics', title: `${data.estimatedEconomics} estimated fee ${data.estimatedEconomics === 1 ? 'record' : 'records'}`, sub: 'Legacy transactions use the current plan rate', tag: 'Accuracy', tone: colors.steelLight, open: () => router.push('/tools/finance') })
+  for (const page of data.readinessAlerts.slice(0, Math.max(0, 4 - queue.length))) {
     queue.push({ key: page.id, title: page.name, sub: `/${page.slug} · ${getReadinessScore(page)}% ready`, tag: 'Readiness', tone: colors.warning, open: () => router.push({ pathname: '/listing/[id]/readiness', params: { id: page.id } }) })
   }
+  const visibleQueue = queue.slice(0, 4)
+  const hasOperationalAlerts = data.openNegotiations + data.openBuyerRequests + data.openDisputes + data.staleHolds + data.estimatedEconomics > 0
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
@@ -76,7 +86,7 @@ export function OverviewScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Pressable accessibilityLabel="Notifications" onPress={() => router.push('/notifications')} style={s.bell}>
             <Bell size={21} color={colors.body} />
-            {data.openNegotiations > 0 ? <View style={s.bellDot} /> : null}
+            {hasOperationalAlerts ? <View style={s.bellDot} /> : null}
           </Pressable>
           <AvatarChip initial={initial} />
         </View>
@@ -111,14 +121,14 @@ export function OverviewScreen() {
 
       {/* Needs you queue */}
       <View style={s.queueHead}>
-        <Text style={s.sectionLabel}>Needs you · {queue.length}</Text>
-        <Pressable onPress={() => router.push('/inbox')}>
-          <Text style={s.openInbox}>Open inbox →</Text>
+        <Text style={s.sectionLabel}>Needs you · {visibleQueue.length}</Text>
+        <Pressable accessibilityRole="button" onPress={() => visibleQueue[0]?.open()} disabled={!visibleQueue.length}>
+          <Text style={s.openInbox}>{visibleQueue.length ? 'Open top item →' : 'All clear'}</Text>
         </Pressable>
       </View>
-      {queue.length ? (
-        queue.map((q) => (
-          <Pressable key={q.key} onPress={q.open} style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}>
+      {visibleQueue.length ? (
+        visibleQueue.map((q) => (
+          <Pressable key={q.key} accessibilityRole="button" accessibilityLabel={`${q.title}. ${q.sub}`} onPress={q.open} style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}>
             <Glass tone="raised" radius={radii.cardSm} contentStyle={s.queueRow}>
               <View style={[s.queueDot, { backgroundColor: q.tone }]} />
               <View style={{ flex: 1, minWidth: 0 }}>
@@ -140,9 +150,9 @@ export function OverviewScreen() {
 
       {/* Compact stats */}
       <View style={s.stats}>
-        <Stat label="Agent visits" value={compactNumber(data.agentVisits)} />
+        <Stat label="Agent visits · 30d" value={compactNumber(data.agentVisits)} />
         <Stat label="AI share" value={`${aiSplit}%`} color={colors.ember} />
-        <Stat label="Conversions" value={compactNumber(data.conversions)} />
+        <Stat label="Paid orders · 30d" value={compactNumber(data.conversions)} />
       </View>
 
       <SectionTitle title="Recent activity" />

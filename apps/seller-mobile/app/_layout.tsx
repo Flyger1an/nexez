@@ -78,11 +78,13 @@ function RootLayoutNav() {
             <Stack.Screen name="inbox/orders" />
             <Stack.Screen name="inbox/orders/[id]" />
             <Stack.Screen name="inbox/reviews" />
+            <Stack.Screen name="inbox/requests" />
             <Stack.Screen name="notifications/index" />
             <Stack.Screen name="notifications/settings" />
             <Stack.Screen name="tools/importer" />
             <Stack.Screen name="tools/integrations" />
             <Stack.Screen name="tools/billing" />
+            <Stack.Screen name="tools/finance" />
             <Stack.Screen name="tools/support" />
           </Stack>
         </ToastProvider>
