@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { dbRef, llmRef } = vi.hoisted(() => ({
+const { dbRef, demandRef, llmRef } = vi.hoisted(() => ({
   dbRef: { handler: (_c: any) => ({ data: [] as any[], error: null }) as { data?: any; error?: any } },
+  demandRef: { signals: [] as any[] },
   llmRef: {
     configured: false,
     response: null as string | null,
@@ -16,6 +17,9 @@ vi.mock('../../../lib/supabase', async () => {
 })
 vi.mock('../../../lib/rate-limit', () => ({
   enforceRateLimit: vi.fn(async () => null),
+}))
+vi.mock('../../../lib/server/commerce-demand', () => ({
+  scheduleCommerceDemandSignal: vi.fn((signal: any) => demandRef.signals.push(signal)),
 }))
 vi.mock('../../../lib/llm', () => ({
   isLlmConfigured: vi.fn(() => llmRef.configured),
@@ -120,6 +124,7 @@ describe('POST /api/public-simulate', () => {
     llmRef.response = null
     llmRef.lastPrompt = null
     llmRef.lastOptions = null
+    demandRef.signals = []
     dbRef.handler = (ctx: any) =>
       ctx.table === 'pages_public'
         ? { data: [kismetPage, consultingPage], error: null }
@@ -164,6 +169,11 @@ describe('POST /api/public-simulate', () => {
       expect.objectContaining({ key: 'commerce', status: 'checked', detail: 'Moving Cleaning' }),
       expect.objectContaining({ key: 'action', status: 'actionable' }),
     ])
+    expect(demandRef.signals).toEqual([{
+      mode: 'marketplace',
+      intent: 'booking',
+      reference: { id: 'home.move-out-cleaning', domain: 'home-property' },
+    }])
   })
 
   it('labels related supply as a partial match instead of force-fitting it', async () => {
@@ -278,6 +288,11 @@ describe('POST /api/public-simulate', () => {
       expect.objectContaining({ key: 'action', status: 'protected' }),
     ])
     expect(JSON.stringify(body)).not.toMatch(/home\.move-out-cleaning|capabilityTags|gapSignals|matchedTerms|matchScore|schemaVersion/)
+    expect(demandRef.signals).toEqual([{
+      mode: 'simulation',
+      intent: 'booking',
+      reference: { id: 'home.move-out-cleaning', domain: 'home-property' },
+    }])
   })
 
   it('understands a custom wedding-cake request without redirecting it to videography', async () => {
@@ -662,6 +677,11 @@ describe('POST /api/public-simulate', () => {
       intentPreserved: true,
       coverageStatus: 'growing',
     })
+    expect(demandRef.signals).toEqual([{
+      mode: 'coverage_gap',
+      intent: 'overview',
+      reference: null,
+    }])
   })
 
   it('does not mistake mobile fulfillment for a mobile-notary service match', async () => {
