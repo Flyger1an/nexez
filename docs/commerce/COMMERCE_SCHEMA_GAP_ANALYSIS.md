@@ -1,6 +1,6 @@
 # Nexez Commerce Schema Gap Analysis
 
-**Status:** Architecture analysis v4 — refreshed after staged-settlement implementation and reservable-resource autopsy
+**Status:** Architecture analysis v5 — refreshed after reservable-resource runtime v1
 **Machine-readable source:** `lib/commerce-templates/curation/gap-analysis.ts`  
 **Curation evidence:** `lib/commerce-templates/curation/`
 
@@ -30,17 +30,17 @@ A `CommerceTemplate` capability is **knowledge about the commercial pattern**, n
 
 That distinction is now useful in both directions. Before the recurring-service implementation, `RECURRING` and `SUBSCRIPTION` were semantic/template knowledge ahead of the transaction engine. They are no longer merely labels: merchants can author recurring terms, agents can read them, buyer configuration resolves exact cadence and price, approval binds an agreement snapshot, Stripe Connect creates the subscription, paid invoices create ordinary order occurrences with service-period provenance, and buyers can cancel at period end.
 
-So recurrence, conditional fulfillment, and staged settlement have moved from **broadly missing** to **first-class** because their runtime behavior now exists. The same promotion must not happen for `INVENTORY`, `MULTI_PROVIDER`, or any other concept until the relevant transaction behavior is equally real.
+So recurrence, conditional fulfillment, staged settlement, and Nexez-owned resource reservation have moved from **broadly missing** to **first-class** because their runtime behavior now exists. The same promotion must not happen for `MULTI_PROVIDER` or any other concept until the relevant transaction behavior is equally real.
 
 ## Executive result
 
-The current analysis now contains seven first-class signals, a large middle of partial support, two remaining missing primitives, and a defer bucket:
+The current analysis now contains eight first-class signals, a large middle of partial support, one remaining missing primitive, and a defer bucket:
 
 | Disposition | Signals |
 |---|---|
-| first-class | customer requirements; recurrence terms; conditional fulfillment; structured modifiers; quantity pricing; milestones; deposit schedule |
+| first-class | customer requirements; recurrence terms; conditional fulfillment; structured modifiers; quantity pricing; milestones; deposit schedule; inventory/resource reservation |
 | weakly structured | capacity constraints; document requirements; regulated qualification; contract terms; inspection-first; minimum charge; distance/travel fee; multi-unit booking; usage rights; qualification fit |
-| broadly missing | inventory/resource reservation; multi-provider orchestration |
+| broadly missing | multi-provider orchestration |
 | not justified | usage pricing; route optimization |
 
 ## First-class: keep the existing rails
@@ -103,6 +103,12 @@ Staged settlement now has a real merchant-authored transaction contract:
 - future stages never charge autonomously or become complete through model inference.
 
 **Decision:** `lib/staged-settlement.ts`, `lib/staged-settlement-runtime.ts`, and the staged-settlement agreement/checkout/webhook rail are canonical. Refundable security deposits, escrow, inventory reservation, and multi-provider allocation remain outside it.
+
+### Inventory / resource reservation
+
+Reservable-resource v1 now provides merchant-authored Nexez-owned consumable or reusable pools, immutable reusable windows, bounded offer requirements, canonical buyer quantities, atomic all-or-none holds, exact approval/payment provenance, provider-authoritative expiry, and committed reservation/order lineage.
+
+**Decision:** `lib/reservable-resource.ts`, `lib/reservable-resource-runtime.ts`, and the resource checkout/RPC/webhook ledger are canonical. They do not claim serialized assets, external calendar/inventory authority, substitutions, route planning, or multi-provider orchestration.
 
 ## Weakly structured: harden before inventing replacements
 
@@ -168,14 +174,6 @@ Buyer eligibility-affecting inputs and merchant attributes can describe each sid
 
 ## Broadly missing: genuine design work
 
-### Inventory / resource reservation
-
-The system can describe inventory/capacity concepts but has no transaction-bound reservation/allocation ledger for finite resources.
-
-The dedicated autopsy in `docs/commerce/RESERVABLE_RESOURCE_AUTOPSY.md` analyzes all 20 candidates with inventory or capacity pressure and separates atomic scalar holds from route, provider, staffing, maintenance, and operational planning.
-
-**Design direction:** a short-lived atomic hold over merchant-authored interchangeable units, bound to exact buyer configuration and converted into a durable reservation only by authoritative settlement.
-
 ### Multi-provider orchestration
 
 A template may identify multi-provider commerce, but one transaction does not coordinate multiple provider responsibilities, availability, allocations, approvals, or settlement.
@@ -212,9 +210,9 @@ Merchant-authored predicates now evaluate canonical required buyer inputs before
 
 Deposit schedules and milestones now resolve into sequential, immutable, buyer-approved obligations allocated from one authoritative total, with live checkout and webhook provenance.
 
-### Track D — reservable resources — **next**
+### Track D — reservable resources — **implemented**
 
-Treat **inventory reservation + generalized capacity** as one allocation family. The bounded autopsy now defines merchant-owned interchangeable pools, exact requirements, expiring atomic holds, and settlement conversion while preserving current weekly booking caps and external calendar authority.
+Merchant-owned interchangeable pools, exact requirements, expiring atomic holds, and settlement conversion now preserve current weekly booking caps and external calendar authority. Continue hardening the rail rather than widening it into serialized inventory or operations planning.
 
 ### Track E — multi-provider orchestration
 
@@ -224,7 +222,7 @@ Defer unless template selection forces the issue. It changes the transaction top
 
 Every primitive that becomes transaction-real should become observable through the public simulator by reusing the same production intelligence/evaluation path. The simulator must not create a second demo-only interpretation of merchant policy.
 
-Reservable resources should become the next proof surface: the simulator may explain authoritative remaining units, an exact window, an expiring hold, and the approval boundary only by consuming the same production resolver used by checkout.
+Reservable resources are now a production-path proof surface: the simulator advertises that availability requires the authoritative dry-run, and MCP executes that same dry-run to acquire a real expiring hold. It never renders a hold or committed reservation from template metadata.
 
 ## Promotion implications
 
@@ -237,15 +235,15 @@ The first post-pilot CommerceTemplate should not be selected merely because it h
 
 That keeps expansion diagnostic: when the next template fails, Nexez learns exactly which commercial primitive broke instead of debugging five new abstractions at once.
 
-## Non-goals of this analysis
+## Analysis boundaries
 
-This PR must not:
+The curation analysis itself does not:
 
 - add or activate a CommerceTemplate;
 - change `CommerceCapability` merely to mirror a gap-signal name;
-- change OfferItem, OfferRules, checkout, pricing, negotiation, settlement, Stripe, or scheduling behavior;
-- create migrations;
+- treat runtime implementation details as new template evidence;
+- collapse checkout, pricing, settlement, scheduling, and operational planning into one schema;
 - treat seller claims or template knowledge as merchant truth;
-- claim a concept is first-class because a template enum contains its name.
+- claim a concept is first-class because a template enum contains its name rather than an enforced runtime.
 
-The next implementation PR should implement the bounded reservable-resource contract from the dedicated autopsy and prove atomic no-oversubscription behavior end-to-end before the active template registry expands.
+The next implementation decision should come from pilot evidence: either promote a template that exercises the now-first-class rails, or open a separate multi-provider architecture track only when a selected pattern truly requires it.

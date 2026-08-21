@@ -58,6 +58,13 @@ function enrichSimulatorSchema(page: AgentPage, schema: any, baseUrl: string) {
             ...action,
             endpoint: `${runtimeBase}${configuration.checkout.path}`,
             availability: configuration.checkout.status,
+            ...(configuration.checkout.idempotency_key_required
+              ? {
+                  required_headers: {
+                    'Idempotency-Key': 'Reuse one caller-generated key for dry-run and approved payment.',
+                  },
+                }
+              : {}),
             ...(configuration.input_schema
               ? {
                   configuration_field: 'offerConfiguration',

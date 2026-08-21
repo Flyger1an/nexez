@@ -9,10 +9,15 @@ import {
   handleStagedSettlementStripeEvent,
   isStagedSettlementStripeEvent,
 } from '../../../../lib/server/staged-settlement-webhook'
+import {
+  handleReservableResourceStripeEvent,
+  isReservableResourceStripeEvent,
+} from '../../../../lib/server/reservable-resource-webhook'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'placeholder')
 const SERVICE_AGREEMENT_MARKER_RE = /"nexez_kind"\s*:\s*"service_agreement"/
 const STAGED_SETTLEMENT_MARKER_RE = /"nexez_kind"\s*:\s*"staged_settlement"/
+const RESERVABLE_RESOURCE_MARKER_RE = /"nexez_kind"\s*:\s*"reservable_resource"/
 
 function webhookSecrets(): string[] {
   return [process.env.STRIPE_WEBHOOK_SECRET, process.env.STRIPE_WEBHOOK_SECRET_CONNECT]
@@ -31,7 +36,11 @@ function webhookSecrets(): string[] {
  */
 export async function POST(request: NextRequest) {
   const rawBody = await request.clone().text()
-  if (!SERVICE_AGREEMENT_MARKER_RE.test(rawBody) && !STAGED_SETTLEMENT_MARKER_RE.test(rawBody)) {
+  if (
+    !SERVICE_AGREEMENT_MARKER_RE.test(rawBody)
+    && !STAGED_SETTLEMENT_MARKER_RE.test(rawBody)
+    && !RESERVABLE_RESOURCE_MARKER_RE.test(rawBody)
+  ) {
     return legacyPOST(request)
   }
 
@@ -53,6 +62,7 @@ export async function POST(request: NextRequest) {
   if (!event) return legacyPOST(request)
   if (isServiceAgreementStripeEvent(event)) return handleServiceAgreementStripeEvent(event, stripe)
   if (isStagedSettlementStripeEvent(event)) return handleStagedSettlementStripeEvent(event)
+  if (isReservableResourceStripeEvent(event)) return handleReservableResourceStripeEvent(event)
   return legacyPOST(request)
 }
 

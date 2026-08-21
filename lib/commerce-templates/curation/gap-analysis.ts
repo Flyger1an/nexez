@@ -1,7 +1,7 @@
 import { commerceCurationCandidates } from './index'
 import type { CommerceCurationGapSignal } from './types'
 
-export const COMMERCE_SCHEMA_GAP_ANALYSIS_VERSION = 4 as const
+export const COMMERCE_SCHEMA_GAP_ANALYSIS_VERSION = 5 as const
 
 export type CommerceSchemaGapDisposition =
   | 'first-class'
@@ -84,10 +84,10 @@ export const commerceSchemaGapFindings: CommerceSchemaGapFinding[] = [
     signal: 'capacity-constraints',
     disposition: 'weakly-structured',
     action: 'harden-existing',
-    currentRepresentation: 'Smart Rules enforce maxBookingsPerWeek and Calendly can deterministically derive available/limited/sold_out from that cap.',
-    missingBehavior: 'Capacity is a booking-count ceiling only; there is no general quantity, staff, vehicle, room, equipment, or concurrent-resource reservation model.',
-    recommendation: 'Preserve the existing weekly-cap path, then implement only the bounded atomic pool/hold contract from the reservable-resource autopsy.',
-    evidence: ['lib/offer-rules.ts', 'lib/calendly-availability.ts', 'lib/commerce-templates/curation/reservable-resource-analysis.ts'],
+    currentRepresentation: 'Smart Rules enforce maxBookingsPerWeek, Calendly derives its own availability, and Nexez-owned interchangeable pool/window quantities can now be atomically held and committed.',
+    missingBehavior: 'Serialized assets, external calendars/inventory, route capacity, staffing assignment, and multi-provider operations remain outside the bounded pool contract.',
+    recommendation: 'Use the resource runtime for explicit interchangeable Nexez-owned capacity, preserve external authorities, and resist widening it into an operations planner.',
+    evidence: ['lib/offer-rules.ts', 'lib/calendly-availability.ts', 'lib/reservable-resource.ts', 'lib/reservable-resource-runtime.ts'],
   },
   {
     signal: 'document-requirements',
@@ -100,12 +100,12 @@ export const commerceSchemaGapFindings: CommerceSchemaGapFinding[] = [
   },
   {
     signal: 'inventory-resource',
-    disposition: 'broadly-missing',
-    action: 'design-primitive',
-    currentRepresentation: 'Inventory/capacity exist as template-level concepts and offers can publish generic attributes, but there is no reservable resource ledger tied to commerce actions.',
-    missingBehavior: 'No deterministic reservation/allocation protects finite units, equipment, rooms, vehicles, staff slots, or other resources from oversubscription.',
-    recommendation: 'Implement the bounded interchangeable-pool and expiring atomic-hold contract before inventory-rental or equipment-heavy templates become active.',
-    evidence: ['lib/commerce-templates/schema.ts', 'lib/configured-offer.ts', 'lib/commerce-templates/curation/reservable-resource-analysis.ts'],
+    disposition: 'first-class',
+    action: 'no-schema-change',
+    currentRepresentation: 'Merchant-authored Nexez-owned pools and reusable windows resolve canonical quantities into atomic all-or-none holds, approval/payment provenance, and committed reservation/order lineage.',
+    missingBehavior: null,
+    recommendation: 'Treat the bounded reservable-resource runtime as canonical and keep serialized assets, substitutions, external authority, and operational planning outside v1.',
+    evidence: ['lib/reservable-resource.ts', 'lib/reservable-resource-runtime.ts', 'lib/server/reservable-resource.ts', 'app/api/reservable-resources/checkout/route.ts'],
   },
   {
     signal: 'regulated-qualification',

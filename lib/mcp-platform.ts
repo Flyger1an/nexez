@@ -80,6 +80,9 @@ const TOOLS = [
         slug: { type: 'string' },
         offer: { type: 'string', description: 'e.g. services-0 or products-1' },
         query: { type: 'string', description: 'Optional buyer context' },
+        offerConfiguration: { type: 'object', description: 'Canonical buyer values required by the target offer configuration schema.' },
+        buyerEmail: { type: 'string' },
+        buyerReference: { type: 'string' },
       },
       required: ['slug', 'offer'],
     },
@@ -199,12 +202,30 @@ export async function handlePlatformMcpRequest(
         }
         if (name === 'nexez_validate_checkout') {
           // dryRun forced last → a caller can NEVER turn this into a real charge.
-          const { body } = await fetchJson(
+          const initial = await fetchJson(
             agentRuntimeUrl('/api/checkout'),
             { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...args, dryRun: true, buyerAgent: 'mcp' }) },
             ip,
           )
-          return textResult(id, body)
+          const initialBody = initial.body && typeof initial.body === 'object' && !Array.isArray(initial.body)
+            ? initial.body as Record<string, unknown>
+            : {}
+          if (initial.status === 409 && initialBody.code === 'reservable_resource_checkout_required') {
+            const resource = await fetchJson(
+              agentRuntimeUrl('/api/reservable-resources/checkout'),
+              {
+                method: 'POST',
+                headers: {
+                  'content-type': 'application/json',
+                  'idempotency-key': `mcp-resource:${globalThis.crypto.randomUUID()}`,
+                },
+                body: JSON.stringify({ ...args, dryRun: true, buyerAgent: 'mcp' }),
+              },
+              ip,
+            )
+            return textResult(id, resource.body)
+          }
+          return textResult(id, initial.body)
         }
         if (name === 'nexez_validate_negotiation') {
           const { body } = await fetchJson(

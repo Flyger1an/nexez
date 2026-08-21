@@ -50,7 +50,9 @@ export async function executeApprovalBoundAction({
   }
 
   const payload = commercialActionPayload(input)
-  const validation = await postAction(fetchImpl, url, { ...payload, dryRun: true }, headers, signal)
+  const validationHeaders = new Headers(headers)
+  validationHeaders.set('idempotency-key', idempotencyKey)
+  const validation = await postAction(fetchImpl, url, { ...payload, dryRun: true }, validationHeaders, signal)
   const approvalToken = stringValue(validation.approvalToken)
 
   if (validation.approvalTokenRequired === true && !approvalToken) {

@@ -6,6 +6,7 @@ import { publicLaunchVisiblePages } from '../../lib/public-page-visibility'
 import { loadReviewSummariesForSlugs } from '../../lib/server/reviews'
 import { loadStorefrontHandlesForSlugs } from '../../lib/server/storefront'
 import { supabase } from '../../lib/supabase'
+import { buildAgentOfferConfiguration } from '../../lib/agent-offer-configuration'
 
 export async function GET(request: Request) {
   const baseUrl = getRequestBaseUrl(request)
@@ -73,28 +74,35 @@ export async function GET(request: Request) {
               }
             : null,
           offer_count: getOfferCount(page),
-          checkout_urls: getCheckoutOffers(page).map((offer) => ({
-            offer: offer.name,
-            type: getAgentOfferType(offer),
-            price: offer.price || null,
-            currency,
-            url: getPreferredOriginalOfferUrl(page, offer) || `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
-            provider_url: getOfferDestination(page, offer) || null,
-            prefer_original_for_this: Boolean(offer.prefer_original_for_this),
-            action: {
-              method: 'POST',
-              endpoint: `${baseUrl}/api/checkout`,
-              body: {
-                slug: page.slug,
-                offer: `${offer.kind}-${offer.index}`,
+          checkout_urls: getCheckoutOffers(page).map((offer) => {
+            const configuration = buildAgentOfferConfiguration(offer)
+            const actionPath = configuration?.checkout.path ?? '/api/checkout'
+            return {
+              offer: offer.name,
+              type: getAgentOfferType(offer),
+              price: offer.price || null,
+              currency,
+              url: getPreferredOriginalOfferUrl(page, offer) || `${baseUrl}${getCheckoutPath(page.slug, offer.kind, offer.index)}`,
+              provider_url: getOfferDestination(page, offer) || null,
+              prefer_original_for_this: Boolean(offer.prefer_original_for_this),
+              action: {
+                method: 'POST',
+                endpoint: `${baseUrl}${actionPath}`,
+                body: {
+                  slug: page.slug,
+                  offer: `${offer.kind}-${offer.index}`,
+                },
+                dry_run_body: {
+                  slug: page.slug,
+                  offer: `${offer.kind}-${offer.index}`,
+                  dryRun: true,
+                },
+                ...(configuration?.checkout.idempotency_key_required
+                  ? { required_headers: { 'Idempotency-Key': 'Reuse one caller-generated key for dry-run and approved payment.' } }
+                  : {}),
               },
-              dry_run_body: {
-                slug: page.slug,
-                offer: `${offer.kind}-${offer.index}`,
-                dryRun: true,
-              },
-            },
-          })),
+            }
+          }),
         }
       }),
     },

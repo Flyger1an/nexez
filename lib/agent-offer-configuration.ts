@@ -4,6 +4,7 @@ import {
   getOfferCustomerInputs,
   getOfferFulfillmentRules,
   getOfferRecurringTerms,
+  getOfferReservableResourceTerms,
   getOfferStagedSettlementTerms,
 } from './configured-offer'
 import type { OfferInputField } from './offer-configuration'
@@ -77,7 +78,8 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
   const recurringTerms = getOfferRecurringTerms(offer)
   const fulfillmentRules = getOfferFulfillmentRules(offer)
   const stagedSettlementTerms = getOfferStagedSettlementTerms(offer)
-  if (!customerInputs.length && !attributes.length && !recurringTerms && !fulfillmentRules.length && !stagedSettlementTerms) return null
+  const reservableResourceTerms = getOfferReservableResourceTerms(offer)
+  if (!customerInputs.length && !attributes.length && !recurringTerms && !fulfillmentRules.length && !stagedSettlementTerms && !reservableResourceTerms) return null
 
   const priceFields = customerInputs.filter((field) => field.affects?.includes('price'))
   const deterministicallyPricedInputs = priceFields.filter((field) => field.pricing).map((field) => field.key)
@@ -85,12 +87,14 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
   const requiredUnpricedPriceInputs = priceFields.filter((field) => field.required && !field.pricing).map((field) => field.key)
   const hasBuyerInputs = customerInputs.length > 0
   const hasConditionalFulfillment = fulfillmentRules.length > 0
-  const requiresSettlement = hasBuyerInputs || Boolean(recurringTerms) || hasConditionalFulfillment || Boolean(stagedSettlementTerms)
+  const requiresSettlement = hasBuyerInputs || Boolean(recurringTerms) || hasConditionalFulfillment || Boolean(stagedSettlementTerms) || Boolean(reservableResourceTerms)
   const checkoutPath = recurringTerms
     ? '/api/service-agreements/checkout'
     : stagedSettlementTerms
       ? '/api/staged-settlements/checkout'
-      : '/api/checkout'
+      : reservableResourceTerms
+        ? '/api/reservable-resources/checkout'
+        : '/api/checkout'
 
   const checkoutStatus = requiredUnpricedPriceInputs.length
       ? 'blocked_pending_pricing'
@@ -134,6 +138,18 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
           note: 'Dry-run the staged settlement checkout to resolve the exact total and first obligation. Every later obligation requires merchant readiness plus a fresh buyer approval; no future stage is charged automatically.',
         }
       : null,
+    reservable_resources: reservableResourceTerms
+      ? {
+          schema_version: 1,
+          terms: reservableResourceTerms,
+          runtime_status: 'active',
+          checkout_supported: true,
+          availability_status: 'requires_authoritative_dry_run',
+          authority: 'Nexez-owned merchant-authored pools only; external calendars and inventory remain external authority.',
+          hold_policy: 'Dry-run atomically acquires every required allocation for up to 60 minutes. Held is not committed; only the matching authoritative payment event commits the reservation.',
+          note: `POST ${checkoutPath} with dryRun=true and an Idempotency-Key. The production resolver consumes canonical buyer quantity, returns the exact hold/window/version/expiry, and never fabricates availability.`,
+        }
+      : null,
     input_schema: hasBuyerInputs ? buildOfferConfigurationInputSchema(offer) : null,
     checkout: {
       status: checkoutStatus,
@@ -142,6 +158,8 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
       conditional_fulfillment_requires_nexez_settlement: hasConditionalFulfillment,
       recurring_service_requires_nexez_settlement: Boolean(recurringTerms),
       staged_settlement_requires_nexez_settlement: Boolean(stagedSettlementTerms),
+      reservable_resources_require_nexez_settlement: Boolean(reservableResourceTerms),
+      idempotency_key_required: Boolean(stagedSettlementTerms || reservableResourceTerms),
       external_provider_configuration_supported: false,
       runtime_readiness_check: requiresSettlement
           ? `POST ${checkoutPath} with dryRun=true before approval.`
@@ -151,6 +169,8 @@ export function buildAgentOfferConfiguration(offer: OfferItem) {
       required_price_affecting_input_blockers: requiredUnpricedPriceInputs,
       note: stagedSettlementTerms
         ? 'Staged checkout charges only the current obligation. The agreement ledger distinguishes total, paid, current due, and remaining amounts; every payment requires fresh payload-bound approval and an Idempotency-Key.'
+        : reservableResourceTerms
+          ? 'Resource checkout dry-run atomically acquires the exact merchant-owned units before buyer approval. The same Idempotency-Key must be used for dry-run and payment; available, held, and committed are distinct states.'
         : requiredUnpricedPriceInputs.length
           ? 'Checkout is blocked because a required price-affecting buyer input lacks a deterministic merchant-authored pricing rule.'
           : recurringTerms
@@ -273,6 +293,42 @@ function recurringAgreementResponseSchema(): JsonSchema {
   }
 }
 
+function reservableResourceResponseSchema(): JsonSchema {
+  return {
+    type: 'object',
+    description: 'Authoritative production resource hold acquired during dry-run. This is not a committed reservation until the matching payment event succeeds.',
+    properties: {
+      status: { type: 'string', enum: ['held'] },
+      holdId: { type: 'string', format: 'uuid' },
+      expiresAt: { type: 'string', format: 'date-time' },
+      allocationFingerprint: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+      allocations: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 3,
+        items: {
+          type: 'object',
+          properties: {
+            poolId: { type: 'string', format: 'uuid' },
+            poolKey: { type: 'string' },
+            poolLabel: { type: 'string' },
+            poolVersion: { type: 'integer', minimum: 1 },
+            kind: { type: 'string', enum: ['consumable', 'reusable'] },
+            unit: { type: 'string' },
+            quantity: { type: 'integer', minimum: 1, maximum: 10000 },
+            windowId: { type: ['string', 'null'], format: 'uuid' },
+            windowVersion: { type: ['integer', 'null'], minimum: 1 },
+            startsAt: { type: ['string', 'null'], format: 'date-time' },
+            endsAt: { type: ['string', 'null'], format: 'date-time' },
+          },
+          required: ['poolId', 'poolVersion', 'kind', 'unit', 'quantity'],
+        },
+      },
+    },
+    required: ['status', 'holdId', 'expiresAt', 'allocationFingerprint', 'allocations'],
+  }
+}
+
 export function withOfferConfigurationOpenApi<T extends Record<string, any>>(
   spec: T,
   offers?: CheckoutOffer[],
@@ -318,5 +374,26 @@ export function withOfferConfigurationOpenApi<T extends Record<string, any>>(
     })
   }
   spec.paths['/api/service-agreements/checkout'] = { post: recurringPost }
+
+  const resourcePost = JSON.parse(JSON.stringify(checkoutPost)) as Record<string, any>
+  resourcePost.summary = 'Atomically hold merchant-authored resources and start immediate checkout'
+  resourcePost.description = 'Reservable-resource offers must use this endpoint. Dry-run requires an Idempotency-Key and acquires a real expiring hold from the same production resolver used for payment.'
+  resourcePost.parameters = [
+    ...(resourcePost.parameters ?? []).filter((parameter: Record<string, unknown>) => parameter.name !== 'Idempotency-Key'),
+    {
+      name: 'Idempotency-Key',
+      in: 'header',
+      required: true,
+      schema: { type: 'string', minLength: 16, maxLength: 255 },
+      description: 'Use the exact same key for dry-run approval and the live payment request.',
+    },
+  ]
+  const resourceResponse = resourcePost?.responses?.['200']?.content?.['application/json']?.schema
+  if (resourceResponse?.properties) {
+    Object.assign(resourceResponse.properties, {
+      resources: reservableResourceResponseSchema(),
+    })
+  }
+  spec.paths['/api/reservable-resources/checkout'] = { post: resourcePost }
   return spec
 }
