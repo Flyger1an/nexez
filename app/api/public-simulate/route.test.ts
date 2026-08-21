@@ -249,7 +249,7 @@ describe('POST /api/public-simulate', () => {
     expect(body.naturalLanguage).toBe(llmRef.response)
   })
 
-  it('returns a truthful no-match instead of inventing a merchant or unrelated library scenario', async () => {
+  it('returns a truthful coverage gap instead of inventing a merchant or unrelated library scenario', async () => {
     dbRef.handler = (ctx: any) =>
       ctx.table === 'pages_public'
         ? { data: [consultingPage], error: null }
@@ -259,11 +259,46 @@ describe('POST /api/public-simulate', () => {
     expect(res.status).toBe(200)
 
     const body = await res.json()
-    expect(body.mode).toBe('no_match')
+    expect(body.mode).toBe('coverage_gap')
     expect(body.noMatch).toBe(true)
     expect(body.matchedBusiness).toBeNull()
     expect(body.simulation).toBeNull()
-    expect(body.naturalLanguage).toContain('will not invent a provider')
+    expect(body.naturalLanguage).toContain('Nexez understood your request')
+    expect(body.understoodRequest).toMatchObject({
+      label: 'Xylophone quantum reactor calibration',
+      marketplaceChecked: true,
+      commerceLibraryChecked: true,
+      intentPreserved: true,
+      coverageStatus: 'growing',
+    })
+  })
+
+  it('does not mistake mobile fulfillment for a mobile-notary service match', async () => {
+    dbRef.handler = (ctx: any) =>
+      ctx.table === 'pages_public'
+        ? { data: [consultingPage], error: null }
+        : { data: null, error: null }
+
+    const res = await POST(post({ query: 'Find a mobile notary' }))
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.mode).toBe('coverage_gap')
+    expect(body.noMatch).toBe(true)
+    expect(body.intentLabel).toBe('Service request')
+    expect(body.matchedBusiness).toBeNull()
+    expect(body.simulation).toBeNull()
+    expect(body.naturalLanguage).toContain('Nexez understood your request as “Mobile notary.”')
+    expect(body.naturalLanguage).toContain('coverage for this category is still growing')
+    expect(body.agentActions).toContain('Preserve “Mobile notary” as the requested service')
+    expect(body.understoodRequest).toEqual({
+      label: 'Mobile notary',
+      marketplaceChecked: true,
+      commerceLibraryChecked: true,
+      intentPreserved: true,
+      coverageStatus: 'growing',
+    })
+    expect(JSON.stringify(body)).not.toMatch(/Mobile Auto Detailing|vehicle class|automotive/i)
   })
 
   it('503 when live marketplace discovery is unavailable', async () => {

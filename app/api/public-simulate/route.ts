@@ -64,6 +64,16 @@ function detectPublicIntent(query: string): SimIntent {
   return detected
 }
 
+function publicIntentLabel(intent: SimIntent, query: string): string {
+  if (
+    intent === 'overview' &&
+    /\b(?:find|hire|need|looking\s+for|searching\s+for)\b/i.test(query)
+  ) {
+    return 'Service request'
+  }
+  return INTENT_LABELS[intent]
+}
+
 function hasMeaningfulMarketplaceMatch(result: AgentSearchResult): boolean {
   return result.matched_query_terms.some((term) => !DISCOVERY_STOPWORDS.has(term.toLowerCase()))
 }
@@ -132,6 +142,40 @@ function partialMarketplaceActions(result: AgentSearchResult): string[] {
   if (result.offer) actions.push(`Compare “${result.offer.name}” with the buyer’s complete requirements`)
   actions.push('Confirm unsupported requirements with the merchant before presenting fit, price, availability, or booking')
   return actions
+}
+
+function understoodRequestLabel(query: string): string {
+  const original = query.replace(/\s+/g, ' ').replace(/[.!?]+$/g, '').trim()
+  const prefixes = [
+    /^(?:please\s+)?(?:can|could|would)\s+you\s+(?:please\s+)?(?:help\s+me\s+)?(?:find|hire|book|get)\s+(?:me\s+)?/i,
+    /^(?:please\s+)?(?:help\s+me\s+)?(?:find|hire|book|get)\s+(?:me\s+)?/i,
+    /^(?:i\s+(?:need|want)(?:\s+to\s+(?:find|hire|book|get))?|i(?:['’]m|\s+am)\s+looking\s+for|looking\s+for|searching\s+for)\s+/i,
+  ]
+
+  let label = original
+  for (const prefix of prefixes) {
+    const next = label.replace(prefix, '')
+    if (next !== label) {
+      label = next
+      break
+    }
+  }
+
+  label = label.replace(/^(?:a|an|the)\s+/i, '').trim() || original
+  const concise = label.length > 120 ? `${label.slice(0, 119).trimEnd()}…` : label
+  return concise.charAt(0).toUpperCase() + concise.slice(1)
+}
+
+function coverageGapAnswer(label: string): string {
+  return `Nexez understood your request as “${label}.” It checked the live marketplace and Commerce Library, but coverage for this category is still growing. Your intent stays intact—Nexez won’t redirect you to an unrelated service.`
+}
+
+function coverageGapActions(label: string): string[] {
+  return [
+    `Preserve “${label}” as the requested service`,
+    'Keep marketplace supply and reference coverage distinct',
+    'Invite the buyer to add location or timing without changing the service category',
+  ]
 }
 
 function offersForBuyer(
@@ -400,7 +444,7 @@ export async function POST(request: Request) {
         noMatch: false,
         query: trimmedQuery,
         intent,
-        intentLabel: INTENT_LABELS[intent],
+        intentLabel: publicIntentLabel(intent, trimmedQuery),
         naturalLanguage: enhanced.naturalLanguage,
         readiness: interpretation.readiness,
         confidence: matchType === 'partial' ? null : interpretation.confidence,
@@ -442,7 +486,7 @@ export async function POST(request: Request) {
         noMatch: true,
         query: trimmedQuery,
         intent,
-        intentLabel: INTENT_LABELS[intent],
+        intentLabel: publicIntentLabel(intent, trimmedQuery),
         naturalLanguage: publicResponse.explanation,
         readiness: 0,
         confidence: null,
@@ -456,22 +500,31 @@ export async function POST(request: Request) {
       })
     }
 
+    const understoodLabel = understoodRequestLabel(trimmedQuery)
+
     return NextResponse.json({
       success: true,
-      mode: 'no_match',
+      mode: 'coverage_gap',
       noMatch: true,
       query: trimmedQuery,
       intent,
-      intentLabel: INTENT_LABELS[intent],
-      naturalLanguage: 'I could not find a meaningful live Nexez marketplace match or a relevant Commerce Library reference scenario for this request. I will not invent a provider or transaction path.',
+      intentLabel: publicIntentLabel(intent, trimmedQuery),
+      naturalLanguage: coverageGapAnswer(understoodLabel),
       readiness: 0,
       confidence: null,
       offers: [],
-      agentActions: ['Return no match without fabricating marketplace supply'],
+      agentActions: coverageGapActions(understoodLabel),
       schema: null,
       recommendations: [],
       matchedBusiness: null,
       simulation: null,
+      understoodRequest: {
+        label: understoodLabel,
+        marketplaceChecked: true,
+        commerceLibraryChecked: true,
+        intentPreserved: true,
+        coverageStatus: 'growing',
+      },
       llmEnhanced: false,
     })
   } catch (error: any) {

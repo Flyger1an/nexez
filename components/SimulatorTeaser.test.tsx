@@ -60,6 +60,31 @@ const partialMatchResponse = {
   simulation: null,
 }
 
+const coverageGapResponse = {
+  success: true,
+  mode: 'coverage_gap',
+  noMatch: true,
+  intent: 'overview',
+  intentLabel: 'Service request',
+  naturalLanguage: 'Nexez understood your request as “Mobile notary.” It checked the live marketplace and Commerce Library, but coverage for this category is still growing. Your intent stays intact—Nexez won’t redirect you to an unrelated service.',
+  readiness: 0,
+  confidence: null,
+  offers: [],
+  agentActions: [
+    'Keep the request anchored to “Find a mobile notary”',
+    'Do not substitute a different service category',
+  ],
+  matchedBusiness: null,
+  simulation: null,
+  understoodRequest: {
+    label: 'Mobile notary',
+    marketplaceChecked: true,
+    commerceLibraryChecked: true,
+    intentPreserved: true,
+    coverageStatus: 'growing',
+  },
+}
+
 afterEach(() => vi.unstubAllGlobals())
 
 describe('SimulatorTeaser', () => {
@@ -109,5 +134,36 @@ describe('SimulatorTeaser', () => {
     expect(screen.getByText('Related offers to verify')).toBeInTheDocument()
     expect(screen.getByText('Related offer')).toBeInTheDocument()
     expect(screen.queryByText('Best match')).not.toBeInTheDocument()
+  })
+
+  it('renders an uncovered service as understood without an unrelated simulation', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => coverageGapResponse,
+    })))
+
+    render(<SimulatorTeaser />)
+    fireEvent.change(screen.getByPlaceholderText('Ask Nexez to find a service…'), {
+      target: { value: 'Find a mobile notary' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Simulate' }))
+
+    await waitFor(() => expect(screen.getByText('Service request')).toBeInTheDocument())
+    expect(screen.getByText('Request understood')).toBeInTheDocument()
+    expect(screen.getByText('coverage expanding')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Mobile notary' })).toBeInTheDocument()
+    expect(screen.getByText(/coverage for this category is still growing/)).toBeInTheDocument()
+    expect(screen.getByText('No published provider yet')).toBeInTheDocument()
+    expect(screen.getByText('No reference scenario yet')).toBeInTheDocument()
+    expect(screen.getByText('No unrelated substitute')).toBeInTheDocument()
+    expect(screen.queryByText(/Mobile Auto Detailing|vehicle class/i)).not.toBeInTheDocument()
+    expect(screen.queryByText('no match')).not.toBeInTheDocument()
+    expect(screen.queryByText('Agent actions')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'What agents parse' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'List this service' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Explore live marketplace →' })).toHaveAttribute('href', '/discovery')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refine request' }))
+    expect(screen.getByPlaceholderText('Ask Nexez to find a service…')).toHaveFocus()
   })
 })

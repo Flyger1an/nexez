@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { appUrl } from '../lib/site'
 
 type SimOffer = {
@@ -38,8 +38,16 @@ type SimulationScenario = {
   nextSteps: string[]
 }
 
+type UnderstoodRequest = {
+  label: string
+  marketplaceChecked: true
+  commerceLibraryChecked: true
+  intentPreserved: true
+  coverageStatus: 'growing'
+}
+
 type SimResponse = {
-  mode: 'marketplace' | 'partial_match' | 'simulation' | 'no_match'
+  mode: 'marketplace' | 'partial_match' | 'simulation' | 'coverage_gap'
   noMatch: boolean
   intent: string
   intentLabel: string
@@ -50,6 +58,7 @@ type SimResponse = {
   agentActions: string[]
   matchedBusiness: MatchedBusiness | null
   simulation: SimulationScenario | null
+  understoodRequest: UnderstoodRequest | null
 }
 
 const PRESETS = [
@@ -59,7 +68,70 @@ const PRESETS = [
   'Find an event photographer for a birthday party',
 ]
 
+function CoverageGapResult({
+  request,
+  naturalLanguage,
+  onRefine,
+}: {
+  request: UnderstoodRequest
+  naturalLanguage: string
+  onRefine: () => void
+}) {
+  return (
+    <div>
+      <div
+        className="rounded-xl border border-[var(--ready)]/20 px-4 py-5 sm:px-5"
+        style={{
+          background: 'radial-gradient(100% 140% at 0% 0%, color-mix(in srgb, var(--ready) 10%, transparent), transparent 62%)',
+        }}
+      >
+        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--ready)]">
+          Nexez interpreted
+        </p>
+        <h3 className="mt-2 text-2xl font-semibold tracking-[-0.025em] text-white">
+          {request.label}
+        </h3>
+        <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-300">{naturalLanguage}</p>
+      </div>
+
+      <p className="mb-2 mt-5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+        Intelligence trace
+      </p>
+      <div aria-label="Nexez intelligence trace" className="grid gap-2 sm:grid-cols-3">
+        <div className="rounded-lg border border-border bg-white/[0.025] p-3">
+          <span className="font-mono text-[10px] text-[var(--ready)]">01 · CHECKED</span>
+          <p className="mt-2 text-sm font-medium text-white">Live marketplace</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">No published provider yet</p>
+        </div>
+        <div className="rounded-lg border border-border bg-white/[0.025] p-3">
+          <span className="font-mono text-[10px] text-[var(--ready)]">02 · CHECKED</span>
+          <p className="mt-2 text-sm font-medium text-white">Commerce Library</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">No reference scenario yet</p>
+        </div>
+        <div className="rounded-lg border border-[var(--signal)]/25 bg-[var(--signal)]/[0.05] p-3">
+          <span className="font-mono text-[10px] text-[var(--signal)]">03 · PROTECTED</span>
+          <p className="mt-2 text-sm font-medium text-white">Buyer intent</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">No unrelated substitute</p>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-3 rounded-lg border border-border bg-black/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-white">Make the live search sharper</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Add a city and preferred timing. Nexez will keep the service category intact.
+          </p>
+        </div>
+        <button onClick={onRefine} className="btn-secondary h-9 shrink-0 px-4 text-xs">
+          Refine request
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function SimulatorTeaser() {
+  const inputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
   const [result, setResult] = useState<SimResponse | null>(null)
   const [loading, setLoading] = useState(false)
@@ -95,6 +167,7 @@ export function SimulatorTeaser() {
         agentActions: data.agentActions || [],
         matchedBusiness: data.matchedBusiness || null,
         simulation: data.simulation || null,
+        understoodRequest: data.understoodRequest || null,
       })
       setQuery(q)
       setActiveTab('natural')
@@ -124,6 +197,7 @@ export function SimulatorTeaser() {
       {/* Input */}
       <div className="flex gap-3">
         <input
+          ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -171,7 +245,14 @@ export function SimulatorTeaser() {
                 Simulation · {result.simulation.title}
               </span>
             )}
-            {result.mode === 'simulation' ? (
+            {result.mode === 'coverage_gap' && result.understoodRequest && (
+              <span className="inline-flex items-center rounded-full border border-[var(--ready)]/30 bg-[var(--ready)]/10 px-2.5 py-0.5 text-xs font-medium text-[var(--ready)]">
+                Request understood
+              </span>
+            )}
+            {result.mode === 'coverage_gap' ? (
+              <span className="ml-auto text-[11px] text-muted-foreground">coverage expanding</span>
+            ) : result.mode === 'simulation' ? (
               <span className="ml-auto text-[11px] text-muted-foreground">reference match only</span>
             ) : result.mode === 'partial_match' ? (
               <span className="ml-auto text-[11px] text-muted-foreground">partial match</span>
@@ -179,9 +260,7 @@ export function SimulatorTeaser() {
               <span className="ml-auto text-[11px] text-muted-foreground">
                 match confidence {Math.round(result.confidence * 100)}%
               </span>
-            ) : (
-              <span className="ml-auto text-[11px] text-muted-foreground">no match</span>
-            )}
+            ) : null}
           </div>
 
           {result.simulation && (
@@ -191,116 +270,132 @@ export function SimulatorTeaser() {
             </div>
           )}
 
-          {/* Tabs */}
-          <div className="mb-4 flex gap-1 border-b border-border">
-            {([
-              ['natural', 'How an agent answers'],
-              ['structured', result.simulation ? 'Details to confirm' : 'What agents parse'],
-            ] as const).map(([id, label]) => (
-              <button
-                key={id}
-                onClick={() => setActiveTab(id)}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-                  activeTab === id
-                    ? 'border-b-2 border-[var(--signal)] text-white'
-                    : 'text-muted-foreground hover:text-white'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {activeTab === 'natural' ? (
-            <div>
-              <p className="leading-relaxed text-zinc-200">{result.naturalLanguage}</p>
-              <p className="mb-2 mt-5 text-xs font-medium uppercase tracking-wider text-[var(--signal)]">
-                Agent actions
-              </p>
-              <ul className="space-y-1.5">
-                {result.agentActions.map((a, i) => (
-                  <li key={i} className="flex gap-2 text-sm text-muted-foreground">
-                    <span className="select-none text-[var(--ready)]">→</span>
-                    <span className="font-mono text-[12px] leading-5 text-zinc-300">{a}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : result.simulation ? (
-            <div>
-              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--amber)]">
-                Buyer details needed for a real match
-              </p>
-              <div className="rounded-lg border border-border bg-white/[0.02] p-3">
-                <p className="text-sm font-medium text-white">{result.simulation.title}</p>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  This request is closest to {result.simulation.serviceType}. A real provider would need the following details before Nexez could verify fit, price, or availability.
-                </p>
-                <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {result.simulation.detailsToConfirm.map((detail) => (
-                    <li key={detail} className="flex items-start gap-2 text-xs text-zinc-300">
-                      <span className="mt-1 size-1.5 shrink-0 rounded-full bg-[var(--ready)]" />
-                      <span>{detail}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+          {result.mode === 'coverage_gap' && result.understoodRequest ? (
+            <CoverageGapResult
+              request={result.understoodRequest}
+              naturalLanguage={result.naturalLanguage}
+              onRefine={() => {
+                inputRef.current?.focus()
+                inputRef.current?.select()
+              }}
+            />
           ) : (
-            <div>
-              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--signal)]">
-                {result.mode === 'partial_match' ? 'Related offers to verify' : 'Offers the agent can act on'}
-              </p>
-              <div className="space-y-2">
-                {result.offers.length > 0 ? result.offers.map((o) => (
-                  <div
-                    key={o.key}
-                    className={`rounded-lg border p-3 ${
-                      result.mode === 'partial_match'
-                        ? 'border-[var(--amber)]/30 bg-[var(--amber)]/[0.05]'
-                        : o.bestMatch
-                        ? 'border-[var(--ready)]/40 bg-[var(--ready)]/[0.06]'
-                        : 'border-border bg-white/[0.02]'
+            <>
+              {/* Tabs */}
+              <div className="mb-4 flex gap-1 border-b border-border">
+                {([
+                  ['natural', 'How an agent answers'],
+                  ['structured', result.simulation ? 'Details to confirm' : 'What agents parse'],
+                ] as const).map(([id, label]) => (
+                  <button
+                    key={id}
+                    onClick={() => setActiveTab(id)}
+                    className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                      activeTab === id
+                        ? 'border-b-2 border-[var(--signal)] text-white'
+                        : 'text-muted-foreground hover:text-white'
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="flex items-center gap-2 text-sm font-medium text-white">
-                        {o.name}
-                        {(o.bestMatch || result.mode === 'partial_match') && (
-                          <span className={`rounded-full px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${
-                            result.mode === 'partial_match'
-                              ? 'bg-[var(--amber)]/15 text-[var(--amber)]'
-                              : 'bg-[var(--ready)]/15 text-[var(--ready)]'
-                          }`}>
-                            {result.mode === 'partial_match' ? 'Related offer' : 'Best match'}
-                          </span>
-                        )}
-                      </span>
-                      <span className="shrink-0 font-mono text-xs text-[var(--ready)]">{o.price || 'Custom'}</span>
-                    </div>
-                    <div className="mt-1.5 flex items-center justify-between gap-3">
-                      <span className="truncate text-xs text-muted-foreground">{o.description}</span>
-                      <code className="shrink-0 rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-                        offer={o.key}
-                      </code>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="rounded-lg border border-border bg-white/[0.02] p-3 text-sm text-muted-foreground">
-                    No actionable live offer was found for this request.
-                  </div>
-                )}
+                    {label}
+                  </button>
+                ))}
               </div>
-            </div>
+
+              {activeTab === 'natural' ? (
+                <div>
+                  <p className="leading-relaxed text-zinc-200">{result.naturalLanguage}</p>
+                  <p className="mb-2 mt-5 text-xs font-medium uppercase tracking-wider text-[var(--signal)]">
+                    Agent actions
+                  </p>
+                  <ul className="space-y-1.5">
+                    {result.agentActions.map((a, i) => (
+                      <li key={i} className="flex gap-2 text-sm text-muted-foreground">
+                        <span className="select-none text-[var(--ready)]">→</span>
+                        <span className="font-mono text-[12px] leading-5 text-zinc-300">{a}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : result.simulation ? (
+                <div>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--amber)]">
+                    Buyer details needed for a real match
+                  </p>
+                  <div className="rounded-lg border border-border bg-white/[0.02] p-3">
+                    <p className="text-sm font-medium text-white">{result.simulation.title}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      This request is closest to {result.simulation.serviceType}. A real provider would need the following details before Nexez could verify fit, price, or availability.
+                    </p>
+                    <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {result.simulation.detailsToConfirm.map((detail) => (
+                        <li key={detail} className="flex items-start gap-2 text-xs text-zinc-300">
+                          <span className="mt-1 size-1.5 shrink-0 rounded-full bg-[var(--ready)]" />
+                          <span>{detail}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--signal)]">
+                    {result.mode === 'partial_match' ? 'Related offers to verify' : 'Offers the agent can act on'}
+                  </p>
+                  <div className="space-y-2">
+                    {result.offers.length > 0 ? result.offers.map((o) => (
+                      <div
+                        key={o.key}
+                        className={`rounded-lg border p-3 ${
+                          result.mode === 'partial_match'
+                            ? 'border-[var(--amber)]/30 bg-[var(--amber)]/[0.05]'
+                            : o.bestMatch
+                            ? 'border-[var(--ready)]/40 bg-[var(--ready)]/[0.06]'
+                            : 'border-border bg-white/[0.02]'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="flex items-center gap-2 text-sm font-medium text-white">
+                            {o.name}
+                            {(o.bestMatch || result.mode === 'partial_match') && (
+                              <span className={`rounded-full px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${
+                                result.mode === 'partial_match'
+                                  ? 'bg-[var(--amber)]/15 text-[var(--amber)]'
+                                  : 'bg-[var(--ready)]/15 text-[var(--ready)]'
+                              }`}>
+                                {result.mode === 'partial_match' ? 'Related offer' : 'Best match'}
+                              </span>
+                            )}
+                          </span>
+                          <span className="shrink-0 font-mono text-xs text-[var(--ready)]">{o.price || 'Custom'}</span>
+                        </div>
+                        <div className="mt-1.5 flex items-center justify-between gap-3">
+                          <span className="truncate text-xs text-muted-foreground">{o.description}</span>
+                          <code className="shrink-0 rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                            offer={o.key}
+                          </code>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="rounded-lg border border-border bg-white/[0.02] p-3 text-sm text-muted-foreground">
+                        No actionable live offer was found for this request.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {/* Conversion hook */}
           <div className="mt-6 flex flex-col items-center gap-3 border-t border-border pt-4 sm:flex-row">
             <a href={appUrl('/create')} className="btn-primary h-10 flex-1 px-5 text-sm sm:flex-none">
-              Create an agent-ready listing
+              {result.mode === 'coverage_gap' ? 'List this service' : 'Create an agent-ready listing'}
             </a>
-            <a href="/simulator" className="text-sm text-[var(--signal)] hover:underline">
-              Open the full simulator →
+            <a
+              href={result.mode === 'coverage_gap' ? '/discovery' : '/simulator'}
+              className="text-sm text-[var(--signal)] hover:underline"
+            >
+              {result.mode === 'coverage_gap' ? 'Explore live marketplace →' : 'Open the full simulator →'}
             </a>
           </div>
         </div>
