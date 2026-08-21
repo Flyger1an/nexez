@@ -156,7 +156,9 @@ const sections: { heading: string; body: string[] }[] = [
   },
   {
     heading: '20. Contact',
-    body: ['Questions about these Terms can be sent to legal@nexez.app.'],
+    body: [
+      'Questions about these Terms can be sent to legal@nexez.ai or mailed to Nexez, 8 The Green, Ste B, Dover, DE 19901, USA.',
+    ],
   },
 ]
 
