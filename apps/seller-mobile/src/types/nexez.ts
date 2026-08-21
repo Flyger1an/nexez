@@ -311,6 +311,10 @@ export type SellerOverview = {
   conversions: number
   checkoutAttempts: number
   openNegotiations: number
+  openBuyerRequests: number
+  openDisputes: number
+  staleHolds: number
+  estimatedEconomics: number
   averageReadiness: number
   readinessAlerts: AgentPage[]
   recentActivity: ActivityItem[]

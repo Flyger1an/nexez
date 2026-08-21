@@ -383,7 +383,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
           </div>
 
           {report ? (
-            <section className="mt-4 grid gap-3 rounded-2xl border border-[var(--bd-10)] bg-[var(--ov-02)] p-4 sm:grid-cols-2 lg:grid-cols-4">
+            <section id="operations" className="mt-4 grid scroll-mt-6 gap-3 rounded-2xl border border-[var(--bd-10)] bg-[var(--ov-02)] p-4 sm:grid-cols-2 lg:grid-cols-4">
               <OperationalStat label="Buyer requests" value={report.operations.openRequests} href="#buyer-requests" />
               <OperationalStat label="Open disputes" value={report.operations.disputedOrders + report.operations.disputedNegotiations} href="/dashboard/negotiations" tone="danger" />
               <OperationalStat label="Held over 48h" value={report.operations.staleHeldNegotiations} href="/dashboard/negotiations" tone="attention" />

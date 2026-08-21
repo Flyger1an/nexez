@@ -1,0 +1,245 @@
+import type { FinanceRollup } from './finance-report'
+import type { NegotiationRollup } from './negotiation-report'
+import type { OwnerAnalyticsRollup } from './server/analytics-rollup'
+
+export type CommercialActionTone = 'critical' | 'attention' | 'accuracy' | 'growth'
+
+export type CommercialAction = {
+  id: 'disputes' | 'buyer_requests' | 'stale_holds' | 'negotiations' | 'estimated_economics' | 'readiness'
+  label: string
+  detail: string
+  count: number
+  href: string
+  cta: string
+  tone: CommercialActionTone
+}
+
+export type CommercialMoneyRow = {
+  currency: string
+  grossCents: number
+  netCents: number
+  directTransactions: number
+  negotiatedDeals: number
+}
+
+export type CommercialCommandCenter = {
+  availability: {
+    analytics: boolean
+    negotiations: boolean
+    finance: boolean
+  }
+  demand: {
+    aiVisits: number
+    discoveryClicks: number
+    checkoutStarts: number
+    paidOrders: number
+    checkoutToPaidRate: number | null
+  }
+  deals: {
+    needsAction: number
+    waiting: number
+    staleOpen: number
+    disputed: number
+  }
+  money: CommercialMoneyRow[]
+  primaryMoney: CommercialMoneyRow
+  actions: CommercialAction[]
+  status: 'ready' | 'attention' | 'critical' | 'incomplete'
+}
+
+type CommercialCommandCenterInput = {
+  analytics?: OwnerAnalyticsRollup | null
+  negotiations?: NegotiationRollup | null
+  finance?: FinanceRollup | null
+  readinessAlerts?: number
+}
+
+const EMPTY_MONEY: CommercialMoneyRow = {
+  currency: 'usd',
+  grossCents: 0,
+  netCents: 0,
+  directTransactions: 0,
+  negotiatedDeals: 0,
+}
+
+export function buildCommercialCommandCenter({
+  analytics,
+  negotiations,
+  finance,
+  readinessAlerts = 0,
+}: CommercialCommandCenterInput): CommercialCommandCenter {
+  const moneyByCurrency = new Map<string, CommercialMoneyRow>()
+
+  for (const row of finance?.currencies ?? []) {
+    const currency = normalizeCurrency(row.currency)
+    const current = moneyByCurrency.get(currency) ?? { ...EMPTY_MONEY, currency }
+    current.grossCents += row.grossCents
+    current.netCents += row.netCents
+    current.directTransactions += row.transactions
+    moneyByCurrency.set(currency, current)
+  }
+
+  for (const row of finance?.negotiatedWindow ?? []) {
+    const currency = normalizeCurrency(row.currency)
+    const current = moneyByCurrency.get(currency) ?? { ...EMPTY_MONEY, currency }
+    current.grossCents += row.capturedCents
+    current.netCents += row.netCents
+    current.negotiatedDeals += row.deals
+    moneyByCurrency.set(currency, current)
+  }
+
+  const money = [...moneyByCurrency.values()].sort(
+    (a, b) => b.grossCents - a.grossCents || a.currency.localeCompare(b.currency),
+  )
+  const primaryMoney = money[0] ?? EMPTY_MONEY
+  const counts = analytics?.counts
+  const checkoutToPaidRate = counts?.checkoutStarts && counts.paidDirectOrders <= counts.checkoutStarts
+    ? counts.paidDirectOrders / counts.checkoutStarts
+    : null
+  const operations = finance?.operations
+  const disputed = operations
+    ? operations.disputedOrders + operations.disputedNegotiations
+    : negotiations?.counts.disputed ?? 0
+  const actions: CommercialAction[] = []
+
+  if (disputed > 0) {
+    actions.push({
+      id: 'disputes',
+      label: `${disputed} open ${disputed === 1 ? 'dispute' : 'disputes'}`,
+      detail: 'Review payment evidence and decide the next resolution step.',
+      count: disputed,
+      href: '/dashboard/finance#operations',
+      cta: 'Review disputes',
+      tone: 'critical',
+    })
+  }
+  if ((operations?.openRequests ?? 0) > 0) {
+    const count = operations?.openRequests ?? 0
+    actions.push({
+      id: 'buyer_requests',
+      label: `${count} buyer ${count === 1 ? 'request' : 'requests'}`,
+      detail: 'Refund requests and problem reports are waiting for a response.',
+      count,
+      href: '/dashboard/finance#buyer-requests',
+      cta: 'Open requests',
+      tone: 'attention',
+    })
+  }
+  if ((operations?.staleHeldNegotiations ?? 0) > 0) {
+    const count = operations?.staleHeldNegotiations ?? 0
+    actions.push({
+      id: 'stale_holds',
+      label: `${count} stale ${count === 1 ? 'hold' : 'holds'}`,
+      detail: 'Captured or released decisions are overdue on funded agreements.',
+      count,
+      href: '/dashboard/negotiations?queue=needs_action',
+      cta: 'Resolve holds',
+      tone: 'critical',
+    })
+  }
+  if ((negotiations?.counts.needsAction ?? 0) > 0) {
+    const count = negotiations?.counts.needsAction ?? 0
+    actions.push({
+      id: 'negotiations',
+      label: `${count} ${count === 1 ? 'deal needs' : 'deals need'} action`,
+      detail: negotiations?.counts.staleOpen
+        ? `${negotiations.counts.staleOpen} open ${negotiations.counts.staleOpen === 1 ? 'deal is' : 'deals are'} stale.`
+        : 'Review proposals, approvals, held funds, and paused conversations.',
+      count,
+      href: '/dashboard/negotiations?queue=needs_action',
+      cta: 'Work the queue',
+      tone: 'attention',
+    })
+  }
+  if ((operations?.estimatedEconomics ?? 0) > 0) {
+    const count = operations?.estimatedEconomics ?? 0
+    actions.push({
+      id: 'estimated_economics',
+      label: `${count} estimated ${count === 1 ? 'fee record' : 'fee records'}`,
+      detail: 'Legacy transactions use the current plan rate instead of sale-time terms.',
+      count,
+      href: '/dashboard/finance#operations',
+      cta: 'Review coverage',
+      tone: 'accuracy',
+    })
+  }
+  if (readinessAlerts > 0) {
+    actions.push({
+      id: 'readiness',
+      label: `${readinessAlerts} ${readinessAlerts === 1 ? 'listing is' : 'listings are'} below 80%`,
+      detail: 'Improve offer clarity and machine-readable trust signals.',
+      count: readinessAlerts,
+      href: '/dashboard/listings',
+      cta: 'Improve listings',
+      tone: 'growth',
+    })
+  }
+
+  return {
+    availability: {
+      analytics: Boolean(analytics),
+      negotiations: Boolean(negotiations),
+      finance: Boolean(finance),
+    },
+    demand: {
+      aiVisits: counts?.aiVisits ?? 0,
+      discoveryClicks: counts?.discoveryClicks ?? 0,
+      checkoutStarts: counts?.checkoutStarts ?? 0,
+      paidOrders: counts?.paidOrders ?? 0,
+      checkoutToPaidRate,
+    },
+    deals: {
+      needsAction: negotiations?.counts.needsAction ?? 0,
+      waiting: negotiations?.counts.waiting ?? 0,
+      staleOpen: negotiations?.counts.staleOpen ?? 0,
+      disputed,
+    },
+    money,
+    primaryMoney,
+    actions,
+    status: disputed > 0 || (operations?.staleHeldNegotiations ?? 0) > 0
+      ? 'critical'
+      : !analytics || !negotiations || !finance
+        ? 'incomplete'
+      : actions.length > 0
+        ? 'attention'
+        : 'ready',
+  }
+}
+
+export function commercialSnapshotCsv(snapshot: CommercialCommandCenter) {
+  const rows: Array<Array<string | number>> = [
+    ['section', 'metric', 'value', 'unit'],
+    ['availability', 'analytics', snapshot.availability.analytics ? 1 : 0, 'boolean'],
+    ['availability', 'negotiations', snapshot.availability.negotiations ? 1 : 0, 'boolean'],
+    ['availability', 'finance', snapshot.availability.finance ? 1 : 0, 'boolean'],
+    ['demand_today', 'ai_visits', snapshot.demand.aiVisits, 'visits'],
+    ['demand_today', 'discovery_clicks', snapshot.demand.discoveryClicks, 'clicks'],
+    ['demand_today', 'checkout_starts', snapshot.demand.checkoutStarts, 'starts'],
+    ['demand_today', 'paid_orders', snapshot.demand.paidOrders, 'orders'],
+    ['deals_current', 'needs_action', snapshot.deals.needsAction, 'deals'],
+    ['deals_current', 'waiting', snapshot.deals.waiting, 'deals'],
+    ['deals_current', 'stale_open', snapshot.deals.staleOpen, 'deals'],
+  ]
+
+  for (const row of snapshot.money) {
+    rows.push(['money_30d', 'gross', row.grossCents, `${row.currency}_minor_units`])
+    rows.push(['money_30d', 'net', row.netCents, `${row.currency}_minor_units`])
+    rows.push(['money_30d', 'direct_transactions', row.directTransactions, row.currency])
+    rows.push(['money_30d', 'negotiated_deals', row.negotiatedDeals, row.currency])
+  }
+  for (const action of snapshot.actions) {
+    rows.push(['action_queue', action.id, action.count, action.tone])
+  }
+
+  return rows.map((row) => row.map(csvCell).join(',')).join('\n')
+}
+
+function normalizeCurrency(value: string) {
+  return value.trim().toLowerCase() || 'usd'
+}
+
+function csvCell(value: string | number) {
+  const text = String(value)
+  return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
+}
