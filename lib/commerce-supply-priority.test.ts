@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { CommerceDemandSnapshot } from './commerce-demand'
 import {
+  buildCommerceLaunchCoveragePriorities,
   buildCommerceSupplyPriorities,
+  commerceSupplyCatalog,
   type CommerceSupplyCatalog,
 } from './commerce-supply-priority'
 
@@ -25,6 +27,43 @@ const catalog: CommerceSupplyCatalog = {
 }
 
 describe('Commerce supply priorities', () => {
+  it('turns every active template into a unique launch-coverage priority without inventing demand', () => {
+    const priorities = buildCommerceLaunchCoveragePriorities(catalog)
+
+    expect(priorities.map((priority) => priority.referenceId).sort()).toEqual(
+      [...catalog.activeTemplateIds].sort(),
+    )
+    expect(new Set(priorities.map((priority) => priority.referenceId)).size).toBe(priorities.length)
+    expect(priorities).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        basis: 'launch-coverage',
+        basisLabel: 'Launch coverage',
+        observed: 0,
+        live: 0,
+        related: 0,
+        reference: 0,
+        unresolved: 0,
+      }),
+    ]))
+  })
+
+  it('keeps inactive and reference candidates out of the launch plan', () => {
+    const ids = buildCommerceLaunchCoveragePriorities(catalog)
+      .map((priority) => priority.referenceId)
+
+    expect(ids).not.toContain('home.move-out-cleaning')
+    expect(ids).not.toContain('events.custom-celebration-cake')
+  })
+
+  it('keeps the default launch plan exactly aligned with the active template registry', () => {
+    const priorities = buildCommerceLaunchCoveragePriorities()
+
+    expect(priorities.map((priority) => priority.referenceId).sort()).toEqual(
+      [...commerceSupplyCatalog.activeTemplateIds].sort(),
+    )
+    expect(new Set(priorities.map((priority) => priority.referenceId)).size).toBe(priorities.length)
+  })
+
   it('turns reference-only demand for an active template into exact-supply recruitment', () => {
     const priorities = buildCommerceSupplyPriorities(snapshot([
       demand('events.private-chef', 'Private Chef', 5, 0, 4, 1),
@@ -35,6 +74,7 @@ describe('Commerce supply priorities', () => {
       lifecycle: 'active-template',
       action: 'recruit-exact-supply',
       actionLabel: 'Recruit exact supply',
+      basis: 'observed-demand',
       unresolved: 4,
     })])
   })

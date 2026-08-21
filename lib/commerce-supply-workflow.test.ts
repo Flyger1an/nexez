@@ -9,6 +9,33 @@ import {
 } from './commerce-supply-workflow'
 
 describe('Commerce supply workflow', () => {
+  it('keeps launch acquisition useful when demand telemetry is unavailable', () => {
+    const workflow = buildCommerceSupplyWorkflow({ demand: unavailableDemand() })
+
+    expect(workflow.demandAvailable).toBe(false)
+    expect(workflow.verificationAvailable).toBe(true)
+    expect(workflow.items.length).toBeGreaterThan(0)
+    expect(workflow.items.every((item) => (
+      item.basis === 'launch-coverage'
+      && item.observed === 0
+      && item.unresolved === 0
+    ))).toBe(true)
+  })
+
+  it('ranks observed demand first and deduplicates its active template from launch coverage', () => {
+    const workflow = buildCommerceSupplyWorkflow({ demand: demand('events.private-chef', 'Private Chef') })
+    const chefItems = workflow.items.filter((item) => item.referenceId === 'events.private-chef')
+
+    expect(workflow.items[0]).toMatchObject({
+      referenceId: 'events.private-chef',
+      rank: 1,
+      basis: 'observed-demand',
+      unresolved: 4,
+    })
+    expect(chefItems).toHaveLength(1)
+    expect(workflow.items.slice(1).every((item) => item.basis === 'launch-coverage')).toBe(true)
+  })
+
   it('turns an unresolved category into an evidence-bound recruitment brief', () => {
     const workflow = buildCommerceSupplyWorkflow({ demand: demand('events.private-chef', 'Private Chef') })
     const item = workflow.items[0]
@@ -42,6 +69,8 @@ describe('Commerce supply workflow', () => {
 
     expect(workflow.items[0]).toMatchObject({
       status: 'live',
+      action: 'monitor-certified-supply',
+      actionLabel: 'Coverage established',
       certifiedSupply: [{ pageName: 'Example Merchant', offerName: 'Private Chef' }],
     })
   })
@@ -131,6 +160,19 @@ function demand(referenceId: string, title: string): CommerceDemandSnapshot {
       reference: 3,
       unresolved: 4,
     }],
+  }
+}
+
+function unavailableDemand(): CommerceDemandSnapshot {
+  return {
+    ...demand('events.private-chef', 'Private Chef'),
+    available: false,
+    totalSignals: 0,
+    mappedSignals: 0,
+    liveMatches: 0,
+    relatedMatches: 0,
+    referenceMatches: 0,
+    categories: [],
   }
 }
 

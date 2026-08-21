@@ -29,6 +29,8 @@ type Draft = {
   idempotencyKey: string | null
 }
 
+const MAX_VISIBLE_SUPPLY_PRIORITIES = 10
+
 export function CommerceSupplyWorkflowPanel({
   initialSnapshot,
   coverageGaps,
@@ -41,6 +43,7 @@ export function CommerceSupplyWorkflowPanel({
   const [draft, setDraft] = useState<Draft | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const controlsAvailable = initialSnapshot.available && initialSnapshot.verificationAvailable
 
   function toggle(item: CommerceSupplyWorkflowItem) {
     if (expandedId === item.referenceId) {
@@ -126,7 +129,7 @@ export function CommerceSupplyWorkflowPanel({
             Supply acquisition workflow
           </h3>
           <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--fg-muted)]">
-            Ranked by unresolved mapped interactions. Briefs come from the code-owned Commerce catalog; progress is operator-authored and audited, never an inferred conversion score.
+            Observed demand ranks first when available. Active-template coverage then fills launch inventory gaps; progress is operator-authored and audited, never an inferred conversion score.
           </p>
         </div>
       </div>
@@ -134,6 +137,19 @@ export function CommerceSupplyWorkflowPanel({
       {!initialSnapshot.available ? (
         <p className="mt-3 rounded-lg border border-[var(--amber)]/25 bg-[var(--amber)]/[0.05] px-4 py-3 text-xs leading-5 text-[var(--fg-muted)]">
           Campaign persistence is unavailable. Recruitment briefs remain readable, but status controls are disabled until the migration and server credentials are present.
+        </p>
+      ) : null}
+
+
+      {!initialSnapshot.verificationAvailable ? (
+        <p className="mt-3 rounded-lg border border-[var(--amber)]/25 bg-[var(--amber)]/[0.05] px-4 py-3 text-xs leading-5 text-[var(--fg-muted)]">
+          Marketplace certification status is unavailable. Coverage remains readable, but campaign controls are disabled until existing exact supply can be verified.
+        </p>
+      ) : null}
+
+      {!initialSnapshot.demandAvailable ? (
+        <p className="mt-3 rounded-lg border border-[var(--signal)]/25 bg-[var(--signal)]/[0.05] px-4 py-3 text-xs leading-5 text-[var(--fg-muted)]">
+          Demand telemetry is unavailable. Showing code-owned launch coverage only; these rows are inventory planning, not evidence of buyer demand.
         </p>
       ) : null}
 
@@ -148,7 +164,7 @@ export function CommerceSupplyWorkflowPanel({
 
       {items.length ? (
         <div className="mt-3 grid gap-3 xl:grid-cols-2">
-          {items.slice(0, 6).map((item) => {
+          {items.slice(0, MAX_VISIBLE_SUPPLY_PRIORITIES).map((item) => {
             const expanded = expandedId === item.referenceId
             const transitions = allowedCommerceSupplyTransitions(
               commerceSupplyCampaignStatusFor(item.campaign),
@@ -162,6 +178,9 @@ export function CommerceSupplyWorkflowPanel({
                     <span className="rounded-full border border-border px-2 py-0.5 text-[var(--fg-muted)]">
                       {item.lifecycleLabel}
                     </span>
+                    <span className={`rounded-full border px-2 py-0.5 ${item.basis === 'observed-demand' ? 'border-[var(--signal)]/30 text-[var(--signal)]' : 'border-[var(--amber)]/30 text-[var(--amber)]'}`}>
+                      {item.basisLabel}
+                    </span>
                   </div>
                   <StatusBadge status={item.status} />
                 </div>
@@ -174,9 +193,15 @@ export function CommerceSupplyWorkflowPanel({
                   <span className="shrink-0 text-xs font-medium text-[var(--amber)]">{item.actionLabel}</span>
                 </div>
                 <p className="mt-3 text-xs leading-5 text-[var(--fg-muted)]">{item.rationale}</p>
-                <p className="mt-3 text-xs tabular-nums text-[var(--fg-muted-2)]">
-                  {item.unresolved} unresolved · {item.reference} reference only · {item.related} related · {item.live} live
-                </p>
+                {item.basis === 'observed-demand' ? (
+                  <p className="mt-3 text-xs tabular-nums text-[var(--fg-muted-2)]">
+                    {item.unresolved} unresolved · {item.reference} reference only · {item.related} related · {item.live} live
+                  </p>
+                ) : (
+                  <p className="mt-3 text-xs text-[var(--fg-muted-2)]">
+                    Active template coverage · no buyer demand inferred
+                  </p>
+                )}
 
                 {isLive ? (
                   <div className="mt-3 rounded-md border border-[var(--ready)]/25 bg-[var(--ready)]/[0.05] px-3 py-3">
@@ -248,7 +273,7 @@ export function CommerceSupplyWorkflowPanel({
                           <span className="mb-1.5 block text-[11px] font-medium text-[var(--fg-soft)]">Next state</span>
                           <select
                             value={draft?.referenceId === item.referenceId ? draft.status : transitions[0]}
-                            disabled={!initialSnapshot.available || savingId === item.referenceId}
+                            disabled={!controlsAvailable || savingId === item.referenceId}
                             onChange={(event) => setDraft({
                               referenceId: item.referenceId,
                               status: event.target.value as CommerceSupplyCampaignStatus,
@@ -267,7 +292,7 @@ export function CommerceSupplyWorkflowPanel({
                           <input
                             value={draft?.referenceId === item.referenceId ? draft.reason : ''}
                             maxLength={500}
-                            disabled={!initialSnapshot.available || savingId === item.referenceId}
+                            disabled={!controlsAvailable || savingId === item.referenceId}
                             onChange={(event) => setDraft({
                               referenceId: item.referenceId,
                               status: draft?.referenceId === item.referenceId ? draft.status : transitions[0],
@@ -282,7 +307,7 @@ export function CommerceSupplyWorkflowPanel({
                           type="button"
                           onClick={() => save(item)}
                           disabled={
-                            !initialSnapshot.available
+                            !controlsAvailable
                             || savingId === item.referenceId
                             || draft?.referenceId !== item.referenceId
                             || !draft.reason.trim()
@@ -302,12 +327,12 @@ export function CommerceSupplyWorkflowPanel({
         </div>
       ) : (
         <div className="mt-3 rounded-lg border border-border bg-white/[0.025] px-5 py-4 text-sm text-[var(--fg-muted)]">
-          No mapped category currently has unresolved simulator demand.
+          No observed demand or active-template launch coverage is available.
         </div>
       )}
 
-      {items.length > 6 ? (
-        <p className="mt-2 text-xs text-[var(--fg-muted-2)]">Showing the top 6 of {items.length} mapped priorities.</p>
+      {items.length > MAX_VISIBLE_SUPPLY_PRIORITIES ? (
+        <p className="mt-2 text-xs text-[var(--fg-muted-2)]">Showing the top {MAX_VISIBLE_SUPPLY_PRIORITIES} of {items.length} mapped priorities.</p>
       ) : null}
 
       {coverageGaps > 0 ? (

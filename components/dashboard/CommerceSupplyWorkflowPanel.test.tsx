@@ -103,12 +103,56 @@ describe('CommerceSupplyWorkflowPanel', () => {
     render(<CommerceSupplyWorkflowPanel initialSnapshot={snapshot()} coverageGaps={2} />)
     expect(screen.getByText(/2 unmapped requests remain aggregate-only/i)).toBeInTheDocument()
   })
+
+  it('labels launch coverage as inventory planning without formatting zeroes as demand', () => {
+    const coverage = snapshot()
+    coverage.demandAvailable = false
+    coverage.items[0] = {
+      ...coverage.items[0],
+      basis: 'launch-coverage',
+      basisLabel: 'Launch coverage',
+      observed: 0,
+      live: 0,
+      related: 0,
+      reference: 0,
+      unresolved: 0,
+    }
+
+    render(<CommerceSupplyWorkflowPanel initialSnapshot={coverage} coverageGaps={0} />)
+
+    expect(screen.getByText(/inventory planning, not evidence of buyer demand/i)).toBeInTheDocument()
+    expect(screen.getByText('Launch coverage')).toBeInTheDocument()
+    expect(screen.getByText(/no buyer demand inferred/i)).toBeInTheDocument()
+    expect(screen.queryByText(/0 unresolved/i)).not.toBeInTheDocument()
+  })
+
+  it('retains aggregate evidence counts for observed demand', () => {
+    render(<CommerceSupplyWorkflowPanel initialSnapshot={snapshot()} coverageGaps={0} />)
+
+    expect(screen.getByText('Observed demand')).toBeInTheDocument()
+    expect(screen.getByText(/4 unresolved · 3 reference only · 1 related · 0 live/i)).toBeInTheDocument()
+  })
+
+  it('disables campaign controls when marketplace certification cannot be verified', async () => {
+    const user = userEvent.setup()
+    const unavailable = snapshot()
+    unavailable.verificationAvailable = false
+
+    render(<CommerceSupplyWorkflowPanel initialSnapshot={unavailable} coverageGaps={0} />)
+    expect(screen.getByText(/campaign controls are disabled/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /open recruitment brief/i }))
+    expect(screen.getByLabelText('Next state')).toBeDisabled()
+    expect(screen.getByLabelText('Operator reason')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+  })
 })
 
 function snapshot(): CommerceSupplyWorkflowSnapshot {
   return {
     generatedAt: '2026-08-21T00:00:00.000Z',
     available: true,
+    demandAvailable: true,
+    verificationAvailable: true,
     items: [{
       rank: 1,
       referenceId: 'events.private-chef',
@@ -116,6 +160,8 @@ function snapshot(): CommerceSupplyWorkflowSnapshot {
       domain: 'events-hospitality',
       lifecycle: 'active-template',
       lifecycleLabel: 'Active template',
+      basis: 'observed-demand',
+      basisLabel: 'Observed demand',
       action: 'recruit-exact-supply',
       actionLabel: 'Recruit exact supply',
       rationale: 'Reference behavior was required.',
