@@ -1,17 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { Download, Loader2, ShieldAlert, Trash2 } from 'lucide-react'
+import { Download, ExternalLink, Loader2, ShieldAlert, Trash2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '../utils/supabase/client'
 
 export function AccountDataControls({ email }: { email: string }) {
+  const router = useRouter()
   const [confirmText, setConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [message, setMessage] = useState('')
+  const [messageTone, setMessageTone] = useState<'success' | 'error'>('success')
 
   const canDelete = confirmText.trim().toLowerCase() === email.trim().toLowerCase() && !!email
 
-  async function deleteAccount() {
+  async function deleteBuyerProfile() {
     if (!canDelete) return
     setDeleting(true)
     setMessage('')
@@ -23,61 +26,100 @@ export function AccountDataControls({ email }: { email: string }) {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
+        setMessageTone('error')
         setMessage(data.error || 'Could not delete account.')
         setDeleting(false)
         return
       }
-      // Session is now invalid; sign out client-side and leave.
+      if (data.sellerRetained) {
+        setConfirmText('')
+        setMessageTone('success')
+        setMessage('Buyer profile removed. Your Nexez seller workspace and sign-in were kept.')
+        setDeleting(false)
+        return
+      }
+
+      // Pure buyer accounts have no retained seller workspace, so the auth user
+      // is gone and the local session should be cleared before leaving.
       const supabase = createClient()
       await supabase.auth.signOut().catch(() => {})
-      window.location.href = '/'
+      router.replace('/')
+      router.refresh()
     } catch {
+      setMessageTone('error')
       setMessage('Network error deleting account.')
       setDeleting(false)
     }
   }
 
   return (
-    <section className="card !p-5">
-      <h2 className="text-xl font-semibold">Your Data</h2>
-      <p className="mt-1 text-sm text-zinc-400">
-        Export everything we hold for your account, or permanently delete it.
+    <section className="card !p-5 sm:!p-6" aria-labelledby="account-data-title">
+      <h2 id="account-data-title" className="text-xl font-semibold">Data and account controls</h2>
+      <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--fg-muted)]">
+        Download a complete, facet-labelled archive or remove only the personal buyer-agent data attached to this login.
       </p>
 
-      <a
-        href="/api/account/export"
-        className="mt-4 inline-flex min-h-[40px] items-center gap-2 rounded-lg border border-white/15 px-4 text-sm text-white hover:bg-white/10"
-      >
-        <Download className="size-4" /> Export my data (JSON)
-      </a>
-
-      <div className="mt-6 rounded-lg border border-red-400/30 bg-red-500/5 p-4">
-        <div className="flex items-center gap-2 text-red-300">
-          <ShieldAlert className="size-4" />
-          <h3 className="text-sm font-semibold">Danger zone</h3>
+      <div className="mt-5 grid gap-4 xl:grid-cols-2">
+        <div className="rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4 sm:p-5">
+          <h3 className="text-sm font-semibold text-[var(--fg)]">Complete account archive</h3>
+          <p className="mt-2 text-xs leading-5 text-[var(--fg-muted)]">
+            Includes buyer, seller, and account datasets plus a manifest with exact row counts. If any dataset fails, Nexez stops instead of downloading a partial archive.
+          </p>
+          <a
+            href="/api/account/export"
+            className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--line)] px-4 text-sm font-medium text-[var(--fg)] outline-none transition hover:bg-[var(--fill-2)] focus-visible:ring-2 focus-visible:ring-[var(--control-focus)]"
+          >
+            <Download className="size-4" aria-hidden="true" /> Download JSON archive
+          </a>
         </div>
-        <p className="mt-2 text-xs text-zinc-400">
-          Deleting your account permanently removes your listings, analytics, negotiations, and API keys. This cannot be
-          undone. Type your email <span className="text-zinc-200">{email}</span> to confirm.
+
+        <div className="rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4 sm:p-5">
+          <h3 className="text-sm font-semibold text-[var(--fg)]">Close the seller workspace</h3>
+          <p className="mt-2 text-xs leading-5 text-[var(--fg-muted)]">
+            Seller closure requires a reviewed handoff so payment, dispute, tax, and payout records are retained correctly. It is deliberately separate from buyer-data deletion.
+          </p>
+          <a
+            href="/support"
+            className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--line)] px-4 text-sm font-medium text-[var(--fg)] outline-none transition hover:bg-[var(--fill-2)] focus-visible:ring-2 focus-visible:ring-[var(--control-focus)]"
+          >
+            Request workspace closure <ExternalLink className="size-4" aria-hidden="true" />
+          </a>
+        </div>
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-[var(--danger)]/30 bg-[var(--danger)]/5 p-4 sm:p-5">
+        <div className="flex items-center gap-2 text-red-300">
+          <ShieldAlert className="size-4" aria-hidden="true" />
+          <h3 className="text-sm font-semibold">Remove personal buyer data</h3>
+        </div>
+        <p className="mt-2 max-w-3xl text-xs leading-5 text-[var(--fg-muted)]">
+          This permanently removes your Nexxi buyer-agent conversations, saved businesses, standing searches, tasks, notifications, and buyer-identifying data. Your Nexez seller workspace, listings, financial records, API keys, and sign-in remain available. Type <span className="font-medium text-[var(--fg)]">{email}</span> to confirm.
         </p>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <label htmlFor="buyer-data-confirmation" className="sr-only">Confirm buyer-data deletion with your email</label>
           <input
+            id="buyer-data-confirmation"
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
             placeholder={email}
-            className="flex-1 rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-zinc-600"
+            autoComplete="off"
+            className="min-h-11 flex-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--fg-muted-2)] focus-visible:ring-2 focus-visible:ring-[var(--control-focus)]"
           />
           <button
             type="button"
             disabled={!canDelete || deleting}
-            onClick={deleteAccount}
-            className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg border border-red-400/40 bg-red-500/10 px-4 text-sm font-medium text-red-200 hover:bg-red-500/20 disabled:opacity-40"
+            onClick={deleteBuyerProfile}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--danger)]/40 bg-[var(--danger)]/10 px-4 text-sm font-medium text-red-200 outline-none transition hover:bg-[var(--danger)]/15 focus-visible:ring-2 focus-visible:ring-[var(--control-focus)] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {deleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-            Delete account
+            {deleting ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Trash2 className="size-4" aria-hidden="true" />}
+            {deleting ? 'Removing buyer data…' : 'Remove buyer data'}
           </button>
         </div>
-        {message ? <p className="mt-2 text-xs text-red-300">{message}</p> : null}
+        {message ? (
+          <p role={messageTone === 'error' ? 'alert' : 'status'} className={`mt-3 text-xs ${messageTone === 'error' ? 'text-red-300' : 'text-[var(--ready)]'}`}>
+            {message}
+          </p>
+        ) : null}
       </div>
     </section>
   )

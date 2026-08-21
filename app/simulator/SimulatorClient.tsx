@@ -79,6 +79,9 @@ export default function GlobalAgentSimulator() {
   const filteredHistory = filterSimulationHistory(history, historyQuery)
   const historyStats = getSimulationHistoryStats(history)
   const currentResult = simulationResults.find((r) => r.agent === currentAgent)
+  const availableAgentTabs = agentTabs.filter(
+    (tab) => tab !== 'LLM-Enhanced' || simulationResults.some((result) => result.agent === 'LLM-Enhanced'),
+  )
   const currentVerdict: AgentVerdict | undefined = currentResult?.verdict
   const ownsSelected = !!selectedPage && myPages.some((p) => p.id === selectedPage.id)
 
@@ -186,6 +189,7 @@ export default function GlobalAgentSimulator() {
     setLoading(true)
     setMessage('')
     setSimulationResults([])
+    setCurrentAgent(agentTabs[0])
     setRecommendations([])
     setSuccessReport(null)
     setRankAnalysis(null)
@@ -215,7 +219,10 @@ export default function GlobalAgentSimulator() {
             body: JSON.stringify({ slug: page.slug, query: effectiveQuery }),
           })
           const llmData = await llmRes.json()
-          if (llmData?.naturalLanguage) {
+          // The API may return deterministic fallback copy when the provider is
+          // unavailable. Only label and store a result as LLM-enhanced when the
+          // server explicitly confirms that an LLM produced it.
+          if (llmRes.ok && llmData?.llmEnhanced === true && llmData?.naturalLanguage) {
             const firstResult = multi.results[0]
             if (firstResult) {
               finalResults = [
@@ -440,13 +447,16 @@ export default function GlobalAgentSimulator() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0A0A0F] text-white">
+    <main data-testid="agent-lab-screen" className="min-h-screen bg-background text-foreground">
       <ErrorBoundary>
-        <div className="mx-auto max-w-7xl px-6 py-8">
-          <div className="flex flex-col gap-4 mb-6 md:flex-row md:items-end md:justify-between">
+        <div className="mx-auto max-w-[1760px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          <div className="mb-6 flex flex-col gap-5 rounded-[28px] border border-[var(--bd-10)] bg-[var(--panel)] px-5 py-7 sm:px-7 md:flex-row md:items-end md:justify-between lg:px-9">
             <div>
-              <p className="text-sm text-[#9CA3AF]">Agent Lab</p>
-              <h1 className="text-3xl md:text-4xl font-semibold tracking-tighter">Test, simulate &amp; compare</h1>
+              <p className="text-sm font-medium text-[var(--signal)]">Agent Lab</p>
+              <h1 className="mt-2 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">Test, simulate &amp; compare</h1>
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--fg-muted)] sm:text-base">
+                Inspect how machine buyers read a listing, pressure-test an outside website, or benchmark a competitor.
+              </p>
             </div>
             <div className="flex flex-wrap gap-3">
               <a href="/discovery" className="btn-secondary text-sm">Browse Discovery</a>
@@ -459,7 +469,7 @@ export default function GlobalAgentSimulator() {
           </div>
 
           {/* Mode tabs - the three lenses of the Agent Lab */}
-          <div className="mb-8 flex flex-wrap gap-2">
+          <div role="tablist" aria-label="Agent Lab modes" className="mb-8 grid gap-2 rounded-2xl border border-[var(--bd-10)] bg-[var(--panel)] p-2 sm:grid-cols-3">
             {([
               { key: 'test', label: 'Test a listing', icon: Bot },
               { key: 'url', label: 'Any URL', icon: Globe },
@@ -467,14 +477,18 @@ export default function GlobalAgentSimulator() {
             ] as const).map((m) => (
               <button
                 key={m.key}
+                id={`agent-lab-tab-${m.key}`}
+                role="tab"
+                aria-selected={mode === m.key}
+                aria-controls={`agent-lab-panel-${m.key}`}
                 onClick={() => setMode(m.key)}
-                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
+                className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--signal)] ${
                   mode === m.key
-                    ? 'border-[var(--signal)] bg-[var(--signal)]/10 text-white'
-                    : 'border-white/15 text-[#9CA3AF] hover:text-white hover:bg-white/5'
+                    ? 'border-[var(--signal)] bg-[var(--signal)]/10 text-foreground'
+                    : 'border-[var(--bd-10)] text-[var(--fg-muted)] hover:bg-[var(--hover)] hover:text-foreground'
                 }`}
               >
-                <m.icon className="size-4" /> {m.label}
+                <m.icon className="size-4" aria-hidden="true" /> {m.label}
                 {m.key === 'compare' && !isLoggedIn && <span className="text-[10px] text-zinc-500">(sign in)</span>}
               </button>
             ))}
@@ -482,9 +496,9 @@ export default function GlobalAgentSimulator() {
 
           {/* ── TEST A PAGE ───────────────────────────────────────────── */}
           {mode === 'test' && (
-          <>
+          <div id="agent-lab-panel-test" role="tabpanel" aria-labelledby="agent-lab-tab-test">
           {/* Controls */}
-          <div className="grid gap-4 lg:grid-cols-2 mb-8">
+          <div className="mb-8 grid gap-4 xl:grid-cols-[minmax(320px,0.75fr)_minmax(0,1.25fr)]">
             {/* My Pages */}
             <div className="card">
               <div className="flex items-center gap-2 mb-3">
@@ -492,13 +506,13 @@ export default function GlobalAgentSimulator() {
                 <span className="font-medium">Analyze my listing</span>
               </div>
               {isLoggedIn && myPages.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {myPages.slice(0, 6).map((p) => (
+                <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto pr-1">
+                  {myPages.map((p) => (
                     <button
                       key={p.id}
                       onClick={() => handleSelectMyPage(p)}
                       disabled={!hydrated || loading}
-                      className={`rounded border px-3 py-1 text-sm ${selectedPage?.id === p.id ? 'border-[var(--signal)] bg-[var(--signal)]/10' : 'border-white/15 hover:bg-white/5'}`}
+                      className={`min-h-11 rounded-lg border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--signal)] ${selectedPage?.id === p.id ? 'border-[var(--signal)] bg-[var(--signal)]/10' : 'border-[var(--bd-10)] hover:bg-[var(--hover)]'}`}
                     >
                       {p.name}
                     </button>
@@ -517,15 +531,17 @@ export default function GlobalAgentSimulator() {
             {/* Paste */}
             <div className="card">
               <div className="font-medium mb-2">Paste a public Nexez slug or URL</div>
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <label htmlFor="agent-lab-slug" className="sr-only">Public Nexez slug or URL</label>
                 <input
+                  id="agent-lab-slug"
                   value={pasteSlug}
                   onChange={(e) => setPasteSlug(e.target.value)}
                   placeholder="my-offers or https://nexez.com/my-offers"
                   disabled={!hydrated || loading}
                   className="input flex-1"
                 />
-                <button onClick={handlePasteAnalyze} disabled={!hydrated || loading || !pasteSlug.trim()} className="btn-primary">
+                <button onClick={handlePasteAnalyze} disabled={!hydrated || loading || !pasteSlug.trim()} className="btn-primary min-h-11">
                   {loading ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />} Analyze
                 </button>
               </div>
@@ -535,18 +551,20 @@ export default function GlobalAgentSimulator() {
 
           {/* Query + Actions */}
           {selectedPage && (
-            <div className="mb-6 flex flex-col md:flex-row gap-3 items-center">
+            <div className="mb-6 flex flex-col items-stretch gap-3 md:flex-row md:items-center">
+              <label htmlFor="agent-lab-query" className="sr-only">Agent query</label>
               <input
+                id="agent-lab-query"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="input flex-1"
                 placeholder="Agent query"
                 disabled={!hydrated || loading}
               />
-              <button onClick={regenerate} disabled={!hydrated || loading} className="btn-ghost">
+              <button onClick={regenerate} disabled={!hydrated || loading} className="btn-ghost min-h-11">
                 <RefreshCw className="size-4" /> Rerun
               </button>
-              <a href={agentRuntimeUrl(`/${selectedPage.slug}`)} target="_blank" className="btn-secondary inline-flex items-center gap-1">
+              <a href={agentRuntimeUrl(`/${selectedPage.slug}`)} target="_blank" rel="noreferrer" className="btn-secondary inline-flex min-h-11 items-center gap-1">
                 View public listing <ExternalLink className="size-3" />
               </a>
             </div>
@@ -555,12 +573,14 @@ export default function GlobalAgentSimulator() {
           {/* Results */}
           {selectedPage && simulationResults.length > 0 && (
             <>
-              <div className="flex border-b border-white/10 mb-6 overflow-x-auto">
-                {agentTabs.map((tab) => (
+              <div role="tablist" aria-label="Simulated agents" className="mb-6 flex overflow-x-auto border-b border-[var(--bd-10)]">
+                {availableAgentTabs.map((tab) => (
                   <button
                     key={tab}
+                    role="tab"
+                    aria-selected={currentAgent === tab}
                     onClick={() => switchAgent(tab)}
-                    className={`agent-tab px-6 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+                    className={`agent-tab min-h-11 whitespace-nowrap border-b-2 px-6 py-3 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--signal)] ${
                       currentAgent === tab 
                         ? 'border-[var(--signal)] text-white bg-[#1A1625]' 
                         : 'border-transparent text-[#9CA3AF] hover:text-white'
@@ -571,7 +591,7 @@ export default function GlobalAgentSimulator() {
                 ))}
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(320px,0.72fr)_minmax(0,1.28fr)]">
                 {/* Left: Page summary */}
                 <div className="card">
                   <div className="flex justify-between mb-4">
@@ -598,7 +618,7 @@ export default function GlobalAgentSimulator() {
                     {currentVerdict && !currentResult?.llmEnhanced && <StanceBadge stance={currentVerdict.stance} />}
                   </div>
 
-                  <div className="min-h-[280px] rounded-2xl bg-[#12101B] border border-white/10 p-5 text-sm">
+                  <div className="min-h-[360px] rounded-2xl border border-[var(--bd-10)] bg-background/40 p-5 text-sm">
                     {currentResult?.llmEnhanced ? (
                       <div className="space-y-3">
                         <p className="text-[11px] uppercase tracking-wide text-[var(--signal)]">LLM-enhanced response</p>
@@ -771,12 +791,12 @@ export default function GlobalAgentSimulator() {
               <p className="mt-2 text-[#9CA3AF]">See it judged by ChatGPT, Claude, Grok, and Perplexity - with a success score and where it ranks.</p>
             </div>
           )}
-          </>
+          </div>
           )}
 
           {/* ── ANY URL ──────────────────────────────────────────────── */}
           {mode === 'url' && (
-          <>
+          <div id="agent-lab-panel-url" role="tabpanel" aria-labelledby="agent-lab-tab-url">
             <div className="card mb-8">
               <div className="flex items-center gap-2 mb-2">
                 <Globe className="size-4 text-[var(--ready)]" />
@@ -785,7 +805,9 @@ export default function GlobalAgentSimulator() {
               </div>
               <p className="mb-3 text-sm text-zinc-400">See what an AI agent gets from any business site today - and what it would get if the same business were agent-ready on Nexez.</p>
               <div className="flex flex-col gap-2 sm:flex-row">
+                <label htmlFor="agent-lab-url" className="sr-only">Public website URL</label>
                 <input
+                  id="agent-lab-url"
                   value={urlInput}
                   onChange={(e) => setUrlInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !urlLoading && urlInput.trim()) handleSimulateUrl() }}
@@ -793,7 +815,7 @@ export default function GlobalAgentSimulator() {
                   disabled={!hydrated || urlLoading}
                   className="input flex-1"
                 />
-                <button onClick={handleSimulateUrl} disabled={!hydrated || urlLoading || !urlInput.trim()} className="btn-primary">
+                <button onClick={handleSimulateUrl} disabled={!hydrated || urlLoading || !urlInput.trim()} className="btn-primary min-h-11">
                   {urlLoading ? <Loader2 className="size-4 animate-spin" /> : <Globe className="size-4" />} Simulate
                 </button>
               </div>
@@ -801,13 +823,17 @@ export default function GlobalAgentSimulator() {
             </div>
 
             {urlComparison && <UrlComparisonPanel c={urlComparison} />}
-          </>
+          </div>
           )}
 
           {/* ── COMPARE A COMPETITOR (signed-in) ─────────────────────── */}
-          {mode === 'compare' && <CompetitorCompare isLoggedIn={isLoggedIn} myPages={myPages} />}
+          {mode === 'compare' && (
+            <div id="agent-lab-panel-compare" role="tabpanel" aria-labelledby="agent-lab-tab-compare">
+              <CompetitorCompare isLoggedIn={isLoggedIn} myPages={myPages} />
+            </div>
+          )}
 
-          {message && <p className="mt-4 text-sm text-[var(--ready)]">{message}</p>}
+          {message && <p role="status" className="mt-4 text-sm text-[var(--fg-muted)]">{message}</p>}
         </div>
       </ErrorBoundary>
     </main>

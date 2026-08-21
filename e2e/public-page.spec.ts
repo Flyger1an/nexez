@@ -15,12 +15,23 @@ test.describe('public surface', () => {
     expect(pageErrors, `Uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([])
   })
 
-  test('simulator has LLM-Enhanced tab (added for deeper LLM responses via /api/simulate-llm)', async ({ page }) => {
+  test('Agent Lab uses the expanded responsive workspace and never claims an unavailable LLM result', async ({ page }) => {
     const pageErrors: string[] = []
     page.on('pageerror', (e) => pageErrors.push(String(e)))
 
     await page.goto('/simulator', { waitUntil: 'domcontentloaded' })
     await expect(page.getByText('Test, simulate & compare')).toBeVisible()
+    await expect(page.getByRole('tablist', { name: 'Agent Lab modes' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Test a listing' })).toHaveAttribute('aria-selected', 'true')
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const wideLayout = await page.getByTestId('agent-lab-screen').evaluate((element) => ({
+      width: element.firstElementChild?.getBoundingClientRect().width ?? 0,
+      viewport: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+    }))
+    expect(wideLayout.width).toBeGreaterThan(1280)
+    expect(wideLayout.documentWidth).toBeLessThanOrEqual(wideLayout.viewport)
 
     // The certification merchant is the stable target: it is owned by us, always
     // published (the release gauntlet depends on it), and listed in
@@ -32,15 +43,14 @@ test.describe('public surface', () => {
     await page.getByPlaceholder('my-offers or https://nexez.com/my-offers').fill('nexez-agent-negotiation-lab')
     await page.getByRole('button', { name: /analyze/i }).click()
 
-    // Wait for results + tabs (tabs container only mounts after simulationResults are populated)
-    const llmTab = page.getByRole('button', { name: 'LLM-Enhanced', exact: true })
-    await expect(llmTab).toBeVisible({ timeout: 30000 })
+    // Deterministic agents always render. LLM-Enhanced only renders when the
+    // server explicitly confirms that a provider produced the response.
+    await expect(page.getByRole('tablist', { name: 'Simulated agents' })).toBeVisible({ timeout: 30000 })
+    await expect(page.getByRole('tab', { name: 'ChatGPT', exact: true })).toBeVisible()
 
-    // Click to switch to the LLM tab
-    await llmTab.click()
-
-    // Expect LLM-specific content (unique heading only present for the active LLM tab view)
-    await expect(page.getByRole('heading', { name: "LLM-Enhanced's view" })).toBeVisible()
+    await page.setViewportSize({ width: 390, height: 844 })
+    const mobileOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+    expect(mobileOverflow).toBeLessThanOrEqual(1)
 
     expect(pageErrors, `Uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([])
   })
@@ -123,7 +133,7 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
     await page.getByRole('button', { name: /analyze/i }).click()
 
     // Results + tabs render only after the simulation sets data (LLM-Enhanced tab is a reliable signal)
-    const llmTab = page.getByRole('button', { name: 'LLM-Enhanced', exact: true })
+    const llmTab = page.getByRole('tab', { name: 'LLM-Enhanced', exact: true })
     await expect(llmTab).toBeVisible({ timeout: 30000 })
 
     // Await + assert the LLM call happened and returned the advanced payload (platform-configured LLM naturalLanguage)
@@ -134,7 +144,7 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
     expect((llmData?.naturalLanguage || '').length, 'naturalLanguage should be substantial agent-style output').toBeGreaterThan(20)
     expect(llmData?.agent || '', 'agent label should indicate LLM-Enhanced + model').toMatch(/LLM-Enhanced/)
 
-    // UI: tab present (always) + switchable after results from seeded page
+    // UI: a provider-confirmed result exposes a switchable LLM tab.
     await expect(llmTab).toBeVisible()
     await llmTab.click()
     await expect(page.getByRole('heading', { name: "LLM-Enhanced's view" })).toBeVisible()

@@ -5,6 +5,7 @@ const refs = vi.hoisted(() => ({
   user: { id: 'owner-1', email: 'owner@example.com' } as any,
   existing: { data: null, error: null } as any, // the dedup SELECT result
   insert: { data: { id: 'inv1', email: 'mate@example.com', role: 'editor', status: 'pending', created_at: 'now' }, error: null } as any,
+  update: { data: { id: 'inv1', email: 'mate@example.com', role: 'viewer', status: 'pending', created_at: 'now' }, error: null } as any,
   sent: [] as any[],
 }))
 
@@ -22,13 +23,17 @@ vi.mock('../../../../lib/email', () => ({
   buildTeamInviteEmail: vi.fn((o: any) => ({ subject: `invite ${o.inviteeEmail}`, html: 'h', text: 't' })),
 }))
 
-import { POST } from './route'
+import { PATCH, POST } from './route'
 import { createClient } from '../../../../utils/supabase/server'
 
 function wire() {
   vi.mocked(createClient).mockReturnValue(
     createSupabaseMock((ctx: QueryContext) => {
-      if (ctx.table === 'team_invites') return ctx.op === 'insert' ? refs.insert : refs.existing
+      if (ctx.table === 'team_invites') {
+        if (ctx.op === 'insert') return refs.insert
+        if (ctx.op === 'update') return refs.update
+        return refs.existing
+      }
       return { data: null, error: null }
     }, { user: refs.user }) as any,
   )
@@ -36,6 +41,12 @@ function wire() {
 const post = (body: unknown) =>
   new Request('https://app.nexez.ai/api/team/invite', {
     method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+const patch = (body: unknown) =>
+  new Request('https://app.nexez.ai/api/team/invite', {
+    method: 'PATCH',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   })
@@ -47,6 +58,7 @@ describe('POST /api/team/invite', () => {
     refs.user = { id: 'owner-1', email: 'owner@example.com' }
     refs.existing = { data: null, error: null }
     refs.insert = { data: { id: 'inv1', email: 'mate@example.com', role: 'editor', status: 'pending', created_at: 'now' }, error: null }
+    refs.update = { data: { id: 'inv1', email: 'mate@example.com', role: 'viewer', status: 'pending', created_at: 'now' }, error: null }
     refs.sent = []
     wire()
   })
@@ -108,5 +120,30 @@ describe('POST /api/team/invite', () => {
     await POST(post({ email: 'mate@example.com', role: 'editor' }))
     await flush()
     expect(refs.sent).toHaveLength(0)
+  })
+
+  it('updates roles through an authenticated owner-scoped route', async () => {
+    const res = await PATCH(patch({ id: 'inv1', action: 'role', role: 'viewer' }))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ ok: true, invite: { id: 'inv1', role: 'viewer' } })
+  })
+
+  it('revokes through the owner-scoped route and rejects invalid actions', async () => {
+    refs.update = { data: { id: 'inv1', email: 'mate@example.com', role: 'editor', status: 'revoked', created_at: 'now' }, error: null }
+    wire()
+    expect((await PATCH(patch({ id: 'inv1', action: 'revoke' }))).status).toBe(200)
+    expect((await PATCH(patch({ id: 'inv1', action: 'delete-forever' }))).status).toBe(400)
+  })
+
+  it('does not reveal or mutate another owner\'s invite', async () => {
+    refs.update = { data: null, error: null }
+    wire()
+    expect((await PATCH(patch({ id: 'someone-elses-invite', action: 'revoke' }))).status).toBe(404)
+  })
+
+  it('requires authentication for invite updates', async () => {
+    refs.user = null
+    wire()
+    expect((await PATCH(patch({ id: 'inv1', action: 'revoke' }))).status).toBe(401)
   })
 })
