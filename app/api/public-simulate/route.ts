@@ -7,7 +7,10 @@ import {
 } from '@/lib/agent-simulator'
 import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '@/lib/agent-page'
 import { searchAgentPages, type AgentSearchResult } from '@/lib/agent-search'
-import { commerceReferenceCandidates } from '@/lib/commerce-templates/curation'
+import {
+  commerceReferenceCandidates,
+  type CommerceCurationCandidate,
+} from '@/lib/commerce-templates/curation'
 import {
   commerceCandidateEvidenceMatches,
   commerceIdentityTokenFamily,
@@ -24,6 +27,7 @@ import {
   type PublicSimulatorMode,
 } from '@/lib/public-simulator'
 import { enforceRateLimit } from '@/lib/rate-limit'
+import { scheduleCommerceDemandSignal } from '@/lib/server/commerce-demand'
 import { supabase } from '@/lib/supabase'
 
 const DISCOVERY_STOPWORDS = new Set([
@@ -70,6 +74,7 @@ type PublicSimulationLogContext = {
   startedAt: number
   queryLength: number
   visibleSupplyCount: number
+  reference: Pick<CommerceCurationCandidate, 'id' | 'domain'> | null
 }
 
 function publicSimulationResponse(
@@ -81,6 +86,11 @@ function publicSimulationResponse(
     [key: string]: unknown
   },
 ) {
+  scheduleCommerceDemandSignal({
+    mode: payload.mode,
+    intent: payload.intent,
+    reference: context.reference,
+  })
   console.log(JSON.stringify({
     level: 'info',
     message: 'public_simulate_completed',
@@ -596,6 +606,9 @@ export async function POST(request: Request) {
         startedAt,
         queryLength: trimmedQuery.length,
         visibleSupplyCount: visiblePages.length,
+        reference: simulation
+          ? { id: simulation.candidate.id, domain: simulation.candidate.domain }
+          : null,
       }, {
         success: true,
         mode,
@@ -644,6 +657,7 @@ export async function POST(request: Request) {
         startedAt,
         queryLength: trimmedQuery.length,
         visibleSupplyCount: visiblePages.length,
+        reference: { id: simulation.candidate.id, domain: simulation.candidate.domain },
       }, {
         success: true,
         mode: 'simulation',
@@ -677,6 +691,7 @@ export async function POST(request: Request) {
       startedAt,
       queryLength: trimmedQuery.length,
       visibleSupplyCount: visiblePages.length,
+      reference: null,
     }, {
       success: true,
       mode: 'coverage_gap',

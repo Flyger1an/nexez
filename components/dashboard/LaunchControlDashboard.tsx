@@ -18,6 +18,8 @@ import { relativeAge, type LaunchCheck, type LaunchControlSnapshot, type LaunchS
 import type { MarketplaceCurationQueue } from '../../lib/marketplace-curation'
 import type { ReleaseCertificationRecord } from '../../lib/release-certification'
 import { MarketplaceCurationPanel } from './MarketplaceCurationPanel'
+import { CommerceDemandPanel } from './CommerceDemandPanel'
+import type { CommerceDemandSnapshot } from '../../lib/commerce-demand'
 
 const STATUS_STYLE: Record<LaunchStatus, { label: string; className: string; Icon: typeof CheckCircle2 }> = {
   ready: {
@@ -46,10 +48,12 @@ export function LaunchControlDashboard({
   snapshot,
   releases,
   marketplaceCuration,
+  commerceDemand,
 }: {
   snapshot: LaunchControlSnapshot
   releases: ReleaseCertificationRecord[]
   marketplaceCuration: MarketplaceCurationQueue
+  commerceDemand: CommerceDemandSnapshot
 }) {
   const headline = snapshot.summary.status === 'ready'
     ? 'Launch systems are ready'
@@ -117,6 +121,8 @@ export function LaunchControlDashboard({
         </section>
 
         <MarketplaceCurationPanel queue={marketplaceCuration} />
+
+        <CommerceDemandPanel snapshot={commerceDemand} />
 
         <section className="border-t border-border py-8" aria-labelledby="release-certificates-heading">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">

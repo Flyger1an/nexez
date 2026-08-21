@@ -1,6 +1,6 @@
 # Nexez Roadmap
 
-_Last reconciled: 2026-08-21 against production and `origin/main` at `5ba2406`._
+_Last reconciled: 2026-08-21 against production and `origin/main` at `f3a5e35`._
 
 **Mission:** Make any business legible and transactable to autonomous agents without forcing it to replace its human website. Nexez provides structured storefronts, agent artifacts, transaction rails, seller operations, and distribution into agent workflows.
 
@@ -80,6 +80,7 @@ The next milestone remains growing real launch-quality supply and proving demand
 - Agent-vs-human detection, agent type, traffic, queries, funnel, conversion, revenue, page and offer breakdowns, exports, and per-page filtering.
 - Simulator history, AI Copilot, competitor analysis, readiness/trust score, credentials, voice optimization, agent memory, leaderboard, and verification signals.
 - The homepage Commerce Intelligence simulator renders one buyer-safe decision path across live marketplace matches, related supply, Commerce Library references, and uncovered requests: intent understood → supply checked → commerce behavior resolved → safe action boundary. Vercel custom events measure result modes, engagement, refinements, and handoffs without recording raw buyer queries; structured route logs retain only bounded operational metadata.
+- Privacy-safe Commerce demand telemetry turns those public simulator outcomes into a 30-day operator signal: Launch Control ranks code-owned canonical categories by live, related, reference-only, and unresolved interactions while separately counting uncovered requests. The service-role-only append ledger stores no raw buyer text, request labels, merchant identity, location, visitor identity, IP, or user agent; capped reads declare when totals are lower bounds. These signals guide supply recruitment and Commerce Library coverage but remain explicitly non-conversion evidence.
 - Team invites, accepted-only collaborator access, owner-entitlement inheritance on shared pages, approval workflows, notifications, support desk, account export/delete, and API keys.
 - Three-host auth/routing architecture, shared session on the `.nexez.ai` app family, cookie-isolated agent runtime, rate limiting, observability, security headers, RLS hardening, and public projection parity tests.
 - Trust framework in `docs/trust/`: control, data, and vendor registers, incident response, operating checklists, and a rollout plan, alongside a reconciled platform README.
@@ -118,7 +119,7 @@ Ranked by launch leverage.
 
 ### P1 - Launch strength
 
-1. **Prove demand.** Publish a real agent-discovery-to-conversion case study using production evidence without inventing attribution or outcomes. The supply-side half of the evidence problem is now solved: the agent-readiness study samples 652 real sites and its aggregates are reproducible from documented SQL. The demand-side case study still requires a real transaction with real attribution, which no amount of scanning substitutes for.
+1. **Prove demand.** Publish a real agent-discovery-to-conversion case study using production evidence without inventing attribution or outcomes. The supply-side half of the evidence problem is now solved: the agent-readiness study samples 652 real sites and its aggregates are reproducible from documented SQL. Privacy-safe simulator demand signals now identify directional category interest and unresolved supply, but the demand-side case study still requires a real transaction with real attribution; simulator interactions do not substitute for conversion evidence.
 2. **Strengthen ranking.** Tune marketplace and Nexxi ranking with real conversion, location, availability, verified-purchase review, response quality, and freshness evidence. Prevent sparse-data feedback loops.
 3. **Integration proof.** Keep the certified Stripe price-sync replay monitored in Launch Control, add timezone-aware Calendly business hours, and monitor Shopify queue health through Launch Control. The Stripe delivery check now grades delivery health rather than traffic recency, so a healthy-but-idle account no longer fails certification; endpoint status resolved from the Stripe API is the traffic-independent signal.
 4. **Mobile distribution.** Complete store builds, physical-device push checks, release review, deep-link validation, and parity checks for the seller mobile app. The Nexie mobile app is now gated on a typecheck in its own paths-filtered workflow, so a type error cannot reach `main` unnoticed. It has no lint config and no test harness, and `expo install --check` reports ten outdated Expo packages; the SDK bump is deliberately deferred to its own change and exposed meanwhile as `npm run check:expo-deps`.
