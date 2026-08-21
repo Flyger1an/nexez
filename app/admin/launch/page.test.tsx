@@ -5,12 +5,14 @@ const getSnapshot = vi.hoisted(() => vi.fn(async () => ({ generatedAt: '2026-08-
 const getReleases = vi.hoisted(() => vi.fn(async () => []))
 const getMarketplace = vi.hoisted(() => vi.fn(async () => ({ available: true, items: [] })))
 const getDemand = vi.hoisted(() => vi.fn(async () => ({ available: true, categories: [] })))
+const getSupplyWorkflow = vi.hoisted(() => vi.fn(async () => ({ available: true, items: [] })))
 
 vi.mock('../../../lib/server/admin-access', () => ({ requirePlatformAdmin: requireAdmin }))
 vi.mock('../../../lib/server/launch-control', () => ({ getLaunchControlSnapshot: getSnapshot }))
 vi.mock('../../../lib/server/release-certification', () => ({ getReleaseCertificationHistory: getReleases }))
 vi.mock('../../../lib/server/marketplace-curation', () => ({ getMarketplaceCurationQueue: getMarketplace }))
 vi.mock('../../../lib/server/commerce-demand', () => ({ getCommerceDemandSnapshot: getDemand }))
+vi.mock('../../../lib/server/commerce-supply-workflow', () => ({ getCommerceSupplyWorkflowSnapshot: getSupplyWorkflow }))
 vi.mock('../../../components/dashboard/LaunchControlDashboard', () => ({
   LaunchControlDashboard: ({ snapshot }: { snapshot: { generatedAt: string } }) => <div>{snapshot.generatedAt}</div>,
 }))
@@ -28,5 +30,9 @@ describe('AdminLaunchPage', () => {
     expect(getReleases).toHaveBeenCalledOnce()
     expect(getMarketplace).toHaveBeenCalledOnce()
     expect(getDemand).toHaveBeenCalledOnce()
+    expect(getSupplyWorkflow).toHaveBeenCalledWith(
+      { available: true, categories: [] },
+      { available: true, items: [] },
+    )
   })
 })
