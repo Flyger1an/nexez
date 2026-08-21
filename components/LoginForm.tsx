@@ -6,6 +6,7 @@ import {
   Building2,
   Eye,
   EyeOff,
+  KeyRound,
   Loader2,
   LockKeyhole,
   Mail,
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react'
 import { NexezLogo } from './NexezLogo'
 import { safeNextPath } from '../lib/safe-redirect'
+import { browserSupportsPasskeys, passkeyErrorMessage } from '../lib/passkeys'
 import { createClient } from '../utils/supabase/client'
 import { INDUSTRIES } from '../lib/industries'
 
@@ -95,6 +97,8 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
   const [agree, setAgree] = useState(false)
   const [loading, setLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState(false)
+  const [passkeyLoading, setPasskeyLoading] = useState(false)
+  const [passkeysSupported, setPasskeysSupported] = useState(false)
   const [message, setMessage] = useState('')
   const [messageTone, setMessageTone] = useState<'error' | 'info'>('info')
 
@@ -103,12 +107,15 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
 
   useEffect(() => {
     setHydrated(true)
+    setPasskeysSupported(browserSupportsPasskeys())
   }, [])
 
   useEffect(() => {
     setMode(initialMode)
     setMessage('')
     setLoading(false)
+    setOauthLoading(false)
+    setPasskeyLoading(false)
   }, [initialMode])
 
   useEffect(() => {
@@ -222,7 +229,7 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
   }
 
   async function handleGoogle() {
-    if (loading || oauthLoading) return
+    if (loading || oauthLoading || passkeyLoading) return
     setOauthLoading(true)
     setMessage('')
     const supabase = createClient()
@@ -242,6 +249,30 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
       setOauthLoading(false)
     }
   }
+
+  async function handlePasskey() {
+    if (loading || oauthLoading || passkeyLoading || !passkeysSupported) return
+    setPasskeyLoading(true)
+    setMessage('')
+
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithPasskey()
+      if (error) {
+        setError(passkeyErrorMessage(error, 'Nexez could not sign you in with that passkey.'))
+        return
+      }
+
+      const next = safeNextPath(new URLSearchParams(window.location.search).get('next') || nextPath)
+      window.location.href = next
+    } catch (error) {
+      setError(passkeyErrorMessage(error, 'Nexez could not sign you in with that passkey.'))
+    } finally {
+      setPasskeyLoading(false)
+    }
+  }
+
+  const authBusy = loading || oauthLoading || passkeyLoading
 
   const title =
     mode === 'signin' ? 'Welcome back' : mode === 'signup' ? 'Create your Nexez workspace' : 'Reset your password'
@@ -313,10 +344,22 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
 
                 {mode !== 'reset' ? (
                   <div className="mt-5 space-y-4">
+                    {mode === 'signin' ? (
+                      <button
+                        type="button"
+                        onClick={handlePasskey}
+                        disabled={!hydrated || !passkeysSupported || authBusy}
+                        className="nx-auth-oauth nx-auth-passkey"
+                        title={hydrated && !passkeysSupported ? 'Passkeys are not supported by this browser.' : undefined}
+                      >
+                        {passkeyLoading ? <Loader2 className="size-4 animate-spin" /> : <KeyRound className="size-[18px]" />}
+                        Continue with a passkey
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       onClick={handleGoogle}
-                      disabled={!hydrated || loading || oauthLoading}
+                      disabled={!hydrated || authBusy}
                       className="nx-auth-oauth"
                     >
                       {oauthLoading ? <Loader2 className="size-4 animate-spin" /> : <GoogleGlyph className="size-[18px]" />}
@@ -488,7 +531,7 @@ export function LoginForm({ initialMode = 'signin', nextPath }: { initialMode?: 
                     </p>
                   ) : null}
 
-                  <button type="submit" disabled={!hydrated || loading || oauthLoading} className="nx-auth-submit">
+                  <button type="submit" disabled={!hydrated || authBusy} className="nx-auth-submit">
                     {loading ? <Loader2 className="size-4 animate-spin" /> : null}
                     {mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send reset link'}
                     {!loading ? <ArrowRight className="size-4" /> : null}

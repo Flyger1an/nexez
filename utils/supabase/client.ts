@@ -12,6 +12,9 @@ export const createClient = () => {
     supabaseKey!,
     {
       ...(cookieOptions ? { cookieOptions } : {}),
+      auth: {
+        experimental: { passkey: true },
+      },
     },
   );
 }
