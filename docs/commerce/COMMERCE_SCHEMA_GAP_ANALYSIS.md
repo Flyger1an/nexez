@@ -1,6 +1,6 @@
 # Nexez Commerce Schema Gap Analysis
 
-**Status:** Architecture analysis v3 — refreshed after conditional-fulfillment implementation and staged-settlement autopsy
+**Status:** Architecture analysis v4 — refreshed after staged-settlement implementation and reservable-resource autopsy
 **Machine-readable source:** `lib/commerce-templates/curation/gap-analysis.ts`  
 **Curation evidence:** `lib/commerce-templates/curation/`
 
@@ -30,17 +30,17 @@ A `CommerceTemplate` capability is **knowledge about the commercial pattern**, n
 
 That distinction is now useful in both directions. Before the recurring-service implementation, `RECURRING` and `SUBSCRIPTION` were semantic/template knowledge ahead of the transaction engine. They are no longer merely labels: merchants can author recurring terms, agents can read them, buyer configuration resolves exact cadence and price, approval binds an agreement snapshot, Stripe Connect creates the subscription, paid invoices create ordinary order occurrences with service-period provenance, and buyers can cancel at period end.
 
-So recurrence and conditional fulfillment have moved from **broadly missing** to **first-class** because their runtime behavior now exists. The same promotion must not happen for `DEPOSIT`, `MILESTONE`, `INVENTORY`, `MULTI_PROVIDER`, or any other concept until the relevant transaction behavior is equally real.
+So recurrence, conditional fulfillment, and staged settlement have moved from **broadly missing** to **first-class** because their runtime behavior now exists. The same promotion must not happen for `INVENTORY`, `MULTI_PROVIDER`, or any other concept until the relevant transaction behavior is equally real.
 
 ## Executive result
 
-The current analysis now contains five first-class signals, a large middle of partial support, four remaining missing primitives, and a defer bucket:
+The current analysis now contains seven first-class signals, a large middle of partial support, two remaining missing primitives, and a defer bucket:
 
 | Disposition | Signals |
 |---|---|
-| first-class | customer requirements; recurrence terms; conditional fulfillment; structured modifiers; quantity pricing |
+| first-class | customer requirements; recurrence terms; conditional fulfillment; structured modifiers; quantity pricing; milestones; deposit schedule |
 | weakly structured | capacity constraints; document requirements; regulated qualification; contract terms; inspection-first; minimum charge; distance/travel fee; multi-unit booking; usage rights; qualification fit |
-| broadly missing | milestones; inventory/resource reservation; multi-provider orchestration; deposit schedule |
+| broadly missing | inventory/resource reservation; multi-provider orchestration |
 | not justified | usage pricing; route optimization |
 
 ## First-class: keep the existing rails
@@ -90,6 +90,19 @@ Simple independent modifiers are already deterministic: select options, booleans
 Pre-known quantity is typed and deterministically priced with an included quantity plus unit delta.
 
 **Decision:** distinguish this from post-consumption metering. The latter is a different problem.
+
+### Milestones and deposit schedules
+
+Staged settlement now has a real merchant-authored transaction contract:
+
+- two to five ordered obligations allocate exactly one authoritative total;
+- deposits are commitment installments rather than ambiguous security holds;
+- every payable obligation receives fresh approval bound to schedule, amount, currency, and paid predecessor lineage;
+- agreement and obligation ledgers preserve payment, refund, dispute, and completion provenance;
+- only one obligation can be payable at a time;
+- future stages never charge autonomously or become complete through model inference.
+
+**Decision:** `lib/staged-settlement.ts`, `lib/staged-settlement-runtime.ts`, and the staged-settlement agreement/checkout/webhook rail are canonical. Refundable security deposits, escrow, inventory reservation, and multi-provider allocation remain outside it.
 
 ## Weakly structured: harden before inventing replacements
 
@@ -155,31 +168,19 @@ Buyer eligibility-affecting inputs and merchant attributes can describe each sid
 
 ## Broadly missing: genuine design work
 
-### Milestones
-
-The template schema understands milestone-oriented projects; runtime settlement still resolves one agreed amount/path.
-
-The dedicated autopsy in `docs/commerce/STAGED_SETTLEMENT_AUTOPSY.md` analyzes all 19 candidates with deposit or milestone pressure and separates ordinary installments from refundable security, recurring billing, resources, and multi-provider topology.
-
-**Design direction:** a finite merchant-authored allocation resolved into sequential, immutable, buyer-approved payment obligations under one agreement lineage.
-
 ### Inventory / resource reservation
 
 The system can describe inventory/capacity concepts but has no transaction-bound reservation/allocation ledger for finite resources.
 
-**Design direction:** generic reservable resource + availability/hold semantics, shared with future capacity work.
+The dedicated autopsy in `docs/commerce/RESERVABLE_RESOURCE_AUTOPSY.md` analyzes all 20 candidates with inventory or capacity pressure and separates atomic scalar holds from route, provider, staffing, maintenance, and operational planning.
+
+**Design direction:** a short-lived atomic hold over merchant-authored interchangeable units, bound to exact buyer configuration and converted into a durable reservation only by authoritative settlement.
 
 ### Multi-provider orchestration
 
 A template may identify multi-provider commerce, but one transaction does not coordinate multiple provider responsibilities, availability, allocations, approvals, or settlement.
 
 **Design direction:** explicitly **not automatically next**. This is a larger product slice and should stay missing until a promoted pattern earns it.
-
-### Deposit schedule
-
-Template payment vocabulary includes deposit/balance and milestones, but current payment/settlement machinery handles one payable amount at a time rather than a merchant-authored staged schedule.
-
-**Design direction:** treat a deposit as the first obligation in the bounded staged-settlement contract. Refundable security/damage deposits remain outside v1.
 
 ## Not justified yet
 
@@ -207,13 +208,13 @@ The merchant-authored recurring-service contract now spans configuration, approv
 
 Merchant-authored predicates now evaluate canonical required buyer inputs before pricing/approval/settlement with deterministic eligible/review/ineligible outcomes across one-time and recurring checkout.
 
-### Track C — staged settlement — **next**
+### Track C — staged settlement — **implemented**
 
-The staged-settlement autopsy now defines the bounded v1: **deposit schedules + milestones** become sequential, immutable, buyer-approved obligations allocated from one authoritative total. Implement this contract before promoting it to first-class.
+Deposit schedules and milestones now resolve into sequential, immutable, buyer-approved obligations allocated from one authoritative total, with live checkout and webhook provenance.
 
-### Track D — reservable resources
+### Track D — reservable resources — **next**
 
-Treat **inventory reservation + generalized capacity** as one design family. Keep current weekly booking caps working while the broader abstraction is developed.
+Treat **inventory reservation + generalized capacity** as one allocation family. The bounded autopsy now defines merchant-owned interchangeable pools, exact requirements, expiring atomic holds, and settlement conversion while preserving current weekly booking caps and external calendar authority.
 
 ### Track E — multi-provider orchestration
 
@@ -223,7 +224,7 @@ Defer unless template selection forces the issue. It changes the transaction top
 
 Every primitive that becomes transaction-real should become observable through the public simulator by reusing the same production intelligence/evaluation path. The simulator must not create a second demo-only interpretation of merchant policy.
 
-Staged settlement should become the next proof surface: the simulator may explain an authoritative total, the current installment, remaining obligations, and fresh-approval requirement only by consuming the same production schedule resolver used by checkout.
+Reservable resources should become the next proof surface: the simulator may explain authoritative remaining units, an exact window, an expiring hold, and the approval boundary only by consuming the same production resolver used by checkout.
 
 ## Promotion implications
 
@@ -247,4 +248,4 @@ This PR must not:
 - treat seller claims or template knowledge as merchant truth;
 - claim a concept is first-class because a template enum contains its name.
 
-The next implementation PR should implement the bounded conditional-fulfillment contract from the dedicated autopsy and prove it end-to-end before the active template registry expands.
+The next implementation PR should implement the bounded reservable-resource contract from the dedicated autopsy and prove atomic no-oversubscription behavior end-to-end before the active template registry expands.
