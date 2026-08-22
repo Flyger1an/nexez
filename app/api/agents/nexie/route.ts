@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { handleNexieTurn, type NexieApprovalInput, type NexieMode } from '../../../../lib/agents/nexie'
 import { authenticateNexieRequest } from '../../../../lib/agents/nexie-auth'
+import { createNexieTurnDb } from '../../../../lib/agents/nexie-turn-db'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 
 export const maxDuration = 60
@@ -45,7 +46,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const result = await handleNexieTurn({
-      db,
+      // Every ordinary buyer table remains on the authenticated RLS client. Only the
+      // approval ledger is routed through a lazy server-only client because browser
+      // roles are intentionally read-only on that table.
+      db: createNexieTurnDb(db),
       userId: user.id,
       // Only carry the buyer email into the transact path if it's CONFIRMED. An unconfirmed (or
       // attacker-chosen) address must never be stamped onto orders/negotiations - mirrors the
