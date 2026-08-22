@@ -19,6 +19,7 @@ import {
   X,
 } from 'lucide-react'
 import { CompetitorCompare } from '../../components/simulator/CompetitorCompare'
+import { AgentLabModeTabs, type AgentLabMode } from '../../components/simulator/AgentLabModeTabs'
 import { ResearchArchive } from '../../components/simulator/ResearchArchive'
 import { ErrorBoundary } from '../../components/ErrorBoundary'
 import {
@@ -73,17 +74,23 @@ export default function GlobalAgentSimulator() {
   const [saveUrlScan, setSaveUrlScan] = useState(false)
   const [urlHistory, setUrlHistory] = useState<AgentLabResearchRun[]>([])
   const [urlHistoryLoading, setUrlHistoryLoading] = useState(false)
+  const [urlHistoryError, setUrlHistoryError] = useState<string | null>(null)
+  const [urlHistoryRefresh, setUrlHistoryRefresh] = useState(0)
   const [history, setHistory] = useState<SimulationHistoryEntry[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyError, setHistoryError] = useState<string | null>(null)
   const [historyQuery, setHistoryQuery] = useState('')
   const [message, setMessage] = useState('')
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   // Which lens of the Agent Lab is active. 'test' (your page / any slug), 'url'
   // (simulate any website), or 'compare' (score a competitor - signed-in).
-  const [mode, setMode] = useState<'test' | 'url' | 'compare'>('test')
+  const [mode, setMode] = useState<AgentLabMode>('test')
 
   const supabase = createClient()
   const filteredHistory = filterSimulationHistory(history, historyQuery)
   const historyStats = getSimulationHistoryStats(history)
+  const historyPending = historyLoading && history.length === 0
+  const historyUnavailable = historyError != null && history.length === 0
   const currentResult = simulationResults.find((r) => r.agent === currentAgent)
   const availableAgentTabs = agentTabs.filter(
     (tab) => tab !== 'LLM-Enhanced' || simulationResults.some((result) => result.agent === 'LLM-Enhanced'),
@@ -153,24 +160,27 @@ export default function GlobalAgentSimulator() {
   useEffect(() => {
     if (!isLoggedIn) {
       setUrlHistory([])
+      setUrlHistoryError(null)
       return
     }
     let cancelled = false
     async function load() {
       setUrlHistoryLoading(true)
+      setUrlHistoryError(null)
       try {
         const response = await fetch('/api/agent-lab/research-runs?kind=url_snapshot&limit=30')
         const data = await response.json()
-        if (!cancelled) setUrlHistory(response.ok && Array.isArray(data?.runs) ? data.runs : [])
+        if (!response.ok || !Array.isArray(data?.runs)) throw new Error(data?.error || 'Saved URL scans could not be loaded.')
+        if (!cancelled) setUrlHistory(data.runs)
       } catch {
-        if (!cancelled) setUrlHistory([])
+        if (!cancelled) setUrlHistoryError('Saved URL scans could not be loaded.')
       } finally {
         if (!cancelled) setUrlHistoryLoading(false)
       }
     }
     void load()
     return () => { cancelled = true }
-  }, [isLoggedIn])
+  }, [isLoggedIn, urlHistoryRefresh])
 
   async function loadPageBySlug(slug: string): Promise<AgentPage | null> {
     // Public "analyze a page by slug" flow - runs as anon for logged-out users, so
@@ -195,16 +205,20 @@ export default function GlobalAgentSimulator() {
   }
 
   async function loadDurableHistory(pageId: string) {
+    setHistoryLoading(true)
+    setHistoryError(null)
     try {
       const response = await fetch(`/api/simulator/runs?pageId=${encodeURIComponent(pageId)}&limit=100`)
       const data = await response.json()
       if (!response.ok || !Array.isArray(data?.runs)) {
-        setHistory([])
+        setHistoryError(data?.error || 'Saved listing runs could not be loaded.')
         return
       }
       setHistory(data.runs.map((run: AgentLabRun) => agentLabRunToHistoryEntry(run)))
     } catch {
-      setHistory([])
+      setHistoryError('Saved listing runs could not be loaded.')
+    } finally {
+      setHistoryLoading(false)
     }
   }
 
@@ -265,9 +279,13 @@ export default function GlobalAgentSimulator() {
     setSelectedPage(page)
     setPasteSlug('')
     setQuery(nextQuery)
-    await loadDurableHistory(page.id)
+    setHistory([])
+    setHistoryError(null)
     setHistoryQuery('')
-    await runSimulationForPage(page, nextQuery)
+    await Promise.all([
+      loadDurableHistory(page.id),
+      runSimulationForPage(page, nextQuery),
+    ])
   }
 
   async function handlePasteAnalyze() {
@@ -346,19 +364,32 @@ export default function GlobalAgentSimulator() {
   }
 
   async function removeUrlResearch(runId: string): Promise<boolean> {
-    const response = await fetch('/api/agent-lab/research-runs', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: runId }),
-    })
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}))
-      setMessage(data.error || 'Could not remove the saved scan.')
+    try {
+      const response = await fetch('/api/agent-lab/research-runs', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: runId }),
+      })
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        setMessage(data.error || 'Could not remove the saved scan.')
+        return false
+      }
+      setUrlHistory((current) => current.filter((run) => run.id !== runId))
+      setMessage('Saved URL scan removed.')
+      return true
+    } catch {
+      setMessage('Could not reach saved research. The scan was not removed.')
       return false
     }
-    setUrlHistory((current) => current.filter((run) => run.id !== runId))
-    setMessage('Saved URL scan removed.')
-    return true
+  }
+
+  function selectMode(nextMode: AgentLabMode) {
+    setMode(nextMode)
+    setMessage('')
+    const nextUrl = new URL(window.location.href)
+    nextUrl.searchParams.set('mode', nextMode)
+    window.history.replaceState(window.history.state, '', `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`)
   }
 
   function regenerate() {
@@ -480,6 +511,7 @@ export default function GlobalAgentSimulator() {
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
+              {isLoggedIn ? <a href={appUrl('/dashboard/settings#agent-surfaces')} className="btn-secondary text-sm">Agent operations</a> : null}
               <a href="/discovery" className="btn-secondary text-sm">Browse Discovery</a>
               {mode === 'test' && selectedPage && (
                 <a href={appUrl(`/dashboard/${(selectedPage as any).id || ''}/test`)} className="btn-secondary text-sm">
@@ -490,37 +522,11 @@ export default function GlobalAgentSimulator() {
           </div>
 
           {/* Mode tabs - the three lenses of the Agent Lab */}
-          <div role="tablist" aria-label="Agent Lab modes" className="mb-8 grid gap-2 rounded-2xl border border-[var(--bd-10)] bg-[var(--panel)] p-2 sm:grid-cols-3">
-            {([
-              { key: 'test', label: 'Test a listing', icon: Bot },
-              { key: 'url', label: 'Any URL', icon: Globe },
-              { key: 'compare', label: 'Compare a competitor', icon: Target },
-            ] as const).map((m) => (
-              <button
-                key={m.key}
-                id={`agent-lab-tab-${m.key}`}
-                role="tab"
-                aria-selected={mode === m.key}
-                aria-controls={`agent-lab-panel-${m.key}`}
-                onClick={() => {
-                  setMode(m.key)
-                  setMessage('')
-                }}
-                className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--signal)] ${
-                  mode === m.key
-                    ? 'border-[var(--signal)] bg-[var(--signal)]/10 text-foreground'
-                    : 'border-[var(--bd-10)] text-[var(--fg-muted)] hover:bg-[var(--hover)] hover:text-foreground'
-                }`}
-              >
-                <m.icon className="size-4" aria-hidden="true" /> {m.label}
-                {m.key === 'compare' && !isLoggedIn && <span className="text-[10px] text-zinc-500">(sign in)</span>}
-              </button>
-            ))}
-          </div>
+          <AgentLabModeTabs mode={mode} isLoggedIn={isLoggedIn} onChange={selectMode} />
 
           {/* ── TEST A PAGE ───────────────────────────────────────────── */}
           {mode === 'test' && (
-          <div id="agent-lab-panel-test" role="tabpanel" aria-labelledby="agent-lab-tab-test" className="min-w-0">
+          <div id="agent-lab-panel-test" role="tabpanel" aria-labelledby="agent-lab-tab-test" tabIndex={0} className="min-w-0 outline-none">
           {/* Controls */}
           <div className="mb-8 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(320px,0.75fr)_minmax(0,1.25fr)]">
             {/* My Pages */}
@@ -721,13 +727,13 @@ export default function GlobalAgentSimulator() {
               {rankAnalysis && <WinQueryPanel a={rankAnalysis} query={query} />}
 
               <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-                <HistoryStat label="Saved runs" value={String(historyStats.totalRuns)} />
+                <HistoryStat label="Saved runs" value={historyPending || historyUnavailable ? '—' : String(historyStats.totalRuns)} />
                 <HistoryStat label="Latest readiness" value={`${historyStats.latestReadiness || getReadinessScore(selectedPage)}%`} />
-                <HistoryStat label="Avg readiness" value={`${historyStats.averageReadiness || getReadinessScore(selectedPage)}%`} />
+                <HistoryStat label="Avg readiness" value={historyPending || historyUnavailable ? '—' : `${historyStats.averageReadiness || getReadinessScore(selectedPage)}%`} />
                 <HistoryStat
                   label="Readiness trend"
-                  value={historyStats.readinessDelta > 0 ? `+${historyStats.readinessDelta}` : String(historyStats.readinessDelta)}
-                  tone={historyStats.readinessDelta >= 0 ? 'good' : 'warn'}
+                  value={historyPending || historyUnavailable ? '—' : historyStats.readinessDelta > 0 ? `+${historyStats.readinessDelta}` : String(historyStats.readinessDelta)}
+                  tone={historyPending || historyUnavailable ? undefined : historyStats.readinessDelta >= 0 ? 'good' : 'warn'}
                 />
               </div>
 
@@ -756,7 +762,9 @@ export default function GlobalAgentSimulator() {
                       <h3 className="font-semibold flex items-center gap-2">
                         <History className="size-4 text-[var(--signal)]" /> Simulation History
                       </h3>
-                      <p className="mt-1 text-xs text-zinc-500">{history.length} saved runs for this listing</p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {historyPending ? 'Loading saved runs…' : historyUnavailable ? 'Saved runs unavailable' : `${history.length} saved runs for this listing`}
+                      </p>
                     </div>
                     <button
                       onClick={exportHistory}
@@ -766,6 +774,18 @@ export default function GlobalAgentSimulator() {
                       Export History JSON
                     </button>
                   </div>
+                  {historyError ? (
+                    <div role="status" className="mb-3 flex flex-col gap-3 rounded-xl border border-[var(--amber)]/30 bg-[var(--amber)]/10 p-3 text-xs text-zinc-300 sm:flex-row sm:items-center sm:justify-between">
+                      <span>{historyError}{history.length ? ' Showing the last loaded runs.' : ''}</span>
+                      <button
+                        onClick={() => selectedPage && void loadDurableHistory(selectedPage.id)}
+                        disabled={historyLoading || !selectedPage}
+                        className="min-h-9 shrink-0 rounded-lg border border-[var(--amber)]/30 px-3 font-medium text-[var(--amber)] hover:bg-[var(--amber)]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--amber)] disabled:opacity-50"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  ) : null}
                   {history.length > 0 ? (
                     <input
                       value={historyQuery}
@@ -782,7 +802,9 @@ export default function GlobalAgentSimulator() {
                       Use latest query: {historyStats.latestQuery.slice(0, 90)}
                     </button>
                   ) : null}
-                  {filteredHistory.length > 0 ? (
+                  {historyLoading && history.length === 0 ? (
+                    <div className="rounded border border-dashed border-white/10 p-4 text-sm text-zinc-500">Loading saved listing runs…</div>
+                  ) : filteredHistory.length > 0 ? (
                     <div className="space-y-2 text-sm max-h-64 overflow-auto">
                       {filteredHistory.map((h, idx) => (
                         <div key={h.id || idx} className="rounded border border-white/10 p-2 text-xs flex items-center justify-between gap-2">
@@ -801,7 +823,7 @@ export default function GlobalAgentSimulator() {
                     <div className="rounded border border-dashed border-white/10 p-4 text-sm text-zinc-500">
                       No history runs match that search.
                     </div>
-                  ) : (
+                  ) : historyError ? null : (
                     <div className="text-sm text-zinc-500">Run analyses to save history.</div>
                   )}
                   <p className="mt-2 text-[10px] text-zinc-500">Load replays prior parse.</p>
@@ -822,7 +844,7 @@ export default function GlobalAgentSimulator() {
 
           {/* ── ANY URL ──────────────────────────────────────────────── */}
           {mode === 'url' && (
-          <div id="agent-lab-panel-url" role="tabpanel" aria-labelledby="agent-lab-tab-url">
+          <div id="agent-lab-panel-url" role="tabpanel" aria-labelledby="agent-lab-tab-url" tabIndex={0} className="outline-none">
             <div className="mb-8 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
             <div className="card min-w-0">
               <div className="flex items-center gap-2 mb-2">
@@ -870,10 +892,12 @@ export default function GlobalAgentSimulator() {
               empty="Opt in when scanning to build a private, replayable research trail."
               runs={urlHistory}
               loading={urlHistoryLoading}
+              error={urlHistoryError}
               locked={!isLoggedIn}
               itemName="scan"
               onLoad={loadUrlResearch}
               onRemove={removeUrlResearch}
+              onRetry={() => setUrlHistoryRefresh((current) => current + 1)}
             />
             </div>
 
@@ -883,7 +907,7 @@ export default function GlobalAgentSimulator() {
 
           {/* ── COMPARE A COMPETITOR (signed-in) ─────────────────────── */}
           {mode === 'compare' && (
-            <div id="agent-lab-panel-compare" role="tabpanel" aria-labelledby="agent-lab-tab-compare">
+            <div id="agent-lab-panel-compare" role="tabpanel" aria-labelledby="agent-lab-tab-compare" tabIndex={0} className="outline-none">
               <CompetitorCompare isLoggedIn={isLoggedIn} myPages={myPages} />
             </div>
           )}

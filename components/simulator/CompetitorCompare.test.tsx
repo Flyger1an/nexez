@@ -105,4 +105,21 @@ describe('CompetitorCompare research workspace', () => {
     await waitFor(() => expect(postedBody).toMatchObject({ url: 'https://new.example', save: true }))
     expect(await screen.findByText(/saved to your private research history/i)).toBeInTheDocument()
   })
+
+  it('keeps private history failures distinct from an empty archive and can retry', async () => {
+    let historyCalls = 0
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      historyCalls += 1
+      return historyCalls === 1
+        ? new Response(JSON.stringify({ error: 'temporary' }), { status: 503 })
+        : new Response(JSON.stringify({ runs: [run] }), { status: 200 })
+    }))
+
+    render(<CompetitorCompare isLoggedIn myPages={[]} />)
+    expect(await screen.findByText('Saved competitor benchmarks could not be loaded.')).toBeInTheDocument()
+    expect(screen.queryByText(/start a private comparison archive/i)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText('existing.example')).toBeInTheDocument()
+    expect(historyCalls).toBe(2)
+  })
 })

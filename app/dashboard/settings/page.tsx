@@ -358,7 +358,7 @@ function AgentOperationsPanel({ snapshot, error }: { snapshot: AgentOperationsSn
             Turn listing evidence and saved external research into a concrete operating queue.
           </p>
         </div>
-        <Link href="/simulator" className={topButtonClass}>Open Agent Lab <ArrowUpRight className="size-4" aria-hidden="true" /></Link>
+        <Link href="/simulator" className={topButtonClass}>Review in Agent Lab <ArrowUpRight className="size-4" aria-hidden="true" /></Link>
       </div>
 
       {error || !snapshot ? (
@@ -448,7 +448,7 @@ function SettingsArea({
   children: React.ReactNode
 }) {
   return (
-    <section id={id} className="max-w-full min-w-0 scroll-mt-6 overflow-hidden rounded-[24px] border border-[var(--bd-10)] bg-[var(--panel)]/45 p-4 sm:p-6 lg:p-7">
+    <section id={id} className="max-w-full min-w-0 scroll-mt-24 overflow-hidden rounded-[24px] border border-[var(--bd-10)] bg-[var(--panel)]/45 p-4 sm:p-6 lg:p-7">
       <header className="mb-5 flex items-start gap-3 sm:mb-6">
         <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-[var(--bd-10)] bg-[var(--panel)] text-[var(--signal)]">
           <Icon className="size-5" aria-hidden="true" />

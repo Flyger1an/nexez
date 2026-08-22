@@ -55,25 +55,29 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
   const [saveBenchmark, setSaveBenchmark] = useState(false)
   const [history, setHistory] = useState<AgentLabResearchRun[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyError, setHistoryError] = useState<string | null>(null)
+  const [historyRefresh, setHistoryRefresh] = useState(0)
 
   useEffect(() => {
     if (!isLoggedIn) return
     let cancelled = false
     async function load() {
       setHistoryLoading(true)
+      setHistoryError(null)
       try {
         const response = await fetch('/api/agent-lab/research-runs?kind=competitor_benchmark&limit=30')
         const data = await response.json()
-        if (!cancelled) setHistory(response.ok && Array.isArray(data?.runs) ? data.runs : [])
+        if (!response.ok || !Array.isArray(data?.runs)) throw new Error(data?.error || 'Saved competitor benchmarks could not be loaded.')
+        if (!cancelled) setHistory(data.runs)
       } catch {
-        if (!cancelled) setHistory([])
+        if (!cancelled) setHistoryError('Saved competitor benchmarks could not be loaded.')
       } finally {
         if (!cancelled) setHistoryLoading(false)
       }
     }
     void load()
     return () => { cancelled = true }
-  }, [isLoggedIn])
+  }, [isLoggedIn, historyRefresh])
 
   if (!isLoggedIn) {
     return (
@@ -151,19 +155,24 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
   }
 
   async function removeSavedRun(runId: string): Promise<boolean> {
-    const response = await fetch('/api/agent-lab/research-runs', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: runId }),
-    })
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}))
-      setMessage(data.error || 'Could not remove the saved benchmark.')
+    try {
+      const response = await fetch('/api/agent-lab/research-runs', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: runId }),
+      })
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        setMessage(data.error || 'Could not remove the saved benchmark.')
+        return false
+      }
+      setHistory((current) => current.filter((item) => item.id !== runId))
+      setMessage('Saved benchmark removed.')
+      return true
+    } catch {
+      setMessage('Could not reach saved research. The benchmark was not removed.')
       return false
     }
-    setHistory((current) => current.filter((item) => item.id !== runId))
-    setMessage('Saved benchmark removed.')
-    return true
   }
 
   function exportReport(format: 'md' | 'json') {
@@ -198,8 +207,9 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
 
       <div className="grid gap-3 md:grid-cols-5">
         <div className="md:col-span-3">
-          <label className="text-xs text-zinc-400">Competitor website URL</label>
+          <label htmlFor="competitor-url" className="text-xs text-zinc-400">Competitor website URL</label>
           <input
+            id="competitor-url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !loading && url.trim()) run() }}
@@ -209,16 +219,16 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
           />
         </div>
         <div className="md:col-span-2">
-          <label className="text-xs text-zinc-400">Your listing (optional side-by-side)</label>
+          <label htmlFor="competitor-listing" className="text-xs text-zinc-400">Your listing (optional side-by-side)</label>
           {myPages.length > 0 ? (
-            <select value={sideSlug} onChange={(e) => setSideSlug(e.target.value)} className="input mt-1 w-full" disabled={loading}>
+            <select id="competitor-listing" value={sideSlug} onChange={(e) => setSideSlug(e.target.value)} className="input mt-1 w-full" disabled={loading}>
               <option value="">- none -</option>
               {myPages.map((p) => (
                 <option key={p.id} value={p.slug}>{p.name} (/{p.slug})</option>
               ))}
             </select>
           ) : (
-            <input value={sideSlug} onChange={(e) => setSideSlug(e.target.value)} placeholder="your-slug" className="input mt-1 w-full" disabled={loading} />
+            <input id="competitor-listing" value={sideSlug} onChange={(e) => setSideSlug(e.target.value)} placeholder="your-slug" className="input mt-1 w-full" disabled={loading} />
           )}
         </div>
       </div>
@@ -244,7 +254,7 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
         )}
       </div>
       <p className="mt-2 text-[11px] text-zinc-500">Saving is off by default. Saved reports contain summarized findings and provenance, never fetched HTML.</p>
-      {message && <p className="mt-2 text-xs text-[var(--ready)]">{message}</p>}
+      {message && <p role="status" className="mt-2 text-xs text-[var(--fg-muted)]">{message}</p>}
 
       <div className="mt-5">
         <ResearchArchive
@@ -253,10 +263,12 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
           empty="Opt in on a benchmark to start a private comparison archive."
           runs={history}
           loading={historyLoading}
+          error={historyError}
           variant="grid"
           itemName="report"
           onLoad={openSavedRun}
           onRemove={removeSavedRun}
+          onRetry={() => setHistoryRefresh((current) => current + 1)}
         />
       </div>
 

@@ -58,4 +58,52 @@ describe('ResearchArchive', () => {
     await waitFor(() => expect(remove).toHaveBeenCalledWith('new'))
     expect(screen.getByRole('button', { name: 'Remove scan' })).toBeInTheDocument()
   })
+
+  it('shows load failures explicitly and retries without presenting an empty archive', () => {
+    const retry = vi.fn()
+    render(
+      <ResearchArchive
+        title="Saved scans"
+        description="Tracked history"
+        empty="No history"
+        runs={[]}
+        loading={false}
+        error="Saved scans are temporarily unavailable."
+        itemName="scan"
+        onLoad={vi.fn()}
+        onRemove={vi.fn(async () => true)}
+        onRetry={retry}
+      />,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent('Saved scans are temporarily unavailable.')
+    expect(screen.queryByText('No history')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(retry).toHaveBeenCalledOnce()
+  })
+
+  it('prevents duplicate removals while a delete is pending', async () => {
+    const deferred: { resolve?: (removed: boolean) => void } = {}
+    const remove = vi.fn(() => new Promise<boolean>((resolve) => { deferred.resolve = resolve }))
+    render(
+      <ResearchArchive
+        title="Saved scans"
+        description="Tracked history"
+        empty="No history"
+        runs={[runs[0]]}
+        loading={false}
+        itemName="scan"
+        onLoad={vi.fn()}
+        onRemove={remove}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove saved scan for example.test' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove scan' }))
+    expect(screen.getByRole('button', { name: 'Removing' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Removing' }))
+    expect(remove).toHaveBeenCalledOnce()
+    deferred.resolve?.(true)
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Removing' })).toBeNull())
+  })
 })

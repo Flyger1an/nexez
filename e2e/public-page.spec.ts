@@ -22,7 +22,21 @@ test.describe('public surface', () => {
     await page.goto('/simulator', { waitUntil: 'domcontentloaded' })
     await expect(page.getByText('Test, simulate & compare')).toBeVisible()
     await expect(page.getByRole('tablist', { name: 'Agent Lab modes' })).toBeVisible()
-    await expect(page.getByRole('tab', { name: 'Test a listing' })).toHaveAttribute('aria-selected', 'true')
+    const testMode = page.getByRole('tab', { name: 'Test a listing' })
+    const urlMode = page.getByRole('tab', { name: 'Any URL' })
+    await expect(testMode).toHaveAttribute('aria-selected', 'true')
+    await expect(testMode).toHaveAttribute('tabindex', '0')
+    await expect(urlMode).toHaveAttribute('tabindex', '-1')
+
+    await testMode.focus()
+    await testMode.press('ArrowRight')
+    await expect(urlMode).toBeFocused()
+    await expect(urlMode).toHaveAttribute('aria-selected', 'true')
+    await expect(page).toHaveURL(/\?mode=url$/)
+    await urlMode.press('Home')
+    await expect(testMode).toBeFocused()
+    await expect(testMode).toHaveAttribute('aria-selected', 'true')
+    await expect(page).toHaveURL(/\?mode=test$/)
 
     await page.setViewportSize({ width: 1440, height: 900 })
     const wideLayout = await page.getByTestId('agent-lab-screen').evaluate((element) => ({

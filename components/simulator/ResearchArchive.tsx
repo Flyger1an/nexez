@@ -15,36 +15,64 @@ export function ResearchArchive({
   empty,
   runs,
   loading,
+  error = null,
   locked = false,
   variant = 'compact',
   itemName,
   onLoad,
   onRemove,
+  onRetry,
 }: {
   title: string
   description: string
   empty: string
   runs: AgentLabResearchRun[]
   loading: boolean
+  error?: string | null
   locked?: boolean
   variant?: 'compact' | 'grid'
   itemName: 'scan' | 'report'
   onLoad: (run: AgentLabResearchRun) => void
   onRemove: (id: string) => Promise<boolean>
+  onRetry?: () => void
 }) {
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
+  const [removingId, setRemovingId] = useState<string | null>(null)
   const trends = useMemo(() => buildResearchTrendIndex(runs), [runs])
   const summary = useMemo(() => summarizeResearchRuns(runs), [runs])
 
+  async function removeConfirmed(id: string) {
+    if (removingId) return
+    setRemovingId(id)
+    try {
+      if (await onRemove(id)) setConfirmRemoveId(null)
+    } finally {
+      setRemovingId(null)
+    }
+  }
+
   return (
-    <aside className="card min-w-0" aria-label={title}>
+    <aside className="card min-w-0" aria-label={title} aria-busy={loading || removingId != null}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-sm font-medium"><History className="size-4 shrink-0 text-[var(--signal)]" /> {title}</p>
           <p className="mt-1 text-xs leading-5 text-zinc-500">{description}</p>
         </div>
-        {loading ? <Loader2 className="size-4 shrink-0 animate-spin text-zinc-500" /> : <span className="text-xs tabular-nums text-zinc-500">{runs.length}</span>}
+        {loading
+          ? <Loader2 className="size-4 shrink-0 animate-spin text-zinc-500" aria-hidden="true" />
+          : <span className="text-xs tabular-nums text-zinc-500">{error && runs.length === 0 ? '—' : runs.length}</span>}
       </div>
+
+      {!locked && error ? (
+        <div role="status" className="mt-4 flex flex-col gap-3 rounded-xl border border-[var(--amber)]/30 bg-[var(--amber)]/10 p-3 text-xs text-zinc-300 sm:flex-row sm:items-center sm:justify-between">
+          <span>{error}{runs.length ? ' Showing the last loaded snapshots.' : ''}</span>
+          {onRetry ? (
+            <button onClick={onRetry} disabled={loading} className="min-h-9 shrink-0 rounded-lg border border-[var(--amber)]/30 px-3 font-medium text-[var(--amber)] hover:bg-[var(--amber)]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--amber)] disabled:opacity-50">
+              Retry
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {!locked && runs.length ? (
         <div className="mt-4 grid grid-cols-3 gap-2" aria-label="Research trend summary">
@@ -60,6 +88,8 @@ export function ResearchArchive({
 
       {locked ? (
         <p className="mt-5 rounded-xl border border-dashed border-white/10 p-4 text-sm text-zinc-500">Sign in to save, compare, and replay private research.</p>
+      ) : loading && runs.length === 0 ? (
+        <p className="mt-5 rounded-xl border border-dashed border-white/10 p-4 text-sm text-zinc-500">Loading saved research…</p>
       ) : runs.length ? (
         <div className={`mt-4 gap-2 ${variant === 'grid' ? 'grid sm:grid-cols-2 xl:grid-cols-3' : 'max-h-72 space-y-2 overflow-y-auto pr-1'}`}>
           {runs.slice(0, variant === 'grid' ? 12 : runs.length).map((run) => {
@@ -77,8 +107,9 @@ export function ResearchArchive({
                     {score != null ? <span className="rounded-md border border-white/10 px-1.5 py-1 text-[11px] font-medium tabular-nums text-zinc-300">{score}</span> : null}
                     <button
                       onClick={() => setConfirmRemoveId(run.id)}
+                      disabled={removingId != null}
                       aria-label={`Remove saved ${itemName} for ${run.targetHost}`}
-                      className="rounded-lg p-2 text-zinc-600 hover:bg-rose-500/10 hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+                      className="rounded-lg p-2 text-zinc-600 hover:bg-rose-500/10 hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 disabled:opacity-40"
                     >
                       <Trash2 className="size-3.5" />
                     </button>
@@ -89,12 +120,13 @@ export function ResearchArchive({
 
                 {confirmRemoveId === run.id ? (
                   <div role="group" aria-label={`Confirm removal for ${run.targetHost}`} className="mt-2 flex items-center gap-2">
-                    <button onClick={() => setConfirmRemoveId(null)} className="rounded-lg border border-white/10 px-2 py-1 text-[11px] text-zinc-400 hover:text-zinc-200">Keep</button>
+                    <button onClick={() => setConfirmRemoveId(null)} disabled={removingId === run.id} className="rounded-lg border border-white/10 px-2 py-1 text-[11px] text-zinc-400 hover:text-zinc-200 disabled:opacity-40">Keep</button>
                     <button
-                      onClick={async () => { if (await onRemove(run.id)) setConfirmRemoveId(null) }}
-                      className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-[11px] font-medium text-rose-300 hover:bg-rose-500/15"
+                      onClick={() => void removeConfirmed(run.id)}
+                      disabled={removingId === run.id}
+                      className="inline-flex min-w-24 items-center justify-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-[11px] font-medium text-rose-300 hover:bg-rose-500/15 disabled:opacity-60"
                     >
-                      Remove {itemName}
+                      {removingId === run.id ? <><Loader2 className="size-3 animate-spin" aria-hidden="true" /> Removing</> : `Remove ${itemName}`}
                     </button>
                   </div>
                 ) : (
@@ -104,7 +136,7 @@ export function ResearchArchive({
             )
           })}
         </div>
-      ) : (
+      ) : error ? null : (
         <p className="mt-5 rounded-xl border border-dashed border-white/10 p-4 text-sm leading-6 text-zinc-500">{empty}</p>
       )}
     </aside>
