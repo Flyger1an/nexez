@@ -11,6 +11,7 @@ const refs = vi.hoisted(() => ({
   pageError: false,
   listingError: false,
   storefrontError: false,
+  agentError: false,
 }))
 
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({})) }))
@@ -20,6 +21,21 @@ vi.mock('../../../lib/server/storefront', () => ({
     if (refs.storefrontError) throw new Error('unavailable')
     return []
   }),
+}))
+vi.mock('../../../lib/server/agent-operations', () => ({
+  loadAgentOperations: vi.fn(async () => refs.agentError
+    ? { data: { simulationRuns: [], researchRuns: [], historyWindowComplete: false }, error: 'Agent Lab evidence and research status are temporarily unavailable.' }
+    : {
+        data: {
+          simulationRuns: [{ pageId: 'page-1', readiness: 100, createdAt: '2026-08-21T12:00:00.000Z' }],
+          researchRuns: [
+            { kind: 'competitor_benchmark', targetHost: 'rival.test', score: 65, createdAt: '2026-08-21T13:00:00.000Z' },
+            { kind: 'competitor_benchmark', targetHost: 'rival.test', score: 60, createdAt: '2026-08-20T13:00:00.000Z' },
+          ],
+          historyWindowComplete: true,
+        },
+        error: null,
+      }),
 }))
 vi.mock('../../../components/AccountDataControls', () => ({ AccountDataControls: () => <div>Account data controls</div> }))
 vi.mock('../../../components/PasskeySettings', () => ({ PasskeySettings: () => <div>Passkey controls</div> }))
@@ -71,6 +87,7 @@ describe('account settings control center', () => {
     refs.pageError = false
     refs.listingError = false
     refs.storefrontError = false
+    refs.agentError = false
   })
 
   it('renders a wide, navigable settings architecture with live account metrics', async () => {
@@ -82,6 +99,10 @@ describe('account settings control center', () => {
     expect(html).toContain('Profile &amp; security')
     expect(html).toContain('Data controls')
     expect(html).toContain('Agent surfaces')
+    expect(html).toContain('Agent operations')
+    expect(html).toContain('Listing coverage')
+    expect(html).toContain('+5 vs prior snapshot')
+    expect(html).toContain('Priority queue')
     expect(html).toContain('Example listing')
     expect(html).toContain('100%')
   })
@@ -90,12 +111,14 @@ describe('account settings control center', () => {
     refs.pageError = true
     refs.listingError = true
     refs.storefrontError = true
+    refs.agentError = true
 
     const html = renderToStaticMarkup(await AccountSettingsPage())
 
     expect(html).toContain('Some live settings data is unavailable.')
     expect(html).toContain('Listing metrics and agent-surface status are temporarily unavailable.')
     expect(html).toContain('No zero values have been assumed.')
+    expect(html).toContain('Agent Lab evidence and research status are temporarily unavailable.')
     expect(html).toContain('>—<')
   })
 

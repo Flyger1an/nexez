@@ -81,13 +81,13 @@ describe('CompetitorCompare research workspace', () => {
     expect(await screen.findByText(/Loaded saved benchmark/)).toBeInTheDocument()
     expect(screen.getByText('Overall agent trust')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove saved benchmark for existing.example' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove saved report for existing.example' }))
     expect(screen.getByRole('button', { name: 'Remove report' })).toBeInTheDocument()
     expect(deleteCalls).toBe(0)
     fireEvent.click(screen.getByRole('button', { name: 'Keep' }))
     expect(screen.queryByRole('button', { name: 'Remove report' })).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove saved benchmark for existing.example' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove saved report for existing.example' }))
     fireEvent.click(screen.getByRole('button', { name: 'Remove report' }))
     await waitFor(() => expect(deleteCalls).toBe(1))
     expect(await screen.findByText('Saved benchmark removed.')).toBeInTheDocument()

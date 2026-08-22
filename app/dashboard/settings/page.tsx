@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   ArrowUpRight,
+  Activity,
   BadgeCheck,
   Bot,
   Building2,
@@ -9,11 +10,13 @@ import {
   Globe2,
   KeyRound,
   Link2,
+  ListChecks,
   LockKeyhole,
   Search,
   Settings2,
   ShieldCheck,
   Store,
+  Target,
   Users,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -22,6 +25,8 @@ import { type AgentPage, getBaseUrl, getOfferCount, getReadinessScore } from '..
 import { getBillingPlan, minPlanForFeature } from '../../../lib/billing'
 import { loadStorefrontsForOwner } from '../../../lib/server/storefront'
 import { getOwnerPlanId } from '../../../lib/server/plan'
+import { loadAgentOperations } from '../../../lib/server/agent-operations'
+import { buildAgentOperationsSnapshot, type AgentOperationsSnapshot } from '../../../lib/agent-operations'
 import { createClient } from '../../../utils/supabase/server'
 import { AccountDataControls } from '../../../components/AccountDataControls'
 import { PasskeySettings } from '../../../components/PasskeySettings'
@@ -123,14 +128,15 @@ export default async function AccountSettingsPage() {
     )
   }
 
-  const [currentPlan, pageState, storefrontState, listingState] = await Promise.all([
+  const [currentPlan, pageState, storefrontState, listingState, agentState] = await Promise.all([
     getOwnerPlanId(supabase, user.id),
     loadAccountPages(supabase, user.id),
     loadStorefrontState(user.id),
     loadListingAssignments(supabase, user.id),
+    loadAgentOperations(supabase, user.id),
   ])
 
-  const dataIssues = [pageState.error, storefrontState.error, listingState.error].filter(Boolean) as string[]
+  const dataIssues = [pageState.error, storefrontState.error, listingState.error, agentState.error].filter(Boolean) as string[]
   const ownedPages = pageState.data
   const publishedPages = ownedPages.filter((page) => page.is_published)
   const offerCount = ownedPages.reduce((sum, page) => sum + getOfferCount(page), 0)
@@ -140,6 +146,9 @@ export default async function AccountSettingsPage() {
   const planName = getBillingPlan(currentPlan)?.name ?? 'Free'
   const baseUrl = getBaseUrl()
   const firstListingSettingsHref = ownedPages[0] ? `/dashboard/${ownedPages[0].id}/settings` : '/dashboard'
+  const agentOperations = !pageState.error && !agentState.error
+    ? buildAgentOperationsSnapshot(ownedPages, agentState.data)
+    : null
 
   return (
     <main data-testid="account-settings-screen" className="min-h-screen bg-background text-foreground">
@@ -273,6 +282,8 @@ export default async function AccountSettingsPage() {
               description="Inspect the discovery endpoints, schema contract, and listing readiness that external agents can consume."
               icon={Bot}
             >
+              <AgentOperationsPanel snapshot={agentOperations} error={agentState.error || pageState.error} />
+
               <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.3fr)_minmax(340px,0.7fr)]">
                 <section className="card !p-5 sm:!p-6">
                   <div className="flex items-center gap-2">
@@ -332,6 +343,93 @@ export default async function AccountSettingsPage() {
       </div>
     </main>
   )
+}
+
+function AgentOperationsPanel({ snapshot, error }: { snapshot: AgentOperationsSnapshot | null; error: string | null }) {
+  return (
+    <section className="card !p-5 sm:!p-6" aria-labelledby="agent-operations-title">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <Activity className="size-5 text-[var(--signal)]" aria-hidden="true" />
+            <h3 id="agent-operations-title" className="text-xl font-semibold">Agent operations</h3>
+          </div>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--fg-muted)]">
+            Turn listing evidence and saved external research into a concrete operating queue.
+          </p>
+        </div>
+        <Link href="/simulator" className={topButtonClass}>Open Agent Lab <ArrowUpRight className="size-4" aria-hidden="true" /></Link>
+      </div>
+
+      {error || !snapshot ? (
+        <UnavailablePanel message={error || 'Agent operations are temporarily unavailable.'} />
+      ) : (
+        <>
+          <div className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <OperationsStat label="Evidence runs" value={`${snapshot.simulationRuns}${snapshot.historyWindowComplete ? '' : '+'}`} detail="Attributable listing tests" />
+            <OperationsStat label="Listing coverage" value={`${snapshot.coveragePercent}%`} detail={`${snapshot.testedPublishedListings} of ${snapshot.publishedListings} published tested`} />
+            <OperationsStat label="Research targets" value={String(snapshot.uniqueResearchTargets)} detail={`${snapshot.researchRuns}${snapshot.historyWindowComplete ? '' : '+'} saved snapshots`} />
+            <OperationsStat
+              label="Latest research"
+              value={snapshot.latestResearchScore == null ? '—' : String(snapshot.latestResearchScore)}
+              detail={snapshot.latestResearchTarget
+                ? `${snapshot.latestResearchTarget} · ${snapshot.latestResearchDelta == null ? 'no comparable prior snapshot' : `${snapshot.latestResearchDelta > 0 ? '+' : ''}${snapshot.latestResearchDelta} vs prior snapshot`}`
+                : 'No scored research snapshots yet'}
+            />
+          </div>
+
+          <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)]">
+            <div className="rounded-2xl border border-[var(--bd-10)] bg-[var(--panel)]/50 p-4 sm:p-5">
+              <div className="flex items-center gap-2">
+                <ListChecks className="size-4 text-[var(--signal)]" aria-hidden="true" />
+                <h4 className="font-semibold">Priority queue</h4>
+              </div>
+              <div className="mt-3 grid gap-2 lg:grid-cols-3">
+                {snapshot.actions.map((action, index) => (
+                  <Link key={action.key} href={action.href} className="group rounded-xl border border-[var(--bd-10)] bg-background/25 p-3 outline-none transition-colors hover:bg-[var(--hover)] focus-visible:ring-2 focus-visible:ring-[var(--signal)]">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--fg-muted-2)]">Priority {index + 1}</p>
+                    <p className="mt-2 text-sm font-medium group-hover:text-[var(--signal)]">{action.title}</p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--fg-muted-2)]">{action.detail}</p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[var(--bd-10)] bg-[var(--panel)]/50 p-4 sm:p-5">
+              <div className="flex items-center gap-2">
+                <Target className="size-4 text-[var(--ready)]" aria-hidden="true" />
+                <h4 className="font-semibold">Evidence cadence</h4>
+              </div>
+              <p className="mt-3 text-sm text-[var(--fg-muted)]">
+                {snapshot.latestActivityAt ? `Last recorded activity ${formatSettingsDate(snapshot.latestActivityAt)}.` : 'No attributable Agent Lab activity yet.'}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-[var(--fg-muted-2)]">
+                {snapshot.historyWindowComplete
+                  ? 'Coverage uses the complete retained history available to this workspace.'
+                  : 'The view reached its 500-row safety window; totals are shown as minimums.'}
+              </p>
+            </div>
+          </div>
+        </>
+      )}
+    </section>
+  )
+}
+
+function OperationsStat({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-2xl border border-[var(--bd-10)] bg-background/30 p-4">
+      <p className="text-[10px] uppercase tracking-[0.13em] text-[var(--fg-muted-2)]">{label}</p>
+      <p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-[var(--fg-muted-2)]">{detail}</p>
+    </div>
+  )
+}
+
+function formatSettingsDate(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'at an unknown time'
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(date)
 }
 
 function SettingsArea({

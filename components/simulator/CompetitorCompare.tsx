@@ -1,10 +1,11 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { Download, ExternalLink, History, Loader2, Lock, Save, Target, Trash2 } from 'lucide-react'
+import { Download, ExternalLink, Loader2, Lock, Save, Target } from 'lucide-react'
 import type { AgentPage } from '../../lib/agent-page'
 import type { AgentLabResearchRun } from '../../lib/agent-lab-research'
 import { appUrl } from '../../lib/site'
+import { ResearchArchive } from './ResearchArchive'
 
 /**
  * "Compare a competitor" - the signed-in lens of the Agent Lab. Scores any rival
@@ -54,7 +55,6 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
   const [saveBenchmark, setSaveBenchmark] = useState(false)
   const [history, setHistory] = useState<AgentLabResearchRun[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
-  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isLoggedIn) return
@@ -150,18 +150,18 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
     setMessage(`Loaded saved benchmark from ${new Date(run.createdAt).toLocaleString()}.`)
   }
 
-  async function removeSavedRun(run: AgentLabResearchRun): Promise<boolean> {
+  async function removeSavedRun(runId: string): Promise<boolean> {
     const response = await fetch('/api/agent-lab/research-runs', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: run.id }),
+      body: JSON.stringify({ id: runId }),
     })
     if (!response.ok) {
       const data = await response.json().catch(() => ({}))
       setMessage(data.error || 'Could not remove the saved benchmark.')
       return false
     }
-    setHistory((current) => current.filter((item) => item.id !== run.id))
+    setHistory((current) => current.filter((item) => item.id !== runId))
     setMessage('Saved benchmark removed.')
     return true
   }
@@ -246,52 +246,19 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
       <p className="mt-2 text-[11px] text-zinc-500">Saving is off by default. Saved reports contain summarized findings and provenance, never fetched HTML.</p>
       {message && <p className="mt-2 text-xs text-[var(--ready)]">{message}</p>}
 
-      <section className="mt-5 rounded-2xl border border-white/10 bg-white/[0.02] p-4" aria-labelledby="competitor-history-title">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h3 id="competitor-history-title" className="flex items-center gap-2 text-sm font-medium"><History className="size-4 text-[var(--signal)]" /> Saved competitor benchmarks</h3>
-            <p className="mt-1 text-xs text-zinc-500">Replay immutable point-in-time reports without re-crawling.</p>
-          </div>
-          {historyLoading ? <Loader2 className="size-4 animate-spin text-zinc-500" /> : <span className="text-xs tabular-nums text-zinc-500">{history.length}</span>}
-        </div>
-        {history.length ? (
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {history.slice(0, 9).map((run) => (
-              <div key={run.id} className="min-w-0 rounded-xl border border-white/10 bg-[#12101B] p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <button onClick={() => openSavedRun(run)} className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--signal)]">
-                    <span className="block truncate text-sm font-medium text-zinc-200">{run.targetHost}</span>
-                    <span className="mt-1 block text-[11px] text-zinc-500">{new Date(run.createdAt).toLocaleString()}</span>
-                    {run.comparedPageSlug ? <span className="mt-1 block truncate text-[10px] text-[var(--signal)]">vs /{run.comparedPageSlug}</span> : null}
-                  </button>
-                  <button
-                    onClick={() => setConfirmRemoveId(run.id)}
-                    aria-label={`Remove saved benchmark for ${run.targetHost}`}
-                    className="rounded-lg p-2 text-zinc-600 hover:bg-rose-500/10 hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                </div>
-                {confirmRemoveId === run.id ? (
-                  <div role="group" aria-label={`Confirm removal for ${run.targetHost}`} className="mt-2 flex items-center gap-2">
-                    <button onClick={() => setConfirmRemoveId(null)} className="rounded-lg border border-white/10 px-2 py-1 text-[11px] text-zinc-400 hover:text-zinc-200">Keep</button>
-                    <button
-                      onClick={async () => { if (await removeSavedRun(run)) setConfirmRemoveId(null) }}
-                      className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-[11px] font-medium text-rose-300 hover:bg-rose-500/15"
-                    >
-                      Remove report
-                    </button>
-                  </div>
-                ) : (
-                  <button onClick={() => openSavedRun(run)} className="mt-2 text-xs font-medium text-[var(--signal)] hover:underline">Open report</button>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="mt-3 rounded-xl border border-dashed border-white/10 p-4 text-sm text-zinc-500">Opt in on a benchmark to start a private comparison archive.</p>
-        )}
-      </section>
+      <div className="mt-5">
+        <ResearchArchive
+          title="Saved competitor benchmarks"
+          description="Replay reports and compare score movement without re-crawling."
+          empty="Opt in on a benchmark to start a private comparison archive."
+          runs={history}
+          loading={historyLoading}
+          variant="grid"
+          itemName="report"
+          onLoad={openSavedRun}
+          onRemove={removeSavedRun}
+        />
+      </div>
 
       {analysis && (
         <div className="mt-6 border-t border-white/10 pt-5">

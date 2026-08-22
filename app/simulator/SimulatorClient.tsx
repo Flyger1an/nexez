@@ -16,10 +16,10 @@ import {
   Sparkles,
   Target,
   ShieldCheck,
-  Trash2,
   X,
 } from 'lucide-react'
 import { CompetitorCompare } from '../../components/simulator/CompetitorCompare'
+import { ResearchArchive } from '../../components/simulator/ResearchArchive'
 import { ErrorBoundary } from '../../components/ErrorBoundary'
 import {
   AgentPage,
@@ -864,12 +864,14 @@ export default function GlobalAgentSimulator() {
               )}
             </div>
 
-            <ResearchHistoryPanel
+            <ResearchArchive
               title="Saved URL scans"
+              description="Immutable snapshots with score movement by site."
               empty="Opt in when scanning to build a private, replayable research trail."
               runs={urlHistory}
               loading={urlHistoryLoading}
               locked={!isLoggedIn}
+              itemName="scan"
               onLoad={loadUrlResearch}
               onRemove={removeUrlResearch}
             />
@@ -890,75 +892,6 @@ export default function GlobalAgentSimulator() {
         </div>
       </ErrorBoundary>
     </main>
-  )
-}
-
-function ResearchHistoryPanel({
-  title,
-  empty,
-  runs,
-  loading,
-  locked,
-  onLoad,
-  onRemove,
-}: {
-  title: string
-  empty: string
-  runs: AgentLabResearchRun[]
-  loading: boolean
-  locked: boolean
-  onLoad: (run: AgentLabResearchRun) => void
-  onRemove: (id: string) => Promise<boolean>
-}) {
-  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
-  return (
-    <aside className="card min-w-0" aria-label={title}>
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="flex items-center gap-2 text-sm font-medium"><History className="size-4 text-[var(--signal)]" /> {title}</p>
-          <p className="mt-1 text-xs text-zinc-500">Immutable point-in-time snapshots</p>
-        </div>
-        {loading ? <Loader2 className="size-4 animate-spin text-zinc-500" /> : <span className="text-xs tabular-nums text-zinc-500">{runs.length}</span>}
-      </div>
-      {locked ? (
-        <p className="mt-5 rounded-xl border border-dashed border-white/10 p-4 text-sm text-zinc-500">Sign in to save and replay private research.</p>
-      ) : runs.length ? (
-        <div className="mt-4 max-h-64 space-y-2 overflow-y-auto pr-1">
-          {runs.map((run) => (
-            <div key={run.id} className="group rounded-xl border border-white/10 bg-white/[0.02] p-3">
-              <div className="flex min-w-0 items-start justify-between gap-2">
-                <button onClick={() => onLoad(run)} className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--signal)]">
-                  <span className="block truncate text-sm font-medium text-zinc-200">{run.targetHost}</span>
-                  <span className="mt-1 block text-[11px] text-zinc-500">{new Date(run.createdAt).toLocaleString()}</span>
-                </button>
-                <button
-                  onClick={() => setConfirmRemoveId(run.id)}
-                  aria-label={`Remove saved scan for ${run.targetHost}`}
-                  className="rounded-lg p-2 text-zinc-600 hover:bg-rose-500/10 hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
-                >
-                  <Trash2 className="size-3.5" />
-                </button>
-              </div>
-              {confirmRemoveId === run.id ? (
-                <div role="group" aria-label={`Confirm removal for ${run.targetHost}`} className="mt-2 flex items-center gap-2">
-                  <button onClick={() => setConfirmRemoveId(null)} className="rounded-lg border border-white/10 px-2 py-1 text-[11px] text-zinc-400 hover:text-zinc-200">Keep</button>
-                  <button
-                    onClick={async () => { if (await onRemove(run.id)) setConfirmRemoveId(null) }}
-                    className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-[11px] font-medium text-rose-300 hover:bg-rose-500/15"
-                  >
-                    Remove scan
-                  </button>
-                </div>
-              ) : (
-                <button onClick={() => onLoad(run)} className="mt-2 text-xs font-medium text-[var(--signal)] hover:underline">Open snapshot</button>
-              )}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="mt-5 rounded-xl border border-dashed border-white/10 p-4 text-sm leading-6 text-zinc-500">{empty}</p>
-      )}
-    </aside>
   )
 }
 
