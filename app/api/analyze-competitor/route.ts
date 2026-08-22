@@ -7,6 +7,13 @@ import { PUBLIC_PAGE_SELECT, getReadinessScore, getTrustScore, getOfferCount } f
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { ownerAllows } from '@/lib/server/plan'
 import { resolveFeatureOwner } from '@/lib/server/page-access'
+import {
+  AGENT_LAB_RESEARCH_SELECT,
+  researchEvidence,
+  researchRowToRun,
+  targetHost,
+  type AgentLabResearchRow,
+} from '@/lib/agent-lab-research'
 
 // Scrapes an external site; allow headroom.
 export const maxDuration = 30
@@ -32,8 +39,9 @@ export async function POST(request: Request) {
   let url: unknown
   let userPageSlug: unknown
   let pageId: unknown
+  let save: unknown
   try {
-    ;({ url, userPageSlug, pageId } = await request.json())
+    ;({ url, userPageSlug, pageId, save } = await request.json())
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
@@ -102,9 +110,37 @@ export async function POST(request: Request) {
       userNexezPage: userComparisonData,
     })
 
+    let savedRun = null
+    let persistenceError: string | null = null
+    if (save === true) {
+      const comparedPageId = access.ownerId === user.id && access.pageId ? access.pageId : null
+      const evidence = researchEvidence('competitor_benchmark', {
+        cacheHit: analysis.provenance.cache.hit,
+        llmExecuted: analysis.provenance.analysis === 'deterministic_with_llm',
+      })
+      const { data, error } = await supabase
+        .from('agent_lab_research_runs')
+        .insert({
+          owner_id: user.id,
+          kind: 'competitor_benchmark',
+          target_url: analysis.normalizedUrl || analysis.url,
+          target_host: targetHost(analysis.normalizedUrl || analysis.url),
+          compared_page_id: comparedPageId,
+          compared_page_slug: typeof userPageSlug === 'string' ? userPageSlug.replace(/^\//, '') : null,
+          result: analysis,
+          evidence,
+        })
+        .select(AGENT_LAB_RESEARCH_SELECT)
+        .single<AgentLabResearchRow>()
+      if (data) savedRun = researchRowToRun(data)
+      if (error) persistenceError = 'The benchmark completed, but it could not be saved to private research history.'
+    }
+
     return NextResponse.json({
       success: true,
       analysis,
+      savedRun,
+      ...(persistenceError ? { persistenceError } : {}),
       // convenience exports
       markdown: analysisToMarkdown(analysis),
       json: analysisToJSON(analysis),

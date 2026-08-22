@@ -34,6 +34,8 @@ const BUYER_EMAIL_TABLES = ['checkout_orders', 'agent_negotiations', 'order_requ
 
 /** SELLER facet: business data this account owns. */
 const SELLER_OWNER_ID_TABLES = [
+  'agent_lab_research_runs',
+  'agent_lab_simulation_runs',
   'pages',
   'storefronts',
   'support_tickets',

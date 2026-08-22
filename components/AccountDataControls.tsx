@@ -63,7 +63,7 @@ export function AccountDataControls({ email }: { email: string }) {
         <div className="rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4 sm:p-5">
           <h3 className="text-sm font-semibold text-[var(--fg)]">Complete account archive</h3>
           <p className="mt-2 text-xs leading-5 text-[var(--fg-muted)]">
-            Includes buyer, seller, and account datasets plus a manifest with exact row counts. If any dataset fails, Nexez stops instead of downloading a partial archive.
+            Includes buyer, seller, Agent Lab research, and account datasets plus a manifest with exact row counts. If any dataset fails, Nexez stops instead of downloading a partial archive.
           </p>
           <a
             href="/api/account/export"

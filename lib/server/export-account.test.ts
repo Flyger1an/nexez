@@ -97,6 +97,8 @@ describe('exportUserAccount', () => {
     expect(result!.data).toHaveProperty('referrals_as_referred')
     expect(result!.facets.seller).toContain('intake_sessions')
     expect(result!.facets.seller).toContain('storefronts')
+    expect(result!.facets.seller).toContain('agent_lab_simulation_runs')
+    expect(result!.facets.seller).toContain('agent_lab_research_runs')
 
     // api_keys metadata only - never the hash.
     const keyOp = adminRef.ops.find((o) => o.table === 'api_keys')

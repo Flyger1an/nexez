@@ -12,9 +12,11 @@ import {
   MinusCircle,
   Play,
   RefreshCw,
+  Save,
   Sparkles,
   Target,
   ShieldCheck,
+  Trash2,
   X,
 } from 'lucide-react'
 import { CompetitorCompare } from '../../components/simulator/CompetitorCompare'
@@ -38,6 +40,7 @@ import {
 import type { QueryRankAnalysis } from '../../lib/agent-search'
 import { agentLabRunToHistoryEntry, type AgentLabRun, type AgentLabRunEvidence } from '../../lib/agent-lab-run'
 import type { UrlSimComparison } from '../../lib/url-simulation'
+import type { AgentLabResearchRun } from '../../lib/agent-lab-research'
 import {
   SimulationHistoryEntry,
   exportSimulationHistory,
@@ -67,6 +70,9 @@ export default function GlobalAgentSimulator() {
   const [urlInput, setUrlInput] = useState('')
   const [urlLoading, setUrlLoading] = useState(false)
   const [urlComparison, setUrlComparison] = useState<UrlSimComparison | null>(null)
+  const [saveUrlScan, setSaveUrlScan] = useState(false)
+  const [urlHistory, setUrlHistory] = useState<AgentLabResearchRun[]>([])
+  const [urlHistoryLoading, setUrlHistoryLoading] = useState(false)
   const [history, setHistory] = useState<SimulationHistoryEntry[]>([])
   const [historyQuery, setHistoryQuery] = useState('')
   const [message, setMessage] = useState('')
@@ -143,6 +149,28 @@ export default function GlobalAgentSimulator() {
     const m = new URLSearchParams(window.location.search).get('mode')
     if (m === 'compare' || m === 'url' || m === 'test') setMode(m)
   }, [])
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setUrlHistory([])
+      return
+    }
+    let cancelled = false
+    async function load() {
+      setUrlHistoryLoading(true)
+      try {
+        const response = await fetch('/api/agent-lab/research-runs?kind=url_snapshot&limit=30')
+        const data = await response.json()
+        if (!cancelled) setUrlHistory(response.ok && Array.isArray(data?.runs) ? data.runs : [])
+      } catch {
+        if (!cancelled) setUrlHistory([])
+      } finally {
+        if (!cancelled) setUrlHistoryLoading(false)
+      }
+    }
+    void load()
+    return () => { cancelled = true }
+  }, [isLoggedIn])
 
   async function loadPageBySlug(slug: string): Promise<AgentPage | null> {
     // Public "analyze a page by slug" flow - runs as anon for logged-out users, so
@@ -286,7 +314,7 @@ export default function GlobalAgentSimulator() {
       const res = await fetch('/api/simulate-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, save: isLoggedIn && saveUrlScan }),
       })
       const data = await res.json()
       if (!res.ok || !data?.ok) {
@@ -294,11 +322,43 @@ export default function GlobalAgentSimulator() {
         return
       }
       setUrlComparison(data as UrlSimComparison)
+      if (data.savedRun) {
+        const saved = data.savedRun as AgentLabResearchRun
+        setUrlHistory((current) => [saved, ...current.filter((run) => run.id !== saved.id)])
+        setMessage('Scan complete and saved to your private research history.')
+      } else if (data.persistenceError) {
+        setMessage(data.persistenceError)
+      } else {
+        setMessage('Scan complete. This result was not stored.')
+      }
     } catch {
       setMessage('Could not reach the analyzer. Please try again.')
     } finally {
       setUrlLoading(false)
     }
+  }
+
+  function loadUrlResearch(run: AgentLabResearchRun) {
+    if (run.kind !== 'url_snapshot') return
+    setUrlComparison(run.result as UrlSimComparison)
+    setUrlInput(run.targetUrl)
+    setMessage(`Loaded saved URL scan from ${new Date(run.createdAt).toLocaleString()}.`)
+  }
+
+  async function removeUrlResearch(runId: string): Promise<boolean> {
+    const response = await fetch('/api/agent-lab/research-runs', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: runId }),
+    })
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      setMessage(data.error || 'Could not remove the saved scan.')
+      return false
+    }
+    setUrlHistory((current) => current.filter((run) => run.id !== runId))
+    setMessage('Saved URL scan removed.')
+    return true
   }
 
   function regenerate() {
@@ -442,7 +502,10 @@ export default function GlobalAgentSimulator() {
                 role="tab"
                 aria-selected={mode === m.key}
                 aria-controls={`agent-lab-panel-${m.key}`}
-                onClick={() => setMode(m.key)}
+                onClick={() => {
+                  setMode(m.key)
+                  setMessage('')
+                }}
                 className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--signal)] ${
                   mode === m.key
                     ? 'border-[var(--signal)] bg-[var(--signal)]/10 text-foreground'
@@ -760,7 +823,8 @@ export default function GlobalAgentSimulator() {
           {/* ── ANY URL ──────────────────────────────────────────────── */}
           {mode === 'url' && (
           <div id="agent-lab-panel-url" role="tabpanel" aria-labelledby="agent-lab-tab-url">
-            <div className="card mb-8">
+            <div className="mb-8 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+            <div className="card min-w-0">
               <div className="flex items-center gap-2 mb-2">
                 <Globe className="size-4 text-[var(--ready)]" />
                 <span className="font-medium">Simulate any website</span>
@@ -782,7 +846,33 @@ export default function GlobalAgentSimulator() {
                   {urlLoading ? <Loader2 className="size-4 animate-spin" /> : <Globe className="size-4" />} Simulate
                 </button>
               </div>
-              <p className="mt-1 text-[10px] text-zinc-500">Public pages only · we crawl, never store your input · deterministic (no AI cost).</p>
+              {isLoggedIn ? (
+                <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs text-zinc-300">
+                  <input
+                    type="checkbox"
+                    checked={saveUrlScan}
+                    onChange={(event) => setSaveUrlScan(event.target.checked)}
+                    className="mt-0.5 size-4 accent-[var(--signal)]"
+                  />
+                  <span>
+                    <span className="flex items-center gap-1.5 font-medium text-zinc-200"><Save className="size-3.5" /> Save this scan privately</span>
+                    <span className="mt-1 block text-zinc-500">Stores the summarized result and provenance, never fetched HTML. Off by default.</span>
+                  </span>
+                </label>
+              ) : (
+                <p className="mt-2 text-xs text-zinc-500">Public pages only · anonymous scans are never stored · deterministic (no AI cost).</p>
+              )}
+            </div>
+
+            <ResearchHistoryPanel
+              title="Saved URL scans"
+              empty="Opt in when scanning to build a private, replayable research trail."
+              runs={urlHistory}
+              loading={urlHistoryLoading}
+              locked={!isLoggedIn}
+              onLoad={loadUrlResearch}
+              onRemove={removeUrlResearch}
+            />
             </div>
 
             {urlComparison && <UrlComparisonPanel c={urlComparison} />}
@@ -800,6 +890,75 @@ export default function GlobalAgentSimulator() {
         </div>
       </ErrorBoundary>
     </main>
+  )
+}
+
+function ResearchHistoryPanel({
+  title,
+  empty,
+  runs,
+  loading,
+  locked,
+  onLoad,
+  onRemove,
+}: {
+  title: string
+  empty: string
+  runs: AgentLabResearchRun[]
+  loading: boolean
+  locked: boolean
+  onLoad: (run: AgentLabResearchRun) => void
+  onRemove: (id: string) => Promise<boolean>
+}) {
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
+  return (
+    <aside className="card min-w-0" aria-label={title}>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="flex items-center gap-2 text-sm font-medium"><History className="size-4 text-[var(--signal)]" /> {title}</p>
+          <p className="mt-1 text-xs text-zinc-500">Immutable point-in-time snapshots</p>
+        </div>
+        {loading ? <Loader2 className="size-4 animate-spin text-zinc-500" /> : <span className="text-xs tabular-nums text-zinc-500">{runs.length}</span>}
+      </div>
+      {locked ? (
+        <p className="mt-5 rounded-xl border border-dashed border-white/10 p-4 text-sm text-zinc-500">Sign in to save and replay private research.</p>
+      ) : runs.length ? (
+        <div className="mt-4 max-h-64 space-y-2 overflow-y-auto pr-1">
+          {runs.map((run) => (
+            <div key={run.id} className="group rounded-xl border border-white/10 bg-white/[0.02] p-3">
+              <div className="flex min-w-0 items-start justify-between gap-2">
+                <button onClick={() => onLoad(run)} className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--signal)]">
+                  <span className="block truncate text-sm font-medium text-zinc-200">{run.targetHost}</span>
+                  <span className="mt-1 block text-[11px] text-zinc-500">{new Date(run.createdAt).toLocaleString()}</span>
+                </button>
+                <button
+                  onClick={() => setConfirmRemoveId(run.id)}
+                  aria-label={`Remove saved scan for ${run.targetHost}`}
+                  className="rounded-lg p-2 text-zinc-600 hover:bg-rose-500/10 hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+              {confirmRemoveId === run.id ? (
+                <div role="group" aria-label={`Confirm removal for ${run.targetHost}`} className="mt-2 flex items-center gap-2">
+                  <button onClick={() => setConfirmRemoveId(null)} className="rounded-lg border border-white/10 px-2 py-1 text-[11px] text-zinc-400 hover:text-zinc-200">Keep</button>
+                  <button
+                    onClick={async () => { if (await onRemove(run.id)) setConfirmRemoveId(null) }}
+                    className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-[11px] font-medium text-rose-300 hover:bg-rose-500/15"
+                  >
+                    Remove scan
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => onLoad(run)} className="mt-2 text-xs font-medium text-[var(--signal)] hover:underline">Open snapshot</button>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-5 rounded-xl border border-dashed border-white/10 p-4 text-sm leading-6 text-zinc-500">{empty}</p>
+      )}
+    </aside>
   )
 }
 
