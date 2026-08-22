@@ -199,10 +199,10 @@ export default async function BillingPage({ searchParams }: BillingProps) {
   }
 
   return (
-    <main className="min-h-screen bg-[#090b10] text-white">
+    <main className="nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]">
       <div className="mx-auto max-w-6xl px-6 py-10">
         {/* Top header (consistent with platform) */}
-        <div className="flex items-center justify-between mb-8">
+        <header className="surface-masthead mb-8 flex items-start justify-between gap-6">
           <div>
             <div className="flex items-center gap-2 text-sm text-[var(--signal)]">
               <span className="inline-block size-1.5 rounded-full bg-[var(--signal-solid)]" />
@@ -213,7 +213,7 @@ export default async function BillingPage({ searchParams }: BillingProps) {
           <a href="/pricing" className="rounded-2xl border border-white/15 px-5 py-2 text-sm hover:bg-white/5 transition">
             Compare plans
           </a>
-        </div>
+        </header>
 
         {/* Invisible helper for Stripe Connect success redirect (keeps existing behavior) */}
         <AutoRefreshConnect connectSuccess={connectSuccess} />

@@ -154,12 +154,12 @@ export default async function NegotiationMetricsPage() {
   const primaryCurrency = currencies[0]
 
   return (
-    <main className="min-h-screen bg-[#090b10] px-4 py-8 text-white md:px-8 md:py-10">
+    <main className="nx-platform-surface min-h-screen bg-[var(--bg)] px-4 py-8 text-[var(--fg)] md:px-8 md:py-10">
       <div className="mx-auto max-w-6xl">
         <Link href="/dashboard/negotiations" className="mb-6 inline-flex min-h-[44px] items-center gap-2 text-sm text-zinc-400 hover:text-white">
           <ArrowLeft className="size-4" /> Back to decision queue
         </Link>
-        <header className="mb-8 flex items-start gap-3">
+        <header className="surface-masthead mb-8 flex items-start gap-3">
           <BarChart3 className="mt-0.5 size-7 text-[var(--signal)]" />
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Negotiation performance</h1>

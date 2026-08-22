@@ -245,4 +245,63 @@ test.describe('Settings and Agent Lab five-pass golden path', () => {
 
     expect(pageErrors, `Uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([])
   })
+
+  test('runs the per-listing simulator against an owner-only draft and stays responsive', async ({ page }) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(String(error)))
+
+    const { error: draftError } = await fixtureClient!
+      .from('pages')
+      .update({ is_published: false })
+      .eq('id', fixturePageId!)
+    expect(draftError).toBeNull()
+
+    try {
+      await login(page)
+      await page.goto(`/dashboard/${fixturePageId}/test`, { waitUntil: 'domcontentloaded' })
+
+      const simulator = page.getByTestId('listing-agent-simulator')
+      await expect(simulator).toBeVisible({ timeout: 15_000 })
+      await expect(simulator).toHaveClass(/nx-platform-surface/)
+      await expect(page.getByText('Owner draft', { exact: true })).toBeVisible()
+      await expect(page.getByTestId('draft-embed-preview')).toBeVisible()
+      await expect(page.locator('iframe[title="Live embed preview"]')).toHaveCount(0)
+
+      const query = page.getByLabel('Simulate this query from an agent')
+      await query.fill('Review this draft for a buyer who needs a consultation')
+      await page.getByRole('button', { name: 'Run Analysis' }).click()
+
+      await expect(page.getByRole('status').filter({ hasText: 'Analysis complete and saved' })).toBeVisible({ timeout: 30_000 })
+      await expect(page.getByText('Saved to history', { exact: true })).toBeVisible()
+      await expect(page.getByText('Checkout path responded', { exact: false })).toHaveCount(0)
+
+      await page.getByRole('tab', { name: 'Natural Language' }).click()
+      await expect(page.getByText(/Would recommend|Needs information|Would skip/).first()).toBeVisible()
+
+      const { data: latestRun, error: runError } = await fixtureClient!
+        .from('agent_lab_simulation_runs')
+        .select('evidence')
+        .eq('page_id', fixturePageId!)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single<{ evidence: { commerce: { scope: string } } }>()
+      expect(runError).toBeNull()
+      expect(latestRun?.evidence.commerce.scope).toBe('owner_draft')
+
+      await page.setViewportSize({ width: 390, height: 844 })
+      const mobileOverflow = await page.evaluate(() => ({
+        document: document.documentElement.scrollWidth - window.innerWidth,
+        body: document.body.scrollWidth - window.innerWidth,
+      }))
+      expect(mobileOverflow.document).toBeLessThanOrEqual(0)
+      expect(mobileOverflow.body).toBeLessThanOrEqual(0)
+      expect(pageErrors, `Uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([])
+    } finally {
+      const { error } = await fixtureClient!
+        .from('pages')
+        .update({ is_published: true })
+        .eq('id', fixturePageId!)
+      expect(error).toBeNull()
+    }
+  })
 })

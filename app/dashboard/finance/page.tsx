@@ -285,11 +285,11 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
   const settlementChannelTotal = settlementChannels.reduce((sum, row) => sum + row.grossCents, 0)
 
   return (
-    <main className="min-h-screen bg-[#090b10] text-white">
+    <main className="nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]">
       <ErrorBoundary>
         <div className="mx-auto max-w-7xl px-6 py-10">
           {/* Header */}
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <header className="surface-masthead flex flex-col justify-between gap-6 lg:flex-row lg:items-start">
             <div>
               <p className="flex items-center gap-2 text-sm text-[var(--signal)]">
                 <Wallet className="size-4" /> Finance
@@ -310,7 +310,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
             >
               <Receipt className="size-4" /> Your plan &amp; invoices
             </a>
-          </div>
+          </header>
 
           {/* Controls: time window + currency */}
           <div className="mt-7 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

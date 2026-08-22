@@ -328,7 +328,7 @@ export default function NegotiationsInbox() {
 
   return (
     <ErrorBoundary>
-      <main className="min-h-screen bg-[#0A0A0F] text-white">
+      <main className="nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]">
         <div className="mx-auto max-w-5xl px-4 py-8 md:px-8">
           <UpgradeBanner
             feature="negotiation"
@@ -337,7 +337,7 @@ export default function NegotiationsInbox() {
             description="let agents make offers, set auto-accept rules, and run counter-offers - on the Pro plan and up."
             className="mb-6"
           />
-          <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <header className="surface-masthead flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="flex items-center gap-2 text-2xl font-semibold">
                 <Handshake className="size-6 text-[var(--signal)]" /> Negotiation Inbox

@@ -52,6 +52,7 @@ import {
   SettingsSwitch,
   StatusPill,
 } from '../../../../components/settings/SettingsPrimitives'
+import { SurfaceHeader, surfaceActionClass } from '../../../../components/dashboard/SurfacePrimitives'
 
 type PageProps = {
   params: Promise<{ id: string }>
@@ -696,29 +697,21 @@ export default function PageSettings({ params }: PageProps) {
   return (
     <main className="nx-listing-settings min-h-screen bg-[var(--bg)] text-[var(--fg)]" data-testid="page-settings-screen">
       <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-7 sm:py-9">
-        <header className="overflow-hidden rounded-[var(--r-card)] border border-[var(--line-soft)] bg-[var(--glass)] p-5 shadow-none sm:p-7">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-            <div className="max-w-3xl">
-              <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.16em] text-[var(--fg-muted)]">
-                <span className="h-px w-7 bg-[var(--prism)]" aria-hidden="true" />
-                Listing settings
-              </p>
-              <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{page.name}</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">
-                Shape how this listing appears, how agents understand it, and where customers complete the next step.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <a href={`/dashboard/${page.id}`} className={topButtonClass}>
-                Edit Listing
-              </a>
-              <a href={agentRuntimeUrl(`/${page.slug}`)} className={topButtonClass} target="_blank" rel="noreferrer">
+        <SurfaceHeader
+          eyebrow="Listing settings"
+          title={page.name}
+          description="Shape how this listing appears, how agents understand it, and where customers complete the next step."
+          actions={(
+            <>
+              <a href={`/dashboard/${page.id}`} className={surfaceActionClass}>Edit Listing</a>
+              <a href={agentRuntimeUrl(`/${page.slug}`)} className={surfaceActionClass} target="_blank" rel="noreferrer">
                 <ExternalLink className="size-4" />
                 Public Listing
               </a>
-            </div>
-          </div>
-          <div className="mt-6 flex flex-wrap gap-2 border-t border-[var(--line-soft)] pt-5">
+            </>
+          )}
+          footer={(
+            <>
             <StatusPill
               label={visibilityStatus}
               tone={visibilityChanged ? 'attention' : isPublished ? 'ready' : 'neutral'}
@@ -735,8 +728,9 @@ export default function PageSettings({ params }: PageProps) {
               label={certification?.certified ? 'Agent-Ready certified' : `${certification?.criteria_met ?? 0}/${certification?.criteria_total ?? 11} readiness checks`}
               tone={certification?.certified ? 'ready' : 'neutral'}
             />
-          </div>
-        </header>
+            </>
+          )}
+        />
 
         {message ? (
           <div
@@ -1800,9 +1794,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </label>
   )
 }
-
-const topButtonClass =
-  'inline-flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm text-white hover:bg-white/10'
 
 const inputClass =
   'w-full rounded-lg border border-white/10 bg-white/[0.06] px-4 py-3 text-white placeholder:text-zinc-600 outline-none transition focus:border-[var(--signal)]/60'

@@ -1203,6 +1203,55 @@ html.light {
   line-height: 1.45;
 }
 
+/* Operational surfaces inherit the restrained listing-settings material and
+   hierarchy while retaining each screen's purpose-built information density. */
+.nx-platform-surface .surface-masthead {
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-card);
+  background: var(--glass);
+  padding: 1.25rem;
+  box-shadow: var(--settings-panel-shadow);
+  -webkit-backdrop-filter: blur(var(--blur-card));
+  backdrop-filter: blur(var(--blur-card));
+}
+
+.nx-platform-surface .surface-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: .75rem;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.nx-platform-surface .surface-eyebrow::before {
+  width: 1.75rem;
+  height: 1px;
+  background: var(--prism);
+  content: "";
+}
+
+.nx-platform-surface .card {
+  border-color: var(--line-soft);
+  border-radius: var(--r-card);
+  background: var(--glass);
+  box-shadow: var(--settings-panel-shadow);
+  -webkit-backdrop-filter: blur(var(--blur-card));
+  backdrop-filter: blur(var(--blur-card));
+}
+
+.nx-platform-surface .card:hover {
+  border-color: var(--line);
+  transform: none;
+}
+
+@media (min-width: 640px) {
+  .nx-platform-surface .surface-masthead { padding: 1.75rem; }
+}
+
 /* code/data wells + the new tokens stay dark on agent pages, in any theme (rule 5) */
 .public-agent-page {
   --signal: #FF6A33; --ready: #5FEAD3; --amber: #FFD9A8;

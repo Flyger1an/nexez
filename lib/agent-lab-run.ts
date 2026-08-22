@@ -11,7 +11,7 @@ export type AgentLabCommerceEvidence = {
   method: string
   endpoint: string
   checkoutStatus: string
-  inspection: 'published_contract'
+  inspection: 'published_contract' | 'owner_draft'
   runtimeExecuted: false
 }
 
@@ -37,7 +37,7 @@ export type AgentLabRunEvidence = {
   commerce: {
     offersInspected: number
     runtimeDryRuns: 0
-    scope: 'published_contract'
+    scope: 'published_contract' | 'owner_draft'
     notice: string
     offers: AgentLabCommerceEvidence[]
   }
@@ -88,6 +88,7 @@ export function agentLabRunToHistoryEntry(run: AgentLabRun): SimulationHistoryEn
 
 export function commerceEvidenceFromResults(
   results: SimulationHistoryEntry['result']['results'],
+  inspection: AgentLabCommerceEvidence['inspection'] = 'published_contract',
 ): AgentLabCommerceEvidence[] {
   const first = results[0] as any
   const offers = Array.isArray(first?.schema?.page?.offers) ? first.schema.page.offers : []
@@ -98,7 +99,7 @@ export function commerceEvidenceFromResults(
     method: String(offer?.action?.method ?? 'POST'),
     endpoint: String(offer?.action?.endpoint ?? ''),
     checkoutStatus: String(offer?.action?.availability ?? 'published'),
-    inspection: 'published_contract' as const,
+    inspection,
     runtimeExecuted: false as const,
   }))
 }

@@ -571,14 +571,17 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   ].filter(Boolean).length
 
   return (
-    <main className="min-h-screen bg-[#0A0A0F] text-white">
+    <main className="nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]">
       <ErrorBoundary>
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <h1 className="text-4xl font-semibold tracking-tight">Analytics</h1>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-400">
-          Track real agent-facing intent: classified AI visits, human traffic, directory discovery, provider handoffs, and Stripe checkout sessions.
-        </p>
-        <DataLoadNotice issues={dataIssues} />
+        <header className="surface-masthead">
+          <p className="surface-eyebrow">Platform intelligence</p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Analytics</h1>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--fg-muted)]">
+            Track real agent-facing intent: classified AI visits, human traffic, directory discovery, provider handoffs, and Stripe checkout sessions.
+          </p>
+          <DataLoadNotice issues={dataIssues} />
+        </header>
 
         <section className="mt-6 rounded-lg border border-[var(--signal)]/25 bg-[var(--signal)]/[0.06] p-5">
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">

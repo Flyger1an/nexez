@@ -115,6 +115,37 @@ describe('Agent Lab durable runs API', () => {
     expect(state.calls.some((call) => call.table === 'agent_lab_simulation_runs' && call.op === 'insert')).toBe(false)
   })
 
+  it('lets an owner analyze a private draft without exposing it publicly', async () => {
+    const originalPublished = ownedPage.is_published
+    ownedPage.is_published = false
+
+    try {
+      const response = await POST(post({ pageId: 'page-1', query: 'Review this draft offer' }))
+      const body = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(body.persisted).toBe(true)
+      expect(body.run.evidence.commerce).toMatchObject({
+        scope: 'owner_draft',
+        runtimeDryRuns: 0,
+      })
+      expect(body.run.evidence.commerce.notice).toContain('remains unavailable to public agents')
+      expect(body.run.evidence.commerce.offers[0].inspection).toBe('owner_draft')
+      expect(state.calls.some((call) => call.table === 'pages_public' && call.eqs.slug === 'acme')).toBe(false)
+    } finally {
+      ownedPage.is_published = originalPublished
+    }
+  })
+
+  it('does not allow an unauthenticated page id to read a private listing', async () => {
+    state.user = null
+    const response = await POST(post({ pageId: 'page-1', query: 'Read a private listing' }))
+
+    expect(response.status).toBe(404)
+    expect(state.calls.some((call) => call.table === 'pages')).toBe(false)
+    expect(state.calls.some((call) => call.table === 'pages_public')).toBe(false)
+  })
+
   it('rejects empty and oversized queries before doing analysis', async () => {
     expect((await POST(post({ pageId: 'page-1', query: '' }))).status).toBe(400)
     expect((await POST(post({ pageId: 'page-1', query: 'x'.repeat(501) }))).status).toBe(400)

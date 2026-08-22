@@ -13,7 +13,6 @@ import {
   ListChecks,
   LockKeyhole,
   Search,
-  Settings2,
   ShieldCheck,
   Store,
   Target,
@@ -34,6 +33,8 @@ import { ProfileSettings } from '../../../components/ProfileSettings'
 import { StorefrontSettings, type StorefrontListing } from '../../../components/StorefrontSettings'
 import { TeamInvites } from '../../../components/TeamInvites'
 import { PlanGate } from '../../../components/billing/PlanGate'
+import { SurfaceHeader, surfaceActionClass } from '../../../components/dashboard/SurfacePrimitives'
+import { StatusPill } from '../../../components/settings/SettingsPrimitives'
 
 const ACCOUNT_SETTINGS_PAGE_SELECT = [
   'id',
@@ -151,39 +152,33 @@ export default async function AccountSettingsPage() {
     : null
 
   return (
-    <main data-testid="account-settings-screen" className="min-h-screen bg-background text-foreground">
+    <main data-testid="account-settings-screen" className="nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]">
       <div className="mx-auto max-w-[1680px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-        <section className="overflow-hidden rounded-[28px] border border-[var(--bd-10)] bg-[var(--panel)]">
-          <div className="grid gap-8 px-5 py-7 sm:px-7 lg:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.75fr)] lg:px-9 lg:py-9">
-            <div className="min-w-0">
-              <p className="flex items-center gap-2 text-sm font-medium text-[var(--signal)]">
-                <Settings2 className="size-4" aria-hidden="true" />
-                Account control center
-              </p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">Settings</h1>
-              <p className="mt-4 max-w-3xl text-sm leading-6 text-[var(--fg-muted)] sm:text-base sm:leading-7">
-                Manage the workspace, people, security, data, and public agent infrastructure behind your business.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link href="/dashboard/tools" className={topButtonClass}>
-                  <KeyRound className="size-4" aria-hidden="true" />
-                  Developer tools
-                </Link>
-                <Link href="/simulator" className={topButtonClass}>
-                  <Bot className="size-4" aria-hidden="true" />
-                  Open Agent Lab
-                </Link>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <Stat label="Current plan" value={planName} />
-              <Stat label="Published listings" value={pageState.error ? '—' : String(publishedPages.length)} />
-              <Stat label="Listed offers" value={pageState.error ? '—' : String(offerCount)} />
-              <Stat label="Average readiness" value={pageState.error ? '—' : `${averageReadiness}%`} />
-            </div>
-          </div>
-        </section>
+        <SurfaceHeader
+          eyebrow="Platform settings"
+          title="Settings"
+          description="Manage the workspace, people, security, data, and public agent infrastructure behind your business."
+          actions={(
+            <>
+              <Link href="/dashboard/tools" className={surfaceActionClass}>
+                <KeyRound className="size-4" aria-hidden="true" />
+                Developer tools
+              </Link>
+              <Link href="/simulator" className={surfaceActionClass}>
+                <Bot className="size-4" aria-hidden="true" />
+                Open Agent Lab
+              </Link>
+            </>
+          )}
+          footer={(
+            <>
+              <StatusPill label={`${planName} plan`} />
+              <StatusPill label={pageState.error ? 'Listings unavailable' : `${publishedPages.length} published listing${publishedPages.length === 1 ? '' : 's'}`} tone={pageState.error ? 'attention' : publishedPages.length ? 'ready' : 'neutral'} />
+              <StatusPill label={pageState.error ? 'Offers unavailable' : `${offerCount} listed offer${offerCount === 1 ? '' : 's'}`} />
+              <StatusPill label={pageState.error ? 'Readiness unavailable' : `${averageReadiness}% average readiness`} tone={averageReadiness >= 80 ? 'ready' : averageReadiness >= 60 ? 'attention' : 'neutral'} />
+            </>
+          )}
+        />
 
         {dataIssues.length ? (
           <div
@@ -199,7 +194,7 @@ export default async function AccountSettingsPage() {
           <aside className="max-w-full min-w-0 overflow-hidden xl:sticky xl:top-6 xl:h-fit">
             <nav
               aria-label="Settings sections"
-              className="flex w-full max-w-full min-w-0 gap-2 overflow-x-auto overscroll-x-contain rounded-2xl border border-[var(--bd-10)] bg-[var(--panel)] p-2 xl:flex-col"
+              className="flex w-full max-w-full min-w-0 gap-1 overflow-x-auto overscroll-x-contain rounded-[var(--radius)] border border-[var(--line-soft)] bg-[var(--glass)] p-1 backdrop-blur-[var(--blur-card)] xl:flex-col"
             >
               {settingsNav.map(({ href, label, icon: Icon }) => (
                 <a
@@ -448,7 +443,7 @@ function SettingsArea({
   children: React.ReactNode
 }) {
   return (
-    <section id={id} className="max-w-full min-w-0 scroll-mt-24 overflow-hidden rounded-[24px] border border-[var(--bd-10)] bg-[var(--panel)]/45 p-4 sm:p-6 lg:p-7">
+    <section id={id} className="max-w-full min-w-0 scroll-mt-24 overflow-hidden rounded-[var(--r-card)] border border-[var(--line-soft)] bg-[var(--glass)] p-4 shadow-[var(--settings-panel-shadow)] backdrop-blur-[var(--blur-card)] sm:p-6 lg:p-7">
       <header className="mb-5 flex items-start gap-3 sm:mb-6">
         <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-[var(--bd-10)] bg-[var(--panel)] text-[var(--signal)]">
           <Icon className="size-5" aria-hidden="true" />
@@ -602,15 +597,6 @@ function UnavailablePanel({ message }: { message: string }) {
   return (
     <div role="status" className="mt-5 rounded-xl border border-dashed border-[var(--bd-10)] p-5 text-sm text-[var(--fg-muted)]">
       {message}
-    </div>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-[var(--bd-10)] bg-background/30 p-4 sm:p-5">
-      <p className="text-xs uppercase tracking-[0.12em] text-[var(--fg-muted-2)]">{label}</p>
-      <p className="mt-2 truncate text-2xl font-semibold tracking-tight sm:text-3xl">{value}</p>
     </div>
   )
 }

@@ -24,7 +24,7 @@ export function EditorClient({ initial }: { initial: EditorInitial }) {
   const page = e.page as any
 
   return (
-    <main className="min-h-screen bg-[#0A0A0F] text-white">
+    <main className="nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]">
       <ErrorBoundary>
         <div className="mx-auto max-w-5xl px-6 py-10">
           <PublishCelebration />
