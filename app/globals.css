@@ -942,6 +942,23 @@ html:has(.public-agent-page) body {
   color: #fafafa;
 }
 
+/* Explicitly dark product surfaces must keep their own foreground scale when the
+   surrounding platform switches to light mode. Without this boundary, the global
+   neutral remap turns text-white/text-zinc-* dark while the surface stays dark. */
+.theme-dark-island {
+  color-scheme: dark;
+  --fg: #fafafa;
+  --fg-2: #e4e4e7;
+  --fg-soft: #d4d4d8;
+  --fg-muted: #a1a1aa;
+  --fg-muted-2: #8b8b93;
+  --ov-05: rgba(255, 255, 255, 0.05);
+  --ov-10: rgba(255, 255, 255, 0.10);
+  --bd-10: rgba(255, 255, 255, 0.10);
+  --dark-island-bg: #090b10;
+  --dark-island-bg-hover: #11141a;
+}
+
 /* ---- Neutral utility remap (UNLAYERED → wins the cascade) ---- */
 .text-white { color: var(--fg); }
 /* Opacity variants of text-white aren't caught by the rule above (different
