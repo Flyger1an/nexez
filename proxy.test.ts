@@ -44,6 +44,24 @@ const rows = (data: Array<{ slug: string; domain_path: string | null }>) => asyn
   error: null,
 })
 
+describe('proxy: dual-surface APIs', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    supabaseRef.respond = rows([])
+  })
+
+  it.each(['nexez.ai', 'app.nexez.ai'])(
+    'keeps Agent Lab runs same-origin on %s',
+    async (host) => {
+      const res = await proxy(request(`https://${host}/api/simulator/runs`, host))
+
+      expect(res.status).toBe(200)
+      expect(res.headers.get('location')).toBeNull()
+      expect(updateSession).toHaveBeenCalledOnce()
+    },
+  )
+})
+
 // Seven production runtime error groups came from a trailing encoded backslash:
 //   /agent.json%5C -> Cannot find module './.next/server/pages/agent.json%5C.js'
 // The path reached the Next.js launcher, which threw MODULE_NOT_FOUND instead of

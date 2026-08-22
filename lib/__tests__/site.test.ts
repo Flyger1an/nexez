@@ -59,6 +59,7 @@ describe('isHostNeutralPath', () => {
     // Simulator (signed-in users browse it on the app host).
     expect(isHostNeutralPath('/api/simulate-llm')).toBe(true)
     expect(isHostNeutralPath('/api/simulate-url')).toBe(true)
+    expect(isHostNeutralPath('/api/simulator/runs')).toBe(true)
     // Support routes carry the session - must not be redirected cross-domain.
     expect(isHostNeutralPath('/api/support/assist')).toBe(true)
     expect(isHostNeutralPath('/api/support/tickets')).toBe(true)
