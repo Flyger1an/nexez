@@ -21,6 +21,75 @@ export type PublicSimulatorDecisionStep = {
   detail: string
 }
 
+export type PublicSimulatorRefinement = {
+  locationProvided: boolean
+  timingProvided: boolean
+  title: string
+  guidance: string
+}
+
+const LOCATION_SIGNALS = [
+  /\b(?:near\s+me|nearby|local(?:ly)?|remote(?:ly)?|online|virtual(?:ly)?)\b/i,
+  /\b(?:at|to)\s+(?:my|our|the)\s+(?:address|apartment|business|home|house|location|office|venue|workplace)\b/i,
+  /\b\d{5}(?:-\d{4})?\b/,
+  /\b(?:in|near|around|within|serving)\s+(?!(?:a|an|the|my|our|your|person|advance|case|order|time)\b)[a-z][a-z.'-]*(?:\s+[a-z][a-z.'-]*){0,3}(?=\s+(?:at|by|for|from|on|this|next|tomorrow|today|tonight)\b|\s*[,.;!?]|$)/i,
+]
+
+const TIMING_SIGNALS = [
+  /\b(?:asap|immediately|today|tonight|tomorrow|weekend|weekday|weekdays)\b/i,
+  /\b(?:this|next)\s+(?:morning|afternoon|evening|night|week|weekend|month)\b/i,
+  /\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i,
+  /\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:st|nd|rd|th)?\b/i,
+  /\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b/,
+  /\b(?:at|around|before|after|by)\s+\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)\b/i,
+  /\b(?:daily|weekly|biweekly|fortnightly|monthly|every\s+(?:day|week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b/i,
+  /\bwithin\s+(?:the\s+next\s+)?\d+\s+(?:hours?|days?|weeks?|months?)\b/i,
+]
+
+/**
+ * Builds coverage-gap guidance from details the buyer already supplied. This is
+ * intentionally deterministic: refinement copy must never ask for a location
+ * or time that is plainly present in the request.
+ */
+export function buildPublicSimulatorRefinement(query: string): PublicSimulatorRefinement {
+  const locationProvided = LOCATION_SIGNALS.some((pattern) => pattern.test(query))
+  const timingProvided = TIMING_SIGNALS.some((pattern) => pattern.test(query))
+
+  if (locationProvided && timingProvided) {
+    return {
+      locationProvided,
+      timingProvided,
+      title: 'Location and timing recognized',
+      guidance: 'Add any must-have details, budget, or flexibility. Nexez will keep the service category intact.',
+    }
+  }
+
+  if (locationProvided) {
+    return {
+      locationProvided,
+      timingProvided,
+      title: 'Make the live search sharper',
+      guidance: 'Add preferred timing. Nexez will keep the service category and location intact.',
+    }
+  }
+
+  if (timingProvided) {
+    return {
+      locationProvided,
+      timingProvided,
+      title: 'Make the live search sharper',
+      guidance: 'Add a location. Nexez will keep the service category and timing intact.',
+    }
+  }
+
+  return {
+    locationProvided,
+    timingProvided,
+    title: 'Make the live search sharper',
+    guidance: 'Add a location and preferred timing. Nexez will keep the service category intact.',
+  }
+}
+
 type DecisionPathInput =
   | {
       mode: 'marketplace'
