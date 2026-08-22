@@ -371,8 +371,8 @@ export function interpretPublicQuery(page: AgentPage, query: string): PublicQuer
 
   switch (intent) {
     case 'booking':
-      answer = `${page.name} exposes structured offers, so an agent sees “${bm}”${bmPrice} is bookable directly. To act on “${q}”, it calls the checkout action with offer="${best.key}" and returns a confirmed booking link, with no human back and forth.`
-      agentActions.push(`POST /api/checkout { slug: "${page.slug}", offer: "${best.key}" } → returns a booking link`)
+      answer = `${page.name} exposes a structured action for “${bm}”${bmPrice}. For “${q}”, an agent can validate the published checkout contract with offer="${best.key}" and then ask the buyer to approve the live action. This simulation does not confirm availability or create a booking.`
+      agentActions.push(`Dry-run the published checkout action for { slug: "${page.slug}", offer: "${best.key}" } before buyer approval`)
       agentActions.push(`Read /${page.slug}/agent.json for the machine readable offer and availability schema`)
       agentActions.push('Confirm the requested time with the buyer, then complete checkout')
       break
@@ -383,8 +383,8 @@ export function interpretPublicQuery(page: AgentPage, query: string): PublicQuer
       agentActions.push(`POST /api/checkout { offer: "${best.key}" } once the buyer picks a tier`)
       break
     case 'product':
-      answer = `An agent finds ${productCount || 'several'} purchasable product(s). The closest to “${q}” is “${bm}”${bmPrice}, with a direct checkout path it can complete autonomously.`
-      agentActions.push(`POST /api/checkout { slug: "${page.slug}", offer: "${best.key}" } → completes the purchase`)
+      answer = `An agent finds ${productCount || 'several'} structured product offer(s). The closest to “${q}” is “${bm}”${bmPrice}, with a published checkout path it can validate before requesting buyer approval. This simulation does not place an order.`
+      agentActions.push(`Dry-run the published checkout action for { slug: "${page.slug}", offer: "${best.key}" } before purchase approval`)
       agentActions.push(`Read /${page.slug}/agent.json for product schema + pricing`)
       agentActions.push('Summarize the product and confirm quantity with the buyer')
       break
@@ -394,10 +394,10 @@ export function interpretPublicQuery(page: AgentPage, query: string): PublicQuer
         : `An agent acts on ${offerCount} structured offers directly. “${bm}”${bmPrice} is the strongest match for “${q}”.`
       agentActions.push(page.contact_email ? `Send buyer context to ${page.contact_email}` : 'Request a contact email from the business')
       agentActions.push(`Offer “${bm}”${bmPrice} as the recommended next step`)
-      agentActions.push(`POST /api/checkout { offer: "${best.key}" } to act immediately`)
+      agentActions.push(`Validate the published checkout action for offer "${best.key}" before acting`)
       break
     case 'fit':
-      answer = `${page.name} targets ${audience}. Matching that to “${q}”, an agent recommends “${bm}”${bmPrice}, explains why it fits, and offers to book or buy on the spot.`
+      answer = `${page.name} targets ${audience}. Matching that to “${q}”, an agent recommends “${bm}”${bmPrice}, explains why it fits, and can offer the published booking or purchase path for validation and buyer approval.`
       agentActions.push(`Match the buyer profile against the stated audience: ${audience}`)
       agentActions.push(`Recommend “${bm}”${bmPrice} with a short rationale`)
       agentActions.push(`POST /api/checkout { offer: "${best.key}" } when the buyer is ready`)
@@ -507,7 +507,7 @@ type PersonaVerdict = Omit<AgentVerdict, 'agent'>
 
 const VERDICT_PERSONAS: Record<string, (page: AgentPage, s: VerdictSignals) => PersonaVerdict> = {
   ChatGPT(page, s) {
-    const lens = 'Can I complete the task right now?'
+    const lens = 'Is there enough published evidence to attempt the task?'
     if (!s.hasOffers) {
       return {
         lens,
@@ -517,9 +517,9 @@ const VERDICT_PERSONAS: Record<string, (page: AgentPage, s: VerdictSignals) => P
         gaps: ['Add at least one offer with a price and a checkout action so I have something to do.'],
       }
     }
-    const noticed = [`${s.offerCount} offer${s.offerCount === 1 ? '' : 's'} I can act on via POST /api/checkout`]
+    const noticed = [`${s.offerCount} offer${s.offerCount === 1 ? '' : 's'} with a published checkout action I can validate`]
     if (s.hasCta) noticed.push(`A "${page.cta_label || 'primary'}" CTA for a clean human handoff`)
-    if (s.best && s.bestPriced) noticed.push(`Top match "${s.best.name}"${s.best.price ? ` (${s.best.price})` : ''} is ready to book`)
+    if (s.best && s.bestPriced) noticed.push(`Top match "${s.best.name}"${s.best.price ? ` (${s.best.price})` : ''} exposes price and an action contract`)
     const gaps: string[] = []
     if (!s.bestPriced) gaps.push(`Price "${s.best?.name || 'the top offer'}" so I can confirm cost before I act.`)
     if (!s.hasCta) gaps.push('Add a CTA/booking URL as a human-readable fallback path.')
@@ -531,7 +531,7 @@ const VERDICT_PERSONAS: Record<string, (page: AgentPage, s: VerdictSignals) => P
       gaps,
       headline:
         stance === 'recommend'
-          ? `I can book "${s.best?.name}" immediately and confirm the next step with the buyer.`
+          ? `I can recommend "${s.best?.name}" and validate its published action before asking the buyer to approve a live checkout.`
           : `I can reach checkout, but with no listed price I'd pause to confirm cost first.`,
     }
   },
@@ -779,7 +779,7 @@ export function gradeAgentSuccess(page: AgentPage, query: string): AgentSuccessR
   const topFail = failingRelevant ?? checks.find((c) => !c.pass) ?? null
   const summary =
     verdict === 'ready'
-      ? `An agent can complete a buyer's request end to end${failingRelevant ? `, though "${failingRelevant.label.toLowerCase()}" would sharpen it` : ''}.`
+      ? `The listing publishes enough information and action structure for an agent to attempt the request end to end${failingRelevant ? `, though "${failingRelevant.label.toLowerCase()}" would sharpen it` : ''}. A live transaction was not tested.`
       : verdict === 'partial'
         ? `An agent gets part of the way; "${topFail?.label.toLowerCase() ?? 'a missing field'}" is the next thing to fix for this query.`
         : !hasOffers

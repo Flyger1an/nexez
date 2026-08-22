@@ -1,4 +1,4 @@
-import { AgentPage, PUBLIC_PAGE_SELECT, getRequestBaseUrl } from '../../../lib/agent-page'
+import { getRequestBaseUrl } from '../../../lib/agent-page'
 import {
   AGENT_SEARCH_RANKING_POLICY,
   searchAgentPages,
@@ -6,10 +6,10 @@ import {
 } from '../../../lib/agent-search'
 import { supabase } from '../../../lib/supabase'
 import { enforceRateLimit } from '../../../lib/rate-limit'
-import { publicLaunchVisiblePages } from '../../../lib/public-page-visibility'
 import { cleanLocationQuery, filterPagesByLocation, locationFilterMeta } from '../../../lib/location-filter'
 import { loadReviewSummariesForSlugs } from '../../../lib/server/reviews'
 import { loadStorefrontHandlesForSlugs } from '../../../lib/server/storefront'
+import { loadPublicPageField } from '../../../lib/server/public-page-field'
 
 export async function GET(request: Request) {
   // Public agent-facing search - throttle to blunt scraping/DB abuse.
@@ -27,26 +27,21 @@ export async function GET(request: Request) {
     return Response.json({ error: filters.error, code: 'invalid_search_filter' }, { status: 400 })
   }
 
-  const { data: pages, error } = await supabase
-    .from('pages_public')
-    .select(PUBLIC_PAGE_SELECT)
-    .eq('is_published', true)
-    .order('created_at', { ascending: false })
-    .limit(100)
-    .returns<AgentPage[]>()
-
-  if (error) {
+  let field
+  try {
+    field = await loadPublicPageField(supabase)
+  } catch (error) {
     return Response.json(
       {
         error: 'Search is temporarily unavailable.',
-        details: error.message,
+        details: error instanceof Error ? error.message : 'Unknown discovery field error.',
       },
       { status: 500 },
     )
   }
 
   const baseUrl = getRequestBaseUrl(request)
-  const visiblePages = publicLaunchVisiblePages(pages)
+  const visiblePages = field.pages
   const visibleSlugs = visiblePages.map((page) => page.slug)
   const [storefrontHandles, reviewSummaries] = await Promise.all([
     loadStorefrontHandlesForSlugs(visibleSlugs),
@@ -78,6 +73,12 @@ export async function GET(request: Request) {
         lng,
       }),
       result_count: results.length,
+      field_coverage: {
+        visible_pages_evaluated: visiblePages.length,
+        total_published: field.totalPublished,
+        complete: field.complete,
+        cap: field.cap,
+      },
       search_url: `${baseUrl}/api/agent-search?${searchParams.toString()}`,
       results,
       usage: {

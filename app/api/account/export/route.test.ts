@@ -26,7 +26,11 @@ const req = () => new Request('https://nexez.test/api/account/export') as any
 beforeEach(() => {
   rateRef.response = null
   authRef.result = { ok: true, user: { id: 'owner-Z', email: 'z@acme.com' }, db: {} }
-  expRef.result = { account: { id: 'owner-Z', email: 'z@acme.com', exportedAt: 'T' }, data: { user_agents: [] } }
+  expRef.result = {
+    account: { id: 'owner-Z', email: 'z@acme.com', exportedAt: 'T' },
+    data: { user_agents: [] },
+    manifest: { complete: true, pageSize: 500, datasets: { user_agents: { rows: 0, complete: true } }, errors: [] },
+  }
   expRef.calls.length = 0
 })
 
@@ -51,6 +55,23 @@ describe('GET /api/account/export', () => {
   it('503s when the export util is unavailable (no admin env)', async () => {
     expRef.result = null
     expect((await GET(req())).status).toBe(503)
+  })
+
+  it('refuses to download a partial archive and identifies incomplete datasets', async () => {
+    expRef.result = {
+      account: { id: 'owner-Z', email: 'z@acme.com', exportedAt: 'T' },
+      data: { notifications: [] },
+      manifest: {
+        complete: false,
+        pageSize: 500,
+        datasets: { notifications: { rows: 0, complete: false, error: 'unavailable' } },
+        errors: [{ dataset: 'notifications', message: 'unavailable' }],
+      },
+    }
+    const res = await GET(req())
+    expect(res.status).toBe(503)
+    expect(await res.json()).toMatchObject({ incompleteDatasets: ['notifications'] })
+    expect(res.headers.get('content-disposition')).toBeNull()
   })
 
   it('short-circuits when rate limited', async () => {

@@ -63,7 +63,10 @@ describe('release certification runner', () => {
       commitSha: SHA,
       environment: 'production',
     })
-    expect((submitted.value?.checks as Array<{ id: string }>).map((check) => check.id)).toContain('commerce-gauntlet')
+    expect((submitted.value?.checks as Array<{ id: string }>).map((check) => check.id)).toEqual(expect.arrayContaining([
+      'settings-agent-lab',
+      'commerce-gauntlet',
+    ]))
   }, 15_000)
 })
 
@@ -73,7 +76,8 @@ function route(
   body: string,
   captureSubmission: (value: Record<string, unknown>) => void,
 ) {
-  const path = request.url || '/'
+  const requestUrl = new URL(request.url || '/', baseFrom(request))
+  const path = requestUrl.pathname
   if (path === '/api/internal/launch-health') {
     expect(request.headers.authorization).toBe(`Bearer ${SECRET}`)
     return json(response, 200, {
@@ -94,7 +98,12 @@ function route(
     captureSubmission(JSON.parse(body))
     return json(response, 201, { ok: true, status: 'passed', recordId: 'release-1', replayed: false })
   }
-  if (path === '/' || path === '/login' || path === `/${SLUG}`) {
+  if (path === '/dashboard/settings') {
+    response.writeHead(302, { Location: '/login?next=%2Fdashboard%2Fsettings' })
+    return response.end()
+  }
+  if (path === '/api/agent-lab/research-runs') return json(response, 401, { error: 'Sign in to view saved research.' })
+  if (path === '/' || path === '/login' || path === '/simulator' || path === `/${SLUG}`) {
     return html(response, '<html><body>Nexez</body></html>')
   }
   if (path === '/api/v1/health') return json(response, 200, { ok: true, service: 'nexez-api-v1' })

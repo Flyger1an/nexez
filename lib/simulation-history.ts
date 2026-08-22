@@ -1,5 +1,7 @@
 import { AgentPage, getReadinessScore } from './agent-page'
 import { getRecommendations, runMultiAgentSimulation } from './agent-simulator'
+import type { QueryRankAnalysis } from './agent-search'
+import type { AgentSuccessReport } from './agent-simulator'
 
 export type SimulationHistoryEntry = {
   id: string
@@ -11,8 +13,11 @@ export type SimulationHistoryEntry = {
     results: ReturnType<typeof runMultiAgentSimulation>['results']
     recommendations: string[]
     overallReadiness: number
+    success?: AgentSuccessReport
+    rankAnalysis?: QueryRankAnalysis
   }
   readiness: number
+  evidence?: import('./agent-lab-run').AgentLabRunEvidence
 }
 
 export function normalizeSimulatorTarget(value: string) {

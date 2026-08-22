@@ -85,3 +85,57 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: true, invite, emailed })
 }
+
+/**
+ * Update an existing invite through the same authenticated, owner-scoped boundary
+ * used to create it. Keeping revoke and role changes out of the browser's direct
+ * table writes gives the settings UI one auditable contract and lets failures be
+ * reported instead of silently disappearing after a reload.
+ */
+export async function PATCH(request: Request) {
+  const limited = await enforceRateLimit(request, 'team-invite-update', 30, 60_000)
+  if (limited) return limited
+
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
+  const body = (await request.json().catch(() => ({}))) as {
+    id?: unknown
+    action?: unknown
+    role?: unknown
+  }
+  const id = typeof body.id === 'string' ? body.id.trim() : ''
+  const action = body.action === 'revoke' || body.action === 'role' ? body.action : null
+  if (!id || id.length > 128) return NextResponse.json({ error: 'A valid invite ID is required.' }, { status: 400 })
+  if (!action) return NextResponse.json({ error: 'Action must be revoke or role.' }, { status: 400 })
+
+  const patch: { status?: 'revoked'; role?: TeamRole } = {}
+  if (action === 'revoke') patch.status = 'revoked'
+  if (action === 'role') {
+    const role = typeof body.role === 'string' ? body.role as TeamRole : null
+    if (!role || !TEAM_ROLES.includes(role)) {
+      return NextResponse.json({ error: 'Invalid role.' }, { status: 400 })
+    }
+    patch.role = role
+  }
+
+  const { data: invite, error } = await supabase
+    .from('team_invites')
+    .update(patch)
+    .eq('owner_id', user.id)
+    .eq('id', id)
+    .select('id, email, role, status, created_at')
+    .maybeSingle<{ id: string; email: string; role: string; status: string; created_at: string }>()
+
+  if (error) {
+    const isPlanGate = error.code === '23514' || /plan feature|seat limit/i.test(error.message)
+    return NextResponse.json({ error: error.message }, { status: isPlanGate ? 402 : 400 })
+  }
+  if (!invite) return NextResponse.json({ error: 'Invite not found.' }, { status: 404 })
+
+  return NextResponse.json({ ok: true, invite })
+}

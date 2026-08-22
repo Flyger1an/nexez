@@ -3,7 +3,7 @@ import { authenticateNexieRequest } from '../../../../lib/agents/nexie-auth'
 import { exportUserAccount } from '../../../../lib/server/export-account'
 import { enforceRateLimit } from '../../../../lib/rate-limit'
 
-export const maxDuration = 30
+export const maxDuration = 60
 
 /**
  * GET /api/account/export - download the authenticated user's personal data as JSON (GDPR/CCPA).
@@ -23,6 +23,16 @@ export async function GET(request: NextRequest) {
   const result = await exportUserAccount(auth.user.id, auth.user.email ?? null, exportedAt)
   if (!result) {
     return NextResponse.json({ error: 'Data export is not available on this deployment.' }, { status: 503 })
+  }
+  if (!result.manifest.complete) {
+    console.error('[account/export] incomplete archive', result.manifest.errors)
+    return NextResponse.json(
+      {
+        error: 'We could not build a complete account archive. No partial archive was downloaded. Please try again.',
+        incompleteDatasets: result.manifest.errors.map((entry) => entry.dataset),
+      },
+      { status: 503 },
+    )
   }
 
   return new NextResponse(JSON.stringify(result, null, 2), {

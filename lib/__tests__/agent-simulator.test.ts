@@ -71,6 +71,16 @@ describe('agent-simulator: query-aware public simulation', () => {
     expect(r.agentActions.some((a) => a.includes(`offer: "${best[0].key}"`))).toBe(true)
   })
 
+  it('does not present a static booking or purchase contract as an executed transaction', () => {
+    const booking = interpretPublicQuery(page, 'book a strategy session')
+    const product = interpretPublicQuery(page, 'buy the template pack')
+
+    expect(booking.answer).toContain('does not confirm availability or create a booking')
+    expect(booking.answer).not.toContain('confirmed booking')
+    expect(product.answer).toContain('does not place an order')
+    expect(product.answer).not.toContain('completes the purchase')
+  })
+
   it('ranks the matched offer first and reports readiness + confidence', () => {
     const r = interpretPublicQuery(page, 'what products can I buy right now?')
     expect(r.offers[0].bestMatch).toBe(true)
@@ -112,6 +122,12 @@ describe('agent-simulator: differentiated agent verdicts', () => {
     expect(agentVerdict(page, 'tell me about this', 'Perplexity').stance).toBe('recommend')
   })
 
+  it('describes a published checkout action without claiming the simulation booked it', () => {
+    const verdict = agentVerdict(page, 'book a strategy session', 'ChatGPT')
+    expect(verdict.headline).toContain('validate its published action')
+    expect(verdict.headline).not.toMatch(/book .* immediately/i)
+  })
+
   it('Grok names a concrete gap when not every offer is priced', () => {
     const mixed: AgentPage = {
       ...page,
@@ -138,6 +154,7 @@ describe('agent-simulator: agent success score', () => {
     expect(good.score).toBeGreaterThan(bad.score)
     expect(good.verdict).toBe('ready')
     expect(bad.verdict).not.toBe('ready')
+    expect(good.summary).toContain('A live transaction was not tested')
   })
 
   it('blocks a page with no offers regardless of other fields', () => {

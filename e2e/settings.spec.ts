@@ -71,7 +71,7 @@ async function createDisposableListing(): Promise<string> {
   return data.id
 }
 
-async function loginAndOpenFirstPageSettings(page: Page) {
+async function loginToDashboard(page: Page) {
   test.skip(!email || !password, 'set E2E_EMAIL and E2E_PASSWORD to run the page settings E2E')
 
   await page.goto('/login', { waitUntil: 'domcontentloaded' })
@@ -81,6 +81,10 @@ async function loginAndOpenFirstPageSettings(page: Page) {
   await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 30_000 })
 
   await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
+}
+
+async function loginAndOpenFirstPageSettings(page: Page) {
+  await loginToDashboard(page)
   await page
     .waitForFunction(
       () => [...document.querySelectorAll('a[href]')].some((a) => /^\/dashboard\/[0-9a-f-]{36}$/.test(a.getAttribute('href') || '')),
@@ -170,6 +174,85 @@ test.describe('page settings', () => {
     await expect(webhookPanel.getByTestId('outbound-secret-chip-0')).toBeVisible()
     await webhookPanel.getByRole('button', { name: 'remove' }).click()
     await expect(webhookPanel.getByText(webhookUrl)).toHaveCount(0)
+
+    expect(pageErrors, `Uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([])
+  })
+
+  test('account settings uses the wide control-center architecture without mobile overflow', async ({ page }) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(String(error)))
+
+    // Prepare the fixture owner before browser sign-in so its fresh auth token
+    // includes the temporary Free workspace selection used by dashboard gating.
+    await createDisposableListing()
+    await loginToDashboard(page)
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/dashboard/settings', { waitUntil: 'domcontentloaded' })
+
+    await expect(page.getByTestId('account-settings-screen')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
+    const sectionNav = page.getByRole('navigation', { name: 'Settings sections' })
+    for (const section of ['Workspace', 'Profile & security', 'Team access', 'Data controls', 'Agent surfaces']) {
+      await expect(sectionNav.getByRole('link', { name: section, exact: true })).toBeVisible()
+    }
+    await expect(page.getByRole('heading', { name: 'Complete account archive', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Remove personal buyer data', exact: true })).toBeVisible()
+    await expect(page.getByRole('link', { name: /Open Agent Lab/i })).toBeVisible()
+
+    const desktopMetrics = await page.getByTestId('account-settings-screen').evaluate((element) => ({
+      viewport: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      screenWidth: element.getBoundingClientRect().width,
+    }))
+    expect(desktopMetrics.screenWidth).toBeGreaterThan(1100)
+    expect(desktopMetrics.documentWidth).toBeLessThanOrEqual(desktopMetrics.viewport)
+
+    await sectionNav.getByRole('link', { name: 'Agent surfaces' }).click()
+    await expect(page).toHaveURL(/#agent-surfaces$/)
+    await expect(page.getByRole('heading', { name: 'Agent surfaces', exact: true })).toBeVisible()
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    const mobileMetrics = await page.evaluate(() => ({
+      overflow: document.documentElement.scrollWidth - window.innerWidth,
+      bodyOverflow: document.body.scrollWidth - window.innerWidth,
+      navAncestors: (() => {
+        const rows: Array<Record<string, unknown>> = []
+        let element: HTMLElement | null = document.querySelector('nav[aria-label="Settings sections"]')
+        while (element && rows.length < 7) {
+          const rect = element.getBoundingClientRect()
+          rows.push({
+            tag: element.tagName,
+            className: element.className,
+            left: Math.round(rect.left),
+            right: Math.round(rect.right),
+            width: Math.round(rect.width),
+            clientWidth: element.clientWidth,
+            scrollWidth: element.scrollWidth,
+            overflowX: getComputedStyle(element).overflowX,
+          })
+          element = element.parentElement
+        }
+        return rows
+      })(),
+      offenders: [...document.querySelectorAll<HTMLElement>('body *')]
+        .filter((element) =>
+          element.getBoundingClientRect().right > window.innerWidth + 1
+          && !element.closest('nav[aria-label="Settings sections"]'),
+        )
+        .slice(0, 8)
+        .map((element) => ({
+          tag: element.tagName,
+          id: element.id,
+          className: element.className,
+          right: Math.round(element.getBoundingClientRect().right),
+          width: Math.round(element.getBoundingClientRect().width),
+        })),
+    }))
+    expect(
+      mobileMetrics.overflow,
+      JSON.stringify({ offenders: mobileMetrics.offenders, ancestors: mobileMetrics.navAncestors, bodyOverflow: mobileMetrics.bodyOverflow }, null, 2),
+    ).toBeLessThanOrEqual(1)
+    await expect(sectionNav).toBeVisible()
 
     expect(pageErrors, `Uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([])
   })

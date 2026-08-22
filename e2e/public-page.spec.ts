@@ -15,12 +15,37 @@ test.describe('public surface', () => {
     expect(pageErrors, `Uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([])
   })
 
-  test('simulator has LLM-Enhanced tab (added for deeper LLM responses via /api/simulate-llm)', async ({ page }) => {
+  test('Agent Lab uses the expanded responsive workspace and never claims an unavailable LLM result', async ({ page }) => {
     const pageErrors: string[] = []
     page.on('pageerror', (e) => pageErrors.push(String(e)))
 
     await page.goto('/simulator', { waitUntil: 'domcontentloaded' })
     await expect(page.getByText('Test, simulate & compare')).toBeVisible()
+    await expect(page.getByRole('tablist', { name: 'Agent Lab modes' })).toBeVisible()
+    const testMode = page.getByRole('tab', { name: 'Test a listing' })
+    const urlMode = page.getByRole('tab', { name: 'Any URL' })
+    await expect(testMode).toHaveAttribute('aria-selected', 'true')
+    await expect(testMode).toHaveAttribute('tabindex', '0')
+    await expect(urlMode).toHaveAttribute('tabindex', '-1')
+
+    await testMode.focus()
+    await testMode.press('ArrowRight')
+    await expect(urlMode).toBeFocused()
+    await expect(urlMode).toHaveAttribute('aria-selected', 'true')
+    await expect(page).toHaveURL(/\?mode=url$/)
+    await urlMode.press('Home')
+    await expect(testMode).toBeFocused()
+    await expect(testMode).toHaveAttribute('aria-selected', 'true')
+    await expect(page).toHaveURL(/\?mode=test$/)
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const wideLayout = await page.getByTestId('agent-lab-screen').evaluate((element) => ({
+      width: element.firstElementChild?.getBoundingClientRect().width ?? 0,
+      viewport: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+    }))
+    expect(wideLayout.width).toBeGreaterThan(1280)
+    expect(wideLayout.documentWidth).toBeLessThanOrEqual(wideLayout.viewport)
 
     // The certification merchant is the stable target: it is owned by us, always
     // published (the release gauntlet depends on it), and listed in
@@ -32,24 +57,23 @@ test.describe('public surface', () => {
     await page.getByPlaceholder('my-offers or https://nexez.com/my-offers').fill('nexez-agent-negotiation-lab')
     await page.getByRole('button', { name: /analyze/i }).click()
 
-    // Wait for results + tabs (tabs container only mounts after simulationResults are populated)
-    const llmTab = page.getByRole('button', { name: 'LLM-Enhanced', exact: true })
-    await expect(llmTab).toBeVisible({ timeout: 30000 })
+    // Deterministic agents always render. LLM-Enhanced only renders when the
+    // server explicitly confirms that a provider produced the response.
+    await expect(page.getByRole('tablist', { name: 'Simulated agents' })).toBeVisible({ timeout: 30000 })
+    await expect(page.getByRole('tab', { name: 'ChatGPT', exact: true })).toBeVisible()
 
-    // Click to switch to the LLM tab
-    await llmTab.click()
-
-    // Expect LLM-specific content (unique heading only present for the active LLM tab view)
-    await expect(page.getByRole('heading', { name: "LLM-Enhanced's view" })).toBeVisible()
+    await page.setViewportSize({ width: 390, height: 844 })
+    const mobileOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+    expect(mobileOverflow).toBeLessThanOrEqual(1)
 
     expect(pageErrors, `Uncaught page errors:\n${pageErrors.join('\n')}`).toEqual([])
   })
 })
 
-// Dedicated E2E for simulator LLM-Enhanced tab exercising the real /api/simulate-llm route.
+// Dedicated E2E for the Agent Lab's server-side LLM execution boundary.
 // Seeds llm_opt_in=true on a test-owned published page via the settings toggle (authed),
-// then runs the paste flow which (because of llm_opt_in) triggers the deeper LLM call and
-// naturalLanguage enrichment. Uses the LLM_API_KEY the dev server reads from the environment
+// then runs the paste flow which (because of llm_opt_in) requests LLM enrichment inside
+// the attributable /api/simulator/runs response. Uses the LLM_API_KEY the dev server reads from the environment
 // (forwarded by playwright.config.ts; model e.g. grok-4.3). Skips gracefully (CI-safe) when
 // E2E_EMAIL/E2E_PASSWORD aren't provided, or when LLM_API_KEY is unset (no real LLM call possible).
 const email = process.env.E2E_EMAIL
@@ -57,7 +81,7 @@ const password = process.env.E2E_PASSWORD
 const llmApiKey = process.env.LLM_API_KEY
 
 test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
-  test('simulator LLM tab hits /api/simulate-llm + gets naturalLanguage when page llm_opt_in is seeded via settings', async ({ page }) => {
+  test('simulator reports the real server-side LLM outcome when page llm_opt_in is seeded via settings', async ({ page }) => {
     const pageErrors: string[] = []
     page.on('pageerror', (e) => pageErrors.push(String(e)))
 
@@ -113,31 +137,37 @@ test.describe('simulator LLM-Enhanced (seeded llm_opt_in page)', () => {
     await expect(page.getByText('Test, simulate & compare')).toBeVisible()
     await page.waitForSelector('input[placeholder*="my-offers"]', { timeout: 10000 })
 
-    // Capture the response from the deeper LLM route (only fires because we seeded llm_opt_in=true on the page)
-    const simulateLlmResponse = page.waitForResponse(
-      (r) => /\/api\/simulate-llm/.test(r.url()) && r.request().method() === 'POST',
-      { timeout: 35000 },
+    // Pass 2 moved provider execution behind the attributable Agent Lab run.
+    // Assert that contract instead of waiting for the retired client-side route.
+    const simulatorRunResponse = page.waitForResponse(
+      (response) => /\/api\/simulator\/runs/.test(response.url()) && response.request().method() === 'POST',
+      { timeout: 45_000 },
     )
 
     await page.getByPlaceholder('my-offers or https://nexez.com/my-offers').fill(pageSlug)
     await page.getByRole('button', { name: /analyze/i }).click()
 
-    // Results + tabs render only after the simulation sets data (LLM-Enhanced tab is a reliable signal)
-    const llmTab = page.getByRole('button', { name: 'LLM-Enhanced', exact: true })
-    await expect(llmTab).toBeVisible({ timeout: 30000 })
+    const runResponse = await simulatorRunResponse
+    expect(runResponse.ok(), 'the attributable Agent Lab run should complete').toBe(true)
+    const runData = await runResponse.json()
+    const llmEvidence = runData?.run?.evidence?.execution?.llm
+    expect(llmEvidence?.requested, 'an opted-in listing should request the configured provider').toBe(true)
 
-    // Await + assert the LLM call happened and returned the advanced payload (platform-configured LLM naturalLanguage)
-    const llmData = await (await simulateLlmResponse).json()
-    expect(llmData?.success, 'simulate-llm should succeed when key configured').toBe(true)
-    expect(llmData?.llmEnhanced, 'llm_opt_in + key must produce llmEnhanced result').toBe(true)
-    expect(typeof llmData?.naturalLanguage, 'deeper LLM response must include naturalLanguage text').toBe('string')
-    expect((llmData?.naturalLanguage || '').length, 'naturalLanguage should be substantial agent-style output').toBeGreaterThan(20)
-    expect(llmData?.agent || '', 'agent label should indicate LLM-Enhanced + model').toMatch(/LLM-Enhanced/)
-
-    // UI: tab present (always) + switchable after results from seeded page
-    await expect(llmTab).toBeVisible()
-    await llmTab.click()
-    await expect(page.getByRole('heading', { name: "LLM-Enhanced's view" })).toBeVisible()
+    // The UI must only expose LLM-Enhanced when the provider actually returned
+    // usable text. Provider outages remain explicit evidence, never false claims.
+    const llmTab = page.getByRole('tab', { name: 'LLM-Enhanced', exact: true })
+    if (llmEvidence?.executed) {
+      const llmResult = runData.run.result.results.find((result: { agent?: string }) => result.agent === 'LLM-Enhanced')
+      expect(typeof llmResult?.naturalLanguage, 'provider-confirmed results must include naturalLanguage text').toBe('string')
+      expect((llmResult?.naturalLanguage || '').length, 'naturalLanguage should be substantial agent-style output').toBeGreaterThan(20)
+      await expect(llmTab).toBeVisible({ timeout: 30_000 })
+      await llmTab.click()
+      await expect(page.getByRole('heading', { name: "LLM-Enhanced's view" })).toBeVisible()
+    } else {
+      expect(llmEvidence?.reason, 'a skipped provider must retain an explicit evidence reason').toMatch(/^[a-z_]+$/)
+      await expect(llmTab).toHaveCount(0)
+      await expect(page.getByText(new RegExp(`LLM skipped: ${String(llmEvidence.reason).replaceAll('_', ' ')}`, 'i'))).toBeVisible()
+    }
 
     // Additional authed feature coverage (non-destructive page loads for main dashboard sections + flows).
     // Anchor each page on one unique semantic landmark so the smoke remains

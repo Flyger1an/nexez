@@ -1,9 +1,11 @@
 'use client'
 
-import React, { useState } from 'react'
-import { Download, ExternalLink, Loader2, Lock, Target } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { Download, ExternalLink, Loader2, Lock, Save, Target } from 'lucide-react'
 import type { AgentPage } from '../../lib/agent-page'
+import type { AgentLabResearchRun } from '../../lib/agent-lab-research'
 import { appUrl } from '../../lib/site'
+import { ResearchArchive } from './ResearchArchive'
 
 /**
  * "Compare a competitor" - the signed-in lens of the Agent Lab. Scores any rival
@@ -22,6 +24,11 @@ type CompetitorAnalysis = {
   strengths: string[]
   weaknesses: string[]
   recommendations: string[]
+  provenance: {
+    analysis: 'deterministic' | 'deterministic_with_llm'
+    cache: { hit: boolean; scope: 'process'; ttlHours: 48 }
+    fetch: 'respectful_public_web'
+  }
   userComparison?: {
     slug: string
     name?: string
@@ -45,6 +52,32 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
   const [markdown, setMarkdown] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [saveBenchmark, setSaveBenchmark] = useState(false)
+  const [history, setHistory] = useState<AgentLabResearchRun[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyError, setHistoryError] = useState<string | null>(null)
+  const [historyRefresh, setHistoryRefresh] = useState(0)
+
+  useEffect(() => {
+    if (!isLoggedIn) return
+    let cancelled = false
+    async function load() {
+      setHistoryLoading(true)
+      setHistoryError(null)
+      try {
+        const response = await fetch('/api/agent-lab/research-runs?kind=competitor_benchmark&limit=30')
+        const data = await response.json()
+        if (!response.ok || !Array.isArray(data?.runs)) throw new Error(data?.error || 'Saved competitor benchmarks could not be loaded.')
+        if (!cancelled) setHistory(data.runs)
+      } catch {
+        if (!cancelled) setHistoryError('Saved competitor benchmarks could not be loaded.')
+      } finally {
+        if (!cancelled) setHistoryLoading(false)
+      }
+    }
+    void load()
+    return () => { cancelled = true }
+  }, [isLoggedIn, historyRefresh])
 
   if (!isLoggedIn) {
     return (
@@ -72,7 +105,10 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
     setMarkdown('')
     setMessage('')
     try {
-      const body: { url: string; userPageSlug?: string; pageId?: string } = { url: url.trim() }
+      const body: { url: string; userPageSlug?: string; pageId?: string; save?: boolean } = {
+        url: url.trim(),
+        save: saveBenchmark,
+      }
       if (sideSlug.trim()) {
         body.userPageSlug = sideSlug.trim()
         // Attribute the AI gate to the compared page's owner (lets an editor run it on
@@ -92,11 +128,50 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
       }
       setAnalysis(data.analysis as CompetitorAnalysis)
       setMarkdown(typeof data.markdown === 'string' ? data.markdown : '')
-      setMessage('Analysis complete · cached 48h.')
+      if (data.savedRun) {
+        const saved = data.savedRun as AgentLabResearchRun
+        setHistory((current) => [saved, ...current.filter((run) => run.id !== saved.id)])
+        setMessage('Benchmark complete and saved to your private research history.')
+      } else if (data.persistenceError) {
+        setMessage(data.persistenceError)
+      } else {
+        setMessage(data.analysis?.provenance?.cache?.hit ? 'Analysis loaded from this server process cache. Not stored.' : 'Fresh analysis complete. Not stored.')
+      }
     } catch (e) {
       setMessage('Request error: ' + (e instanceof Error ? e.message : 'unknown'))
     } finally {
       setLoading(false)
+    }
+  }
+
+  function openSavedRun(run: AgentLabResearchRun) {
+    if (run.kind !== 'competitor_benchmark') return
+    const saved = run.result as CompetitorAnalysis
+    setAnalysis(saved)
+    setUrl(run.targetUrl)
+    setSideSlug(run.comparedPageSlug || '')
+    setMarkdown(analysisToMd(saved))
+    setMessage(`Loaded saved benchmark from ${new Date(run.createdAt).toLocaleString()}.`)
+  }
+
+  async function removeSavedRun(runId: string): Promise<boolean> {
+    try {
+      const response = await fetch('/api/agent-lab/research-runs', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: runId }),
+      })
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        setMessage(data.error || 'Could not remove the saved benchmark.')
+        return false
+      }
+      setHistory((current) => current.filter((item) => item.id !== runId))
+      setMessage('Saved benchmark removed.')
+      return true
+    } catch {
+      setMessage('Could not reach saved research. The benchmark was not removed.')
+      return false
     }
   }
 
@@ -132,8 +207,9 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
 
       <div className="grid gap-3 md:grid-cols-5">
         <div className="md:col-span-3">
-          <label className="text-xs text-zinc-400">Competitor website URL</label>
+          <label htmlFor="competitor-url" className="text-xs text-zinc-400">Competitor website URL</label>
           <input
+            id="competitor-url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !loading && url.trim()) run() }}
@@ -143,22 +219,31 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
           />
         </div>
         <div className="md:col-span-2">
-          <label className="text-xs text-zinc-400">Your listing (optional side-by-side)</label>
+          <label htmlFor="competitor-listing" className="text-xs text-zinc-400">Your listing (optional side-by-side)</label>
           {myPages.length > 0 ? (
-            <select value={sideSlug} onChange={(e) => setSideSlug(e.target.value)} className="input mt-1 w-full" disabled={loading}>
+            <select id="competitor-listing" value={sideSlug} onChange={(e) => setSideSlug(e.target.value)} className="input mt-1 w-full" disabled={loading}>
               <option value="">- none -</option>
               {myPages.map((p) => (
                 <option key={p.id} value={p.slug}>{p.name} (/{p.slug})</option>
               ))}
             </select>
           ) : (
-            <input value={sideSlug} onChange={(e) => setSideSlug(e.target.value)} placeholder="your-slug" className="input mt-1 w-full" disabled={loading} />
+            <input id="competitor-listing" value={sideSlug} onChange={(e) => setSideSlug(e.target.value)} placeholder="your-slug" className="input mt-1 w-full" disabled={loading} />
           )}
         </div>
       </div>
 
-      <div className="mt-3 flex gap-2">
-        <button onClick={run} disabled={loading || !url.trim()} className="btn-primary flex-1 justify-center">
+      <div className="mt-3 flex flex-col gap-2 lg:flex-row">
+        <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 text-xs text-zinc-300 lg:min-w-64">
+          <input
+            type="checkbox"
+            checked={saveBenchmark}
+            onChange={(event) => setSaveBenchmark(event.target.checked)}
+            className="size-4 accent-[var(--signal)]"
+          />
+          <Save className="size-3.5 text-[var(--signal)]" /> Save privately after analysis
+        </label>
+        <button onClick={run} disabled={loading || !url.trim()} className="btn-primary min-h-11 flex-1 justify-center">
           {loading ? <Loader2 className="size-4 animate-spin" /> : <Target className="size-4" />} Analyze competitor
         </button>
         {analysis && (
@@ -168,7 +253,24 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
           </>
         )}
       </div>
-      {message && <p className="mt-2 text-xs text-[var(--ready)]">{message}</p>}
+      <p className="mt-2 text-[11px] text-zinc-500">Saving is off by default. Saved reports contain summarized findings and provenance, never fetched HTML.</p>
+      {message && <p role="status" className="mt-2 text-xs text-[var(--fg-muted)]">{message}</p>}
+
+      <div className="mt-5">
+        <ResearchArchive
+          title="Saved competitor benchmarks"
+          description="Replay reports and compare score movement without re-crawling."
+          empty="Opt in on a benchmark to start a private comparison archive."
+          runs={history}
+          loading={historyLoading}
+          error={historyError}
+          variant="grid"
+          itemName="report"
+          onLoad={openSavedRun}
+          onRemove={removeSavedRun}
+          onRetry={() => setHistoryRefresh((current) => current + 1)}
+        />
+      </div>
 
       {analysis && (
         <div className="mt-6 border-t border-white/10 pt-5">
@@ -178,6 +280,15 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
               {analysis.url} <ExternalLink className="size-3" />
             </a>
           </p>
+
+          <div className="mb-5 grid gap-2 sm:grid-cols-3">
+            <ProvenanceItem label="Method" value={analysis.provenance.analysis === 'deterministic_with_llm' ? 'Rules + LLM refinement' : 'Deterministic rules'} />
+            <ProvenanceItem label="Source" value="Public web fetch" />
+            <ProvenanceItem
+              label="Cache"
+              value={analysis.provenance.cache.hit ? 'Process-cache hit' : 'Fresh fetch'}
+            />
+          </div>
 
           <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
             {scoreCards.map((s) => (
@@ -215,9 +326,20 @@ export function CompetitorCompare({ isLoggedIn, myPages }: { isLoggedIn: boolean
               )}
             </div>
           )}
-          <p className="mt-3 text-[10px] text-zinc-500">Respects robots.txt · cached 48h · exportable.</p>
+          <p className="mt-3 text-[10px] text-zinc-500">
+            Respects robots.txt · up to 48h best-effort cache within one running server process · exportable.
+          </p>
         </div>
       )}
+    </div>
+  )
+}
+
+function ProvenanceItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+      <p className="text-[10px] uppercase tracking-widest text-zinc-500">{label}</p>
+      <p className="mt-1 text-xs font-medium text-zinc-200">{value}</p>
     </div>
   )
 }

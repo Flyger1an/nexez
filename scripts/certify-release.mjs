@@ -72,6 +72,24 @@ await check('app-host', 'Authenticated app host', true, async () => {
   return `${APP_BASE}/login returned ${response.status}.`
 })
 
+await check('settings-agent-lab', 'Settings and Agent Lab boundaries', true, async () => {
+  const [agentLab, settings, privateResearch] = await Promise.all([
+    fetchRetry(`${MARKETING_BASE}/simulator?mode=url`),
+    fetchRetry(`${APP_BASE}/dashboard/settings`),
+    fetchRetry(`${APP_BASE}/api/agent-lab/research-runs?limit=1`),
+  ])
+  const agentLabHtml = await agentLab.text()
+  assert(agentLab.ok && /<html[\s>]/i.test(agentLabHtml), `Agent Lab returned HTTP ${agentLab.status}`)
+  assert(new URL(agentLab.url).hostname === new URL(MARKETING_BASE).hostname, 'Agent Lab resolved to the wrong canonical host')
+
+  const settingsUrl = new URL(settings.url)
+  assert(settings.ok && settingsUrl.pathname === '/login', 'Signed-out Settings did not fail closed to login')
+  assert(settingsUrl.searchParams.get('next') === '/dashboard/settings', 'Settings login lost its return destination')
+
+  assert(privateResearch.status === 401, `Private Agent Lab history returned HTTP ${privateResearch.status} instead of 401`)
+  return 'Agent Lab renders, Settings preserves its sign-in return path, and private research rejects anonymous access.'
+})
+
 await check('agent-runtime', 'Agent runtime health', true, async () => {
   const body = await fetchJsonRetry(`${AGENT_BASE}/api/v1/health`)
   assert(body.ok === true && body.service === 'nexez-api-v1', 'Agent API health contract failed')

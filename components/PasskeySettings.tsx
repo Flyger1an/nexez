@@ -155,7 +155,7 @@ export function PasskeySettings() {
   const actionBusy = registering || busyId !== null
 
   return (
-    <section className="card !p-5" aria-labelledby="passkey-settings-title">
+    <section className="card !p-5 sm:!p-6" aria-labelledby="passkey-settings-title">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -173,7 +173,7 @@ export function PasskeySettings() {
           onClick={registerPasskey}
           disabled={loading || actionBusy || !passkeysSupported}
           title={!loading && !passkeysSupported ? 'Passkeys are not supported by this browser.' : undefined}
-          className="inline-flex min-h-[40px] shrink-0 items-center justify-center gap-2 rounded-lg bg-white px-4 text-sm font-medium text-zinc-950 hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-foreground px-4 text-sm font-medium text-background outline-none transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--control-focus)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {registering ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
           Add passkey
@@ -221,12 +221,12 @@ export function PasskeySettings() {
                         maxLength={120}
                         autoFocus
                         disabled={isBusy}
-                        className="min-h-[40px] flex-1 rounded-lg border border-white/15 bg-black/30 px-3 text-sm text-white outline-none focus:border-[var(--signal)]/60"
+                        className="min-h-11 flex-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm text-[var(--fg)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--control-focus)]"
                       />
                       <button
                         type="submit"
                         disabled={isBusy || !draftName.trim()}
-                        className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg bg-white px-3 text-sm font-medium text-zinc-950 disabled:opacity-50"
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-foreground px-3 text-sm font-medium text-background outline-none focus-visible:ring-2 focus-visible:ring-[var(--control-focus)] disabled:opacity-50"
                       >
                         {isBusy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Save
                       </button>
@@ -234,7 +234,7 @@ export function PasskeySettings() {
                         type="button"
                         onClick={() => setEditingId(null)}
                         disabled={isBusy}
-                        className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg border border-white/15 px-3 text-sm text-zinc-300 hover:bg-white/10 disabled:opacity-50"
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--line)] px-3 text-sm text-[var(--fg-muted)] outline-none hover:bg-[var(--fill-2)] focus-visible:ring-2 focus-visible:ring-[var(--control-focus)] disabled:opacity-50"
                       >
                         <X className="size-4" /> Cancel
                       </button>
@@ -256,7 +256,7 @@ export function PasskeySettings() {
                             type="button"
                             onClick={() => setRemoveConfirmId(null)}
                             disabled={isBusy}
-                            className="min-h-[36px] rounded-lg border border-white/15 px-3 text-xs text-zinc-300 hover:bg-white/10 disabled:opacity-50"
+                            className="min-h-11 rounded-xl border border-[var(--line)] px-3 text-xs text-[var(--fg-muted)] outline-none hover:bg-[var(--fill-2)] focus-visible:ring-2 focus-visible:ring-[var(--control-focus)] disabled:opacity-50"
                           >
                             Cancel
                           </button>
@@ -264,7 +264,7 @@ export function PasskeySettings() {
                             type="button"
                             onClick={() => removePasskey(passkey.id)}
                             disabled={isBusy}
-                            className="inline-flex min-h-[36px] items-center gap-2 rounded-lg border border-red-400/40 bg-red-500/10 px-3 text-xs font-medium text-red-200 hover:bg-red-500/20 disabled:opacity-50"
+                            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-red-400/40 bg-red-500/10 px-3 text-xs font-medium text-red-200 outline-none hover:bg-red-500/20 focus-visible:ring-2 focus-visible:ring-[var(--control-focus)] disabled:opacity-50"
                           >
                             {isBusy ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />} Remove
                           </button>
@@ -275,7 +275,7 @@ export function PasskeySettings() {
                             type="button"
                             onClick={() => beginRename(passkey)}
                             disabled={actionBusy}
-                            className="inline-flex min-h-[36px] items-center gap-2 rounded-lg border border-white/15 px-3 text-xs text-zinc-300 hover:bg-white/10 disabled:opacity-50"
+                            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--line)] px-3 text-xs text-[var(--fg-muted)] outline-none hover:bg-[var(--fill-2)] focus-visible:ring-2 focus-visible:ring-[var(--control-focus)] disabled:opacity-50"
                           >
                             <Pencil className="size-3.5" /> Rename
                           </button>
@@ -287,7 +287,7 @@ export function PasskeySettings() {
                               setMessage('')
                             }}
                             disabled={actionBusy}
-                            className="inline-flex min-h-[36px] items-center gap-2 rounded-lg border border-red-400/30 px-3 text-xs text-red-200 hover:bg-red-500/10 disabled:opacity-50"
+                            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-red-400/30 px-3 text-xs text-red-200 outline-none hover:bg-red-500/10 focus-visible:ring-2 focus-visible:ring-[var(--control-focus)] disabled:opacity-50"
                           >
                             <Trash2 className="size-3.5" /> Remove
                           </button>
