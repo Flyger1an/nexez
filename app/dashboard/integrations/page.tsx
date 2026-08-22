@@ -156,7 +156,7 @@ export default function IntegrationsPage() {
   })
 
   return (
-    <main className="min-h-screen bg-[#0A0A0F] text-white">
+    <main className="nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]">
       <div className="mx-auto max-w-7xl px-6 py-8">
         <UpgradeBanner
           feature="integrations"
@@ -165,7 +165,7 @@ export default function IntegrationsPage() {
           description="connect Calendly, Stripe, Shopify, Square & more and keep your offers in sync - on the Pro plan and up."
           className="mb-6"
         />
-        <div className="border-b border-white/10 pb-6">
+        <header className="surface-masthead">
           <p className="text-sm text-[var(--signal)]">Integrations &amp; imports</p>
           <h1 className="mt-2 text-4xl font-semibold tracking-tight">Connect your tools. Import your offers.</h1>
           <p className="mt-4 max-w-3xl text-zinc-400">
@@ -177,7 +177,7 @@ export default function IntegrationsPage() {
             listing — open a listing&apos;s <span className="font-medium">Settings → Integrations</span> to connect once (stored
             securely) and re-sync anytime without re-entering the token. This page is your account-wide status overview.
           </div>
-        </div>
+        </header>
 
         <div className="grid gap-8 py-8 lg:grid-cols-[240px_1fr]">
           <aside className="space-y-5">

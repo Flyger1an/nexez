@@ -56,7 +56,7 @@ export default async function BillingSuccessPage({ searchParams }: SuccessProps)
     : (sessionId || 'No session id provided')
 
   return (
-    <main className="min-h-screen bg-[#090b10] text-white">
+    <main className="nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]">
       <div className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-12">
         <section className="card !p-8 text-center">
           <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-[var(--ready)] text-zinc-950">

@@ -94,7 +94,9 @@ describe('account settings control center', () => {
     const html = renderToStaticMarkup(await AccountSettingsPage())
 
     expect(html).toContain('max-w-[1680px]')
-    expect(html).toContain('Account control center')
+    expect(html).toContain('Platform settings')
+    expect(html).toContain('nx-platform-surface')
+    expect(html).toContain('rounded-[var(--r-card)]')
     expect(html).toContain('aria-label="Settings sections"')
     expect(html).toContain('Profile &amp; security')
     expect(html).toContain('Data controls')
@@ -119,7 +121,9 @@ describe('account settings control center', () => {
     expect(html).toContain('Listing metrics and agent-surface status are temporarily unavailable.')
     expect(html).toContain('No zero values have been assumed.')
     expect(html).toContain('Agent Lab evidence and research status are temporarily unavailable.')
-    expect(html).toContain('>—<')
+    expect(html).toContain('Listings unavailable')
+    expect(html).toContain('Offers unavailable')
+    expect(html).toContain('Readiness unavailable')
   })
 
   it('keeps unauthenticated viewers out of account controls', async () => {
@@ -128,6 +132,6 @@ describe('account settings control center', () => {
     const html = renderToStaticMarkup(await AccountSettingsPage())
 
     expect(html).toContain('Sign in to manage settings')
-    expect(html).not.toContain('Account control center')
+    expect(html).not.toContain('Platform settings')
   })
 })

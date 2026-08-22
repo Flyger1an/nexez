@@ -10,6 +10,7 @@ import {
 import {
   AgentPage,
   PUBLIC_PAGE_SELECT,
+  SERVER_PAGE_SELECT,
   getReadinessScore,
   getRequestBaseUrl,
 } from '@/lib/agent-page'
@@ -91,28 +92,28 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
 
   let page: AgentPage | null = null
-  let ownedPage: { id: string; owner_id: string; slug: string } | null = null
+  let ownedPage: AgentPage | null = null
   if (pageId && user) {
     const { data } = await supabase
       .from('pages')
-      .select('id, owner_id, slug')
+      .select(SERVER_PAGE_SELECT)
       .eq('id', pageId)
       .eq('owner_id', user.id)
-      .eq('is_published', true)
-      .maybeSingle<{ id: string; owner_id: string; slug: string }>()
+      .maybeSingle<AgentPage>()
     ownedPage = data
   }
-  const publicSlug = ownedPage?.slug || slug
-  if (publicSlug) {
+  if (ownedPage) {
+    page = ownedPage
+  } else if (slug) {
     const { data } = await supabase
       .from('pages_public')
       .select(PUBLIC_PAGE_SELECT)
-      .eq('slug', publicSlug)
+      .eq('slug', slug)
       .eq('is_published', true)
       .maybeSingle<AgentPage>()
-    page = data ? { ...data, owner_id: ownedPage?.owner_id ?? null } : null
+    page = data
   }
-  if (!page) return NextResponse.json({ error: 'Published listing not found.' }, { status: 404 })
+  if (!page) return NextResponse.json({ error: 'Listing not found or unavailable for simulation.' }, { status: 404 })
 
   try {
     const baseUrl = getRequestBaseUrl(request)
@@ -137,7 +138,8 @@ export async function POST(request: Request) {
       ]
     }
 
-    const commerceOffers = commerceEvidenceFromResults(results)
+    const commerceScope = page.is_published ? 'published_contract' : 'owner_draft'
+    const commerceOffers = commerceEvidenceFromResults(results, commerceScope)
     const evidence: AgentLabRunEvidence = {
       execution: {
         boundary: 'server',
@@ -160,8 +162,10 @@ export async function POST(request: Request) {
       commerce: {
         offersInspected: commerceOffers.length,
         runtimeDryRuns: 0,
-        scope: 'published_contract',
-        notice: 'Published action contracts were inspected. No checkout, payment, booking, inventory hold, or provider handoff was executed.',
+        scope: commerceScope,
+        notice: page.is_published
+          ? 'Published action contracts were inspected. No checkout, payment, booking, inventory hold, or provider handoff was executed.'
+          : 'Your owner-visible draft was inspected. No action was executed, and this listing remains unavailable to public agents until it is published.',
         offers: commerceOffers,
       },
     }

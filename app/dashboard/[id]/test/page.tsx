@@ -1,17 +1,16 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
-  Bot,
-  Check,
-  Code2,
   ExternalLink,
   Lightbulb,
   Loader2,
-  MessageSquareText,
   Play,
 } from 'lucide-react'
 import { ErrorBoundary } from '../../../../components/ErrorBoundary'
+import { SurfaceHeader, surfaceActionClass } from '../../../../components/dashboard/SurfacePrimitives'
+import { StatusPill } from '../../../../components/settings/SettingsPrimitives'
 import {
   AgentPage,
   OWNER_PAGE_SELECT,
@@ -29,25 +28,17 @@ import {
 } from '../../../../lib/agent-simulator'
 import { createClient } from '../../../../utils/supabase/client'
 import { agentRuntimeUrl } from '../../../../lib/site'
+import type { AgentLabRun } from '../../../../lib/agent-lab-run'
 
 type PageProps = {
   params: Promise<{ id: string }>
 }
 
-const agentTabs = ['ChatGPT', 'Claude', 'Grok', 'Perplexity', 'Generic Agent']
+const agentTabs = ['ChatGPT', 'Claude', 'Grok', 'Perplexity', 'Generic Agent', 'LLM-Enhanced']
 const responseTabs = ['Parsed Schema', 'Natural Language', 'Suggested Actions']
 
-type SimulationResult = {
-  ok?: boolean
-  provider?: string
-  checkoutUrl?: string
-  actionUrl?: string | null
-  stripeConfigured?: boolean
-  events?: Record<string, boolean>
-  error?: string
-}
-
 export default function AgentSimulatorPage({ params }: PageProps) {
+  const router = useRouter()
   const [id, setId] = useState('')
   const [page, setPage] = useState<AgentPage | null>(null)
   const [loading, setLoading] = useState(true)
@@ -56,7 +47,8 @@ export default function AgentSimulatorPage({ params }: PageProps) {
   const [responseTab, setResponseTab] = useState(responseTabs[0])
   const [query, setQuery] = useState(DEFAULT_AGENT_QUERY)
   const [message, setMessage] = useState('')
-  const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null)
+  const [runError, setRunError] = useState('')
+  const [simulationRun, setSimulationRun] = useState<AgentLabRun | null>(null)
   const [baseUrl, setBaseUrl] = useState(getBaseUrl())
 
   // Phase 4: Embed preview simulation state
@@ -71,8 +63,14 @@ export default function AgentSimulatorPage({ params }: PageProps) {
   }, [])
 
   const readiness = page ? getReadinessScore(page) : 0
-  const recommendations = useMemo(() => (page ? getRecommendations(page) : []), [page])
-  const schema = useMemo(() => (page ? buildParsedSchema(page, query, agent, baseUrl) : null), [page, query, agent, baseUrl])
+  const fallbackRecommendations = useMemo(() => (page ? getRecommendations(page) : []), [page])
+  const previewSchema = useMemo(() => (page ? buildParsedSchema(page, query, agent, baseUrl) : null), [page, query, agent, baseUrl])
+  const availableAgentTabs = agentTabs.filter(
+    (tab) => tab !== 'LLM-Enhanced' || simulationRun?.result.results.some((result) => result.agent === tab),
+  )
+  const activeResult = simulationRun?.result.results.find((result) => result.agent === agent) as any
+  const schema = activeResult?.schema ?? previewSchema
+  const recommendations = simulationRun?.result.recommendations ?? fallbackRecommendations
 
   async function loadPage(pageId: string) {
     const supabase = createClient()
@@ -81,7 +79,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
     } = await supabase.auth.getUser()
 
     if (!user) {
-      window.location.href = `/login?next=/dashboard/${pageId}/test`
+      router.replace(`/login?next=/dashboard/${pageId}/test`)
       return
     }
 
@@ -109,43 +107,40 @@ export default function AgentSimulatorPage({ params }: PageProps) {
   }, [id])
 
   async function runSimulation() {
+    if (!page || !query.trim()) return
     setRunning(true)
     setMessage('')
-    setSimulationResult(null)
+    setRunError('')
 
     try {
-      const offer = page ? getCheckoutOffers(page)[0] : null
-
-      if (!page || !offer) {
-        await new Promise((resolve) => setTimeout(resolve, 500))
-        setSimulationResult({ ok: false, error: 'Add at least one offer before testing checkout handoff.' })
-        return
-      }
-
-      const response = await fetch('/api/checkout', {
+      const response = await fetch('/api/simulator/runs', {
         method: 'POST',
-        headers: {
-          accept: 'application/json',
-          'content-type': 'application/json',
-        },
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          slug: page.slug,
-          offer: getCheckoutOfferKey(offer.kind, offer.index),
-          query,
-          dryRun: true,
+          pageId: page.id,
+          query: query.trim(),
+          includeLlm: true,
         }),
       })
-      const result = (await response.json().catch(() => ({}))) as SimulationResult
+      const payload = (await response.json().catch(() => ({}))) as { run?: AgentLabRun; error?: string; persistenceError?: string }
+      if (!response.ok || !payload.run) throw new Error(payload.error || 'Analysis could not be completed.')
 
-      setSimulationResult({
-        ...result,
-        ok: response.ok && result.ok !== false,
-      })
+      setSimulationRun(payload.run)
+      const nextAgent = payload.run.evidence.execution.llm.executed
+        ? 'LLM-Enhanced'
+        : payload.run.result.results.some((result) => result.agent === agent)
+          ? agent
+          : payload.run.result.results[0]?.agent ?? agentTabs[0]
+      setAgent(nextAgent)
+      setMessage(
+        payload.persistenceError
+          ? payload.persistenceError
+          : payload.run.persisted
+            ? 'Analysis complete and saved to Agent Lab history.'
+            : 'Analysis complete.',
+      )
     } catch (error) {
-      setSimulationResult({
-        ok: false,
-        error: error instanceof Error ? error.message : 'Simulation failed.',
-      })
+      setRunError(error instanceof Error ? error.message : 'Analysis could not be completed.')
     } finally {
       setRunning(false)
     }
@@ -159,7 +154,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
     )
   }
 
-  if (!page || !schema) {
+  if (!page || !previewSchema) {
     return (
       <main className="min-h-screen bg-[#090b10] px-6 py-12 text-white">
         <div className="mx-auto max-w-2xl">
@@ -172,34 +167,47 @@ export default function AgentSimulatorPage({ params }: PageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-[#0A0A0F] text-white">
+    <main className="nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]" data-testid="listing-agent-simulator">
       <ErrorBoundary>
       <div className="mx-auto max-w-7xl px-6 py-8">
-        {/* Header */}
-        <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-sm text-[#9CA3AF]">Agent Simulator</p>
-            <h1 className="text-4xl font-semibold tracking-tighter">See exactly how AI agents parse your listing</h1>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <a href={`/dashboard/${page?.id}`} className="btn-secondary">Edit Listing</a>
-            <a href={agentRuntimeUrl(`/${page?.slug}`)} target="_blank" rel="noreferrer" className="btn-secondary inline-flex items-center gap-1.5">
-              View Live <ExternalLink className="size-3.5" />
-            </a>
-            <a href="/simulator" className="btn-secondary">Agent Lab</a>
-          </div>
-        </div>
+        <SurfaceHeader
+          eyebrow="Listing simulator"
+          title={page.name}
+          description="See exactly how each agent reads this listing, what it notices, where it hesitates, and which action it would take next."
+          actions={(
+            <>
+              <a href={`/dashboard/${page.id}`} className={surfaceActionClass}>Edit Listing</a>
+              {page.is_published ? (
+                <a href={agentRuntimeUrl(`/${page.slug}`)} target="_blank" rel="noreferrer" className={surfaceActionClass}>
+                  Public Listing <ExternalLink className="size-3.5" />
+                </a>
+              ) : null}
+              <a href="/simulator" className={surfaceActionClass}>Agent Lab</a>
+            </>
+          )}
+          footer={(
+            <>
+              <StatusPill label={page.is_published ? 'Published listing' : 'Owner draft'} tone={page.is_published ? 'ready' : 'attention'} />
+              <StatusPill label={`${readiness}% readiness`} tone={readiness >= 80 ? 'ready' : readiness >= 60 ? 'attention' : 'neutral'} />
+              <StatusPill label={`${getOfferCount(page)} offers`} />
+              <StatusPill label={simulationRun ? `${simulationRun.result.results.length} agent views` : 'Ready to analyze'} />
+            </>
+          )}
+        />
 
         {/* Agent Tabs - per Design System */}
-        <div className="flex border-b border-white/10 mb-6">
-          {agentTabs.map((tab) => (
+        <div role="tablist" aria-label="Simulated agents" className="mb-6 mt-6 flex overflow-x-auto border-b border-[var(--line-soft)]">
+          {availableAgentTabs.map((tab) => (
             <button
               key={tab}
+              type="button"
+              role="tab"
+              aria-selected={agent === tab}
               onClick={() => setAgent(tab)}
-              className={`agent-tab px-6 py-3 text-sm font-medium border-b-2 transition-all ${
+              className={`agent-tab min-h-11 whitespace-nowrap border-b-2 px-6 py-3 text-sm font-medium transition-all ${
                 agent === tab 
-                  ? 'border-[var(--signal)] text-white bg-[#1A1625]' 
-                  : 'border-transparent text-[#9CA3AF] hover:text-white'
+                  ? 'border-[var(--settings-emphasis)] bg-[var(--fill-1)] text-[var(--fg)]'
+                  : 'border-transparent text-[var(--fg-muted)] hover:text-[var(--fg)]'
               }`}
             >
               {tab}
@@ -235,16 +243,24 @@ export default function AgentSimulatorPage({ params }: PageProps) {
 
             {/* Query + Run */}
             <div className="mt-6">
-              <label className="text-sm text-[#9CA3AF] mb-2 block">Simulate this query from an agent</label>
+              <label htmlFor="listing-simulator-query" className="mb-2 block text-sm text-[var(--fg-muted)]">Simulate this query from an agent</label>
               <input
+                id="listing-simulator-query"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(event) => {
+                  setQuery(event.target.value)
+                  setSimulationRun(null)
+                  setMessage('')
+                  setRunError('')
+                }}
                 className="input"
                 placeholder="What would an agent ask?"
+                maxLength={500}
               />
               <button
+                type="button"
                 onClick={runSimulation}
-                disabled={running}
+                disabled={running || !query.trim()}
                 className="btn-primary w-full mt-3"
               >
                 {running ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
@@ -261,8 +277,9 @@ export default function AgentSimulatorPage({ params }: PageProps) {
                 <h3 className="text-xl font-semibold tracking-tight">{agent}'s view</h3>
               </div>
               <button
+                type="button"
                 onClick={runSimulation}
-                disabled={running}
+                disabled={running || !query.trim()}
                 className="btn-ghost text-sm flex items-center gap-2"
               >
                 <Lightbulb className="size-4" /> Regenerate
@@ -270,10 +287,14 @@ export default function AgentSimulatorPage({ params }: PageProps) {
             </div>
 
             {/* Response Tabs */}
-            <div className="flex gap-1 mb-4 border-b border-white/10">
+            <div role="tablist" aria-label="Agent response views" className="mb-4 flex gap-1 border-b border-white/10">
               {responseTabs.map((tab) => (
                 <button
                   key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={responseTab === tab}
+                  aria-controls="listing-simulator-response"
                   onClick={() => setResponseTab(tab)}
                   className={`px-4 py-2 text-sm font-medium transition ${
                     responseTab === tab 
@@ -287,34 +308,66 @@ export default function AgentSimulatorPage({ params }: PageProps) {
             </div>
 
             {/* Simulated Agent Output */}
-            <div className="min-h-[320px] card !p-5 text-sm">
+            <div id="listing-simulator-response" role="tabpanel" className="min-h-[320px] card !p-5 text-sm">
               {responseTab === 'Parsed Schema' && schema && (
                 <pre className="font-mono text-xs text-[var(--signal)] whitespace-pre-wrap">{JSON.stringify(schema, null, 2)}</pre>
               )}
-              {responseTab === 'Natural Language' && (
-                <div className="space-y-4 text-[#9CA3AF]">
-                  <p>{agent} understands this as a {page?.name} offering focused on {page?.audience || 'qualified buyers'}.</p>
-                  <p>It sees {getOfferCount(page || {})} clear offers with pricing and direct actions.</p>
-                  <p className="text-white">Recommended action: Proceed to checkout for the highest-value offer.</p>
+              {responseTab === 'Natural Language' && activeResult?.naturalLanguage ? (
+                <p className="whitespace-pre-wrap leading-7 text-[var(--fg-soft)]">{activeResult.naturalLanguage}</p>
+              ) : null}
+              {responseTab === 'Natural Language' && !activeResult?.naturalLanguage && activeResult?.verdict ? (
+                <div className="space-y-5 text-[var(--fg-muted)]">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusPill
+                      label={activeResult.verdict.stance === 'recommend' ? 'Would recommend' : activeResult.verdict.stance === 'skip' ? 'Would skip' : 'Needs information'}
+                      tone={activeResult.verdict.stance === 'recommend' ? 'ready' : activeResult.verdict.stance === 'skip' ? 'danger' : 'attention'}
+                    />
+                    <span className="text-xs">{activeResult.verdict.lens}</span>
+                  </div>
+                  <p className="text-lg font-medium leading-7 text-[var(--fg)]">{activeResult.verdict.headline}</p>
+                  {activeResult.verdict.noticed?.length ? (
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--fg-muted)]">What it noticed</p>
+                      <ul className="mt-2 space-y-2">{activeResult.verdict.noticed.map((item: string) => <li key={item}>+ {item}</li>)}</ul>
+                    </div>
+                  ) : null}
+                  {activeResult.verdict.gaps?.length ? (
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--fg-muted)]">What held it back</p>
+                      <ul className="mt-2 space-y-2">{activeResult.verdict.gaps.map((item: string) => <li key={item}>− {item}</li>)}</ul>
+                    </div>
+                  ) : null}
                 </div>
-              )}
+              ) : null}
+              {responseTab === 'Natural Language' && !activeResult ? (
+                <div className="flex min-h-56 items-center justify-center text-center text-[var(--fg-muted)]">
+                  Run the analysis to see this agent&apos;s query-specific verdict.
+                </div>
+              ) : null}
               {responseTab === 'Suggested Actions' && (
                 <div>
                   <div className="text-[var(--ready)] font-medium mb-3">High-confidence next steps</div>
                   <ul className="space-y-2 text-sm">
-                    <li className="flex gap-2">→ Use the "Agent checkout" button on the top offer</li>
-                    <li className="flex gap-2">→ Ask for clarification on timeline and budget</li>
-                    <li className="flex gap-2">→ Route to the main website if more context needed</li>
+                    {([
+                      ...(Array.isArray(activeResult?.schema?.suggestedActions) ? activeResult.schema.suggestedActions : schema?.suggestedActions ?? []),
+                      ...(activeResult?.recommendations ?? []),
+                    ] as string[]).filter((item, index, items) => item && items.indexOf(item) === index).map((item) => (
+                      <li key={item} className="flex gap-2">→ {item}</li>
+                    ))}
                   </ul>
                 </div>
               )}
             </div>
 
-            {simulationResult && (
-              <div className="mt-4 text-xs text-[#9CA3AF]">
-                Checkout simulation: {formatProvider(simulationResult.provider)}
+            {simulationRun ? (
+              <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--fg-muted)]" role="status" aria-live="polite">
+                <span>{new Date(simulationRun.createdAt).toLocaleString()}</span>
+                <span>{simulationRun.executionMode === 'deterministic_with_llm' ? 'Multi-agent + AI assist' : 'Deterministic multi-agent'}</span>
+                <span>{simulationRun.persisted ? 'Saved to history' : 'Not saved'}</span>
               </div>
-            )}
+            ) : null}
+            {message ? <p className="mt-3 text-sm text-[var(--ready)]" role="status">{message}</p> : null}
+            {runError ? <p className="mt-3 text-sm text-[var(--danger)]" role="alert">{runError}</p> : null}
           </div>
         </div>
 
@@ -341,12 +394,15 @@ export default function AgentSimulatorPage({ params }: PageProps) {
               <h3 className="text-xl font-semibold tracking-tight">Embed Preview + Prefer Original Simulation</h3>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={() => window.open(`/${page.slug}`, '_blank')}
-                className="inline-flex items-center gap-1 rounded border border-white/20 px-3 py-1 text-xs hover:bg-white/5"
-              >
-                Open in new tab <ExternalLink className="size-3" />
-              </button>
+              {page.is_published ? (
+                <button
+                  type="button"
+                  onClick={() => window.open(`/${page.slug}`, '_blank')}
+                  className="inline-flex items-center gap-1 rounded border border-white/20 px-3 py-1 text-xs hover:bg-white/5"
+                >
+                  Open in new tab <ExternalLink className="size-3" />
+                </button>
+              ) : null}
               <a href={`/dashboard/${id}/settings`} className="text-xs text-[var(--signal)] hover:underline">Configure per-offer prefs →</a>
             </div>
           </div>
@@ -364,13 +420,25 @@ export default function AgentSimulatorPage({ params }: PageProps) {
             <span className="text-[10px] text-zinc-500">When on, primary CTAs would link to original site (per-offer toggles override in real listings)</span>
           </div>
 
-          <div className="rounded-2xl border border-white/10 overflow-hidden bg-[#0A0A0F]">
-            <iframe
-              src={`/${page.slug}`}
-              className="w-full h-[520px]"
-              title="Live embed preview"
-              sandbox="allow-scripts allow-same-origin"
-            />
+          <div className="overflow-hidden rounded-2xl border border-[var(--line-soft)] bg-[var(--bg)]">
+            {page.is_published ? (
+              <iframe
+                src={`/${page.slug}`}
+                className="h-[520px] w-full"
+                title="Live embed preview"
+                sandbox="allow-scripts allow-same-origin"
+              />
+            ) : (
+              <div data-testid="draft-embed-preview" className="flex min-h-72 items-center justify-center p-6 text-center sm:p-10">
+                <div className="max-w-xl">
+                  <StatusPill label="Private draft" tone="attention" className="mx-auto" />
+                  <h4 className="mt-4 text-2xl font-semibold tracking-tight">Publish to activate the live embed</h4>
+                  <p className="mt-3 text-sm leading-6 text-[var(--fg-muted)]">
+                    The agent analysis above uses your owner-visible draft safely. The public page and embed remain unavailable until you publish this listing.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="mt-3 grid grid-cols-1 gap-2 text-[10px] text-zinc-400 md:grid-cols-2">
@@ -425,34 +493,4 @@ export default function AgentSimulatorPage({ params }: PageProps) {
       </ErrorBoundary>
     </main>
   )
-}
-
-// buildParsedSchema and getRecommendations now imported from lib/agent-simulator.ts for reuse (global /simulator + history)
-
-function getSimulationActions(result: SimulationResult | null) {
-  if (!result) return []
-
-  if (result.ok) {
-    return [
-      'Dry-run checkout intent logged',
-      result.actionUrl ? 'Use provider URL for final handoff' : 'Use Nexez checkout URL for final handoff',
-    ]
-  }
-
-  return ['Fix checkout handoff before sending high-intent agents']
-}
-
-function formatProvider(provider?: string) {
-  switch (provider) {
-    case 'stripe_ready':
-      return 'Stripe checkout is ready'
-    case 'provider_ready':
-      return 'Provider redirect is ready'
-    case 'needs_stripe_key':
-      return 'Stripe price detected, but the secret key is not configured'
-    case 'needs_checkout_url':
-      return 'Offer needs a checkout URL or Stripe-ready price'
-    default:
-      return 'Checkout path responded'
-  }
 }

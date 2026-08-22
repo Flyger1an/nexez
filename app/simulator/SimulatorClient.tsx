@@ -22,6 +22,8 @@ import { CompetitorCompare } from '../../components/simulator/CompetitorCompare'
 import { AgentLabModeTabs, type AgentLabMode } from '../../components/simulator/AgentLabModeTabs'
 import { ResearchArchive } from '../../components/simulator/ResearchArchive'
 import { ErrorBoundary } from '../../components/ErrorBoundary'
+import { SurfaceHeader, surfaceActionClass } from '../../components/dashboard/SurfacePrimitives'
+import { StatusPill } from '../../components/settings/SettingsPrimitives'
 import {
   AgentPage,
   BASIC_OWNER_PAGE_SELECT,
@@ -499,27 +501,32 @@ export default function GlobalAgentSimulator() {
   }
 
   return (
-    <main data-testid="agent-lab-screen" className="min-h-screen bg-background text-foreground">
+    <main data-testid="agent-lab-screen" className="nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]">
       <ErrorBoundary>
         <div className="mx-auto max-w-[1760px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <div className="mb-6 flex flex-col gap-5 rounded-[28px] border border-[var(--bd-10)] bg-[var(--panel)] px-5 py-7 sm:px-7 md:flex-row md:items-end md:justify-between lg:px-9">
-            <div>
-              <p className="text-sm font-medium text-[var(--signal)]">Agent Lab</p>
-              <h1 className="mt-2 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">Test, simulate &amp; compare</h1>
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--fg-muted)] sm:text-base">
-                Inspect how machine buyers read a listing, pressure-test an outside website, or benchmark a competitor.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              {isLoggedIn ? <a href={appUrl('/dashboard/settings#agent-surfaces')} className="btn-secondary text-sm">Agent operations</a> : null}
-              <a href="/discovery" className="btn-secondary text-sm">Browse Discovery</a>
-              {mode === 'test' && selectedPage && (
-                <a href={appUrl(`/dashboard/${(selectedPage as any).id || ''}/test`)} className="btn-secondary text-sm">
-                  Per-listing simulator →
-                </a>
-              )}
-            </div>
-          </div>
+          <SurfaceHeader
+            className="mb-6"
+            eyebrow="Agent Lab"
+            title="Test, simulate & compare"
+            description="Inspect how machine buyers read a listing, pressure-test an outside website, or benchmark a competitor."
+            actions={(
+              <>
+                {isLoggedIn ? <a href={appUrl('/dashboard/settings#agent-surfaces')} className={surfaceActionClass}>Agent operations</a> : null}
+                <a href="/discovery" className={surfaceActionClass}>Browse Discovery</a>
+                {mode === 'test' && selectedPage ? (
+                  <a href={appUrl(`/dashboard/${(selectedPage as any).id || ''}/test`)} className={surfaceActionClass}>Per-listing simulator →</a>
+                ) : null}
+              </>
+            )}
+            footer={(
+              <>
+                <StatusPill label={isLoggedIn ? `${myPages.length} published listing${myPages.length === 1 ? '' : 's'}` : 'Public analysis'} tone={isLoggedIn && myPages.length ? 'ready' : 'neutral'} />
+                <StatusPill label={mode === 'test' ? 'Listing test' : mode === 'url' ? 'Website scan' : 'Competitor compare'} />
+                {activeEvidence ? <StatusPill label={`${activeEvidence.execution.deterministicAgents} agent views`} tone="ready" /> : null}
+                {selectedPage ? <StatusPill label={`${getReadinessScore(selectedPage)}% readiness`} tone={getReadinessScore(selectedPage) >= 80 ? 'ready' : 'attention'} /> : null}
+              </>
+            )}
+          />
 
           {/* Mode tabs - the three lenses of the Agent Lab */}
           <AgentLabModeTabs mode={mode} isLoggedIn={isLoggedIn} onChange={selectMode} />

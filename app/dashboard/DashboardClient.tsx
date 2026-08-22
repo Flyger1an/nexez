@@ -329,7 +329,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
 
   if (loading) {
     return (
-      <main className="min-h-[calc(100vh-65px)] bg-background px-5 py-6 text-white md:px-8">
+      <main className="nx-platform-surface min-h-[calc(100vh-65px)] bg-[var(--bg)] px-5 py-6 text-[var(--fg)] md:px-8">
         <div className="mx-auto max-w-7xl rounded-lg border border-border bg-[var(--ov-03)] p-6">
           <p className="text-sm text-muted-foreground">Nexez dashboard</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] md:text-4xl">Overview</h1>
@@ -343,7 +343,7 @@ export function DashboardClient({ initial }: { initial?: DashboardInitial }) {
   }
 
   return (
-    <main className="min-h-screen bg-background text-white">
+    <main className="nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]">
       <div className="mx-auto max-w-7xl px-5 py-6 md:px-8">
         <PendingInvitesBanner />
         <section className="rounded-lg border border-border bg-[var(--ov-03)] p-5 md:p-6">

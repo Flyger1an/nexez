@@ -65,9 +65,9 @@ export function LaunchControlDashboard({
       : 'Launch needs final proof'
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-        <header className="flex flex-col gap-5 border-b border-border pb-7 lg:flex-row lg:items-end lg:justify-between">
+        <header className="surface-masthead flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl">
             <div className="flex items-center gap-2 text-sm font-medium text-[var(--signal)]">
               <Activity className="size-4" /> Platform operations

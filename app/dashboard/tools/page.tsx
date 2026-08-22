@@ -149,15 +149,18 @@ export default function ToolsPage() {
   )
 
   return (
-    <main className="min-h-screen bg-[#0A0A0F] text-white">
+    <main className="nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]">
       <div className="mx-auto max-w-4xl px-6 py-12">
-        <div className="flex items-center gap-3 mb-4">
-          <Bot className="size-8 text-[var(--signal)]" />
-          <h1 className="text-4xl font-semibold tracking-tight">Tools</h1>
-        </div>
-        <p className="text-xl text-[#9CA3AF]">
-          Import from the web and your favorite tools, then generate an agent-ready page in minutes.
-        </p>
+        <header className="surface-masthead">
+          <p className="surface-eyebrow">Workspace utilities</p>
+          <div className="mt-3 flex items-center gap-3">
+            <Bot className="size-7 text-[var(--settings-emphasis)]" />
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Tools</h1>
+          </div>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--fg-muted)]">
+            Import from the web and your favorite tools, then generate an agent-ready page in minutes.
+          </p>
+        </header>
 
         {/* Site Importer */}
         <div className="mt-10 rounded-2xl border border-white/10 bg-white/[0.02] p-8">

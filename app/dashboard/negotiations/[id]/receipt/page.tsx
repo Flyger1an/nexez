@@ -44,7 +44,7 @@ export default async function NegotiationReceiptPage({ params }: { params: Promi
   const termRows = formatRequestedTerms(n.requested_terms)
 
   return (
-    <main className="min-h-screen bg-[#0A0A0F] text-white">
+    <main className="nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]">
       <div className="mx-auto max-w-2xl px-6 py-10">
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8">
           <div className="flex items-center justify-between border-b border-white/10 pb-4">
