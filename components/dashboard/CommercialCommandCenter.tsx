@@ -74,7 +74,10 @@ export function CommercialCommandCenter({ snapshot }: { snapshot: CommercialSnap
         </div>
       </header>
 
-      <div className="relative grid gap-px bg-white/10 lg:grid-cols-3">
+      <div
+        data-theme-surface="dark"
+        className="theme-dark-island relative grid gap-px bg-white/10 lg:grid-cols-3"
+      >
         <CommandCard
           href="/dashboard/analytics?range=today"
           eyebrow="Demand · today"
@@ -173,7 +176,7 @@ function CommandCard({
 }) {
   const color = accent === 'signal' ? 'text-[var(--signal)]' : accent === 'amber' ? 'text-[var(--amber)]' : 'text-[var(--ready)]'
   return (
-    <a href={href} className="group min-h-48 bg-[#090b10]/80 p-5 transition hover:bg-white/[0.045] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--signal)] md:p-6">
+    <a href={href} className="group min-h-48 bg-[var(--dark-island-bg)] p-5 transition hover:bg-[var(--dark-island-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--signal)] md:p-6">
       <div className={`flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] ${color}`}>{icon}{eyebrow}</div>
       <div className="mt-5 flex items-end gap-2">
         <span className="text-3xl font-semibold tracking-[-0.04em] text-white md:text-4xl">{value}</span>
