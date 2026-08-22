@@ -172,6 +172,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
       <div className="mx-auto max-w-7xl px-6 py-8">
         <SurfaceHeader
           eyebrow="Listing simulator"
+          icon={Play}
           title={page.name}
           description="See exactly how each agent reads this listing, what it notices, where it hesitates, and which action it would take next."
           actions={(
@@ -196,7 +197,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
         />
 
         {/* Agent Tabs - per Design System */}
-        <div role="tablist" aria-label="Simulated agents" className="mb-6 mt-6 flex overflow-x-auto border-b border-[var(--line-soft)]">
+        <div role="tablist" aria-label="Simulated agents" className="platform-tablist mb-6 mt-6">
           {availableAgentTabs.map((tab) => (
             <button
               key={tab}
@@ -204,11 +205,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
               role="tab"
               aria-selected={agent === tab}
               onClick={() => setAgent(tab)}
-              className={`agent-tab min-h-11 whitespace-nowrap border-b-2 px-6 py-3 text-sm font-medium transition-all ${
-                agent === tab 
-                  ? 'border-[var(--settings-emphasis)] bg-[var(--fill-1)] text-[var(--fg)]'
-                  : 'border-transparent text-[var(--fg-muted)] hover:text-[var(--fg)]'
-              }`}
+              className="platform-tab"
             >
               {tab}
             </button>
@@ -287,7 +284,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
             </div>
 
             {/* Response Tabs */}
-            <div role="tablist" aria-label="Agent response views" className="mb-4 flex gap-1 border-b border-white/10">
+            <div role="tablist" aria-label="Agent response views" className="platform-tablist mb-4">
               {responseTabs.map((tab) => (
                 <button
                   key={tab}
@@ -296,11 +293,7 @@ export default function AgentSimulatorPage({ params }: PageProps) {
                   aria-selected={responseTab === tab}
                   aria-controls="listing-simulator-response"
                   onClick={() => setResponseTab(tab)}
-                  className={`px-4 py-2 text-sm font-medium transition ${
-                    responseTab === tab 
-                      ? 'text-white border-b-2 border-[var(--signal)]' 
-                      : 'text-[#9CA3AF] hover:text-white'
-                  }`}
+                  className="platform-tab"
                 >
                   {tab}
                 </button>

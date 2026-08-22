@@ -185,7 +185,7 @@ export function CalendlyTool() {
         <button
           onClick={handleCalendlyImport}
           disabled={calendlyLoading || !calendlyToken.trim()}
-          className="btn-primary bg-[var(--signal)] text-zinc-950 hover:bg-[var(--signal)]"
+          className="btn-primary"
         >
           {calendlyLoading ? <Loader2 className="size-4 animate-spin" /> : 'Import Events'}
         </button>
@@ -237,9 +237,10 @@ export function CalendlyTool() {
             className="flex-1 input text-sm"
           />
           <button
+            type="button"
             onClick={() => saveCalendlyWebhook(webhookSecret)}
             disabled={!webhookSecret.trim()}
-            className="rounded-lg border border-[var(--signal)]/40 px-4 text-sm text-[var(--signal)] hover:bg-white/5"
+            className="settings-emphasis-action min-h-11 rounded-[var(--radius)] px-4 text-sm font-medium"
           >
             Save Secret
           </button>

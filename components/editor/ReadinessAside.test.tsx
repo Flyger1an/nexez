@@ -7,9 +7,9 @@ const editor = (over: Record<string, any> = {}) =>
   ({ page: { name: 'Acme', versions: [{}, {}] }, trustEvents: [], score: 73, ...over }) as any
 
 describe('ReadinessAside', () => {
-  it('renders the heading, version count, trust score, and readiness percent', () => {
+  it('renders the readiness heading, version count, trust score, and readiness percent', () => {
     render(<ReadinessAside e={editor()} />)
-    expect(screen.getByRole('heading', { name: /edit listing/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /ai readiness/i })).toBeInTheDocument()
     expect(screen.getByText('2 versions')).toBeInTheDocument()
     expect(screen.getByText(/Trust \d+\/100/)).toBeInTheDocument()
     expect(screen.getByText('73%')).toBeInTheDocument()

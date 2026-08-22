@@ -627,7 +627,7 @@ function NewUserHero({ name }: { name: string }) {
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">
         <a
           href="/create"
-          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[var(--signal)] to-[var(--ready)] px-6 font-medium text-[#0A0A0F] transition hover:opacity-90"
+          className="platform-primary-action min-h-[48px] px-6 font-medium"
         >
           <Plus className="size-4" /> Import your site
         </a>

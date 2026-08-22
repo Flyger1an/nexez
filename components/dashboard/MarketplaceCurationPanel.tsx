@@ -155,7 +155,7 @@ export function MarketplaceCurationPanel({ queue }: { queue: MarketplaceCuration
 
       <div className="mt-5 overflow-hidden rounded-lg border border-border bg-white/[0.025] backdrop-blur-xl">
         <div className="flex flex-col gap-3 border-b border-border p-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex max-w-full gap-1 overflow-x-auto" role="tablist" aria-label="Curation filters">
+          <div className="platform-tablist" role="tablist" aria-label="Curation filters">
             {filters.map((entry) => (
               <button
                 key={entry.id}
@@ -163,11 +163,7 @@ export function MarketplaceCurationPanel({ queue }: { queue: MarketplaceCuration
                 role="tab"
                 aria-selected={filter === entry.id}
                 onClick={() => setFilter(entry.id)}
-                className={`inline-flex min-h-9 shrink-0 items-center gap-2 rounded-md px-3 text-xs font-medium transition ${
-                  filter === entry.id
-                    ? 'bg-white/[0.09] text-foreground'
-                    : 'text-[var(--fg-muted)] hover:bg-white/[0.05] hover:text-foreground'
-                }`}
+                className="platform-tab !min-h-9 !px-3 !py-1 !text-xs"
               >
                 {entry.label}
                 <span className="font-mono text-[10px] text-[var(--fg-muted-2)]">{entry.count}</span>

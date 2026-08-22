@@ -71,7 +71,7 @@ export function StripeImporter() {
         <button
           onClick={handleStripeImport}
           disabled={stripeLoading}
-          className="btn-primary bg-[var(--signal)] text-zinc-950 hover:bg-[var(--signal)]"
+          className="btn-primary"
         >
           {stripeLoading ? <Loader2 className="size-4 animate-spin" /> : 'Import Stripe Catalog'}
         </button>
@@ -174,7 +174,7 @@ export function ShopifyImporter() {
         <button
           onClick={() => void handleShopifyImport()}
           disabled={shopifyLoading || !shopifyUrl.trim()}
-          className="btn-primary bg-[var(--signal)] text-zinc-950 hover:bg-[var(--signal)]"
+          className="btn-primary"
         >
           {shopifyLoading ? <Loader2 className="size-4 animate-spin" /> : 'Import Catalog'}
         </button>
@@ -284,7 +284,7 @@ export function AcuityImporter() {
         <button
           onClick={handleAcuityImport}
           disabled={acuityLoading}
-          className="btn-primary bg-[var(--amber)] text-zinc-950 hover:bg-[var(--amber)]"
+          className="btn-primary"
         >
           {acuityLoading ? <Loader2 className="size-4 animate-spin" /> : 'Import from Acuity'}
         </button>
@@ -382,7 +382,7 @@ export function SquareImporter() {
         <button
           onClick={handleSquareImport}
           disabled={squareLoading}
-          className="btn-primary bg-[var(--signal)] text-zinc-950 hover:bg-[var(--signal)]"
+          className="btn-primary"
         >
           {squareLoading ? <Loader2 className="size-4 animate-spin" /> : 'Import from Square'}
         </button>

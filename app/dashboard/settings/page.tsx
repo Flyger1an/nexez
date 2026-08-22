@@ -11,8 +11,8 @@ import {
   KeyRound,
   Link2,
   ListChecks,
-  LockKeyhole,
   Search,
+  Settings2,
   ShieldCheck,
   Store,
   Target,
@@ -35,6 +35,7 @@ import { TeamInvites } from '../../../components/TeamInvites'
 import { PlanGate } from '../../../components/billing/PlanGate'
 import { SurfaceHeader, surfaceActionClass } from '../../../components/dashboard/SurfacePrimitives'
 import { StatusPill } from '../../../components/settings/SettingsPrimitives'
+import { AccountSettingsNav } from '../../../components/settings/AccountSettingsNav'
 
 const ACCOUNT_SETTINGS_PAGE_SELECT = [
   'id',
@@ -60,14 +61,6 @@ const schemaSignals = [
   ['Organization', 'Seller name, website, contact, and service area'],
   ['Offer', 'Products or services with price, description, and checkout URL'],
   ['BuyAction', 'Agent-readable checkout handoff target'],
-]
-
-const settingsNav: Array<{ href: string; label: string; icon: LucideIcon }> = [
-  { href: '#workspace', label: 'Workspace', icon: Building2 },
-  { href: '#security', label: 'Profile & security', icon: LockKeyhole },
-  { href: '#team', label: 'Team access', icon: Users },
-  { href: '#data', label: 'Data controls', icon: Database },
-  { href: '#agent-surfaces', label: 'Agent surfaces', icon: Bot },
 ]
 
 type DataState<T> = { data: T; error: string | null }
@@ -156,6 +149,7 @@ export default async function AccountSettingsPage() {
       <div className="mx-auto max-w-[1680px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <SurfaceHeader
           eyebrow="Platform settings"
+          icon={Settings2}
           title="Settings"
           description="Manage the workspace, people, security, data, and public agent infrastructure behind your business."
           actions={(
@@ -190,26 +184,12 @@ export default async function AccountSettingsPage() {
           </div>
         ) : null}
 
-        <div className="mt-6 grid min-w-0 gap-6 xl:grid-cols-[240px_minmax(0,1fr)]">
-          <aside className="max-w-full min-w-0 overflow-hidden xl:sticky xl:top-6 xl:h-fit">
-            <nav
-              aria-label="Settings sections"
-              className="flex w-full max-w-full min-w-0 gap-1 overflow-x-auto overscroll-x-contain rounded-[var(--radius)] border border-[var(--line-soft)] bg-[var(--glass)] p-1 backdrop-blur-[var(--blur-card)] xl:flex-col"
-            >
-              {settingsNav.map(({ href, label, icon: Icon }) => (
-                <a
-                  key={href}
-                  href={href}
-                  className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-3 text-sm text-[var(--fg-muted)] transition-colors hover:bg-[var(--hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--signal)]"
-                >
-                  <Icon className="size-4" aria-hidden="true" />
-                  {label}
-                </a>
-              ))}
-            </nav>
+        <div className="mt-8 grid min-w-0 grid-cols-[minmax(0,1fr)] items-start gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <aside className="sticky top-16 z-30 min-w-0 max-w-full lg:top-24">
+            <AccountSettingsNav />
           </aside>
 
-          <div className="min-w-0 space-y-7">
+          <div className="min-w-0 space-y-8">
             <SettingsArea
               id="workspace"
               eyebrow="Business identity"
@@ -443,18 +423,18 @@ function SettingsArea({
   children: React.ReactNode
 }) {
   return (
-    <section id={id} className="max-w-full min-w-0 scroll-mt-24 overflow-hidden rounded-[var(--r-card)] border border-[var(--line-soft)] bg-[var(--glass)] p-4 shadow-[var(--settings-panel-shadow)] backdrop-blur-[var(--blur-card)] sm:p-6 lg:p-7">
-      <header className="mb-5 flex items-start gap-3 sm:mb-6">
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-[var(--bd-10)] bg-[var(--panel)] text-[var(--signal)]">
+    <section id={id} className="platform-settings-area relative max-w-full min-w-0 scroll-mt-28 overflow-hidden rounded-[var(--r-card)] border border-[var(--line-soft)] bg-[var(--glass)] shadow-[var(--settings-panel-shadow)] backdrop-blur-[var(--blur-card)]">
+      <header className="flex items-start gap-3 border-b border-[var(--line-soft)] px-5 py-5 sm:px-6">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius)] border border-[var(--line-soft)] bg-[var(--fill-1)] text-[var(--settings-emphasis)]">
           <Icon className="size-5" aria-hidden="true" />
         </span>
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--fg-muted-2)]">{eyebrow}</p>
           <h2 className="mt-1 text-2xl font-semibold tracking-tight">{title}</h2>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-[var(--fg-muted)]">{description}</p>
         </div>
       </header>
-      <div className="min-w-0 space-y-5">{children}</div>
+      <div className="min-w-0 space-y-5 p-5 sm:p-6">{children}</div>
     </section>
   )
 }

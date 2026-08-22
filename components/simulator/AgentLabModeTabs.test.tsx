@@ -12,6 +12,8 @@ describe('AgentLabModeTabs', () => {
     const testTab = screen.getByRole('tab', { name: 'Test a listing' })
     const urlTab = screen.getByRole('tab', { name: 'Any URL' })
     const compareTab = screen.getByRole('tab', { name: /Compare a competitor/ })
+    expect(screen.getByRole('tablist', { name: 'Agent Lab modes' })).toHaveClass('platform-tablist', 'platform-tab-grid')
+    expect(testTab).toHaveClass('platform-tab')
     expect(testTab).toHaveAttribute('tabindex', '0')
     expect(urlTab).toHaveAttribute('tabindex', '-1')
 
