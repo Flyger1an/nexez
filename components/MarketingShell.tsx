@@ -199,6 +199,7 @@ function MarketingFooter({ authed }: { authed: boolean | null }) {
         <FooterCol
           title="Trust"
           links={[
+            ['Platform documentation', '/docs'],
             ['Agent readiness', '/agent-readiness'],
             ['Agent access', '/agents'],
             ['Integrations', '/integrations'],

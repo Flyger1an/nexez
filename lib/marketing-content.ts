@@ -173,59 +173,59 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     title: 'Built for public discovery',
     accent: 'without losing control.',
     description:
-      'Listings are intentionally public, but the platform behind them needs strong boundaries. Nexez separates marketing, authenticated app, and public agent runtime surfaces so each part has the right security posture.',
+      'Nexez is open where agents need discovery and closed where owners need control. Separate hosts, deliberate public projections, row-level access, encrypted credentials, and verified runtime paths protect that boundary.',
     primaryCta: { label: 'Review storefront settings', href: appUrl('/dashboard/settings') },
-    secondaryCta: { label: 'Read platform docs', href: '/developers' },
+    secondaryCta: { label: 'Read security docs', href: '/docs#security-operations' },
     stats: [
       { value: '3', label: 'Separated domains' },
       { value: 'RLS', label: 'Database access model' },
-      { value: 'SSL', label: 'Custom domain checks' },
+      { value: 'AES', label: 'Recoverable secret encryption' },
     ],
     visualTitle: 'Trust model',
     visualItems: [
       'nexez.ai handles public education and discovery.',
       'app.nexez.ai handles authenticated creation, billing, and settings.',
-      'nexez.app handles crawlable listings, manifests, checkout, and agent APIs.',
+      'nexez.app exposes published listings, narrow public projections, commerce, and agent APIs.',
     ],
     sections: [
       {
         eyebrow: 'Platform boundaries',
         title: 'The public listing is not the private dashboard.',
         copy:
-          'Public listings expose only the business information users choose to publish. Authenticated settings, billing, API keys, drafts, imports, and analytics stay inside the product surface.',
+          'The public runtime reads a restricted projection of published records. Drafts, account data, billing, credentials, private trust evidence, analytics, and owner controls remain behind authenticated access.',
         cards: [
-          { title: 'Auth-gated controls', copy: 'Sensitive dashboard routes require a signed-in user and server-side checks.' },
-          { title: 'Publish intent', copy: 'Only published listings and public artifacts are served to crawlers.' },
-          { title: 'Host-aware routing', copy: 'Marketing, app, and agent runtime routes resolve to their intended domains.' },
+          { title: 'Row-level ownership', copy: 'Owner and collaborator policies constrain workspace data at the database boundary.' },
+          { title: 'Public projection', copy: 'Published surfaces read an allowlisted record instead of exposing the private base table.' },
+          { title: 'Host-aware routing', copy: 'Marketing, authenticated control, and agent runtime traffic resolve to deliberate domains.' },
         ],
       },
       {
         eyebrow: 'Payments and integrations',
-        title: 'External systems stay scoped.',
+        title: 'Credentials and transactions stay scoped.',
         copy:
-          'Stripe, Calendly, Shopify, Square, and API access are treated as integration surfaces with explicit tokens, webhook paths, and user-controlled connection states.',
+          'Recoverable integration credentials and buyer-access tokens are server-only and encrypted at rest. Signed webhooks, dry runs, idempotency, and immutable purchase economics constrain consequential actions.',
         cards: [
-          { title: 'Stripe readiness', copy: 'Billing and platform fees are separated from public listing browsing.' },
-          { title: 'Webhook hygiene', copy: 'Webhook secrets live in environment variables, not in public client code.' },
-          { title: 'Connection visibility', copy: 'Users can see integration state and imported data before publishing.' },
+          { title: 'Encrypted recovery', copy: 'Calendly, Shopify, Square, Acuity, checkout, and negotiation secrets use narrow server-side recovery paths.' },
+          { title: 'Verified events', copy: 'Stripe, Shopify, and Calendly deliveries are signature-checked before state changes.' },
+          { title: 'Money provenance', copy: 'Price, fee rate, commission source, refunds, and settlement state remain attributable to the transaction.' },
         ],
       },
       {
-        eyebrow: 'Crawlability controls',
-        title: 'Open where it matters, controlled where it counts.',
+        eyebrow: 'Operations and recourse',
+        title: 'Critical paths are checked after they ship.',
         copy:
-          'Agent-facing listings are designed to be found. App routes are designed to stay out of search. Robots, sitemaps, and public manifests follow that split.',
+          'Release certification, reconciliation jobs, launch-health checks, status paths, refunds, disputes, and support escalation cover the period after a request leaves the interface.',
         cards: [
-          { title: 'Agent-friendly robots', copy: 'Public runtime welcomes major AI crawlers and standard search bots.' },
-          { title: 'No-index app host', copy: 'Authenticated product surfaces are kept out of search indexes.' },
-          { title: 'Structured artifacts', copy: 'llms.txt, agent.json, OpenAPI, and MCP artifacts make machine access explicit.' },
+          { title: 'Release certification', copy: 'Static checks, tests, end-to-end flows, SDK parity, and production probes guard releases.' },
+          { title: 'Reconciliation', copy: 'Billing, escrow, settlements, resources, freshness, and negotiations have repair-oriented jobs.' },
+          { title: 'User recourse', copy: 'Owners and buyers retain order, refund, dispute, review, status, and support paths.' },
         ],
       },
     ],
     faq: [
       { title: 'Will unpublished listings be crawled?', copy: 'No. The public runtime is built around published records and explicit public artifacts.' },
       { title: 'Can users verify custom domains?', copy: 'Yes. Custom domains use verification checks before they are marked live.' },
-      { title: 'Where do my API keys and secrets live?', copy: 'Server-side only. Secrets never appear in public listings, client code, or crawlable artifacts.' },
+      { title: 'Where do my API keys and secrets live?', copy: 'Private credentials stay server-side; recoverable secrets are encrypted and excluded from public listings, client bundles, and crawlable artifacts.' },
     ],
     finalCtaTitle: 'Public to agents. Private where it should be.',
     finalCtaCopy: 'Nexez gives businesses a discoverable public surface without turning the dashboard into a public target.',
@@ -236,19 +236,19 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     title: 'Connect the tools that already',
     accent: 'hold your buying context.',
     description:
-      'Nexez works best when it can pull real offers, availability, payments, and product data from the systems your business already uses. Start manual, then connect the sources that reduce upkeep.',
+      'Connect catalog, scheduling, payment, and automation systems to keep offers actionable. Imports remain editable, credentials stay scoped, and publication stays under owner control.',
     primaryCta: { label: 'Open integrations', href: appUrl('/dashboard/integrations') },
-    secondaryCta: { label: 'Create a listing', href: appUrl('/create') },
+    secondaryCta: { label: 'Read integration docs', href: '/docs#integrations-automation' },
     stats: [
-      { value: '6+', label: 'Core import paths' },
+      { value: '8', label: 'Named connection paths' },
       { value: 'CSV', label: 'No-code fallback' },
       { value: 'API', label: 'Developer-ready' },
     ],
     visualTitle: 'Integration sources',
     visualItems: [
-      'Calendly and Google Calendar help describe availability and booking windows.',
-      'Stripe and Square help shape products, pricing, quotes, and payment paths.',
-      'Shopify, CSV, and website importers help turn catalogs into agent-readable offers.',
+      'Stripe, Shopify, Square, CSV, and website flows shape editable catalogs and prices.',
+      'Calendly, Google Calendar, and Acuity connect service context, booking, and availability.',
+      'Inbound signatures, outbound webhooks, resync, and reconciliation keep state attributable.',
     ],
     sections: [
       {
@@ -259,36 +259,36 @@ export const marketingPages: Record<string, MarketingPageContent> = {
         cards: [
           { title: 'Calendly', copy: 'Import service names, booking links, durations, and meeting context.' },
           { title: 'Google Calendar', copy: 'Surface availability windows without exposing private calendar details.' },
-          { title: 'Manual fallback', copy: 'Add booking links and availability notes even before OAuth is connected.' },
+          { title: 'Acuity', copy: 'Import services through encrypted per-listing credentials and preserve source context.' },
         ],
       },
       {
-        eyebrow: 'Payments',
-        title: 'Give agents a clean path to purchase.',
+        eyebrow: 'Catalog and commerce',
+        title: 'Turn connected inventory into editable offers.',
         copy:
-          'When offers have a price and payment path, agents can move from recommendation to action. Nexez keeps the public listing clean while routing checkout through the proper payment flow.',
+          'Nexez imports structured source data without turning an external system into the public source of truth. Owners review the result, then attach the right checkout, booking, quote, or negotiation path.',
         cards: [
-          { title: 'Stripe', copy: 'Support subscription billing, plan upgrades, checkout, and platform fee tracking.' },
-          { title: 'Square', copy: 'Bring in local-service and point-of-sale context where relevant.' },
-          { title: 'Quotes and review', copy: 'For high-value work, route agents to request human review before payment.' },
+          { title: 'Stripe', copy: 'Import catalog data, connect seller payments, and preserve platform-fee and settlement evidence.' },
+          { title: 'Shopify', copy: 'Install, link a listing, sync catalog records, and serve the storefront through an app proxy.' },
+          { title: 'Square', copy: 'Bring service or product catalog context into the same reviewable offer model.' },
         ],
       },
       {
-        eyebrow: 'Catalogs',
-        title: 'Turn product and service lists into structured offers.',
+        eyebrow: 'Automation',
+        title: 'Keep state fresh without hiding what changed.',
         copy:
-          'Product catalogs and service menus are often clear to humans but messy to agents. Importers convert them into fields agents can compare.',
+          'Signed inbound events, owner-configured outbound webhooks, manual resync, and scheduled repair jobs move changes through observable paths.',
         cards: [
-          { title: 'Shopify', copy: 'Import product titles, price signals, descriptions, and product URLs.' },
-          { title: 'CSV upload', copy: 'Move from spreadsheet to a listing without engineering work.' },
-          { title: 'Website importer', copy: 'Use an existing services page as a starting point, then refine the result.' },
+          { title: 'Verified inbound events', copy: 'Provider signatures are checked before supported events update platform state.' },
+          { title: 'Outbound webhooks', copy: 'Owners can configure and test delivery for their own downstream systems.' },
+          { title: 'Freshness controls', copy: 'Resync and scheduled reconciliation surface failures instead of silently presenting stale availability.' },
         ],
       },
     ],
     faq: [
       { title: 'Do I need integrations to launch?', copy: 'No. Manual listings are enough for launch. Integrations make listings easier to keep fresh.' },
       { title: 'Can I review imported data?', copy: 'Yes. Imports create a draft you review, edit, and approve. Nothing publishes without you.' },
-      { title: 'Will more integrations be added?', copy: 'Yes. The roadmap favors integrations that reduce listing maintenance and improve buyer action quality.' },
+      { title: 'Does an import publish automatically?', copy: 'No. Imported records stay in the editable listing model and publication remains an explicit owner action.' },
     ],
     finalCtaTitle: 'Set it once, then keep the listing fresh.',
     finalCtaCopy: 'Connect the systems that already know your offers, prices, and availability.',
@@ -299,19 +299,19 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     title: 'Make your business recommendable',
     accent: 'by AI agents.',
     description:
-      'AI agents do not browse like humans. They parse, compare, verify, and act. Agent readiness is the practical discipline of making your offers clear enough for those systems to recommend without guessing.',
+      'Readiness measures whether an agent can understand and use a listing. Trust adds identity and runtime evidence. Neither is a traffic promise, and neither replaces explicit buyer approval.',
     primaryCta: { label: 'Run the simulator', href: '/simulator' },
-    secondaryCta: { label: 'See live examples', href: '/discovery' },
+    secondaryCta: { label: 'Read readiness docs', href: '/docs#readiness-publication' },
     stats: [
-      { value: '92%', label: 'Target readiness score' },
-      { value: '5', label: 'Agent-readable outputs' },
-      { value: '0', label: 'Hidden buying steps' },
+      { value: '3', label: 'Readiness, trust, runtime lenses' },
+      { value: '6+', label: 'Synchronized public artifacts' },
+      { value: '0', label: 'Guaranteed traffic claims' },
     ],
     visualTitle: 'Readiness checklist',
     visualItems: [
       'Offers have names, descriptions, price signals, and next actions.',
       'The listing exposes schema, llms.txt, agent.json, and clear semantic HTML.',
-      'The business includes trust signals, contact path, location, and policies.',
+      'Identity, freshness, website checks, policies, and runtime evidence remain distinguishable from completeness.',
     ],
     sections: [
       {
@@ -326,14 +326,14 @@ export const marketingPages: Record<string, MarketingPageContent> = {
         ],
       },
       {
-        eyebrow: 'Verify',
-        title: 'Agents need confidence before recommending.',
+        eyebrow: 'Prove',
+        title: 'Trust evidence must stay separate from completeness.',
         copy:
-          'Trust is not just branding. Agents look for signals that a listing is current, reachable, and aligned with the user request.',
+          'A complete listing can still be stale or unverified. Nexez records website checks, identity context, freshness, credentials, and observed runtime behavior without turning evidence into a guarantee.',
         cards: [
-          { title: 'Freshness', copy: 'Updated listings, connected integrations, and active links improve confidence.' },
-          { title: 'Identity', copy: 'Website link, contact details, custom domain, and verified artifacts reduce ambiguity.' },
-          { title: 'Consistency', copy: 'Human listing, JSON, schema, and checkout actions should tell the same story.' },
+          { title: 'Trust context', copy: 'Website, identity, contact, domain, freshness, and policy signals remain visible and attributable.' },
+          { title: 'Private evidence', copy: 'Credentials can be reviewed without forcing sensitive evidence onto the public listing.' },
+          { title: 'Runtime checks', copy: 'Artifacts, links, domains, and action paths can be checked as systems rather than assumed from copy.' },
         ],
       },
       {
@@ -344,7 +344,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
         cards: [
           { title: 'Direct CTAs', copy: 'Book, buy, contact, negotiate, or request review should be attached to specific offers.' },
           { title: 'Checkout readiness', copy: 'Payment paths need clear totals, confirmation states, and agent-readable receipts.' },
-          { title: 'Simulator checks', copy: 'Preview how different agents interpret the listing before relying on it.' },
+          { title: 'Simulator evidence', copy: 'Owner-only dry runs show how different agent lenses interpret the listing without executing a transaction.' },
         ],
       },
     ],
@@ -362,20 +362,20 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     title: 'APIs and artifacts for',
     accent: 'agent-native commerce.',
     description:
-      'Nexez publishes machine-readable artifacts for discovery, search, verification, and action. Developers can inspect public listings, call APIs, and build agents that understand real business offers.',
+      'Build on documented discovery, validation, approval, checkout, negotiation, and management contracts—with SDKs, examples, plugins, skills, MCP, and ARD distribution already attached.',
     primaryCta: { label: 'View OpenAPI', href: agentRuntimeUrl('/openapi.json') },
-    secondaryCta: { label: 'Browse agent index', href: agentRuntimeUrl('/agent-pages.json') },
+    secondaryCta: { label: 'Read developer docs', href: '/docs#developer-distribution' },
     stats: [
       { value: 'REST', label: 'Public APIs' },
       { value: 'MCP', label: 'Per-listing manifests' },
-      { value: 'JSON', label: 'Agent-readable offers' },
+      { value: 'SDK', label: 'TypeScript and Python' },
     ],
     visualTitle: 'Developer surface',
     visualItems: [
       'Global index: /agent-pages.json for published listings.',
       'Search: /api/agent-search?q={intent} for buyer-intent discovery.',
       'Per-listing artifacts: /{slug}/agent.json, /{slug}/llms.txt, /{slug}/mcp.json.',
-      'Registry discovery: /.well-known/ai-catalog.json for ARD-compatible crawlers.',
+      'Distribution: TypeScript, Python, OpenClaw plugin and skill, examples, MCP, ARD, and agent cards.',
     ],
     sections: [
       {
@@ -390,23 +390,23 @@ export const marketingPages: Record<string, MarketingPageContent> = {
         ],
       },
       {
-        eyebrow: 'Listing artifacts',
-        title: 'Every listing exposes structured context.',
+        eyebrow: 'Contracts and distribution',
+        title: 'Use the contract your runtime understands.',
         copy:
-          'A public page is only one representation. Nexez publishes multiple machine-readable formats so different agents can choose the surface they understand best.',
+          'The public HTML page is one representation. SDKs, OpenAPI, agent.json, llms.txt, MCP resources, ARD catalogs, capability manifests, plugins, and skills expose the same operating model through different clients.',
         cards: [
-          { title: 'agent.json', copy: 'Canonical business, offer, action, trust, and readiness data for a listing.' },
-          { title: 'llms.txt', copy: 'Plain-language context optimized for LLM ingestion and retrieval.' },
-          { title: 'MCP manifest', copy: 'Optional per-listing manifest for tools and resources where enabled.' },
+          { title: 'SDKs and examples', copy: 'Published TypeScript and Python packages mirror safe search, validation, approval, and negotiation patterns.' },
+          { title: 'Native agent access', copy: 'An OpenClaw plugin and discovery skill provide installable tool and context paths.' },
+          { title: 'MCP and ARD', copy: 'Global and per-listing resources are discoverable through catalogs and well-known manifests.' },
         ],
       },
       {
         eyebrow: 'Action',
         title: 'Move from recommendation to handoff.',
         copy:
-          'Developers can validate checkout handoffs, link users to specific offers, or route high-value requests into negotiation and review flows.',
+          'Developers can dry-run eligible actions, present the exact destination and terms, require buyer approval, then create checkout or negotiation state with a durable status path.',
         cards: [
-          { title: 'Checkout links', copy: 'Offer-specific checkout paths make the selected action explicit.' },
+          { title: 'Agentic commerce', copy: 'Checkout APIs include native Nexez, ACP, and UCP session contracts.' },
           { title: 'Dry-run validation', copy: 'Agents can verify a checkout path before starting a real purchase flow.' },
           { title: 'Buyer approval UX', copy: 'Render clear consent before checkout, booking, contact sharing, or negotiation submission.' },
         ],
@@ -428,9 +428,9 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     title: 'Nexez is not another',
     accent: 'landing page builder.',
     description:
-      'Traditional websites persuade humans. Directories list businesses. SEO pages chase rankings. Nexez creates a structured buying layer for AI agents that need to understand, compare, and act.',
+      'Nexez sits beside websites, directories, schedulers, payment processors, and commerce platforms. It joins their scattered context into one governed layer agents can discover, validate, act through, and reconcile.',
     primaryCta: { label: 'Create a listing', href: appUrl('/create') },
-    secondaryCta: { label: 'See the directory', href: '/discovery' },
+    secondaryCta: { label: 'Read the platform model', href: '/docs#platform-model' },
     stats: [
       { value: 'Human', label: 'Website remains intact' },
       { value: 'Agent', label: 'Nexez listing is structured' },
@@ -440,7 +440,7 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     visualItems: [
       'Website builders optimize visual presentation and content control.',
       'Directories optimize discovery, but not your owned agent-readable data.',
-      'Nexez optimizes the buying context agents need after discovery.',
+      'Nexez owns the cross-system offer, approval, action, evidence, and financial record after discovery.',
     ],
     sections: [
       {
@@ -466,21 +466,21 @@ export const marketingPages: Record<string, MarketingPageContent> = {
         ],
       },
       {
-        eyebrow: 'Versus SEO tools',
-        title: 'Rankings are only part of the future.',
+        eyebrow: 'Versus disconnected commerce tools',
+        title: 'A handoff is not the end of the record.',
         copy:
-          'AI agents are not just search results pages. They synthesize options and may complete tasks. Nexez prepares the offer layer for that behavior.',
+          'A scheduler, processor, or store can execute one step. Nexez keeps the originating intent, offer, approval, transaction, negotiation, refund, settlement, and analytics evidence connected around it.',
         cards: [
-          { title: 'Action-ready', copy: 'The listing is built around bookings, purchases, quotes, and negotiation.' },
-          { title: 'Agent simulation', copy: 'Preview how major agents interpret the listing before launch.' },
-          { title: 'Readiness over vanity', copy: 'Measure whether the listing is usable by agents, not just whether it exists.' },
+          { title: 'Approval boundary', copy: 'The buyer sees the offer, terms, destination, and shared data before consequential action.' },
+          { title: 'Operational continuity', copy: 'Orders, negotiations, resources, agreements, refunds, disputes, and status paths survive the handoff.' },
+          { title: 'Financial truth', copy: 'Immutable economics and currency-safe reporting separate verified money from estimated attention.' },
         ],
       },
     ],
     faq: [
       { title: 'Can I use Nexez with Webflow, Squarespace, or Wix?', copy: 'Yes. Nexez sits beside your main website and can link to or import from it.' },
       { title: 'Is this only for AI traffic?', copy: 'No. Humans can use the listings too, but the structure is intentionally optimized for agents.' },
-      { title: 'Can agencies manage listings for clients?', copy: 'Yes. Multi-listing workflows are part of the core direction.' },
+      { title: 'Can agencies manage listings for clients?', copy: 'Yes. Storefronts, multiple listings, invitations, collaborator access, shared branding, and portfolio reporting support managed work.' },
     ],
     finalCtaTitle: 'Do not rebuild your website for agents. Add the missing layer.',
     finalCtaCopy: 'Give every service, product, and package a listing agents can understand and act on.',
@@ -491,19 +491,19 @@ export const marketingPages: Record<string, MarketingPageContent> = {
     title: 'Agent-ready infrastructure',
     accent: 'for teams with many offers.',
     description:
-      'For agencies, marketplaces, franchises, and platforms, Nexez becomes the structured offer layer across every business, location, and client account you manage.',
+      'For agencies, franchises, marketplaces, and complex sellers, Nexez governs listings, teams, domains, integrations, agent distribution, transactions, and reporting across a portfolio.',
     primaryCta: { label: 'Contact sales', href: '/support' },
-    secondaryCta: { label: 'Review API surface', href: '/developers' },
+    secondaryCta: { label: 'Read enterprise docs', href: '/docs#workspace-foundation' },
     stats: [
-      { value: 'Bulk', label: 'Listing creation' },
-      { value: 'API', label: 'Managed workflows' },
-      { value: 'Custom', label: 'Domains and terms' },
+      { value: 'Teams', label: 'Owned collaboration' },
+      { value: 'API', label: 'Managed automation' },
+      { value: 'Portfolio', label: 'Operational reporting' },
     ],
     visualTitle: 'Enterprise fit',
     visualItems: [
-      'Agencies managing listings for service clients.',
-      'Marketplaces exposing structured merchant or provider listings.',
-      'Multi-location businesses needing consistent crawlable offer listings.',
+      'Teams manage storefronts, listings, collaborators, domains, integrations, and publication from one control plane.',
+      'Reusable creation, import, offer, trust, and agent distribution patterns keep portfolios consistent.',
+      'Analytics, negotiation operations, immutable finance, and reconciliation make scale measurable.',
     ],
     sections: [
       {
@@ -512,9 +512,9 @@ export const marketingPages: Record<string, MarketingPageContent> = {
         copy:
           'Enterprise buyers need repeatable listing structure, governance, import workflows, and reporting across teams. Nexez is designed to standardize the agent-readable layer.',
         cards: [
-          { title: 'Bulk listing workflows', copy: 'Create listing groups by client, location, vertical, or service line.' },
-          { title: 'Reusable patterns', copy: 'Apply offer templates and readiness requirements across many listings.' },
-          { title: 'Central reporting', copy: 'Compare agent discovery, readiness, and conversion across the portfolio.' },
+          { title: 'Portfolio structure', copy: 'Group listings through storefronts and organize each business, location, vertical, or offer line deliberately.' },
+          { title: 'Reusable inputs', copy: 'Use templates, website scans, CSV, catalog connections, duplication, and version history to accelerate repeatable creation.' },
+          { title: 'Central reporting', copy: 'Compare traffic, intent, offers, actions, negotiations, readiness, and verified economics across owned records.' },
         ],
       },
       {
@@ -523,9 +523,9 @@ export const marketingPages: Record<string, MarketingPageContent> = {
         copy:
           'Large deployments need clear ownership, draft review, publish workflows, domain controls, and integration hygiene.',
         cards: [
-          { title: 'Roles and review', copy: 'Separate listing authorship, approval, billing, and integration management.' },
-          { title: 'Domain strategy', copy: 'Use Nexez runtime, branded subdomains, or owned custom domains where appropriate.' },
-          { title: 'Integration governance', copy: 'Keep tokens, webhooks, imports, and billing surfaces under control.' },
+          { title: 'Owned collaboration', copy: 'Invite collaborators and inherit owner entitlements without transferring ownership or widening unrelated access.' },
+          { title: 'Domain strategy', copy: 'Use the Nexez runtime, storefronts, Shopify proxy, or verified custom domains where appropriate.' },
+          { title: 'Commercial controls', copy: 'Custom transaction terms, advanced settlement, integrations, API keys, and support expectations can be governed centrally.' },
         ],
       },
       {
@@ -534,16 +534,16 @@ export const marketingPages: Record<string, MarketingPageContent> = {
         copy:
           'The value of listings compounds when teams can see which offers agents search for, which listings convert, and where structure fails.',
         cards: [
-          { title: 'Agent mix', copy: 'Break down activity by ChatGPT, Claude, Perplexity, Grok, and other detected agents.' },
-          { title: 'Offer-level performance', copy: 'Track which services, products, and packages generate handoffs.' },
-          { title: 'Readiness governance', copy: 'Monitor stale listings, missing actions, weak descriptions, and incomplete pricing.' },
+          { title: 'Agent and intent mix', copy: 'Separate human traffic, detected agents, directory discovery, queries, and trusted server actions.' },
+          { title: 'Commercial operations', copy: 'Track offers, negotiation queues, latency, outcomes, orders, refunds, fees, payouts, escrow, and settlements.' },
+          { title: 'Readiness governance', copy: 'Monitor completeness, trust evidence, runtime health, domains, stale context, and actionability.' },
         ],
       },
     ],
     faq: [
       { title: 'Who is Enterprise for?', copy: 'Teams managing many listings, locations, clients, merchants, or high-value workflows.' },
       { title: 'Can pricing be customized?', copy: 'Yes. Enterprise plans can include custom transaction terms, limits, onboarding, and support.' },
-      { title: 'Can Nexez support private directories?', copy: 'Yes. Private directories for agencies, marketplaces, and partner networks are on the enterprise roadmap.' },
+      { title: 'What is available today?', copy: 'The capabilities described here and in the platform documentation are current product surfaces. Deployment-specific terms are confirmed during onboarding.' },
     ],
     finalCtaTitle: 'Turn many businesses into one structured agent-ready network.',
     finalCtaCopy: 'Enterprise Nexez helps teams publish, govern, and measure listings at scale.',

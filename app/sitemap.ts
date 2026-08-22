@@ -30,6 +30,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...scanPlatforms.map((p) => entry(`/scan/${p.slug}`, 0.8, 'monthly')),
       entry('/tools/llms-txt-generator', 0.8, 'monthly'),
       entry('/agents', 0.9, 'weekly'),
+      entry('/docs', 0.9, 'weekly'),
       entry('/how-it-works', 0.9, 'weekly'),
       entry('/use-cases', 0.85, 'weekly'),
       ...useCases.map((useCase) => entry(`/use-cases/${useCase.slug}`, 0.75, 'monthly')),

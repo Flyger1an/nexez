@@ -9,7 +9,7 @@ const content = marketingPages.security
 // SERP copy (≤160-char description; content.description is longer on-page hero copy).
 const metaTitle = 'Security and Trust'
 const metaDescription =
-  'How Nexez protects your data and payments — Stripe-powered checkout, row-level security, encrypted credentials, and least-privilege access throughout.'
+  'Nexez security: separated hosts, row-level data access, restricted public projections, encrypted credentials, signed events, and release controls.'
 
 export const metadata: Metadata = {
   title: metaTitle,

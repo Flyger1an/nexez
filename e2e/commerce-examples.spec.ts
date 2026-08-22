@@ -18,7 +18,7 @@ test.describe('commerce reference examples', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Mobile Auto Detailing' })).toBeVisible()
     await expect(page.getByText('Reference template — not live supply')).toBeVisible()
     await expect(page.getByText(/not a real provider listing/i)).toBeVisible()
-    await expect(page.getByText('What Nexie would clarify before publishing')).toBeVisible()
+    await expect(page.getByText('What Nexxi would clarify before publishing')).toBeVisible()
 
     const buildLink = page.getByRole('link', { name: 'Build your version' }).first()
     await expect(buildLink).toHaveAttribute('href', new RegExp(`/create\\?commerceTemplate=${DETAILING_ID.replaceAll('.', '\\.')}$`))

@@ -9,7 +9,7 @@ const content = marketingPages.developers
 // SERP copy (≤60-char title incl. the layout's ' · Nexez'; ≤160-char description).
 const metaTitle = 'Developer APIs for agent-ready listings'
 const metaDescription =
-  'REST APIs, MCP servers, and machine-readable artifacts — agent.json, llms.txt, OpenAPI, ai-catalog — for building on the Nexez agent-commerce layer.'
+  'Nexez APIs, SDKs, OpenClaw tools, examples, OpenAPI, MCP, ARD, ACP, UCP, artifacts, dry runs, and buyer approval contracts.'
 
 export const metadata: Metadata = {
   title: metaTitle,

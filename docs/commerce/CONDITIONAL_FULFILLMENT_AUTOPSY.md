@@ -112,7 +112,7 @@ Nexez already has negotiation and preferred-contact surfaces.
 
 ### Source of truth
 
-Rules are explicit merchant-authored offer configuration. AI proposal/site-sync/Nexie merge paths may preserve these rules but must never invent or overwrite them.
+Rules are explicit merchant-authored offer configuration. AI proposal/site-sync/Nexxi merge paths may preserve these rules but must never invent or overwrite them.
 
 ### Input source
 

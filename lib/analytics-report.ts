@@ -124,7 +124,7 @@ const CHANNEL_LABELS: Record<string, string> = {
   acp: 'ACP',
   ucp: 'UCP',
   negotiation: 'Negotiated deal',
-  nexie: 'Nexie',
+  nexie: 'Nexxi',
   recurring_service: 'Recurring service',
   staged_settlement: 'Staged settlement',
   reservable_resource: 'Reserved resource',

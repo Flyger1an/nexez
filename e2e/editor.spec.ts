@@ -163,6 +163,7 @@ test.describe('authed editor', () => {
     expect(newListingStyle.borderColor).not.toBe('rgba(0, 0, 0, 0)')
 
     await page.goto('/dashboard/finance', { waitUntil: 'domcontentloaded' })
+    await expect(page.getByText('Live mode only', { exact: true })).toHaveCount(0)
     const financeWindow = page.getByRole('navigation', { name: 'Finance window' })
     await expect(financeWindow).toBeVisible()
     await expect(financeWindow.getByRole('link', { name: '30d', exact: true })).toHaveAttribute('aria-current', 'page')

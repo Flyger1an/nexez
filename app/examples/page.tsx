@@ -22,7 +22,7 @@ const content = {
     'Keep template knowledge separate from merchant truth until the business confirms its own facts.',
   ],
   finalCtaTitle: 'Teach Nexez how your business actually works.',
-  finalCtaCopy: 'Start with Nexie, describe your business in plain language, and confirm the facts that make your offers transactable.',
+  finalCtaCopy: 'Start with Nexxi, describe your business in plain language, and confirm the facts that make your offers transactable.',
 }
 
 // SERP copy (≤160-char description; content.description is longer on-page hero copy).

@@ -71,7 +71,7 @@ Money held against loss or damage is a regulated settlement and policy concern. 
 
 ### Merchant-authored offer configuration
 
-Resource requirements must belong to a real merchant offer. AI proposal, site-sync, and Nexie merge paths may preserve resource configuration but must never invent pools, quantities, or availability.
+Resource requirements must belong to a real merchant offer. AI proposal, site-sync, and Nexxi merge paths may preserve resource configuration but must never invent pools, quantities, or availability.
 
 ### Canonical buyer configuration
 

@@ -212,6 +212,13 @@ test.describe('page settings', () => {
     await expect(page.getByRole('heading', { name: 'Agent surfaces', exact: true })).toBeVisible()
     await expect(sectionNav.getByRole('link', { name: 'Agent surfaces' })).toHaveClass(/settings-choice-active/)
 
+    await page.locator('#team').evaluate((section) => window.scrollTo({ top: section.getBoundingClientRect().top + window.scrollY - 180 }))
+    await expect(sectionNav.getByRole('link', { name: 'Team access' })).toHaveAttribute('aria-current', 'location')
+    await expect(sectionNav.getByRole('link', { name: 'Agent surfaces' })).not.toHaveAttribute('aria-current', 'location')
+
+    await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight }))
+    await expect(sectionNav.getByRole('link', { name: 'Agent surfaces' })).toHaveAttribute('aria-current', 'location')
+
     const stickyGeometry = await sectionNav.evaluate((nav) => {
       const navRect = nav.getBoundingClientRect()
       const shellHeader = document.querySelector<HTMLElement>('header.nx-nav')

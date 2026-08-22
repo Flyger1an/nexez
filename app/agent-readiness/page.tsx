@@ -10,7 +10,7 @@ const content = marketingPages['agent-readiness']
 // SERP copy (≤160-char description; content.description is longer on-page hero copy).
 const metaTitle = 'AI Agent Readiness'
 const metaDescription =
-  'What makes a website legible to AI agents — the readiness checklist, scoring, and the artifacts (agent.json, llms.txt, JSON-LD) that make you transactable.'
+  'How Nexez separates listing completeness, trust evidence, runtime checks, machine artifacts, actionability, and buyer approval for AI agents.'
 
 export const metadata: Metadata = {
   title: metaTitle,

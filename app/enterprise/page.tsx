@@ -9,7 +9,7 @@ const content = marketingPages.enterprise
 // SERP copy (≤60-char title incl. the layout's ' · Nexez'; ≤160-char description).
 const metaTitle = 'Enterprise agent commerce'
 const metaDescription =
-  'Roll out agent-legible, transactable listings across your organization — SSO, custom terms, dedicated support, and volume pricing.'
+  'Govern teams, storefronts, listings, domains, integrations, agent commerce, negotiations, finance, and portfolio reporting with Nexez Enterprise.'
 
 export const metadata: Metadata = {
   title: metaTitle,

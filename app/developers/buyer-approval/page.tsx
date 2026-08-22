@@ -15,7 +15,7 @@ import { agentRuntimeUrl, marketingUrl } from '../../../lib/site'
 export const metadata: Metadata = {
   title: 'Buyer Approval UX',
   description:
-    'Nexez buyer approval patterns help agent builders render clear consent before checkout, booking, contact sharing, or negotiation submission.',
+    'The Nexez consent boundary for dry runs, checkout, booking, contact sharing, negotiation submission, recovery, and approval-bound agent actions.',
   alternates: {
     canonical: marketingUrl('/developers/buyer-approval'),
   },
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     url: marketingUrl('/developers/buyer-approval'),
     title: 'Buyer Approval UX',
     description:
-      'Nexez buyer approval patterns help agent builders render clear consent before checkout, booking, contact sharing, or negotiation submission.',
+      'The Nexez consent boundary for dry runs, checkout, booking, contact sharing, negotiation submission, recovery, and approval-bound agent actions.',
   },
 }
 
@@ -205,19 +205,22 @@ export default function BuyerApprovalPage() {
               Consent patterns for <span className="nx-accent-text">agent commerce.</span>
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
-              Agent builders need a clean stop point before checkout, negotiation, booking, or contact sharing.
-              Nexez uses a compact approval object so agents can render the exact action, terms, risk notes, and
-              approval buttons before anything real happens.
+              Analysis may search, compare, and dry-run safely. Consequential action stops here: Nexez exposes the
+              seller, offer, terms, destination, shared data, risk notes, and recovery-safe approval state before
+              checkout, negotiation, booking, or contact sharing proceeds.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a href="#schema" className="btn-primary h-11 px-5">
                 View schema
                 <ArrowRight className="size-4" />
               </a>
-              <a href="/agents" className="btn-secondary h-11 px-5">
-                Agent access
+              <a href="/docs#buyer-agent" className="btn-secondary h-11 px-5">
+                Approval documentation
               </a>
             </div>
+            <a href="/agents" className="mt-4 inline-flex text-sm text-muted-foreground transition-colors hover:text-foreground">
+              Continue to Agent Access
+            </a>
           </div>
 
           <ApprovalCardPreview />

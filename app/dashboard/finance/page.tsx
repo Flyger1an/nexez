@@ -293,9 +293,6 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
             <div>
               <p className="flex items-center gap-2 text-sm text-[var(--signal)]">
                 <Wallet className="size-4" /> Finance
-                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--ready)]/25 bg-[var(--ready)]/10 px-2 py-0.5 text-[11px] text-[var(--ready)]">
-                  <ShieldCheck className="size-3" /> Live mode only
-                </span>
               </p>
               <h1 className="mt-2 text-4xl font-semibold tracking-tight">Money in &amp; out</h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--fg-muted)]">
@@ -715,7 +712,7 @@ function financeChannelLabel(channel: string) {
     staged_settlement: 'Staged settlement',
     reserved: 'Reserved resource',
     reservable_resource: 'Reserved resource',
-    nexie: 'Nexie-assisted',
+    nexie: 'Nexxi-assisted',
     negotiated: 'Negotiated capture',
     negotiated_order: 'Negotiated order',
     settled_orders: 'Settled orders',
