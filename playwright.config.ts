@@ -48,6 +48,11 @@ if (process.env.LLM_API_KEY) devServerEnv.LLM_API_KEY = process.env.LLM_API_KEY
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
+  // Authenticated specs share one intentionally mutable E2E seller. Running
+  // files in parallel lets one suite restore plan metadata while another is
+  // still behind the dashboard gate, producing false onboarding redirects.
+  // Keep the release suite serial so disposable fixture mutations cannot race.
+  workers: 1,
   retries: 0,
   reporter: 'list',
   timeout: 60_000,
