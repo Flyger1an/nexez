@@ -1002,21 +1002,20 @@ export default function BillingDashboardClient({
   // ========== RENDER ==========
   return (
     <div className="space-y-8">
-      {/* Glassmorphic segmented tab bar */}
+      {/* Shared platform tab bar */}
       <div className="flex flex-wrap items-center gap-2 border-b border-[var(--bd-10)] pb-1">
-        <div className="flex max-w-full overflow-x-auto rounded-2xl border border-[var(--bd-10)] bg-[var(--ov-03)] p-1 backdrop-blur-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="platform-tablist" role="tablist" aria-label="Billing views">
           {TABS.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
             return (
               <button
                 key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[14px] px-3.5 sm:px-5 py-2 text-sm font-medium transition-all ${
-                  isActive
-                    ? 'bg-white/10 text-white shadow-inner'
-                    : 'text-[var(--fg-muted)] hover:text-white hover:bg-white/5'
-                }`}
+                className="platform-tab px-3.5 sm:px-5"
               >
                 <Icon className="size-4" />
                 {tab.label}

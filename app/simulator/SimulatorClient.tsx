@@ -507,6 +507,7 @@ export default function GlobalAgentSimulator() {
           <SurfaceHeader
             className="mb-6"
             eyebrow="Agent Lab"
+            icon={Bot}
             title="Test, simulate & compare"
             description="Inspect how machine buyers read a listing, pressure-test an outside website, or benchmark a competitor."
             actions={(
@@ -610,18 +611,14 @@ export default function GlobalAgentSimulator() {
           {/* Results */}
           {selectedPage && simulationResults.length > 0 && (
             <>
-              <div role="tablist" aria-label="Simulated agents" className="mb-6 flex overflow-x-auto border-b border-[var(--bd-10)]">
+              <div role="tablist" aria-label="Simulated agents" className="platform-tablist mb-6">
                 {availableAgentTabs.map((tab) => (
                   <button
                     key={tab}
                     role="tab"
                     aria-selected={currentAgent === tab}
                     onClick={() => switchAgent(tab)}
-                    className={`agent-tab min-h-11 whitespace-nowrap border-b-2 px-6 py-3 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--signal)] ${
-                      currentAgent === tab 
-                        ? 'border-[var(--signal)] text-white bg-[#1A1625]' 
-                        : 'border-transparent text-[#9CA3AF] hover:text-white'
-                    }`}
+                    className="platform-tab"
                   >
                     {tab}
                   </button>

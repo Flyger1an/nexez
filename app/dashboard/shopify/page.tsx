@@ -5,6 +5,8 @@ import { createAdminClient, hasSupabaseAdminEnv } from '../../../utils/supabase/
 import { readPendingShop, shopifyApiKey, shopifyConfigured } from '../../../lib/server/shopify'
 import { getInstallByShop } from '../../../lib/server/shopify-install'
 import { ShopifyLinkClient } from './ShopifyLinkClient'
+import { Store } from 'lucide-react'
+import { SurfaceHeader } from '../../../components/dashboard/SurfacePrimitives'
 
 export const metadata = { title: 'Connect Shopify | Nexez' }
 
@@ -43,8 +45,14 @@ export default async function ShopifyLinkPage() {
   const currentListing = currentPageId ? listings.find((l) => l.id === currentPageId) : null
 
   return (
-    <div className="mx-auto w-full max-w-xl px-5 py-10">
-      <h1 className="text-2xl font-semibold">Connect your Shopify store</h1>
+    <main className="nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]">
+      <div className="mx-auto w-full max-w-3xl px-5 py-10">
+      <SurfaceHeader
+        eyebrow="Commerce connection"
+        icon={Store}
+        title="Connect your Shopify store"
+        description="Choose which listing powers the agent-ready buying path on your storefront."
+      />
 
       {!shop ? (
           <p className="mt-4 text-sm text-[var(--fg-muted)]">
@@ -73,6 +81,7 @@ export default async function ShopifyLinkPage() {
           </div>
         </>
       )}
-    </div>
+      </div>
+    </main>
   )
 }

@@ -695,10 +695,11 @@ export default function PageSettings({ params }: PageProps) {
           }
 
   return (
-    <main className="nx-listing-settings min-h-screen bg-[var(--bg)] text-[var(--fg)]" data-testid="page-settings-screen">
+    <main className="nx-listing-settings nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]" data-testid="page-settings-screen">
       <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-7 sm:py-9">
         <SurfaceHeader
           eyebrow="Listing settings"
+          icon={Settings}
           title={page.name}
           description="Shape how this listing appears, how agents understand it, and where customers complete the next step."
           actions={(

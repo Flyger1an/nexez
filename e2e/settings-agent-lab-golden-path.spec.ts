@@ -208,6 +208,7 @@ test.describe('Settings and Agent Lab five-pass golden path', () => {
     await page.goto('/simulator?mode=test', { waitUntil: 'domcontentloaded' })
     await expect(page.getByTestId('agent-lab-screen')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByRole('tab', { name: 'Test a listing' })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('tab', { name: 'Test a listing' })).toHaveClass(/platform-tab/)
 
     await page.getByRole('button', { name: fixturePageName, exact: true }).click()
     await expect(page.getByRole('status').filter({ hasText: 'immutable Agent Lab run' })).toBeVisible({ timeout: 30_000 })

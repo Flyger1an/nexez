@@ -1,52 +1,54 @@
 import { CopyPlus, ExternalLink, Loader2, MessageCircleQuestion, Play } from 'lucide-react'
 import { PageEditor } from './usePageEditor'
 import { agentRuntimeUrl, appUrl } from '../../lib/site'
+import { surfaceActionClass } from '../dashboard/SurfacePrimitives'
 
 export function EditorToolbar({ e }: { e: PageEditor }) {
   const page = e.page
   return (
-    <div className="flex justify-end">
-      <div className="flex flex-wrap gap-3">
+    <>
         <a
           href={appUrl(`/create?reinterview=${page.id}`)}
-          className="inline-flex w-fit items-center gap-2 rounded-lg border border-[var(--signal)]/40 px-4 py-2 text-sm text-[var(--signal)] hover:bg-[var(--signal)]/10"
+          className={surfaceActionClass}
           title="Interview only the gaps - answers stage as a draft on this listing"
         >
-          <MessageCircleQuestion className="size-4" />
+          <MessageCircleQuestion className="size-4" aria-hidden="true" />
           Re-interview
         </a>
         <button
+          type="button"
           onClick={e.startReanalysis}
           disabled={e.syncing || !e.websiteUrl}
-          className="inline-flex w-fit items-center gap-2 rounded-lg border border-[var(--signal)]/40 px-4 py-2 text-sm text-[var(--signal)] hover:bg-[var(--signal)]/10 disabled:opacity-50"
+          className={surfaceActionClass}
         >
-          {e.syncing ? <Loader2 className="size-4 animate-spin" /> : null}
-          {e.syncing ? 'Analyzing...' : 'Re-analyze from Website (Preview)'}
+          {e.syncing ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
+          {e.syncing ? 'Analyzing…' : 'Re-analyze website'}
         </button>
         <a
           href={`/dashboard/${page.id}/test`}
-          className="inline-flex w-fit items-center gap-2 rounded-lg border border-[var(--signal)]/40 px-4 py-2 text-sm text-[var(--signal)] hover:bg-[var(--signal)]/10"
+          className={surfaceActionClass}
         >
           Test with agents
-          <Play className="size-4" />
+          <Play className="size-4" aria-hidden="true" />
         </a>
         <a
           href={`/dashboard/${page.id}/settings`}
-          className="inline-flex w-fit items-center gap-2 rounded-lg border border-[var(--ready)]/40 px-4 py-2 text-sm text-[var(--ready)] hover:bg-[var(--ready)]/10"
+          className={surfaceActionClass}
         >
           Versions & History
         </a>
         <button
+          type="button"
           onClick={e.duplicateThisPage}
-          className="inline-flex w-fit items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm text-white hover:bg-white/10"
+          className={surfaceActionClass}
           title="Clone this listing into a new draft"
         >
-          <CopyPlus className="size-4" />
+          <CopyPlus className="size-4" aria-hidden="true" />
           Duplicate
         </button>
         <a
           href="/simulator?mode=compare"
-          className="inline-flex w-fit items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm text-white hover:bg-white/10"
+          className={surfaceActionClass}
         >
           Competitor Intel
         </a>
@@ -54,12 +56,11 @@ export function EditorToolbar({ e }: { e: PageEditor }) {
           href={agentRuntimeUrl(`/${page.slug}`)}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex w-fit items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm text-white hover:bg-white/10"
+          className={surfaceActionClass}
         >
           View public listing
-          <ExternalLink className="size-4" />
+          <ExternalLink className="size-4" aria-hidden="true" />
         </a>
-      </div>
-    </div>
+    </>
   )
 }

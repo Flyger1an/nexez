@@ -69,4 +69,14 @@ describe('DashboardLayout plan gate', () => {
     expect(trial.ensure).not.toHaveBeenCalled()
     expect(redirect).not.toHaveBeenCalled()
   })
+
+  it('applies the platform design contract to every dashboard descendant', async () => {
+    trial.hasBilling.mockResolvedValue(true)
+
+    const layout = await DashboardLayout({ children: 'dashboard content' })
+    const surface = (layout as any).props.children
+
+    expect(surface.props.className).toContain('nx-platform-surface')
+    expect(surface.props.children).toBe('dashboard content')
+  })
 })

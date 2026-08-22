@@ -36,7 +36,7 @@ export function AgentLabModeTabs({
   }
 
   return (
-    <div role="tablist" aria-label="Agent Lab modes" className="mb-8 grid gap-2 rounded-2xl border border-[var(--bd-10)] bg-[var(--panel)] p-2 sm:grid-cols-3">
+    <div role="tablist" aria-label="Agent Lab modes" className="platform-tablist platform-tab-grid mb-8">
       {modes.map((item) => (
         <button
           key={item.key}
@@ -47,11 +47,7 @@ export function AgentLabModeTabs({
           tabIndex={mode === item.key ? 0 : -1}
           onClick={() => onChange(item.key)}
           onKeyDown={(event) => selectFromKeyboard(event, item.key)}
-          className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--signal)] ${
-            mode === item.key
-              ? 'border-[var(--signal)] bg-[var(--signal)]/10 text-foreground'
-              : 'border-[var(--bd-10)] text-[var(--fg-muted)] hover:bg-[var(--hover)] hover:text-foreground'
-          }`}
+          className="platform-tab w-full"
         >
           <item.icon className="size-4" aria-hidden="true" /> {item.label}
           {item.key === 'compare' && !isLoggedIn ? <span className="text-[10px] text-zinc-500">(sign in)</span> : null}

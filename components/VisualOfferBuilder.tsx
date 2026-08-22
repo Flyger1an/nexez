@@ -290,7 +290,12 @@ export function VisualOfferBuilder({ offers, kind, onChange, businessName, audie
           .filter((row) => sourceFilter === 'all' || row.offer.source === sourceFilter)
 
         return (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <DndContext
+            id={`offer-builder-${pageId || 'draft'}-${kind}`}
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
             <SortableContext
               items={visibleOffers.map((row) => row.id)}
               strategy={verticalListSortingStrategy}

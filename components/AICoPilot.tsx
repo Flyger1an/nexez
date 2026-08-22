@@ -171,9 +171,16 @@ export function AICoPilot({
 
       {showMsg && <div className="mb-2 text-xs text-[var(--ready)]">{showMsg}</div>}
 
-      <div className="flex gap-2 mb-4 text-xs flex-wrap">
+      <div className="platform-tablist mb-4 flex-wrap" role="tablist" aria-label="AI Co-Pilot views">
         {(['desc', 'pricing', 'faq', 'schema', 'voice', 'memory', 'trust', 'competitor'] as const).map(t => (
-          <button key={t} onClick={() => setActiveTab(t)} className={`px-3 py-1 rounded text-xs ${activeTab === t ? 'bg-[var(--signal-solid)] text-white' : 'border border-white/20'}`}>
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === t}
+            onClick={() => setActiveTab(t)}
+            className="platform-tab !min-h-9 !px-3 !py-1 !text-xs"
+          >
             {t === 'desc' ? 'Descriptions' : t === 'pricing' ? 'Pricing Tiers' : t === 'faq' ? 'FAQs' : t === 'schema' ? 'Schema' : t === 'voice' ? 'Voice' : t === 'memory' ? 'Memory' : t === 'trust' ? 'Trust' : 'Competitor'}
           </button>
         ))}

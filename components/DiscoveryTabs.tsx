@@ -14,8 +14,8 @@ export function DiscoveryTabs() {
   const pathname = usePathname()
   return (
     <nav aria-label="Discovery" className="mb-6">
-      <p className="eyebrow mb-2">Discovery</p>
-      <div className="inline-flex flex-wrap gap-1 rounded-xl border border-border bg-white/[0.03] p-1">
+      <p className="mb-2 font-mono text-xs uppercase tracking-[0.16em] text-[var(--fg-muted)]">Discovery</p>
+      <div className="platform-tablist inline-flex flex-wrap">
         {TABS.map((tab) => {
           const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`)
           const Icon = tab.icon
@@ -24,11 +24,7 @@ export function DiscoveryTabs() {
               key={tab.href}
               href={tab.href}
               aria-current={active ? 'page' : undefined}
-              className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-sm font-medium transition ${
-                active
-                  ? 'bg-[var(--signal)]/15 text-[var(--signal)]'
-                  : 'text-[var(--fg-muted)] hover:bg-white/5 hover:text-white'
-              }`}
+              className="platform-tab"
             >
               <Icon className="size-4" />
               {tab.label}

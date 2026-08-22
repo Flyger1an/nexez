@@ -51,5 +51,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (signedOut) redirect('/login?next=/dashboard')
   if (needsPlanSelection) redirect('/onboard?next=/dashboard')
 
-  return <PlanProvider plan={plan}>{children}</PlanProvider>
+  return (
+    <PlanProvider plan={plan}>
+      <div className="nx-platform-surface contents">{children}</div>
+    </PlanProvider>
+  )
 }

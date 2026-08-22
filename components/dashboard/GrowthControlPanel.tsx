@@ -197,7 +197,7 @@ export function GrowthControlPanel({ initialSnapshot }: { initialSnapshot: Growt
         </div>
       ) : null}
 
-      <div className="mt-5 flex max-w-full gap-1 overflow-x-auto border-b border-border" role="tablist" aria-label="Growth Control views">
+      <div className="platform-tablist mt-5" role="tablist" aria-label="Growth Control views">
         {tabs.map((entry) => (
           <button
             key={entry.id}
@@ -205,11 +205,7 @@ export function GrowthControlPanel({ initialSnapshot }: { initialSnapshot: Growt
             role="tab"
             aria-selected={tab === entry.id}
             onClick={() => setTab(entry.id)}
-            className={`inline-flex min-h-10 shrink-0 items-center gap-2 border-b-2 px-3 text-xs font-medium transition ${
-              tab === entry.id
-                ? 'border-[var(--signal)] text-foreground'
-                : 'border-transparent text-[var(--fg-muted)] hover:text-foreground'
-            }`}
+            className="platform-tab !text-xs"
           >
             {entry.label}
             {entry.count ? <span className="font-mono text-[10px] text-[var(--fg-muted-2)]">{entry.count}</span> : null}

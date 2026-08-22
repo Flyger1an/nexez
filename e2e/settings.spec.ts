@@ -210,6 +210,20 @@ test.describe('page settings', () => {
     await sectionNav.getByRole('link', { name: 'Agent surfaces' }).click()
     await expect(page).toHaveURL(/#agent-surfaces$/)
     await expect(page.getByRole('heading', { name: 'Agent surfaces', exact: true })).toBeVisible()
+    await expect(sectionNav.getByRole('link', { name: 'Agent surfaces' })).toHaveClass(/settings-choice-active/)
+
+    const stickyGeometry = await sectionNav.evaluate((nav) => {
+      const navRect = nav.getBoundingClientRect()
+      const shellHeader = document.querySelector<HTMLElement>('header.nx-nav')
+      return {
+        navTop: Math.round(navRect.top),
+        navBottom: Math.round(navRect.bottom),
+        headerBottom: Math.round(shellHeader?.getBoundingClientRect().bottom ?? 0),
+        viewportHeight: window.innerHeight,
+      }
+    })
+    expect(stickyGeometry.navTop).toBeGreaterThanOrEqual(stickyGeometry.headerBottom)
+    expect(stickyGeometry.navBottom).toBeLessThanOrEqual(stickyGeometry.viewportHeight)
 
     await page.setViewportSize({ width: 390, height: 844 })
     const mobileMetrics = await page.evaluate(() => ({

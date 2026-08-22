@@ -1,4 +1,4 @@
-import { ArrowDownRight, ArrowUpRight, Bot, Download, Filter, Lock, Minus, Search, Sparkles } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, BarChart3, Bot, Download, Filter, Lock, Minus, Search, Sparkles } from 'lucide-react'
 import { ErrorBoundary } from '../../../components/ErrorBoundary'
 import { TrafficChart } from './TrafficChart'
 import { TopOffersChart } from './TopOffersChart'
@@ -576,7 +576,12 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       <div className="mx-auto max-w-7xl px-6 py-8">
         <header className="surface-masthead">
           <p className="surface-eyebrow">Platform intelligence</p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Analytics</h1>
+          <div className="mt-3 flex items-center gap-3">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius)] border border-[var(--line-soft)] bg-[var(--fill-1)] text-[var(--settings-emphasis)]">
+              <BarChart3 className="size-5" aria-hidden="true" />
+            </span>
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Analytics</h1>
+          </div>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--fg-muted)]">
             Track real agent-facing intent: classified AI visits, human traffic, directory discovery, provider handoffs, and Stripe checkout sessions.
           </p>

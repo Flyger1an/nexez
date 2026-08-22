@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Bot, Loader2, ExternalLink, Link2 } from 'lucide-react'
+import { Loader2, ExternalLink, Link2, Wrench } from 'lucide-react'
 import { ErrorBoundary } from '../../../components/ErrorBoundary'
 import { ApiKeysManager } from '../../../components/ApiKeysManager'
 import { StripeImporter, ShopifyImporter, AcuityImporter, SquareImporter } from '../../../components/tools/Importers'
@@ -154,7 +154,7 @@ export default function ToolsPage() {
         <header className="surface-masthead">
           <p className="surface-eyebrow">Workspace utilities</p>
           <div className="mt-3 flex items-center gap-3">
-            <Bot className="size-7 text-[var(--settings-emphasis)]" />
+            <Wrench className="size-7 text-[var(--settings-emphasis)]" aria-hidden="true" />
             <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Tools</h1>
           </div>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--fg-muted)]">

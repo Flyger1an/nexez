@@ -1228,10 +1228,7 @@ html.light {
 }
 
 .nx-platform-surface .surface-eyebrow::before {
-  width: 1.75rem;
-  height: 1px;
-  background: var(--prism);
-  content: "";
+  content: none;
 }
 
 .nx-platform-surface .card {
@@ -1319,6 +1316,121 @@ html.light .btn-primary, html.light .btn-secondary { color: var(--fg); }
   transition: opacity .3s ease;
 }
 .btn-primary:hover::after, .btn-secondary:hover::after { opacity: 1; }
+
+/* Dashboard actions use one flat, theme-safe primary treatment. Persimmon is
+   carried by the outline and restrained hover wash, never by a glass gradient
+   or a text color that can invert incorrectly between themes. */
+.nx-platform-surface .btn-primary,
+.nx-platform-surface .platform-primary-action {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .55rem;
+  border: 1px solid var(--settings-emphasis-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg) !important;
+  box-shadow: none;
+  filter: none;
+  transform: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  transition: border-color .2s ease, background-color .2s ease, color .2s ease;
+}
+.nx-platform-surface .btn-primary::before,
+.nx-platform-surface .btn-primary::after,
+.nx-platform-surface .platform-primary-action::before,
+.nx-platform-surface .platform-primary-action::after { content: none; }
+.nx-platform-surface .btn-primary:hover:not(:disabled):not([aria-disabled="true"]),
+.nx-platform-surface .platform-primary-action:hover:not(:disabled):not([aria-disabled="true"]) {
+  border-color: var(--settings-emphasis);
+  background: color-mix(in srgb, var(--settings-emphasis) 10%, transparent);
+  color: var(--fg) !important;
+  box-shadow: none;
+  filter: none;
+  transform: none;
+}
+.nx-platform-surface .btn-primary:active:not(:disabled),
+.nx-platform-surface .platform-primary-action:active:not(:disabled) { transform: none; }
+.nx-platform-surface .btn-primary:focus-visible,
+.nx-platform-surface .platform-primary-action:focus-visible {
+  outline: 2px solid var(--settings-focus);
+  outline-offset: 2px;
+}
+
+/* Shared tab contract. The selected state mirrors Listing Settings: a flat
+   surface, persimmon outline, and a quiet inset current-location marker. */
+.platform-tablist {
+  display: flex;
+  max-width: 100%;
+  gap: .35rem;
+  overflow-x: auto;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--glass);
+  padding: .35rem;
+  scrollbar-width: none;
+  -webkit-backdrop-filter: blur(var(--blur-card));
+  backdrop-filter: blur(var(--blur-card));
+}
+.platform-tablist::-webkit-scrollbar { display: none; }
+.platform-tablist.platform-tab-grid {
+  display: grid;
+  overflow: visible;
+  grid-template-columns: minmax(0, 1fr);
+}
+.platform-tab {
+  position: relative;
+  display: inline-flex;
+  min-height: 2.75rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius) - 2px);
+  padding: .55rem .9rem;
+  color: var(--fg-muted);
+  font-size: .875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  outline: none;
+  transition: border-color .2s ease, background-color .2s ease, color .2s ease;
+}
+.platform-tab:hover { background: var(--fill-1); color: var(--fg); }
+.platform-tab[aria-selected="true"],
+.platform-tab[aria-current="page"] {
+  border-color: var(--settings-emphasis-border);
+  background: var(--settings-emphasis-fill);
+  color: var(--fg);
+  box-shadow: inset 3px 0 0 var(--settings-emphasis);
+}
+.platform-tab:focus-visible {
+  outline: 2px solid var(--settings-focus);
+  outline-offset: 1px;
+}
+
+.platform-settings-area:target::before {
+  position: absolute;
+  inset-block: 1.25rem auto;
+  left: 0;
+  width: 2px;
+  height: 2.75rem;
+  border-radius: 0 var(--r-pill) var(--r-pill) 0;
+  background: var(--settings-emphasis);
+  content: "";
+}
+
+@media (min-width: 640px) {
+  .platform-tablist.platform-tab-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nx-platform-surface .btn-primary,
+  .nx-platform-surface .platform-primary-action,
+  .platform-tab { transition: none; }
+}
 
 /* ----- new component vocabulary (additive; for the per-surface upgrade) ----- */
 .wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, Copy, EyeOff, Plus, Search, Trash2, X } from 'lucide-react'
+import { CheckCircle2, Copy, EyeOff, LibraryBig, Plus, Search, Trash2, X } from 'lucide-react'
 import { AgentPage, BASIC_OWNER_PAGE_SELECT, OWNER_PAGE_SELECT, getBaseUrl } from '../lib/agent-page'
 import { buildDuplicatePayload } from '../lib/duplicate-page'
 import { createClient } from '../utils/supabase/client'
@@ -10,6 +10,7 @@ import { appUrl } from '../lib/site'
 import { publishErrorMessage } from '../lib/publish-error'
 import { getPlanLimits } from '../lib/billing'
 import { usePlan } from './billing/PlanProvider'
+import { SurfaceHeader } from './dashboard/SurfacePrimitives'
 
 type Status = 'all' | 'published' | 'draft'
 type SortBy = 'newest' | 'oldest' | 'az'
@@ -218,34 +219,33 @@ export function PagesManager({
   ]
 
   return (
-    <main className="min-h-screen bg-[#0A0A0F] text-white">
+    <main className="nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]">
       <div className="mx-auto max-w-7xl px-6 py-8">
         {limitMsg && (
           <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-[var(--amber)]/30 bg-[var(--amber)]/[0.08] px-4 py-3">
-            <span className="min-w-0 flex-1 text-sm text-zinc-300">{limitMsg}</span>
+            <span className="min-w-0 flex-1 text-sm text-[var(--fg-muted)]">{limitMsg}</span>
             <a href={appUrl('/dashboard/billing')} className="btn-primary btn-sm shrink-0">Upgrade plan</a>
           </div>
         )}
-        <div className="flex flex-col gap-4 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm text-[var(--signal)]">Manage</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">Listings</h1>
-            <p className="mt-2 text-sm text-zinc-400">
-              Create, publish, duplicate, and organize every listing from one place.
-            </p>
-          </div>
-          <a href="/create" className="btn-primary h-10 self-start px-4 sm:self-auto">
-            <Plus className="size-4" />
-            New listing
-          </a>
-        </div>
+        <SurfaceHeader
+          eyebrow="Manage"
+          icon={LibraryBig}
+          title="Listings"
+          description="Create, publish, duplicate, and organize every listing from one place."
+          actions={(
+            <a href="/create" className="btn-primary h-10 px-4">
+              <Plus className="size-4" />
+              New listing
+            </a>
+          )}
+        />
 
         {/* Status tabs + published-usage meter */}
         <div className="mt-6 flex flex-wrap items-center gap-2">
           {showCap && (
             <span
               className={`mr-1 inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs ${
-                atCap ? 'border-[var(--amber)]/40 bg-[var(--amber)]/10 text-[var(--amber)]' : 'border-white/10 bg-white/[0.03] text-zinc-400'
+                atCap ? 'border-[var(--amber)]/40 bg-[var(--amber)]/10 text-[var(--amber)]' : 'border-[var(--bd-10)] bg-[var(--ov-03)] text-[var(--fg-muted)]'
               }`}
             >
               {counts.published} of {publishedLimit} published
@@ -256,42 +256,36 @@ export function PagesManager({
               )}
             </span>
           )}
-          {tabs.map((t) => (
-            <a
-              key={t.id}
-              href={t.href}
-              className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-                status === t.id
-                  ? 'border-[var(--signal)]/40 bg-[var(--signal)]/15 text-white'
-                  : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:text-white'
-              }`}
-            >
-              {t.label}
-              <span className="rounded-full bg-white/10 px-1.5 text-xs">{t.count}</span>
-            </a>
-          ))}
+          <nav className="platform-tablist" aria-label="Listing status">
+            {tabs.map((t) => (
+              <a key={t.id} href={t.href} aria-current={status === t.id ? 'page' : undefined} className="platform-tab !min-h-9 !px-3 !py-1.5">
+                {t.label}
+                <span className="rounded-full bg-[var(--ov-07)] px-1.5 text-xs">{t.count}</span>
+              </a>
+            ))}
+          </nav>
         </div>
 
         {/* Search + sort */}
         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fg-muted)]" />
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search listings by name or slug…"
               aria-label="Search listings"
-              className="h-10 w-full rounded-lg border border-white/10 bg-white/[0.03] pl-9 pr-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[var(--signal)]/50"
+              className="h-10 w-full rounded-lg border border-[var(--bd-10)] bg-[var(--ov-03)] pl-9 pr-3 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--fg-muted)] focus:border-[var(--signal)]/50"
             />
           </div>
-          <label className="flex shrink-0 items-center gap-2 text-xs text-zinc-400">
+          <label className="flex shrink-0 items-center gap-2 text-xs text-[var(--fg-muted)]">
             Sort
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortBy)}
               aria-label="Sort listings"
-              className="h-10 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-sm text-white outline-none focus:border-[var(--signal)]/50"
+              className="h-10 rounded-lg border border-[var(--bd-10)] bg-[var(--ov-03)] px-3 text-sm text-[var(--fg)] outline-none focus:border-[var(--signal)]/50"
             >
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
@@ -303,8 +297,8 @@ export function PagesManager({
         {/* Bulk action bar */}
         {selectedIds.size > 0 && (
           <div className="mt-5 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--signal)]/30 bg-[var(--signal)]/10 p-3 text-sm">
-            <span className="font-medium text-white">{selectedIds.size} selected</span>
-            <span className="text-zinc-400">·</span>
+            <span className="font-medium text-[var(--fg)]">{selectedIds.size} selected</span>
+            <span className="text-[var(--fg-muted)]">·</span>
             <button
               onClick={() => bulkSetPublished(true)}
               disabled={busy}
@@ -315,7 +309,7 @@ export function PagesManager({
             <button
               onClick={() => bulkSetPublished(false)}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-md border border-white/15 bg-white/5 px-3 py-1.5 text-zinc-200 hover:bg-white/10 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--bd-10)] bg-[var(--ov-03)] px-3 py-1.5 text-[var(--fg)] hover:bg-[var(--ov-07)] disabled:opacity-50"
             >
               <EyeOff className="size-4" /> Unpublish
             </button>
@@ -335,7 +329,7 @@ export function PagesManager({
             </button>
             <button
               onClick={() => setSelectedIds(new Set())}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-zinc-400 hover:text-white"
+              className="ml-auto inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[var(--fg-muted)] hover:text-[var(--fg)]"
             >
               <X className="size-4" /> Clear
             </button>
@@ -349,7 +343,7 @@ export function PagesManager({
                 ? `${filtered.length} listing${filtered.length === 1 ? '' : 's'}`
                 : `Showing ${pageStart + 1}–${Math.min(pageStart + PER_PAGE, filtered.length)} of ${filtered.length}`}
             </span>
-            <button onClick={selectAllVisible} className="text-xs text-zinc-400 hover:text-white">
+            <button onClick={selectAllVisible} className="text-xs text-[var(--fg-muted)] hover:text-[var(--fg)]">
               Select all ({filtered.length})
             </button>
           </div>
@@ -377,7 +371,7 @@ export function PagesManager({
               type="button"
               onClick={() => setPageNum(safePage - 1)}
               disabled={safePage <= 1}
-              className="inline-flex h-9 items-center rounded-md border border-white/10 px-3 text-sm text-zinc-300 hover:bg-white/10 disabled:opacity-40"
+              className="inline-flex h-9 items-center rounded-md border border-[var(--bd-10)] px-3 text-sm text-[var(--fg-muted)] hover:bg-[var(--ov-07)] disabled:opacity-40"
             >
               Previous
             </button>
@@ -386,7 +380,7 @@ export function PagesManager({
               type="button"
               onClick={() => setPageNum(safePage + 1)}
               disabled={safePage >= totalPages}
-              className="inline-flex h-9 items-center rounded-md border border-white/10 px-3 text-sm text-zinc-300 hover:bg-white/10 disabled:opacity-40"
+              className="inline-flex h-9 items-center rounded-md border border-[var(--bd-10)] px-3 text-sm text-[var(--fg-muted)] hover:bg-[var(--ov-07)] disabled:opacity-40"
             >
               Next
             </button>
@@ -394,8 +388,8 @@ export function PagesManager({
         )}
 
         {filtered.length === 0 && (
-          <div className="mt-6 rounded-lg border border-dashed border-white/15 p-12 text-center">
-            <p className="text-zinc-400">
+          <div className="mt-6 rounded-lg border border-dashed border-[var(--bd-10)] p-12 text-center">
+            <p className="text-[var(--fg-muted)]">
               {query.trim()
                 ? `No listings match “${query.trim()}”.`
                 : status === 'published'

@@ -12,6 +12,7 @@ describe('VisualOfferBuilder', () => {
       <VisualOfferBuilder offers={[offer({ name: 'Consulting Call', price: '$100' })]} kind="services" onChange={() => {}} pageId="p1" />,
     )
     expect(screen.getByDisplayValue('Consulting Call')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Drag to reorder offer' })).toHaveAttribute('aria-describedby', 'offer-builder-p1-services')
   })
 
   it('removing an offer fires onChange without it', () => {

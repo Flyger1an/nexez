@@ -316,6 +316,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
           <div className="mt-7 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap items-center gap-2">
               <span className="mr-1 text-xs uppercase tracking-[0.18em] text-zinc-500">Window</span>
+              <nav className="platform-tablist flex-wrap" aria-label="Finance window">
               {RANGES.map((r) => {
                 if (r.value === 'all' && !fullHistory) {
                   return (
@@ -323,7 +324,7 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                       key={r.value}
                       href={appUrl('/dashboard/billing?plan=pro')}
                       title="All-time history is on the Pro plan"
-                      className="inline-flex items-center gap-1 rounded-md border border-[var(--signal)]/30 bg-[var(--signal)]/[0.06] px-3 py-1.5 text-sm text-[var(--fg-muted)] hover:bg-[var(--signal)]/15"
+                      className="platform-tab !min-h-9 !px-3 !py-1.5"
                     >
                       <Lock className="size-3.5 text-[var(--signal)]" /> All
                     </a>
@@ -333,30 +334,31 @@ export default async function FinancePage({ searchParams }: FinanceProps) {
                   <a
                     key={r.value}
                     href={href({ range: r.value })}
-                    className={`rounded-md border px-3 py-1.5 text-sm transition ${
-                      range === r.value ? 'border-white bg-white text-black' : 'border-[var(--bd-10)] text-zinc-300 hover:bg-white/10'
-                    }`}
+                    aria-current={range === r.value ? 'page' : undefined}
+                    className="platform-tab !min-h-9 !px-3 !py-1.5"
                   >
                     {r.label}
                   </a>
                 )
               })}
+              </nav>
               {!fullHistory && <ProBadge feature="analyticsHistory" />}
             </div>
             {currencyOptions.length > 1 && (
               <div className="flex flex-wrap items-center gap-2">
                 <span className="mr-1 text-xs uppercase tracking-[0.18em] text-zinc-500">Currency</span>
+                <nav className="platform-tablist flex-wrap" aria-label="Finance currency">
                 {currencyOptions.map((c) => (
                   <a
                     key={c}
                     href={href({ currency: c })}
-                    className={`rounded-md border px-3 py-1.5 text-sm uppercase transition ${
-                      selectedCurrency === c ? 'border-white bg-white text-black' : 'border-[var(--bd-10)] text-zinc-300 hover:bg-white/10'
-                    }`}
+                    aria-current={selectedCurrency === c ? 'page' : undefined}
+                    className="platform-tab !min-h-9 !px-3 !py-1.5 uppercase"
                   >
                     {c}
                   </a>
                 ))}
+                </nav>
               </div>
             )}
           </div>
