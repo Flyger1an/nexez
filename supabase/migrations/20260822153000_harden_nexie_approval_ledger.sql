@@ -8,6 +8,7 @@
 
 revoke all privileges on table public.agent_action_approvals from anon, authenticated;
 grant select on table public.agent_action_approvals to authenticated;
+grant select, insert, update, delete on table public.agent_action_approvals to service_role;
 
 drop policy if exists "Users manage own Nexie approvals" on public.agent_action_approvals;
 drop policy if exists "Users read own Nexie approvals" on public.agent_action_approvals;
