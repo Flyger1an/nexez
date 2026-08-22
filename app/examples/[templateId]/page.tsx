@@ -145,7 +145,7 @@ export default async function CommerceExamplePage({ params }: CommerceExamplePag
         <div className="mx-auto max-w-7xl px-5 py-14 md:py-16">
           <div className="max-w-3xl">
             <p className="text-sm font-medium text-[var(--amber)]">Merchant truth boundary</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em]">What Nexie would clarify before publishing</h2>
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.045em]">What Nexxi would clarify before publishing</h2>
             <p className="mt-4 text-sm leading-6 text-muted-foreground">
               These are questions the template teaches Nexez to investigate. They are not assumptions about any real business.
             </p>

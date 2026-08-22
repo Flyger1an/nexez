@@ -77,7 +77,7 @@ Existing checkout orders assume one payment is the transaction. Staged settlemen
 
 ### Source of truth
 
-Schedules are explicit merchant-authored offer configuration. AI proposal, site-sync, and Nexie merge paths may preserve them but must never invent, rewrite, or activate them.
+Schedules are explicit merchant-authored offer configuration. AI proposal, site-sync, and Nexxi merge paths may preserve them but must never invent, rewrite, or activate them.
 
 ### Allocation
 

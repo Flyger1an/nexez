@@ -22,9 +22,9 @@ import {
 import { agentRuntimeUrl, appUrl, marketingUrl } from '../../lib/site'
 
 export const metadata: Metadata = {
-  title: 'AI Agent Access',
+  title: 'AI Agent Access and Distribution',
   description:
-    'Install the Nexez OpenClaw plugin and discovery skill, then use Nexez agent APIs, manifests, llms.txt, OpenAPI, ARD catalog, and MCP discovery to find and act on agent-ready offers.',
+    'The implementation guide for Nexez agent access: SDKs, OpenClaw tools, examples, APIs, artifacts, OpenAPI, MCP, ARD, validation, and approval.',
   alternates: {
     canonical: marketingUrl('/agents'),
   },
@@ -33,9 +33,9 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'Nexez',
     url: marketingUrl('/agents'),
-    title: 'AI Agent Access',
+    title: 'AI Agent Access and Distribution',
     description:
-      'Install the Nexez OpenClaw plugin and discovery skill, then use Nexez agent APIs, manifests, llms.txt, OpenAPI, ARD catalog, and MCP discovery to find and act on agent-ready offers.',
+      'The implementation guide for Nexez agent access: SDKs, OpenClaw tools, examples, APIs, artifacts, OpenAPI, MCP, ARD, validation, and approval.',
   },
 }
 
@@ -305,19 +305,21 @@ export default function AgentAccessPage() {
               Give agents a clean path into <span className="nx-accent-text">Nexez.</span>
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
-              Install the OpenClaw plugin or discovery skill, then search Nexez pages, fetch manifests, validate
-              handoffs, and route buyer intent through structured public endpoints.
+              This is the implementation guide for agent distribution: install the OpenClaw tools or an SDK,
+              search Nexez supply, validate a handoff, obtain buyer approval, and act through published contracts.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a href="#install" className="btn-primary h-11 px-5">
                 Install agent access
                 <ArrowRight className="size-4" />
               </a>
-              <a href={agentRuntimeUrl('/agent-pages.json')} className="btn-secondary h-11 px-5">
-                Open agent index
-                <ExternalLink className="size-4" />
+              <a href="/docs#developer-distribution" className="btn-secondary h-11 px-5">
+                Platform documentation
               </a>
             </div>
+            <a href={agentRuntimeUrl('/agent-pages.json')} className="mt-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
+              Open the live agent index <ExternalLink className="size-3.5" />
+            </a>
           </div>
 
           <div className="nx-glass-panel overflow-hidden p-0">

@@ -9,7 +9,7 @@ const content = marketingPages.compare
 // SERP copy (≤60-char title incl. the layout's ' · Nexez' — no double branding; ≤160-char description).
 const metaTitle = 'Nexez vs websites, directories & SEO pages'
 const metaDescription =
-  'How an agent-ready Nexez listing compares to a traditional website, directory profile, or SEO landing page when AI agents do the buying.'
+  'Where Nexez fits beside websites, directories, schedulers, payment processors, commerce platforms, and SEO when AI agents discover and act.'
 
 export const metadata: Metadata = {
   title: metaTitle,
