@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { handleNexieTurn, type NexieApprovalInput, type NexieMode } from '../../../../../lib/agents/nexie'
 import { authenticateNexieRequest } from '../../../../../lib/agents/nexie-auth'
+import { createNexieTurnDb } from '../../../../../lib/agents/nexie-turn-db'
 import { enforceRateLimit } from '../../../../../lib/rate-limit'
 
 export const maxDuration = 60
@@ -59,7 +60,9 @@ export async function POST(request: NextRequest) {
       let streamedChars = 0
       try {
         const result = await handleNexieTurn({
-          db,
+          // Match the JSON route: buyer data stays RLS-bound while only the approval
+          // ledger uses the lazy server-only client.
+          db: createNexieTurnDb(db),
           userId: user.id,
           // Confirmed-email gate (see the JSON route): never stamp an unverified address onto orders.
           userEmail: user.email_confirmed_at ? (user.email ?? null) : null,
