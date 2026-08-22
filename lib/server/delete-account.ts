@@ -1,6 +1,14 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
+import {
+  BUYER_DATA_CONTRACT,
+  BUYER_USER_ID_TABLES,
+  buyerAnonymizationPatch,
+  buyerMatches,
+  type BuyerDataContract,
+  type BuyerMatch,
+} from './privacy-contract'
 import { escapeLike } from './sql-escape'
 
 // Account deletion for the Nexxi BUYER app (App Store 5.1.1(v) + GDPR/CCPA erasure).
@@ -19,20 +27,6 @@ import { escapeLike } from './sql-escape'
 // Buyer-side rows on OTHER sellers' records have no FK to the buyer, so the anonymizer below is the
 // ONLY path that erases that buyer PII - it must stay exhaustive and runs in BOTH branches.
 
-/** BUYER-facet tables (keyed by user_id) - always deleted. */
-const BUYER_USER_ID_TABLES = [
-  'agent_action_approvals',
-  'agent_messages',
-  'agent_tasks',
-  'agent_threads',
-  'notifications',
-  'referral_codes',
-  'saved_pages',
-  'saved_searches',
-  'user_agents',
-  'user_push_tokens',
-] as const
-
 /** SELLER/account tables keyed by user_id - deleted ONLY in the pure-buyer full-removal path. */
 const SELLER_USER_ID_TABLES = ['user_integrations', 'platform_admins'] as const
 
@@ -47,6 +41,11 @@ const SELLER_OWNER_ID_TABLES = [
   'intake_sessions',
   'outbound_webhooks',
   'page_secrets',
+  // Agreements can outlive their page (page_id is ON DELETE SET NULL), so they
+  // must be discovered and deleted directly by owner_id. Staged obligations
+  // follow their agreement through ON DELETE CASCADE.
+  'service_agreements',
+  'staged_settlement_agreements',
   'pages',
   'promotional_plan_grants',
   'published_page_grandfather',
@@ -58,36 +57,12 @@ const SELLER_OWNER_ID_TABLES = [
 ] as const
 
 /** Owning a row in any of these = the account is also a SELLER → retain the seller facet + login. */
-const SELLER_SIGNAL_TABLES = ['pages', 'billing_subscriptions', 'api_keys'] as const
-
-/**
- * Tables where the deleted user appears as the BUYER on another seller's record. The sale/record is
- * the seller's to keep, so we ERASE the buyer's PII columns rather than delete the row. (Buyer facet.)
- *
- * Matching is best-effort (there is no buyer→auth.users FK): `emailColumns` are columns whose value
- * can equal the user's email (buyer_email always; `contact` is free-form and may hold the email when
- * buyer_email was never captured); `referenceColumn` is the stronger link where the row stores the
- * buyer's auth user id. `columns` is everything we null - incl. free text the buyer typed.
- */
-const BUYER_PII_TABLES = [
-  {
-    table: 'agent_negotiations',
-    columns: ['buyer_email', 'contact', 'buyer_query', 'budget_text', 'timeline_text', 'buyer_agent'],
-    emailColumns: ['buyer_email', 'contact'],
-    referenceColumn: null,
-  },
-  {
-    table: 'checkout_orders',
-    columns: ['buyer_email', 'buyer_name', 'buyer_reference', 'buyer_agent'],
-    emailColumns: ['buyer_email'],
-    referenceColumn: 'buyer_reference',
-  },
-  {
-    table: 'order_requests',
-    columns: ['buyer_email', 'message'],
-    emailColumns: ['buyer_email'],
-    referenceColumn: null,
-  },
+const SELLER_SIGNAL_TABLES = [
+  'pages',
+  'billing_subscriptions',
+  'api_keys',
+  'service_agreements',
+  'staged_settlement_agreements',
 ] as const
 
 export type DeleteAccountResult = {
@@ -153,20 +128,61 @@ async function anonymizeBuyerPii(
   // Buyer chat content first - it's resolved via agent_negotiations' email columns, which the loop below nulls.
   await eraseBuyerNegotiationMessages(admin, email, errors)
 
-  for (const { table, columns, emailColumns, referenceColumn } of BUYER_PII_TABLES) {
-    const patch = Object.fromEntries(columns.map((c) => [c, null]))
-    if (referenceColumn) {
-      const { error } = await admin.from(table).update(patch).eq(referenceColumn, userId)
-      if (error) errors.push({ scope: `anonymize:${table}:${referenceColumn}`, message: error.message })
-    }
-    if (email) {
-      const pattern = escapeLike(email)
-      for (const col of emailColumns) {
-        const { error } = await admin.from(table).update(patch).ilike(col, pattern)
-        if (error) errors.push({ scope: `anonymize:${table}:${col}`, message: error.message })
+  for (const contract of BUYER_DATA_CONTRACT) {
+    const matches = buyerMatches(contract, userId, email)
+    if (contract.jsonColumn) {
+      const rows = await readRowsForAnonymization(admin, contract, matches, errors)
+      for (const row of rows) {
+        const { error } = await admin
+          .from(contract.table)
+          .update(buyerAnonymizationPatch(contract, row))
+          .eq('id', row.id)
+        if (error) errors.push({ scope: `anonymize:${contract.table}:id`, message: error.message })
       }
+      continue
+    }
+
+    const patch = buyerAnonymizationPatch(contract)
+    for (const match of matches) {
+      const query = admin.from(contract.table).update(patch)
+      const { error } = match.kind === 'reference'
+        ? await query.eq(match.column, match.value)
+        : await query.ilike(match.column, escapeLike(match.value))
+      if (error) errors.push({ scope: `anonymize:${contract.table}:${match.column}`, message: error.message })
     }
   }
+}
+
+async function readRowsForAnonymization(
+  admin: SupabaseClient,
+  contract: BuyerDataContract,
+  matches: BuyerMatch[],
+  errors: DeleteAccountResult['errors'],
+): Promise<Array<Record<string, unknown> & { id: string }>> {
+  const rows = new Map<string, Record<string, unknown> & { id: string }>()
+  const pageSize = 500
+  for (const match of matches) {
+    for (let page = 0; ; page += 1) {
+      const from = page * pageSize
+      const selected = admin.from(contract.table).select(`id, ${contract.jsonColumn}`)
+      const filtered = match.kind === 'reference'
+        ? selected.eq(match.column, match.value)
+        : selected.ilike(match.column, escapeLike(match.value))
+      const { data, error } = await filtered
+        .order('id', { ascending: true })
+        .range(from, from + pageSize - 1)
+      if (error) {
+        errors.push({ scope: `anonymize:${contract.table}:lookup:${match.column}`, message: error.message })
+        break
+      }
+      const batch = (data ?? []) as unknown as Array<Record<string, unknown> & { id?: unknown }>
+      for (const row of batch) {
+        if (typeof row.id === 'string') rows.set(row.id, row as Record<string, unknown> & { id: string })
+      }
+      if (batch.length < pageSize) break
+    }
+  }
+  return [...rows.values()]
 }
 
 /**
@@ -192,6 +208,12 @@ export async function deleteUserAccount(userId: string, email: string | null): P
     if (error) errors.push({ scope: `delete:referrals:${column}`, message: error.message })
   }
   await anonymizeBuyerPii(admin, userId, email, errors)
+  // Do not remove the login after an incomplete erasure. Keeping the auth user
+  // makes the request safely retryable instead of orphaning buyer PII that can
+  // no longer be matched to an account.
+  if (errors.length) {
+    return { ok: false, authUserDeleted: false, sellerRetained: false, errors }
+  }
 
   // 2. Does this account also sell on Nexez? If so, STOP - keep the seller data and the login.
   if (await accountIsSeller(admin, userId)) {
@@ -236,6 +258,10 @@ export async function deleteUserAccount(userId: string, email: string | null): P
     }
   }
 
+  if (errors.length) {
+    return { ok: false, authUserDeleted: false, sellerRetained: false, errors }
+  }
+
   const authUserDeleted = await deleteAuthUser(admin, userId)
   if (!authUserDeleted) errors.push({ scope: 'auth.deleteUser', message: 'Failed to delete the auth user.' })
 
@@ -257,5 +283,5 @@ export const __DELETE_ACCOUNT_TABLES = {
   SELLER_USER_ID_TABLES,
   SELLER_OWNER_ID_TABLES,
   SELLER_SIGNAL_TABLES,
-  BUYER_PII_TABLES,
+  BUYER_DATA_CONTRACT,
 }

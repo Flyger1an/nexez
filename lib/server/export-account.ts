@@ -1,5 +1,12 @@
 import 'server-only'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../utils/supabase/admin'
+import {
+  BUYER_DATA_CONTRACT,
+  BUYER_USER_ID_TABLES,
+  SERVICE_AGREEMENT_EXPORT,
+  STAGED_SETTLEMENT_AGREEMENT_EXPORT,
+  buyerMatches,
+} from './privacy-contract'
 import { escapeLike } from './sql-escape'
 
 // GDPR/CCPA data export: gather the personal data we hold about a user into one JSON object.
@@ -13,24 +20,6 @@ import { escapeLike } from './sql-escape'
 // deletion would erase - if deletion touches it, export must return it.
 
 const EXPORT_PAGE_SIZE = 500
-
-/** BUYER facet: the personal buyer-agent data, keyed by the auth user id. */
-const BUYER_USER_ID_TABLES = [
-  'agent_action_approvals',
-  'agent_messages',
-  'agent_tasks',
-  'agent_threads',
-  'notifications',
-  'referral_codes',
-  'saved_pages',
-  'saved_searches',
-  'user_agents',
-  'user_push_tokens',
-] as const
-
-/** Records where the user is the BUYER on sellers' records (matched by email);
- *  output keyed `<table>_as_buyer`. */
-const BUYER_EMAIL_TABLES = ['checkout_orders', 'agent_negotiations', 'order_requests'] as const
 
 /** SELLER facet: business data this account owns. */
 const SELLER_OWNER_ID_TABLES = [
@@ -48,15 +37,22 @@ const SELLER_OWNER_ID_TABLES = [
   'promotional_plan_grants',
   'seller_growth_events',
   'sent_system_emails',
+  'service_agreements',
+  'staged_settlement_agreements',
   'team_invites',
 ] as const
+
+const SELLER_EXPORT_PROJECTIONS: Partial<Record<(typeof SELLER_OWNER_ID_TABLES)[number], string>> = {
+  service_agreements: SERVICE_AGREEMENT_EXPORT,
+  staged_settlement_agreements: STAGED_SETTLEMENT_AGREEMENT_EXPORT,
+}
 
 /** Account-level (spans both facets), keyed by user_id. */
 const ACCOUNT_USER_ID_TABLES = ['user_integrations'] as const
 
 export const __EXPORT_ACCOUNT_TABLES = {
   BUYER_USER_ID_TABLES,
-  BUYER_EMAIL_TABLES,
+  BUYER_DATA_CONTRACT,
   SELLER_OWNER_ID_TABLES,
   ACCOUNT_USER_ID_TABLES,
 }
@@ -155,28 +151,44 @@ export async function exportUserAccount(
     ))
   }
 
+  const buyerRecords = await Promise.all(BUYER_DATA_CONTRACT.map(async (contract) => {
+    const matches = buyerMatches(contract, userId, email)
+    const results = await Promise.all(matches.map((match) => readEveryRow((from, to) => {
+      const selected = admin.from(contract.table).select(contract.exportProjection)
+      const filtered = match.kind === 'reference'
+        ? selected.eq(match.column, match.value)
+        : selected.ilike(match.column, escapeLike(match.value))
+      return filtered.order('id', { ascending: true }).range(from, to)
+    })))
+    return {
+      contract,
+      result: results.length ? mergeUniqueResults(results) : { rows: [], complete: true },
+    }
+  }))
+  for (const { contract, result } of buyerRecords) {
+    put('buyer', contract.dataset, result)
+  }
+
+  const buyerStagedAgreementIds = ((data.staged_settlement_agreements_as_buyer ?? []) as Array<{ id?: unknown }>)
+    .map((row) => row.id)
+    .filter((id): id is string => typeof id === 'string' && id.length > 0)
+  const buyerObligations = await readRelatedRows(
+    admin,
+    'staged_settlement_obligations',
+    'agreement_id',
+    buyerStagedAgreementIds,
+  )
+  put('buyer', 'staged_settlement_obligations_as_buyer', inheritCompleteness(
+    buyerObligations,
+    manifest.datasets.staged_settlement_agreements_as_buyer,
+  ))
+
   if (email) {
     const escaped = escapeLike(email)
-    const buyerRecords = await Promise.all(BUYER_EMAIL_TABLES.map(async (table) => ({
-      table,
-      result: await readEveryRow((from, to) =>
-        admin.from(table).select('*').ilike('buyer_email', escaped).order('id', { ascending: true }).range(from, to),
-      ),
-    })))
-    for (const { table, result } of buyerRecords) {
-      put('buyer', `${table}_as_buyer`, result)
-    }
     // The buyer's own chat turns on sellers' negotiations (the transcripts the
     // deletion path erases - R5) - export them too, matched the same way.
-    const buyerNegotiations = await readEveryRow((from, to) =>
-      admin
-        .from('agent_negotiations')
-        .select('id')
-        .or(`buyer_email.ilike.${escaped},contact.ilike.${escaped}`)
-        .order('id', { ascending: true })
-        .range(from, to),
-    )
-    const negotiationIds = buyerNegotiations.rows
+    const negotiationDataset = manifest.datasets.agent_negotiations_as_buyer
+    const negotiationIds = (data.agent_negotiations_as_buyer ?? [])
       .map((row) => (row as { id?: unknown }).id)
       .filter((id): id is string => typeof id === 'string' && id.length > 0)
     if (negotiationIds.length) {
@@ -195,16 +207,16 @@ export async function exportUserAccount(
       const failed = messageResults.find((result) => !result.complete)
       put('buyer', 'negotiation_messages_as_buyer', {
         rows: messageResults.flatMap((result) => result.rows),
-        complete: buyerNegotiations.complete && !failed,
-        error: !buyerNegotiations.complete
-          ? buyerNegotiations.error
+        complete: negotiationDataset.complete && !failed,
+        error: !negotiationDataset.complete
+          ? negotiationDataset.error
           : failed?.error,
       })
     } else {
       put('buyer', 'negotiation_messages_as_buyer', {
         rows: [],
-        complete: buyerNegotiations.complete,
-        error: buyerNegotiations.error,
+        complete: negotiationDataset.complete,
+        error: negotiationDataset.error,
       })
     }
     // Invites addressed to this user (collaborator side of team_invites).
@@ -212,9 +224,6 @@ export async function exportUserAccount(
       admin.from('team_invites').select('*').ilike('email', escaped).order('id', { ascending: true }).range(from, to),
     ))
   } else {
-    for (const table of BUYER_EMAIL_TABLES) {
-      put('buyer', `${table}_as_buyer`, { rows: [], complete: true })
-    }
     put('buyer', 'negotiation_messages_as_buyer', { rows: [], complete: true })
     put('buyer', 'team_invites_as_invitee', { rows: [], complete: true })
   }
@@ -222,12 +231,31 @@ export async function exportUserAccount(
   const sellerOwned = await Promise.all(SELLER_OWNER_ID_TABLES.map(async (table) => ({
     table,
     result: await readEveryRow((from, to) =>
-      admin.from(table).select('*').eq('owner_id', userId).order('id', { ascending: true }).range(from, to),
+      admin
+        .from(table)
+        .select(SELLER_EXPORT_PROJECTIONS[table] ?? '*')
+        .eq('owner_id', userId)
+        .order('id', { ascending: true })
+        .range(from, to),
     ),
   })))
   for (const { table, result } of sellerOwned) {
     put('seller', table, result)
   }
+
+  const sellerStagedAgreementIds = ((data.staged_settlement_agreements ?? []) as Array<{ id?: unknown }>)
+    .map((row) => row.id)
+    .filter((id): id is string => typeof id === 'string' && id.length > 0)
+  const sellerObligations = await readRelatedRows(
+    admin,
+    'staged_settlement_obligations',
+    'agreement_id',
+    sellerStagedAgreementIds,
+  )
+  put('seller', 'staged_settlement_obligations', inheritCompleteness(
+    sellerObligations,
+    manifest.datasets.staged_settlement_agreements,
+  ))
 
   // Seller-acquisition invitations use inviter_owner_id / accepted_by_owner_id
   // instead of the usual owner_id. Export only owner-safe columns: token_hash is
@@ -300,5 +328,51 @@ function mergeResults(results: Array<{ rows: unknown[]; complete: boolean; error
     rows: results.flatMap((result) => result.rows),
     complete: !failed,
     error: failed?.error,
+  }
+}
+
+function mergeUniqueResults(results: Array<{ rows: unknown[]; complete: boolean; error?: string }>) {
+  const merged = mergeResults(results)
+  const unique = new Map<string, unknown>()
+  for (const row of merged.rows) {
+    const id = row != null && typeof row === 'object' && !Array.isArray(row)
+      ? (row as { id?: unknown }).id
+      : undefined
+    const key = typeof id === 'string' ? id : JSON.stringify(row)
+    if (!unique.has(key)) unique.set(key, row)
+  }
+  return { ...merged, rows: [...unique.values()] }
+}
+
+async function readRelatedRows(
+  admin: ReturnType<typeof createAdminClient>,
+  table: string,
+  foreignKey: string,
+  ids: string[],
+) {
+  if (!ids.length) return { rows: [], complete: true }
+  const chunks = Array.from(
+    { length: Math.ceil(ids.length / 100) },
+    (_, index) => ids.slice(index * 100, (index + 1) * 100),
+  )
+  const results = await Promise.all(chunks.map((chunk) => readEveryRow((from, to) =>
+    admin
+      .from(table)
+      .select('*')
+      .in(foreignKey, chunk)
+      .order('id', { ascending: true })
+      .range(from, to),
+  )))
+  return mergeUniqueResults(results)
+}
+
+function inheritCompleteness(
+  child: { rows: unknown[]; complete: boolean; error?: string },
+  parent: { complete: boolean; error?: string },
+) {
+  return {
+    ...child,
+    complete: child.complete && parent.complete,
+    error: parent.complete ? child.error : parent.error,
   }
 }

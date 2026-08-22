@@ -81,9 +81,22 @@ describe('exportUserAccount', () => {
       expect(adminRef.ops).toContainEqual(expect.objectContaining({ table: t, by: 'owner_id', val: 'user-1' }))
       expect(result!.facets.seller).toContain(t)
     }
-    for (const t of __EXPORT_ACCOUNT_TABLES.BUYER_EMAIL_TABLES) {
-      expect(adminRef.ops).toContainEqual(expect.objectContaining({ table: t, by: 'buyer_email', val: 'Buyer@Acme.com' }))
-      expect(result!.data).toHaveProperty(`${t}_as_buyer`)
+    for (const contract of __EXPORT_ACCOUNT_TABLES.BUYER_DATA_CONTRACT) {
+      for (const column of contract.emailColumns) {
+        expect(adminRef.ops).toContainEqual(expect.objectContaining({
+          table: contract.table,
+          by: column,
+          val: 'Buyer@Acme.com',
+        }))
+      }
+      if (contract.referenceColumn) {
+        expect(adminRef.ops).toContainEqual(expect.objectContaining({
+          table: contract.table,
+          by: contract.referenceColumn,
+          val: 'user-1',
+        }))
+      }
+      expect(result!.data).toHaveProperty(contract.dataset)
     }
 
     // Every data key is facet-attributed - nothing "mixed".
@@ -95,10 +108,17 @@ describe('exportUserAccount', () => {
     expect(result!.data).toHaveProperty('team_invites_as_invitee')
     expect(result!.data).toHaveProperty('referrals_as_referrer')
     expect(result!.data).toHaveProperty('referrals_as_referred')
+    expect(result!.data).toHaveProperty('service_agreements_as_buyer')
+    expect(result!.data).toHaveProperty('staged_settlement_agreements_as_buyer')
+    expect(result!.data).toHaveProperty('staged_settlement_obligations_as_buyer')
+    expect(result!.data).toHaveProperty('checkout_sessions_as_buyer')
     expect(result!.facets.seller).toContain('intake_sessions')
     expect(result!.facets.seller).toContain('storefronts')
     expect(result!.facets.seller).toContain('agent_lab_simulation_runs')
     expect(result!.facets.seller).toContain('agent_lab_research_runs')
+    expect(result!.facets.seller).toContain('service_agreements')
+    expect(result!.facets.seller).toContain('staged_settlement_agreements')
+    expect(result!.facets.seller).toContain('staged_settlement_obligations')
 
     // api_keys metadata only - never the hash.
     const keyOp = adminRef.ops.find((o) => o.table === 'api_keys')
@@ -106,23 +126,56 @@ describe('exportUserAccount', () => {
     expect(keyOp.cols).not.toMatch(/key_hash/)
     expect(keyOp.cols).toMatch(/name/)
 
+    for (const table of ['service_agreements', 'staged_settlement_agreements']) {
+      const agreementOps = adminRef.ops.filter((o) => o.table === table)
+      expect(agreementOps.length).toBeGreaterThan(0)
+      for (const op of agreementOps) expect(op.cols).not.toMatch(/access_token_(?:sha256|encrypted)/)
+    }
+
     // page_secrets is never queried.
     expect(adminRef.ops.some((o) => o.table === 'page_secrets')).toBe(false)
   })
 
   it('LIKE-escapes the email in the buyer-transcript negotiation match', async () => {
     await exportUserAccount('user-1', 'a_b%c@acme.com', 'TS')
-    const orOp = adminRef.ops.find((o) => o.table === 'agent_negotiations' && o.by === 'or')
-    expect(orOp).toBeTruthy()
-    expect(orOp.val).toContain('a\\_b\\%c@acme.com')
+    const negotiationOps = adminRef.ops.filter((o) =>
+      o.table === 'agent_negotiations' && ['buyer_email', 'contact'].includes(o.by),
+    )
+    expect(negotiationOps).toHaveLength(2)
+    for (const op of negotiationOps) expect(op.val).toBe('a\\_b\\%c@acme.com')
   })
 
   it('skips buyer-email queries when no email is present', async () => {
     const result = await exportUserAccount('user-1', null, 'TS')
-    expect(adminRef.ops.some((o) => o.by === 'buyer_email')).toBe(false)
+    expect(adminRef.ops.some((o) => String(o.by).includes('email'))).toBe(false)
     expect(adminRef.ops.some((o) => o.table === 'negotiation_messages')).toBe(false)
     expect(result!.data.checkout_orders_as_buyer).toEqual([])
     expect(result!.manifest.complete).toBe(true)
+  })
+
+  it('still exports reference-linked buyer rows when the auth email is absent', async () => {
+    adminRef.rows.checkout_orders = [{ id: 'order-1', buyer_reference: 'user-1' }]
+    const result = await exportUserAccount('user-1', null, 'TS')
+
+    expect(adminRef.ops).toContainEqual(expect.objectContaining({
+      table: 'checkout_orders',
+      by: 'buyer_reference',
+      val: 'user-1',
+    }))
+    expect(result!.data.checkout_orders_as_buyer).toEqual([{ id: 'order-1', buyer_reference: 'user-1' }])
+  })
+
+  it('exports staged obligations through owner- and buyer-matched agreement ids', async () => {
+    adminRef.rows.staged_settlement_agreements = [{ id: 'agreement-1' }]
+    adminRef.rows.staged_settlement_obligations = [{ id: 'obligation-1', agreement_id: 'agreement-1' }]
+    const result = await exportUserAccount('user-1', 'buyer@example.com', 'TS')
+
+    expect(result!.data.staged_settlement_obligations_as_buyer).toEqual([
+      { id: 'obligation-1', agreement_id: 'agreement-1' },
+    ])
+    expect(result!.data.staged_settlement_obligations).toEqual([
+      { id: 'obligation-1', agreement_id: 'agreement-1' },
+    ])
   })
 
   it('paginates past the previous row cap and records exact manifest counts', async () => {
