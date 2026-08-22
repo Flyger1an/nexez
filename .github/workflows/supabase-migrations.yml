@@ -59,9 +59,15 @@ jobs:
       - name: Replay every migration from zero
         run: supabase db reset --local
       - name: Lint the resulting schema
-        run: supabase db lint --local --level error
+        # The bundled pgTAP extension contains compatibility shims that the
+        # plpgsql checker cannot type-resolve on PostgreSQL 17. Lint Nexez's
+        # application schemas; extension code is vendor-owned and separately
+        # exercised by the database tests below.
+        run: supabase db lint --local --schema private,public --level error
       - name: Prove Nexie approval authority boundaries
         run: supabase test db supabase/tests/nexie_approval_security.test.sql --local
+      - name: Prove checkout-session privacy and retention boundaries
+        run: supabase test db supabase/tests/checkout_session_privacy.test.sql --local
       - name: Stop isolated local Supabase
         if: always()
         run: supabase stop --no-backup
