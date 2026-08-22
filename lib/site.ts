@@ -159,6 +159,10 @@ const HOST_NEUTRAL = new Set(['/sitemap.xml', '/robots.txt'])
 // whichever first-party host requests them. They remain marketing-canonical for
 // SEO/link purposes (see canonicalHostFor); this only suppresses the redirect.
 const HOST_NEUTRAL_API_PREFIXES = [
+  // Agent Lab is a dual surface: anonymous runs originate on nexez.ai while
+  // owner runs and history originate on app.nexez.ai. Keep both same-origin so
+  // POST bodies and session cookies never cross a canonical-host redirect.
+  '/api/simulator/runs',
   '/api/simulate-llm',
   '/api/simulate-url',
   '/api/support',
