@@ -10,11 +10,13 @@ on:
     branches: [main]
     paths:
       - 'supabase/migrations/**'
+      - 'supabase/tests/**'
       - '.github/workflows/supabase-migrations.yml'
   push:
     branches: [main]
     paths:
       - 'supabase/migrations/**'
+      - 'supabase/tests/**'
       - '.github/workflows/supabase-migrations.yml'
   workflow_dispatch:
 
@@ -58,6 +60,8 @@ jobs:
         run: supabase db reset --local
       - name: Lint the resulting schema
         run: supabase db lint --local --level error
+      - name: Prove Nexie approval authority boundaries
+        run: supabase test db supabase/tests/nexie_approval_security.test.sql --local
       - name: Stop isolated local Supabase
         if: always()
         run: supabase stop --no-backup
