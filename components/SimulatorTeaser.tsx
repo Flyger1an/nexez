@@ -8,6 +8,7 @@ import type {
   PublicSimulatorDecisionStep,
   PublicSimulatorMode,
 } from '../lib/public-simulator'
+import { buildPublicSimulatorRefinement } from '../lib/public-simulator'
 
 type SimOffer = {
   key: string
@@ -139,13 +140,17 @@ function DecisionPath({ steps }: { steps: PublicSimulatorDecisionStep[] }) {
 
 function CoverageGapResult({
   request,
+  query,
   naturalLanguage,
   onRefine,
 }: {
   request: UnderstoodRequest
+  query: string
   naturalLanguage: string
   onRefine: () => void
 }) {
+  const refinement = buildPublicSimulatorRefinement(query)
+
   return (
     <div>
       <div
@@ -165,9 +170,9 @@ function CoverageGapResult({
 
       <div className="mt-4 flex flex-col gap-3 rounded-lg border border-border bg-black/20 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-white">Make the live search sharper</p>
+          <p className="text-sm font-medium text-white">{refinement.title}</p>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Add a city and preferred timing. Nexez will keep the service category intact.
+            {refinement.guidance}
           </p>
         </div>
         <button onClick={onRefine} className="btn-secondary h-9 shrink-0 px-4 text-xs">
@@ -341,6 +346,7 @@ export function SimulatorTeaser() {
           {result.mode === 'coverage_gap' && result.understoodRequest ? (
             <CoverageGapResult
               request={result.understoodRequest}
+              query={query}
               naturalLanguage={result.naturalLanguage}
               onRefine={() => {
                 trackSimulatorEvent('simulator_refine', { mode: result.mode })

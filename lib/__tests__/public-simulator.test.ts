@@ -1,5 +1,64 @@
 import { describe, expect, it } from 'vitest'
-import { buildPublicSimulatorDecisionPath } from '../public-simulator'
+import {
+  buildPublicSimulatorDecisionPath,
+  buildPublicSimulatorRefinement,
+} from '../public-simulator'
+
+describe('buildPublicSimulatorRefinement', () => {
+  it('recognizes location and timing already present in a buyer request', () => {
+    expect(buildPublicSimulatorRefinement('I need a weed plug in Dallas this weekend')).toEqual({
+      locationProvided: true,
+      timingProvided: true,
+      title: 'Location and timing recognized',
+      guidance: 'Add any must-have details, budget, or flexibility. Nexez will keep the service category intact.',
+    })
+  })
+
+  it('asks only for timing when a location is present', () => {
+    const refinement = buildPublicSimulatorRefinement('Find a mobile notary in Austin')
+
+    expect(refinement).toMatchObject({
+      locationProvided: true,
+      timingProvided: false,
+      guidance: expect.stringMatching(/^Add preferred timing\./),
+    })
+  })
+
+  it('asks only for location when timing is present', () => {
+    const refinement = buildPublicSimulatorRefinement('Find a mobile notary tomorrow afternoon')
+
+    expect(refinement).toMatchObject({
+      locationProvided: false,
+      timingProvided: true,
+      guidance: expect.stringMatching(/^Add a location\./),
+    })
+  })
+
+  it('asks for both missing details when neither is present', () => {
+    const refinement = buildPublicSimulatorRefinement('Find a mobile notary')
+
+    expect(refinement).toMatchObject({
+      locationProvided: false,
+      timingProvided: false,
+      guidance: expect.stringMatching(/^Add a location and preferred timing\./),
+    })
+  })
+
+  it('recognizes common non-city location and scheduling signals', () => {
+    expect(buildPublicSimulatorRefinement('Send someone to my office at 3:30 pm')).toMatchObject({
+      locationProvided: true,
+      timingProvided: true,
+    })
+    expect(buildPublicSimulatorRefinement('Find an online tutor every Friday')).toMatchObject({
+      locationProvided: true,
+      timingProvided: true,
+    })
+    expect(buildPublicSimulatorRefinement('Find a locksmith near 75201 tomorrow')).toMatchObject({
+      locationProvided: true,
+      timingProvided: true,
+    })
+  })
+})
 
 describe('buildPublicSimulatorDecisionPath', () => {
   it('makes a live merchant action explicit without claiming confirmation', () => {

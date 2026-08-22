@@ -215,4 +215,28 @@ describe('SimulatorTeaser', () => {
     }))
     expect(JSON.stringify(mockedTrack.mock.calls)).not.toContain('Find a mobile notary')
   })
+
+  it('does not ask again for location or timing already present in the request', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        ...coverageGapResponse,
+        naturalLanguage: 'Nexez understood your request as “Mobile notary in Dallas this weekend.”',
+        understoodRequest: {
+          ...coverageGapResponse.understoodRequest,
+          label: 'Mobile notary in Dallas this weekend',
+        },
+      }),
+    })))
+
+    render(<SimulatorTeaser />)
+    fireEvent.change(screen.getByPlaceholderText('Ask Nexez to find a service…'), {
+      target: { value: 'Find a mobile notary in Dallas this weekend' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Simulate' }))
+
+    await waitFor(() => expect(screen.getByText('Location and timing recognized')).toBeInTheDocument())
+    expect(screen.getByText(/Add any must-have details, budget, or flexibility/)).toBeInTheDocument()
+    expect(screen.queryByText(/Add a (?:city|location) and preferred timing/)).not.toBeInTheDocument()
+  })
 })
