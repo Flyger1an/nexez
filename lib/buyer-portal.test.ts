@@ -68,10 +68,20 @@ describe('isRefundableStatus / canRequestRefund', () => {
 })
 
 describe('buildOrderTimeline', () => {
-  it('marks paid orders as received + complete', () => {
+  it('does not claim a paid checkout is complete without fulfillment evidence', () => {
     const steps = buildOrderTimeline(view({ status: 'paid' }))
-    expect(steps.map((s) => s.key)).toEqual(['placed', 'paid', 'complete'])
+    expect(steps.map((s) => s.key)).toEqual(['placed', 'paid', 'fulfillment'])
     expect(steps[1].done).toBe(true)
+    expect(steps[2]).toMatchObject({ label: 'Awaiting seller update', done: false, current: true })
+  })
+
+  it('shows each recorded checkout fulfillment state', () => {
+    expect(buildOrderTimeline(view({ fulfillment: { status: 'not_started', updatedAt: '2026-08-23T12:00:00.000Z' } }))[2])
+      .toMatchObject({ label: 'Seller is preparing your order', done: false, current: true })
+    expect(buildOrderTimeline(view({ fulfillment: { status: 'in_progress', updatedAt: '2026-08-23T13:00:00.000Z' } }))[2])
+      .toMatchObject({ label: 'Fulfillment in progress', done: false, current: true })
+    expect(buildOrderTimeline(view({ fulfillment: { status: 'fulfilled', updatedAt: '2026-08-23T14:00:00.000Z' } }))[2])
+      .toMatchObject({ label: 'Fulfilled', done: true, current: false })
   })
 
   it('shows an escrow hold as awaiting delivery (negotiation held)', () => {

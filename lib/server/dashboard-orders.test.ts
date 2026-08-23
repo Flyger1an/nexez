@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { createSupabaseMock } from '../../test/supabase-mock'
 import {
   DASHBOARD_ORDER_PAGE_SIZE,
+  loadDashboardOrderDetail,
   loadDashboardOrders,
   normalizeOrderSearch,
   parseDashboardOrderFilters,
@@ -65,5 +67,27 @@ describe('dashboard order loader', () => {
     expect(calls).toContainEqual(['range', DASHBOARD_ORDER_PAGE_SIZE, DASHBOARD_ORDER_PAGE_SIZE * 2 - 1])
     expect(result.total).toBe(52)
     expect(result.pages).toBe(3)
+  })
+
+  it('loads owner-scoped fulfillment and append-only activity with order detail', async () => {
+    const order = {
+      id: 'order-1',
+      owner_id: 'owner-1',
+      status: 'paid',
+      staged_settlement_agreement_id: null,
+      service_agreement_id: null,
+      resource_hold_id: null,
+    }
+    const client = createSupabaseMock((context) => {
+      if (context.table === 'checkout_orders') return { data: order, error: null }
+      if (context.table === 'checkout_order_fulfillments') return { data: { order_id: 'order-1', status: 'in_progress', version: 2 }, error: null }
+      if (context.table === 'checkout_order_events') return { data: [{ id: 'event-1', event_type: 'payment_confirmed', source: 'stripe', metadata: {}, created_at: '2026-08-23T12:00:00.000Z' }], error: null }
+      return { data: context.table === 'order_requests' || context.table === 'order_reviews' ? [] : null, error: null }
+    }) as unknown as SupabaseClient
+
+    const detail = await loadDashboardOrderDetail(client, 'owner-1', 'order-1')
+    expect(detail?.fulfillment).toMatchObject({ status: 'in_progress', version: 2 })
+    expect(detail?.events).toHaveLength(1)
+    expect(detail?.issues).toEqual([])
   })
 })

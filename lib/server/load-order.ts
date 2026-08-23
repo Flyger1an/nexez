@@ -100,6 +100,18 @@ async function loadReview(
   }
 }
 
+async function loadCheckoutFulfillment(
+  admin: ReturnType<typeof createAdminClient>,
+  orderId: string,
+): Promise<BuyerOrderView['fulfillment']> {
+  const { data } = await admin
+    .from('checkout_order_fulfillments')
+    .select('status, updated_at')
+    .eq('order_id', orderId)
+    .maybeSingle<{ status: 'not_started' | 'in_progress' | 'fulfilled'; updated_at: string }>()
+  return data ? { status: data.status, updatedAt: data.updated_at } : null
+}
+
 type CheckoutRow = {
   id: string
   slug: string | null
@@ -146,10 +158,11 @@ export async function loadOrderByToken(token: string): Promise<BuyerOrderView | 
     .eq('access_token_sha256', tokenHash)
     .maybeSingle<CheckoutRow>()
   if (order) {
-    const [seller, requests, review] = await Promise.all([
+    const [seller, requests, review, fulfillment] = await Promise.all([
       loadSeller(admin, order.slug),
       loadRequests(admin, 'checkout', order.id),
       loadReview(admin, 'checkout', order.id),
+      loadCheckoutFulfillment(admin, order.id),
     ])
     const status = deriveOrderStatus(order.status, order.metadata)
     return {
@@ -160,6 +173,7 @@ export async function loadOrderByToken(token: string): Promise<BuyerOrderView | 
       amountCents: order.amount_cents,
       currency: order.currency || 'usd',
       status,
+      fulfillment,
       sellerName: seller.name,
       sellerEmail: seller.contact_email,
       buyerEmail: order.buyer_email,
@@ -192,6 +206,7 @@ export async function loadOrderByToken(token: string): Promise<BuyerOrderView | 
       amountCents: negotiationDisplayCents(neg.amount_cents, neg.currency || 'usd'),
       currency: neg.currency || 'usd',
       status,
+      fulfillment: null,
       settlementState: neg.settlement_state,
       sellerName: seller.name,
       sellerEmail: seller.contact_email,

@@ -19,8 +19,10 @@ import {
 } from 'lucide-react'
 import { createClient } from '../../../../utils/supabase/server'
 import { DataLoadNotice } from '../../../../components/dashboard/DataLoadNotice'
+import { OrderOperationsPanel } from '../../../../components/dashboard/OrderOperationsPanel'
 import { SurfaceHeader } from '../../../../components/dashboard/SurfacePrimitives'
 import { formatCurrencyAmount } from '../../../../lib/currency'
+import { describeOrderActivity } from '../../../../lib/order-operations'
 import {
   getOrderChannelLabel,
   getOrderDisplayStatus,
@@ -59,6 +61,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
   if (!detail) notFound()
   const { order } = detail
   const economics = getOrderEconomics(order)
+  const currentStagedObligation = detail.stagedObligations.find((obligation) => obligation.id === order.staged_settlement_obligation_id)
 
   return (
     <main data-testid="order-detail" className="nx-platform-surface min-h-screen bg-[var(--bg)] text-[var(--fg)]">
@@ -103,6 +106,34 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           <MoneyCard label="Net to you" value={formatCurrencyAmount(economics.netCents, order.currency)} detail="After recorded refunds and fees" icon={CircleDollarSign} tone="ready" />
         </section>
 
+        <div className="mt-6">
+          <OrderOperationsPanel
+            order={{
+              id: order.id,
+              status: order.status,
+              amountCents: order.amount_cents,
+              currency: order.currency,
+              refundedCents: order.refunded_cents,
+              paymentIntentId: order.stripe_payment_intent_id,
+              channel: order.channel,
+            }}
+            fulfillment={detail.fulfillment ? {
+              status: detail.fulfillment.status,
+              version: detail.fulfillment.version,
+              updatedAt: detail.fulfillment.updated_at,
+            } : null}
+            requests={detail.requests.map((request) => ({
+              id: request.id,
+              kind: request.kind,
+              status: request.status,
+              message: request.message,
+              buyerEmail: request.buyer_email,
+              createdAt: request.created_at,
+            }))}
+            stagedObligationKind={currentStagedObligation?.kind}
+          />
+        </div>
+
         <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
           <div className="space-y-6">
             {detail.stagedAgreement ? (
@@ -134,32 +165,25 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
               </SectionCard>
             ) : null}
 
-            <SectionCard icon={Clock3} title="Order timeline" eyebrow="Durable state">
-              <ol className="space-y-0">
-                <TimelineItem title="Order recorded" detail={formatDateTime(order.created_at)} complete />
-                <TimelineItem title="Payment confirmed" detail={order.stripe_livemode === true ? 'Stripe live-mode payment' : order.stripe_livemode === false ? 'Stripe test-mode payment' : 'Payment mode was not recorded'} complete />
-                {economics.refundedCents > 0 ? <TimelineItem title={order.status === 'disputed' ? 'Payment disputed' : 'Refund recorded'} detail={`${formatCurrencyAmount(economics.refundedCents, order.currency)} affected`} complete={order.status !== 'disputed'} attention /> : null}
-                <TimelineItem title="Current state" detail={`${getOrderDisplayStatus(order)} · updated ${formatDateTime(order.updated_at)}`} complete={order.status !== 'disputed'} attention={order.status === 'disputed'} last />
-              </ol>
+            <SectionCard icon={Clock3} title="Activity" eyebrow="Append-only order evidence">
+              {detail.events.length ? (
+                <ol className="space-y-0">
+                  {detail.events.map((event, index) => {
+                    const activity = describeOrderActivity(event, order.currency)
+                    return (
+                      <TimelineItem
+                        key={event.id}
+                        title={activity.title}
+                        detail={`${activity.detail} ${formatDateTime(event.created_at)} · ${humanize(event.source)}`}
+                        complete={activity.tone === 'ready'}
+                        attention={activity.tone === 'attention'}
+                        last={index === detail.events.length - 1}
+                      />
+                    )
+                  })}
+                </ol>
+              ) : <p className="text-sm leading-6 text-[var(--fg-muted)]">No append-only activity is available for this order yet. Nexez will not reconstruct events that were never durably recorded.</p>}
             </SectionCard>
-
-            {detail.requests.length ? (
-              <SectionCard icon={RefreshCcw} title="Buyer requests" eyebrow="Needs merchant review">
-                <div className="space-y-3">
-                  {detail.requests.map((request) => (
-                    <article key={request.id} className="rounded-[var(--radius)] border border-[var(--line-soft)] bg-[var(--fill-1)] p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h3 className="font-medium text-[var(--fg)]">{request.kind === 'refund_request' ? 'Refund request' : 'Problem report'}</h3>
-                        <span className="rounded-full border border-[var(--line-soft)] px-2.5 py-1 text-xs text-[var(--fg-muted)]">{humanize(request.status)}</span>
-                      </div>
-                      {request.message ? <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[var(--fg-muted)]">{request.message}</p> : null}
-                      <p className="mt-3 text-xs text-[var(--fg-muted-2)]">Filed {formatDateTime(request.created_at)}{request.buyer_email ? ` by ${request.buyer_email}` : ''}</p>
-                    </article>
-                  ))}
-                </div>
-                <p className="mt-4 text-xs leading-5 text-[var(--fg-muted-2)]">Request resolution and payment actions remain available in Finance during this read-only foundation slice.</p>
-              </SectionCard>
-            ) : null}
 
             {detail.reviews.length ? (
               <SectionCard icon={Star} title="Verified review" eyebrow="Buyer feedback">

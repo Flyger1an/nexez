@@ -25,6 +25,11 @@ export type BuyerOrderReview = {
   createdAt: string
 }
 
+export type BuyerOrderFulfillment = {
+  status: 'not_started' | 'in_progress' | 'fulfilled'
+  updatedAt: string
+}
+
 // Normalized, buyer-safe view of an order/negotiation (no owner_id, no offer rules,
 // no internal notes - the server resolver strips those before building this).
 export type BuyerOrderView = {
@@ -35,6 +40,7 @@ export type BuyerOrderView = {
   amountCents: number | null
   currency: string
   status: string
+  fulfillment?: BuyerOrderFulfillment | null
   settlementState?: string | null
   sellerName: string | null
   sellerEmail: string | null
@@ -140,6 +146,20 @@ export function buildOrderTimeline(view: BuyerOrderView): TimelineStep[] {
     steps.push({ key: 'disputed', label: 'Dispute under review', done: false, current: true })
   } else if (refunded) {
     steps.push({ key: 'refunded', label: 'Refunded to you', done: true, current: true })
+  } else if (view.kind === 'checkout' && settled) {
+    const fulfillment = view.fulfillment?.status
+    steps.push({
+      key: 'fulfillment',
+      label: fulfillment === 'fulfilled'
+        ? 'Fulfilled'
+        : fulfillment === 'in_progress'
+          ? 'Fulfillment in progress'
+          : fulfillment === 'not_started'
+            ? 'Seller is preparing your order'
+            : 'Awaiting seller update',
+      done: fulfillment === 'fulfilled',
+      current: fulfillment !== 'fulfilled',
+    })
   } else {
     steps.push({
       key: 'complete',
