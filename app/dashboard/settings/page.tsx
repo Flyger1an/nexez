@@ -139,6 +139,8 @@ export default async function AccountSettingsPage() {
     : 0
   const planName = getBillingPlan(currentPlan)?.name ?? 'Free'
   const baseUrl = getBaseUrl()
+  const searchApiTemplate = `${baseUrl}/api/agent-search?q={query}`
+  const searchApiExample = `${baseUrl}/api/agent-search?q=consulting`
   const firstListingSettingsHref = ownedPages[0] ? `/dashboard/${ownedPages[0].id}/settings` : '/dashboard'
   const agentOperations = !pageState.error && !agentState.error
     ? buildAgentOperationsSnapshot(ownedPages, agentState.data)
@@ -269,7 +271,7 @@ export default async function AccountSettingsPage() {
                     <Endpoint label="Agent discovery" value={`${baseUrl}/discovery`} />
                     <Endpoint label="llms.txt" value={`${baseUrl}/llms.txt`} />
                     <Endpoint label="Agent index" value={`${baseUrl}/agent-pages.json`} />
-                    <Endpoint label="Search API" value={`${baseUrl}/api/agent-search?q=consulting`} />
+                    <Endpoint label="Search API" value={searchApiTemplate} href={searchApiExample} />
                     <Endpoint label="OpenAPI" value={`${baseUrl}/openapi.json`} />
                     <Endpoint label="Capabilities" value={`${baseUrl}/.well-known/nexez.json`} />
                   </div>
@@ -300,7 +302,7 @@ export default async function AccountSettingsPage() {
                 </div>
                 <div className="mt-5 grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
                   {schemaSignals.map(([label, description]) => (
-                    <div key={label} className="rounded-xl border border-[var(--bd-10)] bg-[var(--panel)]/50 p-4">
+                    <div key={label} className="rounded-xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4">
                       <div className="flex items-center gap-2">
                         <BadgeCheck className="size-4 text-[var(--ready)]" aria-hidden="true" />
                         <p className="font-medium">{label}</p>
@@ -354,14 +356,14 @@ function AgentOperationsPanel({ snapshot, error }: { snapshot: AgentOperationsSn
           </div>
 
           <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)]">
-            <div className="rounded-2xl border border-[var(--bd-10)] bg-[var(--panel)]/50 p-4 sm:p-5">
+            <div className="rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4 sm:p-5">
               <div className="flex items-center gap-2">
                 <ListChecks className="size-4 text-[var(--signal)]" aria-hidden="true" />
                 <h4 className="font-semibold">Priority queue</h4>
               </div>
               <div className="mt-3 grid gap-2 lg:grid-cols-3">
                 {snapshot.actions.map((action, index) => (
-                  <Link key={action.key} href={action.href} className="group rounded-xl border border-[var(--bd-10)] bg-background/25 p-3 outline-none transition-colors hover:bg-[var(--hover)] focus-visible:ring-2 focus-visible:ring-[var(--signal)]">
+                  <Link key={action.key} href={action.href} className="group rounded-xl border border-[var(--line-soft)] bg-[var(--glass)] p-3 outline-none transition-colors hover:bg-[var(--fill-2)] focus-visible:ring-2 focus-visible:ring-[var(--settings-focus)]">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--fg-muted-2)]">Priority {index + 1}</p>
                     <p className="mt-2 text-sm font-medium group-hover:text-[var(--signal)]">{action.title}</p>
                     <p className="mt-1 text-xs leading-5 text-[var(--fg-muted-2)]">{action.detail}</p>
@@ -370,7 +372,7 @@ function AgentOperationsPanel({ snapshot, error }: { snapshot: AgentOperationsSn
               </div>
             </div>
 
-            <div className="rounded-2xl border border-[var(--bd-10)] bg-[var(--panel)]/50 p-4 sm:p-5">
+            <div className="rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4 sm:p-5">
               <div className="flex items-center gap-2">
                 <Target className="size-4 text-[var(--ready)]" aria-hidden="true" />
                 <h4 className="font-semibold">Evidence cadence</h4>
@@ -393,7 +395,7 @@ function AgentOperationsPanel({ snapshot, error }: { snapshot: AgentOperationsSn
 
 function OperationsStat({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <div className="rounded-2xl border border-[var(--bd-10)] bg-background/30 p-4">
+    <div className="rounded-2xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4">
       <p className="text-[10px] uppercase tracking-[0.13em] text-[var(--fg-muted-2)]">{label}</p>
       <p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p>
       <p className="mt-1 text-xs leading-5 text-[var(--fg-muted-2)]">{detail}</p>
@@ -489,7 +491,7 @@ function AgentSurfaceTable({ pages }: { pages: AgentPage[] | null }) {
       {pages === null ? (
         <UnavailablePanel message="Live listing status is unavailable. No zero values have been assumed." />
       ) : pages.length === 0 ? (
-        <div className="mt-5 rounded-xl border border-dashed border-[var(--bd-10)] p-8 text-center text-sm text-[var(--fg-muted-2)]">
+        <div className="mt-5 rounded-xl border border-dashed border-[var(--line-soft)] p-8 text-center text-sm text-[var(--fg-muted-2)]">
           Create a listing to publish your first agent surface.
         </div>
       ) : (
@@ -507,7 +509,7 @@ function AgentSurfaceTable({ pages }: { pages: AgentPage[] | null }) {
               </thead>
               <tbody>
                 {pages.map((page) => (
-                  <tr key={page.id} className="border-t border-[var(--bd-10)]">
+                  <tr key={page.id} className="border-t border-[var(--line-soft)]">
                     <td className="py-4">
                       <p className="font-medium">{page.name}</p>
                       <p className="font-mono text-xs text-[var(--fg-muted-2)]">/{page.slug}</p>
@@ -525,13 +527,13 @@ function AgentSurfaceTable({ pages }: { pages: AgentPage[] | null }) {
           </div>
           <div className="mt-5 grid min-w-0 gap-3 md:hidden">
             {pages.map((page) => (
-              <article key={page.id} className="max-w-full min-w-0 rounded-xl border border-[var(--bd-10)] bg-[var(--panel)]/50 p-4">
+              <article key={page.id} className="max-w-full min-w-0 rounded-xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate font-medium">{page.name}</p>
                     <p className="truncate font-mono text-xs text-[var(--fg-muted-2)]">/{page.slug}</p>
                   </div>
-                  <span className="rounded-full border border-[var(--bd-10)] px-2.5 py-1 text-xs text-[var(--fg-muted)]">
+                  <span className="rounded-full border border-[var(--line)] px-2.5 py-1 text-xs text-[var(--fg-muted)]">
                     {page.is_published ? 'Published' : 'Draft'}
                   </span>
                 </div>
@@ -549,11 +551,12 @@ function AgentSurfaceTable({ pages }: { pages: AgentPage[] | null }) {
   )
 }
 
-function Endpoint({ label, value }: { label: string; value: string }) {
+function Endpoint({ label, value, href = value }: { label: string; value: string; href?: string }) {
   return (
     <a
-      href={value}
-      className="group block min-w-0 rounded-xl border border-[var(--bd-10)] bg-[var(--panel)]/50 p-4 transition-colors hover:bg-[var(--hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--signal)]"
+      href={href}
+      data-testid="settings-endpoint-card"
+      className="group block min-w-0 rounded-xl border border-[var(--line-soft)] bg-[var(--fill-1)] p-4 transition-shadow hover:bg-[var(--fill-2)] hover:shadow-[inset_0_0_0_1px_var(--line-hi)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--settings-focus)]"
     >
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-medium">{label}</p>
@@ -566,7 +569,7 @@ function Endpoint({ label, value }: { label: string; value: string }) {
 
 function ConfigRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-4 rounded-xl border border-[var(--bd-10)] bg-[var(--panel)]/50 px-3 py-3">
+    <div className="flex items-start justify-between gap-4 rounded-xl border border-[var(--line-soft)] bg-[var(--fill-1)] px-3 py-3">
       <span className="text-[var(--fg-muted-2)]">{label}</span>
       <span className="max-w-[62%] text-right text-foreground">{value}</span>
     </div>
@@ -575,14 +578,14 @@ function ConfigRow({ label, value }: { label: string; value: string }) {
 
 function UnavailablePanel({ message }: { message: string }) {
   return (
-    <div role="status" className="mt-5 rounded-xl border border-dashed border-[var(--bd-10)] p-5 text-sm text-[var(--fg-muted)]">
+    <div role="status" className="mt-5 rounded-xl border border-dashed border-[var(--line-soft)] p-5 text-sm text-[var(--fg-muted)]">
       {message}
     </div>
   )
 }
 
 const topButtonClass =
-  'inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--bd-10)] px-4 py-2 text-sm font-medium text-[var(--fg-muted)] transition-colors hover:bg-[var(--hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--signal)]'
+  'inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--line)] px-4 py-2 text-sm font-medium text-[var(--fg-muted)] transition-colors hover:bg-[var(--fill-2)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--settings-focus)]'
 
 const inlineActionClass =
   'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg text-sm font-medium text-[var(--signal)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--signal)]'
