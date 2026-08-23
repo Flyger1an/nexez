@@ -176,7 +176,7 @@ function CommandCard({
 }) {
   const color = accent === 'signal' ? 'text-[var(--signal)]' : accent === 'amber' ? 'text-[var(--amber)]' : 'text-[var(--ready)]'
   return (
-    <a href={href} className="group min-h-48 bg-[var(--panel)] p-5 transition-shadow hover:shadow-[inset_0_0_0_1px_var(--line-hi)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--signal)] md:p-6">
+    <a href={href} className="group min-h-48 bg-[var(--bg-2)] p-5 transition-shadow hover:shadow-[inset_0_0_0_1px_var(--line-hi)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--signal)] md:p-6">
       <div className={`flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] ${color}`}>{icon}{eyebrow}</div>
       <div className="mt-5 flex items-end gap-2">
         <span className="text-3xl font-semibold tracking-[-0.04em] text-[var(--fg)] md:text-4xl">{value}</span>

@@ -69,6 +69,11 @@ function contrastRatio(foreground: string, background: string): number {
   return (lighter + 0.05) / (darker + 0.05)
 }
 
+function chromaSpread(color: string): number {
+  const channels = rgbChannels(color)
+  return Math.max(...channels) - Math.min(...channels)
+}
+
 test('commercial command cards remain readable in light and dark platform themes', async ({ page }) => {
   await login(page)
 
@@ -86,8 +91,14 @@ test('commercial command cards remain readable in light and dark platform themes
       const value = card.querySelector('span')
       const paragraphs = card.querySelectorAll('p')
       if (!value || paragraphs.length < 2) throw new Error('Command card typography is incomplete')
+      const expectedSurface = document.createElement('span')
+      expectedSurface.style.backgroundColor = 'var(--bg-2)'
+      document.body.append(expectedSurface)
+      const expectedBackground = getComputedStyle(expectedSurface).backgroundColor
+      expectedSurface.remove()
       return {
         background: getComputedStyle(card).backgroundColor,
+        expectedBackground,
         value: getComputedStyle(value).color,
         label: getComputedStyle(paragraphs[0]).color,
         detail: getComputedStyle(paragraphs[1]).color,
@@ -96,6 +107,8 @@ test('commercial command cards remain readable in light and dark platform themes
     })
 
     backgrounds.push(styles.background)
+    expect(styles.background).toBe(styles.expectedBackground)
+    expect(chromaSpread(styles.background)).toBeLessThanOrEqual(8)
     expect(styles.colorScheme).toContain(theme.toLowerCase())
     expect(contrastRatio(styles.value, styles.background)).toBeGreaterThanOrEqual(7)
     expect(contrastRatio(styles.label, styles.background)).toBeGreaterThanOrEqual(4.5)
