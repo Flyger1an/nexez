@@ -111,8 +111,8 @@ export function LaunchControlDashboard({
           <SummaryCard
             icon={CreditCard}
             label="Live commerce proof"
-            value={`${snapshot.metrics.directOrders + snapshot.metrics.paymentBackedNegotiations + snapshot.metrics.protocolOrders}`}
-            detail={`${snapshot.metrics.directOrders} direct · ${snapshot.metrics.paymentBackedNegotiations} escrow · ${snapshot.metrics.protocolOrders} protocol`}
+            value={`${snapshot.metrics.directOrders + snapshot.metrics.paymentBackedNegotiations + snapshot.metrics.resourceSettlements + snapshot.metrics.stagedSettlementSettlements + snapshot.metrics.protocolOrders}`}
+            detail={`${snapshot.metrics.directOrders} direct · ${snapshot.metrics.paymentBackedNegotiations} escrow · ${snapshot.metrics.resourceSettlements} resource · ${snapshot.metrics.stagedSettlementSettlements} staged · ${snapshot.metrics.protocolOrders} protocol`}
             status={certificationRollup(snapshot.certification)}
           />
           <SummaryCard

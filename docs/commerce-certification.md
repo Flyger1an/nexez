@@ -14,6 +14,8 @@ Commerce certification is the release gate for Nexez money paths. Configuration 
 
 It does not create a charge, Checkout Session, subscription, negotiation, refund, or payout. The checkout dry run keeps its normal telemetry event so repeated certification remains observable.
 
+The automated gate also does not call the reservable-resource dry run. That route acquires a real, expiring hold before it issues buyer approval, so it belongs in the deliberate owner-run lifecycle below. Staged-settlement dry runs do not persist an agreement, but they remain paired with the owner-run staged lifecycle so the exact obligation sequence is verified together.
+
 ## Certification account
 
 Use a dedicated seller and buyer identity. Keep the seller published but clearly labeled for certification, with:
@@ -113,6 +115,34 @@ Sandbox protocol orders prove adapter conformance only. They may satisfy the opt
 3. Update and complete the session with a delegated payment token in the safe test environment.
 4. Confirm each durable order carries the correct `acp` or `ucp` channel, seller ownership, and `stripe_livemode = false` provenance.
 5. Replay completion and confirm no duplicate order.
+
+### 7. Reservable resource lifecycle
+
+Use a dedicated low-value fixed offer with a Nexez-owned resource contract. Do not combine this offer with staged settlement terms.
+
+1. Configure an active merchant-owned pool and, for reusable inventory, an explicit active window.
+2. Request a resource checkout dry run with a unique idempotency key and valid buyer configuration.
+3. Confirm the response binds the exact allocation, quantity, versions, amount, currency, hold expiry, and approval expiry.
+4. Let one unpurchased hold expire, run the expiry worker, and confirm it becomes `expired` without creating a reservation or order.
+5. Request a fresh hold, explicitly approve the exact allocation, and complete one low-value live payment.
+6. Confirm the Stripe Checkout Session cannot outlive the hold and uses an immediate-confirmation payment method.
+7. Confirm one `committed` hold, one linked `resource_reservations` row, and one settled `checkout_orders` row with channel `reservable_resource`, the same `resource_hold_id`, and `stripe_livemode = true`.
+8. Replay the payment event and idempotency key, then confirm no duplicate allocation, reservation, order, or charge.
+9. Confirm Launch Control reports the configured pool, terminal expired hold, and proven settlement as separate evidence.
+
+### 8. Staged settlement lifecycle
+
+Use a separate low-value fixed offer with a finite staged settlement contract. Do not combine this offer with reservable resource terms.
+
+1. Request a staged checkout dry run and confirm the immutable total, currency, ordered obligations, exact allocations, and contract fingerprint.
+2. Explicitly approve and pay only the first obligation.
+3. Confirm the agreement becomes `active`, the first obligation becomes `paid`, and only the next obligation becomes ready for buyer approval.
+4. Confirm the prior approval cannot authorize the next obligation and that Nexez does not save a card or charge autonomously.
+5. Issue fresh approval for each remaining obligation and complete the schedule.
+6. Confirm the agreement becomes `complete` only after every obligation is `paid` with `stripe_livemode = true`.
+7. Confirm every obligation links to its own settled `checkout_orders` row with channel `staged_settlement` and matching agreement and obligation IDs.
+8. Replay each payment event and idempotency key, then confirm no duplicate obligation, order, or charge.
+9. Confirm Launch Control keeps open agreements, live-paid obligations, fully proven agreements, and cancelled or disputed agreements distinct.
 
 ## Environment separation
 

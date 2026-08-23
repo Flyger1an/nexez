@@ -39,6 +39,17 @@ const baseMetrics: LaunchMetrics = {
   failedOutboundWebhooks: 0,
   urgentSupportTickets: 0,
   expiredCheckoutSessions: 0,
+  resourcePoolsConfigured: 0,
+  resourceHoldsOpen: 0,
+  resourceHoldsExpired: 0,
+  resourceHoldsFailed: 0,
+  resourceHoldsCancelled: 0,
+  resourceSettlements: 0,
+  stagedSettlementAgreements: 0,
+  stagedSettlementAgreementsOpen: 0,
+  stagedSettlementObligationsPaid: 0,
+  stagedSettlementSettlements: 0,
+  stagedSettlementFailures: 0,
 }
 
 const allSources: LaunchSourceAvailability = {
@@ -51,6 +62,11 @@ const allSources: LaunchSourceAvailability = {
   outboundWebhooks: true,
   support: true,
   checkoutSessions: true,
+  resourcePools: true,
+  resourceHolds: true,
+  resourceReservations: true,
+  stagedSettlementAgreements: true,
+  stagedSettlementObligations: true,
 }
 
 function stripeDelivery(overrides: Partial<LaunchMetrics>, sources: LaunchSourceAvailability = allSources) {

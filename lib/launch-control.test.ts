@@ -4,12 +4,14 @@ import {
   buildConfigurationChecks,
   buildMarketplaceCurationCheck,
   buildOperationalChecks,
+  deriveAdvancedCommerceEvidence,
   isSettledProtocolOrder,
   isStripeCatalogSyncEvent,
   summarizeLaunchChecks,
   type LaunchConfigurationInput,
   type LaunchMetrics,
   type LaunchSourceAvailability,
+  type AdvancedCommerceOrderEvidence,
 } from './launch-control'
 
 const NOW = '2026-07-15T12:00:00.000Z'
@@ -95,6 +97,17 @@ function metrics(overrides: Partial<LaunchMetrics> = {}): LaunchMetrics {
     failedOutboundWebhooks: 0,
     urgentSupportTickets: 0,
     expiredCheckoutSessions: 0,
+    resourcePoolsConfigured: 1,
+    resourceHoldsOpen: 0,
+    resourceHoldsExpired: 1,
+    resourceHoldsFailed: 0,
+    resourceHoldsCancelled: 0,
+    resourceSettlements: 1,
+    stagedSettlementAgreements: 1,
+    stagedSettlementAgreementsOpen: 0,
+    stagedSettlementObligationsPaid: 2,
+    stagedSettlementSettlements: 1,
+    stagedSettlementFailures: 0,
     ...overrides,
   }
 }
@@ -110,8 +123,161 @@ function sources(value = true): LaunchSourceAvailability {
     outboundWebhooks: value,
     support: value,
     checkoutSessions: value,
+    resourcePools: value,
+    resourceHolds: value,
+    resourceReservations: value,
+    stagedSettlementAgreements: value,
+    stagedSettlementObligations: value,
   }
 }
+
+function evidenceOrder(overrides: Partial<AdvancedCommerceOrderEvidence> = {}): AdvancedCommerceOrderEvidence {
+  return {
+    id: 'order-1',
+    status: 'paid',
+    channel: 'agent_checkout',
+    stripe_livemode: true,
+    resource_hold_id: null,
+    staged_settlement_agreement_id: null,
+    staged_settlement_obligation_id: null,
+    ...overrides,
+  }
+}
+
+describe('advanced commerce evidence', () => {
+  it('proves a resource settlement only through an exact live order, committed hold, and reservation chain', () => {
+    const result = deriveAdvancedCommerceEvidence({
+      orders: [evidenceOrder({
+        id: 'resource-order',
+        channel: 'reservable_resource',
+        resource_hold_id: 'hold-1',
+      })],
+      resourcePools: [{ id: 'pool-1', status: 'active' }, { id: 'pool-2', status: 'paused' }],
+      resourceHolds: [
+        { id: 'hold-1', status: 'committed' },
+        { id: 'hold-2', status: 'active' },
+        { id: 'hold-3', status: 'payment_pending' },
+        { id: 'hold-4', status: 'expired' },
+        { id: 'hold-5', status: 'failed' },
+        { id: 'hold-6', status: 'cancelled' },
+      ],
+      resourceReservations: [{
+        id: 'reservation-1',
+        hold_id: 'hold-1',
+        status: 'committed',
+        checkout_order_id: 'resource-order',
+      }],
+      stagedSettlementAgreements: [],
+      stagedSettlementObligations: [],
+    })
+
+    expect(result).toMatchObject({
+      resourcePoolsConfigured: 1,
+      resourceHoldsOpen: 2,
+      resourceHoldsExpired: 1,
+      resourceHoldsFailed: 1,
+      resourceHoldsCancelled: 1,
+      resourceSettlements: 1,
+    })
+  })
+
+  it('rejects resource proof when any authority link or Stripe mode disagrees', () => {
+    const base = {
+      resourcePools: [{ id: 'pool-1', status: 'active' }],
+      resourceHolds: [{ id: 'hold-1', status: 'committed' }],
+      resourceReservations: [{
+        id: 'reservation-1',
+        hold_id: 'hold-1',
+        status: 'committed',
+        checkout_order_id: 'resource-order',
+      }],
+      stagedSettlementAgreements: [],
+      stagedSettlementObligations: [],
+    }
+    const sandbox = deriveAdvancedCommerceEvidence({
+      ...base,
+      orders: [evidenceOrder({
+        id: 'resource-order',
+        channel: 'reservable_resource',
+        stripe_livemode: false,
+        resource_hold_id: 'hold-1',
+      })],
+    })
+    const mismatched = deriveAdvancedCommerceEvidence({
+      ...base,
+      orders: [evidenceOrder({
+        id: 'different-order',
+        channel: 'reservable_resource',
+        resource_hold_id: 'hold-1',
+      })],
+    })
+
+    expect(sandbox.resourceSettlements).toBe(0)
+    expect(mismatched.resourceSettlements).toBe(0)
+  })
+
+  it('proves a staged settlement only when every obligation is live-paid and linked', () => {
+    const result = deriveAdvancedCommerceEvidence({
+      orders: [
+        evidenceOrder({
+          id: 'stage-order-1',
+          channel: 'staged_settlement',
+          staged_settlement_agreement_id: 'agreement-1',
+          staged_settlement_obligation_id: 'obligation-1',
+        }),
+        evidenceOrder({
+          id: 'stage-order-2',
+          channel: 'staged_settlement',
+          staged_settlement_agreement_id: 'agreement-1',
+          staged_settlement_obligation_id: 'obligation-2',
+        }),
+      ],
+      resourcePools: [],
+      resourceHolds: [],
+      resourceReservations: [],
+      stagedSettlementAgreements: [
+        { id: 'agreement-1', status: 'complete' },
+        { id: 'agreement-2', status: 'active' },
+        { id: 'agreement-3', status: 'disputed' },
+      ],
+      stagedSettlementObligations: [
+        { id: 'obligation-1', agreement_id: 'agreement-1', status: 'paid', stripe_livemode: true },
+        { id: 'obligation-2', agreement_id: 'agreement-1', status: 'paid', stripe_livemode: true },
+        { id: 'obligation-3', agreement_id: 'agreement-2', status: 'ready_for_buyer_approval', stripe_livemode: null },
+      ],
+    })
+
+    expect(result).toMatchObject({
+      stagedSettlementAgreements: 3,
+      stagedSettlementAgreementsOpen: 1,
+      stagedSettlementObligationsPaid: 2,
+      stagedSettlementSettlements: 1,
+      stagedSettlementFailures: 1,
+    })
+  })
+
+  it('does not promote a partial, sandbox, or incompletely linked staged agreement', () => {
+    const result = deriveAdvancedCommerceEvidence({
+      orders: [evidenceOrder({
+        id: 'stage-order-1',
+        channel: 'staged_settlement',
+        staged_settlement_agreement_id: 'agreement-1',
+        staged_settlement_obligation_id: 'obligation-1',
+      })],
+      resourcePools: [],
+      resourceHolds: [],
+      resourceReservations: [],
+      stagedSettlementAgreements: [{ id: 'agreement-1', status: 'complete' }],
+      stagedSettlementObligations: [
+        { id: 'obligation-1', agreement_id: 'agreement-1', status: 'paid', stripe_livemode: true },
+        { id: 'obligation-2', agreement_id: 'agreement-1', status: 'paid', stripe_livemode: false },
+      ],
+    })
+
+    expect(result.stagedSettlementObligationsPaid).toBe(1)
+    expect(result.stagedSettlementSettlements).toBe(0)
+  })
+})
 
 describe('Launch Control configuration', () => {
   it('marks the required production configuration ready without returning secret values', () => {
@@ -261,6 +427,46 @@ describe('Commerce certification and summary', () => {
       ucpProtocolOrders: 0,
     }), sources(), configChecks)
     expect(checks.find((check) => check.id === 'cert-protocol')?.status).toBe('attention')
+  })
+
+  it('keeps advanced commerce configured, open, and failed state separate from settlement proof', () => {
+    const configChecks = buildConfigurationChecks(configuration())
+    const checks = buildCertificationChecks(metrics({
+      resourcePoolsConfigured: 2,
+      resourceHoldsOpen: 1,
+      resourceHoldsExpired: 3,
+      resourceHoldsFailed: 1,
+      resourceSettlements: 0,
+      stagedSettlementAgreements: 2,
+      stagedSettlementAgreementsOpen: 1,
+      stagedSettlementObligationsPaid: 1,
+      stagedSettlementSettlements: 0,
+      stagedSettlementFailures: 1,
+    }), sources(), configChecks)
+
+    expect(checks.find((check) => check.id === 'cert-reservable-resource')).toMatchObject({
+      status: 'attention',
+      required: false,
+    })
+    expect(checks.find((check) => check.id === 'cert-reservable-resource')?.evidence)
+      .toContain('0 proven settlements')
+    expect(checks.find((check) => check.id === 'cert-staged-settlement')).toMatchObject({
+      status: 'attention',
+      required: false,
+    })
+    expect(checks.find((check) => check.id === 'cert-staged-settlement')?.evidence)
+      .toContain('0 fully proven')
+  })
+
+  it('reports advanced commerce proof as unknown when any required evidence source is unavailable', () => {
+    const configChecks = buildConfigurationChecks(configuration())
+    const unavailable = sources()
+    unavailable.resourceReservations = false
+    unavailable.stagedSettlementObligations = false
+    const checks = buildCertificationChecks(metrics(), unavailable, configChecks)
+
+    expect(checks.find((check) => check.id === 'cert-reservable-resource')?.status).toBe('unknown')
+    expect(checks.find((check) => check.id === 'cert-staged-settlement')?.status).toBe('unknown')
   })
 
   it('makes any required blocked check a launch blocker', () => {
