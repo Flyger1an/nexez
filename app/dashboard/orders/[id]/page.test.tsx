@@ -7,11 +7,12 @@ const refs = vi.hoisted(() => ({
   user: { id: 'owner-1' } as { id: string } | null,
   detail: null as null | Record<string, unknown>,
   notFound: vi.fn(() => { throw new Error('NEXT_NOT_FOUND') }),
+  refresh: vi.fn(),
   load: vi.fn(),
 }))
 
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({})) }))
-vi.mock('next/navigation', () => ({ notFound: refs.notFound }))
+vi.mock('next/navigation', () => ({ notFound: refs.notFound, useRouter: () => ({ refresh: refs.refresh }) }))
 vi.mock('../../../../utils/supabase/server', () => ({
   createClient: () => ({
     auth: { getUser: vi.fn(async () => ({ data: { user: refs.user } })) },
@@ -81,6 +82,23 @@ function detail() {
     ],
     serviceAgreement: null,
     resourceReservation: null,
+    fulfillment: null,
+    events: [
+      {
+        id: 'event-2',
+        event_type: 'payment_confirmed',
+        source: 'stripe',
+        metadata: { amount_cents: 5_000, currency: 'usd' },
+        created_at: '2026-08-23T12:05:00.000Z',
+      },
+      {
+        id: 'event-1',
+        event_type: 'order_recorded',
+        source: 'system',
+        metadata: { channel: 'staged_settlement' },
+        created_at: '2026-08-23T12:00:00.000Z',
+      },
+    ],
     issues: [],
   }
 }
@@ -90,6 +108,7 @@ describe('order detail dashboard', () => {
     refs.user = { id: 'owner-1' }
     refs.detail = detail()
     refs.notFound.mockClear()
+    refs.refresh.mockClear()
     refs.load.mockReset().mockImplementation(async () => refs.detail)
   })
 
@@ -102,6 +121,9 @@ describe('order detail dashboard', () => {
     expect(screen.getByText('Final delivery')).toBeInTheDocument()
     expect(screen.getByText('Avery Buyer')).toBeInTheDocument()
     expect(screen.getByText('$45.50')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Order operations' })).toBeInTheDocument()
+    expect(screen.getByText('This payment is a commitment stage, not delivered work. Fulfillment belongs on a milestone or completion payment.')).toBeInTheDocument()
+    expect(screen.getByText('Payment confirmed')).toBeInTheDocument()
   })
 
   it('returns not found when the owner-scoped loader cannot see the order', async () => {

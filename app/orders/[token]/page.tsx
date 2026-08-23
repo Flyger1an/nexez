@@ -86,6 +86,7 @@ export default async function OrderPortalPage({ params }: PageProps) {
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Detail label="Amount" value={amount} />
             <Detail label="Status" value={status.label} />
+            {order.kind === 'checkout' ? <Detail label="Fulfillment" value={buyerFulfillmentLabel(order.fulfillment?.status)} /> : null}
             <Detail label="Reference" value={order.reference} mono />
             <Detail label="Placed" value={placed} />
           </div>
@@ -150,6 +151,13 @@ export default async function OrderPortalPage({ params }: PageProps) {
       </div>
     </main>
   )
+}
+
+function buyerFulfillmentLabel(status: 'not_started' | 'in_progress' | 'fulfilled' | undefined) {
+  if (status === 'not_started') return 'Preparing'
+  if (status === 'in_progress') return 'In progress'
+  if (status === 'fulfilled') return 'Fulfilled'
+  return 'Seller update pending'
 }
 
 function Detail({ label, value, mono }: { label: string; value: string; mono?: boolean }) {

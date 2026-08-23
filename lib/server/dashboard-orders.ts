@@ -104,6 +104,24 @@ export type DashboardOrderRequest = {
   updated_at: string
 }
 
+export type DashboardOrderFulfillment = {
+  order_id: string
+  status: 'not_started' | 'in_progress' | 'fulfilled'
+  version: number
+  started_at: string | null
+  fulfilled_at: string | null
+  updated_at: string
+}
+
+export type DashboardOrderEvent = {
+  id: string
+  event_type: string
+  source: 'system' | 'merchant' | 'buyer' | 'stripe'
+  actor_user_id: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
 export type DashboardOrderReview = {
   id: string
   rating: number
@@ -163,6 +181,8 @@ export type ResourceReservationSummary = {
 
 export type DashboardOrderDetail = {
   order: DashboardOrder
+  fulfillment: DashboardOrderFulfillment | null
+  events: DashboardOrderEvent[]
   requests: DashboardOrderRequest[]
   reviews: DashboardOrderReview[]
   stagedAgreement: StagedSettlementAgreement | null
@@ -268,7 +288,20 @@ export async function loadDashboardOrderDetail(
   if (orderResult.error || !orderResult.data) return null
   const order = orderResult.data
 
-  const [requestResult, reviewResult, stagedAgreementResult, stagedObligationResult, serviceAgreementResult, reservationResult] = await Promise.all([
+  const [fulfillmentResult, eventResult, requestResult, reviewResult, stagedAgreementResult, stagedObligationResult, serviceAgreementResult, reservationResult] = await Promise.all([
+    supabase
+      .from('checkout_order_fulfillments')
+      .select('order_id, status, version, started_at, fulfilled_at, updated_at')
+      .eq('owner_id', ownerId)
+      .eq('order_id', order.id)
+      .maybeSingle<DashboardOrderFulfillment>(),
+    supabase
+      .from('checkout_order_events')
+      .select('id, event_type, source, actor_user_id, metadata, created_at')
+      .eq('owner_id', ownerId)
+      .eq('order_id', order.id)
+      .order('created_at', { ascending: false })
+      .returns<DashboardOrderEvent[]>(),
     supabase
       .from('order_requests')
       .select('id, kind, status, message, buyer_email, created_at, updated_at')
@@ -320,6 +353,8 @@ export async function loadDashboardOrderDetail(
   ])
 
   const issues = [
+    fulfillmentResult.error ? 'fulfillment state' : null,
+    eventResult.error ? 'activity timeline' : null,
     requestResult.error ? 'buyer requests' : null,
     reviewResult.error ? 'verified review' : null,
     stagedAgreementResult.error ? 'staged agreement' : null,
@@ -330,6 +365,8 @@ export async function loadDashboardOrderDetail(
 
   return {
     order,
+    fulfillment: fulfillmentResult.data ?? null,
+    events: eventResult.data ?? [],
     requests: requestResult.data ?? [],
     reviews: reviewResult.data ?? [],
     stagedAgreement: stagedAgreementResult.data ?? null,

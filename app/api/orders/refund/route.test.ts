@@ -22,6 +22,7 @@ vi.mock('stripe', () => ({
 
 import { POST } from './route'
 import { createClient } from '../../../../utils/supabase/server'
+import { hasSupabaseAdminEnv } from '../../../../utils/supabase/admin'
 
 function session(order: any, user: any = { id: 'owner-1' }) {
   vi.mocked(createClient).mockReturnValue(
@@ -44,6 +45,7 @@ describe('POST /api/orders/refund', () => {
     vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_x')
     stripeRef.refundCreate = vi.fn(async () => ({ id: 're_1', amount: 5000 }))
     adminRef.handler = () => ({ data: null, error: null })
+    vi.mocked(hasSupabaseAdminEnv).mockReturnValue(true)
   })
   afterEach(() => vi.unstubAllEnvs())
 
@@ -55,6 +57,13 @@ describe('POST /api/orders/refund', () => {
   it('401 when not authenticated', async () => {
     vi.mocked(createClient).mockReturnValue(createSupabaseMock(() => ({ data: null }), { user: null }) as any)
     expect((await POST(post({ orderId: 'o1' }))).status).toBe(401)
+  })
+
+  it('503 before moving money when the durable order writer is unavailable', async () => {
+    vi.mocked(hasSupabaseAdminEnv).mockReturnValue(false)
+    session({ id: 'o1', status: 'paid', stripe_payment_intent_id: 'pi_1', amount_cents: 5000, currency: 'usd', refunded_cents: 0, metadata: {} })
+    expect((await POST(post({ orderId: 'o1' }))).status).toBe(503)
+    expect(stripeRef.refundCreate).not.toHaveBeenCalled()
   })
 
   it('404 when the order is not the caller’s (RLS read returns null)', async () => {
@@ -77,7 +86,13 @@ describe('POST /api/orders/refund', () => {
 
   it('refunds IN FULL on the connected account WITH fee reversal + a cumulative idempotency key', async () => {
     let upd: any
-    adminRef.handler = (c) => { if (c.op === 'update') upd = c.payload; return { data: null, error: null } }
+    adminRef.handler = (c) => {
+      if (c.op === 'update') {
+        upd = c.payload
+        return { data: { id: 'o1', status: 'refunded', refunded_cents: 5000 }, error: null }
+      }
+      return { data: null, error: null }
+    }
     session({ id: 'o1', status: 'paid', stripe_payment_intent_id: 'pi_1', stripe_connect_account_id: 'acct_1', amount_cents: 5000, currency: 'usd', refunded_cents: 0, metadata: {} })
     const res = await POST(post({ orderId: 'o1' }))
     expect(res.status).toBe(200)
@@ -91,7 +106,13 @@ describe('POST /api/orders/refund', () => {
 
   it('PARTIAL refund keeps the order paid + advances the ledger (distinct keys, no collision)', async () => {
     let upd: any
-    adminRef.handler = (c) => { if (c.op === 'update') upd = c.payload; return { data: null, error: null } }
+    adminRef.handler = (c) => {
+      if (c.op === 'update') {
+        upd = c.payload
+        return { data: { id: 'o1', status: 'paid', refunded_cents: 4000 }, error: null }
+      }
+      return { data: null, error: null }
+    }
     stripeRef.refundCreate = vi.fn(async () => ({ id: 're_p', amount: 2000 }))
     // already refunded $20 of $50 → a further $20 partial brings the total to $40 (still open)
     session({ id: 'o1', status: 'paid', stripe_payment_intent_id: 'pi_1', stripe_connect_account_id: 'acct_1', amount_cents: 5000, currency: 'usd', refunded_cents: 2000, metadata: { partial_refund: { amount_cents: 2000 } } })
@@ -117,5 +138,21 @@ describe('POST /api/orders/refund', () => {
     const res = await POST(post({ orderId: 'o1', amount: 30 })) // $30 > $10 remaining
     expect(res.status).toBe(409)
     expect((stripeRef.refundCreate as any)).not.toHaveBeenCalled()
+  })
+
+  it('reports committed money separately when the local ledger update fails', async () => {
+    adminRef.handler = (context) => context.op === 'update'
+      ? { data: null, error: { message: 'database unavailable' } }
+      : { data: null, error: null }
+    session({ id: 'o1', status: 'paid', stripe_payment_intent_id: 'pi_1', stripe_connect_account_id: 'acct_1', amount_cents: 5000, currency: 'usd', refunded_cents: 0, metadata: {} })
+
+    const response = await POST(post({ orderId: 'o1' }))
+    expect(response.status).toBe(503)
+    expect(await response.json()).toMatchObject({
+      code: 'refund_ledger_pending',
+      refundCommitted: true,
+      refundId: 're_1',
+      refundedCents: 5000,
+    })
   })
 })

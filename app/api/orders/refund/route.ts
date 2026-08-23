@@ -30,6 +30,9 @@ export async function POST(request: Request) {
 
   const { supabase, user } = await resolveRequestAuth(request)
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  if (!hasSupabaseAdminEnv()) {
+    return NextResponse.json({ error: 'Order refunds are not enabled on this deployment.' }, { status: 503 })
+  }
 
   const body = (await request.json().catch(() => ({}))) as { orderId?: string; amount?: number }
   const orderId = String(body.orderId || '').trim()
@@ -78,28 +81,37 @@ export async function POST(request: Request) {
       { payment_intent: order.stripe_payment_intent_id, amount: plan.refundAmount, refund_application_fee: true },
       { ...(stripeAccount ? { stripeAccount } : {}), idempotencyKey: refundIdempotencyKey('refund-order', order.id, plan.newTotal) },
     )
-    if (hasSupabaseAdminEnv()) {
-      const now = new Date().toISOString()
-      const meta = (order.metadata as Record<string, unknown>) || {}
-      await createAdminClient()
-        .from('checkout_orders')
-        .update({
-          // A partial keeps the order 'paid' (remainder still refundable); only a
-          // full refund closes it. refunded_cents is the running cumulative total.
-          ...(plan.fully ? { status: 'refunded' } : {}),
-          refunded_cents: plan.newTotal,
-          updated_at: now,
-          metadata: plan.fully
-            ? { ...meta, refund: { id: refund.id, amount_cents: plan.newTotal, source: 'owner_action', at: now } }
-            : { ...meta, partial_refund: { last_refund_id: refund.id, amount_cents: plan.newTotal, source: 'owner_action', at: now } },
-        })
-        .eq('id', order.id)
+    const now = new Date().toISOString()
+    const meta = (order.metadata as Record<string, unknown>) || {}
+    const { data: recorded, error: recordError } = await createAdminClient()
+      .from('checkout_orders')
+      .update({
+        // A partial keeps the order 'paid' (remainder still refundable); only a
+        // full refund closes it. refunded_cents is the running cumulative total.
+        ...(plan.fully ? { status: 'refunded' } : {}),
+        refunded_cents: plan.newTotal,
+        updated_at: now,
+        metadata: plan.fully
+          ? { ...meta, refund: { id: refund.id, amount_cents: plan.newTotal, source: 'owner_action', at: now } }
+          : { ...meta, partial_refund: { last_refund_id: refund.id, amount_cents: plan.newTotal, source: 'owner_action', at: now } },
+      })
+      .eq('id', order.id)
+      .select('id, status, refunded_cents')
+      .maybeSingle<{ id: string; status: string; refunded_cents: number }>()
+    if (recordError || !recorded) {
+      return NextResponse.json({
+        error: 'Stripe accepted the refund, but Nexez could not confirm the order ledger update. Retry safely or wait for Stripe reconciliation.',
+        code: 'refund_ledger_pending',
+        refundCommitted: true,
+        refundId: refund.id,
+        refundedCents: plan.newTotal,
+      }, { status: 503 })
     }
     return NextResponse.json({
       ok: true,
-      status: plan.fully ? 'refunded' : 'paid',
+      status: recorded.status,
       refundId: refund.id,
-      refundedCents: plan.newTotal,
+      refundedCents: recorded.refunded_cents,
       fully: plan.fully,
     })
   } catch (e) {
