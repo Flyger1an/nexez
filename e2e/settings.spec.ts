@@ -22,16 +22,17 @@ const UUID_DASHBOARD_LINK = /^\/dashboard\/[0-9a-f-]{36}$/
 
 let disposablePageId: string | null = null
 let fixtureClient: SupabaseClient | null = null
+let fixtureOwnerId: string | null = null
 let fixtureOutboundWebhooksEnabled = false
 let fixtureIntegrationsEnabled = false
 let fixtureCustomDomainEnabled = false
 let originalPlanMetadata: unknown = null
 let planMetadataAdjusted = false
 
-async function createDisposableListing(): Promise<string> {
-  if (disposablePageId) return disposablePageId
+async function initializeSettingsFixture(): Promise<string> {
+  if (fixtureClient && fixtureOwnerId) return fixtureOwnerId
   if (!email || !password || !supabaseUrl || !supabaseKey) {
-    throw new Error('E2E fixture creation requires the test credentials and public Supabase connection keys')
+    throw new Error('E2E fixture setup requires the test credentials and public Supabase connection keys')
   }
 
   fixtureClient = createClient(supabaseUrl, supabaseKey, {
@@ -41,12 +42,37 @@ async function createDisposableListing(): Promise<string> {
   if (authError || !authData.user) {
     throw new Error(`Could not authenticate the E2E fixture owner: ${authError?.message || 'no user returned'}`)
   }
+  fixtureOwnerId = authData.user.id
+
+  const { data: entitlements, error: entitlementError } = await fixtureClient.rpc('get_my_plan_entitlements')
+  if (entitlementError) throw new Error(`Could not resolve settings fixture entitlements: ${entitlementError.message}`)
+  const features = (entitlements as {
+    features?: { outboundWebhooks?: boolean; integrations?: boolean; customDomain?: boolean }
+  } | null)?.features
+  fixtureOutboundWebhooksEnabled = Boolean(features?.outboundWebhooks)
+  fixtureIntegrationsEnabled = Boolean(features?.integrations)
+  fixtureCustomDomainEnabled = Boolean(features?.customDomain)
+
+  const selectedPlan = authData.user.user_metadata?.plan
+  if (!['free', 'launch', 'pro', 'scale'].includes(selectedPlan)) {
+    originalPlanMetadata = selectedPlan ?? null
+    const { error: metadataError } = await fixtureClient.auth.updateUser({ data: { plan: 'free' } })
+    if (metadataError) throw new Error(`Could not prepare settings fixture onboarding: ${metadataError.message}`)
+    planMetadataAdjusted = true
+  }
+
+  return fixtureOwnerId
+}
+
+async function createDisposableListing(): Promise<string> {
+  if (disposablePageId) return disposablePageId
+  const ownerId = await initializeSettingsFixture()
 
   const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-  const { data, error } = await fixtureClient
+  const { data, error } = await fixtureClient!
     .from('pages')
     .insert({
-      owner_id: authData.user.id,
+      owner_id: ownerId,
       name: 'Nexez settings E2E',
       slug: `nexez-settings-e2e-${unique}`,
       description: 'Disposable private listing used to verify the settings experience.',
@@ -67,23 +93,6 @@ async function createDisposableListing(): Promise<string> {
   }
   disposablePageId = data.id
 
-  const { data: entitlements, error: entitlementError } = await fixtureClient.rpc('get_my_plan_entitlements')
-  if (entitlementError) throw new Error(`Could not resolve settings fixture entitlements: ${entitlementError.message}`)
-  const features = (entitlements as {
-    features?: { outboundWebhooks?: boolean; integrations?: boolean; customDomain?: boolean }
-  } | null)?.features
-  fixtureOutboundWebhooksEnabled = Boolean(features?.outboundWebhooks)
-  fixtureIntegrationsEnabled = Boolean(features?.integrations)
-  fixtureCustomDomainEnabled = Boolean(features?.customDomain)
-
-  const selectedPlan = authData.user.user_metadata?.plan
-  if (!['free', 'launch', 'pro', 'scale'].includes(selectedPlan)) {
-    originalPlanMetadata = selectedPlan ?? null
-    const { error: metadataError } = await fixtureClient.auth.updateUser({ data: { plan: 'free' } })
-    if (metadataError) throw new Error(`Could not prepare settings fixture onboarding: ${metadataError.message}`)
-    planMetadataAdjusted = true
-  }
-
   return data.id
 }
 
@@ -101,6 +110,10 @@ async function loginToDashboard(page: Page) {
 
 async function loginAndOpenFirstPageSettings(page: Page) {
   await loginToDashboard(page)
+  // Resolve the authenticated fixture's authoritative entitlements even when
+  // the account already owns a listing. Previously this only happened in the
+  // no-listings fallback, so paid CI fixtures were incorrectly asserted as Free.
+  await initializeSettingsFixture()
   await page
     .waitForFunction(
       () => [...document.querySelectorAll('a[href]')].some((a) => /^\/dashboard\/[0-9a-f-]{36}$/.test(a.getAttribute('href') || '')),
