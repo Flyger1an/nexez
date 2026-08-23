@@ -69,12 +69,29 @@ for the deployment boundary.
 - Team invitations and collaboration, billing portal, subscription reconciliation, support,
   referrals, saved pages, and notification workflows.
 
+### Plans and entitlement enforcement
+
+- Free, Launch, Pro, Scale, and Enterprise plans allocate publishing capacity, storefronts,
+  domains, collaboration seats, automation, integrations, analytics, and support.
+- Core commerce—including discovery, checkout, orders, refunds, reservations, agreements,
+  staged settlement, and Stripe Connect payout onboarding—remains available independently of
+  subscription rank when its operational safety requirements are satisfied.
+- Paid capabilities are resolved from the server-side subscription and promotion lifecycle;
+  client metadata never grants access, and unreadable entitlement state fails closed.
+- Downgrades preserve seller configuration and transaction records while deterministically
+  suspending over-capacity or no-longer-entitled execution.
+
+The complete allocation matrix, resolution rules, and downgrade behavior are defined in
+[`docs/plan-entitlements.md`](docs/plan-entitlements.md). The executable TypeScript matrix and
+private database catalog are tested together as one contract.
+
 ### Buyer-agent experience
 
 - Nexie buyer-agent threads with streaming responses and structured approval cards.
 - Saved sellers and searches, scheduled agent tasks, notifications, referrals, and order tracking.
-- Buyer data export and deletion controls that preserve a seller account when the same identity
-  also operates a business on Nexez.
+- Buyer data export and deletion controls cover checkout-session identity, recurring service
+  agreements, and staged-settlement records while preserving a seller account when the same
+  identity also operates a business on Nexez.
 
 ## Safety and trust architecture
 
@@ -102,6 +119,7 @@ Additional safety documentation:
 ## Architecture
 
 - **Application:** Next.js 16 App Router, React 19, TypeScript, Tailwind CSS, and Radix/shadcn UI
+- **Seller mobile:** Expo 57, React Native 0.86, Expo Router, and shared Supabase contracts
 - **Data and identity:** Supabase Auth, PostgreSQL, Row Level Security, and Storage
 - **Commerce:** Stripe Connect and Stripe Billing
 - **AI:** deterministic fallbacks plus configurable OpenAI-compatible and native adapter layers
@@ -116,6 +134,7 @@ Additional safety documentation:
 | --- | --- |
 | [`app`](app) | Web application, dashboards, public pages, APIs, protocols, and webhooks |
 | [`components`](components) | Seller, buyer, marketing, analytics, and shared UI |
+| [`apps/seller-mobile`](apps/seller-mobile) | Expo seller app for listings, offers, inbox, finance, trust, and operations |
 | [`lib`](lib) | Commerce, security, analytics, agent, integration, and domain logic |
 | [`supabase/migrations`](supabase/migrations) | Database schema, constraints, RLS, grants, and durable ledgers |
 | [`sdk`](sdk) | Published TypeScript and Python buyer-agent SDKs |
@@ -129,21 +148,43 @@ The full platform requires private Supabase and service configuration. Optional 
 remain dormant or fail closed when their credentials are absent.
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-Quality gates:
+Root quality gates:
 
 ```bash
 npm run lint
+npm run lint:palette
+npm run lint:dead
+npx tsc --noEmit
 npm test
+npm run test:e2e
 npm run build
 npm run certify:commerce
 ```
 
-`certify:commerce` is designed not to move money. Deliberate live lifecycle checks are governed
-by [`docs/commerce-certification.md`](docs/commerce-certification.md).
+Authenticated E2E coverage uses `E2E_EMAIL`, `E2E_PASSWORD`, and the public Supabase connection
+values. Credential-dependent cases skip when those variables are absent. `certify:commerce` is
+designed not to move money; deliberate live lifecycle checks are governed by
+[`docs/commerce-certification.md`](docs/commerce-certification.md).
+
+Seller-mobile verification:
+
+```bash
+cd apps/seller-mobile
+npm ci
+npm run lint
+npm run typecheck
+npm test
+npm run check:expo-deps
+npx expo-doctor
+```
+
+`npm run certify:release` is the controlled production gate. It requires an exact deployed commit,
+a successful source-CI result, and the release-certification secret; the main-branch workflow runs
+it after CI rather than treating it as an ordinary local command.
 
 ## License
 
