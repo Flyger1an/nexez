@@ -1,7 +1,9 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { getRequestBaseUrl } from '../../../../../../lib/agent-page'
 import { enforceRateLimit } from '../../../../../../lib/rate-limit'
 import { canReadyStagedSettlementObligation, type StagedSettlementObligationStatus } from '../../../../../../lib/staged-settlement-runtime'
+import { recoverBearerToken } from '../../../../../../lib/server/bearer-token'
 import { createAdminClient, hasSupabaseAdminEnv } from '../../../../../../utils/supabase/admin'
 import { createClient } from '../../../../../../utils/supabase/server'
 
@@ -26,9 +28,9 @@ export async function POST(request: Request, context: Context) {
   const admin = createAdminClient()
   const { data: agreement } = await admin
     .from('staged_settlement_agreements')
-    .select('id, owner_id, status')
+    .select('id, owner_id, status, access_token_encrypted')
     .eq('id', id)
-    .maybeSingle<{ id: string; owner_id: string; status: string }>()
+    .maybeSingle<{ id: string; owner_id: string; status: string; access_token_encrypted: string | null }>()
   if (!agreement || agreement.owner_id !== user.id) {
     return NextResponse.json({ error: 'Staged settlement agreement not found.' }, { status: 404 })
   }
@@ -36,6 +38,13 @@ export async function POST(request: Request, context: Context) {
     return NextResponse.json(
       { error: `This agreement is ${agreement.status} and cannot ready another obligation.`, code: 'agreement_not_readyable' },
       { status: 409 },
+    )
+  }
+  const accessToken = recoverBearerToken({ encrypted: agreement.access_token_encrypted })
+  if (!accessToken) {
+    return NextResponse.json(
+      { error: 'The buyer management link could not be recovered.', code: 'agreement_access_unavailable' },
+      { status: 503 },
     )
   }
   const { data: rawObligations, error: readError } = await admin
@@ -54,6 +63,24 @@ export async function POST(request: Request, context: Context) {
   }>
   const target = obligations.find((item) => item.stage_id === stageId)
   if (!target) return NextResponse.json({ error: 'Staged obligation not found.' }, { status: 404 })
+  const readyResponse = (idempotentReplay: boolean) => {
+    const baseUrl = getRequestBaseUrl(request)
+    return NextResponse.json({
+      ok: true,
+      agreementId: agreement.id,
+      statusUrl: `${baseUrl}/api/staged-settlements/${accessToken}`,
+      actionUrl: `${baseUrl}/api/staged-settlements/${accessToken}/checkout`,
+      currentObligation: {
+        stageId: target.stage_id,
+        order: target.stage_order,
+        label: target.label,
+        amountCents: target.amount_cents,
+        status: 'ready_for_buyer_approval',
+      },
+      ...(idempotentReplay ? { idempotentReplay: true } : {}),
+    })
+  }
+  if (target.status === 'ready_for_buyer_approval') return readyResponse(true)
   if (!canReadyStagedSettlementObligation({
     stageOrder: target.stage_order,
     obligations: obligations.map((item) => ({ stageOrder: item.stage_order, status: item.status })),
@@ -74,15 +101,5 @@ export async function POST(request: Request, context: Context) {
   if (error || !updated) {
     return NextResponse.json({ error: 'The obligation changed before it could be readied.', code: 'obligation_state_conflict' }, { status: 409 })
   }
-  return NextResponse.json({
-    ok: true,
-    agreementId: agreement.id,
-    currentObligation: {
-      stageId: target.stage_id,
-      order: target.stage_order,
-      label: target.label,
-      amountCents: target.amount_cents,
-      status: 'ready_for_buyer_approval',
-    },
-  })
+  return readyResponse(false)
 }
