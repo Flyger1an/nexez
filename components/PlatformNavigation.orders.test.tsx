@@ -35,6 +35,12 @@ import PlatformShell from './PlatformShell'
 import { MobilePlatformNav } from './MobilePlatformNav'
 
 describe('platform Orders navigation', () => {
+  it('makes the cross-rail Commerce view a first-class desktop destination', async () => {
+    render(<PlatformShell><div>Content</div></PlatformShell>)
+    const commerce = await screen.findByRole('link', { name: 'Commerce' })
+    expect(commerce).toHaveAttribute('href', '/dashboard/commerce')
+  })
+
   it('makes Orders a first-class desktop destination', async () => {
     render(<PlatformShell><div>Content</div></PlatformShell>)
     const orders = await screen.findByRole('link', { name: 'Orders' })
@@ -46,5 +52,12 @@ describe('platform Orders navigation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Menu' }))
     const orders = await screen.findByRole('link', { name: 'Orders' })
     expect(orders).toHaveAttribute('href', '/dashboard/orders')
+  })
+
+  it('includes Commerce in the mobile navigation sheet', async () => {
+    render(<MobilePlatformNav />)
+    fireEvent.click(screen.getByRole('button', { name: 'Menu' }))
+    const commerce = await screen.findByRole('link', { name: 'Commerce' })
+    expect(commerce).toHaveAttribute('href', '/dashboard/commerce')
   })
 })
